@@ -1613,6 +1613,18 @@ async fn async_main() -> anyhow::Result<()> {
             get(placement_failover_routes::handle_failover_run_get),
         )
         .route(
+            "/v1/hypervisor/failover/plans/:id/arm",
+            post(placement_failover_routes::handle_failover_plan_arm),
+        )
+        .route(
+            "/v1/hypervisor/failover/plans/:id/disarm",
+            post(placement_failover_routes::handle_failover_plan_disarm),
+        )
+        .route(
+            "/v1/hypervisor/failover/evaluate",
+            post(placement_failover_routes::handle_failover_evaluate),
+        )
+        .route(
             "/v1/hypervisor/cloud-candidates/intents",
             post(decentralized_cloud_routes::handle_intent_create),
         )
@@ -2435,6 +2447,24 @@ async fn async_main() -> anyhow::Result<()> {
     ));
 
     let listener = tokio::net::TcpListener::bind(addr).await?;
+    // Opt-in auto-failover evaluator: IOI_FAILOVER_AUTO_EVALUATE_SECS > 0
+    // polls provider evidence for ARMED plans. Detection only — a
+    // triggered run parks at the wallet gate (INV-1).
+    if let Ok(secs) = std::env::var("IOI_FAILOVER_AUTO_EVALUATE_SECS") {
+        if let Ok(secs) = secs.parse::<u64>() {
+            if secs > 0 {
+                let st_eval = state.clone();
+                tokio::spawn(async move {
+                    let mut tick = tokio::time::interval(std::time::Duration::from_secs(secs.max(5)));
+                    loop {
+                        tick.tick().await;
+                        let _ = placement_failover_routes::evaluate_all(&st_eval, None).await;
+                    }
+                });
+            }
+        }
+    }
+
     tracing::info!(%addr, "hypervisor-daemon listening");
     axum::serve(listener, app).await?;
     Ok(())

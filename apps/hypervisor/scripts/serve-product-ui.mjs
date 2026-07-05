@@ -842,7 +842,7 @@ function renderWorkLedger(entries, scopedProject) {
 // ---- Operations — the first real Operations estate card: execution health over the automation
 // substrate (scheduler · run health · needs-attention · webhook health). Real records only;
 // drilldowns into Automation detail / Work Ledger / Run Timeline. No fake incidents/cost/capacity.
-function renderOperations(ops, authpol, prov, provReceipts, spendRecon, storageBackends, storageIncidents, akashDepin, failoverRuns) {
+function renderOperations(ops, authpol, prov, provReceipts, spendRecon, storageBackends, storageIncidents, akashDepin, failoverRuns, failoverPlans) {
   ops = ops || {};
   authpol = authpol || {};
   prov = prov || {};
@@ -965,7 +965,12 @@ function renderOperations(ops, authpol, prov, provReceipts, spendRecon, storageB
     const oldp = r.old_provider || {};
     return `<tr><td><code style="font-size:10.5px">${CX_ESC(r.run_ref || "")}</code><div style="color:#878a93;font-size:11px;margin-top:1px">${CX_ESC(r.environment_ref || "")}</div></td><td><span class="pill warn">${CX_ESC(r.failure_condition || "")}</span></td><td>${CX_ESC(oldp.provider_kind || "?")} → ${CX_ESC(repl.provider_kind || "?")}</td><td><span class="pill ${r.status === "restored" ? "ok" : r.status === "refused" ? "err" : "warn"}">${CX_ESC(r.status || "")}</span></td><td><code style="font-size:10px">${CX_ESC((r.state_root || "").slice(0, 24))}</code></td></tr>`;
   };
-  const foSection = foRuns.length ? `<div id="ops-failover"><h3 style="margin:14px 0 8px">Cross-provider failover runs</h3>
+  const foPlansAll = (failoverPlans || {}).plans || [];
+  const foArmed = foPlansAll.filter((p) => p.trigger_state === "armed").length;
+  const foTriggered = foPlansAll.filter((p) => p.trigger_state === "triggered").length;
+  const foAuto = (foRuns.some((r) => r.triggered_by) || foArmed || foTriggered)
+    ? `<p class="sub" style="margin:-2px 0 8px;text-transform:none;letter-spacing:0">Auto-trigger posture: ${foArmed} armed · ${foTriggered} triggered — detection is evidence-cited and a triggered run parks at the wallet gate (never automatic authority).</p>` : "";
+  const foSection = (foRuns.length || foArmed || foTriggered) ? `<div id="ops-failover"><h3 style="margin:14px 0 8px">Cross-provider failover runs</h3>${foAuto}
     <p class="sub" style="margin:-2px 0 8px;text-transform:none;letter-spacing:0">Named failure → placement decision → wallet-gated replacement create → state_root-validated restore → old teardown. Restore admits only by daemon-admitted state roots; provider-native ids stay evidence.</p>
     <table><thead><tr><th>Run</th><th>Condition</th><th>Class move</th><th>Status</th><th>State root</th></tr></thead><tbody>${foRuns.slice(0, 8).map(foRow).join("")}</tbody></table>
   </div>` : "";
@@ -1149,11 +1154,11 @@ function renderEnvironments(summary, classes, providerAccounts, venuesRes, polic
     const sel = d.selected || {};
     return `<tr><td><code style="font-size:10.5px">${CX_ESC(d.decision_ref || "")}</code></td><td>${CX_ESC(d.decision_mode || "")}</td><td>${CX_ESC(sel.provider_kind || "")} <code style="font-size:10px">${CX_ESC((d.selected_candidate_ref || "").slice(0, 34))}</code></td><td>${(d.alternatives_considered || []).length} alt · ${(d.rejected_candidates || []).length} rejected</td><td>${CX_ESC(((d.spend_posture || {}).routing_fee_eligibility) || "")} <span class="pill muted">no fee minted</span></td></tr>`;
   };
-  const planRow = (pl) => `<tr><td><code style="font-size:10.5px">${CX_ESC(pl.plan_ref || "")}</code><div style="color:#878a93;font-size:11px">${CX_ESC(pl.environment_ref || "")}</div></td><td><span class="pill ${pl.readiness === "ready_daemon_custody" ? "ok" : "warn"}">${CX_ESC(pl.readiness || "")}</span></td><td><code style="font-size:10px">${CX_ESC((pl.state_root || "").slice(0, 24))}</code></td><td>${((pl.archive_refs || []).length)} archive(s)</td></tr>`;
+  const planRow = (pl) => `<tr><td><code style="font-size:10.5px">${CX_ESC(pl.plan_ref || "")}</code><div style="color:#878a93;font-size:11px">${CX_ESC(pl.environment_ref || "")}</div></td><td><span class="pill ${pl.readiness === "ready_daemon_custody" ? "ok" : "warn"}">${CX_ESC(pl.readiness || "")}</span></td><td><span class="pill ${pl.trigger_state === "armed" ? "warn" : pl.trigger_state === "triggered" ? "err" : "muted"}">${CX_ESC(pl.trigger_state || "manual")}</span></td><td><code style="font-size:10px">${CX_ESC((pl.state_root || "").slice(0, 24))}</code></td><td>${((pl.archive_refs || []).length)} archive(s)</td></tr>`;
   const decisionSection = (plDecisions.length || foPlans.length) ? `<div id="env-placement-decisions"><h2>Placement decisions & failover readiness</h2>
     <p class="sub" style="margin:-4px 0 10px">Explicit optimized-placement decisions (challengeable evidence: selected + alternatives + rejected with reason codes; never authority, never a fee) and per-environment failover readiness (restore truth = daemon-admitted state roots).</p>
     ${plDecisions.length ? `<table><thead><tr><th>Decision</th><th>Mode</th><th>Selected</th><th>Considered</th><th>Fee posture</th></tr></thead><tbody>${plDecisions.slice(0, 6).map(decRow).join("")}</tbody></table>` : ""}
-    ${foPlans.length ? `<h3 style="margin:12px 0 8px">Failover readiness</h3><table><thead><tr><th>Plan</th><th>Readiness</th><th>State root</th><th>Archives</th></tr></thead><tbody>${foPlans.slice(0, 6).map(planRow).join("")}</tbody></table>` : ""}
+    ${foPlans.length ? `<h3 style="margin:12px 0 8px">Failover readiness</h3><table><thead><tr><th>Plan</th><th>Readiness</th><th>Trigger</th><th>State root</th><th>Archives</th></tr></thead><tbody>${foPlans.slice(0, 6).map(planRow).join("")}</tbody></table>` : ""}
   </div>` : "";
   if (!(summary.total_matching || 0)) {
     return automationsShell("Environments", head + posture + venueSection + decisionSection + paSection + archSection + `<div class="empty">No active environments. Start a session or create an environment from a project to populate this.</div>`);
@@ -4220,7 +4225,7 @@ const server = http.createServer((req, res) => {
     }
     // ---- Operations — execution health over the automation substrate (estate surface #9).
     if (pathname === "/__ioi/operations" && req.method === "GET") {
-      const [r, authpol, prov, provReceipts, spendRecon, storageB, storageInc, akashDepin, failoverRuns] = await Promise.all([
+      const [r, authpol, prov, provReceipts, spendRecon, storageB, storageInc, akashDepin, failoverRuns, failoverPlans2] = await Promise.all([
         fetch(`${DAEMON}/v1/hypervisor/operations`).then((x) => x.json()).catch(() => ({})),
         fetch(`${DAEMON}/v1/hypervisor/auth/policy`).then((x) => x.json()).catch(() => ({})),
         fetch(`${DAEMON}/v1/hypervisor/providers`).then((x) => x.json()).catch(() => ({})),
@@ -4230,9 +4235,10 @@ const server = http.createServer((req, res) => {
         fetch(`${DAEMON}/v1/hypervisor/storage-incidents`).then((x) => x.json()).catch(() => ({})),
         fetch(`${DAEMON}/v1/hypervisor/akash-deployments`).then((x) => x.json()).catch(() => ({})),
         fetch(`${DAEMON}/v1/hypervisor/failover/runs`).then((x) => x.json()).catch(() => ({})),
+        fetch(`${DAEMON}/v1/hypervisor/failover/plans`).then((x) => x.json()).catch(() => ({})),
       ]);
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
-      res.end(renderOperations(r, authpol, prov, provReceipts, spendRecon, storageB, storageInc, akashDepin, failoverRuns));
+      res.end(renderOperations(r, authpol, prov, provReceipts, spendRecon, storageB, storageInc, akashDepin, failoverRuns, failoverPlans2));
       return;
     }
     // ---- Environments — substrate estate; reads the daemon env-summary projection (paged) + classes.

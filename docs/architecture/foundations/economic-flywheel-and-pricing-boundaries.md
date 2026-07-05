@@ -46,6 +46,72 @@ IOI monetizes coordination, governed trust, distribution, verified outcomes,
 managed convenience, and value movement.
 ```
 
+## Open Verification / Protected Network Covenant
+
+The open/closed split is a trust boundary, not only a business preference.
+Anything required to verify IOI's honesty must be inspectable and implementable
+outside the hosted service. Anything whose value comes from network scale,
+managed operations, distribution, routing intelligence, marketplace liquidity,
+or provider risk may be protected and monetized.
+
+Architecture doctrine, not legal license advice:
+
+```text
+open verification layer
+  protocol contracts
+  receipt schemas
+  authority envelopes
+  RoutingDecisionReceipt and fee-transparency covenant
+  portable memory vault format
+  Agentgres ref and object model
+  provider / connector / harness adapter contracts
+  SDK interfaces
+  conformance tests
+
+protected local runtime layer
+  local Hypervisor core
+  Agentgres runtime implementation
+  wallet authority daemon
+  provider adapter runtime
+  self-host single-node stack
+
+proprietary network / operations layer
+  hosted ioi.ai
+  managed Hypervisor compute
+  private managed runtime
+  routing and placement intelligence
+  provider reliability scores
+  cross-party Verified Work Graph aggregation
+  marketplace ranking and reputation
+  settlement, billing, procurement, and support rails
+  enterprise / compliance control plane
+```
+
+The open verification layer should use permissive or standards-compatible
+terms wherever adoption, third-party implementation, offline verification, or
+challengeability is load-bearing. The protected local runtime layer may use
+source-available or anti-rehosting terms when needed to keep large hosted
+providers from reselling IOI's control plane as a commodity service. The
+network/operations layer is the business: it compounds data, distribution,
+managed execution, commercial trust, and routing value.
+
+This covenant has two hard requirements:
+
+1. A party must be able to verify its own receipts, authority envelopes,
+   routing decisions, fee disclosures, state roots, and portable memory exports
+   offline against open schemas and conformance fixtures. If verification
+   requires hosted IOI, the claim is not truly verified.
+2. The local/self-hosted core must be complete enough for one operator to run
+   governed work on their own substrate. A crippled demo core is trust theater;
+   managed IOI should win through convenience, routing intelligence,
+   compliance, support, private runtime posture, and network effects.
+
+Conformance is therefore a product pillar. Open adapter contracts without an
+executable conformance suite invite fake integrations, hidden provider
+semantics, and unverifiable receipts. IOI should treat conformance as the
+certification surface for providers, workers, connectors, harnesses,
+marketplaces, and managed runtime claims.
+
 ## Verified Work Graph
 
 The Verified Work Graph is the economic memory of the network. It is assembled
