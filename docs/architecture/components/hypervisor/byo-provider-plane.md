@@ -277,6 +277,25 @@ codes are `aws_*`. `IOI_AWS_LIVE=1` proves live or blocks named (the SigV4
 EC2 API flow lands with the live harness cut). Done-bar:
 `verify-hypervisor-aws-enterprise-vm-adapter.mjs`.
 
+GCP is the sibling enterprise lane (`adapter:gcp-compute-quote` + guarded
+lifecycle), proving the customer-cloud pattern generalizes across IAM models
+WITHOUT flattening semantics: service-account/workload-identity sealed
+credentials (`iam_service_account_scope_dependent`), PROJECT/region/ZONE
+scoping bound into the wallet challenge alongside machine type, Persistent
+Disk posture, and the VPC network/subnetwork/FIREWALL posture
+(`explicit_network_config` vs the labelled `default_network_simulator`).
+Missing firewall ingress or private-only postures fail CLOSED at boot
+(`gcp_ssh_ingress_unreachable`, naming the firewall) — instance state alone
+is never readiness. Compute Engine billing semantics are real: stop reads
+TERMINATED (vCPU/RAM billing halts, Persistent Disk keeps billing, the
+exposure stays open until delete), start-from-TERMINATED notes the
+ephemeral-external-IP change, restart is an in-place reset with the endpoint
+retained. Native instance paths (`projects/{p}/zones/{z}/instances/{n}`),
+disk names, and snapshot names are EVIDENCE only; Cloud Audit Log refs land
+with the live harness. Per-kind gate codes are `gcp_*`. `IOI_GCP_LIVE=1`
+proves live or blocks named. Done-bar:
+`verify-hypervisor-gcp-enterprise-vm-adapter.mjs`.
+
 ## Priority Adapter Ladder
 
 This ladder is roadmap priority, not a permanent provider ranking and not a routing policy.

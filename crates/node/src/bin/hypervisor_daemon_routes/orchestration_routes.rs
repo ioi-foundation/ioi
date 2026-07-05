@@ -1316,7 +1316,7 @@ fn venue_capability_hints(kind: &str) -> Value {
         "local" => ("host-dependent", "host disk", "loopback / local", "daemon snapshots + sha256 state roots (real)"),
         "baremetal_ssh" => ("host-dependent (your node's hardware)", "node disk", "node endpoint (you own it)", "daemon-custody tar + admitted sha256 (real)"),
         "aws" => ("EC2 instances — enterprise customer-cloud (guarded adapter)", "EBS root volumes (native ids evidence-only)", "VPC/security-group posture; public or Elastic IPs (evidence)", "daemon custody via the ssh lane; EBS snapshots evidence-only"),
-        "gcp" => ("GPU instances (adapter pending)", "block volumes (adapter pending)", "static/elastic IPs (adapter pending)", "volume snapshots → daemon custody (adapter pending)"),
+        "gcp" => ("Compute Engine machine types — enterprise customer-cloud (guarded adapter)", "Persistent Disk boot volumes (native ids evidence-only)", "VPC network/firewall posture; external or static IPs (evidence)", "daemon custody via the ssh lane; PD snapshots evidence-only"),
         "k8s" => ("cluster-scheduler dependent", "persistent volumes", "service/ingress IPs (cluster-dependent)", "custody-dependent (adapter pending)"),
         "vast" => ("marketplace GPUs (adapter pending)", "container-scoped storage", "host-dependent, often shared", "daemon custody when the adapter lands"),
         "runpod" => ("GPU runtime pods — secure (on-demand) + community (interruptible)", "container disk + network volumes", "proxy ssh / public ip when exposed", "daemon custody via the ssh lane"),

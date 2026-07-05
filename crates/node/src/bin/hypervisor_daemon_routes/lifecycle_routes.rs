@@ -8998,6 +8998,17 @@ async fn resolve_sealed_credential(
             key_source,
         );
     }
+    if rec["kind"].as_str() == Some("gcp-service-account") {
+        // A GCP service-account KEY mints OAuth tokens at invoke time (signed JWT), not a
+        // static bearer. Signal sealed-key presence so the wallet gate passes; the invoke
+        // reads the sealed key and mints. The marker is never sent.
+        let present = rec["sealed_token"].as_str().is_some();
+        return (
+            present.then(|| "gcp-service-account".to_string()),
+            present.then(|| "gcp-service-account".to_string()),
+            key_source,
+        );
+    }
     let token = if let Some(sealed) = rec["sealed_token"].as_str() {
         open_scm_token(sealed)
     } else {
