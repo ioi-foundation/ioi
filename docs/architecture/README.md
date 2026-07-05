@@ -5,12 +5,22 @@ Canonical owner: this file for architecture navigation; see [`source-of-truth-ma
 Supersedes: ad hoc architecture navigation in plans/specs when links or ownership disagree.
 Superseded by: none.
 Last alignment pass: 2026-06-23.
+Doctrine status: canonical
+Implementation status: mixed (navigation index over built, partial, planned, and speculative subjects)
+Last implementation audit: 2026-07-05
 
 ## Purpose
 
 This pack distills the IOI / canonical Web4 architecture into separate
 authority documents so each facet has a clear role, boundary, and dependency
 surface.
+
+Tracked files under `docs/architecture/` are the implementation authority for
+architecture and product doctrine. Ignored internal guides, reverse-engineering
+notes, prompt packs, and local parity scaffolds are evidence or temporary
+execution aids only. Once a decision is promoted here, builders should work
+from the canonical owner docs below and should not resurrect an ignored guide as
+a parallel roadmap.
 
 If you are new to the canon, start with [`START_HERE.md`](./START_HERE.md). It
 gives the five-minute stack model, role-based reading paths, common boundary
@@ -72,12 +82,14 @@ The Hypervisor/autonomous-execution canon is:
 
 ```text
 ioi.ai Goal Chat = intent and coordination surface; proposes handoffs, not runtime truth
+Goal Kernel = goal-shaped orchestration kernel that grounds intent, selects role topology, leases context, delegates bounded work, verifies, and reconciles continuation state
 Hypervisor Daemon = hypervisor/control plane for autonomous execution
 IOI daemon = hypervisor/control plane for autonomous execution
 HypervisorOS = bare-metal node profile where daemon is node root
 Workflow Compositor = high-level directed workflow/service graph surface
 HarnessProfile = daemon-executed or daemon-mediated step-resolution adapter
 Default Harness Profile = reference scaffold/fallback HarnessProfile
+Context Cells = independent role contexts for conductor, implementer, reviewer, verifier, operator, or specialist work, coordinated through typed handoffs rather than unbounded agent chatter
 Persistent workspace intelligence = workspace/project/domain skills and memory
 Hypervisor Core = shared product/runtime substrate whose execution owner is the daemon
 Hypervisor App/Web/CLI-headless = first-class clients over Hypervisor Core
@@ -86,13 +98,14 @@ Hypervisor Workbench/Automations/Foundry = application surfaces over Hypervisor 
 Hypervisor Automations = durable workflow, trigger, schedule, API/service, and background-mission surface
 Hypervisor delegated work = WorkQueue, WorkItem, WorkRun, conversation, review, and delivery projections for long-running agent work
 ioi.ai = intent-to-outcome surface that may use multi-model/multi-path pursuit over Hypervisor
-Hypervisor Foundry = object-first model, worker, eval, dataset, registry, route, endpoint, teacher-oversight/distillation, persistent training pipeline, packaging, and ontology-aware package build surface
+IOI / ioi.ai = primary public umbrella and account/control-plane front door
+Hypervisor Foundry = object-first model, worker, executable-eval, dataset, registry, route, endpoint, teacher-oversight/distillation, persistent training pipeline, packaging, and ontology-aware package build surface
 Hypervisor sessions/providers/environments = default cross-session infrastructure views
 Hypervisor Node = local autonomous-system settlement and interop domain
 Hypervisor Adapters = mediated bridges to editors, terminals, browsers, VMs, OS surfaces, and nodes
 IOI Authority Gateway = compatibility adapter profile for existing IDEs/agents
 Private Workspace backed by cTEE = user-facing private workspace for persistent untrusted GPU nodes; Plaintext-Free Runtime Mounting is the daemon boundary; CLPD is the default protected-agency strategy
-decentralized.exchange/trade = Wallet-native liquidity, exposure, and event-market routing
+decentralized.exchange/trade/cloud = protocol namespace for candidate intelligence across liquidity, exposure, event markets, and infrastructure capacity
 Hypervisor provider integrations = direct cloud, storage, GPU, confidential, DePIN, local, and customer infrastructure integrations
 Workers/models/tools/connectors = guest workloads/capabilities
 Policy/receipts/replay = trust and audit substrate
@@ -188,13 +201,13 @@ Read the stack this way:
   agents, secrets, approvals, payments, exchanges, external credentials, data
   use, decryption, revocation, and protection actions; route sources produce
   exchange candidates but do not become authority;
-- decentralized.exchange and decentralized.trade are Wallet-consumed
-  route/venue intelligence engines for liquidity, exposure, and event markets;
-  Hypervisor has direct provider
-  integrations for cloud compute, storage, GPUs, confidential compute, DePIN,
-  local machines, customer cloud, enterprise clusters, decentralized storage,
-  and user-specified providers; candidates propose, while authority providers
-  and local/domain governance authorize as required, Hypervisor executes or
+- decentralized.exchange, decentralized.trade, and decentralized.cloud are
+  Wallet/Hypervisor-consumed candidate-intelligence engines for liquidity,
+  exposure, event markets, and infrastructure capacity; Hypervisor has direct
+  provider integrations for cloud compute, storage, GPUs, confidential compute,
+  DePIN, local machines, customer cloud, enterprise clusters, decentralized
+  storage, and user-specified providers; candidates propose, while authority
+  providers and local/domain governance authorize as required, Hypervisor executes or
   deploys, venues/providers perform, Agentgres records, and IOI L1 settles by
   trigger;
 - Agentgres artifact refs define payload meaning, lifecycle, policy/authority
@@ -232,10 +245,11 @@ Read the stack this way:
   resolve scoped steps. CLI/headless, SDK, ADK, harnesses, benchmarks, and IDE
   extensions are clients, builder frameworks, projections, or adapter targets
   rather than runtime owners;
-- skills, Agent Wiki / `ioi-memory`, wiki facts, learned tool affordances, and
-  durable behavior-affecting context are persistent workspace/project/domain
-  intelligence and should survive model or harness swaps under compatibility,
-  provenance, policy, and authority;
+- skills, Agent Wiki / `ioi-memory`, wiki facts, memory profiles, memory
+  archives, memory projections, learned tool affordances, and durable
+  behavior-affecting context are persistent workspace/project/domain/instance
+  intelligence and should survive model, harness, runtime, or managed-instance
+  swaps under compatibility, provenance, policy, and authority;
 - external CLI or hosted agent harnesses such as Codex, Claude Code, Grok Build,
   OpenHands, Aider, shell/tmux agents, and CI agents are Agent Harness Adapters:
   they operate through environment-ops profiles and submit proposed work through
@@ -291,13 +305,17 @@ distilled back into this architecture pack or into an accepted decision record.
 - [`source-of-truth-map.md`](./_meta/source-of-truth-map.md) — canonical subject ownership, edit rules, and conflict policy.
 - [`current-canon-defaults.md`](./_meta/current-canon-defaults.md) — current cross-owner defaults digest for quick alignment before opening subject owners.
 - [`Architecture Decision Records`](../decisions/README.md) — accepted decision history for durable architecture choices.
-- [`doc-classes.md`](./_meta/doc-classes.md) — documentation class vocabulary for future metadata/linting.
+- [`doc-classes.md`](./_meta/doc-classes.md) — documentation class vocabulary, including the Doctrine-status / Implementation-status axis every canon file now carries.
+- [`execution-horizons.md`](./_meta/execution-horizons.md) — launch wedge vs long-horizon breadth; horizon labels are maturity statements, never scope cuts.
+- [`invariants.md`](./foundations/invariants.md) — canonical one-sentence wording of cross-cutting invariants (`INV-*`); other docs cite, not restate.
+- [`canonical-enums.md`](./foundations/canonical-enums.md) — single-owner member sets for risk classes, capsule privacy modes/venues, and provider account kinds.
+- [`_archive/`](./_archive/README.md) — verbatim historical extractions (change ledgers, build logs, former specs); never authority.
 
 ## High-Level Canonical Spec Files
 
 - [`web4-and-ioi-stack.md`](./foundations/web4-and-ioi-stack.md) — category definition and stack map.
-- [`economic-flywheel-and-pricing-boundaries.md`](./foundations/economic-flywheel-and-pricing-boundaries.md) — stack-wide economic boundaries, Work Credits, product-surface monetization, substrate bundling, marketplace fee legitimacy, wallet.network value-flow revenue boundaries, Agentgres pricing non-boundaries, and token/BME timing.
-- [`domains/decentralized/README.md`](./domains/decentralized/README.md) — active decentralized.exchange and decentralized.trade doctrine for routing liquidity and exposure without becoming authority or trust roots; Hypervisor provider integrations remain direct and are covered by Hypervisor Environments / Providers canon.
+- [`economic-flywheel-and-pricing-boundaries.md`](./foundations/economic-flywheel-and-pricing-boundaries.md) — stack-wide economic boundaries, open substrate / paid network doctrine, Verified Work Graph moat, Work Credits, product-surface monetization, substrate bundling, marketplace fee legitimacy, wallet.network value-flow revenue boundaries, Agentgres pricing non-boundaries, and token/BME timing.
+- [`domains/decentralized/README.md`](./domains/decentralized/README.md) — active decentralized.exchange, decentralized.trade, and decentralized.cloud doctrine for routing liquidity, exposure, and infrastructure capacity without becoming authority, custody, execution, provider-account, restore-truth, or trust roots; Hypervisor provider integrations remain direct and are covered by Hypervisor Environments / Providers canon.
 - [`aiip.md`](./foundations/aiip.md) — AIIP work interop protocol, bounded execution domains, profiles, packets, and handoff semantics.
 - [`physical-action-safety.md`](./foundations/physical-action-safety.md) — physical-action safety envelopes, independent local safety veto, human supervision, emergency stop, sensor evidence, actuator command receipts, and incident hooks for embodied workers.
 - [`embodied-runtime.md`](./components/daemon-runtime/embodied-runtime.md) — embodied runtime, robot fleet runtime, embodied capability package binding, embodiment adapters, calibration/time-sync contracts, local control bridge, physical telemetry, raw robot logs, normalized episode datasets, replay, sim-to-real gates, and operator handoff.
@@ -315,14 +333,15 @@ distilled back into this architecture pack or into an accepted decision record.
 - [`daemon-runtime/doctrine.md`](./components/daemon-runtime/doctrine.md) — universal execution endpoint for local, hosted, and DePIN nodes.
 - [`daemon-runtime/hypervisoros.md`](./components/daemon-runtime/hypervisoros.md) — bare-metal Hypervisor node profile, measured boot, daemon-rooted workload launch, node enforcement profile, node integrity receipts, and HypervisorOS conformance.
 - [`hypervisor/core-clients-surfaces.md`](./components/hypervisor/core-clients-surfaces.md) — Hypervisor Core, first-class clients, application surfaces, projects, sessions, missions, adapter connection profiles, access/log/support policies, and harness environment-ops contracts; App/Web/CLI-headless are clients, TUI is an optional CLI presentation, Workbench/Automations/Foundry and other application surfaces are projections over Core, Applications is the catalog/launcher, Open Application is the singular active-application slot, Environments appears through application, session, project, provider, org/admin, or operator-console views, and external CLI agents are harness adapters.
-- [`hypervisor/foundry.md`](./components/hypervisor/foundry.md) — Hypervisor Foundry as the object-first model catalog, registry, model route/mount, tuning, teacher-session oversight, candidate-data quarantine, role-specialized distillation, persistent training pipeline, Foundry specs, dataset snapshots, run plans, trials, checkpoints, artifact/package conversion, evaluation, endpoint, metadata, monitoring, promotion, and ontology-aware build surface.
+- [`hypervisor/foundry.md`](./components/hypervisor/foundry.md) — Hypervisor Foundry as the object-first model catalog, registry, model route/mount, tuning, teacher-session oversight, candidate-data quarantine, role-specialized distillation, persistent training pipeline, Foundry specs, dataset snapshots, run plans, trials, checkpoints, artifact/package conversion, evaluation, executable eval worlds, interactive worlds, gameplay trajectory datasets, scenario curricula, world-model and spatial-temporal policy candidates, transfer gates, tool-call audits, trajectory scorecards, certification-run candidates, endpoint, metadata, monitoring, promotion, and ontology-aware build surface.
 - [`ioi-ai/collaborative-outcome-pattern.md`](./domains/ioi-ai/collaborative-outcome-pattern.md) — ioi.ai intent-to-outcome coordination, multi-model/multi-path goal pursuit, attempt comparison, shared evidence projections, and final ownership synthesis over Hypervisor.
 - [`hypervisor/providers-and-environments.md`](./components/hypervisor/providers-and-environments.md) — Hypervisor-managed sessions, environments, providers, cross-session infrastructure posture, direct provider integrations such as Akash compute/GPU and Filecoin storage/retrieval, zero-to-idle/restore posture, warmup/cache posture, services/tasks/ports/logs/SCM auth, access leases, archive refs, and restore refs.
+- [`hypervisor/byo-provider-plane.md`](./components/hypervisor/byo-provider-plane.md) — BYO provider object plane, four user placement choices (`run local`, `use my infrastructure`, `pick a cloud`, `let Hypervisor choose`) over three placement sources (`connected`, `managed`, `optimized`), `ProviderAccount`, credential binding, provider operation receipts, snapshot/restore custody, customer-borne provider spend posture, adapter/orchestration fee boundaries for pinned or BYO venues run through Hypervisor, and priority adapter ladder for SSH, GPU VM, GPU runtime, GPU marketplace, hyperscaler, cluster, DePIN, and storage custody integrations.
 - [`daemon-runtime/private-workspace-ctee.md`](./components/daemon-runtime/private-workspace-ctee.md) — Private Workspace backed by cTEE for persistent rented GPU Hypervisor Nodes, Candidate-Lattice Private Decoding, private files/folders, private strategy execution, autonomy leases, declassification gates, and no-plaintext protected classes.
 - [`daemon-runtime/runtime-nodes-tee-depin.md`](./components/daemon-runtime/runtime-nodes-tee-depin.md) — local/hosted/DePIN/TEE execution modes.
-- [`wallet-network/doctrine.md`](./components/wallet-network/doctrine.md) — identity, auth factors, guardian surfaces, key shards, secrets, authority scopes, approvals, payments, wallet CLI/MCP authority-client boundaries, exchange/trade authority.
-- [`wallet-network/product-exchange-risk.md`](./components/wallet-network/product-exchange-risk.md) — Wallet product doctrine, agent authority cockpit, exchange/trade authority, route-source boundaries, risk labels, asset/position exposure, protection actions, approval inbox, wallet receipts, and SDK events.
-- [`domains/aiagent/worker-marketplace.md`](./domains/aiagent/worker-marketplace.md) — worker marketplace, managed instances, and routing application domain.
+- [`wallet-network/doctrine.md`](./components/wallet-network/doctrine.md) — identity, auth factors, guardian surfaces, key shards, secrets, authority scopes, approvals, payments, wallet CLI/MCP authority-client boundaries, exchange/trade/provider authority.
+- [`wallet-network/product-exchange-risk.md`](./components/wallet-network/product-exchange-risk.md) — Wallet product doctrine, agent authority cockpit, exchange/trade/provider authority, route/venue/resource-source boundaries, risk labels, asset/position/provider-spend exposure, protection actions, approval inbox, wallet receipts, and SDK events.
+- [`domains/aiagent/worker-marketplace.md`](./domains/aiagent/worker-marketplace.md) — worker marketplace, managed instances, portable managed-instance memory, and routing application domain.
 - [`domains/sas/service-marketplace.md`](./domains/sas/service-marketplace.md) — Service-as-Software outcome marketplace application domain.
 - [`domains/ioi-ai/control-plane.md`](./domains/ioi-ai/control-plane.md) — lightweight account, device, restore, publishing, and remote-runtime control plane.
 - [`storage-backends/doctrine.md`](./components/storage-backends/doctrine.md) — storage backends as payload byte stores below Agentgres-governed artifact refs.
@@ -377,7 +396,7 @@ supporting file.
 | Worker Training | Supply-creation lifecycle for turning workflows, examples, corrections, data, gates, and training profiles into deployable benchmarked workers. |
 | Domain Ontologies, Data Recipes, and ODK | Semantic data plane plus ontology-aware builder kit that turns sources, connector payloads, traces, schemas, and policies into ontology-bound, optionally distilled training/evaluation/runtime/projection truth and repeatable generated surfaces, domain apps, eval packs, workers, and packages. |
 | Ecosystem Assurance | Cross-domain profile, evidence, certification, compliance, quarantine, liability, and commercial export layer that makes autonomous systems institutionally legible without owning execution, authority, truth, marketplace state, or settlement. |
-| Economic Flywheel | Product surfaces monetize useful work, managed execution, distribution, trust, and value movement; substrate layers meter, prove, authorize, record, or settle without becoming separate toll booths. Work Credits are the broad product usage abstraction; token/BME mechanics wait for verified work demand and liquidity. |
+| Economic Flywheel | Open substrate, paid network: product surfaces monetize useful work, managed execution, distribution, governed trust, verified outcomes, routing value, and value movement; substrate layers meter, prove, authorize, record, or settle without becoming separate toll booths. Work Credits are the broad product usage abstraction; the Verified Work Graph is the network moat; token/BME mechanics wait for verified work demand and liquidity. |
 | Domain Kernel | Application-domain policy/runtime deployment for Agentgres and routing. |
 | Agentgres | Per-domain canonical operational state, receipts, projections, quality, and contribution accounting. |
 | Hypervisor Daemon / Runtime Node | Hypervisor/control plane for autonomous execution across workflows, workers, tools, models, connectors, computer-use leases, artifacts, policy, receipts, and replay. |
@@ -388,23 +407,26 @@ supporting file.
 | Learning / Patterns / Examples / Training | Role-guided recipe and enablement facet that turns tracks, speedruns, solution diagrams, examples, starter automations, data recipes, ontology packs, eval packs, and package templates into governed sessions, automations, Foundry jobs, Domain Apps, receipts, replay, promotion, and marketplace paths. It appears through Home, Applications, Marketplace, Foundry, ODK, and onboarding rather than as a separate product surface. |
 | ioi.ai Collaborative Outcome Pattern | ioi.ai intent-to-outcome coordination that may use multiple models, harnesses, workers, connectors, sessions, branches, and verifier lanes over Hypervisor when a goal calls for it. |
 | Hypervisor Environments / Providers | First-party Applications catalog entry, Open Application, session, project, provider, org/admin, and operator-console views plus daemon/Core objects for sessions, environments, providers, nodes, VMs, containers, microVMs, WASM workloads, images, volumes, networks, GPU pools, DePIN/cloud/local/bare-metal runtime inventory, CloudRoute candidates, direct Akash/Filecoin-style provider/storage integrations, zero-to-idle/restore posture, warmup/cache posture, placement, health, cost, storage posture, cTEE posture, receipts, replay projections, and policy visibility without creating a separate peer product, runtime, authority, truth, or storage layer. `Providers / Environments` remains the architectural family alias; `Environments` is the product surface. |
-| Wallet Lanes / Provider Integrations | Wallet is the authority cockpit for agents and autonomous finance. Auth factors open accounts, guardian surfaces and key shards secure high-risk authority, provider credential bindings stay brokered, decentralized.exchange is a route-intelligence engine for liquidity, decentralized.trade is a venue/market-intelligence engine for exposure including prediction markets/event contracts, and Hypervisor integrates directly with compute, storage, GPU, confidential, DePIN, local, customer-cloud, and enterprise providers. Candidates propose; authority providers and local/domain governance authorize as required, with wallet.network mandatory for portable delegated authority and high-risk external effects; Hypervisor executes or deploys; venues/providers perform; Agentgres records; IOI L1 settles by trigger. |
+| Wallet Lanes / Provider Integrations | Wallet is the authority cockpit for agents and autonomous finance. Auth factors open accounts, guardian surfaces and key shards secure high-risk authority, provider credential bindings stay brokered, decentralized.exchange is a route-intelligence engine for liquidity, decentralized.trade is a venue/market-intelligence engine for exposure including prediction markets/event contracts, decentralized.cloud is a resource-intelligence engine for infrastructure capacity, and Hypervisor integrates directly with compute, storage, GPU, confidential, DePIN, local, customer-cloud, and enterprise providers. Candidates propose; authority providers and local/domain governance authorize as required, with wallet.network mandatory for portable delegated authority and high-risk external effects; Hypervisor executes or deploys; venues/providers perform; Agentgres records; IOI L1 settles by trigger. |
 | Private Workspace backed by cTEE | User-facing private workspace and daemon execution profile for persistent rented GPU nodes that run useful compute without receiving protected plaintext by default; Plaintext-Free Runtime Mounting is the daemon boundary, CLPD is the default protected-agency strategy, Candidate Coverage Profile estimates proposal redundancy, Counterfactual Lattice Execution trades extra public token volume for lower online private-choice leakage, the Cryptographic Operator Plane handles protected private operators internally, External Model API Boundary distinguishes private-native/redacted-API/provider-trust/unsafe paths, and deterrence/detection receipts support canaries, watermarks, and disputes. |
 | IOI CLI/headless | Human terminal, scripting, CI, node-ops, and headless operator client over daemon/public runtime APIs; TUI is an optional interactive presentation of this client. |
 | IOI SDK | Low-level protocol/client library over daemon, Agentgres, wallet.network, AIIP, and IOI L1 contracts; never the canonical execution owner. |
 | IOI ADK | Autonomous development kit for building workers, service modules, harnesses, evals, manifests, receipts, deployment profiles, and governed autonomous systems. |
 | Shared Builder Substrate | Shared graph model, typed node contracts, schemas, recipes, daemon execution path, and receipt model used by Hypervisor builder lenses. |
 | Workflow Compositor | High-level directed workflow/service graph surface over Hypervisor Core and the shared builder substrate. It owns graph shape, step contracts, dependencies, review points, delivery contracts, and selection hints; selected HarnessProfiles resolve scoped steps. |
+| Goal Kernel / Goal Microharness | Goal-shaped orchestration kernel used by ioi.ai and Hypervisor Sessions. It turns user intent into a durable GoalRun, grounds context, selects a role topology, creates scoped context leases, delegates bounded work when useful, verifies through the selected VerifierPath, reconciles receipts, and carries continuation state across compaction or session boundaries. |
+| Context Cells / Context Handoffs | Independent role contexts for conductor, implementer, reviewer, verifier, operator, or specialist work. The goal kernel coordinates them with typed handoff packets, scoped memory/tool/authority leases, and receipts; context separation is the primitive, not agent chatter for its own sake. |
+| Harness Broker / Harness Invocation | Daemon-mediated bridge from typed ContextHandoffs to selected HarnessProfiles or Agent Harness Adapters. It renders harness-native prompts or commands privately, records HarnessAdapterEvents, normalizes ImplementationResult payloads, and prevents raw chat from becoming the durable cross-harness contract. |
 | Agent Operating Plane | Daemon-owned agent/session/turn/work-run control plane for configured agents, conversation streams, subagents, runner reconciliation, usage, and exec/security telemetry. |
 | HarnessProfile | Daemon-executed or daemon-mediated step-resolution adapter/profile. |
 | Default Harness Profile | IOI reference scaffold/fallback HarnessProfile, not the only admissible harness and not a meta-harness. |
-| Persistent workspace intelligence | Workspace/project/domain skills, Agent Wiki / `ioi-memory`, wiki facts, tool affordances, route preferences, and failure lessons that persist across model/harness swaps when allowed. |
+| Persistent workspace intelligence | Workspace/project/domain/managed-instance skills, Agent Wiki / `ioi-memory`, memory profiles, memory archives, memory projections, wiki facts, tool affordances, route preferences, and failure lessons that persist across model/harness/runtime swaps when allowed. |
 | Hypervisor Workbench | Code/systems/workspace surface for autonomous systems; observes, requests, approves, interrupts, debugs, and explains daemon-governed work without owning runtime truth. |
 | Hypervisor Adapters | Mediated bridges from Hypervisor Sessions to VS Code, Cursor, Windsurf, JetBrains, browser IDEs, terminals, Git, browsers, VMs, local OS surfaces, cloud resources, and HypervisorOS nodes. |
 | Agent Harness Adapters | Mediated bridges for external CLI/hosted agent harnesses such as Codex, Claude Code, Grok Build, OpenHands, Aider, shell/tmux agents, CI agents, and hosted coding agents. |
 | IOI Authority Gateway | Compatibility sidecar/adapters for existing IDEs, CLI agents, hosted agents, browser tools, and MCP ecosystems; routes proposed actions through daemon policy, authority, receipts, and replay without becoming a second runtime. |
-| wallet.network | Sovereign authority wallet and control cockpit for autonomous agents and autonomous finance; owns identity, auth factors, guardian surfaces, key shards, provider credential bindings, secrets, authority scopes, approvals, payments, exchange/trade authority, risk disclosure, protection actions, and revocation. |
-| aiagent.xyz | Canonical Web4 marketplace for ontology-bound digital and embodied workers, managed instances, benchmark profiles, Sparse Worker Categories, installs, and routing eligibility. |
+| wallet.network | Sovereign authority wallet and control cockpit for autonomous agents and autonomous finance; owns identity, auth factors, guardian surfaces, key shards, provider credential bindings, secrets, authority scopes, approvals, payments, exchange/trade/provider authority, risk disclosure, protection actions, and revocation. |
+| aiagent.xyz | Canonical Web4 marketplace and managed-worker cockpit for ontology-bound digital and embodied workers, managed instances, benchmark profiles, Sparse Worker Categories, installs, routing eligibility, configuration revisions, change plans, and update/rollback lifecycle. |
 | sas.xyz | Canonical Web4 marketplace for autonomous service outcomes, including Worker Training as Service-as-Software. |
 | ioi.ai | Lightweight account/control plane for devices, restore routing, publishing, sync metadata, remote-runtime entitlement, and console/org Environments views. |
 | ai:// | Naming and manifest resolution protocol for intelligence, workers, services, apps, and domains. |
@@ -480,7 +502,7 @@ Assurance Plane
 10. Compute nodes initialize Hypervisor Daemon runtime-node profiles, optionally bridging into runtime services; the SDK is a client over that substrate, not the substrate itself.
 11. HypervisorOS is a bare-metal node profile, not a peer runtime. It gives serious nodes daemon-rooted control and measurement, but it does not make consumer GPUs confidential compute or replace cTEE no-plaintext-custody.
 12. Hypervisor manages sessions, environments, providers, and infrastructure posture directly. Environments views are not a peer runtime, wallet, Agentgres domain, storage authority, or L1 settlement layer; Hypervisor Daemon executes; authority providers and local/domain governance authorize as required; Agentgres records truth; storage backends hold bytes.
-13. decentralized.exchange/trade are route/venue intelligence engines that propose candidates for liquidity and exposure, and Hypervisor provider integrations propose routes for execution; they are not mandatory UIs, authority, custody, provider, venue, storage, or settlement owners.
+13. decentralized.exchange/trade/cloud are route, venue, and resource-intelligence engines that propose candidates for liquidity, exposure, and infrastructure capacity, while Hypervisor provider integrations remain direct execution routes; they are not mandatory UIs, authority, custody, provider-account, VM lifecycle, venue, storage, restore-truth, or settlement owners.
 14. CLI/headless, SDK, and ADK are separate surfaces: CLI/headless is the operator/scripting/CI client, TUI is an optional CLI presentation, SDK is the low-level client library, and ADK is the autonomous-system builder framework.
 15. Hypervisor App, Hypervisor Web, CLI/headless, SDK, ADK, Workflow
     Compositor, agent harness adapters, benchmarks, and
@@ -510,8 +532,9 @@ Assurance Plane
     through the owning domain.
 30. Product surfaces monetize; substrate layers meter, prove, authorize,
     record, or settle. Hypervisor, ioi.ai, aiagent.xyz, and sas.xyz may charge
-    for product value, managed execution, distribution, commercial trust, and
-    value movement. Agentgres is bundled operational truth infrastructure,
-    wallet.network ordinary authority is bundled safety infrastructure, and IOI
-    L1/token/BME economics should attach to public coordination only after real
-    verified work demand exists.
+    for product value, managed execution, distribution, governed trust, verified
+    outcomes, routing value, and value movement. The primary moat is the
+    Verified Work Graph, not proprietary model/cloud lock-in. Agentgres is
+    bundled operational truth infrastructure, wallet.network ordinary authority
+    is bundled safety infrastructure, and IOI L1/token/BME economics should
+    attach to public coordination only after real verified work demand exists.

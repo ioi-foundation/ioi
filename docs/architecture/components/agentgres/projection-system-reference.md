@@ -5,12 +5,21 @@ Context owner: this file for the generic Canonical State and Projection System c
 Supersedes: `docs/specs/formal/canonical-state-and-projection-system-whitepaper.md`.
 Superseded by: none.
 Last alignment pass: 2026-05-30.
+Doctrine status: reference
+Implementation status: mixed (CSPS/FQF taxonomy reference)
+Last implementation audit: 2026-07-05
 
 **Status:** Working taxonomy  
 **Scope:** Category definition, not product spec  
 **Applies to:** IOI `FQF` and similar future systems
 
 ## Abstract
+
+Naming reconciliation: **Agentgres is IOI's CSPS implementation track**;
+`FQF` (Fractal Query Fabric) is the architecture/spec name used inside
+this taxonomy paper. Where other canon files say "Agentgres," this file's
+`FQF` refers to the same system lineage; the product/canon name is
+Agentgres ([`doctrine.md`](./doctrine.md)).
 
 This paper proposes a new system taxonomy: the **Canonical State and Projection System** (`CSPS`).
 
@@ -221,6 +230,13 @@ Agentic applications intensify the need for this category because they often req
 - explicit receipts, checkpoints, and intervention trails
 
 In other words, agentic systems do not merely need “a database.” They need a runtime substrate where state, projections, subscriptions, and scoped authority are all native.
+
+For autonomous work, the category also needs branchable execution state:
+agents must be able to propose effects, fork alternatives, checkpoint coupled
+workspace/runtime/memory/authority state, replay trajectories, compare branches,
+and merge only through explicit admission. Agentgres is IOI's implementation
+track for that stronger form: it treats execution branches and staged effects as
+canonical-state objects, not as incidental Git branches or UI drafts.
 
 That is why `CSPS` is especially relevant to agentic and local-first systems.
 

@@ -1,15 +1,24 @@
 # HypervisorOS Profile
 
 Status: canonical architecture authority.
-Canonical owner: this file for bare-metal Hypervisor nodes, Type-1-compatible
-autonomous-system execution, measured node boot, daemon-rooted runtime control,
+Canonical owner: this file for bare-metal Hypervisor nodes, Type 1 substrate
+mode for autonomous systems, measured node boot, daemon-rooted runtime control,
 node integrity receipts, and HypervisorOS deployment profiles.
 Supersedes: wording that treats Hypervisor only as a hosted IDE, local daemon,
 Type-2 runtime, or cloud agent harness.
 Superseded by: none.
 Last alignment pass: 2026-06-07.
+Doctrine status: canonical
+Implementation status: speculative (bare-metal node profile design; no HypervisorOS build)
+Last implementation audit: 2026-07-05
 
 ## Canonical Definition
+
+Placement note: this file lives under `components/daemon-runtime/`
+because HypervisorOS is a daemon-rooted node profile, but much of its
+content is deployment/product posture. Read the runtime contract as
+daemon-runtime canon and the product framing as estate context; it was
+deliberately not moved to avoid churn on cross-references.
 
 **HypervisorOS is the bare-metal execution profile for Hypervisor.**
 
@@ -51,13 +60,13 @@ IOI
   routing, receipts, settlement, disputes, app chains
 ```
 
-HypervisorOS is Type-1-compatible for autonomous systems and a natural
-foundation for broader VM/container/microVM/WASM estate management. A
-traditional Type-1 hypervisor runs directly on hardware and supervises guest
+HypervisorOS is Hypervisor's Type 1 substrate mode for autonomous systems and a
+natural foundation for broader VM/container/microVM/WASM estate management. A
+traditional Type 1 hypervisor runs directly on hardware and supervises guest
 operating systems. HypervisorOS generalizes that posture to autonomous work: it
-gets beneath model/tool execution, workspace mounts, authority use, and receipt
-generation while keeping ordinary machine workloads under the same daemon-rooted
-control doctrine.
+gets beneath machine, VM, container, sandbox, model-runtime, tool, workspace,
+authority, and receipt execution while keeping ordinary machine workloads under
+the same daemon-rooted control doctrine.
 
 ## Owns
 
@@ -93,11 +102,16 @@ public/economic/cross-domain settlement, which belongs to IOI L1 by trigger
 ## Core Doctrine
 
 ```text
-Hosted Hypervisor:
-  the daemon runs on an existing OS
+Type 1 substrate mode:
+  HypervisorOS / appliance / cluster profile where the daemon is node root
 
-HypervisorOS:
-  the daemon is the node root
+Type 2 substrate mode:
+  Hypervisor Desktop / Workstation hosted on an existing OS for local
+  VMs, sandboxes, models, tools, agents, connectors, and environments
+
+Type 3 autonomy mode:
+  autonomy virtualization across sessions, WorkRuns, workers, model routes,
+  tools, authority, receipts, replay, outcomes, and promotion
 
 Firmware Hypervisor:
   optional future profile using UEFI / TPM / pre-OS hooks
@@ -106,8 +120,9 @@ Firmware Hypervisor:
 HypervisorOS does not begin by cloning VMware or ESXi feature-for-feature. The
 first implementation may use a minimal Linux/KVM/microVM base. The canonical
 property is that **all autonomous workloads are subordinate to the Hypervisor
-Daemon**, and ordinary VM/container/microVM/WASM workloads can become governed
-provider and environment primitives under the same node-root doctrine.
+Daemon**, and ordinary machine, VM, container, microVM, WASM, sandbox, model
+server, and device workloads can become governed provider and environment
+primitives under the same node-root doctrine.
 
 The long-term infrastructure path is therefore natural:
 
@@ -118,6 +133,26 @@ HypervisorOS
   -> Hypervisor Environments management
   -> private workspaces, authority scopes, receipts, replay, and service outcomes
 ```
+
+HypervisorOS should also make conventional hypervisor substrate control legible.
+An operator evaluating HypervisorOS should be able to find:
+
+```text
+node / host inventory
+provider and placement domains
+runtime classes: VM, microVM, container, WASM, model server
+CPU / GPU / memory / storage / network capacity
+image, recipe, boot profile, and runtime package versions
+network, egress, firewall, connector, and device posture
+storage classes, artifact stores, checkpoint and restore targets
+tasks, events, logs, health, alerts, and lifecycle status
+permissions, policy, audit, and node integrity receipts
+```
+
+These controls feed Environments, Operations, Governance, Work Ledger, and
+HypervisorOS node detail views. They should not become a separate clone of a
+legacy virtualization product, but they must be visible enough that
+infrastructure users recognize HypervisorOS as a real substrate-control surface.
 
 ## Non-Claims
 
@@ -274,7 +309,7 @@ enterprise private runners
 high-integrity agent nodes
 ```
 
-This is the Type-1-compatible autonomous-systems profile.
+This is the Type 1 substrate mode for autonomous-systems infrastructure.
 
 ### Firmware Profile
 

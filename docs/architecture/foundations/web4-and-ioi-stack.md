@@ -5,6 +5,9 @@ Canonical owner: this file for the Web4 category definition and IOI stack bounda
 Supersedes: overlapping product or plan prose when the Web4 stack definition conflicts.
 Superseded by: none.
 Last alignment pass: 2026-06-22.
+Doctrine status: canonical
+Implementation status: mixed (category definition; stack layers span built to speculative)
+Last implementation audit: 2026-07-05
 
 ## Canonical Definition
 
@@ -277,7 +280,8 @@ MoW = labor routing layer for bounded workers
 Hypervisor App/Web/CLI-headless/SDK/ADK/Workbench/Workflow Compositor = clients, builder frameworks, and projections over runtime/domain contracts
 TUI = optional CLI presentation over the same runtime/domain contracts
 Workbench/Foundry = application surfaces over Hypervisor Core and daemon/domain contracts
-Environments = first-party application catalog, Open Application, and contextual views over sessions, providers, and environments
+Applications Catalog / Open Application = first-party surface discovery, launch, and one active surface slot
+Environments = runtime substrate, provider placement, environment lifecycle, services, tasks, ports, restore, readiness, and contextual views over sessions/providers/environments
 ```
 
 ## Edge-In Topology

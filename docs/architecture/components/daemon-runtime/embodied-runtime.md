@@ -9,6 +9,9 @@ Supersedes: plan prose that treats robot fleets, actuator APIs, sensor streams,
 or physical telemetry as ordinary connector/tool details.
 Superseded by: none.
 Last alignment pass: 2026-06-23.
+Doctrine status: canonical
+Implementation status: speculative (robot-fleet runtime design; no embodied implementation)
+Last implementation audit: 2026-07-05
 
 ## Canonical Definition
 

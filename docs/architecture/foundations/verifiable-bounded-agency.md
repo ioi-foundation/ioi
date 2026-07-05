@@ -5,6 +5,9 @@ Canonical owner: this file for IOI's alignment-security thesis, verifiable bound
 Supersedes: `docs/specs/verifiable_bounded_agency.md` and product prose that claims IOI solves alignment by model cognition, prompt compliance, or one required proof backend.
 Superseded by: none.
 Last alignment pass: 2026-05-24.
+Doctrine status: canonical
+Implementation status: mixed (execution-boundary gating built in the daemon; proof/zk continuity speculative)
+Last implementation audit: 2026-07-05
 
 ## Canonical Definition
 

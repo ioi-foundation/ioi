@@ -5,6 +5,9 @@ Canonical owner: this file for HarnessProfile semantics, the Default Harness Pro
 Supersedes: standalone harness-profile wording that implies a peer runtime beside the Hypervisor Daemon.
 Superseded by: none.
 Last alignment pass: 2026-06-01.
+Doctrine status: canonical
+Implementation status: partial (harness-profile registry and default profile built; wider adapter contracts in progress)
+Last implementation audit: 2026-07-05
 
 ## Canonical Definition
 
@@ -342,7 +345,7 @@ Selected HarnessProfile
   resolves one scoped step:
     local loop policy
     model/tool/worker/service call planning
-    context chamber usage
+    context cell usage
     action proposal production
     observation normalization
     stop/blocker/final-output conditions
@@ -398,7 +401,9 @@ verification, or terminal-state gates when those gates apply.
    through the Workflow Compositor when the work is multi-step.
 10. Select a HarnessProfile, deterministic service module, worker, tool, model,
    or service engine for each executable step.
-11. Resolve scoped steps through the selected HarnessProfile or module path.
+11. Convert cross-context delegation into a ContextHandoff and
+   TaskBriefPayload, then open a HarnessInvocation when a HarnessProfile or
+   Agent Harness Adapter must perform the step.
 12. Normalize raw results into observations.
 13. Record receipts, traces, Agentgres operations, and artifact refs.
 14. Re-enter model loop when more action or synthesis is needed.
@@ -415,7 +420,7 @@ verification, or terminal-state gates when those gates apply.
 The fundamental execution unit is a grounded cognitive loop:
 
 ```text
-ContextChamber
+ContextCell
   task, constraints, authority, evidence refs, receipts, observations,
   loop history summary, uncertainty, acceptance criteria
 
@@ -427,6 +432,28 @@ ContextChamber
 → Receipts / traces / Agentgres operation or rejection / context update
 → Model re-entry
 ```
+
+## Harness Broker Boundary
+
+The daemon-mediated harness broker is the boundary between Goal Kernel
+coordination and provider-/tool-specific harness execution. It prevents the
+manual copy-paste workflow from becoming canon.
+
+```text
+ContextHandoff(task_brief)
+  -> TaskBriefPayload
+  -> ContextLease set
+  -> HarnessInvocation(selected HarnessProfile or Agent Harness Adapter)
+  -> HarnessAdapterEvents
+  -> ImplementationResultPayload
+  -> ContextHandoff(implementation_result)
+  -> conductor VerifierPath
+```
+
+Harness adapters may render a prompt, command, JSON request, terminal script, or
+provider-specific session internally. That rendering is adapter-private
+evidence. The durable contract is the task brief, leases, invocation, normalized
+events, implementation result, receipts, and verifier path.
 
 The deterministic substrate owns:
 
@@ -477,7 +504,7 @@ needs justify object heads.
 | `IntentContract` | run request, resolver receipt, or Agentgres operation payload | multiple components query or rebase it |
 | `Run` / `Task` / `TaskState` | Agentgres runtime objects | always for serious runs |
 | `ContextTopology` | planner projection plus receipts | repartition, replay, or cross-cell routing requires it |
-| `ContextChamber` | scoped runtime state plus context events | chambers outlive one turn or are shared across actors |
+| `ContextCell` | scoped runtime state plus context events | context cells outlive one turn or are shared across actors |
 | `LoopIteration` | event/receipt/trace segment | loop-level replay or verification becomes first-class |
 | `ModelPass` | model invocation receipt plus redacted trace | model-pass lineage is queried or evaluated |
 | `ActionProposal` | action request / runtime item / event | approval, replay, or policy review requires durable identity |
@@ -595,8 +622,8 @@ ContextTopology:
   run_id: run:...
   estimated_total_context_pressure: number | null
   root_resolution: coarse | medium | fine | forensic
-  chambers:
-    - chamber:...
+  context_cells:
+    - context_cell://...
   boundaries:
     - boundary_id: boundary:...
       split_reason:
@@ -608,9 +635,9 @@ ContextTopology:
         - service_step_boundary
         - loop_depth_boundary
         - agentgres_domain_boundary
-      parent_chamber: chamber:... | null
-      child_chambers:
-        - chamber:...
+      parent_context_cell: context_cell://... | null
+      child_context_cells:
+        - context_cell://...
   compaction_strategy:
     preserve_provenance: true
     preserve_agentgres_refs: true
@@ -632,11 +659,11 @@ Context pressure estimates are planning heuristics, not protocol law. They may
 use a Context Fit Ratio, but thresholds are policy defaults rather than
 universal invariants.
 
-### ContextChamber
+### ContextCell
 
 ```yaml
-ContextChamber:
-  chamber_id: chamber:...
+ContextCell:
+  context_cell_id: context_cell://...
   run_id: run:...
   task_id: task:...
   resolution: coarse | medium | fine | forensic
@@ -680,7 +707,7 @@ LoopStep:
   loop_step_id: loop_step:...
   run_id: run:...
   task_id: task:...
-  chamber_id: chamber:...
+  context_cell_id: context_cell://...
   actor_id: worker:... | service_engine:... | runtime:...
   model_pass_ref: model_pass:... | receipt://... | null
   action_proposal_ref: action:... | null
@@ -926,7 +953,7 @@ expected context pressure exceeds reliable capacity
 privacy or authority boundaries require isolation
 verification requires independent context
 semantic domains are separable
-loop depth is likely to outgrow one chamber
+loop depth is likely to outgrow one context cell
 artifact/evidence volume would drown the parent actor
 service contract or delivery shape requires a step boundary
 Agentgres domain boundary requires separation
@@ -968,7 +995,7 @@ artifact policy
 escalation path
 ```
 
-Compaction is allowed inside chambers, but compaction drift is telemetry that
+Compaction is allowed inside context cells, but compaction drift is telemetry that
 the topology may be wrong. It is not the primary topology discovery mechanism.
 
 ## Service And Worker Fulfillment
@@ -1149,7 +1176,7 @@ Phase 2: add context topology planning.
 
 ```text
 ContextTopology projection
-ContextChamber runtime state
+ContextCell runtime state
 context pressure estimates
 repartition blockers
 compaction lineage and provenance preservation

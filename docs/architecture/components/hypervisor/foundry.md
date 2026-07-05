@@ -3,13 +3,17 @@
 Status: canonical architecture authority.
 Canonical owner: this file for Hypervisor Foundry as the model, worker, eval,
 training, registry, endpoint, experiment, pipeline, metadata, monitoring,
-simulation-training, durable training lifecycle, artifact packaging, governed
-promotion, and ontology-aware build surface over Hypervisor Core.
+simulation-training, interactive-world training, durable training lifecycle,
+artifact packaging, governed promotion, and ontology-aware build surface over
+Hypervisor Core.
 Supersedes: product prose that treats Foundry as direct runtime mutation, a
 generic dashboard, only a training UI, or the same concept as ioi.ai goal
 coordination.
 Superseded by: none.
 Last alignment pass: 2026-06-23.
+Doctrine status: canonical
+Implementation status: partial (draft object plane bound to real model-mount substrate, deliberately inert; training/eval execution planned)
+Last implementation audit: 2026-07-05
 
 ## Canonical Definition
 
@@ -71,6 +75,14 @@ Foundry owns product-level projections and workflows for:
   candidates;
 - batch inference and evaluation runs;
 - eval suites, benchmark gates, scorecards, and verifier candidates;
+- executable eval suites, eval worlds, adversarial workflow packs,
+  tool-call audits, long-horizon trajectory scorecards, and certification-run
+  candidates for agents, workers, harnesses, model routes, tools, connectors,
+  MCP profiles, and generated domain apps;
+- interactive worlds, gameplay trajectory datasets, scenario curricula,
+  simulator/game/browser/domain-world adapters, spatial-temporal world-model
+  candidates, spatial-temporal policy candidates, and world-to-runtime transfer
+  gates;
 - regression-record candidates from eval, shadow, canary, rollout, production,
   or recall evidence;
 - feedback and annotation queues that turn corrections, acceptance/rejection
@@ -129,6 +141,15 @@ Dataset Snapshots
 Teacher Sessions
 Candidate Data Quarantine
 Evaluation
+Executable Evals
+Eval Worlds
+Interactive Worlds
+Gameplay Trajectories
+Scenario Curricula
+World Models
+Spatial-Temporal Policies
+Transfer Gates
+Adversarial Workflows
 Datasets
 Feature Views
 Experiments
@@ -143,6 +164,9 @@ Endpoints
 Batch Inference
 Metadata
 Monitoring
+Tool-Call Audits
+Trajectory Scorecards
+Certification Runs
 Packages
 Promotion Queue
 ```
@@ -154,16 +178,20 @@ Discover
   model catalog, worker/package catalog candidates
 
 Build
-  datasets, recipes, prompts, tool schemas, workers, packages, pipelines
+  datasets, recipes, prompts, tool schemas, workers, packages, pipelines,
+  game/simulator adapters, world contracts, scenario curricula
 
 Train / Tune
   teacher sessions, dataset factory, fine-tuning, distillation,
   post-training, on-policy correction, training batches, notebooks/workspaces,
-  cost ledgers
+  cost ledgers, gameplay and interactive-world trajectory datasets,
+  world-model training, spatial-temporal policy training
 
 Evaluate
-  eval suites, benchmark gates, verifier candidates, scorecards, regressions,
-  synthetic-safety quarantine
+  eval suites, executable eval worlds, benchmark gates, adversarial workflows,
+  tool-call audits, trajectory scorecards, verifier candidates, scorecards,
+  regressions, synthetic-safety quarantine, scenario replay,
+  world-to-runtime transfer gates
 
 Optimize
   autonomous experiment cycles, training recipe edits, hyperparameter search,
@@ -195,12 +223,16 @@ Control plane
   checkpoints, heartbeats, external-job polling, and promotion decisions.
 
 Data and metadata plane
-  DatasetFactory, DatasetSnapshot, candidate data, eval sets, traces,
-  scorecards, cost ledgers, lineage, model cards, and retention policy.
+  DatasetFactory, DatasetSnapshot, candidate data, eval sets, eval worlds,
+  interactive worlds, gameplay trajectory datasets, scenario curricula,
+  adversarial workflow packs, tool-call audits, trajectory scorecards, traces,
+  cost ledgers, lineage, model cards, world-model candidates,
+  spatial-temporal policy candidates, and retention policy.
 
 Execution plane
   notebook-to-job bridges, packaged jobs, external training services,
-  GPU/runtime queues, eval jobs, conversion jobs, and packaging jobs.
+  GPU/runtime queues, executable eval jobs, interactive-world/simulator jobs,
+  conversion jobs, and packaging jobs.
 
 Serving and governance plane
   registry versions, mutable aliases, route bindings, traffic splits,
@@ -223,6 +255,136 @@ recipe/code/config changes, search-space changes, prompt changes, or package
 candidates; execution backends run; eval gates score; promotion policy decides.
 An optimizer may not directly mutate a registry alias, model route, endpoint,
 approval state, runtime route, or production traffic split.
+
+## Executable Evals And Eval Worlds
+
+Foundry must treat serious agent evaluation as executable environment work, not
+static prompt testing. The durable product lane is **Executable Evals**:
+stateful eval worlds, real or simulated tools, persistent state, long-horizon
+trajectories, outcome-level scoring, tool-call audits, adversarial workflows,
+and replayable evidence.
+
+Executable Evals are a Foundry workflow/facet, not a new top-level application
+surface. They are built and scored in Foundry, run on Hypervisor Environments,
+observed in Operations, proven in Work Ledger, and admitted into release or
+certification posture through Governance and Ecosystem Assurance.
+
+Canonical flow:
+
+```text
+capability under test
+  -> task contract and outcome rubric
+  -> EvalWorld
+     seeded environment, persistent state, tools, connectors, MCP contracts,
+     data fixtures, simulated actors, fault/adversary settings
+  -> executable environment admission
+     provider placement, isolation, authority, budget, privacy, receipt policy
+  -> trajectory run
+     model/worker/harness/tool calls over time, including retries and recovery
+  -> tool-call audit
+     allowed/blocked calls, side effects, policy decisions, authority refs
+  -> outcome scoring
+     task success, process quality, safety/policy, groundedness, cost, latency,
+     robustness, calibration, abstention, and recovery behavior
+  -> replay/proof bundle
+     logs, artifacts, receipts, state roots, trace spans, redaction/export policy
+  -> scorecard / regression record / certification-run candidate
+  -> promotion, rollback, recall, marketplace posture, or continued review
+```
+
+An EvalWorld may be a local sandbox, VM, microVM, browser/computer-use world,
+simulated SaaS tenant, synthetic database, generated Domain App, robot simulator,
+tool server, MCP gateway profile, connector fixture, or external test service.
+The world is an admitted environment recipe plus seeded state and scoring
+contracts. Provider telemetry and tool logs are evidence; Agentgres-admitted
+refs, receipts, and state roots are truth.
+
+Executable Evals should cover:
+
+```text
+agent security and abuse paths
+connector misuse and overbroad authority
+tool-call correctness and denial behavior
+long-horizon planning and recovery
+persistent-state mutation and rollback
+browser/computer-use workflows
+multi-agent and multi-harness comparisons
+private-mode and provider-trust boundaries
+budget, latency, capacity, and quota failure modes
+domain ontology/action correctness
+marketplace worker and managed-instance admission
+```
+
+ODK may generate eval worlds from ontologies, data recipes, object/action
+contracts, connector mappings, policy-bound views, and domain-app descriptors.
+Generated eval worlds must still bind to normal environment, authority,
+receipt, replay, and scorecard contracts before they can gate a package,
+worker, model route, generated domain app, or marketplace listing.
+
+The anti-pattern this boundary prevents is:
+
+```text
+the model passed a prompt benchmark, therefore the agent is safe to deploy
+```
+
+The correct shape is:
+
+```text
+the capability survived an executable world under evidence,
+with replay, receipts, outcome scoring, and release/certification gates
+```
+
+## Interactive World Training
+
+Foundry may use gameplay, simulator, browser, generated-domain-app, robotics
+simulation, and other interactive-world trajectories as training and evaluation
+substrate for spatial-temporal world models, policies, route policies, verifier
+candidates, embodied candidates, and agent capabilities.
+
+This lane is broader than robotics. Games and simulators are useful because
+they generate long-horizon state, action, feedback, failure, recovery,
+multi-agent, spatial, and temporal trajectories at scale. Foundry should treat
+them as instrumented worlds and curriculum engines, not as deployability proof
+by themselves.
+
+Canonical flow:
+
+```text
+interactive world or simulator adapter
+  -> instrumented scenario contract
+  -> gameplay / agent / human trajectory capture
+  -> dataset eligibility, redaction, and lineage checks
+  -> trajectory normalization
+  -> scenario curriculum and holdout worlds
+  -> world-model candidate
+  -> spatial-temporal policy candidate
+  -> executable eval worlds and replay gates
+  -> world-to-runtime transfer gate
+  -> software, browser, domain-app, or embodied runtime promotion proposal
+```
+
+Foundry owns the build/eval/training objects. Environments runs the world
+instances and keeps provider/runtime placement honest. Work Ledger records
+trajectories, replay, proof, and scorecards. Operations tracks long-running
+world jobs and capacity. Governance admits transfer, rollout, recall, and
+certification posture. ODK may generate scenario contracts and world schemas
+from ontology/data recipes. Live physical deployment still belongs to
+Hypervisor Daemon, Embodied Runtime, Physical Action Safety, and authority
+gates.
+
+The anti-pattern this boundary prevents is:
+
+```text
+trained in a game or simulator, therefore ready for the real world
+```
+
+The correct shape is:
+
+```text
+gameplay and interactive trajectories teach spatial-temporal priors;
+deployment still requires executable evals, transfer gates, safety envelopes,
+authority refs, receipts, release controls, and runtime-specific validation
+```
 
 ## Capability Improvement Loop
 
@@ -429,6 +591,87 @@ training, package revision, and artifact conversion formats such as adapter
 merge, quantization, GGUF, MLX, ONNX, TensorRT, model-card export, and
 endpoint package preparation.
 
+## Generalist Model And Agent Training Stack
+
+Foundry should facilitate source-neutral generalist training stacks rather than
+hard-code any one model family, notebook, cloud trainer, or provider workflow.
+Modern open model programs show that the durable unit is not a fine-tune button.
+It is a governed training factory: data extraction, synthetic generation,
+annotation, tokenization, staged training, reasoning-mode fusion, verifier-backed
+RL, distillation, checkpoint conversion, eval gates, package export, and
+promotion evidence.
+
+Foundry's product promise is therefore:
+
+```text
+Foundry trains and packages capability.
+
+It may train models.
+It may train agents, workers, verifiers, route policies, and conductor advisors.
+It may distill teacher behavior into smaller runtime-capable students.
+It may convert and package artifacts for local, private, managed, or marketplace
+runtime.
+
+It does not make teacher output truth.
+It does not make a checkpoint deployable by default.
+It does not become runtime authority.
+```
+
+The canonical stack blueprint should cover:
+
+```text
+data factory
+  PDF/OCR/media extraction, trace ingestion, synthetic generation,
+  multilingual/domain/safety annotation, dedupe, filtering, tokenization,
+  immutable snapshots, and provenance receipts
+
+staged training
+  continue-pretraining, SFT, adapter tuning, full finetune, preference
+  optimization, distillation, reasoning-mode fusion, verifier tuning,
+  route-policy training, conductor-advisor training, and environment RL
+
+verifier and environment feedback
+  executable task sets, code tests, simulator/browser/game/domain-app worlds,
+  reward/verifier functions, long-horizon trajectories, rejection sampling,
+  rollout evidence, and holdout/adversarial slices
+
+reasoning and modality policy
+  thinking vs non-thinking modes, reasoning-budget controls, hidden-trace
+  disclosure policy, multimodal input/output traces, and context-scaling
+  experiments
+
+artifact and runtime packaging
+  checkpoint retention, adapter merge, quantization, GGUF, MLX, ONNX,
+  TensorRT, runtime images, endpoint packages, model cards, scorecards,
+  route candidates, and rollback targets
+```
+
+Trainer execution should be adapter-owned. Foundry should orchestrate trainer
+backends such as local jobs, hosted notebooks, managed GPU jobs, Megatron-style
+distributed trainers, Hugging Face/TRL-style trainers, LoRA/Q-LoRA/DoRA tools,
+RL/verifier frameworks, inference/eval services, and artifact converters through
+`TrainerBackendProfile` records. Foundry stores configs, manifests, receipts,
+cost ledgers, topology, checkpoint lineage, eval results, and promotion
+evidence; it should not pretend every trainer has the same semantics.
+
+The highest-value default lane is not frontier pretraining. It is domain and
+runtime capability improvement:
+
+```text
+eligible work evidence or curated domain data
+  -> source-neutral training stack blueprint
+  -> adapter/SFT/distillation/verifier-RL candidate
+  -> eval and regression gates
+  -> package artifacts for the intended runtime
+  -> governed promotion or rejection
+```
+
+Full pretraining, long-context extension, multimodal pretraining, and massive
+distributed runs are legitimate Foundry jobs only when the user or managed
+provider has real compute, dataset, budget, and authority backing. Otherwise
+Foundry should expose them as blueprints, estimates, and readiness gaps, not
+fake execution.
+
 ## Autonomous Experiment Optimizer
 
 Foundry may run an autonomous experiment optimizer for training and capability
@@ -528,6 +771,14 @@ contracts.
 Foundry is the home for embodied model-building and simulation-training
 workflows. ioi.ai may request or summarize this work, and aiagent may package
 the resulting worker, but Foundry owns the build/eval lane.
+
+Interactive-world and gameplay trajectories may feed embodied candidates by
+teaching spatial-temporal priors, navigation, coordination, affordance
+reasoning, recovery behavior, and policy search. They are upstream training and
+evaluation evidence, not runtime clearance. Embodied deployment still requires
+robot-specific sensor/action contracts, closed-loop eval, transfer gates,
+safety envelopes, authority refs when delegated power is involved, receipts,
+and Governance release controls.
 
 The endpoint is a governed `EmbodiedCapabilityPackage`, not merely a trained
 vision-language model. The package is the center of the architecture: Foundry
@@ -688,6 +939,14 @@ Canvas is still only a visual editor/projection.
 
 ## Minimal Implementation Objects
 
+> **Reference-wall notice.** The object listing below is hand-maintained
+> reference material, not additional doctrine. The source of truth for
+> shipped shapes is the daemon's route/object registry in code; this wall
+> is a design-surface commitment that may lead implementation. Do not
+> narrow it, but do not read presence here as shipped — see the file's
+> `Implementation status`. Generator TODO: emit this section from the
+> daemon schema registry instead of maintaining it by hand.
+
 ```yaml
 FoundryProject:
   foundry_project_id: foundry_project:...
@@ -712,7 +971,9 @@ FoundryJobRequest:
   job_id: foundry_job:...
   job_type:
     foundry_spec | dataset_snapshot | run_plan |
-    model_eval | model_tuning | worker_eval | dataset_distillation |
+    model_eval | worker_eval | executable_eval | eval_world |
+    adversarial_workflow | trajectory_scorecard | certification_run |
+    model_tuning | dataset_distillation |
     dataset_factory | training_pipeline | trial | checkpoint |
     experiment_optimization | artifact_conversion | model_artifact |
     package_artifact | model_registration | registry_version |
@@ -725,7 +986,11 @@ FoundryJobRequest:
     conductor_advisor_training | conductor_advisor_eval |
     conductor_advisor_shadow | embodied_dataset_factory |
     embodied_policy_training | embodied_sim_eval |
-    embodied_package | embodied_runtime_candidate
+    embodied_package | embodied_runtime_candidate |
+    interactive_world | gameplay_trajectory_dataset |
+    scenario_curriculum | world_model_training |
+    spatial_temporal_policy_training | sim_world_adapter |
+    world_to_runtime_transfer_gate
   source_refs:
     - artifact://...
   ontology_refs:
@@ -923,6 +1188,237 @@ FoundryTeacherSession:
   status:
     planned | running | completed | quarantined | rejected | superseded
 
+FoundryExecutableEvalSuite:
+  eval_suite_id: executable_eval_suite://...
+  foundry_job_ref: foundry_job://...
+  capability_refs:
+    - model://... | worker://... | harness://... | model_route://... |
+      tool://... | mcp://... | package://...
+  eval_world_refs:
+    - eval_world://...
+  task_contract_refs:
+    - schema://... | artifact://...
+  outcome_rubric_ref: rubric://...
+  adversarial_workflow_refs:
+    - adversarial_workflow://...
+  scoring_policy_ref: policy://...
+  authority_policy_ref: policy://...
+  privacy_posture_ref: policy://...
+  replay_policy_ref: policy://...
+  status:
+    draft | admitted | running | scored | failed | superseded
+
+FoundryEvalWorld:
+  eval_world_id: eval_world://...
+  environment_recipe_ref: recipe://...
+  seeded_state_refs:
+    - artifact://... | dataset_snapshot://... | domain_app://...
+  tool_contract_refs:
+    - tool://... | mcp://... | connector://...
+  simulated_actor_refs:
+    - worker://... | model://... | script://...
+  persistent_state_policy_ref: policy://...
+  fault_injection_policy_ref: optional policy://...
+  authority_scope_refs:
+    - scope://...
+  expected_receipt_refs:
+    - receipt_policy://...
+  status:
+    draft | admitted | ready | running | archived | revoked
+
+FoundryEvalTrajectoryRun:
+  trajectory_run_id: trajectory://...
+  executable_eval_suite_ref: executable_eval_suite://...
+  eval_world_ref: eval_world://...
+  session_refs:
+    - session://...
+  work_run_refs:
+    - work_run://...
+  trace_bundle_ref: trace://...
+  tool_call_audit_ref: tool_call_audit://...
+  output_artifact_refs:
+    - artifact://...
+  receipt_refs:
+    - receipt://...
+  replay_bundle_ref: replay://...
+  state_root_ref: state_root://...
+  status:
+    queued | running | completed | failed | invalidated
+
+FoundryToolCallAudit:
+  audit_id: tool_call_audit://...
+  trajectory_run_ref: trajectory://...
+  allowed_call_refs:
+    - call://...
+  blocked_call_refs:
+    - call://...
+  policy_decision_refs:
+    - policy_decision://...
+  authority_refs:
+    - grant://... | lease://...
+  side_effect_refs:
+    - receipt://...
+  violation_refs:
+    - finding://...
+  status:
+    clean | warning | violation | inconclusive
+
+FoundryTrajectoryScorecard:
+  scorecard_id: trajectory_scorecard://...
+  trajectory_run_ref: trajectory://...
+  outcome_rubric_ref: rubric://...
+  scores:
+    task_success: object
+    process_quality: object
+    safety_policy: object
+    tool_correctness: object
+    state_mutation: object
+    recovery_behavior: object
+    cost_latency: object
+    calibration_abstention: object
+  regression_refs:
+    - regression://...
+  certification_candidate_ref: optional certification_run://...
+  verdict:
+    pass | fail | needs_review | invalid
+
+FoundryCertificationRunCandidate:
+  certification_run_id: certification_run://...
+  executable_eval_suite_refs:
+    - executable_eval_suite://...
+  trajectory_scorecard_refs:
+    - trajectory_scorecard://...
+  assurance_profile_refs:
+    - assurance_profile://...
+  evidence_bundle_refs:
+    - evidence://...
+  promotion_bundle_ref: optional promotion_bundle://...
+  marketplace_listing_ref: optional listing://...
+  status:
+    draft | pending_review | claimed | rejected | expired | revoked
+
+FoundryInteractiveWorld:
+  interactive_world_id: interactive_world://...
+  adapter_ref: sim_world_adapter://...
+  world_kind:
+    game | simulator | browser_world | domain_app_world |
+    robotics_sim | synthetic_world | custom
+  environment_recipe_ref: recipe://...
+  observation_schema_ref: schema://...
+  action_schema_ref: schema://...
+  reward_or_rubric_ref: rubric://... | reward://...
+  state_snapshot_refs:
+    - artifact://...
+  domain_ontology_refs:
+    - ontology://...
+  safety_or_policy_refs:
+    - policy://...
+  status:
+    draft | admitted | ready | running | archived | revoked
+
+FoundryGameplayTrajectoryDataset:
+  dataset_id: gameplay://...
+  interactive_world_refs:
+    - interactive_world://...
+  trajectory_refs:
+    - trajectory://...
+  actor_refs:
+    - human://... | worker://... | model://... | script://...
+  observation_schema_ref: schema://...
+  action_schema_ref: schema://...
+  reward_or_label_refs:
+    - reward://... | teacher_label_set://... | rubric://...
+  split_manifest_ref: artifact://...
+  eligibility_policy_ref: policy://...
+  redaction_policy_ref: policy://...
+  lineage_refs:
+    - receipt://... | artifact://...
+  status:
+    candidate | eligible | retained | rejected | deprecated | revoked
+
+FoundryScenarioCurriculum:
+  curriculum_id: scenario_curriculum://...
+  interactive_world_refs:
+    - interactive_world://...
+  task_contract_refs:
+    - schema://... | artifact://...
+  scenario_set_refs:
+    - artifact://...
+  holdout_refs:
+    - artifact://...
+  difficulty_policy_ref: policy://...
+  perturbation_policy_ref: optional policy://...
+  objective_refs:
+    - gate://... | rubric://... | reward://...
+  status:
+    draft | admitted | active | frozen | superseded | revoked
+
+FoundryWorldModelCandidate:
+  world_model_candidate_id: world_model://...
+  source_dataset_refs:
+    - gameplay://... | episode_dataset://... | dataset://...
+  world_representation_refs:
+    - world_representation://...
+  model_artifact_refs:
+    - model_artifact://...
+  prediction_contract_ref: schema://...
+  eval_suite_refs:
+    - executable_eval_suite://... | eval_report://...
+  scorecard_ref: foundry_scorecard://...
+  status:
+    draft | training | evaluated | candidate | rejected | promoted
+
+FoundrySpatialTemporalPolicyCandidate:
+  policy_candidate_id: spatial_policy://...
+  source_dataset_refs:
+    - gameplay://... | episode_dataset://... | dataset://...
+  world_model_refs:
+    - world_model://...
+  action_schema_ref: schema://...
+  policy_artifact_refs:
+    - model_artifact://... | package_artifact://...
+  eval_world_refs:
+    - eval_world://... | interactive_world://...
+  trajectory_scorecard_refs:
+    - trajectory_scorecard://...
+  transfer_gate_refs:
+    - world_transfer_gate://...
+  status:
+    draft | training | shadow | gated | rejected | promoted
+
+FoundrySimWorldAdapter:
+  adapter_id: sim_world_adapter://...
+  world_kind:
+    game | simulator | browser_world | domain_app_world |
+    robotics_sim | synthetic_world | custom
+  runtime_binding_ref: runtime://... | service://... | environment://...
+  observation_schema_ref: schema://...
+  action_schema_ref: schema://...
+  reset_contract_ref: schema://...
+  instrumentation_contract_ref: schema://...
+  receipt_policy_ref: policy://...
+  status:
+    draft | validated | active | deprecated | revoked
+
+FoundryWorldToRuntimeTransferGate:
+  transfer_gate_id: world_transfer_gate://...
+  candidate_refs:
+    - world_model://... | spatial_policy://... | package://...
+  source_world_refs:
+    - interactive_world://... | eval_world://...
+  target_runtime:
+    software_agent | browser_agent | domain_app | embodied_runtime |
+    marketplace_worker | custom
+  required_eval_refs:
+    - executable_eval_suite://... | eval_report://...
+  safety_or_policy_refs:
+    - policy://... | safety://...
+  evidence_bundle_refs:
+    - evidence://...
+  promotion_proposal_ref: optional promotion_bundle://...
+  status:
+    draft | waiting_for_evidence | passed | failed | revoked
+
 FoundryCandidateDataRecord:
   candidate_data_id: candidate_data://...
   teacher_session_ref: teacher_session://...
@@ -1000,6 +1496,93 @@ FoundryDatasetFactoryRun:
   cost_ledger_ref: ledger://...
   status:
     draft | running | gated | exported | failed | rejected
+
+FoundryTrainingStackBlueprint:
+  training_stack_ref: training_stack://...
+  foundry_spec_ref: optional foundry_spec://...
+  stack_family:
+    adapter_tuning | sft | continue_pretrain | full_finetune |
+    teacher_distillation | preference_optimization | verifier_rl |
+    reasoning_mode_fusion | route_policy_training |
+    conductor_advisor_training | agent_runtime_training |
+    multimodal_training | packaging_only | mixed
+  base_model_refs:
+    - model://... | model_route://...
+  teacher_model_refs:
+    - model://... | model_route://...
+  trainer_backend_profile_refs:
+    - trainer_backend://...
+  dataset_factory_refs:
+    - run://dataset_factory/... | recipe://...
+  dataset_snapshot_refs:
+    - dataset_snapshot://... | dataset://...
+  verifier_environment_set_refs:
+    - verifier_set://... | interactive_world://... | gate://...
+  reasoning_mode_policy_ref: optional reasoning_policy://...
+  multimodal_contract_refs:
+    - schema://... | ontology://...
+  package_target_matrix_ref: optional artifact://... | policy://...
+  status:
+    draft | admitted | running | evaluated | packaged | rejected | archived
+
+FoundryTrainerBackendProfile:
+  trainer_backend_ref: trainer_backend://...
+  backend_family:
+    local_job | notebook | managed_gpu_job | distributed_trainer |
+    hf_trainer | lora_tooling | rl_framework | eval_service |
+    inference_service | artifact_converter | custom
+  supported_training_modes:
+    - sft | adapter | full_finetune | continue_pretrain |
+      distillation | verifier_rl | packaging_only | custom
+  topology_contract:
+    data_parallel: optional
+    tensor_parallel: optional
+    pipeline_parallel: optional
+    expert_parallel: optional
+    context_parallel: optional
+    sequence_packing: optional
+  checkpoint_contract_ref: optional schema://... | artifact://...
+  dataset_format_refs:
+    - schema://... | artifact://...
+  credential_policy_ref: optional policy://...
+  compute_profile_refs:
+    - profile://... | resource_pool://...
+  status:
+    draft | enabled | disabled | deprecated | quarantined
+
+FoundryReasoningModePolicy:
+  reasoning_policy_ref: reasoning_policy://...
+  supported_modes:
+    - thinking
+    - non_thinking
+    - budgeted_reasoning
+    - hidden_trace_supervision
+  default_mode: thinking | non_thinking | budgeted_reasoning
+  budget_controls:
+    max_tokens: optional integer
+    stop_instruction_ref: optional artifact://...
+    escalation_policy_ref: optional policy://...
+  trace_disclosure_policy_ref: policy://...
+  eval_gate_refs:
+    - gate://...
+  status:
+    draft | active | superseded | archived
+
+FoundryVerifierEnvironmentSet:
+  verifier_set_ref: verifier_set://...
+  task_set_refs:
+    - dataset://... | benchmark://... | interactive_world://...
+  reward_or_verifier_refs:
+    - worker://... | model://... | gate://... | artifact://...
+  environment_refs:
+    - runtime://... | interactive_world://... | simulator://...
+  evidence_requirements:
+    - exact_answer | code_test | tool_trace | state_diff |
+      human_review | simulator_score | rubric | custom
+  holdout_refs:
+    - dataset://... | benchmark://...
+  status:
+    draft | active | superseded | archived
 
 FoundryTrainingPipelineRun:
   training_pipeline_run_id: trainpipe://...

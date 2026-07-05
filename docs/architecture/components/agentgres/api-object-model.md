@@ -5,6 +5,9 @@ Canonical owner: this file for Agentgres APIs, canonical object classes, runtime
 Supersedes: older Agentgres-as-generic-store wording when runtime truth ownership conflicts.
 Superseded by: none.
 Last alignment pass: 2026-06-22.
+Doctrine status: reference
+Implementation status: partial (object catalog; families land with their planes — the Agent Execution Branch family is planned durable objects over existing fork/replay/snapshot substrate)
+Last implementation audit: 2026-07-05
 
 ## Purpose
 
@@ -1214,6 +1217,11 @@ Scorecard
 OperationLogEntry
 ProjectionCheckpoint
 AgentStateArchive
+AgentExecutionTrace
+AgentExecutionBranch
+StagedEffect
+BranchCheckpoint
+BranchMergePlan
 ```
 
 Minimum runtime operation log entries:
@@ -1258,6 +1266,14 @@ ArchiveHashVerified
 StateImported
 RestoreReceiptRecorded
 RunTerminalStateRecorded
+AgentExecutionTraceCreated
+AgentExecutionBranchCreated
+StagedEffectRecorded
+BranchCheckpointCreated
+BranchReplayRecorded
+BranchMergePlanCreated
+BranchMergeAdmitted
+BranchDiscardRecorded
 ```
 
 Runtime projections must expose:
@@ -1275,6 +1291,172 @@ Runtime projections must expose:
 ```
 
 Trace and replay exports must be reconstructable from the operation log plus artifact/receipt references. A local SDK checkpoint may accelerate resume or offline inspection, but deleting it must not delete canonical run truth.
+
+## Agent Execution Branches
+
+Implementation status (this family): planned durable objects over existing
+substrate (`thread.forked` events, run replay, counterfactual what-if replay,
+workspace snapshot/restore custody). Shapes below are the committed design
+surface, not shipped objects.
+
+Agentgres execution branches are the canonical branch/replay primitive for
+autonomous work. Git branches may be one input, but Agentgres branches cover the
+coupled state of the run: workspace, trace, model route, harness, memory,
+authority, artifacts, receipts, and settlement posture.
+
+This is the difference:
+
+```text
+Git branch
+  code and file history
+
+Agentgres execution branch
+  autonomous-work history, staged effects, authority, memory projection,
+  receipts, replay, and merge/admission truth
+```
+
+Execution branches are useful for multi-harness comparison, self-correction,
+review-before-commit, recoverable long-horizon runs, Foundry training evidence,
+Work Ledger proof, and user-visible rollback. They must not allow an agent to
+write canonical truth by naming a branch. Canonical heads advance only through
+expected-head merge/admission with the required policy, authority, and receipts.
+
+```json
+{
+  "object_class": "AgentExecutionTrace",
+  "trace_id": "trace://run_123",
+  "run_id": "run_123",
+  "session_ref": "session://...",
+  "goal_ref": "goal://...",
+  "origin_branch_ref": "execution_branch://main",
+  "event_stream_ref": "event://...",
+  "operation_range": {
+    "from_domain_sequence": "domain_seq:98100",
+    "to_domain_sequence": "domain_seq:99182"
+  },
+  "staged_effect_refs": ["staged_effect://..."],
+  "receipt_refs": ["receipt://..."],
+  "state_root": "sha256:...",
+  "replay_policy_ref": "policy://...",
+  "status": "active | sealed | superseded | revoked"
+}
+```
+
+```json
+{
+  "object_class": "AgentExecutionBranch",
+  "execution_branch_ref": "execution_branch://run_123/branch-a",
+  "run_id": "run_123",
+  "parent_branch_ref": "execution_branch://run_123/main",
+  "git_ref": "patch_branch://repo/branch-a | optional",
+  "workspace_snapshot_ref": "snapshot://...",
+  "worktree_ref": "worktree://...",
+  "memory_projection_refs": ["memory_projection://..."],
+  "harness_invocation_refs": ["harness_invocation://..."],
+  "model_route_refs": ["model_route://..."],
+  "context_lease_refs": ["context_lease://..."],
+  "authority_refs": ["authority://...", "lease://..."],
+  "trace_ref": "trace://run_123",
+  "head_checkpoint_ref": "branch_checkpoint://...",
+  "staged_effect_refs": ["staged_effect://..."],
+  "receipt_root": "sha256:...",
+  "branch_purpose": "main | candidate | repair | verifier | replay | self_correction | comparison",
+  "status": "open | staged | admitted | discarded | superseded | archived | revoked"
+}
+```
+
+```json
+{
+  "object_class": "StagedEffect",
+  "staged_effect_ref": "staged_effect://...",
+  "execution_branch_ref": "execution_branch://run_123/branch-a",
+  "trace_ref": "trace://run_123",
+  "effect_kind": "model_call | tool_call | file_mutation | connector_action | memory_mutation | policy_mutation | spend | provisioning | package_change | custom",
+  "intent_ref": "artifact://... | message://... | tool://...",
+  "policy_decision_ref": "policy_decision://... | optional",
+  "authority_decision_ref": "authority://... | lease://... | optional",
+  "outcome_ref": "artifact://... | receipt://... | diff://... | optional",
+  "affected_ref_patterns": ["file://...", "memory://...", "connector://..."],
+  "pre_state_root": "sha256:...",
+  "post_state_root": "sha256:... | optional",
+  "receipt_refs": ["receipt://..."],
+  "settlement_status": "proposed | authorized | materialized | denied | reverted | admitted | discarded"
+}
+```
+
+```json
+{
+  "object_class": "BranchCheckpoint",
+  "branch_checkpoint_ref": "branch_checkpoint://...",
+  "execution_branch_ref": "execution_branch://run_123/branch-a",
+  "trace_ref": "trace://run_123",
+  "workspace_snapshot_ref": "snapshot://...",
+  "object_heads": {
+    "Run:run_123": "sha256:...",
+    "TaskState:task_456": "sha256:..."
+  },
+  "memory_projection_heads": ["memory_projection://..."],
+  "lease_heads": ["lease://..."],
+  "artifact_refs": ["artifact://..."],
+  "receipt_root": "sha256:...",
+  "created_for": "manual | before_risky_effect | retry | verifier | scheduled | restore",
+  "status": "active | restored | superseded | revoked"
+}
+```
+
+```json
+{
+  "object_class": "BranchMergePlan",
+  "branch_merge_ref": "branch_merge://...",
+  "target_branch_ref": "execution_branch://run_123/main",
+  "candidate_branch_refs": ["execution_branch://run_123/branch-a"],
+  "diff_refs": ["diff://..."],
+  "memory_diff_refs": ["memory_projection://..."],
+  "authority_diff_refs": ["authority://...", "lease://..."],
+  "receipt_diff_refs": ["receipt://..."],
+  "verification_refs": ["test://...", "gate://...", "receipt://..."],
+  "admission_policy_ref": "policy://...",
+  "expected_head_ref": "branch_checkpoint://...",
+  "authority_revalidation": {
+    "revocation_epoch_checked": "epoch:...",
+    "revalidated_at": "2026-07-05T00:00:00Z",
+    "stale_or_revoked_effects": ["staged_effect://..."]
+  },
+  "decision": "pending | admit | discard | needs_review | conflict | superseded",
+  "decision_receipt_ref": "receipt://... | optional",
+  "status": "draft | ready | admitted | discarded | blocked | revoked"
+}
+```
+
+Admission freshness is mandatory: a `BranchMergePlan` cannot reach
+`decision: admit` without `authority_revalidation` re-checking every staged
+effect's grant against the current revocation epoch, expiry, and policy hash
+at merge time; effects listed in `stale_or_revoked_effects` require
+re-authorization before materialization, and the decision receipt binds the
+epoch checked. Replayed effects execute under fresh authority and mint new
+receipts (rule owner: [`doctrine.md`](./doctrine.md) Agent execution branch
+doctrine; INV-1/INV-5).
+
+Merge resolution classifies each touched object head as `exclusive_owner`
+(single writer since fork — admit on expected-head check alone),
+`declared_commutative` (class-declared commutative semantics — auto-merge),
+or `adjudicated` (default — policy/verification/human decision). The class
+taxonomy and the no-text-merge rule are owned by
+[`doctrine.md`](./doctrine.md) (Merge strategy classes).
+
+Execution branches must expose at least these projections:
+
+```text
+branch tree
+staged-effect diff
+trace timeline
+authority diff
+memory diff
+artifact diff
+receipt diff
+replay bundle
+merge/admission plan
+```
 
 ## Sealed State Archive Shape
 
@@ -1501,12 +1683,20 @@ Agentgres mirrors L1 contract state but does not replace it.
 6. Worker runtime truth lives in Agentgres operation logs; client checkpoints are non-authoritative caches or exports.
 7. Storage backend payloads, checkpoints, snapshots, and evidence bundles are refs from Agentgres state, not replacements for Agentgres state.
 8. Agents draft in isolated patch branches over pinned workspace snapshots; canonical heads advance only through expected-head merge and settlement.
-9. Rollback after settlement is represented as a new canonical revert operation with receipts, not deletion or mutation of previous truth.
-10. Sealed state archives are encrypted portable state artifacts; Agentgres retains
+9. Agent execution branches bind code/workspace diffs to trace, authority,
+   memory projection, artifact, receipt, and replay state; they are not merely
+   Git refs.
+10. Staged effects do not become canonical truth until admitted through policy,
+    authority, expected-head, and receipt checks.
+11. Rejected branches and discarded effects remain evidence until retention
+    policy says otherwise; they may feed review, training, eval, or audit, but
+    not runtime truth.
+12. Rollback after settlement is represented as a new canonical revert operation with receipts, not deletion or mutation of previous truth.
+13. Sealed state archives are encrypted portable state artifacts; Agentgres retains
     hot canonical refs, lifecycle metadata, roots, policy, and receipts.
-11. Restore rehydrates state through Agentgres operations after authority, hash,
+14. Restore rehydrates state through Agentgres operations after authority, hash,
     decryption, schema, policy, and state-root checks.
-12. External projection engines are serving planes only; they must be disposable,
+15. External projection engines are serving planes only; they must be disposable,
     invalidatable, checkpointed, and rebuildable from Agentgres truth.
-13. Local-first working state is pre-canonical until admitted through Agentgres
+16. Local-first working state is pre-canonical until admitted through Agentgres
     operation settlement.

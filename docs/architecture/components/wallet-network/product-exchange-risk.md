@@ -10,6 +10,9 @@ language embedded only in prototypes or supporting product notes when it
 conflicts with this file.
 Superseded by: none.
 Last alignment pass: 2026-06-20.
+Doctrine status: canonical
+Implementation status: planned (exchange/trade/prediction product design; SDK candidate-source seams exist, no live exchange or trade surface)
+Last implementation audit: 2026-07-05
 
 ## Canonical Definition
 
@@ -79,6 +82,9 @@ wallet.network does not own:
 - quote APIs or solver networks;
 - `decentralized.exchange` route proposals;
 - `decentralized.trade` venue proposals;
+- `decentralized.cloud` resource proposals;
+- Hypervisor provider lifecycle, VM lifecycle, restore validity, or storage
+  truth;
 - chain execution or finality;
 - Agentgres operational truth;
 - IOI L1 settlement state;
@@ -149,10 +155,18 @@ protect
 The product surface may vary by app, mobile, extension, web, CLI, or enterprise
 profile, but the action grammar and receipt semantics must remain stable.
 
-Wallet is the canonical high-trust cockpit for Exchange and Trade. The user
-should be able to review, approve, deny, execute, monitor, and receipt exchange
-or trade actions inside Wallet without first visiting `decentralized.exchange`
-or `decentralized.trade`.
+Wallet is the canonical high-trust cockpit for Exchange, Trade, and provider
+authority. The user should be able to review, approve, deny, execute, monitor,
+and receipt exchange or trade actions inside Wallet without first visiting
+`decentralized.exchange` or `decentralized.trade`.
+
+Wallet is also the high-trust cockpit for cloud/provider spend and credential
+authority. The user should be able to review, approve, deny, monitor, and
+receipt exact provider credential use, resource spend, lease, ingress, private
+custody, and revocation actions without first visiting `decentralized.cloud`.
+Hypervisor may present narrower connected-provider approval flows inside the
+environment lifecycle, but wallet.network remains the reusable authority lane
+for portable delegated authority and high-risk provider effects.
 
 Wallet is also the high-trust cockpit for agent authority. The user should be
 able to connect an agent, bind provider credentials, set authority limits,
@@ -533,6 +547,46 @@ Agents may trade leveraged products by default.
 Users must leave Wallet and use decentralized.trade directly to trade.
 ```
 
+## Relationship to decentralized.cloud
+
+`decentralized.cloud` is a source-agnostic resource-intelligence engine for
+infrastructure capacity. Hypervisor, wallet.network, ioi.ai, agents, and domain
+apps may consume it through API/RPC/SDK boundaries for resource candidates,
+provider quotes, custody plans, failover plans, spend estimates, provider
+reliability evidence, and optimized-placement suggestions.
+
+It does not own:
+
+- user authority;
+- provider credentials;
+- spend approval;
+- provider accounts;
+- VM or runtime lifecycle;
+- ingress exposure;
+- storage custody;
+- restore truth;
+- Hypervisor environment execution;
+- Agentgres receipt truth;
+- IOI L1 settlement.
+
+Correct product framing:
+
+```text
+decentralized.cloud proposes infrastructure-capacity candidates.
+wallet.network authorizes spend and credential use.
+Hypervisor executes provider and environment lifecycle.
+Agentgres records truth.
+```
+
+Incorrect product framing:
+
+```text
+decentralized.cloud is the cloud control plane.
+decentralized.cloud approval is enough to deploy.
+decentralized.cloud owns provider accounts or restore validity.
+Users must leave Hypervisor and use decentralized.cloud directly to run workloads.
+```
+
 ## Trade, Prediction, and Position Authority
 
 Trade is a first-class but high-risk Wallet action. It is not the same product
@@ -909,18 +963,15 @@ wallet.network uses two distinct risk systems.
 
 ### Authority Risk Class
 
-Authority risk class describes what kind of power is being requested:
+Authority risk class describes what kind of power is being requested. The
+canonical member set and ladder order are owned by
+[`../../foundations/canonical-enums.md`](../../foundations/canonical-enums.md);
+labeled excerpt:
 
 ```text
-read
-draft
-local_write
-external_message
-commerce
-funds
-policy_widening
-secret_export
-identity_change
+read → draft → local_write → write_reversible → external_message → commerce
+→ funds → credential_access → policy_widening → secret_export
+→ identity_change → system_destructive
 ```
 
 Authority risk drives policy, step-up, revocation, and grant requirements.
@@ -1261,7 +1312,9 @@ Do not model wallet.network as:
 a centralized exchange
 a single liquidity router
 a mandatory dependency on decentralized.exchange
+a mandatory dependency on decentralized.cloud
 a place where route sources become approval
+a place where resource candidates become spend approval
 a product that hides route dependencies from users
 a quote API trust root
 a bridge-risk laundering layer
@@ -1284,8 +1337,11 @@ Wallet Exchange evaluates route candidates.
 decentralized.exchange is a preferred, non-exclusive route source.
 Wallet Trade evaluates exposure candidates.
 decentralized.trade is a preferred, non-exclusive trading route source.
+Hypervisor evaluates infrastructure-capacity candidates.
+decentralized.cloud is a preferred, non-exclusive resource route source.
 Liquidity lives in pools and venues.
 Positions and execution live in chains or selected venues.
+Provider execution and restore validity live in Hypervisor and Agentgres.
 Prediction markets and event contracts live in selected venues and resolution
 rules.
 Agentgres records receipts and evidence.
@@ -1295,13 +1351,16 @@ IOI L1 anchors only selected public/economic commitments.
 ## Related Canon
 
 - [`../../domains/decentralized/README.md`](../../domains/decentralized/README.md):
-  decentralized.exchange and decentralized.trade route/venue-intelligence
-  boundaries.
+  decentralized.exchange, decentralized.trade, and decentralized.cloud
+  route/venue/resource-intelligence boundaries.
 - [`../../domains/decentralized/exchange.md`](../../domains/decentralized/exchange.md):
   route-source and spot/cross-chain exchange doctrine.
 - [`../../domains/decentralized/trade.md`](../../domains/decentralized/trade.md):
   advanced trading, exposure, perps, prediction markets, event contracts, and
   position lifecycle doctrine.
+- [`../../domains/decentralized/cloud.md`](../../domains/decentralized/cloud.md):
+  cloud resource candidate, optimized-placement, custody-plan, failover-plan,
+  and cloud-routing doctrine.
 - [`doctrine.md`](./doctrine.md): wallet.network authority doctrine.
 - [`api-authority-scopes.md`](./api-authority-scopes.md): low-level account,
   scope, approval, payment, exchange, exposure, receipt, and revocation APIs.

@@ -5,6 +5,9 @@ Canonical owner: this file for first-read architecture orientation and role-base
 Supersedes: ad hoc onboarding paths across architecture docs.
 Superseded by: none.
 Last alignment pass: 2026-06-23.
+Doctrine status: canonical
+Implementation status: mixed (reader entry point over all maturity levels)
+Last implementation audit: 2026-07-05
 
 ## Five-Minute Mental Model
 
@@ -84,10 +87,10 @@ wallet.network
   exchange candidates, but wallet.network owns authority while products may
   present it as Wallet, SSO, permissions, approval review, or connected access
 
-decentralized.exchange / decentralized.trade
-  Wallet-consumed route/venue intelligence engines for asset conversion and
-  exposure management; they propose candidates without becoming authority,
-  required UIs, or trust roots
+decentralized.exchange / decentralized.trade / decentralized.cloud
+  Wallet/Hypervisor-consumed route, venue, and resource-intelligence engines
+  for asset conversion, exposure management, and infrastructure capacity; they
+  propose candidates without becoming authority, required UIs, or trust roots
 
 Hypervisor provider integrations
   direct integrations for cloud compute, storage, GPUs, confidential compute,
@@ -168,8 +171,8 @@ Default Harness Profile is the reference scaffold/fallback.
 authority providers/local governance authorize as required.
 wallet.network risk-labels, approves/denies, revokes, protects, receipts, and
 supplies portable delegated or high-risk authority.
-decentralized.exchange/trade expose route/venue intelligence for liquidity, exposure, and event markets.
-Hypervisor provider integrations propose execution routes.
+decentralized.exchange/trade/cloud expose route/venue/resource intelligence for liquidity, exposure, event markets, and infrastructure capacity.
+Hypervisor provider integrations remain direct execution routes.
 Agentgres admits truth.
 Agent Wiki remembers.
 Artifact refs define payload meaning.
@@ -441,7 +444,7 @@ ioi.ai Goal Chat = durable automation owner
 provider posture = standalone provider-management product, execution runtime, or authority plane
 decentralized.exchange = exchange backend or liquidity owner
 decentralized.trade = broker, custodian, or ordinary swap route
-decentralized.exchange/trade = mandatory UIs users must visit before Wallet
+decentralized.exchange/trade/cloud = mandatory UIs users must visit before Wallet or Hypervisor
 Persistent rented GPU node = trusted private machine
 Agentgres = all memory or all payload bytes
 Agent Wiki / ioi-memory = canonical admitted truth
@@ -485,8 +488,8 @@ Private Workspace backed by cTEE forbids protected plaintext on rented nodes
 Plaintext-Free Runtime Mounting exposes only public/redacted refs and private handles
 authority providers/local governance authorize as required
 wallet.network supplies portable delegated/high-risk authority
-decentralized.exchange/trade expose route/venue intelligence and propose candidates
-Hypervisor provider integrations propose execution routes
+decentralized.exchange/trade/cloud expose route/venue/resource intelligence and propose candidates
+Hypervisor provider integrations remain direct execution routes
 AIIP moves bounded autonomous work
 Ecosystem Assurance projects trust posture from profiles, evidence, policy packs, and owner-domain receipts
 L1 settles selected public/economic/cross-domain commitments

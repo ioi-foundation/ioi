@@ -5,6 +5,9 @@ Canonical owner: this file for Domain Ontologies, Data Recipes, canonical object
 Supersedes: product, training, connector, or storage docs when they treat raw files, connector payloads, or ad hoc schemas as sufficient domain truth for Worker Training.
 Superseded by: none.
 Last alignment pass: 2026-06-20.
+Doctrine status: canonical
+Implementation status: partial (ODK draft object plane exists; semantic data plane otherwise planned)
+Last implementation audit: 2026-07-05
 
 ## Canonical Definition
 

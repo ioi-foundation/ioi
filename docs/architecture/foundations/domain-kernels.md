@@ -5,6 +5,9 @@ Canonical owner: this file for root/domain kernel boundaries and domain-kernel r
 Supersedes: overlapping plan prose when kernel ownership conflicts.
 Superseded by: none.
 Last alignment pass: 2026-06-22.
+Doctrine status: canonical
+Implementation status: mixed (daemon + Agentgres substrate real; fractal domain-kernel topology speculative)
+Last implementation audit: 2026-07-05
 
 ## Canonical Definition
 

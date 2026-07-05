@@ -5,6 +5,9 @@ Canonical owner: this file for aiagent.xyz worker endpoint shapes and inter-agen
 Supersedes: overlapping worker endpoint examples in plans/specs when endpoint fields conflict.
 Superseded by: none.
 Last alignment pass: 2026-06-23.
+Doctrine status: reference
+Implementation status: planned (endpoint spec; draft plane implements a small subset)
+Last implementation audit: 2026-07-05
 
 ## Purpose
 
@@ -349,6 +352,14 @@ GET  /v1/worker/instance
 PATCH /v1/worker/instance
 GET  /v1/worker/profile
 GET  /v1/worker/status
+GET  /v1/worker/config-revisions
+POST /v1/worker/config-revisions
+GET  /v1/worker/change-plans
+POST /v1/worker/change-plans
+GET  /v1/worker/change-plans/{change_plan_id}
+POST /v1/worker/change-plans/{change_plan_id}/dry-run
+POST /v1/worker/change-plans/{change_plan_id}/apply
+POST /v1/worker/change-plans/{change_plan_id}/rollback
 POST /v1/worker/suspend
 POST /v1/worker/resume
 POST /v1/worker/archive
@@ -385,8 +396,11 @@ POST /v1/worker/threads
   "owner_id": "wallet://user_123",
   "worker_composition_ref": "composition://runtime-auditor/1.0.0/qwen-coder/local",
   "selected_model_route_ref": "model_route://qwen-coder-local",
+  "active_config_revision_ref": "config_revision://runtime-auditor/heath/default/7",
+  "pending_change_plan_refs": ["change_plan://runtime-auditor/heath/default/8"],
   "execution_privacy_posture_ref": "privacy_posture://local",
   "runtime_assignment_id": "assign_456",
+  "runtime_management_channel_ref": "management_channel://assign_456",
   "execution_profile": "hosted | provider | depin_mutual_blind | tee_enterprise | customer_vpc | local",
   "persistence_profile": "ephemeral | session | zero_to_idle | persistent",
   "interaction_surfaces": ["chat", "task", "api", "model_compatible_api", "mcp", "scheduler"],
@@ -412,6 +426,33 @@ POST /v1/worker/threads
   }
 }
 ```
+
+### Managed Instance Configuration Change
+
+Persistent managed workers should not be updated through an unstructured
+`PATCH`. The PATCH endpoint is compatibility sugar for creating a config
+revision and, when required, a change plan.
+
+```json
+{
+  "change_plan_id": "change_plan://runtime-auditor/heath/default/8",
+  "worker_instance_id": "agent://runtime-auditor/heath/default",
+  "from_config_revision_ref": "config_revision://runtime-auditor/heath/default/7",
+  "to_config_revision_ref": "config_revision://runtime-auditor/heath/default/8",
+  "change_kinds": ["connector_binding", "schedule", "model_route"],
+  "risk_class": "moderate",
+  "required_gates": ["authority_provider", "dry_run"],
+  "status": "waiting_for_authority",
+  "dry_run_endpoint": "/v1/worker/change-plans/change_plan_8/dry-run",
+  "apply_endpoint": "/v1/worker/change-plans/change_plan_8/apply",
+  "rollback_config_revision_ref": "config_revision://runtime-auditor/heath/default/7",
+  "receipt_refs": ["receipt://..."]
+}
+```
+
+Safe live edits may apply immediately after admission. Connector, tool, standing
+order, route-policy, harness, runtime, memory-sharing, package-version, privacy,
+or authority-broadening changes must expose their required gates before apply.
 
 ### Standing Order
 
@@ -509,6 +550,13 @@ GET  /v1/marketplace/installs/{install_id}
 GET  /v1/marketplace/instances/{worker_instance_id}
 POST /v1/marketplace/instances/{worker_instance_id}/suspend
 POST /v1/marketplace/instances/{worker_instance_id}/resume
+GET  /v1/marketplace/instances/{worker_instance_id}/config-revisions
+POST /v1/marketplace/instances/{worker_instance_id}/config-revisions
+GET  /v1/marketplace/instances/{worker_instance_id}/change-plans
+POST /v1/marketplace/instances/{worker_instance_id}/change-plans
+POST /v1/marketplace/instances/{worker_instance_id}/change-plans/{change_plan_id}/dry-run
+POST /v1/marketplace/instances/{worker_instance_id}/change-plans/{change_plan_id}/apply
+POST /v1/marketplace/instances/{worker_instance_id}/change-plans/{change_plan_id}/rollback
 POST /v1/marketplace/instances/{worker_instance_id}/archive
 GET  /v1/marketplace/instances/{worker_instance_id}/subscription
 PATCH /v1/marketplace/instances/{worker_instance_id}/subscription

@@ -5,6 +5,9 @@ Canonical owner: this file for AIIP, bounded-execution-domain interop, work pack
 Supersedes: product prose that treats Hypervisor, aiagent.xyz, sas.xyz, or third-party autonomous systems as separate bespoke interop protocols.
 Superseded by: none.
 Last alignment pass: 2026-06-23.
+Doctrine status: canonical
+Implementation status: planned (protocol design; no AIIP implementation)
+Last implementation audit: 2026-07-05
 
 ## Canonical Definition
 

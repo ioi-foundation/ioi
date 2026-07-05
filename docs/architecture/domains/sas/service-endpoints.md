@@ -5,6 +5,9 @@ Canonical owner: this file for sas.xyz service order, delivery, provider, escrow
 Supersedes: overlapping sas.xyz endpoint examples in plans/specs when endpoint fields conflict.
 Superseded by: none.
 Last alignment pass: 2026-06-23.
+Doctrine status: reference
+Implementation status: planned (endpoint spec; no implementation)
+Last implementation audit: 2026-07-05
 
 ## Purpose
 
@@ -98,7 +101,7 @@ POST /v1/orders/{order_id}/open-dispute
     "primitive_capabilities_required": ["prim:model.invoke", "prim:fs.read"],
     "authority_scopes_required": ["scope:repo.read"],
     "approval_required_for": ["code_write", "external_message"],
-    "forbidden": ["funds_transfer"]
+    "forbidden": ["funds"]
   }
 }
 ```

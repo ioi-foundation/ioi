@@ -5,6 +5,9 @@ Canonical owner: this file for physical-action safety envelopes, embodied-system
 Supersedes: plan prose that treats `physical_action` as only a loose runtime risk class.
 Superseded by: none.
 Last alignment pass: 2026-06-22.
+Doctrine status: canonical
+Implementation status: speculative (safety envelope design; only the physical_action risk-class refusal is enforced today — crates/services/src/agentic/runtime/kernel/runtime_worker_package_install_admission.rs)
+Last implementation audit: 2026-07-05
 
 ## Canonical Definition
 

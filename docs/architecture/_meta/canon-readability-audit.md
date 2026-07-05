@@ -4,7 +4,10 @@ Status: canonical readability workplan.
 Canonical owner: this file for tracking architecture-doc enterability, implementation-grade gaps, and reader-path cleanup.
 Supersedes: informal readability notes in plans/specs.
 Superseded by: none.
-Last alignment pass: 2026-06-23.
+Last alignment pass: 2026-07-04.
+Doctrine status: reference
+Implementation status: mixed (audit workplan)
+Last implementation audit: 2026-07-05
 
 ## Purpose
 
@@ -32,6 +35,7 @@ This audit tracks the cleanup needed to make the canon:
 | Older docs mix canon and long former-spec modules | Correctness is high, but first-read clarity suffers | Mark supporting context clearly and keep top canon sections crisp |
 | Anti-patterns are uneven | Boundary mistakes are harder to remember | Add explicit anti-pattern sections to major docs |
 | Some docs have good ownership but weak implementation hooks | Builders need current durable form and conformance anchor | Use implementation matrix and add "Minimal Implementation Objects" where needed |
+| Placement/resource-routing doctrine changed | Cloud/provider UX can look bolted on if docs preserve older two-lane or pre-picker placement taxonomy | Canonicalized four placement choices, decentralized.cloud resource-intelligence boundaries, and direct-vs-orchestrated BYO fee posture across owner docs and meta maps |
 
 ## Audit Table
 
@@ -49,6 +53,9 @@ This audit tracks the cleanup needed to make the canon:
 | [`agentgres/doctrine.md`](../components/agentgres/doctrine.md) | Agentgres, memory, state implementers | excellent ownership doctrine | very long supporting module after canon | add anti-patterns; eventually split support appendix |
 | [`agentgres/api-object-model.md`](../components/agentgres/api-object-model.md) | Agentgres implementers | concrete object shapes | should cross-link implementation matrix | add when object promotion accelerates |
 | [`wallet-network/doctrine.md`](../components/wallet-network/doctrine.md) | authority implementers | clear owns/does-not-own | anti-patterns help prevent wallet-as-runtime drift | add anti-patterns |
+| [`domains/decentralized/README.md`](../domains/decentralized/README.md) | wallet, Hypervisor, candidate-source implementers | now frames exchange/trade/cloud as one candidate-intelligence family | keep exchange/trade/cloud additions synchronized; do not let cloud become a mandatory gateway | maintain with `exchange.md`, `trade.md`, and `cloud.md` |
+| [`domains/decentralized/cloud.md`](../domains/decentralized/cloud.md) | resource-routing and provider-placement implementers | compact owner for cloud resource candidates, picker/optimizer split, and anti-patterns | new file; keep implementation objects synchronized with provider-plane and wallet authority docs | maintain as resource-intelligence owner, not provider lifecycle owner |
+| [`hypervisor/byo-provider-plane.md`](../components/hypervisor/byo-provider-plane.md) | provider adapter and placement implementers | concrete four-choice placement UX, adapter ladder, and fee boundary | new file; keep object contract synchronized with daemon provider routes | maintain as BYO provider-plane owner |
 | [`foundations/aiip.md`](../foundations/aiip.md) | interop implementers | clear interop semantics | anti-patterns should call out bespoke app protocols | add anti-patterns |
 | [`foundations/ioi-l1-mainnet.md`](../foundations/ioi-l1-mainnet.md) | settlement implementers | clear L1 boundary | anti-patterns should emphasize trigger-based settlement | add when touched next |
 | [`agentgres/artifact-ref-plane.md`](../components/agentgres/artifact-ref-plane.md) | Agentgres/artifact implementers | canonical artifact-ref and restore boundary | new file; keep synchronized with object model and delivery docs | maintain as artifact-ref owner |

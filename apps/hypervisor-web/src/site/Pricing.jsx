@@ -12,7 +12,7 @@ const TIERS = [
   { name: "Team", price: "$80", unit: "/ seat · month", blurb: "For teams standardizing autonomous work with shared authority.", featured: true, cta: "Start free trial", theme: "fill",
     feat: ["Everything in Core", "Shared projects & automations", "wallet.network authority scopes", "Org policies & approvals", "SSO / SCIM", "Priority support"] },
   { name: "Enterprise", price: "Custom", unit: "", blurb: "For organizations running fleets under governance and settlement.", cta: "Talk to sales", theme: "outline",
-    feat: ["Everything in Team", "Deploy in your VPC or cTEE", "HypervisorOS bare-metal nodes", "Audit trails & no-plaintext custody", "IOI L1 settlement", "Dedicated SLA & solutions"] },
+    feat: ["Everything in Team", "Deploy in your VPC or cTEE", "HypervisorOS bare-metal / cluster nodes", "Audit trails & no-plaintext custody", "IOI L1 settlement", "Dedicated SLA & solutions"] },
 ];
 
 const FAQ = [

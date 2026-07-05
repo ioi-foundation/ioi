@@ -5,6 +5,9 @@ Canonical owner: this file for runtime-node and execution-privacy doctrine; low-
 Supersedes: overlapping hosted/DePIN/TEE prose when execution-venue boundaries conflict.
 Superseded by: none.
 Last alignment pass: 2026-06-22.
+Doctrine status: canonical
+Implementation status: mixed (local venue real; TEE/DePIN/cTEE/embodied venue contracts design-stage)
+Last implementation audit: 2026-07-05
 
 ## Canonical Definition
 

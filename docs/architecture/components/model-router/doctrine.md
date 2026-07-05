@@ -5,6 +5,9 @@ Canonical owner: this file for model routing doctrine; low-level model-router AP
 Supersedes: overlapping model/provider prose when routing or BYOK boundaries conflict.
 Superseded by: none.
 Last alignment pass: 2026-05-24.
+Doctrine status: canonical
+Implementation status: partial (model-route registry, BYOK, and local mounting built; custody-lane taxonomy partially exercised)
+Last implementation audit: 2026-07-05
 
 ## Canonical Definition
 
@@ -143,6 +146,25 @@ If `remote_provider_can_read_weights=true` and the weight class is not public,
 the route cannot be presented as private-native. It is provider-trust or
 forbidden until policy, wallet approval, and user disclosure accept that lane.
 ```
+
+Managed execution mode rule:
+
+```text
+Standard:
+  cTEE/private-native operating substrate by default for IOI-managed execution;
+  provider-trust model routes may be used with disclosure and receipts.
+
+Private:
+  Standard substrate plus no-provider-trust model routing for protected data;
+  use open-weight or user-controlled models inside local, BYO private node,
+  customer-boundary/customer-cloud, cTEE, TEE, or another custody-proven route.
+```
+
+`Private` is not satisfied by a hosted foundation-model API receiving protected
+plaintext, even when the workspace runtime is cTEE-shaped. `Standard` may accept
+that provider-trust route with disclosure; `Private` must route protected
+plaintext away from provider-readable model context or block/downgrade before
+execution.
 
 Supported surfaces should include:
 

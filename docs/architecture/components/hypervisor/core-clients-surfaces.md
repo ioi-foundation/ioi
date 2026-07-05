@@ -9,6 +9,12 @@ Hypervisor product, treats Electron/VS Code hosting as the product identity, or
 treats editor integrations as runtime ownership.
 Superseded by: none.
 Last alignment pass: 2026-06-23.
+Doctrine status: canonical
+Implementation status: partial (product shell, sessions, automations, and estate surfaces live; several application surfaces roadmap)
+Implementation refs:
+  - `apps/hypervisor/`
+  - `crates/node/src/bin/hypervisor_daemon_routes/`
+Last implementation audit: 2026-07-05
 
 ## Canonical Definition
 
@@ -67,6 +73,92 @@ autonomous work across local machines, cloud providers, enterprise
 infrastructure, cTEE/private workspaces, DePIN compute, model providers,
 workers, tools, and domain applications without surrendering runtime truth,
 authority, or capability supply to one vendor.
+```
+
+## Hypervisor Lineage And Operator Entry Contract
+
+Hypervisor must not merely borrow the word "hypervisor" metaphorically. It must
+be a real substrate-control product that also virtualizes autonomy. The Type 3
+autonomy layer is the differentiator, but it is strongest when it can govern the
+Type 1 and Type 2 substrate beneath autonomous work.
+
+Hypervisor supports three substrate modes as deployment and control postures of
+one product:
+
+```text
+Type 1 substrate mode:
+  HypervisorOS / appliance / cluster control for machines, GPUs, storage,
+  networks, VMs, containers, microVMs, sandboxes, local models, robotics
+  runtimes, devices, and trusted execution.
+
+Type 2 substrate mode:
+  Hypervisor Desktop / Workstation hosted on a normal OS for local VMs,
+  sandboxes, models, tools, agents, connectors, projects, environments, and
+  developer/operator workflows.
+
+Type 3 autonomy mode:
+  Autonomy virtualization across sessions, WorkRuns, workers, harnesses, model
+  routes, tools, authority, receipts, replay, outcomes, and promotion.
+
+Hypervisor virtualizes autonomy, but it also governs the substrate autonomy runs
+on.
+```
+
+The product should preserve the interaction grammar infrastructure operators and
+desktop virtualization users already expect:
+
+```text
+Substrate
+  what hosts, providers, runtimes, GPUs, endpoints, devices, and capacity exist?
+
+Inventory
+  what environments, sessions, workers, routes, packages, connectors, and
+  endpoints exist, who owns them, and what state are they in?
+
+Create / Import
+  how do I create, clone, import, restore, or template an environment, worker,
+  route, package, provider recipe, ODK blueprint, or embodied package?
+
+Console
+  what is running right now, what is it doing, how do I interrupt, repair,
+  hand off, inspect artifacts, or open the live workspace?
+
+Operations
+  what is healthy, saturated, blocked, failed, queued, degraded, over budget,
+  migrating, falling back, or awaiting remediation?
+
+Governance / Ledger
+  who is allowed to do what, which approvals are pending, what changed, why did
+  it happen, can it be replayed, restored, rolled back, promoted, or audited?
+```
+
+These are required product capabilities, not permanent rail items. They resolve
+through the existing shell and catalog:
+
+| Operator expectation | Hypervisor home |
+| --- | --- |
+| Substrate overview | Operations, Environments, HypervisorOS/provider detail, Hypervisor Desktop / Workstation |
+| Inventory | Applications catalog, Operations tables, Environments, Sessions |
+| Create / import wizard | Home, New Session, Projects, Environments, Developer & Integrations, ODK |
+| Live console / machine window | Workbench, Sessions, Run Timeline, Open Application |
+| Snapshots / checkpoints / restore | Work Ledger, Workbench, Environments |
+| Networks / storage / devices | Environments, Developer & Integrations, Governance, HypervisorOS, Robot Fleets / Embodied |
+| Tasks / events / logs / alerts | Operations and Work Ledger |
+| RBAC / policy / audit / lifecycle | Governance, Work Ledger, Operations |
+
+Do not hide these behind only AI-native language such as model routes, agent
+harnesses, or conductor loops. Product surfaces may reinterpret the controlled
+object upward from VM to environment/session/worker/route/run, but the visible
+controls must still feel like infrastructure control: table-first inventories,
+create/import wizards, detail pages, live consoles, health/alert panels,
+tasks/events, checkpoints, and policy/audit views.
+
+The stable product truth is:
+
+```text
+Type 1 and Type 2 are the trustable substrate.
+Type 3 is the autonomy virtualization layer above them.
+Hypervisor includes all three without becoming merely another VM manager.
 ```
 
 ## Product Language Layers
@@ -374,7 +466,7 @@ contracts:
 ```text
 Workbench
 Environments
-Agent Studio (Agents / Workers)
+Agent Studio (Agents / Workers, memory profiles, harness projections)
 Foundry
 ODK (Ontology, Data / Knowledge, Blueprints, Surface Generate)
 Domain Apps (generated domain apps, Analyst/query lens)
@@ -385,6 +477,81 @@ Work Ledger (Receipts / Replay, artifacts, lineage, proof)
 Marketplace
 Robot Fleets / Embodied (roadmap)
 ```
+
+## Context, Integrations, And Memory Placement
+
+Connectors, skills, memory, MCP servers, model routes, policies, receipts,
+providers, evals, and similar primitives are not permanent shell rail items.
+They appear through the Applications catalog, the singular Open Application
+slot, and scoped context panels where the user is configuring a concrete piece
+of work.
+
+The primary product venue for the full integration estate is
+Developer & Integrations:
+
+```text
+Developer & Integrations
+  connectors and connected apps
+  MCP servers and surface MCPs
+  provider accounts and BYOK/BYOA
+  APIs, SDKs, ADK, webhooks, service accounts
+  conformance and developer app registration
+```
+
+User and organization settings expose only scoped slices of that estate:
+
+```text
+User settings
+  personal connected apps
+  personal memory and skill preferences
+  delivery/contact channels
+  personal BYOK/BYOA defaults
+
+Organization settings
+  organization connectors and service accounts
+  connector allowlists and provider policies
+  SSO/OIDC, retention, audit, export, shared-memory policy
+  workspace defaults and administrative enrollment
+```
+
+Contextual surfaces expose the same primitives where they are actually used:
+
+```text
+New Session
+  agent, model, harness, tools, memory, privacy, budget, authority
+
+Agent Studio
+  worker tools, skills, memory profile, model/harness, endpoint/package posture
+
+Projects
+  project memory, project connectors, environment recipes, policy defaults
+
+Automations
+  workflow/service triggers, connector steps, approval requirements, delivery
+
+Managed agent console
+  instance connectors, schedules, contact channels, memory posture, updates
+```
+
+Durable workflows remain Automations. Personal shortcuts, reusable snippets, or
+templates may appear inside Skills, Launch Policies, Developer & Integrations,
+or contextual setup panels when they serve the current task, but Hypervisor
+should not add a generic Workflows child tab. Scheduled services, workflow graph
+truth, approval flows, delivery paths, and Automation records belong to the
+top-level Automations surface.
+
+Do not copy reference-product tab taxonomies as Hypervisor product structure.
+Hypervisor has a top-level Automations surface for durable triggers, schedules,
+service graphs, approvals, delivery, and background missions. Agent Studio, New
+Session, Projects, and Developer & Integrations may project automation
+readiness, connector availability, skills, memory posture, and launch policies
+where they are used, but they must not cannibalize Automations as a child tab or
+rename durable Automations into generic workflows.
+
+Agent Wiki / `ioi-memory` is the durable memory substrate. Harness-local
+"brains," scratchpads, summaries, embeddings, and vendor memory features are
+adapters or projections over admitted memory. They do not own portable user,
+project, org, worker, or managed-instance knowledge.
 
 The compact doctrine:
 
@@ -419,8 +586,8 @@ Govern
 
 Observe
   receipts, replay, traces, logs, lineage, state roots, evaluations,
-  simulations, online monitors, quality alerts, work analytics, tool
-  analytics, feedback, examples
+  executable eval worlds, simulations, online monitors, quality alerts, work
+  analytics, tool analytics, feedback, examples
 
 Improve
   Foundry, evals, benchmarks, worker/model promotion, data recipes,
@@ -481,8 +648,8 @@ Foundry
   promotion-candidate lifecycle
 
 Agent Studio
-  agent/harness/tool/memory/authority/eval-readiness and worker/package
-  candidacy
+  agent/harness/tool/memory-profile/memory-projection/authority/eval-readiness
+  and worker/package candidacy
 
 Automations
   trigger, workflow, service, API, schedule, catch-up, and run lifecycle
@@ -532,8 +699,11 @@ Hypervisor Automations
 Hypervisor Foundry
   model catalog, registry, model routes/mounts, tuning, persistent training
   pipelines, dataset factory runs, experiment optimization, artifact
-  conversion, evaluation, datasets, endpoints, monitoring, worker/package
-  creation, and ontology-aware improvement surface
+  conversion, evaluation, executable eval worlds, interactive worlds,
+  gameplay trajectory datasets, scenario curricula, world-model candidates,
+  spatial-temporal policy candidates, transfer gates, tool-call audits,
+  trajectory scorecards, datasets, endpoints, monitoring, worker/package
+  creation, certification-run candidates, and ontology-aware improvement surface
 
 Hypervisor Canvas
   visual builder/editor inside Automations, Workbench, or Foundry where useful;
@@ -1200,7 +1370,7 @@ It does not own:
 - wallet.network authority;
 - Agentgres truth;
 - model private reasoning;
-- persistent workspace memory;
+- persistent workspace, project, or managed-instance memory;
 - Foundry training or distillation;
 - the selected harness's internal loop.
 
@@ -1251,7 +1421,7 @@ A session binds:
 - authority grants and capability leases;
 - policy and approval state;
 - runtime assignment;
-- context chamber / task refs where applicable;
+- context cell / task refs where applicable;
 - cTEE custody posture where applicable;
 - Agentgres refs and receipt obligations;
 - adapter targets;
@@ -1784,6 +1954,14 @@ operator opens Hypervisor App, Hypervisor Web, CLI, or headless client
 ```
 
 ## Minimal Implementation Objects
+
+> **Reference-wall notice.** The object listing below is hand-maintained
+> reference material, not additional doctrine. The source of truth for
+> shipped shapes is the daemon's route/object registry in code; this wall
+> is a design-surface commitment that may lead implementation. Do not
+> narrow it, but do not read presence here as shipped — see the file's
+> `Implementation status`. Generator TODO: emit this section from the
+> daemon schema registry instead of maintaining it by hand.
 
 ```yaml
 HypervisorClient:

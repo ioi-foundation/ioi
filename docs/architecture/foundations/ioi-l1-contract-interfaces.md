@@ -5,6 +5,9 @@ Canonical owner: this file for IOI L1 contract interfaces and sparse root commit
 Supersedes: overlapping smart-contract interface examples in plans/specs when contract responsibility conflicts.
 Superseded by: none.
 Last alignment pass: 2026-05-25.
+Doctrine status: canonical
+Implementation status: speculative (interface sketches for a future chain)
+Last implementation audit: 2026-07-05
 
 ## Purpose
 

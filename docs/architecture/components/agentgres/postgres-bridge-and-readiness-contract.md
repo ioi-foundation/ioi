@@ -5,6 +5,9 @@ Canonical owner: this file for Agentgres Postgres bridge posture, database-readi
 Supersedes: loose "Postgres replacement" language when compatibility or database guarantees are discussed.
 Superseded by: none.
 Last alignment pass: 2026-05-14.
+Doctrine status: canonical
+Implementation status: planned (bridge posture design; file marks roadmap claims itself)
+Last implementation audit: 2026-07-05
 
 ## Canonical Definition
 
@@ -347,6 +350,44 @@ The adoption rule:
 
 > **You can point familiar tools at projection tables, but canonical writes still go through Agentgres operations.**
 
+### SQL Writes as Intents (planned bridge contract)
+
+Implementation status (this contract): planned; doctrine owner is
+[`doctrine.md`](./doctrine.md) (Substrate Contract Doctrine).
+
+A write arriving over the Postgres wire is never a direct mutation. The
+bridge compiles it into a proposed operation and runs the same pipeline as
+any worker effect:
+
+```text
+SQL INSERT/UPDATE/DELETE
+  -> compiled ProposedOperation (schema + constraint resolution)
+  -> validate (admission rules, expected heads)
+  -> policy/authority evaluation by the operation's risk class
+     (canonical ladder: ../../foundations/canonical-enums.md)
+  -> admitted operation + receipt, or refusal with named reason
+  -> projection update (visible to subsequent SQL reads with watermark)
+```
+
+Contract points:
+
+- `SELECT` is a projection read and carries freshness metadata; it never
+  blocks on admission.
+- A refused write surfaces as a SQL error naming the refusal reason
+  (policy, authority, constraint, expected-head conflict) — never a silent
+  drop, never a fake success.
+- Writes that require step-up authority fail with a named
+  approval-required error carrying the approval ref; the bridge does not
+  hold sessions open waiting for human approval.
+- Bulk/batch writes compile into batched operations and settle under the
+  batch-rooting rule; per-row receipts are not minted when a range receipt
+  covers the batch.
+- No bridge path may bypass operation settlement (the Non-goal above is
+  load-bearing; INV-10).
+
+The product claim this contract earns: **it speaks Postgres, but every
+write is governed, receipted, and replayable.**
+
 Projection query support should cover:
 
 - named projections;
@@ -366,6 +407,12 @@ Projection query support should cover:
 Agentgres projections may be served by specialized engines when a dedicated
 serving plane is better than a generic relational projection. Postgres is one
 compatibility bridge, not the privileged long-term shape of every read path.
+
+Incremental view maintenance (DBSP/differential-dataflow-class engines) is
+the preferred realization of the projection freshness contract: projections
+maintained incrementally from the operation log with an explicit, queryable
+watermark, instead of periodic rebuilds. Projection freshness lag is a
+first-class performance metric (see `doctrine.md`, Performance contract).
 
 Projection engine families may include:
 

@@ -5,6 +5,9 @@ Canonical owner: [`_meta/start-here.md`](./_meta/start-here.md).
 Supersedes: references that expected a top-level `docs/architecture/START_HERE.md`.
 Superseded by: none.
 Last alignment pass: 2026-06-23.
+Doctrine status: canonical
+Implementation status: mixed (entry shim; see subject owners)
+Last implementation audit: 2026-07-05
 
 Start with [`_meta/start-here.md`](./_meta/start-here.md).
 
@@ -102,11 +105,13 @@ Current Wallet addition:
 
 Current Wallet/provider integration addition:
 
-> **decentralized.exchange is a route-intelligence engine for liquidity and
-> decentralized.trade is a venue/market-intelligence engine for exposure,
-> including event markets. Hypervisor has direct provider integrations for cloud
-> compute, storage, GPUs, confidential compute, DePIN, local machines, and customer
-> infrastructure. Candidates propose; authority providers and local/domain
+> **decentralized.exchange is a route-intelligence engine for liquidity,
+> decentralized.trade is a venue/market-intelligence engine for exposure
+> including event markets, and decentralized.cloud is a resource-intelligence
+> engine for infrastructure capacity. Hypervisor has direct provider
+> integrations for cloud compute, storage, GPUs, confidential compute, DePIN,
+> local machines, and customer infrastructure. Candidates propose; authority
+> providers and local/domain
 > governance authorize as required, with wallet.network mandatory for portable
 > delegated authority and high-risk external effects; Hypervisor executes or
 > deploys; venues and providers perform; Agentgres records; IOI L1 settles by

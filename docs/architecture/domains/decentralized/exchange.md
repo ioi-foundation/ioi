@@ -9,6 +9,11 @@ exchange backend, a liquidity owner, a custody surface, a router monopoly, or
 a trust root.
 Superseded by: none.
 Last alignment pass: 2026-06-14.
+Doctrine status: canonical
+Implementation status: partial (SDK candidate-source client exists; live route service is a deployment concern)
+Implementation refs:
+  - `packages/wallet-sdk/`
+Last implementation audit: 2026-07-05
 
 ## Canonical Definition
 

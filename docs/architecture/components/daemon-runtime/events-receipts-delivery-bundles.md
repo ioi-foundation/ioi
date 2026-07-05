@@ -5,6 +5,9 @@ Canonical owner: this file for runtime events, receipts, delivery bundles, trace
 Supersedes: overlapping event/receipt examples in plans/specs when event, trace, or receipt fields conflict.
 Superseded by: none.
 Last alignment pass: 2026-06-23.
+Doctrine status: canonical
+Implementation status: partial (receipts/events live across built planes; delivery-bundle settlement planned)
+Last implementation audit: 2026-07-05
 
 ## Purpose
 
@@ -12,6 +15,17 @@ Events enable observation; receipts enable proof; replay enables inspection;
 delivery bundles enable marketplace settlement. These objects must be
 consistent across Hypervisor clients/application surfaces, Hypervisor Daemon,
 Agentgres, aiagent.xyz, sas.xyz, and wallet.network.
+
+## Receipt Schema Ownership
+
+This file is the sole schema owner for receipt types (INV-9,
+[`../../foundations/invariants.md`](../../foundations/invariants.md)). Venue
+and domain docs (`private-workspace-ctee.md`, `hypervisoros.md`,
+`embodied-runtime.md`, `runtime-nodes-tee-depin.md`,
+`default-harness-profile.md`, and others) describe *when* their receipts mint
+and what they must bind; the field-level schema of a receipt type is defined
+here and only here. If a receipt shape elsewhere disagrees with this file,
+this file wins; update the other doc.
 
 Work analytics, tool analytics, feedback annotations, and rollout observations
 are observation/improvement signals. They may inform Foundry evals, routing,

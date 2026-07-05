@@ -9,6 +9,9 @@ Hypervisor product, room UI, fixed swarm, public leaderboard, or benchmark-only
 workflow.
 Superseded by: none.
 Last alignment pass: 2026-06-22.
+Doctrine status: canonical
+Implementation status: partial (GoalRun multi-harness orchestration built; multi-path attempt comparison partial)
+Last implementation audit: 2026-07-05
 
 ## Canonical Definition
 

@@ -5,6 +5,9 @@ Canonical owner: this file for installable domain extensions over the aiagent Di
 Supersedes: plan prose that models verticals as hardcoded categories or separate runtimes.
 Superseded by: none.
 Last alignment pass: 2026-06-17.
+Doctrine status: canonical
+Implementation status: planned
+Last implementation audit: 2026-07-05
 
 ## Canonical Definition
 

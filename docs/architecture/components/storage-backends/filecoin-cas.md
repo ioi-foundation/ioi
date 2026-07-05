@@ -6,6 +6,11 @@ Supersedes: product prose that presents Filecoin/CAS as a peer architecture
 authority component.
 Superseded by: none.
 Last alignment pass: 2026-05-30.
+Doctrine status: canonical
+Implementation status: built (sealed archive custody with preflight probes and done-bar)
+Implementation refs:
+  - `crates/node/src/bin/hypervisor_daemon_routes/`
+Last implementation audit: 2026-07-05
 
 ## Canonical Definition
 

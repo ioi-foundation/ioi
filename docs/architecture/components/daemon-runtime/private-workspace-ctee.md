@@ -7,6 +7,9 @@ safely receive plaintext secrets merely because it runs a daemon, container,
 VM, benchmarked image, or boot-measured image.
 Superseded by: none.
 Last alignment pass: 2026-06-01.
+Doctrine status: canonical
+Implementation status: speculative (cTEE/CLPD design; no cTEE implementation)
+Last implementation audit: 2026-07-05
 
 ## Canonical Definition
 
@@ -36,6 +39,45 @@ Run on rented GPU compute.
 Private files, alpha, PII, credentials, and action authority stay out of
 provider-readable plaintext by default.
 ```
+
+Managed execution modes:
+
+```text
+User-facing modes:
+  Standard
+  Private
+
+Standard = private-native operating substrate by default:
+  cTEE / Plaintext-Free Runtime Mounting for IOI-managed execution
+  scoped authority
+  connector vaulting
+  receipts
+  provider-trust model routes allowed with disclosure
+
+Private = Standard plus no-provider-trust model routing:
+  open-weight or user-controlled model route
+  Private Workspace backed by cTEE
+  hardware TEE
+  local-only execution
+  customer-boundary / customer-cloud execution
+  BYO private node
+  another approved custody-proven route
+```
+
+Private ioi.ai, Hypervisor private sessions, and marketplace/private worker
+placements may require a paid plan, Work Credits, enterprise entitlement, or BYO
+node when IOI provisions managed confidential compute, protected connector
+processing, persistent private workspace custody, encrypted storage, or
+attestation/custody proof. The paid entitlement is for the managed private
+runtime, stricter no-provider-trust model route, and proof obligations; it is
+not a fee on privacy as a concept.
+
+No surface may claim `Private`, `Private Workspace`, `cTEE`, `private_native`,
+or `no-provider-trust` merely because the user selected a private toggle.
+`Standard` may be cTEE/private-native at the runtime layer while still allowing
+provider-trust model routes. `Private` must bind the corresponding privacy
+posture, custody proof, model/API boundary, no-provider-trust route, and receipt
+obligations before the label is shown as satisfied.
 
 Default execution strategy:
 
@@ -506,7 +548,7 @@ weights. The route must be forbidden, moved local/customer/TEE/API-side, or
 approved as provider-trust with receipt-backed disclosure.
 ```
 
-Postures:
+Execution postures:
 
 ```text
 Private-native
@@ -532,6 +574,10 @@ sas.xyz outcomes, aiagent.xyz workers, enterprise packages, and third-party
 agent harnesses should label whether they are private-native, redacted-API,
 provider-trust, or unsafe for private workspace data.
 ```
+
+These are not product modes. Product surfaces expose `Standard` and `Private`.
+The posture labels above are receipt, audit, marketplace, and admission evidence
+used to prove which mode a run actually satisfied.
 
 The default rented 3090 view is:
 
@@ -1711,8 +1757,9 @@ An implementation conforms when:
     path.
 18. Deterrence/detection canaries are synthetic, policy-labeled, and excluded
     from real decisions, memory admission, training, and settlement truth.
-19. The UI exposes whether a run is `Public`, `Redacted`,
-    `Private Workspace`, `TEE`, or `Unsafe`.
+19. Product UI exposes the user-facing mode as `Standard` or `Private`; detailed
+    proof views may expose `private_native`, `redacted_api`, `provider_trust`,
+    `TEE`, `cTEE`, or `unsafe` as evidence.
 20. Any third-party model API that may receive sensitive plaintext is labeled
     `provider_trust` and disclosed before execution.
 21. `private_native` posture is not claimed when sensitive plaintext is sent to

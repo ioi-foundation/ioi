@@ -7,6 +7,9 @@ classes, and approval rules.
 Supersedes: older flattened tool capability examples in plans/specs.
 Superseded by: none.
 Last alignment pass: 2026-06-23.
+Doctrine status: canonical
+Implementation status: partial (RuntimeToolContract owner; daemon tool catalog live, canonical enum migration is tracked debt)
+Last implementation audit: 2026-07-05
 
 ## Purpose
 
@@ -28,7 +31,7 @@ application surfaces, or extension hosts.
   "input_schema": {},
   "output_schema": {},
   "risk_class": "external_message",
-  "effect_class": "read | draft | write_reversible | external_message | commerce | funds | policy_widening | secret_export",
+  "effect_class": "external_message",
   "concurrency_class": "safe_parallel | resource_scoped | exclusive | serialized",
   "timeout": {
     "default_ms": 30000,
@@ -55,6 +58,12 @@ application surfaces, or extension hosts.
   "owner": "connector://gmail"
 }
 ```
+
+`risk_class` (the class assessed at admission) and `effect_class` (the effect
+actually performed) both draw their members from the canonical risk-class
+ladder in
+[`../../foundations/canonical-enums.md`](../../foundations/canonical-enums.md);
+neither field defines its own enum.
 
 Tool analytics are improvement signals, not execution truth. They may record
 call volume, latency, error class, missing-capability requests, intent,
@@ -226,17 +235,23 @@ DELETE /v1/connectors/{connector_id}/subscriptions/{subscription_id}
 
 ## Risk Classes
 
+The canonical member set and ladder order are owned by
+[`../../foundations/canonical-enums.md`](../../foundations/canonical-enums.md)
+(`credential_touching` is the deprecated alias of `credential_access`).
+Canonical ladder excerpt:
+
 ```text
 read
-local_write
 draft
+local_write
 write_reversible
 external_message
 commerce
 funds
-credential_touching
-secret_export
+credential_access
 policy_widening
+secret_export
+identity_change
 system_destructive
 ```
 

@@ -5,6 +5,9 @@ Canonical owner: this file for runtime, audit, substrate, projection, and naming
 Supersedes: overlapping runtime vocabulary in plans/specs when names conflict.
 Superseded by: none.
 Last alignment pass: 2026-06-22.
+Doctrine status: reference
+Implementation status: mixed (naming reference across all maturity levels)
+Last implementation audit: 2026-07-05
 
 The agent harness uses behavior-first names in runtime code and reserves
 compliance acronyms for hidden audit material.
@@ -77,6 +80,14 @@ product pitch or routine onboarding flow.
   bare-metal conformance. It improves integrity/control/measurement; it does
   not make consumer GPUs confidential compute and does not replace cTEE
   no-plaintext-custody.
+- `HypervisorSubstrateMode`: the deployment/control posture by which the same
+  Hypervisor control plane governs substrate and autonomy. Values are
+  `type1_hypervisoros`, `type2_desktop_workstation`, and
+  `type3_autonomy_plane`. Type 1 governs bare-metal/appliance/cluster substrate;
+  Type 2 governs hosted local/workstation substrate on a normal OS; Type 3
+  virtualizes autonomous work across sessions, WorkRuns, workers, model routes,
+  tools, authority, receipts, replay, outcomes, and promotion. These are not
+  three products.
 - `HypervisorOSNode`: a runtime node running the HypervisorOS bare-metal
   profile. It may expose microVM, container, WASM, model-server, and tool-runner
   substrates, but all autonomous workloads remain subordinate to Hypervisor
@@ -225,6 +236,31 @@ product pitch or routine onboarding flow.
   authority, execution, storage truth, or privacy proof until selected into an
   approved CloudRoute and executed through the daemon/provider boundary with
   receipts.
+- `CloudResourceIntent`: a decentralized.cloud resource request describing the
+  desired infrastructure capacity, user placement choice (`run local`, `use my
+  infrastructure`, `pick a cloud`, or `let Hypervisor choose`), placement
+  source, selection mode, runtime class, resource classes, custody posture,
+  privacy requirements, region preferences, budget policy, failover policy,
+  support boundary, and evidence refs. It is not authority and cannot execute.
+- `CloudResourceCandidate`: a decentralized.cloud resource candidate from a
+  resource-intelligence source, direct provider adapter, customer inventory,
+  DePIN market, storage network, managed capacity, or user route. It may carry
+  provider quote, spend estimate, custody plan, failover plan, reliability,
+  region, availability, and interruption-risk evidence. It cannot provision,
+  spend, release credentials, expose ingress, claim custody, or restore until
+  selected into a Hypervisor-admitted placement and authorized as required.
+- `ProviderQuote`: quoted resource capacity, price, availability, expiry,
+  provider semantics, and evidence for placement comparison. It is not spend
+  authority.
+- `CustodyPlan`: a placement-supporting plan for snapshot/archive bytes,
+  state-root checks, cTEE/TEE posture, provider trust, encrypted storage, and
+  restore evidence. Storage availability does not equal restore validity.
+- `FailoverPlan`: candidate alternatives, health thresholds, re-placement
+  policy, data movement assumptions, restore material requirements, expected
+  downtime, and authority refs required before failover.
+- `SpendEstimate`: estimated provider cost, Hypervisor cost, routing-fee
+  eligibility, cost owner, billing path, and uncertainty. It is not spend
+  authority.
 - `HarnessProfile`: a daemon-executed or daemon-mediated step-resolution
   profile/adapter. A selected harness profile resolves a scoped step under
   daemon gates and must produce common boundary objects such as
@@ -237,6 +273,26 @@ product pitch or routine onboarding flow.
   template for custom profiles and as the ordinary fallback, but it is not the
   only admissible harness, not a meta-harness above external harnesses, and not
   the Workflow Compositor.
+- `GoalKernel` / `GoalMicroharness`: goal-shaped orchestration kernel used by
+  ioi.ai and Hypervisor Sessions. It turns intent into a durable GoalRun,
+  grounds context, selects a role topology, leases context, delegates bounded
+  work when useful, verifies through the selected VerifierPath, reconciles
+  receipts, and carries continuation state across compaction or session
+  boundaries. It is not a super-agent and not a swarm-control UI.
+- `GoalRun`: durable coordination record for a goal-shaped unit of work:
+  normalized intent, constraints, role topology, context cells, context leases,
+  handoffs, orchestration plans, verifier path, receipts, and continuation
+  state. It is not a chat transcript or a harness-local memory file.
+- `GoalGroundingLoop`: low-level conductor-orientation loop for goal-shaped
+  work: receive intent, classify risk, gather grounding, inspect current state,
+  derive constraints and acceptance, select topology, lease context, open
+  Context Cells only when useful, delegate or execute, monitor, verify, repair
+  or escalate, reconcile receipts/memory/skills, and continue or close. It
+  optimizes progress per token rather than maximizing agent calls.
+- `RoleTopology`: provider-neutral role shape for a GoalRun, such as direct,
+  goal-conductor, delegated-build, governed-release, multi-context-review, or
+  specialist-mesh. Roles may resolve to any compatible HarnessProfile,
+  AgentHarnessAdapter, worker, local model, hosted agent, or future harness.
 - `LoopNativeExecution`: the execution discipline in which scoped work advances
   by model pass, action proposal, authority/policy gate, execution, result
   normalization, receipt/Agentgres/context update, and model re-entry until
@@ -248,10 +304,36 @@ product pitch or routine onboarding flow.
   verification, service step, loop depth, artifact locality, or Agentgres
   domain boundary. It may start as a projection and should become canonical
   only when replay, repartition, or cross-actor routing needs object identity.
-- `ContextChamber`: a bounded context scope for one task, actor, service step,
-  or verifier. It carries local goal, constraints, authority, evidence refs,
-  receipt refs, observations, uncertainty, loop policy, and output policy
-  without dumping global context into every actor.
+- `ContextCell`: durable role context for conductor, implementer, reviewer,
+  verifier, operator, specialist, task, service step, or memory-curation work
+  under a GoalRun or run. It carries local goal, constraints, authority,
+  evidence refs, receipt refs, observations, uncertainty, loop policy, and
+  output policy without dumping global context into every actor. It protects
+  long-horizon intent from implementation-token churn and receives only scoped
+  memory, tool, model, and authority leases.
+- `ContextHandoff`: typed packet between Context Cells, such as task brief,
+  implementation result, blocker, diff summary, test result, review request,
+  verification result, decision request, or continuation summary. Agent-to-agent
+  exchange should become a ContextHandoff, not unbounded chatter.
+- `ContextLease`: scoped context/tool/memory/authority/budget lease issued to a
+  Context Cell or HarnessInvocation. It limits which files, docs, memory
+  projections, tools, connectors, receipts, and authority scopes a harness may
+  use.
+- `TaskBriefPayload`: normalized bounded-work payload attached to a
+  ContextHandoff. It carries objective, scope, canon refs, constraints,
+  do-not-touch rules, acceptance, verification plan, context leases, and output
+  contract.
+- `HarnessInvocation`: daemon-mediated invocation of a selected HarnessProfile
+  or AgentHarnessAdapter. The adapter may render prompts or commands internally,
+  but the durable contract remains the task brief, context leases, adapter
+  events, implementation result, and receipts.
+- `HarnessAdapterEvent`: normalized event emitted during a HarnessInvocation,
+  such as stdout, file_changed, patch_created, test_completed, blocker,
+  decision_request, artifact_created, receipt_emitted, completed, or failed.
+- `ImplementationResultPayload`: normalized result returned from a harness
+  invocation. It contains changed files, patch refs, test results, blockers,
+  artifacts, receipts, summary, and recommended next handoff; the conductor
+  consumes this instead of copied chat output.
 - `OutputOwnershipPass`: the final cognitive ownership step in which the
   accountable worker, service engine, or runtime synthesizes output after
   evidence, normalized observations, receipts, artifact refs, verification
@@ -316,9 +398,30 @@ product pitch or routine onboarding flow.
   Lattice Execution. It binds lattice commitment, width/depth/token budgets,
   generation rules, padding/dedupe policy, node ref, policy hash, and state
   root.
+- `ManagedExecutionMode`: the user-facing execution/privacy selector. Values are
+  `Standard` and `Private`. `Standard` means the IOI-managed runtime uses the
+  private-native operating substrate by default, including cTEE /
+  Plaintext-Free Runtime Mounting, scoped authority, connector vaulting, and
+  receipts, while provider-trust model routes may still be allowed with
+  disclosure. `Private` means the same private-native substrate plus a
+  no-provider-trust model route, using open-weight or user-controlled models
+  inside local, BYO private node, customer-boundary/customer-cloud, cTEE, TEE, or
+  another custody-proven route. Technical states such as `redacted_api`,
+  `provider_trust`, and `unsafe` are execution/admission evidence, not separate
+  product modes.
 - `ExecutionPrivacyPosture`: the cTEE posture label for a worker, service,
   outcome engine, or harness path. Values include `private_native`,
   `redacted_api`, `provider_trust`, and `unsafe`.
+- `PrivateManagedExecutionPosture`: the product/entitlement posture for
+  managed private execution where Hypervisor, ioi.ai, aiagent.xyz, or sas.xyz
+  provisions or brokers a Private Workspace backed by cTEE, hardware TEE,
+  local-only execution, BYO private node, customer-boundary/customer-cloud
+  execution, or another approved no-provider-trust route. It may be plan-,
+  Work Credit-, enterprise-, or BYO-node-gated when managed compute, protected
+  connector processing, encrypted storage, proof, audit/replay, or persistent
+  background private work is provided. It is not a connector tax and is not
+  proof of privacy without an `ExecutionPrivacyPosture`, custody proof,
+  model/API boundary, and receipts.
 - `ProviderTrustBoundary`: the boundary crossed when sensitive plaintext is sent
   to a third-party model API or provider service. Contractual no-training,
   retention, or enterprise privacy controls may be valuable, but they are not
@@ -437,6 +540,11 @@ product pitch or routine onboarding flow.
   It binds route, calldata commitments, slippage, simulation hash, policy hash,
   grant/lease, revocation epoch, economics, risk labels, and exact `TxIntent`
   records before any exchange can be approved or signed.
+- `IOI / ioi.ai`: the primary public umbrella and account/control-plane front
+  door for the IOI product family. This is a brand/distribution boundary, not a
+  runtime ownership boundary: Hypervisor still executes, wallet.network still
+  authorizes, Agentgres still records truth, and `decentralized.*` remains the
+  protocol namespace for candidate intelligence.
 - `RouteCandidate`: a proposed route from decentralized.exchange, direct pool
   adapters, DEX routers, bridge routers, solvers, quote APIs, RFQ systems, or
   user-specified paths. It is not authority and cannot execute until selected
@@ -454,6 +562,14 @@ product pitch or routine onboarding flow.
   paper venues, venue comparison, and trade-candidate receipts; it does not own
   user authority, custody, final approval, venue execution, market resolution,
   user positions, policy, or settlement truth.
+- `decentralized.cloud`: a preferred first-party resource-intelligence engine
+  for infrastructure capacity. Hypervisor, wallet.network, ioi.ai, agents, and
+  clients may consume it through API/RPC/SDK boundaries for cloud resource
+  candidates, provider quotes, resource-liquidity discovery, custody plans,
+  failover plans, spend estimates, adapter registry metadata, reliability
+  evidence, cloud-picker comparison, and optimized-placement suggestions; it
+  does not own provider accounts, credentials, spend authority, VM lifecycle,
+  restore truth, storage custody, Hypervisor execution, or settlement.
 - `TradeIntent`: the semantic wallet object above raw venue order or calldata.
   It binds venue, market, side, collateral, leverage, margin mode, order type,
   liquidation/funding assumptions, max-loss policy, simulation, risk labels,
@@ -703,7 +819,9 @@ product pitch or routine onboarding flow.
   preferences. It is not a wallet grant.
 - `VerifierPath`: configured verification shape for a plan, run, worker, route,
   or package. It may include deterministic checks, tests, verifier workers,
-  model judges, human review, benchmark gates, or regulated review.
+  model judges, human review, benchmark gates, or regulated review. For ordinary
+  goal work, the conductor may satisfy the VerifierPath through deterministic
+  checks; independent verifier harnesses are policy-triggered escalation paths.
 - `OrchestrationDecisionReceipt`: receipt recording the candidate plans,
   constraint envelope, orchestration policy, selected plan, selected model
   routes, harnesses, workers, verifier paths, evidence basis, and reason codes.
@@ -1022,8 +1140,9 @@ product pitch or routine onboarding flow.
 - `ManagedWorkerInstance`: a user-, org-, or project-bound initialization of a
   worker package. Product UX may call this an agent instance, but canonical
   state should bind it to a worker manifest, install/license right, runtime
-  assignment, persistence profile, authority policy, memory/archive policy, and
-  subscription or entitlement.
+  assignment, persistence profile, authority policy, Agent Wiki / `ioi-memory`
+  refs, memory profile, projection policy, archive policy, and subscription or
+  entitlement.
 - `ManagedWorkerInstanceLifecycle`: the admitted lifecycle for a managed worker
   instance, including install, initialize, grant authority, assign runtime,
   active, idle, zero-to-idle, suspend, payment past due, archive, restore,
@@ -1043,6 +1162,18 @@ product pitch or routine onboarding flow.
   memory, thread checkpoints, core and archival memory, local evidence blobs,
   and enrichment jobs. It is a context-memory plane, not Agentgres and not IOI
   L1.
+- `MemoryProfile`: the declared retention, privacy, portability, projection,
+  archive, restore, export, and forget posture for Agent Wiki / `ioi-memory`.
+  Worker packages may declare supported profiles, but the managed instance owns
+  the concrete profile binding.
+- `MemoryArchive`: an encrypted restorable memory payload bundle. Agentgres owns
+  archive refs, receipts, restore/import truth, and policy linkage; storage
+  backends hold bytes; authority providers gate restore/decryption/export when
+  required.
+- `MemoryProjection`: a policy-filtered view of Agent Wiki / `ioi-memory` for a
+  target harness, model route, worker, surface, API, or MCP endpoint. It is the
+  portability layer that keeps harness-local memory as cache rather than the
+  durable brain.
 - `ContextMemoryPlane`: the adjacent memory/retrieval plane that governs what
   agents can know, remember, and retrieve. Agentgres governs which context
   changes are canonical, replayable, portable, shared, policy-relevant, or
@@ -1063,6 +1194,12 @@ product pitch or routine onboarding flow.
   storage, replay, Foundry, automation, conductor, worker, verifier, service,
   and audit usage. It is not necessarily the final settlement asset and should
   not be treated as a protocol token by default.
+- `VerifiedWorkGraph`: the network-level economic memory assembled from
+  WorkRuns, receipts, ContributionReceipts, RoutingDecisionReceipts, benchmark
+  and eval outcomes, authority refs, worker/harness/model/tool/provider
+  identities, cost/quality evidence, marketplace installs, managed instances,
+  service orders, disputes, and selected settlement roots. It is a graph of
+  evidence across owner domains, not a single database, chain, or UI.
 - `Model`: a cognition backend mounted or invoked by a worker. Models are not
   the economic actor by themselves. Model routing belongs to the runtime/node
   contract; model weights or provider endpoints are mounted by deployment
@@ -1137,11 +1274,14 @@ product pitch or routine onboarding flow.
 - `HypervisorFoundry`: the Hypervisor application surface for model catalog,
   model registry, model routes/mounts, tuning, training, evaluation, datasets,
   feature views, experiments, pipelines, endpoints, batch inference, metadata,
-  monitoring, simulation training, robotics worlds, worker/package creation,
-  ontology-aware package building, and promotion proposals. It can project
-  recipes into the standard Workflow Compositor, but it is not a separate
-  canvas environment, ioi.ai coordination surface, physical actuator authority,
-  or runtime.
+  monitoring, executable eval worlds, tool-call audits, trajectory scorecards,
+  interactive worlds, gameplay trajectory datasets, scenario curricula,
+  world-model candidates, spatial-temporal policy candidates, transfer gates,
+  simulation training, robotics worlds, worker/package creation,
+  ontology-aware package building, certification-run candidates, and promotion
+  proposals. It can project recipes into the standard Workflow Compositor, but
+  it is not a separate canvas environment, ioi.ai coordination surface,
+  transfer-gate admission owner, physical actuator authority, or runtime.
 - `HypervisorProviderEnvironmentView`: default Hypervisor App, Hypervisor Web,
   CLI/headless, optional TUI, or console view for hands-on management of
   attached nodes, providers, persistent workspaces, active

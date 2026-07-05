@@ -5,6 +5,9 @@ Canonical owner: this file for Worker Training lifecycle, training-vs-mutation d
 Supersedes: product, marketplace, or model docs when they reduce Worker Training to fine-tuning alone or crown one model architecture as the IOI default.
 Superseded by: none.
 Last alignment pass: 2026-06-22.
+Doctrine status: canonical
+Implementation status: partial (Foundry draft object plane exists and is deliberately inert; no real training pipeline)
+Last implementation audit: 2026-07-05
 
 ## Canonical Definition
 
@@ -156,6 +159,22 @@ Agent Wiki memory, route preference, verifier rule, or workflow patch may be
 admitted directly through governance. Model training, distillation, dataset
 curation, benchmark publication, or worker-package promotion should route
 through Foundry.
+
+Do not collapse all learning into model training. The architecture distinguishes:
+
+```text
+instance memory
+  user/org/project/worker-specific preferences, facts, procedures, failures,
+  connector observations, game lessons, and route notes
+
+package improvement
+  generalized skill, workflow, verifier, tool strategy, harness profile,
+  routing policy, eval, or package revision
+
+model/worker training
+  Foundry-governed dataset, distillation, post-training, benchmark,
+  packaging, registry, and promotion work
+```
 
 This keeps scalable improvement practical: ordinary services can use one
 workflow, one selected HarnessProfile, one model route, and persistent

@@ -5,6 +5,9 @@ Canonical owner: this file for model provider, endpoint, route, invocation, BYOK
 Supersedes: overlapping model-router API examples in plans/specs when route or invocation fields conflict.
 Superseded by: none.
 Last alignment pass: 2026-05-24.
+Doctrine status: reference
+Implementation status: partial (route/mount APIs live)
+Last implementation audit: 2026-07-05
 
 ## Purpose
 

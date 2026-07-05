@@ -4,13 +4,36 @@ Status: canonical architecture authority.
 Canonical owner: this file for ioi.ai account, device, restore, publishing, entitlement, console Environments views, and remote-runtime coordination boundaries.
 Supersedes: product prose that implies ioi.ai owns raw secrets, full traces, user workspaces, always-on execution, or marketplace operational truth.
 Superseded by: none.
-Last alignment pass: 2026-06-22.
+Last alignment pass: 2026-07-05.
+Doctrine status: canonical
+Implementation status: planned (thin account/device/restore control plane design)
+Last implementation audit: 2026-07-05
 
 ## Canonical Definition
 
 **ioi.ai is the lightweight user/control-plane application domain for IOI accounts, devices, runtime discovery, restore routing, publishing flows, training metadata pointers, sync metadata, billing/entitlements, console/org administration, Hypervisor Environments web views, and remote-runtime coordination.**
 
 It is not the heavy agent runtime, credential vault, marketplace database, or canonical state store for all user work.
+
+## Public Umbrella Boundary
+
+IOI / `ioi.ai` is the primary public umbrella and account/control-plane front
+door for the IOI product family. `internetofintelligence.com` may remain the
+long-form institutional or explanatory domain, but the short public brand should
+center on IOI / `ioi.ai` when a single umbrella is needed.
+
+This is a brand and distribution rule, not a runtime ownership rule.
+`ioi.ai` may present or coordinate access to Hypervisor, wallet.network,
+Agentgres-backed truth, aiagent.xyz, sas.xyz, and the `decentralized.*`
+candidate-intelligence protocols, but it does not absorb their authority,
+execution, marketplace, receipt, provider, storage, or settlement ownership.
+
+`decentralized.exchange`, `decentralized.trade`, and `decentralized.cloud`
+remain protocol/product namespaces under IOI for route, venue, and resource
+candidate intelligence. They do not need to be maintained as equal public
+umbrella channels. In product surfaces, they may appear as human labels such as
+Exchange, Trade, and Cloud Routing, while receipts, APIs, SDKs, and developer
+docs preserve the exact `decentralized.*` source names.
 
 Product boundary doctrine:
 

@@ -11,8 +11,20 @@ self-hosted Hypervisor deployment as having no daemon-side plane, or that treats
 identity roles as machine authority.
 Superseded by: none.
 Last alignment pass: 2026-06-27.
+Doctrine status: canonical
+Implementation status: built (principals, sessions, OIDC SSO, SCIM, enforcement, and OCU metering live)
+Implementation refs:
+  - `crates/node/src/bin/hypervisor_daemon_routes/`
+Last implementation audit: 2026-07-05
 
 ## Canonical Definition
+
+Placement note: this file lives under `components/hypervisor/` because it
+is estate/product-facing governance, but the plane it specifies is owned
+and enforced by the Hypervisor Daemon (a deployment-local daemon
+governance plane). Read it as daemon-runtime authority projected into the
+product estate; it was deliberately not moved to avoid churn on
+cross-references.
 
 The Hypervisor Daemon owns a **deployment-local governance plane** that answers
 *who is operating this deployment, what org-surface access they hold, what

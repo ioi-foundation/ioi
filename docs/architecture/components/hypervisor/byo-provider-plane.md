@@ -1,6 +1,11 @@
 # BYO Provider Plane
 
 Status: implemented contract (daemon `provider_routes.rs`, first cut)
+Doctrine status: canonical
+Implementation status: built (plane + ssh/vast/runpod/lambda_cloud/akash/aws/gcp lanes; k8s credential+preflight only; live paths env-gated)
+Implementation refs:
+  - `crates/node/src/bin/hypervisor_daemon_routes/provider_routes.rs`
+Last implementation audit: 2026-07-05
 Canonical owner: this file for the ProviderAccount object plane, provider credential
 binding, snapshot custody, and provider spend posture. Provider/environment doctrine
 authority remains `providers-and-environments.md`; pricing boundaries remain
@@ -130,171 +135,64 @@ placement, and charges only where it provides control-plane, orchestration,
 routing, custody, or managed-capacity value.
 ```
 
-### Implemented contract (placement picker cut)
+### Implemented contract (current state)
 
-Daemon truth, live-composed from ProviderAccount records, environment-class
-provider eligibility, and preflight posture:
+Implementation status: built for the placement picker, candidate-plane
+advisory fill, spend reconciliation, and the adapter lanes below.
+Daemon truth is live-composed from ProviderAccount records,
+environment-class provider eligibility, and preflight posture:
 
-- `GET /v1/hypervisor/placement/venues` — the four venue cards (`run_local` ·
-  `use_my_infrastructure` · `pick_provider` · `hypervisor_choose`) with
-  per-venue fee posture (`fee_basis`, explanation, `fee_object_minted: false`,
-  `cost_owner: customer`), kind-level capability hints (GPU / storage / IP /
-  snapshot — labeled hints, never probed claims), connected/not-connected
-  provider cards with verified/unverified + preflight reasons, and the declared
-  `fee_bases` taxonomy (`none | subscription_control_plane |
-  adapter_orchestration_fee | routing_fee | managed_margin`). No fee objects,
-  no invented quotes (`quote: null` + quote policy), no RoutingDecisionReceipt.
-- `GET|PUT /v1/hypervisor/placement/venue-policy` — the durable chosen venue
-  (`ioi.hypervisor.placement-venue-policy.v1`, singleton `current`, history
-  appended). Provider-pinned venues require a resolvable ProviderAccount of the
-  right family; `hypervisor_choose` is accepted as an ADVISORY placeholder
-  (`effective_venue: run_local`, explicit note) until the decentralized.cloud
-  candidate plane exists — venue selection is never hidden behind auto.
-- `GET /v1/hypervisor/placement/preview` — the pre-launch placement projection:
-  venue card + pinned provider posture + fee copy + `receipts_expected` (the
-  PlacementDecision / ProviderOperationReceipt / budget-discovery / lease
-  receipt kinds a run at this venue mints — named before launch).
-- Consumption: ioi-agent launch previews carry a `placement` block; launch
-  phase A and environment create snapshot the venue policy in force
-  (provenance — substrate stays local until session relocation lands). Provider
-  receipts surface in the Work Ledger as `provider_crossing` proof entries.
-- Surfaces: New Session modal venue picker (four explicit choices, fee copy,
-  provider pinning); Environments shows the venue cards + provider cards;
-  Operations links provider receipts into the ledger.
+- `GET /v1/hypervisor/placement/venues` — the four venue cards with
+  declared fee posture (`fee_object_minted: false`, `cost_owner:
+  customer`), capability hints, and connected-provider status. No fee
+  objects, no invented quotes, no RoutingDecisionReceipt.
+- `GET|PUT /v1/hypervisor/placement/venue-policy` — the durable chosen
+  venue (`ioi.hypervisor.placement-venue-policy.v1`); `hypervisor_choose`
+  is filled by the decentralized.cloud candidate plane
+  (`/v1/hypervisor/cloud-candidates/*`, canonical doctrine
+  [`cloud.md`](../../domains/decentralized/cloud.md)) with explicit
+  `no_eligible_candidate` → `run_local` fallback.
+- `GET /v1/hypervisor/placement/preview` — the pre-launch placement
+  projection with `receipts_expected` named before launch.
+- `GET /v1/hypervisor/provider-spend/reconciliation` — quote-backed
+  `provider-spend-exposure://pse_*` rows open on metered create, reserve
+  first-hour estimates against `external_spend`, and close (or
+  `closed_with_warning`) on teardown; budget `spent` reflects actual
+  debits only.
 
-Done-bar: `apps/hypervisor/scripts/verify-hypervisor-placement-venue-picker.mjs`.
+Adapter lanes proven behind this contract. Every lane preserves its
+provider's real semantics — never a flattened generic cloud; quotes are
+verbatim source prices or skipped (never estimated); provider-native ids
+are evidence only; daemon-admitted sha256 state roots are the only
+restore truth; live proof is env-gated and otherwise blocks with a named
+reason (never silently simulated):
 
-The `hypervisor_choose` venue is filled by the decentralized.cloud candidate
-plane (`/v1/hypervisor/cloud-candidates/*` — canonical doctrine
-`../../domains/decentralized/cloud.md`): evidence-bound, expiring candidates
-derived from local facts, a deterministic reason-coded advisory, and explicit
-`no_eligible_candidate` fallback to `run_local`. Candidates are never
-authority; no fee objects or RoutingDecisionReceipt exist. The first live
-external quote source is Vast (`adapter:vast-quote`, quote + preflight +
-candidate enrichment only — verbatim offer prices, `advisory_only`
-eligibility, done-bar `verify-hypervisor-vast-candidate-adapter.mjs`). The guarded Vast
-LIFECYCLE is live behind it: quote-gated create (budget → quote freshness/
-liveness → wallet lease binding quote/candidate/max-price/GPU/teardown), the
-BYO SSH workspace/custody contract reused verbatim on the leased instance,
-enriched receipts on every path, teardown always; simulator control plane for
-CI (labelled, live_provisioning_not_run); done-bar
-`verify-hypervisor-vast-lifecycle.mjs`.
+| Lane | Kind / adapter | Semantics preserved | Gate codes | Live proof | Done-bar |
+| --- | --- | --- | --- | --- | --- |
+| BYO SSH | `baremetal_ssh` | reference custody lane, full lifecycle over genuine ssh | — | loopback sshd fixture | `verify-hypervisor-byo-provider-plane.mjs` |
+| GPU marketplace | `vast` / `adapter:vast-quote` | offer/bid marketplace lease, quote-gated create | `vast_*` | `IOI_VAST_LIVE=1` | `verify-hypervisor-vast-lifecycle.mjs` |
+| GPU runtime cloud | `runpod` / `adapter:runpod-quote` | direct-provider GPU runtime, secure/community rate cards | `runpod_*` | `IOI_RUNPOD_LIVE=1` | `verify-hypervisor-runpod-adapter.mjs` |
+| GPU VM | `lambda_cloud` / `adapter:lambda-quote` | ordinary Linux GPU VM + ssh + instance-lifetime disk | `lambda_cloud_*` | `IOI_LAMBDA_LIVE=1` | `verify-hypervisor-lambda-gpu-vm-adapter.mjs` |
+| DePIN compute | `akash` / `adapter:akash-bid` | SDL → bids → lease → endpoints → close → redeploy | `akash_*` | `IOI_AKASH_LIVE=1` | `verify-hypervisor-akash-depin-adapter.mjs` |
+| Enterprise hyperscaler | `aws` / `adapter:aws-ec2-quote` | IAM/SigV4, VPC/security-group posture bound in the wallet challenge, real EC2 stop/start/restart billing | `aws_*` | `IOI_AWS_LIVE=1` | `verify-hypervisor-aws-enterprise-vm-adapter.mjs` |
+| Enterprise hyperscaler | `gcp` / `adapter:gcp-compute-quote` | service-account IAM, project/zone/firewall posture bound in the wallet challenge, real Compute Engine billing | `gcp_*` | `IOI_GCP_LIVE=1` | `verify-hypervisor-gcp-enterprise-vm-adapter.mjs` |
+| Enterprise hyperscaler | `azure` / `adapter:azure-vm-quote` | service-principal (`azure-service-principal`) over ARM, subscription/resource-group/location + VNet/NSG posture bound in the wallet challenge, stop DEALLOCATES and says so | `azure_*` | `IOI_AZURE_LIVE=1` | `verify-hypervisor-azure-enterprise-vm-adapter.mjs` |
+| Cluster substrate | `k8s` / `adapter:k8s-cluster-facts` | clusters as CLUSTERS: namespace-scoped admission (RBAC/quota/PVC/GPU/service fail closed by name), Kubernetes exec (never fake single-VM SSH), KubeVirt VMIs when CRDs exist, unpriced customer clusters open NO exposure (metered posture must be declared AND priced) | `k8s_*` | `IOI_K8S_LIVE=1` | `verify-hypervisor-k8s-kubevirt-cluster-adapter.mjs` |
 
-Provider SPEND RECONCILIATION rides those receipts
-(`GET /v1/hypervisor/provider-spend/reconciliation`): a quote-backed metered
-create opens a `provider-spend-exposure://pse_*` row citing account /
-candidate / quote / grant / receipt refs (native ids evidence-only); open
-exposures RESERVE first-hour estimates against the `external_spend` budget
-(further creates refuse `vast_budget_reservation_exceeded` until teardown
-releases them); ops accrete receipts and state roots without inventing price;
-teardown closes the exposure — an unconfirmed native destroy leaves a standing
-`closed_with_warning` incomplete-teardown warning. Budget `spent` reflects
-actual debits only — estimates never fake it; no fees, no markup, no Work
-Credit debit, no fake settlement: customer-borne provider spend throughout.
-Done-bar: `verify-hypervisor-provider-spend-reconciliation.mjs`.
+Billing semantics stay provider-real and honestly labeled: Lambda VMs
+bill until terminate (`workspace_stopped_vm_running`); AWS stop halts
+instance-hours while EBS keeps billing (the exposure stays open until
+terminate); GCP stop reads TERMINATED with Persistent Disk still billing; Azure stop
+DEALLOCATES (a merely-stopped VM keeps billing compute; managed disks bill
+until delete);
+Akash leases bill until CLOSED, and `redeploy` closes the
+deployment-loss → restore-elsewhere loop over the storage plane;
+private-only / no-ingress network postures fail CLOSED at boot
+(`aws_ssh_ingress_unreachable` / `gcp_ssh_ingress_unreachable` /
+`azure_ssh_ingress_unreachable`, naming the NSG).
 
-The LIVE Vast harness completes the lifecycle contract: live create seals an
-ephemeral per-instance ssh key onto the instance record (dcrypt discipline —
-never plaintext; materialized 0600 per op) and attaches the public key to the
-lease; boot polling persists the runtime ssh block ONLY with readiness
-evidence (polled status + proven_at), and every workspace op fails closed
-with `vast_ssh_bootstrap_unknown` before that; bootstrap-on-start then reuses
-the BYO SSH lane unchanged. `IOI_VAST_LIVE=1` proves the full live path or
-BLOCKS with `vast_live_credentials_absent` — live execution is never claimed
-without a real leased instance reaching ssh (simulator CI keeps reporting
-live_provisioning_not_run).
-
-RunPod is the SECOND GPU class (`adapter:runpod-quote` + guarded lifecycle),
-proving the ladder is not Vast-specific while preserving RunPod semantics: a
-`direct_provider` GPU runtime cloud quoted from per-GPU-type rate cards
-(secure-cloud on-demand preferred; community-cloud pricing carries an explicit
-interruption risk label; unpriced types are skipped, never estimated; region
-is chosen at pod create). The same budget → quote → wallet ladder guards
-create with per-kind reason codes (`runpod_quote_not_live`,
-`runpod_price_above_max`, `runpod_budget_reservation_exceeded`, …); pods reuse
-the BYO SSH custody lane; exposures open/close identically; custody is
-`cloud_gpu_runtime_NOT_private`. `IOI_RUNPOD_LIVE=1` proves live or blocks
-named. Done-bar: `verify-hypervisor-runpod-adapter.mjs`.
-
-Lambda-class GPU VMs (`lambda_cloud`, `adapter:lambda-quote` + guarded
-lifecycle) complete the first production external-compute trio: the BORING,
-high-trust ordinary Linux GPU VM lane — VM + ssh (user ubuntu) +
-instance-lifetime persistent local disk — never flattened into a generic
-cloud. Quotes are per-instance-type rate cards priced in cents/hour
-(converted verbatim; unpriced preview shapes skipped, never estimated) with
-per-region capacity; region is chosen at create and the wallet challenge
-binds it together with the instance type, disk, and teardown policy. ssh is
-UNKNOWN until boot polling proves readiness (`lambda_ssh_bootstrap_unknown`
-before that; resumable `lambda_boot_pending`); the VM reuses the BYO SSH
-custody lane, so daemon-admitted sha256 state roots remain restore truth and
-provider-native VM/disk/snapshot ids stay evidence-only. There is no native
-stop — the VM accrues customer-borne spend until teardown, and the lifecycle
-says so (`workspace_stopped_vm_running`) instead of faking it. Custody is
-`cloud_vm_NOT_private`; exposures open/close (or close_with_warning)
-identically; per-kind gate codes are `lambda_cloud_*`. `IOI_LAMBDA_LIVE=1`
-proves live or blocks named. Done-bar:
-`verify-hypervisor-lambda-gpu-vm-adapter.mjs`.
-
-Akash is the DePIN compute/GPU lane (`adapter:akash-bid` + guarded
-lifecycle), and deliberately NOT a generic VM adapter: semantics are
-deployment intent → SDL manifest → provider BIDS → LEASE → lease-assigned
-endpoints → logs/events → close → REDEPLOY. Bids are priced ONLY by a
-source-quoted USD rate (the native uakt/block rate is carried as evidence,
-never converted by the daemon; unquoted bids are skipped). The wallet
-challenge binds the deployment spec (SDL hash) + bid/lease + persistence +
-rate cap; endpoints are proven at start and recorded as evidence, not
-authority; exec/custody ride the SDL-declared ssh service (provider-native
-lease-shell lands with the live harness); provider-native dseq/bid/lease ids
-stay evidence only, and deployment persistent storage is SDL posture — never
-restore truth. Leases bill until CLOSED (stop says so); simulated
-provider-side revocation exercises the bid_lease_revocation risk, and
-`redeploy` mints an `AkashRedeployPlan` binding old → new deployment plus the
-daemon-material and storage-archive refs — restore admits only after daemon
-state_root + storage commitment validation, closing the deployment-loss →
-restore-elsewhere loop over the storage plane. Per-kind gate codes are
-`akash_*`; exposures open on create AND redeploy. `IOI_AKASH_LIVE=1` proves
-live or blocks named (the on-chain tx flow lands with the live harness cut).
-Done-bar: `verify-hypervisor-akash-depin-adapter.mjs`.
-
-AWS is the first ENTERPRISE hyperscaler lane (`adapter:aws-ec2-quote` +
-guarded lifecycle) — a customer-cloud posture, not a marketplace: IAM/SigV4
-sealed credentials whose IAM scope bounds every action
-(`iam_scope_dependent`), region/AZ-bound quotes from verbatim on-demand rate
-cards (unpriced shapes skipped), and an ENTERPRISE NETWORK POSTURE bound into
-the wallet challenge — explicit VPC/subnet/security-group config or the
-labelled default-VPC simulator posture, with public-IP and SSH-ingress flags.
-Private-only / no-ingress postures fail CLOSED at boot
-(`aws_ssh_ingress_unreachable`) — never fake-ready. EC2 lifecycle semantics
-are real: stop halts instance-hours while EBS storage keeps billing (the
-exposure stays open until terminate, and stop says so), start-from-stopped
-notes that a stop/start cycle can change the public IP, and restart is an
-in-place reboot with the endpoint retained. EBS root volume posture is
-recorded per instance and native EC2/EBS/snapshot ids (`i-*`, `vol-*`,
-`snap-*`) are EVIDENCE only — daemon custody state roots remain restore
-truth; archive/restore ride the storage plane. CloudTrail-style audit refs
-land with the live harness (the audit trail is the customer's). Per-kind gate
-codes are `aws_*`. `IOI_AWS_LIVE=1` proves live or blocks named (the SigV4
-EC2 API flow lands with the live harness cut). Done-bar:
-`verify-hypervisor-aws-enterprise-vm-adapter.mjs`.
-
-GCP is the sibling enterprise lane (`adapter:gcp-compute-quote` + guarded
-lifecycle), proving the customer-cloud pattern generalizes across IAM models
-WITHOUT flattening semantics: service-account/workload-identity sealed
-credentials (`iam_service_account_scope_dependent`), PROJECT/region/ZONE
-scoping bound into the wallet challenge alongside machine type, Persistent
-Disk posture, and the VPC network/subnetwork/FIREWALL posture
-(`explicit_network_config` vs the labelled `default_network_simulator`).
-Missing firewall ingress or private-only postures fail CLOSED at boot
-(`gcp_ssh_ingress_unreachable`, naming the firewall) — instance state alone
-is never readiness. Compute Engine billing semantics are real: stop reads
-TERMINATED (vCPU/RAM billing halts, Persistent Disk keeps billing, the
-exposure stays open until delete), start-from-TERMINATED notes the
-ephemeral-external-IP change, restart is an in-place reset with the endpoint
-retained. Native instance paths (`projects/{p}/zones/{z}/instances/{n}`),
-disk names, and snapshot names are EVIDENCE only; Cloud Audit Log refs land
-with the live harness. Per-kind gate codes are `gcp_*`. `IOI_GCP_LIVE=1`
-proves live or blocks named. Done-bar:
-`verify-hypervisor-gcp-enterprise-vm-adapter.mjs`.
+The cut-by-cut adapter build narration is archived verbatim at
+[`../../_archive/implementation-logs/byo-provider-plane-adapter-build-log.md`](../../_archive/implementation-logs/byo-provider-plane-adapter-build-log.md).
 
 ## Priority Adapter Ladder
 
@@ -332,10 +230,11 @@ Provider state is evidence; daemon/Agentgres admission is truth.
 ## ProviderAccount — `provider-account://pacc_*` (`ioi.hypervisor.provider-account.v1`)
 
 Durable records under `/v1/hypervisor/provider-accounts` (CRUD + `/credential` +
-`/preflight`). First-cut account kinds: `baremetal_ssh | aws | gcp | k8s | vast | akash`.
-The priority ladder intentionally names future adapter classes such as Lambda-like GPU VMs
-and RunPod-like GPU runtimes before their account kinds exist; they must not be presented as
-supported `ProviderAccount.kind` values until the daemon admits them. Fields: display name,
+`/preflight`). Account kinds admitted by the daemon:
+`baremetal_ssh | aws | gcp | k8s | vast | runpod | lambda_cloud | akash`.
+The priority ladder may name future adapter classes (clusters, Azure) before their account
+kinds exist; they must not be presented as supported `ProviderAccount.kind` values until
+the daemon admits them. Fields: display name,
 kind, `status: unverified | verified | revoked`, `credential_binding_ref`, endpoint hints,
 `provider_spend_borne_by: customer`, `budget_policy_ref`, per-kind capabilities (honest
 per-provider semantics — never a flattened fake generic cloud; privacy posture never claims
@@ -382,15 +281,18 @@ re-hashes the custody bytes against the ADMITTED state root and fails closed
 (`restore_refused`) on unknown material or mismatch — before touching the node. `recover`
 is restore-from-latest-admitted-material.
 
-## Adapter ladder (this cut)
+## Adapter ladder (current state)
 
-`baremetal_ssh` is the first real BYO adapter — full `EnvironmentProvider` lifecycle
+`baremetal_ssh` is the reference BYO adapter — full `EnvironmentProvider` lifecycle
 (preflight/create/start/workrun/stop/snapshot/restore/inject_outage/recover/delete/observe)
 over genuine ssh, CI-proven against a loopback sshd fixture (`ensure-ssh-fixture.mjs`).
-Cloud kinds are **credential + preflight only**: accounts and sealed bindings are real,
-preflight proves credential resolvability honestly (no cloud API call is claimed), and
-every lifecycle op fails closed with `PROVIDER_KIND_LIFECYCLE_NOT_IMPLEMENTED` — never a
-fake cloud.
+Metered kinds (`vast | runpod | lambda_cloud | akash | aws | gcp`) run guarded,
+quote-gated lifecycles once a control-plane mode is set and are
+`credential_preflight_only` before that — a mode-less metered account never fakes a
+cloud. Kinds without a lifecycle adapter yet (`k8s`) are **credential + preflight
+only**: accounts and sealed bindings are real, preflight proves credential
+resolvability honestly (no cloud API call is claimed), and every lifecycle op fails
+closed with `PROVIDER_KIND_LIFECYCLE_NOT_IMPLEMENTED` — never a fake cloud.
 
 ## EnvironmentClass honesty
 

@@ -5,8 +5,21 @@ Canonical owner: this file for public daemon/runtime API endpoints, event stream
 Supersedes: older daemon/SDK/CLI endpoint lists when endpoint shape conflicts.
 Superseded by: none.
 Last alignment pass: 2026-05-30.
+Doctrine status: reference
+Implementation status: partial (many route families live; source of truth is the daemon route registry)
+Implementation refs:
+  - `crates/node/src/bin/hypervisor_daemon_routes/`
+Last implementation audit: 2026-07-05
 
 ## Purpose
+
+> **Reference-wall notice.** This file enumerates the public daemon API
+> surface by hand. The source of truth for live endpoints is the daemon
+> route registry (`crates/node/src/bin/hypervisor-daemon.rs` +
+> `hypervisor_daemon_routes/`); route families land incrementally, so
+> presence here is the committed surface, not proof a family is live.
+> Generator TODO: emit the endpoint listing from a route scan and keep
+> only contract semantics hand-written here.
 
 The Hypervisor Daemon is the universal execution endpoint and hypervisor/control plane
 for canonical Web4 autonomous work. The IOI CLI/headless client, optional TUI
@@ -426,7 +439,7 @@ Request body:
   "required_scope_refs": ["scope:..."],
   "model_route_policy_ref": "model-route-policy:...",
   "receipt_policy_ref": "receipt-policy:...",
-  "context_chamber_refs": ["chamber://..."],
+  "context_cell_refs": ["context_cell://..."],
   "artifact_refs": ["artifact://..."],
   "latest_receipt_refs": ["receipt://..."],
   "state_root_ref": "agentgres://state-root/..."
@@ -453,7 +466,7 @@ The response is an `ioi.hypervisor.automation_run_proposal.v1` object:
   "agentgres_operation_ref": "agentgres://operation/automation/...",
   "receipt_ref": "receipt://automation/...",
   "state_root_ref": "agentgres://state-root/...",
-  "context_chamber_refs": ["chamber://..."],
+  "context_cell_refs": ["context_cell://..."],
   "artifact_refs": ["artifact://..."],
   "latest_receipt_refs": ["receipt://..."],
   "runtimeTruthSource": "daemon-runtime"
@@ -2220,6 +2233,72 @@ PUT    /v1/hypervisor/budget
 POST   /v1/hypervisor/budget/reconcile
 ```
 
+## GoalRun and Harness Broker APIs
+
+Goal-shaped work should not be coordinated by copying prompts between harnesses.
+The daemon exposes a GoalRun / Harness Broker plane that turns user intent into
+typed ContextHandoffs, ContextLeases, HarnessInvocations, normalized adapter
+events, ImplementationResult payloads, VerifierPaths, and receipts.
+
+```http
+POST /v1/hypervisor/goal-runs
+GET  /v1/hypervisor/goal-runs
+GET  /v1/hypervisor/goal-runs/{goal_ref}
+PATCH /v1/hypervisor/goal-runs/{goal_ref}
+
+POST /v1/hypervisor/goal-runs/{goal_ref}/grounding-loop
+POST /v1/hypervisor/goal-runs/{goal_ref}/context-cells
+POST /v1/hypervisor/goal-runs/{goal_ref}/context-leases
+POST /v1/hypervisor/goal-runs/{goal_ref}/handoffs
+
+POST /v1/hypervisor/goal-runs/{goal_ref}/harness-invocations
+GET  /v1/hypervisor/goal-runs/{goal_ref}/harness-invocations
+GET  /v1/hypervisor/harness-invocations/{harness_invocation_id}
+GET  /v1/hypervisor/harness-invocations/{harness_invocation_id}/events
+
+POST /v1/hypervisor/goal-runs/{goal_ref}/verify
+POST /v1/hypervisor/goal-runs/{goal_ref}/reconcile
+POST /v1/hypervisor/goal-runs/{goal_ref}/continue
+POST /v1/hypervisor/goal-runs/{goal_ref}/close
+```
+
+Route responsibilities:
+
+```text
+/goal-runs
+  creates durable GoalRun state from user intent or API intent.
+
+/grounding-loop
+  advances GoalGroundingLoop phase and records grounding/state-inspection refs.
+
+/context-cells
+  opens role contexts for conductor, implementer, reviewer, verifier, operator,
+  or specialist work.
+
+/context-leases
+  issues scoped context, tool, memory, authority, runtime, budget, and receipt
+  views to a context cell or harness invocation.
+
+/handoffs
+  records task_brief, implementation_result, blocker, decision_request,
+  verification_result, or continuation_summary packets between context cells.
+
+/harness-invocations
+  adapts a TaskBriefPayload to the selected HarnessProfile or Agent Harness
+  Adapter and records HarnessAdapterEvents plus ImplementationResultPayload.
+
+/verify
+  runs or records the selected VerifierPath.
+
+/reconcile
+  consumes normalized result, receipts, tests, diffs, and handoffs to decide
+  repair, escalation, memory update, continuation, or completion.
+```
+
+Hard rule: harness adapters may render prompts, commands, terminal scripts, or
+provider-specific session input internally, but raw chat text is not the durable
+cross-harness contract.
+
 ## Structured Error Shape
 
 Every public daemon error uses the same redacted shape:
@@ -2290,3 +2369,8 @@ POST /v1/runtime/assignments/{assignment_id}/reject
 15. Runner reconciliation, LLM usage reporting, exec/security telemetry,
     subagent message routing, and conversation streaming are runtime contracts
     that must bind back to admitted work, state roots, and receipts.
+16. Cross-harness goal work must flow through GoalRun, ContextHandoff,
+    ContextLease, HarnessInvocation, HarnessAdapterEvent,
+    ImplementationResultPayload, VerifierPath, and receipt contracts. Raw chat
+    text may be adapter evidence, but it is not the durable
+    conductor/implementer interface.

@@ -147,19 +147,19 @@ function ProductRow({ name, role, desc, visual, flip, file }) {
 }
 
 const FAMILIES = [
-  ["Clients", "Operate the substrate", [
+  ["Clients", "Operate it", [
     ["Hypervisor App", "Desktop · command center", "Start governed sessions, run automations, and supervise agents across projects, tools, and models — local-first.", "hv-app.html"],
     ["Hypervisor Web", "Browser · team client", "Shared projects, remote sessions, approvals, and run history for the whole team — without changing runtime truth.", "hv-web.html"],
     ["Hypervisor CLI", "Terminal · scripting · CI", "Script and supervise autonomous work from CI, shells, and servers with the same authority and receipts as the app.", "hv-cli.html"],
   ]],
-  ["Builder kits", "Extend and embed it", [
+  ["Builder kits", "Build on it", [
     ["Hypervisor SDK", "Protocol library", "Integrate Hypervisor into products and agents without reimplementing runtime, authority, receipt, or state.", "hv-sdk.html"],
     ["Hypervisor ADK", "Autonomous-system kit", "Compose workers, harnesses, evals, and manifests into governed, deployable autonomous-system bundles.", "hv-adk.html"],
     ["Hypervisor ODK", "Ontology-aware kit", "Compile domain ontologies and data recipes into generated surfaces, domain apps, and marketplace packs.", "hv-odk.html"],
   ]],
-  ["Gateways & substrate", "Carry it outward and down to the metal", [
+  ["Gateways & substrate", "Carry it outward", [
     ["Hypervisor MCP", "Scoped external gateway", "Expose selected capabilities to external agents through revocable, auditable MCP profiles — never a master key.", "hv-mcp.html"],
-    ["HypervisorOS", "Bare-metal node profile", "Run governed private agent compute on measured nodes — containers and microVMs under kernel-level policy.", "hv-os.html"],
+    ["HypervisorOS", "Bare-metal / cluster substrate", "Govern the machines, GPUs, networks, storage, containers, and microVMs autonomy runs on — enforced under one policy plane.", "hv-os.html"],
     ["Embodied Runtime", "Physical autonomy profile", "Operate robot fleets, devices, sensors, and command queues under safety gates with attributed operator handoff.", "hv-embodied.html"],
   ]],
 ];
@@ -175,17 +175,27 @@ const ENVS = [
 // ---- Reference layout: orients rather than converts ----
 function RefFamilyMap() {
   return (
-    <section style={{ ...pwrap, paddingTop: "5rem" }}>
-      <div style={{ display: "flex", alignItems: "baseline", gap: "0.875rem", marginBottom: "2.5rem" }}>
-        <PgEyebrow>The product map</PgEyebrow>
-        <span style={{ fontFamily: "var(--font-sans)", fontSize: "0.9375rem", color: "var(--color-grey-700)" }}>Nine products · three roles · one Core</span>
+    <section style={{ ...pwrap, paddingTop: "5.75rem" }}>
+      <div style={{ borderTop: "1px solid var(--color-onyx-black)", paddingTop: "2.25rem", display: "grid", gridTemplateColumns: "minmax(0, 0.95fr) minmax(18rem, 0.72fr)", gap: "3rem", alignItems: "end", marginBottom: "3rem" }}>
+        <div>
+          <PgEyebrow color="var(--color-link-green)">Product map</PgEyebrow>
+          <h2 style={{ fontFamily: "var(--font-serif)", fontWeight: 300, fontSize: "2.5rem", letterSpacing: "-0.02em", lineHeight: 1.08, margin: "1rem 0 0", color: "var(--color-onyx-black)" }}>
+            One core. Three ways in.
+          </h2>
+        </div>
+        <p style={{ fontFamily: "var(--font-sans)", fontSize: "1rem", color: "var(--color-grey-800)", lineHeight: 1.55, margin: 0 }}>
+          Clients operate Hypervisor. Builder kits extend it. Gateways carry its authority model outward and down to the substrate.
+        </p>
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: "3.5rem" }}>
         {FAMILIES.map(([family, note, items], fi) => (
           <div key={family}>
-            <div style={{ display: "flex", alignItems: "baseline", gap: "0.875rem", paddingBottom: "1.25rem", borderBottom: "1px solid var(--color-grey-500)" }}>
-              <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--color-link-green)" }}>{family}</span>
-              <span style={{ fontFamily: "var(--font-sans)", fontSize: "0.9375rem", color: "var(--color-grey-700)" }}>{note}</span>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "1.25rem", paddingBottom: "1rem", borderBottom: "1px solid var(--color-grey-500)" }}>
+              <div style={{ display: "flex", alignItems: "baseline", gap: "0.875rem", minWidth: 0 }}>
+                <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.08em", color: "var(--color-link-green)", flex: "none" }}>{String(fi + 1).padStart(2, "0")}</span>
+                <h3 style={{ fontFamily: "var(--font-sans)", fontSize: "1.125rem", letterSpacing: "-0.015em", margin: 0, color: "var(--color-onyx-black)" }}>{family}</h3>
+              </div>
+              <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--color-grey-700)" }}>{note}</span>
             </div>
             <div className="hv-pm-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "1.25rem", marginTop: "1.5rem" }}>
               {items.map(([name, role, desc, file], i) => (
@@ -226,18 +236,18 @@ function StackGlyph() {
 }
 function PgLineage() {
   const foundation = [
-    { tag: "Type 2", sub: "Hosted", virt: "operating systems", ex: "VMware · VirtualBox · Parallels", glyph: <StackGlyph /> },
-    { tag: "Type 1", sub: "Bare metal", virt: "hardware", ex: "ESXi · Xen · KVM", glyph: <ChipGlyph /> },
+    { tag: "Type 2", sub: "Hosted", virt: "Operating systems", ex: "VMware · VirtualBox · Parallels", glyph: <StackGlyph /> },
+    { tag: "Type 1", sub: "Bare metal", virt: "Hardware", ex: "ESXi · Xen · KVM", glyph: <ChipGlyph /> },
   ];
   return (
     <section style={{ ...pwrap, paddingTop: "5.5rem" }}>
       <div style={{ maxWidth: "46rem" }}>
         <PgEyebrow color="var(--color-link-green)">The third hypervisor layer</PgEyebrow>
         <h2 style={{ fontFamily: "var(--font-serif)", fontWeight: 300, fontSize: "2.5rem", letterSpacing: "-0.02em", lineHeight: 1.08, margin: "1rem 0 0" }}>
-          A new layer in the hypervisor lineage
+          Same lineage. One control plane.
         </h2>
         <p style={{ fontFamily: "var(--font-sans)", fontSize: "1.0625rem", color: "var(--color-grey-800)", marginTop: "1rem", maxWidth: "60ch", lineHeight: 1.55 }}>
-          Type&nbsp;1 virtualized hardware. Type&nbsp;2 virtualized operating systems. Hypervisor virtualizes autonomy — isolating, scheduling, supervising, and governing autonomous workers across machines, models, tools, and providers.
+          Hardware, operating systems, and autonomous work — governed as one stack.
         </p>
       </div>
 
@@ -247,19 +257,19 @@ function PgLineage() {
         <div style={{ position: "relative", zIndex: 2, border: "1px solid var(--color-onyx-black)", borderRadius: "var(--radius-card)", background: "color-mix(in srgb, var(--color-pistachio-green) 24%, var(--color-white))", boxShadow: "var(--shadow-md)", padding: "1.625rem 1.875rem", display: "flex", alignItems: "center", gap: "1.5rem", flexWrap: "wrap" }}>
           <span style={{ width: 56, height: 56, borderRadius: 15, background: "var(--color-white)", border: "1px solid var(--color-onyx-black)", display: "grid", placeItems: "center", color: "var(--color-link-green)", flex: "none" }}><HvLogoMark size={32} /></span>
           <div style={{ flex: "none" }}>
-            <div style={{ fontFamily: "var(--font-mono)", fontSize: 12, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--color-link-green)" }}>The third layer · Hypervisor</div>
-            <div style={{ fontFamily: "var(--font-sans)", fontSize: "1.375rem", letterSpacing: "-0.015em", color: "var(--color-onyx-black)", marginTop: 5 }}>Virtualizes <strong style={{ fontWeight: 700 }}>autonomy</strong></div>
+            <div style={{ fontFamily: "var(--font-mono)", fontSize: 12, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--color-link-green)" }}>Type&nbsp;3 · Hypervisor</div>
+            <div style={{ fontFamily: "var(--font-sans)", fontSize: "1.375rem", letterSpacing: "-0.015em", color: "var(--color-onyx-black)", marginTop: 5 }}>Autonomous <strong style={{ fontWeight: 700 }}>work</strong></div>
           </div>
           <div style={{ marginLeft: "auto", textAlign: "right", maxWidth: "34ch" }}>
-            <p style={{ fontFamily: "var(--font-sans)", fontSize: "0.9375rem", color: "var(--color-grey-800)", margin: 0, lineHeight: 1.45 }}>Governs above any machine, model, or provider — and still provisions and isolates the layers beneath it.</p>
-            <div style={{ fontFamily: "var(--font-mono)", fontSize: 11.5, color: "var(--color-grey-700)", marginTop: 8 }}>machines · models · tools · providers</div>
+            <p style={{ fontFamily: "var(--font-sans)", fontSize: "0.9375rem", color: "var(--color-grey-800)", margin: 0, lineHeight: 1.45 }}>Isolation, scheduling, policy, receipts, and replay across every machine, model, and tool.</p>
+            <div style={{ fontFamily: "var(--font-mono)", fontSize: 11.5, color: "var(--color-grey-700)", marginTop: 8 }}>authority · execution · evidence</div>
           </div>
         </div>
 
         {/* Connector caption */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10, padding: "0.9rem 0" }}>
           <span style={{ width: 1, height: 18, background: "var(--color-grey-500)" }} />
-          <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--color-grey-700)" }}>rests on &amp; governs the substrate below</span>
+          <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--color-grey-700)" }}>includes the layers beneath</span>
           <span style={{ width: 1, height: 18, background: "var(--color-grey-500)" }} />
         </div>
 
@@ -273,18 +283,13 @@ function PgLineage() {
               <div style={{ minWidth: 168, flex: "none" }}>
                 <span style={{ fontFamily: "var(--font-mono)", fontSize: 12, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--color-grey-700)" }}>{c.tag} · {c.sub}</span>
               </div>
-              <div style={{ fontFamily: "var(--font-sans)", fontSize: "1.125rem", letterSpacing: "-0.015em", color: "var(--color-onyx-black)" }}>Virtualizes <strong style={{ fontWeight: 700 }}>{c.virt}</strong></div>
+              <div style={{ fontFamily: "var(--font-sans)", fontSize: "1.125rem", letterSpacing: "-0.015em", color: "var(--color-onyx-black)" }}><strong style={{ fontWeight: 700 }}>{c.virt}</strong></div>
               <div style={{ marginLeft: "auto", fontFamily: "var(--font-mono)", fontSize: 11.5, color: "var(--color-grey-700)" }}>{c.ex}</div>
             </div>
           ))}
         </div>
       </div>
 
-      <div style={{ marginTop: "2.5rem", paddingTop: "1.75rem", borderTop: "1px solid var(--color-onyx-black)" }}>
-        <p style={{ fontFamily: "var(--font-serif)", fontWeight: 300, fontSize: "1.875rem", letterSpacing: "-0.015em", lineHeight: 1.2, margin: 0, color: "var(--color-onyx-black)", maxWidth: "32ch" }}>
-          It doesn&rsquo;t replace Type&nbsp;1 or Type&nbsp;2 — it governs above them.
-        </p>
-      </div>
     </section>
   );
 }
@@ -487,7 +492,7 @@ function ReferenceBody() {
             Many surfaces, one truth
           </h1>
           <p style={{ fontFamily: "var(--font-sans)", fontSize: "1.1875rem", color: "var(--color-grey-800)", marginTop: "1.5rem", maxWidth: "46ch", lineHeight: 1.55 }}>
-            Hypervisor is one governed substrate for autonomous work. Nine products bind to a single Hypervisor Core — clients operate it, builder kits extend it, gateways carry it outward and down to the metal. None of them owns runtime truth or authority; that stays yours.
+            Hypervisor is one governed substrate for autonomous work. Nine products bind to a single Hypervisor Core — clients operate it, builder kits extend it, gateways carry it outward and down to the metal. It governs the lower substrate and the autonomous work graph above it; none of the products owns runtime truth or authority. That stays yours.
           </p>
           <div style={{ display: "flex", alignItems: "center", gap: "1.25rem", marginTop: "1.75rem", flexWrap: "wrap" }}>
             <PgButton iconRight={<span>→</span>}>Get started</PgButton>

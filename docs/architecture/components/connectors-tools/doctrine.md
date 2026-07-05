@@ -5,6 +5,11 @@ Canonical owner: this file for connector/tool registry doctrine; low-level tool 
 Supersedes: older flattened capability-registry wording when it conflicts with primitive capability and authority scope tiers.
 Superseded by: none.
 Last alignment pass: 2026-06-22.
+Doctrine status: canonical
+Implementation status: partial (connector estate, capability leases, and MCP gateway built; semantic-data chain partial)
+Implementation refs:
+  - `crates/node/src/bin/hypervisor_daemon_routes/`
+Last implementation audit: 2026-07-05
 
 ## Canonical Definition
 
@@ -61,6 +66,29 @@ wallet.network for authority. It must not hold provider secrets, call provider
 APIs directly, or invent an ioi.ai-only connector runtime. Actual invocation
 still flows through `RuntimeToolContract` or MCP contracts, daemon admission,
 wallet.network authority, Agentgres refs, and receipts.
+
+Connector entitlement boundary:
+
+```text
+connecting an app != paid connector access by default
+authority grant != connector toll booth
+private/background/sensitive connector execution may require paid managed runtime
+```
+
+Adding a connector, granting ordinary authority, or previewing readiness should
+not by itself be treated as a paid feature. A paid handoff is legitimate when
+the requested work needs managed connector brokerage, background automation,
+external mutation, private connected-app processing, cTEE/TEE/customer-boundary
+placement, no-provider-trust routing, audit/replay retention, or Work Credit
+budget beyond the included plan.
+
+Product surfaces should present this as the two-mode managed execution choice
+rather than a generic connector upsell. `Standard` keeps the private-native
+runtime substrate and may use disclosed provider-trust model routes. `Private`
+requires the stricter no-provider-trust model route plus local, BYO private
+node, customer-boundary/customer-cloud, cTEE, TEE, or another custody-proven
+path. The selected path must still preserve scoped authority, secret custody,
+dry-run/approval policy, receipts, and revocation.
 
 The registry is also the brokered capability substrate for harness/model choice.
 Whether a run is platform-selected, MoW-routed, or user-directed toward a
@@ -210,56 +238,24 @@ freecad.export_step
 
 ## RuntimeToolContract
 
-Every tool should declare:
-
-```yaml
-RuntimeToolContract:
-  id: gmail.send
-  namespace: gmail
-  display_name: Send Gmail message
-  input_schema: ...
-  output_schema: ...
-  risk_domain: external_message
-  effect_class: external_write
-  concurrency_class: serialized_by_account
-  timeout_default: 30s
-  timeout_max: 120s
-  cancellation_behavior: best_effort
-  primitive_capabilities:
-    - prim:connector.invoke
-    - prim:net.request
-  authority_scope_required:
-    - scope:gmail.send
-  semantic_data:
-    ontology_refs: []
-    connector_mapping_refs: []
-    input_object_model_refs: []
-    output_object_model_refs: []
-  approval_scope_fields:
-    - recipient
-    - subject
-    - body_hash
-  evidence_required:
-    - send_receipt
-  redaction_policy: redact_body_by_default
-  owner_module: wallet-connector-gmail
-  version: 1
-```
+The contract field set is owned by [`contracts.md`](./contracts.md); this
+doctrine file does not carry a second definition. Every effectful tool
+declares, at minimum: identity (id, namespace, display name, version), input
+and output schemas, a `risk_class` from the canonical ladder, a concurrency
+class, timeout and cancellation behavior, required `prim:*` capabilities and
+`scope:*` authority, semantic-data refs, approval-scope fields, required
+evidence, a redaction policy, and an owner. See
+[`contracts.md`](./contracts.md) for the canonical shape and a worked
+`gmail.send` example.
 
 ## Risk Classes
 
-```text
-read_only
-local_write
-external_draft
-external_message
-commerce_cart
-commerce_order
-funds_transfer
-credential_access
-policy_widening
-secret_export
-```
+The canonical risk-class ladder is owned by
+[`../../foundations/canonical-enums.md`](../../foundations/canonical-enums.md).
+Earlier revisions of this file used the deprecated aliases `read_only`,
+`external_draft`, `commerce_cart`, `commerce_order`, `funds_transfer`, and
+`credential_touching`; the alias table in `canonical-enums.md` maps each to
+its canonical class. New contracts use canonical members only.
 
 ## Connector Authority
 
@@ -369,11 +365,11 @@ Generic example:
 
 ```yaml
 commerce.create_cart_draft:
-  risk: commerce_cart
+  risk_class: commerce   # cart/draft stage; approval preview binds cart contents
   approval_required: false_or_policy
 
 commerce.submit_order:
-  risk: commerce_order
+  risk_class: commerce   # order placement stage
   approval_required: true
 ```
 

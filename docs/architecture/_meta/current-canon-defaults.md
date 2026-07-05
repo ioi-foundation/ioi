@@ -8,6 +8,9 @@ Supersedes: the inline "Current canonical defaults" digest formerly embedded in
 [source-of-truth-map.md](./source-of-truth-map.md).
 Superseded by: none.
 Last alignment pass: 2026-06-23.
+Doctrine status: canonical
+Implementation status: mixed (cross-owner digest)
+Last implementation audit: 2026-07-05
 
 ## Purpose
 
@@ -44,6 +47,28 @@ synchronized.
   HarnessProfile for loop-native scoped step resolution; it is not a peer
   runtime, not the only admissible harness, not a meta-harness, and not the
   owner of high-level workflow composition;
+- ioi.ai and Hypervisor Sessions use the Goal Kernel / Goal Microharness shape
+  for goal-shaped work: durable GoalRun state, RoleTopology selection,
+  independent Context Cells, scoped Context Leases, typed Context Handoffs,
+  selected HarnessProfiles, and VerifierPath evidence. Harness orchestration is
+  primarily context orchestration, not agent chatter for its own sake;
+- the GoalGroundingLoop is the low-level conductor orientation loop: receive
+  intent, classify risk, gather grounding, inspect current state, derive
+  constraints and acceptance, select topology, lease context, open Context Cells
+  only when useful, delegate or execute, monitor, verify, repair or escalate,
+  reconcile receipts/memory/skills, and continue or close. It should optimize
+  useful progress per token, not maximize model calls;
+- cross-harness coordination must use typed ContextHandoffs, ContextLeases,
+  TaskBriefPayloads, HarnessInvocations, HarnessAdapterEvents,
+  ImplementationResultPayloads, VerifierPaths, and receipts. Harness adapters
+  may render prompts or commands internally, but raw chat text is not the
+  durable conductor/implementer contract;
+- for ordinary goal work, the conductor may satisfy the VerifierPath through
+  deterministic checks, receipts, diffs, tests, browser/runtime evidence, and
+  acceptance reconciliation. Independent verifier harnesses are policy-triggered
+  escalation paths for publish, mount, external connector actions, spend,
+  secrets, unsafe plaintext, marketplace admission, release control, production
+  mutation, physical action, or compliance review;
 - persistent workspace intelligence such as skills, Agent Wiki /
   `ioi-memory`, wiki facts, learned tool affordances, and durable
   behavior-affecting context is workspace/project/domain state that should
@@ -51,15 +76,51 @@ synchronized.
   provenance, policy, and authority allow;
 - the Hypervisor Daemon is the deterministic execution substrate for
   portable, verifiable autonomous systems;
-- HypervisorOS is the bare-metal node profile where the Hypervisor Daemon is
-  the node root; it improves control, integrity, containment, measurement,
-  reproducibility, and policy enforcement, but it is not a peer runtime and
-  does not replace cTEE no-plaintext-custody;
+- Hypervisor includes Type 1, Type 2, and Type 3 substrate modes as deployment
+  and control postures of one product. Type 1 is HypervisorOS / appliance /
+  cluster control where the Hypervisor Daemon is node root. Type 2 is Hypervisor
+  Desktop / Workstation hosted on a normal OS for local VMs, sandboxes, models,
+  tools, agents, connectors, and environments. Type 3 is autonomy virtualization
+  across sessions, WorkRuns, workers, model routes, tools, authority, receipts,
+  replay, outcomes, and promotion. Type 3 is the differentiator; Type 1 and Type
+  2 are the trustable substrate beneath it. HypervisorOS improves control,
+  integrity, containment, measurement, reproducibility, and policy enforcement,
+  but it does not replace cTEE no-plaintext-custody;
+- Hypervisor must expose real substrate-control grammar, not only agent
+  orchestration. Substrate, inventory, create/import, console, operations,
+  governance, and ledger expectations should resolve through Operations,
+  Environments, Workbench, Sessions, Work Ledger, Governance, Developer &
+  Integrations, Hypervisor Desktop / Workstation, and HypervisorOS/provider
+  detail views without expanding the permanent rail by default;
 - Hypervisor manages sessions, environments, providers, and cross-session
   infrastructure posture directly through the Applications catalog, the
   singular Open Application slot, session detail, project settings, provider
   settings, org/admin views, and operator console panels; provider posture
   is not a separate product or truth layer;
+- BYO provider integration is a provider-neutral object plane with a priority
+  adapter ladder, not a vendor taxonomy. SSH/bare-metal is the conformance
+  adapter; simple GPU VMs, GPU runtimes, GPU marketplaces, enterprise
+  hyperscalers, customer clusters, DePIN compute, and decentralized storage
+  custody follow as adapters under the same `ProviderAccount`,
+  `RuntimeNode`, `PlacementDecision`, `SnapshotRef`, `RestoreRef`,
+  `SpendReceipt`, and `ProviderOperationReceipt` contract. BYO provider spend
+  is customer-borne and transparent; direct local/self-managed BYO carries no
+  percentage-of-provider-spend fee, while BYO or pinned cloud venues run through
+  Hypervisor may carry a visible adapter/orchestration fee when Hypervisor
+  brokers credentials, provisions, manages leases, snapshots, restores, tracks
+  cost, emits receipts, or tears down resources. Hypervisor monetizes
+  orchestration, governance, custody, receipts, restore, support, private
+  posture, and managed convenience rather than hiding provider markup;
+- runtime placement presents four user choices: run local, use my
+  infrastructure, pick a cloud, or let Hypervisor choose. Underneath those
+  choices are three placement sources: `connected`, `managed`, and
+  `optimized`. `Connected` means the user owns the provider bill, with no
+  percentage fee on direct self-managed spend and visible orchestration fees
+  only when Hypervisor performs provider lifecycle work. `Managed` means IOI or
+  a partner is provider-of-record and Work Credits or margin are legitimate.
+  `Optimized` means Hypervisor creates visible routing/procurement/failover or
+  billing-aggregation value and may charge only with challengeable placement or
+  routing evidence;
 - Hypervisor Core is the shared runtime/control substrate whose execution
   owner is the Hypervisor Daemon; it is not a peer runtime beside the daemon,
   not a replacement for wallet.network, and not a replacement for Agentgres;
@@ -98,15 +159,34 @@ synchronized.
   attributes external supply when marketplace workers contribute; future
   work routes better under policy, authority, receipts, and replay;
 - IOI's economic flywheel should monetize product surfaces rather than
-  substrate primitives. Work Credits are the broad product usage and budget
-  abstraction across Hypervisor, ioi.ai, aiagent.xyz, sas.xyz, Foundry jobs,
-  managed runtime, model/connector/GPU use, marketplace invocation, service
-  delivery, verifier work, and audit/replay costs. Agentgres is bundled
-  operational truth infrastructure, ordinary wallet.network authority is
-  bundled safety infrastructure, wallet.network revenue capture concentrates
+  substrate primitives. The economic posture is open substrate, paid network:
+  your model, your cloud, your tools, your authority. The primary moat is the
+  Verified Work Graph: receipt-backed evidence of who did what, under which
+  authority, with which worker/harness/model/tool stack, at what cost, with what
+  eval result, and whether that evidence can improve routing, reputation,
+  settlement, promotion, or disputes. Work Credits are the broad product usage
+  and budget abstraction across Hypervisor, ioi.ai, aiagent.xyz, sas.xyz,
+  Foundry jobs, managed runtime, model/connector/GPU use, marketplace
+  invocation, service delivery, verifier work, and audit/replay costs. Agentgres
+  is bundled operational truth infrastructure, ordinary wallet.network authority
+  is bundled safety infrastructure, wallet.network revenue capture concentrates
   on swaps/trades/payments/exchange/value movement, and IOI L1/token/BME
-  economics should attach to public coordination only after verified work
-  demand and marketplace liquidity exist;
+  economics should attach to public coordination only after verified work demand
+  and marketplace liquidity exist;
+- The user-facing managed execution selector has only two modes: `Standard` and
+  `Private`. `Standard` is private-native at the IOI-managed operating substrate
+  layer by default, with cTEE / Plaintext-Free Runtime Mounting, scoped
+  authority, connector vaulting, and receipts, while provider-trust model routes
+  may still be allowed with disclosure. `Private` adds no-provider-trust model
+  routing for protected data through open-weight or user-controlled models in
+  local, BYO private node, customer-boundary/customer-cloud, cTEE, TEE, or
+  another custody-proven route. Private ioi.ai, Hypervisor private sessions, and
+  marketplace/private worker placements may be paid managed execution postures
+  when IOI provisions or brokers stricter private runtime, protected connector
+  processing, encrypted storage, attestation/custody proof, audit/replay, or
+  persistent background private work. Connecting an app, granting ordinary
+  connector authority, or running local/BYOM/BYOA without IOI-managed private
+  compute is not by itself a connector tax;
 - Intelligent blockchains are self-driving bounded actors: stateful
   autonomous-system domains that can monitor state, route work, request
   authority, recover, improve future behavior, and settle what matters only
@@ -220,10 +300,13 @@ applicable;
   Agentgres, aiagent.xyz/MoW contribution refs, and receipts without
   privileged substrate access;
 - Hypervisor Foundry is the capability factory: the surface where observed
-  work, datasets, evals, traces, failures, and proposals become reusable
-  models, workers, data recipes, evals, model routes, packages, endpoints,
-  conductor-advisor candidates, or promotion proposals. ioi.ai may draft or
-  consume Foundry refs, but Foundry owns training/eval lineage;
+  work, datasets, executable eval worlds, interactive worlds, gameplay
+  trajectory datasets, scenario curricula, traces, failures, and proposals
+  become reusable models, workers, world-model candidates, spatial-temporal
+  policies, data recipes, evals, model routes, packages, endpoints,
+  conductor-advisor candidates, certification-run candidates, transfer gates,
+  or promotion proposals. ioi.ai may draft or consume Foundry refs, but Foundry
+  owns training/eval lineage;
 - ODK is the first-party Hypervisor surface over the semantic data plane;
   Foundry consumes ODK-governed ontology/data artifacts for training,
   evaluation, simulation, worker/package generation, and capability
@@ -293,7 +376,10 @@ applicable;
   agents can know, retrieve, and remember; Agentgres admits and proves
   durable memory mutations when they become canonical, shared, portable,
   replayable, policy-relevant, routing-relevant, training-relevant, or
-  restore-relevant;
+  restore-relevant; worker packages may declare memory compatibility, managed
+  instances own concrete memory profiles/archives, and harnesses consume
+  policy-filtered memory projections rather than owning durable memory by
+  themselves;
 - Agentgres artifact refs own payload meaning, lifecycle,
   policy/authority linkage, receipts, replay/import metadata,
   archive/restore validity, and state-root validity;
@@ -321,6 +407,10 @@ applicable;
   exposure-intelligence engine, not a mandatory trading UI, broker,
   custodian, user position owner, authority layer, venue execution owner, or
   trust root;
+- `decentralized.cloud` is a preferred first-party resource-intelligence
+  engine for infrastructure capacity, not a mandatory cloud UI, cloud control
+  plane, provider account owner, VM lifecycle owner, authority layer, restore
+  truth layer, storage custody owner, or trust root;
 - Hypervisor has direct provider integrations for cloud compute, storage,
   GPUs, confidential compute, DePIN, local machines, customer cloud,
   enterprise infrastructure, decentralized storage, and user-specified
@@ -331,13 +421,15 @@ applicable;
   and embodied workers; it
   indexes workers through `DigitalWorkerOntology`, `VerticalOntologyPack`,
   `IntegrationSurface`, `ManagedWorkerOnboardingPlan`,
-  `ManagedWorkerInstance`, managed-instance lifecycle, `ContactDeliveryChannel`,
+  `ManagedWorkerInstance`, managed-instance lifecycle,
+  `ManagedWorkerInstanceConfigRevision`, `ManagedWorkerInstanceChangePlan`,
+  `RuntimeManagementChannel`, `ContactDeliveryChannel`,
   receipts, benchmarks, authority, runtime posture, and safety posture instead
   of hardcoded vertical directories;
-- decentralized.exchange/trade produce route candidates; wallet.network
-  authorizes;
-  Hypervisor deploys or executes; venues and providers perform; Agentgres
-  records; IOI L1 settles by trigger;
+- decentralized.exchange/trade/cloud produce route, venue, exposure, and
+  infrastructure-capacity candidates; wallet.network authorizes; Hypervisor
+  deploys or executes; venues and providers perform; Agentgres records; IOI L1
+  settles by trigger;
 - storage backends such as Filecoin/CAS, S3, local disk, and object stores
   hold payload bytes only; missing, invalid, stale, or unavailable payloads
   become Agentgres `ArtifactAvailabilityIncident` records plus repair

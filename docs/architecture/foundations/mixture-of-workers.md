@@ -5,6 +5,9 @@ Canonical owner: this file for Mixture of Workers, worker routing, sparse worker
 Supersedes: product, marketplace, or model-routing prose when it treats models as the protocol actor or treats routing as platform fiat.
 Superseded by: none.
 Last alignment pass: 2026-05-14.
+Doctrine status: canonical
+Implementation status: planned (routing doctrine; MoW routing receipts not implemented)
+Last implementation audit: 2026-07-05
 
 ## Canonical Definition
 

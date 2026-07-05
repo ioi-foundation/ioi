@@ -5,6 +5,9 @@ Canonical owner: this file for IOI L1, root contracts, gas boundaries, settlemen
 Supersedes: overlapping plan prose when L1 ownership or gas boundaries conflict.
 Superseded by: none.
 Last alignment pass: 2026-06-22.
+Doctrine status: canonical
+Implementation status: speculative (no L1 deployment; design authority for a future chain)
+Last implementation audit: 2026-07-05
 
 ## Canonical Definition
 

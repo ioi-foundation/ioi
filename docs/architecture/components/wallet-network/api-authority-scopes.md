@@ -8,6 +8,9 @@ client, and revocation APIs.
 Supersedes: older wallet authority API wording when it conflicts with `scope:*` authority grants.
 Superseded by: none.
 Last alignment pass: 2026-06-23.
+Doctrine status: reference
+Implementation status: partial (authority-client seams and lease APIs live; guardian/shard surfaces planned)
+Last implementation audit: 2026-07-05
 
 ## Purpose
 
@@ -54,7 +57,7 @@ Current package shape:
 Product repos such as `wallet-network` consume these package artifacts. They
 may contain UI fixtures and prototypes, but they must not define canonical
 scopes, grants, leases, secret-release policy, receipt schemas, exchange/trade
-intent semantics, or revocation behavior.
+intent semantics, provider/resource authority semantics, or revocation behavior.
 
 ## Account, Factor, Guardian, and Session API
 
@@ -1011,8 +1014,9 @@ to the active blast-radius report.
 6. SMS, email, chat, voice, and webhook access points may carry step-up
    challenge pointers, but not grants, decryption keys, private workspace
    payloads, credentials, or durable authority.
-7. Exchange route sources are candidates only; they are not approval, signing
-   authority, receipt truth, or execution trust roots.
+7. Exchange route sources, venue sources, and cloud resource candidates are
+   candidates only; they are not approval, signing authority, receipt truth, or
+   execution trust roots.
 8. Presentation shells are UI profiles over the same authority review contract;
    the full Wallet console is not required for every Web3/Web4 app.
 9. Unknown, unassessed, stale, and conflicting-source risk or eligibility states

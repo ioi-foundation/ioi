@@ -1,6 +1,11 @@
 # Portable Memory Vault
 
 Status: implemented contract (daemon `ioi_intelligence_routes.rs`)
+Doctrine status: canonical
+Implementation status: built (export/import with credential scrub both directions)
+Implementation refs:
+  - `crates/node/src/bin/hypervisor_daemon_routes/ioi_intelligence_routes.rs`
+Last implementation audit: 2026-07-05
 Canonical owner: this file for the vault serialization format and the memory-mutation
 proposal review lane. Object/envelope authority remains
 `docs/architecture/foundations/common-objects-and-envelopes.md` (Agent Wiki / `ioi-memory`,

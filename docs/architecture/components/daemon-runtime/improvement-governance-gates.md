@@ -1,6 +1,11 @@
 # Improvement Governance Gates
 
 Status: implemented contract (daemon `ioi_intelligence_routes.rs` + `governance_routes.rs`)
+Doctrine status: canonical
+Implementation status: built (apply gates enforced with deterministic 409s)
+Implementation refs:
+  - `crates/node/src/bin/hypervisor_daemon_routes/ioi_intelligence_routes.rs`
+Last implementation audit: 2026-07-05
 Canonical owner: this file for the apply-time gate rule, freshness rule, and reason codes.
 Object authority remains `docs/architecture/foundations/common-objects-and-envelopes.md`
 (improvement proposals, simulation reports) and the governance control objects

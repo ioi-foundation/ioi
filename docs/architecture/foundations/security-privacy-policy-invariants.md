@@ -7,10 +7,18 @@ conformance details live in
 Supersedes: overlapping plan prose when invariants conflict.
 Superseded by: none.
 Last alignment pass: 2026-06-22.
+Doctrine status: canonical
+Implementation status: partial (authority/receipt gates enforced across built planes; TEE/cTEE/L1 items follow their owners)
+Last implementation audit: 2026-07-05
 
 ## Canonical Definition
 
 This document defines the non-negotiable authority, security, privacy, and execution boundaries for canonical Web4.
+
+The canonical one-sentence wording of cross-cutting invariants is owned by the
+invariant registry ([`invariants.md`](./invariants.md), `INV-*`); this file is
+the security-domain application set. Where a numbered item below restates a
+registry invariant, the registry wording wins on conflict.
 
 ## Alignment-Security Invariants
 

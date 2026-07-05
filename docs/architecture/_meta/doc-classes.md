@@ -5,6 +5,9 @@ Canonical owner: this file for architecture documentation class names and placem
 Supersedes: ad hoc document-type labels in architecture headers.
 Superseded by: none.
 Last alignment pass: 2026-06-23.
+Doctrine status: canonical
+Implementation status: mixed (documentation metadata vocabulary)
+Last implementation audit: 2026-07-05
 
 ## Purpose
 
@@ -27,6 +30,40 @@ This register names the document classes used to keep architecture doctrine, ref
 | `formal-generated` | TLC traces, generated trace modules, state dumps, and model-checker byproducts. | `internal-docs/formal/aft/` |
 | `evidence-artifact` | Validation outputs, scorecards, screenshots, bundles, and run reports. | `docs/evidence/` |
 
+## Status Axis (Doctrine vs Implementation)
+
+Every canon file carries two orthogonal status fields in its front matter,
+plus an audit date and optional code refs:
+
+```text
+Doctrine status: canonical | draft | reference | archived
+Implementation status: built | partial | planned | speculative | mixed
+Implementation refs:            # only when built or partial
+  - path/or/route/ref
+Last implementation audit: YYYY-MM-DD
+```
+
+Rules:
+
+- `Doctrine status` says whether the architecture prose is authoritative.
+  `reference` marks low-level listings whose source of truth is (or should
+  become) code; `archived` marks history that no longer binds anyone.
+- `Implementation status` says whether the described system exists today.
+  `built` and `partial` name their code anchors in `Implementation refs`;
+  `speculative` is a maturity statement, never a scope cut.
+- The axes are independent: a file may be canonical **and** speculative
+  (future doctrine is still doctrine), or reference **and** built. Never
+  demote doctrine because implementation is future.
+- A short parenthetical after the implementation value states what exactly is
+  built/missing — prefer one honest clause over a bare label.
+- When implementation state changes, update the file's status line and
+  `Last implementation audit` in the same change that lands the code, or in
+  the next alignment pass.
+
+Horizon framing for the whole corpus lives in
+[`execution-horizons.md`](./execution-horizons.md); per-concept durable-form
+status lives in [`implementation-matrix.md`](./implementation-matrix.md).
+
 ## Placement Rule
 
 `docs/architecture/` should not contain `implementation-plan`,
@@ -34,6 +71,13 @@ This register names the document classes used to keep architecture doctrine, ref
 `.st`, `.fp`, `.bin`, `.aux`, `.log`, `.out`, generated trace modules, or
 `states/` directories. Architecture docs may reference those artifact classes
 only when the generated output is necessary public evidence.
+
+`docs/architecture/_archive/` is the exception lane: verbatim historical
+extractions (change ledgers, build logs, former specs) live there with
+`Doctrine status: archived` and are never authority. The two `_meta`
+migration artifacts (master guide, migration matrix) remain in place as
+live migration owners; their per-slice history has been moved to
+`_archive/change-ledgers/`.
 
 ## Canonical Owner Shape
 

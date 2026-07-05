@@ -5,6 +5,9 @@ Canonical owner: this file for shared envelope names, ID namespaces, primitive c
 Supersedes: older flattened capability-tier examples in plans/specs.
 Superseded by: none.
 Last alignment pass: 2026-06-23.
+Doctrine status: canonical
+Implementation status: mixed (core envelopes/IDs built or partial in the daemon; embodied/cTEE/prediction namespaces speculative)
+Last implementation audit: 2026-07-05
 
 ## Purpose
 
@@ -119,6 +122,16 @@ CapabilityRegressionRecordEnvelope
 OrchestrationConstraintEnvelope
 OrchestrationPlanEnvelope
 OrchestrationPolicyEnvelope
+GoalRunEnvelope
+GoalGroundingLoopEnvelope
+RoleTopologyEnvelope
+ContextCellEnvelope
+ContextLeaseEnvelope
+ContextHandoffEnvelope
+TaskBriefPayloadEnvelope
+HarnessInvocationEnvelope
+HarnessAdapterEventEnvelope
+ImplementationResultPayloadEnvelope
 VerifierPathEnvelope
 OrchestrationDecisionReceiptEnvelope
 BenchmarkEnvelope
@@ -156,6 +169,15 @@ order://...             sas.xyz service order or cross-domain outcome order
 run://...               runtime run identity
 task://...              task identity
 goal://...              ioi.ai or coordinator goal identity
+goal_loop://...         goal grounding loop identity for conductor orientation and continuation
+role_topology://...     selected role topology for a goal, session, automation, or managed instance
+context_cell://...      independent role context for conductor, implementer, reviewer, verifier, operator, or specialist work
+context_lease://...     scoped context/tool/memory/authority/budget lease issued to a context cell or harness invocation
+handoff://...           typed context handoff between context cells
+task_brief://...        normalized task brief payload for bounded implementation or specialist work
+harness_invocation://... daemon-mediated invocation of a selected HarnessProfile or Agent Harness Adapter
+harness_event://...     normalized event emitted by a harness adapter during invocation
+implementation_result://... normalized implementation result payload returned from a harness invocation
 constraint://...        orchestration, workflow, policy, or object constraint identity
 orchestration_policy://... versioned outcome-conductor plan-selection policy identity
 orchestration_plan://... candidate or selected orchestration plan identity
@@ -178,6 +200,10 @@ dataset_snapshot://...  immutable dataset materialization, split, manifest, and 
 eligibility://...       training evidence eligibility or exclusion identity
 teacher_session://...   Foundry teacher, critic, judge, debate, or correction session identity
 candidate_data://...    quarantined or accepted candidate training-signal record identity
+training_stack://...    source-neutral Foundry training-stack blueprint identity
+trainer_backend://...   trainer, evaluator, converter, or distributed-backend profile identity
+verifier_set://...      verifier, reward, environment-feedback, or task-set bundle identity
+reasoning_policy://...  thinking, non-thinking, budget, and trace-disclosure training policy identity
 foundry_spec://...      declarative Foundry training, eval, packaging, or promotion spec identity
 run_plan://...          typed Foundry stage graph and executor-binding plan identity
 trial://...             optimizer, sweep, training, or evaluation trial identity
@@ -189,6 +215,8 @@ promotion_record://...  auditable route binding, traffic split, alias change, or
 promotion_bundle://...  immutable Foundry promotion bundle identity
 package_binding://...   runtime binding between a capability package and a target domain or route identity
 projection://...        ontology-aware or Agentgres projection identity
+trace://...             replayable operation/effect trace identity
+replay://...            replay bundle, replay report, or replay-plan identity
 transform://...         transformation run identity
 plan://...              ontology-to-worker plan identity
 profile://...           training/model capacity profile identity
@@ -226,6 +254,12 @@ embodied_candidate://... Foundry embodied runtime candidate identity
 regression://...        capability regression, canary regression, or post-promotion regression record identity
 model://...             model artifact, registered model, or model-family identity
 model_route://...       model routing profile, endpoint candidate, or serving policy identity
+interactive_world://... Foundry interactive game, simulator, browser, domain-app, robotics-sim, or synthetic world identity
+gameplay://...          normalized gameplay or interactive-world trajectory dataset identity
+scenario_curriculum://... scenario curriculum, perturbation set, difficulty ladder, and holdout identity
+spatial_policy://...    spatial-temporal policy, route policy, or action-policy candidate identity
+sim_world_adapter://... simulator/game/browser/domain-world adapter identity
+world_transfer_gate://... world-to-runtime transfer gate identity
 capability_spec://...   embodied or autonomous capability task, success, command, and safety spec identity
 embodied_domain://...   physical-domain runtime identity for a site, facility, field area, or fleet domain
 robot_fleet://...       fleet identity for robots, drones, humanoids, devices, or facility systems
@@ -259,6 +293,9 @@ physical_replay://...   physical replay bundle identity
 sim_to_real_gate://...  sim-to-real promotion gate identity
 wiki://...              Agent Wiki or durable semantic-memory surface identity
 memory://...            context-memory record or local memory-plane identity
+memory_profile://...    declared memory retention, portability, privacy, projection, and archive profile identity
+memory_archive://...    encrypted restorable memory archive identity
+memory_projection://... harness-, model-, worker-, or surface-specific memory projection identity
 cid://...               content-addressed payload ref, commonly Filecoin/CAS/IPFS
 wallet://...            wallet.network account or authority provider ref
 authority://...         portable delegated authority, approval, consent, or provider-specific authority object ref
@@ -278,6 +315,14 @@ tool://...              typed tool or tool contract identity
 mcp://...               MCP server, tool surface, or gateway-exposed MCP capability identity
 session://...           Hypervisor session identity
 work_run://...          WorkRun identity
+worktree://...          workspace/worktree projection identity for diff, status, and file-scope evidence
+message://...           bounded message or summary artifact identity
+diff://...              diff or patch evidence identity
+test://...              test run, test case, verifier script result, or check identity
+script://...            verifier, build, migration, or harness script identity
+blocker://...           blocker or unresolved-decision identity
+screenshot://...        screenshot or visual evidence identity
+endpoint://...          API, route, or service endpoint identity
 incident://...          provider, runtime, storage, authority, safety, or ecosystem incident identity
 recovery://...          environment, WorkRun, artifact, physical, or service recovery attempt identity
 quarantine_advisory://... quarantine advisory identity
@@ -291,6 +336,10 @@ snapshot://...          environment/workspace point-in-time material identity
 backup://...            environment/workspace durability material identity
 archive://...           policy-bound restore-chain material identity
 patch_branch://...      Agentgres patch-branch coordination identity
+execution_branch://...  branchable Agentgres run state over trace, workspace, memory, authority, and receipts
+staged_effect://...     pre-settlement effect intent/outcome or staged mutation identity
+branch_checkpoint://... checkpoint of execution-branch state and object heads
+branch_merge://...      branch comparison, merge, admission, or discard plan identity
 work_item://...         Work item identity inside a queue, recovery, automation, or WorkRun
 custody_proof://...     cTEE proof-carrying workspace custody proof identity
 privacy_posture://...   cTEE execution privacy posture identity
@@ -2022,6 +2071,12 @@ FoundrySpecEnvelope:
     sft | adapter | full_finetune | distillation |
     preference_optimization | on_policy_correction | eval_only |
     packaging_only | route_policy_training | conductor_advisor_training
+  training_stack_ref: optional training_stack://...
+  trainer_backend_profile_refs:
+    - trainer_backend://...
+  reasoning_mode_policy_ref: optional reasoning_policy://...
+  verifier_environment_set_refs:
+    - verifier_set://... | interactive_world://... | gate://...
   dataset_snapshot_refs:
     - dataset_snapshot://... | dataset://...
   search_space_ref: optional artifact://... | policy://...
@@ -2073,10 +2128,15 @@ FoundryRunPlanEnvelope:
   stage_graph_ref: artifact://...
   stages:
     - data_prep
+    - dataset_factory
+    - teacher_distillation
     - training
+    - reasoning_mode_fusion
+    - environment_feedback_rl
     - checkpointing
     - eval
     - packaging
+    - artifact_conversion
     - registration
     - route_promotion
   executor_bindings:
@@ -2825,6 +2885,11 @@ preferences, procedures, doctrine, route notes, failure lessons, source-backed
 claims, and project knowledge. It is backed by the `ioi-memory` context plane
 for product memory and retrieval. It is not itself Agentgres canonical truth.
 
+Agent Wiki and `ioi-memory` form the portable agent-memory substrate. Harnesses
+may keep local caches, summaries, embeddings, hidden scratchpads, or run-native
+"brain" files, but those are adapters over admitted memory. They are not the
+durable owner of user, org, project, worker, or managed-instance knowledge.
+
 Agentgres admits authoritative wiki changes through operations such as
 `ContextMutationEnvelope`, stores provenance and policy refs, and serves
 rebuildable projections over accepted wiki state.
@@ -2835,15 +2900,136 @@ AgentWikiEnvelope:
   owner_ref: wallet://... | org://... | project://... | worker://...
   agentgres_domain_ref: agentgres://domain/...
   memory_plane_ref: memory://... | optional
+  memory_profile_ref: memory_profile://... | optional
   scope: user | org | project | worker | service | domain
   visibility: private | shared | org | public
   policy_ref: policy://...
   default_retention_policy_ref: policy://...
+  encryption_policy_ref: policy://... | optional
+  restore_authority_ref: authority://... | policy://... | optional
   page_index_ref: projection://... | optional
-  retrieval_projection_refs: []
+  retrieval_projection_refs:
+    - memory_projection://...
   latest_context_mutation_ref: ctxmut_... | optional
-  archive_ref: cid://... | artifact://... | optional
+  archive_ref: memory_archive://... | cid://... | artifact://... | optional
   status: active | archived | restoring | deprecated
+```
+
+## Portable Agent Memory
+
+Portable agent memory is user-, org-, project-, worker-, service-, or
+domain-bound context that can survive harness swaps, model-route swaps,
+runtime migration, node failure, payment lapse, or managed-instance restore when
+policy allows. It is the durable layer beneath agent "personality," preferences,
+procedures, route notes, game lessons, project conventions, tool affordances,
+and failure memory.
+
+The package declares what memory it can use. The instance owns the concrete
+memory. Harnesses receive policy-filtered projections.
+
+```text
+WorkerPackage declares MemoryProfile compatibility
+  -> install / managed instance binds an owner-scoped AgentWiki
+  -> runs propose ContextMutationEnvelope changes
+  -> Agentgres admits accepted memory refs and receipts
+  -> storage backend holds encrypted payload/archive bytes
+  -> authority provider releases restore/decryption when required
+  -> harness/model receives a MemoryProjection, not raw private memory by default
+```
+
+The anti-pattern this prevents is:
+
+```text
+selected harness writes the agent's durable brain by itself
+```
+
+The correct shape is:
+
+```text
+harness-local memory is cache;
+Agent Wiki / ioi-memory is durable knowledge;
+Agentgres admits memory truth;
+encrypted archives preserve restorable bytes;
+authority providers gate restore, export, decryption, and revocation
+```
+
+```yaml
+MemoryProfileEnvelope:
+  memory_profile_id: memory_profile://...
+  owner_scope:
+    user | org | project | worker | managed_instance | service | domain
+  package_ref: optional package://...
+  managed_instance_ref: optional agent://...
+  allowed_memory_kinds:
+    - preference
+    - fact
+    - procedure
+    - doctrine
+    - route
+    - tool_affordance
+    - failure
+    - eval
+    - game_lesson
+    - project_convention
+    - connector_observation
+  portability:
+    any_compatible_harness | package_family_only |
+    instance_private | no_portability
+  persistence:
+    ephemeral | session | grace_archive | zero_to_idle | persistent | exportable
+  default_retention_policy_ref: policy://...
+  archive_policy_ref: policy://...
+  projection_policy_ref: policy://...
+  redaction_policy_ref: policy://...
+  training_use_policy_ref: optional policy://...
+  restore_authority_requirement:
+    local_policy | authority_step_up | wallet_step_up | org_quorum |
+    admin_policy | unavailable
+  delete_or_forget_policy_ref: policy://...
+  status:
+    draft | active | suspended | archived | revoked
+
+MemoryArchiveEnvelope:
+  memory_archive_id: memory_archive://...
+  wiki_ref: wiki://...
+  memory_profile_ref: memory_profile://...
+  managed_instance_ref: optional agent://...
+  archive_payload_ref: cid://... | artifact://... | encrypted_ref
+  payload_hash: hash
+  encryption_policy_ref: policy://...
+  retention_policy_ref: policy://...
+  restore_policy_ref: policy://...
+  authority_refs:
+    - authority://... | grant://... | lease://...
+  created_from_state_root_ref: state_root://...
+  receipt_refs:
+    - receipt://...
+  status:
+    retained | restoring | restored | expired | deleted | revoked
+
+MemoryProjectionEnvelope:
+  projection_id: memory_projection://...
+  wiki_ref: wiki://...
+  memory_profile_ref: memory_profile://...
+  target_ref:
+    harness://... | model_route://... | worker://... | service://... |
+    surface://... | agent://...
+  projection_kind:
+    prompt_context | retrieval_index | skill_bundle | route_notes |
+    policy_filtered_summary | tool_affordance_map | eval_memory
+  allowed_memory_kinds:
+    - preference | fact | procedure | doctrine | route |
+      tool_affordance | failure | eval | game_lesson |
+      project_convention | connector_observation
+  redaction_policy_ref: policy://...
+  privacy_posture_ref: policy://...
+  freshness:
+    realtime | run_start_snapshot | scheduled_refresh | manual_refresh
+  source_context_mutation_refs:
+    - ctxmut_...
+  receipt_ref: receipt://...
+  status:
+    active | stale | revoked | superseded
 ```
 
 ## ContextMutationEnvelope
@@ -2853,12 +3039,19 @@ ContextMutationEnvelope:
   mutation_id: ctxmut_...
   wiki_ref: wiki://... | optional
   worker_id: worker://...
+  package_ref: optional package://...
+  managed_instance_ref: optional agent://...
+  memory_profile_ref: optional memory_profile://...
   project_ref: agentgres://project/... | optional
-  mutation_type: fact | preference | doctrine | route | procedure | eval | failure
+  mutation_type:
+    fact | preference | doctrine | route | procedure | eval | failure |
+    tool_affordance | game_lesson | project_convention | connector_observation
   operation: add | supersede | contradict | deprecate | activate | archive | forget
   scope: user | org | project | worker | service | domain | optional
   visibility: private | shared | org | public | optional
   validity_window: optional
+  retention_policy_ref: optional policy://...
+  projection_policy_ref: optional policy://...
   claim_ref: artifact://... | hash://... | optional
   prior_claim_refs: []
   evidence_refs: []
@@ -3060,11 +3253,376 @@ OrchestrationPlanEnvelope:
   status: candidate | selected | rejected | superseded | admitted
 ```
 
+## GoalRunEnvelope
+
+Durable state for goal-shaped work. `ioi.ai` and Hypervisor Sessions may expose
+different product surfaces, but they should converge on the same GoalRun
+primitive when intent must survive compaction, delegation, verification, or
+long-session continuation.
+
+The GoalRun is not a chat transcript and not a harness-specific memory file. It
+is the coordination record for the goal kernel: intent, constraints, selected
+role topology, context cells, context leases, handoffs, verifier path, receipts,
+and continuation state.
+
+```yaml
+GoalRunEnvelope:
+  goal_run_id: goal://...
+  owner_ref: user://... | org://... | project://... | domain://...
+  origin_surface:
+    ioi_goal_chat | hypervisor_new_session | hypervisor_session |
+    automation | marketplace_instance | api
+  user_intent_ref: intent://... | prompt://...
+  normalized_goal: string
+  constraint_refs:
+    - constraint://... | policy://... | budget://...
+  role_topology_ref: role_topology://...
+  grounding_loop_ref: goal_loop://... | null
+  active_loop_phase:
+    receive_intent | classify_goal | gather_grounding | inspect_state |
+    derive_constraints | select_topology | lease_context |
+    open_context_cells | delegate_or_execute | monitor_progress |
+    verify | repair_or_escalate | reconcile | persist_memory |
+    continue_or_close | null
+  context_cell_refs:
+    - context_cell://...
+  context_lease_refs:
+    - context_lease://... | lease://... | memory_projection://...
+  orchestration_plan_refs:
+    - orchestration_plan://...
+  selected_plan_ref: orchestration_plan://... | null
+  verifier_path_ref: verifier_path://... | null
+  receipt_refs:
+    - receipt://... | ledger://...
+  continuation_state:
+    open | waiting_on_user | delegated | verifying | complete |
+    blocked | superseded
+  status: draft | active | paused | complete | superseded | revoked
+```
+
+## GoalGroundingLoopEnvelope
+
+Low-level conductor-orientation loop for goal-shaped work. This is the concrete
+loop behind the Goal Kernel: it prevents "goal mode" from becoming an unbounded
+chat, and prevents multi-harness orchestration from becoming token-maxing. The
+loop may run in one harness or across multiple Context Cells, but every phase
+has an explicit purpose and exit condition.
+
+```yaml
+GoalGroundingLoopEnvelope:
+  goal_loop_id: goal_loop://...
+  goal_ref: goal://...
+  conductor_context_cell_ref: context_cell://...
+  loop_iteration: integer
+  phase:
+    receive_intent | classify_goal | gather_grounding | inspect_state |
+    derive_constraints | select_topology | lease_context |
+    open_context_cells | delegate_or_execute | monitor_progress |
+    verify | repair_or_escalate | reconcile | persist_memory |
+    continue_or_close
+  grounding_source_refs:
+    - canon://... | doc://... | route://... | runtime://... |
+      project://... | receipt://... | ledger://... | memory_projection://...
+  state_inspection_refs:
+    - environment://... | session://... | run://... | artifact://... |
+      worktree://... | surface://... | endpoint://...
+  decision_refs:
+    - orchestration_decision://... | routing_decision://... |
+      approval-request://... | release-control://...
+  context_cell_refs:
+    - context_cell://...
+  handoff_refs:
+    - handoff://...
+  verifier_path_ref: verifier_path://... | null
+  evidence_refs:
+    - receipt://... | test://... | artifact://... | screenshot://... |
+      ledger://...
+  productivity_budget_ref: budget://... | null
+  escalation_state:
+    none | ask_user | open_implementer_cell | open_reviewer_cell |
+    require_independent_verifier | require_governance_control |
+    stop_blocked
+  exit_condition:
+    continue | delegated | verified_complete | blocked | superseded |
+    user_input_required | governance_required
+  status: active | waiting | satisfied | blocked | superseded | revoked
+```
+
+Canonical conductor loop:
+
+```text
+receive intent
+  -> classify goal shape and risk
+  -> gather canon, project, runtime, memory, and surface grounding
+  -> inspect current state instead of relying on prose
+  -> derive constraints, acceptance, and verification path
+  -> select role topology and context-cell split only if useful
+  -> lease context/tools/memory/authority
+  -> delegate bounded work or execute directly
+  -> monitor progress through receipts and handoffs
+  -> verify with deterministic evidence by default
+  -> repair or escalate when evidence fails
+  -> reconcile receipts, memory, skills, and continuation state
+  -> close or continue
+```
+
+The conductor may be the verifier for ordinary work. Independent verifier cells
+are policy-triggered escalation paths, not the default.
+
+## RoleTopologyEnvelope
+
+Selected role shape for a GoalRun. The topology is provider-neutral: a role may
+be resolved by Codex, Claude Code, OpenCode, a local model, a worker package, a
+browser agent, a CI agent, or a future harness. The durable contract is the role,
+handoff shape, verifier path, and authority posture, not the vendor.
+
+```yaml
+RoleTopologyEnvelope:
+  topology_id: role_topology://...
+  applies_to: goal://... | automation://... | managed_instance://...
+  topology_kind:
+    direct | goal_conductor | delegated_build | governed_release |
+    multi_context_review | specialist_mesh
+  conductor_ref: harness_profile:... | agent://... | worker://...
+  implementer_refs:
+    - harness_profile:... | agent://... | worker://...
+  reviewer_refs:
+    - harness_profile:... | worker://... | org://...
+  verifier_path_ref: verifier_path://... | null
+  conductor_verifies_by_default: boolean
+  escalation_triggers:
+    - publish | runtime_mount | external_connector_action | spend |
+      secret_access | unsafe_plaintext | marketplace_admission |
+      release_control | production_mutation | physical_action |
+      compliance_review
+  status: draft | active | satisfied | superseded | revoked
+```
+
+## ContextCellEnvelope
+
+Independent working context for one role. Context cells exist to protect
+long-horizon intent from implementation-token churn, to keep implementation
+details out of high-level state until summarized, and to allow review with a
+fresh bounded context. Agent-to-agent conversation is allowed only when it is a
+typed handoff between cells.
+
+```yaml
+ContextCellEnvelope:
+  context_cell_id: context_cell://...
+  goal_ref: goal://...
+  role:
+    conductor | implementer | reviewer | verifier | operator |
+    specialist | memory_curator
+  harness_ref: harness_profile:... | agent_harness_adapter:... | null
+  model_route_ref: model_route://... | null
+  memory_projection_refs:
+    - memory_projection://... | wiki://...
+  context_lease_refs:
+    - context_lease://... | lease://...
+  authority_scope_refs:
+    - authority://... | policy://...
+  compression_policy_ref: policy://... | null
+  status: open | waiting | handed_off | summarized | closed | revoked
+```
+
+## ContextLeaseEnvelope
+
+Scoped lease that lets a Context Cell or harness invocation use only the context,
+tools, memory, files, runtime, authority, and budget required for its bounded
+role. Context leases make context a governed resource instead of dumping the
+entire conversation, wiki, repo, connector estate, or authority envelope into
+every harness.
+
+```yaml
+ContextLeaseEnvelope:
+  context_lease_id: context_lease://...
+  goal_ref: goal://...
+  context_cell_ref: context_cell://...
+  issued_to:
+    harness_profile:... | agent_harness_adapter:... | worker://... |
+    agent://... | service://...
+  lease_kind:
+    canon | repo_slice | worktree | memory_projection | tool |
+    connector | runtime | authority | budget | surface | receipt_view |
+    mixed
+  allowed_ref_patterns:
+    - docs/architecture/... | apps/... | crate://... | memory_projection://... |
+      tool://... | connector://... | authority://... | receipt://...
+  denied_ref_patterns:
+    - secret://... | unrelated_path://... | unsafe_plaintext://...
+  authority_scope_refs:
+    - authority://... | policy://...
+  budget_ref: budget://... | null
+  ttl_seconds: integer | null
+  receipt_required: boolean
+  status: draft | active | expired | revoked | consumed
+```
+
+## ContextHandoffEnvelope
+
+Typed packet between context cells. Handoffs are the durable substrate for
+conductor/implementer/reviewer workflows; they should contain enough state for
+the receiving cell to act without inheriting the sender's entire context window.
+
+```yaml
+ContextHandoffEnvelope:
+  handoff_id: handoff://...
+  goal_ref: goal://...
+  from_context_cell_ref: context_cell://...
+  to_context_cell_ref: context_cell://...
+  handoff_kind:
+    task_brief | implementation_result | blocker | diff_summary |
+    test_result | review_request | verification_result |
+    decision_request | continuation_summary
+  payload_ref:
+    task_brief://... | implementation_result://... | artifact://... |
+    message://... | null
+  context_lease_refs:
+    - context_lease://...
+  acceptance_refs:
+    - rubric://... | gate://... | test://...
+  receipt_refs:
+    - receipt://... | ledger://...
+  status: draft | sent | accepted | rejected | superseded
+```
+
+## TaskBriefPayloadEnvelope
+
+Normalized payload for bounded implementation, review, repair, specialist, or
+verification work. The conductor may render this as a prompt for a specific
+harness, but the durable contract is this task brief, not the rendered prompt.
+
+```yaml
+TaskBriefPayloadEnvelope:
+  task_brief_id: task_brief://...
+  goal_ref: goal://...
+  handoff_ref: handoff://...
+  objective: string
+  objective_class:
+    implement | repair | review | verify | inspect | research |
+    refactor | ui_check | release_check | custom
+  scope_refs:
+    - project://... | file://... | route://... | surface://... |
+      artifact://... | receipt://...
+  canon_refs:
+    - canon://... | doc://...
+  constraints:
+    - string
+  do_not_touch_refs:
+    - file://... | module://... | policy://...
+  acceptance_refs:
+    - rubric://... | test://... | gate://...
+  verification_plan_refs:
+    - verifier_path://... | test://... | script://...
+  context_lease_refs:
+    - context_lease://...
+  output_contract:
+    changed_files_required: boolean
+    diff_summary_required: boolean
+    tests_required: boolean
+    blocker_report_required: boolean
+    receipt_refs_required: boolean
+  status: draft | issued | superseded | revoked
+```
+
+## HarnessInvocationEnvelope
+
+Daemon-mediated invocation of a selected HarnessProfile or Agent Harness
+Adapter. This is the object that removes the human copy-paste relay: a
+ContextHandoff becomes a HarnessInvocation, the adapter renders the harness
+native prompt or command privately, and the daemon records normalized events,
+artifacts, receipts, and final result.
+
+```yaml
+HarnessInvocationEnvelope:
+  harness_invocation_id: harness_invocation://...
+  goal_ref: goal://...
+  handoff_ref: handoff://...
+  context_cell_ref: context_cell://...
+  task_brief_ref: task_brief://...
+  harness_ref: harness_profile:... | agent_harness_adapter:...
+  model_route_ref: model_route://... | null
+  runtime_ref: runtime://... | environment://... | session://... | null
+  context_lease_refs:
+    - context_lease://...
+  adapter_rendering_ref: artifact://... | null
+  event_refs:
+    - harness_event://...
+  result_ref: implementation_result://... | null
+  receipt_refs:
+    - receipt://... | ledger://...
+  status:
+    queued | running | waiting_on_harness | waiting_on_conductor |
+    completed | failed | cancelled | superseded
+```
+
+## HarnessAdapterEventEnvelope
+
+Normalized event emitted by a harness adapter during a HarnessInvocation.
+Harnesses may stream text, tool calls, terminal output, file writes, browser
+events, or provider-specific state; the adapter must translate them into common
+events before they become durable coordination evidence.
+
+```yaml
+HarnessAdapterEventEnvelope:
+  harness_event_id: harness_event://...
+  harness_invocation_ref: harness_invocation://...
+  goal_ref: goal://...
+  event_kind:
+    started | stdout | stderr | thought_summary | tool_proposed |
+    tool_started | tool_completed | file_changed | patch_created |
+    test_started | test_completed | blocker | decision_request |
+    artifact_created | receipt_emitted | completed | failed
+  payload_ref: artifact://... | message://... | null
+  normalized_observation_ref: observation://... | null
+  receipt_refs:
+    - receipt://...
+  redaction_policy_ref: policy://... | null
+  timestamp: iso8601
+```
+
+## ImplementationResultPayloadEnvelope
+
+Normalized result returned from a HarnessInvocation. The conductor consumes this
+object, not a copied chat response. It is intentionally bounded: enough evidence
+to verify, repair, continue, or close; not the implementer's full context.
+
+```yaml
+ImplementationResultPayloadEnvelope:
+  implementation_result_id: implementation_result://...
+  goal_ref: goal://...
+  harness_invocation_ref: harness_invocation://...
+  handoff_ref: handoff://...
+  status: completed | failed | blocked | partial | superseded
+  changed_file_refs:
+    - file://... | artifact://...
+  patch_refs:
+    - artifact://... | diff://...
+  test_result_refs:
+    - test://... | receipt://...
+  blocker_refs:
+    - blocker://... | handoff://...
+  decision_request_refs:
+    - handoff://...
+  artifact_refs:
+    - artifact://...
+  receipt_refs:
+    - receipt://... | ledger://...
+  summary_ref: message://... | artifact://... | null
+  next_recommended_handoff_kind:
+    none | repair | review | verify | ask_user | escalate
+```
+
 ## VerifierPathEnvelope
 
 Defines the selected verification shape for a plan, run, worker, route, or
 package. Verifier paths are evidence contracts; model judges are allowed, but
 they are not truth by themselves.
+
+The default verifier path for ordinary goal work may be conductor-run
+deterministic verification: tests, diffs, browser evidence, source checks,
+receipt inspection, and acceptance-criteria reconciliation. Independent verifier
+harnesses are escalation paths, not the default requirement.
 
 ```yaml
 VerifierPathEnvelope:

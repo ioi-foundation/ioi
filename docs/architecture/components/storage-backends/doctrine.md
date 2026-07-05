@@ -5,6 +5,9 @@ Canonical owner: this file for storage backend byte-store doctrine underneath Ag
 Supersedes: component-level Filecoin/CAS wording when it implies storage backends own artifact meaning, authority, lifecycle, restore validity, or operational truth.
 Superseded by: none.
 Last alignment pass: 2026-05-30.
+Doctrine status: canonical
+Implementation status: partial (local_disk/cas/ipfs/filecoin backends built; S3/object-store and provider blob profiles planned)
+Last implementation audit: 2026-07-05
 
 ## Canonical Definition
 

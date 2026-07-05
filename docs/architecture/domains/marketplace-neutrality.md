@@ -5,12 +5,20 @@ Canonical owner: this file for marketplace neutrality, contribution accounting, 
 Supersedes: overlapping plan prose when marketplace neutrality or attribution conflicts.
 Superseded by: none.
 Last alignment pass: 2026-05-30.
+Doctrine status: canonical
+Implementation status: planned (neutrality covenant; contribution receipts not implemented)
+Last implementation audit: 2026-07-05
 
 ## Canonical Definition
 
 **Marketplace neutrality, MoW router neutrality, and contribution accounting are the economic layer that prevents the Default Harness Profile or first-party marketplace from cannibalizing worker, training, benchmark, and service markets.**
 
 This is the missing incentive facet required for a real Internet of Intelligence economy.
+
+The marketplace neutrality covenant is:
+
+> **Open substrate, paid network. Routing and reputation are earned from verified
+> work, not claimed capability, paid placement, or platform fiat.**
 
 ## Core Problem
 
@@ -88,6 +96,11 @@ receipt completeness, cost, privacy, trust posture, installed status, runtime
 availability, or user preference. If a default worker is selected, the reason
 must be legible in the receipt.
 
+Paid listing, admission, certification, managed hosting, or promotion fees may
+exist only when they fund distribution, benchmark/eval compute, trust and safety,
+procurement, hosting, or commercial operations. They must not silently alter
+routing eligibility, reputation, benchmark claims, or first-party preference.
+
 ## Anti-Cannibalization Rules
 
 1. No silent cloning of worker internals into the Default Harness Profile.
@@ -96,6 +109,9 @@ must be legible in the receipt.
 4. Worker/service usage emits contribution receipts.
 5. Marketplace workers compete on specialization, quality, price, privacy, support, and outcome guarantees.
 6. Service redirection is opt-in unless the user explicitly ordered a managed service.
+7. Paid promotion cannot buy RoutingDecisionReceipt preference.
+8. Unverified listings must not be presented as benchmarked or production-ready
+   workers.
 
 ## Contribution Objects
 
@@ -201,6 +217,8 @@ The Internet of Intelligence needs incentives for intelligence sharing. This lay
    receipt trail.
 7. No worker-training capability claim without training lineage and evaluation
    evidence.
+8. No generic fee on a local or self-hosted run that does not use marketplace
+   matching, managed hosting, settlement, or network routing.
 
 ## One-Line Doctrine
 

@@ -5,6 +5,9 @@ Canonical owner: this file for governed autonomous-system chains, Hypervisor Nod
 Supersedes: product prose that collapses Hypervisor UI, Hypervisor Node, autonomous-system state machines, and IOI L1 into one layer.
 Superseded by: none.
 Last alignment pass: 2026-05-25.
+Doctrine status: canonical
+Implementation status: mixed (improvement-proposal plane built; autonomous-system chains and local settlement domains speculative)
+Last implementation audit: 2026-07-05
 
 ## Canonical Definition
 
@@ -228,6 +231,9 @@ Mutable units should be concrete governable objects:
 - skills;
 - Agent Wiki / `ioi-memory` entries;
 - memory or projection schemas;
+- memory profiles;
+- memory archives;
+- memory projections;
 - settlement rules;
 - dispute rules;
 - authority envelopes.
@@ -259,6 +265,107 @@ selected model route, one selected HarnessProfile, and a few skills/memory
 projections. Distributed recursive improvement should add skills, memory,
 tool-call refinements, route policies, verifiers, or workflow patches only
 where evidence shows value.
+
+Harness orchestration is primarily context orchestration. The goal kernel should
+split work into independent Context Cells only when separation creates value:
+protecting long-horizon intent, bounding implementation-token churn, enabling a
+fresh review, isolating private context, or satisfying policy. It should not
+spawn agent chatter merely because multiple harnesses are available.
+
+For ordinary goal-shaped work, the conductor may also be the verifier. The
+default verifier path is conductor-run deterministic evidence: tests, diffs,
+browser or runtime checks, receipts, policy checks, and acceptance-criteria
+reconciliation. Independent verifier harnesses, different-model review, human
+review, or regulated-party review are escalation paths for high-risk work such
+as publish, runtime mount, external connector action, spend, secrets, unsafe
+plaintext, marketplace admission, release control, production mutation,
+physical action, or compliance review.
+
+The default role topology for implementation-oriented goals is therefore:
+
+```text
+GoalRun
+  -> GoalGroundingLoop orients the conductor
+  -> conductor grounds intent, canon, current runtime state, constraints, and acceptance
+  -> implementer Context Cell is opened only when bounded execution helps
+  -> conductor verifies through the selected VerifierPath
+  -> receipts and handoff summaries reconcile back into GoalRun state
+```
+
+The GoalGroundingLoop is the low-level conductor orientation loop. Its phases
+are receive intent, classify goal shape and risk, gather grounding, inspect
+current state, derive constraints and acceptance, select topology, lease context,
+open Context Cells only when useful, delegate or execute, monitor receipts and
+handoffs, verify, repair or escalate, reconcile, persist memory/skills, and
+continue or close. This loop should optimize useful progress per token, not
+maximize model calls, and should always prefer concrete state inspection over
+stale prose when state is available.
+
+The high-to-low contract for a harness-of-harnesses implementation is:
+
+```text
+Product intent
+  User asks ioi.ai or Hypervisor Session to build, fix, review, publish, or run.
+
+Goal coordination
+  GoalRun records normalized intent, constraints, loop phase, continuation,
+  receipts, selected RoleTopology, and selected VerifierPath.
+
+Conductor orientation
+  GoalGroundingLoop gathers canon/project/runtime/memory grounding, inspects
+  current state, selects topology, and decides direct execution vs delegation.
+
+Context partition
+  Context Cells isolate conductor, implementer, reviewer, verifier, operator,
+  or specialist context only when separation creates value.
+
+Context governance
+  Context Leases scope the files, docs, memory, tools, connectors, authority,
+  budget, runtime, and receipt views each cell or harness may use.
+
+Typed handoff
+  ContextHandoff with a TaskBriefPayload carries objective, scope, constraints,
+  do-not-touch rules, acceptance, verification plan, and output contract.
+
+Harness broker
+  HarnessInvocation adapts the task brief into the selected HarnessProfile or
+  Agent Harness Adapter. Rendered prompts or commands are adapter-private; they
+  are not the durable contract.
+
+Adapter normalization
+  HarnessAdapterEvents translate provider/harness-specific output into common
+  stdout/stderr, file_changed, patch_created, test_completed, blocker,
+  decision_request, artifact_created, receipt_emitted, completed, or failed
+  events.
+
+Result contract
+  ImplementationResultPayload returns changed files, patch refs, tests,
+  blockers, artifacts, receipts, summary, and recommended next handoff.
+
+Verification and reconciliation
+  The conductor consumes normalized results, runs the VerifierPath, repairs or
+  escalates when evidence fails, updates receipts/memory/skills, and closes or
+  continues the GoalRun.
+```
+
+This is how IOI removes the human copy-paste relay between harnesses. Humans may
+observe, approve, or override, but cross-harness coordination should flow through
+typed handoffs, harness invocations, normalized events, implementation results,
+verifier paths, and receipts.
+
+Codex, Claude Code, OpenCode, local agents, browser agents, CI agents, and
+future harnesses are eligible implementations of these roles through
+HarnessProfiles. The canon defines the role topology and evidence contracts, not
+a permanent vendor binding.
+
+Portable memory is the default continuity layer for persistent agents. A
+selected harness may summarize, cache, embed, or retrieve context for one run,
+but it should not become the durable owner of the agent's learned preferences,
+procedures, failures, route notes, or project conventions. Those changes should
+land as `ContextMutationEnvelope` records against Agent Wiki / `ioi-memory`
+with policy, retention, archive, and projection refs. This keeps persistent
+background agents portable across model routes, harness adapters, private-mode
+runtimes, managed instances, local installs, and marketplace upgrades.
 
 The agent should be intelligent upstream of the boundary and deterministic at
 the commitment boundary.

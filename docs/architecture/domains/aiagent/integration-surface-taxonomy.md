@@ -5,6 +5,9 @@ Canonical owner: this file for integration-surface classes used by aiagent verti
 Supersedes: plan prose that treats platform integrations as ad hoc worker categories.
 Superseded by: none.
 Last alignment pass: 2026-06-23.
+Doctrine status: canonical
+Implementation status: planned
+Last implementation audit: 2026-07-05
 
 ## Canonical Definition
 

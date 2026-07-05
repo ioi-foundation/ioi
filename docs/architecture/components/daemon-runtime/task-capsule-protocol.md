@@ -5,6 +5,9 @@ Canonical owner: this file for runtime assignment, task capsule, privacy-mode, T
 Supersedes: overlapping hosted/self-hosted worker protocol prose when capsule fields conflict.
 Superseded by: none.
 Last alignment pass: 2026-05-13.
+Doctrine status: canonical
+Implementation status: planned (capsule protocol design; runtime assignment not capsule-shaped today)
+Last implementation audit: 2026-07-05
 
 ## Purpose
 
@@ -24,6 +27,12 @@ receipt boundaries as ordinary worker execution.
 
 ## Execution Privacy Modes
 
+Capsule privacy modes are a projection of the nine-venue execution taxonomy
+owned by [`runtime-nodes-tee-depin.md`](./runtime-nodes-tee-depin.md); the
+canonical mode list and the mode→venue mapping are owned by
+[`../../foundations/canonical-enums.md`](../../foundations/canonical-enums.md).
+Excerpt:
+
 ```text
 local
 hosted
@@ -31,7 +40,13 @@ customer_vpc
 depin_mutual_blind
 hypervisoros_bare_metal
 tee_enterprise
+ctee_private_workspace
+embodied_local
 ```
+
+`ctee_private_workspace` and `embodied_local` are design-stage modes tracking
+their venues (see those venue docs' Implementation status); the modes above
+them are the protocol's original set.
 
 ## Mutual Blind Mode
 

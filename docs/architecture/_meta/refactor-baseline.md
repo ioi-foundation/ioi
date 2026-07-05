@@ -1,0 +1,777 @@
+# Refactor Baseline (before snapshot)
+
+Status: temporary refactor evidence snapshot.
+Doctrine status: reference
+Implementation status: n/a
+Taken: 2026-07-05, before the status-aware canon refactor.
+Purpose: before/after evidence for the docs/architecture refactor; safe to delete after the refactor is accepted.
+
+## Corpus totals
+
+- markdown files: 73
+- total bytes: 3722815 (3.55 MB)
+- distinct non-web URI schemes: 449
+- distinct *Envelope type names: 142
+- route-shaped /v1/ mentions: 1521 (distinct paths: 869)
+
+## Frontmatter (Status / Canonical owner) per file
+
+- `README.md` — Status: canonical navigation and source-of-authority index. | Canonical owner: this file for architecture navigation; see `source-of-truth-map.md` for subject ownership.
+- `START_HERE.md` — Status: entry-point shim. | Canonical owner: `_meta/start-here.md`.
+- `_meta/canon-readability-audit.md` — Status: canonical readability workplan. | Canonical owner: this file for tracking architecture-doc enterability, implementation-grade gaps, and reader-path cleanup.
+- `_meta/current-canon-defaults.md` — Status: canonical cross-owner digest. | Canonical owner: this file for the current high-level defaults that span
+- `_meta/doc-classes.md` — Status: canonical metadata vocabulary. | Canonical owner: this file for architecture documentation class names and placement rules.
+- `_meta/hypervisor-kernel-substrate-migration-matrix.md` — Status: compact implementation migration matrix. | Canonical owner: this file tracks live/current/final ownership for the
+- `_meta/hypervisor-kernel-substrate-unification-master-guide.md` — Status: implementation master guide.
+- `_meta/implementation-matrix.md` — Status: canonical implementation index. | Canonical owner: this file for mapping major architecture concepts to canonical owner docs, current durable forms, object/projection status, code anchors, and conformance hooks.
+- `_meta/source-of-truth-map.md` — Status: canonical documentation ownership map. | Canonical owner: this file for where architecture subjects should be edited first.
+- `_meta/start-here.md` — Status: canonical reader entry point. | Canonical owner: this file for first-read architecture orientation and role-based reading paths.
+- `_meta/vocabulary.md` — Status: canonical vocabulary reference. | Canonical owner: this file for runtime, audit, substrate, projection, and naming vocabulary.
+- `_meta/wallet-protocol-sdk-packaging-plan.md` — Status: initial package boundary implemented; generator and product-import | Canonical owner: this file for the plan to canonize and implement
+- `components/agentgres/api-object-model.md` — Status: canonical low-level reference. | Canonical owner: this file for Agentgres APIs, canonical object classes, runtime v0 state, operation logs, projection watermarks, and replay/export validity; artifact-ref meaning and restore/import validity live in `artifact-ref-plane.md`, and bridge/readiness semantics live in `postgres-bridge-and-readiness-contract.md`.
+- `components/agentgres/artifact-ref-plane.md` — Status: canonical architecture authority. | Canonical owner: this file for Agentgres-governed artifact refs, payload refs, evidence bundles, delivery bundles, sealed state archive refs, content-addressed commitments, artifact lifecycle, policy/authority/receipt linkage, replay/import metadata, restore validity, and relationship to storage backends.
+- `components/agentgres/doctrine.md` — Status: canonical architecture authority. | Canonical owner: this file for high-level Agentgres doctrine; low-level runtime objects live in `agentgres-api-and-object-model.md`, and Postgres bridge/readiness guarantees live in `postgres-bridge-and-readiness-contract.md`.
+- `components/agentgres/postgres-bridge-and-readiness-contract.md` — Status: canonical architecture authority. | Canonical owner: this file for Agentgres Postgres bridge posture, database-readiness guarantees, consistency names, durability expectations, schema/migration lifecycle, replication profile, recovery profile, and operator surface.
+- `components/agentgres/projection-system-reference.md` — Status: taxonomy reference; Agentgres state doctrine remains owned by `agentgres-state-substrate.md` when terminology or mechanics disagree.
+- `components/connectors-tools/contracts.md` — Status: canonical low-level reference. | Canonical owner: this file for RuntimeToolContract, ConnectorMapping
+- `components/connectors-tools/doctrine.md` — Status: canonical architecture authority. | Canonical owner: this file for connector/tool registry doctrine; low-level tool contracts and connector mappings live in `connector-and-tool-contracts.md`.
+- `components/daemon-runtime/api.md` — Status: canonical low-level reference. | Canonical owner: this file for public daemon/runtime API endpoints, event streaming, run lifecycle, structured errors, and client-vs-runtime ownership.
+- `components/daemon-runtime/default-harness-profile.md` — Status: canonical reference harness profile. | Canonical owner: this file for HarnessProfile semantics, the Default Harness Profile reference scaffold/fallback, loop-native step resolution, context topology, output ownership, and implementation-stage object boundaries.
+- `components/daemon-runtime/doctrine.md` — Status: canonical architecture authority. | Canonical owner: this file for Hypervisor Daemon, CLI ownership boundaries, and IOI CLI operator-surface positioning; low-level daemon endpoints live in `api.md`.
+- `components/daemon-runtime/embodied-runtime.md` — Status: canonical architecture authority. | Canonical owner: this file for embodied runtime domains, robot/fleet identity,
+- `components/daemon-runtime/events-receipts-delivery-bundles.md` — Status: canonical low-level reference. | Canonical owner: this file for runtime events, receipts, delivery bundles, trace bundles, and quality records.
+- `components/daemon-runtime/hypervisoros.md` — Status: canonical architecture authority. | Canonical owner: this file for bare-metal Hypervisor nodes, Type 1 substrate
+- `components/daemon-runtime/improvement-governance-gates.md` — Status: implemented contract (daemon `ioi_intelligence_routes.rs` + `governance_routes.rs`) | Canonical owner: this file for the apply-time gate rule, freshness rule, and reason codes.
+- `components/daemon-runtime/portable-memory-vault.md` — Status: implemented contract (daemon `ioi_intelligence_routes.rs`) | Canonical owner: this file for the vault serialization format and the memory-mutation
+- `components/daemon-runtime/private-workspace-ctee.md` — Status: canonical architecture authority. | Canonical owner: this file for Private Workspace backed by cTEE, persistent private Hypervisor workspaces on rented GPU nodes, untrusted-node workspace privacy, private strategy execution, private workspace capsules, autonomy leases, and sensitive-compute routing under the Hypervisor Daemon.
+- `components/daemon-runtime/runtime-nodes-tee-depin.md` — Status: canonical architecture authority. | Canonical owner: this file for runtime-node and execution-privacy doctrine; low-level task capsule protocol lives in `runtime-node-and-task-capsule-protocol.md`.
+- `components/daemon-runtime/task-capsule-protocol.md` — Status: canonical low-level reference. | Canonical owner: this file for runtime assignment, task capsule, privacy-mode, TEE attestation, and remote result envelopes.
+- `components/hypervisor/byo-provider-plane.md` — Status: implemented contract (daemon `provider_routes.rs`, first cut) | Canonical owner: this file for the ProviderAccount object plane, provider credential
+- `components/hypervisor/core-clients-surfaces.md` — Status: canonical architecture authority. | Canonical owner: this file for Hypervisor Core product taxonomy, first-class
+- `components/hypervisor/foundry.md` — Status: canonical architecture authority. | Canonical owner: this file for Hypervisor Foundry as the model, worker, eval,
+- `components/hypervisor/identity-access-and-metering.md` — Status: canonical architecture authority. | Canonical owner: this file for the Hypervisor Daemon's **deployment-local**
+- `components/hypervisor/providers-and-environments.md` — Status: canonical architecture authority. | Canonical owner: this file for Hypervisor-managed providers, environments,
+- `components/model-router/api-byok-mounting.md` — Status: canonical low-level reference. | Canonical owner: this file for model provider, endpoint, route, invocation, BYOK, and run-to-idle API shapes.
+- `components/model-router/doctrine.md` — Status: canonical architecture authority. | Canonical owner: this file for model routing doctrine; low-level model-router API lives in `model-router-api-byok-and-mounting.md`.
+- `components/storage-backends/doctrine.md` — Status: canonical architecture authority. | Canonical owner: this file for storage backend byte-store doctrine underneath Agentgres-governed artifact refs.
+- `components/storage-backends/filecoin-cas.md` — Status: canonical storage-backend profile. | Canonical owner: this file for Filecoin/CAS/IPFS payload availability behavior underneath Agentgres-governed artifact refs.
+- `components/wallet-network/api-authority-scopes.md` — Status: canonical low-level reference. | Canonical owner: this file for wallet.network account, auth factor, guardian,
+- `components/wallet-network/doctrine.md` — Status: canonical architecture authority. | Canonical owner: this file for wallet.network authority doctrine; wallet product, exchange, route-source, exposure, protection, approval-inbox, and receipt doctrine lives in `product-exchange-risk.md`; low-level scope APIs live in `wallet-network-api-and-authority-scopes.md`.
+- `components/wallet-network/product-exchange-risk.md` — Status: canonical architecture product module. | Canonical owner: this file for wallet.network product doctrine, agent authority
+- `domains/aiagent/digital-worker-ontology.md` — Status: canonical architecture authority. | Canonical owner: this file for the base ontology used to describe broad autonomous labor on aiagent.xyz.
+- `domains/aiagent/integration-surface-taxonomy.md` — Status: canonical architecture authority. | Canonical owner: this file for integration-surface classes used by aiagent vertical packs and managed worker instances.
+- `domains/aiagent/managed-agent-console-contract.md` — Status: canonical architecture authority. | Canonical owner: this file for aiagent managed-instance web console projections.
+- `domains/aiagent/managed-worker-instance-lifecycle.md` — Status: canonical architecture authority. | Canonical owner: this file for persistent aiagent managed worker instance lifecycle, payment lapse, archive, restore, export, migration, and deletion semantics.
+- `domains/aiagent/vertical-ontology-packs.md` — Status: canonical architecture authority. | Canonical owner: this file for installable domain extensions over the aiagent Digital Worker Ontology.
+- `domains/aiagent/worker-endpoints.md` — Status: canonical low-level reference. | Canonical owner: this file for aiagent.xyz worker endpoint shapes and inter-agent endpoint contracts.
+- `domains/aiagent/worker-marketplace.md` — Status: canonical architecture authority. | Canonical owner: this file for aiagent.xyz marketplace doctrine; low-level worker endpoints live in `aiagent-xyz-worker-and-inter-agent-endpoints.md`.
+- `domains/decentralized/README.md` — Status: alpha canon architecture doctrine. | Canonical owner: this directory for the `decentralized.*` product/domain lanes
+- `domains/decentralized/cloud.md` — Status: alpha canon architecture doctrine. | Canonical owner: this file for `decentralized.cloud`, cloud resource
+- `domains/decentralized/exchange.md` — Status: alpha canon architecture doctrine. | Canonical owner: this file for `decentralized.exchange`, spot and cross-chain
+- `domains/decentralized/trade.md` — Status: alpha canon architecture doctrine. | Canonical owner: this file for `decentralized.trade`, advanced trading and
+- `domains/ioi-ai/collaborative-outcome-pattern.md` — Status: canonical architecture authority. | Canonical owner: this file for ioi.ai's intent-to-outcome coordination pattern,
+- `domains/ioi-ai/control-plane.md` — Status: canonical architecture authority. | Canonical owner: this file for ioi.ai account, device, restore, publishing, entitlement, console Environments views, and remote-runtime coordination boundaries.
+- `domains/marketplace-neutrality.md` — Status: canonical architecture authority. | Canonical owner: this file for marketplace neutrality, contribution accounting, and anti-cannibalization doctrine.
+- `domains/sas/service-endpoints.md` — Status: canonical low-level reference. | Canonical owner: this file for sas.xyz service order, delivery, provider, escrow mirror, and dispute endpoints.
+- `domains/sas/service-marketplace.md` — Status: canonical architecture authority. | Canonical owner: this file for sas.xyz service marketplace doctrine; low-level service endpoints live in `sas-xyz-service-endpoints.md`.
+- `foundations/aiip.md` — Status: canonical architecture authority. | Canonical owner: this file for AIIP, bounded-execution-domain interop, work packets, AIIP profiles, and cross-system handoff semantics.
+- `foundations/common-objects-and-envelopes.md` — Status: canonical low-level reference. | Canonical owner: this file for shared envelope names, ID namespaces, primitive capability tiers, authority grants, and receipt/run/event envelope fields.
+- `foundations/domain-kernels.md` — Status: canonical architecture authority. | Canonical owner: this file for root/domain kernel boundaries and domain-kernel responsibilities.
+- `foundations/domain-ontologies-and-data-recipes.md` — Status: canonical architecture authority. | Canonical owner: this file for Domain Ontologies, Data Recipes, canonical object models, connector mappings, policy-bound data views, distilled ontology datasets, evaluation datasets, ontology-aware projections, the Ontology Development Kit, ontology-aware surface descriptors, and ontology-to-worker generation.
+- `foundations/economic-flywheel-and-pricing-boundaries.md` — Status: canonical architecture authority. | Canonical owner: this file for stack-wide monetization boundaries, open
+- `foundations/ecosystem-assurance-certification-liability.md` — Status: canonical architecture authority. | Canonical owner: this file for ecosystem assurance profiles, conformance and
+- `foundations/governed-autonomous-systems.md` — Status: canonical architecture authority. | Canonical owner: this file for governed autonomous-system chains, Hypervisor Node settlement domains, and the coherent machine-economy stack.
+- `foundations/ioi-l1-contract-interfaces.md` — Status: canonical low-level reference. | Canonical owner: this file for IOI L1 contract interfaces and sparse root commitments.
+- `foundations/ioi-l1-mainnet.md` — Status: canonical architecture authority. | Canonical owner: this file for IOI L1, root contracts, gas boundaries, settlement, and public commitments.
+- `foundations/mixture-of-workers.md` — Status: canonical architecture authority. | Canonical owner: this file for Mixture of Workers, worker routing, sparse worker categories, and MoW neutrality doctrine.
+- `foundations/physical-action-safety.md` — Status: canonical architecture authority. | Canonical owner: this file for physical-action safety envelopes, embodied-system actuator authority, human supervision, emergency stop, sensor evidence, actuator receipts, incident handling, and physical-action anti-patterns.
+- `foundations/security-privacy-policy-invariants.md` — Status: canonical architecture authority. | Canonical owner: this file for public security/privacy/policy invariants;
+- `foundations/verifiable-bounded-agency.md` — Status: canonical architecture authority. | Canonical owner: this file for IOI's alignment-security thesis, verifiable bounded agency, and execution-boundary alignment doctrine.
+- `foundations/web4-and-ioi-stack.md` — Status: canonical architecture authority. | Canonical owner: this file for the Web4 category definition and IOI stack boundary.
+- `foundations/worker-training-lifecycle.md` — Status: canonical architecture authority. | Canonical owner: this file for Worker Training lifecycle, training-vs-mutation doctrine, training receipts, training profile semantics, and training lineage semantics.
+
+## URI schemes (count of mentions)
+
+- `artifact://` × 331
+- `receipt://` × 295
+- `policy://` × 214
+- `agentgres://` × 136
+- `worker://` × 121
+- `grant://` × 74
+- `wallet://` × 72
+- `gate://` × 68
+- `dataset://` × 59
+- `model://` × 58
+- `agent://` × 57
+- `org://` × 55
+- `runtime://` × 51
+- `system://` × 44
+- `domain://` × 41
+- `benchmark://` × 39
+- `service://` × 39
+- `ledger://` × 36
+- `ai://` × 35
+- `view://` × 35
+- `model_route://` × 32
+- `ontology://` × 31
+- `schema://` × 30
+- `cid://` × 29
+- `package://` × 29
+- `recipe://` × 28
+- `foundry_job://` × 27
+- `connector://` × 24
+- `run://` × 24
+- `embodied_domain://` × 22
+- `lease://` × 21
+- `trainpipe://` × 21
+- `authority://` × 21
+- `object-model://` × 20
+- `rubric://` × 19
+- `evidence://` × 19
+- `batch://` × 18
+- `eligibility://` × 18
+- `dataset_snapshot://` × 18
+- `commitment://` × 18
+- `context_cell://` × 17
+- `project://` × 17
+- `work_run://` × 17
+- `workspace://` × 17
+- `robot://` × 17
+- `goal://` × 17
+- `trace://` × 16
+- `profile://` × 16
+- `conductor://` × 16
+- `task://` × 16
+- `packet://` × 16
+- `tool://` × 15
+- `node://` × 14
+- `budget://` × 14
+- `telemetry_stream://` × 13
+- `model_artifact://` × 13
+- `foundry_spec://` × 12
+- `registry_version://` × 12
+- `restricted_view://` × 11
+- `session://` × 11
+- `safety://` × 11
+- `user://` × 11
+- `teacher_session://` × 11
+- `memory_profile://` × 11
+- `config_revision://` × 11
+- `verifier_path://` × 11
+- `network://` × 10
+- `order://` × 10
+- `settlement-intent://` × 10
+- `robot_fleet://` × 10
+- `zone://` × 10
+- `sensor_contract://` × 10
+- `projection://` × 10
+- `package_artifact://` × 10
+- `interactive_world://` × 10
+- `account://` × 10
+- `memory_projection://` × 10
+- `module://` × 9
+- `proposal://` × 9
+- `constraint://` × 9
+- `optcycle://` × 9
+- `wiki://` × 9
+- `audit_export://` × 9
+- `assurance_evidence://` × 9
+- `ioi://` × 9
+- `wallet_client://` × 9
+- `estop://` × 9
+- `calibration://` × 9
+- `action_schema://` × 9
+- `physical_command://` × 9
+- `incident://` × 9
+- `leakage://` × 9
+- `provider://` × 9
+- `checkpoint://` × 9
+- `eval_report://` × 9
+- `approval://` × 8
+- `mapping://` × 8
+- `compute://` × 8
+- `conversion://` × 8
+- `allocation://` × 8
+- `delivery://` × 8
+- `aiip://` × 8
+- `mcp_gateway://` × 8
+- `surface://` × 8
+- `workflow://` × 8
+- `mcp://` × 8
+- `world_model://` × 8
+- `supervision://` × 8
+- `sensor://` × 8
+- `world_contract://` × 8
+- `time_sync://` × 8
+- `episode_dataset://` × 8
+- `state_root://` × 8
+- `model_mount://` × 8
+- `alpha_seal://` × 8
+- `guardian://` × 8
+- `run_plan://` × 8
+- `trial://` × 8
+- `candidate_data://` × 8
+- `promotion_bundle://` × 8
+- `orchestration_plan://` × 8
+- `handoff://` × 8
+- `transition://` × 7
+- `archive://` × 7
+- `l1://` × 7
+- `revocation://` × 7
+- `controller_binding://` × 7
+- `device://` × 7
+- `capability_spec://` × 7
+- `deterrence://` × 7
+- `assurance_profile://` × 7
+- `report://` × 7
+- `composition://` × 7
+- `contact_channel://` × 7
+- `context_lease://` × 7
+- `invocation://` × 6
+- `transform://` × 6
+- `schedule://` × 6
+- `collaboration://` × 6
+- `adapter://` × 6
+- `action://` × 6
+- `executor://` × 6
+- `physical_command_queue://` × 6
+- `world_representation://` × 6
+- `robot_log://` × 6
+- `daemon://` × 6
+- `capability_exit://` × 6
+- `shielded_capsule://` × 6
+- `environment://` × 6
+- `privacy_posture://` × 6
+- `promotion_record://` × 6
+- `asset://` × 6
+- `memory_archive://` × 6
+- `test://` × 6
+- `payload://` × 5
+- `plan://` × 5
+- `regression://` × 5
+- `resource_pool://` × 5
+- `jurisdiction_policy_pack://` × 5
+- `invoice://` × 5
+- `tax://` × 5
+- `redacted_summary://` × 5
+- `storage://` × 5
+- `origin://` × 5
+- `execution-plan://` × 5
+- `dispatch://` × 5
+- `actuator://` × 5
+- `embodied_candidate://` × 5
+- `embodiment_adapter://` × 5
+- `intent://` × 5
+- `teacher_label_set://` × 5
+- `boot_profile://` × 5
+- `executable_eval_suite://` × 5
+- `eval_world://` × 5
+- `access_point://` × 5
+- `change_plan://` × 5
+- `dispute://` × 5
+- `release://` × 4
+- `quota://` × 4
+- `replay://` × 4
+- `retention_lock://` × 4
+- `cost_center://` × 4
+- `sla://` × 4
+- `procurement://` × 4
+- `artifact_incident://` × 4
+- `pull_request://` × 4
+- `repo://` × 4
+- `review_contract://` × 4
+- `controller://` × 4
+- `heartbeat_policy://` × 4
+- `success_detector://` × 4
+- `observation://` × 4
+- `physical_replay://` × 4
+- `liability_claim_route://` × 4
+- `recovery://` × 4
+- `model_mount_view://` × 4
+- `crypto_op_policy://` × 4
+- `quarantine_advisory://` × 4
+- `conformance_profile://` × 4
+- `harness://` × 4
+- `script://` × 4
+- `trajectory://` × 4
+- `gameplay://` × 4
+- `trainer_backend://` × 4
+- `verifier_set://` × 4
+- `reasoning_policy://` × 4
+- `embodiment://` × 4
+- `model_weight_custody://` × 4
+- `challenge://` × 4
+- `management_channel://` × 4
+- `orchestration_policy://` × 4
+- `task_brief://` × 4
+- `harness_invocation://` × 4
+- `implementation_result://` × 4
+- `message://` × 4
+- `install://` × 3
+- `subscription://` × 3
+- `notebook://` × 3
+- `hash://` × 3
+- `license://` × 3
+- `settlement://` × 3
+- `event://` × 3
+- `scm_pr://` × 3
+- `agent-execution://` × 3
+- `facility://` × 3
+- `fleet_policy://` × 3
+- `facility_system://` × 3
+- `attestation://` × 3
+- `local_control_bridge://` × 3
+- `physical_map://` × 3
+- `environment_state://` × 3
+- `simulator://` × 3
+- `frame://` × 3
+- `sim_to_real_gate://` × 3
+- `operator_handoff://` × 3
+- `private_workspace_capsule://` × 3
+- `browser_session://` × 3
+- `mobile_guardian://` × 3
+- `cli_signer://` × 3
+- `measurement_policy://` × 3
+- `autonomy_lease://` × 3
+- `org_role://` × 3
+- `trajectory_scorecard://` × 3
+- `sim_world_adapter://` × 3
+- `reward://` × 3
+- `spatial_policy://` × 3
+- `world_transfer_gate://` × 3
+- `training_stack://` × 3
+- `auth_factor://` × 3
+- `gmail://` × 3
+- `credential://` × 3
+- `key://` × 3
+- `route://` × 3
+- `onboarding_plan://` × 3
+- `publisher://` × 3
+- `contract://` × 3
+- `onboarding_step://` × 3
+- `goal_loop://` × 3
+- `role_topology://` × 3
+- `harness_event://` × 3
+- `abuse_signal://` × 3
+- `invariant://` × 2
+- `projection_checkpoint://` × 2
+- `projection_slo://` × 2
+- `projection_rebuild://` × 2
+- `scm_commit://` × 2
+- `scm_branch://` × 2
+- `agentgres_patch_branch://` × 2
+- `merge_proposal://` × 2
+- `merge_decision://` × 2
+- `mount://` × 2
+- `model-configuration://` × 2
+- `receipt-policy://` × 2
+- `org_group://` × 2
+- `runtime_node://` × 2
+- `failsafe_policy://` × 2
+- `package_binding://` × 2
+- `bridge://` × 2
+- `eval_suite://` × 2
+- `claim://` × 2
+- `padding_policy://` × 2
+- `decoy_policy://` × 2
+- `threshold_guardian://` × 2
+- `snapshot://` × 2
+- `patch_branch://` × 2
+- `work_item://` × 2
+- `rate_limit://` × 2
+- `node_enforcement://` × 2
+- `approval-request://` × 2
+- `release-control://` × 2
+- `principal://` × 2
+- `custody_proof://` × 2
+- `coverage://` × 2
+- `patch://` × 2
+- `output_contract://` × 2
+- `domain_app://` × 2
+- `scope://` × 2
+- `tool_call_audit://` × 2
+- `call://` × 2
+- `certification_run://` × 2
+- `scenario_curriculum://` × 2
+- `code_workspace://` × 2
+- `key_shard://` × 2
+- `pool://` × 2
+- `tx_intent://` × 2
+- `market://` × 2
+- `order_condition://` × 2
+- `harness_adapter://` × 2
+- `submission://` × 2
+- `package_version://` × 2
+- `certification_claim://` × 2
+- `commercial_export://` × 2
+- `memory://` × 2
+- `worktree://` × 2
+- `diff://` × 2
+- `blocker://` × 2
+- `screenshot://` × 2
+- `endpoint://` × 2
+- `surface-descriptor://` × 2
+- `mcp-profile://` × 2
+- `api://` × 2
+- `automation://` × 2
+- `canon://` × 2
+- `doc://` × 2
+- `scorecard://` × 2
+- `failure://` × 1
+- `kernel://` × 1
+- `index://` × 1
+- `migration://` × 1
+- `query://` × 1
+- `projection_health://` × 1
+- `verification://` × 1
+- `restore://` × 1
+- `delivery_bundle://` × 1
+- `privacy://` × 1
+- `mcp_manifest://` × 1
+- `disclosure://` × 1
+- `execution-attempt://` × 1
+- `dev-recipe://` × 1
+- `environment-class://` × 1
+- `harness-selection://` × 1
+- `runner://` × 1
+- `model-route://` × 1
+- `llm-integration://` × 1
+- `site://` × 1
+- `field_area://` × 1
+- `drone://` × 1
+- `hardware://` × 1
+- `device_model://` × 1
+- `runtime_assignment://` × 1
+- `controller_endpoint://` × 1
+- `sensor_registry://` × 1
+- `actuator_registry://` × 1
+- `stop_condition://` × 1
+- `object_model://` × 1
+- `hazard://` × 1
+- `network_profile://` × 1
+- `runtime_guarantee://` × 1
+- `preflight://` × 1
+- `telemetry_frame://` × 1
+- `time://` × 1
+- `segment://` × 1
+- `safety_case://` × 1
+- `map://` × 1
+- `condition://` × 1
+- `provider_event://` × 1
+- `criteria://` × 1
+- `destination://` × 1
+- `cohort://` × 1
+- `ioi-agent-policy://` × 1
+- `memory-space://` × 1
+- `memory-entry://` × 1
+- `skill-entry://` × 1
+- `automation-affinity://` × 1
+- `memory-mutation-proposal://` × 1
+- `eval://` × 1
+- `schedule_jitter_policy://` × 1
+- `provider-spend-exposure://` × 1
+- `provider-account://` × 1
+- `provider-material://` × 1
+- `hypervisor_core://` × 1
+- `workflow_compositor://` × 1
+- `trigger://` × 1
+- `webhook://` × 1
+- `local://` × 1
+- `provider_state://` × 1
+- `stream://` × 1
+- `comment://` × 1
+- `diff_hunk://` × 1
+- `deployment://` × 1
+- `result://` × 1
+- `adversarial_workflow://` × 1
+- `receipt_policy://` × 1
+- `policy_decision://` × 1
+- `finding://` × 1
+- `listing://` × 1
+- `human://` × 1
+- `foundry_scorecard://` × 1
+- `experiment_trial://` × 1
+- `cost://` × 1
+- `model-route-policy://` × 1
+- `review://` × 1
+- `app://` × 1
+- `workload://` × 1
+- `simulation://` × 1
+- `exchange_intent://` × 1
+- `trade_intent://` × 1
+- `venue://` × 1
+- `oracle://` × 1
+- `venue_intent://` × 1
+- `prediction_intent://` × 1
+- `venue_candidate://` × 1
+- `outcome://` × 1
+- `resolution_source://` × 1
+- `liquidity_snapshot://` × 1
+- `console://` × 1
+- `readiness://` × 1
+- `runtime_profile://` × 1
+- `connector_binding://` × 1
+- `standing_order://` × 1
+- `build://` × 1
+- `scan://` × 1
+- `benchmark_run://` × 1
+- `quote://` × 1
+- `payment://` × 1
+- `integration_surface://` × 1
+- `connector_requirement://` × 1
+- `managed_worker://` × 1
+- `contribution_receipt://` × 1
+- `backup://` × 1
+- `counterfactual_lattice://` × 1
+- `governance://` × 1
+- `odk://` × 1
+- `model_endpoint://` × 1
+- `prompt://` × 1
+- `orchestration_decision://` × 1
+- `routing_decision://` × 1
+- `managed_instance://` × 1
+- `crate://` × 1
+- `secret://` × 1
+- `unrelated_path://` × 1
+- `unsafe_plaintext://` × 1
+- `verifier://` × 1
+- `conformance://` × 1
+- `wallet-client://` × 1
+- `conformance_result://` × 1
+- `service_order://` × 1
+- `scanner://` × 1
+- `vehicle://` × 1
+
+## Envelope type names (count of mentions)
+
+- `SafetyEnvelope` × 13
+- `ContextMutationEnvelope` × 11
+- `OrchestrationConstraintEnvelope` × 7
+- `CommandEnvelope` × 6
+- `RoutingDecisionEnvelope` × 6
+- `MultiPartyCollaborationEnvelope` × 6
+- `AIIPEnvelope` × 5
+- `WorkerTrainingEnvelope` × 5
+- `BenchmarkEnvelope` × 5
+- `DataRecipeEnvelope` × 4
+- `TransformationRunEnvelope` × 4
+- `OntologyProjectionEnvelope` × 4
+- `RuntimeEventEnvelope` × 4
+- `ManifestEnvelope` × 4
+- `AutonomousSystemManifestEnvelope` × 4
+- `AuthorityScopeRequestEnvelope` × 3
+- `AuthorityGrantEnvelope` × 3
+- `AccessPointBindingEnvelope` × 3
+- `StepUpChallengeEnvelope` × 3
+- `TaskEnvelope` × 3
+- `RunEnvelope` × 3
+- `WorkerInstanceEnvelope` × 3
+- `RuntimeSubscriptionEnvelope` × 3
+- `ReceiptEnvelope` × 3
+- `ArtifactEnvelope` × 3
+- `DeliveryEnvelope` × 3
+- `SettlementEnvelope` × 3
+- `ContributionEnvelope` × 3
+- `AgentWikiEnvelope` × 3
+- `DomainOntologyEnvelope` × 3
+- `CanonicalObjectModelEnvelope` × 3
+- `ConnectorMappingEnvelope` × 3
+- `PolicyBoundDataViewEnvelope` × 3
+- `DistilledOntologyDatasetEnvelope` × 3
+- `EvaluationDatasetEnvelope` × 3
+- `TrainingEvidenceEligibilityEnvelope` × 3
+- `OntologyToWorkerPlanEnvelope` × 3
+- `OntologyDevelopmentKitManifestEnvelope` × 3
+- `OntologySurfaceDescriptorEnvelope` × 3
+- `ModelCapacityProfileEnvelope` × 3
+- `ModelDeploymentProfileEnvelope` × 3
+- `FoundrySpecEnvelope` × 3
+- `DatasetSnapshotEnvelope` × 3
+- `FoundryRunPlanEnvelope` × 3
+- `FoundryTrialEnvelope` × 3
+- `FoundryCheckpointArtifactEnvelope` × 3
+- `EmbodiedCapabilitySpecEnvelope` × 3
+- `EmbodiedTrainingDataContractEnvelope` × 3
+- `EmbodiedCapabilityPackageEnvelope` × 3
+- `FoundryEmbodiedRuntimeCandidateEnvelope` × 3
+- `TrainingBatchPlanEnvelope` × 3
+- `GenerationBatchEnvelope` × 3
+- `TeacherSessionEnvelope` × 3
+- `CandidateTrainingSignalEnvelope` × 3
+- `RawBatchArchiveEnvelope` × 3
+- `QualityGateReportEnvelope` × 3
+- `TrainingCostLedgerEnvelope` × 3
+- `DatasetFactoryRunEnvelope` × 3
+- `TrainingPipelineRunEnvelope` × 3
+- `ExperimentOptimizationCycleEnvelope` × 3
+- `ArtifactConversionRunEnvelope` × 3
+- `ConductorAdvisorCandidateEnvelope` × 3
+- `PostTrainingCycleEnvelope` × 3
+- `PromotionDecisionEnvelope` × 3
+- `CapabilityRegressionRecordEnvelope` × 3
+- `OrchestrationPlanEnvelope` × 3
+- `OrchestrationPolicyEnvelope` × 3
+- `GoalRunEnvelope` × 3
+- `GoalGroundingLoopEnvelope` × 3
+- `RoleTopologyEnvelope` × 3
+- `ContextCellEnvelope` × 3
+- `ContextLeaseEnvelope` × 3
+- `ContextHandoffEnvelope` × 3
+- `TaskBriefPayloadEnvelope` × 3
+- `HarnessInvocationEnvelope` × 3
+- `HarnessAdapterEventEnvelope` × 3
+- `ImplementationResultPayloadEnvelope` × 3
+- `VerifierPathEnvelope` × 3
+- `OrchestrationDecisionReceiptEnvelope` × 3
+- `ValidatedCommandEnvelope` × 2
+- `AutonomousSystemChainEnvelope` × 2
+- `HypervisorNodeEnvelope` × 2
+- `BoundedExecutionDomainEnvelope` × 2
+- `ServiceModuleManifestEnvelope` × 2
+- `ModuleInvocationEnvelope` × 2
+- `UpgradeProposalEnvelope` × 2
+- `UpgradeDecisionEnvelope` × 2
+- `LocalSettlementEnvelope` × 2
+- `AIIPChannelEnvelope` × 2
+- `CapabilityDescriptorEnvelope` × 2
+- `TaskOfferEnvelope` × 2
+- `TaskAcceptanceEnvelope` × 2
+- `HandoffEnvelope` × 2
+- `ReceiptCommitmentEnvelope` × 2
+- `DeliveryUpdateEnvelope` × 2
+- `AcceptanceDecisionEnvelope` × 2
+- `SettlementIntentEnvelope` × 2
+- `DisputeResolutionEnvelope` × 2
+- `ReputationEventEnvelope` × 2
+- `HypervisorOSNodeEnvelope` × 2
+- `FoundryModelAndPackageArtifactEnvelope` × 2
+- `FoundryRegistryVersionAndRouteBindingEnvelope` × 2
+- `FoundryPromotionBundleEnvelope` × 2
+- `AuthorityClientEnvelope` × 2
+- `ResourceAllocationDecisionEnvelope` × 2
+- `ModelWeightCustodyProfileEnvelope` × 2
+- `ToolInvocationEnvelope` × 1
+- `ModelInvocationEnvelope` × 1
+- `WorkflowInvocationEnvelope` × 1
+- `GraphInvocationEnvelope` × 1
+- `BridgeEnvelope` × 1
+- `RuntimeDaemonCoreL1SettlementProductRouteEnvelope` × 1
+- `RuntimeDaemonCoreGovernedImprovementProductRouteEnvelope` × 1
+- `RuntimeDaemonCoreExternalCapabilityAuthorityProductRouteEnvelope` × 1
+- `RuntimeDaemonCoreWorkerServicePackageProductRouteEnvelope` × 1
+- `RuntimeDaemonCoreCteeProductRouteEnvelope` × 1
+- `SessionChannelEnvelope` × 1
+- `PhysicalActionSafetyEnvelope` × 1
+- `PolicyEnvelope` × 1
+- `LicenseEnvelope` × 1
+- `RuntimeAssignmentEnvelope` × 1
+- `ComputeSessionEnvelope` × 1
+- `HypervisorOSBootProfileEnvelope` × 1
+- `HypervisorOSBootReceiptEnvelope` × 1
+- `NodeMeasurementReceiptEnvelope` × 1
+- `PrivateWorkspaceNodeEnvelope` × 1
+- `PrivateWorkspaceCapsuleEnvelope` × 1
+- `PlaintextFreeModelMountEnvelope` × 1
+- `ModelMountViewEnvelope` × 1
+- `AlphaSealEnvelope` × 1
+- `AutonomyLeaseEnvelope` × 1
+- `DeterrenceDetectionProfileEnvelope` × 1
+- `SealedStateArchiveEnvelope` × 1
+- `QualityEnvelope` × 1
+- `DisputeEnvelope` × 1
+- `FoundryModelArtifactEnvelope` × 1
+- `FoundryPackageArtifactEnvelope` × 1
+- `FoundryRegistryVersionEnvelope` × 1
+- `FoundryRouteBindingEnvelope` × 1
+- `MemoryProfileEnvelope` × 1
+- `MemoryArchiveEnvelope` × 1
+- `MemoryProjectionEnvelope` × 1
+
+## /v1/ route mentions per file
+
+- `components/daemon-runtime/api.md`: 411
+- `_meta/hypervisor-kernel-substrate-migration-matrix.md`: 226
+- `_meta/hypervisor-kernel-substrate-unification-master-guide.md`: 224
+- `_meta/implementation-matrix.md`: 200
+- `domains/aiagent/worker-endpoints.md`: 137
+- `components/wallet-network/api-authority-scopes.md`: 116
+- `components/agentgres/api-object-model.md`: 63
+- `domains/sas/service-endpoints.md`: 51
+- `components/daemon-runtime/doctrine.md`: 36
+- `components/connectors-tools/contracts.md`: 23
+- `components/model-router/api-byok-mounting.md`: 12
+- `components/hypervisor/byo-provider-plane.md`: 8
+- `foundations/common-objects-and-envelopes.md`: 6
+- `components/daemon-runtime/portable-memory-vault.md`: 3
+- `components/daemon-runtime/improvement-governance-gates.md`: 2
+- `components/daemon-runtime/private-workspace-ctee.md`: 1
+- `components/hypervisor/providers-and-environments.md`: 1
+- `domains/decentralized/cloud.md`: 1
+
+## Known drift-class anchors (before consolidation)
+
+### risk-class (34 lines)
+
+- `components/connectors-tools/contracts.md`: 7 lines
+- `components/wallet-network/api-authority-scopes.md`: 7 lines
+- `components/connectors-tools/doctrine.md`: 5 lines
+- `foundations/common-objects-and-envelopes.md`: 4 lines
+- `components/wallet-network/doctrine.md`: 3 lines
+- `components/wallet-network/product-exchange-risk.md`: 3 lines
+- `components/daemon-runtime/default-harness-profile.md`: 2 lines
+- `components/daemon-runtime/task-capsule-protocol.md`: 1 lines
+- `domains/aiagent/vertical-ontology-packs.md`: 1 lines
+- `domains/sas/service-endpoints.md`: 1 lines
+
+### RuntimeToolContract (24 lines)
+
+- `components/connectors-tools/doctrine.md`: 8 lines
+- `components/connectors-tools/contracts.md`: 4 lines
+- `components/hypervisor/core-clients-surfaces.md`: 4 lines
+- `domains/ioi-ai/collaborative-outcome-pattern.md`: 2 lines
+- `README.md`: 1 lines
+- `_meta/current-canon-defaults.md`: 1 lines
+- `_meta/source-of-truth-map.md`: 1 lines
+- `components/daemon-runtime/api.md`: 1 lines
+- `components/daemon-runtime/default-harness-profile.md`: 1 lines
+- `components/daemon-runtime/doctrine.md`: 1 lines
+
+### receipt-types (59 lines)
+
+- `components/daemon-runtime/private-workspace-ctee.md`: 18 lines
+- `components/daemon-runtime/events-receipts-delivery-bundles.md`: 7 lines
+- `components/daemon-runtime/hypervisoros.md`: 7 lines
+- `_meta/implementation-matrix.md`: 6 lines
+- `foundations/physical-action-safety.md`: 5 lines
+- `components/daemon-runtime/default-harness-profile.md`: 3 lines
+- `components/wallet-network/doctrine.md`: 3 lines
+- `foundations/common-objects-and-envelopes.md`: 2 lines
+- `_meta/current-canon-defaults.md`: 1 lines
+- `_meta/hypervisor-kernel-substrate-unification-master-guide.md`: 1 lines
+- `_meta/vocabulary.md`: 1 lines
+- `components/daemon-runtime/embodied-runtime.md`: 1 lines
+- `components/daemon-runtime/runtime-nodes-tee-depin.md`: 1 lines
+- `components/hypervisor/foundry.md`: 1 lines
+- `domains/aiagent/digital-worker-ontology.md`: 1 lines
+- `foundations/aiip.md`: 1 lines
+
+### privacy-modes (20 lines)
+
+- `components/daemon-runtime/task-capsule-protocol.md`: 4 lines
+- `domains/aiagent/worker-endpoints.md`: 4 lines
+- `foundations/common-objects-and-envelopes.md`: 4 lines
+- `components/daemon-runtime/api.md`: 3 lines
+- `domains/sas/service-endpoints.md`: 2 lines
+- `components/agentgres/api-object-model.md`: 1 lines
+- `components/daemon-runtime/hypervisoros.md`: 1 lines
+- `components/wallet-network/api-authority-scopes.md`: 1 lines
+
+
+## After snapshot (2026-07-05, refactor complete)
+
+- canon: 77 markdown files, 2,990,936 bytes (2.85 MB) — was 73 files / 3,722,815 bytes (3.55 MB)
+- `_archive/`: 12 files, 823,148 bytes of verbatim history moved out of the canonical reading path
+- net canon reduction: ~0.70 MB (−20%) with zero doctrine deletion; new files added: `foundations/invariants.md`, `foundations/canonical-enums.md`, `_meta/execution-horizons.md`, `_archive/*`
+- status-axis coverage: 77/77 canon files carry `Doctrine status` + `Implementation status` (+ refs when built/partial)
+- implementation-status distribution: built 6 · partial 27 · mixed 21 · planned 15 · speculative 7 · n/a 1 (this file)
+- verification gates: axis coverage, link resolution (0 broken), deprecated-alias scan, ladder-redefinition scan, conflict-disclaimer scan, `git diff --check` — ALL PASS

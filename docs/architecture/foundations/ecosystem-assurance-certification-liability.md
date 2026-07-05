@@ -10,6 +10,9 @@ abuse response, billing assurance, or customer audit exports across runtime,
 wallet, marketplace, and product docs without a shared boundary.
 Superseded by: none.
 Last alignment pass: 2026-06-23.
+Doctrine status: canonical
+Implementation status: speculative (assurance/certification layer design)
+Last implementation audit: 2026-07-05
 
 ## Canonical Definition
 
@@ -114,8 +117,9 @@ Agentgres
      incidents, posture projections, and export validity
 
 Foundry
-  -> builds eval suites, scorecards, simulations, worker/model/package tests,
-     and certification-support evidence
+  -> builds eval suites, executable eval worlds, scorecards, simulations,
+     worker/model/package tests, trajectory evidence, and
+     certification-support evidence
 
 aiagent.xyz
   -> consumes worker/package certification posture, benchmark evidence,
@@ -150,6 +154,7 @@ EcosystemAssuranceProfile:
     embodied_runtime |
     service_outcome |
     foundry_training_pipeline |
+    executable_eval_suite |
     storage_backend |
     marketplace_listing |
     custom
@@ -159,7 +164,7 @@ EcosystemAssuranceProfile:
     worker_package | managed_worker_instance | runtime_node |
     authority_client | mcp_gateway_profile | service_order |
     service_package | foundry_job | embodied_domain |
-    storage_backend | domain_kernel
+    executable_eval_suite | eval_world | storage_backend | domain_kernel
   required_evidence:
     - receipt_type: string
       requirement: string
@@ -188,7 +193,7 @@ ConformanceProfile:
     worker_endpoint | harness_adapter | runtime_node |
     wallet_authority_client | mcp_gateway | ctee_private_workspace |
     hypervisoros_node | embodied_runtime | service_endpoint |
-    storage_backend | agentgres_domain
+    executable_eval_world | storage_backend | agentgres_domain
   version: semver
   required_interfaces:
     - interface_ref: api://...

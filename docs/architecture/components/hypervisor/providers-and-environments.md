@@ -9,6 +9,12 @@ Supersedes: prior live canon that split provider and environment posture into a
 standalone provider-management product or peer control plane.
 Superseded by: none.
 Last alignment pass: 2026-06-23.
+Doctrine status: canonical
+Implementation status: partial (env lifecycle, providers, readiness, warm pools, and placement built; DePIN/storage posture families vary)
+Implementation refs:
+  - `crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs`
+  - `crates/node/src/bin/hypervisor_daemon_routes/provider_routes.rs`
+Last implementation audit: 2026-07-05
 
 ## Canonical Definition
 
@@ -34,6 +40,32 @@ restore validity.
 Storage backends hold payload bytes.
 IOI L1 settles only triggered public/economic/cross-domain commitments.
 ```
+
+Environments are the bridge between Hypervisor's Type 1, Type 2, and Type 3
+substrate modes. They are the VM-like governed unit that can contain:
+
+```text
+VMs
+containers / microVMs / WASM
+sandboxes
+model runtimes
+MCP servers
+connectors
+browsers
+terminals
+repos and mounted project folders
+datasets and artifact stores
+robot simulators or embodied adapters
+policy envelopes
+authority grants
+budget limits
+receipts and restore points
+```
+
+Type 1 substrate mode supplies bare-metal/appliance/cluster capacity. Type 2
+substrate mode supplies hosted local developer/operator environments. Type 3
+autonomy mode runs sessions, WorkRuns, workers, tools, models, authority, and
+receipts above those resources. Environments are where those layers meet.
 
 The product shape:
 
@@ -136,6 +168,23 @@ user-specified provider routes
 Provider integrations should preserve provider-specific semantics instead of
 flattening everything into a fake generic cloud.
 
+The current BYO provider object plane and adapter priority ladder live in
+[`byo-provider-plane.md`](./byo-provider-plane.md). That ladder is an
+implementation sequence, not ontology and not placement preference: start with
+SSH/bare-metal conformance, then simple GPU VM providers, GPU runtime clouds,
+GPU marketplaces, enterprise hyperscalers, customer clusters, DePIN compute,
+and decentralized storage custody. The durable Hypervisor objects remain
+provider-neutral, and placement must be driven by policy, authority, budget,
+privacy posture, receipts, and user preference rather than a hardcoded vendor
+winner.
+
+`decentralized.cloud` is the optional first-party resource-intelligence engine
+behind optimized placement. It may return resource candidates, provider quotes,
+custody plans, failover plans, reliability evidence, and spend estimates.
+Hypervisor still owns provider account binding, environment lifecycle, VM/runtime
+provisioning, snapshot, restore, teardown, and receipts. Direct connected
+infrastructure must continue to work without routing through `decentralized.cloud`.
+
 Examples:
 
 ```text
@@ -154,6 +203,53 @@ Akash can run compute, GPUs, model servers, public trunks, and cTEE split-path
 workloads when policy allows. Filecoin can hold encrypted payload/archive bytes
 and retrieval commitments. Neither owns Hypervisor execution, wallet authority,
 Agentgres artifact meaning, private plaintext, or restore validity.
+
+## General VM And Runtime Lifecycle
+
+Hypervisor should support general VM creation and lifecycle control for any
+applicable use case where the selected substrate actually supports it. A VM is
+not limited to "agent work"; it may host a model server, Workbench, browser
+session, build environment, connector worker, service endpoint, automation
+runner, private workspace, or ordinary operator-managed workload, so long as it
+is governed by the same authority, cost, custody, receipts, and restore rules.
+
+The canonical lifecycle vocabulary is:
+
+```text
+Create VM
+Start / stop / restart
+SSH / console
+Attach disk / volume
+Attach GPU where available
+Snapshot
+Archive
+Restore
+Expose ports / IP leases
+Run agent/session/workbench
+Record cost / state root / receipts
+Tear down
+```
+
+The same lifecycle grammar extends to adjacent runtime classes where the
+provider supports them:
+
+```text
+VM
+microVM
+container
+devcontainer
+GPU runtime
+browser
+model server
+HypervisorOS node
+```
+
+Provider adapters must preserve substrate-specific semantics. A Kubernetes
+namespace, KubeVirt VM, Akash lease, Vast instance, RunPod-style runtime,
+hyperscaler VM, Filecoin archive, or SSH bare-metal node can all satisfy parts
+of the lifecycle, but they must not be collapsed into a fake generic cloud.
+If a provider cannot support an operation, the adapter should fail closed with
+a named reason and receipt rather than pretending parity.
 
 ## Development Environment Substrate Doctrine
 

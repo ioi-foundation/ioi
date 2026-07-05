@@ -9,6 +9,11 @@ Supersedes: product prose that treats perps, margin, leverage, prediction
 markets, event contracts, or strategy execution as ordinary exchange routes.
 Superseded by: none.
 Last alignment pass: 2026-06-14.
+Doctrine status: canonical
+Implementation status: partial (SDK candidate-source client exists; live venue service planned)
+Implementation refs:
+  - `packages/wallet-sdk/`
+Last implementation audit: 2026-07-05
 
 ## Canonical Definition
 
