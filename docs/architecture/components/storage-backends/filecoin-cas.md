@@ -174,6 +174,24 @@ Do not:
 - put ordinary operational truth on Filecoin/CAS as opaque state blobs;
 - model Filecoin/CAS as a peer runtime substrate beside Agentgres.
 
+## Implementation Status
+
+The hypervisor daemon implements this profile as the storage leg after the
+external-compute trio: bounded `StorageBackendAccount` kinds (`local_disk`,
+`cas`, `ipfs`, `filecoin`; S3/customer-VPC are later siblings), REAL preflight
+probes, wallet-gated archive export/restore over daemon-custody snapshot
+material, sealed bytes (Argon2id KDF + AEAD under the wallet-secret
+passphrase) before every backend write, commitment records
+(address/CID/hash/size/media type) as availability evidence, storage receipts
+in the Work Ledger (`storage_custody`), `ArtifactAvailabilityIncident` +
+`ArtifactRepairReceipt` semantics exactly as above, and storage candidates on
+the decentralized.cloud candidate plane (`storage.archive` / `storage.cas`)
+that state availability-is-not-restore-truth. Restore admits ONLY after
+fetch + commitment hash + decrypt + admitted state_root all verify. ipfs/
+filecoin live modes block named without credentials/config; the local
+deterministic CAS fixture is unmistakably labelled and never claims network
+availability. Done-bar: `verify-hypervisor-filecoin-cas-archive-custody.mjs`.
+
 ## Related Canon
 
 - [`doctrine.md`](./doctrine.md): storage backend doctrine.

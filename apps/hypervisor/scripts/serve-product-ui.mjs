@@ -740,14 +740,16 @@ function renderWorkLedger(entries, scopedProject) {
   const projects = [...new Set(entries.map((e) => e.project_id).filter(Boolean))];
   const chip = (f, v, label) => `<button class="chip" data-facet="${f}" data-val="${v}" onclick="wlChip(this)">${label}</button>`;
   const filters = `<div class="chips">
-    <span class="chiplabel">kind</span>${chip("kind", "run", "Runs")}${chip("kind", "harness_execution", "Harness runs")}${chip("kind", "goal_run", "IOI Agent coordination")}${chip("kind", "goal_run_invocation", "Agent invocations")}${chip("kind", "goal_run_reconciliation", "Reconciliations")}${chip("kind", "memory_lifecycle", "Memory lifecycle")}${chip("kind", "simulation_report", "Simulations")}${chip("kind", "policy_rollout", "Rollouts")}${chip("kind", "rollout_enforcement", "Rollout enforcement")}${chip("kind", "provider_crossing", "Provider crossings")}${chip("kind", "trigger", "Trigger events")}${chip("kind", "marketplace_publish", "Publishes")}${chip("kind", "kill_enforcement", "Kill enforcements")}
+    <span class="chiplabel">kind</span>${chip("kind", "run", "Runs")}${chip("kind", "harness_execution", "Harness runs")}${chip("kind", "goal_run", "IOI Agent coordination")}${chip("kind", "goal_run_invocation", "Agent invocations")}${chip("kind", "goal_run_reconciliation", "Reconciliations")}${chip("kind", "memory_lifecycle", "Memory lifecycle")}${chip("kind", "simulation_report", "Simulations")}${chip("kind", "policy_rollout", "Rollouts")}${chip("kind", "rollout_enforcement", "Rollout enforcement")}${chip("kind", "provider_crossing", "Provider crossings")}${chip("kind", "storage_custody", "Storage custody")}${chip("kind", "trigger", "Trigger events")}${chip("kind", "marketplace_publish", "Publishes")}${chip("kind", "kill_enforcement", "Kill enforcements")}
     <span class="chiplabel">status</span>${chip("status", "done", "Done")}${chip("status", "success", "Success")}${chip("status", "failed", "Failed")}${chip("status", "failure", "Failure")}${chip("status", "accepted", "Accepted")}${chip("status", "rejected", "Rejected")}
     <span class="chiplabel">project</span><select id="wl-project" onchange="wlFilter()"><option value="">all</option>${projects.map((p) => `<option value="${CX_ESC(p)}">${CX_ESC(p)}</option>`).join("")}</select>
   </div>`;
-  const icon = (k) => (k === "run" ? "▶" : k === "harness_execution" ? "🤖" : k === "goal_run" ? "🎯" : k === "goal_run_invocation" ? "🤝" : k === "goal_run_reconciliation" ? "⚖" : k === "memory_lifecycle" ? "🧬" : k === "simulation_report" ? "🔮" : k === "policy_rollout" ? "🚦" : k === "rollout_enforcement" ? "🚫" : k === "improvement_applied" ? "📈" : k === "memory_projection" ? "🧠" : k === "marketplace_publish" ? "🛒" : k === "domain_app_runtime" ? "🧩" : k === "kill_enforcement" ? "🛑" : k === "provider_crossing" ? "🔌" : "🪝");
+  const icon = (k) => (k === "run" ? "▶" : k === "harness_execution" ? "🤖" : k === "goal_run" ? "🎯" : k === "goal_run_invocation" ? "🤝" : k === "goal_run_reconciliation" ? "⚖" : k === "memory_lifecycle" ? "🧬" : k === "simulation_report" ? "🔮" : k === "policy_rollout" ? "🚦" : k === "rollout_enforcement" ? "🚫" : k === "improvement_applied" ? "📈" : k === "memory_projection" ? "🧠" : k === "marketplace_publish" ? "🛒" : k === "domain_app_runtime" ? "🧩" : k === "kill_enforcement" ? "🛑" : k === "provider_crossing" ? "🔌" : k === "storage_custody" ? "🗄" : "🪝");
   // A ledger row's headline: automation name for runs, else the harness/session/subject it proves.
   const title = (e) => e.kind === "provider_crossing"
     ? `provider ${CX_ESC(e.op || "op")} · ${CX_ESC(e.provider || "")} ${CX_ESC(String(e.account_ref || e.environment_ref || "").slice(-22))}`
+    : e.kind === "storage_custody"
+    ? `archive ${CX_ESC(e.op || "op")} · ${CX_ESC(e.backend || "")} ${CX_ESC(String(e.archive_ref || e.material_ref || "").slice(-22))}`
     : e.kind === "harness_execution"
     ? `${CX_ESC(e.harness || "harness")} → ${CX_ESC(e.session_ref || "session")}`
     : e.kind === "goal_run" ? `IOI Agent coordination · ${CX_ESC(String(e.normalized_goal || "").slice(0, 48))}`
@@ -801,6 +803,7 @@ function renderWorkLedger(entries, scopedProject) {
         if(e.implementation_result){h+=row('Adapter',e.implementation_result.adapter)+row('Model',e.implementation_result.model)+row('Exit code',e.implementation_result.exit_code);}}
       if(e.kind==='trigger'){h+=row('Reason',e.reason)+row('Request',e.request_id);}
       if(e.kind==='provider_crossing'){h+=row('Op',e.op)+row('Provider',e.provider)+row('Account',e.account_ref)+row('Environment',e.environment_ref)+row('Receipt',e.receipt_ref)+row('Grant',e.grant_ref)+row('Candidate',e.candidate_ref)+row('Quote',e.quote_ref)+row('Execution mode',e.execution_mode)+row('Teardown',e.teardown_state)+row('State root',e.state_root_evidence)+row('Cost estimate',e.cost_estimate?JSON.stringify(e.cost_estimate):'');}
+      if(e.kind==='storage_custody'){h+=row('Op',e.op)+row('Backend',e.backend)+row('Backend ref',e.backend_ref)+row('Archive',e.archive_ref)+row('Material',e.material_ref)+row('Environment',e.environment_ref)+row('State root',e.state_root)+row('Commitment',e.commitment?(e.commitment.address||''):'')+row('Grant',e.grant_ref)+row('Incident',e.incident_ref)+row('Repair',e.repair_ref)+row('Custody rule',e.custody_rule);}
       h+='</div><h4>Hashes</h4><div class="wlgrid">'+row('State root',e.state_root)+row('Payload hash',e.payload_hash)+row('Headers hash',e.headers_hash)+'</div>';
       // Backlinks — this ledger entry is an executable cross-reference map: every cross-object
       // ref it names is rendered as a navigable link into the surface that owns that object, so
@@ -817,6 +820,7 @@ function renderWorkLedger(entries, scopedProject) {
       if(e.candidate_ref){links+=bl('Publish candidate',e.candidate_ref,'/__ioi/marketplace');}
       if(e.listing_id){links+=bl('Listing',e.listing_id,'/__ioi/marketplace');}
       if(e.kind==='provider_crossing'){links+=bl('Provider health',e.account_ref||'provider accounts','/__ioi/operations')+bl('Provider accounts',e.account_ref||'environments','/__ioi/environments');if(e.exposure_ref){links+=bl('Spend reconciliation',e.exposure_ref,e.spend_reconciliation_ref||'/__ioi/operations');}}
+      if(e.kind==='storage_custody'){links+=bl('Storage backend health',e.backend_ref||'storage backends',e.storage_health_ref||'/__ioi/operations')+bl('Archive custody',e.archive_ref||'environments','/__ioi/environments');}
       if(e.release_control_ref){links+=bl('Release control',e.release_control_ref,'/__ioi/governance');}
       if(e.approval_request_ref){links+=bl('Approval request',e.approval_request_ref,'/__ioi/governance');}
       if(e.kill_switch_ref){links+=bl('Kill switch',e.kill_switch_ref,'/__ioi/governance');}
@@ -838,7 +842,7 @@ function renderWorkLedger(entries, scopedProject) {
 // ---- Operations — the first real Operations estate card: execution health over the automation
 // substrate (scheduler · run health · needs-attention · webhook health). Real records only;
 // drilldowns into Automation detail / Work Ledger / Run Timeline. No fake incidents/cost/capacity.
-function renderOperations(ops, authpol, prov, provReceipts, spendRecon) {
+function renderOperations(ops, authpol, prov, provReceipts, spendRecon, storageBackends, storageIncidents) {
   ops = ops || {};
   authpol = authpol || {};
   prov = prov || {};
@@ -929,7 +933,19 @@ function renderOperations(ops, authpol, prov, provReceipts, spendRecon) {
     ${srWarn.map((w) => `<div class="sub" style="margin:0 0 6px;color:#e2b93d;text-transform:none;letter-spacing:0">⚠ ${CX_ESC(w.exposure_ref || "")} — ${CX_ESC(w.warning || "")}</div>`).join("")}
     ${srRows ? `<table><thead><tr><th>Exposure</th><th>Provider</th><th>Status</th><th>Rate (estimate)</th><th>Teardown</th><th>Evidence</th></tr></thead><tbody>${srRows}</tbody></table>` : `<div class="empty">No spend exposures yet — a quote-backed metered create opens one; teardown closes it.</div>`}
   </div>`;
-  const provSection = `<div id="ops-provider-health"><h2>Provider health</h2><p class="sub" style="margin:-4px 0 10px">BYO provider accounts and their preflight posture. ${CX_ESC(prov.spend_rule || "BYO provider spend is customer-borne; the hypervisor records, governs, estimates, and reconciles — never hidden markup")}.</p>${provTable}${spendSection}<h3 style="margin:14px 0 8px">Recent provider receipts</h3>${prcTable}</div>`;
+  // Storage backend health — archive/CAS byte custody posture (backends, objects, incidents).
+  const stB = (storageBackends || {}).backends || [];
+  const stInc = ((storageIncidents || {}).incidents || []).filter((i) => i.status === "open");
+  const stRep = ((storageIncidents || {}).repair_receipts || []).slice(0, 5);
+  const stRows = stB.map((b) => `<tr><td>${CX_ESC(b.display_name || "—")}<div style="color:#878a93;font-size:11px;margin-top:1px"><code>${CX_ESC(b.account_ref || "")}</code></div></td><td><span class="pill muted">${CX_ESC(b.kind || "")}</span></td><td><span class="pill ${(b.health || {}).state === "available" ? "ok" : (b.health || {}).state === "impaired" ? "warn" : "muted"}">${CX_ESC((b.health || {}).state || b.status || "")}</span></td><td>${CX_ESC(String((b.health || {}).objects ?? 0))} object(s)</td><td>${(b.health || {}).open_incidents ? `<span class="pill warn">⚠ ${(b.health || {}).open_incidents}</span>` : `<span class="pill muted">0</span>`}</td></tr>`).join("");
+  const stIncRows = stInc.map((i) => `<div class="sub" style="margin:0 0 6px;color:#e2b93d;text-transform:none;letter-spacing:0">⚠ ${CX_ESC(i.kind || "")} — <code style="font-size:10.5px">${CX_ESC(i.archive_ref || "")}</code> ${CX_ESC((i.detail || "").slice(0, 120))}</div>`).join("");
+  const stRepRows = stRep.map((r) => `<div class="sub" style="margin:0 0 4px;text-transform:none;letter-spacing:0">${r.outcome === "repaired" ? "✔" : "✖"} repair ${CX_ESC(r.outcome || "")} — <code style="font-size:10.5px">${CX_ESC(r.archive_ref || "")}</code></div>`).join("");
+  const storageSection = `<div id="ops-storage-backends"><h3 style="margin:14px 0 8px">Storage backend health</h3>
+    <p class="sub" style="margin:-2px 0 8px;text-transform:none;letter-spacing:0">${CX_ESC((storageBackends || {}).custody_rule || "storage backends hold payload bytes; they do not own operational truth — daemon-admitted sha256 state roots remain restore truth")}</p>
+    ${stRows ? `<table><thead><tr><th>Backend</th><th>Kind</th><th>Health</th><th>Archives</th><th>Open incidents</th></tr></thead><tbody>${stRows}</tbody></table>` : `<div class="empty">No storage backends yet. Add one (local_disk · cas · ipfs · filecoin) to export sealed archive bytes off-daemon.</div>`}
+    ${stIncRows}${stRepRows}
+  </div>`;
+  const provSection = `<div id="ops-provider-health"><h2>Provider health</h2><p class="sub" style="margin:-4px 0 10px">BYO provider accounts and their preflight posture. ${CX_ESC(prov.spend_rule || "BYO provider spend is customer-borne; the hypervisor records, governs, estimates, and reconciles — never hidden markup")}.</p>${provTable}${spendSection}${storageSection}<h3 style="margin:14px 0 8px">Recent provider receipts</h3>${prcTable}</div>`;
   // Scheduler records keyed by automation_id, with the schedule pre-humanized server-side so the
   // drawer join needs no client re-implementation of cron/interval rendering.
   const autosById = {};
@@ -1060,7 +1076,7 @@ function renderCandidateCards(v) {
   return head + cands.map(card).join("");
 }
 
-function renderEnvironments(summary, classes, providerAccounts, venuesRes, policyRes, spendReconRes) {
+function renderEnvironments(summary, classes, providerAccounts, venuesRes, policyRes, spendReconRes, storageArchivesRes) {
   summary = summary || {};
   providerAccounts = providerAccounts || {};
   const enc = encodeURIComponent;
@@ -1081,9 +1097,21 @@ function renderEnvironments(summary, classes, providerAccounts, venuesRes, polic
   const paSection = `<div id="env-provider-accounts"><h2>Provider accounts</h2><p class="sub" style="margin:-4px 0 10px">Bring-your-own compute: durable provider accounts backing environment classes. ${CX_ESC(providerAccounts.spend_rule || "BYO provider spend is customer-borne; the hypervisor records, governs, estimates, and reconciles — it does not hide markup inside provider cost")}.</p>${pAccounts.length
     ? `<table><thead><tr><th>Account</th><th>Kind</th><th>Target</th><th>Credential</th><th>Status · preflight</th><th>Spend</th></tr></thead><tbody>${paRows}</tbody></table>`
     : `<div class="empty">No provider accounts yet. Create one via <code>POST /v1/hypervisor/provider-accounts</code> (kinds: baremetal_ssh · aws · gcp · k8s · vast · akash), bind a sealed credential, and preflight it — spend stays customer-borne.</div>`}</div>`;
+  // Archive custody posture — sealed environment materials exported to storage backends.
+  const archv = (storageArchivesRes || {}).archives || [];
+  const archByEnv = {};
+  for (const a of archv) { const k = a.environment_ref || "—"; (archByEnv[k] = archByEnv[k] || []).push(a); }
+  const archRows = Object.entries(archByEnv).map(([envRef, list]) => {
+    const impaired = list.filter((a) => a.status === "impaired").length;
+    const backends = [...new Set(list.map((a) => a.backend_kind))].join(" · ");
+    return `<tr><td><code>${CX_ESC(envRef)}</code></td><td>${list.length} sealed archive(s)</td><td>${CX_ESC(backends)}</td><td>${impaired ? `<span class="pill warn">⚠ ${impaired} impaired</span>` : `<span class="pill ok">available</span>`}</td><td><code style="font-size:10.5px">${CX_ESC((list[0].state_root || "").slice(0, 24))}…</code></td></tr>`;
+  }).join("");
+  const archSection = `<div id="env-archive-custody"><h2>Archive custody</h2><p class="sub" style="margin:-4px 0 10px">${CX_ESC((storageArchivesRes || {}).custody_rule || "storage availability is NOT restore truth — restore admits only after fetch + commitment hash + decrypt + admitted state_root all verify")}.</p>${archRows
+    ? `<table><thead><tr><th>Environment</th><th>Archives</th><th>Backends</th><th>Availability</th><th>State root</th></tr></thead><tbody>${archRows}</tbody></table>`
+    : `<div class="empty">No archived environment materials yet. Export a daemon-custody snapshot to a storage backend (local_disk · cas · ipfs · filecoin) to populate archive custody.</div>`}</div>`;
   const venueSection = renderPlacementVenues(venuesRes, policyRes, spendReconRes);
   if (!(summary.total_matching || 0)) {
-    return automationsShell("Environments", head + posture + venueSection + paSection + `<div class="empty">No active environments. Start a session or create an environment from a project to populate this.</div>`);
+    return automationsShell("Environments", head + posture + venueSection + paSection + archSection + `<div class="empty">No active environments. Start a session or create an environment from a project to populate this.</div>`);
   }
   // Master-detail lifecycle console (source shape: providers-and-environments is a lifecycle
   // CONSOLE, not a flat list): rows select into a right-hand detail drawer that loads the full
@@ -1135,7 +1163,7 @@ function renderEnvironments(summary, classes, providerAccounts, venuesRes, polic
       }).catch(function(){d.innerHTML='<div class="ioi-ns-err">Could not load the environment record.</div>';});
     }
   </script>`;
-  return automationsShell("Environments", styles + head + posture + venueSection + paSection + table + script);
+  return automationsShell("Environments", styles + head + posture + venueSection + paSection + archSection + table + script);
 }
 
 // ---- GoalRun proof page — the multi-harness orchestration ladder as Run Timeline sections.
@@ -4147,30 +4175,33 @@ const server = http.createServer((req, res) => {
     }
     // ---- Operations — execution health over the automation substrate (estate surface #9).
     if (pathname === "/__ioi/operations" && req.method === "GET") {
-      const [r, authpol, prov, provReceipts, spendRecon] = await Promise.all([
+      const [r, authpol, prov, provReceipts, spendRecon, storageB, storageInc] = await Promise.all([
         fetch(`${DAEMON}/v1/hypervisor/operations`).then((x) => x.json()).catch(() => ({})),
         fetch(`${DAEMON}/v1/hypervisor/auth/policy`).then((x) => x.json()).catch(() => ({})),
         fetch(`${DAEMON}/v1/hypervisor/providers`).then((x) => x.json()).catch(() => ({})),
         fetch(`${DAEMON}/v1/hypervisor/provider-receipts`).then((x) => x.json()).catch(() => ({})),
         fetch(`${DAEMON}/v1/hypervisor/provider-spend/reconciliation`).then((x) => x.json()).catch(() => ({})),
+        fetch(`${DAEMON}/v1/hypervisor/storage-backends`).then((x) => x.json()).catch(() => ({})),
+        fetch(`${DAEMON}/v1/hypervisor/storage-incidents`).then((x) => x.json()).catch(() => ({})),
       ]);
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
-      res.end(renderOperations(r, authpol, prov, provReceipts, spendRecon));
+      res.end(renderOperations(r, authpol, prov, provReceipts, spendRecon, storageB, storageInc));
       return;
     }
     // ---- Environments — substrate estate; reads the daemon env-summary projection (paged) + classes.
     if (pathname === "/__ioi/environments" && req.method === "GET") {
       const offset = parseInt(new URL(req.url, "http://x").searchParams.get("offset") || "0", 10) || 0;
-      const [sRes, cRes, paRes, pvRes, ppRes, srRes] = await Promise.all([
+      const [sRes, cRes, paRes, pvRes, ppRes, srRes, saRes] = await Promise.all([
         fetch(`${DAEMON}/v1/hypervisor/environments-summary?limit=60&offset=${offset}`).then((x) => x.json()).catch(() => ({})),
         fetch(`${DAEMON}/v1/hypervisor/environment-classes`).then((x) => x.json()).catch(() => ({})),
         fetch(`${DAEMON}/v1/hypervisor/provider-accounts`).then((x) => x.json()).catch(() => ({})),
         fetch(`${DAEMON}/v1/hypervisor/placement/venues`).then((x) => x.json()).catch(() => ({})),
         fetch(`${DAEMON}/v1/hypervisor/placement/venue-policy`).then((x) => x.json()).catch(() => ({})),
         fetch(`${DAEMON}/v1/hypervisor/provider-spend/reconciliation`).then((x) => x.json()).catch(() => ({})),
+        fetch(`${DAEMON}/v1/hypervisor/storage-archives`).then((x) => x.json()).catch(() => ({})),
       ]);
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
-      res.end(renderEnvironments(sRes, cRes.environmentClasses || [], paRes, pvRes, ppRes, srRes));
+      res.end(renderEnvironments(sRes, cRes.environmentClasses || [], paRes, pvRes, ppRes, srRes, saRes));
       return;
     }
     // ---- Workbench — launcher; reads the daemon env-summary projection (paged).

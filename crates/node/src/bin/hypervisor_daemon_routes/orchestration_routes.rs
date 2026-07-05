@@ -518,6 +518,21 @@ pub(crate) async fn handle_work_ledger(
             "spend_reconciliation_ref": "/__ioi/operations#ops-spend-recon",
         }));
     }
+    // Storage custody crossings — every archive export/verify/restore/repair minted a storage
+    // receipt (success AND failure); incidents and repairs are reachable from the proof stream.
+    for r in read_record_dir(&st.data_dir, "storage-receipts") {
+        entries.push(json!({
+            "id": g(&r, "receipt_id"), "kind": "storage_custody", "timestamp": g(&r, "at"),
+            "status": g(&r, "outcome"), "op": g(&r, "op"), "backend": g(&r, "backend"),
+            "backend_ref": g(&r, "backend_ref"), "archive_ref": g(&r, "archive_ref"),
+            "material_ref": g(&r, "material_ref"), "environment_ref": g(&r, "environment_ref"),
+            "receipt_ref": g(&r, "receipt_ref"), "grant_ref": g(&r, "grant_ref"),
+            "state_root": g(&r, "state_root"), "commitment": g(&r, "commitment"),
+            "incident_ref": g(&r, "incident_ref"), "repair_ref": g(&r, "repair_ref"),
+            "custody_rule": "storage availability is not restore truth — daemon-admitted state roots are",
+            "storage_health_ref": "/__ioi/operations#ops-storage-backends",
+        }));
+    }
     // Webhook trigger receipts (accepted/rejected proofs).
     for ev in read_record_dir(&st.data_dir, "webhook-trigger-events") {
         let aid = ev.get("automation_id").and_then(|v| v.as_str()).unwrap_or("");

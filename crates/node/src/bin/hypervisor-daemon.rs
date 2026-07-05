@@ -56,6 +56,8 @@ mod vast_candidate_source;
 mod runpod_candidate_source;
 #[path = "hypervisor_daemon_routes/lambda_candidate_source.rs"]
 mod lambda_candidate_source;
+#[path = "hypervisor_daemon_routes/storage_backend_routes.rs"]
+mod storage_backend_routes;
 #[path = "hypervisor_daemon_routes/environment_routes.rs"]
 mod environment_routes;
 #[path = "hypervisor_daemon_routes/foundry_routes.rs"]
@@ -1753,6 +1755,42 @@ async fn async_main() -> anyhow::Result<()> {
         .route(
             "/v1/hypervisor/provider-operations",
             get(provider_routes::handle_provider_operations),
+        )
+        // Storage backends — Filecoin/CAS/IPFS/local-disk archive custody (byte availability
+        // behind daemon refs; never authority, never restore truth).
+        .route(
+            "/v1/hypervisor/storage-backends",
+            get(storage_backend_routes::handle_storage_backends_list)
+                .post(storage_backend_routes::handle_storage_backend_create),
+        )
+        .route(
+            "/v1/hypervisor/storage-backends/:id",
+            patch(storage_backend_routes::handle_storage_backend_patch)
+                .delete(storage_backend_routes::handle_storage_backend_delete),
+        )
+        .route(
+            "/v1/hypervisor/storage-backends/:id/credential",
+            post(storage_backend_routes::handle_storage_backend_credential),
+        )
+        .route(
+            "/v1/hypervisor/storage-backends/:id/preflight",
+            post(storage_backend_routes::handle_storage_backend_preflight),
+        )
+        .route(
+            "/v1/hypervisor/storage-archive-ops",
+            post(storage_backend_routes::handle_storage_archive_op),
+        )
+        .route(
+            "/v1/hypervisor/storage-archives",
+            get(storage_backend_routes::handle_storage_archives_list),
+        )
+        .route(
+            "/v1/hypervisor/storage-incidents",
+            get(storage_backend_routes::handle_storage_incidents),
+        )
+        .route(
+            "/v1/hypervisor/storage-receipts",
+            get(storage_backend_routes::handle_storage_receipts),
         )
         // T7-2: Session Execution Binding — one ref composing session/environment/thread/work_run.
         .route(
