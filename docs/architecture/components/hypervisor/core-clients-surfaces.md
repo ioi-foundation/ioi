@@ -780,6 +780,15 @@ client-local chat setting.
 
 **Hypervisor Home** is the default command and resume surface.
 
+Implementation status: live first slice — owned serve surface `/__ioi/home`
+(`renderHome` in `apps/hypervisor/scripts/serve-product-ui.mjs`) renders four
+read-only strips over live daemon projections (pending approval requests;
+runs blocked at a wallet gate incl. `awaiting_authority_*` failover runs;
+resume sessions/running work; newest Work Ledger proof), each with an honest
+empty state and a named daemon-unreachable degraded state; reachable from the
+Applications launcher modal without a pinned rail item. Goal-prompt drafting
+is not built yet.
+
 Home may accept goal prompts, show recent sessions, surface waiting approvals,
 and route the user into a Project, Automation, Application, Session, receipt, or
 replay. Home is allowed to draft work, but it must not become the durable owner

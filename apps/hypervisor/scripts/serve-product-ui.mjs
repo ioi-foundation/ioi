@@ -694,6 +694,96 @@ function renderAutomationNewForm(projectId, projects) {
 // re-homed as the "Developer & Integrations" surface (routes to the existing cockpit; NOT rebuilt).
 // Catalog: internal-docs/.../surfaces/catalog/README.md. Honest status — live surfaces link, the
 // rest are "planned" / "in a session" (no fabricated routes).
+// ---- Home — the quiet command/resume front door (03-home graft; the P0 demo walk starts here).
+// Three strips over live daemon truth — what needs a DECISION (pending approval requests), what is
+// BLOCKED (failover runs parked at a wallet gate, failed runs), what to RESUME (sessions with their
+// admitted bindings, running work) — plus the newest proof. Read-only: every affordance is a link
+// into the surface that owns the action; app breadth stays in Applications. A projection the daemon
+// did not answer says so; nothing is fabricated to fill a strip.
+function renderHome(ops, ledger, sessions, approvals, failoverRuns) {
+  const enc = encodeURIComponent;
+  const unavailable = `<div class="empty">Projection unavailable — the daemon did not answer. Nothing is shown rather than fixtures.</div>`;
+  const strip = (id, title, note, v, emptyMsg, body) =>
+    `<div id="${id}"><h2>${title} <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— ${note}</span></h2>${v === null ? unavailable : body || `<div class="empty">${emptyMsg}</div>`}</div>`;
+
+  // Decisions — the wallet/approval gate queue; every governed run (incl. a triggered failover) parks here.
+  const pend = approvals === null ? null : (approvals.approval_requests || []).filter((a) => a.status === "pending");
+  const decisionsBody = pend && pend.length ? `<table><thead><tr><th>Request</th><th>Target</th><th>Status</th><th>Act</th></tr></thead><tbody>${pend.slice(0, 8).map((a) => `<tr>
+      <td><b>${CX_ESC(a.request_kind || "approval")}</b><div style="color:#878a93;font-size:11px;margin-top:1px"><code>${CX_ESC(a.approval_request_id || a.id || "")}</code></div></td>
+      <td><code style="font-size:10.5px">${CX_ESC(a.subject_ref || "—")}</code></td>
+      <td><span class="pill warn">pending</span></td>
+      <td><a href="/__ioi/governance?tab=approvals">review →</a></td>
+    </tr>`).join("")}</tbody></table>` : "";
+
+  // Blocked — failover runs sitting at an authority gate (status awaiting_authority_<gate>) + failed runs.
+  const foAll = failoverRuns === null ? null : (failoverRuns.runs || []);
+  const parked = foAll === null ? [] : foAll.filter((r) => String(r.status || "").startsWith("awaiting_authority"));
+  const fails = ops === null ? [] : ((ops.runs || {}).failures || []);
+  const blockedRows = [
+    ...parked.slice(0, 6).map((r) => `<tr>
+      <td>⛔ failover <code style="font-size:10.5px">${CX_ESC(r.run_ref || "")}</code><div style="color:#878a93;font-size:11px;margin-top:1px">${CX_ESC(r.environment_ref || "")}</div></td>
+      <td><span class="pill warn">wallet gate: ${CX_ESC(String(r.status || "").replace("awaiting_authority_", ""))}</span></td>
+      <td>${CX_ESC(r.failure_condition || "—")}</td>
+      <td><a href="/__ioi/operations#ops-failover">inspect →</a></td>
+    </tr>`),
+    ...fails.slice(0, 6).map((r) => `<tr>
+      <td>✖ run <b>${CX_ESC(r.name || r.automation_id || "")}</b><div style="color:#878a93;font-size:11px;margin-top:1px">${CX_ESC(r.project_id || "—")} · ${CX_ESC(r.finished_at || "")}</div></td>
+      <td><span class="pill warn">failed</span></td>
+      <td>${r.timeline_ref ? `<a href="${r.timeline_ref}" target="_blank" rel="noopener">timeline ↗</a>` : "—"}</td>
+      <td><a href="/__ioi/operations">remediate →</a></td>
+    </tr>`),
+  ].join("");
+  const blockedUnavail = failoverRuns === null && ops === null;
+  const blockedBody = blockedRows ? `<table><thead><tr><th>What</th><th>State</th><th>Evidence</th><th>Act</th></tr></thead><tbody>${blockedRows}</tbody></table>` : "";
+
+  // Resume — most recent sessions (their admitted harness binding is session truth) + still-running work.
+  const sessList = sessions === null ? null : ((sessions.sessions || []).slice().sort((a, b) => String(b.created_at || "").localeCompare(String(a.created_at || ""))));
+  const running = ops === null ? [] : ((ops.runs || {}).recent || []).filter((r) => r.status === "running");
+  const sessRow = (s) => {
+    const envId = String(s.environment_ref || "").replace(/^environment:/, "");
+    const hb = s.harness_binding;
+    return `<tr>
+      <td><code>${CX_ESC(s.session_ref || "")}</code><div style="color:#878a93;font-size:11px;margin-top:1px">${CX_ESC(s.project_ref || "—")} · ${CX_ESC(s.created_at || "")}</div></td>
+      <td><span class="pill muted">${CX_ESC(s.lifecycle_state || "—")}</span></td>
+      <td>${hb && hb.profile_ref ? `<span class="pill ok">${CX_ESC(hb.harness || "harness")}</span>` : `<span class="pill muted" title="no harness binding recorded at create">execute-time default</span>`}</td>
+      <td>${envId ? `<a href="/workspaces/${enc(envId)}" target="_top">workbench</a> · <a href="/__ioi/run-timeline/env/${enc(envId)}" target="_blank" rel="noopener">timeline ↗</a>` : "—"}</td>
+    </tr>`;
+  };
+  const runRow = (r) => `<tr>
+      <td>▶ <b>${CX_ESC(r.name || r.automation_id || "")}</b><div style="color:#878a93;font-size:11px;margin-top:1px">${CX_ESC(r.project_id || "—")} · started ${CX_ESC(r.started_at || "")}</div></td>
+      <td><span class="pill ok">running</span></td>
+      <td>—</td>
+      <td>${r.timeline_ref ? `<a href="${r.timeline_ref}" target="_blank" rel="noopener">timeline ↗</a>` : "—"} · <a href="/__ioi/operations">operations →</a></td>
+    </tr>`;
+  const resumeRows = [...running.slice(0, 4).map(runRow), ...(sessList || []).slice(0, 6).map(sessRow)].join("");
+  const resumeBody = resumeRows ? `<table><thead><tr><th>Work</th><th>State</th><th>Binding</th><th>Open</th></tr></thead><tbody>${resumeRows}</tbody></table>` : "";
+
+  // Proof — the newest ledger entries, verbatim from the proof stream (newest-first from the daemon).
+  const led = ledger === null ? null : (ledger.entries || []);
+  const proofBody = led && led.length ? `<table><thead><tr><th>Kind</th><th>Status</th><th>When</th><th>Proof</th></tr></thead><tbody>${led.slice(0, 6).map((e) => `<tr>
+      <td>${CX_ESC(e.kind || "")}<div style="color:#878a93;font-size:11px;margin-top:1px">${CX_ESC(e.automation_name || e.subject_ref || e.session_ref || "")}</div></td>
+      <td><span class="pill ${(e.status === "done" || e.status === "success" || e.status === "accepted" || e.status === "ok" || e.status === "published") ? "ok" : (e.status === "failed" || e.status === "failure" || e.status === "rejected" || String(e.status || "").includes("missing") || String(e.status || "").includes("mismatch")) ? "warn" : "muted"}">${CX_ESC(e.status || "—")}</span></td>
+      <td>${CX_ESC(e.timestamp || "")}</td>
+      <td><code>${CX_ESC((e.state_root || "").slice(0, 20) || "—")}</code></td>
+    </tr>`).join("")}</tbody></table><p class="sub" style="margin:8px 0 0"><a href="/__ioi/work-ledger">Open Work Ledger →</a></p>` : "";
+
+  const allDown = ops === null && ledger === null && sessions === null && approvals === null && failoverRuns === null;
+  const degraded = allDown ? `<div class="empty" id="home-degraded" style="border-color:#5c4a23;color:#d6a13a">Daemon unreachable — Home shows nothing rather than fixtures. Start the hypervisor daemon and reload.</div>` : "";
+  const counts = allDown ? "" : `<div class="chips" style="margin:0 0 18px">
+    <span class="chip${pend && pend.length ? " on" : ""}">decisions ${pend === null ? "?" : pend.length}</span>
+    <span class="chip${(parked.length + fails.length) ? " on" : ""}">blocked ${blockedUnavail ? "?" : parked.length + fails.length}</span>
+    <span class="chip">sessions ${sessList === null ? "?" : sessList.length}</span>
+    <span class="chip">proof ${led === null ? "?" : led.length}</span>
+  </div>`;
+  const inner = `<h1>Home</h1><p class="sub">Resume what you were doing, see what is blocked, decide what is waiting on you — live daemon truth only. The full estate lives in <a href="/__ioi/applications">Applications</a>; new work starts from the rail's New Session launcher.</p>
+    ${degraded}${counts}
+    ${strip("home-decisions", "Needs your decision", "governed work parks at the approval gate; approving is an act in Governance, never here", approvals, "Nothing is waiting on you — no pending approval requests.", decisionsBody)}
+    ${strip("home-blocked", "Blocked", "runs parked at a wallet gate or failed — each links to the owning surface", blockedUnavail ? null : { any: blockedRows }, "No runs are parked or failing.", blockedBody)}
+    ${strip("home-resume", "Resume", "recent sessions and still-running work", sessions, "No sessions yet — open the rail's New Session launcher to start governed work.", resumeBody)}
+    ${strip("home-proof", "Newest proof", "the most recent Work Ledger entries, verbatim", ledger, "No admitted work yet — the proof stream is empty.", proofBody)}`;
+  return automationsShell("Home", inner);
+}
+
 function renderApplications() {
   const SURFACES = [
     { icon: "🧰", name: "Workbench", desc: "Enter an environment's live console — files, terminal, ports, tasks.", href: "/__ioi/workbench", status: "live" },
@@ -718,7 +808,7 @@ function renderApplications() {
   const body = SURFACES.map(card).join("");
   return automationsShell(
     "Applications",
-    `<h1>Applications</h1><p class="sub">The IOI surface estate — open applications beyond the core rail (Home · Projects · Automations). Developer &amp; Integrations is the home for connectors, MCP, and credentials.</p>${body}`,
+    `<h1>Applications</h1><p class="sub">The IOI surface estate — open applications beyond the core rail (<a href="/__ioi/home">Home</a> · Projects · Automations). Developer &amp; Integrations is the home for connectors, MCP, and credentials.</p>${body}`,
   );
 }
 
@@ -4213,6 +4303,21 @@ const server = http.createServer((req, res) => {
     if (pathname === "/__ioi/applications" && req.method === "GET") {
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
       res.end(renderApplications());
+      return;
+    }
+    // ---- Home — quiet command/resume front door (03-home graft). Fetches fail to null (NOT {})
+    // so the renderer can distinguish "daemon did not answer" from an honestly empty projection.
+    if (pathname === "/__ioi/home" && req.method === "GET") {
+      const J = (p) => fetch(`${DAEMON}${p}`).then((x) => x.json()).catch(() => null);
+      const [homeOps, homeLedger, homeSessions, homeApprovals, homeFoRuns] = await Promise.all([
+        J("/v1/hypervisor/operations"),
+        J("/v1/hypervisor/work-ledger"),
+        J("/v1/hypervisor/sessions"),
+        J("/v1/hypervisor/governance/approval-requests"),
+        J("/v1/hypervisor/failover/runs"),
+      ]);
+      res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
+      res.end(renderHome(homeOps, homeLedger, homeSessions, homeApprovals, homeFoRuns));
       return;
     }
     // ---- Work Ledger — the owned proof stream (estate surface #10).
