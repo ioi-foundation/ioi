@@ -50,6 +50,8 @@ mod editor_routes;
 mod endgame_routes;
 #[path = "hypervisor_daemon_routes/decentralized_cloud_routes.rs"]
 mod decentralized_cloud_routes;
+#[path = "hypervisor_daemon_routes/vast_candidate_source.rs"]
+mod vast_candidate_source;
 #[path = "hypervisor_daemon_routes/environment_routes.rs"]
 mod environment_routes;
 #[path = "hypervisor_daemon_routes/foundry_routes.rs"]

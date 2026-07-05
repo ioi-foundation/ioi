@@ -151,6 +151,7 @@ fn derive_candidates(
     classes: &[Value],
     ttl_secs: u64,
     batch: &str,
+    vast_outcome: &Value,
 ) -> (Vec<Value>, Vec<Value>) {
     let observed_at = iso_now();
     let expires_epoch = epoch_secs() + ttl_secs;
@@ -280,6 +281,20 @@ fn derive_candidates(
                 "recover from daemon-admitted restore material; fallback venue run_local",
                 reliability);
         } else {
+            // A vast account with an engaged quote source is represented by its OFFER candidates
+            // (normalized below) — skip the generic provider-capable stub for that account.
+            if kind == "vast"
+                && vast_outcome.get("engaged").and_then(Value::as_bool) == Some(true)
+                && vast_outcome["account_ref"] == account["account_ref"]
+            {
+                if wants_private {
+                    rejected.push(json!({ "source": "depin_market", "adapter_ref": "adapter:vast-quote",
+                        "provider_account_ref": account_ref, "reason_code": "custody_posture_unsupported",
+                        "detail": "marketplace hosts never claim Private custody (marketplace_host_NOT_private)",
+                        "evidence_refs": [account_ref] }));
+                }
+                continue;
+            }
             // ── direct_provider: cloud-kind accounts — provider-capable, NOT placement-eligible ──
             if wants_private {
                 rejected.push(json!({ "source": "direct_provider", "adapter_ref": format!("adapter:{kind}(absent)"),
@@ -304,6 +319,20 @@ fn derive_candidates(
                 "cloud shared-responsibility custody; Private never claimed without custody receipts",
                 "no failover plan without a live adapter",
                 receipt_history(data_dir, account_ref));
+        }
+    }
+    // ── depin_market: real Vast offers (quote-only, advisory supply — never recommendable). ──
+    if vast_outcome.get("engaged").and_then(Value::as_bool) == Some(true) && !wants_private {
+        if text(vast_outcome, "state") == "degraded_unreachable" {
+            rejected.push(json!({ "source": "depin_market", "adapter_ref": "adapter:vast-quote",
+                "provider_account_ref": vast_outcome["account_ref"],
+                "reason_code": "candidate_source_degraded",
+                "detail": "vast offer fetch failed — no fake quotes on failure",
+                "evidence_refs": [vast_outcome["evidence"].clone()] }));
+        } else {
+            candidates.extend(super::vast_candidate_source::normalize_offers(
+                vast_outcome, &intent_ref, batch, &observed_at, &expires_at, expires_epoch,
+            ));
         }
     }
     (candidates, rejected)
@@ -370,7 +399,8 @@ async fn refresh_candidates(st: &Arc<DaemonState>, intent: &Value, ttl_secs: u64
             let _ = persist_record(&st.data_dir, CANDIDATE_KIND, &id, &old);
         }
     }
-    let (candidates, rejected) = derive_candidates(&st.data_dir, intent, &classes, ttl_secs, &batch);
+    let vast_outcome = super::vast_candidate_source::fetch_offers(st).await;
+    let (candidates, rejected) = derive_candidates(&st.data_dir, intent, &classes, ttl_secs, &batch, &vast_outcome);
     for c in &candidates {
         let _ = persist_record(&st.data_dir, CANDIDATE_KIND, text(c, "candidate_id"), c);
     }
@@ -480,8 +510,9 @@ pub(crate) async fn handle_candidate_sources(State(st): State<Arc<DaemonState>>)
             { "source": "decentralized.cloud", "state": "candidate_source_unavailable",
               "reason": "network_adapter_absent — the decentralized.cloud network engine is not live; this daemon plane realizes its candidate semantics from local facts only",
               "evidence": { "basis": "no external candidate API is called; no invented prices" } },
+            super::vast_candidate_source::source_state(&st.data_dir),
             { "source": "depin_market", "state": "candidate_source_unavailable",
-              "reason": "market_adapter_absent — Vast/Akash market discovery lands with their adapter cuts (priority ladder)",
+              "reason": "market_adapter_absent — Akash market discovery lands with its adapter cut (priority ladder); Vast is served by its own quote source above",
               "evidence": { "basis": "no market API is called; no invented prices" } },
             { "source": "storage_network", "state": "candidate_source_unavailable",
               "reason": "storage_adapter_absent — Filecoin/CAS archive custody lands per the priority ladder",
