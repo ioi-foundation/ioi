@@ -212,6 +212,9 @@ async function run() {
   page.on("console", (m) => { if (m.type() === "error" && !/ERR_NAME_NOT_RESOLVED|ERR_INTERNET_DISCONNECTED/.test(m.text())) consoleErrors.push(m.text()); });
   await page.goto(`${SHELL}/`, { waitUntil: "networkidle" });
   await page.click('[data-testid="create-session-button"]');
+  // New Session now routes to the composer page; the owned modal opens via Advanced launch.
+  await page.waitForSelector("#ioi-ns-advanced", { timeout: 15000 });
+  await page.click("#ioi-ns-advanced");
   await page.waitForSelector("#ioi-ns-placement", { timeout: 15000 });
   ok("modal still offers all four venue choices", (await page.locator(".ioi-ns-venue-opt").count()) === 4);
   await page.click('.ioi-ns-venue-opt[data-venue="hypervisor_choose"]');
