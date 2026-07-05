@@ -694,8 +694,9 @@ function renderAutomationNewForm(projectId, projects) {
 // re-homed as the "Developer & Integrations" surface (routes to the existing cockpit; NOT rebuilt).
 // Catalog: internal-docs/.../surfaces/catalog/README.md. Honest status — live surfaces link, the
 // rest are "planned" / "in a session" (no fabricated routes).
-// ---- Home — the quiet command/resume front door (03-home graft; the P0 demo walk starts here).
-// Three strips over live daemon truth — what needs a DECISION (pending approval requests), what is
+// ---- Home full readout (03-home graft). THE Home is the SPA composer home; its injected
+// governed-work band (ioi-augmentation.js mountHomeBand) summarizes this page and deep-links here.
+// Four strips over live daemon truth — what needs a DECISION (pending approval requests), what is
 // BLOCKED (failover runs parked at a wallet gate, failed runs), what to RESUME (sessions with their
 // admitted bindings, running work) — plus the newest proof. Read-only: every affordance is a link
 // into the surface that owns the action; app breadth stays in Applications. A projection the daemon
@@ -775,13 +776,13 @@ function renderHome(ops, ledger, sessions, approvals, failoverRuns) {
     <span class="chip">sessions ${sessList === null ? "?" : sessList.length}</span>
     <span class="chip">proof ${led === null ? "?" : led.length}</span>
   </div>`;
-  const inner = `<h1>Home</h1><p class="sub">Resume what you were doing, see what is blocked, decide what is waiting on you — live daemon truth only. The full estate lives in <a href="/__ioi/applications">Applications</a>; new work starts from the rail's New Session launcher.</p>
+  const inner = `<h1>Governed work — full readout</h1><p class="sub">The expanded view behind Home's governed-work band: what needs a decision, what is blocked, what to resume, and the newest proof — live daemon truth only. The full estate lives in <a href="/__ioi/applications">Applications</a>; new work starts from Home's composer.</p>
     ${degraded}${counts}
     ${strip("home-decisions", "Needs your decision", "governed work parks at the approval gate; approving is an act in Governance, never here", approvals, "Nothing is waiting on you — no pending approval requests.", decisionsBody)}
     ${strip("home-blocked", "Blocked", "runs parked at a wallet gate or failed — each links to the owning surface", blockedUnavail ? null : { any: blockedRows }, "No runs are parked or failing.", blockedBody)}
     ${strip("home-resume", "Resume", "recent sessions and still-running work", sessions, "No sessions yet — open the rail's New Session launcher to start governed work.", resumeBody)}
     ${strip("home-proof", "Newest proof", "the most recent Work Ledger entries, verbatim", ledger, "No admitted work yet — the proof stream is empty.", proofBody)}`;
-  return automationsShell("Home", inner);
+  return automationsShell("Governed Work Readout", inner);
 }
 
 function renderApplications() {
@@ -808,7 +809,7 @@ function renderApplications() {
   const body = SURFACES.map(card).join("");
   return automationsShell(
     "Applications",
-    `<h1>Applications</h1><p class="sub">The IOI surface estate — open applications beyond the core rail (<a href="/__ioi/home">Home</a> · Projects · Automations). Developer &amp; Integrations is the home for connectors, MCP, and credentials.</p>${body}`,
+    `<h1>Applications</h1><p class="sub">The IOI surface estate — open applications beyond the core rail (Home · Projects · Automations). Developer &amp; Integrations is the home for connectors, MCP, and credentials. Home's governed-work band expands into the <a href="/__ioi/home">full readout</a>.</p>${body}`,
   );
 }
 
@@ -4305,8 +4306,9 @@ const server = http.createServer((req, res) => {
       res.end(renderApplications());
       return;
     }
-    // ---- Home — quiet command/resume front door (03-home graft). Fetches fail to null (NOT {})
-    // so the renderer can distinguish "daemon did not answer" from an honestly empty projection.
+    // ---- Home full readout (03-home graft) — deep-link target of the composer home's injected
+    // governed-work band. Fetches fail to null (NOT {}) so the renderer can distinguish "daemon
+    // did not answer" from an honestly empty projection.
     if (pathname === "/__ioi/home" && req.method === "GET") {
       const J = (p) => fetch(`${DAEMON}${p}`).then((x) => x.json()).catch(() => null);
       const [homeOps, homeLedger, homeSessions, homeApprovals, homeFoRuns] = await Promise.all([
