@@ -180,6 +180,19 @@ enriched receipts on every path, teardown always; simulator control plane for
 CI (labelled, live_provisioning_not_run); done-bar
 `verify-hypervisor-vast-lifecycle.mjs`.
 
+Provider SPEND RECONCILIATION rides those receipts
+(`GET /v1/hypervisor/provider-spend/reconciliation`): a quote-backed metered
+create opens a `provider-spend-exposure://pse_*` row citing account /
+candidate / quote / grant / receipt refs (native ids evidence-only); open
+exposures RESERVE first-hour estimates against the `external_spend` budget
+(further creates refuse `vast_budget_reservation_exceeded` until teardown
+releases them); ops accrete receipts and state roots without inventing price;
+teardown closes the exposure — an unconfirmed native destroy leaves a standing
+`closed_with_warning` incomplete-teardown warning. Budget `spent` reflects
+actual debits only — estimates never fake it; no fees, no markup, no Work
+Credit debit, no fake settlement: customer-borne provider spend throughout.
+Done-bar: `verify-hypervisor-provider-spend-reconciliation.mjs`.
+
 ## Priority Adapter Ladder
 
 This ladder is roadmap priority, not a permanent provider ranking and not a routing policy.

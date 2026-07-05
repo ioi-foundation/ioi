@@ -399,6 +399,11 @@ impl EnvironmentProvider for CloudVpcProvider {
 // exists in this plane — those become legitimate only when IOI itself places runs for payment.
 
 const ACCOUNT_KIND: &str = "provider-accounts";
+/// Customer-borne external-spend EXPOSURE rows — reconciliation accounting over receipts.
+/// NOT billing, NOT fees, NOT settlement: an exposure is the quote-backed estimate a grant
+/// authorized, opened by an admitted metered create and closed by teardown. Actual provider
+/// bills are never invented; budget `spent` is never faked.
+const EXPOSURE_KIND: &str = "provider-spend-exposures";
 const CREDENTIAL_VAULT: &str = "provider-credentials";
 const MATERIAL_KIND: &str = "provider-materials";
 const ACCOUNT_KINDS: &[&str] = &["baremetal_ssh", "aws", "gcp", "k8s", "vast", "akash"];
@@ -440,6 +445,21 @@ fn kind_capabilities(kind: &str) -> Value {
     }
 }
 
+/// Sum of open exposures' first-hour reservations (each at its declared max hourly rate) —
+/// an ESTIMATE unit, never an actual bill.
+fn open_reserved_estimate(data_dir: &str) -> f64 {
+    read_record_dir(data_dir, EXPOSURE_KIND)
+        .iter()
+        .filter(|e| text(e, "status") == "open")
+        .filter_map(|e| e.get("max_hourly_usd").and_then(Value::as_f64))
+        .sum()
+}
+fn open_exposure_for(data_dir: &str, account_ref: &str, env_ref: &str) -> Option<Value> {
+    read_record_dir(data_dir, EXPOSURE_KIND)
+        .into_iter()
+        .find(|e| text(e, "account_ref") == account_ref && text(e, "environment_ref") == env_ref && text(e, "status") == "open")
+}
+
 /// external_spend budget posture MUST be discovered BEFORE any provider mutation
 /// (providers-and-environments.md:1114 — "Budget exhaustion must be discovered before provider
 /// mutation or new external spend"). bare-metal SSH is customer-borne with no metered spend.
@@ -462,12 +482,16 @@ fn discover_budget(data_dir: &str, kind: &str, op: &str) -> Result<Value, String
     if spent >= limit {
         return Err(format!("budget_exhausted_before_mutation — external_spend budget '{}' has {spent}/{limit} spent; refusing provider mutation", text(budget, "budget_id")));
     }
+    let reserved = open_reserved_estimate(data_dir);
     Ok(json!({
         "scope": "external_spend",
         "admitted": true,
         "discovered_before_mutation": true,
         "budget_ref": format!("budget://{}", text(budget, "budget_id")),
         "remaining": limit - spent,
+        "reserved_open_estimates": reserved,
+        "remaining_headroom_after_reservations": limit - spent - reserved,
+        "reservation_note": "reservations are first-hour estimates at declared max rates — never an actual provider bill; budget spent is never faked",
         "provider_spend_borne_by": "customer",
     }))
 }
@@ -1049,6 +1073,8 @@ impl EnvironmentProvider for VastProvider {
                 }
                 _ => json!({ "destroyed": false, "error": "native id or credential unavailable" }),
             }
+        } else if self.account.pointer("/endpoint/simulate_teardown_failure").and_then(Value::as_bool) == Some(true) {
+            json!({ "destroyed": false, "error": "SIMULATED teardown failure (endpoint.simulate_teardown_failure) — validates the incomplete-teardown warning path", "warning": "TEARDOWN MAY BE INCOMPLETE — verify the Vast console" })
         } else {
             json!({ "destroyed": true, "note": "simulated control plane — no real instance existed" })
         };
@@ -1497,6 +1523,13 @@ pub(crate) async fn handle_provider_op(
                 if price > max_hourly {
                     return refuse("vast_price_above_max", format!("offer price ${price}/hr exceeds the declared max ${max_hourly}/hr"));
                 }
+                // Reservation adequacy: headroom after OPEN exposures must cover this create's
+                // first-hour reservation at the declared max rate. Checked here (not at budget
+                // discovery) because the price is only known once the quote is validated.
+                let headroom = budget_note.get("remaining_headroom_after_reservations").and_then(Value::as_f64).unwrap_or(0.0);
+                if headroom - max_hourly < 0.0 {
+                    return refuse("vast_budget_reservation_exceeded", format!("open exposures already reserve the external_spend headroom (remaining ${headroom:.3} < first-hour reservation ${max_hourly:.3}/hr) — tear an instance down or raise the budget"));
+                }
                 vast_gate = json!({
                     "candidate_ref": candidate_ref,
                     "quote_ref": candidate["quote_ref"],
@@ -1601,6 +1634,58 @@ pub(crate) async fn handle_provider_op(
                     "receipt_ref": receipt, "at": iso_now()
                 });
                 let _ = persist_record(data_dir, "provider-operations", &op_id, &record);
+                // ── Spend exposure accounting (customer-borne; estimates only, never a bill) ──
+                if op == "create" && !vast_gate.is_null() {
+                    let exp_id = format!("pse_{:x}", nanos());
+                    let exposure = json!({
+                        "schema_version": "ioi.hypervisor.provider-spend-exposure.v1",
+                        "exposure_id": exp_id,
+                        "exposure_ref": format!("provider-spend-exposure://{exp_id}"),
+                        "account_ref": account_ref, "provider": kind, "environment_ref": env_ref,
+                        "candidate_ref": vast_gate["candidate_ref"], "quote_ref": vast_gate["quote_ref"],
+                        "grant_ref": grant_ref, "capability_lease_ref": lease_note.get("lease_id").cloned().unwrap_or(Value::Null),
+                        "usd_per_hour": vast_gate["usd_per_hour"], "max_hourly_usd": vast_gate["max_hourly_usd"],
+                        "execution_mode": vast_gate["execution_mode"],
+                        "budget_ref": budget_note.get("budget_ref").cloned().unwrap_or(Value::Null),
+                        "provider_native": {
+                            "ids": evidence.get("provider_native").cloned().unwrap_or(Value::Null),
+                            "note": "evidence only — never restore or billing truth",
+                        },
+                        "status": "open",
+                        "teardown_state": "live_or_pending",
+                        "create_receipt_ref": receipt,
+                        "receipt_refs": [receipt],
+                        "state_roots": Vec::<String>::new(),
+                        "estimate_note": "quote-backed ESTIMATE authorized by the grant — no actual provider bill exists here; spend is customer-borne on the customer's own account",
+                        "opened_at": iso_now(),
+                    });
+                    let _ = persist_record(data_dir, EXPOSURE_KIND, &exp_id, &exposure);
+                } else if kind == "vast" {
+                    if let Some(mut exposure) = open_exposure_for(data_dir, &account_ref, &env_ref) {
+                        let exp_id = text(&exposure, "exposure_id").to_string();
+                        let mut refs = exposure.get("receipt_refs").and_then(Value::as_array).cloned().unwrap_or_default();
+                        refs.push(json!(receipt));
+                        exposure["receipt_refs"] = json!(refs);
+                        if let Some(root) = evidence.get("state_root").and_then(Value::as_str) {
+                            let mut roots = exposure.get("state_roots").and_then(Value::as_array).cloned().unwrap_or_default();
+                            roots.push(json!(root));
+                            exposure["state_roots"] = json!(roots);
+                        }
+                        if op == "delete" {
+                            let destroyed = evidence.pointer("/native_teardown/destroyed").and_then(Value::as_bool).unwrap_or(false);
+                            exposure["teardown_state"] = evidence.get("teardown_state").cloned().unwrap_or(json!("torn_down"));
+                            exposure["teardown_receipt_ref"] = json!(receipt);
+                            exposure["closed_at"] = json!(iso_now());
+                            if destroyed {
+                                exposure["status"] = json!("closed");
+                            } else {
+                                exposure["status"] = json!("closed_with_warning");
+                                exposure["warning"] = json!("INCOMPLETE TEARDOWN — the provider-native destroy did not confirm; verify the provider console (exposure may still accrue on the customer's account)");
+                            }
+                        }
+                        let _ = persist_record(data_dir, EXPOSURE_KIND, &exp_id, &exposure);
+                    }
+                }
                 (StatusCode::OK, Json(json!({ "ok": true, "op": op, "provider": provider_id, "account_ref": account_ref, "environment_ref": env_ref, "evidence": evidence, "receipt_ref": receipt, "cost_estimate": cost_estimate })))
             }
             Err(reason) => {
@@ -1689,6 +1774,48 @@ pub(crate) async fn handle_provider_op(
             ))
         }
     }
+}
+
+/// GET /v1/hypervisor/provider-spend/reconciliation — customer-borne external-spend
+/// reconciliation over EXISTING records only (exposures + budgets + receipts). Not billing,
+/// not fees, not settlement: every number is backed by receipt refs; actual provider bills
+/// are never invented.
+pub(crate) async fn handle_spend_reconciliation(State(st): State<Arc<DaemonState>>) -> Json<Value> {
+    let exposures = read_record_dir(&st.data_dir, EXPOSURE_KIND);
+    let budgets = read_record_dir(&st.data_dir, "resource-budgets");
+    let budget = budgets.iter().find(|b| b["scope"].as_str() == Some("external_spend"));
+    let reserved = open_reserved_estimate(&st.data_dir);
+    let (limit, spent) = budget
+        .map(|b| (b["limit"].as_f64().unwrap_or(0.0), b["spent"].as_f64().unwrap_or(0.0)))
+        .unwrap_or((0.0, 0.0));
+    let open: Vec<&Value> = exposures.iter().filter(|e| text(e, "status") == "open").collect();
+    let warned: Vec<&Value> = exposures.iter().filter(|e| text(e, "status") == "closed_with_warning").collect();
+    let closed: Vec<&Value> = exposures.iter().filter(|e| text(e, "status") == "closed").collect();
+    let authorized: f64 = exposures.iter().filter_map(|e| e.get("max_hourly_usd").and_then(Value::as_f64)).sum();
+    let open_estimate: f64 = open.iter().filter_map(|e| e.get("usd_per_hour").and_then(Value::as_f64)).sum();
+    Json(json!({
+        "schema_version": "ioi.hypervisor.provider-spend-reconciliation.v1",
+        "budget": {
+            "budget_ref": budget.map(|b| json!(format!("budget://{}", text(b, "budget_id")))).unwrap_or(Value::Null),
+            "exists": budget.is_some(),
+            "limit": limit, "spent": spent,
+            "reserved_open_estimates": reserved,
+            "remaining_headroom": limit - spent - reserved,
+            "spent_note": "budget `spent` reflects ACTUAL debits only — reservations and estimates never fake it",
+        },
+        "authorized_external_spend_rate": { "usd_per_hour_sum": authorized, "basis": "sum of grant-authorized max hourly rates across all exposures (rates, not totals — open rentals have no invented total)" },
+        "estimated_open_exposure_rate": { "usd_per_hour_sum": open_estimate, "open_count": open.len() },
+        "teardown_finalized": { "count": closed.len() },
+        "unsettled_estimates": { "count": open.len() + warned.len(), "note": "estimates stay unsettled until the customer's own provider bill — Hypervisor never fakes settlement" },
+        "incomplete_teardown_warnings": warned.iter().map(|e| json!({
+            "exposure_ref": e["exposure_ref"], "account_ref": e["account_ref"],
+            "environment_ref": e["environment_ref"], "warning": e["warning"],
+            "teardown_receipt_ref": e["teardown_receipt_ref"],
+        })).collect::<Vec<_>>(),
+        "rows": exposures,
+        "spend_rule": "BYO/marketplace provider spend is CUSTOMER-BORNE on the customer's own account; Hypervisor records, governs, estimates, and reconciles — no fee objects, no markup, no Work Credit debit, no fake settlement",
+        "at": iso_now(),
+    }))
 }
 
 /// GET /v1/hypervisor/provider-receipts — the crossing audit trail (success AND failure receipts;

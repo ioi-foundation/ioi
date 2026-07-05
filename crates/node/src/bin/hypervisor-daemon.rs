@@ -1743,6 +1743,10 @@ async fn async_main() -> anyhow::Result<()> {
             get(provider_routes::handle_provider_receipts),
         )
         .route(
+            "/v1/hypervisor/provider-spend/reconciliation",
+            get(provider_routes::handle_spend_reconciliation),
+        )
+        .route(
             "/v1/hypervisor/provider-operations",
             get(provider_routes::handle_provider_operations),
         )
