@@ -26,6 +26,8 @@ const DATA = process.env.IOI_HYPERVISOR_DATA_DIR || path.join(os.homedir(), ".io
 const BUDGET_FILE = path.join(DATA, "resource-budgets", "vast-lifecycle-verify.json");
 const SHELL = (process.env.IOI_HYPERVISOR_APP_URL || "http://127.0.0.1:4173").replace(/\/$/, "");
 const LIVE_MODE = process.env.IOI_VAST_LIVE === "1";
+const LIVE_KEY = process.env.IOI_VAST_API_KEY || "";
+const LIVE_MAX_HOURLY = parseFloat(process.env.IOI_VAST_MAX_HOURLY || "0.40");
 
 const results = [];
 const ok = (name, cond, detail) => { results.push({ name, pass: !!cond, detail: detail || "" }); };
@@ -40,6 +42,9 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 let vastAccountId = null;
 let env = null;
+let liveAccountId = null;
+let liveEnv = null;
+let liveProven = false;
 
 async function opWithGrant(accountId, o, extra = {}) {
   const base = { provider_id: accountId, op: o, environment_ref: env, ...extra };
@@ -225,15 +230,102 @@ async function run() {
   const ft = await fetch(`${SHELL}/__ioi/fallthrough`).then((r) => r.json()).catch(() => ({}));
   ok("fallthrough stays empty", Array.isArray(ft.proxied) && ft.proxied.length === 0);
 
-  // ── 9. Live-mode honesty ──
-  ok(LIVE_MODE
-    ? "LIVE mode requested — live provisioning path exercised"
-    : "live_provisioning_not_run — simulator validated the state machine, receipts, custody, and teardown; live Vast execution is NOT claimed",
-    LIVE_MODE ? false /* live harness not implemented in CI — do not claim */ : true);
+  // ── 9. Live-mode honesty: the live section (below) sets liveProven only after a REAL
+  //       instance was leased, boot-polled to ssh readiness, mutated, snapshotted, and torn
+  //       down. Without IOI_VAST_LIVE, live execution is explicitly NOT claimed.
+  if (!LIVE_MODE) {
+    ok("live_provisioning_not_run — simulator validated the state machine, receipts, custody, and teardown; live Vast execution is NOT claimed", true);
+  }
+}
+
+// ── LIVE HARNESS (IOI_VAST_LIVE=1): a real Vast lease, end to end. Requires a real API key;
+//    without one this BLOCKS with a named reason — never a fake pass. ──
+async function runLive() {
+  if (!LIVE_KEY) {
+    ok("vast_live_credentials_absent — IOI_VAST_LIVE=1 requires IOI_VAST_API_KEY; live execution BLOCKED (not faked)", false);
+    return;
+  }
+  const tag = Date.now().toString(16);
+  liveEnv = `env-vlive-${tag}`;
+  const live = (await jd("POST", "/v1/hypervisor/provider-accounts", { kind: "vast", display_name: `Vast LIVE ${tag}` })).j.account || {};
+  liveAccountId = live.account_id;
+  await jd("POST", `/v1/hypervisor/provider-accounts/${live.account_id}/credential`, { api_key: LIVE_KEY });
+  await jd("PATCH", `/v1/hypervisor/provider-accounts/${live.account_id}`, { endpoint: { mode: "live" } });
+  const pf = await jd("POST", `/v1/hypervisor/provider-accounts/${live.account_id}/preflight`);
+  ok("LIVE: credential verifies", pf.j.ok === true);
+  const intent = (await jd("POST", "/v1/hypervisor/cloud-candidates/intents", {
+    runtime_class: "compute.gpu_runtime", resource_classes: ["compute.gpu_runtime"], gpu: { required: true },
+  })).j.intent || {};
+  const fresh = (await jd("POST", "/v1/hypervisor/cloud-candidates/candidates/refresh", { intent_ref: intent.intent_ref })).j;
+  const liveCands = (fresh.candidates || [])
+    .filter((c) => c.provider_kind === "vast" && c.evidence_mode === "live_evidence" && c.placement_eligible === true
+      && (c.quote?.usd_per_hour ?? Infinity) <= LIVE_MAX_HOURLY)
+    .sort((a, b) => a.quote.usd_per_hour - b.quote.usd_per_hour);
+  ok(`LIVE: live-evidence, placement-eligible quotes exist under $${LIVE_MAX_HOURLY}/hr`, liveCands.length > 0, `got ${liveCands.length}`);
+  const cand = liveCands[0];
+  if (!cand) return;
+  const budgets = (await jd("GET", "/v1/hypervisor/resource/budgets")).j.budgets || [];
+  if (!budgets.some((b) => b.scope === "external_spend" && (b.limit || 0) - (b.spent || 0) > LIVE_MAX_HOURLY)) {
+    await jd("POST", "/v1/hypervisor/resource/budgets", { budget_id: "vast-live-verify", name: "Vast live verify", scope: "external_spend", limit: Math.ceil(LIVE_MAX_HOURLY * 3), spent: 0, currency: "USD" });
+  }
+  const saveAccount = vastAccountId; const saveEnv = env;
+  vastAccountId = liveAccountId; env = liveEnv; // opWithGrant targets the live account/env
+  try {
+    const created = await opWithGrant(liveAccountId, "create", { candidate_ref: cand.candidate_ref, max_hourly_usd: LIVE_MAX_HOURLY, teardown_policy: "always_teardown_required" });
+    ok("LIVE: quote-gated create leases a real instance (native id evidence-only, exposure opened)",
+      created.j.ok === true && created.j.evidence?.instance?.execution_mode === "live"
+      && created.j.evidence?.ssh_ready === false);
+    const recon = (await jd("GET", "/v1/hypervisor/provider-spend/reconciliation")).j;
+    ok("LIVE: exposure reserves external_spend", (recon.rows || []).some((e) => e.environment_ref === liveEnv && e.status === "open"));
+    const preBoot = await opWithGrant(liveAccountId, "workrun", { command: "true" });
+    ok("LIVE: workspace ops fail closed until boot polling proves ssh readiness",
+      preBoot.j.ok === false && /vast_ssh_bootstrap_unknown/.test(preBoot.j.reason || ""));
+    let started = null;
+    for (let i = 0; i < 4 && !started?.j?.ok; i++) {
+      started = await opWithGrant(liveAccountId, "start");
+      if (!started.j.ok && !/vast_boot_pending/.test(started.j.reason || "")) break;
+    }
+    ok("LIVE: boot polling persists real ssh readiness evidence",
+      started?.j?.ok === true && started.j.evidence?.ssh_ready === true
+      && !!started.j.evidence?.boot_evidence?.ssh_host);
+    const marker = `vast-live-${tag}`;
+    const wr = await opWithGrant(liveAccountId, "workrun", { command: `echo ${marker} > live-proof.txt && cat live-proof.txt` });
+    ok("LIVE: workrun mutates the live remote workspace", wr.j.ok === true && String(wr.j.evidence?.stdout || "").includes(marker));
+    const snap = await opWithGrant(liveAccountId, "snapshot");
+    const sev = snap.j.evidence || {};
+    ok("LIVE: snapshot enters daemon custody with sha256 state_root",
+      snap.j.ok === true && sev.custody === "daemon" && String(sev.state_root || "").startsWith("sha256:"));
+    const restored = await opWithGrant(liveAccountId, "restore", { material_ref: sev.restore_material_ref });
+    ok("LIVE: restore re-hashes custody bytes", restored.j.ok === true && restored.j.evidence?.state_root_verified === sev.state_root);
+    const del = await opWithGrant(liveAccountId, "delete");
+    const nativeDestroyed = del.j.evidence?.native_teardown?.destroyed === true;
+    ok("LIVE: teardown destroys the native instance (or records the INCOMPLETE TEARDOWN warning)",
+      del.j.ok === true && (nativeDestroyed || /INCOMPLETE/.test(JSON.stringify(del.j.evidence || {}))));
+    const recon2 = (await jd("GET", "/v1/hypervisor/provider-spend/reconciliation")).j;
+    const closedRow = (recon2.rows || []).find((e) => e.environment_ref === liveEnv) || {};
+    ok("LIVE: spend reconciliation closes (or warns) the exposure",
+      closedRow.status === "closed" || closedRow.status === "closed_with_warning");
+    liveProven = created.j.ok === true && started?.j?.ok === true && wr.j.ok === true
+      && snap.j.ok === true && restored.j.ok === true && del.j.ok === true && nativeDestroyed;
+    ok("LIVE: real Vast lifecycle proven end to end (lease → boot → ssh → mutate → custody → teardown)", liveProven);
+  } finally {
+    vastAccountId = saveAccount; env = saveEnv;
+  }
 }
 
 async function cleanup() {
-  // Teardown ALWAYS runs — including failure paths.
+  // Teardown ALWAYS runs — including failure paths (live instance first: real money).
+  try {
+    if (liveAccountId && liveEnv) {
+      const obs = await jd("POST", "/v1/hypervisor/provider-ops", { provider_id: liveAccountId, op: "observe", environment_ref: liveEnv });
+      if (obs.j?.evidence?.teardown_state === "live_or_pending") {
+        const prevA = vastAccountId; const prevE = env;
+        vastAccountId = liveAccountId; env = liveEnv;
+        try { await opWithGrant(liveAccountId, "delete"); } finally { vastAccountId = prevA; env = prevE; }
+      }
+      await jd("DELETE", `/v1/hypervisor/provider-accounts/${liveAccountId}`);
+    }
+  } catch { /* live teardown best effort — verify the Vast console if this ever fails */ }
   try {
     if (vastAccountId && env) {
       const obs = await jd("POST", "/v1/hypervisor/provider-ops", { provider_id: vastAccountId, op: "observe", environment_ref: env });
@@ -251,12 +343,13 @@ async function cleanup() {
 }
 
 run()
+  .then(() => (LIVE_MODE ? runLive() : undefined))
   .then(cleanup, async (e) => { await cleanup(); throw e; })
   .then(() => {
     let fail = 0;
     for (const r of results) { console.log(`  ${r.pass ? "PASS" : "FAIL"}  ${r.name}${r.detail ? `  (${r.detail})` : ""}`); if (!r.pass) fail++; }
     console.log(`\n${results.length - fail}/${results.length} passed`);
-    console.log(`vast guarded lifecycle readiness: ${fail ? "FAIL" : "OK"}${LIVE_MODE ? "" : " (live_provisioning_not_run)"}`);
+    console.log(`vast guarded lifecycle readiness: ${fail ? "FAIL" : "OK"}${LIVE_MODE ? (liveProven ? " (live_execution_proven)" : " (live blocked/incomplete)") : " (live_provisioning_not_run)"}`);
     process.exit(fail ? 1 : 0);
   })
   .catch((e) => {

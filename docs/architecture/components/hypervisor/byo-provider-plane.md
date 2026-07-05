@@ -193,6 +193,17 @@ actual debits only — estimates never fake it; no fees, no markup, no Work
 Credit debit, no fake settlement: customer-borne provider spend throughout.
 Done-bar: `verify-hypervisor-provider-spend-reconciliation.mjs`.
 
+The LIVE Vast harness completes the lifecycle contract: live create seals an
+ephemeral per-instance ssh key onto the instance record (dcrypt discipline —
+never plaintext; materialized 0600 per op) and attaches the public key to the
+lease; boot polling persists the runtime ssh block ONLY with readiness
+evidence (polled status + proven_at), and every workspace op fails closed
+with `vast_ssh_bootstrap_unknown` before that; bootstrap-on-start then reuses
+the BYO SSH lane unchanged. `IOI_VAST_LIVE=1` proves the full live path or
+BLOCKS with `vast_live_credentials_absent` — live execution is never claimed
+without a real leased instance reaching ssh (simulator CI keeps reporting
+live_provisioning_not_run).
+
 ## Priority Adapter Ladder
 
 This ladder is roadmap priority, not a permanent provider ranking and not a routing policy.

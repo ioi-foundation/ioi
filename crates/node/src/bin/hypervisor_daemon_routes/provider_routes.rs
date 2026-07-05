@@ -857,11 +857,18 @@ impl VastProvider {
         }
         let ssh = inst.get("ssh").cloned().unwrap_or(Value::Null);
         let key_file = text(&ssh, "key_file");
-        if text(&ssh, "host").is_empty() || key_file.is_empty() {
-            return Err("vast_ssh_bootstrap_unknown — the instance has no usable ssh endpoint/key".into());
+        let sealed = text(&inst, "sealed_ssh_key");
+        if text(&ssh, "host").is_empty() || (key_file.is_empty() && sealed.is_empty()) {
+            return Err("vast_ssh_bootstrap_unknown — the instance has no usable ssh endpoint/key (live instances gain one only after boot polling proves readiness)".into());
         }
-        let key = std::fs::read_to_string(key_file)
-            .map_err(|e| format!("vast_ssh_key_unreadable: {e}"))?;
+        let key = if !key_file.is_empty() {
+            std::fs::read_to_string(key_file).map_err(|e| format!("vast_ssh_key_unreadable: {e}"))?
+        } else {
+            // Live instances: the ephemeral private key lives SEALED on the instance record
+            // (same dcrypt discipline as every credential) — opened in-daemon, materialized
+            // 0600 for one op, removed by the KeyGuard.
+            open_scm_token(sealed).ok_or("vast_ssh_key_unsealable — sealed instance key did not decrypt")?
+        };
         let dir = Path::new(data_dir).join("provider-ssh");
         std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
         let path = dir.join(format!("vast-{}-{}.key", safe(self.account_id()), safe(env_ref)));
@@ -976,12 +983,47 @@ impl EnvironmentProvider for VastProvider {
             });
             let body = created?;
             let native_id = body.get("new_contract").cloned().unwrap_or(Value::Null);
+            // Ephemeral per-instance ssh keypair: private key SEALED onto the record (never
+            // plaintext), public key attached to the Vast account for this lease.
+            let keydir = Path::new(data_dir).join("provider-ssh");
+            std::fs::create_dir_all(&keydir).map_err(|e| e.to_string())?;
+            let tmp = keydir.join(format!("vast-live-{}-{}.tmp", safe(self.account_id()), safe(env_ref)));
+            let _ = std::fs::remove_file(&tmp);
+            let _ = std::fs::remove_file(keydir.join(format!("{}.pub", tmp.to_string_lossy())));
+            let keygen = std::process::Command::new("ssh-keygen")
+                .args(["-t", "ed25519", "-N", "", "-q", "-f"]).arg(&tmp)
+                .output().map_err(|e| format!("vast_ssh_keygen_failed: {e} (instance {native_id} recorded for teardown)"))?;
+            if !keygen.status.success() {
+                return Err(format!("vast_ssh_keygen_failed: {} (instance {native_id} recorded for teardown)", String::from_utf8_lossy(&keygen.stderr)));
+            }
+            let private_key = std::fs::read_to_string(&tmp).map_err(|e| e.to_string())?;
+            let public_key = std::fs::read_to_string(format!("{}.pub", tmp.to_string_lossy())).map_err(|e| e.to_string())?;
+            let _ = std::fs::remove_file(&tmp);
+            let _ = std::fs::remove_file(format!("{}.pub", tmp.to_string_lossy()));
+            let sealed_key = seal_scm_token(private_key.trim())
+                .ok_or("vast_ssh_key_seal_failed — could not seal the ephemeral instance key")?;
+            let attach: Result<u16, String> = tokio::task::block_in_place(|| {
+                tokio::runtime::Handle::current().block_on(async {
+                    reqwest::Client::new().post(format!("{base}/ssh/"))
+                        .bearer_auth(&bearer)
+                        .json(&json!({ "ssh_key": public_key.trim() }))
+                        .timeout(std::time::Duration::from_secs(20))
+                        .send().await.map(|r| r.status().as_u16()).map_err(|e| e.to_string())
+                })
+            });
+            let key_attach = match attach {
+                Ok(status) if (200..300).contains(&status) => json!({ "attached": true, "http_status": status }),
+                Ok(status) => json!({ "attached": false, "http_status": status, "warning": "pubkey attach rejected — boot polling will fail closed until resolved" }),
+                Err(e) => json!({ "attached": false, "error": e, "warning": "pubkey attach failed — boot polling will fail closed until resolved" }),
+            };
             let instance = json!({
                 "schema_version": "ioi.hypervisor.vast-instance.v1",
                 "record_id": record_id, "instance_id": format!("vast_{native_id}"),
                 "account_id": self.account_id(), "account_ref": self.account["account_ref"],
                 "environment_ref": env_ref, "status": "provisioned",
                 "execution_mode": "live",
+                "sealed_ssh_key": sealed_key,
+                "ssh_key_attach": key_attach,
                 "ssh": Value::Null,
                 "candidate_ref": plan["candidate_ref"], "quote_ref": plan["quote_ref"],
                 "usd_per_hour": plan["usd_per_hour"], "max_hourly_usd": plan["max_hourly_usd"],
@@ -994,8 +1036,9 @@ impl EnvironmentProvider for VastProvider {
                 "provider_operation_ref": format!("provider-account://{}/op/create/{}", self.account_id(), safe(env_ref)),
                 "instance": { "instance_id": instance["instance_id"], "status": "provisioned", "execution_mode": "live" },
                 "provider_native": instance["provider_native"],
+                "ssh_key_attach": instance["ssh_key_attach"],
                 "ssh_ready": false,
-                "note": "live instance leased — ssh readiness lands via start/observe once the instance boots",
+                "note": "live instance leased — run start to boot-poll; workspace ops fail closed (vast_ssh_bootstrap_unknown) until ssh readiness is PROVEN",
                 "teardown_required": true,
             }));
         }
@@ -1006,13 +1049,70 @@ impl EnvironmentProvider for VastProvider {
         if text(&inst, "status") == "torn_down" {
             return Err("vast_instance_torn_down".into());
         }
-        // Readiness = a REAL ssh round-trip on the instance endpoint.
+        let mut boot_evidence = Value::Null;
+        // Live instances: boot-poll the provider until ssh host/port are KNOWN; the runtime ssh
+        // block persists only with readiness evidence attached.
+        if text(&inst, "execution_mode") == "live" && inst.get("ssh").map(Value::is_null).unwrap_or(true) {
+            let native = inst.pointer("/provider_native/instance_id").cloned().unwrap_or(Value::Null);
+            let nid = native.as_u64().or_else(|| native.as_str().and_then(|s| s.parse().ok()))
+                .ok_or("vast_boot_poll_failed — no provider-native id on the instance record")?;
+            let bearer = load_account_credential(data_dir, self.account_id())
+                .and_then(|c| c["sealed_token"].as_str().and_then(open_scm_token))
+                .ok_or("provider_credential_unresolved")?;
+            let base = self.account.pointer("/endpoint/endpoint").and_then(Value::as_str)
+                .unwrap_or("https://console.vast.ai/api/v0").trim_end_matches('/').to_string();
+            let deadline = std::time::Instant::now() + std::time::Duration::from_secs(180);
+            let mut attempts = 0u32;
+            let mut last_status = String::from("unknown");
+            let polled: Option<(String, u64)> = loop {
+                attempts += 1;
+                let fetched: Result<Value, String> = tokio::task::block_in_place(|| {
+                    tokio::runtime::Handle::current().block_on(async {
+                        let r = reqwest::Client::new().get(format!("{base}/instances/{nid}/"))
+                            .bearer_auth(&bearer)
+                            .timeout(std::time::Duration::from_secs(15))
+                            .send().await.map_err(|e| e.to_string())?;
+                        r.json::<Value>().await.map_err(|e| e.to_string())
+                    })
+                });
+                if let Ok(doc) = fetched {
+                    let node = doc.get("instances").filter(|v| !v.is_array()).cloned().unwrap_or(doc);
+                    last_status = node.get("actual_status").and_then(Value::as_str).unwrap_or("unknown").to_string();
+                    let host = node.get("ssh_host").and_then(Value::as_str).unwrap_or("").to_string();
+                    let port = node.get("ssh_port").and_then(Value::as_u64).unwrap_or(0);
+                    if last_status == "running" && !host.is_empty() && port > 0 {
+                        break Some((host, port));
+                    }
+                }
+                if std::time::Instant::now() >= deadline {
+                    break None;
+                }
+                std::thread::sleep(std::time::Duration::from_secs(10));
+            };
+            let Some((host, port)) = polled else {
+                return Err(format!("vast_boot_pending — instance {nid} not ssh-ready after {attempts} poll(s) (status: {last_status}); re-run start to continue polling"));
+            };
+            boot_evidence = json!({ "polled_attempts": attempts, "actual_status": last_status,
+                                     "ssh_host": host, "ssh_port": port, "proven_at": iso_now() });
+            inst["ssh"] = json!({ "host": host, "port": port, "user": "root" });
+            inst["ssh_ready_evidence"] = boot_evidence.clone();
+            self.save_instance(data_dir, &inst);
+        }
+        // Bootstrap the remote workspace ONCE (simulator did it at create), then the readiness
+        // probe — a REAL ssh round-trip either way.
         let (lane, _guard) = self.ssh_lane(data_dir, env_ref)?;
+        if inst.get("workspace_bootstrapped").and_then(Value::as_bool) != Some(true) {
+            if text(&inst, "execution_mode") == "live" {
+                lane.create(data_dir, env_ref, &json!({}))?;
+            }
+            inst["workspace_bootstrapped"] = json!(true);
+        }
         lane.start(data_dir, env_ref)?;
         inst["status"] = json!("running");
         self.save_instance(data_dir, &inst);
         Ok(json!({ "provider_operation_ref": format!("provider-account://{}/op/start/{}", self.account_id(), safe(env_ref)),
-                   "instance_id": inst["instance_id"], "status": "running", "ssh_ready": true }))
+                   "instance_id": inst["instance_id"], "status": "running", "ssh_ready": true,
+                   "boot_evidence": boot_evidence }))
     }
     fn workrun(&self, data_dir: &str, env_ref: &str, command: &str) -> Result<Value, String> {
         let (lane, _guard) = self.ssh_lane(data_dir, env_ref)?;
@@ -1090,12 +1190,15 @@ impl EnvironmentProvider for VastProvider {
         match self.instance(data_dir, env_ref) {
             None => json!({ "provider": self.id(), "environment_ref": env_ref, "instance": Value::Null, "status": "absent" }),
             Some(inst) => {
-                let lane_view = if text(&inst, "status") == "torn_down" { Value::Null } else {
-                    match self.ssh_lane(data_dir, env_ref) {
-                        Ok((lane, _guard)) => lane.observe(data_dir, env_ref),
-                        Err(e) => json!({ "error": e }),
-                    }
-                };
+                let boot_pending = text(&inst, "execution_mode") == "live" && inst.get("ssh").map(Value::is_null).unwrap_or(true);
+                let lane_view = if text(&inst, "status") == "torn_down" { Value::Null }
+                    else if boot_pending { json!({ "boot": "pending — run start to poll the provider until ssh readiness is proven" }) }
+                    else {
+                        match self.ssh_lane(data_dir, env_ref) {
+                            Ok((lane, _guard)) => lane.observe(data_dir, env_ref),
+                            Err(e) => json!({ "error": e }),
+                        }
+                    };
                 json!({ "provider": self.id(), "environment_ref": env_ref,
                         "instance_id": inst["instance_id"], "status": inst["status"],
                         "execution_mode": inst["execution_mode"],
