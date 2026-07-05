@@ -124,6 +124,7 @@
   // single "Open Application" slot — an iframe positioned right of the rail. /__ioi/applications stays
   // a deep-link fallback. Live entries open owned surfaces; planned/contextual shown honestly.
   const IOI_APPS = [
+    { icon: "🏠", name: "Home", desc: "Quiet command home — pending decisions, blocked runs, resume work, newest proof.", href: "/__ioi/home", status: "live" },
     { icon: "🧰", name: "Workbench", desc: "Enter an environment's live console — files, terminal, ports, tasks.", href: "/__ioi/workbench", status: "live" },
     { icon: "🖥", name: "Environments", desc: "Lifecycle, readiness, services/ports/tasks, substrate posture.", href: "/__ioi/environments", status: "live" },
     { icon: "🧪", name: "Agent Studio", desc: "Agent inventory, model routes, runner adapters, activity.", href: "/__ioi/agent-studio", status: "live" },
