@@ -800,7 +800,7 @@ function renderWorkLedger(entries, scopedProject) {
       if(e.kind==='harness_execution'){h+=row('Harness',e.harness)+row('Session',e.session_ref)+row('Profile',e.profile_ref)+row('Files changed',(e.files_written||[]).join(', '))+row('Receipt',e.receipt_ref);
         if(e.implementation_result){h+=row('Adapter',e.implementation_result.adapter)+row('Model',e.implementation_result.model)+row('Exit code',e.implementation_result.exit_code);}}
       if(e.kind==='trigger'){h+=row('Reason',e.reason)+row('Request',e.request_id);}
-      if(e.kind==='provider_crossing'){h+=row('Op',e.op)+row('Provider',e.provider)+row('Account',e.account_ref)+row('Environment',e.environment_ref)+row('Receipt',e.receipt_ref)+row('Grant',e.grant_ref)+row('Cost estimate',e.cost_estimate?JSON.stringify(e.cost_estimate):'');}
+      if(e.kind==='provider_crossing'){h+=row('Op',e.op)+row('Provider',e.provider)+row('Account',e.account_ref)+row('Environment',e.environment_ref)+row('Receipt',e.receipt_ref)+row('Grant',e.grant_ref)+row('Candidate',e.candidate_ref)+row('Quote',e.quote_ref)+row('Execution mode',e.execution_mode)+row('Teardown',e.teardown_state)+row('State root',e.state_root_evidence)+row('Cost estimate',e.cost_estimate?JSON.stringify(e.cost_estimate):'');}
       h+='</div><h4>Hashes</h4><div class="wlgrid">'+row('State root',e.state_root)+row('Payload hash',e.payload_hash)+row('Headers hash',e.headers_hash)+'</div>';
       // Backlinks — this ledger entry is an executable cross-reference map: every cross-object
       // ref it names is rendered as a navigable link into the surface that owns that object, so
@@ -1022,6 +1022,8 @@ function renderCandidateCards(v) {
       ${c.gpu ? `<div style="font-size:12px;margin-top:3px"><b>${CX_ESC(String(c.gpu.count || 1))}x ${CX_ESC(c.gpu.model || "GPU")}</b>${c.gpu.vram_gb ? ` · ${CX_ESC(String(c.gpu.vram_gb))} GB VRAM` : ""}${c.region ? ` · ${CX_ESC(c.region)}` : ""}${c.quote && c.quote.usd_per_hour !== undefined ? ` · <b>$${CX_ESC(String(c.quote.usd_per_hour))}/hr</b> <span class="sub" style="margin:0;text-transform:none;letter-spacing:0">(${CX_ESC(c.quote.basis || "")}; no fee object minted)</span>` : ""}</div>` : ""}
       ${(c.custody_plan || {}).privacy === "marketplace_host_NOT_private" ? `<div class="sub" style="margin:2px 0 0;color:#e2b93d;text-transform:none;letter-spacing:0">marketplace host — NOT private custody</div>` : ""}
       ${c.evidence_mode === "fixture_evidence" ? `<div class="sub" style="margin:2px 0 0;color:#e2b93d;text-transform:none;letter-spacing:0">fixture_evidence — deterministic local fixture, NOT live supply</div>` : ""}
+      ${c.evidence_mode === "simulator_evidence" ? `<div class="sub" style="margin:2px 0 0;color:#e2b93d;text-transform:none;letter-spacing:0">simulator_evidence — lifecycle harness (control plane simulated), NOT live supply</div>` : ""}
+      ${c.evidence_mode === "live_evidence" ? `<div class="sub" style="margin:2px 0 0;color:#3c9d64;text-transform:none;letter-spacing:0">live quote${c.placement_eligible === true ? " · lifecycle eligible" : ""}</div>` : ""}
       ${c.lifecycle ? `<div class="sub" style="margin:2px 0 0;text-transform:none;letter-spacing:0">lifecycle: ${CX_ESC(c.lifecycle)}${c.execution_blocked_reason ? ` · ${CX_ESC(c.execution_blocked_reason)}` : ""}</div>` : ""}
       <div class="sub" style="margin:2px 0 0;text-transform:none;letter-spacing:0">expires ${CX_ESC(c.expires_at || "")} · <code>${CX_ESC(c.candidate_ref || "")}</code></div>
     </div>`;

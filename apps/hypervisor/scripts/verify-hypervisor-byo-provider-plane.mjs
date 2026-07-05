@@ -256,9 +256,12 @@ async function run() {
 
   // ── 17. No fee/markup objects anywhere on the plane (routing-fee covenant: this cut takes NO fee) ──
   const feeAudit = JSON.stringify(surfaces).toLowerCase();
+  // routing_fee_eligibility / routing_fee_basis are canon SpendEstimate LABELS (declared copy);
+  // fee OBJECTS — amounts, charges, broker fees, RoutingDecisionReceipt — stay forbidden.
+  const feeAuditScrubbed = feeAudit.replace(/routing_fee_(eligibility|basis)/g, "");
   ok("zero fee objects: no routing_fee / broker_fee / platform markup / RoutingDecisionReceipt on any provider surface",
-    !feeAudit.includes("routing_fee") && !feeAudit.includes("broker_fee") && !feeAudit.includes("routingdecisionreceipt")
-    && !feeAudit.includes("markup\":") && /customer-borne/.test(surfaces.providers.spend_rule || ""));
+    !feeAuditScrubbed.includes("routing_fee") && !feeAuditScrubbed.includes("broker_fee") && !feeAuditScrubbed.includes("routingdecisionreceipt")
+    && !feeAuditScrubbed.includes("markup\":") && /customer-borne/.test(surfaces.providers.spend_rule || ""));
 
   // ── 18. EnvironmentClass durability + honesty ──
   const classes = (await jd("GET", "/v1/hypervisor/environment-classes")).j.environmentClasses || [];

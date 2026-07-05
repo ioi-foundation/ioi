@@ -152,9 +152,10 @@ async function run() {
   // The gate ladder fails closed in ORDER: budget discovery (409 budget_blocked without an
   // external_spend budget) → wallet challenge (403) → named not-implemented. A quote ref is
   // authority at NONE of those steps.
-  ok("a quote presented as authority never admits: budget/wallet/lifecycle gates all fail closed",
+  ok("a quote presented as authority never admits: budget/quote/wallet/lifecycle gates all fail closed",
     asGrant.j.ok !== true
-    && (asGrant.status === 409 || asGrant.status === 403 || /NOT_IMPLEMENTED/.test(asGrant.j.reason || "")));
+    && (asGrant.status === 409 || asGrant.status === 403 || asGrant.status === 422
+      || /NOT_IMPLEMENTED/.test(asGrant.j.reason || "")));
 
   // ── 9. Fee/receipt invariants ──
   const audit = JSON.stringify({ refreshed, advisory, sources: await vastSource() }).toLowerCase();
