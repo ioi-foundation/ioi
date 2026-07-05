@@ -842,7 +842,7 @@ function renderWorkLedger(entries, scopedProject) {
 // ---- Operations — the first real Operations estate card: execution health over the automation
 // substrate (scheduler · run health · needs-attention · webhook health). Real records only;
 // drilldowns into Automation detail / Work Ledger / Run Timeline. No fake incidents/cost/capacity.
-function renderOperations(ops, authpol, prov, provReceipts, spendRecon, storageBackends, storageIncidents) {
+function renderOperations(ops, authpol, prov, provReceipts, spendRecon, storageBackends, storageIncidents, akashDepin) {
   ops = ops || {};
   authpol = authpol || {};
   prov = prov || {};
@@ -945,7 +945,21 @@ function renderOperations(ops, authpol, prov, provReceipts, spendRecon, storageB
     ${stRows ? `<table><thead><tr><th>Backend</th><th>Kind</th><th>Health</th><th>Archives</th><th>Open incidents</th></tr></thead><tbody>${stRows}</tbody></table>` : `<div class="empty">No storage backends yet. Add one (local_disk · cas · ipfs · filecoin) to export sealed archive bytes off-daemon.</div>`}
     ${stIncRows}${stRepRows}
   </div>`;
-  const provSection = `<div id="ops-provider-health"><h2>Provider health</h2><p class="sub" style="margin:-4px 0 10px">BYO provider accounts and their preflight posture. ${CX_ESC(prov.spend_rule || "BYO provider spend is customer-borne; the hypervisor records, governs, estimates, and reconciles — never hidden markup")}.</p>${provTable}${spendSection}${storageSection}<h3 style="margin:14px 0 8px">Recent provider receipts</h3>${prcTable}</div>`;
+  // DePIN posture (Akash) — deployments/bids/leases/endpoints from daemon records.
+  const akDeps = (akashDepin || {}).deployments || [];
+  const akLeases = (akashDepin || {}).leases || [];
+  const akPlans = (akashDepin || {}).redeploy_plans || [];
+  const akRow = (d) => {
+    const lease = akLeases.find((l) => l.deployment_ref === d.deployment_ref) || {};
+    const lastEvent = (d.events || []).slice(-1)[0] || {};
+    return `<tr><td><code style="font-size:10.5px">${CX_ESC(d.deployment_ref || "")}</code><div style="color:#878a93;font-size:11px;margin-top:1px">${CX_ESC(d.environment_ref || "")}</div></td><td><span class="pill ${d.status === "running" ? "ok" : d.status === "torn_down" ? "muted" : "warn"}">${CX_ESC(d.status || "")}</span></td><td><span class="pill ${lease.state === "open" ? "warn" : "muted"}">${CX_ESC(lease.state || "—")}</span> $${CX_ESC(String(lease.usd_per_hour ?? "?"))}/hr</td><td>${CX_ESC((lastEvent.kind || "—"))}</td></tr>`;
+  };
+  const akSection = akDeps.length ? `<div id="ops-akash-depin"><h3 style="margin:14px 0 8px">DePIN deployments (Akash)</h3>
+    <p class="sub" style="margin:-2px 0 8px;text-transform:none;letter-spacing:0">${CX_ESC((akashDepin || {}).custody_rule || "")}</p>
+    <table><thead><tr><th>Deployment</th><th>Status</th><th>Lease</th><th>Last event</th></tr></thead><tbody>${akDeps.slice(0, 8).map(akRow).join("")}</tbody></table>
+    ${akPlans.length ? `<div class="sub" style="margin:6px 0 0;text-transform:none;letter-spacing:0">${akPlans.length} redeploy plan(s) — restore admits only by daemon state_root</div>` : ""}
+  </div>` : "";
+  const provSection = `<div id="ops-provider-health"><h2>Provider health</h2><p class="sub" style="margin:-4px 0 10px">BYO provider accounts and their preflight posture. ${CX_ESC(prov.spend_rule || "BYO provider spend is customer-borne; the hypervisor records, governs, estimates, and reconciles — never hidden markup")}.</p>${provTable}${spendSection}${storageSection}${akSection}<h3 style="margin:14px 0 8px">Recent provider receipts</h3>${prcTable}</div>`;
   // Scheduler records keyed by automation_id, with the schedule pre-humanized server-side so the
   // drawer join needs no client re-implementation of cron/interval rendering.
   const autosById = {};
@@ -4175,7 +4189,7 @@ const server = http.createServer((req, res) => {
     }
     // ---- Operations — execution health over the automation substrate (estate surface #9).
     if (pathname === "/__ioi/operations" && req.method === "GET") {
-      const [r, authpol, prov, provReceipts, spendRecon, storageB, storageInc] = await Promise.all([
+      const [r, authpol, prov, provReceipts, spendRecon, storageB, storageInc, akashDepin] = await Promise.all([
         fetch(`${DAEMON}/v1/hypervisor/operations`).then((x) => x.json()).catch(() => ({})),
         fetch(`${DAEMON}/v1/hypervisor/auth/policy`).then((x) => x.json()).catch(() => ({})),
         fetch(`${DAEMON}/v1/hypervisor/providers`).then((x) => x.json()).catch(() => ({})),
@@ -4183,9 +4197,10 @@ const server = http.createServer((req, res) => {
         fetch(`${DAEMON}/v1/hypervisor/provider-spend/reconciliation`).then((x) => x.json()).catch(() => ({})),
         fetch(`${DAEMON}/v1/hypervisor/storage-backends`).then((x) => x.json()).catch(() => ({})),
         fetch(`${DAEMON}/v1/hypervisor/storage-incidents`).then((x) => x.json()).catch(() => ({})),
+        fetch(`${DAEMON}/v1/hypervisor/akash-deployments`).then((x) => x.json()).catch(() => ({})),
       ]);
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
-      res.end(renderOperations(r, authpol, prov, provReceipts, spendRecon, storageB, storageInc));
+      res.end(renderOperations(r, authpol, prov, provReceipts, spendRecon, storageB, storageInc, akashDepin));
       return;
     }
     // ---- Environments — substrate estate; reads the daemon env-summary projection (paged) + classes.
