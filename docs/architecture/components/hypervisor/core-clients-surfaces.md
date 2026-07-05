@@ -780,14 +780,19 @@ client-local chat setting.
 
 **Hypervisor Home** is the default command and resume surface.
 
-Implementation status: live first slice — owned serve surface `/__ioi/home`
-(`renderHome` in `apps/hypervisor/scripts/serve-product-ui.mjs`) renders four
-read-only strips over live daemon projections (pending approval requests;
-runs blocked at a wallet gate incl. `awaiting_authority_*` failover runs;
-resume sessions/running work; newest Work Ledger proof), each with an honest
-empty state and a named daemon-unreachable degraded state; reachable from the
-Applications launcher modal without a pinned rail item. Goal-prompt drafting
-is not built yet.
+Implementation status: live — Home IS the product shell's composer home (goal
+prompt, agent picker, recent executions). The augmentation injects a
+read-only governed-work band beneath its composer (`mountHomeBand` in
+`apps/hypervisor/scripts/ioi-augmentation.js`, built from the shell's own
+design tokens, owns no truth): approvals waiting on the operator, runs parked
+at a wallet gate (`awaiting_authority_*` failover runs), and failed runs, each
+row opening the OWNING surface in the Open Application slot; when nothing
+needs the operator it collapses to a single all-clear line, and a daemon
+outage is named rather than papered over. The band expands into the owned
+full readout `/__ioi/home` (`renderHome` in `serve-product-ui.mjs`: decisions
+/ blocked / resume / newest-proof strips with honest empty + degraded
+states). There is deliberately no second "Home" entry in the Applications
+launcher.
 
 Home may accept goal prompts, show recent sessions, surface waiting approvals,
 and route the user into a Project, Automation, Application, Session, receipt, or

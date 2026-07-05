@@ -124,7 +124,6 @@
   // single "Open Application" slot — an iframe positioned right of the rail. /__ioi/applications stays
   // a deep-link fallback. Live entries open owned surfaces; planned/contextual shown honestly.
   const IOI_APPS = [
-    { icon: "🏠", name: "Home", desc: "Quiet command home — pending decisions, blocked runs, resume work, newest proof.", href: "/__ioi/home", status: "live" },
     { icon: "🧰", name: "Workbench", desc: "Enter an environment's live console — files, terminal, ports, tasks.", href: "/__ioi/workbench", status: "live" },
     { icon: "🖥", name: "Environments", desc: "Lifecycle, readiness, services/ports/tasks, substrate posture.", href: "/__ioi/environments", status: "live" },
     { icon: "🧪", name: "Agent Studio", desc: "Agent inventory, model routes, runner adapters, activity.", href: "/__ioi/agent-studio", status: "live" },
@@ -222,6 +221,101 @@
     }
     el.classList.add("open");
   }
+  // ---- Home governed-work band (03-home fold). The SPA composer home stays THE Home; this band
+  // grafts the daemon-truth layer it lacks — approvals waiting on the operator, runs parked at a
+  // wallet gate, failed runs — directly beneath the composer, built from the SPA's own design
+  // tokens so it reads as native. Owns no truth: read-only projections through the serve /v1 proxy;
+  // every row opens the OWNING surface in the Open Application slot (approve lives in Governance,
+  // remediation in Operations). /__ioi/home stays the full readout this band summarizes. Quiet by
+  // design: when nothing needs the operator, it collapses to a single all-clear line.
+  let hbData = null, hbFetchedAt = 0, hbInflight = false;
+  function hbFetch() {
+    if (hbInflight || Date.now() - hbFetchedAt < 15000) return;
+    hbInflight = true;
+    const J = (p) => fetch(p).then((r) => r.json()).catch(() => null);
+    Promise.all([
+      J("/v1/hypervisor/governance/approval-requests"),
+      J("/v1/hypervisor/failover/runs"),
+      J("/v1/hypervisor/operations"),
+      J("/v1/hypervisor/work-ledger"),
+    ]).then(([appr, fo, ops, led]) => {
+      hbData = { appr, fo, ops, led };
+      hbFetchedAt = Date.now();
+      hbInflight = false;
+      hbRender();
+    });
+  }
+  function hbRow(href, appName, icon, title, meta, pill, pillCls) {
+    return '<a href="' + href + '" data-app="' + esc(appName) + '" class="ioi-hb-row flex items-center justify-between gap-3 rounded-xl border border-border-base bg-surface-secondary px-4 py-3 text-left transition-colors hover:bg-surface-hover" style="text-decoration:none">' +
+      '<span class="flex min-w-0 items-center gap-3">' +
+      '<span class="shrink-0" aria-hidden="true">' + icon + "</span>" +
+      '<span class="flex min-w-0 flex-col">' +
+      '<span class="truncate text-sm font-medium text-content-primary">' + title + "</span>" +
+      (meta ? '<span class="truncate text-xs text-content-tertiary">' + meta + "</span>" : "") +
+      "</span></span>" +
+      '<span class="flex shrink-0 items-center gap-2">' +
+      (pill ? '<span class="rounded-full border ' + pillCls + ' text-xs whitespace-nowrap" style="padding:2px 10px">' + pill + "</span>" : "") +
+      '<span class="text-content-muted" aria-hidden="true">→</span>' +
+      "</span></a>";
+  }
+  function hbRender() {
+    const band = document.getElementById("ioi-home-band");
+    if (!band || !hbData) return;
+    const { appr, fo, ops, led } = hbData;
+    const pend = appr ? (appr.approval_requests || []).filter((a) => a.status === "pending") : null;
+    const parked = fo ? (fo.runs || []).filter((r) => String(r.status || "").startsWith("awaiting_authority")) : null;
+    const fails = ops ? ((ops.runs || {}).failures || []) : null;
+    const ledN = led ? (led.entries || []).length : null;
+    const rows = [];
+    (pend || []).slice(0, 3).forEach((a) => rows.push(hbRow("/__ioi/governance?tab=approvals", "Governance", "🛡",
+      "Approval waiting — " + esc(a.request_kind || "approval"), esc(a.subject_ref || ""),
+      "pending", "border-border-warning bg-surface-warning-subtle text-content-warning")));
+    (parked || []).slice(0, 3).forEach((r) => rows.push(hbRow("/__ioi/operations", "Operations", "⛔",
+      "Failover parked at the wallet gate — " + esc(String(r.status).replace("awaiting_authority_", "")),
+      esc((r.failure_condition || "run") + " · " + (r.environment_ref || "")),
+      "blocked", "border-border-warning bg-surface-warning-subtle text-content-warning")));
+    (fails || []).slice(0, 2).forEach((r) => rows.push(hbRow("/__ioi/operations", "Operations", "✖",
+      "Run failed — " + esc(r.name || r.automation_id || ""), esc((r.project_id || "—") + " · " + (r.finished_at || "")),
+      "failed", "border-border-error bg-surface-destructive-subtle text-content-destructive")));
+    const allNull = !appr && !fo && !ops && !led;
+    let html = '<div class="mb-2 flex items-center justify-between px-1">' +
+      '<span class="text-xs font-medium uppercase tracking-wide text-content-tertiary">Governed work</span>' +
+      '<a href="/__ioi/home" data-app="Governed Work" class="ioi-hb-row text-xs text-content-secondary hover:text-content-primary" style="text-decoration:none">Full readout →</a></div>';
+    if (allNull) {
+      html += '<div class="rounded-xl border border-border-warning bg-surface-warning-subtle px-4 py-3 text-sm text-content-warning">Daemon unreachable — governed-work status unavailable. Nothing is shown rather than fixtures.</div>';
+    } else if (!rows.length) {
+      html += '<div class="flex items-center justify-between gap-3 rounded-xl border border-border-base bg-surface-secondary px-4 py-3">' +
+        '<span class="flex items-center gap-3"><span class="text-content-positive" aria-hidden="true">●</span>' +
+        '<span class="text-sm text-content-secondary">All clear — nothing blocked, nothing waiting on you.</span></span>' +
+        (ledN !== null ? '<span class="text-xs text-content-tertiary whitespace-nowrap">' + ledN + " receipts in the ledger</span>" : "") + "</div>";
+    } else {
+      html += '<div class="flex flex-col gap-2">' + rows.join("") + "</div>";
+      if ([appr, fo, ops, led].some((x) => !x)) html += '<div class="mt-2 px-1 text-xs text-content-tertiary">Some projections did not answer — this band may be incomplete.</div>';
+    }
+    band.innerHTML = html;
+    band.querySelectorAll("a.ioi-hb-row").forEach((a) => {
+      a.addEventListener("click", (e) => {
+        e.preventDefault();
+        openApplication(a.getAttribute("href"), a.getAttribute("data-app"));
+      });
+    });
+  }
+  function mountHomeBand() {
+    const contents = document.querySelector('[data-testid="ioi-ai-page-contents"]');
+    if (!contents) return; // only the composer home carries this testid
+    if (document.getElementById("ioi-home-band")) { hbFetch(); return; } // idempotent; throttled refresh
+    const band = document.createElement("div");
+    band.id = "ioi-home-band";
+    band.setAttribute("data-testid", "ioi-home-band");
+    band.className = "mt-6 hidden w-full md:block";
+    const ex = contents.querySelector('[data-testid="example-prompts"]');
+    if (ex && ex.nextSibling) contents.insertBefore(band, ex.nextSibling);
+    else contents.appendChild(band);
+    hbFetchedAt = 0; // fresh mount → fresh truth
+    if (hbData) hbRender(); // paint from cache immediately, then refresh
+    hbFetch();
+  }
+
   // ---- New Session launcher (02-new-session graft). The rail's create-session action opens an
   // OWNED modal: three intake branches (project / URL / scratch), registry-fed harness + model
   // controls where an unavailable option is DISABLED WITH ITS REASON (never hidden, never a
@@ -1065,6 +1159,7 @@
     if (/\/details\//.test(p)) mountTimelineInWorkbench(); // workbench timeline only on /details/*
     mountProjectAutomations(); // self-guards /projects/:id + self-removes its panel off-route
     if (/\/settings\//.test(p)) { mountGitAppButton(); wireIntegrationConnect(); } // settings only
+    mountHomeBand(); // self-guards on the composer home's testid
     updateOpenAppRail(); // reflect the Open Application slot state in the rail
   }
   function mount() {
