@@ -50,6 +50,8 @@ mod editor_routes;
 mod endgame_routes;
 #[path = "hypervisor_daemon_routes/decentralized_cloud_routes.rs"]
 mod decentralized_cloud_routes;
+#[path = "hypervisor_daemon_routes/substrate_store.rs"]
+mod substrate_store;
 #[path = "hypervisor_daemon_routes/vast_candidate_source.rs"]
 mod vast_candidate_source;
 #[path = "hypervisor_daemon_routes/runpod_candidate_source.rs"]
@@ -1759,6 +1761,10 @@ async fn async_main() -> anyhow::Result<()> {
             get(provider_routes::handle_provider_receipts),
         )
         .route(
+            "/v1/hypervisor/substrate/status",
+            get(substrate_store::handle_substrate_status),
+        )
+        .route(
             "/v1/hypervisor/provider-spend/reconciliation",
             get(provider_routes::handle_spend_reconciliation),
         )
@@ -2650,6 +2656,11 @@ pub(crate) fn persist_record(
     record_id: &str,
     record: &Value,
 ) -> std::io::Result<()> {
+    // Promoted families are CUT OVER to the substrate engine: it is the
+    // only write path (no legacy JSON file — no split brain).
+    if substrate_store::is_promoted(record_dir) {
+        return substrate_store::persist_promoted(data_dir, record_dir, record_id, record);
+    }
     let dir = std::path::Path::new(data_dir).join(record_dir);
     std::fs::create_dir_all(&dir)?;
     let safe = record_id.replace(
@@ -2659,7 +2670,11 @@ pub(crate) fn persist_record(
     std::fs::write(
         dir.join(format!("{safe}.json")),
         serde_json::to_vec_pretty(record).unwrap_or_default(),
-    )
+    )?;
+    // Opt-in dual-write soak for not-yet-promoted families
+    // (IOI_SUBSTRATE_DUAL_WRITE=1); never fails the caller.
+    substrate_store::dual_write(data_dir, record_dir, record_id, record);
+    Ok(())
 }
 
 /// Delete a persisted record (used by credential revoke). Returns true if a file was removed.
@@ -5023,6 +5038,11 @@ async fn handle_mcp_list(State(st): State<Arc<DaemonState>>) -> Json<Value> {
 }
 
 pub(crate) fn read_record_dir(data_dir: &str, record_dir: &str) -> Vec<Value> {
+    // Promoted families read from the substrate engine (last-write-wins
+    // projection served by the writer thread) — never the legacy dir.
+    if substrate_store::is_promoted(record_dir) {
+        return substrate_store::read_promoted(data_dir, record_dir);
+    }
     let dir = std::path::Path::new(data_dir).join(record_dir);
     let mut out = Vec::new();
     if let Ok(entries) = std::fs::read_dir(dir) {

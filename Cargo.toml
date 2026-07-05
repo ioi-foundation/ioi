@@ -8,6 +8,7 @@ exclude = [
     "crates/plugins/sp1-guests" 
 ]
 members = [
+    "crates/agentgres",
     "crates/node",
     "crates/cli",
     "crates/execution",

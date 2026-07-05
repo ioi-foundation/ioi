@@ -137,9 +137,50 @@ projections, and settlement mirrors.
 
 ## Substrate Contract Doctrine
 
-Implementation status (this section): planned contract over the existing
-daemon state store; the deterministic Rust `plan_*`/`project_*` cores already
-have the required admission shape.
+Implementation status (this section): partial — engine v0 exists
+(`crates/agentgres`: five-verb trait, append-only op log,
+single-writer group commit, batch rooting, O(1) fork/checkpoint; done-bar
+`verify-agentgres-substrate-bench.mjs`, 13/13). Baseline on the dev box
+(Core Ultra 9 275HX, consumer NVMe, ext4/LVM, fsync-honest): 8.6k
+admissions/s per domain at 64 in-flight (target 5k: met), fork 0.4ms
+(target <1s: met), engine ceiling 261k ops/s at p99 0.10ms without fsync.
+Named blocker on the p99<5ms target: this box's raw `fdatasync` floor is
+~5.4ms — the gap is device flush, not the engine; enterprise NVMe with
+power-loss protection resolves it (p50 already rides the floor exactly).
+
+Session 2 landed the single-box flush combiner and the first real-truth
+shadow: the multiplexed multi-domain log (`mux.rs`) shares one file and one
+fsync across many domains while every domain keeps an independent head map,
+sequence, and root chain (the file is an I/O artifact, never a truth
+coupling — per-domain heads are proven independent of batch interleaving).
+Measured: 8 domains through one combined-flush log reach 20.8k aggregate
+admissions/s on the same box where 8 separate logs plateaued at 8.8k
+(2.4×; 88% of the group-commit theoretical bound). And the engine has now
+carried real daemon truth read-only: `substrate-shadow` ingested all 4,287
+persisted `ioi.hypervisor.provider-receipt.v1` records with complete
+coverage, a deterministic double-run (identical final root), and verified
+recovery — the shadow-first step of the migration doctrine.
+
+Session 3 CUT the first family over (user decision: no downstream users,
+avoid split brain): `provider-receipts` truth IS the substrate engine.
+`persist_record` for promoted families admits into the mux log at
+`<data_dir>/substrate/` (fail-closed with named errors — no legacy JSON is
+written); `read_record_dir` serves the writer-thread last-write-wins
+projection (never a torn tail); on first open, legacy JSON records are
+BACKFILLED once, idempotently, in canonical `(at, record_id)` order, and
+the legacy files remain on disk as inert history. All three read sites and
+the single write site route through those two shared helpers, so the cut
+is total by construction. WAL recovery truncates torn/unacked tails to the
+last valid frame boundary. `GET /v1/hypervisor/substrate/status` projects
+engine roots, admission/backfill counters, and residual-legacy counts; the
+dual-write soak lane (`IOI_SUBSTRATE_DUAL_WRITE=1` + domains env) remains
+for FUTURE families, with `substrate-parity` as their promotion bar. The
+engine crate is `crates/agentgres`. Proven live: daemon smoke boots
+against a seeded data dir, backfills, serves receipts from the engine, and
+recovers the engine log across restart with a stable root. Mux domains
+fork into single-domain engines (checkpoint → seed, parent untouched) and
+project per-domain. Done-bar: `verify-agentgres-substrate-bench.mjs`
+(30/30; 12-test unit battery including torn-tail truncation).
 
 **The substrate contract is the product; engines are implementations.** The
 Agentgres contract is five verbs — `append` (operation log), `validate`
@@ -191,6 +232,50 @@ embedded engine profile (SQLite/libSQL/redb-class) may host the substrate
 contract for local-first daemon deployments, with the Postgres bridge
 appearing in server/org deployments. Local-first custody of governed truth
 on a laptop daemon is a differentiator, not a degraded mode.
+
+**Durability classes and replication-as-durability.** Every admission ack
+carries a durability class (owner:
+[`../../foundations/canonical-enums.md`](../../foundations/canonical-enums.md)
+— `buffered | device_flush | replicated_same_host | quorum_replicated`).
+Device flush is ONE durability mechanism, not the definition: the end-state
+ack policy is replicate-then-ack — a batch's exact appended log bytes ship
+to peer(s) before acking, device flush runs as background hygiene on an
+independent fd on both sides, and correctness reduces to byte equality
+(byte-identical logs replay identical roots by construction). This removes
+the device-flush floor from the ack critical path entirely, which is what
+makes the fractal claim real: domains → engines → flush domains → nodes,
+single-writer at every level, the only latency on the ack path being the
+peer round-trip. Honesty caps apply: same-host peers can never yield
+`quorum_replicated`, and a failed replica link degrades acks loudly to the
+base label. Measured on the dev box (two processes, loopback,
+`replicated_same_host`): 220k admissions/s at p99 0.75ms single domain;
+8-domain aggregate 221.7k/s at p99 1.1ms — CPU-bound, no longer
+flush-bound (the same box's flush-per-ack ceiling was 8.6k–20.8k). All
+three performance-contract metrics are met under replicated semantics.
+
+**HA without consensus (built).** The pre-consensus production posture is
+fenced primary/standby over static membership: writer EPOCHS persist in
+the log as fencing frames (they ship byte-identically to replicas and do
+not touch domain root chains); the protocol handshake carries epoch and
+log length, so a late or restarted replica CATCHES UP by offset streaming
+before live batches, a replica that is AHEAD refuses overwrite (promote
+it instead), and a deposed primary is fenced at handshake or mid-stream
+NACK — split brain is structurally refused on every replica. PROMOTION is
+operator-driven and receipted (`ioi.agentgres.writer-promotion.v1` minted
+at epoch+1; the replica dir is already a valid engine dir). Multi-replica
+fan-out acks against a static quorum; `quorum_replicated` requires every
+acking peer to be DECLARED failure-independent (same-host peers cap at
+`replicated_same_host` — measured: two same-host replicas at quorum 2/2
+still cap, 200k adm/s at p99 0.89ms). The daemon adopts this behind env
+(`IOI_SUBSTRATE_REPLICA_ADDRS` + `IOI_SUBSTRATE_ASYNC_FLUSH=1` +
+`IOI_SUBSTRATE_ACK_QUORUM`; default remains device-flush sync, and async
+without a connected replica FAIL-SAFES to per-batch sync, loudly).
+Deliberately NOT built (consensus tier, horizon 2, both gates named:
+a real multi-node customer needing automated-failover SLAs AND a running
+deterministic-simulation harness): leader election, view changes, dynamic
+membership, automated failover. Options stay open: VSR-under-DST or a
+proven consensus library for the control plane over this data plane —
+the epochs built here are exactly what either consumes.
 
 **Lineage and the cautionary tale.** The architectural ancestry is
 Datomic-class (immutable facts, single-writer transactor, reads scaled
