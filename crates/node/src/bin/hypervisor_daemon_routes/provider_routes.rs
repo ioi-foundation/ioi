@@ -406,7 +406,7 @@ const ACCOUNT_KIND: &str = "provider-accounts";
 const EXPOSURE_KIND: &str = "provider-spend-exposures";
 const CREDENTIAL_VAULT: &str = "provider-credentials";
 const MATERIAL_KIND: &str = "provider-materials";
-const ACCOUNT_KINDS: &[&str] = &["baremetal_ssh", "aws", "gcp", "k8s", "vast", "runpod", "akash"];
+const ACCOUNT_KINDS: &[&str] = &["baremetal_ssh", "aws", "gcp", "k8s", "vast", "runpod", "lambda_cloud", "akash"];
 
 fn sha256_bytes(bytes: &[u8]) -> String {
     let mut hasher = Sha256::new();
@@ -441,6 +441,7 @@ fn kind_capabilities(kind: &str) -> Value {
         "k8s" => json!({ "locality": "remote", "isolation": "container", "restore": true, "remote": true, "credentials_required": true, "authority_gated": true, "privacy": "cluster_operator_controlled", "lifecycle": "credential_preflight_only" }),
         "vast" => json!({ "locality": "remote", "isolation": "container_gpu", "restore": true, "remote": true, "credentials_required": true, "authority_gated": true, "privacy": "marketplace_host_NOT_private", "lifecycle": "credential_preflight_only" }),
         "runpod" => json!({ "locality": "remote", "isolation": "container_gpu_runtime", "restore": true, "remote": true, "credentials_required": true, "authority_gated": true, "privacy": "cloud_gpu_runtime_NOT_private", "custody": "Standard unless proven otherwise", "lifecycle": "guarded (quote-gated) once a control-plane mode is set; credential_preflight_only before that" }),
+        "lambda_cloud" => json!({ "locality": "remote", "isolation": "gpu_vm", "vm_class": "ordinary Linux GPU VM + ssh", "persistent_disk": "instance-lifetime local NVMe (persistent while the VM lives)", "restore": true, "remote": true, "credentials_required": true, "authority_gated": true, "privacy": "cloud_vm_NOT_private", "custody": "Standard unless proven otherwise; provider-native snapshots/disks are evidence only — daemon custody state roots remain restore truth", "lifecycle": "guarded (quote-gated) once a control-plane mode is set; credential_preflight_only before that" }),
         "akash" => json!({ "locality": "remote", "isolation": "deployment_lease", "restore": true, "remote": true, "credentials_required": true, "authority_gated": true, "privacy": "depin_host_NOT_private", "lifecycle": "credential_preflight_only" }),
         other => json!({ "locality": "unknown", "credentials_required": true, "note": format!("unknown kind '{other}'") }),
     }
@@ -1587,6 +1588,407 @@ impl EnvironmentProvider for RunPodProvider {
     }
 }
 
+// --- lambda_cloud GUARDED LIFECYCLE: the boring high-trust GPU VM lane (missing member of ---
+// --- the first production compute trio). Ordinary Linux VM + ssh (user ubuntu) + persistent  ---
+// --- local disk. Same safety contract as Vast/RunPod; VM control-plane semantics (launch /   ---
+// --- instances / terminate). Provider-native snapshots/disks are EVIDENCE ONLY.              ---
+const LAMBDA_INSTANCE_KIND: &str = "lambda-instances";
+
+fn load_lambda_instance(data_dir: &str, account_id: &str, env_ref: &str) -> Option<Value> {
+    read_record_dir(data_dir, LAMBDA_INSTANCE_KIND)
+        .into_iter()
+        .find(|i| text(i, "account_id") == account_id && text(i, "environment_ref") == env_ref)
+}
+
+struct LambdaProvider {
+    account: Value,
+}
+impl LambdaProvider {
+    fn account_id(&self) -> &str {
+        text(&self.account, "account_id")
+    }
+    fn mode(&self) -> String {
+        vast_mode(&self.account)
+    }
+    fn base(&self) -> String {
+        let configured = self.account.pointer("/endpoint/endpoint").and_then(Value::as_str).unwrap_or("");
+        if configured.is_empty() { "https://cloud.lambda.ai/api/v1".into() } else { configured.trim_end_matches('/').to_string() }
+    }
+    fn bearer(&self, data_dir: &str) -> Result<String, String> {
+        load_account_credential(data_dir, self.account_id())
+            .and_then(|c| c["sealed_token"].as_str().and_then(open_scm_token))
+            .ok_or("provider_credential_unresolved".into())
+    }
+    fn instance(&self, data_dir: &str, env_ref: &str) -> Option<Value> {
+        load_lambda_instance(data_dir, self.account_id(), env_ref)
+    }
+    fn save_instance(&self, data_dir: &str, instance: &Value) {
+        let id = text(instance, "record_id").to_string();
+        let _ = persist_record(data_dir, LAMBDA_INSTANCE_KIND, &id, instance);
+    }
+    fn ssh_lane(&self, data_dir: &str, env_ref: &str) -> Result<(SshProvider, KeyGuard), String> {
+        let inst = self.instance(data_dir, env_ref)
+            .ok_or("lambda_instance_absent — provision with the quote-gated create op first")?;
+        if text(&inst, "status") == "torn_down" {
+            return Err("lambda_instance_torn_down — this VM was already torn down".into());
+        }
+        let ssh = inst.get("ssh").cloned().unwrap_or(Value::Null);
+        let key_file = text(&ssh, "key_file");
+        let sealed = text(&inst, "sealed_ssh_key");
+        if text(&ssh, "host").is_empty() || (key_file.is_empty() && sealed.is_empty()) {
+            return Err("lambda_ssh_bootstrap_unknown — the VM has no usable ssh endpoint/key (it gains one only after boot polling proves readiness)".into());
+        }
+        let key = if !key_file.is_empty() {
+            std::fs::read_to_string(key_file).map_err(|e| format!("lambda_ssh_key_unreadable: {e}"))?
+        } else {
+            open_scm_token(sealed).ok_or("lambda_ssh_key_unsealable — sealed VM key did not decrypt")?
+        };
+        let dir = Path::new(data_dir).join("provider-ssh");
+        std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+        let path = dir.join(format!("lambda-{}-{}.key", safe(self.account_id()), safe(env_ref)));
+        std::fs::write(&path, key).map_err(|e| e.to_string())?;
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let _ = std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600));
+        }
+        // Live Lambda VMs use ssh user `ubuntu`; simulator inherits the fixture's endpoint.ssh.
+        let user = if text(&ssh, "user").is_empty() { "ubuntu" } else { text(&ssh, "user") };
+        let synthetic = json!({
+            "account_id": self.account_id(),
+            "account_ref": self.account["account_ref"],
+            "display_name": format!("{} (lambda vm)", text(&self.account, "display_name")),
+            "kind": "lambda_cloud", "status": "verified",
+            "endpoint": { "host": ssh["host"], "port": ssh.get("port").cloned().unwrap_or(json!(22)), "user": user },
+        });
+        Ok((SshProvider { account: synthetic, key_path: path.clone() }, KeyGuard(path)))
+    }
+    /// Simulator: does this account defer ssh readiness to boot polling (endpoint.simulate_
+    /// boot_delay:true)? Proves the ssh-unknown-until-boot contract in CI without a live VM.
+    fn sim_boot_delay(&self) -> bool {
+        self.account.pointer("/endpoint/simulate_boot_delay").and_then(Value::as_bool) == Some(true)
+    }
+}
+impl EnvironmentProvider for LambdaProvider {
+    fn id(&self) -> &str {
+        "lambda-guarded"
+    }
+    fn capabilities(&self) -> Value {
+        let mut caps = kind_capabilities("lambda_cloud");
+        caps["provider_spend_borne_by"] = json!("customer");
+        caps["lifecycle"] = json!("guarded_lifecycle — quote-gated create, wallet-gated mutations, teardown required");
+        caps["execution_mode"] = json!(self.mode());
+        caps
+    }
+    fn status(&self) -> (&'static str, String) {
+        match text(&self.account, "status") {
+            "verified" => ("available", format!("guarded lambda GPU VM lifecycle ({} control plane)", self.mode())),
+            "revoked" => ("revoked", "credential revoked".into()),
+            _ => ("unverified", "bind + preflight the credential".into()),
+        }
+    }
+    fn preflight(&self, _plan: &Value) -> Value {
+        json!({ "admit": text(&self.account, "status") == "verified", "provider": self.id(),
+                "account_ref": self.account["account_ref"], "execution_mode": self.mode(),
+                "lifecycle": "guarded_lifecycle", "preflight_evidence": self.account.get("preflight").cloned().unwrap_or(Value::Null) })
+    }
+    fn create(&self, data_dir: &str, env_ref: &str, plan: &Value) -> Result<Value, String> {
+        if let Some(existing) = self.instance(data_dir, env_ref) {
+            if text(&existing, "status") != "torn_down" {
+                return Err(format!("lambda_vm_already_provisioned — {} is live for this environment; tear it down first", text(&existing, "instance_id")));
+            }
+        }
+        let mode = self.mode();
+        let record_id = format!("lminst_{:x}", nanos());
+        if mode == "simulator" {
+            let ssh = self.account.pointer("/endpoint/ssh").cloned().unwrap_or(Value::Null);
+            if text(&ssh, "host").is_empty() || text(&ssh, "key_file").is_empty() {
+                return Err("lambda_simulator_ssh_missing — simulator mode needs endpoint.ssh {host, port, user, key_file}".into());
+            }
+            let instance_id = format!("lmsim_{:x}", nanos());
+            // simulate_boot_delay: leave ssh Null so the ssh-unknown-until-boot contract is
+            // CI-provable (start "boot polls" and persists readiness); otherwise ssh is ready now.
+            let boot_delay = self.sim_boot_delay();
+            let instance = json!({
+                "schema_version": "ioi.hypervisor.lambda-instance.v1",
+                "record_id": record_id, "instance_id": instance_id,
+                "account_id": self.account_id(), "account_ref": self.account["account_ref"],
+                "environment_ref": env_ref, "status": "provisioned",
+                "execution_mode": "simulated_control_plane",
+                "sim_ssh": ssh,
+                "ssh": if boot_delay { Value::Null } else { ssh.clone() },
+                "region": plan["region"], "instance_type": plan["instance_type"],
+                "candidate_ref": plan["candidate_ref"], "quote_ref": plan["quote_ref"],
+                "usd_per_hour": plan["usd_per_hour"], "max_hourly_usd": plan["max_hourly_usd"],
+                "teardown_policy": plan["teardown_policy"],
+                "provider_native": { "instance_id": instance_id, "disk_id": format!("{instance_id}-disk"),
+                    "note": "SIMULATED VM/disk ids — evidence only, never restore truth; no real Lambda VM exists" },
+                "created_at": iso_now(),
+            });
+            self.save_instance(data_dir, &instance);
+            let (ssh_ready, bootstrap) = if boot_delay {
+                (false, Value::Null) // workspace bootstrap deferred to start (post-boot)
+            } else {
+                let (lane, _guard) = self.ssh_lane(data_dir, env_ref)?;
+                (true, lane.create(data_dir, env_ref, plan)?)
+            };
+            return Ok(json!({
+                "provider_operation_ref": format!("provider-account://{}/op/create/{}", self.account_id(), safe(env_ref)),
+                "instance": { "instance_id": instance_id, "status": "provisioned", "execution_mode": "simulated_control_plane" },
+                "provider_native": instance["provider_native"],
+                "ssh_ready": ssh_ready, "workspace_bootstrap": bootstrap,
+                "live_provisioning_not_run": true,
+                "note": if boot_delay { "simulated boot delay — ssh is UNKNOWN until start boot-polls (proves the readiness contract)" } else { "simulator — ssh ready immediately" },
+                "teardown_required": true,
+            }));
+        }
+        if mode == "live" {
+            let instance_type = plan.get("instance_type").and_then(Value::as_str)
+                .ok_or("lambda_live_instance_type_missing — the validated quote carries no instance type")?;
+            let region = plan.get("region").and_then(Value::as_str)
+                .ok_or("lambda_live_region_missing — provide a region with capacity (the wallet challenge binds it)")?;
+            let bearer = self.bearer(data_dir)?;
+            let base = self.base();
+            let keydir = Path::new(data_dir).join("provider-ssh");
+            std::fs::create_dir_all(&keydir).map_err(|e| e.to_string())?;
+            let tmp = keydir.join(format!("lambda-live-{}-{}.tmp", safe(self.account_id()), safe(env_ref)));
+            let _ = std::fs::remove_file(&tmp);
+            let _ = std::fs::remove_file(format!("{}.pub", tmp.to_string_lossy()));
+            let keygen = std::process::Command::new("ssh-keygen")
+                .args(["-t", "ed25519", "-N", "", "-q", "-f"]).arg(&tmp)
+                .output().map_err(|e| format!("lambda_ssh_keygen_failed: {e}"))?;
+            if !keygen.status.success() {
+                return Err(format!("lambda_ssh_keygen_failed: {}", String::from_utf8_lossy(&keygen.stderr)));
+            }
+            let private_key = std::fs::read_to_string(&tmp).map_err(|e| e.to_string())?;
+            let public_key = std::fs::read_to_string(format!("{}.pub", tmp.to_string_lossy())).map_err(|e| e.to_string())?;
+            let _ = std::fs::remove_file(&tmp);
+            let _ = std::fs::remove_file(format!("{}.pub", tmp.to_string_lossy()));
+            let sealed_key = seal_scm_token(private_key.trim())
+                .ok_or("lambda_ssh_key_seal_failed — could not seal the ephemeral VM key")?;
+            let key_name = format!("ioi-hypervisor-{}", safe(env_ref));
+            let created: Result<Value, String> = tokio::task::block_in_place(|| {
+                tokio::runtime::Handle::current().block_on(async {
+                    let client = reqwest::Client::new();
+                    // Register the ephemeral pubkey, then launch the VM bound to it.
+                    let _ = client.post(format!("{base}/ssh-keys"))
+                        .bearer_auth(&bearer)
+                        .json(&json!({ "name": key_name, "public_key": public_key.trim() }))
+                        .timeout(std::time::Duration::from_secs(20))
+                        .send().await;
+                    let resp = client.post(format!("{base}/instance-operations/launch"))
+                        .bearer_auth(&bearer)
+                        .json(&json!({ "region_name": region, "instance_type_name": instance_type,
+                                       "ssh_key_names": [key_name], "quantity": 1,
+                                       "name": format!("ioi-hypervisor-{}", safe(env_ref)) }))
+                        .timeout(std::time::Duration::from_secs(30))
+                        .send().await.map_err(|e| format!("lambda_live_provision_failed: {e}"))?;
+                    let status = resp.status().as_u16();
+                    let body: Value = resp.json().await.map_err(|e| format!("lambda_live_provision_failed: non-JSON response: {e}"))?;
+                    if !(200..300).contains(&status) {
+                        return Err(format!("lambda_live_provision_failed: http {status} {body}"));
+                    }
+                    Ok(body)
+                })
+            });
+            let body = created?;
+            let native_id = body.pointer("/data/instance_ids").and_then(Value::as_array).and_then(|a| a.first().cloned())
+                .or_else(|| body.pointer("/instance_ids").and_then(Value::as_array).and_then(|a| a.first().cloned()))
+                .unwrap_or(Value::Null);
+            let instance = json!({
+                "schema_version": "ioi.hypervisor.lambda-instance.v1",
+                "record_id": record_id, "instance_id": format!("lambda_{}", native_id.as_str().unwrap_or("?")),
+                "account_id": self.account_id(), "account_ref": self.account["account_ref"],
+                "environment_ref": env_ref, "status": "provisioned",
+                "execution_mode": "live",
+                "sealed_ssh_key": sealed_key, "ssh_key_name": key_name,
+                "ssh": Value::Null,
+                "region": region, "instance_type": instance_type,
+                "candidate_ref": plan["candidate_ref"], "quote_ref": plan["quote_ref"],
+                "usd_per_hour": plan["usd_per_hour"], "max_hourly_usd": plan["max_hourly_usd"],
+                "teardown_policy": plan["teardown_policy"],
+                "provider_native": { "instance_id": native_id, "note": "provider-native VM id — evidence only, never restore truth" },
+                "created_at": iso_now(),
+            });
+            self.save_instance(data_dir, &instance);
+            return Ok(json!({
+                "provider_operation_ref": format!("provider-account://{}/op/create/{}", self.account_id(), safe(env_ref)),
+                "instance": { "instance_id": instance["instance_id"], "status": "provisioned", "execution_mode": "live" },
+                "provider_native": instance["provider_native"],
+                "ssh_ready": false,
+                "note": "live VM launched — run start to boot-poll; workspace ops fail closed (lambda_ssh_bootstrap_unknown) until ssh readiness is PROVEN",
+                "teardown_required": true,
+            }));
+        }
+        Err("lambda_lifecycle_mode_unset — set the account endpoint mode to simulator or live".into())
+    }
+    fn start(&self, data_dir: &str, env_ref: &str) -> Result<Value, String> {
+        let mut inst = self.instance(data_dir, env_ref).ok_or("lambda_instance_absent")?;
+        if text(&inst, "status") == "torn_down" {
+            return Err("lambda_instance_torn_down".into());
+        }
+        let mut boot_evidence = Value::Null;
+        // Boot polling: live polls the provider; simulator-with-boot-delay resolves from the
+        // recorded sim_ssh once (proving the readiness-gated persist without a live VM).
+        if inst.get("ssh").map(Value::is_null).unwrap_or(true) {
+            if text(&inst, "execution_mode") == "live" {
+                let native = inst.pointer("/provider_native/instance_id").cloned().unwrap_or(Value::Null);
+                let nid = native.as_str().map(str::to_string)
+                    .ok_or("lambda_boot_poll_failed — no provider-native id on the VM record")?;
+                let bearer = self.bearer(data_dir)?;
+                let base = self.base();
+                let deadline = std::time::Instant::now() + std::time::Duration::from_secs(300);
+                let mut attempts = 0u32;
+                let mut last_status = String::from("unknown");
+                let polled: Option<String> = loop {
+                    attempts += 1;
+                    let fetched: Result<Value, String> = tokio::task::block_in_place(|| {
+                        tokio::runtime::Handle::current().block_on(async {
+                            let r = reqwest::Client::new().get(format!("{base}/instances/{nid}"))
+                                .bearer_auth(&bearer)
+                                .timeout(std::time::Duration::from_secs(15))
+                                .send().await.map_err(|e| e.to_string())?;
+                            r.json::<Value>().await.map_err(|e| e.to_string())
+                        })
+                    });
+                    if let Ok(doc) = fetched {
+                        let node = doc.get("data").cloned().unwrap_or(doc);
+                        last_status = node.get("status").and_then(Value::as_str).unwrap_or("unknown").to_string();
+                        let ip = node.get("ip").and_then(Value::as_str).unwrap_or("").to_string();
+                        if last_status.eq_ignore_ascii_case("active") && !ip.is_empty() {
+                            break Some(ip);
+                        }
+                    }
+                    if std::time::Instant::now() >= deadline { break None; }
+                    std::thread::sleep(std::time::Duration::from_secs(15));
+                };
+                let Some(ip) = polled else {
+                    return Err(format!("lambda_boot_pending — VM {nid} not ssh-ready after {attempts} poll(s) (status: {last_status}); re-run start to continue polling"));
+                };
+                boot_evidence = json!({ "polled_attempts": attempts, "status": last_status, "ssh_host": ip, "ssh_port": 22, "user": "ubuntu", "proven_at": iso_now() });
+                inst["ssh"] = json!({ "host": ip, "port": 22, "user": "ubuntu" });
+            } else {
+                // simulator boot delay: readiness "proven" from the recorded sim endpoint.
+                let sim_ssh = inst.get("sim_ssh").cloned().unwrap_or(Value::Null);
+                if text(&sim_ssh, "host").is_empty() {
+                    return Err("lambda_boot_poll_failed — simulator instance has no recorded ssh endpoint".into());
+                }
+                boot_evidence = json!({ "polled_attempts": 1, "status": "active", "ssh_host": sim_ssh["host"], "ssh_port": sim_ssh.get("port").cloned().unwrap_or(json!(22)), "proven_at": iso_now(), "note": "simulated boot delay resolved" });
+                inst["ssh"] = sim_ssh;
+            }
+            inst["ssh_ready_evidence"] = boot_evidence.clone();
+            self.save_instance(data_dir, &inst);
+        }
+        let (lane, _guard) = self.ssh_lane(data_dir, env_ref)?;
+        if inst.get("workspace_bootstrapped").and_then(Value::as_bool) != Some(true) {
+            // Bootstrap once for live and for boot-delayed simulator (immediate-sim did it at create).
+            if text(&inst, "execution_mode") == "live" || boot_evidence != Value::Null {
+                lane.create(data_dir, env_ref, &json!({}))?;
+            }
+            inst["workspace_bootstrapped"] = json!(true);
+        }
+        lane.start(data_dir, env_ref)?;
+        inst["status"] = json!("running");
+        self.save_instance(data_dir, &inst);
+        Ok(json!({ "provider_operation_ref": format!("provider-account://{}/op/start/{}", self.account_id(), safe(env_ref)),
+                   "instance_id": inst["instance_id"], "status": "running", "ssh_ready": true,
+                   "boot_evidence": boot_evidence }))
+    }
+    fn workrun(&self, data_dir: &str, env_ref: &str, command: &str) -> Result<Value, String> {
+        let (lane, _guard) = self.ssh_lane(data_dir, env_ref)?;
+        lane.workrun(data_dir, env_ref, command)
+    }
+    fn stop(&self, data_dir: &str, env_ref: &str) -> Result<Value, String> {
+        // Lambda-class VMs have NO native stop — the VM runs (and bills) until terminate.
+        // Only the workspace lane halts; saying "stopped" here would fake the spend posture.
+        let mut inst = self.instance(data_dir, env_ref).ok_or("lambda_instance_absent")?;
+        let (lane, _guard) = self.ssh_lane(data_dir, env_ref)?;
+        let stopped = lane.stop(data_dir, env_ref)?;
+        inst["status"] = json!("workspace_stopped_vm_running");
+        self.save_instance(data_dir, &inst);
+        Ok(json!({ "provider_operation_ref": format!("provider-account://{}/op/stop/{}", self.account_id(), safe(env_ref)),
+                   "instance_id": inst["instance_id"], "status": "workspace_stopped_vm_running",
+                   "spend_note": "lambda-class VMs have no native stop — the VM keeps running and accruing customer-borne spend until teardown; only the workspace lane halted",
+                   "lane": stopped }))
+    }
+    fn snapshot(&self, data_dir: &str, env_ref: &str) -> Result<Value, String> {
+        let (lane, _guard) = self.ssh_lane(data_dir, env_ref)?;
+        lane.snapshot(data_dir, env_ref)
+    }
+    fn restore(&self, data_dir: &str, env_ref: &str, material_ref: &str) -> Result<Value, String> {
+        let (lane, _guard) = self.ssh_lane(data_dir, env_ref)?;
+        lane.restore(data_dir, env_ref, material_ref)
+    }
+    fn inject_outage(&self, _d: &str, _e: &str) -> Result<Value, String> {
+        Err("lambda_outage_injection_not_supported — terminating a paid VM is not a safely representable outage; use the loopback/ssh conformance lanes".into())
+    }
+    fn recover(&self, _d: &str, _e: &str) -> Result<Value, String> {
+        Err("lambda_recover_not_supported — recovery is restore-from-daemon-custody after re-launching; run create + restore explicitly".into())
+    }
+    fn delete(&self, data_dir: &str, env_ref: &str) -> Result<Value, String> {
+        let mut inst = self.instance(data_dir, env_ref).ok_or("lambda_instance_absent")?;
+        let remote_cleanup = match self.ssh_lane(data_dir, env_ref) {
+            Ok((lane, _guard)) => lane.delete(data_dir, env_ref).map(|e| e["cleanup_verified"].clone()).unwrap_or(json!("unreachable")),
+            Err(e) => json!(format!("skipped: {e}")),
+        };
+        let native_teardown = if text(&inst, "execution_mode") == "live" {
+            let native = inst.pointer("/provider_native/instance_id").and_then(Value::as_str).map(str::to_string);
+            match (native, self.bearer(data_dir)) {
+                (Some(nid), Ok(bearer)) => {
+                    let base = self.base();
+                    let result: Result<u16, String> = tokio::task::block_in_place(|| {
+                        tokio::runtime::Handle::current().block_on(async {
+                            reqwest::Client::new().post(format!("{base}/instance-operations/terminate"))
+                                .bearer_auth(&bearer)
+                                .json(&json!({ "instance_ids": [nid] }))
+                                .timeout(std::time::Duration::from_secs(30))
+                                .send().await.map(|r| r.status().as_u16()).map_err(|e| e.to_string())
+                        })
+                    });
+                    match result {
+                        Ok(status) => json!({ "destroyed": (200..300).contains(&status), "http_status": status }),
+                        Err(e) => json!({ "destroyed": false, "error": e, "warning": "TEARDOWN MAY BE INCOMPLETE — verify the Lambda console" }),
+                    }
+                }
+                _ => json!({ "destroyed": false, "error": "instance id or credential unavailable" }),
+            }
+        } else if self.account.pointer("/endpoint/simulate_teardown_failure").and_then(Value::as_bool) == Some(true) {
+            json!({ "destroyed": false, "error": "SIMULATED teardown failure (endpoint.simulate_teardown_failure)", "warning": "TEARDOWN MAY BE INCOMPLETE — verify the Lambda console" })
+        } else {
+            json!({ "destroyed": true, "note": "simulated control plane — no real VM existed" })
+        };
+        inst["status"] = json!("torn_down");
+        inst["torn_down_at"] = json!(iso_now());
+        self.save_instance(data_dir, &inst);
+        Ok(json!({ "provider_operation_ref": format!("provider-account://{}/op/delete/{}", self.account_id(), safe(env_ref)),
+                   "instance_id": inst["instance_id"], "teardown_state": "torn_down",
+                   "remote_workspace_cleanup": remote_cleanup, "native_teardown": native_teardown,
+                   "cleanup_verified": true }))
+    }
+    fn observe(&self, data_dir: &str, env_ref: &str) -> Value {
+        match self.instance(data_dir, env_ref) {
+            None => json!({ "provider": self.id(), "environment_ref": env_ref, "instance": Value::Null, "status": "absent" }),
+            Some(inst) => {
+                let boot_pending = inst.get("ssh").map(Value::is_null).unwrap_or(true) && text(&inst, "status") != "torn_down";
+                let lane_view = if text(&inst, "status") == "torn_down" { Value::Null }
+                    else if boot_pending { json!({ "boot": "pending — run start to poll until ssh readiness is proven" }) }
+                    else {
+                        match self.ssh_lane(data_dir, env_ref) {
+                            Ok((lane, _guard)) => lane.observe(data_dir, env_ref),
+                            Err(e) => json!({ "error": e }),
+                        }
+                    };
+                json!({ "provider": self.id(), "environment_ref": env_ref,
+                        "instance_id": inst["instance_id"], "status": inst["status"],
+                        "execution_mode": inst["execution_mode"], "region": inst["region"], "instance_type": inst["instance_type"],
+                        "provider_native": inst["provider_native"],
+                        "teardown_state": if text(&inst, "status") == "torn_down" { json!("torn_down") } else { json!("live_or_pending") },
+                        "workspace": lane_view })
+            }
+        }
+    }
+}
+
 fn registry() -> Vec<Box<dyn EnvironmentProvider>> {
     vec![
         Box::new(LocalMicrovmProvider),
@@ -1621,6 +2023,12 @@ fn resolve_account_adapter(
         && text(&account, "status") == "verified"
     {
         return Some(Ok((account.clone(), Box::new(RunPodProvider { account }), None)));
+    }
+    if text(&account, "kind") == "lambda_cloud"
+        && matches!(vast_mode(&account).as_str(), "simulator" | "live")
+        && text(&account, "status") == "verified"
+    {
+        return Some(Ok((account.clone(), Box::new(LambdaProvider { account }), None)));
     }
     if text(&account, "kind") == "baremetal_ssh" {
         match materialize_ssh_key(data_dir, text(&account, "account_id")) {
@@ -1751,7 +2159,7 @@ pub(crate) async fn handle_provider_account_credential(
         "aws" => ("aws-sigv4", text(&body, "secret_access_key")),
         "gcp" => ("oidc-workload", text(&body, "service_account_key")),
         "k8s" => ("bearer", text(&body, "token")),
-        "vast" | "runpod" | "akash" => ("bearer", text(&body, "api_key")),
+        "vast" | "runpod" | "lambda_cloud" | "akash" => ("bearer", text(&body, "api_key")),
         _ => ("bearer", text(&body, "token")),
     };
     if secret.trim().is_empty() {
@@ -1968,7 +2376,7 @@ pub(crate) async fn handle_provider_op(
             //     live control plane demands live_evidence, the simulator demands
             //     simulator_evidence (labelled harness, no real spend). Runs AFTER budget
             //     discovery and BEFORE the wallet challenge (canon gate order).
-            if matches!(kind.as_str(), "vast" | "runpod") && op == "create" {
+            if matches!(kind.as_str(), "vast" | "runpod" | "lambda_cloud") && op == "create" {
                 let candidate_ref = body.get("candidate_ref").and_then(Value::as_str).unwrap_or("");
                 if candidate_ref.is_empty() {
                     let code = format!("{kind}_candidate_ref_required");
@@ -2024,6 +2432,12 @@ pub(crate) async fn handle_provider_op(
                     "usd_per_hour": price,
                     "max_hourly_usd": max_hourly,
                     "gpu": candidate.get("gpu").cloned().unwrap_or(Value::Null),
+                    "region": body.get("region").cloned()
+                        .or_else(|| candidate.get("region").cloned())
+                        .or_else(|| candidate.get("regions").and_then(Value::as_array).and_then(|r| r.first().cloned()))
+                        .unwrap_or(Value::Null),
+                    "instance_type": candidate.get("instance_type").cloned().unwrap_or(Value::Null),
+                    "disk_gb": candidate.pointer("/storage/disk_gb").cloned().unwrap_or(Value::Null),
                     "spend_estimate": candidate.get("spend_estimate").cloned().unwrap_or(Value::Null),
                     "execution_mode": if account_mode == "live" { "live" } else { "simulated_control_plane" },
                     "teardown_policy": body.get("teardown_policy").and_then(Value::as_str).unwrap_or("always_teardown_required"),
@@ -2042,7 +2456,7 @@ pub(crate) async fn handle_provider_op(
                 request_facets: {
                     let mut facets = json!({ "account_ref": account_ref, "op": op, "environment_ref": env_ref, "kind": kind, "external_spend_posture": budget_note.get("scope").cloned().unwrap_or(Value::Null) });
                     if let (Some(target), Some(gate)) = (facets.as_object_mut(), vast_gate.as_object()) {
-                        for key in ["candidate_ref", "quote_ref", "max_hourly_usd", "gpu", "teardown_policy", "execution_mode"] {
+                        for key in ["candidate_ref", "quote_ref", "max_hourly_usd", "gpu", "region", "instance_type", "disk_gb", "teardown_policy", "execution_mode"] {
                             if let Some(v) = gate.get(key) { target.insert(key.to_string(), v.clone()); }
                         }
                     }
@@ -2147,7 +2561,7 @@ pub(crate) async fn handle_provider_op(
                         "opened_at": iso_now(),
                     });
                     let _ = persist_record(data_dir, EXPOSURE_KIND, &exp_id, &exposure);
-                } else if matches!(kind.as_str(), "vast" | "runpod") {
+                } else if matches!(kind.as_str(), "vast" | "runpod" | "lambda_cloud") {
                     if let Some(mut exposure) = open_exposure_for(data_dir, &account_ref, &env_ref) {
                         let exp_id = text(&exposure, "exposure_id").to_string();
                         let mut refs = exposure.get("receipt_refs").and_then(Value::as_array).cloned().unwrap_or_default();

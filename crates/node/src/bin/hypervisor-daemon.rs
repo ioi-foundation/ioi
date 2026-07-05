@@ -54,6 +54,8 @@ mod decentralized_cloud_routes;
 mod vast_candidate_source;
 #[path = "hypervisor_daemon_routes/runpod_candidate_source.rs"]
 mod runpod_candidate_source;
+#[path = "hypervisor_daemon_routes/lambda_candidate_source.rs"]
+mod lambda_candidate_source;
 #[path = "hypervisor_daemon_routes/environment_routes.rs"]
 mod environment_routes;
 #[path = "hypervisor_daemon_routes/foundry_routes.rs"]

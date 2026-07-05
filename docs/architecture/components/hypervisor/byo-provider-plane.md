@@ -216,6 +216,25 @@ the BYO SSH custody lane; exposures open/close identically; custody is
 `cloud_gpu_runtime_NOT_private`. `IOI_RUNPOD_LIVE=1` proves live or blocks
 named. Done-bar: `verify-hypervisor-runpod-adapter.mjs`.
 
+Lambda-class GPU VMs (`lambda_cloud`, `adapter:lambda-quote` + guarded
+lifecycle) complete the first production external-compute trio: the BORING,
+high-trust ordinary Linux GPU VM lane — VM + ssh (user ubuntu) +
+instance-lifetime persistent local disk — never flattened into a generic
+cloud. Quotes are per-instance-type rate cards priced in cents/hour
+(converted verbatim; unpriced preview shapes skipped, never estimated) with
+per-region capacity; region is chosen at create and the wallet challenge
+binds it together with the instance type, disk, and teardown policy. ssh is
+UNKNOWN until boot polling proves readiness (`lambda_ssh_bootstrap_unknown`
+before that; resumable `lambda_boot_pending`); the VM reuses the BYO SSH
+custody lane, so daemon-admitted sha256 state roots remain restore truth and
+provider-native VM/disk/snapshot ids stay evidence-only. There is no native
+stop — the VM accrues customer-borne spend until teardown, and the lifecycle
+says so (`workspace_stopped_vm_running`) instead of faking it. Custody is
+`cloud_vm_NOT_private`; exposures open/close (or close_with_warning)
+identically; per-kind gate codes are `lambda_cloud_*`. `IOI_LAMBDA_LIVE=1`
+proves live or blocks named. Done-bar:
+`verify-hypervisor-lambda-gpu-vm-adapter.mjs`.
+
 ## Priority Adapter Ladder
 
 This ladder is roadmap priority, not a permanent provider ranking and not a routing policy.

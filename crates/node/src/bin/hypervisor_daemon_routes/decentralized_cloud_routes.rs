@@ -153,6 +153,7 @@ fn derive_candidates(
     batch: &str,
     vast_outcome: &Value,
     runpod_outcome: &Value,
+    lambda_outcome: &Value,
 ) -> (Vec<Value>, Vec<Value>) {
     let observed_at = iso_now();
     let expires_epoch = epoch_secs() + ttl_secs;
@@ -289,7 +290,10 @@ fn derive_candidates(
                 && vast_outcome["account_ref"] == account["account_ref"])
                 || (kind == "runpod"
                 && runpod_outcome.get("engaged").and_then(Value::as_bool) == Some(true)
-                && runpod_outcome["account_ref"] == account["account_ref"]);
+                && runpod_outcome["account_ref"] == account["account_ref"])
+                || (kind == "lambda_cloud"
+                && lambda_outcome.get("engaged").and_then(Value::as_bool) == Some(true)
+                && lambda_outcome["account_ref"] == account["account_ref"]);
             if quote_engaged {
                 if wants_private {
                     rejected.push(json!({ "source": "depin_market", "adapter_ref": "adapter:vast-quote",
@@ -323,6 +327,20 @@ fn derive_candidates(
                 "cloud shared-responsibility custody; Private never claimed without custody receipts",
                 "no failover plan without a live adapter",
                 receipt_history(data_dir, account_ref));
+        }
+    }
+    // ── direct_provider: real Lambda GPU VM quotes (instance-type rate cards; VM semantics). ──
+    if lambda_outcome.get("engaged").and_then(Value::as_bool) == Some(true) && !wants_private {
+        if text(lambda_outcome, "state") == "degraded_unreachable" {
+            rejected.push(json!({ "source": "direct_provider", "adapter_ref": "adapter:lambda-quote",
+                "provider_account_ref": lambda_outcome["account_ref"],
+                "reason_code": "candidate_source_degraded",
+                "detail": "lambda instance-type fetch failed — no fake quotes on failure",
+                "evidence_refs": [lambda_outcome["evidence"].clone()] }));
+        } else {
+            candidates.extend(super::lambda_candidate_source::normalize_offers(
+                lambda_outcome, &intent_ref, batch, &observed_at, &expires_at, expires_epoch,
+            ));
         }
     }
     // ── direct_provider: real RunPod GPU-type quotes (rate cards; secure/community pricing). ──
@@ -419,7 +437,8 @@ async fn refresh_candidates(st: &Arc<DaemonState>, intent: &Value, ttl_secs: u64
     }
     let vast_outcome = super::vast_candidate_source::fetch_offers(st).await;
     let runpod_outcome = super::runpod_candidate_source::fetch_offers(st).await;
-    let (candidates, rejected) = derive_candidates(&st.data_dir, intent, &classes, ttl_secs, &batch, &vast_outcome, &runpod_outcome);
+    let lambda_outcome = super::lambda_candidate_source::fetch_offers(st).await;
+    let (candidates, rejected) = derive_candidates(&st.data_dir, intent, &classes, ttl_secs, &batch, &vast_outcome, &runpod_outcome, &lambda_outcome);
     for c in &candidates {
         let _ = persist_record(&st.data_dir, CANDIDATE_KIND, text(c, "candidate_id"), c);
     }
@@ -531,6 +550,7 @@ pub(crate) async fn handle_candidate_sources(State(st): State<Arc<DaemonState>>)
               "evidence": { "basis": "no external candidate API is called; no invented prices" } },
             super::vast_candidate_source::source_state(&st.data_dir),
             super::runpod_candidate_source::source_state(&st.data_dir),
+            super::lambda_candidate_source::source_state(&st.data_dir),
             { "source": "depin_market", "state": "candidate_source_unavailable",
               "reason": "market_adapter_absent — Akash market discovery lands with its adapter cut (priority ladder); Vast is served by its own quote source above",
               "evidence": { "basis": "no market API is called; no invented prices" } },

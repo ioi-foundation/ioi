@@ -1292,7 +1292,7 @@ pub(crate) async fn handle_placement_metrics(State(st): State<Arc<DaemonState>>)
 
 const VENUE_POLICY_KIND: &str = "placement-venue-policy";
 const VENUE_IDS: &[&str] = &["run_local", "use_my_infrastructure", "pick_provider", "hypervisor_choose"];
-const CLOUD_KINDS: &[&str] = &["aws", "gcp", "k8s", "vast", "runpod", "akash"];
+const CLOUD_KINDS: &[&str] = &["aws", "gcp", "k8s", "vast", "runpod", "lambda_cloud", "akash"];
 
 /// Kind-level capability hints (GPU / storage / IP / snapshot) — labeled hints, never probed
 /// claims. Per-provider semantics preserved; nothing flattened into a fake generic cloud.
@@ -1304,6 +1304,7 @@ fn venue_capability_hints(kind: &str) -> Value {
         "k8s" => ("cluster-scheduler dependent", "persistent volumes", "service/ingress IPs (cluster-dependent)", "custody-dependent (adapter pending)"),
         "vast" => ("marketplace GPUs (adapter pending)", "container-scoped storage", "host-dependent, often shared", "daemon custody when the adapter lands"),
         "runpod" => ("GPU runtime pods — secure (on-demand) + community (interruptible)", "container disk + network volumes", "proxy ssh / public ip when exposed", "daemon custody via the ssh lane"),
+        "lambda_cloud" => ("GPU VMs — ordinary Linux + ssh (Lambda-class)", "instance-lifetime persistent local NVMe", "public ip + ssh (user ubuntu)", "daemon custody via the ssh lane; native snapshots evidence-only"),
         "akash" => ("deployment-lease GPUs (adapter pending)", "lease-scoped persistent storage", "IP leases", "daemon custody when the adapter lands"),
         _ => ("unknown", "unknown", "unknown", "unknown"),
     };
