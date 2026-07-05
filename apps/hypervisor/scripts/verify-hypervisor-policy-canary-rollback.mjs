@@ -166,6 +166,9 @@ async function run() {
   // New Session modal: select the base policy → preview explains the promoted overlay.
   await page.goto(`${SHELL}/`, { waitUntil: "networkidle" });
   await page.click('[data-testid="create-session-button"]');
+  // New Session now routes to the composer page; the owned modal opens via Advanced launch.
+  await page.waitForSelector("#ioi-ns-advanced", { timeout: 15000 });
+  await page.click("#ioi-ns-advanced");
   await page.waitForSelector("#ioi-ns-modal.open", { timeout: 15000 });
   await page.waitForSelector("#ioi-ns-policy", { timeout: 15000 });
   await page.selectOption("#ioi-ns-policy", BASE);

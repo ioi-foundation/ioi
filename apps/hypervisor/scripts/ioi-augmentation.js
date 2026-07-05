@@ -221,14 +221,15 @@
     }
     el.classList.add("open");
   }
-  // ---- Home governed-work band (03-home fold). The SPA composer home stays THE Home; this band
-  // grafts the daemon-truth layer it lacks — approvals waiting on the operator, runs parked at a
-  // wallet gate, failed runs — directly beneath the composer, built from the SPA's own design
-  // tokens so it reads as native. Owns no truth: read-only projections through the serve /v1 proxy;
-  // every row opens the OWNING surface in the Open Application slot (approve lives in Governance,
-  // remediation in Operations). /__ioi/home stays the full readout this band summarizes. Quiet by
-  // design: when nothing needs the operator, it collapses to a single all-clear line.
-  let hbData = null, hbFetchedAt = 0, hbInflight = false;
+  // ---- Home explorer + New Session composer identities (03-home port · 02-new-session). ----
+  // THE Home (rail Home, /ai with no hash) is an owned EXPLORER ported from the reference
+  // command-home grammar — welcome / get-started / governed work / recents / applications — built
+  // from the SPA's own design tokens over live daemon truth. The SPA's polished composer page keeps
+  // its UX but under its TRUE identity: New Session, at /ai#new-session (the rail's create-session
+  // button and Ctrl+O land there; an Advanced-launch affordance opens the owned governed modal —
+  // one daemon-backed launch lane, no forked truth). The explorer owns no truth: every affordance
+  // routes to the owning surface, missing projections are named, nothing is fabricated.
+  let hbData = null, hbFetchedAt = 0, hbInflight = false, hbTab = "sessions";
   function hbFetch() {
     if (hbInflight || Date.now() - hbFetchedAt < 15000) return;
     hbInflight = true;
@@ -238,11 +239,14 @@
       J("/v1/hypervisor/failover/runs"),
       J("/v1/hypervisor/operations"),
       J("/v1/hypervisor/work-ledger"),
-    ]).then(([appr, fo, ops, led]) => {
-      hbData = { appr, fo, ops, led };
+      J("/v1/hypervisor/sessions"),
+      J("/v1/hypervisor/projects"),
+      J("/v1/hypervisor/auth/whoami"),
+    ]).then(([appr, fo, ops, led, sess, proj, who]) => {
+      hbData = { appr, fo, ops, led, sess, proj, who };
       hbFetchedAt = Date.now();
       hbInflight = false;
-      hbRender();
+      renderExplorer();
     });
   }
   function hbRow(href, appName, icon, title, meta, pill, pillCls) {
@@ -258,14 +262,14 @@
       '<span class="text-content-muted" aria-hidden="true">→</span>' +
       "</span></a>";
   }
-  function hbRender() {
-    const band = document.getElementById("ioi-home-band");
-    if (!band || !hbData) return;
-    const { appr, fo, ops, led } = hbData;
+  const hbSection = (title, right) =>
+    '<div class="mb-2 flex items-center justify-between px-1" style="margin-top:28px">' +
+    '<span class="text-xs font-medium uppercase tracking-wide text-content-tertiary">' + title + "</span>" + (right || "") + "</div>";
+  function hbGovernedRows() {
+    const { appr, fo, ops } = hbData || {};
     const pend = appr ? (appr.approval_requests || []).filter((a) => a.status === "pending") : null;
     const parked = fo ? (fo.runs || []).filter((r) => String(r.status || "").startsWith("awaiting_authority")) : null;
     const fails = ops ? ((ops.runs || {}).failures || []) : null;
-    const ledN = led ? (led.entries || []).length : null;
     const rows = [];
     (pend || []).slice(0, 3).forEach((a) => rows.push(hbRow("/__ioi/governance?tab=approvals", "Governance", "🛡",
       "Approval waiting — " + esc(a.request_kind || "approval"), esc(a.subject_ref || ""),
@@ -277,42 +281,152 @@
     (fails || []).slice(0, 2).forEach((r) => rows.push(hbRow("/__ioi/operations", "Operations", "✖",
       "Run failed — " + esc(r.name || r.automation_id || ""), esc((r.project_id || "—") + " · " + (r.finished_at || "")),
       "failed", "border-border-error bg-surface-destructive-subtle text-content-destructive")));
-    const allNull = !appr && !fo && !ops && !led;
-    let html = '<div class="mb-2 flex items-center justify-between px-1">' +
-      '<span class="text-xs font-medium uppercase tracking-wide text-content-tertiary">Governed work</span>' +
-      '<a href="/__ioi/home" data-app="Governed Work" class="ioi-hb-row text-xs text-content-secondary hover:text-content-primary" style="text-decoration:none">Full readout →</a></div>';
-    if (allNull) {
-      html += '<div class="rounded-xl border border-border-warning bg-surface-warning-subtle px-4 py-3 text-sm text-content-warning">Daemon unreachable — governed-work status unavailable. Nothing is shown rather than fixtures.</div>';
-    } else if (!rows.length) {
-      html += '<div class="flex items-center justify-between gap-3 rounded-xl border border-border-base bg-surface-secondary px-4 py-3">' +
-        '<span class="flex items-center gap-3"><span class="text-content-positive" aria-hidden="true">●</span>' +
-        '<span class="text-sm text-content-secondary">All clear — nothing blocked, nothing waiting on you.</span></span>' +
-        (ledN !== null ? '<span class="text-xs text-content-tertiary whitespace-nowrap">' + ledN + " receipts in the ledger</span>" : "") + "</div>";
-    } else {
-      html += '<div class="flex flex-col gap-2">' + rows.join("") + "</div>";
-      if ([appr, fo, ops, led].some((x) => !x)) html += '<div class="mt-2 px-1 text-xs text-content-tertiary">Some projections did not answer — this band may be incomplete.</div>';
-    }
-    band.innerHTML = html;
-    band.querySelectorAll("a.ioi-hb-row").forEach((a) => {
-      a.addEventListener("click", (e) => {
-        e.preventDefault();
-        openApplication(a.getAttribute("href"), a.getAttribute("data-app"));
-      });
-    });
+    return { rows, pend, parked, fails };
   }
-  function mountHomeBand() {
+  // A get-started action card (the reference home's onboarding strip, re-aimed at real IOI acts).
+  const hbActCard = (attrs, icon, title, sub) =>
+    "<a " + attrs + ' class="flex flex-1 min-w-0 items-center gap-3 rounded-xl border border-border-base bg-surface-secondary px-4 py-3 transition-colors hover:bg-surface-hover" style="text-decoration:none;cursor:pointer">' +
+    '<span class="shrink-0" aria-hidden="true" style="font-size:18px">' + icon + "</span>" +
+    '<span class="flex min-w-0 flex-col"><span class="truncate text-sm font-medium text-content-primary">' + title + "</span>" +
+    '<span class="truncate text-xs text-content-tertiary">' + sub + "</span></span></a>";
+  const hbListRow = (main, meta, right) =>
+    '<div class="flex items-center justify-between gap-3 px-1" style="padding-top:9px;padding-bottom:9px;border-bottom:1px solid var(--ioi-hb-line, rgba(128,128,128,.14))">' +
+    '<span class="flex min-w-0 flex-col"><span class="truncate text-sm text-content-primary">' + main + "</span>" +
+    (meta ? '<span class="truncate text-xs text-content-tertiary">' + meta + "</span>" : "") + "</span>" +
+    '<span class="flex shrink-0 items-center gap-2 text-xs">' + (right || "") + "</span></div>";
+  const hbPill = (txt, cls) => '<span class="rounded-full border ' + cls + ' text-xs whitespace-nowrap" style="padding:1px 9px">' + esc(txt) + "</span>";
+  function hbRecentBody() {
+    const { sess, proj, ops } = hbData || {};
+    if (hbTab === "projects") {
+      const rows = (proj ? proj.projects || [] : []).slice(0, 8).map((p) =>
+        hbListRow('<a href="/projects/' + encodeURIComponent(p.project_id || p.id || "") + '" class="text-content-primary" style="text-decoration:none">' + esc(p.name || p.project_id || p.id || "project") + "</a>",
+          esc(p.project_id || p.id || ""), ""));
+      if (proj === null || proj === undefined) return '<div class="px-1 text-sm text-content-tertiary" style="padding:14px 4px">Projection unavailable — the daemon did not answer.</div>';
+      return rows.length ? rows.join("") : '<div class="px-1 text-sm text-content-tertiary" style="padding:14px 4px">No projects yet — start a session in a new project and it will appear here.</div>';
+    }
+    if (hbTab === "runs") {
+      const recent = ops ? ((ops.runs || {}).recent || []) : null;
+      if (recent === null) return '<div class="px-1 text-sm text-content-tertiary" style="padding:14px 4px">Projection unavailable — the daemon did not answer.</div>';
+      const rows = recent.slice(0, 8).map((r) => hbListRow(esc(r.name || r.automation_id || "run"),
+        esc((r.project_id || "—") + " · " + (r.started_at || "")),
+        hbPill(r.status || "—", r.status === "done" ? "border-border-success bg-surface-success-subtle text-content-positive" : r.status === "failed" ? "border-border-error bg-surface-destructive-subtle text-content-destructive" : "border-border-base text-content-secondary") +
+        (r.timeline_ref ? ' <a href="' + r.timeline_ref + '" target="_blank" rel="noopener" class="text-content-secondary hover:text-content-primary" style="text-decoration:none">timeline ↗</a>' : "")));
+      return rows.length ? rows.join("") : '<div class="px-1 text-sm text-content-tertiary" style="padding:14px 4px">No runs yet — governed work lands here with its receipts.</div>';
+    }
+    const sessions = sess ? (sess.sessions || []).slice().sort((a, b) => String(b.created_at || "").localeCompare(String(a.created_at || ""))) : null;
+    if (sessions === null) return '<div class="px-1 text-sm text-content-tertiary" style="padding:14px 4px">Projection unavailable — the daemon did not answer.</div>';
+    const rows = sessions.slice(0, 8).map((s) => {
+      const envId = String(s.environment_ref || "").replace(/^environment:/, "");
+      return hbListRow('<span class="font-mono" style="font-size:12.5px">' + esc(s.session_ref || "") + "</span>",
+        esc((s.project_ref || "no project") + " · " + (s.created_at || "")),
+        hbPill(s.lifecycle_state || "—", "border-border-base text-content-secondary") +
+        (envId ? ' <a href="/workspaces/' + encodeURIComponent(envId) + '" class="text-content-secondary hover:text-content-primary" style="text-decoration:none">workbench</a> <a href="/__ioi/run-timeline/env/' + encodeURIComponent(envId) + '" target="_blank" rel="noopener" class="text-content-secondary hover:text-content-primary" style="text-decoration:none">timeline ↗</a>' : ""));
+    });
+    return rows.length ? rows.join("") : '<div class="px-1 text-sm text-content-tertiary" style="padding:14px 4px">No sessions yet — start one and resume it from here.</div>';
+  }
+  function renderExplorer() {
+    const root = document.getElementById("ioi-home-explorer");
+    if (!root) return;
+    if (!hbData) { root.innerHTML = '<div class="px-1 text-sm text-content-tertiary" style="padding:24px 4px">Loading daemon truth…</div>'; return; }
+    const { appr, fo, ops, led, who } = hbData;
+    const name = who && who.principal && who.principal.name ? String(who.principal.name).split(" ")[0] : "";
+    const { rows: govRows, pend, parked, fails } = hbGovernedRows();
+    const ledN = led ? (led.entries || []).length : null;
+    const allNull = !appr && !fo && !ops && !led;
+    const summary = allNull ? "" :
+      '<span>' + (parked ? parked.length : "?") + " blocked</span><span aria-hidden=\"true\"> · </span><span>" + (pend ? pend.length : "?") + " waiting on you</span><span aria-hidden=\"true\"> · </span><span>" + (ledN === null ? "?" : ledN) + " receipts</span>";
+    const tabChip = (key, label) =>
+      '<button data-hb-tab="' + key + '" class="rounded-full border text-xs ' + (hbTab === key ? "border-border-strong text-content-primary bg-surface-hover" : "border-border-base text-content-secondary") + '" style="padding:3px 12px;background:' + (hbTab === key ? "" : "transparent") + ';cursor:pointer">' + label + "</button>";
+    let gov;
+    if (allNull) {
+      gov = '<div class="rounded-xl border border-border-warning bg-surface-warning-subtle px-4 py-3 text-sm text-content-warning">Daemon unreachable — governed-work status unavailable. Nothing is shown rather than fixtures.</div>';
+    } else if (!govRows.length) {
+      gov = '<div class="flex items-center justify-between gap-3 rounded-xl border border-border-base bg-surface-secondary px-4 py-3">' +
+        '<span class="flex items-center gap-3"><span class="text-content-positive" aria-hidden="true">●</span>' +
+        '<span class="text-sm text-content-secondary">All clear — nothing blocked, nothing waiting on you.</span></span></div>';
+    } else {
+      gov = '<div class="flex flex-col gap-2">' + govRows.join("") + "</div>" +
+        ([appr, fo, ops, led].some((x) => !x) ? '<div class="mt-2 px-1 text-xs text-content-tertiary">Some projections did not answer — this view may be incomplete.</div>' : "");
+    }
+    const apps = IOI_APPS.map((a) =>
+      '<a href="' + a.href + '" class="flex items-center gap-3 rounded-xl border border-border-base bg-surface-secondary px-4 py-3 transition-colors hover:bg-surface-hover" style="text-decoration:none">' +
+      '<span aria-hidden="true" style="font-size:17px">' + a.icon + "</span>" +
+      '<span class="flex min-w-0 flex-col"><span class="truncate text-sm font-medium text-content-primary">' + esc(a.name) + "</span>" +
+      '<span class="truncate text-xs text-content-tertiary">' + esc(a.desc) + "</span></span></a>").join("");
+    root.innerHTML = '<div style="max-width:66rem;margin:0 auto;padding:40px 28px 64px">' +
+      '<h1 class="text-2xl font-semibold text-content-primary" style="letter-spacing:-.2px">Welcome back' + (name ? ", " + esc(name) : "") + "</h1>" +
+      '<div class="text-sm text-content-tertiary" style="margin-top:4px">' + (summary || "&nbsp;") + "</div>" +
+      '<div class="flex gap-3" style="margin-top:22px;flex-wrap:wrap">' +
+      hbActCard('href="/ai#new-session" data-hb-act="new-session"', "✳", "New Session", "Describe a task; launch a governed session") +
+      hbActCard('href="#applications"', "◳", "Applications", "Open any surface in the estate") +
+      hbActCard('href="/automations"', "⟳", "Automations", "Recurring governed work on the daemon") +
+      "</div>" +
+      hbSection("Governed work", '<a href="/__ioi/home" class="text-xs text-content-secondary hover:text-content-primary" style="text-decoration:none">Full readout →</a>') + gov +
+      hbSection("Recent", '<span class="flex items-center gap-2">' + tabChip("sessions", "Sessions") + tabChip("projects", "Projects") + tabChip("runs", "Runs") + "</span>") +
+      '<div id="ioi-hb-recent">' + hbRecentBody() + "</div>" +
+      hbSection("Applications", '<a href="#applications" class="text-xs text-content-secondary hover:text-content-primary" style="text-decoration:none">View all →</a>') +
+      '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px">' + apps + "</div>" +
+      "</div>";
+  }
+  function goComposer() {
+    if (location.pathname !== "/ai") { location.assign("/ai#new-session"); return; }
+    if (location.hash !== "#new-session") history.replaceState(null, "", "/ai#new-session");
+    applyAiViews();
+    setTimeout(() => { const ta = document.querySelector('[data-testid="prompt-input-textarea"]'); if (ta) ta.focus(); }, 80);
+  }
+  function goHome() {
+    if (location.pathname !== "/ai") { location.assign("/ai"); return; }
+    if (location.hash) history.replaceState(null, "", "/ai");
+    applyAiViews();
+  }
+  // Advanced-launch affordance on the New Session composer view — opens the owned governed modal
+  // (registry-fed harness/model with disabled-reasons, venue picker, placement preview) so the
+  // full admitted lane stays one click away from the polished composer.
+  function mountAdvancedLaunch(contents) {
+    if (document.getElementById("ioi-ns-advanced")) return;
+    const wrap = document.createElement("div");
+    wrap.id = "ioi-ns-advanced-wrap";
+    wrap.className = "w-full";
+    wrap.style.cssText = "display:flex;justify-content:center;margin-top:10px";
+    wrap.innerHTML = '<button id="ioi-ns-advanced" type="button" class="text-xs text-content-tertiary hover:text-content-primary" style="background:transparent;border:0;cursor:pointer;padding:6px 10px">Advanced launch — harness · venue · placement preview</button>';
+    contents.appendChild(wrap);
+    wrap.querySelector("#ioi-ns-advanced").addEventListener("click", (e) => { e.preventDefault(); newSessionModal(); });
+  }
+  // View router for /ai: no hash → explorer Home (native composer hidden, state preserved);
+  // #new-session → the native composer (New Session). Re-applied every tick because React
+  // re-renders its own children (same contract as the workbench timeline takeover).
+  function applyAiViews() {
+    const pageEl = document.querySelector('[data-testid="ioi-ai-page"]');
     const contents = document.querySelector('[data-testid="ioi-ai-page-contents"]');
-    if (!contents) return; // only the composer home carries this testid
-    if (document.getElementById("ioi-home-band")) { hbFetch(); return; } // idempotent; throttled refresh
-    const band = document.createElement("div");
-    band.id = "ioi-home-band";
-    band.setAttribute("data-testid", "ioi-home-band");
-    band.className = "mt-6 hidden w-full md:block";
-    const ex = contents.querySelector('[data-testid="example-prompts"]');
-    if (ex && ex.nextSibling) contents.insertBefore(band, ex.nextSibling);
-    else contents.appendChild(band);
-    hbFetchedAt = 0; // fresh mount → fresh truth
-    if (hbData) hbRender(); // paint from cache immediately, then refresh
+    if (!pageEl || !contents) return;
+    // Toggle the page's DIRECT child that wraps the composer (hiding only the inner column would
+    // leave its flex wrapper occupying half the row beside the explorer).
+    let native = contents;
+    while (native.parentElement && native.parentElement !== pageEl) native = native.parentElement;
+    const composerMode = location.hash === "#new-session";
+    let root = document.getElementById("ioi-home-explorer");
+    if (composerMode) {
+      if (root) root.style.display = "none";
+      native.style.display = "";
+      mountAdvancedLaunch(contents);
+      return;
+    }
+    if (!root) {
+      root = document.createElement("div");
+      root.id = "ioi-home-explorer";
+      root.setAttribute("data-testid", "ioi-home-explorer");
+      root.style.cssText = "flex:1 1 auto;width:100%;overflow-y:auto";
+      root.addEventListener("click", (e) => {
+        const tab = e.target.closest && e.target.closest("[data-hb-tab]");
+        if (tab) { hbTab = tab.getAttribute("data-hb-tab"); renderExplorer(); return; }
+        const act = e.target.closest && e.target.closest('[data-hb-act="new-session"]');
+        if (act) { e.preventDefault(); goComposer(); }
+      });
+      pageEl.appendChild(root);
+      renderExplorer(); // paint loading/cached state immediately
+    }
+    root.style.display = "";
+    native.style.display = "none";
     hbFetch();
   }
 
@@ -817,24 +931,33 @@
           else { const el = document.getElementById("ioi-open-app"); if (el) { el.style.display = "block"; positionOpenApp(); } }
           return;
         }
-        // New Session (the rail create-session action) → the OWNED launcher modal.
+        // New Session (the rail create-session action) → the composer page (its true identity).
+        // The owned governed modal stays one click away via the composer's Advanced-launch link.
         if (t.closest('[data-testid="create-session-button"]')) {
-          e.preventDefault(); e.stopPropagation(); newSessionModal(); return;
+          e.preventDefault(); e.stopPropagation(); closeApplication(); goComposer(); return;
         }
         // Applications launcher (rail #applications, the SPA's native launcher attr, or the estate deep-link) → MODAL.
         if (t.closest('a[href="#applications"], [data-hypervisor-applications-launcher], a[href="/__ioi/applications"]')) {
           e.preventDefault(); e.stopPropagation(); appsModal(); return;
         }
         // Live application links → open IN-SHELL in the Open Application slot (left rail stays).
-        const appLink = t.closest('a[href^="/__ioi/connections"], a[href^="/__ioi/work-ledger"], a[href^="/__ioi/operations"], a[href^="/__ioi/environments"], a[href^="/__ioi/workbench"], a[href^="/__ioi/agent-studio"], a[href^="/__ioi/foundry"], a[href^="/__ioi/domain-apps"], a[href^="/__ioi/domain-app-runtime"], a[href^="/__ioi/governance"], a[href^="/__ioi/marketplace"], a[href^="/__ioi/odk"]');
+        const appLink = t.closest('a[href^="/__ioi/connections"], a[href^="/__ioi/work-ledger"], a[href^="/__ioi/operations"], a[href^="/__ioi/environments"], a[href^="/__ioi/workbench"], a[href^="/__ioi/agent-studio"], a[href^="/__ioi/foundry"], a[href^="/__ioi/domain-apps"], a[href^="/__ioi/domain-app-runtime"], a[href^="/__ioi/governance"], a[href^="/__ioi/marketplace"], a[href^="/__ioi/odk"], a[href^="/__ioi/home"]');
         if (appLink) {
           e.preventDefault(); e.stopPropagation();
           const href = appLink.getAttribute("href");
-          const name = /work-ledger/.test(href) ? "Work Ledger" : /operations/.test(href) ? "Operations" : /environments/.test(href) ? "Environments" : /workbench/.test(href) ? "Workbench" : /agent-studio/.test(href) ? "Agent Studio" : /foundry/.test(href) ? "Foundry" : /domain-app-runtime/.test(href) ? "Domain App" : /domain-apps/.test(href) ? "Domain Apps" : /governance/.test(href) ? "Governance" : /marketplace/.test(href) ? "Marketplace" : /\/__ioi\/odk/.test(href) ? "ODK" : "Developer & Integrations";
+          const name = /work-ledger/.test(href) ? "Work Ledger" : /operations/.test(href) ? "Operations" : /environments/.test(href) ? "Environments" : /workbench/.test(href) ? "Workbench" : /agent-studio/.test(href) ? "Agent Studio" : /foundry/.test(href) ? "Foundry" : /domain-app-runtime/.test(href) ? "Domain App" : /domain-apps/.test(href) ? "Domain Apps" : /governance/.test(href) ? "Governance" : /marketplace/.test(href) ? "Marketplace" : /\/__ioi\/odk/.test(href) ? "ODK" : /\/__ioi\/home/.test(href) ? "Governed Work" : "Developer & Integrations";
           openApplication(href, name);
           return;
         }
-        // Any other left-rail nav (Home/Projects/Automations) → close the open app, let the SPA navigate.
+        // Rail Home (a[href="/ai"], incl. the brand mark) → the explorer Home. If already on /ai
+        // the SPA router would no-op and leave a stale #new-session hash, so route ourselves.
+        const homeLink = t.closest('[data-testid="sidebar"] a[href="/ai"]');
+        if (homeLink) {
+          closeApplication();
+          if (location.pathname === "/ai") { e.preventDefault(); e.stopPropagation(); goHome(); }
+          return; // else: native SPA nav lands on /ai hashless → explorer
+        }
+        // Any other left-rail nav (Projects/Automations) → close the open app, let the SPA navigate.
         if (t.closest('[data-testid="sidebar"] a')) closeApplication();
       },
       true, // capture — beat the SPA's native (empty) Applications modal + client router
@@ -1159,7 +1282,7 @@
     if (/\/details\//.test(p)) mountTimelineInWorkbench(); // workbench timeline only on /details/*
     mountProjectAutomations(); // self-guards /projects/:id + self-removes its panel off-route
     if (/\/settings\//.test(p)) { mountGitAppButton(); wireIntegrationConnect(); } // settings only
-    mountHomeBand(); // self-guards on the composer home's testid
+    applyAiViews(); // /ai view router: explorer Home (no hash) vs New Session composer (#new-session)
     updateOpenAppRail(); // reflect the Open Application slot state in the rail
   }
   function mount() {
@@ -1178,6 +1301,13 @@
       if (typeof orig === "function") history[m] = function () { const r = orig.apply(this, arguments); schedule(); return r; };
     });
     window.addEventListener("popstate", schedule);
+    window.addEventListener("hashchange", schedule); // /ai explorer ↔ #new-session composer
+    // Ctrl+O = New Session (the composer page) — beat the SPA's native shortcut handler.
+    document.addEventListener("keydown", (e) => {
+      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && String(e.key).toLowerCase() === "o") {
+        e.preventDefault(); e.stopPropagation(); goComposer();
+      }
+    }, true);
     applyAugmentation(); // initial
   }
 

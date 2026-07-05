@@ -173,6 +173,9 @@ async function run() {
   ok("Operations shows the auth posture strip", /local_development/i.test(opsPosture) && /not enforced/i.test(opsPosture));
   await page.goto(`${SHELL}/`, { waitUntil: "networkidle" });
   await page.click('[data-testid="create-session-button"]');
+  // New Session now routes to the composer page; the owned modal opens via Advanced launch.
+  await page.waitForSelector("#ioi-ns-advanced", { timeout: 15000 });
+  await page.click("#ioi-ns-advanced");
   await page.waitForSelector("#ioi-ns-modal.open", { timeout: 15000 });
   await page.selectOption("#ioi-ns-policy", BASE);
   await page.fill("#ioi-ns-goal", "probe the local identity posture note");

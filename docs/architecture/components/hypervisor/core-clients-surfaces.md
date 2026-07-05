@@ -776,23 +776,32 @@ harness selection, tools/connectors, memory policy, authority, budget, eval,
 and receipt posture. That bundle is a daemon-admitted launch recipe, not a
 client-local chat setting.
 
+Implementation status: live — New Session IS the product shell's polished
+composer page (goal prompt, agent picker, project/URL/scratch intake), at
+`/ai#new-session`; the rail's `+ New Session` action and Ctrl+O land there.
+An Advanced-launch affordance on the composer opens the owned governed
+launcher modal (registry-fed harness/model with disabled-reasons, venue
+picker, placement preview) — one daemon-backed launch lane, no forked truth.
+
 ## Hypervisor Home
 
 **Hypervisor Home** is the default command and resume surface.
 
-Implementation status: live — Home IS the product shell's composer home (goal
-prompt, agent picker, recent executions). The augmentation injects a
-read-only governed-work band beneath its composer (`mountHomeBand` in
-`apps/hypervisor/scripts/ioi-augmentation.js`, built from the shell's own
-design tokens, owns no truth): approvals waiting on the operator, runs parked
-at a wallet gate (`awaiting_authority_*` failover runs), and failed runs, each
-row opening the OWNING surface in the Open Application slot; when nothing
-needs the operator it collapses to a single all-clear line, and a daemon
-outage is named rather than papered over. The band expands into the owned
-full readout `/__ioi/home` (`renderHome` in `serve-product-ui.mjs`: decisions
-/ blocked / resume / newest-proof strips with honest empty + degraded
-states). There is deliberately no second "Home" entry in the Applications
-launcher.
+Implementation status: live — Home is an owned EXPLORER rendered over the
+shell at `/ai` (the rail's Home destination and default view), built from the
+shell's own design tokens (`renderExplorer`/`applyAiViews` in
+`apps/hypervisor/scripts/ioi-augmentation.js`, owns no truth): welcome hero
+with a live summary; get-started actions (New Session / Applications /
+Automations); first-class governed-work rows (approvals waiting, runs parked
+at a wallet gate incl. `awaiting_authority_*` failover runs, failed runs —
+each opening the OWNING surface in the Open Application slot, collapsing to
+one all-clear line when quiet, naming a daemon outage rather than papering
+over it); Recent tabs (sessions / projects / runs) with honest empty states;
+and the Applications estate grid. It expands into the owned full readout
+`/__ioi/home` (`renderHome` in `serve-product-ui.mjs`: decisions / blocked /
+resume / newest-proof strips with honest empty + degraded states). The
+composer is deliberately NOT the home page — it is New Session — and there is
+no second "Home" entry in the Applications launcher.
 
 Home may accept goal prompts, show recent sessions, surface waiting approvals,
 and route the user into a Project, Automation, Application, Session, receipt, or

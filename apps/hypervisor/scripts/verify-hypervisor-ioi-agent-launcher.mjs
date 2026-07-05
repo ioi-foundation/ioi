@@ -96,6 +96,9 @@ async function run() {
   await page.goto(`${SHELL}/`, { waitUntil: "domcontentloaded" });
   await page.waitForSelector('[data-testid="sidebar"]', { timeout: 20000 });
   await page.click('[data-testid="create-session-button"]');
+  // New Session now routes to the composer page; the owned modal opens via Advanced launch.
+  await page.waitForSelector("#ioi-ns-advanced", { timeout: 15000 });
+  await page.click("#ioi-ns-advanced");
   await page.waitForSelector("#ioi-ns-modal.open", { timeout: 10000 });
   await page.waitForSelector("#ioi-ns-goal", { timeout: 10000 });
   const header = await page.locator("#ioi-ns-modal .ioi-mh span").first().textContent();
