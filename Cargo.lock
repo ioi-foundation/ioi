@@ -204,6 +204,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "agentgres"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+]
+
+[[package]]
 name = "ahash"
 version = "0.7.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6852,6 +6861,7 @@ dependencies = [
 name = "ioi-node"
 version = "0.1.0"
 dependencies = [
+ "agentgres",
  "ahash 0.8.12",
  "anyhow",
  "async-trait",

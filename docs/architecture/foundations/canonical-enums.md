@@ -102,6 +102,27 @@ Lifecycle posture per kind is owned by
 (reference full lifecycle · guarded quote-gated · credential_preflight_only).
 Docs must not present a kind the daemon does not admit.
 
+## Durability Classes (`durability`)
+
+Carried on every substrate admission ack — INV-14 rendered into the
+protocol: an ack never claims a durability it has not proven. Grounded in
+code (`crates/agentgres/src/lib.rs`, enforced by the replicate-then-ack
+writer and proven in the unit battery):
+
+```text
+buffered               appended (write_all); device flush pending on an async cadence
+device_flush           fdatasync completed on the local device before ack
+replicated_same_host   a replica holds the batch bytes, but shares this host's
+                       failure domain — mechanism proof, not failure-independence
+quorum_replicated      acknowledged by peer(s) declared failure-independent;
+                       the fractal end state (requires real multi-node deployment)
+```
+
+Rules: replication-as-durability moves device flush off the ack critical
+path (background hygiene on both sides); a failed replica link degrades
+acks LOUDLY to the base label — the replicated classes are never faked;
+`quorum_replicated` may not be claimed by same-host peers.
+
 ## Ownership Pointers (enums owned elsewhere)
 
 - **RuntimeToolContract field set** — owned by

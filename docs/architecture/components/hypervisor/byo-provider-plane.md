@@ -191,6 +191,13 @@ private-only / no-ingress network postures fail CLOSED at boot
 (`aws_ssh_ingress_unreachable` / `gcp_ssh_ingress_unreachable` /
 `azure_ssh_ingress_unreachable`, naming the NSG).
 
+Cross-provider FAILOVER is proven over these lanes: a failed environment
+restores onto a different provider class from daemon custody (or the
+storage-archive ladder), wallet-gated at every mutation, exposures
+closing/opening honestly — done-bar
+`verify-hypervisor-cross-provider-failover.mjs`; doctrine in
+[`cloud.md`](../../domains/decentralized/cloud.md).
+
 The cut-by-cut adapter build narration is archived verbatim at
 [`../../_archive/implementation-logs/byo-provider-plane-adapter-build-log.md`](../../_archive/implementation-logs/byo-provider-plane-adapter-build-log.md).
 

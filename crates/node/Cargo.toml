@@ -10,6 +10,7 @@ repository = "https://github.com/ioi-foundation/ioi"
 
 [dependencies]
 # Workspace Library Crates
+agentgres = { path = "../agentgres" }
 ioi-api = { path = "../api" }
 ioi-types = { path = "../types" }
 ioi-execution = { path = "../execution" }

@@ -947,6 +947,21 @@ pub(crate) async fn handle_ioi_agent_launch_preview(
     let placement_block = {
         let policy = super::orchestration_routes::load_venue_policy(&st.data_dir);
         let venue = policy["venue"].as_str().unwrap_or("run_local").to_string();
+        // decision vs advisory: an explicit placement decision exists when the
+        // decide route has minted one; otherwise hypervisor_choose stays advisory.
+        let decision_mode = {
+            let mut decisions = super::read_record_dir(&st.data_dir, "placement-decisions");
+            decisions.sort_by_key(|d| std::cmp::Reverse(d.get("decided_at").and_then(|v| v.as_str()).unwrap_or("").to_string()));
+            match decisions.first() {
+                Some(d) => json!({
+                    "mode": "decision_available",
+                    "decision_ref": d.get("decision_ref").cloned().unwrap_or(Value::Null),
+                    "selected_candidate_ref": d.get("selected_candidate_ref").cloned().unwrap_or(Value::Null),
+                    "note": "explicit optimized-placement decision exists (challengeable evidence; still not authority)",
+                }),
+                None => json!({ "mode": "advisory_only" }),
+            }
+        };
         json!({
             "venue": venue,
             "effective_venue": policy.get("effective_venue").cloned().unwrap_or(json!(venue.clone())),
@@ -959,6 +974,7 @@ pub(crate) async fn handle_ioi_agent_launch_preview(
             "no_eligible_candidate": policy.get("no_eligible_candidate").cloned().unwrap_or(Value::Null),
             "fee": super::orchestration_routes::venue_fee(&venue),
             "receipts_expected": super::orchestration_routes::venue_receipts_expected(&venue, &st.data_dir),
+            "decision_mode": decision_mode,
         })
     };
     (

@@ -533,6 +533,39 @@ pub(crate) async fn handle_work_ledger(
             "storage_health_ref": "/__ioi/operations#ops-storage-backends",
         }));
     }
+    // Placement decisions — challengeable optimized-placement evidence
+    // (selected + alternatives + rejected with reason codes; never a fee).
+    for r in read_record_dir(&st.data_dir, "placement-decisions") {
+        entries.push(json!({
+            "id": g(&r, "decision_id"), "kind": "placement_decision", "timestamp": g(&r, "decided_at"),
+            "status": g(&r, "decision_mode"), "decision_ref": g(&r, "decision_ref"),
+            "intent_ref": g(&r, "intent_ref"), "selected_candidate_ref": g(&r, "selected_candidate_ref"),
+            "alternatives_considered": r.get("alternatives_considered").and_then(|a| a.as_array()).map(|a| a.len()).unwrap_or(0),
+            "rejected_candidates": r.get("rejected_candidates").and_then(|a| a.as_array()).map(|a| a.len()).unwrap_or(0),
+            "receipt_ref": g(&r, "receipt_ref"), "receipt_root": g(&r, "receipt_root"),
+            "failover_run_ref": g(&r, "failover_run_ref"),
+            "fee_note": "fee_object_minted: false — decision is evidence, not a charge",
+            "placement_ref": "/__ioi/environments#env-placement-decisions",
+        }));
+    }
+    // Failover runs — the cross-provider proof chain (decision + material +
+    // replacement create + state_root-validated restore + old teardown).
+    for r in read_record_dir(&st.data_dir, "failover-runs") {
+        entries.push(json!({
+            "id": g(&r, "run_id"), "kind": "failover", "timestamp": g(&r, "started_at"),
+            "status": g(&r, "status"), "run_ref": g(&r, "run_ref"),
+            "environment_ref": g(&r, "environment_ref"),
+            "replacement_environment_ref": g(&r, "replacement_environment_ref"),
+            "failure_condition": g(&r, "failure_condition"),
+            "decision_ref": g(&r, "decision_ref"),
+            "restore_material_ref": g(&r, "restore_material_ref"),
+            "state_root": g(&r, "state_root"),
+            "old_provider": r.get("old_provider").cloned().unwrap_or(serde_json::Value::Null),
+            "replacement": r.get("replacement").cloned().unwrap_or(serde_json::Value::Null),
+            "receipt_refs": r.get("receipt_refs").cloned().unwrap_or(serde_json::json!([])),
+            "failover_ref": "/__ioi/operations#ops-failover",
+        }));
+    }
     // Webhook trigger receipts (accepted/rejected proofs).
     for ev in read_record_dir(&st.data_dir, "webhook-trigger-events") {
         let aid = ev.get("automation_id").and_then(|v| v.as_str()).unwrap_or("");
