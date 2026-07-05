@@ -1107,6 +1107,8 @@ function renderEnvironments(summary, classes, providerAccounts, venuesRes, polic
     const ep = a.endpoint || {};
     const awsPosture = a.kind === "aws" && (ep.region || ep.network)
       ? `${ep.region || "region unset"} · vpc: ${(ep.network && (ep.network.vpc_id || ep.network.posture_label)) || "default"}`
+      : a.kind === "gcp" && (ep.project || ep.zone || ep.network)
+      ? `${ep.project || "project unset"} · ${ep.zone || "zone unset"} · net: ${(ep.network && (ep.network.network || ep.network.posture_label)) || "default"}`
       : null;
     const target = a.kind === "baremetal_ssh" ? `${ep.user || "?"}@${ep.host || "?"}:${ep.port || 22}` : (awsPosture || ep.region || ep.endpoint || "—");
     return `<tr><td>${CX_ESC(a.display_name || "—")}<div style="color:#878a93;font-size:11px;margin-top:1px"><code>${CX_ESC(a.account_ref || "")}</code></div></td><td><span class="pill muted">${CX_ESC(a.kind || "")}</span></td><td><code style="font-size:11px">${CX_ESC(target)}</code></td><td><span class="pill ${a.credential_binding_ref ? "ok" : "muted"}">${a.credential_binding_ref ? "bound · sealed" : "unbound"}</span></td><td><span class="pill ${paPill(a.status)}">${CX_ESC(a.status || "")}</span>${pf.at ? `<div style="color:#878a93;font-size:11px;margin-top:1px">preflight ${pf.admit ? "admitted" : "refused"} · ${CX_ESC(pf.at)}</div>` : ""}</td><td><span class="pill muted">customer-borne</span></td></tr>`;

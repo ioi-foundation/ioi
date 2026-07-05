@@ -60,6 +60,8 @@ mod lambda_candidate_source;
 mod akash_candidate_source;
 #[path = "hypervisor_daemon_routes/aws_candidate_source.rs"]
 mod aws_candidate_source;
+#[path = "hypervisor_daemon_routes/gcp_candidate_source.rs"]
+mod gcp_candidate_source;
 #[path = "hypervisor_daemon_routes/storage_backend_routes.rs"]
 mod storage_backend_routes;
 #[path = "hypervisor_daemon_routes/environment_routes.rs"]
