@@ -204,6 +204,18 @@ BLOCKS with `vast_live_credentials_absent` — live execution is never claimed
 without a real leased instance reaching ssh (simulator CI keeps reporting
 live_provisioning_not_run).
 
+RunPod is the SECOND GPU class (`adapter:runpod-quote` + guarded lifecycle),
+proving the ladder is not Vast-specific while preserving RunPod semantics: a
+`direct_provider` GPU runtime cloud quoted from per-GPU-type rate cards
+(secure-cloud on-demand preferred; community-cloud pricing carries an explicit
+interruption risk label; unpriced types are skipped, never estimated; region
+is chosen at pod create). The same budget → quote → wallet ladder guards
+create with per-kind reason codes (`runpod_quote_not_live`,
+`runpod_price_above_max`, `runpod_budget_reservation_exceeded`, …); pods reuse
+the BYO SSH custody lane; exposures open/close identically; custody is
+`cloud_gpu_runtime_NOT_private`. `IOI_RUNPOD_LIVE=1` proves live or blocks
+named. Done-bar: `verify-hypervisor-runpod-adapter.mjs`.
+
 ## Priority Adapter Ladder
 
 This ladder is roadmap priority, not a permanent provider ranking and not a routing policy.

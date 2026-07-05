@@ -152,6 +152,7 @@ fn derive_candidates(
     ttl_secs: u64,
     batch: &str,
     vast_outcome: &Value,
+    runpod_outcome: &Value,
 ) -> (Vec<Value>, Vec<Value>) {
     let observed_at = iso_now();
     let expires_epoch = epoch_secs() + ttl_secs;
@@ -283,14 +284,17 @@ fn derive_candidates(
         } else {
             // A vast account with an engaged quote source is represented by its OFFER candidates
             // (normalized below) — skip the generic provider-capable stub for that account.
-            if kind == "vast"
+            let quote_engaged = (kind == "vast"
                 && vast_outcome.get("engaged").and_then(Value::as_bool) == Some(true)
-                && vast_outcome["account_ref"] == account["account_ref"]
-            {
+                && vast_outcome["account_ref"] == account["account_ref"])
+                || (kind == "runpod"
+                && runpod_outcome.get("engaged").and_then(Value::as_bool) == Some(true)
+                && runpod_outcome["account_ref"] == account["account_ref"]);
+            if quote_engaged {
                 if wants_private {
                     rejected.push(json!({ "source": "depin_market", "adapter_ref": "adapter:vast-quote",
                         "provider_account_ref": account_ref, "reason_code": "custody_posture_unsupported",
-                        "detail": "marketplace hosts never claim Private custody (marketplace_host_NOT_private)",
+                        "detail": "GPU marketplace/runtime hosts never claim Private custody without custody proof",
                         "evidence_refs": [account_ref] }));
                 }
                 continue;
@@ -319,6 +323,20 @@ fn derive_candidates(
                 "cloud shared-responsibility custody; Private never claimed without custody receipts",
                 "no failover plan without a live adapter",
                 receipt_history(data_dir, account_ref));
+        }
+    }
+    // ── direct_provider: real RunPod GPU-type quotes (rate cards; secure/community pricing). ──
+    if runpod_outcome.get("engaged").and_then(Value::as_bool) == Some(true) && !wants_private {
+        if text(runpod_outcome, "state") == "degraded_unreachable" {
+            rejected.push(json!({ "source": "direct_provider", "adapter_ref": "adapter:runpod-quote",
+                "provider_account_ref": runpod_outcome["account_ref"],
+                "reason_code": "candidate_source_degraded",
+                "detail": "runpod GPU-type fetch failed — no fake quotes on failure",
+                "evidence_refs": [runpod_outcome["evidence"].clone()] }));
+        } else {
+            candidates.extend(super::runpod_candidate_source::normalize_offers(
+                runpod_outcome, &intent_ref, batch, &observed_at, &expires_at, expires_epoch,
+            ));
         }
     }
     // ── depin_market: real Vast offers (quote-only, advisory supply — never recommendable). ──
@@ -400,7 +418,8 @@ async fn refresh_candidates(st: &Arc<DaemonState>, intent: &Value, ttl_secs: u64
         }
     }
     let vast_outcome = super::vast_candidate_source::fetch_offers(st).await;
-    let (candidates, rejected) = derive_candidates(&st.data_dir, intent, &classes, ttl_secs, &batch, &vast_outcome);
+    let runpod_outcome = super::runpod_candidate_source::fetch_offers(st).await;
+    let (candidates, rejected) = derive_candidates(&st.data_dir, intent, &classes, ttl_secs, &batch, &vast_outcome, &runpod_outcome);
     for c in &candidates {
         let _ = persist_record(&st.data_dir, CANDIDATE_KIND, text(c, "candidate_id"), c);
     }
@@ -511,6 +530,7 @@ pub(crate) async fn handle_candidate_sources(State(st): State<Arc<DaemonState>>)
               "reason": "network_adapter_absent — the decentralized.cloud network engine is not live; this daemon plane realizes its candidate semantics from local facts only",
               "evidence": { "basis": "no external candidate API is called; no invented prices" } },
             super::vast_candidate_source::source_state(&st.data_dir),
+            super::runpod_candidate_source::source_state(&st.data_dir),
             { "source": "depin_market", "state": "candidate_source_unavailable",
               "reason": "market_adapter_absent — Akash market discovery lands with its adapter cut (priority ladder); Vast is served by its own quote source above",
               "evidence": { "basis": "no market API is called; no invented prices" } },

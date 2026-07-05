@@ -406,7 +406,7 @@ const ACCOUNT_KIND: &str = "provider-accounts";
 const EXPOSURE_KIND: &str = "provider-spend-exposures";
 const CREDENTIAL_VAULT: &str = "provider-credentials";
 const MATERIAL_KIND: &str = "provider-materials";
-const ACCOUNT_KINDS: &[&str] = &["baremetal_ssh", "aws", "gcp", "k8s", "vast", "akash"];
+const ACCOUNT_KINDS: &[&str] = &["baremetal_ssh", "aws", "gcp", "k8s", "vast", "runpod", "akash"];
 
 fn sha256_bytes(bytes: &[u8]) -> String {
     let mut hasher = Sha256::new();
@@ -440,6 +440,7 @@ fn kind_capabilities(kind: &str) -> Value {
         "aws" | "gcp" => json!({ "locality": "remote", "isolation": "vm_kernel", "restore": true, "remote": true, "credentials_required": true, "authority_gated": true, "privacy": "cloud_shared_responsibility", "lifecycle": "credential_preflight_only" }),
         "k8s" => json!({ "locality": "remote", "isolation": "container", "restore": true, "remote": true, "credentials_required": true, "authority_gated": true, "privacy": "cluster_operator_controlled", "lifecycle": "credential_preflight_only" }),
         "vast" => json!({ "locality": "remote", "isolation": "container_gpu", "restore": true, "remote": true, "credentials_required": true, "authority_gated": true, "privacy": "marketplace_host_NOT_private", "lifecycle": "credential_preflight_only" }),
+        "runpod" => json!({ "locality": "remote", "isolation": "container_gpu_runtime", "restore": true, "remote": true, "credentials_required": true, "authority_gated": true, "privacy": "cloud_gpu_runtime_NOT_private", "custody": "Standard unless proven otherwise", "lifecycle": "guarded (quote-gated) once a control-plane mode is set; credential_preflight_only before that" }),
         "akash" => json!({ "locality": "remote", "isolation": "deployment_lease", "restore": true, "remote": true, "credentials_required": true, "authority_gated": true, "privacy": "depin_host_NOT_private", "lifecycle": "credential_preflight_only" }),
         other => json!({ "locality": "unknown", "credentials_required": true, "note": format!("unknown kind '{other}'") }),
     }
@@ -1210,6 +1211,382 @@ impl EnvironmentProvider for VastProvider {
     }
 }
 
+// --- runpod GUARDED LIFECYCLE: the second GPU class, proving the ladder is not Vast-      ---
+// --- specific. Same safety contract: quote-gated create, boot polling with readiness       ---
+// --- evidence, BYO SSH custody lane reused verbatim, teardown always. Control plane modes: ---
+// --- "simulator" (pods simulated locally, ssh/custody REAL) | "live" (RunPod REST pods).   ---
+const RUNPOD_INSTANCE_KIND: &str = "runpod-instances";
+
+fn load_runpod_instance(data_dir: &str, account_id: &str, env_ref: &str) -> Option<Value> {
+    read_record_dir(data_dir, RUNPOD_INSTANCE_KIND)
+        .into_iter()
+        .find(|i| text(i, "account_id") == account_id && text(i, "environment_ref") == env_ref)
+}
+
+struct RunPodProvider {
+    account: Value,
+}
+impl RunPodProvider {
+    fn account_id(&self) -> &str {
+        text(&self.account, "account_id")
+    }
+    fn mode(&self) -> String {
+        vast_mode(&self.account) // reads endpoint.mode generically
+    }
+    fn base(&self) -> String {
+        let configured = self.account.pointer("/endpoint/endpoint").and_then(Value::as_str).unwrap_or("");
+        if configured.is_empty() { "https://rest.runpod.io/v1".into() } else { configured.trim_end_matches('/').to_string() }
+    }
+    fn bearer(&self, data_dir: &str) -> Result<String, String> {
+        load_account_credential(data_dir, self.account_id())
+            .and_then(|c| c["sealed_token"].as_str().and_then(open_scm_token))
+            .ok_or("provider_credential_unresolved".into())
+    }
+    fn instance(&self, data_dir: &str, env_ref: &str) -> Option<Value> {
+        load_runpod_instance(data_dir, self.account_id(), env_ref)
+    }
+    fn save_instance(&self, data_dir: &str, instance: &Value) {
+        let id = text(instance, "record_id").to_string();
+        let _ = persist_record(data_dir, RUNPOD_INSTANCE_KIND, &id, instance);
+    }
+    /// The BYO SSH lane over this pod's endpoint — identical custody contract to Vast/BYO.
+    fn ssh_lane(&self, data_dir: &str, env_ref: &str) -> Result<(SshProvider, KeyGuard), String> {
+        let inst = self.instance(data_dir, env_ref)
+            .ok_or("runpod_instance_absent — provision with the quote-gated create op first")?;
+        if text(&inst, "status") == "torn_down" {
+            return Err("runpod_instance_torn_down — this pod was already torn down".into());
+        }
+        let ssh = inst.get("ssh").cloned().unwrap_or(Value::Null);
+        let key_file = text(&ssh, "key_file");
+        let sealed = text(&inst, "sealed_ssh_key");
+        if text(&ssh, "host").is_empty() || (key_file.is_empty() && sealed.is_empty()) {
+            return Err("runpod_ssh_bootstrap_unknown — the pod has no usable ssh endpoint/key (live pods gain one only after boot polling proves readiness)".into());
+        }
+        let key = if !key_file.is_empty() {
+            std::fs::read_to_string(key_file).map_err(|e| format!("runpod_ssh_key_unreadable: {e}"))?
+        } else {
+            open_scm_token(sealed).ok_or("runpod_ssh_key_unsealable — sealed pod key did not decrypt")?
+        };
+        let dir = Path::new(data_dir).join("provider-ssh");
+        std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+        let path = dir.join(format!("runpod-{}-{}.key", safe(self.account_id()), safe(env_ref)));
+        std::fs::write(&path, key).map_err(|e| e.to_string())?;
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let _ = std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600));
+        }
+        let synthetic = json!({
+            "account_id": self.account_id(),
+            "account_ref": self.account["account_ref"],
+            "display_name": format!("{} (runpod pod)", text(&self.account, "display_name")),
+            "kind": "runpod", "status": "verified",
+            "endpoint": { "host": ssh["host"], "port": ssh["port"], "user": ssh["user"] },
+        });
+        Ok((SshProvider { account: synthetic, key_path: path.clone() }, KeyGuard(path)))
+    }
+}
+impl EnvironmentProvider for RunPodProvider {
+    fn id(&self) -> &str {
+        "runpod-guarded"
+    }
+    fn capabilities(&self) -> Value {
+        let mut caps = kind_capabilities("runpod");
+        caps["provider_spend_borne_by"] = json!("customer");
+        caps["lifecycle"] = json!("guarded_lifecycle — quote-gated create, wallet-gated mutations, teardown required");
+        caps["execution_mode"] = json!(self.mode());
+        caps
+    }
+    fn status(&self) -> (&'static str, String) {
+        match text(&self.account, "status") {
+            "verified" => ("available", format!("guarded runpod lifecycle ({} control plane)", self.mode())),
+            "revoked" => ("revoked", "credential revoked".into()),
+            _ => ("unverified", "bind + preflight the credential".into()),
+        }
+    }
+    fn preflight(&self, _plan: &Value) -> Value {
+        json!({ "admit": text(&self.account, "status") == "verified", "provider": self.id(),
+                "account_ref": self.account["account_ref"], "execution_mode": self.mode(),
+                "lifecycle": "guarded_lifecycle", "preflight_evidence": self.account.get("preflight").cloned().unwrap_or(Value::Null) })
+    }
+    fn create(&self, data_dir: &str, env_ref: &str, plan: &Value) -> Result<Value, String> {
+        if let Some(existing) = self.instance(data_dir, env_ref) {
+            if text(&existing, "status") != "torn_down" {
+                return Err(format!("runpod_pod_already_provisioned — {} is live for this environment; tear it down first", text(&existing, "instance_id")));
+            }
+        }
+        let mode = self.mode();
+        let record_id = format!("rpinst_{:x}", nanos());
+        if mode == "simulator" {
+            let ssh = self.account.pointer("/endpoint/ssh").cloned().unwrap_or(Value::Null);
+            if text(&ssh, "host").is_empty() || text(&ssh, "key_file").is_empty() {
+                return Err("runpod_simulator_ssh_missing — simulator mode needs endpoint.ssh {host, port, user, key_file}".into());
+            }
+            let instance_id = format!("rpsim_{:x}", nanos());
+            let instance = json!({
+                "schema_version": "ioi.hypervisor.runpod-instance.v1",
+                "record_id": record_id, "instance_id": instance_id,
+                "account_id": self.account_id(), "account_ref": self.account["account_ref"],
+                "environment_ref": env_ref, "status": "provisioned",
+                "execution_mode": "simulated_control_plane",
+                "ssh": ssh,
+                "candidate_ref": plan["candidate_ref"], "quote_ref": plan["quote_ref"],
+                "usd_per_hour": plan["usd_per_hour"], "max_hourly_usd": plan["max_hourly_usd"],
+                "teardown_policy": plan["teardown_policy"],
+                "provider_native": { "pod_id": instance_id,
+                    "note": "SIMULATED pod id — evidence only, never restore truth; no real RunPod pod exists" },
+                "created_at": iso_now(),
+            });
+            self.save_instance(data_dir, &instance);
+            let (lane, _guard) = self.ssh_lane(data_dir, env_ref)?;
+            let bootstrap = lane.create(data_dir, env_ref, plan)?;
+            return Ok(json!({
+                "provider_operation_ref": format!("provider-account://{}/op/create/{}", self.account_id(), safe(env_ref)),
+                "instance": { "instance_id": instance_id, "status": "provisioned", "execution_mode": "simulated_control_plane" },
+                "provider_native": instance["provider_native"],
+                "ssh_ready": true, "workspace_bootstrap": bootstrap,
+                "live_provisioning_not_run": true,
+                "teardown_required": true,
+            }));
+        }
+        if mode == "live" {
+            let gpu_type = plan.get("offer_id").and_then(Value::as_str)
+                .map(str::to_string)
+                .or_else(|| plan.get("offer_id").and_then(Value::as_u64).map(|n| n.to_string()))
+                .ok_or("runpod_live_gpu_type_missing — the validated quote carries no GPU type id")?;
+            let bearer = self.bearer(data_dir)?;
+            let base = self.base();
+            // Ephemeral per-pod ssh keypair: sealed onto the record; pubkey attached account-side.
+            let keydir = Path::new(data_dir).join("provider-ssh");
+            std::fs::create_dir_all(&keydir).map_err(|e| e.to_string())?;
+            let tmp = keydir.join(format!("runpod-live-{}-{}.tmp", safe(self.account_id()), safe(env_ref)));
+            let _ = std::fs::remove_file(&tmp);
+            let _ = std::fs::remove_file(format!("{}.pub", tmp.to_string_lossy()));
+            let keygen = std::process::Command::new("ssh-keygen")
+                .args(["-t", "ed25519", "-N", "", "-q", "-f"]).arg(&tmp)
+                .output().map_err(|e| format!("runpod_ssh_keygen_failed: {e}"))?;
+            if !keygen.status.success() {
+                return Err(format!("runpod_ssh_keygen_failed: {}", String::from_utf8_lossy(&keygen.stderr)));
+            }
+            let private_key = std::fs::read_to_string(&tmp).map_err(|e| e.to_string())?;
+            let public_key = std::fs::read_to_string(format!("{}.pub", tmp.to_string_lossy())).map_err(|e| e.to_string())?;
+            let _ = std::fs::remove_file(&tmp);
+            let _ = std::fs::remove_file(format!("{}.pub", tmp.to_string_lossy()));
+            let sealed_key = seal_scm_token(private_key.trim())
+                .ok_or("runpod_ssh_key_seal_failed — could not seal the ephemeral pod key")?;
+            let price = plan.get("max_hourly_usd").and_then(Value::as_f64).unwrap_or(0.0);
+            let created: Result<Value, String> = tokio::task::block_in_place(|| {
+                tokio::runtime::Handle::current().block_on(async {
+                    let client = reqwest::Client::new();
+                    let resp = client.post(format!("{base}/pods"))
+                        .bearer_auth(&bearer)
+                        .json(&json!({
+                            "gpuTypeIds": [gpu_type],
+                            "imageName": "runpod/base:0.6.2-cuda12.4.1",
+                            "name": format!("ioi-hypervisor-{}", safe(env_ref)),
+                            "containerDiskInGb": 20,
+                            "ports": ["22/tcp"],
+                            "env": {},
+                            "bidPerGpu": price,
+                        }))
+                        .timeout(std::time::Duration::from_secs(30))
+                        .send().await.map_err(|e| format!("runpod_live_provision_failed: {e}"))?;
+                    let status = resp.status().as_u16();
+                    let body: Value = resp.json().await.map_err(|e| format!("runpod_live_provision_failed: non-JSON response: {e}"))?;
+                    if !(200..300).contains(&status) {
+                        return Err(format!("runpod_live_provision_failed: http {status} {body}"));
+                    }
+                    Ok(body)
+                })
+            });
+            let body = created?;
+            let native_id = body.get("id").cloned().unwrap_or(Value::Null);
+            let instance = json!({
+                "schema_version": "ioi.hypervisor.runpod-instance.v1",
+                "record_id": record_id, "instance_id": format!("runpod_{}", native_id.as_str().unwrap_or("?")),
+                "account_id": self.account_id(), "account_ref": self.account["account_ref"],
+                "environment_ref": env_ref, "status": "provisioned",
+                "execution_mode": "live",
+                "sealed_ssh_key": sealed_key,
+                "ssh_public_key": public_key.trim(),
+                "ssh": Value::Null,
+                "candidate_ref": plan["candidate_ref"], "quote_ref": plan["quote_ref"],
+                "usd_per_hour": plan["usd_per_hour"], "max_hourly_usd": plan["max_hourly_usd"],
+                "teardown_policy": plan["teardown_policy"],
+                "provider_native": { "pod_id": native_id, "note": "provider-native pod id — evidence only, never restore truth" },
+                "created_at": iso_now(),
+            });
+            self.save_instance(data_dir, &instance);
+            return Ok(json!({
+                "provider_operation_ref": format!("provider-account://{}/op/create/{}", self.account_id(), safe(env_ref)),
+                "instance": { "instance_id": instance["instance_id"], "status": "provisioned", "execution_mode": "live" },
+                "provider_native": instance["provider_native"],
+                "ssh_ready": false,
+                "note": "live pod leased — run start to boot-poll; workspace ops fail closed (runpod_ssh_bootstrap_unknown) until ssh readiness is PROVEN",
+                "teardown_required": true,
+            }));
+        }
+        Err("runpod_lifecycle_mode_unset — set the account endpoint mode to simulator or live".into())
+    }
+    fn start(&self, data_dir: &str, env_ref: &str) -> Result<Value, String> {
+        let mut inst = self.instance(data_dir, env_ref).ok_or("runpod_instance_absent")?;
+        if text(&inst, "status") == "torn_down" {
+            return Err("runpod_instance_torn_down".into());
+        }
+        let mut boot_evidence = Value::Null;
+        if text(&inst, "execution_mode") == "live" && inst.get("ssh").map(Value::is_null).unwrap_or(true) {
+            let pod_id = inst.pointer("/provider_native/pod_id").and_then(Value::as_str)
+                .map(str::to_string)
+                .ok_or("runpod_boot_poll_failed — no provider-native pod id on the record")?;
+            let bearer = self.bearer(data_dir)?;
+            let base = self.base();
+            let deadline = std::time::Instant::now() + std::time::Duration::from_secs(180);
+            let mut attempts = 0u32;
+            let mut last_status = String::from("unknown");
+            let polled: Option<(String, u64)> = loop {
+                attempts += 1;
+                let fetched: Result<Value, String> = tokio::task::block_in_place(|| {
+                    tokio::runtime::Handle::current().block_on(async {
+                        let r = reqwest::Client::new().get(format!("{base}/pods/{pod_id}"))
+                            .bearer_auth(&bearer)
+                            .timeout(std::time::Duration::from_secs(15))
+                            .send().await.map_err(|e| e.to_string())?;
+                        r.json::<Value>().await.map_err(|e| e.to_string())
+                    })
+                });
+                if let Ok(node) = fetched {
+                    last_status = node.get("desiredStatus").and_then(Value::as_str)
+                        .or_else(|| node.get("status").and_then(Value::as_str))
+                        .unwrap_or("unknown").to_string();
+                    let public_ip = node.pointer("/runtime/publicIp").and_then(Value::as_str)
+                        .or_else(|| node.get("publicIp").and_then(Value::as_str))
+                        .unwrap_or("").to_string();
+                    let ssh_port = node.pointer("/runtime/ports").and_then(Value::as_array)
+                        .and_then(|ports| ports.iter().find(|p| p.get("privatePort").and_then(Value::as_u64) == Some(22)))
+                        .and_then(|p| p.get("publicPort").and_then(Value::as_u64))
+                        .unwrap_or(0);
+                    if last_status.eq_ignore_ascii_case("running") && !public_ip.is_empty() && ssh_port > 0 {
+                        break Some((public_ip, ssh_port));
+                    }
+                }
+                if std::time::Instant::now() >= deadline {
+                    break None;
+                }
+                std::thread::sleep(std::time::Duration::from_secs(10));
+            };
+            let Some((host, port)) = polled else {
+                return Err(format!("runpod_boot_pending — pod {pod_id} not ssh-ready after {attempts} poll(s) (status: {last_status}); re-run start to continue polling"));
+            };
+            boot_evidence = json!({ "polled_attempts": attempts, "status": last_status,
+                                     "ssh_host": host, "ssh_port": port, "proven_at": iso_now() });
+            inst["ssh"] = json!({ "host": host, "port": port, "user": "root" });
+            inst["ssh_ready_evidence"] = boot_evidence.clone();
+            self.save_instance(data_dir, &inst);
+        }
+        let (lane, _guard) = self.ssh_lane(data_dir, env_ref)?;
+        if inst.get("workspace_bootstrapped").and_then(Value::as_bool) != Some(true) {
+            if text(&inst, "execution_mode") == "live" {
+                lane.create(data_dir, env_ref, &json!({}))?;
+            }
+            inst["workspace_bootstrapped"] = json!(true);
+        }
+        lane.start(data_dir, env_ref)?;
+        inst["status"] = json!("running");
+        self.save_instance(data_dir, &inst);
+        Ok(json!({ "provider_operation_ref": format!("provider-account://{}/op/start/{}", self.account_id(), safe(env_ref)),
+                   "instance_id": inst["instance_id"], "status": "running", "ssh_ready": true,
+                   "boot_evidence": boot_evidence }))
+    }
+    fn workrun(&self, data_dir: &str, env_ref: &str, command: &str) -> Result<Value, String> {
+        let (lane, _guard) = self.ssh_lane(data_dir, env_ref)?;
+        lane.workrun(data_dir, env_ref, command)
+    }
+    fn stop(&self, data_dir: &str, env_ref: &str) -> Result<Value, String> {
+        let mut inst = self.instance(data_dir, env_ref).ok_or("runpod_instance_absent")?;
+        let (lane, _guard) = self.ssh_lane(data_dir, env_ref)?;
+        let stopped = lane.stop(data_dir, env_ref)?;
+        inst["status"] = json!("stopped");
+        self.save_instance(data_dir, &inst);
+        Ok(json!({ "provider_operation_ref": format!("provider-account://{}/op/stop/{}", self.account_id(), safe(env_ref)),
+                   "instance_id": inst["instance_id"], "status": "stopped", "lane": stopped }))
+    }
+    fn snapshot(&self, data_dir: &str, env_ref: &str) -> Result<Value, String> {
+        let (lane, _guard) = self.ssh_lane(data_dir, env_ref)?;
+        lane.snapshot(data_dir, env_ref)
+    }
+    fn restore(&self, data_dir: &str, env_ref: &str, material_ref: &str) -> Result<Value, String> {
+        let (lane, _guard) = self.ssh_lane(data_dir, env_ref)?;
+        lane.restore(data_dir, env_ref, material_ref)
+    }
+    fn inject_outage(&self, _d: &str, _e: &str) -> Result<Value, String> {
+        Err("runpod_outage_injection_not_supported — destroying a paid pod is not a safely representable outage; use the loopback/ssh conformance lanes".into())
+    }
+    fn recover(&self, _d: &str, _e: &str) -> Result<Value, String> {
+        Err("runpod_recover_not_supported — recovery is restore-from-daemon-custody after re-provisioning; run create + restore explicitly".into())
+    }
+    fn delete(&self, data_dir: &str, env_ref: &str) -> Result<Value, String> {
+        let mut inst = self.instance(data_dir, env_ref).ok_or("runpod_instance_absent")?;
+        let remote_cleanup = match self.ssh_lane(data_dir, env_ref) {
+            Ok((lane, _guard)) => lane.delete(data_dir, env_ref).map(|e| e["cleanup_verified"].clone()).unwrap_or(json!("unreachable")),
+            Err(e) => json!(format!("skipped: {e}")),
+        };
+        let native_teardown = if text(&inst, "execution_mode") == "live" {
+            let pod_id = inst.pointer("/provider_native/pod_id").and_then(Value::as_str).map(str::to_string);
+            match (pod_id, self.bearer(data_dir)) {
+                (Some(pid), Ok(bearer)) => {
+                    let base = self.base();
+                    let result: Result<u16, String> = tokio::task::block_in_place(|| {
+                        tokio::runtime::Handle::current().block_on(async {
+                            reqwest::Client::new().delete(format!("{base}/pods/{pid}"))
+                                .bearer_auth(&bearer)
+                                .timeout(std::time::Duration::from_secs(30))
+                                .send().await.map(|r| r.status().as_u16()).map_err(|e| e.to_string())
+                        })
+                    });
+                    match result {
+                        Ok(status) => json!({ "destroyed": (200..300).contains(&status), "http_status": status }),
+                        Err(e) => json!({ "destroyed": false, "error": e, "warning": "TEARDOWN MAY BE INCOMPLETE — verify the RunPod console" }),
+                    }
+                }
+                _ => json!({ "destroyed": false, "error": "pod id or credential unavailable" }),
+            }
+        } else if self.account.pointer("/endpoint/simulate_teardown_failure").and_then(Value::as_bool) == Some(true) {
+            json!({ "destroyed": false, "error": "SIMULATED teardown failure (endpoint.simulate_teardown_failure) — validates the incomplete-teardown warning path", "warning": "TEARDOWN MAY BE INCOMPLETE — verify the RunPod console" })
+        } else {
+            json!({ "destroyed": true, "note": "simulated control plane — no real pod existed" })
+        };
+        inst["status"] = json!("torn_down");
+        inst["torn_down_at"] = json!(iso_now());
+        self.save_instance(data_dir, &inst);
+        Ok(json!({ "provider_operation_ref": format!("provider-account://{}/op/delete/{}", self.account_id(), safe(env_ref)),
+                   "instance_id": inst["instance_id"], "teardown_state": "torn_down",
+                   "remote_workspace_cleanup": remote_cleanup, "native_teardown": native_teardown,
+                   "cleanup_verified": true }))
+    }
+    fn observe(&self, data_dir: &str, env_ref: &str) -> Value {
+        match self.instance(data_dir, env_ref) {
+            None => json!({ "provider": self.id(), "environment_ref": env_ref, "instance": Value::Null, "status": "absent" }),
+            Some(inst) => {
+                let boot_pending = text(&inst, "execution_mode") == "live" && inst.get("ssh").map(Value::is_null).unwrap_or(true);
+                let lane_view = if text(&inst, "status") == "torn_down" { Value::Null }
+                    else if boot_pending { json!({ "boot": "pending — run start to poll the provider until ssh readiness is proven" }) }
+                    else {
+                        match self.ssh_lane(data_dir, env_ref) {
+                            Ok((lane, _guard)) => lane.observe(data_dir, env_ref),
+                            Err(e) => json!({ "error": e }),
+                        }
+                    };
+                json!({ "provider": self.id(), "environment_ref": env_ref,
+                        "instance_id": inst["instance_id"], "status": inst["status"],
+                        "execution_mode": inst["execution_mode"],
+                        "provider_native": inst["provider_native"],
+                        "teardown_state": if text(&inst, "status") == "torn_down" { json!("torn_down") } else { json!("live_or_pending") },
+                        "workspace": lane_view })
+            }
+        }
+    }
+}
+
 fn registry() -> Vec<Box<dyn EnvironmentProvider>> {
     vec![
         Box::new(LocalMicrovmProvider),
@@ -1238,6 +1615,12 @@ fn resolve_account_adapter(
         && text(&account, "status") == "verified"
     {
         return Some(Ok((account.clone(), Box::new(VastProvider { account }), None)));
+    }
+    if text(&account, "kind") == "runpod"
+        && matches!(vast_mode(&account).as_str(), "simulator" | "live")
+        && text(&account, "status") == "verified"
+    {
+        return Some(Ok((account.clone(), Box::new(RunPodProvider { account }), None)));
     }
     if text(&account, "kind") == "baremetal_ssh" {
         match materialize_ssh_key(data_dir, text(&account, "account_id")) {
@@ -1368,7 +1751,7 @@ pub(crate) async fn handle_provider_account_credential(
         "aws" => ("aws-sigv4", text(&body, "secret_access_key")),
         "gcp" => ("oidc-workload", text(&body, "service_account_key")),
         "k8s" => ("bearer", text(&body, "token")),
-        "vast" | "akash" => ("bearer", text(&body, "api_key")),
+        "vast" | "runpod" | "akash" => ("bearer", text(&body, "api_key")),
         _ => ("bearer", text(&body, "token")),
     };
     if secret.trim().is_empty() {
@@ -1585,11 +1968,12 @@ pub(crate) async fn handle_provider_op(
             //     live control plane demands live_evidence, the simulator demands
             //     simulator_evidence (labelled harness, no real spend). Runs AFTER budget
             //     discovery and BEFORE the wallet challenge (canon gate order).
-            if kind == "vast" && op == "create" {
+            if matches!(kind.as_str(), "vast" | "runpod") && op == "create" {
                 let candidate_ref = body.get("candidate_ref").and_then(Value::as_str).unwrap_or("");
                 if candidate_ref.is_empty() {
-                    let receipt = provider_receipt_ext(data_dir, &kind, &env_ref, op, "quote_gate_refused", &json!({ "account_ref": account_ref, "error": "vast_candidate_ref_required" }));
-                    return (StatusCode::UNPROCESSABLE_ENTITY, Json(json!({ "ok": false, "op": op, "provider": provider_id, "reason": "vast_candidate_ref_required — provisioning is quote-gated; pass the candidate_ref of a fresh, live, priced CloudResourceCandidate", "receipt_ref": receipt })));
+                    let code = format!("{kind}_candidate_ref_required");
+                    let receipt = provider_receipt_ext(data_dir, &kind, &env_ref, op, "quote_gate_refused", &json!({ "account_ref": account_ref, "error": code }));
+                    return (StatusCode::UNPROCESSABLE_ENTITY, Json(json!({ "ok": false, "op": op, "provider": provider_id, "reason": format!("{code} — provisioning is quote-gated; pass the candidate_ref of a fresh, live, priced CloudResourceCandidate"), "receipt_ref": receipt })));
                 }
                 let candidate = read_record_dir(data_dir, "cloud-resource-candidates")
                     .into_iter()
@@ -1599,39 +1983,39 @@ pub(crate) async fn handle_provider_op(
                     (StatusCode::CONFLICT, Json(json!({ "ok": false, "op": op, "provider": provider_id, "reason": format!("{code} — {detail}"), "receipt_ref": receipt })))
                 };
                 let Some(candidate) = candidate else {
-                    return refuse("vast_candidate_unknown", "no such CloudResourceCandidate — refresh candidates and retry".into());
+                    return refuse(&format!("{kind}_candidate_unknown"), "no such CloudResourceCandidate — refresh candidates and retry".into());
                 };
                 if text(&candidate, "provider_account_ref") != account_ref {
-                    return refuse("vast_candidate_account_mismatch", "the candidate belongs to a different provider account".into());
+                    return refuse(&format!("{kind}_candidate_account_mismatch"), "the candidate belongs to a different provider account".into());
                 }
                 let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0);
                 let expired = candidate.get("expires_epoch").and_then(Value::as_u64).map(|e| now > e).unwrap_or(true);
                 if expired || candidate.get("status").and_then(Value::as_str) == Some("superseded") {
-                    return refuse("vast_quote_expired_requires_requote", "expired or superseded quotes can never mutate — refresh candidates for a fresh quote".into());
+                    return refuse(&format!("{kind}_quote_expired_requires_requote"), "expired or superseded quotes can never mutate — refresh candidates for a fresh quote".into());
                 }
                 let evidence_mode = text(&candidate, "evidence_mode").to_string();
                 let account_mode = vast_mode(&account);
                 if evidence_mode == "fixture_evidence" {
-                    return refuse("vast_quote_not_live", "fixture quotes are advisory forever and can never provision".into());
+                    return refuse(&format!("{kind}_quote_not_live"), "fixture quotes are advisory forever and can never provision".into());
                 }
                 let mode_ok = (account_mode == "live" && evidence_mode == "live_evidence")
                     || (account_mode == "simulator" && evidence_mode == "simulator_evidence");
                 if !mode_ok {
-                    return refuse("vast_quote_mode_mismatch", format!("account control plane is '{account_mode}' but the quote evidence is '{evidence_mode}' — live provisioning demands live quotes; the simulator demands simulator quotes"));
+                    return refuse(&format!("{kind}_quote_mode_mismatch"), format!("account control plane is '{account_mode}' but the quote evidence is '{evidence_mode}' — live provisioning demands live quotes; the simulator demands simulator quotes"));
                 }
                 let Some(price) = candidate.pointer("/quote/usd_per_hour").and_then(Value::as_f64) else {
-                    return refuse("vast_quote_unpriced", "a candidate without a real price can never provision".into());
+                    return refuse(&format!("{kind}_quote_unpriced"), "a candidate without a real price can never provision".into());
                 };
                 let max_hourly = body.get("max_hourly_usd").and_then(Value::as_f64).unwrap_or(price);
                 if price > max_hourly {
-                    return refuse("vast_price_above_max", format!("offer price ${price}/hr exceeds the declared max ${max_hourly}/hr"));
+                    return refuse(&format!("{kind}_price_above_max"), format!("offer price ${price}/hr exceeds the declared max ${max_hourly}/hr"));
                 }
                 // Reservation adequacy: headroom after OPEN exposures must cover this create's
                 // first-hour reservation at the declared max rate. Checked here (not at budget
                 // discovery) because the price is only known once the quote is validated.
                 let headroom = budget_note.get("remaining_headroom_after_reservations").and_then(Value::as_f64).unwrap_or(0.0);
                 if headroom - max_hourly < 0.0 {
-                    return refuse("vast_budget_reservation_exceeded", format!("open exposures already reserve the external_spend headroom (remaining ${headroom:.3} < first-hour reservation ${max_hourly:.3}/hr) — tear an instance down or raise the budget"));
+                    return refuse(&format!("{kind}_budget_reservation_exceeded"), format!("open exposures already reserve the external_spend headroom (remaining ${headroom:.3} < first-hour reservation ${max_hourly:.3}/hr) — tear an instance down or raise the budget"));
                 }
                 vast_gate = json!({
                     "candidate_ref": candidate_ref,
@@ -1763,7 +2147,7 @@ pub(crate) async fn handle_provider_op(
                         "opened_at": iso_now(),
                     });
                     let _ = persist_record(data_dir, EXPOSURE_KIND, &exp_id, &exposure);
-                } else if kind == "vast" {
+                } else if matches!(kind.as_str(), "vast" | "runpod") {
                     if let Some(mut exposure) = open_exposure_for(data_dir, &account_ref, &env_ref) {
                         let exp_id = text(&exposure, "exposure_id").to_string();
                         let mut refs = exposure.get("receipt_refs").and_then(Value::as_array).cloned().unwrap_or_default();
