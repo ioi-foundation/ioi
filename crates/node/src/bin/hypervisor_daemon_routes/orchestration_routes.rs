@@ -492,6 +492,17 @@ pub(crate) async fn handle_work_ledger(
     }
     // Provider crossings — every BYO provider lifecycle op minted a provider receipt (success
     // AND failure); surface them so provider work is reachable from the one proof stream.
+    // Cross-reference spend exposures so each crossing backlinks its reconciliation row.
+    let mut receipt_to_exposure: HashMap<String, Value> = HashMap::new();
+    for e in read_record_dir(&st.data_dir, "provider-spend-exposures") {
+        if let Some(refs) = e.get("receipt_refs").and_then(Value::as_array) {
+            for r in refs {
+                if let Some(rr) = r.as_str() {
+                    receipt_to_exposure.insert(rr.to_string(), e["exposure_ref"].clone());
+                }
+            }
+        }
+    }
     for r in read_record_dir(&st.data_dir, "provider-receipts") {
         entries.push(json!({
             "id": g(&r, "receipt_id"), "kind": "provider_crossing", "timestamp": g(&r, "at"),
@@ -502,7 +513,9 @@ pub(crate) async fn handle_work_ledger(
             "candidate_ref": g(&r, "candidate_ref"), "quote_ref": g(&r, "quote_ref"),
             "execution_mode": g(&r, "execution_mode"), "teardown_state": g(&r, "teardown_state"),
             "state_root_evidence": g(&r, "state_root"),
+            "exposure_ref": r.get("receipt_ref").and_then(Value::as_str).and_then(|rr| receipt_to_exposure.get(rr).cloned()).unwrap_or(Value::Null),
             "provider_health_ref": "/__ioi/operations#ops-provider-health",
+            "spend_reconciliation_ref": "/__ioi/operations#ops-spend-recon",
         }));
     }
     // Webhook trigger receipts (accepted/rejected proofs).

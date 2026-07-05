@@ -816,7 +816,7 @@ function renderWorkLedger(entries, scopedProject) {
       if(e.domain_app_ref){links+=bl('Domain app',e.domain_app_ref,'/__ioi/domain-apps');}
       if(e.candidate_ref){links+=bl('Publish candidate',e.candidate_ref,'/__ioi/marketplace');}
       if(e.listing_id){links+=bl('Listing',e.listing_id,'/__ioi/marketplace');}
-      if(e.kind==='provider_crossing'){links+=bl('Provider health',e.account_ref||'provider accounts','/__ioi/operations')+bl('Provider accounts',e.account_ref||'environments','/__ioi/environments');}
+      if(e.kind==='provider_crossing'){links+=bl('Provider health',e.account_ref||'provider accounts','/__ioi/operations')+bl('Provider accounts',e.account_ref||'environments','/__ioi/environments');if(e.exposure_ref){links+=bl('Spend reconciliation',e.exposure_ref,e.spend_reconciliation_ref||'/__ioi/operations');}}
       if(e.release_control_ref){links+=bl('Release control',e.release_control_ref,'/__ioi/governance');}
       if(e.approval_request_ref){links+=bl('Approval request',e.approval_request_ref,'/__ioi/governance');}
       if(e.kill_switch_ref){links+=bl('Kill switch',e.kill_switch_ref,'/__ioi/governance');}
@@ -838,11 +838,12 @@ function renderWorkLedger(entries, scopedProject) {
 // ---- Operations — the first real Operations estate card: execution health over the automation
 // substrate (scheduler · run health · needs-attention · webhook health). Real records only;
 // drilldowns into Automation detail / Work Ledger / Run Timeline. No fake incidents/cost/capacity.
-function renderOperations(ops, authpol, prov, provReceipts) {
+function renderOperations(ops, authpol, prov, provReceipts, spendRecon) {
   ops = ops || {};
   authpol = authpol || {};
   prov = prov || {};
   provReceipts = provReceipts || {};
+  spendRecon = spendRecon || {};
   const sch = ops.scheduler || { automations: [] };
   const runs = ops.runs || {};
   const wh = ops.webhooks || {};
@@ -905,7 +906,30 @@ function renderOperations(ops, authpol, prov, provReceipts) {
   const prcTable = prcs.length
     ? `<table><thead><tr><th>Op</th><th>Provider</th><th>Outcome</th><th>Target</th><th>At</th><th>Proof</th></tr></thead><tbody>${prcRows}</tbody></table>`
     : `<div class="empty">No provider receipts yet — every provider crossing (success or failure) writes one.</div>`;
-  const provSection = `<div id="ops-provider-health"><h2>Provider health</h2><p class="sub" style="margin:-4px 0 10px">BYO provider accounts and their preflight posture. ${CX_ESC(prov.spend_rule || "BYO provider spend is customer-borne; the hypervisor records, governs, estimates, and reconciles — never hidden markup")}.</p>${provTable}<h3 style="margin:14px 0 8px">Recent provider receipts</h3>${prcTable}</div>`;
+  const srB = spendRecon.budget || {};
+  const srWarn = spendRecon.incomplete_teardown_warnings || [];
+  const srRows = (spendRecon.rows || []).slice(-8).reverse().map((e) => `<tr>
+      <td><code style="font-size:10.5px">${CX_ESC(e.exposure_ref || "")}</code><div class="sub" style="margin:1px 0 0;text-transform:none;letter-spacing:0">${CX_ESC(e.environment_ref || "")}</div></td>
+      <td>${CX_ESC(e.provider || "")}</td>
+      <td><span class="pill ${e.status === "open" ? "warn" : e.status === "closed" ? "ok" : "warn"}">${CX_ESC(e.status || "")}</span></td>
+      <td>$${CX_ESC(String(e.usd_per_hour ?? "?"))}/hr <span class="sub" style="margin:0;text-transform:none;letter-spacing:0">(max $${CX_ESC(String(e.max_hourly_usd ?? "?"))})</span></td>
+      <td>${CX_ESC(e.teardown_state || "")}</td>
+      <td>${(e.receipt_refs || []).length} receipt(s)</td>
+    </tr>`).join("");
+  const spendSection = `<div id="ops-spend-recon"><h3 style="margin:14px 0 8px">Provider spend reconciliation</h3>
+    <p class="sub" style="margin:-2px 0 8px;text-transform:none;letter-spacing:0">${CX_ESC(spendRecon.spend_rule || "customer-borne provider spend — estimates over receipts, never a bill")}</p>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin:0 0 8px">
+      <span class="pill ${srB.exists ? "ok" : "muted"}">headroom ${CX_ESC(String(srB.remaining_headroom ?? "—"))}</span>
+      <span class="pill muted">reserved (open estimates) ${CX_ESC(String(srB.reserved_open_estimates ?? 0))}</span>
+      <span class="pill muted">actual spent ${CX_ESC(String(srB.spent ?? 0))}</span>
+      <span class="pill ${(spendRecon.estimated_open_exposure_rate || {}).open_count ? "warn" : "muted"}">open exposures ${CX_ESC(String((spendRecon.estimated_open_exposure_rate || {}).open_count ?? 0))}</span>
+      <span class="pill muted">finalized ${CX_ESC(String((spendRecon.teardown_finalized || {}).count ?? 0))}</span>
+      ${srWarn.length ? `<span class="pill warn">⚠ incomplete teardowns ${srWarn.length}</span>` : ""}
+    </div>
+    ${srWarn.map((w) => `<div class="sub" style="margin:0 0 6px;color:#e2b93d;text-transform:none;letter-spacing:0">⚠ ${CX_ESC(w.exposure_ref || "")} — ${CX_ESC(w.warning || "")}</div>`).join("")}
+    ${srRows ? `<table><thead><tr><th>Exposure</th><th>Provider</th><th>Status</th><th>Rate (estimate)</th><th>Teardown</th><th>Evidence</th></tr></thead><tbody>${srRows}</tbody></table>` : `<div class="empty">No spend exposures yet — a quote-backed metered create opens one; teardown closes it.</div>`}
+  </div>`;
+  const provSection = `<div id="ops-provider-health"><h2>Provider health</h2><p class="sub" style="margin:-4px 0 10px">BYO provider accounts and their preflight posture. ${CX_ESC(prov.spend_rule || "BYO provider spend is customer-borne; the hypervisor records, governs, estimates, and reconciles — never hidden markup")}.</p>${provTable}${spendSection}<h3 style="margin:14px 0 8px">Recent provider receipts</h3>${prcTable}</div>`;
   // Scheduler records keyed by automation_id, with the schedule pre-humanized server-side so the
   // drawer join needs no client re-implementation of cron/interval rendering.
   const autosById = {};
@@ -968,10 +992,14 @@ function envPager(base, summary) {
 // declared copy (never fee objects); "Let Hypervisor choose" renders planned until the
 // decentralized.cloud candidate plane exists. Provider cards show connected-account state,
 // verified/unverified + preflight reasons, runtime classes, capability hints, and cost owner.
-function renderPlacementVenues(venuesRes, policyRes) {
+function renderPlacementVenues(venuesRes, policyRes, spendRecon) {
   const venues = (venuesRes || {}).venues || [];
   if (!venues.length) return "";
   const policy = (policyRes || {}).policy || {};
+  const exposuresByAccount = {};
+  for (const e of ((spendRecon || {}).rows || [])) {
+    (exposuresByAccount[e.account_ref] = exposuresByAccount[e.account_ref] || []).push(e);
+  }
   const hintChips = (h) => h ? ["gpu", "persistent_storage", "ip", "snapshot"].map((k) => `<span class="pill muted" title="${CX_ESC(k)}">${CX_ESC(k.replace("persistent_storage", "storage"))}: ${CX_ESC(h[k] || "?")}</span>`).join(" ") : "";
   const providerCard = (p) => `<div style="border:1px solid #1b1d23;border-radius:9px;padding:9px 11px;margin:6px 0">
       <b>${CX_ESC(p.display_name || p.kind)}</b> <span class="pill muted">${CX_ESC(p.kind || "")}</span>
@@ -981,6 +1009,7 @@ function renderPlacementVenues(venuesRes, policyRes) {
       <div class="chips" style="margin-top:4px">${hintChips(p.capability_hints)}</div>
       <div class="sub" style="margin:2px 0 0;text-transform:none;letter-spacing:0">classes: ${CX_ESC(((p.environment_classes || {}).supported || []).join(", ") || (p.environment_classes || {}).note || "—")} · ${CX_ESC(p.lifecycle || "")}</div>
       ${p.account_ref ? `<div class="sub" style="margin:2px 0 0;text-transform:none;letter-spacing:0"><code>${CX_ESC(p.account_ref)}</code></div>` : ""}
+      ${(exposuresByAccount[p.account_ref] || []).length ? (() => { const ex = exposuresByAccount[p.account_ref]; const open = ex.filter((e) => e.status === "open"); const warn = ex.filter((e) => e.status === "closed_with_warning"); return `<div class="sub" style="margin:3px 0 0;text-transform:none;letter-spacing:0">spend posture: ${open.length} open exposure(s)${open.length ? ` (est $${open.reduce((a, e) => a + (e.usd_per_hour || 0), 0).toFixed(3)}/hr)` : ""} · ${ex.filter((e) => e.status === "closed").length} finalized${warn.length ? ` · <span style="color:#e2b93d">⚠ ${warn.length} incomplete teardown</span>` : ""} · customer-borne</div>`; })() : ""}
     </div>`;
   const card = (v) => {
     const chosen = policy.venue === v.venue;
@@ -1031,7 +1060,7 @@ function renderCandidateCards(v) {
   return head + cands.map(card).join("");
 }
 
-function renderEnvironments(summary, classes, providerAccounts, venuesRes, policyRes) {
+function renderEnvironments(summary, classes, providerAccounts, venuesRes, policyRes, spendReconRes) {
   summary = summary || {};
   providerAccounts = providerAccounts || {};
   const enc = encodeURIComponent;
@@ -1052,7 +1081,7 @@ function renderEnvironments(summary, classes, providerAccounts, venuesRes, polic
   const paSection = `<div id="env-provider-accounts"><h2>Provider accounts</h2><p class="sub" style="margin:-4px 0 10px">Bring-your-own compute: durable provider accounts backing environment classes. ${CX_ESC(providerAccounts.spend_rule || "BYO provider spend is customer-borne; the hypervisor records, governs, estimates, and reconciles — it does not hide markup inside provider cost")}.</p>${pAccounts.length
     ? `<table><thead><tr><th>Account</th><th>Kind</th><th>Target</th><th>Credential</th><th>Status · preflight</th><th>Spend</th></tr></thead><tbody>${paRows}</tbody></table>`
     : `<div class="empty">No provider accounts yet. Create one via <code>POST /v1/hypervisor/provider-accounts</code> (kinds: baremetal_ssh · aws · gcp · k8s · vast · akash), bind a sealed credential, and preflight it — spend stays customer-borne.</div>`}</div>`;
-  const venueSection = renderPlacementVenues(venuesRes, policyRes);
+  const venueSection = renderPlacementVenues(venuesRes, policyRes, spendReconRes);
   if (!(summary.total_matching || 0)) {
     return automationsShell("Environments", head + posture + venueSection + paSection + `<div class="empty">No active environments. Start a session or create an environment from a project to populate this.</div>`);
   }
@@ -4118,28 +4147,30 @@ const server = http.createServer((req, res) => {
     }
     // ---- Operations — execution health over the automation substrate (estate surface #9).
     if (pathname === "/__ioi/operations" && req.method === "GET") {
-      const [r, authpol, prov, provReceipts] = await Promise.all([
+      const [r, authpol, prov, provReceipts, spendRecon] = await Promise.all([
         fetch(`${DAEMON}/v1/hypervisor/operations`).then((x) => x.json()).catch(() => ({})),
         fetch(`${DAEMON}/v1/hypervisor/auth/policy`).then((x) => x.json()).catch(() => ({})),
         fetch(`${DAEMON}/v1/hypervisor/providers`).then((x) => x.json()).catch(() => ({})),
         fetch(`${DAEMON}/v1/hypervisor/provider-receipts`).then((x) => x.json()).catch(() => ({})),
+        fetch(`${DAEMON}/v1/hypervisor/provider-spend/reconciliation`).then((x) => x.json()).catch(() => ({})),
       ]);
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
-      res.end(renderOperations(r, authpol, prov, provReceipts));
+      res.end(renderOperations(r, authpol, prov, provReceipts, spendRecon));
       return;
     }
     // ---- Environments — substrate estate; reads the daemon env-summary projection (paged) + classes.
     if (pathname === "/__ioi/environments" && req.method === "GET") {
       const offset = parseInt(new URL(req.url, "http://x").searchParams.get("offset") || "0", 10) || 0;
-      const [sRes, cRes, paRes, pvRes, ppRes] = await Promise.all([
+      const [sRes, cRes, paRes, pvRes, ppRes, srRes] = await Promise.all([
         fetch(`${DAEMON}/v1/hypervisor/environments-summary?limit=60&offset=${offset}`).then((x) => x.json()).catch(() => ({})),
         fetch(`${DAEMON}/v1/hypervisor/environment-classes`).then((x) => x.json()).catch(() => ({})),
         fetch(`${DAEMON}/v1/hypervisor/provider-accounts`).then((x) => x.json()).catch(() => ({})),
         fetch(`${DAEMON}/v1/hypervisor/placement/venues`).then((x) => x.json()).catch(() => ({})),
         fetch(`${DAEMON}/v1/hypervisor/placement/venue-policy`).then((x) => x.json()).catch(() => ({})),
+        fetch(`${DAEMON}/v1/hypervisor/provider-spend/reconciliation`).then((x) => x.json()).catch(() => ({})),
       ]);
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
-      res.end(renderEnvironments(sRes, cRes.environmentClasses || [], paRes, pvRes, ppRes));
+      res.end(renderEnvironments(sRes, cRes.environmentClasses || [], paRes, pvRes, ppRes, srRes));
       return;
     }
     // ---- Workbench — launcher; reads the daemon env-summary projection (paged).
