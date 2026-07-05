@@ -256,6 +256,27 @@ restore-elsewhere loop over the storage plane. Per-kind gate codes are
 live or blocks named (the on-chain tx flow lands with the live harness cut).
 Done-bar: `verify-hypervisor-akash-depin-adapter.mjs`.
 
+AWS is the first ENTERPRISE hyperscaler lane (`adapter:aws-ec2-quote` +
+guarded lifecycle) — a customer-cloud posture, not a marketplace: IAM/SigV4
+sealed credentials whose IAM scope bounds every action
+(`iam_scope_dependent`), region/AZ-bound quotes from verbatim on-demand rate
+cards (unpriced shapes skipped), and an ENTERPRISE NETWORK POSTURE bound into
+the wallet challenge — explicit VPC/subnet/security-group config or the
+labelled default-VPC simulator posture, with public-IP and SSH-ingress flags.
+Private-only / no-ingress postures fail CLOSED at boot
+(`aws_ssh_ingress_unreachable`) — never fake-ready. EC2 lifecycle semantics
+are real: stop halts instance-hours while EBS storage keeps billing (the
+exposure stays open until terminate, and stop says so), start-from-stopped
+notes that a stop/start cycle can change the public IP, and restart is an
+in-place reboot with the endpoint retained. EBS root volume posture is
+recorded per instance and native EC2/EBS/snapshot ids (`i-*`, `vol-*`,
+`snap-*`) are EVIDENCE only — daemon custody state roots remain restore
+truth; archive/restore ride the storage plane. CloudTrail-style audit refs
+land with the live harness (the audit trail is the customer's). Per-kind gate
+codes are `aws_*`. `IOI_AWS_LIVE=1` proves live or blocks named (the SigV4
+EC2 API flow lands with the live harness cut). Done-bar:
+`verify-hypervisor-aws-enterprise-vm-adapter.mjs`.
+
 ## Priority Adapter Ladder
 
 This ladder is roadmap priority, not a permanent provider ranking and not a routing policy.

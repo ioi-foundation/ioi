@@ -155,6 +155,7 @@ fn derive_candidates(
     runpod_outcome: &Value,
     lambda_outcome: &Value,
     akash_outcome: &Value,
+    aws_outcome: &Value,
 ) -> (Vec<Value>, Vec<Value>) {
     let observed_at = iso_now();
     let expires_epoch = epoch_secs() + ttl_secs;
@@ -297,7 +298,10 @@ fn derive_candidates(
                 && lambda_outcome["account_ref"] == account["account_ref"])
                 || (kind == "akash"
                 && akash_outcome.get("engaged").and_then(Value::as_bool) == Some(true)
-                && akash_outcome["account_ref"] == account["account_ref"]);
+                && akash_outcome["account_ref"] == account["account_ref"])
+                || (kind == "aws"
+                && aws_outcome.get("engaged").and_then(Value::as_bool) == Some(true)
+                && aws_outcome["account_ref"] == account["account_ref"]);
             if quote_engaged {
                 if wants_private {
                     rejected.push(json!({ "source": "depin_market", "adapter_ref": "adapter:vast-quote",
@@ -385,6 +389,20 @@ fn derive_candidates(
                 &custody_detail,
                 "replicate the sealed archive to another verified backend; a replacement commitment repairs meaning ONLY via an ArtifactRepairReceipt bound to the same state_root",
                 json!({ "objects": objects, "open_incidents": open_incidents, "basis": "daemon archive/incident records — backend self-reports are evidence, not health truth" }));
+        }
+    }
+    // ── direct_provider: real AWS EC2 on-demand offers (ENTERPRISE customer-cloud lane). ──
+    if aws_outcome.get("engaged").and_then(Value::as_bool) == Some(true) && !wants_private {
+        if text(aws_outcome, "state") == "degraded_unreachable" {
+            rejected.push(json!({ "source": "direct_provider", "adapter_ref": "adapter:aws-ec2-quote",
+                "provider_account_ref": aws_outcome["account_ref"],
+                "reason_code": "candidate_source_degraded",
+                "detail": "aws instance-offer fetch failed — no fake offers on failure",
+                "evidence_refs": [aws_outcome["evidence"].clone()] }));
+        } else {
+            candidates.extend(super::aws_candidate_source::normalize_offers(
+                aws_outcome, &intent_ref, batch, &observed_at, &expires_at, expires_epoch,
+            ));
         }
     }
     // ── depin_market: real Akash BID advisories (deployment/lease semantics preserved). ──
@@ -511,7 +529,8 @@ async fn refresh_candidates(st: &Arc<DaemonState>, intent: &Value, ttl_secs: u64
     let runpod_outcome = super::runpod_candidate_source::fetch_offers(st).await;
     let lambda_outcome = super::lambda_candidate_source::fetch_offers(st).await;
     let akash_outcome = super::akash_candidate_source::fetch_offers(st).await;
-    let (candidates, rejected) = derive_candidates(&st.data_dir, intent, &classes, ttl_secs, &batch, &vast_outcome, &runpod_outcome, &lambda_outcome, &akash_outcome);
+    let aws_outcome = super::aws_candidate_source::fetch_offers(st).await;
+    let (candidates, rejected) = derive_candidates(&st.data_dir, intent, &classes, ttl_secs, &batch, &vast_outcome, &runpod_outcome, &lambda_outcome, &akash_outcome, &aws_outcome);
     for c in &candidates {
         let _ = persist_record(&st.data_dir, CANDIDATE_KIND, text(c, "candidate_id"), c);
     }
@@ -621,6 +640,7 @@ pub(crate) async fn handle_candidate_sources(State(st): State<Arc<DaemonState>>)
             { "source": "decentralized.cloud", "state": "candidate_source_unavailable",
               "reason": "network_adapter_absent — the decentralized.cloud network engine is not live; this daemon plane realizes its candidate semantics from local facts only",
               "evidence": { "basis": "no external candidate API is called; no invented prices" } },
+            super::aws_candidate_source::source_state(&st.data_dir),
             super::vast_candidate_source::source_state(&st.data_dir),
             super::runpod_candidate_source::source_state(&st.data_dir),
             super::lambda_candidate_source::source_state(&st.data_dir),

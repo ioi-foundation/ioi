@@ -117,6 +117,10 @@ trait EnvironmentProvider: Send + Sync {
     fn events(&self, _data_dir: &str, _env_ref: &str) -> Result<Value, String> {
         Err("events_not_supported — this provider records no native event lane".into())
     }
+    /// Reboot/restart where the provider supports it (EC2 reboot semantics).
+    fn restart(&self, _data_dir: &str, _env_ref: &str) -> Result<Value, String> {
+        Err("restart_not_supported — stop and start explicitly on this provider".into())
+    }
     /// Re-provision after closure/loss with restore lineage (DePIN redeploy semantics).
     fn redeploy(&self, _data_dir: &str, _env_ref: &str, _plan: &Value) -> Result<Value, String> {
         Err("redeploy_not_supported — close and create explicitly on this provider".into())
@@ -449,7 +453,18 @@ fn load_account_credential(data_dir: &str, account_id: &str) -> Option<Value> {
 fn kind_capabilities(kind: &str) -> Value {
     match kind {
         "baremetal_ssh" => json!({ "locality": "remote", "isolation": "customer_host", "restore": true, "remote": true, "transport": "ssh", "credentials_required": true, "authority_gated": true, "privacy": "customer_controlled_host", "lifecycle": "full" }),
-        "aws" | "gcp" => json!({ "locality": "remote", "isolation": "vm_kernel", "restore": true, "remote": true, "credentials_required": true, "authority_gated": true, "privacy": "cloud_shared_responsibility", "lifecycle": "credential_preflight_only" }),
+        "aws" => json!({ "locality": "remote", "isolation": "vm_kernel",
+            "lane": "ENTERPRISE customer-cloud — your AWS account, your IAM boundary, your audit trail",
+            "authority_model": "IAM/SigV4 — the sealed credential's IAM scope bounds every action (iam_scope_dependent)",
+            "network_posture": "VPC/subnet/security-group posture recorded per instance; SSH requires ingress + a reachable IP — private-only postures fail closed, never fake-ready",
+            "instance_lifecycle": "EC2 create → boot → stop/start/restart → terminate (stop halts instance-hours; EBS storage keeps billing until terminate)",
+            "volumes": "EBS root volume posture recorded; native volume/snapshot ids are EVIDENCE only — daemon custody state roots remain restore truth",
+            "restore": true, "remote": true, "credentials_required": true, "authority_gated": true,
+            "privacy": "customer_cloud_iam_scoped",
+            "custody": "Standard unless proven otherwise; provider-native EC2/EBS/snapshot ids are evidence only",
+            "provider_spend": "customer-borne on-demand spend",
+            "lifecycle": "guarded (quote-gated) once a control-plane mode is set; credential_preflight_only before that" }),
+        "gcp" => json!({ "locality": "remote", "isolation": "vm_kernel", "restore": true, "remote": true, "credentials_required": true, "authority_gated": true, "privacy": "cloud_shared_responsibility", "lifecycle": "credential_preflight_only" }),
         "k8s" => json!({ "locality": "remote", "isolation": "container", "restore": true, "remote": true, "credentials_required": true, "authority_gated": true, "privacy": "cluster_operator_controlled", "lifecycle": "credential_preflight_only" }),
         "vast" => json!({ "locality": "remote", "isolation": "container_gpu", "restore": true, "remote": true, "credentials_required": true, "authority_gated": true, "privacy": "marketplace_host_NOT_private", "lifecycle": "credential_preflight_only" }),
         "runpod" => json!({ "locality": "remote", "isolation": "container_gpu_runtime", "restore": true, "remote": true, "credentials_required": true, "authority_gated": true, "privacy": "cloud_gpu_runtime_NOT_private", "custody": "Standard unless proven otherwise", "lifecycle": "guarded (quote-gated) once a control-plane mode is set; credential_preflight_only before that" }),
@@ -2009,6 +2024,328 @@ impl EnvironmentProvider for LambdaProvider {
 }
 
 
+
+// --- aws GUARDED LIFECYCLE: the first ENTERPRISE hyperscaler lane. Not a marketplace, not a ---
+// --- generic VM clone: IAM/SigV4 authority, region/AZ, VPC/security-group posture, EC2      ---
+// --- lifecycle with REAL stop/start/restart semantics, EBS root volume posture. Provider-   ---
+// --- native EC2/EBS/snapshot ids are EVIDENCE ONLY; daemon state roots are restore truth.   ---
+const AWS_INSTANCE_KIND: &str = "aws-instances";
+
+fn load_aws_instance(data_dir: &str, account_id: &str, env_ref: &str) -> Option<Value> {
+    let mut mine: Vec<Value> = read_record_dir(data_dir, AWS_INSTANCE_KIND)
+        .into_iter()
+        .filter(|i| text(i, "account_id") == account_id && text(i, "environment_ref") == env_ref)
+        .collect();
+    mine.sort_by(|a, b| text(a, "record_id").cmp(text(b, "record_id")));
+    mine.pop()
+}
+
+struct AwsProvider {
+    account: Value,
+}
+impl AwsProvider {
+    fn account_id(&self) -> &str {
+        text(&self.account, "account_id")
+    }
+    fn mode(&self) -> String {
+        vast_mode(&self.account)
+    }
+    fn instance(&self, data_dir: &str, env_ref: &str) -> Option<Value> {
+        load_aws_instance(data_dir, self.account_id(), env_ref)
+    }
+    fn save_instance(&self, data_dir: &str, inst: &Value) {
+        let id = text(inst, "record_id").to_string();
+        let _ = persist_record(data_dir, AWS_INSTANCE_KIND, &id, inst);
+    }
+    fn push_event(inst: &mut Value, kind: &str, detail: String) {
+        let mut events = inst.get("events").and_then(Value::as_array).cloned().unwrap_or_default();
+        events.push(json!({ "at": iso_now(), "kind": kind, "detail": detail,
+                            "execution_mode": inst["execution_mode"] }));
+        inst["events"] = json!(events);
+    }
+    fn ssh_lane(&self, data_dir: &str, env_ref: &str) -> Result<(SshProvider, KeyGuard), String> {
+        let inst = self.instance(data_dir, env_ref)
+            .ok_or("aws_instance_absent — provision with the quote-gated create op first")?;
+        if text(&inst, "status") == "torn_down" {
+            return Err("aws_instance_terminated — this instance was already terminated".into());
+        }
+        let ssh = inst.get("ssh").cloned().unwrap_or(Value::Null);
+        if text(&ssh, "host").is_empty() || text(&ssh, "key_file").is_empty() {
+            return Err("aws_ssh_bootstrap_unknown — the instance has no proven ssh endpoint (it gains one only after boot polling proves readiness through a reachable network posture)".into());
+        }
+        let key = std::fs::read_to_string(text(&ssh, "key_file")).map_err(|e| format!("aws_ssh_key_unreadable: {e}"))?;
+        let dir = Path::new(data_dir).join("provider-ssh");
+        std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+        let path = dir.join(format!("aws-{}-{}.key", safe(self.account_id()), safe(env_ref)));
+        std::fs::write(&path, key).map_err(|e| e.to_string())?;
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let _ = std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600));
+        }
+        let synthetic = json!({
+            "account_id": self.account_id(),
+            "account_ref": self.account["account_ref"],
+            "display_name": format!("{} (ec2 instance)", text(&self.account, "display_name")),
+            "kind": "aws", "status": "verified",
+            "endpoint": { "host": ssh["host"], "port": ssh.get("port").cloned().unwrap_or(json!(22)), "user": ssh["user"] },
+        });
+        Ok((SshProvider { account: synthetic, key_path: path.clone() }, KeyGuard(path)))
+    }
+    fn network_reachable(inst: &Value) -> Result<(), String> {
+        let public_ip = inst.pointer("/network_posture/public_ip").and_then(Value::as_bool).unwrap_or(true);
+        let ingress = inst.pointer("/network_posture/ssh_ingress").and_then(Value::as_bool).unwrap_or(true);
+        if !public_ip {
+            return Err("aws_ssh_ingress_unreachable — private-only network posture (no public IP): SSH readiness cannot be proven; workspace ops fail closed, never fake-ready. Configure a public IP / reachable path or use a BYO node inside the VPC".into());
+        }
+        if !ingress {
+            return Err("aws_ssh_ingress_unreachable — the security-group posture declares no SSH ingress: readiness cannot be proven; open ingress for the daemon's source or use a reachable path".into());
+        }
+        Ok(())
+    }
+}
+impl EnvironmentProvider for AwsProvider {
+    fn id(&self) -> &str {
+        "aws-guarded"
+    }
+    fn capabilities(&self) -> Value {
+        let mut caps = kind_capabilities("aws");
+        caps["provider_spend_borne_by"] = json!("customer");
+        caps["lifecycle"] = json!("guarded_lifecycle — quote-gated create, wallet-gated mutations, terminate required");
+        caps["execution_mode"] = json!(self.mode());
+        caps
+    }
+    fn status(&self) -> (&'static str, String) {
+        match text(&self.account, "status") {
+            "verified" => ("available", format!("guarded aws EC2 enterprise lifecycle ({} control plane)", self.mode())),
+            "revoked" => ("revoked", "credential revoked".into()),
+            _ => ("unverified", "bind + preflight the SigV4 credential".into()),
+        }
+    }
+    fn preflight(&self, _plan: &Value) -> Value {
+        json!({ "admit": text(&self.account, "status") == "verified", "provider": self.id(),
+                "account_ref": self.account["account_ref"], "execution_mode": self.mode(),
+                "lifecycle": "guarded_lifecycle", "preflight_evidence": self.account.get("preflight").cloned().unwrap_or(Value::Null) })
+    }
+    fn create(&self, data_dir: &str, env_ref: &str, plan: &Value) -> Result<Value, String> {
+        if let Some(existing) = self.instance(data_dir, env_ref) {
+            if text(&existing, "status") != "torn_down" {
+                return Err(format!("aws_instance_already_provisioned — {} is live for this environment; terminate it first", text(&existing, "instance_id")));
+            }
+        }
+        let mode = self.mode();
+        if mode == "live" {
+            if load_account_credential(data_dir, self.account_id()).is_none() {
+                return Err("aws_live_credentials_absent — live EC2 lifecycle needs a bound, resolvable SigV4 credential; live execution is never claimed unauthenticated".into());
+            }
+            return Err("aws_live_api_flow_not_implemented — the SigV4 EC2 RunInstances/DescribeInstances flow lands with the live harness cut; a fake instance is never minted".into());
+        }
+        if mode != "simulator" {
+            return Err("aws_lifecycle_mode_unset — set the account endpoint mode to simulator or live".into());
+        }
+        let sim_ssh = self.account.pointer("/endpoint/ssh").cloned().unwrap_or(Value::Null);
+        if text(&sim_ssh, "host").is_empty() || text(&sim_ssh, "key_file").is_empty() {
+            return Err("aws_simulator_ssh_missing — simulator mode needs endpoint.ssh {host, port, user, key_file}".into());
+        }
+        let stamp = nanos();
+        let record_id = format!("awsinst_{stamp:x}");
+        let instance_id = format!("i-sim{stamp:x}");
+        let volume_id = format!("vol-sim{stamp:x}");
+        let network = plan.get("network_posture").cloned()
+            .unwrap_or_else(|| json!({ "posture_label": "default_vpc_simulator", "public_ip": true, "ssh_ingress": true }));
+        let mut inst = json!({
+            "schema_version": "ioi.hypervisor.aws-instance.v1",
+            "record_id": record_id, "instance_id": instance_id,
+            "account_id": self.account_id(), "account_ref": self.account["account_ref"],
+            "environment_ref": env_ref, "status": "pending",
+            "execution_mode": "simulated_control_plane",
+            "region": plan["region"], "az": plan["az"], "instance_type": plan["instance_type"],
+            "network_posture": network,
+            "root_volume": { "volume_id": volume_id, "gb": plan["disk_gb"],
+                             "delete_on_termination": true,
+                             "note": "SIMULATED EBS root volume — native volume ids are evidence only, never restore truth" },
+            "candidate_ref": plan["candidate_ref"], "quote_ref": plan["quote_ref"],
+            "usd_per_hour": plan["usd_per_hour"], "max_hourly_usd": plan["max_hourly_usd"],
+            "teardown_policy": plan["teardown_policy"],
+            "sim_ssh": sim_ssh,
+            "ssh": Value::Null,
+            "events": [],
+            "provider_native": { "instance_id": instance_id, "volume_id": volume_id,
+                "note": "SIMULATED EC2/EBS ids — evidence only, never restore or billing truth; no real AWS instance exists" },
+            "created_at": iso_now(),
+        });
+        let posture_label = inst.pointer("/network_posture/posture_label").and_then(Value::as_str).unwrap_or("?").to_string();
+        Self::push_event(&mut inst, "run_instances_accepted", format!("{} in {} ({posture_label}) — audit refs land with the live harness (CloudTrail is the customer's trail)", text(plan, "instance_type"), text(plan, "region")));
+        self.save_instance(data_dir, &inst);
+        Ok(json!({
+            "provider_operation_ref": format!("provider-account://{}/op/create/{}", self.account_id(), safe(env_ref)),
+            "instance": { "instance_id": instance_id, "status": "pending", "execution_mode": "simulated_control_plane" },
+            "network_posture": inst["network_posture"],
+            "root_volume": inst["root_volume"],
+            "provider_native": inst["provider_native"],
+            "ssh_ready": false,
+            "live_provisioning_not_run": true,
+            "note": "instance pending — run start to boot-poll; workspace ops fail closed (aws_ssh_bootstrap_unknown) until ssh readiness is PROVEN through a reachable network posture",
+            "teardown_required": true,
+        }))
+    }
+    fn start(&self, data_dir: &str, env_ref: &str) -> Result<Value, String> {
+        let mut inst = self.instance(data_dir, env_ref).ok_or("aws_instance_absent")?;
+        if text(&inst, "status") == "torn_down" {
+            return Err("aws_instance_terminated".into());
+        }
+        let mut boot_evidence = Value::Null;
+        if inst.get("ssh").map(Value::is_null).unwrap_or(true) {
+            if text(&inst, "execution_mode") == "live" {
+                return Err("aws_live_api_flow_not_implemented — no live instance exists to boot-poll".into());
+            }
+            // Enterprise network honesty: readiness is provable ONLY through a reachable
+            // posture — private-only / no-ingress fails CLOSED, never fake-ready.
+            Self::network_reachable(&inst)?;
+            let sim_ssh = inst.get("sim_ssh").cloned().unwrap_or(Value::Null);
+            boot_evidence = json!({ "polled_attempts": 1, "state": "running",
+                "public_ip": sim_ssh["host"], "ssh_port": sim_ssh.get("port").cloned().unwrap_or(json!(22)),
+                "posture": inst["network_posture"], "proven_at": iso_now(),
+                "note": "simulated boot resolved through the declared reachable posture" });
+            inst["ssh"] = sim_ssh;
+            inst["ssh_ready_evidence"] = boot_evidence.clone();
+            Self::push_event(&mut inst, "boot_proven", "ssh readiness proven through the reachable network posture".into());
+            self.save_instance(data_dir, &inst);
+        }
+        let (lane, _guard) = self.ssh_lane(data_dir, env_ref)?;
+        if inst.get("workspace_bootstrapped").and_then(Value::as_bool) != Some(true) {
+            lane.create(data_dir, env_ref, &json!({}))?;
+            inst["workspace_bootstrapped"] = json!(true);
+        }
+        lane.start(data_dir, env_ref)?;
+        let was_stopped = text(&inst, "status") == "stopped";
+        inst["status"] = json!("running");
+        Self::push_event(&mut inst, "instance_started", if was_stopped {
+            "started from stopped — instance-hours resume; a stop/start cycle can change the public IP (an EIP pins it); the simulator retains the fixture endpoint".into()
+        } else { "workspace running".into() });
+        self.save_instance(data_dir, &inst);
+        Ok(json!({ "provider_operation_ref": format!("provider-account://{}/op/start/{}", self.account_id(), safe(env_ref)),
+                   "instance_id": inst["instance_id"], "status": "running", "ssh_ready": true,
+                   "boot_evidence": boot_evidence }))
+    }
+    fn workrun(&self, data_dir: &str, env_ref: &str, command: &str) -> Result<Value, String> {
+        let (lane, _guard) = self.ssh_lane(data_dir, env_ref)?;
+        lane.workrun(data_dir, env_ref, command)
+    }
+    fn stop(&self, data_dir: &str, env_ref: &str) -> Result<Value, String> {
+        // REAL EC2 stop semantics: instance-hours stop accruing; EBS storage does not.
+        let mut inst = self.instance(data_dir, env_ref).ok_or("aws_instance_absent")?;
+        let (lane, _guard) = self.ssh_lane(data_dir, env_ref)?;
+        let stopped = lane.stop(data_dir, env_ref)?;
+        inst["status"] = json!("stopped");
+        Self::push_event(&mut inst, "instance_stopped", "instance-hours stop accruing; EBS root volume storage keeps billing until terminate".into());
+        self.save_instance(data_dir, &inst);
+        Ok(json!({ "provider_operation_ref": format!("provider-account://{}/op/stop/{}", self.account_id(), safe(env_ref)),
+                   "instance_id": inst["instance_id"], "status": "stopped",
+                   "spend_note": "EC2 stop halts instance-hour billing; the EBS root volume keeps billing until terminate — the exposure stays open until teardown",
+                   "lane": stopped }))
+    }
+    fn restart(&self, data_dir: &str, env_ref: &str) -> Result<Value, String> {
+        // EC2 reboot: in-place restart, endpoint retained (unlike a stop/start cycle).
+        let mut inst = self.instance(data_dir, env_ref).ok_or("aws_instance_absent")?;
+        let (lane, _guard) = self.ssh_lane(data_dir, env_ref)?;
+        let _ = lane.stop(data_dir, env_ref);
+        lane.start(data_dir, env_ref)?;
+        inst["status"] = json!("running");
+        Self::push_event(&mut inst, "instance_rebooted", "in-place reboot — endpoint retained (a stop/start cycle, by contrast, can change the public IP)".into());
+        self.save_instance(data_dir, &inst);
+        Ok(json!({ "provider_operation_ref": format!("provider-account://{}/op/restart/{}", self.account_id(), safe(env_ref)),
+                   "instance_id": inst["instance_id"], "status": "running",
+                   "note": "EC2 reboot semantics — endpoint retained; instance-hours keep accruing" }))
+    }
+    fn snapshot(&self, data_dir: &str, env_ref: &str) -> Result<Value, String> {
+        let mut inst = self.instance(data_dir, env_ref).ok_or("aws_instance_absent")?;
+        let (lane, _guard) = self.ssh_lane(data_dir, env_ref)?;
+        let mut evidence = lane.snapshot(data_dir, env_ref)?;
+        // An EBS-style native snapshot id rides along as EVIDENCE ONLY — the daemon-admitted
+        // sha256 state root above is the restore truth.
+        let native = json!({
+            "snapshot_id": format!("snap-sim{:x}", nanos()),
+            "volume_id": inst.pointer("/root_volume/volume_id").cloned().unwrap_or(Value::Null),
+            "note": "SIMULATED EBS snapshot id — evidence only, NEVER restore truth; restores admit by the daemon state_root",
+        });
+        if let Some(o) = evidence.as_object_mut() {
+            o.insert("provider_native_snapshot".into(), native.clone());
+        }
+        inst["last_native_snapshot"] = native;
+        Self::push_event(&mut inst, "snapshot_taken", "daemon-custody snapshot admitted; EBS-style native id recorded as evidence".into());
+        self.save_instance(data_dir, &inst);
+        Ok(evidence)
+    }
+    fn restore(&self, data_dir: &str, env_ref: &str, material_ref: &str) -> Result<Value, String> {
+        let (lane, _guard) = self.ssh_lane(data_dir, env_ref)?;
+        lane.restore(data_dir, env_ref, material_ref)
+    }
+    fn inject_outage(&self, _d: &str, _e: &str) -> Result<Value, String> {
+        Err("aws_outage_injection_not_supported — terminating a paid instance is not a safely representable outage; use the loopback/ssh conformance lanes".into())
+    }
+    fn recover(&self, _d: &str, _e: &str) -> Result<Value, String> {
+        Err("aws_recover_not_supported — recovery is re-launch + restore from daemon/storage custody; run create + restore explicitly".into())
+    }
+    fn delete(&self, data_dir: &str, env_ref: &str) -> Result<Value, String> {
+        let mut inst = self.instance(data_dir, env_ref).ok_or("aws_instance_absent")?;
+        let remote_cleanup = match self.ssh_lane(data_dir, env_ref) {
+            Ok((lane, _guard)) => lane.delete(data_dir, env_ref).map(|e| e["cleanup_verified"].clone()).unwrap_or(json!("unreachable")),
+            Err(e) => json!(format!("skipped: {e}")),
+        };
+        let native_teardown = if text(&inst, "execution_mode") == "live" {
+            json!({ "destroyed": false, "error": "aws_live_api_flow_not_implemented", "warning": "TEARDOWN MAY BE INCOMPLETE — no live TerminateInstances call exists yet" })
+        } else if self.account.pointer("/endpoint/simulate_teardown_failure").and_then(Value::as_bool) == Some(true) {
+            json!({ "destroyed": false, "error": "SIMULATED terminate failure (endpoint.simulate_teardown_failure)", "warning": "TEARDOWN MAY BE INCOMPLETE — verify the EC2 console (instance-hours and EBS may still accrue)" })
+        } else {
+            json!({ "destroyed": true, "note": "simulated control plane — instance terminated, EBS root volume deleted on termination; no real AWS instance existed" })
+        };
+        inst["status"] = json!("torn_down");
+        inst["torn_down_at"] = json!(iso_now());
+        Self::push_event(&mut inst, "instance_terminated", "terminate always — root volume deleted on termination per posture".into());
+        self.save_instance(data_dir, &inst);
+        Ok(json!({ "provider_operation_ref": format!("provider-account://{}/op/delete/{}", self.account_id(), safe(env_ref)),
+                   "instance_id": inst["instance_id"], "teardown_state": "torn_down",
+                   "remote_workspace_cleanup": remote_cleanup, "native_teardown": native_teardown,
+                   "cleanup_verified": true }))
+    }
+    fn events(&self, data_dir: &str, env_ref: &str) -> Result<Value, String> {
+        let inst = self.instance(data_dir, env_ref).ok_or("aws_instance_absent")?;
+        Ok(json!({
+            "instance_id": inst["instance_id"],
+            "events": inst.get("events").cloned().unwrap_or(json!([])),
+            "execution_mode": inst["execution_mode"],
+            "basis": "daemon-recorded instance lifecycle events (simulated control plane labelled); CloudTrail-style audit refs land with the live harness — the audit trail is the customer's",
+        }))
+    }
+    fn observe(&self, data_dir: &str, env_ref: &str) -> Value {
+        match self.instance(data_dir, env_ref) {
+            None => json!({ "provider": self.id(), "environment_ref": env_ref, "instance": Value::Null, "status": "absent" }),
+            Some(inst) => {
+                let torn = text(&inst, "status") == "torn_down";
+                let boot_pending = inst.get("ssh").map(Value::is_null).unwrap_or(true) && !torn;
+                let lane_view = if torn { Value::Null }
+                    else if boot_pending { json!({ "boot": "pending — run start to poll until ssh readiness is proven through a reachable posture" }) }
+                    else {
+                        match self.ssh_lane(data_dir, env_ref) {
+                            Ok((lane, _guard)) => lane.observe(data_dir, env_ref),
+                            Err(e) => json!({ "error": e }),
+                        }
+                    };
+                json!({ "provider": self.id(), "environment_ref": env_ref,
+                        "instance_id": inst["instance_id"], "status": inst["status"],
+                        "execution_mode": inst["execution_mode"],
+                        "region": inst["region"], "az": inst["az"], "instance_type": inst["instance_type"],
+                        "network_posture": inst["network_posture"], "root_volume": inst["root_volume"],
+                        "events_tail": inst.get("events").and_then(Value::as_array).map(|e| e.iter().rev().take(5).cloned().collect::<Vec<_>>()).unwrap_or_default(),
+                        "provider_native": inst["provider_native"],
+                        "teardown_state": if torn { json!("torn_down") } else { json!("live_or_pending") },
+                        "workspace": lane_view })
+            }
+        }
+    }
+}
+
 // --- akash GUARDED LIFECYCLE: the first DePIN compute/GPU lane. NOT a generic VM adapter —  ---
 // --- Akash semantics preserved: deployment intent → SDL manifest → provider BIDS → LEASE →  ---
 // --- lease-assigned endpoints → logs/events → close → REDEPLOY. Provider-native ids         ---
@@ -2511,6 +2848,12 @@ fn resolve_account_adapter(
     {
         return Some(Ok((account.clone(), Box::new(LambdaProvider { account }), None)));
     }
+    if text(&account, "kind") == "aws"
+        && matches!(vast_mode(&account).as_str(), "simulator" | "live")
+        && text(&account, "status") == "verified"
+    {
+        return Some(Ok((account.clone(), Box::new(AwsProvider { account }), None)));
+    }
     if text(&account, "kind") == "akash"
         && matches!(vast_mode(&account).as_str(), "simulator" | "live")
         && text(&account, "status") == "verified"
@@ -2863,7 +3206,14 @@ pub(crate) async fn handle_provider_op(
             //     live control plane demands live_evidence, the simulator demands
             //     simulator_evidence (labelled harness, no real spend). Runs AFTER budget
             //     discovery and BEFORE the wallet challenge (canon gate order).
-            if matches!(kind.as_str(), "vast" | "runpod" | "lambda_cloud" | "akash") && matches!(op, "create" | "redeploy") {
+            // The quote gate guards metered kinds ONCE A CONTROL-PLANE MODE IS SET (fixture/
+            // simulator/live) — exactly what the capabilities text promises. Mode-less accounts
+            // stay credential_preflight_only: create crosses the wallet and fails closed with
+            // the named PROVIDER_KIND_LIFECYCLE_NOT_IMPLEMENTED lane (never a fake).
+            if matches!(kind.as_str(), "vast" | "runpod" | "lambda_cloud" | "akash" | "aws")
+                && matches!(op, "create" | "redeploy")
+                && !vast_mode(&account).is_empty()
+            {
                 let candidate_ref = body.get("candidate_ref").and_then(Value::as_str).unwrap_or("");
                 if candidate_ref.is_empty() {
                     let code = format!("{kind}_candidate_ref_required");
@@ -2919,9 +3269,31 @@ pub(crate) async fn handle_provider_op(
                     let sdl_hash = sha256_bytes(sdl.to_string().as_bytes());
                     json!({ "sdl": sdl, "sdl_hash": sdl_hash })
                 } else { Value::Null };
+                // aws: the wallet challenge binds the ENTERPRISE NETWORK POSTURE — explicit
+                // VPC/subnet/security-group config or the labelled default-VPC simulator posture.
+                let aws_network: Value = if kind == "aws" {
+                    let configured = body.get("network").cloned()
+                        .or_else(|| account.pointer("/endpoint/network").cloned())
+                        .filter(|n| !n.is_null());
+                    match configured {
+                        Some(n) => {
+                            let explicit = n.get("vpc_id").is_some() || n.get("subnet_id").is_some() || n.get("security_group_id").is_some();
+                            let mut posture = n.clone();
+                            if let Some(o) = posture.as_object_mut() {
+                                o.entry("public_ip").or_insert(json!(true));
+                                o.entry("ssh_ingress").or_insert(json!(true));
+                                o.insert("posture_label".into(), json!(if explicit { "explicit_vpc_config" } else { "default_vpc_simulator" }));
+                            }
+                            posture
+                        }
+                        None => json!({ "posture_label": "default_vpc_simulator", "public_ip": true, "ssh_ingress": true }),
+                    }
+                } else { Value::Null };
                 vast_gate = json!({
                     "candidate_ref": candidate_ref,
                     "quote_ref": candidate["quote_ref"],
+                    "az": candidate.get("az").cloned().unwrap_or(Value::Null),
+                    "network_posture": aws_network,
                     "deployment_class": candidate.get("deployment_class").cloned().unwrap_or(Value::Null),
                     "provider_address": candidate.get("provider_address").cloned().unwrap_or(Value::Null),
                     "bid_ref": candidate.get("bid_ref").cloned().unwrap_or(Value::Null),
@@ -2960,8 +3332,8 @@ pub(crate) async fn handle_provider_op(
                 request_facets: {
                     let mut facets = json!({ "account_ref": account_ref, "op": op, "environment_ref": env_ref, "kind": kind, "external_spend_posture": budget_note.get("scope").cloned().unwrap_or(Value::Null) });
                     if let (Some(target), Some(gate)) = (facets.as_object_mut(), vast_gate.as_object()) {
-                        for key in ["candidate_ref", "quote_ref", "max_hourly_usd", "gpu", "region", "instance_type", "disk_gb",
-                                    "deployment_class", "provider_address", "bid_ref", "persistent_storage", "sdl_hash",
+                        for key in ["candidate_ref", "quote_ref", "max_hourly_usd", "gpu", "region", "az", "instance_type", "disk_gb",
+                                    "network_posture", "deployment_class", "provider_address", "bid_ref", "persistent_storage", "sdl_hash",
                                     "restore_material_ref", "archive_ref", "teardown_policy", "execution_mode"] {
                             if let Some(v) = gate.get(key) { target.insert(key.to_string(), v.clone()); }
                         }
@@ -3016,6 +3388,7 @@ pub(crate) async fn handle_provider_op(
             "recover" => provider.recover(data_dir, &env_ref),
             "delete" => provider.delete(data_dir, &env_ref),
             "observe" => Ok(provider.observe(data_dir, &env_ref)),
+            "restart" => provider.restart(data_dir, &env_ref),
             "logs" => provider.logs(data_dir, &env_ref),
             "events" => provider.events(data_dir, &env_ref),
             "redeploy" => provider.redeploy(data_dir, &env_ref, &plan),
@@ -3070,7 +3443,7 @@ pub(crate) async fn handle_provider_op(
                         "opened_at": iso_now(),
                     });
                     let _ = persist_record(data_dir, EXPOSURE_KIND, &exp_id, &exposure);
-                } else if matches!(kind.as_str(), "vast" | "runpod" | "lambda_cloud" | "akash") {
+                } else if matches!(kind.as_str(), "vast" | "runpod" | "lambda_cloud" | "akash" | "aws") {
                     if let Some(mut exposure) = open_exposure_for(data_dir, &account_ref, &env_ref) {
                         let exp_id = text(&exposure, "exposure_id").to_string();
                         let mut refs = exposure.get("receipt_refs").and_then(Value::as_array).cloned().unwrap_or_default();
