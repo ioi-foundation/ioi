@@ -172,8 +172,13 @@ derived from local facts, a deterministic reason-coded advisory, and explicit
 authority; no fee objects or RoutingDecisionReceipt exist. The first live
 external quote source is Vast (`adapter:vast-quote`, quote + preflight +
 candidate enrichment only — verbatim offer prices, `advisory_only`
-eligibility, lifecycle fail-closed until the guarded lifecycle cut; done-bar
-`verify-hypervisor-vast-candidate-adapter.mjs`).
+eligibility, done-bar `verify-hypervisor-vast-candidate-adapter.mjs`). The guarded Vast
+LIFECYCLE is live behind it: quote-gated create (budget → quote freshness/
+liveness → wallet lease binding quote/candidate/max-price/GPU/teardown), the
+BYO SSH workspace/custody contract reused verbatim on the leased instance,
+enriched receipts on every path, teardown always; simulator control plane for
+CI (labelled, live_provisioning_not_run); done-bar
+`verify-hypervisor-vast-lifecycle.mjs`.
 
 ## Priority Adapter Ladder
 

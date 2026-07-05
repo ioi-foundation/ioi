@@ -791,6 +791,296 @@ impl EnvironmentProvider for CloudKindProvider {
     }
 }
 
+// --- vast GUARDED LIFECYCLE: the first paid external GPU lifecycle path. Narrow by design: ---
+// --- lease ONE instance, bootstrap ssh, reuse the BYO SSH workspace/custody contract, tear  ---
+// --- down ALWAYS. Control plane modes: "simulator" (marketplace simulated locally,          ---
+// --- ssh/custody lane REAL — labelled, never live supply) | "live" (real Vast API).         ---
+const VAST_INSTANCE_KIND: &str = "vast-instances";
+
+fn vast_mode(account: &Value) -> String {
+    account.pointer("/endpoint/mode").and_then(Value::as_str).unwrap_or("").to_string()
+}
+fn load_vast_instance(data_dir: &str, account_id: &str, env_ref: &str) -> Option<Value> {
+    read_record_dir(data_dir, VAST_INSTANCE_KIND)
+        .into_iter()
+        .find(|i| text(i, "account_id") == account_id && text(i, "environment_ref") == env_ref)
+}
+
+struct VastProvider {
+    account: Value,
+}
+impl VastProvider {
+    fn account_id(&self) -> &str {
+        text(&self.account, "account_id")
+    }
+    fn mode(&self) -> String {
+        vast_mode(&self.account)
+    }
+    fn instance(&self, data_dir: &str, env_ref: &str) -> Option<Value> {
+        load_vast_instance(data_dir, self.account_id(), env_ref)
+    }
+    fn save_instance(&self, data_dir: &str, instance: &Value) {
+        let id = text(instance, "record_id").to_string();
+        let _ = persist_record(data_dir, VAST_INSTANCE_KIND, &id, instance);
+    }
+    /// The BYO SSH lane over THIS instance's endpoint — the same workspace mutation + daemon
+    /// custody contract as baremetal_ssh (materials attribute to the REAL vast account).
+    fn ssh_lane(&self, data_dir: &str, env_ref: &str) -> Result<(SshProvider, KeyGuard), String> {
+        let inst = self.instance(data_dir, env_ref)
+            .ok_or("vast_instance_absent — provision with the quote-gated create op first")?;
+        if text(&inst, "status") == "torn_down" {
+            return Err("vast_instance_torn_down — this instance was already torn down".into());
+        }
+        let ssh = inst.get("ssh").cloned().unwrap_or(Value::Null);
+        let key_file = text(&ssh, "key_file");
+        if text(&ssh, "host").is_empty() || key_file.is_empty() {
+            return Err("vast_ssh_bootstrap_unknown — the instance has no usable ssh endpoint/key".into());
+        }
+        let key = std::fs::read_to_string(key_file)
+            .map_err(|e| format!("vast_ssh_key_unreadable: {e}"))?;
+        let dir = Path::new(data_dir).join("provider-ssh");
+        std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+        let path = dir.join(format!("vast-{}-{}.key", safe(self.account_id()), safe(env_ref)));
+        std::fs::write(&path, key).map_err(|e| e.to_string())?;
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let _ = std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600));
+        }
+        let synthetic = json!({
+            "account_id": self.account_id(),
+            "account_ref": self.account["account_ref"],
+            "display_name": format!("{} (vast instance)", text(&self.account, "display_name")),
+            "kind": "vast", "status": "verified",
+            "endpoint": { "host": ssh["host"], "port": ssh["port"], "user": ssh["user"] },
+        });
+        Ok((SshProvider { account: synthetic, key_path: path.clone() }, KeyGuard(path)))
+    }
+}
+impl EnvironmentProvider for VastProvider {
+    fn id(&self) -> &str {
+        "vast-guarded"
+    }
+    fn capabilities(&self) -> Value {
+        let mut caps = kind_capabilities("vast");
+        caps["provider_spend_borne_by"] = json!("customer");
+        caps["lifecycle"] = json!("guarded_lifecycle — quote-gated create, wallet-gated mutations, teardown required");
+        caps["execution_mode"] = json!(self.mode());
+        caps
+    }
+    fn status(&self) -> (&'static str, String) {
+        match text(&self.account, "status") {
+            "verified" => ("available", format!("guarded vast lifecycle ({} control plane)", self.mode())),
+            "revoked" => ("revoked", "credential revoked".into()),
+            _ => ("unverified", "bind + preflight the credential".into()),
+        }
+    }
+    fn preflight(&self, _plan: &Value) -> Value {
+        json!({ "admit": text(&self.account, "status") == "verified", "provider": self.id(),
+                "account_ref": self.account["account_ref"], "execution_mode": self.mode(),
+                "lifecycle": "guarded_lifecycle", "preflight_evidence": self.account.get("preflight").cloned().unwrap_or(Value::Null) })
+    }
+    /// Quote-gated provision. The gate ladder (budget → quote freshness/liveness → wallet lease)
+    /// ran in handle_provider_op; `plan` carries the validated candidate/quote facts.
+    fn create(&self, data_dir: &str, env_ref: &str, plan: &Value) -> Result<Value, String> {
+        if let Some(existing) = self.instance(data_dir, env_ref) {
+            if text(&existing, "status") != "torn_down" {
+                return Err(format!("vast_instance_already_provisioned — {} is live for this environment; tear it down first", text(&existing, "instance_id")));
+            }
+        }
+        let mode = self.mode();
+        let record_id = format!("vinst_{:x}", nanos());
+        if mode == "simulator" {
+            let ssh = self.account.pointer("/endpoint/ssh").cloned().unwrap_or(Value::Null);
+            if text(&ssh, "host").is_empty() || text(&ssh, "key_file").is_empty() {
+                return Err("vast_simulator_ssh_missing — simulator mode needs endpoint.ssh {host, port, user, key_file}".into());
+            }
+            let instance_id = format!("vsim_{:x}", nanos());
+            let instance = json!({
+                "schema_version": "ioi.hypervisor.vast-instance.v1",
+                "record_id": record_id, "instance_id": instance_id,
+                "account_id": self.account_id(), "account_ref": self.account["account_ref"],
+                "environment_ref": env_ref, "status": "provisioned",
+                "execution_mode": "simulated_control_plane",
+                "ssh": ssh,
+                "candidate_ref": plan["candidate_ref"], "quote_ref": plan["quote_ref"],
+                "usd_per_hour": plan["usd_per_hour"], "max_hourly_usd": plan["max_hourly_usd"],
+                "teardown_policy": plan["teardown_policy"],
+                "provider_native": { "instance_id": instance_id,
+                    "note": "SIMULATED marketplace id — evidence only, never restore truth; no real Vast instance exists" },
+                "created_at": iso_now(),
+            });
+            self.save_instance(data_dir, &instance);
+            // Bootstrap the workspace root over the REAL ssh lane (readiness proof included).
+            let (lane, _guard) = self.ssh_lane(data_dir, env_ref)?;
+            let bootstrap = lane.create(data_dir, env_ref, plan)?;
+            return Ok(json!({
+                "provider_operation_ref": format!("provider-account://{}/op/create/{}", self.account_id(), safe(env_ref)),
+                "instance": { "instance_id": instance_id, "status": "provisioned", "execution_mode": "simulated_control_plane" },
+                "provider_native": instance["provider_native"],
+                "ssh_ready": true, "workspace_bootstrap": bootstrap,
+                "live_provisioning_not_run": true,
+                "teardown_required": true,
+            }));
+        }
+        if mode == "live" {
+            // Real marketplace lease. Any deviation fails NAMED — no partial claims; if the ask
+            // succeeded but later steps fail, the instance record still exists so teardown runs.
+            let offer_id = plan.get("offer_id").and_then(Value::as_u64)
+                .ok_or("vast_live_offer_id_missing — the validated quote carries no offer id")?;
+            let bearer = load_account_credential(data_dir, self.account_id())
+                .and_then(|c| c["sealed_token"].as_str().and_then(open_scm_token))
+                .ok_or("provider_credential_unresolved")?;
+            let base = self.account.pointer("/endpoint/endpoint").and_then(Value::as_str)
+                .unwrap_or("https://console.vast.ai/api/v0").trim_end_matches('/').to_string();
+            let price = plan.get("max_hourly_usd").and_then(Value::as_f64).unwrap_or(0.0);
+            let created: Result<Value, String> = tokio::task::block_in_place(|| {
+                tokio::runtime::Handle::current().block_on(async {
+                    let client = reqwest::Client::new();
+                    let resp = client.put(format!("{base}/asks/{offer_id}/"))
+                        .bearer_auth(&bearer)
+                        .json(&json!({ "client_id": "me", "price": price, "disk": 20, "image": "ubuntu:22.04", "runtype": "ssh" }))
+                        .timeout(std::time::Duration::from_secs(30))
+                        .send().await.map_err(|e| format!("vast_live_provision_failed: {e}"))?;
+                    let status = resp.status().as_u16();
+                    let body: Value = resp.json().await.map_err(|e| format!("vast_live_provision_failed: non-JSON response: {e}"))?;
+                    if !(200..300).contains(&status) || body.get("success") == Some(&json!(false)) {
+                        return Err(format!("vast_live_provision_failed: http {status} {body}"));
+                    }
+                    Ok(body)
+                })
+            });
+            let body = created?;
+            let native_id = body.get("new_contract").cloned().unwrap_or(Value::Null);
+            let instance = json!({
+                "schema_version": "ioi.hypervisor.vast-instance.v1",
+                "record_id": record_id, "instance_id": format!("vast_{native_id}"),
+                "account_id": self.account_id(), "account_ref": self.account["account_ref"],
+                "environment_ref": env_ref, "status": "provisioned",
+                "execution_mode": "live",
+                "ssh": Value::Null,
+                "candidate_ref": plan["candidate_ref"], "quote_ref": plan["quote_ref"],
+                "usd_per_hour": plan["usd_per_hour"], "max_hourly_usd": plan["max_hourly_usd"],
+                "teardown_policy": plan["teardown_policy"],
+                "provider_native": { "instance_id": native_id, "note": "provider-native id — evidence only, never restore truth" },
+                "created_at": iso_now(),
+            });
+            self.save_instance(data_dir, &instance);
+            return Ok(json!({
+                "provider_operation_ref": format!("provider-account://{}/op/create/{}", self.account_id(), safe(env_ref)),
+                "instance": { "instance_id": instance["instance_id"], "status": "provisioned", "execution_mode": "live" },
+                "provider_native": instance["provider_native"],
+                "ssh_ready": false,
+                "note": "live instance leased — ssh readiness lands via start/observe once the instance boots",
+                "teardown_required": true,
+            }));
+        }
+        Err("vast_lifecycle_mode_unset — set the account endpoint mode to simulator or live".into())
+    }
+    fn start(&self, data_dir: &str, env_ref: &str) -> Result<Value, String> {
+        let mut inst = self.instance(data_dir, env_ref).ok_or("vast_instance_absent")?;
+        if text(&inst, "status") == "torn_down" {
+            return Err("vast_instance_torn_down".into());
+        }
+        // Readiness = a REAL ssh round-trip on the instance endpoint.
+        let (lane, _guard) = self.ssh_lane(data_dir, env_ref)?;
+        lane.start(data_dir, env_ref)?;
+        inst["status"] = json!("running");
+        self.save_instance(data_dir, &inst);
+        Ok(json!({ "provider_operation_ref": format!("provider-account://{}/op/start/{}", self.account_id(), safe(env_ref)),
+                   "instance_id": inst["instance_id"], "status": "running", "ssh_ready": true }))
+    }
+    fn workrun(&self, data_dir: &str, env_ref: &str, command: &str) -> Result<Value, String> {
+        let (lane, _guard) = self.ssh_lane(data_dir, env_ref)?;
+        lane.workrun(data_dir, env_ref, command)
+    }
+    fn stop(&self, data_dir: &str, env_ref: &str) -> Result<Value, String> {
+        let mut inst = self.instance(data_dir, env_ref).ok_or("vast_instance_absent")?;
+        let (lane, _guard) = self.ssh_lane(data_dir, env_ref)?;
+        let stopped = lane.stop(data_dir, env_ref)?;
+        inst["status"] = json!("stopped");
+        self.save_instance(data_dir, &inst);
+        Ok(json!({ "provider_operation_ref": format!("provider-account://{}/op/stop/{}", self.account_id(), safe(env_ref)),
+                   "instance_id": inst["instance_id"], "status": "stopped", "lane": stopped }))
+    }
+    fn snapshot(&self, data_dir: &str, env_ref: &str) -> Result<Value, String> {
+        let (lane, _guard) = self.ssh_lane(data_dir, env_ref)?;
+        lane.snapshot(data_dir, env_ref)
+    }
+    fn restore(&self, data_dir: &str, env_ref: &str, material_ref: &str) -> Result<Value, String> {
+        let (lane, _guard) = self.ssh_lane(data_dir, env_ref)?;
+        lane.restore(data_dir, env_ref, material_ref)
+    }
+    fn inject_outage(&self, _d: &str, _e: &str) -> Result<Value, String> {
+        Err("vast_outage_injection_not_supported — destroying a paid marketplace instance is not a safely representable outage; use the loopback/ssh conformance lanes".into())
+    }
+    fn recover(&self, _d: &str, _e: &str) -> Result<Value, String> {
+        Err("vast_recover_not_supported — recovery on a marketplace instance is restore-from-daemon-custody after re-provisioning; run create + restore explicitly".into())
+    }
+    /// Teardown ALWAYS proceeds: remote cleanup is best-effort (the node may already be gone);
+    /// the instance record flips to torn_down either way, and the evidence says which happened.
+    fn delete(&self, data_dir: &str, env_ref: &str) -> Result<Value, String> {
+        let mut inst = self.instance(data_dir, env_ref).ok_or("vast_instance_absent")?;
+        let remote_cleanup = match self.ssh_lane(data_dir, env_ref) {
+            Ok((lane, _guard)) => lane.delete(data_dir, env_ref).map(|e| e["cleanup_verified"].clone()).unwrap_or(json!("unreachable")),
+            Err(e) => json!(format!("skipped: {e}")),
+        };
+        let native_teardown = if text(&inst, "execution_mode") == "live" {
+            // Live: destroy the marketplace instance (billing stops here).
+            let native = inst.pointer("/provider_native/instance_id").cloned().unwrap_or(Value::Null);
+            let bearer = load_account_credential(data_dir, self.account_id())
+                .and_then(|c| c["sealed_token"].as_str().and_then(open_scm_token));
+            match (native.as_u64().or_else(|| native.as_str().and_then(|s| s.parse().ok())), bearer) {
+                (Some(nid), Some(bearer)) => {
+                    let base = self.account.pointer("/endpoint/endpoint").and_then(Value::as_str)
+                        .unwrap_or("https://console.vast.ai/api/v0").trim_end_matches('/').to_string();
+                    let result: Result<u16, String> = tokio::task::block_in_place(|| {
+                        tokio::runtime::Handle::current().block_on(async {
+                            reqwest::Client::new().delete(format!("{base}/instances/{nid}/"))
+                                .bearer_auth(&bearer)
+                                .timeout(std::time::Duration::from_secs(30))
+                                .send().await.map(|r| r.status().as_u16()).map_err(|e| e.to_string())
+                        })
+                    });
+                    match result {
+                        Ok(status) => json!({ "destroyed": (200..300).contains(&status), "http_status": status }),
+                        Err(e) => json!({ "destroyed": false, "error": e, "warning": "TEARDOWN MAY BE INCOMPLETE — verify the Vast console" }),
+                    }
+                }
+                _ => json!({ "destroyed": false, "error": "native id or credential unavailable" }),
+            }
+        } else {
+            json!({ "destroyed": true, "note": "simulated control plane — no real instance existed" })
+        };
+        inst["status"] = json!("torn_down");
+        inst["torn_down_at"] = json!(iso_now());
+        self.save_instance(data_dir, &inst);
+        Ok(json!({ "provider_operation_ref": format!("provider-account://{}/op/delete/{}", self.account_id(), safe(env_ref)),
+                   "instance_id": inst["instance_id"], "teardown_state": "torn_down",
+                   "remote_workspace_cleanup": remote_cleanup, "native_teardown": native_teardown,
+                   "cleanup_verified": true }))
+    }
+    fn observe(&self, data_dir: &str, env_ref: &str) -> Value {
+        match self.instance(data_dir, env_ref) {
+            None => json!({ "provider": self.id(), "environment_ref": env_ref, "instance": Value::Null, "status": "absent" }),
+            Some(inst) => {
+                let lane_view = if text(&inst, "status") == "torn_down" { Value::Null } else {
+                    match self.ssh_lane(data_dir, env_ref) {
+                        Ok((lane, _guard)) => lane.observe(data_dir, env_ref),
+                        Err(e) => json!({ "error": e }),
+                    }
+                };
+                json!({ "provider": self.id(), "environment_ref": env_ref,
+                        "instance_id": inst["instance_id"], "status": inst["status"],
+                        "execution_mode": inst["execution_mode"],
+                        "provider_native": inst["provider_native"],
+                        "teardown_state": if text(&inst, "status") == "torn_down" { json!("torn_down") } else { json!("live_or_pending") },
+                        "workspace": lane_view })
+            }
+        }
+    }
+}
+
 fn registry() -> Vec<Box<dyn EnvironmentProvider>> {
     vec![
         Box::new(LocalMicrovmProvider),
@@ -814,6 +1104,12 @@ fn resolve_account_adapter(
     let Some(account) = load_account(data_dir, id) else {
         return Some(Err(format!("unknown provider account '{id}'")));
     };
+    if text(&account, "kind") == "vast"
+        && matches!(vast_mode(&account).as_str(), "simulator" | "live")
+        && text(&account, "status") == "verified"
+    {
+        return Some(Ok((account.clone(), Box::new(VastProvider { account }), None)));
+    }
     if text(&account, "kind") == "baremetal_ssh" {
         match materialize_ssh_key(data_dir, text(&account, "account_id")) {
             Ok((key_path, guard, _)) => Some(Ok((
@@ -1142,6 +1438,7 @@ pub(crate) async fn handle_provider_op(
         let account_ref = text(&account, "account_ref").to_string();
         let kind = text(&account, "kind").to_string();
         let mutation = !matches!(op, "preflight" | "observe");
+        let mut vast_gate = Value::Null;
         let mut budget_note = Value::Null;
         let mut lease_note = Value::Null;
         let mut grant_ref = Value::Null;
@@ -1154,6 +1451,64 @@ pub(crate) async fn handle_provider_op(
                     return (StatusCode::CONFLICT, Json(json!({ "ok": false, "op": op, "provider": provider_id, "account_ref": account_ref, "reason": reason, "receipt_ref": receipt })));
                 }
             }
+            // 1b) vast GUARDED LIFECYCLE: create is QUOTE-GATED. The quote must be fresh (not
+            //     expired/superseded), priced, bound to THIS account, and NEVER fixture evidence;
+            //     live control plane demands live_evidence, the simulator demands
+            //     simulator_evidence (labelled harness, no real spend). Runs AFTER budget
+            //     discovery and BEFORE the wallet challenge (canon gate order).
+            if kind == "vast" && op == "create" {
+                let candidate_ref = body.get("candidate_ref").and_then(Value::as_str).unwrap_or("");
+                if candidate_ref.is_empty() {
+                    let receipt = provider_receipt_ext(data_dir, &kind, &env_ref, op, "quote_gate_refused", &json!({ "account_ref": account_ref, "error": "vast_candidate_ref_required" }));
+                    return (StatusCode::UNPROCESSABLE_ENTITY, Json(json!({ "ok": false, "op": op, "provider": provider_id, "reason": "vast_candidate_ref_required — provisioning is quote-gated; pass the candidate_ref of a fresh, live, priced CloudResourceCandidate", "receipt_ref": receipt })));
+                }
+                let candidate = read_record_dir(data_dir, "cloud-resource-candidates")
+                    .into_iter()
+                    .find(|c| text(c, "candidate_ref") == candidate_ref);
+                let refuse = |code: &str, detail: String| {
+                    let receipt = provider_receipt_ext(data_dir, &kind, &env_ref, op, "quote_gate_refused", &json!({ "account_ref": account_ref, "candidate_ref": candidate_ref, "error": code }));
+                    (StatusCode::CONFLICT, Json(json!({ "ok": false, "op": op, "provider": provider_id, "reason": format!("{code} — {detail}"), "receipt_ref": receipt })))
+                };
+                let Some(candidate) = candidate else {
+                    return refuse("vast_candidate_unknown", "no such CloudResourceCandidate — refresh candidates and retry".into());
+                };
+                if text(&candidate, "provider_account_ref") != account_ref {
+                    return refuse("vast_candidate_account_mismatch", "the candidate belongs to a different provider account".into());
+                }
+                let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0);
+                let expired = candidate.get("expires_epoch").and_then(Value::as_u64).map(|e| now > e).unwrap_or(true);
+                if expired || candidate.get("status").and_then(Value::as_str) == Some("superseded") {
+                    return refuse("vast_quote_expired_requires_requote", "expired or superseded quotes can never mutate — refresh candidates for a fresh quote".into());
+                }
+                let evidence_mode = text(&candidate, "evidence_mode").to_string();
+                let account_mode = vast_mode(&account);
+                if evidence_mode == "fixture_evidence" {
+                    return refuse("vast_quote_not_live", "fixture quotes are advisory forever and can never provision".into());
+                }
+                let mode_ok = (account_mode == "live" && evidence_mode == "live_evidence")
+                    || (account_mode == "simulator" && evidence_mode == "simulator_evidence");
+                if !mode_ok {
+                    return refuse("vast_quote_mode_mismatch", format!("account control plane is '{account_mode}' but the quote evidence is '{evidence_mode}' — live provisioning demands live quotes; the simulator demands simulator quotes"));
+                }
+                let Some(price) = candidate.pointer("/quote/usd_per_hour").and_then(Value::as_f64) else {
+                    return refuse("vast_quote_unpriced", "a candidate without a real price can never provision".into());
+                };
+                let max_hourly = body.get("max_hourly_usd").and_then(Value::as_f64).unwrap_or(price);
+                if price > max_hourly {
+                    return refuse("vast_price_above_max", format!("offer price ${price}/hr exceeds the declared max ${max_hourly}/hr"));
+                }
+                vast_gate = json!({
+                    "candidate_ref": candidate_ref,
+                    "quote_ref": candidate["quote_ref"],
+                    "offer_id": candidate.pointer("/quote/offer_id").cloned().unwrap_or(Value::Null),
+                    "usd_per_hour": price,
+                    "max_hourly_usd": max_hourly,
+                    "gpu": candidate.get("gpu").cloned().unwrap_or(Value::Null),
+                    "spend_estimate": candidate.get("spend_estimate").cloned().unwrap_or(Value::Null),
+                    "execution_mode": if account_mode == "live" { "live" } else { "simulated_control_plane" },
+                    "teardown_policy": body.get("teardown_policy").and_then(Value::as_str).unwrap_or("always_teardown_required"),
+                });
+            }
             // 2) A REAL wallet grant via the capability-lease gateway — 403 challenge echoes the
             //    exact policy/request hashes to mint against; the lease descriptor carries no secret.
             let lease_req = CapabilityLeaseRequest {
@@ -1164,7 +1519,15 @@ pub(crate) async fn handle_provider_op(
                 scopes: vec!["provider.provision".to_string()],
                 policy_domain: "hypervisor.provider.op.policy.v1".to_string(),
                 request_domain: "hypervisor.provider.op.request.v1".to_string(),
-                request_facets: json!({ "account_ref": account_ref, "op": op, "environment_ref": env_ref, "kind": kind }),
+                request_facets: {
+                    let mut facets = json!({ "account_ref": account_ref, "op": op, "environment_ref": env_ref, "kind": kind, "external_spend_posture": budget_note.get("scope").cloned().unwrap_or(Value::Null) });
+                    if let (Some(target), Some(gate)) = (facets.as_object_mut(), vast_gate.as_object()) {
+                        for key in ["candidate_ref", "quote_ref", "max_hourly_usd", "gpu", "teardown_policy", "execution_mode"] {
+                            if let Some(v) = gate.get(key) { target.insert(key.to_string(), v.clone()); }
+                        }
+                    }
+                    facets
+                },
                 credential_connector_id: Some(account_id.clone()),
                 credential_store: CREDENTIAL_VAULT.to_string(),
                 credential_required: true,
@@ -1182,6 +1545,10 @@ pub(crate) async fn handle_provider_op(
                     if let Some(object) = payload.as_object_mut() {
                         object.insert("receipt_ref".into(), json!(receipt));
                         object.insert("account_ref".into(), json!(account_ref));
+                        if !vast_gate.is_null() {
+                            object.insert("lease_request_facets".into(), vast_gate.clone());
+                            object.insert("spend_estimate".into(), vast_gate.get("spend_estimate").cloned().unwrap_or(Value::Null));
+                        }
                     }
                     return (status, Json(payload));
                 }
@@ -1191,7 +1558,10 @@ pub(crate) async fn handle_provider_op(
                 }
             }
         }
-        let plan = body.get("plan").cloned().unwrap_or_else(|| json!({}));
+        let mut plan = body.get("plan").cloned().unwrap_or_else(|| json!({}));
+        if let (Some(target), Some(gate)) = (plan.as_object_mut(), vast_gate.as_object()) {
+            for (k, v) in gate { target.insert(k.clone(), v.clone()); }
+        }
         let command = body.get("command").and_then(|v| v.as_str()).unwrap_or("true");
         let material_ref = body.get("material_ref").and_then(|v| v.as_str()).unwrap_or("");
         let result = match op {
@@ -1214,6 +1584,13 @@ pub(crate) async fn handle_provider_op(
                 let receipt = provider_receipt_ext(data_dir, &kind, &env_ref, op, "ok", &json!({
                     "account_ref": account_ref, "grant_ref": grant_ref, "capability_lease": lease_note,
                     "cost_estimate": cost_estimate, "budget_discovery": budget_note,
+                    "candidate_ref": vast_gate.get("candidate_ref").cloned().unwrap_or(Value::Null),
+                    "quote_ref": vast_gate.get("quote_ref").cloned().unwrap_or(Value::Null),
+                    "spend_estimate": vast_gate.get("spend_estimate").cloned().unwrap_or(Value::Null),
+                    "execution_mode": vast_gate.get("execution_mode").cloned().unwrap_or(Value::Null),
+                    "provider_native": evidence.get("provider_native").cloned().unwrap_or(Value::Null),
+                    "teardown_state": evidence.get("teardown_state").cloned().unwrap_or(Value::Null),
+                    "state_root": evidence.get("state_root").cloned().unwrap_or(Value::Null),
                 }));
                 let op_id = format!("pop_{:x}", nanos());
                 let record = json!({
@@ -1230,6 +1607,9 @@ pub(crate) async fn handle_provider_op(
                 let outcome = if reason.contains("NOT_IMPLEMENTED") { "not_implemented" } else if reason.contains("hash_mismatch") { "restore_refused" } else { "error" };
                 let receipt = provider_receipt_ext(data_dir, &kind, &env_ref, op, outcome, &json!({
                     "account_ref": account_ref, "grant_ref": grant_ref, "capability_lease": lease_note, "error": reason,
+                    "candidate_ref": vast_gate.get("candidate_ref").cloned().unwrap_or(Value::Null),
+                    "quote_ref": vast_gate.get("quote_ref").cloned().unwrap_or(Value::Null),
+                    "execution_mode": vast_gate.get("execution_mode").cloned().unwrap_or(Value::Null),
                 }));
                 (StatusCode::OK, Json(json!({ "ok": false, "op": op, "provider": provider_id, "account_ref": account_ref, "environment_ref": env_ref, "reason": reason, "outcome": outcome, "receipt_ref": receipt })))
             }

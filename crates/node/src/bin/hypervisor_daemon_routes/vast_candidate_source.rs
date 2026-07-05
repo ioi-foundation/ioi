@@ -98,27 +98,33 @@ pub(crate) async fn fetch_offers(st: &Arc<DaemonState>) -> Value {
     let account_ref = text(&account, "account_ref").to_string();
     let ep = account.get("endpoint").cloned().unwrap_or_else(|| json!({}));
     let fetched_at = iso_now();
-    if text(&ep, "mode") == "fixture" {
+    if text(&ep, "mode") == "fixture" || text(&ep, "mode") == "simulator" {
+        let simulator = text(&ep, "mode") == "simulator";
+        let (mode_label, state_label): (&str, &str) = if simulator {
+            ("simulator_evidence", "simulator_quote_source")
+        } else {
+            ("fixture_evidence", "fixture_quote_source")
+        };
         let path = text(&ep, "fixture_file");
         let outcome = match std::fs::read_to_string(path) {
             Ok(raw) => match serde_json::from_str::<Value>(&raw) {
                 Ok(doc) => {
                     let offers = doc.get("offers").and_then(Value::as_array).cloned().unwrap_or_default();
-                    json!({ "engaged": true, "mode": "fixture_evidence", "account_ref": account_ref,
-                        "state": "fixture_quote_source", "offers": offers,
-                        "evidence": { "mode": "fixture_evidence", "fixture_file": path,
+                    json!({ "engaged": true, "mode": mode_label, "account_ref": account_ref,
+                        "state": state_label, "offers": offers,
+                        "evidence": { "mode": mode_label, "fixture_file": path,
                                       "offers_seen": doc.get("offers").and_then(Value::as_array).map(|a| a.len()).unwrap_or(0),
-                                      "warning": "deterministic local fixture — NOT live supply; validates normalization/expiry/invariants only" },
+                                      "warning": if simulator { "local lifecycle SIMULATOR — control plane simulated, ssh/custody lane real; NOT live supply" } else { "deterministic local fixture — NOT live supply; validates normalization/expiry/invariants only" } },
                         "at": fetched_at })
                 }
-                Err(e) => json!({ "engaged": true, "mode": "fixture_evidence", "account_ref": account_ref,
+                Err(e) => json!({ "engaged": true, "mode": mode_label, "account_ref": account_ref,
                     "state": "degraded_unreachable", "offers": [],
-                    "evidence": { "mode": "fixture_evidence", "fixture_file": path, "error": format!("fixture parse failed: {e}") },
+                    "evidence": { "mode": mode_label, "fixture_file": path, "error": format!("fixture parse failed: {e}") },
                     "at": fetched_at }),
             },
-            Err(e) => json!({ "engaged": true, "mode": "fixture_evidence", "account_ref": account_ref,
+            Err(e) => json!({ "engaged": true, "mode": mode_label, "account_ref": account_ref,
                 "state": "degraded_unreachable", "offers": [],
-                "evidence": { "mode": "fixture_evidence", "fixture_file": path, "error": format!("fixture unreadable: {e}") },
+                "evidence": { "mode": mode_label, "fixture_file": path, "error": format!("fixture unreadable: {e}") },
                 "at": fetched_at }),
         };
         persist_health(&st.data_dir, &health_record(&outcome));
@@ -200,6 +206,8 @@ pub(crate) fn normalize_offers(
     let mode = text(outcome, "mode");
     let account_ref = text(outcome, "account_ref");
     let fixture = mode == "fixture_evidence";
+    let simulator = mode == "simulator_evidence";
+    let live = mode == "live_evidence";
     let offers = outcome.get("offers").and_then(Value::as_array).cloned().unwrap_or_default();
     offers.iter().take(24).enumerate().filter_map(|(i, offer)| {
         // No invented quotes: an offer without a real price is skipped, not estimated.
@@ -215,12 +223,28 @@ pub(crate) fn normalize_offers(
         let mut risk: Vec<&str> = vec!["marketplace_rental_interruption"];
         if !verified_host { risk.push("unverified_marketplace_host"); }
         if fixture { risk.push("fixture_evidence_not_live_supply"); }
+        if simulator { risk.push("simulator_evidence_not_live_supply"); }
         let claims = vec![
             json!(format!("vast offer {offer_id}: {num_gpus}x {gpu_name} at ${dph}/hr (verbatim offer data — nothing invented)")),
             json!("quote + preflight only — no provisioning, no mutation, no spend on this path"),
         ];
-        let coverage = if fixture { "fixture_quote" } else { "live_quote" };
-        let eligibility = ["advisory_only", "quote_preflight_only", "lifecycle_adapter_absent"];
+        let coverage = if fixture { "fixture_quote" } else if simulator { "simulator_quote" } else { "live_quote" };
+        // Guarded-lifecycle eligibility ladder: ONLY a live, fresh, priced quote on a verified
+        // account with the lifecycle adapter + ssh bootstrap path makes a candidate
+        // placement-eligible. Simulator quotes validate the harness (advisory_only, labelled);
+        // fixture quotes stay advisory_only FOREVER.
+        let eligibility: Vec<&str> = if live {
+            vec!["placement_eligible", "quote_live", "guarded_lifecycle_available", "ssh_bootstrap_known"]
+        } else if simulator {
+            vec!["advisory_only", "simulated_control_plane", "lifecycle_harness_only"]
+        } else {
+            vec!["advisory_only", "quote_preflight_only", "lifecycle_adapter_absent"]
+        };
+        let lifecycle = if live { "guarded_lifecycle (quote-gated, receipted)" }
+            else if simulator { "guarded_lifecycle_simulator (control plane simulated; ssh/custody lane real)" }
+            else { "quote_preflight_only" };
+        let placement_eligible: Value = if live { json!(true) } else { json!("advisory_only") };
+        let blocked_reason: Value = if live { Value::Null } else if simulator { json!("simulated_control_plane_not_live_supply") } else { json!("provider_kind_lifecycle_not_implemented") };
         let quote = json!({
             "schema_version": "ioi.hypervisor.provider-quote.v1",
             "quote_ref": format!("provider-quote://{id}"),
@@ -301,9 +325,9 @@ pub(crate) fn normalize_offers(
             "expires_epoch": expires_epoch,
             "risk_labels": risk,
             "eligibility_labels": eligibility,
-            "placement_eligible": "advisory_only",
-            "lifecycle": "quote_preflight_only",
-            "execution_blocked_reason": "provider_kind_lifecycle_not_implemented",
+            "placement_eligible": placement_eligible,
+            "lifecycle": lifecycle,
+            "execution_blocked_reason": blocked_reason,
             "coverage_state": coverage,
             "evidence_mode": mode,
             "evidence": evidence,

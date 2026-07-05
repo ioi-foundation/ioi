@@ -499,6 +499,9 @@ pub(crate) async fn handle_work_ledger(
             "account_ref": g(&r, "account_ref"), "environment_ref": g(&r, "environment_ref"),
             "receipt_ref": g(&r, "receipt_ref"), "grant_ref": g(&r, "grant_ref"),
             "cost_estimate": g(&r, "cost_estimate"),
+            "candidate_ref": g(&r, "candidate_ref"), "quote_ref": g(&r, "quote_ref"),
+            "execution_mode": g(&r, "execution_mode"), "teardown_state": g(&r, "teardown_state"),
+            "state_root_evidence": g(&r, "state_root"),
             "provider_health_ref": "/__ioi/operations#ops-provider-health",
         }));
     }
