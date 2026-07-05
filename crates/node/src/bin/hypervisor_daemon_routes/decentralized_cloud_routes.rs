@@ -158,6 +158,7 @@ fn derive_candidates(
     aws_outcome: &Value,
     gcp_outcome: &Value,
     azure_outcome: &Value,
+    k8s_outcome: &Value,
 ) -> (Vec<Value>, Vec<Value>) {
     let observed_at = iso_now();
     let expires_epoch = epoch_secs() + ttl_secs;
@@ -309,7 +310,10 @@ fn derive_candidates(
                 && gcp_outcome["account_ref"] == account["account_ref"])
                 || (kind == "azure"
                 && azure_outcome.get("engaged").and_then(Value::as_bool) == Some(true)
-                && azure_outcome["account_ref"] == account["account_ref"]);
+                && azure_outcome["account_ref"] == account["account_ref"])
+                || (kind == "k8s"
+                && k8s_outcome.get("engaged").and_then(Value::as_bool) == Some(true)
+                && k8s_outcome["account_ref"] == account["account_ref"]);
             if quote_engaged {
                 if wants_private {
                     rejected.push(json!({ "source": "depin_market", "adapter_ref": "adapter:vast-quote",
@@ -397,6 +401,23 @@ fn derive_candidates(
                 &custody_detail,
                 "replicate the sealed archive to another verified backend; a replacement commitment repairs meaning ONLY via an ArtifactRepairReceipt bound to the same state_root",
                 json!({ "objects": objects, "open_incidents": open_incidents, "basis": "daemon archive/incident records — backend self-reports are evidence, not health truth" }));
+        }
+    }
+    // ── k8s: CLUSTER candidates from cluster facts (one per authorized namespace) — clusters
+    // are clusters; unauthorized namespaces are rejected by name, never silently skipped. ──
+    if k8s_outcome.get("engaged").and_then(Value::as_bool) == Some(true) && !wants_private {
+        if text(k8s_outcome, "state") == "degraded_unreachable" {
+            rejected.push(json!({ "source": "k8s", "adapter_ref": "adapter:k8s-cluster-facts",
+                "provider_account_ref": k8s_outcome["account_ref"],
+                "reason_code": "candidate_source_degraded",
+                "detail": "cluster facts probe failed — no fake cluster facts on failure",
+                "evidence_refs": [k8s_outcome["evidence"].clone()] }));
+        } else {
+            let (k8s_candidates, k8s_rejected) = super::k8s_candidate_source::normalize_offers(
+                k8s_outcome, &intent_ref, batch, &observed_at, &expires_at, expires_epoch,
+            );
+            candidates.extend(k8s_candidates);
+            rejected.extend(k8s_rejected);
         }
     }
     // ── direct_provider: real Azure VM offers (ENTERPRISE customer-cloud lane). ──
@@ -568,7 +589,8 @@ async fn refresh_candidates(st: &Arc<DaemonState>, intent: &Value, ttl_secs: u64
     let aws_outcome = super::aws_candidate_source::fetch_offers(st).await;
     let gcp_outcome = super::gcp_candidate_source::fetch_offers(st).await;
     let azure_outcome = super::azure_candidate_source::fetch_offers(st).await;
-    let (candidates, rejected) = derive_candidates(&st.data_dir, intent, &classes, ttl_secs, &batch, &vast_outcome, &runpod_outcome, &lambda_outcome, &akash_outcome, &aws_outcome, &gcp_outcome, &azure_outcome);
+    let k8s_outcome = super::k8s_candidate_source::fetch_offers(st).await;
+    let (candidates, rejected) = derive_candidates(&st.data_dir, intent, &classes, ttl_secs, &batch, &vast_outcome, &runpod_outcome, &lambda_outcome, &akash_outcome, &aws_outcome, &gcp_outcome, &azure_outcome, &k8s_outcome);
     for c in &candidates {
         let _ = persist_record(&st.data_dir, CANDIDATE_KIND, text(c, "candidate_id"), c);
     }
@@ -681,6 +703,7 @@ pub(crate) async fn handle_candidate_sources(State(st): State<Arc<DaemonState>>)
             super::aws_candidate_source::source_state(&st.data_dir),
             super::gcp_candidate_source::source_state(&st.data_dir),
             super::azure_candidate_source::source_state(&st.data_dir),
+            super::k8s_candidate_source::source_state(&st.data_dir),
             super::vast_candidate_source::source_state(&st.data_dir),
             super::runpod_candidate_source::source_state(&st.data_dir),
             super::lambda_candidate_source::source_state(&st.data_dir),

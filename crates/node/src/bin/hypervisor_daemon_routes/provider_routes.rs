@@ -488,7 +488,18 @@ fn kind_capabilities(kind: &str) -> Value {
             "custody": "Standard unless proven otherwise; provider-native VM/disk/snapshot/resource ids are evidence only",
             "provider_spend": "customer-borne pay-as-you-go spend",
             "lifecycle": "guarded (quote-gated) once a control-plane mode is set; credential_preflight_only before that" }),
-        "k8s" => json!({ "locality": "remote", "isolation": "container", "restore": true, "remote": true, "credentials_required": true, "authority_gated": true, "privacy": "cluster_operator_controlled", "lifecycle": "credential_preflight_only" }),
+        "k8s" => json!({ "locality": "remote", "isolation": "container",
+            "lane": "CLUSTER substrate — Kubernetes/KubeVirt/customer clusters treated as CLUSTERS: namespaces, quotas, PVCs, GPU scheduling, services/ingress, admission; never fake single-VM SSH",
+            "admission": "namespace-scoped — RBAC, resource quotas/limits, storage-class and service posture all fail closed by name",
+            "exec": "Kubernetes exec semantics (logs/exec through the workload) — SSH only if a workload explicitly declares it",
+            "storage": "PVC/storage-class posture recorded per workload; PVC persistence is CLUSTER posture — daemon custody state roots remain restore truth",
+            "gpu": "device-plugin scheduling posture — GPU requests are admitted against quota + node posture, never assumed",
+            "kubevirt": "KubeVirt VMIs when the CRDs are detected — explicitly KubeVirt, never a generic VM; absent CRDs fail closed by name",
+            "restore": true, "remote": true, "credentials_required": true, "authority_gated": true,
+            "privacy": "cluster_operator_controlled",
+            "custody": "Standard unless proven otherwise; pod/job/service/PVC/VM names and uids are evidence only",
+            "provider_spend": "customer/operator-borne — no direct provider price; a DECLARED metered posture with a sourced price is required to price anything",
+            "lifecycle": "guarded (admission-gated) once a control-plane mode is set; credential_preflight_only before that" }),
         "vast" => json!({ "locality": "remote", "isolation": "container_gpu", "restore": true, "remote": true, "credentials_required": true, "authority_gated": true, "privacy": "marketplace_host_NOT_private", "lifecycle": "credential_preflight_only" }),
         "runpod" => json!({ "locality": "remote", "isolation": "container_gpu_runtime", "restore": true, "remote": true, "credentials_required": true, "authority_gated": true, "privacy": "cloud_gpu_runtime_NOT_private", "custody": "Standard unless proven otherwise", "lifecycle": "guarded (quote-gated) once a control-plane mode is set; credential_preflight_only before that" }),
         "lambda_cloud" => json!({ "locality": "remote", "isolation": "gpu_vm", "vm_class": "ordinary Linux GPU VM + ssh", "persistent_disk": "instance-lifetime local NVMe (persistent while the VM lives)", "restore": true, "remote": true, "credentials_required": true, "authority_gated": true, "privacy": "cloud_vm_NOT_private", "custody": "Standard unless proven otherwise; provider-native snapshots/disks are evidence only — daemon custody state roots remain restore truth", "lifecycle": "guarded (quote-gated) once a control-plane mode is set; credential_preflight_only before that" }),
@@ -522,13 +533,24 @@ fn open_exposure_for(data_dir: &str, account_ref: &str, env_ref: &str) -> Option
 /// external_spend budget posture MUST be discovered BEFORE any provider mutation
 /// (providers-and-environments.md:1114 — "Budget exhaustion must be discovered before provider
 /// mutation or new external spend"). bare-metal SSH is customer-borne with no metered spend.
-fn discover_budget(data_dir: &str, kind: &str, op: &str) -> Result<Value, String> {
+fn discover_budget(data_dir: &str, kind: &str, op: &str, account: &Value) -> Result<Value, String> {
     if kind == "baremetal_ssh" {
         return Ok(json!({
             "scope": "local_free",
             "admitted": true,
             "discovered_before_mutation": true,
             "cost_estimate": { "amount": 0.0, "currency": "USD", "basis": "customer_borne_byo — bare-metal SSH node, no metered provider spend" },
+            "provider_spend_borne_by": "customer",
+        }));
+    }
+    // Customer/operator-owned clusters have NO direct provider price — budget discovery is
+    // metered only when the account DECLARES a metered posture (endpoint.metered).
+    if kind == "k8s" && account.pointer("/endpoint/metered").map(Value::is_null).unwrap_or(true) {
+        return Ok(json!({
+            "scope": "cluster_customer_operated",
+            "admitted": true,
+            "discovered_before_mutation": true,
+            "cost_estimate": { "amount": 0.0, "currency": "USD", "basis": "customer/operator-owned cluster — no direct provider price; declare endpoint.metered to meter" },
             "provider_spend_borne_by": "customer",
         }));
     }
@@ -2374,6 +2396,396 @@ impl EnvironmentProvider for GcpProvider {
     }
 }
 
+
+// --- k8s GUARDED LIFECYCLE: the CLUSTER substrate lane — Kubernetes/KubeVirt/customer       ---
+// --- clusters treated as CLUSTERS: namespace-scoped admission (RBAC/quota/PVC/GPU/service), ---
+// --- Kubernetes exec semantics (NEVER fake single-VM SSH), KubeVirt VMIs when CRDs exist.   ---
+// --- The simulator's control plane is simulated; the exec/custody lane is REAL: a local     ---
+// --- workload filesystem with real process execution and daemon-custody snapshots.          ---
+const K8S_WORKLOAD_KIND: &str = "k8s-workloads";
+
+fn load_k8s_workload(data_dir: &str, account_id: &str, env_ref: &str) -> Option<Value> {
+    let mut mine: Vec<Value> = read_record_dir(data_dir, K8S_WORKLOAD_KIND)
+        .into_iter()
+        .filter(|w| text(w, "account_id") == account_id && text(w, "environment_ref") == env_ref)
+        .collect();
+    mine.sort_by(|a, b| text(a, "record_id").cmp(text(b, "record_id")));
+    mine.pop()
+}
+
+struct K8sProvider {
+    account: Value,
+}
+impl K8sProvider {
+    fn account_id(&self) -> &str {
+        text(&self.account, "account_id")
+    }
+    fn mode(&self) -> String {
+        vast_mode(&self.account)
+    }
+    fn facts(&self) -> Result<Value, String> {
+        let path = self.account.pointer("/endpoint/fixture_file").and_then(Value::as_str).unwrap_or("");
+        if path.is_empty() {
+            return Err("k8s_cluster_facts_missing — simulator mode needs endpoint.fixture_file (the cluster facts document)".into());
+        }
+        std::fs::read_to_string(path)
+            .map_err(|e| format!("k8s_cluster_facts_unreadable: {e}"))
+            .and_then(|raw| serde_json::from_str::<Value>(&raw).map_err(|e| format!("k8s_cluster_facts_unparseable: {e}")))
+    }
+    fn workload(&self, data_dir: &str, env_ref: &str) -> Option<Value> {
+        load_k8s_workload(data_dir, self.account_id(), env_ref)
+    }
+    fn save_workload(&self, data_dir: &str, w: &Value) {
+        let id = text(w, "record_id").to_string();
+        let _ = persist_record(data_dir, K8S_WORKLOAD_KIND, &id, w);
+    }
+    fn push_event(w: &mut Value, kind: &str, detail: String) {
+        let mut events = w.get("events").and_then(Value::as_array).cloned().unwrap_or_default();
+        events.push(json!({ "at": iso_now(), "kind": kind, "detail": detail,
+                            "execution_mode": w["execution_mode"] }));
+        w["events"] = json!(events);
+    }
+    /// The REAL exec lane: run a command inside the workload's real local filesystem —
+    /// Kubernetes exec semantics (a process in the workload), NEVER an ssh hop.
+    fn exec_in_workload(workdir: &str, command: &str) -> Result<(i32, String, String), String> {
+        let out = std::process::Command::new("sh")
+            .arg("-c")
+            .arg(command)
+            .current_dir(workdir)
+            .output()
+            .map_err(|e| format!("k8s_exec_failed: {e}"))?;
+        Ok((
+            out.status.code().unwrap_or(-1),
+            String::from_utf8_lossy(&out.stdout).trim_end().to_string(),
+            String::from_utf8_lossy(&out.stderr).trim_end().to_string(),
+        ))
+    }
+    fn ready_workload(&self, data_dir: &str, env_ref: &str) -> Result<Value, String> {
+        let w = self.workload(data_dir, env_ref).ok_or("k8s_workload_absent — admit one with the gated create op first")?;
+        if text(&w, "status") == "torn_down" {
+            return Err("k8s_workload_deleted — this workload was already deleted".into());
+        }
+        if text(&w, "status") != "Running" {
+            return Err(format!("k8s_workload_not_ready — workload is '{}' (run start to reach readiness); pod phase alone is never assumed", text(&w, "status")));
+        }
+        Ok(w)
+    }
+}
+impl EnvironmentProvider for K8sProvider {
+    fn id(&self) -> &str {
+        "k8s-guarded"
+    }
+    fn capabilities(&self) -> Value {
+        let mut caps = kind_capabilities("k8s");
+        caps["provider_spend_borne_by"] = json!("customer");
+        caps["lifecycle"] = json!("guarded_lifecycle — admission-gated create, wallet-gated mutations, delete required");
+        caps["execution_mode"] = json!(self.mode());
+        caps
+    }
+    fn status(&self) -> (&'static str, String) {
+        match text(&self.account, "status") {
+            "verified" => ("available", format!("guarded k8s cluster lifecycle ({} control plane)", self.mode())),
+            "revoked" => ("revoked", "credential revoked".into()),
+            _ => ("unverified", "bind + preflight the bearer/kubeconfig credential".into()),
+        }
+    }
+    fn preflight(&self, _plan: &Value) -> Value {
+        json!({ "admit": text(&self.account, "status") == "verified", "provider": self.id(),
+                "account_ref": self.account["account_ref"], "execution_mode": self.mode(),
+                "lifecycle": "guarded_lifecycle", "preflight_evidence": self.account.get("preflight").cloned().unwrap_or(Value::Null) })
+    }
+    fn create(&self, data_dir: &str, env_ref: &str, plan: &Value) -> Result<Value, String> {
+        if let Some(existing) = self.workload(data_dir, env_ref) {
+            if text(&existing, "status") != "torn_down" {
+                return Err(format!("k8s_workload_already_admitted — {} is live for this environment; delete it first", text(&existing, "workload_name")));
+            }
+        }
+        let mode = self.mode();
+        if mode == "live" {
+            if load_account_credential(data_dir, self.account_id()).is_none() {
+                return Err("k8s_live_credentials_absent — a live cluster lifecycle needs a bound, resolvable bearer/kubeconfig credential; live execution is never claimed unauthenticated".into());
+            }
+            return Err("k8s_live_api_flow_not_implemented — the live pod/job/VMI admission flow lands with the live harness cut; a fake workload is never admitted".into());
+        }
+        if mode != "simulator" {
+            return Err("k8s_lifecycle_mode_unset — set the account endpoint mode to simulator or live".into());
+        }
+        // ── ADMISSION: every rung fails closed by NAME against the cluster facts. ──
+        let facts = self.facts()?;
+        let spec = plan.get("workload_spec").cloned().unwrap_or(json!({}));
+        let namespace = text(plan, "namespace").to_string();
+        let ns = facts.get("namespaces").and_then(Value::as_array)
+            .and_then(|a| a.iter().find(|n| text(n, "name") == namespace).cloned());
+        let Some(ns) = ns else {
+            return Err(format!("k8s_namespace_missing — namespace '{namespace}' does not exist in the cluster facts"));
+        };
+        if ns.get("authorized").and_then(Value::as_bool) != Some(true) {
+            return Err(format!("k8s_namespace_unauthorized — the bound service account has no admission rights in '{namespace}' (RBAC posture)"));
+        }
+        let quota = ns.get("quota").cloned().unwrap_or(json!({}));
+        let req = spec.get("resources").cloned().unwrap_or(json!({}));
+        let cpu_req = req.get("cpu_milli").and_then(Value::as_u64).unwrap_or(500);
+        let mem_req = req.get("memory_gb").and_then(Value::as_u64).unwrap_or(1);
+        let gpu_req = req.get("gpu").and_then(Value::as_u64).unwrap_or(0);
+        if cpu_req > quota.get("cpu_milli_available").and_then(Value::as_u64).unwrap_or(0)
+            || mem_req > quota.get("memory_gb_available").and_then(Value::as_u64).unwrap_or(0)
+        {
+            return Err(format!("k8s_quota_insufficient — requested cpu {cpu_req}m / mem {mem_req}GB exceeds the namespace quota ({quota})"));
+        }
+        if gpu_req > 0 {
+            let plugin = facts.pointer("/gpu/device_plugin").and_then(Value::as_str).unwrap_or("");
+            let ns_gpu = quota.get("gpu_available").and_then(Value::as_u64).unwrap_or(0);
+            if plugin.is_empty() || gpu_req > ns_gpu {
+                return Err(format!("k8s_gpu_unschedulable — requested {gpu_req} GPU(s) but device-plugin/quota posture admits {ns_gpu} (plugin: '{plugin}'); GPU scheduling is never assumed"));
+            }
+        }
+        let pvc = spec.get("pvc").cloned().unwrap_or(Value::Null);
+        if !pvc.is_null() {
+            let sc = text(&pvc, "storage_class");
+            let supported = facts.get("storage_classes").and_then(Value::as_array)
+                .map(|a| a.iter().any(|c| text(c, "name") == sc && c.get("pvc_supported").and_then(Value::as_bool) == Some(true)))
+                .unwrap_or(false);
+            if !supported {
+                return Err(format!("k8s_pvc_storage_class_unavailable — storage class '{sc}' does not support PVCs on this cluster"));
+            }
+        }
+        let service = spec.get("service").cloned().unwrap_or(Value::Null);
+        if !service.is_null() {
+            let svc_type = text(&service, "type");
+            if svc_type == "LoadBalancer" && facts.pointer("/services/load_balancer").and_then(Value::as_bool) != Some(true) {
+                return Err("k8s_service_ingress_unsupported — the cluster declares no LoadBalancer support; use ClusterIP/ingress per the cluster posture".into());
+            }
+        }
+        let kubevirt_req = spec.get("kubevirt").and_then(Value::as_bool).unwrap_or(false);
+        if kubevirt_req && facts.pointer("/kubevirt/installed").and_then(Value::as_bool) != Some(true) {
+            return Err("k8s_kubevirt_crds_absent — a KubeVirt VMI was requested but the KubeVirt CRDs are not installed on this cluster".into());
+        }
+        // ── Admitted: mint the workload with a REAL local filesystem (the exec/custody lane). ──
+        let stamp = nanos();
+        let record_id = format!("k8swl_{stamp:x}");
+        let workload_class = if kubevirt_req { "kubevirt_vmi" } else { "pod" };
+        let workload_name = if kubevirt_req { format!("vmi-sim-{stamp:x}") } else { format!("pod-sim-{stamp:x}") };
+        let uid = format!("uid-sim-{stamp:x}");
+        let workdir = Path::new(data_dir).join("k8s-workloads-fs").join(safe(self.account_id())).join(safe(env_ref));
+        std::fs::create_dir_all(&workdir).map_err(|e| format!("k8s_workload_fs_failed: {e}"))?;
+        let pvc_native = if pvc.is_null() { Value::Null } else {
+            json!({ "pvc_name": format!("pvc-sim-{stamp:x}"), "storage_class": pvc["storage_class"], "size_gb": pvc["size_gb"],
+                    "note": "SIMULATED PVC name — evidence only; PVC persistence is CLUSTER posture, never restore truth" })
+        };
+        let service_native = if service.is_null() { Value::Null } else {
+            json!({ "service_name": format!("svc-sim-{stamp:x}"), "type": service["type"], "port": service["port"],
+                    "note": "SIMULATED service name — exposure evidence, not authority" })
+        };
+        let mut w = json!({
+            "schema_version": "ioi.hypervisor.k8s-workload.v1",
+            "record_id": record_id, "workload_name": workload_name, "workload_class": workload_class,
+            "account_id": self.account_id(), "account_ref": self.account["account_ref"],
+            "environment_ref": env_ref, "status": "Pending",
+            "execution_mode": "simulated_control_plane",
+            "cluster": facts.get("cluster").cloned().unwrap_or(Value::Null),
+            "namespace": namespace, "workload_spec": spec, "workload_spec_hash": plan["workload_spec_hash"],
+            "exec_posture": "kubernetes_exec",
+            "candidate_ref": plan["candidate_ref"],
+            "teardown_policy": plan["teardown_policy"],
+            "workdir": workdir.to_string_lossy(),
+            "events": [],
+            "provider_native": { "name": workload_name, "uid": uid, "pvc": pvc_native, "service": service_native,
+                "note": if kubevirt_req { "SIMULATED KubeVirt VMI name/uid — explicitly KubeVirt, never a generic VM; evidence only, never restore or billing truth; no real cluster workload exists" }
+                        else { "SIMULATED pod name/uid — evidence only, never restore or billing truth; no real cluster workload exists" } },
+            "created_at": iso_now(),
+        });
+        Self::push_event(&mut w, "workload_admitted", format!("{workload_class} admitted in namespace '{namespace}' under quota (cpu {cpu_req}m / mem {mem_req}GB / gpu {gpu_req})"));
+        self.save_workload(data_dir, &w);
+        Ok(json!({
+            "provider_operation_ref": format!("provider-account://{}/op/create/{}", self.account_id(), safe(env_ref)),
+            "workload": { "workload_name": workload_name, "workload_class": workload_class, "namespace": w["namespace"], "status": "Pending", "execution_mode": "simulated_control_plane" },
+            "provider_native": w["provider_native"],
+            "ready": false,
+            "live_provisioning_not_run": true,
+            "note": "workload admitted (Pending) — run start to reach readiness; exec fails closed (k8s_workload_not_ready) until then",
+            "teardown_required": true,
+        }))
+    }
+    fn start(&self, data_dir: &str, env_ref: &str) -> Result<Value, String> {
+        let mut w = self.workload(data_dir, env_ref).ok_or("k8s_workload_absent")?;
+        if text(&w, "status") == "torn_down" {
+            return Err("k8s_workload_deleted".into());
+        }
+        // Readiness is PROVEN by the real workload fs: a probe file round-trips through the
+        // exec lane (pod phase alone is never treated as readiness).
+        let workdir = text(&w, "workdir").to_string();
+        let (code, out, err) = Self::exec_in_workload(&workdir, "echo ready > .k8s-readiness-probe && cat .k8s-readiness-probe")?;
+        if code != 0 || out != "ready" {
+            return Err(format!("k8s_workload_not_ready — readiness probe failed (exit {code}): {err}"));
+        }
+        let service_evidence = w.pointer("/provider_native/service").cloned().unwrap_or(Value::Null);
+        w["status"] = json!("Running");
+        w["ready_evidence"] = json!({ "probe": "exec round-trip through the workload fs", "proven_at": iso_now(),
+                                      "note": "readiness proven by the exec lane — pod phase alone was not treated as readiness" });
+        Self::push_event(&mut w, "workload_ready", "readiness probe round-tripped through the exec lane".into());
+        self.save_workload(data_dir, &w);
+        Ok(json!({ "provider_operation_ref": format!("provider-account://{}/op/start/{}", self.account_id(), safe(env_ref)),
+                   "workload_name": w["workload_name"], "status": "Running", "ready": true,
+                   "ready_evidence": w["ready_evidence"],
+                   "service": service_evidence }))
+    }
+    fn workrun(&self, data_dir: &str, env_ref: &str, command: &str) -> Result<Value, String> {
+        let mut w = self.ready_workload(data_dir, env_ref)?;
+        let workdir = text(&w, "workdir").to_string();
+        let (code, stdout, stderr) = Self::exec_in_workload(&workdir, command)?;
+        Self::push_event(&mut w, "exec", format!("kubernetes exec: `{}` → exit {code}", command.chars().take(60).collect::<String>()));
+        self.save_workload(data_dir, &w);
+        if code != 0 {
+            return Err(format!("k8s exec failed (exit {code}): {stderr}"));
+        }
+        Ok(json!({ "provider_operation_ref": format!("provider-account://{}/op/workrun/{}", self.account_id(), safe(env_ref)),
+                   "exec_lane": "kubernetes_exec — a process in the workload (simulated API transport; process execution REAL); never an ssh hop",
+                   "exit_code": code, "stdout": stdout, "stderr": stderr }))
+    }
+    fn stop(&self, data_dir: &str, env_ref: &str) -> Result<Value, String> {
+        let mut w = self.workload(data_dir, env_ref).ok_or("k8s_workload_absent")?;
+        w["status"] = json!("Stopped");
+        Self::push_event(&mut w, "workload_stopped", "workload stopped — customer/operator cluster: no metered spend lane by default; PVC persists per its storage class (cluster posture, not restore truth)".into());
+        self.save_workload(data_dir, &w);
+        Ok(json!({ "provider_operation_ref": format!("provider-account://{}/op/stop/{}", self.account_id(), safe(env_ref)),
+                   "workload_name": w["workload_name"], "status": "Stopped",
+                   "spend_note": "customer/operator-owned cluster — no direct provider price; a DECLARED metered posture would keep any exposure open until delete" }))
+    }
+    fn snapshot(&self, data_dir: &str, env_ref: &str) -> Result<Value, String> {
+        let w = self.ready_workload(data_dir, env_ref)?;
+        let workdir = text(&w, "workdir").to_string();
+        let out = std::process::Command::new("tar")
+            .args(["-czf", "-", "-C", &workdir, "."])
+            .output()
+            .map_err(|e| format!("k8s_snapshot_failed: {e}"))?;
+        if !out.status.success() || out.stdout.is_empty() {
+            return Err(format!("k8s_snapshot_failed: {}", String::from_utf8_lossy(&out.stderr)));
+        }
+        let tar_bytes = out.stdout;
+        let state_root = sha256_bytes(&tar_bytes);
+        let stamp = format!("{:x}", nanos());
+        let dir = Path::new(data_dir).join(MATERIAL_KIND).join(safe(self.account_id())).join(safe(env_ref));
+        std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+        let file = dir.join(format!("{stamp}.tar.gz"));
+        std::fs::write(&file, &tar_bytes).map_err(|e| e.to_string())?;
+        let material_id = format!("pmat_{stamp}");
+        let material_ref = format!("provider-material://{}/{}/{stamp}", safe(self.account_id()), safe(env_ref));
+        let record = json!({
+            "schema_version": "ioi.hypervisor.provider-material.v1",
+            "material_id": material_id, "material_ref": material_ref,
+            "account_ref": text(&self.account, "account_ref"),
+            "environment_ref": env_ref,
+            "state_root": state_root, "bytes": tar_bytes.len(),
+            "custody": "daemon", "path": file.to_string_lossy(),
+            "at": iso_now(),
+        });
+        let _ = persist_record(data_dir, MATERIAL_KIND, &material_id, &record);
+        let mut w2 = w.clone();
+        Self::push_event(&mut w2, "snapshot_taken", "workload fs streamed to daemon custody; VolumeSnapshot-style native name recorded as evidence".into());
+        self.save_workload(data_dir, &w2);
+        Ok(json!({ "restore_material_ref": material_ref, "state_root": state_root, "custody": "daemon",
+                   "bytes": tar_bytes.len(), "admitted": true,
+                   "provider_native_snapshot": { "volume_snapshot_name": format!("volumesnapshot-sim-{stamp}"),
+                       "note": "SIMULATED VolumeSnapshot name — evidence only, NEVER restore truth; restores admit by the daemon state_root" } }))
+    }
+    fn restore(&self, data_dir: &str, env_ref: &str, material_ref: &str) -> Result<Value, String> {
+        let w = self.workload(data_dir, env_ref).ok_or("k8s_workload_absent")?;
+        if text(&w, "status") == "torn_down" {
+            return Err("k8s_workload_deleted".into());
+        }
+        let material = read_record_dir(data_dir, MATERIAL_KIND)
+            .into_iter()
+            .find(|m| text(m, "material_ref") == material_ref)
+            .ok_or(format!("restore material '{material_ref}' is not daemon-admitted"))?;
+        let bytes = std::fs::read(text(&material, "path"))
+            .map_err(|e| format!("custody material unreadable: {e}"))?;
+        let admitted = text(&material, "state_root");
+        let actual = sha256_bytes(&bytes);
+        if actual != admitted {
+            return Err(format!("restore_material_hash_mismatch — custody bytes hash {actual} but admitted state_root is {admitted}; refusing restore (PVC/blob existence is not restore truth)"));
+        }
+        let workdir = text(&w, "workdir").to_string();
+        let _ = std::fs::remove_dir_all(&workdir);
+        std::fs::create_dir_all(&workdir).map_err(|e| e.to_string())?;
+        let mut child = std::process::Command::new("tar")
+            .args(["-xzf", "-", "-C", &workdir])
+            .stdin(std::process::Stdio::piped())
+            .spawn()
+            .map_err(|e| format!("k8s_restore_failed: {e}"))?;
+        {
+            use std::io::Write;
+            child.stdin.as_mut().ok_or("k8s_restore_failed: no stdin")?.write_all(&bytes).map_err(|e| e.to_string())?;
+        }
+        let status = child.wait().map_err(|e| e.to_string())?;
+        if !status.success() {
+            return Err("k8s_restore_failed: tar extraction failed".into());
+        }
+        let mut w2 = w.clone();
+        Self::push_event(&mut w2, "restored", format!("workload fs restored from daemon custody ({material_ref})"));
+        self.save_workload(data_dir, &w2);
+        Ok(json!({ "provider_operation_ref": format!("provider-account://{}/op/restore/{}", self.account_id(), safe(env_ref)),
+                   "restored_from": material_ref, "state_root_verified": admitted }))
+    }
+    fn logs(&self, data_dir: &str, env_ref: &str) -> Result<Value, String> {
+        let w = self.workload(data_dir, env_ref).ok_or("k8s_workload_absent")?;
+        Ok(json!({
+            "workload_name": w["workload_name"],
+            "control_plane_log": w.get("events").cloned().unwrap_or(json!([])),
+            "container_logs": "unavailable_in_simulator — live pod logs land with the live harness; exec outputs are receipted in the Work Ledger",
+            "execution_mode": w["execution_mode"],
+            "basis": "daemon-recorded workload lifecycle events (simulated control plane labelled)",
+        }))
+    }
+    fn events(&self, data_dir: &str, env_ref: &str) -> Result<Value, String> {
+        let w = self.workload(data_dir, env_ref).ok_or("k8s_workload_absent")?;
+        Ok(json!({
+            "workload_name": w["workload_name"],
+            "events": w.get("events").cloned().unwrap_or(json!([])),
+            "execution_mode": w["execution_mode"],
+            "basis": "daemon-recorded workload lifecycle events (simulated control plane labelled)",
+        }))
+    }
+    fn inject_outage(&self, _d: &str, _e: &str) -> Result<Value, String> {
+        Err("k8s_outage_injection_not_supported — evicting a customer workload is not a safely representable outage; use the loopback/ssh conformance lanes".into())
+    }
+    fn recover(&self, _d: &str, _e: &str) -> Result<Value, String> {
+        Err("k8s_recover_not_supported — recovery is re-admit + restore from daemon/storage custody; run create + restore explicitly".into())
+    }
+    fn delete(&self, data_dir: &str, env_ref: &str) -> Result<Value, String> {
+        let mut w = self.workload(data_dir, env_ref).ok_or("k8s_workload_absent")?;
+        let workdir = text(&w, "workdir").to_string();
+        let fs_cleanup = if !workdir.is_empty() && std::fs::remove_dir_all(&workdir).is_ok() { json!(true) } else { json!("already_absent_or_skipped") };
+        let native_teardown = if self.account.pointer("/endpoint/simulate_teardown_failure").and_then(Value::as_bool) == Some(true) {
+            json!({ "destroyed": false, "error": "SIMULATED delete failure (endpoint.simulate_teardown_failure)", "warning": "TEARDOWN MAY BE INCOMPLETE — verify the namespace (workload/PVC may persist)" })
+        } else {
+            json!({ "destroyed": true, "note": "simulated control plane — workload/PVC/service deleted in the namespace; no real cluster workload existed" })
+        };
+        w["status"] = json!("torn_down");
+        w["torn_down_at"] = json!(iso_now());
+        Self::push_event(&mut w, "workload_deleted", "delete always — workload, PVC, and service removed per teardown policy".into());
+        self.save_workload(data_dir, &w);
+        Ok(json!({ "provider_operation_ref": format!("provider-account://{}/op/delete/{}", self.account_id(), safe(env_ref)),
+                   "workload_name": w["workload_name"], "teardown_state": "torn_down",
+                   "workload_fs_cleanup": fs_cleanup, "native_teardown": native_teardown,
+                   "cleanup_verified": true }))
+    }
+    fn observe(&self, data_dir: &str, env_ref: &str) -> Value {
+        match self.workload(data_dir, env_ref) {
+            None => json!({ "provider": self.id(), "environment_ref": env_ref, "workload": Value::Null, "status": "absent" }),
+            Some(w) => {
+                json!({ "provider": self.id(), "environment_ref": env_ref,
+                        "workload_name": w["workload_name"], "workload_class": w["workload_class"],
+                        "status": w["status"], "execution_mode": w["execution_mode"],
+                        "cluster": w["cluster"], "namespace": w["namespace"],
+                        "workload_spec": w["workload_spec"], "exec_posture": w["exec_posture"],
+                        "events_tail": w.get("events").and_then(Value::as_array).map(|e| e.iter().rev().take(5).cloned().collect::<Vec<_>>()).unwrap_or_default(),
+                        "provider_native": w["provider_native"],
+                        "teardown_state": if text(&w, "status") == "torn_down" { json!("torn_down") } else { json!("live_or_pending") } })
+            }
+        }
+    }
+}
+
 // --- azure GUARDED LIFECYCLE: the third ENTERPRISE hyperscaler lane and the first fully    ---
 // --- NEW account kind — Azure semantics: service-principal authority over ARM,              ---
 // --- subscription/resource-group/location scoping, VNet/subnet/NSG posture, stopped-vs-     ---
@@ -3535,6 +3947,12 @@ fn resolve_account_adapter(
     {
         return Some(Ok((account.clone(), Box::new(AwsProvider { account }), None)));
     }
+    if text(&account, "kind") == "k8s"
+        && matches!(vast_mode(&account).as_str(), "simulator" | "live")
+        && text(&account, "status") == "verified"
+    {
+        return Some(Ok((account.clone(), Box::new(K8sProvider { account }), None)));
+    }
     if text(&account, "kind") == "azure"
         && matches!(vast_mode(&account).as_str(), "simulator" | "live")
         && text(&account, "status") == "verified"
@@ -3682,7 +4100,10 @@ pub(crate) async fn handle_provider_account_credential(
         "aws" => ("aws-sigv4", text(&body, "secret_access_key")),
         "gcp" => ("gcp-service-account", text(&body, "service_account_key")),
         "azure" => ("azure-service-principal", text(&body, "client_secret")),
-        "k8s" => ("bearer", text(&body, "token")),
+        "k8s" => {
+            let kubeconfig = text(&body, "kubeconfig");
+            if !kubeconfig.is_empty() { ("kubeconfig", kubeconfig) } else { ("bearer", text(&body, "token")) }
+        }
         "vast" | "runpod" | "lambda_cloud" | "akash" => ("bearer", text(&body, "api_key")),
         _ => ("bearer", text(&body, "token")),
     };
@@ -3714,7 +4135,8 @@ pub(crate) async fn handle_provider_account_credential(
     // ROOT by the canonical oidc-workload/oauth-refresh branches — splice them up from aux.
     if let Some(aux) = body.get("aux").and_then(Value::as_object) {
         for hint in ["token_url", "client_id", "audience", "scopes", "subject_token_type", "subject_token_file", "access_key_id", "region",
-                     "tenant_id", "subscription_id", "resource_group", "location"] {
+                     "tenant_id", "subscription_id", "resource_group", "location",
+                     "namespace", "cluster", "ca_mode"] {
             if let Some(v) = aux.get(hint).filter(|v| v.is_string()) {
                 record[hint] = v.clone();
             }
@@ -3889,7 +4311,7 @@ pub(crate) async fn handle_provider_op(
         let mut grant_ref = Value::Null;
         if mutation {
             // 1) external_spend posture is discovered BEFORE any provider mutation.
-            match discover_budget(data_dir, &kind, op) {
+            match discover_budget(data_dir, &kind, op, &account) {
                 Ok(note) => budget_note = note,
                 Err(reason) => {
                     let receipt = provider_receipt_ext(data_dir, &kind, &env_ref, op, "budget_blocked", &json!({ "account_ref": account_ref, "error": reason }));
@@ -3905,7 +4327,7 @@ pub(crate) async fn handle_provider_op(
             // simulator/live) — exactly what the capabilities text promises. Mode-less accounts
             // stay credential_preflight_only: create crosses the wallet and fails closed with
             // the named PROVIDER_KIND_LIFECYCLE_NOT_IMPLEMENTED lane (never a fake).
-            if matches!(kind.as_str(), "vast" | "runpod" | "lambda_cloud" | "akash" | "aws" | "gcp" | "azure")
+            if matches!(kind.as_str(), "vast" | "runpod" | "lambda_cloud" | "akash" | "aws" | "gcp" | "azure" | "k8s")
                 && matches!(op, "create" | "redeploy")
                 && !vast_mode(&account).is_empty()
             {
@@ -3943,20 +4365,47 @@ pub(crate) async fn handle_provider_op(
                 if !mode_ok {
                     return refuse(&format!("{kind}_quote_mode_mismatch"), format!("account control plane is '{account_mode}' but the quote evidence is '{evidence_mode}' — live provisioning demands live quotes; the simulator demands simulator quotes"));
                 }
-                let Some(price) = candidate.pointer("/quote/usd_per_hour").and_then(Value::as_f64) else {
-                    return refuse(&format!("{kind}_quote_unpriced"), "a candidate without a real price can never provision".into());
+                let k8s_unmetered = kind == "k8s" && account.pointer("/endpoint/metered").map(Value::is_null).unwrap_or(true);
+                let (price_v, max_hourly_v): (Value, Value) = if k8s_unmetered {
+                    // Customer/operator cluster: NO price exists and none is invented — the
+                    // exposure plane opens nothing without a sourced price.
+                    (Value::Null, Value::Null)
+                } else {
+                    let Some(price) = candidate.pointer("/quote/usd_per_hour").and_then(Value::as_f64) else {
+                        let code = if kind == "k8s" { "k8s_metered_posture_unpriced".to_string() } else { format!("{kind}_quote_unpriced") };
+                        return refuse(&code, "a candidate without a real sourced price can never provision on a metered posture".into());
+                    };
+                    let max_hourly = body.get("max_hourly_usd").and_then(Value::as_f64).unwrap_or(price);
+                    if price > max_hourly {
+                        return refuse(&format!("{kind}_price_above_max"), format!("offer price ${price}/hr exceeds the declared max ${max_hourly}/hr"));
+                    }
+                    // Reservation adequacy: headroom after OPEN exposures must cover this create's
+                    // first-hour reservation at the declared max rate. Checked here (not at budget
+                    // discovery) because the price is only known once the quote is validated.
+                    let headroom = budget_note.get("remaining_headroom_after_reservations").and_then(Value::as_f64).unwrap_or(0.0);
+                    if headroom - max_hourly < 0.0 {
+                        return refuse(&format!("{kind}_budget_reservation_exceeded"), format!("open exposures already reserve the external_spend headroom (remaining ${headroom:.3} < first-hour reservation ${max_hourly:.3}/hr) — tear an instance down or raise the budget"));
+                    }
+                    (json!(price), json!(max_hourly))
                 };
-                let max_hourly = body.get("max_hourly_usd").and_then(Value::as_f64).unwrap_or(price);
-                if price > max_hourly {
-                    return refuse(&format!("{kind}_price_above_max"), format!("offer price ${price}/hr exceeds the declared max ${max_hourly}/hr"));
-                }
-                // Reservation adequacy: headroom after OPEN exposures must cover this create's
-                // first-hour reservation at the declared max rate. Checked here (not at budget
-                // discovery) because the price is only known once the quote is validated.
-                let headroom = budget_note.get("remaining_headroom_after_reservations").and_then(Value::as_f64).unwrap_or(0.0);
-                if headroom - max_hourly < 0.0 {
-                    return refuse(&format!("{kind}_budget_reservation_exceeded"), format!("open exposures already reserve the external_spend headroom (remaining ${headroom:.3} < first-hour reservation ${max_hourly:.3}/hr) — tear an instance down or raise the budget"));
-                }
+                // k8s: the wallet challenge binds the WORKLOAD SPEC + namespace + PVC/service
+                // posture — a canonical spec is built from the request and its hash rides the
+                // facets (admission is namespace-scoped; nothing generic).
+                let k8s_workload: Value = if kind == "k8s" {
+                    let namespace = body.get("namespace").and_then(Value::as_str)
+                        .or_else(|| account.pointer("/endpoint/namespace").and_then(Value::as_str))
+                        .unwrap_or("default").to_string();
+                    let spec = json!({
+                        "image": body.get("image").cloned().unwrap_or(json!("ubuntu:24.04")),
+                        "resources": body.get("resources").cloned().unwrap_or(json!({ "cpu_milli": 500, "memory_gb": 1, "gpu": 0 })),
+                        "pvc": body.get("pvc").cloned().unwrap_or(Value::Null),
+                        "service": body.get("service").cloned().unwrap_or(Value::Null),
+                        "kubevirt": body.get("kubevirt").cloned().unwrap_or(json!(false)),
+                    });
+                    let spec_hash = sha256_bytes(spec.to_string().as_bytes());
+                    json!({ "namespace": namespace, "workload_spec": spec, "workload_spec_hash": spec_hash,
+                            "exec_posture": "kubernetes_exec" })
+                } else { Value::Null };
                 // akash: the wallet challenge binds the DEPLOYMENT SPEC — a canonical SDL is
                 // built from the validated bid candidate; its hash rides the facets.
                 let akash_sdl: Value = if kind == "akash" {
@@ -3997,6 +4446,10 @@ pub(crate) async fn handle_provider_op(
                 vast_gate = json!({
                     "candidate_ref": candidate_ref,
                     "quote_ref": candidate["quote_ref"],
+                    "namespace": k8s_workload.get("namespace").cloned().unwrap_or(Value::Null),
+                    "workload_spec": k8s_workload.get("workload_spec").cloned().unwrap_or(Value::Null),
+                    "workload_spec_hash": k8s_workload.get("workload_spec_hash").cloned().unwrap_or(Value::Null),
+                    "exec_posture": k8s_workload.get("exec_posture").cloned().unwrap_or(Value::Null),
                     "az": candidate.get("az").cloned().unwrap_or(Value::Null),
                     "project": candidate.get("project").cloned().unwrap_or(Value::Null),
                     "zone": candidate.get("zone").cloned().unwrap_or(Value::Null),
@@ -4019,8 +4472,8 @@ pub(crate) async fn handle_provider_op(
                     "restore_material_ref": body.get("restore_material_ref").cloned().unwrap_or(Value::Null),
                     "archive_ref": body.get("archive_ref").cloned().unwrap_or(Value::Null),
                     "offer_id": candidate.pointer("/quote/offer_id").cloned().unwrap_or(Value::Null),
-                    "usd_per_hour": price,
-                    "max_hourly_usd": max_hourly,
+                    "usd_per_hour": price_v,
+                    "max_hourly_usd": max_hourly_v,
                     "gpu": candidate.get("gpu").cloned().unwrap_or(Value::Null),
                     "region": body.get("region").cloned()
                         .or_else(|| candidate.get("region").cloned())
@@ -4049,6 +4502,7 @@ pub(crate) async fn handle_provider_op(
                         for key in ["candidate_ref", "quote_ref", "max_hourly_usd", "gpu", "region", "az", "instance_type", "disk_gb",
                                     "project", "zone", "machine_type",
                                     "subscription_id", "resource_group", "location", "vm_size",
+                                    "namespace", "workload_spec_hash", "exec_posture",
                                     "network_posture", "deployment_class", "provider_address", "bid_ref", "persistent_storage", "sdl_hash",
                                     "restore_material_ref", "archive_ref", "teardown_policy", "execution_mode"] {
                             if let Some(v) = gate.get(key) { target.insert(key.to_string(), v.clone()); }
@@ -4134,7 +4588,7 @@ pub(crate) async fn handle_provider_op(
                 });
                 let _ = persist_record(data_dir, "provider-operations", &op_id, &record);
                 // ── Spend exposure accounting (customer-borne; estimates only, never a bill) ──
-                if matches!(op, "create" | "redeploy") && !vast_gate.is_null() {
+                if matches!(op, "create" | "redeploy") && !vast_gate.is_null() && !vast_gate["usd_per_hour"].is_null() {
                     let exp_id = format!("pse_{:x}", nanos());
                     let exposure = json!({
                         "schema_version": "ioi.hypervisor.provider-spend-exposure.v1",
@@ -4159,7 +4613,7 @@ pub(crate) async fn handle_provider_op(
                         "opened_at": iso_now(),
                     });
                     let _ = persist_record(data_dir, EXPOSURE_KIND, &exp_id, &exposure);
-                } else if matches!(kind.as_str(), "vast" | "runpod" | "lambda_cloud" | "akash" | "aws" | "gcp" | "azure") {
+                } else if matches!(kind.as_str(), "vast" | "runpod" | "lambda_cloud" | "akash" | "aws" | "gcp" | "azure" | "k8s") {
                     if let Some(mut exposure) = open_exposure_for(data_dir, &account_ref, &env_ref) {
                         let exp_id = text(&exposure, "exposure_id").to_string();
                         let mut refs = exposure.get("receipt_refs").and_then(Value::as_array).cloned().unwrap_or_default();

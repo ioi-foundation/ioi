@@ -64,6 +64,8 @@ mod aws_candidate_source;
 mod gcp_candidate_source;
 #[path = "hypervisor_daemon_routes/azure_candidate_source.rs"]
 mod azure_candidate_source;
+#[path = "hypervisor_daemon_routes/k8s_candidate_source.rs"]
+mod k8s_candidate_source;
 #[path = "hypervisor_daemon_routes/storage_backend_routes.rs"]
 mod storage_backend_routes;
 #[path = "hypervisor_daemon_routes/environment_routes.rs"]
