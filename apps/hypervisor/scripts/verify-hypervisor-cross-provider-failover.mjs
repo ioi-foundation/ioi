@@ -258,6 +258,14 @@ async function cleanup() {
     if (vastId) await jd("DELETE", `/v1/hypervisor/provider-accounts/${vastId}`);
     if (akashId) await jd("DELETE", `/v1/hypervisor/provider-accounts/${akashId}`);
   } catch { /* best effort */ }
+  try {
+    const sb = await jd("GET", "/v1/hypervisor/storage-backends");
+    for (const b of sb.j.backends || []) {
+      if (String(b.display_name || "").startsWith("XFO ")) {
+        await jd("DELETE", `/v1/hypervisor/storage-backends/${b.account_id}`);
+      }
+    }
+  } catch { /* best effort */ }
   rmSync(BUDGET_FILE, { force: true });
 }
 

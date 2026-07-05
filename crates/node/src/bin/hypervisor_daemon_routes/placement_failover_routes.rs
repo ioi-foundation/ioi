@@ -449,7 +449,7 @@ fn phase_done(run: &Value, phase: &str) -> bool {
         .unwrap_or(false)
 }
 
-fn awaiting(run: &mut Value, data_dir: &str, gate: &str, challenge: &Value) -> (StatusCode, Json<Value>) {
+fn awaiting(run: &mut Value, data_dir: &str, gate: &str, challenge: &Value) -> (StatusCode, Value) {
     run["status"] = json!(format!("awaiting_authority_{gate}"));
     run["next_required"] = json!({
         "gate": gate,
@@ -459,15 +459,15 @@ fn awaiting(run: &mut Value, data_dir: &str, gate: &str, challenge: &Value) -> (
         "note": "mint the grant against approval.policy_hash/request_hash and repost /v1/hypervisor/failover/run with run_ref + the grant key above",
     });
     persist_run(data_dir, run);
-    (StatusCode::OK, Json(json!({"ok": true, "run": run.clone()})))
+    (StatusCode::OK, json!({"ok": true, "run": run.clone()}))
 }
 
-fn refuse(run: &mut Value, data_dir: &str, reason: &str, detail: String) -> (StatusCode, Json<Value>) {
+fn refuse(run: &mut Value, data_dir: &str, reason: &str, detail: String) -> (StatusCode, Value) {
     run["status"] = json!("refused");
     run["refusal"] = json!({ "reason": reason, "detail": detail, "at": super::iso_now() });
     push_event(run, "refused", reason, json!({ "detail": detail }));
     persist_run(data_dir, run);
-    (StatusCode::CONFLICT, Json(json!({"ok": false, "reason": reason, "run": run.clone()})))
+    (StatusCode::CONFLICT, json!({"ok": false, "reason": reason, "run": run.clone()}))
 }
 
 async fn provider_op(st: &Arc<DaemonState>, body: Value) -> (StatusCode, Value) {
@@ -480,6 +480,15 @@ pub(crate) async fn handle_failover_run(
     State(st): State<Arc<DaemonState>>,
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
+    let (code, v) = failover_run_core(&st, body).await;
+    (code, Json(v))
+}
+
+/// Shared run core: the HTTP handler and the auto-trigger evaluator both
+/// use this one path — an automatically triggered run crosses EXACTLY the
+/// same wallet gates as an operator-initiated one (INV-1: the trigger is
+/// detection + preparation, never authority).
+pub(crate) async fn failover_run_core(st: &Arc<DaemonState>, body: Value) -> (StatusCode, Value) {
     let data_dir = st.data_dir.clone();
 
     // ---- load or create the run --------------------------------------
@@ -489,17 +498,17 @@ pub(crate) async fn handle_failover_run(
             .find(|r| text(r, "run_ref") == rref || text(r, "run_id") == rref)
         {
             Some(r) => r,
-            None => return (StatusCode::NOT_FOUND, Json(json!({"reason": "failover_run_unknown"}))),
+            None => return (StatusCode::NOT_FOUND, json!({"reason": "failover_run_unknown"})),
         }
     } else {
         let condition = text(&body, "failure_condition");
         if !FAILURE_CONDITIONS.contains(&condition.as_str()) {
             return (
                 StatusCode::UNPROCESSABLE_ENTITY,
-                Json(json!({
+                json!({
                     "reason": "failover_condition_unknown",
                     "supported": FAILURE_CONDITIONS,
-                })),
+                }),
             );
         }
         let plan = body
@@ -520,7 +529,7 @@ pub(crate) async fn handle_failover_run(
                 plans.into_iter().next()
             });
         let Some(plan) = plan else {
-            return (StatusCode::CONFLICT, Json(json!({"reason": "failover_plan_required"})));
+            return (StatusCode::CONFLICT, json!({"reason": "failover_plan_required"}));
         };
         let old_account = load_account_by_ref(&data_dir, &text(&plan, "source_account_ref"));
         let old_kind = old_account.as_ref().map(|a| text(a, "kind")).unwrap_or_default();
@@ -550,9 +559,12 @@ pub(crate) async fn handle_failover_run(
             "status": "running",
             "started_at": super::iso_now(),
         });
+        if let Some(tb) = body.get("triggered_by") {
+            r["triggered_by"] = tb.clone();
+        }
         push_event(&mut r, "detected", "ok", json!({
             "failure_condition": condition,
-            "mode": "accepted_named_condition",
+            "mode": if body.get("triggered_by").is_some() { "auto_policy_evidence" } else { "accepted_named_condition" },
             "note": "failure conditions may be detected or accepted by name; injection is only supported where safe (ssh/loopback/akash simulator)",
         }));
         persist_run(&data_dir, &r);
@@ -560,7 +572,7 @@ pub(crate) async fn handle_failover_run(
     };
 
     if text(&run, "status") == "refused" {
-        return (StatusCode::CONFLICT, Json(json!({"ok": false, "reason": "failover_run_already_refused", "run": run})));
+        return (StatusCode::CONFLICT, json!({"ok": false, "reason": "failover_run_already_refused", "run": run}));
     }
     run["next_required"] = Value::Null;
 
@@ -800,7 +812,297 @@ pub(crate) async fn handle_failover_run(
     run["status"] = json!(if warned { "restored_with_warning" } else { "restored" });
     run["completed_at"] = json!(super::iso_now());
     persist_run(&data_dir, &run);
-    (StatusCode::OK, Json(json!({"ok": true, "run": run})))
+    (StatusCode::OK, json!({"ok": true, "run": run}))
+}
+
+// ---------------------------------------------------------------------------
+// Auto-failover policy trigger — operators DECLARE when a plan may trigger
+// automatically from provider evidence. "Automatic" means detection,
+// preparation, and loud surfacing: a triggered run advances through the
+// unattended phases and PARKS at the wallet gate exactly where an
+// operator-initiated run would. Same gates, no fee object, no standing
+// authority (INV-1). Detection is evidence-mapped, never guessed — every
+// trigger cites the daemon records it read.
+// ---------------------------------------------------------------------------
+
+/// Conditions the detector can currently map from real daemon records.
+/// Declared conditions outside this set still work for operator-initiated
+/// runs; arming warns when a condition has no detector coverage.
+pub(crate) const DETECTOR_COVERAGE: &[&str] = &[
+    "credential_revoked",
+    "capacity_eviction",
+    "host_unreachable",
+    "storage_unavailable",
+];
+
+fn load_plan(data_dir: &str, id_or_ref: &str) -> Option<Value> {
+    super::read_record_dir(data_dir, FAILOVER_PLAN_KIND)
+        .into_iter()
+        .find(|p| text(p, "plan_id") == id_or_ref || text(p, "plan_ref") == id_or_ref || text(p, "plan_ref").ends_with(id_or_ref))
+}
+
+fn persist_plan(data_dir: &str, plan: &Value) {
+    let _ = super::persist_record(data_dir, FAILOVER_PLAN_KIND, &text(plan, "plan_id"), plan);
+}
+
+/// Evidence detector: map real daemon records to a named failure condition.
+/// Only evidence NEWER than `since` (RFC3339 lexicographic compare) counts,
+/// so stale history can never re-trigger an armed plan.
+fn detect_failure_evidence(
+    data_dir: &str,
+    plan: &Value,
+    conditions: &[String],
+    since: &str,
+) -> Option<(String, Vec<String>, String)> {
+    let env_ref = text(plan, "environment_ref");
+    let source_ref = text(plan, "source_account_ref");
+    let wants = |c: &str| conditions.iter().any(|x| x == c);
+
+    // credential_revoked — the source account's credential is gone/revoked.
+    if wants("credential_revoked") {
+        if let Some(acct) = load_account_by_ref(data_dir, &source_ref) {
+            if text(&acct, "status") == "revoked" {
+                return Some((
+                    "credential_revoked".into(),
+                    vec![text(&acct, "account_ref")],
+                    "source provider account status is revoked".into(),
+                ));
+            }
+        }
+    }
+    // capacity_eviction — provider-side lease loss (akash: lease_lost /
+    // closed_by_provider records minted by the simulated revocation lane).
+    if wants("capacity_eviction") {
+        for d in super::read_record_dir(data_dir, "akash-deployments") {
+            let ts = text(&d, "updated_at");
+            if text(&d, "environment_ref") == env_ref
+                && text(&d, "status") == "lease_lost"
+                // stateful record: a missing timestamp still counts — the
+                // single-shot armed→triggered ladder prevents re-trigger loops
+                && (ts.is_empty() || ts.as_str() > since)
+            {
+                let mut refs = vec![text(&d, "deployment_ref")];
+                if !text(&d, "lease_ref").is_empty() {
+                    refs.push(text(&d, "lease_ref"));
+                }
+                return Some((
+                    "capacity_eviction".into(),
+                    refs,
+                    "provider-side lease loss recorded on the deployment".into(),
+                ));
+            }
+        }
+    }
+    // host_unreachable — error receipts on this environment naming
+    // connectivity failure.
+    if wants("host_unreachable") {
+        for r in super::read_record_dir(data_dir, "provider-receipts") {
+            let detail = format!(
+                "{} {}",
+                text(&r, "reason"),
+                r.get("evidence").map(|e| e.to_string()).unwrap_or_default()
+            )
+            .to_lowercase();
+            if text(&r, "environment_ref") == env_ref
+                && text(&r, "outcome") == "error"
+                && text(&r, "at").as_str() > since
+                && (detail.contains("unreachable") || detail.contains("connect") || detail.contains("ssh"))
+            {
+                return Some((
+                    "host_unreachable".into(),
+                    vec![text(&r, "receipt_ref")],
+                    "connectivity-failure receipt on the environment".into(),
+                ));
+            }
+        }
+    }
+    // storage_unavailable — an OPEN availability incident on one of the
+    // plan's archives.
+    if wants("storage_unavailable") {
+        let archives: Vec<String> = plan
+            .get("archive_refs")
+            .and_then(|a| a.as_array())
+            .map(|a| a.iter().filter_map(|x| x.as_str().map(str::to_string)).collect())
+            .unwrap_or_default();
+        for i in super::read_record_dir(data_dir, "artifact-availability-incidents") {
+            if text(&i, "status") == "open"
+                && archives.contains(&text(&i, "archive_ref"))
+                && text(&i, "opened_at").as_str() > since
+            {
+                return Some((
+                    "storage_unavailable".into(),
+                    vec![text(&i, "incident_ref")],
+                    "open availability incident on a plan archive".into(),
+                ));
+            }
+        }
+    }
+    None
+}
+
+/// POST /v1/hypervisor/failover/plans/:id/arm
+pub(crate) async fn handle_failover_plan_arm(
+    State(st): State<Arc<DaemonState>>,
+    Path(id): Path<String>,
+    Json(body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    let data_dir = st.data_dir.clone();
+    let Some(mut plan) = load_plan(&data_dir, &id) else {
+        return (StatusCode::NOT_FOUND, Json(json!({"reason": "failover_plan_unknown"})));
+    };
+    if text(&plan, "readiness") == "no_restore_material" {
+        return (
+            StatusCode::CONFLICT,
+            Json(json!({
+                "reason": "failover_plan_not_ready",
+                "detail": "arming requires a valid restore material — a trigger without restore truth could only fail closed",
+            })),
+        );
+    }
+    let conditions: Vec<String> = body
+        .get("conditions")
+        .and_then(|c| c.as_array())
+        .map(|a| a.iter().filter_map(|x| x.as_str().map(str::to_string)).collect())
+        .unwrap_or_default();
+    if conditions.is_empty() || conditions.iter().any(|c| !FAILURE_CONDITIONS.contains(&c.as_str())) {
+        return (
+            StatusCode::UNPROCESSABLE_ENTITY,
+            Json(json!({"reason": "failover_condition_unknown", "supported": FAILURE_CONDITIONS})),
+        );
+    }
+    let uncovered: Vec<&String> = conditions.iter().filter(|c| !DETECTOR_COVERAGE.contains(&c.as_str())).collect();
+    plan["auto_trigger"] = json!({
+        "enabled": true,
+        "conditions": conditions,
+        "detector_coverage": DETECTOR_COVERAGE,
+        "uncovered_conditions_note": if uncovered.is_empty() { Value::Null } else {
+            json!(format!("conditions {:?} have no detector coverage yet — they remain operator-declared only", uncovered))
+        },
+        "cooldown_note": "after a trigger the plan moves to `triggered`; re-arming is an explicit operator action — a trigger loop is structurally impossible",
+        "max_hourly_usd": body.get("max_hourly_usd").cloned().unwrap_or(Value::Null),
+        "armed_by": body.get("armed_by").cloned().unwrap_or(json!("operator")),
+        "armed_at": super::iso_now(),
+        "authority_note": "arming is detection + preparation authority only; every provider mutation of a triggered run still crosses the wallet gate",
+    });
+    plan["trigger_state"] = json!("armed");
+    persist_plan(&data_dir, &plan);
+    (StatusCode::OK, Json(json!({"ok": true, "plan": plan})))
+}
+
+/// POST /v1/hypervisor/failover/plans/:id/disarm
+pub(crate) async fn handle_failover_plan_disarm(
+    State(st): State<Arc<DaemonState>>,
+    Path(id): Path<String>,
+) -> (StatusCode, Json<Value>) {
+    let data_dir = st.data_dir.clone();
+    let Some(mut plan) = load_plan(&data_dir, &id) else {
+        return (StatusCode::NOT_FOUND, Json(json!({"reason": "failover_plan_unknown"})));
+    };
+    plan["trigger_state"] = json!("disarmed");
+    if let Some(t) = plan.get_mut("auto_trigger") {
+        t["enabled"] = json!(false);
+        t["disarmed_at"] = json!(super::iso_now());
+    }
+    persist_plan(&data_dir, &plan);
+    (StatusCode::OK, Json(json!({"ok": true, "plan": plan})))
+}
+
+async fn evaluate_plan(st: &Arc<DaemonState>, plan: &Value) -> Value {
+    let data_dir = st.data_dir.clone();
+    let plan_ref = text(plan, "plan_ref");
+    let state = text(plan, "trigger_state");
+    if state != "armed" {
+        return json!({ "plan_ref": plan_ref, "outcome": if state.is_empty() { "disarmed" } else { state.as_str() } });
+    }
+    // one active run per plan — a second trigger can never stack
+    let active = super::read_record_dir(&data_dir, FAILOVER_RUN_KIND).into_iter().any(|r| {
+        text(&r, "plan_ref") == plan_ref
+            && (text(&r, "status") == "running" || text(&r, "status").starts_with("awaiting_authority"))
+    });
+    if active {
+        return json!({ "plan_ref": plan_ref, "outcome": "active_run_exists" });
+    }
+    let trigger = plan.get("auto_trigger").cloned().unwrap_or(json!({}));
+    let conditions: Vec<String> = trigger
+        .get("conditions")
+        .and_then(|c| c.as_array())
+        .map(|a| a.iter().filter_map(|x| x.as_str().map(str::to_string)).collect())
+        .unwrap_or_default();
+    let since = text(&trigger, "armed_at");
+    let Some((condition, evidence_refs, detail)) = detect_failure_evidence(&data_dir, plan, &conditions, &since) else {
+        let mut p = plan.clone();
+        p["last_evaluated_at"] = json!(super::iso_now());
+        persist_plan(&data_dir, &p);
+        return json!({ "plan_ref": plan_ref, "outcome": "no_qualifying_evidence", "conditions": conditions });
+    };
+    // TRIGGER: same run core, same wallet gates; run parks at the first
+    // authority gate. The trigger cites its evidence.
+    let triggered_by = json!({
+        "mode": "auto_policy",
+        "plan_ref": plan_ref,
+        "condition": condition,
+        "evidence_refs": evidence_refs,
+        "detail": detail,
+        "armed_by": trigger.get("armed_by").cloned().unwrap_or(Value::Null),
+        "at": super::iso_now(),
+    });
+    let body = json!({
+        "plan_ref": plan_ref,
+        "failure_condition": condition,
+        "max_hourly_usd": trigger.get("max_hourly_usd").cloned().unwrap_or(Value::Null),
+        "teardown_policy": "always_teardown_required",
+        "triggered_by": triggered_by,
+    });
+    let (_code, resp) = failover_run_core(st, body).await;
+    let run_ref = resp.get("run").map(|r| text(r, "run_ref")).unwrap_or_default();
+    let run_status = resp.get("run").map(|r| text(r, "status")).unwrap_or_default();
+    let mut p = plan.clone();
+    p["trigger_state"] = json!("triggered");
+    p["last_evaluated_at"] = json!(super::iso_now());
+    p["last_trigger"] = triggered_by.clone();
+    if !run_ref.is_empty() {
+        p["last_trigger"]["run_ref"] = json!(run_ref);
+    }
+    persist_plan(&data_dir, &p);
+    json!({
+        "plan_ref": plan_ref,
+        "outcome": "triggered",
+        "condition": condition,
+        "evidence_refs": evidence_refs,
+        "run_ref": run_ref,
+        "run_status": run_status,
+        "note": "triggered run is parked at the wallet gate — automatic detection never becomes automatic authority",
+    })
+}
+
+/// POST /v1/hypervisor/failover/evaluate — evaluate one plan or all armed
+/// plans against current provider evidence. Also driven by the opt-in
+/// background evaluator and schedulable via Automations.
+pub(crate) async fn handle_failover_evaluate(
+    State(st): State<Arc<DaemonState>>,
+    Json(body): Json<Value>,
+) -> Json<Value> {
+    Json(evaluate_all(&st, body.get("plan_ref").and_then(|v| v.as_str())).await)
+}
+
+pub(crate) async fn evaluate_all(st: &Arc<DaemonState>, only_plan: Option<&str>) -> Value {
+    let plans: Vec<Value> = super::read_record_dir(&st.data_dir, FAILOVER_PLAN_KIND)
+        .into_iter()
+        .filter(|p| match only_plan {
+            Some(pr) => text(p, "plan_ref") == pr || text(p, "plan_id") == pr,
+            None => text(p, "trigger_state") == "armed",
+        })
+        .collect();
+    let mut evaluations = Vec::new();
+    for plan in &plans {
+        evaluations.push(evaluate_plan(st, plan).await);
+    }
+    json!({
+        "schema_version": "ioi.hypervisor.failover-evaluations.v1",
+        "evaluated": plans.len(),
+        "evaluations": evaluations,
+        "at": super::iso_now(),
+    })
 }
 
 pub(crate) async fn handle_failover_runs_list(State(st): State<Arc<DaemonState>>) -> Json<Value> {

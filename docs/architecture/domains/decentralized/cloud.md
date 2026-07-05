@@ -356,6 +356,26 @@ Ledger facets. Done-bar: `verify-hypervisor-cross-provider-failover.mjs`
 (27/27 — marker survives a vast → akash class move; corrupt custody heals
 via archive; corrupt custody + corrupt archive refuses by name).
 
+The AUTO-FAILOVER POLICY TRIGGER lets operators DECLARE when an armed
+`FailoverPlan` may trigger from provider evidence
+(`/v1/hypervisor/failover/plans/:id/{arm,disarm}` +
+`/v1/hypervisor/failover/evaluate`, plus an opt-in background evaluator,
+`IOI_FAILOVER_AUTO_EVALUATE_SECS`). "Automatic" means detection,
+preparation, and loud surfacing — NEVER automatic authority: detection is
+evidence-mapped from real daemon records (declared detector coverage:
+credential_revoked, capacity_eviction, host_unreachable,
+storage_unavailable; uncovered conditions stay operator-declared and the
+plan says so), every trigger cites the record refs it read, arming
+requires valid restore material (fail closed), arming is single-shot
+(triggered plans need explicit re-arm — trigger loops are structurally
+impossible), and a triggered run advances only through the unattended
+phases before PARKING at the same wallet gate an operator-initiated run
+crosses. No fee object. Done-bar:
+`verify-hypervisor-auto-failover-trigger.mjs` (20/20 — evidence-cited
+trigger from a simulated lease revocation, parked at the wallet gate,
+no duplicate trigger, granted resume completes akash → vast with the
+marker surviving, disarm stops evaluation).
+
 Done-bars: `verify-hypervisor-cloud-candidate-plane.mjs`,
 `verify-hypervisor-vast-candidate-adapter.mjs`,
 `verify-hypervisor-vast-lifecycle.mjs`; per-adapter done-bars are listed

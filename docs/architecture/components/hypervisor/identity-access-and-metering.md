@@ -179,7 +179,7 @@ Avoid:
 ```text
 admin role = permission to push / spend / use a connector
 session/login = machine authority
-org membership = capability grant
+org membership = authority grant
 secret value returned in a list response
 API/SCIM token stored in plaintext or recoverable after creation
 SSO identity trusted from userinfo without id_token signature + nonce

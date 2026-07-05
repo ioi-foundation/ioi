@@ -563,6 +563,7 @@ pub(crate) async fn handle_work_ledger(
             "old_provider": r.get("old_provider").cloned().unwrap_or(serde_json::Value::Null),
             "replacement": r.get("replacement").cloned().unwrap_or(serde_json::Value::Null),
             "receipt_refs": r.get("receipt_refs").cloned().unwrap_or(serde_json::json!([])),
+            "triggered_by": r.get("triggered_by").cloned().unwrap_or(serde_json::Value::Null),
             "failover_ref": "/__ioi/operations#ops-failover",
         }));
     }
