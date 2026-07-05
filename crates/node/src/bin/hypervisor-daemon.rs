@@ -50,6 +50,8 @@ mod editor_routes;
 mod endgame_routes;
 #[path = "hypervisor_daemon_routes/decentralized_cloud_routes.rs"]
 mod decentralized_cloud_routes;
+#[path = "hypervisor_daemon_routes/placement_failover_routes.rs"]
+mod placement_failover_routes;
 #[path = "hypervisor_daemon_routes/substrate_store.rs"]
 mod substrate_store;
 #[path = "hypervisor_daemon_routes/vast_candidate_source.rs"]
@@ -1583,6 +1585,32 @@ async fn async_main() -> anyhow::Result<()> {
         .route(
             "/v1/hypervisor/placement/preview",
             get(orchestration_routes::handle_placement_preview),
+        )
+        .route(
+            "/v1/hypervisor/placement/decisions",
+            get(placement_failover_routes::handle_placement_decisions_list)
+                .post(placement_failover_routes::handle_placement_decide),
+        )
+        .route(
+            "/v1/hypervisor/placement/decisions/:id",
+            get(placement_failover_routes::handle_placement_decision_get),
+        )
+        .route(
+            "/v1/hypervisor/failover/plans",
+            get(placement_failover_routes::handle_failover_plans_list)
+                .post(placement_failover_routes::handle_failover_plan_create),
+        )
+        .route(
+            "/v1/hypervisor/failover/run",
+            post(placement_failover_routes::handle_failover_run),
+        )
+        .route(
+            "/v1/hypervisor/failover/runs",
+            get(placement_failover_routes::handle_failover_runs_list),
+        )
+        .route(
+            "/v1/hypervisor/failover/runs/:id",
+            get(placement_failover_routes::handle_failover_run_get),
         )
         .route(
             "/v1/hypervisor/cloud-candidates/intents",

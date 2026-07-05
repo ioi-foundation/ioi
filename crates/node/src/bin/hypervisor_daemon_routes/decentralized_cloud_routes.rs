@@ -52,7 +52,7 @@ fn text<'a>(v: &'a Value, k: &str) -> &'a str {
     v.get(k).and_then(Value::as_str).unwrap_or("")
 }
 
-fn load_intent(data_dir: &str, id_or_ref: &str) -> Option<Value> {
+pub(crate) fn load_intent(data_dir: &str, id_or_ref: &str) -> Option<Value> {
     let id = id_or_ref.trim_start_matches("cloud-resource-intent://");
     read_record_dir(data_dir, INTENT_KIND)
         .into_iter()
@@ -541,7 +541,7 @@ fn chrono_like(epoch: u64) -> String {
 }
 
 /// Read-time candidate status: active | expired (+ superseded batches marked by refresh).
-fn with_read_status(mut c: Value) -> Value {
+pub(crate) fn with_read_status(mut c: Value) -> Value {
     let expired = c.get("expires_epoch").and_then(Value::as_u64).map(|e| epoch_secs() > e).unwrap_or(true);
     if expired {
         c["status"] = json!("expired");
@@ -556,7 +556,7 @@ fn with_read_status(mut c: Value) -> Value {
     c
 }
 
-fn candidates_for(data_dir: &str, intent_ref: &str) -> Vec<Value> {
+pub(crate) fn candidates_for(data_dir: &str, intent_ref: &str) -> Vec<Value> {
     read_record_dir(data_dir, CANDIDATE_KIND)
         .into_iter()
         .filter(|c| text(c, "intent_ref") == intent_ref)

@@ -334,6 +334,28 @@ quote adapters live beside the provider routes
   `external_spend`, and close (or warn) on teardown; Hypervisor never
   fakes settlement.
 
+`hypervisor_choose` now moves from advisory to an EXPLICIT PLACEMENT
+DECISION when eligible candidates exist: `POST
+/v1/hypervisor/placement/decisions` compares candidates deterministically
+(the advisory's own scoring), minting a durable
+`ioi.hypervisor.placement-decision.v1` citing selected + alternatives +
+rejected-with-reason-codes, custody/spend/support posture, and a
+`placement-decision-receipt` that is explicitly NOT a RoutingDecisionReceipt
+(no fee minted, no charge today; `routing_fee_eligibility: eligible_future`
+only when ≥2 real candidates were compared). Decisions are evidence, never
+authority. CROSS-PROVIDER FAILOVER rides the same spine
+(`/v1/hypervisor/failover/{plans,run,runs}`): a named failure condition
+(8 supported, fail-closed without a valid restore root) triggers a
+resumable, wallet-gated orchestration that selects a replacement on a
+DIFFERENT provider class, creates/starts through the existing per-kind
+gates (in-process reuse — no second mutation lane), restores ONLY after
+state_root validation (daemon custody first, storage-archive 5-gate ladder
+as fallback), closes the old provider (spend exposure closes/warns old,
+opens new), and links the whole chain through placement/failover Work
+Ledger facets. Done-bar: `verify-hypervisor-cross-provider-failover.mjs`
+(27/27 — marker survives a vast → akash class move; corrupt custody heals
+via archive; corrupt custody + corrupt archive refuses by name).
+
 Done-bars: `verify-hypervisor-cloud-candidate-plane.mjs`,
 `verify-hypervisor-vast-candidate-adapter.mjs`,
 `verify-hypervisor-vast-lifecycle.mjs`; per-adapter done-bars are listed
