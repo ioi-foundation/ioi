@@ -329,6 +329,60 @@ fn derive_candidates(
                 receipt_history(data_dir, account_ref));
         }
     }
+    // ── storage backends: ARCHIVE/CAS byte-custody candidates from LOCAL FACTS (verified
+    // StorageBackendAccounts). Byte availability only — never authority, never restore truth;
+    // shown alongside compute options when the intent asks for storage.archive / storage.cas. ──
+    let wants_storage = intent.get("resource_classes").and_then(Value::as_array)
+        .map(|a| a.iter().filter_map(Value::as_str).any(|c| matches!(c, "storage.archive" | "storage.cas" | "storage.object")))
+        .unwrap_or(false);
+    if wants_storage {
+        for (i, fact) in super::storage_backend_routes::backend_facts(data_dir).iter().enumerate() {
+            let account = fact["account"].clone();
+            let kind = text(&account, "kind").to_string();
+            let account_ref = text(&account, "account_ref").to_string();
+            if text(&account, "status") != "verified" {
+                rejected.push(json!({ "source": "storage_network", "adapter_ref": "adapter:storage-backend",
+                    "provider_account_ref": account_ref, "reason_code": "storage_backend_unverified",
+                    "detail": format!("'{}' has not passed preflight — probe the backend before it can hold archive bytes", text(&account, "display_name")),
+                    "evidence_refs": [account_ref] }));
+                continue;
+            }
+            let mode = account.pointer("/preflight/evidence/mode").and_then(Value::as_str).unwrap_or("real_local").to_string();
+            let fixture = mode == "fixture_evidence";
+            let network_kind = matches!(kind.as_str(), "ipfs" | "filecoin");
+            let objects = fact["objects"].as_u64().unwrap_or(0);
+            let open_incidents = fact["open_incidents"].as_u64().unwrap_or(0);
+            let source = if network_kind { "storage_network" } else { "customer_inventory" };
+            let mut risk: Vec<&str> = vec![];
+            if network_kind { risk.push("public_network_availability_sealed_bytes_only"); }
+            if fixture { risk.push("fixture_evidence_not_network_availability"); }
+            if open_incidents > 0 { risk.push("open_availability_incidents"); }
+            let eligibility: Vec<&str> = if fixture {
+                vec!["advisory_only", "fixture_local_cas", "archive_export_available"]
+            } else {
+                vec!["placement_eligible", "archive_export_available", "custody_probe_verified"]
+            };
+            let custody_detail = format!(
+                "{} — sealed_wallet_secret encryption before every write; provider-native addresses (CID/path/deal) are availability evidence only",
+                account.pointer("/capabilities/custody_posture").and_then(Value::as_str).unwrap_or("byte store")
+            );
+            push_candidate(700 + i, source, "adapter:storage-backend", &kind, Some(&account),
+                vec!["storage.archive", "storage.cas"], "storage.archive",
+                if kind == "local_disk" { vec!["Standard", "Private"] } else { vec!["Standard"] },
+                if fixture { "fixture_evidence" } else { "operational" },
+                !fixture, eligibility, risk,
+                vec![
+                    json!(format!("verified {kind} byte store — {objects} archived object(s), {open_incidents} open incident(s) (daemon records)")),
+                    json!("storage availability is NOT restore truth — restore admits only after fetch + commitment hash + decrypt + admitted state_root all verify"),
+                ],
+                vec![json!(account.get("preflight").cloned().unwrap_or(Value::Null))],
+                if network_kind { "unpriced" } else { "local_free" },
+                if network_kind { "no cost card fetched — storage cost/retention posture unknown; never invented (deal/pin pricing lands with live evidence)" } else { "no metered spend — local byte store" },
+                &custody_detail,
+                "replicate the sealed archive to another verified backend; a replacement commitment repairs meaning ONLY via an ArtifactRepairReceipt bound to the same state_root",
+                json!({ "objects": objects, "open_incidents": open_incidents, "basis": "daemon archive/incident records — backend self-reports are evidence, not health truth" }));
+        }
+    }
     // ── direct_provider: real Lambda GPU VM quotes (instance-type rate cards; VM semantics). ──
     if lambda_outcome.get("engaged").and_then(Value::as_bool) == Some(true) && !wants_private {
         if text(lambda_outcome, "state") == "degraded_unreachable" {
@@ -554,9 +608,7 @@ pub(crate) async fn handle_candidate_sources(State(st): State<Arc<DaemonState>>)
             { "source": "depin_market", "state": "candidate_source_unavailable",
               "reason": "market_adapter_absent — Akash market discovery lands with its adapter cut (priority ladder); Vast is served by its own quote source above",
               "evidence": { "basis": "no market API is called; no invented prices" } },
-            { "source": "storage_network", "state": "candidate_source_unavailable",
-              "reason": "storage_adapter_absent — Filecoin/CAS archive custody lands per the priority ladder",
-              "evidence": { "basis": "no storage network is called" } },
+            super::storage_backend_routes::source_state(&st.data_dir),
         ],
         "rule": "external providers without live adapters return candidate_source_unavailable with evidence — not fake prices",
         "at": iso_now(),

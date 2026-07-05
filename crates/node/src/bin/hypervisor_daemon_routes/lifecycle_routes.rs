@@ -10400,7 +10400,7 @@ pub(crate) async fn handle_connector_mcp_tools(
 // set this is genuine at-rest protection (key supplied out-of-band, never in the data dir); without
 // one it seals under the local-mode fallback (no plaintext at rest, but key is well-known — honest
 // label travels via key_source). Decrypt failure → token unavailable → publish fails closed.
-fn scm_secret_passphrase() -> String {
+pub(crate) fn scm_secret_passphrase() -> String {
     std::env::var("IOI_WALLET_SECRET_PASS")
         .ok()
         .map(|v| v.trim().to_string())
@@ -10413,7 +10413,7 @@ fn scm_secret_passphrase() -> String {
         })
         .unwrap_or_else(|| "local-mode".to_string())
 }
-fn scm_key_source() -> &'static str {
+pub(crate) fn scm_key_source() -> &'static str {
     let has = |k: &str| {
         std::env::var(k)
             .map(|v| !v.trim().is_empty())
