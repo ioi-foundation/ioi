@@ -154,6 +154,7 @@ fn derive_candidates(
     vast_outcome: &Value,
     runpod_outcome: &Value,
     lambda_outcome: &Value,
+    akash_outcome: &Value,
 ) -> (Vec<Value>, Vec<Value>) {
     let observed_at = iso_now();
     let expires_epoch = epoch_secs() + ttl_secs;
@@ -293,7 +294,10 @@ fn derive_candidates(
                 && runpod_outcome["account_ref"] == account["account_ref"])
                 || (kind == "lambda_cloud"
                 && lambda_outcome.get("engaged").and_then(Value::as_bool) == Some(true)
-                && lambda_outcome["account_ref"] == account["account_ref"]);
+                && lambda_outcome["account_ref"] == account["account_ref"])
+                || (kind == "akash"
+                && akash_outcome.get("engaged").and_then(Value::as_bool) == Some(true)
+                && akash_outcome["account_ref"] == account["account_ref"]);
             if quote_engaged {
                 if wants_private {
                     rejected.push(json!({ "source": "depin_market", "adapter_ref": "adapter:vast-quote",
@@ -381,6 +385,20 @@ fn derive_candidates(
                 &custody_detail,
                 "replicate the sealed archive to another verified backend; a replacement commitment repairs meaning ONLY via an ArtifactRepairReceipt bound to the same state_root",
                 json!({ "objects": objects, "open_incidents": open_incidents, "basis": "daemon archive/incident records — backend self-reports are evidence, not health truth" }));
+        }
+    }
+    // ── depin_market: real Akash BID advisories (deployment/lease semantics preserved). ──
+    if akash_outcome.get("engaged").and_then(Value::as_bool) == Some(true) && !wants_private {
+        if text(akash_outcome, "state") == "degraded_unreachable" {
+            rejected.push(json!({ "source": "depin_market", "adapter_ref": "adapter:akash-bid",
+                "provider_account_ref": akash_outcome["account_ref"],
+                "reason_code": "candidate_source_degraded",
+                "detail": "akash bid fetch failed — no fake bids on failure",
+                "evidence_refs": [akash_outcome["evidence"].clone()] }));
+        } else {
+            candidates.extend(super::akash_candidate_source::normalize_offers(
+                akash_outcome, &intent_ref, batch, &observed_at, &expires_at, expires_epoch,
+            ));
         }
     }
     // ── direct_provider: real Lambda GPU VM quotes (instance-type rate cards; VM semantics). ──
@@ -492,7 +510,8 @@ async fn refresh_candidates(st: &Arc<DaemonState>, intent: &Value, ttl_secs: u64
     let vast_outcome = super::vast_candidate_source::fetch_offers(st).await;
     let runpod_outcome = super::runpod_candidate_source::fetch_offers(st).await;
     let lambda_outcome = super::lambda_candidate_source::fetch_offers(st).await;
-    let (candidates, rejected) = derive_candidates(&st.data_dir, intent, &classes, ttl_secs, &batch, &vast_outcome, &runpod_outcome, &lambda_outcome);
+    let akash_outcome = super::akash_candidate_source::fetch_offers(st).await;
+    let (candidates, rejected) = derive_candidates(&st.data_dir, intent, &classes, ttl_secs, &batch, &vast_outcome, &runpod_outcome, &lambda_outcome, &akash_outcome);
     for c in &candidates {
         let _ = persist_record(&st.data_dir, CANDIDATE_KIND, text(c, "candidate_id"), c);
     }
@@ -605,9 +624,7 @@ pub(crate) async fn handle_candidate_sources(State(st): State<Arc<DaemonState>>)
             super::vast_candidate_source::source_state(&st.data_dir),
             super::runpod_candidate_source::source_state(&st.data_dir),
             super::lambda_candidate_source::source_state(&st.data_dir),
-            { "source": "depin_market", "state": "candidate_source_unavailable",
-              "reason": "market_adapter_absent — Akash market discovery lands with its adapter cut (priority ladder); Vast is served by its own quote source above",
-              "evidence": { "basis": "no market API is called; no invented prices" } },
+            super::akash_candidate_source::source_state(&st.data_dir),
             super::storage_backend_routes::source_state(&st.data_dir),
         ],
         "rule": "external providers without live adapters return candidate_source_unavailable with evidence — not fake prices",

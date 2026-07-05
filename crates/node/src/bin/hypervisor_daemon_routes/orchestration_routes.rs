@@ -1320,7 +1320,7 @@ fn venue_capability_hints(kind: &str) -> Value {
         "vast" => ("marketplace GPUs (adapter pending)", "container-scoped storage", "host-dependent, often shared", "daemon custody when the adapter lands"),
         "runpod" => ("GPU runtime pods — secure (on-demand) + community (interruptible)", "container disk + network volumes", "proxy ssh / public ip when exposed", "daemon custody via the ssh lane"),
         "lambda_cloud" => ("GPU VMs — ordinary Linux + ssh (Lambda-class)", "instance-lifetime persistent local NVMe", "public ip + ssh (user ubuntu)", "daemon custody via the ssh lane; native snapshots evidence-only"),
-        "akash" => ("deployment-lease GPUs (adapter pending)", "lease-scoped persistent storage", "IP leases", "daemon custody when the adapter lands"),
+        "akash" => ("DePIN deployment-lease GPUs — SDL → bids → lease (guarded adapter)", "deployment-scoped persistent storage (SDL posture — never restore truth)", "lease-assigned IP/ports (evidence, not authority)", "daemon custody via the SDL-declared ssh service; archive via the storage plane"),
         _ => ("unknown", "unknown", "unknown", "unknown"),
     };
     json!({ "gpu": gpu, "persistent_storage": storage, "ip": ip, "snapshot": snapshot,

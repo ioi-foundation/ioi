@@ -109,6 +109,18 @@ trait EnvironmentProvider: Send + Sync {
     fn recover(&self, data_dir: &str, env_ref: &str) -> Result<Value, String>;
     fn delete(&self, data_dir: &str, env_ref: &str) -> Result<Value, String>;
     fn observe(&self, data_dir: &str, env_ref: &str) -> Value;
+    /// Provider-native service/control-plane logs (read-only evidence). Default: no log lane.
+    fn logs(&self, _data_dir: &str, _env_ref: &str) -> Result<Value, String> {
+        Err("logs_not_supported — this provider records no native log lane; workspace exec outputs are receipted in the Work Ledger".into())
+    }
+    /// Provider-native lifecycle events (read-only evidence). Default: no event lane.
+    fn events(&self, _data_dir: &str, _env_ref: &str) -> Result<Value, String> {
+        Err("events_not_supported — this provider records no native event lane".into())
+    }
+    /// Re-provision after closure/loss with restore lineage (DePIN redeploy semantics).
+    fn redeploy(&self, _data_dir: &str, _env_ref: &str, _plan: &Value) -> Result<Value, String> {
+        Err("redeploy_not_supported — close and create explicitly on this provider".into())
+    }
 }
 
 // --- local-microvm: the Phase 1 lane (available; full lifecycle lives in environment_routes). ---
@@ -442,7 +454,14 @@ fn kind_capabilities(kind: &str) -> Value {
         "vast" => json!({ "locality": "remote", "isolation": "container_gpu", "restore": true, "remote": true, "credentials_required": true, "authority_gated": true, "privacy": "marketplace_host_NOT_private", "lifecycle": "credential_preflight_only" }),
         "runpod" => json!({ "locality": "remote", "isolation": "container_gpu_runtime", "restore": true, "remote": true, "credentials_required": true, "authority_gated": true, "privacy": "cloud_gpu_runtime_NOT_private", "custody": "Standard unless proven otherwise", "lifecycle": "guarded (quote-gated) once a control-plane mode is set; credential_preflight_only before that" }),
         "lambda_cloud" => json!({ "locality": "remote", "isolation": "gpu_vm", "vm_class": "ordinary Linux GPU VM + ssh", "persistent_disk": "instance-lifetime local NVMe (persistent while the VM lives)", "restore": true, "remote": true, "credentials_required": true, "authority_gated": true, "privacy": "cloud_vm_NOT_private", "custody": "Standard unless proven otherwise; provider-native snapshots/disks are evidence only — daemon custody state roots remain restore truth", "lifecycle": "guarded (quote-gated) once a control-plane mode is set; credential_preflight_only before that" }),
-        "akash" => json!({ "locality": "remote", "isolation": "deployment_lease", "restore": true, "remote": true, "credentials_required": true, "authority_gated": true, "privacy": "depin_host_NOT_private", "lifecycle": "credential_preflight_only" }),
+        "akash" => json!({ "locality": "remote", "isolation": "deployment_lease",
+            "deployment_model": "DePIN compute/GPU: deployment intent → SDL manifest → provider bids → lease → lease-assigned endpoints (semantics preserved; never a generic VM)",
+            "restore": true, "remote": true, "credentials_required": true, "authority_gated": true,
+            "privacy": "depin_host_NOT_private",
+            "custody": "Standard unless proven otherwise; deployment persistent storage and provider-native ids (dseq/bid/lease) are availability evidence only — daemon custody state roots remain restore truth",
+            "persistent_storage": "deployment-scoped posture per SDL (survives restarts, dies with the lease) — NEVER restore truth",
+            "provider_spend": "customer-borne lease spend — bids are priced only when the source itself quotes a USD rate",
+            "lifecycle": "guarded (quote-gated) once a control-plane mode is set; credential_preflight_only before that" }),
         other => json!({ "locality": "unknown", "credentials_required": true, "note": format!("unknown kind '{other}'") }),
     }
 }
@@ -1989,6 +2008,468 @@ impl EnvironmentProvider for LambdaProvider {
     }
 }
 
+
+// --- akash GUARDED LIFECYCLE: the first DePIN compute/GPU lane. NOT a generic VM adapter —  ---
+// --- Akash semantics preserved: deployment intent → SDL manifest → provider BIDS → LEASE →  ---
+// --- lease-assigned endpoints → logs/events → close → REDEPLOY. Provider-native ids         ---
+// --- (dseq/bid/lease) are EVIDENCE ONLY; daemon custody state roots remain restore truth.   ---
+const AKASH_DEPLOYMENT_KIND: &str = "akash-deployments";
+const AKASH_BID_KIND: &str = "akash-bids";
+const AKASH_LEASE_KIND: &str = "akash-leases";
+const AKASH_ENDPOINT_KIND: &str = "akash-endpoints";
+const AKASH_REDEPLOY_KIND: &str = "akash-redeploy-plans";
+
+/// Canonical SDL manifest from the validated bid candidate (+ body overrides). The SDL declares
+/// an ssh service — exec/custody ride it (canon: SSH only when the deployment explicitly
+/// provides it; provider-native lease-shell exec lands with the live harness).
+fn akash_build_sdl(candidate: &Value, body: &Value) -> Value {
+    let image = body.get("image").and_then(Value::as_str).unwrap_or("ubuntu:24.04");
+    let resources = candidate.get("resources").cloned().unwrap_or(json!({}));
+    let persistent = candidate.pointer("/storage/persistent_storage").and_then(Value::as_bool).unwrap_or(false);
+    json!({
+        "version": "2.0",
+        "services": {
+            "workspace": {
+                "image": image,
+                "expose": [ { "port": 22, "as": 22, "proto": "tcp", "service": "ssh", "to": [{ "global": true }] } ],
+                "resources": {
+                    "cpu_milli": resources.get("cpu_milli").cloned().unwrap_or(Value::Null),
+                    "memory_gb": resources.get("memory_gb").cloned().unwrap_or(Value::Null),
+                    "storage": { "size_gb": resources.get("storage_gb").cloned().unwrap_or(Value::Null), "persistent": persistent },
+                    "gpu": candidate.get("gpu").cloned().unwrap_or(Value::Null),
+                },
+            }
+        },
+        "note": "SDL declares an ssh service — exec/custody ride it; persistent storage is deployment posture, NEVER restore truth",
+    })
+}
+
+fn load_akash_deployment(data_dir: &str, account_id: &str, env_ref: &str) -> Option<Value> {
+    let mut mine: Vec<Value> = read_record_dir(data_dir, AKASH_DEPLOYMENT_KIND)
+        .into_iter()
+        .filter(|d| text(d, "account_id") == account_id && text(d, "environment_ref") == env_ref)
+        .collect();
+    mine.sort_by(|a, b| text(a, "record_id").cmp(text(b, "record_id")));
+    mine.pop()
+}
+
+struct AkashProvider {
+    account: Value,
+}
+impl AkashProvider {
+    fn account_id(&self) -> &str {
+        text(&self.account, "account_id")
+    }
+    fn mode(&self) -> String {
+        vast_mode(&self.account)
+    }
+    fn deployment(&self, data_dir: &str, env_ref: &str) -> Option<Value> {
+        load_akash_deployment(data_dir, self.account_id(), env_ref)
+    }
+    fn save_deployment(&self, data_dir: &str, dep: &Value) {
+        let id = text(dep, "record_id").to_string();
+        let _ = persist_record(data_dir, AKASH_DEPLOYMENT_KIND, &id, dep);
+    }
+    fn push_event(dep: &mut Value, kind: &str, detail: String) {
+        let mut events = dep.get("events").and_then(Value::as_array).cloned().unwrap_or_default();
+        events.push(json!({ "at": iso_now(), "kind": kind, "detail": detail,
+                            "execution_mode": dep["execution_mode"] }));
+        dep["events"] = json!(events);
+    }
+    fn lease_for(&self, data_dir: &str, deployment_ref: &str) -> Option<Value> {
+        read_record_dir(data_dir, AKASH_LEASE_KIND)
+            .into_iter()
+            .find(|l| text(l, "deployment_ref") == deployment_ref)
+    }
+    fn save_lease(&self, data_dir: &str, lease: &Value) {
+        let id = text(lease, "record_id").to_string();
+        let _ = persist_record(data_dir, AKASH_LEASE_KIND, &id, lease);
+    }
+    /// Exec/custody lane: available ONLY because the deployment's SDL declares an ssh service
+    /// and ONLY after endpoint readiness is proven. Never assumed.
+    fn ssh_lane(&self, data_dir: &str, env_ref: &str) -> Result<(SshProvider, KeyGuard), String> {
+        let dep = self.deployment(data_dir, env_ref)
+            .ok_or("akash_deployment_absent — provision with the quote-gated create op first")?;
+        if text(&dep, "status") == "torn_down" {
+            return Err("akash_deployment_torn_down — this deployment was already closed".into());
+        }
+        let ssh_declared = dep.pointer("/sdl/services/workspace/expose").and_then(Value::as_array)
+            .map(|e| e.iter().any(|x| x.get("service").and_then(Value::as_str) == Some("ssh")))
+            .unwrap_or(false);
+        if !ssh_declared {
+            return Err("akash_exec_lane_unavailable — this deployment's SDL does not expose an ssh service; provider-native lease-shell exec lands with the live harness".into());
+        }
+        let ssh = dep.get("ssh").cloned().unwrap_or(Value::Null);
+        if text(&ssh, "host").is_empty() || text(&ssh, "key_file").is_empty() {
+            return Err("akash_endpoint_unready — the lease has no ready endpoint yet; run start to wait for endpoint readiness (endpoints are evidence, never assumed)".into());
+        }
+        let key = std::fs::read_to_string(text(&ssh, "key_file")).map_err(|e| format!("akash_ssh_key_unreadable: {e}"))?;
+        let dir = Path::new(data_dir).join("provider-ssh");
+        std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+        let path = dir.join(format!("akash-{}-{}.key", safe(self.account_id()), safe(env_ref)));
+        std::fs::write(&path, key).map_err(|e| e.to_string())?;
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let _ = std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600));
+        }
+        let synthetic = json!({
+            "account_id": self.account_id(),
+            "account_ref": self.account["account_ref"],
+            "display_name": format!("{} (akash lease)", text(&self.account, "display_name")),
+            "kind": "akash", "status": "verified",
+            "endpoint": { "host": ssh["host"], "port": ssh.get("port").cloned().unwrap_or(json!(22)), "user": ssh["user"] },
+        });
+        Ok((SshProvider { account: synthetic, key_path: path.clone() }, KeyGuard(path)))
+    }
+    /// Shared provisioning body for create AND redeploy (redeploy passes lineage).
+    fn provision(&self, data_dir: &str, env_ref: &str, plan: &Value, redeployed_from: Option<&Value>) -> Result<Value, String> {
+        let mode = self.mode();
+        if mode == "live" {
+            let has_credential = load_account_credential(data_dir, self.account_id()).is_some();
+            if !has_credential {
+                return Err("akash_live_credentials_absent — live deployments need a bound, resolvable credential; live execution is never claimed unauthenticated".into());
+            }
+            return Err("akash_live_deployment_tx_not_implemented — the on-chain deployment/bid/lease transaction flow lands with the live harness cut; a fake deployment is never minted".into());
+        }
+        if mode != "simulator" {
+            return Err("akash_lifecycle_mode_unset — set the account endpoint mode to simulator or live".into());
+        }
+        let sim_ssh = self.account.pointer("/endpoint/ssh").cloned().unwrap_or(Value::Null);
+        if text(&sim_ssh, "host").is_empty() || text(&sim_ssh, "key_file").is_empty() {
+            return Err("akash_simulator_ssh_missing — simulator mode needs endpoint.ssh {host, port, user, key_file}".into());
+        }
+        let stamp = nanos();
+        let record_id = format!("akdep_{stamp:x}");
+        let deployment_ref = format!("akash-deployment://{record_id}");
+        let dseq = format!("simdseq_{stamp:x}");
+        let provider_address = text(plan, "provider_address").to_string();
+        let usd = plan.get("usd_per_hour").cloned().unwrap_or(Value::Null);
+        // Bid record — the selected offer, evidence only.
+        let bid_id = format!("akbid_{stamp:x}");
+        let bid = json!({
+            "schema_version": "ioi.hypervisor.akash-bid.v1",
+            "record_id": bid_id, "bid_ref": format!("akash-bid://{bid_id}"),
+            "deployment_ref": deployment_ref, "environment_ref": env_ref,
+            "account_ref": self.account["account_ref"],
+            "provider_address": provider_address, "candidate_ref": plan["candidate_ref"],
+            "offer_bid_ref": plan["bid_ref"], "usd_per_hour": usd, "native_rate": plan["native_rate"],
+            "state": "selected",
+            "note": "SIMULATED bid selection — provider-native bid ids are evidence only, never authority",
+            "at": iso_now(),
+        });
+        let _ = persist_record(data_dir, AKASH_BID_KIND, &bid_id, &bid);
+        // Lease record — open, priced, evidence only.
+        let lease_id = format!("aklease_{stamp:x}");
+        let lease = json!({
+            "schema_version": "ioi.hypervisor.akash-lease.v1",
+            "record_id": lease_id, "lease_ref": format!("akash-lease://{lease_id}"),
+            "deployment_ref": deployment_ref, "bid_ref": bid["bid_ref"],
+            "environment_ref": env_ref, "account_ref": self.account["account_ref"],
+            "provider_address": provider_address, "usd_per_hour": usd,
+            "state": "open",
+            "spend_note": "customer-borne lease spend accrues until the lease closes",
+            "note": "SIMULATED lease — provider-native lease ids are evidence only, never authority",
+            "opened_at": iso_now(),
+        });
+        let _ = persist_record(data_dir, AKASH_LEASE_KIND, &lease_id, &lease);
+        let mut dep = json!({
+            "schema_version": "ioi.hypervisor.akash-deployment.v1",
+            "record_id": record_id, "deployment_ref": deployment_ref, "dseq": dseq,
+            "account_id": self.account_id(), "account_ref": self.account["account_ref"],
+            "environment_ref": env_ref, "status": "deployment_created",
+            "execution_mode": "simulated_control_plane",
+            "sdl": plan.get("sdl").cloned().unwrap_or_else(|| akash_build_sdl(&json!({}), plan)),
+            "sdl_hash": plan["sdl_hash"],
+            "bid_ref": bid["bid_ref"], "lease_ref": lease["lease_ref"],
+            "candidate_ref": plan["candidate_ref"], "quote_ref": plan["quote_ref"],
+            "usd_per_hour": usd, "max_hourly_usd": plan["max_hourly_usd"],
+            "teardown_policy": plan["teardown_policy"],
+            "sim_ssh": sim_ssh,
+            "ssh": Value::Null, "endpoint_ready": false,
+            "events": [],
+            "redeployed_from": redeployed_from.cloned().unwrap_or(Value::Null),
+            "provider_native": { "dseq": dseq, "note": "SIMULATED deployment/bid/lease ids — evidence only, never restore or billing truth; no real Akash deployment exists" },
+            "created_at": iso_now(),
+        });
+        Self::push_event(&mut dep, "deployment_created", format!("SDL accepted (hash {})", text(plan, "sdl_hash")));
+        Self::push_event(&mut dep, "bid_selected", format!("bid from provider {provider_address} selected"));
+        Self::push_event(&mut dep, "lease_opened", format!("lease open at ${}/hr (customer-borne until closed)", usd));
+        if let Some(old) = redeployed_from {
+            Self::push_event(&mut dep, "redeployed_from", format!("fresh deployment replacing {}", old.as_str().unwrap_or("?")));
+        }
+        self.save_deployment(data_dir, &dep);
+        Ok(json!({
+            "provider_operation_ref": format!("provider-account://{}/op/create/{}", self.account_id(), safe(env_ref)),
+            "deployment": { "deployment_ref": deployment_ref, "dseq": dseq, "status": "deployment_created", "execution_mode": "simulated_control_plane" },
+            "bid_ref": bid["bid_ref"], "lease_ref": lease["lease_ref"],
+            "provider_native": dep["provider_native"],
+            "endpoint_ready": false,
+            "live_provisioning_not_run": true,
+            "note": "lease open — run start to wait for endpoint readiness; exec ops fail closed (akash_endpoint_unready) until the endpoint is PROVEN",
+            "teardown_required": true,
+        }))
+    }
+}
+impl EnvironmentProvider for AkashProvider {
+    fn id(&self) -> &str {
+        "akash-guarded"
+    }
+    fn capabilities(&self) -> Value {
+        let mut caps = kind_capabilities("akash");
+        caps["provider_spend_borne_by"] = json!("customer");
+        caps["lifecycle"] = json!("guarded_lifecycle — quote-gated deployment/lease, wallet-gated mutations, close required; redeploy carries restore lineage");
+        caps["execution_mode"] = json!(self.mode());
+        caps
+    }
+    fn status(&self) -> (&'static str, String) {
+        match text(&self.account, "status") {
+            "verified" => ("available", format!("guarded akash DePIN deployment lifecycle ({} control plane)", self.mode())),
+            "revoked" => ("revoked", "credential revoked".into()),
+            _ => ("unverified", "bind + preflight the credential".into()),
+        }
+    }
+    fn preflight(&self, _plan: &Value) -> Value {
+        json!({ "admit": text(&self.account, "status") == "verified", "provider": self.id(),
+                "account_ref": self.account["account_ref"], "execution_mode": self.mode(),
+                "lifecycle": "guarded_lifecycle", "preflight_evidence": self.account.get("preflight").cloned().unwrap_or(Value::Null) })
+    }
+    fn create(&self, data_dir: &str, env_ref: &str, plan: &Value) -> Result<Value, String> {
+        if let Some(existing) = self.deployment(data_dir, env_ref) {
+            if text(&existing, "status") != "torn_down" {
+                return Err(format!("akash_deployment_already_open — {} is live for this environment; close the lease first", text(&existing, "deployment_ref")));
+            }
+        }
+        self.provision(data_dir, env_ref, plan, None)
+    }
+    fn redeploy(&self, data_dir: &str, env_ref: &str, plan: &Value) -> Result<Value, String> {
+        let old = self.deployment(data_dir, env_ref)
+            .ok_or("akash_redeploy_requires_closed_deployment — nothing to redeploy; use create for the first deployment")?;
+        if text(&old, "status") != "torn_down" {
+            return Err("akash_redeploy_requires_closed_deployment — close the open lease first (teardown is never implicit)".into());
+        }
+        let old_ref = text(&old, "deployment_ref").to_string();
+        let mut evidence = self.provision(data_dir, env_ref, plan, Some(&json!(old_ref)))?;
+        // AkashRedeployPlan — durable lineage binding old → new + restore refs. Restore itself
+        // stays an EXPLICIT op: it admits only by daemon state_root, never by this plan.
+        let plan_id = format!("akrdp_{:x}", nanos());
+        let record = json!({
+            "schema_version": "ioi.hypervisor.akash-redeploy-plan.v1",
+            "record_id": plan_id, "plan_ref": format!("akash-redeploy-plan://{plan_id}"),
+            "environment_ref": env_ref, "account_ref": self.account["account_ref"],
+            "old_deployment_ref": old_ref,
+            "new_deployment_ref": evidence.pointer("/deployment/deployment_ref").cloned().unwrap_or(Value::Null),
+            "restore_material_ref": plan.get("restore_material_ref").cloned().unwrap_or(Value::Null),
+            "archive_ref": plan.get("archive_ref").cloned().unwrap_or(Value::Null),
+            "note": "restore admits ONLY by daemon-recorded sha256 state_root — deployment persistent storage and archive bytes alone are never restore truth",
+            "at": iso_now(),
+        });
+        let _ = persist_record(data_dir, AKASH_REDEPLOY_KIND, &plan_id, &record);
+        if let Some(o) = evidence.as_object_mut() {
+            o.insert("redeploy_plan_ref".into(), record["plan_ref"].clone());
+            o.insert("redeployed_from".into(), json!(old_ref));
+            o.insert("restore_note".into(), json!("run start, then restore with the bound material/archive refs — restore validates the admitted state_root before touching the new deployment"));
+        }
+        Ok(evidence)
+    }
+    fn start(&self, data_dir: &str, env_ref: &str) -> Result<Value, String> {
+        let mut dep = self.deployment(data_dir, env_ref).ok_or("akash_deployment_absent")?;
+        if text(&dep, "status") == "torn_down" {
+            return Err("akash_deployment_torn_down".into());
+        }
+        let mut endpoint_evidence = Value::Null;
+        if dep.get("endpoint_ready").and_then(Value::as_bool) != Some(true) {
+            if text(&dep, "execution_mode") == "live" {
+                return Err("akash_live_deployment_tx_not_implemented — no live deployment exists to await".into());
+            }
+            // Simulator endpoint readiness: resolved from the recorded sim endpoint; the
+            // lease-assigned ip/ports are recorded as EVIDENCE, never authority.
+            let sim_ssh = dep.get("sim_ssh").cloned().unwrap_or(Value::Null);
+            let ep_id = format!("akep_{:x}", nanos());
+            let ports: Vec<Value> = dep.pointer("/sdl/services/workspace/expose").and_then(Value::as_array)
+                .map(|e| e.iter().map(|x| json!({ "port": x["port"], "as": x["as"], "proto": x["proto"], "service": x["service"] })).collect())
+                .unwrap_or_default();
+            let endpoint = json!({
+                "schema_version": "ioi.hypervisor.akash-endpoint.v1",
+                "record_id": ep_id, "endpoint_ref": format!("akash-endpoint://{ep_id}"),
+                "deployment_ref": dep["deployment_ref"], "lease_ref": dep["lease_ref"],
+                "environment_ref": env_ref,
+                "ip": sim_ssh["host"], "ports": ports,
+                "authority_note": "lease-assigned IP/ports are EVIDENCE, not authority — ingress beyond the SDL expose list requires the lifecycle + wallet authority",
+                "proven_at": iso_now(),
+            });
+            let _ = persist_record(data_dir, AKASH_ENDPOINT_KIND, &ep_id, &endpoint);
+            endpoint_evidence = endpoint.clone();
+            dep["ssh"] = sim_ssh;
+            dep["endpoint_ready"] = json!(true);
+            dep["endpoint_ref"] = endpoint["endpoint_ref"].clone();
+            Self::push_event(&mut dep, "endpoint_ready", format!("lease endpoint proven ({})", text(&endpoint, "ip")));
+            self.save_deployment(data_dir, &dep);
+        }
+        let (lane, _guard) = self.ssh_lane(data_dir, env_ref)?;
+        if dep.get("workspace_bootstrapped").and_then(Value::as_bool) != Some(true) {
+            lane.create(data_dir, env_ref, &json!({}))?;
+            dep["workspace_bootstrapped"] = json!(true);
+        }
+        lane.start(data_dir, env_ref)?;
+        dep["status"] = json!("running");
+        Self::push_event(&mut dep, "workspace_started", "workspace lane running over the SDL-declared ssh service".into());
+        self.save_deployment(data_dir, &dep);
+        Ok(json!({ "provider_operation_ref": format!("provider-account://{}/op/start/{}", self.account_id(), safe(env_ref)),
+                   "deployment_ref": dep["deployment_ref"], "status": "running",
+                   "endpoint_ready": true, "endpoint": endpoint_evidence }))
+    }
+    fn workrun(&self, data_dir: &str, env_ref: &str, command: &str) -> Result<Value, String> {
+        let (lane, _guard) = self.ssh_lane(data_dir, env_ref)?;
+        lane.workrun(data_dir, env_ref, command)
+    }
+    fn stop(&self, data_dir: &str, env_ref: &str) -> Result<Value, String> {
+        // An Akash lease bills until CLOSED — stopping the workspace never stops the spend.
+        let mut dep = self.deployment(data_dir, env_ref).ok_or("akash_deployment_absent")?;
+        let (lane, _guard) = self.ssh_lane(data_dir, env_ref)?;
+        let stopped = lane.stop(data_dir, env_ref)?;
+        dep["status"] = json!("workspace_stopped_lease_open");
+        Self::push_event(&mut dep, "workspace_stopped", "workspace halted; the lease stays open and accruing".into());
+        self.save_deployment(data_dir, &dep);
+        Ok(json!({ "provider_operation_ref": format!("provider-account://{}/op/stop/{}", self.account_id(), safe(env_ref)),
+                   "deployment_ref": dep["deployment_ref"], "status": "workspace_stopped_lease_open",
+                   "spend_note": "akash leases bill until closed — the lease stays open and accruing customer-borne spend; only the workspace lane halted",
+                   "lane": stopped }))
+    }
+    fn snapshot(&self, data_dir: &str, env_ref: &str) -> Result<Value, String> {
+        let (lane, _guard) = self.ssh_lane(data_dir, env_ref)?;
+        lane.snapshot(data_dir, env_ref)
+    }
+    fn restore(&self, data_dir: &str, env_ref: &str, material_ref: &str) -> Result<Value, String> {
+        let (lane, _guard) = self.ssh_lane(data_dir, env_ref)?;
+        lane.restore(data_dir, env_ref, material_ref)
+    }
+    fn logs(&self, data_dir: &str, env_ref: &str) -> Result<Value, String> {
+        let dep = self.deployment(data_dir, env_ref).ok_or("akash_deployment_absent")?;
+        Ok(json!({
+            "deployment_ref": dep["deployment_ref"], "lease_ref": dep["lease_ref"],
+            "control_plane_log": dep.get("events").cloned().unwrap_or(json!([])),
+            "service_logs": "unavailable_in_simulator — provider-native service logs land with the live lease; workspace exec outputs are receipted in the Work Ledger",
+            "execution_mode": dep["execution_mode"],
+            "basis": "daemon-recorded control-plane events — provider evidence, not authority",
+        }))
+    }
+    fn events(&self, data_dir: &str, env_ref: &str) -> Result<Value, String> {
+        let dep = self.deployment(data_dir, env_ref).ok_or("akash_deployment_absent")?;
+        Ok(json!({
+            "deployment_ref": dep["deployment_ref"], "lease_ref": dep["lease_ref"],
+            "events": dep.get("events").cloned().unwrap_or(json!([])),
+            "execution_mode": dep["execution_mode"],
+            "basis": "daemon-recorded deployment lifecycle events (simulated control plane labelled)",
+        }))
+    }
+    fn inject_outage(&self, data_dir: &str, env_ref: &str) -> Result<Value, String> {
+        // THE DePIN risk, made testable: simulated provider-side lease revocation. Live leases
+        // are never destroyed as an "outage" — this lane exists only on the simulator.
+        let mut dep = self.deployment(data_dir, env_ref).ok_or("akash_deployment_absent")?;
+        if text(&dep, "execution_mode") != "simulated_control_plane" {
+            return Err("akash_outage_injection_not_supported_live — revoking a paid lease is not a safely representable outage; use the simulator".into());
+        }
+        let (lane, _guard) = self.ssh_lane(data_dir, env_ref)?;
+        let lost = lane.inject_outage(data_dir, env_ref)?;
+        if let Some(mut lease) = self.lease_for(data_dir, text(&dep, "deployment_ref")) {
+            lease["state"] = json!("closed_by_provider");
+            lease["closed_at"] = json!(iso_now());
+            lease["closure_note"] = json!("SIMULATED provider-side revocation — the bid_lease_revocation risk, exercised");
+            self.save_lease(data_dir, &lease);
+        }
+        dep["status"] = json!("lease_lost");
+        Self::push_event(&mut dep, "lease_revoked_by_provider", "SIMULATED lease revocation — workspace lost; deployment persistent storage is gone with the lease (it was never restore truth)".into());
+        self.save_deployment(data_dir, &dep);
+        Ok(json!({ "provider_operation_ref": format!("provider-account://{}/op/inject_outage/{}", self.account_id(), safe(env_ref)),
+                   "deployment_ref": dep["deployment_ref"], "lease_state": "closed_by_provider",
+                   "workspace_lost": true, "simulated": true,
+                   "recovery_path": "close (teardown accounting) → redeploy to a fresh bid → restore from daemon/storage-archive custody after state_root validation",
+                   "lane": lost }))
+    }
+    fn recover(&self, _d: &str, _e: &str) -> Result<Value, String> {
+        Err("akash_recover_not_supported — recovery is REDEPLOY + restore from daemon/storage custody (close the lease, redeploy to a fresh bid, restore explicitly)".into())
+    }
+    fn delete(&self, data_dir: &str, env_ref: &str) -> Result<Value, String> {
+        let mut dep = self.deployment(data_dir, env_ref).ok_or("akash_deployment_absent")?;
+        let remote_cleanup = match self.ssh_lane(data_dir, env_ref) {
+            Ok((lane, _guard)) => lane.delete(data_dir, env_ref).map(|e| e["cleanup_verified"].clone()).unwrap_or(json!("unreachable")),
+            Err(e) => json!(format!("skipped: {e}")),
+        };
+        let already_revoked = self.lease_for(data_dir, text(&dep, "deployment_ref"))
+            .map(|l| text(&l, "state") == "closed_by_provider")
+            .unwrap_or(false);
+        let native_teardown = if text(&dep, "execution_mode") == "live" {
+            json!({ "destroyed": false, "error": "akash_live_deployment_tx_not_implemented", "warning": "TEARDOWN MAY BE INCOMPLETE — no live close transaction exists yet" })
+        } else if self.account.pointer("/endpoint/simulate_teardown_failure").and_then(Value::as_bool) == Some(true) {
+            json!({ "destroyed": false, "error": "SIMULATED lease-close failure (endpoint.simulate_teardown_failure)", "warning": "TEARDOWN MAY BE INCOMPLETE — verify the lease on-chain/console (spend may still accrue)" })
+        } else if already_revoked {
+            json!({ "destroyed": true, "note": "lease was already closed by the provider (simulated revocation) — close confirmed idempotently" })
+        } else {
+            json!({ "destroyed": true, "note": "simulated control plane — lease closed, no real deployment existed" })
+        };
+        if let Some(mut lease) = self.lease_for(data_dir, text(&dep, "deployment_ref")) {
+            if text(&lease, "state") == "open" {
+                lease["state"] = json!("closed");
+                lease["closed_at"] = json!(iso_now());
+                self.save_lease(data_dir, &lease);
+            }
+        }
+        dep["status"] = json!("torn_down");
+        dep["torn_down_at"] = json!(iso_now());
+        Self::push_event(&mut dep, "closed", "deployment closed; lease billing ends with closure".into());
+        self.save_deployment(data_dir, &dep);
+        Ok(json!({ "provider_operation_ref": format!("provider-account://{}/op/delete/{}", self.account_id(), safe(env_ref)),
+                   "deployment_ref": dep["deployment_ref"], "teardown_state": "torn_down",
+                   "remote_workspace_cleanup": remote_cleanup, "native_teardown": native_teardown,
+                   "cleanup_verified": true }))
+    }
+    fn observe(&self, data_dir: &str, env_ref: &str) -> Value {
+        match self.deployment(data_dir, env_ref) {
+            None => json!({ "provider": self.id(), "environment_ref": env_ref, "deployment": Value::Null, "status": "absent" }),
+            Some(dep) => {
+                let torn = text(&dep, "status") == "torn_down";
+                let lane_view = if torn { Value::Null }
+                    else if dep.get("endpoint_ready").and_then(Value::as_bool) != Some(true) {
+                        json!({ "endpoint": "pending — run start to wait for lease endpoint readiness" })
+                    } else {
+                        match self.ssh_lane(data_dir, env_ref) {
+                            Ok((lane, _guard)) => lane.observe(data_dir, env_ref),
+                            Err(e) => json!({ "error": e }),
+                        }
+                    };
+                let lease = self.lease_for(data_dir, text(&dep, "deployment_ref"));
+                json!({ "provider": self.id(), "environment_ref": env_ref,
+                        "deployment_ref": dep["deployment_ref"], "dseq": dep["dseq"], "status": dep["status"],
+                        "execution_mode": dep["execution_mode"],
+                        "bid_ref": dep["bid_ref"], "lease": lease,
+                        "endpoint_ready": dep["endpoint_ready"], "endpoint_ref": dep.get("endpoint_ref").cloned().unwrap_or(Value::Null),
+                        "events_tail": dep.get("events").and_then(Value::as_array).map(|e| e.iter().rev().take(5).cloned().collect::<Vec<_>>()).unwrap_or_default(),
+                        "provider_native": dep["provider_native"],
+                        "teardown_state": if torn { json!("torn_down") } else { json!("live_or_pending") },
+                        "workspace": lane_view })
+            }
+        }
+    }
+}
+
+/// GET /v1/hypervisor/akash-deployments — the DePIN posture projection: deployments joined to
+/// bids/leases/endpoints/redeploy plans (all daemon records; provider-native ids evidence-only).
+pub(crate) async fn handle_akash_deployments(State(st): State<Arc<DaemonState>>) -> Json<Value> {
+    let mut deployments = read_record_dir(&st.data_dir, AKASH_DEPLOYMENT_KIND);
+    deployments.sort_by(|a, b| text(b, "record_id").cmp(text(a, "record_id")));
+    Json(json!({
+        "schema_version": "ioi.hypervisor.akash-deployments.v1",
+        "custody_rule": "provider-native dseq/bid/lease ids and deployment persistent storage are availability EVIDENCE — daemon-admitted sha256 state roots remain restore truth",
+        "deployments": deployments,
+        "bids": read_record_dir(&st.data_dir, AKASH_BID_KIND),
+        "leases": read_record_dir(&st.data_dir, AKASH_LEASE_KIND),
+        "endpoints": read_record_dir(&st.data_dir, AKASH_ENDPOINT_KIND),
+        "redeploy_plans": read_record_dir(&st.data_dir, AKASH_REDEPLOY_KIND),
+        "at": iso_now(),
+    }))
+}
+
 fn registry() -> Vec<Box<dyn EnvironmentProvider>> {
     vec![
         Box::new(LocalMicrovmProvider),
@@ -2029,6 +2510,12 @@ fn resolve_account_adapter(
         && text(&account, "status") == "verified"
     {
         return Some(Ok((account.clone(), Box::new(LambdaProvider { account }), None)));
+    }
+    if text(&account, "kind") == "akash"
+        && matches!(vast_mode(&account).as_str(), "simulator" | "live")
+        && text(&account, "status") == "verified"
+    {
+        return Some(Ok((account.clone(), Box::new(AkashProvider { account }), None)));
     }
     if text(&account, "kind") == "baremetal_ssh" {
         match materialize_ssh_key(data_dir, text(&account, "account_id")) {
@@ -2357,7 +2844,7 @@ pub(crate) async fn handle_provider_op(
         let account_id = text(&account, "account_id").to_string();
         let account_ref = text(&account, "account_ref").to_string();
         let kind = text(&account, "kind").to_string();
-        let mutation = !matches!(op, "preflight" | "observe");
+        let mutation = !matches!(op, "preflight" | "observe" | "logs" | "events");
         let mut vast_gate = Value::Null;
         let mut budget_note = Value::Null;
         let mut lease_note = Value::Null;
@@ -2376,7 +2863,7 @@ pub(crate) async fn handle_provider_op(
             //     live control plane demands live_evidence, the simulator demands
             //     simulator_evidence (labelled harness, no real spend). Runs AFTER budget
             //     discovery and BEFORE the wallet challenge (canon gate order).
-            if matches!(kind.as_str(), "vast" | "runpod" | "lambda_cloud") && op == "create" {
+            if matches!(kind.as_str(), "vast" | "runpod" | "lambda_cloud" | "akash") && matches!(op, "create" | "redeploy") {
                 let candidate_ref = body.get("candidate_ref").and_then(Value::as_str).unwrap_or("");
                 if candidate_ref.is_empty() {
                     let code = format!("{kind}_candidate_ref_required");
@@ -2425,9 +2912,26 @@ pub(crate) async fn handle_provider_op(
                 if headroom - max_hourly < 0.0 {
                     return refuse(&format!("{kind}_budget_reservation_exceeded"), format!("open exposures already reserve the external_spend headroom (remaining ${headroom:.3} < first-hour reservation ${max_hourly:.3}/hr) — tear an instance down or raise the budget"));
                 }
+                // akash: the wallet challenge binds the DEPLOYMENT SPEC — a canonical SDL is
+                // built from the validated bid candidate; its hash rides the facets.
+                let akash_sdl: Value = if kind == "akash" {
+                    let sdl = akash_build_sdl(&candidate, &body);
+                    let sdl_hash = sha256_bytes(sdl.to_string().as_bytes());
+                    json!({ "sdl": sdl, "sdl_hash": sdl_hash })
+                } else { Value::Null };
                 vast_gate = json!({
                     "candidate_ref": candidate_ref,
                     "quote_ref": candidate["quote_ref"],
+                    "deployment_class": candidate.get("deployment_class").cloned().unwrap_or(Value::Null),
+                    "provider_address": candidate.get("provider_address").cloned().unwrap_or(Value::Null),
+                    "bid_ref": candidate.get("bid_ref").cloned().unwrap_or(Value::Null),
+                    "persistent_storage": candidate.pointer("/storage/persistent_storage").cloned().unwrap_or(Value::Null),
+                    "resources": candidate.get("resources").cloned().unwrap_or(Value::Null),
+                    "native_rate": candidate.pointer("/quote/native_rate").cloned().unwrap_or(Value::Null),
+                    "sdl": akash_sdl.get("sdl").cloned().unwrap_or(Value::Null),
+                    "sdl_hash": akash_sdl.get("sdl_hash").cloned().unwrap_or(Value::Null),
+                    "restore_material_ref": body.get("restore_material_ref").cloned().unwrap_or(Value::Null),
+                    "archive_ref": body.get("archive_ref").cloned().unwrap_or(Value::Null),
                     "offer_id": candidate.pointer("/quote/offer_id").cloned().unwrap_or(Value::Null),
                     "usd_per_hour": price,
                     "max_hourly_usd": max_hourly,
@@ -2456,7 +2960,9 @@ pub(crate) async fn handle_provider_op(
                 request_facets: {
                     let mut facets = json!({ "account_ref": account_ref, "op": op, "environment_ref": env_ref, "kind": kind, "external_spend_posture": budget_note.get("scope").cloned().unwrap_or(Value::Null) });
                     if let (Some(target), Some(gate)) = (facets.as_object_mut(), vast_gate.as_object()) {
-                        for key in ["candidate_ref", "quote_ref", "max_hourly_usd", "gpu", "region", "instance_type", "disk_gb", "teardown_policy", "execution_mode"] {
+                        for key in ["candidate_ref", "quote_ref", "max_hourly_usd", "gpu", "region", "instance_type", "disk_gb",
+                                    "deployment_class", "provider_address", "bid_ref", "persistent_storage", "sdl_hash",
+                                    "restore_material_ref", "archive_ref", "teardown_policy", "execution_mode"] {
                             if let Some(v) = gate.get(key) { target.insert(key.to_string(), v.clone()); }
                         }
                     }
@@ -2510,6 +3016,9 @@ pub(crate) async fn handle_provider_op(
             "recover" => provider.recover(data_dir, &env_ref),
             "delete" => provider.delete(data_dir, &env_ref),
             "observe" => Ok(provider.observe(data_dir, &env_ref)),
+            "logs" => provider.logs(data_dir, &env_ref),
+            "events" => provider.events(data_dir, &env_ref),
+            "redeploy" => provider.redeploy(data_dir, &env_ref, &plan),
             other => Err(format!("unknown op '{other}'")),
         };
         let cost_estimate = budget_note.get("cost_estimate").cloned().unwrap_or(Value::Null);
@@ -2536,7 +3045,7 @@ pub(crate) async fn handle_provider_op(
                 });
                 let _ = persist_record(data_dir, "provider-operations", &op_id, &record);
                 // ── Spend exposure accounting (customer-borne; estimates only, never a bill) ──
-                if op == "create" && !vast_gate.is_null() {
+                if matches!(op, "create" | "redeploy") && !vast_gate.is_null() {
                     let exp_id = format!("pse_{:x}", nanos());
                     let exposure = json!({
                         "schema_version": "ioi.hypervisor.provider-spend-exposure.v1",
@@ -2561,7 +3070,7 @@ pub(crate) async fn handle_provider_op(
                         "opened_at": iso_now(),
                     });
                     let _ = persist_record(data_dir, EXPOSURE_KIND, &exp_id, &exposure);
-                } else if matches!(kind.as_str(), "vast" | "runpod" | "lambda_cloud") {
+                } else if matches!(kind.as_str(), "vast" | "runpod" | "lambda_cloud" | "akash") {
                     if let Some(mut exposure) = open_exposure_for(data_dir, &account_ref, &env_ref) {
                         let exp_id = text(&exposure, "exposure_id").to_string();
                         let mut refs = exposure.get("receipt_refs").and_then(Value::as_array).cloned().unwrap_or_default();

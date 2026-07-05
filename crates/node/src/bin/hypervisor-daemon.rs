@@ -56,6 +56,8 @@ mod vast_candidate_source;
 mod runpod_candidate_source;
 #[path = "hypervisor_daemon_routes/lambda_candidate_source.rs"]
 mod lambda_candidate_source;
+#[path = "hypervisor_daemon_routes/akash_candidate_source.rs"]
+mod akash_candidate_source;
 #[path = "hypervisor_daemon_routes/storage_backend_routes.rs"]
 mod storage_backend_routes;
 #[path = "hypervisor_daemon_routes/environment_routes.rs"]
@@ -1755,6 +1757,11 @@ async fn async_main() -> anyhow::Result<()> {
         .route(
             "/v1/hypervisor/provider-operations",
             get(provider_routes::handle_provider_operations),
+        )
+        // Akash DePIN posture — deployments/bids/leases/endpoints/redeploy plans (daemon records).
+        .route(
+            "/v1/hypervisor/akash-deployments",
+            get(provider_routes::handle_akash_deployments),
         )
         // Storage backends — Filecoin/CAS/IPFS/local-disk archive custody (byte availability
         // behind daemon refs; never authority, never restore truth).

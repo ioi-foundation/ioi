@@ -235,6 +235,27 @@ identically; per-kind gate codes are `lambda_cloud_*`. `IOI_LAMBDA_LIVE=1`
 proves live or blocks named. Done-bar:
 `verify-hypervisor-lambda-gpu-vm-adapter.mjs`.
 
+Akash is the DePIN compute/GPU lane (`adapter:akash-bid` + guarded
+lifecycle), and deliberately NOT a generic VM adapter: semantics are
+deployment intent → SDL manifest → provider BIDS → LEASE → lease-assigned
+endpoints → logs/events → close → REDEPLOY. Bids are priced ONLY by a
+source-quoted USD rate (the native uakt/block rate is carried as evidence,
+never converted by the daemon; unquoted bids are skipped). The wallet
+challenge binds the deployment spec (SDL hash) + bid/lease + persistence +
+rate cap; endpoints are proven at start and recorded as evidence, not
+authority; exec/custody ride the SDL-declared ssh service (provider-native
+lease-shell lands with the live harness); provider-native dseq/bid/lease ids
+stay evidence only, and deployment persistent storage is SDL posture — never
+restore truth. Leases bill until CLOSED (stop says so); simulated
+provider-side revocation exercises the bid_lease_revocation risk, and
+`redeploy` mints an `AkashRedeployPlan` binding old → new deployment plus the
+daemon-material and storage-archive refs — restore admits only after daemon
+state_root + storage commitment validation, closing the deployment-loss →
+restore-elsewhere loop over the storage plane. Per-kind gate codes are
+`akash_*`; exposures open on create AND redeploy. `IOI_AKASH_LIVE=1` proves
+live or blocks named (the on-chain tx flow lands with the live harness cut).
+Done-bar: `verify-hypervisor-akash-depin-adapter.mjs`.
+
 ## Priority Adapter Ladder
 
 This ladder is roadmap priority, not a permanent provider ranking and not a routing policy.
