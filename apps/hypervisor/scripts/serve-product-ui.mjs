@@ -1018,7 +1018,11 @@ function renderCandidateCards(v) {
       <b>${CX_ESC(c.display_name || c.provider_kind || "")}</b> <span class="pill muted">${CX_ESC(c.provider_kind || "")}</span>
       <span class="pill ${c.status === "active" ? "ok" : "warn"}">${CX_ESC(c.status || "")}</span>
       <span class="pill muted">spend owner: ${CX_ESC((c.spend_estimate || {}).cost_owner || "customer")}</span>
-      <div class="sub" style="margin:4px 0 0;text-transform:none;letter-spacing:0">${CX_ESC(c.runtime_class || "")} · custody ${CX_ESC(((c.custody_plan || {}).supported_postures || []).join("/"))} · ${CX_ESC(c.coverage_state || "")}${rel.ops_ok !== undefined ? ` · ops ${rel.ops_ok}✓/${rel.ops_failed || 0}✗` : ""}</div>
+      <div class="sub" style="margin:4px 0 0;text-transform:none;letter-spacing:0">${CX_ESC(c.runtime_class || "")} · custody ${CX_ESC(((c.custody_plan || {}).supported_postures || []).join("/"))} · ${CX_ESC(c.coverage_state || "")}${rel.ops_ok !== undefined ? ` · ops ${rel.ops_ok}✓/${rel.ops_failed || 0}✗` : ""}${rel.host_reliability !== undefined && rel.host_reliability !== null ? ` · host reliability ${CX_ESC(String(rel.host_reliability))}` : ""}</div>
+      ${c.gpu ? `<div style="font-size:12px;margin-top:3px"><b>${CX_ESC(String(c.gpu.count || 1))}x ${CX_ESC(c.gpu.model || "GPU")}</b>${c.gpu.vram_gb ? ` · ${CX_ESC(String(c.gpu.vram_gb))} GB VRAM` : ""}${c.region ? ` · ${CX_ESC(c.region)}` : ""}${c.quote && c.quote.usd_per_hour !== undefined ? ` · <b>$${CX_ESC(String(c.quote.usd_per_hour))}/hr</b> <span class="sub" style="margin:0;text-transform:none;letter-spacing:0">(${CX_ESC(c.quote.basis || "")}; no fee object minted)</span>` : ""}</div>` : ""}
+      ${(c.custody_plan || {}).privacy === "marketplace_host_NOT_private" ? `<div class="sub" style="margin:2px 0 0;color:#e2b93d;text-transform:none;letter-spacing:0">marketplace host — NOT private custody</div>` : ""}
+      ${c.evidence_mode === "fixture_evidence" ? `<div class="sub" style="margin:2px 0 0;color:#e2b93d;text-transform:none;letter-spacing:0">fixture_evidence — deterministic local fixture, NOT live supply</div>` : ""}
+      ${c.lifecycle ? `<div class="sub" style="margin:2px 0 0;text-transform:none;letter-spacing:0">lifecycle: ${CX_ESC(c.lifecycle)}${c.execution_blocked_reason ? ` · ${CX_ESC(c.execution_blocked_reason)}` : ""}</div>` : ""}
       <div class="sub" style="margin:2px 0 0;text-transform:none;letter-spacing:0">expires ${CX_ESC(c.expires_at || "")} · <code>${CX_ESC(c.candidate_ref || "")}</code></div>
     </div>`;
   };

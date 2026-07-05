@@ -169,7 +169,11 @@ plane (`/v1/hypervisor/cloud-candidates/*` — canonical doctrine
 `../../domains/decentralized/cloud.md`): evidence-bound, expiring candidates
 derived from local facts, a deterministic reason-coded advisory, and explicit
 `no_eligible_candidate` fallback to `run_local`. Candidates are never
-authority; no fee objects, quotes, or RoutingDecisionReceipt exist.
+authority; no fee objects or RoutingDecisionReceipt exist. The first live
+external quote source is Vast (`adapter:vast-quote`, quote + preflight +
+candidate enrichment only — verbatim offer prices, `advisory_only`
+eligibility, lifecycle fail-closed until the guarded lifecycle cut; done-bar
+`verify-hypervisor-vast-candidate-adapter.mjs`).
 
 ## Priority Adapter Ladder
 

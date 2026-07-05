@@ -404,13 +404,19 @@
       if (rec) lines.push('Advisory recommends <b>' + esc(rec.venue || "") + "</b>" + (rec.display_name ? " · " + esc(rec.display_name) : "") + ' <span style="color:#6f7280">(' + esc((rec.reason_codes || []).join(", ")) + ")</span>");
       if (cands.length) {
         lines.push('<span style="color:#6f7280">Candidates (evidence-bound, expiring — never authority):</span>');
-        cands.slice(0, 4).forEach(function (c) {
+        cands.slice(0, 6).forEach(function (c) {
           var rel = c.reliability || {};
+          var q = c.quote || {};
           lines.push("· <b>" + esc(c.display_name || c.provider_kind) + "</b> · " + esc(c.runtime_class || "") +
+            (c.gpu ? " · " + esc(String(c.gpu.count || 1)) + "x " + esc(c.gpu.model || "GPU") + (c.gpu.vram_gb ? " " + esc(String(c.gpu.vram_gb)) + "GB" : "") : "") +
+            (q.usd_per_hour !== undefined ? " · <b>$" + esc(String(q.usd_per_hour)) + "/hr</b>" : "") +
+            (c.region ? " · " + esc(c.region) : "") +
             " · custody " + esc(((c.custody_plan || {}).supported_postures || []).join("/")) +
             " · spend owner " + esc(((c.spend_estimate || {}).cost_owner) || "customer") +
             " · " + esc(c.coverage_state || "") +
-            (rel.ops_ok !== undefined ? " · ops " + rel.ops_ok + "✓/" + (rel.ops_failed || 0) + "✗" : ""));
+            (rel.ops_ok !== undefined ? " · ops " + rel.ops_ok + "✓/" + (rel.ops_failed || 0) + "✗" : "") +
+            (c.evidence_mode === "fixture_evidence" ? ' · <span class="nsp-warn">fixture_evidence (not live)</span>' : "") +
+            ((c.custody_plan || {}).privacy === "marketplace_host_NOT_private" ? ' · <span class="nsp-warn">not private custody</span>' : ""));
         });
       } else {
         lines.push('<span class="nsp-warn">' + esc(v.no_eligible_candidate || "no eligible candidate — effective venue stays run_local") + "</span>");
