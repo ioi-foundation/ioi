@@ -19,7 +19,7 @@
 // Usage: PORT=4173 node apps/hypervisor/scripts/serve-product-ui.mjs
 import http from "node:http";
 import { spawn } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { WebSocketServer } from "ws";
@@ -185,7 +185,15 @@ function selectConversationChunks(chunks, query) {
   return chunks.slice(-1);
 }
 const HERE = dirname(fileURLToPath(import.meta.url));
-const AUG_PATH = join(HERE, "ioi-augmentation.js");
+// The injected UI is authored as per-surface modules (scripts/augmentation/NN-*.js) and served
+// as ONE script: ordered raw concatenation inside the shared IIFE (module 00 opens it, 90 closes
+// it — function hoisting makes cross-module references safe; mount() runs last). One delivery URL
+// for both shell trees, so the module split is invisible at the wire.
+const AUG_DIR = join(HERE, "augmentation");
+function augmentationBundle() {
+  return readdirSync(AUG_DIR).filter((f) => f.endsWith(".js")).sort()
+    .map((f) => readFileSync(join(AUG_DIR, f), "utf8")).join("");
+}
 // WS-I: injected IOI-native surface tag (mounted beside the cockpit; never edits the seeded SPA's DOM).
 const AUG_TAG = '<script src="/ioi-augmentation.js" defer></script>';
 const FEATURE_FLAG_TAG = '<script>try{localStorage.setItem("feature_flag_supervisor_watch_enabled","true")}catch(e){}</script>';
@@ -3840,7 +3848,7 @@ const server = http.createServer((req, res) => {
     }
     if (pathname === "/ioi-augmentation.js") {
       try {
-        const js = readFileSync(AUG_PATH);
+        const js = augmentationBundle();
         res.writeHead(200, { "Content-Type": "application/javascript; charset=utf-8", "Cache-Control": "no-cache" });
         res.end(js);
       } catch {
