@@ -2863,6 +2863,27 @@ function odkCard(family, rec, nameKey) {
     : (rec.ref ? CX_ESC(rec.ref) : "");
   return `<a class="card" href="/__ioi/odk/${family}/${e(rec.id)}"><div class="main"><div class="name">${CX_ESC(rec[nameKey] || rec.name || rec.id)} <span class="pill warn">${CX_ESC(rec.status || "draft")}</span></div><div class="meta">${sub}</div></div><span class="act ghost">Open →</span></a>`;
 }
+// Data sources — the DAEMON-PLANE-FIRST shape: a real daemon data-source registry is the authority
+// (built as a contract before any UI promise); the capture seeds are secondary references. A
+// registration is a validated, receipted DECLARATION — ingestion is explicitly NOT wired (named
+// gap), never faked.
+function renderDataSourcesSection(dataSources) {
+  dataSources = Array.isArray(dataSources) ? dataSources : [];
+  const rows = dataSources.map((d) => `<tr>
+    <td><b>${CX_ESC(d.name || d.source_id || "—")}</b><div class="meta" style="color:#878a93;font-size:11.5px;margin-top:2px"><code>${CX_ESC(d.source_ref || "")}</code></div></td>
+    <td><span class="pill muted">${CX_ESC(d.kind || "—")}</span></td>
+    <td>${d.endpoint ? `<code style="font-size:11px">${CX_ESC(d.endpoint)}</code>` : "<span class=\"sub\" style=\"margin:0\">local</span>"}</td>
+    <td><span class="pill muted">${CX_ESC(d.credential_posture || "—")}</span></td>
+    <td><span class="pill ${(d.lifecycle || {}).status === "declared" ? "muted" : "ok"}">${CX_ESC((d.lifecycle || {}).status || "declared")}</span> <span class="pill warn" title="ingestion is not wired — declaration only">not ingesting</span></td>
+  </tr>`).join("");
+  const table = dataSources.length
+    ? `<table><thead><tr><th>Source</th><th>Kind</th><th>Endpoint</th><th>Credential</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table>`
+    : `<div class="empty">No data sources declared yet. Register one against the daemon <code>POST /v1/hypervisor/data-sources</code> — a validated, receipted declaration (credentials by posture only; ingestion is a named gap, never faked here).</div>`;
+  return `<h2 id="data-sources">Data sources <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— the daemon data-source registry (${dataSources.length}) · authority</span></h2>` +
+    `<p class="sub" style="margin:-4px 0 10px">Declared external sources are <b>daemon truth</b> — a fail-closed, receipted registry (credentials by posture only). Ingestion is <b>not wired</b> (a named gap requiring a future authority crossing), never faked. The <a href="/__apps/sources">Data Connection capture ↗</a> and <a href="/__apps/ingest">pipeline capture ↗</a> are secondary reference grammars, not rebound surfaces.</p>` +
+    table;
+}
+
 function renderOdkLanding(ov, lists) {
   const o = ov || {}; const sub = o.substrate || {};
   const note = o.status_note || "ODK foundation: drafts only. No transformation runs, no generated UI artifacts, no Domain App creation.";
@@ -2875,7 +2896,7 @@ function renderOdkLanding(ov, lists) {
   const section = (title, family, items, nameKey, newLabel) => `<h2 style="display:flex;justify-content:space-between;align-items:center">${title} (${items.length}) <a class="act" href="/__ioi/odk/${family}/new">+ ${newLabel}</a></h2>${items.length ? items.map((x) => odkCard(family, x, nameKey)).join("") : `<div class="empty">None yet.</div>`}`;
   return automationsShell("Ontology", head + banner + stats + patterns + outkinds
     + section("Domain Ontologies", "ontologies", lists.ontologies, "domain", "New ontology")
-    + `<div id="data-planes"><p class="sub" style="margin:0 0 8px"><a href="/__apps/ingest">Source-first pipeline seed (adopting) →</a> · <a href="/__apps/sources">Data Connection seed (adopting) →</a></p>` + section("Data Recipes", "data-recipes", lists.data_recipes, "name", "New recipe") + `</div>`
+    + `<div id="data-planes">` + renderDataSourcesSection(lists.data_sources || []) + section("Data Recipes", "data-recipes", lists.data_recipes, "name", "New recipe") + `</div>`
     + section("Surface Descriptors", "surface-descriptors", lists.surface_descriptors, "name", "New descriptor")
     + section("ODK Manifests", "manifests", lists.manifests, "name", "New manifest"));
 }
@@ -6419,12 +6440,13 @@ const server = http.createServer((req, res) => {
     // ---- ODK — controlled builder over the daemon ODK object plane (estate surface #5).
     if (pathname === "/__ioi/odk" && req.method === "GET") {
       const J = (p) => fetch(`${DAEMON}${p}`).then((r) => r.json()).catch(() => ({}));
-      const [ov, o, r, d, m] = await Promise.all([
+      const [ov, o, r, d, m, ds] = await Promise.all([
         J("/v1/hypervisor/odk/overview"),
         J("/v1/hypervisor/odk/domain-ontologies"),
         J("/v1/hypervisor/odk/data-recipes"),
         J("/v1/hypervisor/odk/surface-descriptors"),
         J("/v1/hypervisor/odk/manifests"),
+        J("/v1/hypervisor/data-sources"),
       ]);
       res.writeHead(200, HTMLH);
       res.end(renderOdkLanding(ov, {
@@ -6432,6 +6454,7 @@ const server = http.createServer((req, res) => {
         data_recipes: r.data_recipes || [],
         surface_descriptors: d.surface_descriptors || [],
         manifests: m.manifests || [],
+        data_sources: ds.data_sources || [],
       }));
       return;
     }

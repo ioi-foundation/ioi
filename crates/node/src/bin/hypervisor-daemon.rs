@@ -86,6 +86,8 @@ mod lifecycle_routes;
 mod marketplace_routes;
 #[path = "hypervisor_daemon_routes/microvm.rs"]
 mod microvm;
+#[path = "hypervisor_daemon_routes/data_source_routes.rs"]
+mod data_source_routes;
 #[path = "hypervisor_daemon_routes/harness_routes.rs"]
 mod harness_routes;
 #[path = "hypervisor_daemon_routes/model_routes.rs"]
@@ -1584,6 +1586,19 @@ async fn async_main() -> anyhow::Result<()> {
             "/v1/hypervisor/harness-profiles/:id/session-bindings",
             post(harness_routes::handle_harness_profile_bind_session)
                 .get(harness_routes::handle_harness_profile_bindings_list),
+        )
+        .route(
+            "/v1/hypervisor/data-sources",
+            get(data_source_routes::handle_data_sources_list)
+                .post(data_source_routes::handle_data_source_create),
+        )
+        .route(
+            "/v1/hypervisor/data-sources/overview",
+            get(data_source_routes::handle_data_sources_overview),
+        )
+        .route(
+            "/v1/hypervisor/data-sources/:id",
+            get(data_source_routes::handle_data_source_get),
         )
         .route(
             "/v1/hypervisor/placement/resolve",
