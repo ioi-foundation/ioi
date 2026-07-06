@@ -43,12 +43,21 @@ const VOLATILE = [
   '[data-testid="environments-list"]',
   '[data-testid="changelog-preview"]',
   '[data-testid="nudges"]',
+  '[data-testid="projects-list"]', // estate projects come and go; the SHELL around them is the freeze
   "#ioi-home-explorer", // augmentation-owned; frozen by its own done-bar, not the shell freeze
   "#ioi-hb-recent",
 ];
 // Environment noise (offline box: external widget/telemetry DNS failures), not shell behavior.
-const CONSOLE_ALLOW = [/usepylon/i, /ERR_NAME_NOT_RESOLVED/i, /posthog/i, /sentry/i, /segment/i, /Failed to load resource/i, /WebSocket/i, /onboarding completion/i];
-const NET_SKIP = [/^https?:\/\/(?!127\.0\.0\.1)/i]; // external hosts: environment, not shell
+const CONSOLE_ALLOW = [/usepylon/i, /ERR_NAME_NOT_RESOLVED/i, /posthog/i, /sentry/i, /segment/i, /Failed to load resource/i, /WebSocket/i, /onboarding completion/i, /ConfigCat/i /* flag-eval warnings race the user-object load */];
+const NET_SKIP = [
+  /^https?:\/\/(?!127\.0\.0\.1)/i, // external hosts: environment, not shell
+  // DATA-CONDITIONAL calls: fired per estate record (per-project role/prebuild lookups, flag
+  // refetch) — presence tracks estate data, not shell behavior, so they can't live in the freeze.
+  /GroupService\/ListRoleAssignments/, /PrebuildService\/ListPrebuilds/, /feature-flags\/configcat/,
+];
+// Content-transition animations (fade of an empty state being replaced by data) track estate
+// data, not shell code — excluded from the inventory the same way volatile DOM subtrees are.
+const ANIM_SKIP = [/^CSSAnimation:fadeOut:/];
 
 function normalizeUrl(u) {
   try {
@@ -98,7 +107,7 @@ async function captureRoute(page, route) {
         return `${a.constructor.name}:${name}:${target}:${timing.duration || 0}:${timing.iterations === Infinity ? "inf" : timing.iterations || 1}:${kf.length}kf`;
       }),
     ).catch(() => []);
-    for (const a of running) animations.add(a);
+    for (const a of running) if (!ANIM_SKIP.some((re) => re.test(a))) animations.add(a);
     await page.waitForTimeout(100);
   }
   await page.waitForLoadState("networkidle", { timeout: 15000 }).catch(() => {});

@@ -544,6 +544,18 @@ function renderAutomationDetail(a, runs, projectsById, webhook) {
   const steps = Array.isArray(a.steps) && a.steps.length
     ? `<h2>Steps</h2>` + a.steps.map((s, i) => `<div class="card"><div class="main"><div class="name">${i + 1}. ${CX_ESC(s.kind || "step")}</div><div class="meta"><code>${CX_ESC((s.prompt || s.command || s.title || "").slice(0, 200))}</code></div></div></div>`).join("")
     : `<h2>Steps</h2><div class="empty">No steps declared.</div>`;
+  // ---- Pipeline view (09-pipeline-builder grammar donation, read-only first slice). The
+  // automation AS a pipeline: trigger → declared steps → latest run outcome → proof. Rendered
+  // from the spec and run records only — the authoring canvas is a later cut; nothing here is a
+  // runnable graph editor, and it says so.
+  const latest = (runs || [])[0];
+  const pnodes = [
+    [`trigger · ${a.trigger_kind || "manual"}`, "muted"],
+    ...(Array.isArray(a.steps) ? a.steps.map((s, i) => [`${i + 1} · ${s.kind || "step"}`, "ok"]) : []),
+    latest ? [`last run · ${latest.status || "—"}`, latest.status === "done" ? "ok" : latest.status === "failed" ? "warn" : "muted"] : ["no runs yet", "muted"],
+  ];
+  const pipeline = `<div id="auto-pipeline" style="margin:0 0 16px"><div class="sub" style="margin:0 0 6px;text-transform:uppercase;letter-spacing:.04em;font-size:11px">Pipeline <span style="text-transform:none;letter-spacing:0">— read-only view of the declared spec; the authoring canvas is a later cut</span></div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center">${pnodes.map(([label, cls], i) => `${i ? `<span style="color:#5f626b">→</span>` : ""}<span class="pill ${cls}" style="padding:5px 12px">${CX_ESC(label)}</span>`).join("")}${latest ? ` <a href="/__ioi/run-timeline/${encodeURIComponent(latest.execution_id || "")}" target="_blank" rel="noopener" style="margin-left:6px">proof ↗</a>` : ""}</div></div>`;
   const runRows = (runs || []).length
     ? `<table><thead><tr><th>Run</th><th>Status</th><th>Started</th><th>Steps (done/failed)</th><th>Proof</th></tr></thead><tbody>` +
       runs.map((r) => {
@@ -668,7 +680,7 @@ function renderAutomationDetail(a, runs, projectsById, webhook) {
       fetch('/__ioi/automations/${encodeURIComponent(id)}/patch',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)}).then(function(r){return r.json();}).then(function(d){if(d&&d.ok===false){if(msg)msg.textContent='⚠ '+((d.error&&d.error.message)||d.reason||'invalid');}else{location.reload();}}).catch(function(){if(msg)msg.textContent='save failed';});}
   </script>`;
   const inner = `${back}<h1>${CX_ESC(a.name || id)}<span class="pill ${enabled ? "ok" : "muted"}">${enabled ? "enabled" : "disabled"}</span></h1>
-    <p class="sub">${CX_ESC(a.description || "")}</p>${actions}
+    <p class="sub">${CX_ESC(a.description || "")}</p>${pipeline}${actions}
     <div class="tabs">
       <button class="tab active" data-tab="overview" onclick="ioiTab('overview')">Overview</button>
       <button class="tab" data-tab="runs" onclick="ioiTab('runs')">Runs</button>
@@ -2561,6 +2573,22 @@ function renderOdkOntologyDetail(o, lists) {
 function renderOdkRecipeDetail(r, lists) {
   const refrow = (label, arr) => `<dt>${label}</dt><dd>${(arr && arr.length) ? arr.map((x) => odkRefLink(x)).join(" ") : "—"}</dd>`;
   const strrow = (label, arr) => `<dt>${label}</dt><dd>${(arr && arr.length) ? arr.map((x) => `<code>${CX_ESC(typeof x === "string" ? x : JSON.stringify(x))}</code>`).join(" ") : "—"}</dd>`;
+  // ---- Explicit handoff chain (data-recipes native; cross-cutting rule: the recipe handoff is
+  // EXPLICIT — source sample → policy-bound view → object mapping → validation → lineage →
+  // emission). Every stage's posture comes from the record's own fields; validation is a NAMED
+  // GAP on this draft plane (it lands with execution), never a green checkmark.
+  const inManifests = ((lists || {}).manifests || []).filter((m) => (m.recipe_refs || []).includes(r.ref)).length;
+  const emissionN = (r.projection_refs || []).length + (r.evaluation_dataset_refs || []).length;
+  const stages = [
+    ["Source sample", (r.source_refs || []).length ? "ok" : "muted", `${(r.source_refs || []).length || "no"} source ref${(r.source_refs || []).length === 1 ? "" : "s"}`],
+    ["Connector mapping", (r.connector_mappings || []).length ? "ok" : "muted", `${(r.connector_mappings || []).length || "none"} embedded`],
+    ["Policy-bound view", (r.policy_bound_views || []).length ? "ok" : "muted", `${(r.policy_bound_views || []).length || "none"} declared`],
+    ["Object mapping", r.ontology_ref ? "ok" : "muted", r.ontology_ref ? "bound to ontology" : "no ontology bound"],
+    ["Validation", "warn", "named gap — lands with execution, never faked here"],
+    ["Lineage", inManifests ? "ok" : "muted", inManifests ? `in ${inManifests} manifest${inManifests === 1 ? "" : "s"}` : "not yet in a manifest"],
+    ["Emission", emissionN || r.output_kind ? "ok" : "muted", `${CX_ESC(r.output_kind || "no kind")}${emissionN ? ` · ${emissionN} named ref${emissionN === 1 ? "" : "s"}` : ""}`],
+  ];
+  const chain = `<div id="recipe-handoff-chain" style="display:flex;flex-wrap:wrap;gap:6px;align-items:stretch;margin:0 0 16px">${stages.map(([name, cls, det], i) => `${i ? `<div style="align-self:center;color:#5f626b">→</div>` : ""}<div style="flex:1;min-width:118px;padding:9px 11px;border:1px solid ${cls === "ok" ? "#235c3b" : cls === "warn" ? "#5c4a23" : "#24262d"};border-radius:10px;background:#15171c"><div style="font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:#878a93">${name}</div><div style="font-size:12px;margin-top:3px;color:${cls === "ok" ? "#46c277" : cls === "warn" ? "#d6a13a" : "#9a9da6"}">${det}</div></div>`).join("")}</div>`;
   const grid = `<dl class="grid">
     <dt>Id</dt><dd><code>${CX_ESC(r.id)}</code></dd><dt>Ref</dt><dd><code>${CX_ESC(r.ref)}</code></dd>
     <dt>Status</dt><dd><span class="pill warn">${CX_ESC(r.status || "draft")}</span></dd>
@@ -2571,7 +2599,7 @@ function renderOdkRecipeDetail(r, lists) {
     ${refrow("Worker plan refs", r.worker_plan_refs)}${refrow("Workflow schema refs", r.workflow_schema_refs)}
     <dt>Created · updated</dt><dd>${CX_ESC(r.created_at || "")}<br><span class="sub" style="margin:0">${CX_ESC(r.updated_at || "")}</span></dd>
   </dl>`;
-  return automationsShell(r.name || "Data Recipe", `<p><a href="/__ioi/odk">← ODK</a></p><h1>${CX_ESC(r.name || r.id)}</h1><p class="sub">DataRecipe · draft. No transformation runs.</p>${odkDetailActions("data-recipes", r.id)}${grid}${odkReferencedBy(r, lists, "data-recipes")}`);
+  return automationsShell(r.name || "Data Recipe", `<p><a href="/__ioi/odk">← ODK</a></p><h1>${CX_ESC(r.name || r.id)}</h1><p class="sub">DataRecipe · draft. No transformation runs.</p>${odkDetailActions("data-recipes", r.id)}${chain}${grid}${odkReferencedBy(r, lists, "data-recipes")}`);
 }
 function renderOdkDescriptorDetail(d, lists) {
   const isDA = d.composition_pattern === "domain_app";
@@ -2765,7 +2793,7 @@ function domainAppCard(a) {
   const e = encodeURIComponent;
   return `<a class="card" href="/__ioi/domain-apps/${e(a.domain_app_id)}"><div class="main"><div class="name">${CX_ESC(a.name || a.domain_app_id)} <span class="pill warn">${CX_ESC(a.status || "draft")}</span> <span class="pill muted">${CX_ESC(a.visibility || "private")}</span></div><div class="meta">→ ${CX_ESC(a.surface_descriptor_ref || "")} · mounted:false</div></div><span class="act ghost">Open →</span></a>`;
 }
-function renderDomainAppsLanding(ov, apps) {
+function renderDomainAppsLanding(ov, apps, manifests) {
   const o = ov || {}; const sub = o.substrate || {}; const dm = o.domain_apps || {};
   const note = o.status_note || "Domain Apps are draft candidates over ODK descriptors. No generated runtime is mounted.";
   const head = `<h1>Domain Apps</h1><p class="sub">Draft app <b>candidates</b> over ODK <code>domain_app</code> descriptors — bind a descriptor, optionally a manifest, and set visibility. Nothing here generates or mounts a running app. <a href="/__ioi/odk">Open ODK →</a></p>`;
@@ -2779,7 +2807,20 @@ function renderDomainAppsLanding(ov, apps) {
     ? `<a class="act ghost" href="/__ioi/odk/surface-descriptors/new">Create a domain_app descriptor in ODK first →</a>`
     : `<a class="act" href="/__ioi/domain-apps/new">+ New domain app</a>`;
   const section = `<h2 style="display:flex;justify-content:space-between;align-items:center">Domain Apps (${apps.length}) ${newBtn}</h2>${apps.length ? apps.map(domainAppCard).join("") : `<div class="empty">No DomainApp candidates yet.${noDescriptors ? " First author a <code>domain_app</code> surface descriptor in ODK." : ""}</div>`}`;
-  return automationsShell("Domain Apps", head + banner + stats + visChips + section);
+  // ---- Domain Blueprint candidates (domain-blueprints native, projection-only first slice).
+  // A blueprint would compile a manifest's closure (ontologies + recipes + descriptors) into a
+  // packaged, promotable generated app. NO persisted DomainBlueprint object exists yet — that is
+  // a NAMED GAP, and these cards are a projection over real ODK manifests, mutating nothing.
+  const bpCard = (m) => {
+    const bound = apps.filter((a) => a.odk_manifest_ref === m.ref);
+    return `<div class="card" style="display:block">
+      <div class="row" style="justify-content:space-between;margin:0 0 6px"><b>${CX_ESC(m.name || m.id || "manifest")}</b><span><span class="pill muted">${(m.ontology_refs || []).length} ontolog${(m.ontology_refs || []).length === 1 ? "y" : "ies"}</span> <span class="pill muted">${(m.recipe_refs || []).length} recipes</span> <span class="pill muted">${(m.surface_descriptor_refs || []).length} descriptors</span> ${bound.length ? `<span class="pill ok">${bound.length} app candidate${bound.length === 1 ? "" : "s"} bound</span>` : `<span class="pill warn">no app candidate bound</span>`}</span></div>
+      <div class="sub" style="margin:0;text-transform:none;letter-spacing:0"><code style="font-size:10.5px">${CX_ESC(m.ref || "")}</code> · would compile to a packaged blueprint; packaging/promotion is a later governed lane</div>
+    </div>`;
+  };
+  const blueprints = `<div id="dapps-blueprint-candidates"><h2>Blueprint candidates <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— projected from real ODK manifests; no persisted DomainBlueprint object exists yet (named gap, nothing is fabricated)</span></h2>
+    ${(manifests || []).length ? (manifests || []).map(bpCard).join("") : `<div class="empty">No ODK manifests yet — a manifest bundling ontologies, recipes, and descriptors is the raw material a blueprint would compile.</div>`}</div>`;
+  return automationsShell("Domain Apps", head + banner + stats + visChips + section + blueprints);
 }
 
 // ---- Governance — a read-only CONTROL LENS over the daemon governance projection (estate #7).
@@ -5594,9 +5635,9 @@ const server = http.createServer((req, res) => {
     // ---- Domain Apps — controlled builder over the daemon Domain Apps object plane (estate #6).
     if (pathname === "/__ioi/domain-apps" && req.method === "GET") {
       const J = (p) => fetch(`${DAEMON}${p}`).then((r) => r.json()).catch(() => ({}));
-      const [ov, list] = await Promise.all([J("/v1/hypervisor/domain-apps/overview"), J("/v1/hypervisor/domain-apps")]);
+      const [ov, list, mfs] = await Promise.all([J("/v1/hypervisor/domain-apps/overview"), J("/v1/hypervisor/domain-apps"), J("/v1/hypervisor/odk/manifests")]);
       res.writeHead(200, HTMLH);
-      res.end(renderDomainAppsLanding(ov, list.domain_apps || []));
+      res.end(renderDomainAppsLanding(ov, list.domain_apps || [], mfs.manifests || []));
       return;
     }
     if (pathname === "/__ioi/domain-apps/new" && req.method === "GET") {
