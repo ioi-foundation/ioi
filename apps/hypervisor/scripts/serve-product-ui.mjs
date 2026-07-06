@@ -900,7 +900,7 @@ function renderFeedbackQueue(ov, entries, flash) {
     <div class="field"><label>Consent (evidence eligibility — never_train fails conversion closed, by design)</label><select name="consent" style="width:100%;padding:8px 10px;border-radius:8px;border:1px solid #2a2c33;background:#0e0f13;color:#e6e7ea;font:inherit">${ladder.map((c) => `<option value="${c}">${c}</option>`).join("")}</select></div>
     <div class="row" style="margin-top:6px"><button class="act" type="submit">Record entry</button></div></div></form>`;
   const flashHtml = flash ? `<div class="card" style="display:block;border-color:#5c4a23"><b style="color:#d6a13a">Refused:</b> <span class="sub" style="margin:0;text-transform:none;letter-spacing:0">${CX_ESC(flash)}</span></div>` : "";
-  const inner = `<h1>Evaluations</h1><p class="sub">Feedback &amp; annotations — the live slice of Evaluations. Durable operator feedback over real subjects, each carrying its evidence-eligibility consent from the moment it is recorded. Converting an entry into an eval/training candidate is a NAMED handoff the daemon gates on consent — nothing trains here. <a href="/__ioi/work-ledger">Proof stream →</a></p>
+  const inner = `<h1>Evaluations</h1><p class="sub">Feedback &amp; annotations — the live slice of Evaluations. Durable operator feedback over real subjects, each carrying its evidence-eligibility consent from the moment it is recorded. Converting an entry into an eval/training candidate is a NAMED handoff the daemon gates on consent — nothing trains here. <a href="/__ioi/work-ledger">Proof stream →</a> · <a href="/__apps/evalsuites">Eval-suite library seed (adopting) →</a> · <a href="/__apps/analysis">Analysis seed (adopting) →</a></p>
     ${flashHtml}${form}
     <h2>Queue (${entries.length})</h2>
     ${entries.length ? `${chips}<table><thead><tr><th>Entry</th><th>Subject</th><th>Consent</th><th>Status</th><th>Created</th><th>Act</th></tr></thead><tbody id="fb-body">${entries.map(row).join("")}</tbody></table><div class="empty" id="fb-empty" style="display:none">No entries in this state.</div>
@@ -978,7 +978,7 @@ function renderSessionsRoot(sessionsRes, envSummary) {
       <td>${envId ? `<a href="/workspaces/${enc(envId)}" target="_top">workbench</a> · <a href="/details/${enc(envId)}" target="_top">session</a> · <a href="/__ioi/run-timeline/env/${enc(envId)}" target="_blank" rel="noopener">timeline ↗</a>` : "—"}</td>
     </tr>`;
   }).join("");
-  const inner = `<h1>Sessions</h1><p class="sub">Every governed session with its lifecycle facts and ADMITTED harness binding — selection is session truth recorded at create, never UI state. New work starts from the rail's New Session; replay lives in <a href="/__ioi/run-replay">Run Replay</a>.</p>
+  const inner = `<h1>Sessions</h1><p class="sub">Every governed session with its lifecycle facts and ADMITTED harness binding — selection is session truth recorded at create, never UI state. New work starts from the rail's New Session; replay lives in <a href="/__ioi/run-replay">Run Replay</a>. <a href="/__apps/jobs">Run/job queue seed (adopting) →</a> · <a href="/__apps/incidents">Incident inbox seed (adopting) →</a></p>
     ${sessions.length ? `${chips}<table><thead><tr><th>Session</th><th>Lifecycle</th><th>Admitted binding</th><th>Environment</th><th>Open</th></tr></thead><tbody id="sess-body">${rows}</tbody></table><div class="empty" id="sess-empty" style="display:none">No sessions in this state.</div>
     <script>function ssChip(b){document.querySelectorAll('#sess-chips .chip').forEach(function(x){x.classList.toggle('on',x===b);});var w=b.getAttribute('data-ss');var n=0;document.querySelectorAll('#sess-body tr').forEach(function(r){var on=!w||r.getAttribute('data-ss')===w;r.style.display=on?'':'none';if(on)n++;});document.getElementById('sess-empty').style.display=n?'none':'';}</script>`
     : `<div class="empty">No sessions yet — launch one from the rail's New Session and it appears here with its admitted binding.</div>`}`;
@@ -2394,7 +2394,7 @@ function renderFoundryLanding(overview, specs, runPlans, modelRoutes, routeBindi
   const enc = encodeURIComponent;
   const o = overview || {}; const sub = o.substrate || {}; const fc = o.foundry || {};
   const note = o.status_note || "Draft-only: no training/eval execution, no promotion or registry mutation in this plane.";
-  const head = `<h1>Foundry</h1><p class="sub">The capability factory — the model catalog over real route substrate, plus draft specs and run plans with promotion previews. Nothing here trains, evaluates, serves, or promotes.</p>`;
+  const head = `<h1>Foundry</h1><p class="sub">The capability factory — the model catalog over real route substrate, plus draft specs and run plans with promotion previews. Nothing here trains, evaluates, serves, or promotes. <a href="/__apps/models">Model registry seed (adopting) →</a></p>`;
   const banner = `<div class="chips"><span class="pill warn">draft-only</span> <span class="sub" style="margin:0">${CX_ESC(note)}</span></div>`;
   const stat = (label, val) => `<div style="flex:1;min-width:104px;padding:12px 14px;border:1px solid #24262d;border-radius:10px;background:#15171c"><div style="font-size:22px;font-weight:700;color:#fff">${CX_ESC(String(val == null ? "—" : val))}</div><div style="color:#878a93;font-size:12px;margin-top:2px">${CX_ESC(label)}</div></div>`;
   const stats = `<h2>Substrate</h2><div class="row" style="gap:10px;align-items:stretch">${stat("Model routes", sub.model_routes)}${stat("Providers", sub.providers)}${stat("Endpoints", sub.endpoints)}${stat("Backends", sub.backends)}${stat("Receipts", sub.model_mount_receipts)}${stat("Transcripts", sub.agent_transcripts)}${stat("Ledger", sub.work_ledger_entries)}</div>`;
@@ -2781,7 +2781,7 @@ function odkCard(family, rec, nameKey) {
 function renderOdkLanding(ov, lists) {
   const o = ov || {}; const sub = o.substrate || {};
   const note = o.status_note || "ODK foundation: drafts only. No transformation runs, no generated UI artifacts, no Domain App creation.";
-  const head = `<h1>Ontology</h1><p class="sub">The semantic world-model systems act on — author draft ontologies, value types, surface descriptors, and manifests over real substrate (planes scaffolded by the ODK developer kit). The <a href="#data-planes">Data planes</a> (recipes, sources) share this surface until their dedicated surface lands. Nothing here transforms data or generates a running app.</p>`;
+  const head = `<h1>Ontology</h1><p class="sub">The semantic world-model systems act on — author draft ontologies, value types, surface descriptors, and manifests over real substrate (planes scaffolded by the ODK developer kit). The <a href="#data-planes">Data planes</a> (recipes, sources) share this surface until their dedicated surface lands. Nothing here transforms data or generates a running app. <a href="/__apps/schema">Schema workbench seed (adopting) →</a> · <a href="/__apps/explorer">Object explorer seed (adopting) →</a></p>`;
   const banner = `<div class="chips"><span class="pill warn">draft-only</span> <span class="sub" style="margin:0">${CX_ESC(note)}</span></div>`;
   const stat = (label, val) => `<div style="flex:1;min-width:104px;padding:12px 14px;border:1px solid #24262d;border-radius:10px;background:#15171c"><div style="font-size:22px;font-weight:700;color:#fff">${CX_ESC(String(val == null ? "—" : val))}</div><div style="color:#878a93;font-size:12px;margin-top:2px">${CX_ESC(label)}</div></div>`;
   const stats = `<h2>Substrate</h2><div class="row" style="gap:10px;align-items:stretch">${stat("Env classes", sub.environment_classes)}${stat("Foundry specs", sub.foundry_specs)}${stat("Foundry plans", sub.foundry_run_plans)}${stat("Ledger", sub.work_ledger_entries)}${stat("Connectors", sub.connectors)}</div>`;
@@ -2790,7 +2790,7 @@ function renderOdkLanding(ov, lists) {
   const section = (title, family, items, nameKey, newLabel) => `<h2 style="display:flex;justify-content:space-between;align-items:center">${title} (${items.length}) <a class="act" href="/__ioi/odk/${family}/new">+ ${newLabel}</a></h2>${items.length ? items.map((x) => odkCard(family, x, nameKey)).join("") : `<div class="empty">None yet.</div>`}`;
   return automationsShell("Ontology", head + banner + stats + patterns + outkinds
     + section("Domain Ontologies", "ontologies", lists.ontologies, "domain", "New ontology")
-    + `<div id="data-planes">` + section("Data Recipes", "data-recipes", lists.data_recipes, "name", "New recipe") + `</div>`
+    + `<div id="data-planes"><p class="sub" style="margin:0 0 8px"><a href="/__apps/ingest">Source-first pipeline seed (adopting) →</a> · <a href="/__apps/sources">Data Connection seed (adopting) →</a></p>` + section("Data Recipes", "data-recipes", lists.data_recipes, "name", "New recipe") + `</div>`
     + section("Surface Descriptors", "surface-descriptors", lists.surface_descriptors, "name", "New descriptor")
     + section("ODK Manifests", "manifests", lists.manifests, "name", "New manifest"));
 }
@@ -3378,7 +3378,7 @@ function renderMarketplaceHome(ov, listings, q, storeFilter) {
   let shown = listings.filter((l) => !storeFilter || l.listing_kind === storeFilter);
   if (qn) shown = shown.filter((l) => `${l.name || ""} ${l.subject_ref || ""} ${l.listing_kind || ""}`.toLowerCase().includes(qn));
   const styles = `<style>.wrap{max-width:1100px}.mpgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px}.mpstores{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;margin:0 0 20px}.mpstore{display:block;padding:13px 15px;border:1px solid #24262d;border-radius:12px;background:#15171c;text-decoration:none;color:inherit}.mpstore:hover{border-color:#3a82f6}.mpstore.on{border-color:#3a82f6;box-shadow:0 0 0 1px #3a82f6 inset}.mpstore .sn{font-weight:600;color:#fff}.mpstore .sc{color:#878a93;font-size:12px;margin-top:3px}.mpsearch{width:100%;max-width:420px;box-sizing:border-box;padding:9px 12px;border-radius:9px;border:1px solid #2a2c33;background:#0e0f13;color:#e6e7ea;font:inherit}</style>`;
-  const head = `<h1>Marketplace</h1><p class="sub">Discover, inspect, and take through admission — agents, domain apps, ODK packs, data recipes, and Foundry capabilities. Nothing is published, hired, installed, or settled here.</p>`;
+  const head = `<h1>Marketplace</h1><p class="sub">Discover, inspect, and take through admission — agents, domain apps, ODK packs, data recipes, and Foundry capabilities. Nothing is published, hired, installed, or settled here. <a href="/__apps/listings">Store-browse seed (adopting) →</a></p>`;
   const banner = `<div class="chips"><span class="pill warn">publish = admitted review + open release + serving runtime</span> <span class="sub" style="margin:0">${CX_ESC(o.status_note || "A domain_app publishes only with runtime backing; published = read-only distribution metadata.")}</span></div>`;
   const storeCards = MP_STORES.map((s) => `<a class="mpstore${storeFilter === s.kind ? " on" : ""}" href="/__ioi/marketplace?store=${enc(s.kind)}"><div class="sn">${s.icon} ${CX_ESC(s.label)} <span class="pill muted">${byKind[s.kind] || 0}</span></div><div class="sc">${CX_ESC(s.desc)}</div></a>`).join("");
   const stores = `<h2>Stores${storeFilter ? ` · <a href="/__ioi/marketplace">show all</a>` : ""}</h2><div class="mpstores">${storeCards}</div>`;
@@ -4375,7 +4375,7 @@ const server = http.createServer((req, res) => {
     // Mirror API families some seed documents call (observed in seed rebind maps). Served
     // same-origin through this proxy so seeds boot under the estate; their upstream is the
     // harvest mirror, never fabricated data.
-    const MIRROR_API_PREFIXES = ["/multipass/", "/graphql-gateway/", "/compass/", "/documentation/", "/aip-assist/", "/monocle/", "/approvals/", "/workspace/api/", "/log-receiver/", "/interventions/"];
+    const MIRROR_API_PREFIXES = ["/multipass/", "/graphql-gateway/", "/compass/", "/documentation/", "/aip-assist/", "/monocle/", "/approvals/", "/workspace/api/", "/log-receiver/", "/interventions/", "/ontology-metadata/", "/magritte-coordinator/", "/issues/", "/foundry-search/", "/marketplace/", "/object-set-service/", "/phonograph2/", "/language-model-service/", "/foundry-ml/", "/artifacts/", "/foundry-catalog/", "/models/", "/build2/", "/foundry-stemma/", "/third-party-applications/", "/developer-console/"];
     if (pathname.startsWith("/__apps/") || pathname.startsWith("/assets/content-addressable-storage/") || MIRROR_API_PREFIXES.some((pref) => pathname.startsWith(pref))) {
       // Per-seed fold flag: some seed documents hardcode the mirror ORIGIN for their API layer
       // and only boot when those refs are folded to same-origin (lineage); self-bootstrapped
@@ -4386,6 +4386,21 @@ const server = http.createServer((req, res) => {
         designer: { base: "/workspace/solution-design/", fold: false },  // Studio seed — typed-node system-diagram editor
         monitors: { base: "/workspace/object-monitoring/", fold: false },// Automations seed — condition→effect wizard
         changes: { base: "/workspace/upgrade-assistant/", fold: true },  // Improvement seed (REBOUND: intervention lanes answer with daemon improvement-proposals)
+        // ---- Remaining porting queue (adopted on WORKING artifact seeds; editor enrichments
+        // for gap surfaces arrive via live re-harvest once auth is refreshed — same lanes).
+        schema: { base: "/workspace/ontology/", fold: true },            // Ontology seed — schema workbench (types/functions/health/history)
+        explorer: { base: "/workspace/hubble/", fold: true },            // Ontology seed — object explorer + saved sets
+        ingest: { base: "/workspace/hyperauto/", fold: true },           // Data seed — source-first pipeline wizard
+        sources: { base: "/workspace/data-ingestion-app/", fold: true }, // Data seed — Sources/Syncs/Listeners IA
+        evalsuites: { base: "/workspace/evals/", fold: true },           // Evaluations seed — eval-suite library
+        analysis: { base: "/workspace/insight/", fold: true },           // Evaluations seed — object-set-first analysis
+        jobs: { base: "/workspace/job-tracker/", fold: true },           // Missions seed — run/job status table
+        incidents: { base: "/workspace/issues-app/", fold: true },       // Missions seed — status-lane remediation inbox
+        listings: { base: "/workspace/marketplace/", fold: true },       // Marketplace seed — store browse + install wizard
+        registry: { base: "/workspace/artifacts/", fold: true },         // Marketplace seed — versioned artifact registry
+        models: { base: "/workspace/model-catalog/", fold: true },       // Foundry seed — model registry home
+        devconsole: { base: "/workspace/developer-console/", fold: false },// Developer Console seed — OAuth app registration + SDK on-ramps (self-bootstrapped)
+        widgets: { base: "/workspace/custom-widgets/", fold: false },    // Developer Console seed — widget-set authoring (dev-kit fork; self-bootstrapped)
       };
       const MIRROR = process.env.IOI_HARVEST_MIRROR_URL || "http://127.0.0.1:9225";
       // REBIND (approvals pilot, phase 2): the seed's task-request search lanes are answered
