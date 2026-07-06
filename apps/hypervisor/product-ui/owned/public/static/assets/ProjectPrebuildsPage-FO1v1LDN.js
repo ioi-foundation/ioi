@@ -1,0 +1,825 @@
+import { a as e } from "./rolldown-runtime-CGYlQKCx.js";
+import { Er as t, Or as n, Tr as r, jr as i } from "./SegmentProvider-CXCNBY9U.js";
+import { n as a } from "./@mux-DLaEVubF.js";
+import { Hg as o, Kg as s, Op as c, a as l, cg as u, g_ as d, gm as f, v_ as p, wg as m } from "./vendor-DAwbZtf0.js";
+import { Dt as h, Ls as g, aa as _, ca as v, ia as ee, lt as y, tr as b } from "./use-boot-in-app-chat-t-J_VjKS.js";
+import { d as x, u as S } from "./prebuild_pb-CVBD5kln.js";
+import { t as C } from "./toast-axaLeIzZ.js";
+import { t as w } from "./button-6YP03Qf2.js";
+import { t as T } from "./dialog-BtjFqa-w.js";
+import { t as E } from "./banner-CFcSGYsz.js";
+import { t as D } from "./strings-C6LrS0GJ.js";
+import { t as O } from "./timestamp-CEKPQVte.js";
+import { n as k, o as A } from "./time-DxjbKG-a.js";
+import { t as j } from "./tooltip-6hqVQbwq.js";
+import { t as te } from "./Pill-99RRpZf2.js";
+import "./pill-AA_qJIlm.js";
+import { t as M } from "./text-fFCFeCas.js";
+import { t as ne } from "./skeleton-Cm867Q_k.js";
+import { r as N } from "./dropdown-menu-D3UmjGpQ.js";
+import { c as re } from "./use-environment-class-entries-DPBxsgJb.js";
+import { b as ie, g as ae, l as oe } from "./project-queries-BMZ3qCU_.js";
+import { n as se, t as ce } from "./bytes-wXWf7Wq9.js";
+import { s as P } from "./data-table-hWj1SxAH.js";
+import { t as le } from "./PrebuildLogsModal-DKPl6JcP.js";
+import { t as F } from "./SubjectDisplay-GaN_Sngp.js";
+import { r as ue, t as de } from "./prebuild-schedule-DsXxMOcM.js";
+import { n as fe, t as pe } from "./prebuilds-Dr0ALFqZ.js";
+import { t as me } from "./ProjectErrors-CWVFFYpV.js";
+import { n as I, r as L, t as he } from "./run-batched-0sqU5SvM.js";
+var R = e(a(), 1);
+function ge(e, t) {
+  switch (e) {
+    case `cancel`:
+      return pe(t.status?.phase);
+    case `delete`:
+      return !0;
+  }
+}
+var z = p();
+function B(e, t) {
+  let n = e.metadata?.environmentClassId,
+    r = n ? t[n]?.clazz.displayName : void 0,
+    i = [e.metadata?.createdAt ? A(O(e.metadata.createdAt)) : ``, r].filter(Boolean);
+  return i.length > 0 ? i.join(` · `) : e.id;
+}
+var V = {
+    cancel: {
+      title: `Cancel prebuilds`,
+      confirmLabel: `Cancel prebuilds`,
+      description: `This will cancel any in-progress prebuilds in the selection.`,
+    },
+    delete: {
+      title: `Delete prebuilds`,
+      confirmLabel: `Delete`,
+      description: `This will delete the selected prebuilds. New environments won't start from them; existing environments are unaffected.`,
+    },
+  },
+  _e = ({ open: e, onOpenChange: t, action: i, prebuilds: a, projectId: o, environmentClasses: s, onComplete: c }) => {
+    let [l, u] = (0, R.useState)(`confirm`),
+      [d, f] = (0, R.useState)([]),
+      [p, m] = (0, R.useState)(!1),
+      g = r(),
+      _ = n(),
+      v = V[i],
+      ee = i === `delete`,
+      y = (0, R.useCallback)(
+        (e) => {
+          if (!e) {
+            let e = d.length > 0 && d.every((e) => e.status === `success` || e.status === `error`);
+            (l === `confirm` || e) && (u(`confirm`), f([]), m(!1), t(!1), e && c());
+            return;
+          }
+          t(e);
+        },
+        [t, c, l, d],
+      ),
+      b = (0, R.useCallback)(
+        async (e) => {
+          switch (i) {
+            case `cancel`:
+              await g.mutateAsync(e.id);
+              break;
+            case `delete`:
+              await _.mutateAsync({ prebuildId: e.id, projectId: o });
+              break;
+          }
+        },
+        [i, g, _, o],
+      ),
+      x = (0, R.useMemo)(() => (i === `cancel` ? a.filter((e) => ge(i, e)) : a), [i, a]),
+      S = (0, R.useCallback)(async () => {
+        (f(
+          x.map((e) => ({
+            id: e.id,
+            label: B(e, s),
+            secondary: (0, z.jsx)(`span`, { className: `font-mono`, children: e.id }),
+            status: `pending`,
+          })),
+        ),
+          u(`progress`));
+        let e = (e, t, n) => {
+          f((r) => r.map((r, i) => (i === e ? { ...r, status: t, error: n } : r)));
+        };
+        await he(
+          x,
+          async (t, n) => {
+            (e(n, `running`), await b(t));
+          },
+          (t, n) => {
+            e(t, n ? `error` : `success`, n);
+          },
+        );
+      }, [x, b, s]),
+      C = (0, R.useMemo)(() => L(d), [d]),
+      O = (0, R.useRef)(!1);
+    (0, R.useEffect)(() => {
+      (C.allDone && !O.current && ((O.current = !0), c()), C.allDone || (O.current = !1));
+    }, [C.allDone, c]);
+    let k = (0, R.useMemo)(() => {
+        if (i === `cancel`) {
+          let e = a.length - x.length;
+          if (e > 0) return `${e} ${D(e, `prebuild`)} not in progress will be skipped.`;
+        }
+      }, [i, a, x]),
+      A = i === `cancel` && x.length === 0;
+    return (0, z.jsx)(T, {
+      open: e,
+      onOpenChange: y,
+      children: (0, z.jsx)(T.Content, {
+        className: `max-w-lg`,
+        "data-track-location": h.ProjectPrebuildsBulkActionModal,
+        children:
+          l === `confirm`
+            ? (0, z.jsxs)(z.Fragment, {
+                children: [
+                  (0, z.jsxs)(T.Header, {
+                    children: [
+                      (0, z.jsx)(T.Title, { children: v.title }),
+                      (0, z.jsx)(T.Description, { children: v.description }),
+                    ],
+                  }),
+                  (0, z.jsxs)(`div`, {
+                    className: `flex flex-col gap-3`,
+                    children: [
+                      (0, z.jsxs)(M, {
+                        className: `text-base text-content-secondary`,
+                        children: [
+                          `This action will be applied to`,
+                          ` `,
+                          (0, z.jsxs)(`strong`, { children: [x.length, ` `, D(x.length, `prebuild`)] }),
+                          `.`,
+                        ],
+                      }),
+                      k && (0, z.jsx)(E, { variant: `warning`, text: k }),
+                    ],
+                  }),
+                  (0, z.jsxs)(T.Footer, {
+                    children: [
+                      (0, z.jsx)(T.Close, {
+                        asChild: !0,
+                        children: (0, z.jsx)(w, { type: `button`, variant: `outline`, children: `Back` }),
+                      }),
+                      (0, z.jsx)(w, {
+                        type: `submit`,
+                        autoFocus: !0,
+                        disabled: A,
+                        variant: ee ? `destructive` : `primary`,
+                        onClick: () => void S(),
+                        "data-tracking-id": `confirm-prebuild-bulk-action`,
+                        children: v.confirmLabel,
+                      }),
+                    ],
+                  }),
+                ],
+              })
+            : (0, z.jsx)(I, {
+                title: v.title,
+                items: d,
+                summary: C,
+                detailsOpen: p,
+                onDetailsOpenChange: m,
+                onClose: () => y(!1),
+                closeTrackingId: `close-prebuild-bulk-action-progress`,
+              }),
+      }),
+    });
+  };
+function H(e, t, n) {
+  let r = e === x.COMPLETED || e === x.FAILED || e === x.CANCELLED || e === x.DELETED;
+  if (t === x.CANCELLED && !r) return { label: `Cancelling`, icon: `spinner` };
+  if (t === x.DELETED && e !== x.DELETED) return { label: `Deleting`, icon: `spinner` };
+  switch (e) {
+    case x.PENDING:
+    case x.STARTING:
+      return { label: `Starting`, icon: `spinner` };
+    case x.RUNNING:
+      return { label: `Running`, icon: `spinner` };
+    case x.STOPPING:
+      return { label: `Stopping`, icon: `spinner` };
+    case x.SNAPSHOTTING:
+      return n && n > 0 ? { label: `Snapshotting ${n}%`, icon: `spinner` } : { label: `Snapshotting`, icon: `spinner` };
+    case x.COMPLETED:
+      return { label: `Succeeded`, icon: `success` };
+    case x.FAILED:
+      return { label: `Failed`, icon: `error` };
+    case x.CANCELLING:
+      return { label: `Cancelling`, icon: `spinner` };
+    case x.CANCELLED:
+      return { label: `Cancelled`, icon: `cancelled` };
+    case x.DELETING:
+      return { label: `Deleting`, icon: `spinner` };
+    case x.DELETED:
+      return { label: `Deleted`, icon: `spinner` };
+    default:
+      return { label: `—`, icon: `spinner` };
+  }
+}
+var U = () => {
+    let { projectId: e } = m(),
+      { data: a, isPending: p, error: h } = i(e),
+      { data: T, error: I } = ae(e),
+      { environmentClasses: L, isLoading: he } = re(),
+      B = t(),
+      V = r(),
+      U = n(),
+      ye = ie(),
+      { data: W } = y(),
+      { data: be } = oe({ projectId: e }),
+      { trigger: xe, isSubmitting: Se } = fe(
+        e,
+        T?.prebuildConfiguration?.environmentClassIds ?? [],
+        T?.prebuildConfiguration?.enabled,
+      ),
+      [G, K] = (0, R.useState)(null),
+      [Ce, we] = (0, R.useState)(!1),
+      [q, Te] = (0, R.useState)(new Set()),
+      [J, Y] = (0, R.useState)(null),
+      X = (0, R.useMemo)(
+        () =>
+          [...(a?.prebuilds ?? [])].sort((e, t) => {
+            let n = e?.metadata?.createdAt ? O(e.metadata.createdAt).getTime() : 0;
+            return (t?.metadata?.createdAt ? O(t.metadata.createdAt).getTime() : 0) - n;
+          }),
+        [a?.prebuilds],
+      ),
+      Ee = (0, R.useMemo)(() => (G && X.find((e) => e.id === G)) || null, [G, X]),
+      De = (0, R.useMemo)(() => {
+        let e = new Map(X.map((e) => [e.id, e])),
+          t = [];
+        for (let n of q) {
+          let r = e.get(n);
+          r && t.push(r);
+        }
+        return t;
+      }, [q, X]),
+      Oe = (0, R.useMemo)(() => q, [q]),
+      ke = (0, R.useCallback)(
+        (e) => {
+          Te(e === `all` ? new Set(X.map((e) => e.id)) : e);
+        },
+        [X],
+      ),
+      Ae = (0, R.useCallback)(() => {
+        Te(new Set());
+      }, []),
+      je = (0, R.useCallback)(async () => {
+        if (!e) {
+          C({ title: `Cannot rerun prebuild`, description: `Project ID not found` });
+          return;
+        }
+        if (!Ee) {
+          C({ title: `Cannot rerun prebuild`, description: `Prebuild not found` });
+          return;
+        }
+        let t = Ee.metadata?.environmentClassId;
+        if (!t) {
+          C({ title: `Cannot rerun prebuild`, description: `Environment class not found` });
+          return;
+        }
+        try {
+          let n = await B.mutateAsync({ projectId: e, environmentClassId: t });
+          (C({ title: `Prebuild started successfully` }), n.id && K(n.id));
+        } catch (e) {
+          C({ title: `Failed to start prebuild`, description: b(e) });
+        }
+      }, [e, Ee, B]),
+      Me = (0, R.useCallback)(async () => {
+        if (!G) {
+          C({ title: `Cannot cancel prebuild`, description: `Prebuild ID not found` });
+          return;
+        }
+        try {
+          (await V.mutateAsync(G), C({ title: `Prebuild cancelled successfully` }));
+        } catch (e) {
+          C({ title: `Failed to cancel prebuild`, description: b(e) });
+        }
+      }, [G, V]),
+      Ne = (0, R.useCallback)(async () => {
+        if (!e || !W) {
+          C({ title: `Cannot enable prebuilds`, description: `Missing project or user information` });
+          return;
+        }
+        let t = be?.environmentClasses?.find((e) => !!e.clazz?.id);
+        if (!t?.clazz?.id) {
+          C({
+            title: `Cannot enable prebuilds`,
+            description: `No eligible environment class found. Configure environment classes in Settings first.`,
+          });
+          return;
+        }
+        let n = de();
+        we(!0);
+        try {
+          let r = d(v, {
+            enabled: !0,
+            environmentClassIds: [t.clazz.id],
+            trigger: d(ee, { trigger: { case: `dailySchedule`, value: d(_, { hourUtc: n }) } }),
+            executor: { id: W.id, principal: g.USER },
+          });
+          (await ye.mutateAsync({ projectId: e, prebuildConfiguration: r }),
+            C({
+              title: `Prebuilds enabled`,
+              description: `First run scheduled for ${`${n.toString().padStart(2, `0`)}:00`} UTC. Customize in Settings.`,
+            }));
+        } catch (e) {
+          C({ title: `Failed to enable prebuilds`, description: b(e) });
+        } finally {
+          we(!1);
+        }
+      }, [e, W, be, ye]),
+      Z = (0, R.useMemo)(() => {
+        let e = new Set();
+        if (!T?.prebuildConfiguration?.enabled) return e;
+        let t = new Map();
+        for (let n of X) {
+          let r = n.metadata?.environmentClassId;
+          if (!r) continue;
+          let i = n.status?.phase === x.COMPLETED,
+            a = n.spec?.desiredPhase === x.COMPLETED;
+          i && a && (t.has(r) || (t.set(r, n), e.add(n.id)));
+        }
+        return e;
+      }, [X, T?.prebuildConfiguration?.enabled]),
+      Q = (0, R.useMemo)(() => (X || []).filter((e) => pe(e?.status?.phase)).length, [X]),
+      Pe = (0, R.useMemo)(
+        () => [
+          {
+            id: `createdAt`,
+            header: `Date & Time`,
+            isRowHeader: !0,
+            cell: (e) => {
+              let t = e.metadata?.createdAt ? O(e.metadata.createdAt) : void 0;
+              return (0, z.jsx)(M, { className: `text-base`, children: t ? A(t) : `` });
+            },
+          },
+          {
+            id: `class`,
+            header: `Class`,
+            cell: (e) => {
+              let t = e.metadata?.environmentClassId ? L[e.metadata.environmentClassId] : void 0;
+              return t
+                ? (0, z.jsxs)(M, {
+                    className: `text-base`,
+                    children: [
+                      (0, z.jsx)(`span`, {
+                        className: `font-medium text-content-primary`,
+                        children: t.clazz.displayName,
+                      }),
+                      ` `,
+                      (0, z.jsx)(`span`, { className: `text-content-tertiary`, children: t.runner.name }),
+                    ],
+                  })
+                : (0, z.jsx)(M, { className: `text-base`, children: `—` });
+            },
+          },
+          {
+            id: `trigger`,
+            header: `Triggered by / Ran as`,
+            cell: (e) =>
+              (0, z.jsx)(ve, {
+                trigger: e.metadata?.triggeredBy,
+                creator: e.metadata?.creator,
+                executor: e.metadata?.executor,
+              }),
+          },
+          {
+            id: `status`,
+            header: `Status & Duration`,
+            cell: (e) => {
+              let t = e.metadata?.createdAt ? O(e.metadata.createdAt) : void 0,
+                n = e.status?.completionTime ? O(e.status.completionTime) : void 0,
+                r = H(e.status?.phase, e.spec?.desiredPhase, e.status?.snapshotCompletionPercentage),
+                i = t && n ? k(t, n) : t && r.icon === `spinner` ? k(t, new Date()) : ``,
+                a = Z.has(e.id);
+              return (0, z.jsxs)(`div`, {
+                className: `flex items-center gap-2`,
+                onClick: (e) => e.stopPropagation(),
+                onPointerDown: (e) => e.stopPropagation(),
+                onKeyDown: (e) => e.stopPropagation(),
+                "data-tracking-id": `prebuild-status-cell`,
+                children: [
+                  r.icon === `spinner` && (0, z.jsx)(f, { size: 16, className: `animate-spin text-content-secondary` }),
+                  r.icon === `success` && (0, z.jsx)(s, { size: 16, className: `text-content-success` }),
+                  r.icon === `error` &&
+                    (0, z.jsx)(j, {
+                      usePortal: !0,
+                      content: e.status?.failureMessage
+                        ? (0, z.jsxs)(`div`, {
+                            className: `flex max-w-xs flex-col gap-1`,
+                            children: [
+                              (0, z.jsx)(`span`, { className: `line-clamp-3`, children: e.status.failureMessage }),
+                              (0, z.jsx)(`span`, {
+                                className: `text-content-tertiary`,
+                                children: `View logs for details`,
+                              }),
+                            ],
+                          })
+                        : `Failed`,
+                      children: (0, z.jsxs)(`span`, {
+                        className: `flex items-center gap-2`,
+                        children: [
+                          (0, z.jsx)(o, { size: 16, className: `text-content-destructive` }),
+                          (0, z.jsx)(M, {
+                            className: `text-base text-content-primary underline decoration-dashed underline-offset-2`,
+                            children: i || `0s`,
+                          }),
+                        ],
+                      }),
+                    }),
+                  r.icon === `cancelled` &&
+                    (0, z.jsxs)(z.Fragment, {
+                      children: [
+                        (0, z.jsx)(l, { size: 16, className: `text-content-secondary` }),
+                        (0, z.jsxs)(M, {
+                          className: `text-base text-content-primary`,
+                          children: [
+                            (0, z.jsx)(`span`, { children: i || `0s` }),
+                            (0, z.jsx)(`span`, { children: ` (cancelled)` }),
+                          ],
+                        }),
+                      ],
+                    }),
+                  r.icon === `spinner` &&
+                    (0, z.jsxs)(M, { className: `text-base text-content-strong`, children: [r.label, `...`] }),
+                  r.icon === `success` && (0, z.jsx)(M, { className: `text-base text-content-primary`, children: i }),
+                  a &&
+                    (0, z.jsx)(j, {
+                      usePortal: !0,
+                      content: `This prebuild is used when creating new environments`,
+                      children: (0, z.jsx)(te, { variant: `success`, size: `sm`, children: `Active` }),
+                    }),
+                ],
+              });
+            },
+          },
+          {
+            id: `snapshotSize`,
+            header: `Snapshot Size`,
+            cell: (e) =>
+              (0, z.jsx)(M, {
+                className: `text-base text-content-primary`,
+                children:
+                  e.status?.snapshotSizeBytes && e.status.snapshotSizeBytes > 0n ? ce(e.status.snapshotSizeBytes) : `—`,
+              }),
+          },
+        ],
+        [L, Z],
+      ),
+      Fe = (0, R.useCallback)(
+        (e) => {
+          let t = e.metadata?.createdAt ? O(e.metadata.createdAt) : void 0,
+            n = e.status?.completionTime ? O(e.status.completionTime) : void 0,
+            r = H(e.status?.phase, e.spec?.desiredPhase, e.status?.snapshotCompletionPercentage),
+            i = t && n ? k(t, n) : t && r.icon === `spinner` ? k(t, new Date()) : ``,
+            a = e.metadata?.environmentClassId ? L[e.metadata.environmentClassId] : void 0,
+            c = Z.has(e.id),
+            u = e.metadata?.creator,
+            d = e.metadata?.executor,
+            p = e.metadata?.triggeredBy === S.MANUAL,
+            m = u && d && u.id === d.id,
+            h = (0, z.jsxs)(`span`, {
+              className: `inline-flex flex-wrap items-center gap-x-1.5 gap-y-0.5 align-middle`,
+              children: [
+                p
+                  ? u
+                    ? (0, z.jsx)(F, { subject: u, avatarSize: 16 })
+                    : (0, z.jsx)(`span`, { children: `Manual` })
+                  : (0, z.jsxs)(`span`, {
+                      className: `inline-flex items-center gap-1.5`,
+                      children: [
+                        (0, z.jsx)(se, { size: `sm`, className: `shrink-0` }),
+                        (0, z.jsx)(`span`, { children: `Scheduled` }),
+                      ],
+                    }),
+                d &&
+                  !m &&
+                  (0, z.jsxs)(`span`, {
+                    className: `inline-flex items-center gap-1.5 text-content-tertiary`,
+                    children: [(0, z.jsx)(`span`, { children: `as` }), (0, z.jsx)(F, { subject: d, avatarSize: 16 })],
+                  }),
+              ],
+            }),
+            g = [
+              {
+                label: `Status`,
+                value: (0, z.jsxs)(`span`, {
+                  className: `inline-flex items-center gap-1.5 align-middle`,
+                  children: [
+                    r.icon === `spinner` &&
+                      (0, z.jsx)(f, { size: 14, className: `animate-spin text-content-secondary` }),
+                    r.icon === `success` && (0, z.jsx)(s, { size: 14, className: `text-content-success` }),
+                    r.icon === `error` && (0, z.jsx)(o, { size: 14, className: `text-content-destructive` }),
+                    r.icon === `cancelled` && (0, z.jsx)(l, { size: 14, className: `text-content-secondary` }),
+                    (0, z.jsx)(`span`, {
+                      children:
+                        r.icon === `spinner`
+                          ? `${r.label}…`
+                          : r.icon === `cancelled`
+                            ? `${i || `0s`} (cancelled)`
+                            : i || r.label,
+                    }),
+                  ],
+                }),
+              },
+              { label: `Triggered`, value: h },
+              ...(e.status?.snapshotSizeBytes && e.status.snapshotSizeBytes > 0n
+                ? [{ label: `Size`, value: ce(e.status.snapshotSizeBytes) }]
+                : []),
+            ],
+            _ = a
+              ? (0, z.jsxs)(`span`, {
+                  children: [
+                    (0, z.jsx)(`span`, {
+                      className: `font-medium text-content-primary`,
+                      children: a.clazz.displayName,
+                    }),
+                    ` `,
+                    (0, z.jsx)(`span`, { className: `text-content-tertiary`, children: a.runner.name }),
+                  ],
+                })
+              : void 0;
+          return {
+            title: (0, z.jsxs)(`span`, {
+              className: `flex flex-wrap items-center gap-2`,
+              children: [
+                (0, z.jsx)(`span`, { children: t ? A(t) : e.id }),
+                c && (0, z.jsx)(te, { variant: `success`, size: `sm`, children: `Active` }),
+              ],
+            }),
+            description: _,
+            details: g,
+          };
+        },
+        [L, Z],
+      ),
+      Ie = (0, R.useCallback)(
+        (e) =>
+          (0, z.jsx)(w, {
+            size: `sm`,
+            variant: `secondary`,
+            "data-tracking-id": `open-prebuild-logs`,
+            onClick: () => K(e.id),
+            children: `Logs`,
+          }),
+        [],
+      ),
+      Le = (0, R.useCallback)(
+        (t) => {
+          let n = H(t.status?.phase, t.spec?.desiredPhase, t.status?.snapshotCompletionPercentage);
+          return (0, z.jsxs)(z.Fragment, {
+            children: [
+              (0, z.jsx)(P.RowActionsItem, {
+                "data-tracking-id": `copy-prebuild-id`,
+                onClick: async () => {
+                  if (t.id)
+                    try {
+                      (await navigator.clipboard.writeText(t.id),
+                        C({ title: `Prebuild ID copied to clipboard`, description: t.id }));
+                    } catch (e) {
+                      C({ title: `Failed to copy ID to clipboard`, description: b(e) });
+                    }
+                },
+                children: `Copy ID`,
+              }),
+              n.icon === `spinner` &&
+                (0, z.jsx)(P.RowActionsItem, {
+                  "data-tracking-id": `cancel-prebuild`,
+                  onClick: () => {
+                    t.id && V.mutate(t.id);
+                  },
+                  children: `Cancel`,
+                }),
+              (0, z.jsx)(P.RowActionsItem, {
+                "data-tracking-id": `delete-prebuild`,
+                onClick: () => {
+                  e && t.id && U.mutate({ prebuildId: t.id, projectId: e });
+                },
+                variant: `destructive`,
+                children: `Delete`,
+              }),
+            ],
+          });
+        },
+        [e, V, U],
+      ),
+      Re = (0, R.useCallback)(
+        ({ selectedCount: e }) => {
+          let t = De.filter((e) => ge(`cancel`, e)).length;
+          return (0, z.jsxs)(z.Fragment, {
+            children: [
+              (0, z.jsxs)(`span`, {
+                className: `text-sm font-medium text-content-primary`,
+                "data-tracking-id": `selection-count-prebuilds`,
+                children: [e, ` `, D(e, `item`), ` selected`],
+              }),
+              (0, z.jsxs)(N, {
+                children: [
+                  (0, z.jsx)(N.Trigger, {
+                    asChild: !0,
+                    children: (0, z.jsxs)(w, {
+                      size: `sm`,
+                      variant: `outline`,
+                      "data-tracking-id": `bulk-actions-menu-prebuilds`,
+                      children: [`Actions`, (0, z.jsx)(c, { className: `ml-1 h-3.5 w-3.5` })],
+                    }),
+                  }),
+                  (0, z.jsxs)(N.Content, {
+                    align: `start`,
+                    children: [
+                      t === 0
+                        ? (0, z.jsx)(j, {
+                            content: `No selected prebuild is in progress`,
+                            children: (0, z.jsx)(N.Item, {
+                              disabled: !0,
+                              onClick: (e) => e.preventDefault(),
+                              "data-tracking-id": `bulk-cancel-prebuilds-disabled`,
+                              children: `Cancel`,
+                            }),
+                          })
+                        : (0, z.jsx)(N.Item, {
+                            onClick: () => Y({ action: `cancel`, open: !0 }),
+                            "data-tracking-id": `bulk-cancel-prebuilds`,
+                            children: `Cancel`,
+                          }),
+                      (0, z.jsx)(N.Item, {
+                        variant: `destructive`,
+                        onClick: () => Y({ action: `delete`, open: !0 }),
+                        "data-tracking-id": `bulk-delete-prebuilds`,
+                        children: `Delete`,
+                      }),
+                    ],
+                  }),
+                ],
+              }),
+            ],
+          });
+        },
+        [De],
+      ),
+      $ = null;
+    if (h || I || !e) $ = (0, z.jsx)(me, { error: h || I });
+    else if (p || he)
+      $ = (0, z.jsx)(`div`, {
+        className: `rounded-lg border border-border-base bg-surface-pure`,
+        children: (0, z.jsx)(ne, { ready: !1, className: `h-[200px] w-full` }),
+      });
+    else if ((X?.length || 0) === 0) {
+      let e = T?.prebuildConfiguration?.enabled || !1,
+        t = ue(T?.prebuildConfiguration);
+      $ = (0, z.jsx)(`div`, {
+        className: `mt-8`,
+        children: (0, z.jsx)(`div`, {
+          className: `flex flex-col items-center gap-4 rounded-lg border border-border-light p-6`,
+          "data-testid": `prebuilds-empty-state`,
+          children: e
+            ? (0, z.jsxs)(z.Fragment, {
+                children: [
+                  (0, z.jsxs)(`div`, {
+                    className: `flex flex-col items-center gap-1 text-center`,
+                    children: [
+                      (0, z.jsx)(`p`, {
+                        className: `text-base font-medium text-content-primary`,
+                        children: `No prebuilds have run yet.`,
+                      }),
+                      (0, z.jsx)(`p`, { className: `text-sm text-content-secondary`, children: t }),
+                    ],
+                  }),
+                  (0, z.jsx)(w, {
+                    variant: `secondary`,
+                    size: `md`,
+                    onClick: xe,
+                    loading: Se,
+                    "data-testid": `run-prebuild-now-button`,
+                    "data-tracking-id": `run-prebuild-now-empty-state`,
+                    children: `Run prebuild now`,
+                  }),
+                  (0, z.jsx)(u, {
+                    to: `../settings`,
+                    className: `text-sm text-content-secondary underline hover:text-content-primary`,
+                    children: `Configure schedule and classes in Settings`,
+                  }),
+                ],
+              })
+            : (0, z.jsxs)(z.Fragment, {
+                children: [
+                  (0, z.jsxs)(`div`, {
+                    className: `flex flex-col items-center gap-1 text-center`,
+                    children: [
+                      (0, z.jsx)(`p`, {
+                        className: `text-base font-medium text-content-primary`,
+                        children: `Prebuilds are not enabled for this project.`,
+                      }),
+                      (0, z.jsx)(`p`, {
+                        className: `text-sm text-content-secondary`,
+                        children: `Prebuilds run daily to keep your environments ready to start instantly.`,
+                      }),
+                    ],
+                  }),
+                  (0, z.jsx)(w, {
+                    variant: `primary`,
+                    size: `md`,
+                    onClick: Ne,
+                    loading: Ce,
+                    "data-testid": `enable-prebuilds-button`,
+                    "data-tracking-id": `enable-prebuilds-empty-state`,
+                    children: `Enable prebuilds`,
+                  }),
+                  (0, z.jsx)(u, {
+                    to: `../settings`,
+                    className: `text-sm text-content-secondary underline hover:text-content-primary`,
+                    children: `Configure schedule and classes in Settings`,
+                  }),
+                ],
+              }),
+        }),
+      });
+    } else
+      $ = (0, z.jsxs)(`div`, {
+        className: `flex flex-col gap-3`,
+        "data-testid": `prebuilds-table`,
+        children: [
+          (0, z.jsx)(`p`, {
+            className: `text-sm text-content-secondary`,
+            children: `The last 7 days of prebuilds are kept per environment class. This lets you revert to a previous successful prebuild by deleting the most recent one, or investigate failures.`,
+          }),
+          (0, z.jsx)(P, {
+            "aria-label": `Project prebuilds`,
+            columns: Pe,
+            data: X,
+            getRowId: (e) => e.id,
+            getRowTextValue: (e) => e.id,
+            selectionMode: `multiple`,
+            selectedKeys: Oe,
+            onSelectionChange: ke,
+            actionBar: Re,
+            inlineActions: Ie,
+            rowActions: Le,
+            mobileRow: Fe,
+          }),
+        ],
+      });
+    return (0, z.jsxs)(`div`, {
+      "data-testid": `project-details-prebuilds-page`,
+      className: `flex flex-col gap-3`,
+      children: [
+        !T?.prebuildConfiguration?.enabled &&
+          (X?.length || 0) > 0 &&
+          (0, z.jsx)(E, {
+            variant: `warning`,
+            text: `Prebuilds are disabled. Environments won't start from a prebuild.`,
+            action: { text: `Enable`, onClick: Ne, loading: Ce, "data-tracking-id": `enable-prebuilds-banner` },
+          }),
+        Q > 0 &&
+          (0, z.jsx)(E, {
+            variant: `progress`,
+            text: `${Q} prebuild${Q > 1 ? `s` : ``} ${Q > 1 ? `are` : `is`} currently running...`,
+          }),
+        $,
+        G &&
+          (0, z.jsx)(le, { prebuildId: G, open: !!G, onOpenChange: (e) => !e && K(null), onRerun: je, onCancel: Me }),
+        J &&
+          e &&
+          (0, z.jsx)(_e, {
+            open: J.open,
+            onOpenChange: (e) => {
+              e || Y(null);
+            },
+            action: J.action,
+            prebuilds: De,
+            projectId: e,
+            environmentClasses: L,
+            onComplete: Ae,
+          }),
+      ],
+    });
+  },
+  ve = ({ trigger: e, creator: t, executor: n }) => {
+    let r = n ?? t;
+    return (0, z.jsxs)(`div`, {
+      className: `flex flex-col gap-0.5 text-sm leading-5`,
+      children: [
+        (0, z.jsx)(`div`, {
+          className: `flex items-center`,
+          children:
+            e === S.MANUAL
+              ? t
+                ? (0, z.jsx)(F, { subject: t, avatarSize: 16 })
+                : (0, z.jsx)(`span`, { className: `text-content-secondary`, children: `Manual` })
+              : (0, z.jsxs)(`span`, {
+                  className: `flex items-center gap-1.5 text-content-secondary`,
+                  children: [
+                    (0, z.jsx)(se, { size: `sm`, className: `shrink-0` }),
+                    (0, z.jsx)(`span`, { children: `Scheduled` }),
+                  ],
+                }),
+        }),
+        r &&
+          (0, z.jsxs)(`div`, {
+            className: `flex items-center gap-1.5 whitespace-nowrap text-content-secondary`,
+            children: [(0, z.jsx)(`span`, { children: `Ran as` }), (0, z.jsx)(F, { subject: r, avatarSize: 16 })],
+          }),
+      ],
+    });
+  };
+export { U as ProjectPrebuildsPage };

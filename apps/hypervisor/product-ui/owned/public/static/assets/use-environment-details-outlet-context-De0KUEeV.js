@@ -1,0 +1,260 @@
+import { a as e } from "./rolldown-runtime-CGYlQKCx.js";
+import { $ as t, Ln as n, Rn as r, Z as i } from "./SegmentProvider-CXCNBY9U.js";
+import { n as a } from "./@mux-DLaEVubF.js";
+import { Cg as o, Ff as s, v_ as c, wg as l, xg as u } from "./vendor-DAwbZtf0.js";
+import { cs as d, so as f, tr as p, vo as m } from "./use-boot-in-app-chat-t-J_VjKS.js";
+import { n as h } from "./toast-axaLeIzZ.js";
+import { t as g } from "./button-6YP03Qf2.js";
+import { t as _ } from "./cn-DppMFCU8.js";
+import { t as v } from "./headings-CM9JBOhQ.js";
+import { n as y } from "./skeleton-Cm867Q_k.js";
+import { c as b } from "./agent-queries-CGWy3JAw.js";
+import { n as x, r as S, t as C } from "./dropdown-menu-D3UmjGpQ.js";
+import { C as w, R as T, z as E } from "./environment-queries-zpiLcWfm.js";
+import { _ as D } from "./runner-configuration-queries-CSQ6BmaB.js";
+import { v as O } from "./runner-queries-BAY_7mHt.js";
+import { g as k } from "./project-queries-BMZ3qCU_.js";
+import { t as A } from "./phase-DI4YEQQ1.js";
+import { f as j, m as M, n as N, p as P, s as F, t as I } from "./DeleteEnvironmentModal-DVlWulBs.js";
+import { r as L } from "./IconFile-Dekdrvbx.js";
+import { t as R } from "./repo-url-BreAEtzd.js";
+import { t as z } from "./SourceControlProviderIcon-DRPBTuTO.js";
+import { t as B } from "./EnvironmentBanner-D7CVymcK.js";
+var V = e(a(), 1),
+  H = c(),
+  U = ({ button: e, environment: a, defaultEditor: o, handleViewDetails: s }) => {
+    let { toast: c } = h(),
+      l = u(),
+      m = T(),
+      g = E(),
+      _ = r(a),
+      v = n(a),
+      { data: y } = O(a.metadata?.runnerId),
+      [x, w] = (0, V.useState)(!1),
+      [D, k] = (0, V.useState)(!1),
+      [j, M] = (0, V.useState)(!1),
+      { handleStartError: R, modalProps: z } = i(),
+      [B, U] = (0, V.useState)(!1),
+      { data: W } = b(B ? a.id : void 0),
+      { downloadSupportBundle: G, isSupportBundleAvailable: K, enableTokenFetch: q, isTokenReady: J } = L(a, W),
+      Y = y?.provider === d.MANAGED,
+      X = (0, V.useCallback)(() => {
+        l(`/details/${a.id}/logs`);
+      }, [a.id, l]),
+      Z = (0, V.useCallback)(() => {
+        l(`/details/${a.id}/tasks`);
+      }, [a.id, l]),
+      Q = (0, V.useCallback)(async () => {
+        try {
+          await m.mutateAsync({ environmentId: a.id, skipPolicyCheck: !0 });
+        } catch (e) {
+          if (R(e)) return;
+          c({ title: `Failed to start environment`, description: p(e) });
+        }
+      }, [m, a.id, R, c]),
+      $ = (0, V.useCallback)(async () => {
+        (await navigator.clipboard.writeText(a.id),
+          c({ title: `Environment ID copied to clipboard`, description: a.id }));
+      }, [c, a.id]),
+      ee = P(),
+      te = (0, V.useCallback)(() => {
+        g.mutate(a.id, {
+          onError: (e) => {
+            c({ title: `Failed to stop environment`, description: p(e) });
+          },
+        });
+      }, [g, c, a.id]),
+      ne = (0, V.useCallback)(() => w(!0), [w]),
+      re = (0, V.useCallback)(() => k(!0), [k]);
+    return (0, H.jsxs)(H.Fragment, {
+      children: [
+        (0, H.jsxs)(C, {
+          triggerButton: e,
+          triggerTestId: `environment-actions-dropdown-trigger`,
+          onOpenChange: (e) => {
+            e && (U(!0), q());
+          },
+          children: [
+            (0, H.jsx)(S.Item, {
+              onClick: () => o && ee(o, a),
+              disabled: !A(a) || !o,
+              "data-tracking-id": `open-environment-environment-actions-dropdown`,
+              children: `Open`,
+            }),
+            (0, H.jsx)(S.Item, {
+              onClick: $,
+              "data-tracking-id": `copy-environment-id-environment-actions-dropdown`,
+              children: `Copy ID`,
+            }),
+            (0, H.jsx)(S.Separator, {}),
+            (0, H.jsx)(S.Item, {
+              onClick: X,
+              "data-testid": `environment-actions-dropdown-view-logs`,
+              "data-tracking-id": `view-environment-logs-environment-actions-dropdown`,
+              children: `View Logs`,
+            }),
+            (0, H.jsx)(S.Item, {
+              onClick: () => M(!0),
+              "data-testid": `environment-actions-dropdown-resource-usage`,
+              "data-tracking-id": `resource-usage-environment-actions-dropdown`,
+              children: `Resource Usage`,
+            }),
+            (0, H.jsx)(S.Item, {
+              onClick: Z,
+              "data-testid": `environment-actions-dropdown-view-task-runs`,
+              "data-tracking-id": `view-environment-task-runs-environment-actions-dropdown`,
+              children: `View Task Runs`,
+            }),
+            K &&
+              (0, H.jsx)(S.Item, {
+                onClick: G,
+                disabled: !J,
+                "data-testid": `environment-actions-dropdown-download-support-bundle`,
+                "data-tracking-id": `download-support-bundle-environment-actions-dropdown`,
+                children: `Download support bundle`,
+              }),
+            (0, H.jsx)(S.Separator, {}),
+            s &&
+              (0, H.jsx)(S.Item, {
+                onClick: s,
+                "data-tracking-id": `view-environment-details-environment-actions-dropdown`,
+                children: `View Details`,
+              }),
+            (0, H.jsx)(S.Item, {
+              onClick: Q,
+              disabled: !_,
+              "data-testid": `environment-actions-dropdown-start`,
+              "data-tracking-id": `start-environment-environment-actions-dropdown`,
+              children: `Start`,
+            }),
+            (0, H.jsx)(S.Item, {
+              onClick: te,
+              disabled: !v,
+              "data-testid": `environment-actions-dropdown-stop`,
+              "data-tracking-id": `stop-environment-environment-actions-dropdown`,
+              children: `Stop`,
+            }),
+            a.spec?.desiredPhase !== f.DELETED &&
+              (0, H.jsx)(S.Item, {
+                className: `text-red-500 focus:text-red-500`,
+                onClick: ne,
+                "data-tracking-id": `delete-environment-environment-actions-dropdown`,
+                children: `Delete`,
+              }),
+            a.spec?.desiredPhase === f.DELETED &&
+              !Y &&
+              (0, H.jsx)(S.Item, {
+                className: `text-red-500 focus:text-red-500`,
+                onClick: re,
+                "data-tracking-id": `force-delete-environment-environment-actions-dropdown`,
+                children: `Force Delete`,
+              }),
+          ],
+        }),
+        (0, H.jsx)(I, { open: x, environment: a, onClose: () => w(!1) }),
+        (0, H.jsx)(N, { open: D, environment: a, onClose: () => k(!1) }),
+        (0, H.jsx)(t, { environment: a, ...z }),
+        (0, H.jsx)(F, { environmentId: a.id, open: j, onOpenChange: M }),
+      ],
+    });
+  },
+  W = ({ environmentId: e, withOpenEditor: t }) => {
+    let { data: n } = w(e);
+    return (0, H.jsx)(`div`, {
+      "data-testid": `action-bar`,
+      translate: `no`,
+      className: `grow self-stretch`,
+      children: n && (0, H.jsx)(G, { environment: n, withOpenEditor: t }),
+    });
+  },
+  G = ({ environment: e, className: t, withOpenEditor: n = !0 }) => {
+    let { selectedEditor: r } = M(e.id),
+      i = !!e && A(e);
+    return (0, H.jsxs)(`div`, {
+      "data-testid": `action-bar-island`,
+      className: _(`flex flex-wrap items-stretch justify-center gap-2 @xs:justify-end`, t),
+      children: [
+        i && !window.isWebview && n && (0, H.jsx)(j, { environment: e }),
+        (0, H.jsx)(U, {
+          environment: e,
+          defaultEditor: r,
+          button: (0, H.jsx)(g, {
+            variant: `outline`,
+            size: `sm`,
+            "data-testid": `open-more-actions`,
+            "aria-label": `More actions`,
+            LeadingIcon: x,
+          }),
+        }),
+      ],
+    });
+  },
+  K = ({ showActionBar: e }) => {
+    let { environmentId: t } = l(),
+      { data: n, error: r } = w(t),
+      { data: i } = O(n?.metadata?.runnerId),
+      { data: a } = k(n?.metadata?.projectId),
+      o = n?.metadata?.projectId,
+      s = (!!n && !!a) || (!!n && !n?.metadata?.projectId),
+      c = !!r || n?.status?.content?.phase === m.FAILED;
+    return (0, H.jsxs)(`div`, {
+      className: `flex flex-col gap-6`,
+      children: [
+        (0, H.jsx)(B, { environment: n, runner: i }),
+        (0, H.jsxs)(`div`, {
+          className: `flex flex-wrap items-center justify-between gap-1`,
+          children: [
+            (0, H.jsx)(`div`, {
+              className: `flex min-w-0 shrink flex-col`,
+              translate: `no`,
+              children: (0, H.jsx)(y, {
+                ready: s,
+                className: `w-52`,
+                size: `lg`,
+                children: (0, H.jsx)(v, {
+                  className: `flex flex-row align-middle text-content-primary`,
+                  children: n?.metadata?.name
+                    ? (0, H.jsx)(H.Fragment, { children: n?.metadata?.name })
+                    : o
+                      ? (0, H.jsx)(H.Fragment, { children: a?.metadata?.name })
+                      : (0, H.jsx)(q, { environment: n, failed: c, showRepoUrlLink: !0 }),
+                }),
+              }),
+            }),
+            (0, H.jsx)(`div`, { className: `min-w-fit`, children: t && e && (0, H.jsx)(W, { environmentId: t }) }),
+          ],
+        }),
+      ],
+    });
+  },
+  q = ({ failed: e, environment: t, showRepoUrlLink: n = !0 }) => {
+    let r = t && R(t),
+      { data: i } = D(t?.metadata?.runnerId),
+      a = r?.repoUrl && i ? i.find((e) => new URL(r.repoUrl).host === e.host)?.scmId : void 0;
+    return (0, H.jsx)(`div`, {
+      className: `flex min-h-5 flex-row items-center justify-start gap-2 text-lg font-bold`,
+      children: (0, H.jsxs)(y, {
+        size: `lg`,
+        className: `w-40`,
+        failed: e,
+        ready: !!t,
+        hideOnFailed: !0,
+        children: [
+          (0, H.jsx)(z, { scmId: a, className: `inline-block`, size: `base` }),
+          (0, H.jsx)(`div`, { children: r ? `${r.account}/${r.repo}` : `From scratch` }),
+          n &&
+            r?.repoUrl &&
+            (0, H.jsx)(`a`, {
+              href: r.repoUrl,
+              target: `_blank`,
+              rel: `noreferrer`,
+              children: (0, H.jsx)(s, { size: 14, className: `text-content-secondary` }),
+            }),
+        ],
+      }),
+    });
+  };
+function J() {
+  return o();
+}
+export { K as n, J as t };

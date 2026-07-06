@@ -1,0 +1,17 @@
+import { Ig as e, Pg as t, v_ as n } from "./vendor-DAwbZtf0.js";
+import { t as r } from "./cn-DppMFCU8.js";
+var i = n(),
+  a = t(`rounded-xl`, {
+    variants: {
+      variant: {
+        default: `bg-surface-02 px-5 py-4`,
+        bordered: `bg-surface-02 px-5 py-4 border-border-base border-0.5`,
+        outlined: `border border-border-light p-6`,
+        panel: `border border-border-light p-5 shadow-[0_0_0_0.5px] shadow-border-base`,
+      },
+    },
+    defaultVariants: { variant: `default` },
+  }),
+  o = ({ children: t, className: n, asChild: o, variant: s, "data-testid": c }) =>
+    (0, i.jsx)(o ? e : `div`, { "data-testid": c, className: r(a({ variant: s }), n), children: t });
+export { o as t };

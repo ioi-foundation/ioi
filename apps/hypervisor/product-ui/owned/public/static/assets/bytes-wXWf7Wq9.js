@@ -1,0 +1,127 @@
+import { v_ as e } from "./vendor-DAwbZtf0.js";
+var t = e(),
+  n = ({ size: e, className: n, ...r }) => {
+    switch (e) {
+      case `sm`:
+        return (0, t.jsxs)(`svg`, {
+          className: n,
+          ...r,
+          width: `16`,
+          height: `16`,
+          viewBox: `0 0 16 16`,
+          fill: `none`,
+          xmlns: `http://www.w3.org/2000/svg`,
+          children: [
+            (0, t.jsxs)(`g`, {
+              clipPath: `url(#clip0_2_2615)`,
+              children: [
+                (0, t.jsx)(`path`, {
+                  d: `M7.99999 13.8333C11.2217 13.8333 13.8333 11.2217 13.8333 7.99999C13.8333 4.77833 11.2217 2.16666 7.99999 2.16666C4.77833 2.16666 2.16666 4.77833 2.16666 7.99999C2.16666 11.2217 4.77833 13.8333 7.99999 13.8333Z`,
+                  stroke: `currentColor`,
+                  strokeWidth: `1.2`,
+                  strokeLinecap: `round`,
+                  strokeLinejoin: `round`,
+                }),
+                (0, t.jsx)(`path`, {
+                  d: `M8 4.5V8L10.3333 9.16667`,
+                  stroke: `currentColor`,
+                  strokeWidth: `1.2`,
+                  strokeLinecap: `round`,
+                  strokeLinejoin: `round`,
+                }),
+              ],
+            }),
+            (0, t.jsx)(`defs`, {
+              children: (0, t.jsx)(`clipPath`, {
+                id: `clip0_2_2615`,
+                children: (0, t.jsx)(`rect`, { width: `14`, height: `14`, fill: `white`, transform: `translate(1 1)` }),
+              }),
+            }),
+          ],
+        });
+      case `base`:
+        return (0, t.jsxs)(`svg`, {
+          className: n,
+          ...r,
+          width: `20`,
+          height: `20`,
+          viewBox: `0 0 20 20`,
+          fill: `none`,
+          xmlns: `http://www.w3.org/2000/svg`,
+          children: [
+            (0, t.jsxs)(`g`, {
+              clipPath: `url(#clip0_2_2619)`,
+              children: [
+                (0, t.jsx)(`path`, {
+                  d: `M10 16.6667C13.6819 16.6667 16.6667 13.6819 16.6667 10C16.6667 6.31811 13.6819 3.33334 10 3.33334C6.31811 3.33334 3.33334 6.31811 3.33334 10C3.33334 13.6819 6.31811 16.6667 10 16.6667Z`,
+                  stroke: `currentColor`,
+                  strokeWidth: `1.3`,
+                  strokeLinecap: `round`,
+                  strokeLinejoin: `round`,
+                }),
+                (0, t.jsx)(`path`, {
+                  d: `M10 6V10L12.6667 11.3333`,
+                  stroke: `currentColor`,
+                  strokeWidth: `1.3`,
+                  strokeLinecap: `round`,
+                  strokeLinejoin: `round`,
+                }),
+              ],
+            }),
+            (0, t.jsx)(`defs`, {
+              children: (0, t.jsx)(`clipPath`, {
+                id: `clip0_2_2619`,
+                children: (0, t.jsx)(`rect`, { width: `16`, height: `16`, fill: `white`, transform: `translate(2 2)` }),
+              }),
+            }),
+          ],
+        });
+      case `lg`:
+        return (0, t.jsxs)(`svg`, {
+          className: n,
+          ...r,
+          width: `24`,
+          height: `24`,
+          viewBox: `0 0 24 24`,
+          fill: `none`,
+          xmlns: `http://www.w3.org/2000/svg`,
+          children: [
+            (0, t.jsxs)(`g`, {
+              clipPath: `url(#clip0_2_2623)`,
+              children: [
+                (0, t.jsx)(`path`, {
+                  d: `M12 20.3333C16.6024 20.3333 20.3333 16.6024 20.3333 12C20.3333 7.39762 16.6024 3.66666 12 3.66666C7.39762 3.66666 3.66666 7.39762 3.66666 12C3.66666 16.6024 7.39762 20.3333 12 20.3333Z`,
+                  stroke: `currentColor`,
+                  strokeWidth: `1.4`,
+                  strokeLinecap: `round`,
+                  strokeLinejoin: `round`,
+                }),
+                (0, t.jsx)(`path`, {
+                  d: `M12 7V12L15.3333 13.6667`,
+                  stroke: `currentColor`,
+                  strokeWidth: `1.4`,
+                  strokeLinecap: `round`,
+                  strokeLinejoin: `round`,
+                }),
+              ],
+            }),
+            (0, t.jsx)(`defs`, {
+              children: (0, t.jsx)(`clipPath`, {
+                id: `clip0_2_2623`,
+                children: (0, t.jsx)(`rect`, { width: `20`, height: `20`, fill: `white`, transform: `translate(2 2)` }),
+              }),
+            }),
+          ],
+        });
+    }
+  },
+  r = [`B`, `KB`, `MB`, `GB`, `TB`];
+function i(e) {
+  let t = typeof e == `bigint` ? Number(e) : e;
+  if (!t || !Number.isFinite(t) || t <= 0) return `0 B`;
+  let n = Math.min(Math.floor(Math.log(t) / Math.log(1024)), r.length - 1),
+    i = t / 1024 ** n,
+    a = n >= 3 ? 2 : +(n >= 2);
+  return `${i.toFixed(a)} ${r[n]}`;
+}
+export { n, i as t };

@@ -1,0 +1,524 @@
+import { a as e } from "./rolldown-runtime-CGYlQKCx.js";
+import {
+  Gr as t,
+  Ir as n,
+  Kt as r,
+  Lr as i,
+  Lt as a,
+  Rr as o,
+  Wr as s,
+  ei as c,
+  jt as l,
+  nt as u,
+  ri as d,
+  vn as f,
+} from "./SegmentProvider-CXCNBY9U.js";
+import { n as p } from "./@mux-DLaEVubF.js";
+import {
+  Im as m,
+  Lm as h,
+  Pu as g,
+  Rl as ee,
+  Rm as _,
+  cg as v,
+  ju as y,
+  v_ as b,
+  vg as x,
+  wg as S,
+  xg as C,
+} from "./vendor-DAwbZtf0.js";
+import { Lr as w, l as T, tr as E, wr as D } from "./use-boot-in-app-chat-t-J_VjKS.js";
+import { g as O } from "./workflow_pb-DOR6D5WK.js";
+import { n as te } from "./toast-axaLeIzZ.js";
+import { t as k } from "./button-6YP03Qf2.js";
+import { t as A } from "./cn-DppMFCU8.js";
+import { t as ne } from "./banner-CFcSGYsz.js";
+import { r as re } from "./time-DxjbKG-a.js";
+import { n as j } from "./utils-C9bSuXia.js";
+import { t as ie } from "./headings-CM9JBOhQ.js";
+import { t as ae } from "./tooltip-6hqVQbwq.js";
+import { t as M } from "./text-fFCFeCas.js";
+import { t as N } from "./select-Ceshp72e.js";
+import { t as P } from "./skeleton-Cm867Q_k.js";
+import {
+  E as oe,
+  M as F,
+  N as se,
+  T as I,
+  g as L,
+  h as R,
+  j as ce,
+  r as z,
+  s as B,
+  u as V,
+} from "./automations-CN21BoUy.js";
+import { t as H } from "./agent-mode-ClxEfnvU.js";
+import { t as U } from "./IconRefresh-Clasnt5q.js";
+import { c as W, s as G, u as le } from "./codex-settings-BPKiMIhT.js";
+import { t as ue } from "./error-message-Az-KJctk.js";
+import { t as de } from "./switch-CiuLW56f.js";
+import { t as K } from "./empty-state-D7Bh3L9e.js";
+import { lt as fe, s as pe } from "./main-DLKYFe1Y.js";
+import { t as me } from "./use-share-resource-CE0EPrcD.js";
+import { t as he } from "./IconShare-BoVVqOW8.js";
+import { f as ge, m as _e, p as ve } from "./automation-edit-form-data-CvP3_1II.js";
+import { n as ye, t as be } from "./StepListContainer-yN6PVsKT.js";
+import { a as xe, i as q, n as Se, o as Ce, r as we, s as Te } from "./CancelAutomationExecutionDialog-rm2UxTc-.js";
+import { t as Ee } from "./RunAutomationDialog-GQ35_Wcn.js";
+import { t as J } from "./page-uSfpPNk3.js";
+import { t as De } from "./AutomationExecutionStatusIcon-B3fEPOH1.js";
+import { i as Oe, r as ke } from "./WorkflowActionsDialogs-F3ab9h28.js";
+import { i as Ae, t as je } from "./AutomationNotFound-zEEhoCNN.js";
+var Y = e(p(), 1),
+  X = b(),
+  Me = ({ executionId: e }) => {
+    let { data: n } = t(e),
+      r = xe(n);
+    if (!n || !r) return null;
+    let i = n.metadata?.startedAt && n.metadata?.finishedAt ? re(n.metadata.startedAt, n.metadata.finishedAt) : void 0,
+      a =
+        (n.status?.doneActionCount ?? 0) +
+        (n.status?.runningActionCount ?? 0) +
+        (n.status?.pendingActionCount ?? 0) +
+        (n.status?.failedActionCount ?? 0) +
+        (n.status?.stoppedActionCount ?? 0);
+    return (0, X.jsxs)(X.Fragment, {
+      children: [
+        (0, X.jsxs)(l.Item, {
+          id: e,
+          to: ce({ id: e }),
+          className: `min-w-0`,
+          children: [
+            (0, X.jsx)(l.ItemIcon, {
+              className: `bg-transparent`,
+              children: (0, X.jsx)(De, { size: `sm`, execution: n }),
+            }),
+            (0, X.jsx)(l.ItemTitle, { children: (0, X.jsx)(we, { execution: n }) }),
+            (0, X.jsx)(l.ItemDescription, { children: (0, X.jsx)(Se, { execution: n }) }),
+            (0, X.jsxs)(l.ItemContent, {
+              alignment: `right`,
+              className: `min-w-0`,
+              children: [
+                (0, X.jsx)(`div`, {
+                  className: `hidden min-w-0 flex-wrap items-center gap-x-4 gap-y-2 @sm:flex`,
+                  children: (0, X.jsx)(q, { execution: n, duration: i, totalActionsCount: a }),
+                }),
+                (0, X.jsx)(`div`, {
+                  className: `flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 @sm:hidden`,
+                  children: (0, X.jsx)(q, { execution: n, duration: i, totalActionsCount: a, variant: `compact` }),
+                }),
+              ],
+            }),
+            (0, X.jsx)(l.ItemActions, { children: (0, X.jsx)(Ce, { actions: r }) }),
+          ],
+        }),
+        (0, X.jsx)(Te, { execution: n, actions: r }),
+      ],
+    });
+  },
+  Z = (function (e) {
+    return ((e.All = `all`), (e.Running = `running`), (e.Completed = `completed`), (e.Failed = `failed`), e);
+  })({});
+function Ne(e) {
+  return Pe(e) ? e : `all`;
+}
+function Pe(e) {
+  return Object.values(Z).includes(e);
+}
+var Fe = [
+    { value: `all`, label: `All` },
+    { value: `running`, label: `Running` },
+    { value: `completed`, label: `Completed` },
+    { value: `failed`, label: `Failed` },
+  ],
+  Ie = ({ value: e, onChange: t }) =>
+    (0, X.jsxs)(N, {
+      value: e,
+      onValueChange: (e) => t(Ne(e)),
+      placeholder: `Select status`,
+      "data-testid": `workflow-execution-status-filter-trigger`,
+      children: [
+        (0, X.jsx)(N.Value, { children: (e, t) => (0, X.jsxs)(`span`, { children: [`Status: `, t] }) }),
+        Fe.map((e) => (0, X.jsx)(N.Item, { value: e.value, children: e.label }, e.value)),
+      ],
+    }),
+  Le = j(y),
+  Q = ({ workflow: e, variant: t = `primary`, size: n, disabled: r, children: a, "data-tracking-id": o }) => {
+    let [s, c] = (0, Y.useState)(!1),
+      { canRunAutomation: l } = i(e.id);
+    return !l || (!V(e) && !B(e))
+      ? null
+      : (0, X.jsxs)(X.Fragment, {
+          children: [
+            (0, X.jsx)(k, {
+              variant: t,
+              size: n,
+              LeadingIcon: Le,
+              onClick: () => c(!0),
+              disabled: r,
+              "data-tracking-id": o,
+              children: a ?? `Run`,
+            }),
+            (0, X.jsx)(Ee, { open: s, onOpenChange: c, workflow: e }),
+          ],
+        });
+  },
+  $ = ({ workflow: e }) => {
+    let [t, n] = _(`search`, m.withDefault(``)),
+      [r, i] = _(`status`, h(Re).withDefault(Z.All)),
+      [a, o] = (0, Y.useState)(t),
+      s = ee((e) => {
+        n(e.trim() || null);
+      }, 250),
+      c = (e) => {
+        (o(e), s(e));
+      },
+      f = (0, Y.useRef)(t);
+    (0, Y.useEffect)(() => {
+      t !== f.current && ((f.current = t), s.cancel(), o(t));
+    }, [t, s]);
+    let p = (0, Y.useMemo)(() => {
+        let e = ze(r),
+          n = t.trim();
+        if (!(!e && !n)) return { ...e, search: n || void 0 };
+      }, [r, t]),
+      {
+        data: g,
+        cursor: v,
+        error: y,
+        refetch: b,
+        isPending: x,
+        isFetching: S,
+      } = d({ enabled: !!e?.id, workflowId: e?.id || ``, filter: p }),
+      C = (0, Y.useMemo)(() => g?.executionIds ?? [], [g?.executionIds]),
+      w = g?.nextToken ?? ``,
+      T = R(e),
+      D = r !== Z.All || !!t.trim();
+    return y
+      ? (0, X.jsx)(K, {
+          title: `Failed to load executions`,
+          description: E(y),
+          "data-testid": `workflow-executions-error-state`,
+          children:
+            b &&
+            (0, X.jsx)(k, {
+              variant: `secondary`,
+              LeadingIcon: U,
+              onClick: () => b(),
+              "data-tracking-id": `retry-load-executions`,
+              children: `Retry`,
+            }),
+        })
+      : C.length === 0 && !D && !x
+        ? (0, X.jsx)(K, {
+            title: `No executions yet`,
+            description: `Run this automation to create a new execution. It will run all defined steps across your configured contexts and report progress as it completes.`,
+            "data-testid": `workflow-executions-empty-state`,
+            children:
+              e &&
+              (0, X.jsx)(Q, {
+                workflow: e,
+                disabled: T,
+                "data-tracking-id": `run-workflow-empty-state`,
+                children: `Run Automation`,
+              }),
+          })
+        : (0, X.jsxs)(`div`, {
+            className: `flex min-w-0 flex-col gap-3`,
+            "data-testid": `workflow-executions-list`,
+            children: [
+              (0, X.jsxs)(`div`, {
+                className: A(`flex flex-col gap-2`, `@[312px]:flex-row @[312px]:items-center`),
+                children: [
+                  (0, X.jsx)(u, {
+                    placeholder: `Search by ID, PR number, or title…`,
+                    wrapperClassName: `flex-1 min-w-44`,
+                    className: `max-w-none`,
+                    value: a,
+                    onChange: (e) => c(e.target.value),
+                    onClear: () => {
+                      (s.cancel(), o(``), n(null));
+                    },
+                    isLoading: S,
+                    "data-testid": `automation-executions-search-input`,
+                  }),
+                  (0, X.jsx)(`div`, {
+                    className: A(
+                      `grid grid-cols-1 items-stretch gap-2`,
+                      `[&>button]:min-w-32`,
+                      `[&>button]:@[312px]:w-32`,
+                    ),
+                    children: (0, X.jsx)(Ie, {
+                      value: r,
+                      onChange: (e) => {
+                        i(e === Z.All ? null : e);
+                      },
+                    }),
+                  }),
+                ],
+              }),
+              x
+                ? (0, X.jsxs)(`div`, {
+                    className: `flex flex-col gap-2`,
+                    children: [
+                      (0, X.jsx)(P, { ready: !1, animate: !1, className: `h-[60px] rounded-xl opacity-55` }),
+                      (0, X.jsx)(P, { ready: !1, animate: !1, className: `h-[60px] rounded-xl opacity-35` }),
+                      (0, X.jsx)(P, { ready: !1, animate: !1, className: `h-[60px] rounded-xl opacity-15` }),
+                    ],
+                  })
+                : (0, X.jsxs)(l, {
+                    "aria-label": `Executions`,
+                    alwaysShowIcon: !0,
+                    className: `min-w-0`,
+                    children: [
+                      C.map((e) => (0, X.jsx)(Me, { executionId: e }, e)),
+                      (0, X.jsx)(l.Empty, {
+                        children: (0, X.jsxs)(`p`, {
+                          className: `text-base text-content-muted`,
+                          children: [
+                            `No executions found`,
+                            a &&
+                              (0, X.jsxs)(X.Fragment, {
+                                children: [
+                                  ` `,
+                                  `matching `,
+                                  (0, X.jsx)(`span`, { className: `font-medium text-content-strong`, children: a }),
+                                ],
+                              }),
+                          ],
+                        }),
+                      }),
+                    ],
+                  }),
+              !x &&
+                (0, X.jsx)(pe, {
+                  className: `px-2 pb-0 pt-2 sm:px-2`,
+                  onNext: () => {
+                    w && v.goToNextPage(w);
+                  },
+                  onPrevious: v.goToPreviousPage,
+                  hasNextPage: !!w,
+                  hasPreviousPage: v.hasPreviousPage,
+                  isLoading: S,
+                  currentItemsCount: C.length,
+                }),
+            ],
+          });
+  },
+  Re = Object.values(Z);
+function ze(e) {
+  switch (e) {
+    case Z.Running:
+      return { statusPhases: [O.RUNNING] };
+    case Z.Completed:
+      return { statusPhases: [O.COMPLETED], hasFailedActions: !1 };
+    case Z.Failed:
+      return { statusPhases: [O.COMPLETED], hasFailedActions: !0 };
+    case Z.All:
+    default:
+      return;
+  }
+}
+var Be = ({ workflowId: e, size: t }) => {
+    let { openShareDialog: n } = me(),
+      { data: r } = s(e),
+      { canShareAutomation: i } = o(e);
+    return i
+      ? (0, X.jsx)(k, {
+          variant: `outline`,
+          size: t,
+          onClick: () => {
+            r && n({ resourceType: w.WORKFLOW, resourceId: r.id, resourceName: F(r) ?? r.id });
+          },
+          disabled: !r,
+          "data-testid": `share-automation-button`,
+          "data-tracking-id": `share-automation-button`,
+          LeadingIcon: he,
+          children: `Share`,
+        })
+      : null;
+  },
+  Ve = ({ workflow: e }) =>
+    (0, X.jsxs)(M, {
+      className: `text-sm text-content-secondary`,
+      children: [`Using `, Ae(e.spec?.agentId) === H.CodexApp ? He(e) : `IOI Agent`],
+    });
+function He(e) {
+  let t = le(e.spec?.codexSettings);
+  return `Codex · ${G(t.model)} · ${W(t.reasoningEffort)}`;
+}
+var Ue = ({ workflowId: e, trigger: t, steps: n, limits: r, executor: i }) =>
+    n.length === 0
+      ? (0, X.jsx)(K, {
+          title: `Define your automation`,
+          description: `Begin by describing what should happen when this automation is run.`,
+          "data-testid": `workflow-executions-empty-state`,
+          children: (0, X.jsx)(k, {
+            asChild: !0,
+            variant: `primary`,
+            LeadingIcon: f,
+            "data-tracking-id": `run-workflow-empty-state`,
+            children: (0, X.jsx)(v, { to: I({ id: e }), children: `Add Step` }),
+          }),
+        })
+      : (0, X.jsx)(be, {
+          children: (0, X.jsx)(`div`, {
+            className: `flex w-full max-w-screen-xl flex-row items-start justify-center gap-4`,
+            children: (0, X.jsx)(ye, { trigger: t, limits: r, steps: n, executor: i }),
+          }),
+        }),
+  We = j(g),
+  Ge = () => {
+    let e = x(),
+      { workflowId: t } = S(),
+      i = C(),
+      { data: o, error: c, isPending: l } = s(t),
+      { canEditAutomation: u } = n(t),
+      { value: d } = T(),
+      f = oe(e) ?? z.Executions;
+    a(o ? F(o) : void 0);
+    let p = (e) => {
+        i(`#${e}`, { replace: !0 });
+      },
+      m = o ? R(o) : !1,
+      h = o ? L(o) : !1,
+      g = (0, Y.useMemo)(() => _e(o?.spec?.action), [o?.spec?.action]);
+    return !l && (D(c) || (!o && c))
+      ? (0, X.jsx)(je, {})
+      : (0, X.jsxs)(J, {
+          "data-testid": `workflow-page`,
+          children: [
+            (0, X.jsx)(J.Header, {
+              breadcrumbs: o
+                ? (0, X.jsx)(fe, { customBreadcrumbs: [{ label: `Automations`, href: se() }, { label: F(o) }] })
+                : void 0,
+              actions: o ? (0, X.jsx)(qe, { workflow: o, canUpdate: u, isDisabled: h }) : void 0,
+              loading: o ? void 0 : { breadcrumbItemCount: 2 },
+            }),
+            (0, X.jsxs)(J.Content, {
+              className: `min-w-0 gap-4`,
+              children: [
+                m &&
+                  (0, X.jsx)(ne, {
+                    variant: `info`,
+                    text: `This automation is being deleted. All interactions are disabled.`,
+                  }),
+                (0, X.jsx)(ue, { error: c }),
+                o &&
+                  (0, X.jsxs)(`div`, {
+                    className: `flex flex-col gap-1`,
+                    children: [
+                      (0, X.jsxs)(`div`, {
+                        className: `flex items-center gap-3`,
+                        children: [
+                          (0, X.jsx)(ie, { children: F(o) }),
+                          u && (0, X.jsx)(Ke, { workflow: o, isDeleting: m }),
+                        ],
+                      }),
+                      (0, X.jsx)(M, {
+                        className: `text-base text-content-secondary`,
+                        children: o.metadata?.description || `No description provided.`,
+                      }),
+                      d && (0, X.jsx)(Ve, { workflow: o }),
+                    ],
+                  }),
+                (0, X.jsxs)(r, {
+                  className: `flex min-w-0 grow flex-col`,
+                  value: f,
+                  onValueChange: p,
+                  children: [
+                    (0, X.jsxs)(r.List, {
+                      className: `mb-6 w-fit flex-row`,
+                      children: [
+                        (0, X.jsx)(r.Trigger, { value: z.Executions, children: `Executions` }),
+                        (0, X.jsx)(r.Trigger, { value: z.Definition, children: `Definition` }),
+                      ],
+                    }),
+                    (0, X.jsx)(r.Content, {
+                      value: z.Definition,
+                      className: `min-w-0 flex-col data-[state=active]:flex data-[state=active]:grow`,
+                      children: o
+                        ? (0, X.jsx)(Ue, {
+                            workflowId: o.id,
+                            trigger: ge(o.spec?.triggers ?? [])[0],
+                            limits: ve(o.spec?.action),
+                            steps: g,
+                            executor: o.metadata?.executor,
+                          })
+                        : null,
+                    }),
+                    (0, X.jsx)(r.Content, {
+                      value: z.Executions,
+                      className: `min-w-0 flex-col data-[state=active]:flex data-[state=active]:grow`,
+                      children: o ? (0, X.jsx)($, { workflow: o }) : null,
+                    }),
+                  ],
+                }),
+              ],
+            }),
+          ],
+        });
+  },
+  Ke = ({ workflow: e, isDeleting: t }) => {
+    let { toast: n } = te(),
+      r = c(),
+      i = L(e),
+      a = (0, Y.useCallback)(
+        async (t) => {
+          let i = !t;
+          try {
+            await r.mutateAsync({ workflowId: e.id, disabled: i });
+          } catch (e) {
+            n({ title: `Failed to ${i ? `disable` : `enable`} automation`, description: E(e) });
+          }
+        },
+        [e.id, r, n],
+      );
+    return (0, X.jsx)(ae, {
+      content: i ? `Enable automation` : `Disable automation`,
+      children: (0, X.jsx)(de, {
+        state: i ? `unchecked` : `checked`,
+        isLoading: r.isPending,
+        disabled: t,
+        onToggle: a,
+        "data-testid": `workflow-enabled-toggle`,
+        "data-tracking-id": `toggle-workflow-enabled`,
+        "aria-label": i ? `Enable automation` : `Disable automation`,
+      }),
+    });
+  },
+  qe = ({ workflow: e, canUpdate: t, isDisabled: n }) => {
+    let r = C(),
+      i = (0, Y.useCallback)(() => {
+        r(I({ id: e.id }));
+      }, [r, e.id]);
+    return (0, X.jsxs)(`div`, {
+      className: `flex items-center gap-2`,
+      children: [
+        (0, X.jsxs)(`div`, {
+          className: `hidden items-center gap-2 @[660px]/page-header:flex`,
+          children: [
+            (0, X.jsx)(ke, { workflowId: e.id }),
+            (0, X.jsx)(Be, { workflowId: e.id, size: `sm` }),
+            (0, X.jsx)(`div`, { className: `h-4 w-px bg-border-subtle` }),
+          ],
+        }),
+        (0, X.jsx)(Oe, { workflow: e, showRunAction: !1, buttonSize: `sm`, buttonVariant: `ghost` }),
+        (0, X.jsx)(`div`, {
+          className: `hidden items-center gap-2 @[660px]/page-header:flex`,
+          children: t
+            ? (0, X.jsx)(k, {
+                variant: `secondary`,
+                size: `sm`,
+                LeadingIcon: We,
+                onClick: i,
+                "data-tracking-id": `edit`,
+                "aria-label": `Edit automation`,
+              })
+            : null,
+        }),
+        !n && (0, X.jsx)(Q, { workflow: e, size: `sm`, "data-tracking-id": `run` }),
+      ],
+    });
+  };
+export { Ge as AutomationDetailsPage };

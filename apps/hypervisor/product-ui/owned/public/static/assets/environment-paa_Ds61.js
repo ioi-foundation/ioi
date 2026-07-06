@@ -1,0 +1,126 @@
+import { so as e, wo as t } from "./use-boot-in-app-chat-t-J_VjKS.js";
+import { t as n } from "./timestamp-CEKPQVte.js";
+function r(t) {
+  if (!t) return;
+  let n = `unknown`;
+  switch (t.state) {
+    case e.RUNNING:
+      n = `running`;
+      break;
+    case e.CREATING:
+      n = `starting`;
+      break;
+    case e.STARTING:
+      n = t.resuming ? `resuming` : `starting`;
+      break;
+    case e.UPDATING:
+      n = `updating`;
+      break;
+    case e.STOPPING:
+      ((n = `stopping`), t.timeout && (n = `auto-stopping`));
+      break;
+    case e.STOPPED:
+      ((n = `stopped`), t.timeout && (n = `auto-stopped`));
+      break;
+    case e.DELETING:
+      n = `deleting`;
+      break;
+    case e.DELETED:
+      n = `deleted`;
+      break;
+  }
+  return `Environment ${n}`;
+}
+function i(e) {
+  if (e?.status?.environmentUrls?.logs) return `${e?.status?.environmentUrls?.logs}#${e?.status?.machine?.session}`;
+}
+function a(e, t) {
+  return `/details/${e}/logs${t ? `#${t}` : ``}`;
+}
+function o(e) {
+  if (!e?.specs || e.specs.length === 0) return { type: `branch`, value: `main` };
+  for (let n of e.specs)
+    switch (n.spec.case) {
+      case `contextUrl`: {
+        let e = c(n.spec.value.url);
+        if (e) return e;
+        break;
+      }
+      case `git`: {
+        let e = n.spec.value;
+        if (e.targetMode === t.REMOTE_TAG) return { type: `tag`, value: e.cloneTarget };
+        if (e.cloneTarget) return { type: `branch`, value: e.cloneTarget };
+        break;
+      }
+    }
+}
+function s(e) {
+  return o(e)?.value || `main`;
+}
+function c(e) {
+  if (e.includes(`/releases/tag/`)) {
+    let t = /\/releases\/tag\/([^/?#]+)/.exec(e);
+    if (t) return { type: `tag`, value: t[1] };
+  }
+  let t = e.split(`/tree/`);
+  if (t.length > 1) {
+    let e = t.pop()?.replace(/\?.*/, ``);
+    if (e) return { type: `branch`, value: e };
+  }
+  return { type: `branch`, value: `default branch` };
+}
+function l(e) {
+  return e?.spec?.content?.initializer?.specs?.length === 0;
+}
+var u = (e) => {
+  let t = { oneToTwoWeeks: [], twoWeeksToMonth: [], olderThanMonth: [] };
+  if (e.length > 0) {
+    let r = new Date(),
+      i = new Date(r.getTime() - 336 * 60 * 60 * 1e3);
+    i.setMilliseconds(0);
+    let a = new Date(r.getTime() - 720 * 60 * 60 * 1e3);
+    (a.setMilliseconds(0),
+      e.forEach((e) => {
+        let r = e.environment.metadata?.archivedAt ? n(e.environment.metadata?.archivedAt) : void 0;
+        r &&
+          (r.setMilliseconds(0),
+          r > i
+            ? t.oneToTwoWeeks.push(e)
+            : r <= i && r > a
+              ? t.twoWeeksToMonth.push(e)
+              : r <= a && t.olderThanMonth.push(e));
+      }));
+    let o = (e, t) => {
+      let r = e.environment.metadata?.archivedAt ? n(e.environment.metadata.archivedAt).getTime() : 0;
+      return (t.environment.metadata?.archivedAt ? n(t.environment.metadata.archivedAt).getTime() : 0) - r;
+    };
+    (t.oneToTwoWeeks.sort(o), t.twoWeeksToMonth.sort(o), t.olderThanMonth.sort(o));
+  }
+  return t;
+};
+function d(e) {
+  let t = [];
+  return (
+    e.forEach((e) => {
+      e.environments.forEach((n) => {
+        t.push({ environment: n, projectId: e.projectId, repoFullName: e.repoFullName });
+      });
+    }),
+    t
+  );
+}
+function f(e, t) {
+  return e.metadata?.name
+    ? e.metadata.name
+    : t
+      ? t.metadata?.name || `New Session`
+      : e.status?.content?.git?.branch
+        ? e.status.content.git.branch
+        : (e.status?.failureMessage?.length ?? 0) > 0
+          ? `no branch`
+          : s(e.spec?.content?.initializer) || ``;
+}
+function p(e, t) {
+  return t ? `Untitled project` : e?.metadata?.name || `Untitled project`;
+}
+export { o as a, l as c, f as i, r as l, i as n, p as o, d as r, u as s, a as t };

@@ -1,0 +1,357 @@
+import { a as e } from "./rolldown-runtime-CGYlQKCx.js";
+import { Gr as t, zr as n } from "./SegmentProvider-CXCNBY9U.js";
+import { n as r } from "./@mux-DLaEVubF.js";
+import { J as i, Rg as a, Vs as o, gu as s, o_ as c, q as l, v_ as u, zs as d } from "./vendor-DAwbZtf0.js";
+import { Dt as f, tr as p } from "./use-boot-in-app-chat-t-J_VjKS.js";
+import { g as m } from "./workflow_pb-DOR6D5WK.js";
+import { n as h } from "./toast-axaLeIzZ.js";
+import { a as g, t as _ } from "./button-6YP03Qf2.js";
+import { t as v } from "./cn-DppMFCU8.js";
+import { t as y } from "./dialog-BtjFqa-w.js";
+import { d as b, r as x } from "./time-DxjbKG-a.js";
+import { t as S } from "./tooltip-6hqVQbwq.js";
+import { t as C } from "./text-fFCFeCas.js";
+import { n as w, r as T, t as E } from "./dropdown-menu-D3UmjGpQ.js";
+import { A as D, S as O, a as k, c as A, i as j, l as M } from "./automations-CN21BoUy.js";
+import { t as N } from "./IconDot-JLZkI4_Z.js";
+import { a as P } from "./SCMAuthentication-Cw9MmVYE.js";
+import { t as F } from "./card-BxeZdx-o.js";
+import { t as I } from "./IconError-oto7a9DP.js";
+import { t as L } from "./IconDotLarge-C86lphAl.js";
+import { t as R } from "./use-callback-prevent-default-ChBsYLGS.js";
+import { t as z } from "./SubjectDisplay-GaN_Sngp.js";
+var B = u(),
+  V = ({ execution: e, actions: t }) => {
+    let { showCancelModal: n, setShowCancelModal: r } = t;
+    return (0, B.jsx)(Z, { open: n, execution: e, onClose: () => r(!1) });
+  },
+  H = ({ actions: e }) => {
+    let { handleCopyId: t, handleCancelClick: n, showCancel: r } = e;
+    return (0, B.jsxs)(B.Fragment, {
+      children: [
+        (0, B.jsx)(T.Item, {
+          onClick: t,
+          "data-testid": `workflow-execution-actions-dropdown-copy-id`,
+          "data-tracking-id": `copy-id-workflow-execution-actions-dropdown`,
+          children: `Copy Execution ID`,
+        }),
+        r &&
+          (0, B.jsxs)(B.Fragment, {
+            children: [
+              (0, B.jsx)(T.Separator, {}),
+              (0, B.jsx)(T.Item, {
+                variant: `destructive`,
+                onClick: n,
+                "data-testid": `workflow-execution-actions-dropdown-cancel`,
+                "data-tracking-id": `cancel-workflow-execution-actions-dropdown`,
+                children: `Cancel`,
+              }),
+            ],
+          }),
+      ],
+    });
+  },
+  U = e(r(), 1);
+function W(e) {
+  let { toast: t } = h(),
+    [n, r] = (0, U.useState)(!1),
+    i = (0, U.useCallback)(async () => {
+      if (e)
+        try {
+          (await navigator.clipboard.writeText(e.id),
+            t({ title: `Execution ID copied to clipboard`, description: e.id }));
+        } catch (e) {
+          t({ title: `Failed to copy execution ID`, description: p(e) });
+        }
+    }, [t, e]),
+    a = (0, U.useCallback)(() => r(!0), []),
+    o = e ? j(e) : !1;
+  if (e) return { showCancelModal: n, setShowCancelModal: r, handleCopyId: i, handleCancelClick: a, showCancel: o };
+}
+var G = ({ execution: e, onOpenChange: t }) => {
+    let n = W(e);
+    return n
+      ? (0, B.jsxs)(`div`, {
+          onClick: (e) => {
+            (e.preventDefault(), e.stopPropagation());
+          },
+          "data-tracking-id-none": !0,
+          children: [
+            (0, B.jsx)(E, {
+              triggerTestId: `workflow-execution-actions-dropdown-trigger`,
+              triggerButton: (0, B.jsx)(_, {
+                variant: `ghost`,
+                size: `sm`,
+                "aria-label": `More actions`,
+                LeadingIcon: w,
+              }),
+              onOpenChange: t,
+              children: (0, B.jsx)(H, { actions: n }),
+            }),
+            (0, B.jsx)(V, { execution: e, actions: n }),
+          ],
+        })
+      : null;
+  },
+  K = ({ execution: e, duration: t, totalActionsCount: n, variant: r = `full` }) => {
+    let i = e.status?.failedActionCount ?? 0,
+      u = e.status?.stoppedActionCount ?? 0;
+    return r === `compact`
+      ? (0, B.jsxs)(B.Fragment, {
+          children: [
+            (0, B.jsx)(q, {
+              icon: (0, B.jsx)(o, { size: 16, className: `flex-shrink-0 text-content-muted` }),
+              children: e.metadata?.startedAt ? b(c(e.metadata.startedAt)) : `-`,
+            }),
+            (0, B.jsxs)(q, {
+              icon: (0, B.jsx)(s, { size: 16, className: `flex-shrink-0 text-content-muted` }),
+              children: [n, ` actions`],
+            }),
+            i > 0 &&
+              (0, B.jsxs)(q, {
+                icon: (0, B.jsx)(a, { size: 16, className: `flex-shrink-0 text-content-muted` }),
+                children: [i, ` `, (0, B.jsx)(`span`, { children: `errors` })],
+              }),
+            u > 0 &&
+              (0, B.jsxs)(q, {
+                icon: (0, B.jsx)(l, { size: 16, className: `flex-shrink-0 text-content-muted` }),
+                children: [u, ` `, (0, B.jsx)(`span`, { children: `stopped` })],
+              }),
+          ],
+        })
+      : (0, B.jsxs)(B.Fragment, {
+          children: [
+            (0, B.jsx)(q, {
+              icon: (0, B.jsx)(o, { size: 18, className: `flex-shrink-0 text-content-muted` }),
+              children: e.metadata?.startedAt ? b(c(e.metadata.startedAt)) : `-`,
+            }),
+            (0, B.jsx)(q, {
+              icon: (0, B.jsx)(d, { size: 18, className: `flex-shrink-0 text-content-muted` }),
+              children: t
+                ? (0, B.jsx)(`span`, { children: t })
+                : e.metadata?.startedAt
+                  ? (0, B.jsx)(`span`, { children: `In progress` })
+                  : (0, B.jsx)(`span`, { children: `-` }),
+            }),
+            (0, B.jsxs)(q, {
+              icon: (0, B.jsx)(s, { size: 18, className: `flex-shrink-0 text-content-muted` }),
+              children: [n, ` actions`],
+            }),
+            i > 0 &&
+              (0, B.jsxs)(q, {
+                icon: (0, B.jsx)(a, { size: 18, className: `flex-shrink-0 text-content-muted` }),
+                children: [i, ` `, (0, B.jsx)(`span`, { children: `errors` })],
+              }),
+            u > 0 &&
+              (0, B.jsxs)(q, {
+                icon: (0, B.jsx)(l, { size: 18, className: `flex-shrink-0 text-content-muted` }),
+                children: [u, ` `, (0, B.jsx)(`span`, { children: `stopped` })],
+              }),
+          ],
+        });
+  },
+  q = ({ icon: e, children: t }) =>
+    (0, B.jsxs)(`div`, {
+      className: `flex min-w-0 items-center gap-1.5`,
+      children: [e, (0, B.jsx)(C, { className: `whitespace-nowrap text-base text-content-strong`, children: t })],
+    }),
+  J = ({ execution: e }) => {
+    let t = k(e),
+      n;
+    if (t.type === `pullRequest`) {
+      let { pr: e } = t,
+        r = `PR #${e.id}: ${e.title || `Untitled`}`;
+      n = (0, B.jsxs)(B.Fragment, {
+        children: [
+          (0, B.jsx)(`span`, { className: `text-content-secondary`, children: `[Pull Request]` }),
+          ` `,
+          e.url
+            ? (0, B.jsx)(`a`, {
+                href: e.url,
+                target: `_blank`,
+                rel: `noopener noreferrer`,
+                className: `hover:underline`,
+                onClick: (e) => e.stopPropagation(),
+                "data-tracking-id": `pr-link`,
+                children: r,
+              })
+            : (0, B.jsx)(`span`, { children: r }),
+        ],
+      });
+    } else n = (0, B.jsxs)(B.Fragment, { children: [t.label, ` `, t.id] });
+    return (0, B.jsx)(C, { className: `break-all text-base text-content-primary`, children: n });
+  },
+  Y = ({ execution: e }) => {
+    let t = O(e.spec?.trigger),
+      n = e.metadata?.creator,
+      r = e.metadata?.executor;
+    return n?.id && r?.id && n.id === r.id && n
+      ? (0, B.jsxs)(`div`, {
+          className: `flex flex-wrap items-center gap-1.5 text-sm text-content-muted`,
+          children: [
+            (0, B.jsx)(`span`, { className: `text-content-primary`, children: t }),
+            (0, B.jsx)(`span`, { className: `text-content-inactive`, children: `•` }),
+            (0, B.jsx)(`span`, { children: `Triggered by / ran as:` }),
+            (0, B.jsx)(z, { subject: n, avatarSize: 16 }),
+          ],
+        })
+      : (0, B.jsxs)(`div`, {
+          className: `flex flex-wrap items-center gap-1.5 text-sm text-content-muted`,
+          children: [
+            (0, B.jsx)(`span`, { className: `text-content-primary`, children: t }),
+            n &&
+              (0, B.jsxs)(B.Fragment, {
+                children: [
+                  (0, B.jsx)(`span`, { className: `text-content-inactive`, children: `•` }),
+                  (0, B.jsx)(`span`, { children: `Triggered by:` }),
+                  (0, B.jsx)(z, { subject: n, avatarSize: 16 }),
+                ],
+              }),
+            r &&
+              (0, B.jsxs)(B.Fragment, {
+                children: [
+                  (0, B.jsx)(`span`, { className: `text-content-inactive`, children: `•` }),
+                  (0, B.jsx)(`span`, { children: `Ran as:` }),
+                  (0, B.jsx)(z, { subject: r, avatarSize: 16 }),
+                ],
+              }),
+          ],
+        });
+  },
+  X = ({ executionId: e, readonly: n = !1 }) => {
+    let { data: r } = t(e),
+      [a, o] = (0, U.useState)(!1);
+    if (!r) return null;
+    let s = r.metadata?.startedAt && r.metadata?.finishedAt ? x(r.metadata.startedAt, r.metadata.finishedAt) : void 0,
+      c =
+        (r.status?.doneActionCount ?? 0) +
+        (r.status?.runningActionCount ?? 0) +
+        (r.status?.pendingActionCount ?? 0) +
+        (r.status?.failedActionCount ?? 0) +
+        (r.status?.stoppedActionCount ?? 0);
+    return (0, B.jsx)(
+      F,
+      {
+        variant: `bordered`,
+        className: v(`relative border bg-surface-secondary transition-shadow @container`, {
+          "hover:cursor-pointer hover:shadow-sm": !n,
+          "shadow-sm": a,
+        }),
+        children: (0, B.jsxs)(`div`, {
+          className: `flex flex-col gap-3 @2xl:flex-row @2xl:items-center @2xl:justify-between @2xl:gap-6`,
+          children: [
+            (0, B.jsxs)(`div`, {
+              className: `flex min-w-0 flex-1 flex-col gap-2 pr-10 @2xl:pr-0`,
+              children: [
+                (0, B.jsxs)(`div`, {
+                  className: `flex items-center gap-3`,
+                  children: [
+                    (0, B.jsx)(S, {
+                      content: D(r),
+                      usePortal: !0,
+                      children: (0, B.jsx)(`div`, {
+                        children: (() => {
+                          switch (r.status?.phase) {
+                            case m.COMPLETED:
+                              return A(r)
+                                ? (0, B.jsx)(I, { size: `base`, className: `flex-shrink-0 text-content-destructive` })
+                                : (0, B.jsx)(P, { size: `base`, className: `flex-shrink-0 text-content-success` });
+                            case m.RUNNING:
+                              return (0, B.jsx)(L, {
+                                size: `base`,
+                                className: `flex-shrink-0 animate-pulse text-content-warning`,
+                              });
+                            case m.PENDING:
+                              return (0, B.jsx)(N, { size: `sm`, className: `flex-shrink-0 text-content-tertiary` });
+                            case m.STOPPING:
+                              return (0, B.jsx)(g, {
+                                size: `sm`,
+                                className: `flex-shrink-0 animate-spin text-content-warning`,
+                              });
+                            case m.STOPPED:
+                              return M(r)
+                                ? (0, B.jsx)(I, { size: `base`, className: `flex-shrink-0 text-content-destructive` })
+                                : (0, B.jsx)(l, { size: 20, className: `flex-shrink-0 text-content-muted` });
+                            default:
+                              return (0, B.jsx)(i, { size: 20, className: `flex-shrink-0 text-content-muted` });
+                          }
+                        })(),
+                      }),
+                    }),
+                    (0, B.jsx)(J, { execution: r }),
+                  ],
+                }),
+                (0, B.jsx)(`div`, { className: `pl-8`, children: (0, B.jsx)(Y, { execution: r }) }),
+                (0, B.jsx)(`div`, {
+                  className: `flex flex-wrap items-center gap-x-4 gap-y-2 pl-8 @2xl:hidden`,
+                  children: (0, B.jsx)(K, { execution: r, duration: s, totalActionsCount: c }),
+                }),
+              ],
+            }),
+            (0, B.jsx)(`div`, {
+              className: `hidden @2xl:flex @2xl:flex-shrink-0 @2xl:items-center @2xl:gap-4`,
+              children: (0, B.jsx)(K, { execution: r, duration: s, totalActionsCount: c }),
+            }),
+            !n &&
+              (0, B.jsx)(`div`, {
+                className: `absolute right-3 top-3 @2xl:relative @2xl:right-auto @2xl:top-auto @2xl:flex-shrink-0`,
+                children: (0, B.jsx)(G, { execution: r, onOpenChange: o }),
+              }),
+          ],
+        }),
+      },
+      r.id,
+    );
+  },
+  Z = ({ execution: e, open: t, onClose: r }) => {
+    let { toast: i } = h(),
+      a = n(),
+      o = R(async () => {
+        try {
+          (await a.mutateAsync(e), r());
+        } catch (e) {
+          i({ title: `Failed to cancel automation execution`, description: p(e) });
+        }
+      }, [a, e, i, r]);
+    return (0, B.jsx)(y, {
+      open: t,
+      onOpenChange: r,
+      children: (0, B.jsxs)(y.Content, {
+        "data-testid": `cancel-workflow-execution-dialog`,
+        "data-track-location": f.CancelWorkflowExecutionDialog,
+        className: `max-w-[550px]`,
+        children: [
+          (0, B.jsxs)(y.Header, {
+            children: [
+              (0, B.jsx)(y.Title, { children: `Cancel Automation Execution` }),
+              (0, B.jsx)(y.Description, {
+                children: `Are you sure you want to cancel this automation execution? Running actions will be stopped.`,
+              }),
+            ],
+          }),
+          (0, B.jsx)(y.Body, { children: (0, B.jsx)(X, { executionId: e.id, readonly: !0 }) }),
+          (0, B.jsxs)(y.Footer, {
+            children: [
+              (0, B.jsx)(y.Close, {
+                asChild: !0,
+                children: (0, B.jsx)(_, {
+                  variant: `outline`,
+                  "data-testid": `cancel-workflow-execution-dialog-cancel`,
+                  children: `Cancel`,
+                }),
+              }),
+              (0, B.jsx)(_, {
+                variant: `destructive`,
+                onClick: o,
+                loading: a.isPending,
+                "data-testid": `cancel-workflow-execution-dialog-confirm`,
+                "data-tracking-id": `confirm-cancel-workflow-execution-cancel-workflow-execution-dialog`,
+                children: `Cancel execution`,
+              }),
+            ],
+          }),
+        ],
+      }),
+    });
+  };
+export { W as a, K as i, Y as n, H as o, J as r, V as s, Z as t };

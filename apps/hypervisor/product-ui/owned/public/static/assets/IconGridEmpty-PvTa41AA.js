@@ -1,0 +1,34 @@
+import { v_ as e } from "./vendor-DAwbZtf0.js";
+var t = e(),
+  n = ({ className: e }) =>
+    (0, t.jsx)(`svg`, {
+      className: e,
+      width: `90`,
+      height: `90`,
+      viewBox: `0 0 90 90`,
+      fill: `none`,
+      xmlns: `http://www.w3.org/2000/svg`,
+      children: [
+        { x: 1, y: 1 },
+        { x: 50, y: 1 },
+        { x: 1, y: 50 },
+        { x: 50, y: 50 },
+      ].map(({ x: e, y: n }) =>
+        (0, t.jsx)(
+          `rect`,
+          {
+            stroke: `currentColor`,
+            strokeWidth: 2,
+            strokeDasharray: `7 6`,
+            strokeDashoffset: `-9.5px`,
+            fill: `none`,
+            x: e,
+            y: n,
+            width: 39,
+            height: 39,
+          },
+          `${e}-${n}`,
+        ),
+      ),
+    });
+export { n as t };

@@ -1,0 +1,7 @@
+{
+  "date": "June 10, 2026",
+  "title": "User budgets for AI usage",
+  "description": "Enterprise admins can now set monthly AI usage budgets for every member of their organization. Set one default budget for all users, then override it for individual users where needed.\n\nBudgets cover credit-billed AI usage and model spend through your own provider keys (BYOK), and each user sees their own utilization in the chat input as they work.\n\nBudgets are soft limits for visibility: nobody is blocked when they exceed one. Over-budget users are highlighted on Settings > Usage, and budgets are included in CSV exports.\n\n[Learn more](https://ioi.com/docs/ioi/billing/user-budgets)",
+  "imageUrl": "https://docs.ioi.com/images/changelog/user-budgets.webp",
+  "link": "/changelog#june-10-2026"
+}

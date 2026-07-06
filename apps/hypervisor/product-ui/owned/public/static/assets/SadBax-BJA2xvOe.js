@@ -1,0 +1,52 @@
+import { v_ as e } from "./vendor-DAwbZtf0.js";
+var t = e(),
+  n = ({ className: e }) =>
+    (0, t.jsxs)(`svg`, {
+      className: e,
+      width: `61`,
+      height: `61`,
+      viewBox: `0 0 61 61`,
+      fill: `none`,
+      xmlns: `http://www.w3.org/2000/svg`,
+      children: [
+        (0, t.jsx)(`path`, {
+          d: `M45.5 19.6667L41.75 18L32.5307 13.9025C31.2379 13.3279 29.7621 13.3279 28.4693 13.9025L10.9693 21.6803C9.16367 22.4828 8 24.2734 8 26.2494V44.7506C8 46.7266 9.16367 48.5172 10.9693 49.3197L28.4693 57.0975C29.7621 57.6721 31.2379 57.6721 32.5307 57.0975L50.0307 49.3197C51.8363 48.5172 53 46.7266 53 44.7506V24.25`,
+          stroke: `currentColor `,
+          strokeWidth: `3.75`,
+          strokeLinecap: `round`,
+        }),
+        (0, t.jsx)(`path`, {
+          d: `M50.5 25.5L50.4425 25.5216M30.5 55.5V33L50.4425 25.5216M50.4425 25.5216L53 24.25`,
+          stroke: `currentColor `,
+          strokeWidth: `3.75`,
+          strokeLinecap: `round`,
+        }),
+        (0, t.jsx)(`path`, {
+          d: `M10.5 25.5L30.5 33`,
+          stroke: `currentColor`,
+          strokeWidth: `3.75`,
+          strokeLinecap: `round`,
+        }),
+        (0, t.jsx)(`path`, {
+          d: `M8 23L4.17001 15.34C3.53261 14.0652 4.0883 12.5163 5.39073 11.9375L23.317 3.97024C24.5383 3.42741 25.9706 3.94127 26.5684 5.13674L30.5 13`,
+          stroke: `currentColor `,
+          strokeWidth: `3.75`,
+          strokeLinecap: `round`,
+        }),
+        (0, t.jsx)(`path`, {
+          d: `M30.5 33L37.5716 23.5712C37.8516 23.1979 38.2305 22.9104 38.6655 22.7412L56.8117 15.6843C57.9501 15.2416 58.9824 16.5264 58.3049 17.5427L53 25.5`,
+          stroke: `currentColor `,
+          strokeWidth: `3.75`,
+          strokeLinecap: `round`,
+        }),
+        (0, t.jsx)(`path`, {
+          d: `M26 49.5C24 44.6667 17.5 39 12.5 43`,
+          stroke: `currentColor`,
+          strokeWidth: `2.5`,
+          strokeLinecap: `round`,
+        }),
+        (0, t.jsx)(`ellipse`, { cx: `24`, cy: `38.5`, rx: `1.5`, ry: `2`, fill: `currentColor` }),
+        (0, t.jsx)(`ellipse`, { cx: `14`, cy: `34.5`, rx: `1.5`, ry: `2`, fill: `currentColor` }),
+      ],
+    });
+export { n as t };
