@@ -1024,6 +1024,59 @@ function renderApplications() {
 // ---- Work Ledger — one chronological PROOF STREAM (runs + webhook receipts) with faceted filters.
 // What happened · under whose authority · with which artifacts · how to replay it. Real records only;
 // no fabricated rows. Row click opens a right proof drawer. Data comes from GET /v1/hypervisor/work-ledger.
+// ---- Provenance lineage — the daemon-backed lane behind the /__apps/lineage monocle graph seed.
+// The captured canvas teaches the lineage-graph grammar (resource nodes, derivation edges, layout/
+// tools, preview/history/code/build/data-health lenses); here the OWNER surface binds the real
+// lineage: every admitted proof entry is a NODE and its cross-object refs are typed EDGES to the
+// objects it derives from / acts on. Nodes and edges exist ONLY where a daemon receipt/ref sources
+// them — never fabricated. Empty stream → honest empty state.
+function renderProvenanceLineage(entries) {
+  entries = Array.isArray(entries) ? entries : [];
+  // Typed provenance edges: ref field on a proof entry -> the surface that owns the target object.
+  const EDGE = [
+    ["receipt_ref", "receipt", "/__ioi/work-ledger"],
+    ["state_root", "state-root", null],
+    ["run_ref", "run", null],
+    ["timeline_ref", "run-timeline", null],
+    ["session_ref", "session", "/__ioi/workbench#sessions"],
+    ["profile_ref", "harness-profile", "/__ioi/agent-studio#harness-profiles"],
+    ["domain_app_ref", "domain-app", "/__ioi/domain-apps"],
+    ["release_control_ref", "release-control", "/__ioi/governance"],
+    ["approval_request_ref", "approval", "/__ioi/governance"],
+    ["kill_switch_ref", "kill-switch", "/__ioi/governance"],
+    ["subject_ref", "kill-subject", "/__ioi/governance"],
+    ["candidate_ref", "publish-candidate", "/__ioi/marketplace"],
+    ["listing_id", "listing", "/__ioi/marketplace"],
+    ["automation_id", "automation", "/__ioi/operations"],
+  ];
+  if (!entries.length) {
+    return `<h2 id="provenance-lineage">Provenance lineage</h2><p class="sub" style="margin:-4px 0 12px">The lineage graph is the daemon's own derivation edges — a proof entry and the objects it derives from. Explore the graph grammar in the <a href="/__apps/lineage">lineage canvas seed →</a>.</p><div class="empty">No admitted work yet — no lineage edges to derive. Run an automation or a session to create proof entries; each becomes a node with its receipt / state-root / session / release-control edges.</div>`;
+  }
+  // Edge-type adjacency density across the whole proof stream (daemon truth, counted not faked).
+  const counts = {};
+  for (const e of entries) for (const [k] of EDGE) if (e[k]) counts[k] = (counts[k] || 0) + 1;
+  const edgeChips = EDGE.filter(([k]) => counts[k]).map(([k, label]) => `<span class="pill muted" title="${counts[k]} proof entries carry a ${label} edge">${CX_ESC(label)} · ${counts[k]}</span>`).join("");
+  // Sample a real node neighborhood: the newest entry with the richest edge set.
+  const richness = (e) => EDGE.reduce((n, [k]) => n + (e[k] ? 1 : 0), 0);
+  const sorted = [...entries].sort((a, b) => (richness(b) - richness(a)) || String(b.timestamp || "").localeCompare(String(a.timestamp || "")));
+  const node = sorted[0];
+  const nodeTitle = node.kind === "harness_execution" ? `${node.harness || "harness"} → ${node.session_ref || "session"}`
+    : node.automation_name || node.listing_id || node.subject_ref || node.domain_app_ref || node.id || node.kind;
+  const edgeList = EDGE.filter(([k]) => node[k]).map(([k, label, href]) => {
+    const val = String(node[k]);
+    const target = k === "timeline_ref" ? val : (k === "run_ref" && node.timeline_ref) ? node.timeline_ref : href;
+    const cell = target
+      ? `<a href="${target}"${/^\/__ioi\/run-timeline/.test(target) ? ' target="_blank" rel="noopener"' : ""}>${CX_ESC(val)} ↗</a>`
+      : `<code>${CX_ESC(val)}</code>`;
+    return `<li><span class="pill muted">${CX_ESC(label)}</span> ${cell}</li>`;
+  }).join("");
+  return `<h2 id="provenance-lineage">Provenance lineage</h2>` +
+    `<p class="sub" style="margin:-4px 0 12px">The lineage graph is the daemon's own derivation edges — every admitted proof entry is a node; its cross-object refs are typed edges to the objects it derives from or acts on. Explore the graph grammar in the <a href="/__apps/lineage">lineage canvas seed →</a>; the edges below are daemon truth. <b>Named gap:</b> the seed's in-canvas Add-resources / Open-graph resource search lanes are not in the current capture — the interactive canvas stays a scaffold while the edges are surfaced here.</p>` +
+    `<h3 style="margin:12px 0 4px;font-size:13px">Lineage edge density <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— typed edges across ${entries.length} proof entries</span></h3><div class="chips" style="margin:2px 0 4px">${edgeChips || '<span class="pill muted">no cross-object edges yet</span>'}</div>` +
+    `<h3 style="margin:16px 0 4px;font-size:13px">Sample node neighborhood <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— <code>${CX_ESC(String(node.kind))}</code> · ${CX_ESC(nodeTitle)}${node.state_root ? " · " + CX_ESC(String(node.state_root).slice(0, 22)) : ""}</span></h3>` +
+    `<ul class="wlbl" style="max-width:820px">${edgeList || '<li class="sub" style="margin:0">this node carries no outbound edges</li>'}</ul>`;
+}
+
 function renderWorkLedger(entries, scopedProject) {
   // Same surface, optionally scoped to one project (light copy only — NOT a forked per-project UI).
   const scope = scopedProject
@@ -1034,7 +1087,7 @@ function renderWorkLedger(entries, scopedProject) {
     const msg = scopedProject
       ? "No admitted work yet for this project. Run one of its automations to create ledger evidence."
       : "No admitted work yet. Run an automation to create ledger evidence.";
-    return automationsShell("Provenance", head + `<div class="empty">${msg}</div>`);
+    return automationsShell("Provenance", head + renderProvenanceLineage(entries) + `<div class="empty">${msg}</div>`);
   }
   const projects = [...new Set(entries.map((e) => e.project_id).filter(Boolean))];
   const chip = (f, v, label) => `<button class="chip" data-facet="${f}" data-val="${v}" onclick="wlChip(this)">${label}</button>`;
@@ -1145,7 +1198,7 @@ function renderWorkLedger(entries, scopedProject) {
       document.querySelectorAll('.wlrow').forEach(function(r){r.classList.toggle('selrow',r.dataset.i==String(i));});
     }
   </script>`;
-  return automationsShell("Provenance", head + filters + proofExp + `<div class="wlwrap"><div>${table}</div>${drawer}</div>` + dataTag + script);
+  return automationsShell("Provenance", head + renderProvenanceLineage(entries) + filters + proofExp + `<div class="wlwrap"><div>${table}</div>${drawer}</div>` + dataTag + script);
 }
 
 // ---- Operations — the first real Operations estate card: execution health over the automation
