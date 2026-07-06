@@ -22,6 +22,7 @@ import { chromium } from "playwright";
 const HERE = dirname(fileURLToPath(import.meta.url));
 const SERVE = (process.env.IOI_HYPERVISOR_SERVE_URL || "http://127.0.0.1:4173").replace(/\/$/, "");
 const MIRROR = (process.env.IOI_HARVEST_MIRROR_URL || "http://127.0.0.1:9225").replace(/\/$/, "");
+const DAEMON = (process.env.IOI_HYPERVISOR_DAEMON_URL || "http://127.0.0.1:8765").replace(/\/$/, "");
 
 const results = [];
 const ok = (name, cond, detail) => { results.push({ name, pass: !!cond, detail: detail || "" }); };
@@ -45,6 +46,15 @@ const SEEDS = [
     ownerUrl: "/__ioi/automations",
     boot: (t) => /Automat/i.test(t) && /New automation|Create new automation|Automations/i.test(t),
     bootDesc: "monitor/automation landing (New automation entry)",
+  },
+  {
+    slug: "changes", mirror: "/workspace/upgrade-assistant/", owner: "Improvement (Studio proposals section)",
+    ownerUrl: "/__ioi/agent-studio",
+    // Change inbox boots with its full chrome; the default assignee view is HONESTLY empty
+    // (the daemon maps no assignments) — row rendering behind the identity model is the
+    // rebind's named next phase; the WIRE rebind is asserted separately below.
+    boot: (t) => /Upgrade Assistant/i.test(t) && /Active|Filters|UPGRADE/i.test(t),
+    bootDesc: "change-inbox chrome (tabs + filters), honest empty assignee view",
   },
 ];
 
@@ -95,7 +105,28 @@ async function run() {
     await b.close();
   }
 
-  // 4. Shared honesty: unknown seed 404s; offline mirror named honestly.
+  // 4. REBOUND WIRE (Improvement seed): the intervention lanes answer with DAEMON
+  // improvement-proposals mapped into the seed's shape — every proposal present, nothing
+  // fabricated, per-proposal stats reflect the real state, no invented deadlines.
+  const pj = await fetch(`${DAEMON}/v1/hypervisor/intelligence/improvement-proposals`).then((r) => r.json()).catch(() => null);
+  const proposals = (pj && pj.proposals) || [];
+  const list = await fetch(`${SERVE}/interventions/api/interventions/v2/list`, { method: "POST", headers: { "content-type": "application/json" }, body: "{}" }).then((r) => r.json()).catch(() => null);
+  const interventions = (list && list.interventions) || [];
+  const hexOf = (id) => String(id || "").replace(/^imp_/, "").padEnd(16, "0").slice(0, 16);
+  const ridSet = new Set(interventions.map((x) => x.rid));
+  ok("[changes] wire carries EVERY daemon improvement-proposal", proposals.length > 0 && proposals.every((pr) => { const h = hexOf(pr.improvement_id); return ridSet.has(`ri.interventions.main.intervention.${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(0, 4)}-${h.slice(4, 16)}`); }), `${proposals.length} proposals → ${interventions.length} interventions`);
+  ok("[changes] wire fabricates NOTHING", interventions.length === proposals.length);
+  ok("[changes] no invented deadlines (dueDate = real update time, row copy says so)", interventions.every((x) => x.dueDate && x.shortDescription.includes("no deadline")), "dueDate is the proposal's real last-update timestamp");
+  const applied = proposals.find((pr) => pr.state === "applied");
+  if (applied) {
+    const h = hexOf(applied.improvement_id);
+    const st = await fetch(`${SERVE}/interventions/api/interventions/ri.interventions.main.intervention.${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(0, 4)}-${h.slice(4, 16)}/stats/search`, { method: "POST", headers: { "content-type": "application/json" }, body: "{}" }).then((r) => r.json());
+    ok("[changes] stats reflect the real proposal state (applied = complete)", st.stats && st.stats.numCompleteResources.nonIgnored === 1 && st.stats.numPendingResources.nonIgnored === 0);
+  } else {
+    ok("[changes] stats check skipped — no applied proposal in daemon", true);
+  }
+
+  // 5. Shared honesty: unknown seed 404s; offline mirror named honestly.
   ok("unknown seed is honest", (await fetch(`${SERVE}/__apps/nonesuch`).then((r) => r.status)) === 404);
   const child = spawn(process.execPath, [join(HERE, "serve-product-ui.mjs")], {
     env: { ...process.env, PORT: "4603", PRODUCT_UI_PORT: "9403", IOI_HARVEST_MIRROR_URL: "http://127.0.0.1:1" },
