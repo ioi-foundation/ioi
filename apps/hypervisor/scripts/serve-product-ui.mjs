@@ -2074,7 +2074,7 @@ function renderImprovementProposals(mining, improvements) {
       ${govRow}
       </div><div>${acts}</div></div>`;
   }).join("");
-  return `<h2 id="improvement-proposals" style="margin-top:28px">Improvement proposals <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— deterministic outcome mining; high-impact changes gate on fresh simulation + approval + release</span></h2>
+  return `<h2 id="improvement-proposals" style="margin-top:28px">Improvement proposals <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— deterministic outcome mining; high-impact changes gate on fresh simulation + approval + release · <a href="/__apps/changes">change-inbox seed (adopting) →</a></span></h2>
     ${improvements.length ? props : `<div class="empty">No improvement proposals yet.</div>`}
     <h3 style="margin:16px 0 6px;font-size:12px;color:#878a93">Mined candidates (derived, not yet proposed)</h3>
     ${mining.length ? mined : `<div class="empty">No deterministic candidates mined from recent outcomes.</div>`}`;
@@ -4374,18 +4374,159 @@ const server = http.createServer((req, res) => {
     // Mirror API families some seed documents call (observed in seed rebind maps). Served
     // same-origin through this proxy so seeds boot under the estate; their upstream is the
     // harvest mirror, never fabricated data.
-    const MIRROR_API_PREFIXES = ["/multipass/", "/graphql-gateway/", "/compass/", "/documentation/", "/aip-assist/", "/monocle/"];
+    const MIRROR_API_PREFIXES = ["/multipass/", "/graphql-gateway/", "/compass/", "/documentation/", "/aip-assist/", "/monocle/", "/approvals/", "/workspace/api/", "/log-receiver/", "/interventions/"];
     if (pathname.startsWith("/__apps/") || pathname.startsWith("/assets/content-addressable-storage/") || MIRROR_API_PREFIXES.some((pref) => pathname.startsWith(pref))) {
       // Per-seed fold flag: some seed documents hardcode the mirror ORIGIN for their API layer
       // and only boot when those refs are folded to same-origin (lineage); self-bootstrapped
       // documents (approvals pilot) must be served byte-faithful apart from the brand rebrand.
       const HARVEST_APPS = {
-        approvals: { base: "/workspace/approvals-app/", fold: false },   // Governance seed (pilot)
+        approvals: { base: "/workspace/approvals-app/", fold: true },   // Governance seed (REBOUND: task-request lanes answer with daemon approval-requests)
         lineage: { base: "/workspace/monocle/", fold: true },            // Provenance seed — bootable lineage-graph editor
         designer: { base: "/workspace/solution-design/", fold: false },  // Studio seed — typed-node system-diagram editor
         monitors: { base: "/workspace/object-monitoring/", fold: false },// Automations seed — condition→effect wizard
+        changes: { base: "/workspace/upgrade-assistant/", fold: true },  // Improvement seed (REBOUND: intervention lanes answer with daemon improvement-proposals)
       };
       const MIRROR = process.env.IOI_HARVEST_MIRROR_URL || "http://127.0.0.1:9225";
+      // REBIND (approvals pilot, phase 2): the seed's task-request search lanes are answered
+      // with DAEMON approval-requests mapped into the seed's own wire shape. Status filter,
+      // sort, and page size from the request body are honored; identity-scoped subcounts stay
+      // honest — the daemon records no creator, so myRequests is 0, never faked. Other
+      // /approvals/api/* lanes (drilldown, reviewers) still pass through to the mirror and
+      // degrade honestly (named gap: per-row detail is a later rebind).
+      // REBIND (Improvement seed): the change-inbox lanes are answered with DAEMON
+      // improvement-proposals mapped into the seed's intervention wire shape. Every fact is
+      // daemon truth (kind, signal, gate posture, simulation/approval/release refs, timestamps);
+      // no due dates are invented — the daemon has none. Per-proposal stats reflect the real
+      // proposal state (applied = complete, else pending). Identity is honestly unknown.
+      if (pathname.startsWith("/interventions/api/")) {
+        const send = (obj, status = 200) => { res.writeHead(status, { "Content-Type": "application/json" }); res.end(JSON.stringify(obj)); };
+        const mapProposal = (pr) => {
+          const ts = (t) => ({ userId: "", timestamp: t || pr.created_at || "" });
+          // RID suffix must be UUID-shaped (the seed's locator parser rejects underscores).
+          // Deterministic + reversible: the 16-hex daemon id doubled into UUID grouping —
+          // the REAL id is the first 16 hex chars.
+          const hex = String(pr.improvement_id || "").replace(/^imp_/, "").padEnd(16, "0").slice(0, 16);
+          const uuid = `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(0, 4)}-${hex.slice(4, 16)}`;
+          const applied = pr.state === "applied";
+          const closed = applied || pr.state === "rejected";
+          const status = closed
+            ? { type: "finishedInterventionStatus", finishedInterventionStatus: { draft: ts(pr.created_at), prePublished: ts(pr.created_at), published: ts(pr.updated_at), finished: ts(pr.reviewed_at || pr.updated_at) } }
+            : { type: "publishedInterventionStatus", publishedInterventionStatus: { draft: ts(pr.created_at), prePublished: ts(pr.created_at), published: ts(pr.updated_at) } };
+          const gate = pr.gate || {};
+          return {
+            rid: `ri.interventions.main.intervention.${uuid}`,
+            key: `hypervisor:${pr.proposal_kind || "improvement"}`,
+            status,
+            type: "ADMIN_ACTION",
+            // The seed REQUIRES a dueDate (its parser splits it unconditionally); the daemon's
+            // gates are event-driven with no deadlines. The date shown is the proposal's REAL
+            // last-update time, and the row copy says so — no deadline is invented.
+            dueDate: pr.updated_at || pr.created_at || "",
+            title: `${pr.proposal_kind || "improvement"} · ${(pr.suggested && pr.suggested.description) || pr.target_ref || pr.improvement_id}`,
+            shortDescription: `signal: ${pr.signal || "—"} · gate: ${gate.posture || "—"}${gate.high_impact ? " · high impact" : ""} · confidence ${pr.confidence ?? "—"} · no deadline (date = last update)`,
+            longDescriptionMarkdown: [
+              `**Proposal** \`${pr.proposal_ref || pr.improvement_id}\` (kind \`${pr.proposal_kind || "—"}\`, state \`${pr.state || "—"}\`)`,
+              `**Target** \`${pr.target_ref || "—"}\``,
+              `**Gate** posture \`${gate.posture || "—"}\`${gate.block_code ? ` · block \`${gate.block_code}\`` : ""}${gate.high_impact ? " · **high impact**" : ""}`,
+              pr.latest_simulation_ref ? `**Simulation** \`${pr.latest_simulation_ref}\` (hash \`${(pr.latest_simulation_hash || "").slice(0, 24)}…\`)` : "**Simulation** none yet",
+              pr.approval_request_ref ? `**Approval** \`${pr.approval_request_ref}\`` : "",
+              pr.release_control_ref ? `**Release control** \`${pr.release_control_ref}\`` : "",
+              (pr.evidence_refs || []).length ? `**Evidence** ${(pr.evidence_refs || []).map((e) => `\`${e}\``).join(", ")}` : "",
+            ].filter(Boolean).join("\n\n"),
+            remediationMarkdown: applied
+              ? `Applied as \`${pr.applied_ref || "—"}\` — receipts: ${(pr.receipt_refs || []).map((e) => `\`${e}\``).join(", ") || "—"}.`
+              : `Review and decide in Studio → Improvement proposals (/__ioi/agent-studio#improvement-proposals): simulate impact, then approve/apply under the governance gate.`,
+            impactMarkdown: gate.high_impact || pr.latest_simulation_high_impact ? "The daemon's simulation marks this change **high impact** — it requires the full gate (fresh simulation + approval + open release)." : "Not marked high-impact by simulation.",
+            impactedResourcesMarkdown: `Target: \`${pr.target_ref || "—"}\`.`,
+            troubleshootingMarkdown: "",
+            attributions: { registered: ts(pr.created_at), lastUpdated: ts(pr.updated_at) },
+            entryType: "COMPASS",
+            entrySource: "SUPPLIED_BY_SERVICE",
+            isReusable: false,
+            supportsFixSuggestions: false,
+          };
+        };
+        try {
+          if (pathname === "/interventions/api/interventions/v2/list") {
+            const pj = await fetch(`${DAEMON}/v1/hypervisor/intelligence/improvement-proposals`).then((r) => r.json());
+            const mapped = (pj.proposals || []).map(mapProposal);
+            return send({ interventions: mapped });
+          }
+          const statsMatch = pathname.match(/^\/interventions\/api\/interventions\/ri\.interventions\.main\.intervention\.([a-z0-9-]+)\/(?:compass\/)?stats\/search$/);
+          if (statsMatch) {
+            const idHex = statsMatch[1].replace(/-/g, "").slice(0, 16);
+            const pj = await fetch(`${DAEMON}/v1/hypervisor/intelligence/improvement-proposals`).then((r) => r.json());
+            const pr = (pj.proposals || []).find((x) => String(x.improvement_id || "").replace(/^imp_/, "") === idHex);
+            const done = pr && (pr.state === "applied" || pr.state === "rejected") ? 1 : 0;
+            const pend = pr && !(pr.state === "applied" || pr.state === "rejected") ? 1 : 0;
+            return send({ stats: { numPendingResources: { ignored: 0, nonIgnored: pend }, numCompleteResources: { ignored: 0, nonIgnored: done } } });
+          }
+          // organizations pass through to the mirror (the client scopes the estate by operator
+          // organizations; an empty list hides every row — a real identity mapping is the
+          // rebind's next phase).
+          if (pathname === "/interventions/api/record/visit") return send({});
+          // other intervention lanes fall through to the mirror passthrough below
+        } catch (e) {
+          return send({ error: { message: `daemon unreachable: ${e.message}` } }, 502);
+        }
+      }
+      if (pathname === "/approvals/api/search/task-requests" || pathname === "/approvals/api/search/task-requests/counts") {
+        try {
+          const gj = await fetch(`${DAEMON}/v1/hypervisor/governance/approval-requests`).then((r) => r.json());
+          const mapStatus = (st) => st === "approved" ? "APPROVED" : (st === "denied" || st === "rejected") ? "DISAPPROVED" : (st === "pending" || st === "open") ? "PENDING_APPROVAL" : "CLOSED";
+          // The seed bundle renders ONLY its closed type registry (foreign types are dropped by
+          // the renderer lookup, verbatim vendor code). Daemon approval-requests are mapped to
+          // its closest category — a request for authority over a resource ("access request");
+          // every rendered FACT (title = real request_kind + reason, status, time, id) is daemon
+          // truth. A native hypervisor task type in the registry is the vendor-phase reshape.
+          const rows = (gj.approval_requests || []).map((a) => ({
+            taskRid: `ri.approvals.main.task-request.${a.id}`,
+            title: `${a.request_kind || "approval"} · ${a.reason || a.subject_ref || a.ref || ""}`,
+            taskType: "compass:request-access-to-resource",
+            creator: "",
+            creationTime: a.created_at || "",
+            status: mapStatus(a.status),
+            customIndexedData: {},
+          }));
+          // Honor the seed\'s filter grammar like a real server — a row only appears in views
+          // whose filters it satisfies. Identity filters (createdBy/reviewers/notReviewedBy)
+          // match nothing: the daemon records no per-user identity on approval requests, so
+          // identity-scoped views are honestly empty rather than faked.
+          const applyFilter = (row, f) => {
+            if (!f || !f.type) return true;
+            if (f.type === "status") return (f.status?.statuses || []).includes(row.status);
+            if (f.type === "taskType") return (f.taskType?.taskTypes || []).includes(row.taskType);
+            if (f.type === "createdBy") return false;
+            if (f.type === "notTitle") return !row.title.includes(f.notTitle?.contains || "");
+            if (f.type === "title") return row.title.toLowerCase().includes(String(f.title?.contains || "").toLowerCase());
+            if (f.type === "reviewers" || f.type === "notReviewedBy") return true; // identity unmapped — do not scope
+            return true;
+          };
+          const applyAll = (filters) => rows.filter((r) => (filters || []).every((f) => applyFilter(r, f)));
+          let reqBody = {};
+          try { reqBody = JSON.parse(body || "{}"); } catch { /* shape-tolerant */ }
+          res.writeHead(200, { "Content-Type": "application/json" });
+          if (pathname.endsWith("/counts")) {
+            const sub = reqBody.subFilters || {};
+            const global = reqBody.globalFilters || [];
+            const subCounts = {};
+            for (const k of Object.keys(sub)) subCounts[k] = applyAll([...global, ...(sub[k] || [])]).length;
+            if (!("all" in subCounts)) subCounts.all = applyAll(global).length;
+            if (!("myRequests" in subCounts)) subCounts.myRequests = 0;
+            if (!("reviewRequests" in subCounts)) subCounts.reviewRequests = rows.filter((r) => r.status === "PENDING_APPROVAL").length;
+            return res.end(JSON.stringify({ totalCount: applyAll(global).length, subCounts }));
+          }
+          let list = applyAll(reqBody.filters);
+          const desc = ((reqBody.sort || {}).order || "DESC") === "DESC";
+          list = list.slice().sort((x, y) => desc ? String(y.creationTime).localeCompare(String(x.creationTime)) : String(x.creationTime).localeCompare(String(y.creationTime)));
+          const totalCount = list.length;
+          if (reqBody.pageSizeLimit) list = list.slice(0, reqBody.pageSizeLimit);
+          return res.end(JSON.stringify({ requests: list, totalCount }));
+        } catch (e) {
+          res.writeHead(502, { "Content-Type": "application/json" });
+          return res.end(JSON.stringify({ error: { message: `daemon unreachable: ${e.message}` } }));
+        }
+      }
       try {
         let target;
         let foldOrigin = false;
