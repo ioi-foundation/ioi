@@ -30,7 +30,7 @@ use std::collections::HashMap;
 
 use super::{iso_now, persist_record, read_record_dir, remove_record, DaemonState};
 
-const KIND_ONT: &str = "odk-domain-ontologies";
+pub(crate) const KIND_ONT: &str = "odk-domain-ontologies";
 const KIND_RECIPE: &str = "odk-data-recipes";
 const KIND_MANIFEST: &str = "odk-manifests";
 const KIND_SD: &str = "odk-surface-descriptors";

@@ -88,6 +88,8 @@ mod marketplace_routes;
 mod microvm;
 #[path = "hypervisor_daemon_routes/data_source_routes.rs"]
 mod data_source_routes;
+#[path = "hypervisor_daemon_routes/connector_mapping_routes.rs"]
+mod connector_mapping_routes;
 #[path = "hypervisor_daemon_routes/harness_routes.rs"]
 mod harness_routes;
 #[path = "hypervisor_daemon_routes/model_routes.rs"]
@@ -1097,6 +1099,31 @@ async fn async_main() -> anyhow::Result<()> {
         .route(
             "/v1/hypervisor/odk/domain-ontologies/:id/history",
             get(odk_routes::handle_odk_ontology_history),
+        )
+        // ConnectorMapping — the first inert authority-crossing brick (declared source fields →
+        // typed object properties). No extraction; object_instances stays 0.
+        .route(
+            "/v1/hypervisor/odk/connector-mappings",
+            get(connector_mapping_routes::handle_connector_mappings_list)
+                .post(connector_mapping_routes::handle_connector_mapping_create),
+        )
+        .route(
+            "/v1/hypervisor/odk/connector-mappings/overview",
+            get(connector_mapping_routes::handle_connector_mappings_overview),
+        )
+        .route(
+            "/v1/hypervisor/odk/connector-mappings/:id",
+            get(connector_mapping_routes::handle_connector_mapping_get)
+                .patch(connector_mapping_routes::handle_connector_mapping_patch)
+                .delete(connector_mapping_routes::handle_connector_mapping_delete),
+        )
+        .route(
+            "/v1/hypervisor/odk/connector-mappings/:id/health",
+            get(connector_mapping_routes::handle_connector_mapping_health),
+        )
+        .route(
+            "/v1/hypervisor/odk/connector-mappings/:id/history",
+            get(connector_mapping_routes::handle_connector_mapping_history),
         )
         .route(
             "/v1/hypervisor/odk/data-recipes",

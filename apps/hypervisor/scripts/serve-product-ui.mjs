@@ -2955,10 +2955,10 @@ function renderDataSourcesSection(dataSources) {
 // authority (receipts, policy gates, substrate readiness, conformance, source-neutrality) is threaded
 // SIDEWAYS into that familiar IA rather than replacing it.
 
-// The authority contracts still to cross before object data / explorer / actions become live. Named,
-// not built — this is the honest boundary the whole surface is careful about.
+// The authority-crossing LADDER. ConnectorMapping (rung 1) is now a real inert daemon contract;
+// the rest remain named-but-missing. Each rung must exist before the next is allowed to do anything —
+// this is the honest boundary the whole surface is careful about.
 const OM_MISSING_CONTRACTS = [
-  ["ConnectorMapping", "bind declared data-source fields → canonical object properties", "data-backed object types"],
   ["PolicyBoundDataView", "who/what may read · transform · distill · train · evaluate · export · publish · route", "governed reads over object data"],
   ["TransformationRun + receipts", "auditable mapping runs recorded before any projection exists", "object projections you can trust"],
   ["OntologyProjection", "the explicit model → explorer / search / runtime bridge", "Object Explorer rows & saved object sets"],
@@ -2966,9 +2966,24 @@ const OM_MISSING_CONTRACTS = [
 function omBoundaryNote(text) {
   return `<div style="border:1px dashed #3a3d46;border-radius:10px;padding:10px 12px;margin:0 0 12px;background:#141519;color:#9a9da6;font-size:12.5px">${text}</div>`;
 }
-function omMissingContracts() {
-  const rows = OM_MISSING_CONTRACTS.map(([name, what, unlocks]) => `<tr><td><code>${CX_ESC(name)}</code></td><td>${CX_ESC(what)}</td><td class="sub" style="margin:0">unlocks ${CX_ESC(unlocks)}</td></tr>`).join("");
-  return `<table><thead><tr><th>Missing contract</th><th>What it declares</th><th>What it unlocks</th></tr></thead><tbody>${rows}</tbody></table>`;
+function omContractLadder(nMappings) {
+  const declared = `<tr><td><code>ConnectorMapping</code> <span class="pill ok">declared</span></td><td>declared source fields → typed object properties</td><td class="sub" style="margin:0">${nMappings} mapping${nMappings === 1 ? "" : "s"} · inert (no extraction)</td></tr>`;
+  const missing = OM_MISSING_CONTRACTS.map(([name, what, unlocks]) => `<tr><td><code>${CX_ESC(name)}</code> <span class="pill muted">missing</span></td><td>${CX_ESC(what)}</td><td class="sub" style="margin:0">unlocks ${CX_ESC(unlocks)}</td></tr>`).join("");
+  return `<table><thead><tr><th>Contract</th><th>What it declares</th><th>Status / unlocks</th></tr></thead><tbody>${declared}${missing}</tbody></table>`;
+}
+// Connector mappings bound to the selected ontology — daemon truth (declared, inert).
+function omConnectorMappings(mappings) {
+  mappings = Array.isArray(mappings) ? mappings : [];
+  if (!mappings.length) return `<div class="empty">No connector mappings bound to this ontology. A mapping declares how a data source's fields would bind to this object model — validated fail-closed, receipted, and <b>inert</b> (no extraction).</div>`;
+  const pill = (h) => { const st = (h && h.status) || "incomplete"; return `<span class="pill ${st === "ready" ? "ok" : "warn"}">${CX_ESC(st)}</span>`; };
+  const rows = mappings.map((m) => `<tr>
+    <td><b>${CX_ESC(m.name || m.id)}</b><div class="meta" style="color:#878a93;font-size:11.5px;margin-top:2px"><code>${CX_ESC(m.ref || "")}</code></div></td>
+    <td><code>${CX_ESC(m.data_source_ref || m.data_source_id || "—")}</code></td>
+    <td><code>${CX_ESC(m.object_type_id || "—")}</code></td>
+    <td>${(m.field_mappings || []).length + 2} field${((m.field_mappings || []).length + 2) === 1 ? "" : "s"}</td>
+    <td>${pill(m.health)} <span class="pill warn" title="inert — no extraction">not extracting</span></td>
+  </tr>`).join("");
+  return `<table><thead><tr><th>Mapping</th><th>Data source</th><th>Object type</th><th>Fields</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table>`;
 }
 function omUnavailablePane(title, why, contract) {
   return `<h2 id="pane-${title.toLowerCase().replace(/[^a-z]+/g, "-")}">${CX_ESC(title)} <span class="pill muted">unavailable</span></h2>`
@@ -3063,23 +3078,27 @@ function renderOntologyManager(ov, lists, selectedId) {
         <dt>Authority crossing</dt><dd><span class="pill warn">not crossed</span> <span class="sub" style="margin:0">no ingestion / transform / writeback — object data stays empty until the contracts below exist</span></dd>
       </dl>`;
 
-  // ---- Resources (recipes / descriptors / manifests bound to this ontology) + Data plane.
+  // ---- Resources (recipes / descriptors / manifests / connector mappings bound to this ontology)
+  //      + Data plane.
   const boundRef = selected ? selected.ref : "__none__";
   const recs = (lists.data_recipes || []).filter((r) => r.ontology_ref === boundRef);
   const descs = (lists.surface_descriptors || []).filter((d) => d.ontology_ref === boundRef);
   const mans = (lists.manifests || []).filter((m) => (m.ontology_refs || []).includes(boundRef));
+  const maps = (lists.connector_mappings || []).filter((m) => m.ontology_ref === boundRef);
   const resourceSection = (title, family, items, nameKey, newLabel) => `<h3 style="display:flex;justify-content:space-between;align-items:center;margin:12px 0 6px">${title} (${items.length}) <a class="act ghost" href="/__ioi/odk/${family}/new">+ ${newLabel}</a></h3>${items.length ? items.map((x) => odkCard(family, x, nameKey)).join("") : `<div class="empty">None bound to this ontology.</div>`}`;
   const resourcesPane = `<h2 id="pane-resources">Resources <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— bound to ${selected ? CX_ESC(selected.domain) : "—"}</span></h2>`
+    + `<h3 style="margin:12px 0 6px">Connector mappings (${maps.length}) <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— source fields → object properties · daemon truth · inert</span></h3>${omConnectorMappings(maps)}`
     + resourceSection("Data recipes", "data-recipes", recs, "name", "New recipe")
     + resourceSection("Surface descriptors", "surface-descriptors", descs, "name", "New descriptor")
     + resourceSection("ODK manifests", "manifests", mans, "name", "New manifest");
 
   const dataPane = `<div id="pane-data">${renderDataSourcesSection(lists.data_sources || [])}</div>`;
 
-  // ---- Object data / Explorer: the honest unavailable lane + the missing-contract ladder.
+  // ---- Object data / Explorer: the honest unavailable lane + the authority-crossing ladder
+  //      (ConnectorMapping now declared/inert; the rest still missing).
   const explorerPane = `<h2 id="pane-explorer">Object data &amp; Explorer <span class="pill muted">unavailable</span></h2>`
     + omBoundaryNote(`This ontology binds <b>no object-instance plane</b>, so there are <b>no rows to explore</b> — the reference Object Explorer is a search surface over real objects; ours stays empty until the authority crossing below is made. The <a href="/__apps/explorer">Object Explorer reference grammar ↗</a> is secondary, never a rebound surface.`)
-    + `<h3 style="margin:12px 0 6px">Missing authority contracts</h3>` + omMissingContracts();
+    + `<h3 style="margin:12px 0 6px">Authority-crossing ladder</h3>` + omContractLadder(maps.length);
 
   const counts = { "object-types": ots.length, "properties": propCount, "link-types": lts.length, "action-types": nonFuncActs.length, "value-types": vts.length, "groups": 0, "interfaces": 0, "functions": funcs.length };
   const panes = objectTypesPane + propertiesPane + linkPane + actionPane + valuePane
@@ -6632,13 +6651,14 @@ const server = http.createServer((req, res) => {
     // ---- ODK — controlled builder over the daemon ODK object plane (estate surface #5).
     if (pathname === "/__ioi/odk" && req.method === "GET") {
       const J = (p) => fetch(`${DAEMON}${p}`).then((r) => r.json()).catch(() => ({}));
-      const [ov, o, r, d, m, ds] = await Promise.all([
+      const [ov, o, r, d, m, ds, cm] = await Promise.all([
         J("/v1/hypervisor/odk/overview"),
         J("/v1/hypervisor/odk/domain-ontologies"),
         J("/v1/hypervisor/odk/data-recipes"),
         J("/v1/hypervisor/odk/surface-descriptors"),
         J("/v1/hypervisor/odk/manifests"),
         J("/v1/hypervisor/data-sources"),
+        J("/v1/hypervisor/odk/connector-mappings"),
       ]);
       const selectedOntology = new URL(req.url, "http://x").searchParams.get("ontology") || "";
       res.writeHead(200, HTMLH);
@@ -6648,6 +6668,7 @@ const server = http.createServer((req, res) => {
         surface_descriptors: d.surface_descriptors || [],
         manifests: m.manifests || [],
         data_sources: ds.data_sources || [],
+        connector_mappings: cm.connector_mappings || [],
       }, selectedOntology));
       return;
     }
