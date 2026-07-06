@@ -111,14 +111,20 @@ async function run() {
   ok("overview publishes the object-model vocab", (ov.j.object_model_vocab?.base_value_types || []).length >= 5 && (ov.j.object_model_vocab?.link_cardinalities || []).length === 3 && (ov.j.object_model_vocab?.action_kinds || []).length === 4);
   ok("overview publishes an honest health rollup", ov.j.ontology_health && typeof ov.j.ontology_health.ready === "number" && typeof ov.j.ontology_health.incomplete === "number" && typeof ov.j.ontology_health.empty === "number");
 
-  // 7. Owner surface — renders the manager as authority; explorer stays secondary.
-  const page = await fetch(`${SERVE}/__ioi/odk`).then(async (r) => ({ status: r.status, text: await r.text() })).catch(() => ({ status: 0, text: "" }));
-  ok("Data/Ontology surface serves brand-clean", page.status === 200 && !/\bPalantir\b/.test(page.text));
-  ok("surface frames the ontology manager as authority", /daemon ontology manager/.test(page.text));
-  ok("surface renders the real ontology (authority row)", page.text.includes("verify-ontology-mgr"));
-  ok("surface shows honest health (a `ready` pill)", /pill ok">ready/.test(page.text));
-  ok("surface shows NO object/explorer rows (schema-only boundary named)", /No object \/ explorer rows are shown/.test(page.text));
-  ok("schema + explorer captures kept secondary (linked references)", page.text.includes("/__apps/explorer") && page.text.includes("/__apps/schema"));
+  // 7. Owner surface — the Ontology Manager reference-UX parity shell over daemon authority. Select
+  //    the ready fixture so its typed panes render deterministically.
+  const page = await fetch(`${SERVE}/__ioi/odk?ontology=${encodeURIComponent(rec.id)}`).then(async (r) => ({ status: r.status, text: await r.text() })).catch(() => ({ status: 0, text: "" }));
+  const t = page.text;
+  ok("owner surface serves brand-clean", page.status === 200 && !/\bPalantir\b/.test(t));
+  ok("primary surface IS the Ontology Manager (reference-UX grammar)", /<h1[^>]*>Ontology Manager/.test(t));
+  ok("manager renders the reference IA panes", ['pane-object-types', 'pane-properties', 'pane-link-types', 'pane-action-types', 'pane-value-types', 'pane-functions', 'pane-health-issues', 'pane-configuration'].every((p) => t.includes(`id="${p}"`)));
+  ok("panes are daemon-backed (the selected ready ontology's typed model renders)", t.includes("verify-ontology-mgr") && t.includes("Loan") && t.includes("Held by"));
+  ok("surface shows honest health (a `ready` pill)", /pill ok">ready/.test(t));
+  ok("object-instance boundary is stated (0 objects, no explorer rows)", /0 objects/.test(t) && /Object data (&amp;|&) Explorer/.test(t));
+  ok("unsupported lanes name the missing authority contracts", ["ConnectorMapping", "PolicyBoundDataView", "TransformationRun", "OntologyProjection"].every((c) => t.includes(c)));
+  ok("IOI authority threaded in (daemon truth + receipts + conformance)", /daemon truth/.test(t) && /receipt/i.test(t) && /Conformance/.test(t));
+  ok("schema + explorer captures kept secondary (linked references)", t.includes("/__apps/explorer") && t.includes("/__apps/schema"));
+  ok("Data plane still rendered (data-source authority present)", /Data sources/.test(t) && t.includes("/__apps/sources"));
 
   // Cleanup.
   for (const id of made) await jd("DELETE", `/v1/hypervisor/odk/domain-ontologies/${id}`);
