@@ -2157,6 +2157,33 @@ function renderLaunchPolicies(policies, profiles) {
   return `<h2 id="launch-policies">Launch policies</h2><p class="sub" style="margin:-4px 0 12px">Saved IOI Agent strategy presets — the daemon planner composes a policy with live registry facts, authority, privacy posture, budget, and failure policy at launch. Seeded defaults are protected; clone to customize.</p>${policies.length ? cards : `<div class="empty">No launch policies yet.</div>`}${form}`;
 }
 
+// ---- System designs (Studio) — the daemon-backed lane behind the /__apps/designer solution-design
+// canvas seed. The captured canvas teaches the composition grammar (typed concept/component/resource
+// nodes, save/actions/open, AIP critique, load-from-lineage); here the OWNER surface binds the parts
+// that are real daemon truth: the composition-pattern reference library (the daemon's own canonical
+// system shapes) and saved system designs (ODK surface descriptors). Every fact is daemon state or a
+// named gap — no fabricated nodes/imports.
+function renderStudioSystemDesigns(sd) {
+  sd = sd || {};
+  const patterns = Array.isArray(sd.compositionPatterns) ? sd.compositionPatterns : [];
+  const designs = Array.isArray(sd.surfaceDescriptors) ? sd.surfaceDescriptors : [];
+  const prettyPattern = (p) => String(p || "").replace(/_/g, " ");
+  const patternLib = patterns.length
+    ? `<div class="chips" style="margin:2px 0 4px">${patterns.map((p) => `<span class="pill muted" title="daemon composition pattern">${CX_ESC(prettyPattern(p))}</span>`).join("")}</div>`
+    : `<div class="empty">The daemon exposes no composition patterns.</div>`;
+  const designRows = designs.length
+    ? `<table><thead><tr><th>System design</th><th>Pattern</th><th>Ref</th></tr></thead><tbody>${designs.map((d) => `<tr>
+        <td><b>${CX_ESC(d.name || d.title || d.id || "—")}</b></td>
+        <td><span class="pill muted">${CX_ESC(prettyPattern(d.composition_pattern || d.pattern || "—"))}</span></td>
+        <td><code style="font-size:11px">${CX_ESC(d.ref || d.surface_descriptor_ref || d.id || "")}</code></td>
+      </tr>`).join("")}</tbody></table>`
+    : `<div class="empty">No saved system designs yet. Compose one in the <a href="/__apps/designer">system canvas seed →</a>; the daemon persists an admitted design as an ODK surface descriptor. (The seed's in-canvas Open / Save / reference-library / load-from-lineage lanes are <b>named gaps</b> in the current capture — authored natively or live re-harvested next, never faked.)</div>`;
+  return `<h2 id="system-designs">System designs</h2>` +
+    `<p class="sub" style="margin:-4px 0 12px">The Studio composition plane — a system design composes typed <b>concept / component / resource</b> nodes into an IOI system shape. Compose in the <a href="/__apps/designer">canvas seed →</a>; the reference library and saved designs below are daemon truth.</p>` +
+    `<h3 style="margin:14px 0 4px;font-size:13px">Composition pattern library <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— the ${patterns.length} canonical system shapes the daemon recognizes (the reference examples a design starts from)</span></h3>${patternLib}` +
+    `<h3 style="margin:16px 0 4px;font-size:13px">Saved system designs <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— admitted ODK surface descriptors</span></h3>${designRows}`;
+}
+
 function renderAgentStudio(agents, profiles, routes, providers, conversations, runs, selId, q, modelRoutes, launchPolicies, intel) {
   const enc = encodeURIComponent;
   agents = Array.isArray(agents) ? agents : [];
@@ -2175,7 +2202,7 @@ function renderAgentStudio(agents, profiles, routes, providers, conversations, r
   const styles = `<style>.wrap{max-width:1180px}.asgrid{display:grid;grid-template-columns:248px 1fr;gap:20px;align-items:start}.aslist{position:sticky;top:16px;max-height:82vh;overflow:auto;display:flex;flex-direction:column;gap:6px}.asrow{display:block;padding:10px 12px;border:1px solid #24262d;border-radius:10px;background:#15171c;text-decoration:none;color:inherit}.asrow:hover{border-color:#3a82f6}.asrow.sel{border-color:#3a82f6;box-shadow:0 0 0 1px #3a82f6 inset}.asrow .nm{font-weight:600;color:#fff;font-size:12.5px}.asrow .ml{color:#878a93;font-size:11.5px;margin-top:2px;word-break:break-all}.asearch{width:100%;box-sizing:border-box;padding:9px 12px;border-radius:9px;border:1px solid #2a2c33;background:#0e0f13;color:#e6e7ea;font:inherit;margin-bottom:10px}</style>`;
   if (!agents.length) {
     // Registry truth still renders without agents — routes exist independently of the agent estate.
-    return automationsShell("Studio", styles + head + `<div class="empty">No agents yet. An agent is created when you start a session or run an automation — once one exists it will appear here with its model route, runtime posture, and activity.</div>` + renderModelRouteRegistry(modelRoutes) + renderLaunchPolicies(launchPolicies, profiles));
+    return automationsShell("Studio", styles + head + renderStudioSystemDesigns((intel || {}).systemDesigns) + `<div class="empty">No agents yet. An agent is created when you start a session or run an automation — once one exists it will appear here with its model route, runtime posture, and activity.</div>` + renderModelRouteRegistry(modelRoutes) + renderLaunchPolicies(launchPolicies, profiles));
   }
   // Selected agent (query ?agent=, else first of the filtered list).
   const sel = filtered.find((a) => a.id === selId) || filtered[0] || agents[0];
@@ -2339,7 +2366,7 @@ function renderAgentStudio(agents, profiles, routes, providers, conversations, r
   </script>`;
   const right = `<div><div class="row" style="margin-bottom:2px"><h2 style="margin:0">${CX_ESC(agentShort(a.id))}</h2><span class="pill ${(a.status || "") === "active" ? "ok" : "muted"}">${CX_ESC(a.status || "—")}</span></div>${tabBar}${panels}${tabScript}</div>`;
   const body = `<div class="row" style="justify-content:space-between"><span class="sub" style="margin:0">${agents.length} agent${agents.length === 1 ? "" : "s"} · ${activeCount} active${qn ? ` · ${filtered.length} matching “${CX_ESC(q)}”` : ""}</span></div><div class="asgrid">${left}${right}</div>`;
-  return automationsShell("Studio", styles + head + body);
+  return automationsShell("Studio", styles + head + renderStudioSystemDesigns((intel || {}).systemDesigns) + body);
 }
 
 // ---- Foundry — a CONTROLLED BUILDER over the daemon Foundry object plane (estate surface #4).
@@ -5688,7 +5715,7 @@ const server = http.createServer((req, res) => {
       const selId = sp.get("agent") || "";
       const q = sp.get("q") || "";
       const J = (p) => fetch(`${DAEMON}${p}`).then((x) => x.json()).catch(() => ({}));
-      const [ag, pr, ro, pv, cv, tr, mr, lp, me, sk, af, cn, cl, mp, mprj, rq, om, imp, rcl, coh] = await Promise.all([
+      const [ag, pr, ro, pv, cv, tr, mr, lp, me, sk, af, cn, cl, mp, mprj, rq, om, imp, rcl, coh, odkov, odksd] = await Promise.all([
         J("/v1/agents"),
         J("/v1/hypervisor/agent-runner-profiles"),
         J("/v1/model-mount/routes"),
@@ -5709,6 +5736,8 @@ const server = http.createServer((req, res) => {
         J("/v1/hypervisor/intelligence/improvement-proposals"),
         J("/v1/hypervisor/governance/release-controls"),
         J("/v1/hypervisor/governance/cohorts"),
+        J("/v1/hypervisor/odk/overview"),
+        J("/v1/hypervisor/odk/surface-descriptors"),
       ]);
       // Decorate rollout-bound learned variants with their control's cohort names + mode so
       // the policy card can say WHO the rollout applies to.
@@ -5733,7 +5762,7 @@ const server = http.createServer((req, res) => {
         q,
         mr.routes || [],
         lp.policies || [],
-        { entries: me.entries || [], skills: sk.skills || [], affinities: af.affinities || [], connectors: cn.connectors || [], leases: cl.leases || [], proposals: mp.proposals || [], projections: (mprj.projections || []).slice(0, 20), review: (rq.items || []).slice(0, 20), mining: (om.candidates || []).slice(0, 10), improvements: (imp.proposals || []).slice(0, 15) },
+        { entries: me.entries || [], skills: sk.skills || [], affinities: af.affinities || [], connectors: cn.connectors || [], leases: cl.leases || [], proposals: mp.proposals || [], projections: (mprj.projections || []).slice(0, 20), review: (rq.items || []).slice(0, 20), mining: (om.candidates || []).slice(0, 10), improvements: (imp.proposals || []).slice(0, 15), systemDesigns: { compositionPatterns: (odkov || {}).composition_patterns || [], surfaceDescriptors: (odksd || {}).surface_descriptors || (odksd || {}).descriptors || [] } },
       ));
       return;
     }
