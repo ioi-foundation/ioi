@@ -54,7 +54,7 @@
       list +
       // Footer: create an automation + jump to this project's Work Ledger (the proof stream scoped
       // to this project) — closes the loop Project → Automations → Runs → Ledger → Timeline.
-      `<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:9px 12px;border-top:1px solid ${t.line}"><a href="/__ioi/automations/new?project=${encodeURIComponent(projectId)}" style="display:inline-block;padding:6px 12px;border-radius:7px;background:${t.accent};color:#fff;text-decoration:none;font-weight:600">+ New automation</a><a href="/__ioi/work-ledger?project=${encodeURIComponent(projectId)}" style="color:${t.accent};text-decoration:none;font-size:11px;white-space:nowrap">📒 Work Ledger →</a></div>`;
+      `<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:9px 12px;border-top:1px solid ${t.line}"><a href="/__ioi/automations/new?project=${encodeURIComponent(projectId)}" style="display:inline-block;padding:6px 12px;border-radius:7px;background:${t.accent};color:#fff;text-decoration:none;font-weight:600">+ New automation</a><a href="/__ioi/work-ledger?project=${encodeURIComponent(projectId)}" style="color:${t.accent};text-decoration:none;font-size:11px;white-space:nowrap">📒 Provenance →</a></div>`;
   }
 
   // Route-scoped, idempotent wiring. Runs on DOM mutations (debounced) + SPA route changes — NOT on

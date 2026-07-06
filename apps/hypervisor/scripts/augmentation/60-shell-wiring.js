@@ -25,11 +25,11 @@
           e.preventDefault(); e.stopPropagation(); appsModal(); return;
         }
         // Live application links → open IN-SHELL in the Open Application slot (left rail stays).
-        const appLink = t.closest('a[href^="/__ioi/connections"], a[href^="/__ioi/work-ledger"], a[href^="/__ioi/operations"], a[href^="/__ioi/environments"], a[href^="/__ioi/workbench"], a[href^="/__ioi/agent-studio"], a[href^="/__ioi/foundry"], a[href^="/__ioi/domain-apps"], a[href^="/__ioi/domain-app-runtime"], a[href^="/__ioi/governance"], a[href^="/__ioi/marketplace"], a[href^="/__ioi/odk"], a[href^="/__ioi/home"]');
+        const appLink = t.closest('a[href^="/__ioi/connections"], a[href^="/__ioi/work-ledger"], a[href^="/__ioi/operations"], a[href^="/__ioi/environments"], a[href^="/__ioi/workbench"], a[href^="/__ioi/agent-studio"], a[href^="/__ioi/foundry"], a[href^="/__ioi/feedback"], a[href^="/__ioi/sessions"], a[href^="/__ioi/domain-apps"], a[href^="/__ioi/domain-app-runtime"], a[href^="/__ioi/governance"], a[href^="/__ioi/marketplace"], a[href^="/__ioi/odk"], a[href^="/__ioi/home"]');
         if (appLink) {
           e.preventDefault(); e.stopPropagation();
           const href = appLink.getAttribute("href");
-          const name = /work-ledger/.test(href) ? "Work Ledger" : /operations/.test(href) ? "Operations" : /environments/.test(href) ? "Environments" : /workbench/.test(href) ? "Workbench" : /agent-studio/.test(href) ? "Agent Studio" : /foundry/.test(href) ? "Foundry" : /domain-app-runtime/.test(href) ? "Domain App" : /domain-apps/.test(href) ? "Domain Apps" : /governance/.test(href) ? "Governance" : /marketplace/.test(href) ? "Marketplace" : /\/__ioi\/odk/.test(href) ? "ODK" : /\/__ioi\/home/.test(href) ? "Governed Work" : "Developer & Integrations";
+          const name = /work-ledger/.test(href) ? "Provenance" : /operations/.test(href) ? "Operations" : /environments/.test(href) ? "Environments" : /workbench/.test(href) ? "Workbench" : /agent-studio/.test(href) ? "Studio" : /foundry/.test(href) ? "Foundry" : /feedback/.test(href) ? "Evaluations" : /\/__ioi\/sessions/.test(href) ? "Missions" : /domain-app-runtime/.test(href) ? "Domain App" : /domain-apps/.test(href) ? "Generated Apps" : /governance/.test(href) ? "Governance" : /marketplace/.test(href) ? "Marketplace" : /\/__ioi\/odk/.test(href) ? "Grounding" : /\/__ioi\/home/.test(href) ? "Governed Work" : "Developer Console";
           openApplication(href, name);
           return;
         }
