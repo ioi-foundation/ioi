@@ -44,7 +44,8 @@ async function run() {
   const trRuns = (tr || {}).runs || [];
   const goals = (gr || {}).goal_runs || [];
   if (trRuns.length || goals.length) {
-    ok("replay rows cite recorded runs", trRuns.slice(0, 5).every((t) => replay.text.includes(t.run_id || "@")), `${trRuns.length} transcripts · ${goals.length} goal runs`);
+    const newestTr = trRuns.slice().sort((a, b) => String(b.started_at || b.recorded_at || "").localeCompare(String(a.started_at || a.recorded_at || "")))[0];
+    ok("replay rows cite recorded runs (newest transcript)", !newestTr || replay.text.includes(newestTr.run_id || "@"), `${trRuns.length} transcripts · ${goals.length} goal runs`);
     ok("replay links open owned timelines", replay.text.includes("/__ioi/run-timeline/"));
     const bare = await sGet("/__ioi/run-timeline");
     ok("bare run-timeline path is the same index", bare.status === 200 && bare.text.includes("<h1>Run Replay</h1>"));

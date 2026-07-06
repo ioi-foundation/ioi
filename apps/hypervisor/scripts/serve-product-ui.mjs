@@ -868,6 +868,47 @@ function renderHome(ops, ledger, sessions, approvals, failoverRuns) {
   return automationsShell("Governed Work Readout", inner);
 }
 
+// ---- Feedback & Annotations (native primitive, first slice over the NEW daemon plane).
+// The queue over durable FeedbackEntry records: status chips, consent pills from the
+// evidence-eligibility ladder, and the conversion lane that the daemon gates — a never_train
+// entry can NEVER convert, and the fail-closed error is surfaced verbatim, not softened.
+function renderFeedbackQueue(ov, entries, flash) {
+  const enc = encodeURIComponent;
+  const byStatus = (ov || {}).by_status || {};
+  const ladder = (ov || {}).consent_ladder || ["never_train", "synthetic_only", "redacted_opt_in", "full_private_opt_in", "org_policy"];
+  const chips = `<div class="chips" id="fb-chips"><button class="chip on" data-fb="" onclick="fbChip(this)">All ${entries.length}</button>${["open", "triaged", "converted", "dismissed"].map((s) => `<button class="chip" data-fb="${s}" onclick="fbChip(this)">${s} ${byStatus[s] || 0}</button>`).join("")}</div>`;
+  const consentPill = (c) => `<span class="pill ${c === "never_train" ? "warn" : "ok"}" title="evidence eligibility — classify BEFORE any train/eval use">${CX_ESC(c || "never_train")}</span>`;
+  const row = (e) => {
+    const acts = e.status === "open" || e.status === "triaged"
+      ? `${e.status === "open" ? `<form class="inline" method="post" action="/__ioi/feedback/${enc(e.id)}/transition"><input type="hidden" name="transition" value="triage"><button class="act ghost" type="submit">Triage</button></form> ` : ""}
+         <form class="inline" method="post" action="/__ioi/feedback/${enc(e.id)}/transition"><input type="hidden" name="transition" value="convert"><input name="converted_to_ref" placeholder="eval://… · training-candidate://…" style="width:170px;padding:5px 8px;border-radius:8px;border:1px solid #2a2c33;background:#0e0f13;color:#e6e7ea;font:inherit;font-size:11px;margin-right:4px"><button class="act" type="submit">Convert</button></form>
+         <form class="inline" method="post" action="/__ioi/feedback/${enc(e.id)}/transition"><input type="hidden" name="transition" value="dismiss"><button class="act ghost" type="submit">Dismiss</button></form>`
+      : e.status === "converted" ? `<span class="sub" style="margin:0">→ <code style="font-size:10px">${CX_ESC(e.converted_to_ref || "")}</code></span>` : `<span class="sub" style="margin:0">terminal</span>`;
+    return `<tr data-fb="${CX_ESC(e.status || "")}">
+      <td><b>${CX_ESC(e.entry_kind || "feedback")}</b><div style="color:#878a93;font-size:11px;margin-top:1px">${CX_ESC(String(e.body || "").slice(0, 80))}</div></td>
+      <td><code style="font-size:10px">${CX_ESC(e.subject_ref || "")}</code></td>
+      <td>${consentPill(e.consent)}</td>
+      <td><span class="pill ${e.status === "converted" ? "ok" : e.status === "open" ? "warn" : "muted"}">${CX_ESC(e.status || "")}</span></td>
+      <td>${CX_ESC(e.created_at || "")}</td>
+      <td onclick="event.stopPropagation()">${acts}</td>
+    </tr>`;
+  };
+  const form = `<h2>New entry</h2><form method="post" action="/__ioi/feedback"><div class="card" style="display:block">
+    <div class="two"><div class="field"><label>Subject ref (required — run/session/app/object; local refs must resolve)</label><input name="subject_ref" style="width:100%;padding:8px 10px;border-radius:8px;border:1px solid #2a2c33;background:#0e0f13;color:#e6e7ea;font:inherit" placeholder="domain-app://… · session:… · authority-action://…"></div>
+    <div class="field"><label>Kind</label><select name="entry_kind" style="width:100%;padding:8px 10px;border-radius:8px;border:1px solid #2a2c33;background:#0e0f13;color:#e6e7ea;font:inherit"><option value="feedback">feedback</option><option value="annotation">annotation</option></select></div></div>
+    <div class="field"><label>Body</label><textarea name="body" style="width:100%;padding:8px 10px;border-radius:8px;border:1px solid #2a2c33;background:#0e0f13;color:#e6e7ea;font:inherit" placeholder="What happened / what should be learned."></textarea></div>
+    <div class="field"><label>Consent (evidence eligibility — never_train fails conversion closed, by design)</label><select name="consent" style="width:100%;padding:8px 10px;border-radius:8px;border:1px solid #2a2c33;background:#0e0f13;color:#e6e7ea;font:inherit">${ladder.map((c) => `<option value="${c}">${c}</option>`).join("")}</select></div>
+    <div class="row" style="margin-top:6px"><button class="act" type="submit">Record entry</button></div></div></form>`;
+  const flashHtml = flash ? `<div class="card" style="display:block;border-color:#5c4a23"><b style="color:#d6a13a">Refused:</b> <span class="sub" style="margin:0;text-transform:none;letter-spacing:0">${CX_ESC(flash)}</span></div>` : "";
+  const inner = `<h1>Feedback &amp; Annotations</h1><p class="sub">Durable operator feedback over real subjects, each carrying its evidence-eligibility consent from the moment it is recorded. Converting an entry into an eval/training candidate is a NAMED handoff the daemon gates on consent — nothing trains here. <a href="/__ioi/work-ledger">Proof stream →</a></p>
+    ${flashHtml}${form}
+    <h2>Queue (${entries.length})</h2>
+    ${entries.length ? `${chips}<table><thead><tr><th>Entry</th><th>Subject</th><th>Consent</th><th>Status</th><th>Created</th><th>Act</th></tr></thead><tbody id="fb-body">${entries.map(row).join("")}</tbody></table><div class="empty" id="fb-empty" style="display:none">No entries in this state.</div>
+    <script>function fbChip(b){document.querySelectorAll('#fb-chips .chip').forEach(function(x){x.classList.toggle('on',x===b);});var w=b.getAttribute('data-fb');var n=0;document.querySelectorAll('#fb-body tr').forEach(function(r){var on=!w||r.getAttribute('data-fb')===w;r.style.display=on?'':'none';if(on)n++;});document.getElementById('fb-empty').style.display=n?'none':'';}</script>`
+    : `<div class="empty">No feedback yet — record what governed work got right or wrong, with its consent posture, and it becomes safely convertible evidence.</div>`}`;
+  return automationsShell("Feedback & Annotations", inner);
+}
+
 // ---- Search (67-search graft) — typed cross-estate discovery with open-action handoffs.
 // Case-insensitive substring over LIVE daemon projections at query time: no index, no stale
 // results, nothing invented; every hit links into the surface that owns it. Sources and their
@@ -1156,7 +1197,15 @@ function renderOperations(ops, authpol, prov, provReceipts, spendRecon, storageB
     project: r.environment_ref || "—", status: r.status || "", at: r.started_at || "",
     proof: r.state_root ? `<code style="font-size:10px">${CX_ESC(String(r.state_root).slice(0, 18))}</code>` : "—",
   }));
+  // Per-kind cap BEFORE the merged sort so a high-volume kind (hundreds of coordination runs)
+  // never starves the others out of the rendered window — every kind that exists is visible.
+  const perKind = {};
+  const capped = [];
   jobs.sort((a, b) => String(b.at).localeCompare(String(a.at)));
+  for (const j of jobs) {
+    perKind[j.type] = (perKind[j.type] || 0) + 1;
+    if (perKind[j.type] <= 12) capped.push(j);
+  }
   const jobPill = (s) => {
     const st = String(s || "");
     if (st.startsWith("awaiting_authority")) return `<span class="pill warn">wallet gate: ${CX_ESC(st.replace("awaiting_authority_", ""))}</span>`;
@@ -1168,7 +1217,7 @@ function renderOperations(ops, authpol, prov, provReceipts, spendRecon, storageB
   const jobCounts = {};
   jobs.forEach((j) => { jobCounts[j.type] = (jobCounts[j.type] || 0) + 1; });
   const jobsChips = `<div class="chips" id="jobs-chips">${JOB_TYPES.map(([v, l]) => `<button class="chip${v === "" ? " on" : ""}" data-job-type="${v}" onclick="jobsChip(this)">${l} ${v === "" ? jobs.length : jobCounts[v] || 0}</button>`).join("")}</div>`;
-  const jobRows = jobs.slice(0, 40).map((j) => `<tr data-job="${CX_ESC(j.type)}">
+  const jobRows = capped.slice(0, 48).map((j) => `<tr data-job="${CX_ESC(j.type)}">
       <td>${CX_ESC(j.name)}<div style="color:#878a93;font-size:11px;margin-top:1px"><code style="font-size:10px">${CX_ESC(j.id)}</code></div></td>
       <td><span class="pill muted">${CX_ESC(j.type)}</span></td>
       <td>${CX_ESC(j.project)}</td>
@@ -1330,7 +1379,7 @@ function renderOperations(ops, authpol, prov, provReceipts, spendRecon, storageB
   const workAnalytics = `<div id="ops-work-analytics"><h2>Work Analytics <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— funnels over the proof stream; deeper latency percentiles are not recorded yet (named gap)</span></h2>
     <div class="chips" style="margin:0 0 8px"><span class="chiplabel">run funnel</span><span class="pill muted">total ${waTotal}</span><span class="pill ok">done ${runs.done || 0}</span><span class="pill warn">failed ${runs.failed || 0}</span><span class="pill muted">running ${runs.running || 0}</span><span class="pill ${waFailRate > 20 ? "warn" : "muted"}">failure rate ${waFailRate}%</span></div>
     <div class="chips" style="margin:0 0 8px"><span class="chiplabel">ledger kinds</span>${Object.entries(waKinds).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([k, n]) => `<span class="pill muted">${CX_ESC(k)} ${n}</span>`).join("") || `<span class="sub" style="margin:0">no entries yet</span>`}</div>
-    <p class="sub" style="margin:4px 0 0">${(runs.failed || 0) > 0 ? `${runs.failed} failed run${runs.failed > 1 ? "s are" : " is an"} improvement candidate${runs.failed > 1 ? "s" : ""} — mine them in <a href="/__ioi/agent-studio">Agent Studio →</a>` : "No failed runs — nothing to mine right now."}</p></div>`;
+    <p class="sub" style="margin:4px 0 0">${(runs.failed || 0) > 0 ? `${runs.failed} failed run${runs.failed > 1 ? "s are" : " is an"} improvement candidate${runs.failed > 1 ? "s" : ""} — mine them in <a href="/__ioi/agent-studio">Agent Studio →</a>` : "No failed runs — nothing to mine right now."} · capture operator judgment in <a href="/__ioi/feedback">Feedback &amp; Annotations →</a></p></div>`;
   const inner = `<h1>Operations</h1><p class="sub">What is running, what fired, what failed, what needs attention — every execution kind in one queue, grounded in the owning projections. Select an automation run to inspect and act on it in place. <a href="/__ioi/work-ledger">Open Work Ledger →</a></p>
     <div id="ops-jobs"><h2>Jobs <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— automation runs · harness executions · IOI Agent coordination · failover recovery, newest first</span></h2>${jobsSection}${jobsScript}</div>
     ${workAnalytics}
@@ -3014,7 +3063,7 @@ function govApprovalsQueue(records) {
   const chip = (val, label, n, on) => `<button class="chip${on ? " on" : ""}" data-aq-status="${val}" onclick="aqChip(this)">${label} ${n}</button>`;
   const inbox = `<div class="chips" id="aq-inbox">
     ${chip("pending", "Needs decision", byStatus.pending, true)}${chip("approved", "Approved", byStatus.approved, false)}${chip("rejected", "Rejected", byStatus.rejected, false)}${chip("revoked", "Revoked", byStatus.revoked, false)}${chip("", "All", records.length, false)}
-    <span class="sub" style="margin:0 0 0 8px">${pend.length ? `oldest pending <b>${govAge(oldest.created_at)}</b> · ${Object.entries(kinds).map(([k, n]) => `${CX_ESC(k)} ×${n}`).join(" · ")}` : "nothing waiting on a decision"}</span>
+    <span class="sub" style="margin:0 0 0 8px">${pend.length ? `oldest pending <b>${govAge(oldest.created_at)}</b> · ${Object.entries(kinds).map(([k, n]) => `${CX_ESC(k)} ×${n}`).join(" · ")}` : "nothing waiting on a decision"} · <a href="/__apps/approvals" target="_blank" rel="noopener">harvest seed preview ↗</a></span>
   </div>`;
   const blast = (a) => {
     const wc = (a.would_call || []).length, ar = (a.required_authority_refs || []).length;
@@ -4308,6 +4357,40 @@ const server = http.createServer((req, res) => {
         .replace(/__ENV_ID__/g, String(envId).replace(/[^A-Za-z0-9_-]/g, "")));
       return;
     }
+    // ---- Harvested application seeds (harvest-port-as-seed method, superseding grammar-only
+    // recreation): the mapped reference app's BOOTABLE mirror artifact served under the estate
+    // via live proxy to the local harvest mirror. Adoption precedes recreation — the artifact IS
+    // the seed; rebinding its data lanes to daemon truth is the next phase, and the interception
+    // inventory below is that phase's map. Pure wire proxy: nothing harvested enters the repo.
+    // Brand-cased strings are rebranded at the wire; code-token renames defer to the vendor
+    // phase (AST-safe, like the shell's renameApiTokens).
+    if (pathname.startsWith("/__apps/") || pathname.startsWith("/assets/content-addressable-storage/")) {
+      const HARVEST_APPS = { approvals: "/workspace/approvals-app/" };
+      const MIRROR = process.env.IOI_HARVEST_MIRROR_URL || "http://127.0.0.1:9225";
+      try {
+        let target;
+        if (pathname.startsWith("/assets/content-addressable-storage/")) {
+          target = MIRROR + pathname;
+        } else {
+          const seg = pathname.slice("/__apps/".length).split("/")[0];
+          const base = HARVEST_APPS[seg];
+          if (!base) { res.writeHead(404, { "Content-Type": "text/html; charset=utf-8" }); return res.end(automationsShell("Unknown seed", `<div class="empty">No harvested seed named <code>${CX_ESC(seg)}</code>. Available: ${Object.keys(HARVEST_APPS).map((k) => `<a href="/__apps/${k}">${k}</a>`).join(" ")}</div>`)); }
+          const rest = pathname.slice(("/__apps/" + seg).length) || "/";
+          target = MIRROR + (rest === "/" ? base : base.replace(/\/$/, "") + rest);
+        }
+        const upstream = await fetch(target);
+        const ct = upstream.headers.get("content-type") || "application/octet-stream";
+        let buf = Buffer.from(await upstream.arrayBuffer());
+        if (ct.includes("text/html")) {
+          buf = Buffer.from(buf.toString("utf8").replace(/Palantir/g, "IOI"), "utf8");
+        }
+        res.writeHead(upstream.status, { "Content-Type": ct, "Cache-Control": pathname.startsWith("/assets/") ? "public, max-age=86400" : "no-cache", "content-length": String(buf.length) });
+        return res.end(buf);
+      } catch {
+        res.writeHead(503, { "Content-Type": "text/html; charset=utf-8" });
+        return res.end(automationsShell("Harvest mirror offline", `<div class="empty">The harvest mirror is offline — this seed serves live from the local mirror. Start <code>node internal-docs/reverse-engineering/palantir/server.js</code> (:9225, or set <code>IOI_HARVEST_MIRROR_URL</code>) and reload.</div>`));
+      }
+    }
     // T7 — daemon spine passthrough so the native client's /v1/* calls resolve in the hybrid
     // served context (Session Execution Binding, env-files, terminals, environments, threads).
     if (pathname.startsWith("/v1/")) {
@@ -4850,6 +4933,34 @@ const server = http.createServer((req, res) => {
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
       res.end(renderApplications());
       return;
+    }
+    // ---- Feedback & Annotations — the queue over the daemon feedback plane.
+    if (pathname === "/__ioi/feedback" && req.method === "GET") {
+      const flash = new URL(req.url, "http://x").searchParams.get("refused") || "";
+      const [ov, li] = await Promise.all([
+        fetch(`${DAEMON}/v1/hypervisor/feedback/overview`).then((x) => x.json()).catch(() => ({})),
+        fetch(`${DAEMON}/v1/hypervisor/feedback-entries`).then((x) => x.json()).catch(() => ({})),
+      ]);
+      res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
+      res.end(renderFeedbackQueue(ov, li.feedback_entries || [], flash));
+      return;
+    }
+    if (pathname === "/__ioi/feedback" && req.method === "POST") {
+      const f = new URLSearchParams(body.toString("utf8"));
+      const r = await fetch(`${DAEMON}/v1/hypervisor/feedback-entries`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ subject_ref: f.get("subject_ref") || "", entry_kind: f.get("entry_kind") || "feedback", body: f.get("body") || "", consent: f.get("consent") || "never_train" }) });
+      const j = await r.json().catch(() => ({}));
+      res.writeHead(302, { Location: r.ok ? "/__ioi/feedback" : `/__ioi/feedback?refused=${encodeURIComponent((j.error && j.error.message) || "invalid")}`, "Cache-Control": "no-cache" });
+      return res.end();
+    }
+    if (pathname.startsWith("/__ioi/feedback/") && pathname.endsWith("/transition") && req.method === "POST") {
+      const fid = decodeURIComponent(pathname.slice("/__ioi/feedback/".length).split("/")[0]);
+      const f = new URLSearchParams(body.toString("utf8"));
+      const payload = { transition: f.get("transition") || "" };
+      if (f.get("converted_to_ref")) payload.converted_to_ref = f.get("converted_to_ref");
+      const r = await fetch(`${DAEMON}/v1/hypervisor/feedback-entries/${encodeURIComponent(fid)}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) });
+      const j = await r.json().catch(() => ({}));
+      res.writeHead(302, { Location: r.ok ? "/__ioi/feedback" : `/__ioi/feedback?refused=${encodeURIComponent((j.error && j.error.message) || "invalid")}`, "Cache-Control": "no-cache" });
+      return res.end();
     }
     // ---- Search — typed cross-estate discovery, fan-out over live projections at query time.
     if (pathname === "/__ioi/search" && req.method === "GET") {

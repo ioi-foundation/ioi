@@ -34,6 +34,8 @@ mod authority_routes;
 mod binding_routes;
 #[path = "hypervisor_daemon_routes/domain_apps_routes.rs"]
 mod domain_apps_routes;
+#[path = "hypervisor_daemon_routes/feedback_routes.rs"]
+mod feedback_routes;
 #[path = "hypervisor_daemon_routes/goalrun_routes.rs"]
 mod goalrun_routes;
 #[path = "hypervisor_daemon_routes/ioi_agent_routes.rs"]
@@ -1365,6 +1367,24 @@ async fn async_main() -> anyhow::Result<()> {
         .route(
             "/v1/hypervisor/domain-app-runtimes/:id",
             get(domain_apps_routes::handle_domain_app_runtime_get),
+        )
+        // Feedback & Annotations object plane (foundation) — durable operator feedback/annotations
+        // over real subjects, each carrying an evidence-eligibility consent posture from create.
+        // Conversion to an eval/training candidate is a NAMED handoff gated by consent (never_train
+        // fails closed); nothing trains or evaluates here.
+        .route(
+            "/v1/hypervisor/feedback/overview",
+            get(feedback_routes::handle_feedback_overview),
+        )
+        .route(
+            "/v1/hypervisor/feedback-entries",
+            get(feedback_routes::handle_feedback_list).post(feedback_routes::handle_feedback_create),
+        )
+        .route(
+            "/v1/hypervisor/feedback-entries/:id",
+            get(feedback_routes::handle_feedback_get)
+                .patch(feedback_routes::handle_feedback_patch)
+                .delete(feedback_routes::handle_feedback_delete),
         )
         // Governance object plane (foundation) — a READ PROJECTION aggregating real authority /
         // identity / lease / admission substrate + naming missing controls. No CRUD, no mutation.

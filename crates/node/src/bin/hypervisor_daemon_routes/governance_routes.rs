@@ -350,7 +350,7 @@ fn str_refs(body: &Value, key: &str) -> Vec<String> {
 /// A control target ref is REQUIRED (non-empty). If it LOOKS local (a foundry id or a known local
 /// scheme) it must resolve to a real record; otherwise it is an allowed named ref (authority action,
 /// connector id, lease id, model route, external target, …).
-fn resolve_governance_ref(data_dir: &str, r: &str) -> Result<(), (String, String)> {
+pub(crate) fn resolve_governance_ref(data_dir: &str, r: &str) -> Result<(), (String, String)> {
     if r.is_empty() {
         return Err(("governance_ref_required".into(), "a target ref is required".into()));
     }

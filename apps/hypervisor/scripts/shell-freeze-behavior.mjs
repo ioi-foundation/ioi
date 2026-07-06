@@ -48,16 +48,23 @@ const VOLATILE = [
   "#ioi-hb-recent",
 ];
 // Environment noise (offline box: external widget/telemetry DNS failures), not shell behavior.
-const CONSOLE_ALLOW = [/usepylon/i, /ERR_NAME_NOT_RESOLVED/i, /posthog/i, /sentry/i, /segment/i, /Failed to load resource/i, /WebSocket/i, /onboarding completion/i, /ConfigCat/i /* flag-eval warnings race the user-object load */];
+const CONSOLE_ALLOW = [/usepylon/i, /ERR_NAME_NOT_RESOLVED/i, /posthog/i, /sentry/i, /segment/i, /Failed to load resource/i, /WebSocket/i, /onboarding completion/i, /ConfigCat/i /* flag-eval warnings race the user-object load */, /OrgEventStreamManager|Stream error/ /* event-stream reconnects fire on their own clock */];
 const NET_SKIP = [
   /^https?:\/\/(?!127\.0\.0\.1)/i, // external hosts: environment, not shell
   // DATA-CONDITIONAL calls: fired per estate record (per-project role/prebuild lookups, flag
   // refetch) — presence tracks estate data, not shell behavior, so they can't live in the freeze.
   /GroupService\/ListRoleAssignments/, /PrebuildService\/ListPrebuilds/, /feature-flags\/configcat/,
+  // Static-asset delivery is the WIRE gate's domain (proven 383/383 there); which lazy chunks a
+  // route pulls varies with estate data, so asset fetches don't belong in the behavior freeze.
+  /^GET \/static\//,
+  // Streaming/long-poll lifecycle (event watch + reconnects) fires on its own clock, not per view.
+  /EventService\/WatchEvents/,
 ];
-// Content-transition animations (fade of an empty state being replaced by data) track estate
-// data, not shell code — excluded from the inventory the same way volatile DOM subtrees are.
-const ANIM_SKIP = [/^CSSAnimation:fadeOut:/];
+// Content/data-driven animations track estate data, not shell code — excluded like volatile DOM:
+// fadeOut (empty state replaced), animate-in (list items entering), animate-spin (data-load
+// spinners). Bespoke shell animations (pulse, brand motion) stay in the freeze, and every
+// keyframe DEFINITION stays enumerated in the code-level CSS inventory regardless.
+const ANIM_SKIP = [/^CSSAnimation:fadeOut:/, /\.animate-in(:|\.|$)/, /\.animate-spin(:|\.|$)/];
 
 function normalizeUrl(u) {
   try {
@@ -77,6 +84,14 @@ function normalizeUrl(u) {
 }
 
 async function captureRoute(page, route) {
+  // Hash routes are same-document views. Land on the base path FIRST (unrecorded) so the
+  // recorded capture is always the hash hop itself — identical whether this is the initial
+  // sequential crawl or a fresh-browser retry (a direct goto to a hash URL is a full document
+  // load and would record the entire asset graph instead of the view change).
+  if (route.includes("#")) {
+    await page.goto(BASE + route.split("#")[0], { waitUntil: "domcontentloaded", timeout: 45000 });
+    await page.waitForLoadState("networkidle", { timeout: 15000 }).catch(() => {});
+  }
   const consoleMsgs = [];
   const netReqs = new Set();
   const onConsole = (m) => {
@@ -87,8 +102,11 @@ async function captureRoute(page, route) {
   };
   const onReq = (r) => {
     const u = r.url();
-    if (NET_SKIP.some((re) => re.test(u))) return;
-    netReqs.add(r.method() + " " + normalizeUrl(u));
+    const stored = r.method() + " " + normalizeUrl(u);
+    // Patterns match either the raw URL (external hosts) or the stored normalized form
+    // (method-prefixed paths like `GET /static/...`).
+    if (NET_SKIP.some((re) => re.test(u) || re.test(stored))) return;
+    netReqs.add(stored);
   };
   page.on("console", onConsole);
   page.on("request", onReq);
@@ -118,6 +136,10 @@ async function captureRoute(page, route) {
     // Non-rendered elements are not UI surface — their equivalence is the WIRE gate's job (and
     // the owned tree legitimately loads the same scripts from a different document position).
     const NON_UI = new Set(["SCRIPT", "STYLE", "LINK", "META", "NOSCRIPT", "TEMPLATE"]);
+    // Augmentation-injected chrome is EXCLUDED from the shell fingerprint entirely (not just
+    // volatile-pruned): its mount races React re-renders by design (observer remount within a
+    // tick), and its presence/behavior is asserted functionally by its own done-bars.
+    const isInjected = (el) => { const id = el.id || ""; return id === "ioi-ns-advanced-wrap" || id === "ioi-ns-modal" || id === "ioi-apps-modal" || id === "ioi-open-app" || id === "ioi-openapp-rail"; };
     const fp = (el) => {
       const tid = el.getAttribute && el.getAttribute("data-testid");
       const cls = String(el.className && el.className.baseVal !== undefined ? el.className.baseVal : el.className || "").split(/\s+/).filter(Boolean).sort();
@@ -125,7 +147,7 @@ async function captureRoute(page, route) {
       if (tid) node.id = tid;
       if (cls.length) node.c = cls;
       if (isVolatile(el)) { node.volatile = true; node.hasChildren = el.children.length > 0; return node; }
-      const kids = [...el.children].filter((c) => !NON_UI.has(c.tagName)).map(fp);
+      const kids = [...el.children].filter((c) => !NON_UI.has(c.tagName) && !isInjected(c)).map(fp);
       if (kids.length) node.k = kids;
       return node;
     };
