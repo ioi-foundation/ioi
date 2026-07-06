@@ -2,7 +2,7 @@
 // Harvest-port QUEUE-seeds readiness verifier — the remaining porting-queue surfaces adopted on
 // their WORKING artifact seeds (suite-guide §9). Ten seeds boot under the estate to their real
 // UI and are linked from their owning suite surface; three are NAMED GAPS (serve but do not
-// mount/render on the auth-dead mirror — they light up via live re-harvest once auth is
+// mount/render on the auth-dead capture — they light up via live re-harvest once auth is
 // refreshed, or an asset-level origin fold). Editor enrichments for the gap surfaces follow the
 // live-re-harvest route (suite-guide §2a), not native authoring.
 //
@@ -15,12 +15,12 @@
 //   Developer Console: [devconsole + widgets = gap: origin baked in a JS chunk → no mount]
 //
 // Usage: node apps/hypervisor/scripts/verify-hypervisor-harvest-queue-seeds.mjs
-// Exit 2 = BLOCKED (harvest mirror not running).
+// Exit 2 = BLOCKED (harvest capture not running).
 
 import { chromium } from "playwright";
 
 const SERVE = (process.env.IOI_HYPERVISOR_SERVE_URL || "http://127.0.0.1:4173").replace(/\/$/, "");
-const MIRROR = (process.env.IOI_HARVEST_MIRROR_URL || "http://127.0.0.1:9225").replace(/\/$/, "");
+const CAPTURE = (process.env.IOI_HARVEST_CAPTURE_URL || process.env.IOI_HARVEST_MIRROR_URL || "http://127.0.0.1:9225").replace(/\/$/, "");
 
 const results = [];
 const ok = (name, cond, detail) => { results.push({ name, pass: !!cond, detail: detail || "" }); };
@@ -38,15 +38,15 @@ const CLEAN = [
   { slug: "listings", ownerUrl: "/__ioi/marketplace", owner: "Marketplace", title: /Marketplace/i },
   { slug: "models", ownerUrl: "/__ioi/foundry", owner: "Foundry", title: /Model Catalog/i },
 ];
-// Three registered seeds that serve but do not render on the auth-dead mirror — NAMED GAPS.
+// Three registered seeds that serve but do not render on the auth-dead capture — NAMED GAPS.
 const GAPS = ["registry", "devconsole", "widgets"];
 
 const CRASH = /Failed to initialize|An error occurred|Something went wrong/i;
 
 async function run() {
-  const mirrorUp = await fetch(`${MIRROR}/workspace/ontology/`).then((r) => r.ok).catch(() => false);
-  if (!mirrorUp) { console.error("BLOCKED: harvest mirror not reachable at " + MIRROR); process.exit(2); }
-  ok("harvest mirror live", true, MIRROR);
+  const captureUp = await fetch(`${CAPTURE}/workspace/ontology/`).then((r) => r.ok).catch(() => false);
+  if (!captureUp) { console.error("BLOCKED: harvest capture not reachable at " + CAPTURE); process.exit(2); }
+  ok("harvest capture live", true, CAPTURE);
 
   const b = await chromium.launch();
   try {

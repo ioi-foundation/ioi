@@ -1,19 +1,19 @@
 #!/usr/bin/env node
 // Harvest-port approvals verifier — PHASE 2 (REBOUND): the seed's task-request search lanes are
-// answered with DAEMON approval-requests, not mirror fixtures.
+// answered with DAEMON approval-requests, not capture fixtures.
 //
-// Proves: the bootable mirror artifact serves under the estate (/__apps/approvals, live wire
+// Proves: the bootable capture artifact serves under the estate (/__apps/approvals, live wire
 // proxy — nothing harvested enters the repo) with brand-cased strings rebranded at the wire;
 // the seed's search/counts lanes return EXACTLY the daemon's approval-requests mapped into the
 // seed's wire shape (every daemon id present, nothing fabricated, identity-scoped subcounts
 // honestly 0); a fresh daemon fixture round-trips into the BOOTED premium inbox UI; and the
 // offline state stays honest. Named gaps (vendor-phase work): per-row drilldown lanes still
-// pass through to the mirror; the seed's closed type registry renders our rows under its
+// pass through to the capture; the seed's closed type registry renders our rows under its
 // closest category ("access request" = request for authority over a resource) — every rendered
 // FACT is daemon truth.
 //
 // Usage: node apps/hypervisor/scripts/verify-hypervisor-harvest-approvals.mjs
-// Exit 2 = BLOCKED (harvest mirror or daemon not running) — named, not failed.
+// Exit 2 = BLOCKED (harvest capture or daemon not running) — named, not failed.
 
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
@@ -22,18 +22,18 @@ import { chromium } from "playwright";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const SERVE = (process.env.IOI_HYPERVISOR_SERVE_URL || "http://127.0.0.1:4173").replace(/\/$/, "");
-const MIRROR = (process.env.IOI_HARVEST_MIRROR_URL || "http://127.0.0.1:9225").replace(/\/$/, "");
+const CAPTURE = (process.env.IOI_HARVEST_CAPTURE_URL || process.env.IOI_HARVEST_MIRROR_URL || "http://127.0.0.1:9225").replace(/\/$/, "");
 const DAEMON = (process.env.IOI_HYPERVISOR_DAEMON_URL || "http://127.0.0.1:8765").replace(/\/$/, "");
 
 const results = [];
 const ok = (name, cond, detail) => { results.push({ name, pass: !!cond, detail: detail || "" }); };
 
 async function run() {
-  // 0. Liveness — the seed document serves live from the mirror; the rebind serves from the
+  // 0. Liveness — the seed document serves live from the capture; the rebind serves from the
   // daemon. Absence of either is a BLOCK, not a failure.
-  const mirrorUp = await fetch(`${MIRROR}/workspace/approvals-app/`).then((r) => r.ok).catch(() => false);
-  if (!mirrorUp) {
-    console.error("BLOCKED: harvest mirror not reachable at " + MIRROR + " — start internal-docs/reverse-engineering/palantir/server.js");
+  const captureUp = await fetch(`${CAPTURE}/workspace/approvals-app/`).then((r) => r.ok).catch(() => false);
+  if (!captureUp) {
+    console.error("BLOCKED: harvest capture not reachable at " + CAPTURE + " — start internal-docs/reverse-engineering/palantir/server.js");
     process.exit(2);
   }
   const daemonUp = await fetch(`${DAEMON}/v1/hypervisor/governance/approval-requests`).then((r) => r.ok).catch(() => false);
@@ -41,7 +41,7 @@ async function run() {
     console.error("BLOCKED: daemon not reachable at " + DAEMON);
     process.exit(2);
   }
-  ok("harvest mirror + daemon live", true, `${MIRROR} · ${DAEMON}`);
+  ok("harvest capture + daemon live", true, `${CAPTURE} · ${DAEMON}`);
 
   // 1. Served under the estate, rebranded at the wire.
   const page1 = await fetch(`${SERVE}/__apps/approvals`).then(async (r) => ({ status: r.status, ct: r.headers.get("content-type") || "", text: await r.text() }));
@@ -95,8 +95,8 @@ async function run() {
     await b.close();
   }
 
-  // 6. Offline honesty — isolated serve pointed at a dead mirror names the outage (the document
-  // serves from the mirror even though the data lanes are daemon-bound).
+  // 6. Offline honesty — isolated serve pointed at a dead capture names the outage (the document
+  // serves from the capture even though the data lanes are daemon-bound).
   const child = spawn(process.execPath, [join(HERE, "serve-product-ui.mjs")], {
     env: { ...process.env, PORT: "4602", PRODUCT_UI_PORT: "9402", IOI_HARVEST_MIRROR_URL: "http://127.0.0.1:1" },
     stdio: "ignore",
@@ -107,7 +107,7 @@ async function run() {
       await new Promise((r) => setTimeout(r, 500));
       deg = await fetch("http://127.0.0.1:4602/__apps/approvals").then(async (r) => ({ status: r.status, text: await r.text() })).catch(() => null);
     }
-    ok("offline mirror named honestly (503, no fabricated app)", !!deg && deg.status === 503 && deg.text.includes("Harvest mirror offline"));
+    ok("offline capture named honestly (503, no fabricated app)", !!deg && deg.status === 503 && deg.text.includes("Harvest capture offline"));
   } finally {
     child.kill("SIGTERM");
   }

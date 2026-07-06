@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Harvest-port Marketplace verifier — REBIND phase: the store-browse seed's data lanes are
-// answered with the DAEMON marketplace plane, not mirror fixtures.
+// answered with the DAEMON marketplace plane, not capture fixtures.
 //
 // Proves: /__apps/listings (marketplace seed) browses stores/products through GraphQL
 // (searchMarketplaceProducts values + aggregates, searchResources LOCAL_MARKETPLACE,
@@ -11,16 +11,16 @@
 // INSTALLABLE; drafts are UNPUBLISHED_DRAFT and NEVER installable. A draft-listing fixture
 // over a REAL agent round-trips through the wire and the store table renders honest counts
 // in the booted UI. The zip-upload affordance is disabled at the wire (the estate has no
-// upload lane). Store/product drill-down documents are NOT in the mirror cache — NAMED GAP
+// upload lane). Store/product drill-down documents are NOT in the capture cache — NAMED GAP
 // (live re-harvest target); nothing is faked for them.
 //
 // Usage: node apps/hypervisor/scripts/verify-hypervisor-harvest-marketplace.mjs
-// Exit 2 = BLOCKED (harvest mirror or daemon not running) — named, not failed.
+// Exit 2 = BLOCKED (harvest capture or daemon not running) — named, not failed.
 
 import { chromium } from "playwright";
 
 const SERVE = (process.env.IOI_HYPERVISOR_SERVE_URL || "http://127.0.0.1:4173").replace(/\/$/, "");
-const MIRROR = (process.env.IOI_HARVEST_MIRROR_URL || "http://127.0.0.1:9225").replace(/\/$/, "");
+const CAPTURE = (process.env.IOI_HARVEST_CAPTURE_URL || process.env.IOI_HARVEST_MIRROR_URL || "http://127.0.0.1:9225").replace(/\/$/, "");
 const DAEMON = (process.env.IOI_HYPERVISOR_DAEMON_URL || "http://127.0.0.1:8765").replace(/\/$/, "");
 
 const results = [];
@@ -36,11 +36,11 @@ const STORE_TABLE_QUERY = "query StoreTableQuery($pageSize: Int!) { searchMarket
 
 async function run() {
   // 0. Liveness.
-  const mirrorUp = await fetch(`${MIRROR}/workspace/marketplace/`).then((r) => r.ok).catch(() => false);
-  if (!mirrorUp) { console.error("BLOCKED: harvest mirror not reachable at " + MIRROR); process.exit(2); }
+  const captureUp = await fetch(`${CAPTURE}/workspace/marketplace/`).then((r) => r.ok).catch(() => false);
+  if (!captureUp) { console.error("BLOCKED: harvest capture not reachable at " + CAPTURE); process.exit(2); }
   const daemonUp = await fetch(`${DAEMON}/v1/hypervisor/marketplace/listings`).then((r) => r.ok).catch(() => false);
   if (!daemonUp) { console.error("BLOCKED: daemon not reachable at " + DAEMON); process.exit(2); }
-  ok("harvest mirror + daemon live", true, `${MIRROR} · ${DAEMON}`);
+  ok("harvest capture + daemon live", true, `${CAPTURE} · ${DAEMON}`);
 
   // 1. Seed serves under the estate, rebranded at the wire.
   const page1 = await fetch(`${SERVE}/__apps/listings`).then(async (r) => ({ status: r.status, text: await r.text() }));

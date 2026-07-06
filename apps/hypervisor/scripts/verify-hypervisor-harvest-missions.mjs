@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Harvest-port Missions verifier — REBIND phase: the fleet seeds' data lanes are answered
-// with DAEMON truth, not mirror fixtures.
+// with DAEMON truth, not capture fixtures.
 //
 // Proves: (1) /__apps/jobs (job-tracker seed) reads its build queue through GraphQL buildsV2
 // and the serve answers with the daemon's REAL run estate — goal-runs (drafts excluded),
@@ -16,7 +16,7 @@
 // records that exist and an empty estate must show an honestly empty inbox.
 //
 // Usage: node apps/hypervisor/scripts/verify-hypervisor-harvest-missions.mjs
-// Exit 2 = BLOCKED (harvest mirror or daemon not running) — named, not failed.
+// Exit 2 = BLOCKED (harvest capture or daemon not running) — named, not failed.
 
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
@@ -25,7 +25,7 @@ import { chromium } from "playwright";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const SERVE = (process.env.IOI_HYPERVISOR_SERVE_URL || "http://127.0.0.1:4173").replace(/\/$/, "");
-const MIRROR = (process.env.IOI_HARVEST_MIRROR_URL || "http://127.0.0.1:9225").replace(/\/$/, "");
+const CAPTURE = (process.env.IOI_HARVEST_CAPTURE_URL || process.env.IOI_HARVEST_MIRROR_URL || "http://127.0.0.1:9225").replace(/\/$/, "");
 const DAEMON = (process.env.IOI_HYPERVISOR_DAEMON_URL || "http://127.0.0.1:8765").replace(/\/$/, "");
 
 const results = [];
@@ -42,12 +42,12 @@ const postBuilds = (filter) => fetch(`${SERVE}/graphql-gateway/api/graphql?q=Ove
 }).then((r) => r.json());
 
 async function run() {
-  // 0. Liveness — seeds serve live from the mirror; rebinds serve from the daemon.
-  const mirrorUp = await fetch(`${MIRROR}/workspace/job-tracker/`).then((r) => r.ok).catch(() => false);
-  if (!mirrorUp) { console.error("BLOCKED: harvest mirror not reachable at " + MIRROR); process.exit(2); }
+  // 0. Liveness — seeds serve live from the capture; rebinds serve from the daemon.
+  const captureUp = await fetch(`${CAPTURE}/workspace/job-tracker/`).then((r) => r.ok).catch(() => false);
+  if (!captureUp) { console.error("BLOCKED: harvest capture not reachable at " + CAPTURE); process.exit(2); }
   const daemonUp = await fetch(`${DAEMON}/v1/hypervisor/sessions`).then((r) => r.ok).catch(() => false);
   if (!daemonUp) { console.error("BLOCKED: daemon not reachable at " + DAEMON); process.exit(2); }
-  ok("harvest mirror + daemon live", true, `${MIRROR} · ${DAEMON}`);
+  ok("harvest capture + daemon live", true, `${CAPTURE} · ${DAEMON}`);
 
   // 1. Both seeds serve under the estate, rebranded at the wire.
   for (const slug of ["jobs", "incidents"]) {
@@ -147,7 +147,7 @@ async function run() {
     await b.close();
   }
 
-  // 7. Offline honesty — a serve pointed at a dead mirror names the outage.
+  // 7. Offline honesty — a serve pointed at a dead capture names the outage.
   const child = spawn(process.execPath, [join(HERE, "serve-product-ui.mjs")], {
     env: { ...process.env, PORT: "4612", PRODUCT_UI_PORT: "9412", IOI_HARVEST_MIRROR_URL: "http://127.0.0.1:1" },
     stdio: "ignore",
@@ -158,7 +158,7 @@ async function run() {
       await new Promise((r) => setTimeout(r, 500));
       deg = await fetch("http://127.0.0.1:4612/__apps/jobs").then(async (r) => ({ status: r.status, text: await r.text() })).catch(() => null);
     }
-    ok("offline mirror named honestly (503, no fabricated app)", !!deg && deg.status === 503 && deg.text.includes("Harvest mirror offline"));
+    ok("offline capture named honestly (503, no fabricated app)", !!deg && deg.status === 503 && deg.text.includes("Harvest capture offline"));
   } finally {
     child.kill("SIGTERM");
   }

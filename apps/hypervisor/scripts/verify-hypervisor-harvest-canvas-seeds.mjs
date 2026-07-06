@@ -9,10 +9,10 @@
 // Proves per seed: serves under the estate via the live wire proxy (nothing harvested enters the
 // repo), brand-cased strings rebranded at the wire, the app BOOTS to its real editor/landing UI
 // through the estate origin, and its owning suite surface links the seed. Plus shared honesty:
-// unknown seed 404s, offline mirror names the outage (503, no fabricated app).
+// unknown seed 404s, offline capture names the outage (503, no fabricated app).
 //
 // Usage: node apps/hypervisor/scripts/verify-hypervisor-harvest-canvas-seeds.mjs
-// Exit 2 = BLOCKED (harvest mirror not running) — named, not failed.
+// Exit 2 = BLOCKED (harvest capture not running) — named, not failed.
 
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
@@ -21,7 +21,7 @@ import { chromium } from "playwright";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const SERVE = (process.env.IOI_HYPERVISOR_SERVE_URL || "http://127.0.0.1:4173").replace(/\/$/, "");
-const MIRROR = (process.env.IOI_HARVEST_MIRROR_URL || "http://127.0.0.1:9225").replace(/\/$/, "");
+const CAPTURE = (process.env.IOI_HARVEST_CAPTURE_URL || process.env.IOI_HARVEST_MIRROR_URL || "http://127.0.0.1:9225").replace(/\/$/, "");
 const DAEMON = (process.env.IOI_HYPERVISOR_DAEMON_URL || "http://127.0.0.1:8765").replace(/\/$/, "");
 
 const results = [];
@@ -29,26 +29,26 @@ const ok = (name, cond, detail) => { results.push({ name, pass: !!cond, detail: 
 
 const SEEDS = [
   {
-    slug: "lineage", mirror: "/workspace/monocle/", owner: "Provenance",
+    slug: "lineage", capture: "/workspace/monocle/", owner: "Provenance",
     ownerUrl: "/__ioi/work-ledger",
     // The monocle editor boots complete: graph toolbar + welcome card + selection status bar.
     boot: (t) => /Add resources|Open graph|Resource overview/.test(t) && /nodes selected|Layout/.test(t),
     bootDesc: "lineage-graph editor (toolbar + Add resources/Open graph + selection bar)",
   },
   {
-    slug: "designer", mirror: "/workspace/solution-design/", owner: "Studio",
+    slug: "designer", capture: "/workspace/solution-design/", owner: "Studio",
     ownerUrl: "/__ioi/agent-studio",
     boot: (t) => /Solution Designer|solution design/i.test(t) && /New Diagram|reference example/i.test(t),
     bootDesc: "system-diagram landing (New Diagram + reference-diagram shelf)",
   },
   {
-    slug: "monitors", mirror: "/workspace/object-monitoring/", owner: "Automations",
+    slug: "monitors", capture: "/workspace/object-monitoring/", owner: "Automations",
     ownerUrl: "/__ioi/automations",
     boot: (t) => /Automat/i.test(t) && /New automation|Create new automation|Automations/i.test(t),
     bootDesc: "monitor/automation landing (New automation entry)",
   },
   {
-    slug: "changes", mirror: "/workspace/upgrade-assistant/", owner: "Improvement (Studio proposals section)",
+    slug: "changes", capture: "/workspace/upgrade-assistant/", owner: "Improvement (Studio proposals section)",
     ownerUrl: "/__ioi/agent-studio",
     // Change inbox boots with its full chrome; the default assignee view is HONESTLY empty
     // (the daemon maps no assignments) — row rendering behind the identity model is the
@@ -59,13 +59,13 @@ const SEEDS = [
 ];
 
 async function run() {
-  // 0. Mirror liveness — seeds serve live from the mirror; absence is a BLOCK, not a failure.
-  const mirrorUp = await fetch(`${MIRROR}/workspace/monocle/`).then((r) => r.ok).catch(() => false);
-  if (!mirrorUp) {
-    console.error("BLOCKED: harvest mirror not reachable at " + MIRROR + " — start internal-docs/reverse-engineering/palantir/server.js");
+  // 0. Capture liveness — seeds serve live from the capture; absence is a BLOCK, not a failure.
+  const captureUp = await fetch(`${CAPTURE}/workspace/monocle/`).then((r) => r.ok).catch(() => false);
+  if (!captureUp) {
+    console.error("BLOCKED: harvest capture not reachable at " + CAPTURE + " — start internal-docs/reverse-engineering/palantir/server.js");
     process.exit(2);
   }
-  ok("harvest mirror live", true, MIRROR);
+  ok("harvest capture live", true, CAPTURE);
 
   const b = await chromium.launch();
   try {
@@ -126,7 +126,7 @@ async function run() {
     ok("[changes] stats check skipped — no applied proposal in daemon", true);
   }
 
-  // 5. Shared honesty: unknown seed 404s; offline mirror named honestly.
+  // 5. Shared honesty: unknown seed 404s; offline capture named honestly.
   ok("unknown seed is honest", (await fetch(`${SERVE}/__apps/nonesuch`).then((r) => r.status)) === 404);
   const child = spawn(process.execPath, [join(HERE, "serve-product-ui.mjs")], {
     env: { ...process.env, PORT: "4603", PRODUCT_UI_PORT: "9403", IOI_HARVEST_MIRROR_URL: "http://127.0.0.1:1" },
@@ -138,7 +138,7 @@ async function run() {
       await new Promise((r) => setTimeout(r, 500));
       deg = await fetch("http://127.0.0.1:4603/__apps/lineage").then(async (r) => ({ status: r.status, text: await r.text() })).catch(() => null);
     }
-    ok("offline mirror named honestly (503, no fabricated app)", !!deg && deg.status === 503 && deg.text.includes("Harvest mirror offline"));
+    ok("offline capture named honestly (503, no fabricated app)", !!deg && deg.status === 503 && deg.text.includes("Harvest capture offline"));
   } finally {
     child.kill("SIGTERM");
   }

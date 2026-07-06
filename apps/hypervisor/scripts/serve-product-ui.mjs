@@ -4366,18 +4366,18 @@ const server = http.createServer((req, res) => {
       return;
     }
     // ---- Harvested application seeds (harvest-port-as-seed method, superseding grammar-only
-    // recreation): the mapped reference app's BOOTABLE mirror artifact served under the estate
-    // via live proxy to the local harvest mirror. Adoption precedes recreation — the artifact IS
+    // recreation): the mapped reference app's BOOTABLE capture artifact served under the estate
+    // via live proxy to the local harvest capture. Adoption precedes recreation — the artifact IS
     // the seed; rebinding its data lanes to daemon truth is the next phase, and the interception
     // inventory below is that phase's map. Pure wire proxy: nothing harvested enters the repo.
     // Brand-cased strings are rebranded at the wire; code-token renames defer to the vendor
     // phase (AST-safe, like the shell's renameApiTokens).
-    // Mirror API families some seed documents call (observed in seed rebind maps). Served
+    // Capture API families some seed documents call (observed in seed rebind maps). Served
     // same-origin through this proxy so seeds boot under the estate; their upstream is the
-    // harvest mirror, never fabricated data.
+    // harvest capture, never fabricated data.
     const MIRROR_API_PREFIXES = ["/multipass/", "/graphql-gateway/", "/compass/", "/documentation/", "/aip-assist/", "/monocle/", "/approvals/", "/workspace/api/", "/log-receiver/", "/interventions/", "/ontology-metadata/", "/magritte-coordinator/", "/issues/", "/foundry-search/", "/marketplace/", "/object-set-service/", "/phonograph2/", "/language-model-service/", "/foundry-ml/", "/artifacts/", "/foundry-catalog/", "/models/", "/build2/", "/foundry-stemma/", "/third-party-applications/", "/developer-console/"];
     if (pathname.startsWith("/__apps/") || pathname.startsWith("/assets/content-addressable-storage/") || MIRROR_API_PREFIXES.some((pref) => pathname.startsWith(pref))) {
-      // Per-seed fold flag: some seed documents hardcode the mirror ORIGIN for their API layer
+      // Per-seed fold flag: some seed documents hardcode the capture ORIGIN for their API layer
       // and only boot when those refs are folded to same-origin (lineage); self-bootstrapped
       // documents (approvals pilot) must be served byte-faithful apart from the brand rebrand.
       const HARVEST_APPS = {
@@ -4402,12 +4402,12 @@ const server = http.createServer((req, res) => {
         devconsole: { base: "/workspace/developer-console/", fold: false },// Developer Console seed — OAuth app registration + SDK on-ramps (self-bootstrapped)
         widgets: { base: "/workspace/custom-widgets/", fold: false },    // Developer Console seed — widget-set authoring (dev-kit fork; self-bootstrapped)
       };
-      const MIRROR = process.env.IOI_HARVEST_MIRROR_URL || "http://127.0.0.1:9225";
+      const CAPTURE = process.env.IOI_HARVEST_CAPTURE_URL || process.env.IOI_HARVEST_MIRROR_URL || "http://127.0.0.1:9225";
       // REBIND (approvals pilot, phase 2): the seed's task-request search lanes are answered
       // with DAEMON approval-requests mapped into the seed's own wire shape. Status filter,
       // sort, and page size from the request body are honored; identity-scoped subcounts stay
       // honest — the daemon records no creator, so myRequests is 0, never faked. Other
-      // /approvals/api/* lanes (drilldown, reviewers) still pass through to the mirror and
+      // /approvals/api/* lanes (drilldown, reviewers) still pass through to the capture and
       // degrade honestly (named gap: per-row detail is a later rebind).
       // REBIND (Improvement seed): the change-inbox lanes are answered with DAEMON
       // improvement-proposals mapped into the seed's intervention wire shape. Every fact is
@@ -4477,11 +4477,11 @@ const server = http.createServer((req, res) => {
             const pend = pr && !(pr.state === "applied" || pr.state === "rejected") ? 1 : 0;
             return send({ stats: { numPendingResources: { ignored: 0, nonIgnored: pend }, numCompleteResources: { ignored: 0, nonIgnored: done } } });
           }
-          // organizations pass through to the mirror (the client scopes the estate by operator
+          // organizations pass through to the capture (the client scopes the estate by operator
           // organizations; an empty list hides every row — a real identity mapping is the
           // rebind's next phase).
           if (pathname === "/interventions/api/record/visit") return send({});
-          // other intervention lanes fall through to the mirror passthrough below
+          // other intervention lanes fall through to the capture passthrough below
         } catch (e) {
           return send({ error: { message: `daemon unreachable: ${e.message}` } }, 502);
         }
@@ -4603,7 +4603,7 @@ const server = http.createServer((req, res) => {
         // own semantics: public_state "published" (admitted review + open release + serving
         // runtime, receipted) → INSTALLABLE; drafts stay unlisted and NEVER appear as
         // installable. Install counts are the plane's truth (no install records → 0). No
-        // remote stores exist. Store/product drill-down routes are NOT in the mirror cache —
+        // remote stores exist. Store/product drill-down routes are NOT in the capture cache —
         // named gap (live re-harvest target), not faked here.
         if (gqlOp && (String(gqlOp.query || "").includes("searchMarketplaceProducts(") || String(gqlOp.query || "").includes("LOCAL_MARKETPLACE") || String(gqlOp.query || "").includes("remoteMarketplaces("))) {
           try {
@@ -4664,7 +4664,7 @@ const server = http.createServer((req, res) => {
             return sendJson({ errors: [{ message: `daemon unreachable: ${e.message}` }] }, 502);
           }
         }
-        // other GraphQL operations fall through to the mirror passthrough
+        // other GraphQL operations fall through to the capture passthrough
       }
       // Upload honesty: the estate has NO product-zip upload lane — listings are drafted
       // through the daemon API over real substrate; never advertise an affordance that
@@ -4801,7 +4801,7 @@ const server = http.createServer((req, res) => {
         let target;
         let foldOrigin = false;
         if (pathname.startsWith("/assets/content-addressable-storage/") || MIRROR_API_PREFIXES.some((pref) => pathname.startsWith(pref))) {
-          target = MIRROR + req.url;
+          target = CAPTURE + req.url;
         } else {
           const seg = pathname.slice("/__apps/".length).split("/")[0];
           const seedDef = HARVEST_APPS[seg];
@@ -4809,7 +4809,7 @@ const server = http.createServer((req, res) => {
           foldOrigin = !!(seedDef && seedDef.fold);
           if (!base) { res.writeHead(404, { "Content-Type": "text/html; charset=utf-8" }); return res.end(automationsShell("Unknown seed", `<div class="empty">No harvested seed named <code>${CX_ESC(seg)}</code>. Available: ${Object.keys(HARVEST_APPS).map((k) => `<a href="/__apps/${k}">${k}</a>`).join(" ")}</div>`)); }
           const rest = pathname.slice(("/__apps/" + seg).length) || "/";
-          target = MIRROR + (rest === "/" ? base : base.replace(/\/$/, "") + rest);
+          target = CAPTURE + (rest === "/" ? base : base.replace(/\/$/, "") + rest);
         }
         const upstream = await fetch(target, {
           method: req.method,
@@ -4819,9 +4819,9 @@ const server = http.createServer((req, res) => {
         const ct = upstream.headers.get("content-type") || "application/octet-stream";
         let buf = Buffer.from(await upstream.arrayBuffer());
         if (ct.includes("text/html")) {
-          // Wire rebrand; plus, for fold-flagged seeds, absolute mirror-origin refs become
+          // Wire rebrand; plus, for fold-flagged seeds, absolute capture-origin refs become
           // same-origin so the seed's API calls resolve through this proxy instead of
-          // cross-origin to the mirror.
+          // cross-origin to the capture.
           let html = buf.toString("utf8");
           if (foldOrigin) html = html.replace(/https?:\/\/(?:localhost|127\.0\.0\.1):9225/g, "");
           buf = Buffer.from(html.replace(/Palantir/g, "IOI"), "utf8");
@@ -4830,7 +4830,7 @@ const server = http.createServer((req, res) => {
         return res.end(buf);
       } catch {
         res.writeHead(503, { "Content-Type": "text/html; charset=utf-8" });
-        return res.end(automationsShell("Harvest mirror offline", `<div class="empty">The harvest mirror is offline — this seed serves live from the local mirror. Start <code>node internal-docs/reverse-engineering/palantir/server.js</code> (:9225, or set <code>IOI_HARVEST_MIRROR_URL</code>) and reload.</div>`));
+        return res.end(automationsShell("Harvest capture offline", `<div class="empty">The harvest capture is offline — this seed serves live from the local capture. Start <code>node internal-docs/reverse-engineering/palantir/server.js</code> (:9225, or set <code>IOI_HARVEST_CAPTURE_URL</code>) and reload.</div>`));
       }
     }
     // T7 — daemon spine passthrough so the native client's /v1/* calls resolve in the hybrid
