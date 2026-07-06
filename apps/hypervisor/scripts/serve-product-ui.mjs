@@ -2669,6 +2669,92 @@ function govCohortCard(c) {
     <p class="sub" style="margin:6px 0 0">Rollout eligibility matches member refs against DAEMON-DERIVED context (authenticated principal · known project) — never arbitrary caller text. Disabled cohorts never match.</p>
     <div class="row" style="margin-top:8px">${actions}</div></div>`;
 }
+// ---- Approvals queue (06-approvals graft) — the review-inbox grammar over the REAL
+// ApprovalRequest records: quick-filter inbox chips with counts, an enriched queue table
+// (target resolution link, blast radius from the record's own would_call/required_authority_refs,
+// age), a right proof/detail drawer, and in-row decisions. Everything rendered is a record field;
+// there is no requester column because the record does not carry one (single-operator estate —
+// shown honestly in the drawer). Decisions are the existing daemon transitions.
+function govSubjectLink(ref) {
+  const r = String(ref || "");
+  if (!r) return "—";
+  const code = `<code style="font-size:10.5px">${CX_ESC(r)}</code>`;
+  if (r.startsWith("domain-app://")) return `<a href="/__ioi/domain-apps/${encodeURIComponent(r.slice("domain-app://".length))}" style="text-decoration:none">${code} →</a>`;
+  if (r.startsWith("marketplace-")) return `<a href="/__ioi/marketplace" style="text-decoration:none">${code} →</a>`;
+  if (r.startsWith("failover-run://")) return `<a href="/__ioi/operations" style="text-decoration:none">${code} →</a>`;
+  if (r.startsWith("fspec_") || r.startsWith("frun_")) return `<a href="/__ioi/foundry" style="text-decoration:none">${code} →</a>`;
+  return code;
+}
+function govAge(iso) {
+  const ms = Date.now() - Date.parse(iso || "");
+  if (!isFinite(ms) || ms < 0) return "—";
+  const m = Math.floor(ms / 60000);
+  if (m < 1) return "just now";
+  if (m < 60) return `${m}m`;
+  const h = Math.floor(m / 60);
+  if (h < 48) return `${h}h ${m % 60}m`;
+  return `${Math.floor(h / 24)}d`;
+}
+function govApprovalsQueue(records) {
+  const enc = encodeURIComponent;
+  const byStatus = { pending: 0, approved: 0, rejected: 0, revoked: 0 };
+  for (const a of records) if (byStatus[a.status] != null) byStatus[a.status]++;
+  const pend = records.filter((a) => a.status === "pending");
+  const oldest = pend.length ? pend.reduce((o, a) => (String(a.created_at || "") < String(o.created_at || "") ? a : o)) : null;
+  const kinds = {};
+  for (const a of pend) kinds[a.request_kind || "approval"] = (kinds[a.request_kind || "approval"] || 0) + 1;
+  const chip = (val, label, n, on) => `<button class="chip${on ? " on" : ""}" data-aq-status="${val}" onclick="aqChip(this)">${label} ${n}</button>`;
+  const inbox = `<div class="chips" id="aq-inbox">
+    ${chip("pending", "Needs decision", byStatus.pending, true)}${chip("approved", "Approved", byStatus.approved, false)}${chip("rejected", "Rejected", byStatus.rejected, false)}${chip("revoked", "Revoked", byStatus.revoked, false)}${chip("", "All", records.length, false)}
+    <span class="sub" style="margin:0 0 0 8px">${pend.length ? `oldest pending <b>${govAge(oldest.created_at)}</b> · ${Object.entries(kinds).map(([k, n]) => `${CX_ESC(k)} ×${n}`).join(" · ")}` : "nothing waiting on a decision"}</span>
+  </div>`;
+  const blast = (a) => {
+    const wc = (a.would_call || []).length, ar = (a.required_authority_refs || []).length;
+    if (!wc && !ar) return `<span class="sub" style="margin:0">none declared</span>`;
+    return `${wc ? `<span class="pill warn">${wc} call${wc > 1 ? "s" : ""}</span>` : ""} ${ar ? `<span class="pill muted">${ar} authorit${ar > 1 ? "ies" : "y"}</span>` : ""}`;
+  };
+  const decide = (a) => a.status === "pending"
+    ? govTform("approvals", a.id, "approve", "Approve", "", `<input name="reviewer_ref" placeholder="reviewer" style="width:96px;padding:5px 8px;border-radius:8px;border:1px solid #2a2c33;background:#0e0f13;color:#e6e7ea;font:inherit;font-size:11.5px;margin-right:4px">`) + " " + govTform("approvals", a.id, "reject", "Reject", "ghost")
+    : a.status === "approved" ? govTform("approvals", a.id, "revoke", "Revoke", "ghost") : `<span class="sub" style="margin:0">terminal</span>`;
+  const rows = records.map((a, i) => `<tr class="wlrow" data-aq="${CX_ESC(a.status || "")}" data-i="${i}" onclick="aqOpen(${i})" style="${a.status !== "pending" ? "display:none" : ""}">
+      <td><b>${CX_ESC(a.request_kind || "approval")}</b><div style="color:#878a93;font-size:11px;margin-top:1px">${CX_ESC(String(a.reason || "").slice(0, 64) || "no reason recorded")} · <code style="font-size:10px">${CX_ESC(a.id || "")}</code></div></td>
+      <td onclick="event.stopPropagation()">${govSubjectLink(a.subject_ref)}</td>
+      <td>${blast(a)}</td>
+      <td title="${CX_ESC(a.created_at || "")}">${govAge(a.created_at)}</td>
+      <td><span class="pill ${a.status === "approved" ? "ok" : a.status === "pending" ? "warn" : "muted"}">${CX_ESC(a.status || "")}</span></td>
+      <td onclick="event.stopPropagation()">${decide(a)}</td>
+    </tr>`).join("");
+  const table = records.length
+    ? `<div class="wlwrap"><div><table><thead><tr><th>Request</th><th>Target</th><th>Blast radius</th><th>Age</th><th>Status</th><th>Decide</th></tr></thead><tbody id="aq-body">${rows}</tbody></table><div class="empty" id="aq-empty" style="display:${byStatus.pending ? "none" : ""}">Nothing in this view — pick another inbox chip.</div></div>
+       <div class="wldrawer" id="aq-drawer"><div class="sub" style="margin:0">Select a request to inspect its full record — blast radius, policy posture, decision history.</div></div></div>`
+    : `<div class="empty">No approval requests yet — governed work creates them when it parks at a gate, or record one below.</div>`;
+  const dataTag = `<script id="aq-data" type="application/json">${JSON.stringify(records).replace(/</g, "\\u003c")}</script>`;
+  const script = `<script>
+    var AQ=[];try{AQ=JSON.parse(document.getElementById('aq-data').textContent||'[]');}catch(e){}
+    function aqEsc(s){return String(s==null?'':s).replace(/[&<>]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;'}[c];});}
+    function aqChip(b){
+      document.querySelectorAll('#aq-inbox .chip').forEach(function(x){x.classList.toggle('on',x===b);});
+      var want=b.getAttribute('data-aq-status');var shown=0;
+      document.querySelectorAll('#aq-body .wlrow').forEach(function(r){var on=!want||r.getAttribute('data-aq')===want;r.style.display=on?'':'none';if(on)shown++;});
+      var e=document.getElementById('aq-empty');if(e)e.style.display=shown?'none':'';
+    }
+    function aqRow(k,v){return v?'<div class="wlk">'+aqEsc(k)+'</div><div class="wlv">'+v+'</div>':'';}
+    function aqOpen(i){
+      var a=AQ[i];if(!a)return;
+      document.querySelectorAll('#aq-body .wlrow').forEach(function(x){x.classList.toggle('selrow',x.getAttribute('data-i')==String(i));});
+      var h='<h3>'+aqEsc(a.request_kind||'approval')+' <span class="pill '+(a.status==='approved'?'ok':a.status==='pending'?'warn':'muted')+'">'+aqEsc(a.status)+'</span></h3>';
+      h+='<h4>Request</h4><div class="wlgrid">'+aqRow('Ref','<code>'+aqEsc(a.ref||a.id)+'</code>')+aqRow('Target','<code>'+aqEsc(a.subject_ref)+'</code>')+aqRow('Reason',aqEsc(a.reason||'not recorded'))+aqRow('Created',aqEsc(a.created_at))+aqRow('Requester','<span style="color:#878a93">not recorded — single-operator estate</span>')+'</div>';
+      h+='<h4>Blast radius</h4>';
+      var wc=a.would_call||[];var ar=a.required_authority_refs||[];
+      h+=wc.length?('<div class="wlgrid">'+wc.map(function(c,j){return aqRow('would call '+(j+1),'<code style="font-size:10.5px">'+aqEsc(typeof c==='string'?c:JSON.stringify(c))+'</code>');}).join('')+'</div>'):'<div class="sub" style="margin:0">no calls declared</div>';
+      h+=ar.length?('<div class="wlgrid" style="margin-top:6px">'+ar.map(function(c,j){return aqRow('authority '+(j+1),'<code style="font-size:10.5px">'+aqEsc(c)+'</code>');}).join('')+'</div>'):'';
+      if(a.enforcement_preview){h+='<h4>Policy posture</h4><pre style="font-size:10.5px;max-height:140px;overflow:auto">'+aqEsc(JSON.stringify(a.enforcement_preview,null,1))+'</pre>';}
+      h+='<h4>Decision</h4><div class="wlgrid">'+aqRow('Reviewer',aqEsc(a.reviewer_ref||'—'))+aqRow('Decided',aqEsc(a.decided_at||'—'))+aqRow('Updated',aqEsc(a.updated_at||'—'))+'</div>';
+      document.getElementById('aq-drawer').innerHTML=h;
+    }
+  </script>`;
+  return inbox + table + dataTag + script;
+}
 function govControlTab(fam, records, cohorts) {
   const forms = {
     "approvals": `<div class="two">${`<div class="field"><label>Target ref (required)</label><input name="subject_ref" ${GOV_INP} placeholder="marketplace-publish://… · domain-app://… · frun_… · authority-action://…"></div>`}<div class="field"><label>Request kind</label><input name="request_kind" ${GOV_INP} placeholder="crossing / publish / mount"></div></div><div class="field"><label>Reason</label><input name="reason" ${GOV_INP}></div><div class="field"><label>Required authority refs (comma-sep)</label><input name="required_authority_refs" ${GOV_INP}></div>`,
@@ -2681,7 +2767,9 @@ function govControlTab(fam, records, cohorts) {
   };
   const cardFn = { "approvals": govApprovalCard, "releases": govReleaseCard, "kill-switches": govKillCard, "gates": govGateCard, "cohorts": govCohortCard }[fam];
   const label = GOV_FAMS[fam].label;
-  const list = records.length ? records.map(cardFn).join("") : `<div class="empty">Control present · empty — no ${CX_ESC(label.toLowerCase())} recorded yet.</div>`;
+  // Approvals renders as the review-inbox QUEUE (06-approvals graft); other families keep cards.
+  const list = fam === "approvals" ? govApprovalsQueue(records)
+    : records.length ? records.map(cardFn).join("") : `<div class="empty">Control present · empty — no ${CX_ESC(label.toLowerCase())} recorded yet.</div>`;
   return `<h2>New ${CX_ESC(label.replace(/s$/, ""))}</h2><form method="post" action="/__ioi/governance/${fam}"><div class="card" style="display:block">${forms[fam]}<div class="row" style="margin-top:6px"><button class="act" type="submit">Create (record-only)</button></div></div></form>
     <h2>${CX_ESC(label)} (${records.length})</h2>${list}
     <p class="sub" style="margin-top:14px">Transitions record durable governance state. Effectful enforcement exists today for <b>KillSwitch</b> (Enforce, after trip) over domain-app runtimes; other control effects (lease/grant/connector/env revocation) remain later authority-gated crossings.</p>`;
