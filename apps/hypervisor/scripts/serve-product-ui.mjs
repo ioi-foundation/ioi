@@ -4615,6 +4615,46 @@ const server = http.createServer((req, res) => {
           // platform's build-worker registry.
           return sendJson({ data: { jobTypes: ["goal-run", "session", "automation-run"], transformTypes: [], __typename: "Query" } });
         }
+        // REBIND (Foundry model-catalog seed): the model-catalog home lists PALANTIR_PROVIDED
+        // reference models from the capture; the serve answers ModelCatalogHomeQuery with the
+        // DAEMON model-route registry instead — the catalog shows IOI's real routes, not captured
+        // vendor models. The captured response is used ONLY as a valid fragment ENVELOPE (the seed's
+        // deep LanguageModelV4 fragments must resolve to render a row); every identity/fact field is
+        // overwritten with daemon truth (model id, provider binding, default marker, availability→
+        // lifecycle: available=GA, else non-GA — never a faked GA), reference URLs are dropped, and
+        // the row count is the registry's own (1 local route today → a 1-model catalog, honest).
+        if (gqlOp && gqlOp.operationName === "ModelCatalogHomeQuery") {
+          try {
+            const [capResp, routesJson] = await Promise.all([
+              fetch(`${CAPTURE}/graphql-gateway/api/graphql`, { method: "POST", headers: { "content-type": "application/json" }, body }).then((r) => r.json()).catch(() => null),
+              fetch(`${DAEMON}/v1/hypervisor/model-routes`).then((r) => r.json()).catch(() => ({})),
+            ]);
+            const template = capResp && capResp.data && capResp.data.languageModelsV4 && (capResp.data.languageModelsV4.values || [])[0];
+            const routes = (routesJson && routesJson.routes) || [];
+            if (!template) return sendJson(capResp || { data: { languageModelsV4: { values: [], nextPageToken: null, __typename: "LanguageModelV4Connection" }, __typename: "Query" } });
+            const b64 = (s) => Buffer.from(String(s)).toString("base64");
+            const uuidOf = (s) => { let h1 = 0x811c9dc5, h2 = 0x811c9dc5; for (let i = 0; i < s.length; i++) { h1 = Math.imul(h1 ^ s.charCodeAt(i), 0x01000193) >>> 0; h2 = Math.imul(h2 ^ s.charCodeAt(s.length - 1 - i), 0x01000193) >>> 0; } const hx = (h1.toString(16).padStart(8, "0") + h2.toString(16).padStart(8, "0")).padEnd(32, "0"); return `${hx.slice(0, 8)}-${hx.slice(8, 12)}-${hx.slice(12, 16)}-${hx.slice(16, 20)}-${hx.slice(20, 32)}`; };
+            const models = routes.map((r) => {
+              const m = JSON.parse(JSON.stringify(template)); // clone the valid captured fragment structure
+              const pb = r.provider_binding || {};
+              const id = (r.model || {}).model_id || r.route_id;
+              const gaType = (r.availability || {}).state === "available" ? "LanguageModelLifecycleStatus_GA" : "LanguageModelLifecycleStatus_Deprecated";
+              m.name = id;
+              m.displayName = `${r.display_name || id}${r.default_route ? " (default)" : ""}`;
+              m.modelCreator = `${pb.provider_kind || "local"}${pb.transport ? " · " + pb.transport : ""}`;
+              m.rid = `ri.language-model-service.main.language-model.${uuidOf(r.route_ref || id)}`;
+              m._id = b64(r.route_ref || id);
+              if (m.originInfo) { m.originInfo.modelIdentifier = id; m.originInfo.recommended = !!r.default_route; }
+              if (m.resolvedDetails) {
+                m.resolvedDetails.lifecycleStatus = { __typename: gaType };
+                if (m.resolvedDetails.lifecycleStatusV2) m.resolvedDetails.lifecycleStatusV2 = { __typename: gaType };
+                if (m.resolvedDetails.properties) { m.resolvedDetails.properties.externalUrl = null; }
+              }
+              return m;
+            });
+            return sendJson({ data: { me: capResp.data.me, languageModelsV4: { nextPageToken: null, values: models, __typename: capResp.data.languageModelsV4.__typename }, __typename: "Query" } });
+          } catch (e) { return sendJson({ errors: [{ message: `daemon unreachable: ${e.message}` }] }, 502); }
+        }
         // Gate on the FIELD, not the operation name: the seed reads buildsV2 through
         // OverviewPageQuery and through its new-builds poller (a different operation with
         // the same field + a minStartTime filter).
