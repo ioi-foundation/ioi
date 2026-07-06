@@ -2633,6 +2633,17 @@ function odkReferencedBy(rec, lists, family) {
   return `<h2>Referenced by (${hits.length})</h2>` + (hits.length ? rows.join("") : `<div class="empty">No other ODK draft references this record yet.</div>`);
 }
 // ---- detail pages
+// ---- Proof citations (52-data-lineage graft — provenance ON the object). Every proof-stream
+// entry whose payload cites this record's ref, verbatim from the Work Ledger: reverse lineage
+// above shows which DRAFTS reference it, this shows which GOVERNED WORK touched it.
+function odkProofCitations(rec, lists) {
+  const ref = (rec || {}).ref || "";
+  const cits = ref ? ((lists || {}).ledger || []).filter((e) => JSON.stringify(e).includes(ref)) : [];
+  const rows = cits.slice(0, 5).map((e) => `<tr><td>${CX_ESC(e.kind || "")}</td><td><span class="pill ${(e.status === "done" || e.status === "success" || e.status === "ok") ? "ok" : "muted"}">${CX_ESC(e.status || "—")}</span></td><td>${CX_ESC(e.timestamp || "")}</td><td><code style="font-size:10px">${CX_ESC((e.state_root || "").slice(0, 18) || "—")}</code></td></tr>`).join("");
+  return `<div id="odk-proof-citations"><h2>Proof citations <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— proof-stream entries citing <code>${CX_ESC(ref)}</code></span></h2>
+    ${cits.length ? `<table><thead><tr><th>Kind</th><th>Status</th><th>When</th><th>Proof</th></tr></thead><tbody>${rows}</tbody></table><p class="sub" style="margin:6px 0 0">${cits.length} citation${cits.length === 1 ? "" : "s"} · <a href="/__ioi/work-ledger">Work Ledger →</a></p>`
+      : `<div class="empty">No proof-stream citations yet — receipts cite this ref when governed work touches it.</div>`}</div>`;
+}
 function renderOdkOntologyDetail(o, lists) {
   const chips = (arr) => (arr && arr.length) ? arr.map((x) => `<span class="pill muted">${CX_ESC(x)}</span>`).join(" ") : "—";
   const com = o.canonical_object_model || {};
@@ -2645,7 +2656,7 @@ function renderOdkOntologyDetail(o, lists) {
     <dt>Events</dt><dd>${chips(com.events)}</dd><dt>States</dt><dd>${chips(com.states)}</dd><dt>Roles</dt><dd>${chips(com.roles)}</dd>
     <dt>Created · updated</dt><dd>${CX_ESC(o.created_at || "")}<br><span class="sub" style="margin:0">${CX_ESC(o.updated_at || "")}</span></dd>
   </dl>`;
-  return automationsShell(o.domain || "Domain Ontology", `<p><a href="/__ioi/odk">← ODK</a></p><h1>${CX_ESC(o.domain || o.id)}</h1><p class="sub">DomainOntology · draft.</p>${odkDetailActions("ontologies", o.id)}${grid}${odkReferencedBy(o, lists, "ontologies")}`);
+  return automationsShell(o.domain || "Domain Ontology", `<p><a href="/__ioi/odk">← ODK</a></p><h1>${CX_ESC(o.domain || o.id)}</h1><p class="sub">DomainOntology · draft.</p>${odkDetailActions("ontologies", o.id)}${grid}${odkReferencedBy(o, lists, "ontologies")}${odkProofCitations(o, lists)}`);
 }
 function renderOdkRecipeDetail(r, lists) {
   const refrow = (label, arr) => `<dt>${label}</dt><dd>${(arr && arr.length) ? arr.map((x) => odkRefLink(x)).join(" ") : "—"}</dd>`;
@@ -2676,7 +2687,7 @@ function renderOdkRecipeDetail(r, lists) {
     ${refrow("Worker plan refs", r.worker_plan_refs)}${refrow("Workflow schema refs", r.workflow_schema_refs)}
     <dt>Created · updated</dt><dd>${CX_ESC(r.created_at || "")}<br><span class="sub" style="margin:0">${CX_ESC(r.updated_at || "")}</span></dd>
   </dl>`;
-  return automationsShell(r.name || "Data Recipe", `<p><a href="/__ioi/odk">← ODK</a></p><h1>${CX_ESC(r.name || r.id)}</h1><p class="sub">DataRecipe · draft. No transformation runs.</p>${odkDetailActions("data-recipes", r.id)}${chain}${grid}${odkReferencedBy(r, lists, "data-recipes")}`);
+  return automationsShell(r.name || "Data Recipe", `<p><a href="/__ioi/odk">← ODK</a></p><h1>${CX_ESC(r.name || r.id)}</h1><p class="sub">DataRecipe · draft. No transformation runs.</p>${odkDetailActions("data-recipes", r.id)}${chain}${grid}${odkReferencedBy(r, lists, "data-recipes")}${odkProofCitations(r, lists)}`);
 }
 function renderOdkDescriptorDetail(d, lists) {
   const isDA = d.composition_pattern === "domain_app";
@@ -2688,7 +2699,7 @@ function renderOdkDescriptorDetail(d, lists) {
     <dt>Recipe refs</dt><dd>${(d.recipe_refs && d.recipe_refs.length) ? d.recipe_refs.map((x) => odkRefLink(x)).join(" ") : "—"}</dd>
     <dt>Created · updated</dt><dd>${CX_ESC(d.created_at || "")}<br><span class="sub" style="margin:0">${CX_ESC(d.updated_at || "")}</span></dd>
   </dl>`;
-  return automationsShell(d.name || "Surface Descriptor", `<p><a href="/__ioi/odk">← ODK</a></p><h1>${CX_ESC(d.name || d.id)}</h1><p class="sub">OntologySurfaceDescriptor · draft.</p>${odkDetailActions("surface-descriptors", d.id)}${grid}${odkReferencedBy(d, lists, "surface-descriptors")}`);
+  return automationsShell(d.name || "Surface Descriptor", `<p><a href="/__ioi/odk">← ODK</a></p><h1>${CX_ESC(d.name || d.id)}</h1><p class="sub">OntologySurfaceDescriptor · draft.</p>${odkDetailActions("surface-descriptors", d.id)}${grid}${odkReferencedBy(d, lists, "surface-descriptors")}${odkProofCitations(d, lists)}`);
 }
 function renderOdkManifestDetail(m) {
   const refrow = (label, arr) => `<dt>${label}</dt><dd>${(arr && arr.length) ? arr.map((x) => odkRefLink(x)).join(" ") : "—"}</dd>`;
@@ -3052,7 +3063,7 @@ function govApprovalsQueue(records) {
   </script>`;
   return inbox + table + dataTag + script;
 }
-function govControlTab(fam, records, cohorts) {
+function govControlTab(fam, records, cohorts, joins) {
   const forms = {
     "approvals": `<div class="two">${`<div class="field"><label>Target ref (required)</label><input name="subject_ref" ${GOV_INP} placeholder="marketplace-publish://… · domain-app://… · frun_… · authority-action://…"></div>`}<div class="field"><label>Request kind</label><input name="request_kind" ${GOV_INP} placeholder="crossing / publish / mount"></div></div><div class="field"><label>Reason</label><input name="reason" ${GOV_INP}></div><div class="field"><label>Required authority refs (comma-sep)</label><input name="required_authority_refs" ${GOV_INP}></div>`,
     "releases": `<div class="field"><label>Release target ref (required)</label><input name="release_target_ref" ${GOV_INP} placeholder="frun_… · improvement-proposal://… · domain-app://… · marketplace-publish://…"></div>
@@ -3064,14 +3075,59 @@ function govControlTab(fam, records, cohorts) {
   };
   const cardFn = { "approvals": govApprovalCard, "releases": govReleaseCard, "kill-switches": govKillCard, "gates": govGateCard, "cohorts": govCohortCard }[fam];
   const label = GOV_FAMS[fam].label;
+  // ---- Cross-capability lifecycle matrix (release-controls native, first slice): each release
+  // gate joined to its target's LIVE object state — a gate over a serving app and a gate over a
+  // draft spec are different risks, and the matrix says which is which. Targets without a local
+  // join render as named refs, never guessed states.
+  const govLiveState = (ref) => {
+    const j = joins || {};
+    const r = String(ref || "");
+    if (r.startsWith("domain-app://")) {
+      const a = (j.domain_apps || []).find((x) => x.domain_app_ref === r);
+      if (!a) return ["unresolved", "warn"];
+      const rt = a.runtime_posture || {};
+      return [rt.serving ? "serving (internal)" : rt.mounted ? "mounted" : a.status || "draft", rt.serving || rt.mounted ? "ok" : "muted"];
+    }
+    if (r.startsWith("marketplace-publish://")) {
+      const c = (j.publish_candidates || []).find((x) => x.ref === r || `marketplace-publish://${x.id}` === r);
+      return c ? [c.status || "candidate", c.status === "published" ? "ok" : "muted"] : ["unresolved", "warn"];
+    }
+    if (r.startsWith("marketplace-listing://")) {
+      const l = (j.listings || []).find((x) => x.ref === r || `marketplace-listing://${x.id}` === r);
+      return l ? [l.status || "listed", "muted"] : ["unresolved", "warn"];
+    }
+    if (r.startsWith("fspec_")) {
+      const s = (j.foundry_specs || []).find((x) => x.id === r);
+      return s ? [s.status || "draft", "muted"] : ["unresolved", "warn"];
+    }
+    if (r.startsWith("frun_")) {
+      const pl = (j.foundry_plans || []).find((x) => x.id === r);
+      return pl ? [pl.status || "draft", "muted"] : ["unresolved", "warn"];
+    }
+    return ["named ref — no local join", "muted"];
+  };
+  const lifecycleMatrix = fam === "releases" && records.length ? `<div id="gov-lifecycle-matrix"><h2>Lifecycle matrix <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— every release gate against its target's live state; unjoined targets stay named, never guessed</span></h2>
+    <table><thead><tr><th>Target</th><th>Gate</th><th>Rollout</th><th>Live state</th><th>Promotion</th><th>Flags</th></tr></thead><tbody>
+    ${records.map((rc) => {
+      const [live, liveCls] = govLiveState(rc.release_target_ref);
+      return `<tr>
+        <td><code style="font-size:10.5px">${CX_ESC(rc.release_target_ref || "—")}</code></td>
+        <td><span class="pill ${rc.state === "open" ? "ok" : "muted"}">${CX_ESC(rc.state || "closed")}</span></td>
+        <td>${CX_ESC(rc.rollout_mode || "full")}${rc.canary_percent != null ? ` ${CX_ESC(String(rc.canary_percent))}%` : ""}</td>
+        <td><span class="pill ${liveCls}">${CX_ESC(live)}</span></td>
+        <td>${rc.promoted_at ? `<span class="pill ok">promoted</span>` : "—"}</td>
+        <td>${rc.rollback_requested ? `<span class="pill warn">rollback</span>` : ""}${rc.recall_requested ? ` <span class="pill warn">recall</span>` : ""}${!rc.rollback_requested && !rc.recall_requested ? "—" : ""}</td>
+      </tr>`;
+    }).join("")}</tbody></table></div>` : "";
   // Approvals renders as the review-inbox QUEUE (06-approvals graft); other families keep cards.
   const list = fam === "approvals" ? govApprovalsQueue(records)
+    : fam === "releases" ? lifecycleMatrix + (records.length ? records.map(cardFn).join("") : `<div class="empty">Control present · empty — no ${CX_ESC(label.toLowerCase())} recorded yet.</div>`)
     : records.length ? records.map(cardFn).join("") : `<div class="empty">Control present · empty — no ${CX_ESC(label.toLowerCase())} recorded yet.</div>`;
   return `<h2>New ${CX_ESC(label.replace(/s$/, ""))}</h2><form method="post" action="/__ioi/governance/${fam}"><div class="card" style="display:block">${forms[fam]}<div class="row" style="margin-top:6px"><button class="act" type="submit">Create (record-only)</button></div></div></form>
     <h2>${CX_ESC(label)} (${records.length})</h2>${list}
     <p class="sub" style="margin-top:14px">Transitions record durable governance state. Effectful enforcement exists today for <b>KillSwitch</b> (Enforce, after trip) over domain-app runtimes; other control effects (lease/grant/connector/env revocation) remain later authority-gated crossings.</p>`;
 }
-function renderGovernance(ov, controls, tab) {
+function renderGovernance(ov, controls, tab, joins) {
   const o = ov || {};
   tab = tab || "overview";
   controls = controls || {};
@@ -3201,7 +3257,7 @@ function renderGovernance(ov, controls, tab) {
     + `<p class="sub" style="margin-top:20px">Related: <a href="/__ioi/operations">Operations</a> · <a href="/__ioi/work-ledger">Work Ledger</a> · <a href="/__ioi/connections">Developer &amp; Integrations</a></p>`;
 
   const body = (tab !== "overview" && GOV_FAMS[tab])
-    ? govControlTab(tab, controls[GOV_FAMS[tab].listKey] || [], controls.cohorts || [])
+    ? govControlTab(tab, controls[GOV_FAMS[tab].listKey] || [], controls.cohorts || [], joins)
     : overviewBody;
 
   const inner = head + banner + summary + govTabBar(tab) + body;
@@ -5720,16 +5776,18 @@ const server = http.createServer((req, res) => {
             // Detail also loads the sibling family lists (same endpoints the landing uses) so the
             // renderer can compute REVERSE lineage — which drafts reference this record.
             const J2 = (p) => fetch(`${DAEMON}${p}`).then((x) => x.json()).catch(() => ({}));
-            const [rec, oL, rL, dL, mL] = await Promise.all([
+            const [rec, oL, rL, dL, mL, wl] = await Promise.all([
               fetch(`${DAEMON}${api}/${encodeURIComponent(id)}`).then((x) => x.json()).catch(() => ({})),
               J2("/v1/hypervisor/odk/domain-ontologies"),
               J2("/v1/hypervisor/odk/data-recipes"),
               J2("/v1/hypervisor/odk/surface-descriptors"),
               J2("/v1/hypervisor/odk/manifests"),
+              J2("/v1/hypervisor/work-ledger"),
             ]);
             const lists = {
               ontologies: oL.ontologies || [], data_recipes: rL.data_recipes || [],
               surface_descriptors: dL.surface_descriptors || [], manifests: mL.manifests || [],
+              ledger: wl.entries || [],
             };
             res.writeHead(200, HTMLH);
             res.end(rec.ok ? cfg.detail(rec[cfg.key], lists) : automationsShell("Not found", `<div class="empty">Not found.</div><p><a href="/__ioi/odk">← ODK</a></p>`));
@@ -5829,13 +5887,18 @@ const server = http.createServer((req, res) => {
     if (pathname === "/__ioi/governance" && req.method === "GET") {
       const tab = new URL(req.url, "http://x").searchParams.get("tab") || "overview";
       const J = (p) => fetch(`${DAEMON}${p}`).then((r) => r.json()).catch(() => ({}));
-      const [ov, ap, rl, ks, ig, co] = await Promise.all([
+      const [ov, ap, rl, ks, ig, co, da, mpc, mls, fsp, frp] = await Promise.all([
         J("/v1/hypervisor/governance/overview"),
         J("/v1/hypervisor/governance/approval-requests"),
         J("/v1/hypervisor/governance/release-controls"),
         J("/v1/hypervisor/governance/kill-switches"),
         J("/v1/hypervisor/governance/improvement-gates"),
         J("/v1/hypervisor/governance/cohorts"),
+        J("/v1/hypervisor/domain-apps"),
+        J("/v1/hypervisor/marketplace/publish-candidates"),
+        J("/v1/hypervisor/marketplace/listings"),
+        J("/v1/hypervisor/foundry/specs"),
+        J("/v1/hypervisor/foundry/run-plans"),
       ]);
       res.writeHead(200, HTMLH);
       res.end(renderGovernance(ov, {
@@ -5844,7 +5907,13 @@ const server = http.createServer((req, res) => {
         kill_switches: ks.kill_switches || [],
         improvement_gates: ig.improvement_gates || [],
         cohorts: co.cohorts || [],
-      }, tab));
+      }, tab, {
+        domain_apps: da.domain_apps || [],
+        publish_candidates: mpc.publish_candidates || mpc.candidates || [],
+        listings: mls.listings || [],
+        foundry_specs: fsp.specs || [],
+        foundry_plans: frp.run_plans || [],
+      }));
       return;
     }
     // Governance control-object mutations (record-only; the daemon executes no enforcement).
