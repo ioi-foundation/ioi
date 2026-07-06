@@ -538,7 +538,7 @@ function renderAutomationsList(automations, projectId, projectsById) {
   const newHref = `/__ioi/automations/new${projectId ? `?project=${encodeURIComponent(projectId)}` : ""}`;
   const head = `<h1>Automations</h1>
     <p class="sub">Project-scoped durable work — each automation hangs off a project, runs on the daemon over a real environment, and records a tamper-evident transcript. ${projectId ? `Filtered to <b>${CX_ESC(filtName)}</b> · <a href="/__ioi/automations">show all</a>` : "Showing all projects."}</p>
-    <div class="row"><a class="act" href="${newHref}">+ New automation</a></div>`;
+    <div class="row"><a class="act" href="${newHref}">+ New automation</a><a class="act ghost" href="/__apps/monitors">Monitor wizard seed (adopting) →</a></div>`;
   if (!automations.length) {
     return automationsShell("Automations", head + `<div class="empty">No automations yet${projectId ? " for this project" : ""} — create one to get started.</div>`);
   }
@@ -849,7 +849,7 @@ function renderHome(ops, ledger, sessions, approvals, failoverRuns) {
       <td><span class="pill ${(e.status === "done" || e.status === "success" || e.status === "accepted" || e.status === "ok" || e.status === "published") ? "ok" : (e.status === "failed" || e.status === "failure" || e.status === "rejected" || String(e.status || "").includes("missing") || String(e.status || "").includes("mismatch")) ? "warn" : "muted"}">${CX_ESC(e.status || "—")}</span></td>
       <td>${CX_ESC(e.timestamp || "")}</td>
       <td><code>${CX_ESC((e.state_root || "").slice(0, 20) || "—")}</code></td>
-    </tr>`).join("")}</tbody></table><p class="sub" style="margin:8px 0 0"><a href="/__ioi/work-ledger">Open Work Ledger →</a></p>` : "";
+    </tr>`).join("")}</tbody></table><p class="sub" style="margin:8px 0 0"><a href="/__ioi/work-ledger">Open Provenance →</a></p>` : "";
 
   const allDown = ops === null && ledger === null && sessions === null && approvals === null && failoverRuns === null;
   const degraded = allDown ? `<div class="empty" id="home-degraded" style="border-color:#5c4a23;color:#d6a13a">Daemon unreachable — Home shows nothing rather than fixtures. Start the hypervisor daemon and reload.</div>` : "";
@@ -864,7 +864,7 @@ function renderHome(ops, ledger, sessions, approvals, failoverRuns) {
     ${strip("home-decisions", "Needs your decision", "governed work parks at the approval gate; approving is an act in Governance, never here", approvals, "Nothing is waiting on you — no pending approval requests.", decisionsBody)}
     ${strip("home-blocked", "Blocked", "runs parked at a wallet gate or failed — each links to the owning surface", blockedUnavail ? null : { any: blockedRows }, "No runs are parked or failing.", blockedBody)}
     ${strip("home-resume", "Resume", "recent sessions and still-running work", sessions, "No sessions yet — open the rail's New Session launcher to start governed work.", resumeBody)}
-    ${strip("home-proof", "Newest proof", "the most recent Work Ledger entries, verbatim", ledger, "No admitted work yet — the proof stream is empty.", proofBody)}`;
+    ${strip("home-proof", "Newest proof", "the most recent Provenance entries, verbatim", ledger, "No admitted work yet — the proof stream is empty.", proofBody)}`;
   return automationsShell("Governed Work Readout", inner);
 }
 
@@ -900,13 +900,13 @@ function renderFeedbackQueue(ov, entries, flash) {
     <div class="field"><label>Consent (evidence eligibility — never_train fails conversion closed, by design)</label><select name="consent" style="width:100%;padding:8px 10px;border-radius:8px;border:1px solid #2a2c33;background:#0e0f13;color:#e6e7ea;font:inherit">${ladder.map((c) => `<option value="${c}">${c}</option>`).join("")}</select></div>
     <div class="row" style="margin-top:6px"><button class="act" type="submit">Record entry</button></div></div></form>`;
   const flashHtml = flash ? `<div class="card" style="display:block;border-color:#5c4a23"><b style="color:#d6a13a">Refused:</b> <span class="sub" style="margin:0;text-transform:none;letter-spacing:0">${CX_ESC(flash)}</span></div>` : "";
-  const inner = `<h1>Feedback &amp; Annotations</h1><p class="sub">Durable operator feedback over real subjects, each carrying its evidence-eligibility consent from the moment it is recorded. Converting an entry into an eval/training candidate is a NAMED handoff the daemon gates on consent — nothing trains here. <a href="/__ioi/work-ledger">Proof stream →</a></p>
+  const inner = `<h1>Evaluations</h1><p class="sub">Feedback &amp; annotations — the live slice of Evaluations. Durable operator feedback over real subjects, each carrying its evidence-eligibility consent from the moment it is recorded. Converting an entry into an eval/training candidate is a NAMED handoff the daemon gates on consent — nothing trains here. <a href="/__ioi/work-ledger">Proof stream →</a></p>
     ${flashHtml}${form}
     <h2>Queue (${entries.length})</h2>
     ${entries.length ? `${chips}<table><thead><tr><th>Entry</th><th>Subject</th><th>Consent</th><th>Status</th><th>Created</th><th>Act</th></tr></thead><tbody id="fb-body">${entries.map(row).join("")}</tbody></table><div class="empty" id="fb-empty" style="display:none">No entries in this state.</div>
     <script>function fbChip(b){document.querySelectorAll('#fb-chips .chip').forEach(function(x){x.classList.toggle('on',x===b);});var w=b.getAttribute('data-fb');var n=0;document.querySelectorAll('#fb-body tr').forEach(function(r){var on=!w||r.getAttribute('data-fb')===w;r.style.display=on?'':'none';if(on)n++;});document.getElementById('fb-empty').style.display=n?'none':'';}</script>`
     : `<div class="empty">No feedback yet — record what governed work got right or wrong, with its consent posture, and it becomes safely convertible evidence.</div>`}`;
-  return automationsShell("Feedback & Annotations", inner);
+  return automationsShell("Evaluations", inner);
 }
 
 // ---- Search (67-search graft) — typed cross-estate discovery with open-action handoffs.
@@ -986,30 +986,37 @@ function renderSessionsRoot(sessionsRes, envSummary) {
 }
 
 function renderApplications() {
-  const SURFACES = [
-    { icon: "🧰", name: "Workbench", desc: "Enter an environment's live console — files, terminal, ports, tasks.", href: "/__ioi/workbench", status: "live" },
-    { icon: "🖥", name: "Environments", desc: "Lifecycle, readiness, services/ports/tasks, substrate posture.", href: "/__ioi/environments", status: "live" },
-    { icon: "🧪", name: "Agent Studio", desc: "Agent inventory, model routes, runner adapters, and activity.", href: "/__ioi/agent-studio", status: "live" },
-    { icon: "🏗", name: "Foundry", desc: "Capability factory — draft specs, run plans, promotion previews over real model substrate.", href: "/__ioi/foundry", status: "live" },
-    { icon: "📦", name: "ODK", desc: "Ontology Development Kit — draft ontologies, data recipes, surface descriptors, manifests.", href: "/__ioi/odk", status: "live" },
-    { icon: "🧩", name: "Domain Apps", desc: "Draft app candidates over ODK domain_app descriptors (no runtime yet).", href: "/__ioi/domain-apps", status: "live" },
-    { icon: "🔌", name: "Developer & Integrations", desc: "Connectors, MCP, sealed credentials, and developer tools.", href: "/__ioi/connections", status: "live" },
-    { icon: "🛡", name: "Governance", desc: "Control lens — authority, identity, leases, revocation, release/improvement candidates, gaps.", href: "/__ioi/governance", status: "live" },
-    { icon: "⚙", name: "Operations", desc: "Execution health — scheduler, runs, failures, webhooks.", href: "/__ioi/operations", status: "live" },
-    { icon: "📒", name: "Work Ledger", desc: "Unified proof stream — runs, trigger receipts, state roots, timeline links.", href: "/__ioi/work-ledger", status: "live" },
-    { icon: "🛒", name: "Marketplace", desc: "Catalog & admission — list agents/apps/packs/capabilities, run publish candidates & admission reviews (admission-only).", href: "/__ioi/marketplace", status: "live" },
+  // The autonomous-systems suite + the substrate lane (canon: core-clients-surfaces.md "The
+  // Autonomous-Systems Application Suite"; detail: internal-docs/prompts/autonomous-systems-
+  // suite/suite-guide.md). Every href opens a REAL surface today; where a suite identity is
+  // wider than its current surface, the copy names what is live and what is adopting.
+  const SUITE = [
+    { icon: "🎨", name: "Studio", desc: "Compose systems & agents — agent lens live (inventory, model routes, runner adapters); system canvas adopting.", href: "/__ioi/agent-studio" },
+    { icon: "⚡", name: "Automations", desc: "Durable triggers, schedules, monitors, services — condition → governed effect.", href: "/__ioi/automations" },
+    { icon: "🌐", name: "Grounding", desc: "What systems may see — ontologies, data recipes, surface descriptors, manifests, consent posture.", href: "/__ioi/odk" },
+    { icon: "🛡", name: "Governance", desc: "Authority — approvals, identity, leases, revocation, release gates, kill switches, budgets, gaps.", href: "/__ioi/governance" },
+    { icon: "🚀", name: "Missions", desc: "Fleet of running systems — sessions root live; dedicated fleet console adopting.", href: "/__ioi/sessions" },
+    { icon: "📒", name: "Provenance", desc: "Proof plane — unified receipts stream, state roots, timelines live; lineage canvas adopting.", href: "/__ioi/work-ledger" },
+    { icon: "🧪", name: "Evaluations", desc: "Feedback with evidence-eligibility consent + eval handoffs live; suites & scorecards adopting.", href: "/__ioi/feedback" },
+    { icon: "📈", name: "Improvement", desc: "Proposals, what-if simulation, apply-under-gates — proposal lane live; change inbox adopting.", href: "/__ioi/agent-studio#improvement-proposals" },
+    { icon: "🏗", name: "Foundry", desc: "Model substrate — catalog, routes, draft specs, run plans, promotion previews.", href: "/__ioi/foundry" },
+    { icon: "🛒", name: "Marketplace", desc: "Distribution — listings, publish candidates, admission reviews (admission-only).", href: "/__ioi/marketplace" },
+    { icon: "🧰", name: "Workbench", desc: "Enter an environment's live console — files, terminal, ports, tasks.", href: "/__ioi/workbench" },
+    { icon: "🔌", name: "Developer Console", desc: "Extend the environment — connectors, MCP, sealed credentials, SDK on-ramps, developer tools.", href: "/__ioi/connections" },
   ];
-  const pillFor = (s) => s.status === "live"
-    ? `<span class="pill ok">open</span>`
-    : s.status === "contextual" ? `<span class="pill muted">in a session</span>` : `<span class="pill muted">planned</span>`;
+  const SUBSTRATE = [
+    { icon: "🖥", name: "Environments", desc: "Lifecycle, readiness, services/ports/tasks, kernel-boundary posture.", href: "/__ioi/environments" },
+    { icon: "⚙", name: "Operations", desc: "Infrastructure — scheduler health, providers, placement/failover, storage custody, capacity, spend.", href: "/__ioi/operations" },
+  ];
   const card = (s) => {
-    const inner = `<div class="main"><div class="name">${s.icon} ${CX_ESC(s.name)}${pillFor(s)}</div><div class="meta">${CX_ESC(s.desc)}</div></div>`;
-    return s.href ? `<a class="card" href="${s.href}">${inner}<span class="act ghost">Open →</span></a>` : `<div class="card">${inner}</div>`;
+    const inner = `<div class="main"><div class="name">${s.icon} ${CX_ESC(s.name)}<span class="pill ok">open</span></div><div class="meta">${CX_ESC(s.desc)}</div></div>`;
+    return `<a class="card" href="${s.href}">${inner}<span class="act ghost">Open →</span></a>`;
   };
-  const body = SURFACES.map(card).join("");
   return automationsShell(
     "Applications",
-    `<h1>Applications</h1><p class="sub">The IOI surface estate — open applications beyond the core rail (Home · Projects · Automations). Developer &amp; Integrations is the home for connectors, MCP, and credentials. Home's governed-work band expands into the <a href="/__ioi/home">full readout</a>.</p>${body}`,
+    `<h1>Applications</h1><p class="sub">The autonomous-systems suite — compose, ground, govern, run, prove, evaluate, improve, package, distribute, operate. Generated apps land here as launchable entries. Home's governed-work band expands into the <a href="/__ioi/home">full readout</a>.</p>${SUITE.map(card).join("")}
+    <h2 style="margin-top:26px">Substrate</h2><p class="sub">The type 1 + 2 hypervisor face — the foundation the suite runs on, kept distinct from it.</p>${SUBSTRATE.map(card).join("")}
+    <h2 style="margin-top:26px">Horizon</h2><div class="card"><div class="main"><div class="name">🤖 HypervisorOS<span class="pill muted">horizon</span></div><div class="meta">Embodied systems lane over the same governed substrate — named only; no surfaces yet.</div></div></div>`,
   );
 }
 
@@ -1021,12 +1028,12 @@ function renderWorkLedger(entries, scopedProject) {
   const scope = scopedProject
     ? `<p class="sub" style="margin:-10px 0 16px"><span class="pill ok">project: ${CX_ESC(scopedProject)}</span> · <a href="/__ioi/work-ledger">view all projects →</a></p>`
     : "";
-  const head = `<h1>Work Ledger</h1><p class="sub">One chronological proof stream of admitted work — runs and trigger receipts across every project and automation, each with its state root and a link to the full timeline.</p>${scope}`;
+  const head = `<h1>Provenance</h1><p class="sub"><a href="/__apps/lineage">Lineage canvas seed (adopting) →</a> · The proof plane — one chronological stream of admitted work — runs and trigger receipts across every project and automation, each with its state root and a link to the full timeline.</p>${scope}`;
   if (!entries.length) {
     const msg = scopedProject
       ? "No admitted work yet for this project. Run one of its automations to create ledger evidence."
       : "No admitted work yet. Run an automation to create ledger evidence.";
-    return automationsShell("Work Ledger", head + `<div class="empty">${msg}</div>`);
+    return automationsShell("Provenance", head + `<div class="empty">${msg}</div>`);
   }
   const projects = [...new Set(entries.map((e) => e.project_id).filter(Boolean))];
   const chip = (f, v, label) => `<button class="chip" data-facet="${f}" data-val="${v}" onclick="wlChip(this)">${label}</button>`;
@@ -1137,7 +1144,7 @@ function renderWorkLedger(entries, scopedProject) {
       document.querySelectorAll('.wlrow').forEach(function(r){r.classList.toggle('selrow',r.dataset.i==String(i));});
     }
   </script>`;
-  return automationsShell("Work Ledger", head + filters + proofExp + `<div class="wlwrap"><div>${table}</div>${drawer}</div>` + dataTag + script);
+  return automationsShell("Provenance", head + filters + proofExp + `<div class="wlwrap"><div>${table}</div>${drawer}</div>` + dataTag + script);
 }
 
 // ---- Operations — the first real Operations estate card: execution health over the automation
@@ -1379,8 +1386,8 @@ function renderOperations(ops, authpol, prov, provReceipts, spendRecon, storageB
   const workAnalytics = `<div id="ops-work-analytics"><h2>Work Analytics <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— funnels over the proof stream; deeper latency percentiles are not recorded yet (named gap)</span></h2>
     <div class="chips" style="margin:0 0 8px"><span class="chiplabel">run funnel</span><span class="pill muted">total ${waTotal}</span><span class="pill ok">done ${runs.done || 0}</span><span class="pill warn">failed ${runs.failed || 0}</span><span class="pill muted">running ${runs.running || 0}</span><span class="pill ${waFailRate > 20 ? "warn" : "muted"}">failure rate ${waFailRate}%</span></div>
     <div class="chips" style="margin:0 0 8px"><span class="chiplabel">ledger kinds</span>${Object.entries(waKinds).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([k, n]) => `<span class="pill muted">${CX_ESC(k)} ${n}</span>`).join("") || `<span class="sub" style="margin:0">no entries yet</span>`}</div>
-    <p class="sub" style="margin:4px 0 0">${(runs.failed || 0) > 0 ? `${runs.failed} failed run${runs.failed > 1 ? "s are" : " is an"} improvement candidate${runs.failed > 1 ? "s" : ""} — mine them in <a href="/__ioi/agent-studio">Agent Studio →</a>` : "No failed runs — nothing to mine right now."} · capture operator judgment in <a href="/__ioi/feedback">Feedback &amp; Annotations →</a></p></div>`;
-  const inner = `<h1>Operations</h1><p class="sub">What is running, what fired, what failed, what needs attention — every execution kind in one queue, grounded in the owning projections. Select an automation run to inspect and act on it in place. <a href="/__ioi/work-ledger">Open Work Ledger →</a></p>
+    <p class="sub" style="margin:4px 0 0">${(runs.failed || 0) > 0 ? `${runs.failed} failed run${runs.failed > 1 ? "s are" : " is an"} improvement candidate${runs.failed > 1 ? "s" : ""} — mine them in <a href="/__ioi/agent-studio">Studio →</a>` : "No failed runs — nothing to mine right now."} · capture operator judgment in <a href="/__ioi/feedback">Feedback &amp; Annotations →</a></p></div>`;
+  const inner = `<h1>Operations</h1><p class="sub">What is running, what fired, what failed, what needs attention — every execution kind in one queue, grounded in the owning projections. Select an automation run to inspect and act on it in place. <a href="/__ioi/work-ledger">Open Provenance →</a></p>
     <div id="ops-jobs"><h2>Jobs <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— automation runs · harness executions · IOI Agent coordination · failover recovery, newest first</span></h2>${jobsSection}${jobsScript}</div>
     ${workAnalytics}
     <h2>Scheduler</h2>${schedSection}
@@ -1922,7 +1929,7 @@ function renderIntelMemory(entries, proposals, projections, review) {
     <div class="name">${CX_ESC(e.title || e.entry_id)} ${intelStatusPill(e.status)}<span class="pill ${e.quality_state === "accepted" || !e.quality_state ? "ok" : e.quality_state === "disputed" || e.quality_state === "superseded" ? "warn" : "muted"}">${CX_ESC(e.quality_state || "accepted")}</span><span class="pill ${e.sensitivity === "secret" ? "warn" : e.sensitivity === "private" ? "warn" : "muted"}">${CX_ESC(e.sensitivity || "normal")}</span><span class="pill muted">${CX_ESC(e.entry_kind || "")}</span></div>
     <div class="meta"><code>${CX_ESC(e.entry_ref || "")}</code>${e.sensitivity === "secret" ? " · <i>body never projected</i>" : e.body ? ` · ${CX_ESC(String(e.body).slice(0, 96))}` : ""}</div>
     <div class="chips" style="margin:6px 0 0">${(e.compatible_harness_refs || []).map((r) => `<span class="pill muted">${CX_ESC(String(r).replace("harness-profile:hp_", ""))} only</span>`).join("")}${(e.connector_refs || []).map((r) => `<span class="pill muted">via ${CX_ESC(String(r).slice(0, 28))}</span>`).join("")}${e.expires_at ? `<span class="pill warn">expires ${CX_ESC(e.expires_at)}</span>` : ""}${e.supersedes_ref ? `<span class="pill muted">supersedes ${CX_ESC(String(e.supersedes_ref).slice(-14))}</span>` : ""}${e.superseded_by_ref ? `<span class="pill warn">superseded by ${CX_ESC(String(e.superseded_by_ref).slice(-14))}</span>` : ""}${(e.lifecycle_history || []).length ? `<span class="pill muted" title="${CX_ESC((e.lifecycle_history || []).map((h) => `${h.transition}: ${h.reason}`).join(" · "))}">${(e.lifecycle_history || []).length} transition${(e.lifecycle_history || []).length > 1 ? "s" : ""} · receipted</span>` : ""}</div>
-    ${e.status === "active" ? `<div class="row" style="margin:6px 0 0;gap:6px">${e.quality_state === "candidate" || e.quality_state === "disputed" ? `<form class="inline" method="post" action="/__ioi/agent-studio/intel/memory/${encodeURIComponent(e.entry_id)}/lifecycle"><input type="hidden" name="transition" value="promote"><input type="hidden" name="reason" value="operator promoted from Agent Studio"><button class="act" style="padding:4px 10px;font-size:11.5px" type="submit">Promote</button></form>` : ""}${e.quality_state !== "disputed" && e.quality_state !== "superseded" ? `<form class="inline" method="post" action="/__ioi/agent-studio/intel/memory/${encodeURIComponent(e.entry_id)}/lifecycle"><input type="hidden" name="transition" value="dispute"><input type="hidden" name="reason" value="operator disputed from Agent Studio"><button class="act ghost" style="padding:4px 10px;font-size:11.5px" type="submit">Dispute</button></form><form class="inline" method="post" action="/__ioi/agent-studio/intel/memory/${encodeURIComponent(e.entry_id)}/lifecycle"><input type="hidden" name="transition" value="mark_stale"><input type="hidden" name="reason" value="operator marked stale from Agent Studio"><button class="act ghost" style="padding:4px 10px;font-size:11.5px" type="submit">Mark stale</button></form>` : ""}</div>` : ""}
+    ${e.status === "active" ? `<div class="row" style="margin:6px 0 0;gap:6px">${e.quality_state === "candidate" || e.quality_state === "disputed" ? `<form class="inline" method="post" action="/__ioi/agent-studio/intel/memory/${encodeURIComponent(e.entry_id)}/lifecycle"><input type="hidden" name="transition" value="promote"><input type="hidden" name="reason" value="operator promoted from Studio"><button class="act" style="padding:4px 10px;font-size:11.5px" type="submit">Promote</button></form>` : ""}${e.quality_state !== "disputed" && e.quality_state !== "superseded" ? `<form class="inline" method="post" action="/__ioi/agent-studio/intel/memory/${encodeURIComponent(e.entry_id)}/lifecycle"><input type="hidden" name="transition" value="dispute"><input type="hidden" name="reason" value="operator disputed from Studio"><button class="act ghost" style="padding:4px 10px;font-size:11.5px" type="submit">Dispute</button></form><form class="inline" method="post" action="/__ioi/agent-studio/intel/memory/${encodeURIComponent(e.entry_id)}/lifecycle"><input type="hidden" name="transition" value="mark_stale"><input type="hidden" name="reason" value="operator marked stale from Studio"><button class="act ghost" style="padding:4px 10px;font-size:11.5px" type="submit">Mark stale</button></form>` : ""}</div>` : ""}
     </div><div>${intelActions("memory", e.entry_id, e.status)}</div></div>`).join("");
   const form = `<details style="margin-top:12px"><summary class="act ghost" style="display:inline-block;cursor:pointer">+ New memory entry</summary>
     <form method="post" action="/__ioi/agent-studio/intel/memory" style="margin-top:10px;max-width:640px">
@@ -2163,11 +2170,11 @@ function renderAgentStudio(agents, profiles, routes, providers, conversations, r
     ? agents.filter((a) => `${a.id || ""} ${pickv(a, "model_id", "modelId") || ""}`.toLowerCase().includes(qn))
     : agents;
   const activeCount = agents.filter((a) => (a.status || "") === "active").length;
-  const head = `<h1>Agent Studio</h1><p class="sub">The agent estate — every configured agent, its model route and runtime posture, the platform's harness adapters, and recent activity. Author and operate agents here; <a href="/__ioi/automations">put one to work in an Automation →</a></p>`;
+  const head = `<h1>Studio</h1><p class="sub"><a href="/__apps/designer">System canvas seed (adopting) →</a> · Compose systems &amp; agents. The agent lens is live — the agent estate — every configured agent, its model route and runtime posture, the platform's harness adapters, and recent activity. Author and operate agents here; <a href="/__ioi/automations">put one to work in an Automation →</a></p>`;
   const styles = `<style>.wrap{max-width:1180px}.asgrid{display:grid;grid-template-columns:248px 1fr;gap:20px;align-items:start}.aslist{position:sticky;top:16px;max-height:82vh;overflow:auto;display:flex;flex-direction:column;gap:6px}.asrow{display:block;padding:10px 12px;border:1px solid #24262d;border-radius:10px;background:#15171c;text-decoration:none;color:inherit}.asrow:hover{border-color:#3a82f6}.asrow.sel{border-color:#3a82f6;box-shadow:0 0 0 1px #3a82f6 inset}.asrow .nm{font-weight:600;color:#fff;font-size:12.5px}.asrow .ml{color:#878a93;font-size:11.5px;margin-top:2px;word-break:break-all}.asearch{width:100%;box-sizing:border-box;padding:9px 12px;border-radius:9px;border:1px solid #2a2c33;background:#0e0f13;color:#e6e7ea;font:inherit;margin-bottom:10px}</style>`;
   if (!agents.length) {
     // Registry truth still renders without agents — routes exist independently of the agent estate.
-    return automationsShell("Agent Studio", styles + head + `<div class="empty">No agents yet. An agent is created when you start a session or run an automation — once one exists it will appear here with its model route, runtime posture, and activity.</div>` + renderModelRouteRegistry(modelRoutes) + renderLaunchPolicies(launchPolicies, profiles));
+    return automationsShell("Studio", styles + head + `<div class="empty">No agents yet. An agent is created when you start a session or run an automation — once one exists it will appear here with its model route, runtime posture, and activity.</div>` + renderModelRouteRegistry(modelRoutes) + renderLaunchPolicies(launchPolicies, profiles));
   }
   // Selected agent (query ?agent=, else first of the filtered list).
   const sel = filtered.find((a) => a.id === selId) || filtered[0] || agents[0];
@@ -2331,7 +2338,7 @@ function renderAgentStudio(agents, profiles, routes, providers, conversations, r
   </script>`;
   const right = `<div><div class="row" style="margin-bottom:2px"><h2 style="margin:0">${CX_ESC(agentShort(a.id))}</h2><span class="pill ${(a.status || "") === "active" ? "ok" : "muted"}">${CX_ESC(a.status || "—")}</span></div>${tabBar}${panels}${tabScript}</div>`;
   const body = `<div class="row" style="justify-content:space-between"><span class="sub" style="margin:0">${agents.length} agent${agents.length === 1 ? "" : "s"} · ${activeCount} active${qn ? ` · ${filtered.length} matching “${CX_ESC(q)}”` : ""}</span></div><div class="asgrid">${left}${right}</div>`;
-  return automationsShell("Agent Studio", styles + head + body);
+  return automationsShell("Studio", styles + head + body);
 }
 
 // ---- Foundry — a CONTROLLED BUILDER over the daemon Foundry object plane (estate surface #4).
@@ -2400,7 +2407,7 @@ function renderFoundryLanding(overview, specs, runPlans, modelRoutes, routeBindi
   const availPill = (r) => {
     const a = r.availability || {}; const st = a.state || "declared";
     const cls = st === "available" ? "ok" : st === "unavailable" ? "warn" : "muted";
-    return `<span class="pill ${cls}">${CX_ESC(st)}</span>${a.stale ? ` <span class="pill muted" title="probe evidence is stale — re-probe in Agent Studio">stale probe</span>` : ""}`;
+    return `<span class="pill ${cls}">${CX_ESC(st)}</span>${a.stale ? ` <span class="pill muted" title="probe evidence is stale — re-probe in Studio">stale probe</span>` : ""}`;
   };
   const routeCard = (r) => {
     const cust = r.custody || {}; const adm = r.admission || {}; const m = r.model || {};
@@ -2417,11 +2424,11 @@ function renderFoundryLanding(overview, specs, runPlans, modelRoutes, routeBindi
         <dt class="wlk">Admission</dt><dd class="wlv">${adm.last_admission_id ? `<code style="font-size:10px">${CX_ESC(adm.last_admission_id)}</code>` : "—"}${(adm.mutation_receipt_refs || []).length ? ` · ${(adm.mutation_receipt_refs || []).length} mutation receipt(s)` : ""}</dd>
         <dt class="wlk">Usage</dt><dd class="wlv">${uses ? `${uses} admitted session binding${uses > 1 ? "s" : ""}` : "no session bindings yet"}</dd>
       </dl>
-      <div class="row" style="margin-top:8px"><a class="act ghost" href="/__ioi/agent-studio?tab=model-routes">Manage in Agent Studio →</a></div>
+      <div class="row" style="margin-top:8px"><a class="act ghost" href="/__ioi/agent-studio?tab=model-routes">Manage in Studio →</a></div>
     </div>`;
   };
-  const catalogSec = `<div id="foundry-model-catalog"><h2>Model Catalog <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— the registered routes with honest availability, custody, and usage; administration lives in Agent Studio</span></h2>
-    ${(modelRoutes || []).length ? (modelRoutes || []).map(routeCard).join("") : `<div class="empty">No model routes registered yet — add one in Agent Studio to populate the catalog.</div>`}</div>`;
+  const catalogSec = `<div id="foundry-model-catalog"><h2>Model Catalog <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— the registered routes with honest availability, custody, and usage; administration lives in Studio</span></h2>
+    ${(modelRoutes || []).length ? (modelRoutes || []).map(routeCard).join("") : `<div class="empty">No model routes registered yet — add one in Studio to populate the catalog.</div>`}</div>`;
   const specCard = (s) => `<a class="card" href="/__ioi/foundry/specs/${enc(s.id || "")}"><div class="main"><div class="name">${CX_ESC(s.name || s.id || "spec")} <span class="pill muted">${CX_ESC(s.kind || "")}</span> <span class="pill warn">${CX_ESC(s.status || "draft")}</span></div><div class="meta"><code>${CX_ESC(s.id || "")}</code> · updated ${CX_ESC(s.updated_at || "")}</div></div><span class="act ghost">Open →</span></a>`;
   const planCard = (p) => `<a class="card" href="/__ioi/foundry/run-plans/${enc(p.id || "")}"><div class="main"><div class="name">${CX_ESC(p.name || p.id || "run plan")} <span class="pill warn">${CX_ESC(p.status || "draft")}</span></div><div class="meta">spec <code>${CX_ESC(p.spec_ref || "")}</code> · target ${CX_ESC(p.target_route_ref || p.target_provider_ref || "—")}</div></div><span class="act ghost">Open →</span></a>`;
   // ---- Evals lane (29-evals graft — Foundry sub-surface, never a standalone card). The
@@ -2690,7 +2697,7 @@ function odkProofCitations(rec, lists) {
   const cits = ref ? ((lists || {}).ledger || []).filter((e) => JSON.stringify(e).includes(ref)) : [];
   const rows = cits.slice(0, 5).map((e) => `<tr><td>${CX_ESC(e.kind || "")}</td><td><span class="pill ${(e.status === "done" || e.status === "success" || e.status === "ok") ? "ok" : "muted"}">${CX_ESC(e.status || "—")}</span></td><td>${CX_ESC(e.timestamp || "")}</td><td><code style="font-size:10px">${CX_ESC((e.state_root || "").slice(0, 18) || "—")}</code></td></tr>`).join("");
   return `<div id="odk-proof-citations"><h2>Proof citations <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— proof-stream entries citing <code>${CX_ESC(ref)}</code></span></h2>
-    ${cits.length ? `<table><thead><tr><th>Kind</th><th>Status</th><th>When</th><th>Proof</th></tr></thead><tbody>${rows}</tbody></table><p class="sub" style="margin:6px 0 0">${cits.length} citation${cits.length === 1 ? "" : "s"} · <a href="/__ioi/work-ledger">Work Ledger →</a></p>`
+    ${cits.length ? `<table><thead><tr><th>Kind</th><th>Status</th><th>When</th><th>Proof</th></tr></thead><tbody>${rows}</tbody></table><p class="sub" style="margin:6px 0 0">${cits.length} citation${cits.length === 1 ? "" : "s"} · <a href="/__ioi/work-ledger">Provenance →</a></p>`
       : `<div class="empty">No proof-stream citations yet — receipts cite this ref when governed work touches it.</div>`}</div>`;
 }
 function renderOdkOntologyDetail(o, lists) {
@@ -2773,14 +2780,14 @@ function odkCard(family, rec, nameKey) {
 function renderOdkLanding(ov, lists) {
   const o = ov || {}; const sub = o.substrate || {};
   const note = o.status_note || "ODK foundation: drafts only. No transformation runs, no generated UI artifacts, no Domain App creation.";
-  const head = `<h1>ODK</h1><p class="sub">Ontology Development Kit — the semantic builder. Author draft ontologies, data recipes, surface descriptors, and manifests over real substrate. Nothing here transforms data or generates a running app.</p>`;
+  const head = `<h1>Grounding</h1><p class="sub">What systems may see — author draft ontologies, data recipes, surface descriptors, and manifests over real substrate (planes scaffolded by the ODK developer kit). Nothing here transforms data or generates a running app.</p>`;
   const banner = `<div class="chips"><span class="pill warn">draft-only</span> <span class="sub" style="margin:0">${CX_ESC(note)}</span></div>`;
   const stat = (label, val) => `<div style="flex:1;min-width:104px;padding:12px 14px;border:1px solid #24262d;border-radius:10px;background:#15171c"><div style="font-size:22px;font-weight:700;color:#fff">${CX_ESC(String(val == null ? "—" : val))}</div><div style="color:#878a93;font-size:12px;margin-top:2px">${CX_ESC(label)}</div></div>`;
   const stats = `<h2>Substrate</h2><div class="row" style="gap:10px;align-items:stretch">${stat("Env classes", sub.environment_classes)}${stat("Foundry specs", sub.foundry_specs)}${stat("Foundry plans", sub.foundry_run_plans)}${stat("Ledger", sub.work_ledger_entries)}${stat("Connectors", sub.connectors)}</div>`;
   const patterns = `<div class="chips"><span class="chiplabel">Composition patterns</span>${(o.composition_patterns || []).map((p) => `<span class="pill ${p === "domain_app" ? "warn" : "muted"}">${CX_ESC(p)}</span>`).join("")}</div>`;
   const outkinds = `<div class="chips"><span class="chiplabel">Recipe output kinds</span>${(o.recipe_output_kinds || []).map((k) => `<span class="pill muted">${CX_ESC(k)}</span>`).join("")}</div>`;
   const section = (title, family, items, nameKey, newLabel) => `<h2 style="display:flex;justify-content:space-between;align-items:center">${title} (${items.length}) <a class="act" href="/__ioi/odk/${family}/new">+ ${newLabel}</a></h2>${items.length ? items.map((x) => odkCard(family, x, nameKey)).join("") : `<div class="empty">None yet.</div>`}`;
-  return automationsShell("ODK", head + banner + stats + patterns + outkinds
+  return automationsShell("Grounding", head + banner + stats + patterns + outkinds
     + section("Domain Ontologies", "ontologies", lists.ontologies, "domain", "New ontology")
     + section("Data Recipes", "data-recipes", lists.data_recipes, "name", "New recipe")
     + section("Surface Descriptors", "surface-descriptors", lists.surface_descriptors, "name", "New descriptor")
@@ -2933,7 +2940,7 @@ function domainAppCard(a) {
 function renderDomainAppsLanding(ov, apps, manifests) {
   const o = ov || {}; const sub = o.substrate || {}; const dm = o.domain_apps || {};
   const note = o.status_note || "Domain Apps are draft candidates over ODK descriptors. No generated runtime is mounted.";
-  const head = `<h1>Domain Apps</h1><p class="sub">Draft app <b>candidates</b> over ODK <code>domain_app</code> descriptors — bind a descriptor, optionally a manifest, and set visibility. Nothing here generates or mounts a running app. <a href="/__ioi/odk">Open ODK →</a></p>`;
+  const head = `<h1>Generated Apps</h1><p class="sub">Draft app <b>candidates</b> over <code>domain_app</code> surface descriptors — bind a descriptor, optionally a manifest, and set visibility. Generated apps are launchable catalog entries (authored in Studio, distributed via Marketplace); nothing here generates or mounts a running app. <a href="/__ioi/odk">Open Grounding →</a></p>`;
   const banner = `<div class="chips"><span class="pill warn">draft-only</span> <span class="sub" style="margin:0">${CX_ESC(note)}</span></div>`;
   const stat = (label, val) => `<div style="flex:1;min-width:120px;padding:12px 14px;border:1px solid #24262d;border-radius:10px;background:#15171c"><div style="font-size:22px;font-weight:700;color:#fff">${CX_ESC(String(val == null ? "—" : val))}</div><div style="color:#878a93;font-size:12px;margin-top:2px">${CX_ESC(label)}</div></div>`;
   const stats = `<h2>Substrate (ODK)</h2><div class="row" style="gap:10px;align-items:stretch">${stat("domain_app descriptors", sub.odk_domain_app_descriptors)}${stat("Surface descriptors", sub.odk_surface_descriptors)}${stat("Ontologies", sub.odk_domain_ontologies)}${stat("Data recipes", sub.odk_data_recipes)}${stat("Manifests", sub.odk_manifests)}</div>`;
@@ -2957,7 +2964,7 @@ function renderDomainAppsLanding(ov, apps, manifests) {
   };
   const blueprints = `<div id="dapps-blueprint-candidates"><h2>Blueprint candidates <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— projected from real ODK manifests; no persisted DomainBlueprint object exists yet (named gap, nothing is fabricated)</span></h2>
     ${(manifests || []).length ? (manifests || []).map(bpCard).join("") : `<div class="empty">No ODK manifests yet — a manifest bundling ontologies, recipes, and descriptors is the raw material a blueprint would compile.</div>`}</div>`;
-  return automationsShell("Domain Apps", head + banner + stats + visChips + section + blueprints);
+  return automationsShell("Generated Apps", head + banner + stats + visChips + section + blueprints);
 }
 
 // ---- Governance — a read-only CONTROL LENS over the daemon governance projection (estate #7).
@@ -4364,25 +4371,49 @@ const server = http.createServer((req, res) => {
     // inventory below is that phase's map. Pure wire proxy: nothing harvested enters the repo.
     // Brand-cased strings are rebranded at the wire; code-token renames defer to the vendor
     // phase (AST-safe, like the shell's renameApiTokens).
-    if (pathname.startsWith("/__apps/") || pathname.startsWith("/assets/content-addressable-storage/")) {
-      const HARVEST_APPS = { approvals: "/workspace/approvals-app/" };
+    // Mirror API families some seed documents call (observed in seed rebind maps). Served
+    // same-origin through this proxy so seeds boot under the estate; their upstream is the
+    // harvest mirror, never fabricated data.
+    const MIRROR_API_PREFIXES = ["/multipass/", "/graphql-gateway/", "/compass/", "/documentation/", "/aip-assist/", "/monocle/"];
+    if (pathname.startsWith("/__apps/") || pathname.startsWith("/assets/content-addressable-storage/") || MIRROR_API_PREFIXES.some((pref) => pathname.startsWith(pref))) {
+      // Per-seed fold flag: some seed documents hardcode the mirror ORIGIN for their API layer
+      // and only boot when those refs are folded to same-origin (lineage); self-bootstrapped
+      // documents (approvals pilot) must be served byte-faithful apart from the brand rebrand.
+      const HARVEST_APPS = {
+        approvals: { base: "/workspace/approvals-app/", fold: false },   // Governance seed (pilot)
+        lineage: { base: "/workspace/monocle/", fold: true },            // Provenance seed — bootable lineage-graph editor
+        designer: { base: "/workspace/solution-design/", fold: false },  // Studio seed — typed-node system-diagram editor
+        monitors: { base: "/workspace/object-monitoring/", fold: false },// Automations seed — condition→effect wizard
+      };
       const MIRROR = process.env.IOI_HARVEST_MIRROR_URL || "http://127.0.0.1:9225";
       try {
         let target;
-        if (pathname.startsWith("/assets/content-addressable-storage/")) {
-          target = MIRROR + pathname;
+        let foldOrigin = false;
+        if (pathname.startsWith("/assets/content-addressable-storage/") || MIRROR_API_PREFIXES.some((pref) => pathname.startsWith(pref))) {
+          target = MIRROR + req.url;
         } else {
           const seg = pathname.slice("/__apps/".length).split("/")[0];
-          const base = HARVEST_APPS[seg];
+          const seedDef = HARVEST_APPS[seg];
+          const base = seedDef && seedDef.base;
+          foldOrigin = !!(seedDef && seedDef.fold);
           if (!base) { res.writeHead(404, { "Content-Type": "text/html; charset=utf-8" }); return res.end(automationsShell("Unknown seed", `<div class="empty">No harvested seed named <code>${CX_ESC(seg)}</code>. Available: ${Object.keys(HARVEST_APPS).map((k) => `<a href="/__apps/${k}">${k}</a>`).join(" ")}</div>`)); }
           const rest = pathname.slice(("/__apps/" + seg).length) || "/";
           target = MIRROR + (rest === "/" ? base : base.replace(/\/$/, "") + rest);
         }
-        const upstream = await fetch(target);
+        const upstream = await fetch(target, {
+          method: req.method,
+          headers: req.headers["content-type"] ? { "Content-Type": req.headers["content-type"] } : undefined,
+          body: ["GET", "HEAD"].includes(req.method) ? undefined : body,
+        });
         const ct = upstream.headers.get("content-type") || "application/octet-stream";
         let buf = Buffer.from(await upstream.arrayBuffer());
         if (ct.includes("text/html")) {
-          buf = Buffer.from(buf.toString("utf8").replace(/Palantir/g, "IOI"), "utf8");
+          // Wire rebrand; plus, for fold-flagged seeds, absolute mirror-origin refs become
+          // same-origin so the seed's API calls resolve through this proxy instead of
+          // cross-origin to the mirror.
+          let html = buf.toString("utf8");
+          if (foldOrigin) html = html.replace(/https?:\/\/(?:localhost|127\.0\.0\.1):9225/g, "");
+          buf = Buffer.from(html.replace(/Palantir/g, "IOI"), "utf8");
         }
         res.writeHead(upstream.status, { "Content-Type": ct, "Cache-Control": pathname.startsWith("/assets/") ? "public, max-age=86400" : "no-cache", "content-length": String(buf.length) });
         return res.end(buf);
@@ -5327,7 +5358,7 @@ const server = http.createServer((req, res) => {
         if (!r || r.status >= 400) {
           const code = (j.error && j.error.code) || (r ? `HTTP ${r.status}` : "daemon unavailable");
           res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
-          res.end(automationsShell("Intelligence", `<div class="empty">Rejected fail-closed: <code>${CX_ESC(code)}</code>${j.error && j.error.message ? `<br>${CX_ESC(j.error.message)}` : ""}</div><p><a href="/__ioi/agent-studio#${family === "memory" ? "memory" : family}">← Agent Studio</a></p>`));
+          res.end(automationsShell("Intelligence", `<div class="empty">Rejected fail-closed: <code>${CX_ESC(code)}</code>${j.error && j.error.message ? `<br>${CX_ESC(j.error.message)}` : ""}</div><p><a href="/__ioi/agent-studio#${family === "memory" ? "memory" : family}">← Studio</a></p>`));
           return;
         }
         res.writeHead(302, { Location: `/__ioi/agent-studio#${family === "memory" ? "memory" : family}`, "Cache-Control": "no-cache" });
@@ -5344,7 +5375,7 @@ const server = http.createServer((req, res) => {
         const simId = String(j.report?.simulation_ref || "").replace("simulation-report://", "");
         if (!r || r.status >= 400 || !simId) {
           res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
-          res.end(automationsShell("Simulation", `<div class="empty">Simulation failed: <code>${CX_ESC((j.error && j.error.code) || "daemon unavailable")}</code></div><p><a href="/__ioi/agent-studio#launch-policies">← Agent Studio</a></p>`));
+          res.end(automationsShell("Simulation", `<div class="empty">Simulation failed: <code>${CX_ESC((j.error && j.error.code) || "daemon unavailable")}</code></div><p><a href="/__ioi/agent-studio#launch-policies">← Studio</a></p>`));
           return;
         }
         res.writeHead(302, { Location: `/__ioi/intelligence/simulations/${encodeURIComponent(simId)}`, "Cache-Control": "no-cache" });
@@ -5371,7 +5402,7 @@ const server = http.createServer((req, res) => {
           <td>${sc.changed ? '<span class="pill warn">changed</span>' : '<span class="pill muted">same</span>'}</td>
         </tr>`;
         res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
-        res.end(automationsShell("Simulation report", `<p><a href="/__ioi/agent-studio#launch-policies">← Agent Studio · Improvement proposals</a></p>
+        res.end(automationsShell("Simulation report", `<p><a href="/__ioi/agent-studio#launch-policies">← Studio · Improvement proposals</a></p>
           <h1>🔮 What-if simulation <span class="pill ok">deterministic</span> <span class="pill muted">non-mutating</span>${rep.governance?.high_impact ? ' <span class="pill warn">high impact</span>' : ""}</h1>
           <p class="sub">${CX_ESC(rep.body_disclosure || "")} · ${CX_ESC(rep.registry_posture || "")}</p>
           <dl class="grid">
@@ -5404,7 +5435,7 @@ const server = http.createServer((req, res) => {
       const j = r ? await r.json().catch(() => ({})) : {};
       if (!r || r.status >= 400) {
         res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
-        res.end(automationsShell("Improvement", `<div class="empty">Rejected fail-closed: <code>${CX_ESC((j.error && j.error.code) || "daemon unavailable")}</code></div><p><a href="/__ioi/agent-studio#launch-policies">← Agent Studio</a></p>`));
+        res.end(automationsShell("Improvement", `<div class="empty">Rejected fail-closed: <code>${CX_ESC((j.error && j.error.code) || "daemon unavailable")}</code></div><p><a href="/__ioi/agent-studio#launch-policies">← Studio</a></p>`));
         return;
       }
       res.writeHead(302, { Location: "/__ioi/agent-studio#launch-policies", "Cache-Control": "no-cache" });
@@ -5420,7 +5451,7 @@ const server = http.createServer((req, res) => {
         const j = r ? await r.json().catch(() => ({})) : {};
         if (!r || r.status >= 400) {
           res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
-          res.end(automationsShell("Rollout", `<div class="empty"><b>${CX_ESC(act)}</b> rejected fail-closed: <code>${CX_ESC((j.error && j.error.code) || "daemon unavailable")}</code></div><p><a href="/__ioi/agent-studio#launch-policies">← Agent Studio</a></p>`));
+          res.end(automationsShell("Rollout", `<div class="empty"><b>${CX_ESC(act)}</b> rejected fail-closed: <code>${CX_ESC((j.error && j.error.code) || "daemon unavailable")}</code></div><p><a href="/__ioi/agent-studio#launch-policies">← Studio</a></p>`));
           return;
         }
         res.writeHead(302, { Location: "/__ioi/agent-studio#launch-policies", "Cache-Control": "no-cache" });
@@ -5435,7 +5466,7 @@ const server = http.createServer((req, res) => {
         const [, iid, act] = govBind;
         const failPage = (j, label) => {
           res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
-          res.end(automationsShell("Governance", `<div class="empty"><b>${CX_ESC(label)}</b> rejected fail-closed: <code>${CX_ESC((j.error && j.error.code) || j.reason || "daemon unavailable")}</code></div><p><a href="/__ioi/agent-studio#launch-policies">← Agent Studio</a></p>`));
+          res.end(automationsShell("Governance", `<div class="empty"><b>${CX_ESC(label)}</b> rejected fail-closed: <code>${CX_ESC((j.error && j.error.code) || j.reason || "daemon unavailable")}</code></div><p><a href="/__ioi/agent-studio#launch-policies">← Studio</a></p>`));
         };
         const pr = await fetch(`${DAEMON}/v1/hypervisor/intelligence/improvement-proposals/${encodeURIComponent(iid)}`).then((r) => r.json()).catch(() => ({}));
         const proposalRef = (pr.proposal || {}).proposal_ref || "";
@@ -5474,7 +5505,7 @@ const server = http.createServer((req, res) => {
         const j = r ? await r.json().catch(() => ({})) : {};
         if (!r || j.ok === false) {
           res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
-          res.end(automationsShell("Governance", `<div class="empty"><b>${CX_ESC(transition)}</b> rejected fail-closed: <code>${CX_ESC((j.error && j.error.code) || j.reason || "daemon unavailable")}</code></div><p><a href="/__ioi/agent-studio#launch-policies">← Agent Studio</a></p>`));
+          res.end(automationsShell("Governance", `<div class="empty"><b>${CX_ESC(transition)}</b> rejected fail-closed: <code>${CX_ESC((j.error && j.error.code) || j.reason || "daemon unavailable")}</code></div><p><a href="/__ioi/agent-studio#launch-policies">← Studio</a></p>`));
           return;
         }
         res.writeHead(302, { Location: "/__ioi/agent-studio#launch-policies", "Cache-Control": "no-cache" });
@@ -5490,7 +5521,7 @@ const server = http.createServer((req, res) => {
         const j = r ? await r.json().catch(() => ({})) : {};
         if (!r || r.status >= 400) {
           res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
-          res.end(automationsShell("Improvement", `<div class="empty"><b>${CX_ESC(act)}</b> rejected fail-closed: <code>${CX_ESC((j.error && j.error.code) || "daemon unavailable")}</code>${j.error && j.error.message ? `<br>${CX_ESC(j.error.message)}` : ""}</div><p><a href="/__ioi/agent-studio#launch-policies">← Agent Studio</a></p>`));
+          res.end(automationsShell("Improvement", `<div class="empty"><b>${CX_ESC(act)}</b> rejected fail-closed: <code>${CX_ESC((j.error && j.error.code) || "daemon unavailable")}</code>${j.error && j.error.message ? `<br>${CX_ESC(j.error.message)}` : ""}</div><p><a href="/__ioi/agent-studio#launch-policies">← Studio</a></p>`));
           return;
         }
         res.writeHead(302, { Location: "/__ioi/agent-studio#launch-policies", "Cache-Control": "no-cache" });
@@ -5511,7 +5542,7 @@ const server = http.createServer((req, res) => {
         const j = r ? await r.json().catch(() => ({})) : {};
         if (!r || r.status >= 400) {
           res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
-          res.end(automationsShell("Memory lifecycle", `<div class="empty">Transition rejected fail-closed: <code>${CX_ESC((j.error && j.error.code) || "daemon unavailable")}</code>${j.error && j.error.message ? `<br>${CX_ESC(j.error.message)}` : ""}</div><p><a href="/__ioi/agent-studio#memory">← Agent Studio</a></p>`));
+          res.end(automationsShell("Memory lifecycle", `<div class="empty">Transition rejected fail-closed: <code>${CX_ESC((j.error && j.error.code) || "daemon unavailable")}</code>${j.error && j.error.message ? `<br>${CX_ESC(j.error.message)}` : ""}</div><p><a href="/__ioi/agent-studio#memory">← Studio</a></p>`));
           return;
         }
         res.writeHead(302, { Location: "/__ioi/agent-studio#memory", "Cache-Control": "no-cache" });
@@ -5535,7 +5566,7 @@ const server = http.createServer((req, res) => {
         const j = r ? await r.json().catch(() => ({})) : {};
         if (!r || r.status >= 400) {
           res.writeHead(404, { "Content-Type": "text/html; charset=utf-8" });
-          res.end(automationsShell("Projection", `<div class="empty">Projection not found.</div><p><a href="/__ioi/agent-studio#memory">← Agent Studio</a></p>`));
+          res.end(automationsShell("Projection", `<div class="empty">Projection not found.</div><p><a href="/__ioi/agent-studio#memory">← Studio</a></p>`));
           return;
         }
         const ctx = j.context || {};
@@ -5585,7 +5616,7 @@ const server = http.createServer((req, res) => {
       const j = r ? await r.json().catch(() => ({})) : {};
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
       if (!r || r.status >= 400) {
-        res.end(automationsShell("Vault import", `<div class="empty">Import rejected fail-closed: <code>${CX_ESC((j.error && j.error.code) || "daemon unavailable")}</code>${j.error && j.error.message ? `<br>${CX_ESC(j.error.message)}` : ""}</div><p><a href="/__ioi/agent-studio#memory">← Agent Studio</a></p>`));
+        res.end(automationsShell("Vault import", `<div class="empty">Import rejected fail-closed: <code>${CX_ESC((j.error && j.error.code) || "daemon unavailable")}</code>${j.error && j.error.message ? `<br>${CX_ESC(j.error.message)}` : ""}</div><p><a href="/__ioi/agent-studio#memory">← Studio</a></p>`));
         return;
       }
       res.end(automationsShell("Vault import", `<h1>Vault imported</h1><dl class="grid">
@@ -5604,7 +5635,7 @@ const server = http.createServer((req, res) => {
         const j = r ? await r.json().catch(() => ({})) : {};
         if (!r || r.status >= 400) {
           res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
-          res.end(automationsShell("Proposal", `<div class="empty">Rejected fail-closed: <code>${CX_ESC((j.error && j.error.code) || "daemon unavailable")}</code></div><p><a href="/__ioi/agent-studio#memory">← Agent Studio</a></p>`));
+          res.end(automationsShell("Proposal", `<div class="empty">Rejected fail-closed: <code>${CX_ESC((j.error && j.error.code) || "daemon unavailable")}</code></div><p><a href="/__ioi/agent-studio#memory">← Studio</a></p>`));
           return;
         }
         res.writeHead(302, { Location: "/__ioi/agent-studio#memory", "Cache-Control": "no-cache" });
@@ -5628,7 +5659,7 @@ const server = http.createServer((req, res) => {
         if (!r || r.status >= 400) {
           const code = (j.error && j.error.code) || (r ? `HTTP ${r.status}` : "daemon unavailable");
           res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
-          res.end(automationsShell("Launch policies", `<div class="empty"><b>${CX_ESC(act)}</b> was rejected fail-closed: <code>${CX_ESC(code)}</code>${j.error && j.error.message ? `<br>${CX_ESC(j.error.message)}` : ""}</div><p><a href="/__ioi/agent-studio#launch-policies">← Agent Studio</a></p>`));
+          res.end(automationsShell("Launch policies", `<div class="empty"><b>${CX_ESC(act)}</b> was rejected fail-closed: <code>${CX_ESC(code)}</code>${j.error && j.error.message ? `<br>${CX_ESC(j.error.message)}` : ""}</div><p><a href="/__ioi/agent-studio#launch-policies">← Studio</a></p>`));
           return;
         }
         res.writeHead(302, { Location: "/__ioi/agent-studio#launch-policies", "Cache-Control": "no-cache" });
@@ -5667,7 +5698,7 @@ const server = http.createServer((req, res) => {
         if (!r || r.status >= 400) {
           const code = (j.error && j.error.code) || (r ? `HTTP ${r.status}` : "daemon unavailable");
           res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
-          res.end(automationsShell("Launch policies", `<div class="empty">Save was rejected fail-closed: <code>${CX_ESC(code)}</code>${j.error && j.error.message ? `<br>${CX_ESC(j.error.message)}` : ""}</div><p><a href="/__ioi/agent-studio#launch-policies">← Agent Studio</a></p>`));
+          res.end(automationsShell("Launch policies", `<div class="empty">Save was rejected fail-closed: <code>${CX_ESC(code)}</code>${j.error && j.error.message ? `<br>${CX_ESC(j.error.message)}` : ""}</div><p><a href="/__ioi/agent-studio#launch-policies">← Studio</a></p>`));
           return;
         }
         res.writeHead(302, { Location: "/__ioi/agent-studio#launch-policies", "Cache-Control": "no-cache" });
@@ -5687,7 +5718,7 @@ const server = http.createServer((req, res) => {
           const code = (j.error && j.error.code) || (r ? `HTTP ${r.status}` : "daemon unavailable");
           const msg = (j.error && j.error.message) || "";
           res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
-          res.end(automationsShell("Model routes", `<div class="empty"><b>${CX_ESC(act)}</b> was rejected fail-closed: <code>${CX_ESC(code)}</code>${msg ? `<br>${CX_ESC(msg)}` : ""}</div><p><a href="/__ioi/agent-studio#model-routes">← Agent Studio</a></p>`));
+          res.end(automationsShell("Model routes", `<div class="empty"><b>${CX_ESC(act)}</b> was rejected fail-closed: <code>${CX_ESC(code)}</code>${msg ? `<br>${CX_ESC(msg)}` : ""}</div><p><a href="/__ioi/agent-studio#model-routes">← Studio</a></p>`));
           return;
         }
         res.writeHead(302, { Location: "/__ioi/agent-studio#model-routes", "Cache-Control": "no-cache" });
@@ -5710,7 +5741,7 @@ const server = http.createServer((req, res) => {
           const code = (j.error && j.error.code) || (r ? `HTTP ${r.status}` : "daemon unavailable");
           const msg = (j.error && j.error.message) || "";
           res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
-          res.end(automationsShell("Harness profiles", `<div class="empty"><b>${CX_ESC(act)}</b> was rejected fail-closed: <code>${CX_ESC(code)}</code>${msg ? `<br>${CX_ESC(msg)}` : ""}</div><p><a href="/__ioi/agent-studio#harness-profiles">← Agent Studio</a></p>`));
+          res.end(automationsShell("Harness profiles", `<div class="empty"><b>${CX_ESC(act)}</b> was rejected fail-closed: <code>${CX_ESC(code)}</code>${msg ? `<br>${CX_ESC(msg)}` : ""}</div><p><a href="/__ioi/agent-studio#harness-profiles">← Studio</a></p>`));
           return;
         }
         res.writeHead(302, { Location: "/__ioi/agent-studio#harness-profiles", "Cache-Control": "no-cache" });

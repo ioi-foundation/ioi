@@ -11,7 +11,7 @@
     return (nsCtx.harness_profiles || []).find((p) => p.profile_ref === sel.value) || null;
   }
   function nsHarnessReason(p) {
-    if (p.lifecycle_status !== "active") return "not enabled — run the admitted enable in Agent Studio";
+    if (p.lifecycle_status !== "active") return "not enabled — run the admitted enable in Studio";
     if (p.execution_wiring === "terminal_pty") return "terminal lane — not an execution binding target";
     if (p.execution_wiring !== "lane_a_host_spawn") return "adapter slot — execution wiring not built";
     if (p.runnability_state !== "runnable" && p.runnability_state !== "not_probed") return "not runnable on this host (" + p.runnability_state + ")";
@@ -355,7 +355,7 @@
     if (p) {
       lines.push('<span class="nsp-k">Harness</span> <b>' + esc(p.display_name || p.harness) + "</b> · " + esc(p.provider_trust) + " trust · lane A execution over <b>" + esc(route ? (route.display_name || route.route_ref) : "(no route selected)") + "</b>");
       lines.push('<span class="nsp-k">Admission</span> <code>bind_session_profile</code> under <code>scope:harness.profile.mutate</code> (pure planner) + a LIVE runnability probe at bind — the create fails closed if either rejects; knobs compile a capability-admitted binding');
-      lines.push('<span class="nsp-k">Receipts</span> <code>receipt://hypervisor/session-provision/*</code> + <code>agentgres://harness-profile-receipt/*</code>; ops carry transcript state_roots (Work Ledger)');
+      lines.push('<span class="nsp-k">Receipts</span> <code>receipt://hypervisor/session-provision/*</code> + <code>agentgres://harness-profile-receipt/*</code>; ops carry transcript state_roots (Provenance)');
       if (p.runnability_state === "not_probed") lines.push('<span class="nsp-k nsp-warn">Warning</span> <span class="nsp-warn">runnability not probed yet — the launch will live-probe and fail closed if the host cannot run it</span>');
     } else {
       lines.push('<span class="nsp-k">Harness</span> none — the session records no binding; execution uses the daemon\'s Lane A default at execute time');
@@ -407,7 +407,7 @@
           "<br>Changed files: " + files +
           '<br><a href="' + esc((j.links || {}).workbench_url || "/__ioi/workbench") + '" target="_top">Open Workbench →</a> · ' +
           '<a href="' + esc((j.links || {}).run_timeline_url || "#") + '" target="_blank" rel="noopener">Run Timeline ↗</a> · ' +
-          '<a href="' + esc((j.links || {}).work_ledger_url || "/__ioi/work-ledger") + '" target="_top">Work Ledger →</a>' +
+          '<a href="' + esc((j.links || {}).work_ledger_url || "/__ioi/work-ledger") + '" target="_top">Provenance →</a>' +
           '<details style="margin-top:8px"><summary style="cursor:pointer">Advanced / proof details</summary>' +
           '<div style="font-size:12px;margin-top:6px">execution: <code>' + esc(j.execution_kind || "") + "</code> · strategy <code>" + esc(j.strategy || "") + "</code>" +
           "<br>session: <code>" + esc(j.session_ref || "") + "</code>" +
@@ -476,7 +476,7 @@
           (hb ? '<span class="nsp-k">Harness</span> <code>' + esc(hb.profile_ref || "") + "</code> admitted <code>" + esc(hb.admission_id || "") + "</code><br>" : '<span class="nsp-k">Harness</span> no binding (execute-time default)<br>') +
           (kb ? '<span class="nsp-k">Knobs</span> reasoning <b>' + esc(kb.reasoning) + "</b> · speed <b>" + esc(kb.speed) + "</b> · <code>" + esc(kb.evidence_ref || "") + "</code><br>" : "") +
           (kbFail ? '<span class="nsp-k nsp-warn">Knobs</span> <span class="nsp-warn">rejected fail-closed: ' + esc(j.knob_binding.reason || "capability violation") + "</span><br>" : "") +
-          '<div style="margin-top:8px"><a href="/__ioi/workbench">Open Workbench →</a> · <a href="/__ioi/work-ledger">Work Ledger →</a></div>';
+          '<div style="margin-top:8px"><a href="/__ioi/workbench">Open Workbench →</a> · <a href="/__ioi/work-ledger">Provenance →</a></div>';
       })
       .catch(() => { result.style.display = "block"; result.innerHTML = '<div class="ioi-ns-err">The launch request did not reach the daemon.</div>'; })
       .finally(() => { if (btn) { btn.disabled = false; btn.textContent = "Launch session"; } });

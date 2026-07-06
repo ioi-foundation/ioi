@@ -10,7 +10,16 @@ treats editor integrations as runtime ownership.
 Superseded by: none.
 Last alignment pass: 2026-06-23.
 Doctrine status: canonical
-Implementation status: broad (2026-07-06 — priority ladder P0/P1/P2 complete, P3 two rounds in: Home explorer + New Session composer identities, approvals inbox, unified jobs, run lineage/replay, model catalog, sessions root, evals lane, developer console, authority clients, recipe handoff chain, pipeline view, blueprint candidates, code repositories, search, work/tool analytics facets, release lifecycle matrix, proof citations — each verifier-gated; shell served from the OWNED vendored tree under the shell-parity oracle. Remaining: marketplace deepening, domain-app seeds, feedback/annotations native (needs substrate), governance-card tail, settings folds)
+Implementation status: broad (2026-07-06 — priority ladder P0/P1/P2 complete, P3 two rounds in: Home explorer + New Session composer identities, approvals inbox, unified jobs, run lineage/replay, model catalog, sessions root, evals lane, developer console, authority clients, recipe handoff chain, pipeline view, blueprint candidates, code repositories, search, work/tool analytics facets, release lifecycle matrix, proof citations — each verifier-gated; shell served from the OWNED vendored tree under the shell-parity oracle. Remaining: marketplace deepening, feedback/annotations native (needs substrate), governance-card tail, settings folds).
+
+Taxonomy status: RESTRUCTURED (2026-07-06) — the application estate is defined by the
+autonomous-systems suite in this file's "Top-Level Product IA" and "The Autonomous-Systems
+Application Suite" sections, with working detail in
+`internal-docs/prompts/autonomous-systems-suite/suite-guide.md`. ODK is reclassified as a
+developer kit (not an application); Domain Apps and Agent Studio dissolve as cards (generated
+apps launch from the catalog; agent composition is Studio's agent lens); Work Ledger evolves
+into Provenance; Operations splits into Missions (suite, systems) and Operations (substrate,
+infrastructure). Older mapping documents are ARCHIVED historical evidence.
 Implementation refs:
   - `apps/hypervisor/`
   - `crates/node/src/bin/hypervisor_daemon_routes/`
@@ -117,7 +126,7 @@ Inventory
 
 Create / Import
   how do I create, clone, import, restore, or template an environment, worker,
-  route, package, provider recipe, ODK blueprint, or embodied package?
+  route, package, provider recipe, system blueprint, or embodied package?
 
 Console
   what is running right now, what is it doing, how do I interrupt, repair,
@@ -137,14 +146,14 @@ through the existing shell and catalog:
 
 | Operator expectation | Hypervisor home |
 | --- | --- |
-| Substrate overview | Operations, Environments, HypervisorOS/provider detail, Hypervisor Desktop / Workstation |
-| Inventory | Applications catalog, Operations tables, Environments, Sessions |
-| Create / import wizard | Home, New Session, Projects, Environments, Developer & Integrations, ODK |
+| Substrate overview | Operations, Environments, provider detail, Hypervisor Desktop / Workstation |
+| Inventory | Applications catalog, Operations tables, Environments, Sessions, Missions |
+| Create / import wizard | Home, New Session, Projects, Environments, Studio, Developer Console |
 | Live console / machine window | Workbench, Sessions, Run Timeline, Open Application |
-| Snapshots / checkpoints / restore | Work Ledger, Workbench, Environments |
-| Networks / storage / devices | Environments, Developer & Integrations, Governance, HypervisorOS, Robot Fleets / Embodied |
-| Tasks / events / logs / alerts | Operations and Work Ledger |
-| RBAC / policy / audit / lifecycle | Governance, Work Ledger, Operations |
+| Snapshots / checkpoints / restore | Provenance, Workbench, Environments |
+| Networks / storage / devices | Environments, Developer Console, Governance |
+| Tasks / events / logs / alerts | Operations (infrastructure), Missions (systems), Provenance |
+| RBAC / policy / audit / lifecycle | Governance, Provenance, Operations |
 
 Do not hide these behind only AI-native language such as model routes, agent
 harnesses, or conductor loops. Product surfaces may reinterpret the controlled
@@ -198,7 +207,7 @@ Term map for product surfaces:
 | Protocol / owner term | Product-facing default |
 | --- | --- |
 | wallet.network | SSO, permissions, connected access, authority, recovery, powered-by label in advanced contexts |
-| Agentgres | Work Ledger, evidence, run history, receipts, state/history |
+| Agentgres | Provenance (work ledger), evidence, run history, receipts, state/history |
 | Hypervisor Daemon | secure runtime, execution environment, worker runtime |
 | IOI L1 / mainnet | proof network, settlement, public commitment |
 | aiagent.xyz | agent marketplace, worker marketplace, agent supply |
@@ -297,19 +306,24 @@ Hypervisor
       Automations
       Applications
       Sessions
-  -> application surfaces
-      Workbench
-      Agent Studio
-      Foundry
-      ODK
-      Domain Apps
-      Developer & Integrations
+  -> application surfaces (the autonomous-systems suite)
+      Studio
+      Automations
+      Grounding
       Governance
-      Operations
-      Work Ledger
-      Environments
+      Missions
+      Provenance
+      Evaluations
+      Improvement
+      Foundry
       Marketplace
-      Robot Fleets / Embodied
+      Workbench
+      Developer Console
+  -> substrate surfaces (type 1 + 2 face)
+      Environments
+      Operations
+  -> horizon
+      HypervisorOS (embodied systems; named only)
   -> session, project, and contextual views
       Services / Tasks / Ports / Logs / Restore
   -> Hypervisor Core
@@ -367,7 +381,7 @@ Hypervisor MCP Gateway
 ```
 
 The gateway should expose selected capabilities from Applications, Projects,
-Sessions, Automations, Foundry, Developer & Integrations, Work Ledger, and the
+Sessions, Automations, Foundry, Developer Console, Provenance, and the
 Hypervisor Operator Plane through declared profiles. It must compile every
 tool or action to RuntimeToolContract, surface MCP contract, or operator-plane
 contract refs, then route effectful work through daemon admission,
@@ -458,25 +472,45 @@ region is not canonical; pinned/favorite/promoted entries are catalog, Home, or
 project/session affordances. `Open Application` remains a singular active
 surface slot when a specialized surface is selected.
 
-The Applications catalog may include these first-party product surfaces. The
-left-hand labels are the preferred product names; parenthetical phrases
-preserve older architectural family names where those still help cross-reference
-contracts:
+The Applications catalog carries the autonomous-systems suite (twelve
+applications derived from the lifecycle of a decentralized bounded autonomous
+system: intent → compose → ground → govern → run → prove → evaluate → improve →
+package → distribute → operate), the substrate lane, launchable generated apps,
+and one named horizon entry. Parenthetical phrases preserve older family names
+where they help cross-reference contracts:
 
 ```text
-Workbench
-Environments
-Agent Studio (Agents / Workers, memory profiles, harness projections)
-Foundry
-ODK (Ontology, Data / Knowledge, Blueprints, Surface Generate)
-Domain Apps (generated domain apps, Analyst/query lens)
-Developer & Integrations (Connections, Connectors / Tools / MCP, APIs, SDKs, ADK)
-Governance (Authority / Govern, privacy, policy, approvals, release/change controls)
-Operations (Operate / Monitoring, jobs, incidents, resource posture)
-Work Ledger (Receipts / Replay, artifacts, lineage, proof)
-Marketplace
-Robot Fleets / Embodied (roadmap)
+The suite
+  Studio            (system & agent composition; absorbs Agent Studio as its agent lens)
+  Automations       (durable triggers, schedules, monitors, services, process graphs)
+  Grounding         (ontology, data recipes, sources, object sets, consent — Ontology/Data-Knowledge family)
+  Governance        (authority, approvals, leases, release gates, kill switches, budgets)
+  Missions          (fleet of running systems: runs, incidents, spend per system)
+  Provenance        (receipts, lineage, replay, state roots — Work Ledger family)
+  Evaluations       (eval suites, scorecards, feedback with consent ladders, quality dashboards)
+  Improvement       (proposals, what-if simulations, canaries, rollbacks, remediation)
+  Foundry           (model catalog/routes/mounts, tuning, datasets, training pipelines)
+  Marketplace       (listings, admission, installs, artifact registry, org-to-org refs)
+  Workbench         (code, files, terminal, ports inside environments)
+  Developer Console (connectors, MCP, APIs, OAuth clients, SDK on-ramps, conformance —
+                     Developer & Integrations family; UI touchpoint of the developer kit)
+
+Substrate lane (type 1 + 2 face; distinct from the suite)
+  Environments
+  Operations        (infrastructure: scheduler health, providers, placement/failover,
+                     storage custody, capacity, provider spend)
+
+Generated apps     (launchable catalog entries authored in Studio, distributed via Marketplace)
+
+Horizon
+  HypervisorOS     (embodied systems lane; named only, no surfaces)
 ```
+
+ODK is NOT an application: it is the developer kit (CLI, templates, scaffolds,
+generated SDKs, docs, conformance). Its object planes remain substrate and
+surface through the suite — ontologies and data recipes through Grounding,
+surface descriptors through Studio, manifests through Marketplace — and its
+developer tooling through Developer Console and the kit itself.
 
 ## Context, Integrations, And Memory Placement
 
@@ -487,15 +521,16 @@ slot, and scoped context panels where the user is configuring a concrete piece
 of work.
 
 The primary product venue for the full integration estate is
-Developer & Integrations:
+Developer Console:
 
 ```text
-Developer & Integrations
+Developer Console
   connectors and connected apps
   MCP servers and surface MCPs
   provider accounts and BYOK/BYOA
   APIs, SDKs, ADK, webhooks, service accounts
   conformance and developer app registration
+  developer-kit on-ramps: scaffolds, templates, generated SDKs
 ```
 
 User and organization settings expose only scoped slices of that estate:
@@ -520,8 +555,9 @@ Contextual surfaces expose the same primitives where they are actually used:
 New Session
   agent, model, harness, tools, memory, privacy, budget, authority
 
-Agent Studio
-  worker tools, skills, memory profile, model/harness, endpoint/package posture
+Studio
+  system boundary, agent lens (worker tools, skills, memory profile,
+  model/harness), endpoint/package posture
 
 Projects
   project memory, project connectors, environment recipes, policy defaults
@@ -534,7 +570,7 @@ Managed agent console
 ```
 
 Durable workflows remain Automations. Personal shortcuts, reusable snippets, or
-templates may appear inside Skills, Launch Policies, Developer & Integrations,
+templates may appear inside Skills, Launch Policies, Developer Console,
 or contextual setup panels when they serve the current task, but Hypervisor
 should not add a generic Workflows child tab. Scheduled services, workflow graph
 truth, approval flows, delivery paths, and Automation records belong to the
@@ -542,8 +578,8 @@ top-level Automations surface.
 
 Do not copy reference-product tab taxonomies as Hypervisor product structure.
 Hypervisor has a top-level Automations surface for durable triggers, schedules,
-service graphs, approvals, delivery, and background missions. Agent Studio, New
-Session, Projects, and Developer & Integrations may project automation
+service graphs, approvals, delivery, and background missions. Studio, New
+Session, Projects, and Developer Console may project automation
 readiness, connector availability, skills, memory posture, and launch policies
 where they are used, but they must not cannibalize Automations as a child tab or
 rename durable Automations into generic workflows.
@@ -572,27 +608,27 @@ The product-management lifecycle is:
 
 ```text
 Build
-  Projects, Workbench, Automations, Canvas, SDK/ADK/ODK,
-  Developer & Integrations, ODK, Foundry, Marketplace facets
+  Projects, Workbench, Studio, Automations, Grounding, Canvas, SDK/ADK/
+  developer kit, Developer Console, Foundry, Marketplace facets
 
 Run
-  Sessions, daemon runtime, providers, environments, HypervisorOS, cTEE,
+  Sessions, Missions, daemon runtime, providers, environments, cTEE,
   code execution, computer use, worker/model/tool routing, memory, restore
 
 Govern
-  wallet.network, authority scopes, capability leases, approvals, secrets,
-  policy gates, privacy, declassification, risk, semantic governance,
+  Governance: wallet.network, authority scopes, capability leases, approvals,
+  secrets, policy gates, privacy, declassification, risk, semantic governance,
   registries
 
 Observe
-  receipts, replay, traces, logs, lineage, state roots, evaluations,
-  executable eval worlds, simulations, online monitors, quality alerts, work
-  analytics, tool analytics, feedback, examples
+  Provenance: receipts, replay, traces, logs, lineage, state roots;
+  Evaluations: evaluations, executable eval worlds, online monitors, quality
+  alerts, work analytics, tool analytics, feedback, examples
 
 Improve
-  Foundry, evals, benchmarks, worker/model promotion, data recipes,
-  distilled ontology datasets, cost/work ledgers, feedback annotations,
-  rollout outcomes, routing improvements
+  Improvement: proposals, simulations, canaries, rollbacks, remediation;
+  Foundry: evals, benchmarks, worker/model promotion, data recipes,
+  distilled ontology datasets, rollout outcomes, routing improvements
 
 Package / Market
   Autonomous System Packages, worker manifests, templates, patterns,
@@ -622,7 +658,7 @@ Governance release/change facet
 Owning application surfaces
   local lifecycle evidence and work state, with lifecycle strips, blocked
   reasons, authority gates, run/job refs, dependency impact, receipts, replay,
-  proof refs, and deep links back to Governance, Operations, or Work Ledger
+  proof refs, and deep links back to Governance, Operations, or Provenance
 ```
 
 Release/change controls are a Governance facet. They may appear as an Open
@@ -647,24 +683,28 @@ Foundry
   dataset, eval, build, training, artifact conversion, registration, and
   promotion-candidate lifecycle
 
-Agent Studio
-  agent/harness/tool/memory-profile/memory-projection/authority/eval-readiness
-  and worker/package candidacy
+Studio
+  system-boundary/agent/harness/tool/memory-profile/memory-projection/
+  authority/eval-readiness and worker/package candidacy
 
 Automations
   trigger, workflow, service, API, schedule, catch-up, and run lifecycle
 
-Marketplace / Work Ledger
+Evaluations / Improvement
+  eval-suite, scorecard, feedback-consent, proposal, simulation, canary, and
+  rollback lifecycle
+
+Marketplace / Provenance
   install, publish, package, artifact, recall evidence, contribution, and
   settlement handoffs
 
-Governance / Operations
+Governance / Missions / Operations
   human approval, policy review, remediation, incident, and support gates
 
-Work Ledger / ODK
+Provenance / Grounding
   dependency, provenance, and impact graph
 
-Work Ledger
+Provenance
   transition trace, receipt, proof, settlement, and replay inspection
 ```
 
@@ -678,7 +718,7 @@ replay refs, proof refs, and operator/MCP contracts.
 The lifecycle projection is not a new truth store. Agentgres admits truth,
 wallet.network authorizes, the Hypervisor Daemon executes, Foundry builds and
 evaluates, Marketplace/aiagent/MoW attributes external supply when applicable,
-and Work Ledger inspects evidence.
+and Provenance inspects evidence.
 
 ## Application Surfaces
 
@@ -705,16 +745,60 @@ first fold (the augmentation script tag moving into the owned index.html) is
 in. Serve-time code transforms must stay formatting-tolerant — they apply to
 both the minified original and the beautified owned source.
 
+### The Autonomous-Systems Application Suite
+
+The suite is derived from the lifecycle of a decentralized bounded autonomous
+system (intent → compose → ground → govern → run → prove → evaluate → improve →
+package → distribute → operate). Every application earns its place with an
+existence reason; projections that do not are facets of these surfaces, not
+cards. Working detail (UX seeds, reshapes, adoption order) lives in
+`internal-docs/prompts/autonomous-systems-suite/suite-guide.md`.
+
 ```text
-Hypervisor Workbench
-  code, systems, workflow, workspace, editor, terminal, browser, and
-  debugging surface, including development environment recipes and lifecycle
-  observations where they help users start, inspect, restore, or tear down work
+Hypervisor Studio
+  system and agent composition surface: typed canvas over real substrate
+  objects — agents (model + harness + tools + memory + policies), the
+  connections between them, and the system boundary (authority scopes, tool
+  allow-lists via capability leases, budgets); saves draft blueprints and
+  promotes them through governed gates; absorbs the former Agent Studio as its
+  agent-level lens
 
 Hypervisor Automations
-  durable workflow, trigger, schedule, API/service, approval-flow, and
-  background-mission surface, including durable missions created from ioi.ai
+  durable workflow, trigger, schedule, monitor, API/service, approval-flow, and
+  background-mission surface; condition-over-object-set → governed effect is
+  its core grammar; includes durable missions created from ioi.ai
   collaborative outcome handoffs
+
+Hypervisor Grounding
+  world-model stewardship: ontologies (object/link/action types), data recipes,
+  sources/syncs, object exploration and saved object sets, value types — every
+  grounding object carries its consent/visibility ladder; consumes connector
+  bindings from Connections, never owns them
+
+Hypervisor Governance
+  authority and control surface: approvals inbox, authority scopes and
+  capability leases, release gates, cohorts, kill switches, budgets,
+  retention/marking policy, justification checkpoints
+
+Hypervisor Missions
+  fleet console for running systems: missions, run queues, incidents and
+  remediation lanes, spend per system, health rollups — systems, not
+  infrastructure (infrastructure is substrate Operations)
+
+Hypervisor Provenance
+  the proof plane: chronological receipt stream, lineage graph of
+  runs/artifacts/authority where every edge is a receipt, state roots, replay
+  entries, custody receipts; evolves the former Work Ledger card
+
+Hypervisor Evaluations
+  judgment surface: eval suites and runs, scorecards over systems/agents/
+  models, operator feedback with evidence-eligibility consent, quality
+  dashboards, start-from-object-set analyses
+
+Hypervisor Improvement
+  safe-change surface: improvement proposals, what-if simulations over
+  recorded runs, canary rollouts and rollbacks, remediation sweeps, a
+  deadline-driven change inbox; Governance gates it, Improvement drives it
 
 Hypervisor Foundry
   model catalog, registry, model routes/mounts, tuning, persistent training
@@ -725,18 +809,35 @@ Hypervisor Foundry
   trajectory scorecards, datasets, endpoints, monitoring, worker/package
   creation, certification-run candidates, and ontology-aware improvement surface
 
+Hypervisor Marketplace
+  distribution surface: listings, admission reviews, configure-and-install
+  runs, versioned artifact registry with receipted recall, examples gallery,
+  org-to-org collaboration by refs
+
+Hypervisor Workbench
+  code, systems, workflow, workspace, editor, terminal, browser, and
+  debugging surface, including development environment recipes and lifecycle
+  observations where they help users start, inspect, restore, or tear down work
+
+Hypervisor Developer Console
+  extension surface: connectors and connected apps, MCP servers, provider
+  accounts and BYOK/BYOA, APIs and OAuth/service registrations, function and
+  widget/extension registries, conformance, and developer-kit on-ramps
+  (scaffolds, templates, generated SDKs)
+
 Hypervisor Canvas
-  visual builder/editor inside Automations, Workbench, or Foundry where useful;
-  not a separate product plane or runtime owner
+  visual builder/editor inside Studio, Automations, Workbench, or Foundry where
+  useful; not a separate product plane or runtime owner
 ```
 
-Other surfaces may include specialized agent/worker consoles, model consoles,
-service/API consoles, domain-operation consoles, organization admin views, and
-settings panes. Work analytics, tool analytics, feedback/annotation, release
-control, run replay, and data-recipe views may also appear as catalog entries or
-sub-surfaces when they help a user inspect, improve, roll out, or govern work.
-These should still resolve through the Applications catalog, the singular Open
-Application slot, session/project detail, or contextual panels instead of
+Other surfaces may include specialized model consoles, service/API consoles,
+domain-operation consoles, organization admin views, and settings panes. Work
+analytics, tool analytics, release control, run replay, and data-recipe views
+appear as facets of the suite (Evaluations, Governance, Provenance, Grounding)
+or contextual panels. Generated domain apps are launchable Applications-catalog
+entries — authored in Studio, distributed through Marketplace — not a separate
+card. These should still resolve through the Applications catalog, the singular
+Open Application slot, session/project detail, or contextual panels instead of
 becoming new default top-level shell categories.
 
 User-facing configuration should prefer simple labels:
@@ -887,33 +988,27 @@ inside Hypervisor.
 
 An Application is a specialized UI/work surface over Hypervisor Core that
 creates, inspects, modifies, or governs Projects, Automations, Sessions,
-Agents, Workers, Models, Environments, ODK descriptors, Domain Apps,
-Developer & Integrations, Governance, Operations, Work Ledger, Marketplace, or
-other domain objects. Older family labels such as `Providers / Environments`,
+Agents, Workers, Models, Environments, surface descriptors, generated apps,
+integrations, Governance, Missions, Provenance, Marketplace, or other domain
+objects. Older family labels such as `Providers / Environments`,
 `Connections`, `Connectors / Tools / MCP`, `Data / Knowledge`, `Ontology`,
 `Workshop`, `Domain Blueprints`, `Authority / Govern`, `Release Controls`,
 `Resource Management`, `Operations Center`, `Learning Center`, and
 `Receipts / Replay` remain aliases or facets for those product surfaces.
 
-Applications may be first-party, organization-built, ODK-generated,
-marketplace, or vertical-specific. They are product surfaces, not separate
-runtimes or authority owners.
+Applications may be first-party, organization-built, generated via the
+developer kit, marketplace, or vertical-specific. They are product surfaces,
+not separate runtimes or authority owners.
 
-Examples:
+The first-party set is the autonomous-systems suite plus the substrate lane
+(see Top-Level Product IA and The Autonomous-Systems Application Suite):
 
 ```text
-Workbench
-Environments
-Agent Studio
-Foundry
-ODK
-Domain Apps
-Developer & Integrations
-Governance
-Operations
-Work Ledger
-Marketplace
-Robot Fleets / Embodied
+Studio · Automations · Grounding · Governance · Missions · Provenance ·
+Evaluations · Improvement · Foundry · Marketplace · Workbench ·
+Developer Console
+Environments · Operations   (substrate lane)
+HypervisorOS                (horizon; named only)
 ```
 
 Applications may contain or manage Automations, Projects, or Sessions, but they
@@ -954,7 +1049,7 @@ A surface registration should declare:
 - lifecycle-control posture where applicable: local owner, state machine,
   current/target refs, rollout/rollback/recall posture, blocking gates, linked
   jobs/runs, dependency impact, and Governance release/change deep links;
-- ontology and ODK posture where applicable: DomainOntology refs,
+- ontology and developer-kit posture where applicable: DomainOntology refs,
   CanonicalObjectModel refs, DataRecipe refs, PolicyBoundDataView refs,
   OntologyProjection refs, OntologySurfaceDescriptor refs, and generated
   artifact refs;
@@ -985,8 +1080,8 @@ The registration contract prevents Applications from becoming a junk drawer: a
 surface must say what it operates, where it can open, what authority it needs,
 and which canonical owners retain truth.
 
-ODK-generated surfaces must pass the same registration contract as hand-authored
-surfaces. The Ontology Development Kit may scaffold the descriptor, code,
+Kit-generated surfaces must pass the same registration contract as hand-authored
+surfaces. The developer kit (ODK) may scaffold the descriptor, code,
 fixtures, test cases, package skeletons, and conformance checks, but generated
 React, templates, examples, or local descriptors are not runtime truth,
 authority truth, semantic truth, or marketplace truth. Durable generated
@@ -1040,8 +1135,8 @@ Relevant surface modes include:
 
 ```text
 Automations tool/function builder
-ODK generate / blueprint surface builder
-solution designer / architecture planner
+blueprint / generated-surface builder (Studio; kit-scaffolded)
+system designer / architecture planner (Studio)
 walkthrough / recipe builder
 object view
 object-view editor
@@ -1074,10 +1169,11 @@ inference readiness
 domain app consoles
 ```
 
-Each mode should be classified under an owning product surface, such as
-Automations, ODK, Governance, Environments, Work Ledger, Operations,
-Projects / Workbench, Foundry, Marketplace, Developer & Integrations, or
-Domain Apps. Older family labels such as `Data / Knowledge`, `Ontology`,
+Each mode should be classified under an owning suite surface, such as
+Studio, Automations, Grounding, Governance, Missions, Provenance, Evaluations,
+Improvement, Foundry, Marketplace, Projects / Workbench, Developer Console, or
+the substrate lane (Environments, Operations). Older family labels such as
+`Data / Knowledge`, `Ontology`,
 `Workshop`, `Domain Blueprints`, `Providers / Environments`,
 `Release Controls`, `Resource Management`, `Authority / Govern`,
 `Receipts / Replay`, and `Patterns / Examples / Training` are aliases or
@@ -1145,16 +1241,17 @@ or admit private truth outside daemon and Agentgres paths.
 ## Builder Surfaces
 
 **Tool / Function Builder** is an alias for typed-function and tool-building
-flows housed primarily in Automations and Developer & Integrations. It may
+flows housed primarily in Automations and Developer Console. It may
 appear in Applications, in Automations node creation, in project context, or in
 package/pattern flows. Its outputs compile into `RuntimeToolContract`,
 primitive capability declarations, authority scopes, schema validation, receipt
 obligations, and optional Automations nodes.
 
-**ODK Generate** is the product path for object-aware application shells,
-widgets, forms, dashboards, operator consoles, autonomous-system blueprints, and
-generated domain apps. It may use ODK object/action/value types, ODK data
-recipes, Workbench code, Automations, tool contracts, and package metadata.
+**Surface Generate** (Studio, scaffolded by the developer kit) is the product
+path for object-aware application shells, widgets, forms, dashboards, operator
+consoles, autonomous-system blueprints, and generated domain apps. It may use
+ontology object/action/value types, data recipes, Workbench code, Automations,
+tool contracts, and package metadata.
 
 These builder paths are proposal and packaging paths over Hypervisor Core. They
 do not own runtime truth, authority, semantic truth, or storage truth. Effectful
@@ -1165,7 +1262,7 @@ admission, authority-provider gates as required, Agentgres, and receipts.
 
 **Learning / Patterns / Examples / Training** is an enablement facet, not a
 standalone product surface. It may appear in Home, Applications, Marketplace,
-Foundry, ODK, Domain Apps, and onboarding flows when a recipe can become
+Foundry, Studio, Grounding, and onboarding flows when a recipe can become
 governed work.
 
 It is not passive documentation. It is a product path from learning or
@@ -1191,7 +1288,7 @@ This surface may expose:
   eval packs, dashboard/application shells, model routes, provider profiles,
   and marketplace packages;
 - solution diagrams and architecture planners that compile into reviewed
-  Workbench, Automations, Foundry, ODK, or Domain App
+  Studio, Workbench, Automations, Foundry, or Grounding
   proposals.
 
 Every serious example should declare the vertical problem, required data and

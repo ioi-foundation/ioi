@@ -1,15 +1,22 @@
+  // The autonomous-systems suite (canon: core-clients-surfaces.md "The Autonomous-Systems
+  // Application Suite"; detail: internal-docs/prompts/autonomous-systems-suite/suite-guide.md),
+  // then the substrate lane (type 1+2 face). Every href opens a REAL surface today; where a
+  // suite identity is wider than its current surface, the copy names what is live.
   const IOI_APPS = [
-    { icon: "🧰", name: "Workbench", desc: "Enter an environment's live console — files, terminal, ports, tasks.", href: "/__ioi/workbench", status: "live" },
-    { icon: "🖥", name: "Environments", desc: "Lifecycle, readiness, services/ports/tasks, substrate posture.", href: "/__ioi/environments", status: "live" },
-    { icon: "🧪", name: "Agent Studio", desc: "Agent inventory, model routes, runner adapters, activity.", href: "/__ioi/agent-studio", status: "live" },
-    { icon: "🏗", name: "Foundry", desc: "Capability factory — draft specs, run plans, promotion previews.", href: "/__ioi/foundry", status: "live" },
-    { icon: "📦", name: "ODK", desc: "Ontology Development Kit — ontologies, data recipes, surface descriptors, manifests.", href: "/__ioi/odk", status: "live" },
-    { icon: "🧩", name: "Domain Apps", desc: "Draft app candidates over ODK domain_app descriptors (no runtime yet).", href: "/__ioi/domain-apps", status: "live" },
-    { icon: "🔌", name: "Developer & Integrations", desc: "Connectors, MCP, credentials, dev tools.", href: "/__ioi/connections", status: "live" },
-    { icon: "🛡", name: "Governance", desc: "Control lens — authority, identity, leases, revocation, gaps.", href: "/__ioi/governance", status: "live" },
-    { icon: "⚙", name: "Operations", desc: "Execution health — scheduler, runs, failures, webhooks.", href: "/__ioi/operations", status: "live" },
-    { icon: "📒", name: "Work Ledger", desc: "Runs, receipts, state roots, timelines.", href: "/__ioi/work-ledger", status: "live" },
-    { icon: "🛒", name: "Marketplace", desc: "Catalog & admission — listings, publish candidates, admission reviews (admission-only).", href: "/__ioi/marketplace", status: "live" },
+    { icon: "🎨", name: "Studio", desc: "Compose systems & agents — agent lens live (inventory, model routes, adapters); system canvas adopting.", href: "/__ioi/agent-studio", status: "live", lane: "suite" },
+    { icon: "⚡", name: "Automations", desc: "Durable triggers, schedules, monitors, services — condition → governed effect.", href: "/__ioi/automations", status: "live", lane: "suite" },
+    { icon: "🌐", name: "Grounding", desc: "What systems may see — ontologies, data recipes, surface descriptors, manifests, consent.", href: "/__ioi/odk", status: "live", lane: "suite" },
+    { icon: "🛡", name: "Governance", desc: "Authority — approvals, leases, release gates, kill switches, budgets, gaps.", href: "/__ioi/governance", status: "live", lane: "suite" },
+    { icon: "🚀", name: "Missions", desc: "Fleet of running systems — sessions root live; dedicated fleet console adopting.", href: "/__ioi/sessions", status: "live", lane: "suite" },
+    { icon: "📒", name: "Provenance", desc: "Proof plane — receipts stream, state roots, timelines live; lineage canvas adopting.", href: "/__ioi/work-ledger", status: "live", lane: "suite" },
+    { icon: "🧪", name: "Evaluations", desc: "Feedback with consent + eval handoffs live; suites & scorecards adopting.", href: "/__ioi/feedback", status: "live", lane: "suite" },
+    { icon: "📈", name: "Improvement", desc: "Proposals, what-if simulation, apply-under-gates — proposal lane live; change inbox adopting.", href: "/__ioi/agent-studio#improvement-proposals", status: "live", lane: "suite" },
+    { icon: "🏗", name: "Foundry", desc: "Model substrate — catalog, routes, draft specs, run plans, promotion previews.", href: "/__ioi/foundry", status: "live", lane: "suite" },
+    { icon: "🛒", name: "Marketplace", desc: "Distribution — listings, publish candidates, admission reviews (admission-only).", href: "/__ioi/marketplace", status: "live", lane: "suite" },
+    { icon: "🧰", name: "Workbench", desc: "Enter an environment's live console — files, terminal, ports, tasks.", href: "/__ioi/workbench", status: "live", lane: "suite" },
+    { icon: "🔌", name: "Developer Console", desc: "Extend the environment — connectors, MCP, credentials, SDK on-ramps.", href: "/__ioi/connections", status: "live", lane: "suite" },
+    { icon: "🖥", name: "Environments", desc: "Substrate — lifecycle, readiness, services/ports/tasks, kernel boundary.", href: "/__ioi/environments", status: "live", lane: "substrate" },
+    { icon: "⚙", name: "Operations", desc: "Substrate — scheduler health, providers, placement/failover, custody, spend.", href: "/__ioi/operations", status: "live", lane: "substrate" },
   ];
   function railRight() {
     const s = document.querySelector('[data-testid="sidebar"]');
