@@ -3322,6 +3322,17 @@ const RUN_TIMELINE_HTML = `<!doctype html>
   .rt-act:hover { background:rgb(var(--surface-muted)); }
   .rt-muted { color:rgb(var(--content-muted)); font-style:italic; }
   .rt-loading,.rt-error { color:rgb(var(--content-muted)); padding:40px; text-align:center; }
+  /* Lineage & proof (79-workflow-lineage graft): run-level proof panel + temporal trace. */
+  .rt-lineage { border:1px solid rgb(var(--border-base)); border-radius:12px; padding:12px 14px; margin-top:14px; background:rgb(var(--surface-base)); }
+  .rt-wf { margin-top:10px; }
+  .rt-wf-row { display:flex; align-items:center; gap:10px; padding:2px 0; cursor:pointer; }
+  .rt-wf-row:hover .rt-wf-label { color:rgb(var(--content-primary)); }
+  .rt-wf-label { width:120px; flex:none; font-size:11px; color:rgb(var(--content-muted)); text-align:right;
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .rt-wf-track { flex:1; height:14px; border-radius:4px; background:rgb(var(--surface-muted)); position:relative; }
+  .rt-wf-bar { position:absolute; top:2px; bottom:2px; border-radius:3px; background:rgb(var(--content-brand)); opacity:.75; min-width:6px; }
+  .rt-wf-bar.fail { background:rgb(var(--content-destructive)); }
+  .rt-wf-t { width:74px; flex:none; font-size:10.5px; font-family:ui-monospace,monospace; color:rgb(var(--content-muted)); }
   /* embed mode — mounted inside the workbench pane (replaces the seeded transcript) */
   html.rt-embed, html.rt-embed body { background:transparent; }
   html.rt-embed .rt-wrap { max-width:none; margin:0; padding:12px 14px 32px; }
@@ -3371,8 +3382,59 @@ const RUN_TIMELINE_HTML = `<!doctype html>
     head.appendChild(badge);
     root.appendChild(head);
 
-    (tl.turns||[]).forEach(function(turn){
+    // ---- Lineage & proof (79-workflow-lineage graft) — the run-level chain and its temporal
+    // trace, from RECORDED timestamps only. The waterfall positions each turn inside the run
+    // window; a turn without timestamps says so rather than being placed. Deep links go to the
+    // proof stream (Work Ledger owns receipts/state-root facets) and the owning session.
+    var turns = tl.turns||[];
+    var receiptsN = 0, filesN = 0;
+    turns.forEach(function(t){ receiptsN += ((t.proof||{}).receipts||[]).length; filesN += (((t.artifacts||{}).files)||[]).length; });
+    var lin=el("div","rt-lineage");
+    var lkv=el("dl","rt-kv");
+    function lrow(k,v){ if(!v) return; lkv.appendChild(el("dt",null,k)); lkv.appendChild(el("dd",null,v)); }
+    lrow("lineage", (tl.environmentId?("env "+tl.environmentId+"  →  "):"") + (tl.sessionRef?(tl.sessionRef+"  →  "):"") + "run "+(tl.runId||"")+"  →  "+turns.length+" turn"+(turns.length===1?"":"s")+"  →  "+filesN+" artifact"+(filesN===1?"":"s"));
+    lrow("state root", tl.stateRoot ? (tl.stateRoot+(tl.durable?" · durable":"")) : null);
+    lrow("receipts", receiptsN ? (receiptsN+" across turns — details in each turn's Proof section") : null);
+    lin.appendChild(lkv);
+    var acts=el("div","rt-acts"); acts.style.marginTop="8px";
+    var wl=el("a","rt-act","Proof stream →"); wl.href="/__ioi/work-ledger"; wl.target="_blank"; wl.rel="noopener"; acts.appendChild(wl);
+    if(tl.environmentId){ var se=el("a","rt-act","Session →"); se.href="/details/"+encodeURIComponent(tl.environmentId); se.target="_blank"; se.rel="noopener"; acts.appendChild(se); }
+    lin.appendChild(acts);
+    // Temporal trace: one row per turn, always. Bars only when the run window AND the turn's
+    // recorded timestamps allow honest positioning; otherwise the row says "no timing".
+    var t0=Date.parse(tl.createdAt||""), t1=Date.parse(tl.updatedAt||"")||Date.now();
+    var windowOk = isFinite(t0) && t1>t0;
+    if(turns.length){
+      var wf=el("div","rt-wf");
+      turns.forEach(function(t,ix){
+        var times=[];
+        (t.activity||[]).forEach(function(a){ var p=Date.parse(a.at||""); if(isFinite(p)) times.push(p); });
+        var rp=Date.parse((t.response||{}).at||""); if(isFinite(rp)) times.push(rp);
+        var row=el("div","rt-wf-row");
+        row.appendChild(el("span","rt-wf-label","turn "+(ix+1)));
+        var track=el("div","rt-wf-track");
+        if(windowOk && times.length){
+          var a0=Math.min.apply(null,times), a1=Math.max.apply(null,times);
+          var bar=el("span","rt-wf-bar"+((t.response||{}).failed?" fail":""));
+          bar.style.left=Math.max(0,Math.min(99,(a0-t0)/(t1-t0)*100))+"%";
+          bar.style.width=Math.max(0.6,Math.min(100,(a1-a0)/(t1-t0)*100))+"%";
+          track.appendChild(bar);
+          row.appendChild(track);
+          row.appendChild(el("span","rt-wf-t",((a1-a0)/1000).toFixed(1)+"s"));
+        } else {
+          row.appendChild(track);
+          row.appendChild(el("span","rt-wf-t","no timing"));
+        }
+        row.addEventListener("click",function(){ var tgt=document.getElementById("rt-turn-"+ix); if(tgt) tgt.scrollIntoView({behavior:"smooth",block:"start"}); });
+        wf.appendChild(row);
+      });
+      lin.appendChild(wf);
+    }
+    root.appendChild(lin);
+
+    (tl.turns||[]).forEach(function(turn,turnIx){
       var box=el("div","rt-turn");
+      box.id="rt-turn-"+turnIx;
 
       // 1) Request
       var s1=el("div"); s1.appendChild(label(1,"Request"));
