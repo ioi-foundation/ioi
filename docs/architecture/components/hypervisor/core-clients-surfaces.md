@@ -10,7 +10,7 @@ treats editor integrations as runtime ownership.
 Superseded by: none.
 Last alignment pass: 2026-06-23.
 Doctrine status: canonical
-Implementation status: partial (product shell, sessions, automations, and estate surfaces live; several application surfaces roadmap)
+Implementation status: broad (2026-07-06 — priority ladder P0/P1/P2 complete, P3 two rounds in: Home explorer + New Session composer identities, approvals inbox, unified jobs, run lineage/replay, model catalog, sessions root, evals lane, developer console, authority clients, recipe handoff chain, pipeline view, blueprint candidates, code repositories, search, work/tool analytics facets, release lifecycle matrix, proof citations — each verifier-gated; shell served from the OWNED vendored tree under the shell-parity oracle. Remaining: marketplace deepening, domain-app seeds, feedback/annotations native (needs substrate), governance-card tail, settings folds)
 Implementation refs:
   - `apps/hypervisor/`
   - `crates/node/src/bin/hypervisor_daemon_routes/`
