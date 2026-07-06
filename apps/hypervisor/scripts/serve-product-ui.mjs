@@ -379,7 +379,33 @@ function renderConnectionsCockpit(connectors, scmConnectors, leases) {
       d.innerHTML=h;
     });});
   </script>`;
-  return connectionsShell(add + `<div class="cnwrap"><div>` + body + `</div>` + drawer + `</div>` + script);
+  // ---- Authority Clients roster (57-oauth2-clients graft, renamed per the naming ledger) — the
+  // consumers of scoped authority, grouped by what the lease records actually carry: credential
+  // source × authority provider. Per class: lease volume, active-vs-expired, receipt obligation,
+  // revocability, tool surface. The records carry NO client-origin/principal binding — said
+  // plainly rather than invented; per-lease detail (grant/revocation refs) lives in each
+  // connector's drawer below.
+  const acNow = Date.now();
+  const acGroups = {};
+  (leases || []).forEach((l) => {
+    const key = `${l.credential_source || "unrecorded source"} · ${l.authority_provider_ref || "—"}`;
+    const g = acGroups[key] = acGroups[key] || { n: 0, active: 0, receipted: 0, revocable: 0, tools: new Set() };
+    g.n++;
+    if (!l.expires_at || Number(l.expires_at) > acNow) g.active++;
+    if (l.receipt_required) g.receipted++;
+    if (l.revocation_ref) g.revocable++;
+    (l.allowed_tools || []).forEach((t) => g.tools.add(t));
+  });
+  const acCard = ([key, g]) => `<div class="card" style="display:block">
+    <div class="row" style="justify-content:space-between;margin:0 0 6px"><b>${CX_ESC(key)}</b><span>
+      <span class="pill ${g.active ? "ok" : "muted"}">${g.active} active</span> <span class="pill muted">${g.n - g.active} expired</span>
+      ${g.receipted ? `<span class="pill ok">${g.receipted} receipted</span>` : ""} ${g.revocable === g.n ? `<span class="pill ok">all revocable</span>` : `<span class="pill warn">${g.n - g.revocable} without revocation ref</span>`}
+    </span></div>
+    <div class="sub" style="margin:0;text-transform:none;letter-spacing:0">tools: ${[...g.tools].slice(0, 6).map((t) => `<code>${CX_ESC(t)}</code>`).join(" ") || "none declared"}${g.tools.size > 6 ? ` · +${g.tools.size - 6} more` : ""}</div>
+  </div>`;
+  const authClients = `<div id="conn-authority-clients"><h2>Authority Clients <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— who holds scoped authority right now, from the lease records themselves; origin binding is not recorded on leases (grouped by credential source · authority provider)</span></h2>
+    ${Object.keys(acGroups).length ? Object.entries(acGroups).sort((a, b) => b[1].n - a[1].n).map(acCard).join("") : `<div class="empty">No capability leases issued yet — every authority crossing mints one, and it appears here.</div>`}</div>`;
+  return connectionsShell(add + authClients + `<div class="cnwrap"><div>` + body + `</div>` + drawer + `</div>` + script);
 }
 
 // ---- Automations cockpit — the owned, PROJECT-FIRST surface for HypervisorAutomationSpec ----------
@@ -877,6 +903,16 @@ function renderWorkLedger(entries, scopedProject) {
     </tr>`;
   }).join("");
   const table = `<table><thead><tr><th>Work</th><th>Project</th><th>Status</th><th>Trigger</th><th>When</th><th>Proof</th></tr></thead><tbody>${rows}</tbody></table>`;
+  // ---- Proof Explorer facets (native primitive, first slice) — the STATE-ROOT TIMELINE on
+  // demand (canon: normal flows abstract chain machinery; Proof Explorer exposes roots and refs
+  // when challenged). Chronological strip of the entries that carry a tamper-evident state root;
+  // each jumps into the stream row's proof drawer. Counts are honest: rooted vs total.
+  const rooted = entries.map((e, i) => ({ e, i })).filter(({ e }) => e.state_root);
+  const proofExp = `<div id="wl-proof-explorer" class="card" style="display:block;margin:0 0 14px">
+    <div class="row" style="justify-content:space-between;margin:0 0 6px"><b>Proof Explorer — state roots</b><span class="sub" style="margin:0">${rooted.length} of ${entries.length} entries carry a state root</span></div>
+    ${rooted.length ? `<div style="display:flex;flex-wrap:wrap;gap:6px">${rooted.slice(0, 10).map(({ e, i }) => `<button class="chip" onclick="wlOpen(${i});document.querySelector('.wlrow[data-i=&quot;${i}&quot;]').scrollIntoView({behavior:'smooth',block:'center'})" title="${CX_ESC(e.timestamp || "")} · ${CX_ESC(e.kind || "")}"><code style="font-size:10px">${CX_ESC(String(e.state_root).slice(0, 18))}</code></button>`).join("")}</div>`
+      : `<div class="sub" style="margin:0">No state-rooted entries yet — admitted work writes tamper-evident roots as it lands.</div>`}
+  </div>`;
   // Embed the entries for the drawer (escape </script> + < to keep the JSON inside the tag safe).
   const dataTag = `<script id="wl-data" type="application/json">${JSON.stringify(entries).replace(/</g, "\\u003c")}</script>`;
   const drawer = `<div class="wldrawer" id="wl-drawer"><div class="sub" style="margin:0">Select a row to inspect its proof.</div></div>`;
@@ -938,7 +974,7 @@ function renderWorkLedger(entries, scopedProject) {
       document.querySelectorAll('.wlrow').forEach(function(r){r.classList.toggle('selrow',r.dataset.i==String(i));});
     }
   </script>`;
-  return automationsShell("Work Ledger", head + filters + `<div class="wlwrap"><div>${table}</div>${drawer}</div>` + dataTag + script);
+  return automationsShell("Work Ledger", head + filters + proofExp + `<div class="wlwrap"><div>${table}</div>${drawer}</div>` + dataTag + script);
 }
 
 // ---- Operations — the first real Operations estate card: execution health over the automation
@@ -2162,19 +2198,51 @@ function foundrySpecPayloadFromForm(p) {
   const apr = (p.get("authority_policy_ref") || "").trim(); if (apr) payload.authority_policy_ref = apr;
   return payload;
 }
-function renderFoundryLanding(overview, specs, runPlans) {
+function renderFoundryLanding(overview, specs, runPlans, modelRoutes, routeBindings) {
   const enc = encodeURIComponent;
   const o = overview || {}; const sub = o.substrate || {}; const fc = o.foundry || {};
   const note = o.status_note || "Draft-only: no training/eval execution, no promotion or registry mutation in this plane.";
-  const head = `<h1>Foundry</h1><p class="sub">The capability factory — author draft specs and run plans over real model substrate, then preview promotion. Nothing here trains, evaluates, serves, or promotes.</p>`;
+  const head = `<h1>Foundry</h1><p class="sub">The capability factory — the model catalog over real route substrate, plus draft specs and run plans with promotion previews. Nothing here trains, evaluates, serves, or promotes.</p>`;
   const banner = `<div class="chips"><span class="pill warn">draft-only</span> <span class="sub" style="margin:0">${CX_ESC(note)}</span></div>`;
   const stat = (label, val) => `<div style="flex:1;min-width:104px;padding:12px 14px;border:1px solid #24262d;border-radius:10px;background:#15171c"><div style="font-size:22px;font-weight:700;color:#fff">${CX_ESC(String(val == null ? "—" : val))}</div><div style="color:#878a93;font-size:12px;margin-top:2px">${CX_ESC(label)}</div></div>`;
   const stats = `<h2>Substrate</h2><div class="row" style="gap:10px;align-items:stretch">${stat("Model routes", sub.model_routes)}${stat("Providers", sub.providers)}${stat("Endpoints", sub.endpoints)}${stat("Backends", sub.backends)}${stat("Receipts", sub.model_mount_receipts)}${stat("Transcripts", sub.agent_transcripts)}${stat("Ledger", sub.work_ledger_entries)}</div>`;
+  // ---- Model Catalog (49-model-catalog graft; 47-ml-library folds here) — every registered
+  // model route as a catalog entry with its REAL posture: honest availability (probe evidence +
+  // staleness), weight custody, credential posture, admission trail, and usage (admitted session
+  // bindings). Read-only by design: route ADMIN (enable/disable/probe/select-default) has ONE
+  // owner — Agent Studio — and the catalog links there rather than duplicating mutation lanes.
+  const bindingsByRoute = {};
+  (routeBindings || []).forEach((b) => { const k = b.route_ref || b.model_route_ref || ""; bindingsByRoute[k] = (bindingsByRoute[k] || 0) + 1; });
+  const availPill = (r) => {
+    const a = r.availability || {}; const st = a.state || "declared";
+    const cls = st === "available" ? "ok" : st === "unavailable" ? "warn" : "muted";
+    return `<span class="pill ${cls}">${CX_ESC(st)}</span>${a.stale ? ` <span class="pill muted" title="probe evidence is stale — re-probe in Agent Studio">stale probe</span>` : ""}`;
+  };
+  const routeCard = (r) => {
+    const cust = r.custody || {}; const adm = r.admission || {}; const m = r.model || {};
+    const probe = (r.availability || {}).probe || {};
+    const uses = bindingsByRoute[r.route_ref] || 0;
+    const caps = [(m.modalities || []).join("/"), m.context_window ? `ctx ${m.context_window}` : "", m.family || ""].filter(Boolean).join(" · ");
+    return `<div class="card" style="display:block" data-model-route="${CX_ESC(r.route_id || "")}">
+      <div class="row" style="justify-content:space-between;margin:0 0 6px"><div><b>${CX_ESC(r.display_name || r.route_id || "route")}</b> ${r.default_route ? `<span class="pill ok">default</span>` : ""} <span class="pill ${(r.lifecycle || {}).status === "active" ? "ok" : "muted"}">${CX_ESC((r.lifecycle || {}).status || "—")}</span> ${availPill(r)}</div><code style="font-size:10.5px">${CX_ESC(r.route_ref || "")}</code></div>
+      <dl class="wlgrid" style="grid-template-columns:110px 1fr">
+        <dt class="wlk">Model</dt><dd class="wlv">${CX_ESC(caps || "no declared capabilities")}</dd>
+        <dt class="wlk">Custody</dt><dd class="wlv">${CX_ESC(cust.weight_class || "—")} · mount ${CX_ESC(cust.mount_target || "—")} · ${CX_ESC(cust.execution_privacy_posture || "—")}</dd>
+        <dt class="wlk">Credentials</dt><dd class="wlv">${CX_ESC(r.credential_posture || "—")}</dd>
+        <dt class="wlk">Probe</dt><dd class="wlv">${probe.kind ? `${CX_ESC(probe.kind)} · ${CX_ESC(probe.checked_at || "")}${probe.evidence && probe.evidence.matched_model ? ` · matched <code>${CX_ESC(probe.evidence.matched_model)}</code>` : ""}` : "never probed — availability is declared, not proven"}</dd>
+        <dt class="wlk">Admission</dt><dd class="wlv">${adm.last_admission_id ? `<code style="font-size:10px">${CX_ESC(adm.last_admission_id)}</code>` : "—"}${(adm.mutation_receipt_refs || []).length ? ` · ${(adm.mutation_receipt_refs || []).length} mutation receipt(s)` : ""}</dd>
+        <dt class="wlk">Usage</dt><dd class="wlv">${uses ? `${uses} admitted session binding${uses > 1 ? "s" : ""}` : "no session bindings yet"}</dd>
+      </dl>
+      <div class="row" style="margin-top:8px"><a class="act ghost" href="/__ioi/agent-studio?tab=model-routes">Manage in Agent Studio →</a></div>
+    </div>`;
+  };
+  const catalogSec = `<div id="foundry-model-catalog"><h2>Model Catalog <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— the registered routes with honest availability, custody, and usage; administration lives in Agent Studio</span></h2>
+    ${(modelRoutes || []).length ? (modelRoutes || []).map(routeCard).join("") : `<div class="empty">No model routes registered yet — add one in Agent Studio to populate the catalog.</div>`}</div>`;
   const specCard = (s) => `<a class="card" href="/__ioi/foundry/specs/${enc(s.id || "")}"><div class="main"><div class="name">${CX_ESC(s.name || s.id || "spec")} <span class="pill muted">${CX_ESC(s.kind || "")}</span> <span class="pill warn">${CX_ESC(s.status || "draft")}</span></div><div class="meta"><code>${CX_ESC(s.id || "")}</code> · updated ${CX_ESC(s.updated_at || "")}</div></div><span class="act ghost">Open →</span></a>`;
   const planCard = (p) => `<a class="card" href="/__ioi/foundry/run-plans/${enc(p.id || "")}"><div class="main"><div class="name">${CX_ESC(p.name || p.id || "run plan")} <span class="pill warn">${CX_ESC(p.status || "draft")}</span></div><div class="meta">spec <code>${CX_ESC(p.spec_ref || "")}</code> · target ${CX_ESC(p.target_route_ref || p.target_provider_ref || "—")}</div></div><span class="act ghost">Open →</span></a>`;
   const specsSec = `<h2 style="display:flex;justify-content:space-between;align-items:center">Specs (${specs.length}) <a class="act" href="/__ioi/foundry/specs/new">+ New spec</a></h2>${specs.length ? specs.map(specCard).join("") : `<div class="empty">No FoundrySpec drafts yet. Create one bound to a real model route or provider.</div>`}`;
   const plansSec = `<h2>Run plans (${runPlans.length})</h2>${runPlans.length ? runPlans.map(planCard).join("") : `<div class="empty">No FoundryRunPlan drafts yet. Open a spec and draft a run plan from it.</div>`}`;
-  return automationsShell("Foundry", head + banner + stats + specsSec + plansSec);
+  return automationsShell("Foundry", head + banner + stats + catalogSec + specsSec + plansSec);
 }
 function renderFoundrySpecForm(catalog, existing) {
   const enc = encodeURIComponent; const ex = existing || {}; const isEdit = !!existing;
@@ -3941,6 +4009,37 @@ const server = http.createServer((req, res) => {
       res.end(TERMINAL_CHUNK);
       return;
     }
+    // ---- Run Replay index (native primitive, first slice) — the replay LIST over every recorded
+    // run: live session runs (serve registry), durable operation/execution transcripts (daemon),
+    // and IOI Agent coordination runs. Each row opens its owned timeline; nothing is synthesized.
+    if ((pathname === "/__ioi/run-timeline" || pathname === "/__ioi/run-replay") && req.method === "GET" && !(new URLSearchParams((req.url || "").split("?")[1] || "").get("runId"))) {
+      const J = (p) => fetch(`${DAEMON}${p}`).then((x) => x.json()).catch(() => ({}));
+      const [trRes, grRes] = await Promise.all([J("/v1/hypervisor/agent-run-transcripts"), J("/v1/hypervisor/goal-runs")]);
+      const rows = [];
+      listRuns().forEach((r) => rows.push({ kind: "session", title: r.title || r.prompt || "agent session", id: r.id, status: r.status || "", at: r.createdAt || "", root: "", href: `/__ioi/run-timeline/${encodeURIComponent(r.id)}` }));
+      (trRes.runs || []).forEach((t) => rows.push({ kind: t.kind === "harness-profile-op" || t.kind === "model-route-op" ? "admin-op" : "execution", title: `${t.op || t.kind || "run"}${t.profile_ref ? " · " + t.profile_ref : ""}`, id: t.run_id || "", status: t.status || "", at: t.started_at || t.recorded_at || "", root: t.state_root || "", href: `/__ioi/run-timeline/${encodeURIComponent(t.run_id || "")}` }));
+      (grRes.goal_runs || []).forEach((g) => rows.push({ kind: "ioi-agent", title: `coordination · ${String(g.normalized_goal || "goal").slice(0, 48)}`, id: g.goal_run_id || "", status: g.status || "", at: g.created_at || "", root: "", href: `/__ioi/run-timeline/goal-run/${encodeURIComponent(g.goal_run_id || "")}` }));
+      rows.sort((a, b) => String(b.at).localeCompare(String(a.at)));
+      const counts = {};
+      rows.forEach((r) => { counts[r.kind] = (counts[r.kind] || 0) + 1; });
+      const chip = (v, l) => `<button class="chip${v === "" ? " on" : ""}" data-rr="${v}" onclick="rrChip(this)">${l} ${v === "" ? rows.length : counts[v] || 0}</button>`;
+      const rrRows = rows.slice(0, 60).map((r) => `<tr data-rrk="${CX_ESC(r.kind)}">
+          <td>${CX_ESC(r.title)}<div style="color:#878a93;font-size:11px;margin-top:1px"><code style="font-size:10px">${CX_ESC(r.id)}</code></div></td>
+          <td><span class="pill muted">${CX_ESC(r.kind)}</span></td>
+          <td><span class="pill ${["done", "success", "succeeded"].includes(r.status) ? "ok" : ["failed", "failure", "error"].includes(r.status) ? "warn" : "muted"}">${CX_ESC(r.status || "—")}</span></td>
+          <td>${CX_ESC(r.at)}</td>
+          <td>${r.root ? `<code style="font-size:10px">${CX_ESC(String(r.root).slice(0, 20))}</code>` : "—"}</td>
+          <td><a href="${r.href}" target="_blank" rel="noopener">replay ↗</a></td>
+        </tr>`).join("");
+      const inner = `<h1>Run Replay</h1><p class="sub">Every recorded run, newest first — live agent sessions, durable operation and execution transcripts, IOI Agent coordination. Each replay opens the owned timeline with its lineage, temporal trace, and proof. <a href="/__ioi/work-ledger">Proof stream →</a></p>
+        ${rows.length ? `<div class="chips" id="rr-chips">${chip("", "All")}${chip("session", "Sessions")}${chip("execution", "Executions")}${chip("ioi-agent", "IOI Agent")}${chip("admin-op", "Admitted ops")}</div>
+        <table><thead><tr><th>Run</th><th>Kind</th><th>Status</th><th>When</th><th>State root</th><th>Replay</th></tr></thead><tbody id="rr-body">${rrRows}</tbody></table><div class="empty" id="rr-empty" style="display:none">No runs of this kind yet.</div>
+        <script>function rrChip(b){document.querySelectorAll('#rr-chips .chip').forEach(function(x){x.classList.toggle('on',x===b);});var w=b.getAttribute('data-rr');var n=0;document.querySelectorAll('#rr-body tr').forEach(function(r){var on=!w||r.getAttribute('data-rrk')===w;r.style.display=on?'':'none';if(on)n++;});document.getElementById('rr-empty').style.display=n?'none':'';}</script>`
+        : `<div class="empty">No recorded runs yet — governed work lands here with a replayable timeline as it happens.</div>`}`;
+      res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
+      res.end(automationsShell("Run Replay", inner));
+      return;
+    }
     // Owned Run Timeline surface (Hypervisor's transcript primitive). /__ioi/run-timeline/:runId
     // (or ?runId=). Any surface routes/embeds this by runId; it polls the timeline projection above.
     if (pathname === "/__ioi/run-timeline" || pathname.startsWith("/__ioi/run-timeline/")) {
@@ -5229,13 +5328,15 @@ const server = http.createServer((req, res) => {
     const HTMLH = { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" };
     if (pathname === "/__ioi/foundry" && req.method === "GET") {
       const J = (p) => fetch(`${DAEMON}${p}`).then((r) => r.json()).catch(() => ({}));
-      const [ov, sp, rp] = await Promise.all([
+      const [ov, sp, rp, mr, mb] = await Promise.all([
         J("/v1/hypervisor/foundry/overview"),
         J("/v1/hypervisor/foundry/specs"),
         J("/v1/hypervisor/foundry/run-plans"),
+        J("/v1/hypervisor/model-routes"),
+        J("/v1/hypervisor/model-route-session-bindings"),
       ]);
       res.writeHead(200, HTMLH);
-      res.end(renderFoundryLanding(ov, sp.specs || [], rp.run_plans || []));
+      res.end(renderFoundryLanding(ov, sp.specs || [], rp.run_plans || [], mr.routes || [], mb.bindings || []));
       return;
     }
     if (pathname === "/__ioi/foundry/specs/new" && req.method === "GET") {
