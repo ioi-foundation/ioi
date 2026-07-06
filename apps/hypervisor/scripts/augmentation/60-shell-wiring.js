@@ -29,7 +29,7 @@
         if (appLink) {
           e.preventDefault(); e.stopPropagation();
           const href = appLink.getAttribute("href");
-          const name = /work-ledger/.test(href) ? "Provenance" : /operations/.test(href) ? "Operations" : /environments/.test(href) ? "Environments" : /workbench/.test(href) ? "Workbench" : /agent-studio/.test(href) ? "Studio" : /foundry/.test(href) ? "Foundry" : /feedback/.test(href) ? "Evaluations" : /\/__ioi\/sessions/.test(href) ? "Missions" : /domain-app-runtime/.test(href) ? "Domain App" : /domain-apps/.test(href) ? "Generated Apps" : /governance/.test(href) ? "Governance" : /marketplace/.test(href) ? "Marketplace" : /\/__ioi\/odk/.test(href) ? "Grounding" : /\/__ioi\/home/.test(href) ? "Governed Work" : "Developer Console";
+          const name = /work-ledger/.test(href) ? "Provenance" : /operations/.test(href) ? "Operations" : /environments/.test(href) ? "Environments" : /workbench/.test(href) ? "Workbench" : /agent-studio/.test(href) ? "Studio" : /foundry/.test(href) ? "Foundry" : /feedback/.test(href) ? "Evaluations" : /\/__ioi\/sessions/.test(href) ? "Missions" : /domain-app-runtime/.test(href) ? "Domain App" : /domain-apps/.test(href) ? "Generated Apps" : /governance/.test(href) ? "Governance" : /marketplace/.test(href) ? "Marketplace" : /\/__ioi\/odk.*#data-planes/.test(href) ? "Data" : /\/__ioi\/odk/.test(href) ? "Ontology" : /\/__ioi\/home/.test(href) ? "Governed Work" : "Developer Console";
           openApplication(href, name);
           return;
         }

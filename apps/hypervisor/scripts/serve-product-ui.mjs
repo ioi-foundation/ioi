@@ -993,7 +993,8 @@ function renderApplications() {
   const SUITE = [
     { icon: "🎨", name: "Studio", desc: "Compose systems & agents — agent lens live (inventory, model routes, runner adapters); system canvas adopting.", href: "/__ioi/agent-studio" },
     { icon: "⚡", name: "Automations", desc: "Durable triggers, schedules, monitors, services — condition → governed effect.", href: "/__ioi/automations" },
-    { icon: "🌐", name: "Grounding", desc: "What systems may see — ontologies, data recipes, surface descriptors, manifests, consent posture.", href: "/__ioi/odk" },
+    { icon: "🧬", name: "Ontology", desc: "The semantic world-model — object/link/action types, functions, value types, saved object sets.", href: "/__ioi/odk" },
+    { icon: "🌐", name: "Data", desc: "Supply the world-model — sources, syncs, data recipes, datasets, media sets, consent posture.", href: "/__ioi/odk#data-planes" },
     { icon: "🛡", name: "Governance", desc: "Authority — approvals, identity, leases, revocation, release gates, kill switches, budgets, gaps.", href: "/__ioi/governance" },
     { icon: "🚀", name: "Missions", desc: "Fleet of running systems — sessions root live; dedicated fleet console adopting.", href: "/__ioi/sessions" },
     { icon: "📒", name: "Provenance", desc: "Proof plane — unified receipts stream, state roots, timelines live; lineage canvas adopting.", href: "/__ioi/work-ledger" },
@@ -2780,16 +2781,16 @@ function odkCard(family, rec, nameKey) {
 function renderOdkLanding(ov, lists) {
   const o = ov || {}; const sub = o.substrate || {};
   const note = o.status_note || "ODK foundation: drafts only. No transformation runs, no generated UI artifacts, no Domain App creation.";
-  const head = `<h1>Grounding</h1><p class="sub">What systems may see — author draft ontologies, data recipes, surface descriptors, and manifests over real substrate (planes scaffolded by the ODK developer kit). Nothing here transforms data or generates a running app.</p>`;
+  const head = `<h1>Ontology</h1><p class="sub">The semantic world-model systems act on — author draft ontologies, value types, surface descriptors, and manifests over real substrate (planes scaffolded by the ODK developer kit). The <a href="#data-planes">Data planes</a> (recipes, sources) share this surface until their dedicated surface lands. Nothing here transforms data or generates a running app.</p>`;
   const banner = `<div class="chips"><span class="pill warn">draft-only</span> <span class="sub" style="margin:0">${CX_ESC(note)}</span></div>`;
   const stat = (label, val) => `<div style="flex:1;min-width:104px;padding:12px 14px;border:1px solid #24262d;border-radius:10px;background:#15171c"><div style="font-size:22px;font-weight:700;color:#fff">${CX_ESC(String(val == null ? "—" : val))}</div><div style="color:#878a93;font-size:12px;margin-top:2px">${CX_ESC(label)}</div></div>`;
   const stats = `<h2>Substrate</h2><div class="row" style="gap:10px;align-items:stretch">${stat("Env classes", sub.environment_classes)}${stat("Foundry specs", sub.foundry_specs)}${stat("Foundry plans", sub.foundry_run_plans)}${stat("Ledger", sub.work_ledger_entries)}${stat("Connectors", sub.connectors)}</div>`;
   const patterns = `<div class="chips"><span class="chiplabel">Composition patterns</span>${(o.composition_patterns || []).map((p) => `<span class="pill ${p === "domain_app" ? "warn" : "muted"}">${CX_ESC(p)}</span>`).join("")}</div>`;
   const outkinds = `<div class="chips"><span class="chiplabel">Recipe output kinds</span>${(o.recipe_output_kinds || []).map((k) => `<span class="pill muted">${CX_ESC(k)}</span>`).join("")}</div>`;
   const section = (title, family, items, nameKey, newLabel) => `<h2 style="display:flex;justify-content:space-between;align-items:center">${title} (${items.length}) <a class="act" href="/__ioi/odk/${family}/new">+ ${newLabel}</a></h2>${items.length ? items.map((x) => odkCard(family, x, nameKey)).join("") : `<div class="empty">None yet.</div>`}`;
-  return automationsShell("Grounding", head + banner + stats + patterns + outkinds
+  return automationsShell("Ontology", head + banner + stats + patterns + outkinds
     + section("Domain Ontologies", "ontologies", lists.ontologies, "domain", "New ontology")
-    + section("Data Recipes", "data-recipes", lists.data_recipes, "name", "New recipe")
+    + `<div id="data-planes">` + section("Data Recipes", "data-recipes", lists.data_recipes, "name", "New recipe") + `</div>`
     + section("Surface Descriptors", "surface-descriptors", lists.surface_descriptors, "name", "New descriptor")
     + section("ODK Manifests", "manifests", lists.manifests, "name", "New manifest"));
 }
