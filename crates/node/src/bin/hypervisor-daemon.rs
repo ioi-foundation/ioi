@@ -90,6 +90,8 @@ mod microvm;
 mod data_source_routes;
 #[path = "hypervisor_daemon_routes/connector_mapping_routes.rs"]
 mod connector_mapping_routes;
+#[path = "hypervisor_daemon_routes/policy_bound_data_view_routes.rs"]
+mod policy_bound_data_view_routes;
 #[path = "hypervisor_daemon_routes/harness_routes.rs"]
 mod harness_routes;
 #[path = "hypervisor_daemon_routes/model_routes.rs"]
@@ -1124,6 +1126,31 @@ async fn async_main() -> anyhow::Result<()> {
         .route(
             "/v1/hypervisor/odk/connector-mappings/:id/history",
             get(connector_mapping_routes::handle_connector_mapping_history),
+        )
+        // PolicyBoundDataView — the second inert authority-crossing rung: the capability envelope a
+        // future TransformationRun must satisfy. Declarative gate only; nothing runs.
+        .route(
+            "/v1/hypervisor/odk/policy-bound-data-views",
+            get(policy_bound_data_view_routes::handle_policy_views_list)
+                .post(policy_bound_data_view_routes::handle_policy_view_create),
+        )
+        .route(
+            "/v1/hypervisor/odk/policy-bound-data-views/overview",
+            get(policy_bound_data_view_routes::handle_policy_views_overview),
+        )
+        .route(
+            "/v1/hypervisor/odk/policy-bound-data-views/:id",
+            get(policy_bound_data_view_routes::handle_policy_view_get)
+                .patch(policy_bound_data_view_routes::handle_policy_view_patch)
+                .delete(policy_bound_data_view_routes::handle_policy_view_delete),
+        )
+        .route(
+            "/v1/hypervisor/odk/policy-bound-data-views/:id/health",
+            get(policy_bound_data_view_routes::handle_policy_view_health),
+        )
+        .route(
+            "/v1/hypervisor/odk/policy-bound-data-views/:id/history",
+            get(policy_bound_data_view_routes::handle_policy_view_history),
         )
         .route(
             "/v1/hypervisor/odk/data-recipes",

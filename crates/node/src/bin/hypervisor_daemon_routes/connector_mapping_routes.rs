@@ -27,7 +27,7 @@ use super::{iso_now, persist_record, read_record_dir, remove_record, DaemonState
 const MAPPING_SCHEMA: &str = "ioi.hypervisor.odk.connector-mapping.v1";
 const RECEIPT_SCHEMA: &str = "ioi.hypervisor.odk.connector-mapping-receipt.v1";
 const OVERVIEW_SCHEMA: &str = "ioi.hypervisor.odk.connector-mappings-overview.v1";
-const RECORD_DIR: &str = "odk-connector-mappings";
+pub(crate) const RECORD_DIR: &str = "odk-connector-mappings";
 const RECEIPT_DIR: &str = "odk-connector-mapping-receipts";
 
 /// Source-field shapes an author may declare (the source's shape, not a live read).
