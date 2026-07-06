@@ -309,7 +309,8 @@ Hypervisor
   -> application surfaces (the autonomous-systems suite)
       Studio
       Automations
-      Grounding
+      Ontology
+      Data
       Governance
       Missions
       Provenance
@@ -472,7 +473,7 @@ region is not canonical; pinned/favorite/promoted entries are catalog, Home, or
 project/session affordances. `Open Application` remains a singular active
 surface slot when a specialized surface is selected.
 
-The Applications catalog carries the autonomous-systems suite (twelve
+The Applications catalog carries the autonomous-systems suite (thirteen
 applications derived from the lifecycle of a decentralized bounded autonomous
 system: intent → compose → ground → govern → run → prove → evaluate → improve →
 package → distribute → operate), the substrate lane, launchable generated apps,
@@ -483,7 +484,10 @@ where they help cross-reference contracts:
 The suite
   Studio            (system & agent composition; absorbs Agent Studio as its agent lens)
   Automations       (durable triggers, schedules, monitors, services, process graphs)
-  Grounding         (ontology, data recipes, sources, object sets, consent — Ontology/Data-Knowledge family)
+  Ontology          (the semantic world-model: object/link/action types, functions,
+                     value types, object exploration and saved sets — Ontology family)
+  Data              (supply the world-model: sources, syncs, data recipes, datasets,
+                     media sets, consent posture — Data/Knowledge family)
   Governance        (authority, approvals, leases, release gates, kill switches, budgets)
   Missions          (fleet of running systems: runs, incidents, spend per system)
   Provenance        (receipts, lineage, replay, state roots — Work Ledger family)
@@ -508,7 +512,8 @@ Horizon
 
 ODK is NOT an application: it is the developer kit (CLI, templates, scaffolds,
 generated SDKs, docs, conformance). Its object planes remain substrate and
-surface through the suite — ontologies and data recipes through Grounding,
+surface through the suite — ontologies and value types through Ontology,
+data recipes and sources through Data,
 surface descriptors through Studio, manifests through Marketplace — and its
 developer tooling through Developer Console and the kit itself.
 
@@ -608,7 +613,7 @@ The product-management lifecycle is:
 
 ```text
 Build
-  Projects, Workbench, Studio, Automations, Grounding, Canvas, SDK/ADK/
+  Projects, Workbench, Studio, Automations, Ontology, Data, Canvas, SDK/ADK/
   developer kit, Developer Console, Foundry, Marketplace facets
 
 Run
@@ -701,7 +706,7 @@ Marketplace / Provenance
 Governance / Missions / Operations
   human approval, policy review, remediation, incident, and support gates
 
-Provenance / Grounding
+Provenance / Ontology
   dependency, provenance, and impact graph
 
 Provenance
@@ -769,10 +774,16 @@ Hypervisor Automations
   its core grammar; includes durable missions created from ioi.ai
   collaborative outcome handoffs
 
-Hypervisor Grounding
-  world-model stewardship: ontologies (object/link/action types), data recipes,
-  sources/syncs, object exploration and saved object sets, value types — every
-  grounding object carries its consent/visibility ladder; consumes connector
+Hypervisor Ontology
+  the semantic world-model systems act on: ontologies (object/link/action
+  types), functions, value types, object exploration and saved object sets,
+  ontology health and history — every semantic object carries its
+  consent/visibility ladder
+
+Hypervisor Data
+  supply the world-model: sources/syncs, data recipes, datasets, time-series
+  and media sets — nothing enters a system's view without a governed recipe,
+  and every data object carries its consent posture; consumes connector
   bindings from Connections, never owns them
 
 Hypervisor Governance
@@ -833,7 +844,7 @@ Hypervisor Canvas
 Other surfaces may include specialized model consoles, service/API consoles,
 domain-operation consoles, organization admin views, and settings panes. Work
 analytics, tool analytics, release control, run replay, and data-recipe views
-appear as facets of the suite (Evaluations, Governance, Provenance, Grounding)
+appear as facets of the suite (Evaluations, Governance, Provenance, Ontology, Data)
 or contextual panels. Generated domain apps are launchable Applications-catalog
 entries — authored in Studio, distributed through Marketplace — not a separate
 card. These should still resolve through the Applications catalog, the singular
@@ -1004,7 +1015,7 @@ The first-party set is the autonomous-systems suite plus the substrate lane
 (see Top-Level Product IA and The Autonomous-Systems Application Suite):
 
 ```text
-Studio · Automations · Grounding · Governance · Missions · Provenance ·
+Studio · Automations · Ontology · Data · Governance · Missions · Provenance ·
 Evaluations · Improvement · Foundry · Marketplace · Workbench ·
 Developer Console
 Environments · Operations   (substrate lane)
@@ -1170,7 +1181,7 @@ domain app consoles
 ```
 
 Each mode should be classified under an owning suite surface, such as
-Studio, Automations, Grounding, Governance, Missions, Provenance, Evaluations,
+Studio, Automations, Ontology, Data, Governance, Missions, Provenance, Evaluations,
 Improvement, Foundry, Marketplace, Projects / Workbench, Developer Console, or
 the substrate lane (Environments, Operations). Older family labels such as
 `Data / Knowledge`, `Ontology`,
@@ -1262,7 +1273,7 @@ admission, authority-provider gates as required, Agentgres, and receipts.
 
 **Learning / Patterns / Examples / Training** is an enablement facet, not a
 standalone product surface. It may appear in Home, Applications, Marketplace,
-Foundry, Studio, Grounding, and onboarding flows when a recipe can become
+Foundry, Studio, Ontology, Data, and onboarding flows when a recipe can become
 governed work.
 
 It is not passive documentation. It is a product path from learning or
@@ -1288,7 +1299,7 @@ This surface may expose:
   eval packs, dashboard/application shells, model routes, provider profiles,
   and marketplace packages;
 - solution diagrams and architecture planners that compile into reviewed
-  Studio, Workbench, Automations, Foundry, or Grounding
+  Studio, Workbench, Automations, Foundry, Ontology, or Data
   proposals.
 
 Every serious example should declare the vertical problem, required data and
