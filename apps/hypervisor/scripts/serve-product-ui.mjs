@@ -4481,6 +4481,31 @@ const server = http.createServer((req, res) => {
         models: { base: "/workspace/model-catalog/", fold: true },       // Foundry seed — model registry home
         devconsole: { base: "/workspace/developer-console/", fold: false },// Developer Console seed — OAuth app registration + SDK on-ramps (self-bootstrapped)
         widgets: { base: "/workspace/custom-widgets/", fold: false },    // Developer Console seed — widget-set authoring (dev-kit fork; self-bootstrapped)
+        // ---- UX-parity sweep (capture-completeness first): recoverable application seeds wired
+        // to boot under the estate. Data lanes stay UNBOUND (classified in the parity inventory);
+        // fold to same-origin so origin-baked API refs resolve through this proxy. See
+        // harvest-seed-inventory.mjs for the canonical map + owner surfaces + unbound-lane notes.
+        machinery: { base: "/workspace/machinery-app/", fold: true },    // Studio — process/state-machine graph
+        workshop: { base: "/workspace/workshop/", fold: true },          // Studio — application/module builder
+        module: { base: "/workspace/module/", fold: true },              // Studio — compute-module builder
+        scheduler: { base: "/workspace/scheduler/", fold: true },        // Automations/Operations — schedule table
+        pipeline: { base: "/workspace/builder/", fold: true },           // Data — Pipeline Builder canvas
+        dataset: { base: "/workspace/dataset/", fold: true },            // Data — dataset preview/table
+        objectview: { base: "/workspace/object-view/", fold: true },     // Ontology — object view
+        objecteditor: { base: "/workspace/object-view-editor/", fold: true }, // Ontology — object-view editor
+        quiver: { base: "/workspace/quiver/", fold: true },              // Evaluations — time-series analysis canvas
+        modelstudio: { base: "/workspace/model-studio/", fold: true },   // Foundry — model studio
+        inference: { base: "/workspace/foundry-inference-app/", fold: true }, // Foundry — inference app
+        developer: { base: "/workspace/developer/", fold: true },        // Developer Console — developer home
+        workspaces: { base: "/workspace/code-workspaces/", fold: true }, // Workbench — code workspace IDE
+        repositories: { base: "/workspace/code-repositories/", fold: true }, // Workbench — code repositories
+        notepad: { base: "/workspace/notepad/", fold: true },            // Workbench — notepad document
+        vertex: { base: "/workspace/vertex/", fold: true },              // Provenance/graph — Vertex graph exploration
+        map: { base: "/workspace/map/", fold: true },                    // Environments — geospatial map canvas
+        slate: { base: "/workspace/slate/", fold: true },                // Domain Apps — Slate app builder
+        logic: { base: "/workspace/logic-app/", fold: true },            // Domain Apps — Logic builder
+        contour: { base: "/workspace/contour-app/", fold: true },        // Domain Apps — Contour analysis
+        fusion: { base: "/workspace/fusion/", fold: true },              // Domain Apps — Fusion spreadsheet
       };
       const CAPTURE = process.env.IOI_HARVEST_CAPTURE_URL || process.env.IOI_HARVEST_MIRROR_URL || "http://127.0.0.1:9225";
       // REBIND (approvals pilot, phase 2): the seed's task-request search lanes are answered
@@ -4898,13 +4923,21 @@ const server = http.createServer((req, res) => {
         });
         const ct = upstream.headers.get("content-type") || "application/octet-stream";
         let buf = Buffer.from(await upstream.arrayBuffer());
+        // Narrow, DECLARED wire transforms only (no semantic rewrite, no native replacement):
+        //  (a) origin-fold — for fold-flagged seeds, absolute capture-origin refs become
+        //      same-origin so the seed's API/chunk calls resolve through this proxy;
+        //  (b) brand-cased string rewrite — the capitalized brand token becomes IOI so RENDERED
+        //      seed text stays brand-clean. Applied to HTML and to JS (where the SPA holds the
+        //      UI strings it renders at runtime); lowercase code identifiers/URLs are left as
+        //      deferred code tokens. Static-asset parity accounts for these exact transforms.
         if (ct.includes("text/html")) {
-          // Wire rebrand; plus, for fold-flagged seeds, absolute capture-origin refs become
-          // same-origin so the seed's API calls resolve through this proxy instead of
-          // cross-origin to the capture.
           let html = buf.toString("utf8");
           if (foldOrigin) html = html.replace(/https?:\/\/(?:localhost|127\.0\.0\.1):9225/g, "");
           buf = Buffer.from(html.replace(/Palantir/g, "IOI"), "utf8");
+        } else if (/javascript|ecmascript/.test(ct)) {
+          let js = buf.toString("utf8");
+          if (foldOrigin) js = js.replace(/https?:\/\/(?:localhost|127\.0\.0\.1):9225/g, "");
+          buf = Buffer.from(js.replace(/Palantir/g, "IOI"), "utf8");
         }
         res.writeHead(upstream.status, { "Content-Type": ct, "Cache-Control": pathname.startsWith("/assets/") ? "public, max-age=86400" : "no-cache", "content-length": String(buf.length) });
         return res.end(buf);
