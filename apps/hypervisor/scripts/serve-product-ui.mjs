@@ -978,7 +978,7 @@ function renderSessionsRoot(sessionsRes, envSummary) {
       <td>${envId ? `<a href="/workspaces/${enc(envId)}" target="_top">workbench</a> · <a href="/details/${enc(envId)}" target="_top">session</a> · <a href="/__ioi/run-timeline/env/${enc(envId)}" target="_blank" rel="noopener">timeline ↗</a>` : "—"}</td>
     </tr>`;
   }).join("");
-  const inner = `<h1>Sessions</h1><p class="sub">Every governed session with its lifecycle facts and ADMITTED harness binding — selection is session truth recorded at create, never UI state. New work starts from the rail's New Session; replay lives in <a href="/__ioi/run-replay">Run Replay</a>. <a href="/__apps/jobs">Run/job queue seed (adopting) →</a> · <a href="/__apps/incidents">Incident inbox seed (adopting) →</a></p>
+  const inner = `<h1>Sessions</h1><p class="sub">Every governed session with its lifecycle facts and ADMITTED harness binding — selection is session truth recorded at create, never UI state. New work starts from the rail's New Session; replay lives in <a href="/__ioi/run-replay">Run Replay</a>. <a href="/__apps/jobs">Run/job queue (daemon-truth rebind) →</a> · <a href="/__apps/incidents">Incident inbox (daemon-truth rebind) →</a></p>
     ${sessions.length ? `${chips}<table><thead><tr><th>Session</th><th>Lifecycle</th><th>Admitted binding</th><th>Environment</th><th>Open</th></tr></thead><tbody id="sess-body">${rows}</tbody></table><div class="empty" id="sess-empty" style="display:none">No sessions in this state.</div>
     <script>function ssChip(b){document.querySelectorAll('#sess-chips .chip').forEach(function(x){x.classList.toggle('on',x===b);});var w=b.getAttribute('data-ss');var n=0;document.querySelectorAll('#sess-body tr').forEach(function(r){var on=!w||r.getAttribute('data-ss')===w;r.style.display=on?'':'none';if(on)n++;});document.getElementById('sess-empty').style.display=n?'none':'';}</script>`
     : `<div class="empty">No sessions yet — launch one from the rail's New Session and it appears here with its admitted binding.</div>`}`;
@@ -4484,6 +4484,184 @@ const server = http.createServer((req, res) => {
           // other intervention lanes fall through to the mirror passthrough below
         } catch (e) {
           return send({ error: { message: `daemon unreachable: ${e.message}` } }, 502);
+        }
+      }
+      // REBIND (Missions seed, run queue): the /__apps/jobs seed (job-tracker) reads its build
+      // table via GraphQL OverviewPageQuery; the serve answers it with the daemon's REAL run
+      // estate — goal-runs (drafts excluded: not yet runs), sessions (the daemon's own
+      // newest-50 list projection), and automation executions — mapped into the seed's
+      // BuildReport wire shape. Every rendered fact is daemon truth: statuses map by closest
+      // category (complete/executed/done→SUCCEEDED, blocked/execution_failed→FAILED,
+      // active/provisioned→RUNNING, stopped→CANCELED); times are the daemon's own timestamps
+      // (a goal-run's finish time is its real last-update-at-completion; sessions record no
+      // finish time → finishedAt null, never invented); the Outputs cell carries the daemon
+      // ref VERBATIM and deep-links to the estate's own truth surface (run timelines,
+      // sessions root); automation executions attribute to their automation by name through
+      // the seed's schedule lane. Identity-scoped filters (userIds) match nothing — the
+      // daemon maps no seed-user identity yet (identity mapping phase), so "Your builds" is
+      // honestly empty until the operator clears the identity filter.
+      if (pathname.startsWith("/graphql-gateway/api/graphql") && req.method === "POST") {
+        let gqlDoc = null;
+        try { gqlDoc = JSON.parse(body || "null"); } catch { /* not JSON — passthrough */ }
+        const gqlOp = gqlDoc && !Array.isArray(gqlDoc) ? gqlDoc : null;
+        const sendJson = (obj, status = 200) => { res.writeHead(status, { "Content-Type": "application/json" }); res.end(JSON.stringify(obj)); };
+        if (gqlOp && gqlOp.operationName === "JobTypeFilterQuery" && String(gqlOp.query || "").includes("jobTypes")) {
+          // The job-type filter dropdown carries OUR real run kinds, not the reference
+          // platform's build-worker registry.
+          return sendJson({ data: { jobTypes: ["goal-run", "session", "automation-run"], transformTypes: [], __typename: "Query" } });
+        }
+        // Gate on the FIELD, not the operation name: the seed reads buildsV2 through
+        // OverviewPageQuery and through its new-builds poller (a different operation with
+        // the same field + a minStartTime filter).
+        if (gqlOp && String(gqlOp.query || "").includes("buildsV2(")) {
+          try {
+            // Deterministic UUID-shaped rid tails (the seed's locator parsers reject
+            // non-UUID tails): FNV-1a over the daemon ref, forward + reverse, 16 hex.
+            const fnv = (s, rev) => { let h = 0x811c9dc5; for (let i = 0; i < s.length; i++) { h = Math.imul(h ^ s.charCodeAt(rev ? s.length - 1 - i : i), 0x01000193) >>> 0; } return h.toString(16).padStart(8, "0"); };
+            const uuidOf = (s) => { const h = fnv(s, false) + fnv(s, true); return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(0, 4)}-${h.slice(4, 16)}`; };
+            const b64 = (s) => Buffer.from(String(s)).toString("base64");
+            const mkResource = (name, openUrl, icon) => { const rid = `ri.compass.main.resource.${uuidOf("res:" + name)}`; return { rid, collections: [], status: null, trashedStatus: "NOT_TRASHED", type: { iconName: icon, __typename: "ResourceTypeMetadata" }, alias: "", name, openUrl, permissions: { canOpenLink: true, _id: b64(rid + ":perm"), __typename: "ResourcePermissions" }, ancestors: [], path: name, autosaved: false, _id: b64(rid), __typename: "ResourceMetadata" }; };
+            const mkOutput = (name, openUrl, icon) => ({ rid: `ri.compass.main.resource.${uuidOf("res:" + name)}`, name, resource: mkResource(name, openUrl, icon), branch: null, branchName: "", __typename: "JobOutput" });
+            // workerDetails must be a non-null object (the seed reads
+            // jobSpec?.workerDetails.__typename without a null guard); a foreign typename
+            // falls through its sync-worker special case.
+            const mkJob = (key, status) => ({ status, jobSpec: { rid: `ri.foundry.main.jobspec.${uuidOf("jobspec:" + key)}`, workerDetails: { __typename: "HypervisorWorkerDetails" }, _id: b64("jobspec:" + key), __typename: "JobSpec" }, _id: b64("job:" + key), __typename: "JobReport" });
+            const mkBuild = (o) => ({
+              kind: o.kind, // interceptor-side filter key, harmless extra field on the wire
+              rid: `ri.foundry.main.build.${uuidOf(o.refKey)}`,
+              status: o.status,
+              started: { time: o.startedAt || "", user: null, __typename: "BuildStartedRecord" },
+              finishedAt: o.finishedAt || null,
+              outputs: { values: [mkOutput(o.name, o.openUrl, o.icon)], totalNumberOfResults: 1, nextPageToken: null, __typename: "JobOutputsPage" },
+              jobs: o.jobs,
+              scheduleRun: o.schedule ? { scheduleVersion: { schedule: { rid: `ri.scheduler.main.schedule.${uuidOf("auto:" + o.schedule.id)}`, name: o.schedule.name, _id: b64("sched:" + o.schedule.id), __typename: "Schedule" }, _id: b64("schedv:" + o.schedule.id), __typename: "ScheduleVersion" }, _id: b64("schedrun:" + o.refKey), __typename: "ScheduleRun" } : null,
+              _id: b64("build:" + o.refKey),
+              __typename: "BuildReport",
+            });
+            const [grj, ssj, atj] = await Promise.all([
+              fetch(`${DAEMON}/v1/hypervisor/goal-runs`).then((r) => r.json()),
+              fetch(`${DAEMON}/v1/hypervisor/sessions`).then((r) => r.json()),
+              fetch(`${DAEMON}/v1/hypervisor/automations`).then((r) => r.json()),
+            ]);
+            const autoDefs = atj.automations || [];
+            const runsPer = await Promise.all(autoDefs.map((a) => fetch(`${DAEMON}/v1/hypervisor/automations/${encodeURIComponent(a.automation_id)}/runs`).then((r) => r.json()).catch(() => ({}))));
+            const rows = [];
+            const grStatus = { complete: "SUCCEEDED", blocked: "FAILED", active: "RUNNING" };
+            for (const g of grj.goal_runs || []) {
+              if (g.status === "draft") continue; // a draft is not yet a run
+              const st = grStatus[g.status] || "RUNNING";
+              const id = String(g.goal_ref || g.goal_run_id || "").replace(/^goal:\/\//, "");
+              rows.push(mkBuild({ kind: "goal-run", refKey: `goal-run:${id}`, status: st, startedAt: g.created_at, finishedAt: g.status === "complete" ? g.updated_at : null, name: g.goal_ref || id, openUrl: `/__ioi/run-timeline/goal-run/${encodeURIComponent(id)}`, icon: "flows", jobs: [mkJob(`goal-run:${id}`, st)] }));
+            }
+            const ssStatus = { provisioned: "RUNNING", executed: "SUCCEEDED", execution_failed: "FAILED" };
+            for (const s of ssj.sessions || []) {
+              const st = ssStatus[s.lifecycle_state] || "RUNNING";
+              const ref = String(s.session_ref || "");
+              rows.push(mkBuild({ kind: "session", refKey: `session:${ref}`, status: st, startedAt: s.created_at, finishedAt: null, name: ref, openUrl: "/__ioi/sessions", icon: "application", jobs: [mkJob(`session:${ref}`, st)] }));
+            }
+            const axStatus = { done: "SUCCEEDED", failed: "FAILED", running: "RUNNING", stopped: "CANCELED" };
+            const stepStatus = { done: "SUCCEEDED", failed: "FAILED", running: "RUNNING", stopped: "CANCELED", pending: "RUNNING" };
+            autoDefs.forEach((a, i) => {
+              for (const x of (runsPer[i] && runsPer[i].runs) || []) {
+                const st = axStatus[x.status] || "RUNNING";
+                const jobs = (x.step_results || []).map((sr, k) => mkJob(`aex:${x.execution_id}:${k}`, stepStatus[sr.status] || "RUNNING"));
+                rows.push(mkBuild({ kind: "automation-run", refKey: `aex:${x.execution_id}`, status: st, startedAt: x.started_at, finishedAt: x.finished_at || null, name: x.execution_id, openUrl: `/__ioi/run-timeline/${encodeURIComponent(x.execution_id)}`, icon: "automatic-updates", jobs: jobs.length ? jobs : [mkJob(`aex:${x.execution_id}`, st)], schedule: { id: a.automation_id, name: a.name || a.automation_id } }));
+              }
+            });
+            const vars = gqlOp.variables || {};
+            const matchOne = (row, f) => {
+              if (!f) return true;
+              if (Array.isArray(f.userIds) && f.userIds.length) return false; // identity unmapped — honestly no rows
+              if (f.minStartTime && String(row.started.time) < String(f.minStartTime)) return false; // new-builds poller window
+              if (Array.isArray(f.buildStatuses) && f.buildStatuses.length && !f.buildStatuses.includes(row.status)) return false;
+              if (Array.isArray(f.jobTypes) && f.jobTypes.length && !f.jobTypes.includes(row.kind)) return false;
+              if (Array.isArray(f.excludedJobTypes) && f.excludedJobTypes.length && f.excludedJobTypes.includes(row.kind)) return false;
+              if (Array.isArray(f.transformTypes) && f.transformTypes.length) return false; // runs carry no transform types
+              if (Array.isArray(f.branches) && f.branches.length) return false; // runs carry no branches
+              for (const k of ["buildRids", "buildInputRids"]) if (Array.isArray(f[k]) && f[k].length && !f[k].includes(row.rid)) return false;
+              for (const k of ["outputRids", "jobOutputRids"]) if (Array.isArray(f[k]) && f[k].length && !f[k].some((rid) => row.outputs.values.some((v) => v.rid === rid))) return false;
+              return true;
+            };
+            const filters = Array.isArray(vars.filter) ? vars.filter : [];
+            let list = rows.filter((r) => (filters.length ? filters.some((f) => matchOne(r, f)) : true));
+            const desc = (vars.sortDirection || "DESCENDING") === "DESCENDING";
+            const key = vars.sortType === "BY_FINISHED_TIME" ? (r) => String(r.finishedAt || "") : (r) => String(r.started.time || "");
+            list = list.slice().sort((a, b) => (desc ? key(b).localeCompare(key(a)) : key(a).localeCompare(key(b))));
+            const from = Number(vars.pageToken || 0) || 0;
+            const pageSize = Number(vars.pageSize || 30) || 30;
+            const page = list.slice(from, from + pageSize);
+            return sendJson({ data: { buildsV2: { values: page, nextPageToken: from + pageSize < list.length ? String(from + pageSize) : null, __typename: "BuildReportsPage" }, __typename: "Query" } });
+          } catch (e) {
+            return sendJson({ errors: [{ message: `daemon unreachable: ${e.message}` }] }, 502);
+          }
+        }
+        // other GraphQL operations fall through to the mirror passthrough
+      }
+      // REBIND (Missions seed, incident lane): the /__apps/incidents seed (issues-app)
+      // searches its inbox via /issues/api/search/issues/v2/{search,batch}; the serve answers
+      // with the daemon's provider-failure incidents mapped into the seed's issue wire shape.
+      // Every fact is daemon truth: title = failure kind + environment ref verbatim, status by
+      // closest category (recovered→CLOSED, anything not recovered→OPEN), the detection time
+      // is the only timestamp (nothing else is recorded), reporter identity honestly unknown.
+      // Severity renders the seed's closest category for a lost-workload provider failure
+      // (high); incidents cannot be fabricated through this lane — the daemon exposes no
+      // incident-creation API (405), they exist only when the failover machinery records one.
+      if (pathname === "/issues/api/search/issues/v2/search" || pathname === "/issues/api/search/issues/v2/batch") {
+        const sendJson = (obj, status = 200) => { res.writeHead(status, { "Content-Type": "application/json" }); res.end(JSON.stringify(obj)); };
+        try {
+          const ij = await fetch(`${DAEMON}/v1/hypervisor/incidents`).then((r) => r.json());
+          const fnv = (s, rev) => { let h = 0x811c9dc5; for (let i = 0; i < s.length; i++) { h = Math.imul(h ^ s.charCodeAt(rev ? s.length - 1 - i : i), 0x01000193) >>> 0; } return h.toString(16).padStart(8, "0"); };
+          const uuidOf = (s) => { const h = fnv(s, false) + fnv(s, true); return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(0, 4)}-${h.slice(4, 16)}`; };
+          const issues = (ij.incidents || []).map((inc) => ({
+            rid: `ri.issues.main.issue.${uuidOf(String(inc.incident_ref || ""))}`,
+            title: `${inc.failure_kind || "provider failure"} · ${inc.environment_ref || ""}`,
+            status: inc.status === "recovered" ? "CLOSED" : "OPEN",
+            archived: false,
+            severity: "HIGH_PRIORITY",
+            assignees: [],
+            attribution: { userId: "", time: inc.detected_at || "" },
+            // Same time on both records: the daemon records only the detection time, and the
+            // seed hides the "updated" line when the two are equal — no update time invented.
+            lastUpdateAttribution: { userId: "", time: inc.detected_at || "" },
+            // The seed's metadata union is data|resource|objectData (a linked platform
+            // resource). Incidents reference an ENVIRONMENT, which has no compass resource —
+            // a foreign tag falls through every union guard, so the resource cell renders
+            // empty instead of a fabricated link.
+            metadata: { type: "none" },
+          }));
+          // The seed's own filter grammar (captured from its search-filter assembly):
+          // status/archived/severity/text/label + identity (directAssignee/mentionee/
+          // reporter), resource (targetRid/branch/column), dates, and "not" negation.
+          const applyOne = (r, f) => {
+            if (!f || !f.type) return true;
+            if (f.type === "not") return !applyOne(r, f.not);
+            if (f.type === "status") { const s = f.status || {}; if (s.type === "exclude") return !(s.exclude || []).includes(r.status); if (s.type === "include") return (s.include || []).includes(r.status); return true; }
+            if (f.type === "archived") return (f.archived === "ARCHIVED") === !!r.archived;
+            if (f.type === "severity") { const inc = (f.severity && f.severity.severities) || []; return !inc.length || inc.includes(r.severity); }
+            if (f.type === "directAssignee" || f.type === "mentionee" || f.type === "reporter") return false; // identity unmapped — honestly no rows
+            if (f.type === "label") { const l = f.label || {}; return (l.includeUnlabeled && !(l.labels || []).length) || false; } // rows carry no labels
+            if (f.type === "targetRid" || f.type === "branch" || f.type === "column" || f.type === "supportType") return false; // no compass targets / support types
+            if (f.type === "text") { const qs = (f.text && f.text.queries) || []; return qs.every((q) => r.title.toLowerCase().includes(String(q).toLowerCase())); }
+            if (f.type === "dueDate") return false; // incidents have no due dates — never invented
+            if (f.type === "creationDate" || f.type === "updatedDate") { const d = f[f.type === "creationDate" ? "creationDate" : "updatedDate"] || {}; const t = String(r.attribution.time); return (!d.after || t >= d.after) && (!d.before || t <= d.before); }
+            return true;
+          };
+          const applyFilters = (rows, fs) => rows.filter((r) => (fs || []).every((f) => applyOne(r, f)));
+          const answer = (q) => {
+            const matched = applyFilters(issues, q.filters);
+            const dir = ((q.sort || {}).direction || "DESC") === "DESC" ? -1 : 1;
+            const sorted = matched.slice().sort((a, b) => dir * String(a.attribution.time).localeCompare(String(b.attribution.time)));
+            const from = Number(q.from || 0) || 0;
+            const page = sorted.slice(from, from + (Number(q.count || 40) || 40));
+            const aggregations = {};
+            for (const [name, spec] of Object.entries(q.aggregations || {})) aggregations[name] = { value: applyFilters(issues, [...(q.filters || []), ...((spec && spec.filters) || [])]).length };
+            return { aggregations, hits: page.map((v) => ({ value: v })), hitCount: matched.length };
+          };
+          let reqDoc = {};
+          try { reqDoc = JSON.parse(body || "{}"); } catch { /* shape-tolerant */ }
+          return sendJson(pathname.endsWith("/batch") ? (Array.isArray(reqDoc) ? reqDoc.map(answer) : []) : answer(reqDoc));
+        } catch (e) {
+          return sendJson({ error: { message: `daemon unreachable: ${e.message}` } }, 502);
         }
       }
       if (pathname === "/approvals/api/search/task-requests" || pathname === "/approvals/api/search/task-requests/counts") {
