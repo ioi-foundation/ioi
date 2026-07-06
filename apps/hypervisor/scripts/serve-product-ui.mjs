@@ -536,19 +536,24 @@ function automationProjectName(a, projectsById) {
 function renderAutomationsList(automations, projectId, projectsById) {
   const filtName = projectId ? automationProjectName({ project_ref: projectId }, projectsById) : "";
   const newHref = `/__ioi/automations/new${projectId ? `?project=${encodeURIComponent(projectId)}` : ""}`;
-  const head = `<h1>Automations</h1>
-    <p class="sub">Project-scoped durable work — each automation hangs off a project, runs on the daemon over a real environment, and records a tamper-evident transcript. ${projectId ? `Filtered to <b>${CX_ESC(filtName)}</b> · <a href="/__ioi/automations">show all</a>` : "Showing all projects."}</p>
-    <div class="row"><a class="act" href="${newHref}">+ New automation</a><a class="act ghost" href="/__apps/monitors">Monitor wizard seed (adopting) →</a></div>`;
+  // Owner-surface contract: Automations owns DURABLE ORCHESTRATION — the daemon automation records
+  // below are the truth (real specs, triggers, steps, projects), authoritative and countable. The
+  // captured object-monitoring wizard is a SECONDARY reference grammar (a linked walkthrough for the
+  // condition→effect authoring UX), explicitly NOT daemon truth — no captured row is presented here.
+  const head = `<h1 id="automations-owner">Automations</h1>
+    <p class="sub">Durable orchestration — each automation is a daemon-owned spec that hangs off a project, runs over a real environment, and records a tamper-evident transcript. The <b>${automations.length}</b> record${automations.length === 1 ? "" : "s"} below ${projectId ? `(filtered to <b>${CX_ESC(filtName)}</b> · <a href="/__ioi/automations">show all</a>)` : "across all projects"} are daemon truth. <span class="sub">The <a href="/__apps/monitors">monitor-wizard capture ↗</a> is a secondary reference grammar for authoring condition→effect monitors — a linked walkthrough, not a rebound surface; its example rows are never shown here as daemon automations.</span></p>
+    <div class="row"><a class="act" href="${newHref}">+ New automation</a><a class="act ghost" href="/__apps/monitors">Monitor-wizard capture (reference) →</a></div>`;
   if (!automations.length) {
-    return automationsShell("Automations", head + `<div class="empty">No automations yet${projectId ? " for this project" : ""} — create one to get started.</div>`);
+    return automationsShell("Automations", head + `<div class="empty">No daemon automations yet${projectId ? " for this project" : ""} — create one to get started. (The monitor-wizard capture stays a reference; it never fabricates automations here.)</div>`);
   }
   const cards = automations.map((a) => {
     const enabled = a.enabled !== false;
     const steps = Array.isArray(a.steps) ? a.steps.length : 0;
     const model = a.model || "default model";
-    return `<a class="card" href="/__ioi/automations/${encodeURIComponent(a.automation_id)}"><div class="main">
-      <div class="name">${CX_ESC(a.name || a.automation_id)}<span class="pill ${enabled ? "ok" : "muted"}">${enabled ? "enabled" : "disabled"}</span><span class="pill muted">${CX_ESC(a.trigger_kind || "manual")}</span></div>
-      <div class="meta">${CX_ESC(automationProjectName(a, projectsById))} · ${CX_ESC(String(model))} · ${steps} step${steps === 1 ? "" : "s"}</div>
+    const trigger = (a.trigger && (a.trigger.kind || a.trigger.trigger_kind)) || a.trigger_kind || "manual";
+    return `<a class="card automation-card" href="/__ioi/automations/${encodeURIComponent(a.automation_id)}"><div class="main">
+      <div class="name">${CX_ESC(a.name || a.automation_id)}<span class="pill ${enabled ? "ok" : "muted"}">${enabled ? "enabled" : "disabled"}</span><span class="pill muted">${CX_ESC(trigger)}</span></div>
+      <div class="meta">${CX_ESC(automationProjectName(a, projectsById))} · ${CX_ESC(String(model))} · ${steps} step${steps === 1 ? "" : "s"} · <code style="font-size:10.5px">${CX_ESC(a.automation_id)}</code></div>
       </div><span class="act ghost">Open →</span></a>`;
   }).join("");
   return automationsShell("Automations", head + cards);
