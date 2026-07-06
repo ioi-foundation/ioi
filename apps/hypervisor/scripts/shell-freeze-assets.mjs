@@ -52,7 +52,9 @@ for (const f of files) {
 // diffable inventory of every motion- and style-bearing construct, not a full CSS engine.
 const cssFiles = files.filter((f) => f.endsWith(".css"));
 const inventory = { files: {}, totals: {} };
-const CLASS_RE = /\.(-?[_a-zA-Z\\][\w\\/:%\[\]().,~+-]*)\s*[,{:>~ []/g;
+// Class name = word chars/hyphens plus ESCAPED specials (\:, \[, \/ …); an unescaped `:` is a
+// pseudo-class boundary, not part of the name — so `.hover\:x:hover` yields `hover\:x`.
+const CLASS_RE = /\.((?:[\w-]|\\.)+)/g;
 const KEYFRAMES_RE = /@(?:-webkit-)?keyframes\s+([\w-]+)/g;
 const ANIM_DECL_RE = /(?:^|[;{])\s*(animation(?:-[a-z-]+)?)\s*:\s*([^;}]+)/g;
 const TRANS_DECL_RE = /(?:^|[;{])\s*(transition(?:-[a-z-]+)?)\s*:\s*([^;}]+)/g;
