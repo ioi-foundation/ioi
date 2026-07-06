@@ -4595,7 +4595,83 @@ const server = http.createServer((req, res) => {
             return sendJson({ errors: [{ message: `daemon unreachable: ${e.message}` }] }, 502);
           }
         }
+        // REBIND (Marketplace seed): the /__apps/listings seed (marketplace) browses stores
+        // and products through GraphQL searchMarketplaceProducts / searchResources /
+        // remoteMarketplaces; the serve answers with the DAEMON marketplace plane. One local
+        // store exists — the estate's own listing plane. Every product fact is daemon truth
+        // (listing name/description verbatim, real timestamps); status maps by the plane's
+        // own semantics: public_state "published" (admitted review + open release + serving
+        // runtime, receipted) → INSTALLABLE; drafts stay unlisted and NEVER appear as
+        // installable. Install counts are the plane's truth (no install records → 0). No
+        // remote stores exist. Store/product drill-down routes are NOT in the mirror cache —
+        // named gap (live re-harvest target), not faked here.
+        if (gqlOp && (String(gqlOp.query || "").includes("searchMarketplaceProducts(") || String(gqlOp.query || "").includes("LOCAL_MARKETPLACE") || String(gqlOp.query || "").includes("remoteMarketplaces("))) {
+          try {
+            const fnv = (s, rev) => { let h = 0x811c9dc5; for (let i = 0; i < s.length; i++) { h = Math.imul(h ^ s.charCodeAt(rev ? s.length - 1 - i : i), 0x01000193) >>> 0; } return h.toString(16).padStart(8, "0"); };
+            const uuidOf = (s) => { const h = fnv(s, false) + fnv(s, true); return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(0, 4)}-${h.slice(4, 16)}`; };
+            const b64 = (s) => Buffer.from(String(s)).toString("base64");
+            const STORE_RID = `ri.marketplace.main.local-store.${uuidOf("hypervisor-marketplace-plane")}`;
+            const store = { rid: STORE_RID, _id: b64(STORE_RID), __typename: "LocalMarketplace", metadata: { name: "Estate Marketplace — governed listing plane", parent: null, description: "Listings drafted over real substrate. Publish is the governed path: admitted review + open release control + serving runtime, receipted.", _id: b64(STORE_RID + ":meta"), __typename: "MarketplaceMetadata" } };
+            const q = String(gqlOp.query || "");
+            if (q.includes("remoteMarketplaces(")) {
+              return sendJson({ data: { remoteMarketplaces: { values: [], nextPageToken: null, __typename: "RemoteMarketplacesPage" }, __typename: "Query" } });
+            }
+            if (q.includes("LOCAL_MARKETPLACE")) {
+              return sendJson({ data: { searchResources: { nextPageToken: null, results: [{ resource: { resource: store, _id: b64(STORE_RID + ":res"), __typename: "ResourceWrapper" }, __typename: "SearchResourcesResult" }], __typename: "SearchResourcesPage" }, __typename: "Query" } });
+            }
+            const lj = await fetch(`${DAEMON}/v1/hypervisor/marketplace/listings`).then((r) => r.json());
+            const listings = lj.listings || [];
+            const vars = gqlOp.variables || {};
+            // StoreTableQuery pins its status filter in the query TEXT, not variables.
+            const wantStatus = Array.isArray(vars.productStatus) ? vars.productStatus
+              : (vars.productStatus === undefined && /productStatus:\s*INSTALLABLE/.test(q) ? ["INSTALLABLE"] : null);
+            const text = String(vars.productMetadataQuery || "").toLowerCase();
+            const statusOf = (l) => (l.public_state === "published" ? "INSTALLABLE" : "UNPUBLISHED_DRAFT");
+            const matched = listings.filter((l) => {
+              if (text && !(`${l.name} ${l.description} ${l.listing_kind} ${l.subject_ref}`.toLowerCase().includes(text))) return false;
+              if (Array.isArray(vars.marketplaceRids) && vars.marketplaceRids.length && !vars.marketplaceRids.includes(STORE_RID)) return false;
+              if (wantStatus && wantStatus.length && !wantStatus.includes(statusOf(l))) return false;
+              return true;
+            });
+            const mkProduct = (l) => ({
+              id: l.id,
+              _id: b64(String(l.ref || l.id)),
+              __typename: "MarketplaceProduct",
+              status: statusOf(l),
+              marketplace: store,
+              installationCount: 0,
+              attributes: { isFeatured: false, __typename: "MarketplaceProductAttributes" },
+              latestVersion: {
+                versionId: uuidOf(`${l.ref}:${l.updated_at}`),
+                about: { title: [], description: [], fallbackTitle: l.name || l.id, fallbackDescription: `${l.description || ""} — ${l.listing_kind} over ${l.subject_ref} · ${l.public_state}${l.publish_receipt_refs && l.publish_receipt_refs.length ? " · receipted" : ""}`, __typename: "MarketplaceLocalizedTitleAndDescription" },
+                thumbnail: null,
+                documentation: { attachments: [], __typename: "MarketplaceProductVersionDocumentation" },
+                _id: b64(`${l.ref}:v`),
+                __typename: "MarketplaceProductVersion",
+              },
+            });
+            const data = { searchMarketplaceProducts: { __typename: "MarketplaceProductSearch" }, __typename: "Query" };
+            if (q.includes("values {")) {
+              const pageSize = Number(vars.pageSize || 24) || 24;
+              data.searchMarketplaceProducts.values = matched.slice(0, pageSize).map(mkProduct);
+              data.searchMarketplaceProducts.nextPageToken = null;
+            }
+            if (q.includes("aggregates {")) {
+              data.searchMarketplaceProducts.aggregates = { marketplaceCounts: [{ marketplace: store, productCount: matched.length, __typename: "MarketplaceProductSearch_MarketplaceCount" }], __typename: "MarketplaceProductSearchAggregates" };
+            }
+            return sendJson({ data });
+          } catch (e) {
+            return sendJson({ errors: [{ message: `daemon unreachable: ${e.message}` }] }, 502);
+          }
+        }
         // other GraphQL operations fall through to the mirror passthrough
+      }
+      // Upload honesty: the estate has NO product-zip upload lane — listings are drafted
+      // through the daemon API over real substrate; never advertise an affordance that
+      // does not exist.
+      if (pathname === "/marketplace/api/block-set-transport/permissions/user-upload-quota") {
+        res.writeHead(200, { "Content-Type": "application/json" });
+        return res.end(JSON.stringify({ isUploadFromMarketplaceEnabled: false }));
       }
       // REBIND (Missions seed, incident lane): the /__apps/incidents seed (issues-app)
       // searches its inbox via /issues/api/search/issues/v2/{search,batch}; the serve answers
