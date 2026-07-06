@@ -288,7 +288,7 @@ function connectionsShell(inner) {
 <p class="sub">Every external capability binding the workspace can use. Agents receive only scoped, policy-gated capability leases — the underlying credentials are sealed in the daemon and never reach a session.</p>
 ${inner}</div></body></html>`;
 }
-function renderConnectionsCockpit(connectors, scmConnectors, leases) {
+function renderConnectionsCockpit(connectors, scmConnectors, leases, devFacts) {
   const leasesFor = (id) => (leases || []).filter((l) => String(l.backing_provider || "").includes(id) || String(l.resource_refs || "").includes(id));
   const groups = {};
   const push = (cat, html) => { (groups[cat] = groups[cat] || []).push(html); };
@@ -405,7 +405,23 @@ function renderConnectionsCockpit(connectors, scmConnectors, leases) {
   </div>`;
   const authClients = `<div id="conn-authority-clients"><h2>Authority Clients <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— who holds scoped authority right now, from the lease records themselves; origin binding is not recorded on leases (grouped by credential source · authority provider)</span></h2>
     ${Object.keys(acGroups).length ? Object.entries(acGroups).sort((a, b) => b[1].n - a[1].n).map(acCard).join("") : `<div class="empty">No capability leases issued yet — every authority crossing mints one, and it appears here.</div>`}</div>`;
-  return connectionsShell(add + authClients + `<div class="cnwrap"><div>` + body + `</div>` + drawer + `</div>` + script);
+  // ---- Developer Console (27-developer-console graft; 25-developer-tools folds here) — the
+  // external-integration surface as PROBED facts, not promises: the API spine behind the serve
+  // /v1 proxy, the MCP gateway's declared tool contracts, and the identity/SCIM endpoints with
+  // their live posture. Every pill reflects a probe made at render time.
+  const df = devFacts || {};
+  const mcpToolList = ((df.mcpTools || {}).tools || []);
+  const authPosture = (df.authPol || {}).deployment_auth_posture || "local_development";
+  const scimPill = df.scimStatus === 401 ? `<span class="pill ok">reachable · auth required</span>` : df.scimStatus === 200 ? `<span class="pill ok">reachable</span>` : `<span class="pill warn">unreachable (${CX_ESC(String(df.scimStatus || "no answer"))})</span>`;
+  const devConsole = `<div id="conn-developer-console"><h2>Developer Console <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— integrate against the estate: API spine, MCP gateway contracts, identity endpoints; every posture pill is a live probe</span></h2>
+    <div class="card" style="display:block"><b>API spine</b> <span class="pill ok">proxied at <code>/v1/*</code></span> <span class="pill ${authPosture === "local_development" ? "muted" : authPosture === "authenticated_managed" ? "ok" : "warn"}">${CX_ESC(authPosture)}</span>
+      <div class="sub" style="margin:4px 0 0;text-transform:none;letter-spacing:0">Same-origin <code>/v1/hypervisor/*</code> resolves through this serve to the daemon; auth posture governs enforcement (<a href="/__ioi/governance">Governance →</a>).</div></div>
+    <div class="card" style="display:block"><b>MCP gateway</b> ${df.mcpTools ? `<span class="pill ok">${mcpToolList.length} declared tool contract${mcpToolList.length === 1 ? "" : "s"}</span>` : `<span class="pill warn">did not answer</span>`}
+      <div class="sub" style="margin:4px 0 0;text-transform:none;letter-spacing:0">${mcpToolList.length ? mcpToolList.slice(0, 8).map((t) => `<code>${CX_ESC(t.name || "")}</code>`).join(" ") + (mcpToolList.length > 8 ? ` · +${mcpToolList.length - 8} more` : "") : "No declared tools."} · endpoint <code>/v1/hypervisor/mcp-gateway/tools</code> — only declared contracts are invokable, through the lease gateway.</div></div>
+    <div class="card" style="display:block"><b>Identity &amp; provisioning</b> ${scimPill}
+      <div class="sub" style="margin:4px 0 0;text-transform:none;letter-spacing:0">SCIM base <code>/scim/v2</code> · OIDC login <code>/v1/hypervisor/auth/oidc/start</code> · session introspection <code>/v1/hypervisor/auth/whoami</code>. Identity authenticates people; it never becomes machine authority.</div></div>
+  </div>`;
+  return connectionsShell(add + authClients + devConsole + `<div class="cnwrap"><div>` + body + `</div>` + drawer + `</div>` + script);
 }
 
 // ---- Automations cockpit — the owned, PROJECT-FIRST surface for HypervisorAutomationSpec ----------
@@ -820,6 +836,36 @@ function renderHome(ops, ledger, sessions, approvals, failoverRuns) {
     ${strip("home-resume", "Resume", "recent sessions and still-running work", sessions, "No sessions yet — open the rail's New Session launcher to start governed work.", resumeBody)}
     ${strip("home-proof", "Newest proof", "the most recent Work Ledger entries, verbatim", ledger, "No admitted work yet — the proof stream is empty.", proofBody)}`;
   return automationsShell("Governed Work Readout", inner);
+}
+
+// ---- Sessions root (rail root per canon; the P1 gap for the SWE-migration + provider-recovery
+// demos). Session lifecycle FACTS over the daemon records: lifecycle chips with counts, each
+// session's admitted harness binding (selection is session truth, not UI state), its environment
+// join with phase, and the owned proof affordances. List-first slice; no mutation lanes here.
+function renderSessionsRoot(sessionsRes, envSummary) {
+  const enc = encodeURIComponent;
+  const sessions = ((sessionsRes || {}).sessions || []).slice().sort((a, b) => String(b.created_at || "").localeCompare(String(a.created_at || "")));
+  const envPhase = {};
+  (((envSummary || {}).environments) || []).forEach((e) => { envPhase[e.id] = e.phase || ""; });
+  const byState = {};
+  sessions.forEach((s) => { const k = s.lifecycle_state || "unknown"; byState[k] = (byState[k] || 0) + 1; });
+  const chips = `<div class="chips" id="sess-chips"><button class="chip on" data-ss="" onclick="ssChip(this)">All ${sessions.length}</button>${Object.entries(byState).map(([k, n]) => `<button class="chip" data-ss="${CX_ESC(k)}" onclick="ssChip(this)">${CX_ESC(k)} ${n}</button>`).join("")}</div>`;
+  const rows = sessions.slice(0, 60).map((s) => {
+    const envId = String(s.environment_ref || "").replace(/^environment:/, "");
+    const hb = s.harness_binding;
+    return `<tr data-ss="${CX_ESC(s.lifecycle_state || "unknown")}">
+      <td><code style="font-size:11px">${CX_ESC(s.session_ref || "")}</code><div style="color:#878a93;font-size:11px;margin-top:1px">${CX_ESC(s.project_ref || "no project")} · ${CX_ESC(s.created_at || "")}</div></td>
+      <td><span class="pill muted">${CX_ESC(s.lifecycle_state || "—")}</span></td>
+      <td>${hb && hb.profile_ref ? `<span class="pill ok">${CX_ESC(hb.harness || "harness")}</span> <code style="font-size:10px">${CX_ESC(hb.model_route_ref || "")}</code><div style="color:#878a93;font-size:10.5px;margin-top:1px" title="${CX_ESC(hb.admission_id || "")}">admitted at create</div>` : `<span class="pill muted" title="no harness binding recorded at create; execution uses the daemon default lane">execute-time default</span>`}</td>
+      <td>${envId ? `<code style="font-size:10.5px">${CX_ESC(envId)}</code>${envPhase[envId] ? ` <span class="pill ${envPhase[envId] === "running" ? "ok" : "muted"}">${CX_ESC(envPhase[envId])}</span>` : ""}` : "—"}</td>
+      <td>${envId ? `<a href="/workspaces/${enc(envId)}" target="_top">workbench</a> · <a href="/details/${enc(envId)}" target="_top">session</a> · <a href="/__ioi/run-timeline/env/${enc(envId)}" target="_blank" rel="noopener">timeline ↗</a>` : "—"}</td>
+    </tr>`;
+  }).join("");
+  const inner = `<h1>Sessions</h1><p class="sub">Every governed session with its lifecycle facts and ADMITTED harness binding — selection is session truth recorded at create, never UI state. New work starts from the rail's New Session; replay lives in <a href="/__ioi/run-replay">Run Replay</a>.</p>
+    ${sessions.length ? `${chips}<table><thead><tr><th>Session</th><th>Lifecycle</th><th>Admitted binding</th><th>Environment</th><th>Open</th></tr></thead><tbody id="sess-body">${rows}</tbody></table><div class="empty" id="sess-empty" style="display:none">No sessions in this state.</div>
+    <script>function ssChip(b){document.querySelectorAll('#sess-chips .chip').forEach(function(x){x.classList.toggle('on',x===b);});var w=b.getAttribute('data-ss');var n=0;document.querySelectorAll('#sess-body tr').forEach(function(r){var on=!w||r.getAttribute('data-ss')===w;r.style.display=on?'':'none';if(on)n++;});document.getElementById('sess-empty').style.display=n?'none':'';}</script>`
+    : `<div class="empty">No sessions yet — launch one from the rail's New Session and it appears here with its admitted binding.</div>`}`;
+  return automationsShell("Sessions", inner);
 }
 
 function renderApplications() {
@@ -2240,9 +2286,15 @@ function renderFoundryLanding(overview, specs, runPlans, modelRoutes, routeBindi
     ${(modelRoutes || []).length ? (modelRoutes || []).map(routeCard).join("") : `<div class="empty">No model routes registered yet — add one in Agent Studio to populate the catalog.</div>`}</div>`;
   const specCard = (s) => `<a class="card" href="/__ioi/foundry/specs/${enc(s.id || "")}"><div class="main"><div class="name">${CX_ESC(s.name || s.id || "spec")} <span class="pill muted">${CX_ESC(s.kind || "")}</span> <span class="pill warn">${CX_ESC(s.status || "draft")}</span></div><div class="meta"><code>${CX_ESC(s.id || "")}</code> · updated ${CX_ESC(s.updated_at || "")}</div></div><span class="act ghost">Open →</span></a>`;
   const planCard = (p) => `<a class="card" href="/__ioi/foundry/run-plans/${enc(p.id || "")}"><div class="main"><div class="name">${CX_ESC(p.name || p.id || "run plan")} <span class="pill warn">${CX_ESC(p.status || "draft")}</span></div><div class="meta">spec <code>${CX_ESC(p.spec_ref || "")}</code> · target ${CX_ESC(p.target_route_ref || p.target_provider_ref || "—")}</div></div><span class="act ghost">Open →</span></a>`;
+  // ---- Evals lane (29-evals graft — Foundry sub-surface, never a standalone card). The
+  // model_eval-kind specs as the eval workbench's draft plane; scorecards are the future feed
+  // into Release Controls (linked), and this plane executes NOTHING — said plainly.
+  const evalSpecs = specs.filter((s) => s.kind === "model_eval");
+  const evalsSec = `<div id="foundry-evals"><h2>Evals <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— model_eval spec drafts; scorecards feed <a href="/__ioi/governance?tab=releases">Release Controls →</a>; no eval executes in this plane</span></h2>
+    ${evalSpecs.length ? evalSpecs.map(specCard).join("") : `<div class="empty">No eval specs yet — create a FoundrySpec with kind <code>model_eval</code> bound to a real model route.</div>`}</div>`;
   const specsSec = `<h2 style="display:flex;justify-content:space-between;align-items:center">Specs (${specs.length}) <a class="act" href="/__ioi/foundry/specs/new">+ New spec</a></h2>${specs.length ? specs.map(specCard).join("") : `<div class="empty">No FoundrySpec drafts yet. Create one bound to a real model route or provider.</div>`}`;
   const plansSec = `<h2>Run plans (${runPlans.length})</h2>${runPlans.length ? runPlans.map(planCard).join("") : `<div class="empty">No FoundryRunPlan drafts yet. Open a spec and draft a run plan from it.</div>`}`;
-  return automationsShell("Foundry", head + banner + stats + catalogSec + specsSec + plansSec);
+  return automationsShell("Foundry", head + banner + stats + catalogSec + evalsSec + specsSec + plansSec);
 }
 function renderFoundrySpecForm(catalog, existing) {
   const enc = encodeURIComponent; const ex = existing || {}; const isEdit = !!existing;
@@ -4625,6 +4677,16 @@ const server = http.createServer((req, res) => {
       res.end(renderApplications());
       return;
     }
+    // ---- Sessions root (rail root; session lifecycle facts + admitted bindings).
+    if (pathname === "/__ioi/sessions" && req.method === "GET") {
+      const [sessRes, envRes] = await Promise.all([
+        fetch(`${DAEMON}/v1/hypervisor/sessions`).then((x) => x.json()).catch(() => ({})),
+        fetch(`${DAEMON}/v1/hypervisor/environments-summary?limit=60`).then((x) => x.json()).catch(() => ({})),
+      ]);
+      res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
+      res.end(renderSessionsRoot(sessRes, envRes));
+      return;
+    }
     // ---- Home full readout (03-home graft) — deep-link target of the composer home's injected
     // governed-work band. Fetches fail to null (NOT {}) so the renderer can distinguish "daemon
     // did not answer" from an honestly empty projection.
@@ -5785,13 +5847,16 @@ const server = http.createServer((req, res) => {
     // ---- Connections cockpit — the owned full-control surface for the connector estate -----------
     if (pathname === "/__ioi/connections") {
       try {
-        const [c, s, l] = await Promise.all([
+        const [c, s, l, mcpTools, authPol, scimStatus] = await Promise.all([
           fetch(`${DAEMON}/v1/hypervisor/connectors`).then((r) => r.json()).catch(() => ({})),
           fetch(`${DAEMON}/v1/hypervisor/scm-connectors`).then((r) => r.json()).catch(() => ({})),
           fetch(`${DAEMON}/v1/hypervisor/capability-leases`).then((r) => r.json()).catch(() => ({})),
+          fetch(`${DAEMON}/v1/hypervisor/mcp-gateway/tools`).then((r) => r.json()).catch(() => null),
+          fetch(`${DAEMON}/v1/hypervisor/auth/policy`).then((r) => r.json()).catch(() => null),
+          fetch(`${DAEMON}/scim/v2/ServiceProviderConfig`).then((r) => r.status).catch(() => 0),
         ]);
         res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
-        res.end(renderConnectionsCockpit(c.connectors || [], s.connectors || [], l.leases || []));
+        res.end(renderConnectionsCockpit(c.connectors || [], s.connectors || [], l.leases || [], { mcpTools, authPol, scimStatus }));
       } catch (e) {
         res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
         res.end(connectionsShell(`<div class="empty">Daemon unavailable: ${String(e?.message || e)}</div>`));

@@ -63,6 +63,34 @@ async function run() {
   if (rooted.length) ok("state-root chips cite real roots", wl.text.includes(String(rooted[0].state_root).slice(0, 18)));
   else ok("no-roots state honest", wl.text.includes("No state-rooted entries yet"));
 
+  // E. Sessions root (rail root — the guide §9 P1 gap).
+  const [sessPage, sess] = await Promise.all([sGet("/__ioi/sessions"), jget("/v1/hypervisor/sessions")]);
+  const sessList = (sess || {}).sessions || [];
+  ok("Sessions root renders 200", sessPage.status === 200 && sessPage.text.includes("<h1>Sessions</h1>"));
+  if (sessList.length) {
+    ok("sessions cited with lifecycle chips", sessList.slice(0, 5).every((s) => sessPage.text.includes(s.session_ref || "@")) && sessPage.text.includes('id="sess-chips"'), `${sessList.length} sessions`);
+    ok("admitted binding shown as session truth", sessPage.text.includes("execute-time default") || sessPage.text.includes("admitted"), "binding column present");
+  } else {
+    ok("sessions empty state honest", sessPage.text.includes("No sessions yet"));
+  }
+
+  // F. Evals lane inside Foundry (sub-surface, never a card).
+  const [foundry2, specsRes] = await Promise.all([sGet("/__ioi/foundry"), jget("/v1/hypervisor/foundry/specs")]);
+  const evalSpecs = ((specsRes || {}).specs || []).filter((s) => s.kind === "model_eval");
+  ok("Evals lane renders inside Foundry", foundry2.text.includes('id="foundry-evals"') && foundry2.text.includes("no eval executes in this plane"));
+  ok("scorecard handoff links Release Controls", foundry2.text.includes("/__ioi/governance?tab=releases"));
+  if (evalSpecs.length) ok("eval specs cited", evalSpecs.every((s) => foundry2.text.includes(s.id || "@")), `${evalSpecs.length} eval specs`);
+  else ok("evals empty state honest", foundry2.text.includes("No eval specs yet"));
+
+  // G. Developer Console on Connections (25-developer-tools folds here).
+  const [conn2, mcp] = await Promise.all([sGet("/__ioi/connections"), jget("/v1/hypervisor/mcp-gateway/tools")]);
+  const tools = (mcp || {}).tools || [];
+  ok("Developer Console renders on Connections", conn2.text.includes('id="conn-developer-console"'));
+  ok("MCP tool contracts counted from the gateway", tools.length === 0 || conn2.text.includes(`${tools.length} declared tool contract`), `${tools.length} tools`);
+  const scimSt = await fetch(`${DAEMON}/scim/v2/ServiceProviderConfig`).then((r) => r.status).catch(() => 0);
+  ok("SCIM posture pill matches live probe", scimSt === 401 ? conn2.text.includes("reachable · auth required") : scimSt === 200 ? conn2.text.includes(">reachable<") : conn2.text.includes("unreachable"), `scim ${scimSt}`);
+  ok("API spine posture cited", conn2.text.includes("proxied at") && conn2.text.includes("/v1/*"));
+
   // D. Authority Clients roster.
   const [conn, ls] = await Promise.all([sGet("/__ioi/connections"), jget("/v1/hypervisor/capability-leases")]);
   const leases = (ls || {}).leases || [];
