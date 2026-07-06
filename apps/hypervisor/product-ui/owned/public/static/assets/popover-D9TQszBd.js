@@ -1,0 +1,28 @@
+import { a as e } from "./rolldown-runtime-CGYlQKCx.js";
+import { n as t } from "./@mux-DLaEVubF.js";
+import { cd as n, ld as r, nd as i, ud as a, v_ as o } from "./vendor-DAwbZtf0.js";
+import { t as s } from "./cn-DppMFCU8.js";
+import { t as c } from "./radix-body-pointer-events-DJX9Yyw0.js";
+var l = e(t(), 1),
+  u = o(),
+  d = ({ defaultOpen: e, modal: t, onOpenChange: n, open: i, ...a }) => {
+    let o = c({ defaultOpen: e, modal: t ?? !1, onOpenChange: n, open: i });
+    return (0, u.jsx)(r, { ...a, defaultOpen: e, modal: t, open: i, onOpenChange: o });
+  },
+  f = a,
+  p = l.forwardRef(({ className: e, align: t = `center`, sideOffset: r = 4, ...a }, o) =>
+    (0, u.jsx)(n, {
+      children: (0, u.jsx)(i, {
+        ref: o,
+        align: t,
+        sideOffset: r,
+        className: s(
+          `z-50 w-96 rounded-md border border-border-base bg-surface-popover px-6 py-4 text-base text-content-primary shadow-sm outline-none data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2`,
+          e,
+        ),
+        ...a,
+      }),
+    }),
+  );
+p.displayName = i.displayName;
+export { p as n, f as r, d as t };

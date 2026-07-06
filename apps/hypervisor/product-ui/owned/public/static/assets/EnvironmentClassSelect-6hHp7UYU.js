@@ -1,0 +1,126 @@
+import { a as e } from "./rolldown-runtime-CGYlQKCx.js";
+import { n as t } from "./@mux-DLaEVubF.js";
+import { cg as n, v_ as r } from "./vendor-DAwbZtf0.js";
+import { d as i } from "./runner_manager_pb-BYgy9Ytq.js";
+import { t as a } from "./banner-CFcSGYsz.js";
+import { t as o } from "./text-fFCFeCas.js";
+import { i as s, o as c } from "./use-environment-class-entries-DPBxsgJb.js";
+import { t as l } from "./combobox-BkGa_nRF.js";
+import { t as u } from "./form-control-BfDRQ8Xb.js";
+var d = e(t(), 1),
+  f = r();
+function p(e, t) {
+  let [n, r] = t.split(`:`);
+  return e.find((e) => e?.clazz?.id == r && e?.clazz.runnerId == n);
+}
+function m(e) {
+  return `${e.runnerId || `unknown`}:${e?.id || `unknown`}`;
+}
+var h = (0, d.memo)(
+  ({
+    environmentClassEntries: e,
+    label: t,
+    value: r,
+    loading: h,
+    disabled: g,
+    onChange: _,
+    placeholder: v,
+    sortEntries: y = !0,
+  }) => {
+    let b = (0, d.useId)(),
+      x = e.length > 0,
+      S = r?.runner?.status?.phase === i.DEGRADED,
+      C = (0, d.useMemo)(() => (y ? c(e) : e), [e, y]);
+    return (0, f.jsxs)(`div`, {
+      className: `flex w-full flex-col gap-2`,
+      children: [
+        (0, f.jsx)(u, {
+          label: t,
+          id: b,
+          "data-testid": `environment-class-select-trigger`,
+          children: (0, f.jsxs)(l, {
+            value: r ? m(r.clazz) : void 0,
+            onValueChange: (t) => _(p(e, t)),
+            disabled: h || g || !x,
+            loading: h,
+            "aria-label": `Environment class`,
+            filterPlaceholder: `Search environment classes`,
+            className: `w-full`,
+            children: [
+              (0, f.jsx)(l.Value, {
+                children: r
+                  ? (0, f.jsxs)(l.ValueLabel, {
+                      children: [
+                        (0, f.jsx)(`span`, { className: `font-medium`, children: r.clazz.displayName }),
+                        (0, f.jsx)(`span`, { className: `ml-1 text-content-tertiary`, children: r.runner.name }),
+                      ],
+                    })
+                  : (0, f.jsx)(l.ValueLabel, {
+                      children: v ?? (x ? `Select an environment class` : `No available environment classes`),
+                    }),
+              }),
+              x &&
+                (0, f.jsx)(l.Popover, {
+                  children: (0, f.jsx)(l.List, {
+                    items: C,
+                    searchKeys: [`clazz.displayName`, `runner.name`, `clazz.description`],
+                    noMatchesComponent: (0, f.jsx)(l.Empty, { children: `No matching environment classes.` }),
+                    children: (e) => {
+                      let { offline: t, degraded: n } = s(e),
+                        r = m(e.clazz),
+                        i = t ? `Offline` : n ? `Degraded` : void 0,
+                        a = [e.clazz.description, i].filter(Boolean);
+                      return (0, f.jsxs)(
+                        l.ListItem,
+                        {
+                          value: r,
+                          disabled: t,
+                          children: [
+                            (0, f.jsxs)(l.ListItemTitle, {
+                              children: [
+                                (0, f.jsx)(`span`, { className: `font-medium`, children: e.clazz.displayName }),
+                                (0, f.jsx)(`span`, {
+                                  className: `ml-1 font-normal text-content-tertiary`,
+                                  children: e.runner.name,
+                                }),
+                              ],
+                            }),
+                            a.length > 0 && (0, f.jsx)(l.ListItemDescription, { children: a.join(` · `) }),
+                          ],
+                        },
+                        r,
+                      );
+                    },
+                  }),
+                }),
+            ],
+          }),
+        }),
+        S &&
+          (0, f.jsx)(a, {
+            variant: `warning`,
+            text: (0, f.jsxs)(`div`, {
+              className: `flex flex-col gap-1`,
+              children: [
+                (0, f.jsx)(o, { className: `text-sm font-bold`, children: `This runner is in a degraded state` }),
+                (0, f.jsxs)(o, {
+                  className: `text-sm`,
+                  children: [
+                    `Environments may fail to start successfully on this runner.`,
+                    ` `,
+                    (0, f.jsx)(n, {
+                      to: `/settings/runners/${r?.runner?.runnerId}`,
+                      className: `underline`,
+                      children: `View runner settings for details`,
+                    }),
+                  ],
+                }),
+              ],
+            }),
+          }),
+      ],
+    });
+  },
+);
+h.displayName = `EnvironmentClassSelect`;
+export { h as t };

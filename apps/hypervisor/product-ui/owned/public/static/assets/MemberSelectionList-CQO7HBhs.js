@@ -1,0 +1,218 @@
+import { a as e } from "./rolldown-runtime-CGYlQKCx.js";
+import { nt as t, pr as n } from "./SegmentProvider-CXCNBY9U.js";
+import { n as r } from "./@mux-DLaEVubF.js";
+import { Bl as i, v_ as a } from "./vendor-DAwbZtf0.js";
+import { Ls as o, ln as s, lt as c } from "./use-boot-in-app-chat-t-J_VjKS.js";
+import { t as l } from "./Pill-99RRpZf2.js";
+import "./pill-AA_qJIlm.js";
+import { t as u } from "./avatar-CjN22mGB.js";
+import { t as d } from "./scroll-area-DiWW0x8z.js";
+import { t as f } from "./checkbox-nHTWcF6W.js";
+import { a as p, n as m } from "./service-accounts-DLF2ke0D.js";
+var h = a(),
+  g = ({ size: e, className: t, ...n }) => {
+    switch (e) {
+      case `sm`:
+        return (0, h.jsxs)(`svg`, {
+          className: t,
+          width: `16`,
+          height: `16`,
+          viewBox: `0 0 16 16`,
+          fill: `none`,
+          xmlns: `http://www.w3.org/2000/svg`,
+          ...n,
+          children: [
+            (0, h.jsx)(`path`, {
+              d: `M10.6666 4.33329C10.6666 5.80605 9.47268 6.99996 7.99992 6.99996C6.52716 6.99996 5.33325 5.80605 5.33325 4.33329C5.33325 2.86053 6.52716 1.66663 7.99992 1.66663C9.47268 1.66663 10.6666 2.86053 10.6666 4.33329Z`,
+              stroke: `currentColor`,
+              strokeLinecap: `round`,
+              strokeLinejoin: `round`,
+            }),
+            (0, h.jsx)(`path`, {
+              d: `M10.3334 8.87714C9.64453 8.52818 8.85924 8.33337 8.00008 8.33337C5.02038 8.33337 2.92911 10.6766 2.66675 13.6667H8.33341`,
+              stroke: `currentColor`,
+              strokeLinecap: `round`,
+              strokeLinejoin: `round`,
+            }),
+            (0, h.jsx)(`path`, {
+              d: `M12.3333 10.3334V12.3334M12.3333 12.3334V14.3334M12.3333 12.3334H10.3333M12.3333 12.3334H14.3333`,
+              stroke: `currentColor`,
+              strokeLinecap: `round`,
+              strokeLinejoin: `round`,
+            }),
+          ],
+        });
+    }
+  },
+  _ = e(r(), 1),
+  v = ({
+    excludeGroupIds: e,
+    excludeMembersInAnyTeam: r,
+    excludeSubjectIds: a,
+    selectedSubjects: g,
+    onChangeSelection: v,
+    showSearch: y = !0,
+    showSelectedCount: b = !0,
+    showServiceAccounts: x = !0,
+    className: S,
+  }) => {
+    let C = a,
+      w = (0, _.useMemo)(() => g ?? new Map(), [g]),
+      { data: T } = c(),
+      [E, D] = (0, _.useState)(``),
+      [O] = i(E.trim(), 250, { trailing: !0 }),
+      {
+        data: k,
+        hasNextPage: A,
+        fetchNextPage: j,
+        isFetchingNextPage: M,
+        isFetching: N,
+      } = s({ search: O || void 0, excludeGroupIds: e, excludeMembersInAnyTeam: r }),
+      { data: P } = n({ enabled: x, search: O || void 0 }),
+      F = (0, _.useMemo)(() => (k?.pages ? k.pages.flatMap((e) => e.members) : []), [k?.pages]),
+      I = (0, _.useMemo)(() => {
+        let e = [];
+        for (let t of F)
+          if (t.userId && !C?.has(t.userId)) {
+            let n = (() => {
+              switch (t.loginProvider) {
+                case `magiclink`:
+                  return `Email`;
+                case `github`:
+                  return `GitHub`;
+                case `gitlab`:
+                  return `GitLab`;
+                case `google`:
+                  return `Google`;
+                case `custom`:
+                  return `SSO`;
+                default:
+                  return ``;
+              }
+            })();
+            e.push({
+              id: t.userId,
+              principal: o.USER,
+              name: t.fullName || ``,
+              avatarUrl: t.avatarUrl,
+              secondaryText: n,
+              email: t.email,
+              isCurrentUser: t.userId === T?.id,
+            });
+          }
+        if (x && P?.serviceAccounts)
+          for (let t of P.serviceAccounts)
+            t.id &&
+              !C?.has(t.id) &&
+              e.push({
+                id: t.id,
+                principal: o.SERVICE_ACCOUNT,
+                name: t.name || ``,
+                secondaryText: `Service Account`,
+                isIOIServiceAccount: m(t),
+              });
+        return e.sort((e, t) => e.name.localeCompare(t.name));
+      }, [F, x, P?.serviceAccounts, C, T?.id]),
+      L = w.size,
+      R = (0, _.useCallback)(
+        (e, t) => {
+          let n = new Map(w);
+          (t ? n.set(e.id, { id: e.id, principal: e.principal }) : n.delete(e.id), v(n));
+        },
+        [w, v],
+      );
+    return (0, h.jsxs)(`div`, {
+      className: S,
+      children: [
+        y &&
+          (0, h.jsx)(t, {
+            wrapperClassName: `w-full`,
+            className: `max-w-none`,
+            placeholder: `Search by name or keyword`,
+            value: E,
+            onChange: (e) => D(e.target.value),
+            onClear: () => D(``),
+            isLoading: N || M,
+            "data-tracking-id": `member-selection-search`,
+          }),
+        (0, h.jsx)(d, {
+          orientation: `vertical`,
+          className: `min-h-0 flex-1 rounded-lg border border-border-base`,
+          onScrollEnd: () => {
+            A && !M && j();
+          },
+          scrollEndThreshold: 500,
+          children:
+            I.length === 0
+              ? (0, h.jsx)(`div`, {
+                  className: `flex h-full items-center justify-center px-4 py-8 text-center text-sm text-content-secondary`,
+                  children: E.trim() ? `No members found matching your search.` : `No available members to add.`,
+                })
+              : (0, h.jsx)(`div`, {
+                  className: `divide-y divide-border-base`,
+                  children: I.map((e) => {
+                    let t = w.has(e.id),
+                      n = e.principal === o.SERVICE_ACCOUNT;
+                    return (0, h.jsxs)(
+                      `label`,
+                      {
+                        htmlFor: `member-checkbox-${e.id}`,
+                        className: `ml-2 flex cursor-pointer items-center gap-2 px-2 py-2 hover:bg-surface-secondary`,
+                        "data-tracking-id": `member-selection-row`,
+                        children: [
+                          (0, h.jsx)(f, {
+                            id: `member-checkbox-${e.id}`,
+                            checked: t,
+                            onCheckedChange: (t) => R(e, !!t),
+                            "data-testid": `member-checkbox-${e.id}`,
+                            "data-tracking-id": `member-selection-checkbox`,
+                          }),
+                          n
+                            ? (0, h.jsx)(p, {
+                                id: e.id,
+                                size: 24,
+                                isIOIServiceAccount: e.isIOIServiceAccount,
+                                className: `size-6 flex-shrink-0`,
+                              })
+                            : (0, h.jsxs)(u, {
+                                size: 24,
+                                className: `size-6 flex-shrink-0 rounded-full border-2 border-surface-glass bg-surface-glass ring-1 ring-border-light`,
+                                children: [
+                                  e.avatarUrl && (0, h.jsx)(u.Image, { src: e.avatarUrl, alt: `${e.name}'s avatar` }),
+                                  (0, h.jsx)(u.Fallback, {
+                                    children: (0, h.jsx)(u.Initials, { name: e.name, size: 24 }),
+                                  }),
+                                ],
+                              }),
+                          (0, h.jsxs)(`div`, {
+                            className: `flex min-w-0 flex-1 items-center gap-2`,
+                            children: [
+                              (0, h.jsx)(`p`, {
+                                className: `truncate font-medium text-content-primary`,
+                                children: e.name,
+                              }),
+                              e.isCurrentUser && (0, h.jsx)(l, { variant: `success`, children: `me` }),
+                              e.secondaryText &&
+                                (0, h.jsx)(`span`, {
+                                  className: `text-sm text-content-secondary`,
+                                  children: e.secondaryText,
+                                }),
+                            ],
+                          }),
+                        ],
+                      },
+                      e.id,
+                    );
+                  }),
+                }),
+        }),
+        b &&
+          (0, h.jsx)(`p`, {
+            className: `flex-shrink-0 text-sm text-content-secondary`,
+            style: { minHeight: `1.25rem` },
+            children: L > 0 && `${L} ${L === 1 ? `member` : `members`} selected`,
+          }),
+      ],
+    });
+  };
+export { g as n, v as t };

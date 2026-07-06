@@ -1,0 +1,905 @@
+import { a as e } from "./rolldown-runtime-CGYlQKCx.js";
+import { C as t, D as n, E as r, It as i, Lt as a, S as o, T as s } from "./SegmentProvider-CXCNBY9U.js";
+import { n as c } from "./@mux-DLaEVubF.js";
+import { Fm as l, Rm as u, g_ as d, v_ as f, xg as p } from "./vendor-DAwbZtf0.js";
+import {
+  Cn as m,
+  Dt as h,
+  It as g,
+  Kr as _,
+  Li as v,
+  Lt as y,
+  Mn as b,
+  Sn as x,
+  Tr as S,
+  Vr as C,
+  Xt as w,
+  Zt as T,
+  di as E,
+  dn as ee,
+  i as D,
+  in as O,
+  jr as k,
+  mi as te,
+  nn as A,
+  tr as j,
+  vn as M,
+  wn as N,
+} from "./use-boot-in-app-chat-t-J_VjKS.js";
+import { n as P } from "./toast-axaLeIzZ.js";
+import { a as F, t as I } from "./button-6YP03Qf2.js";
+import { t as L } from "./ipc-Dxb-zSYw.js";
+import { t as R } from "./use-desktop-A2HAwVgY.js";
+import { t as z } from "./dialog-BtjFqa-w.js";
+import { t as B } from "./banner-CFcSGYsz.js";
+import { t as V } from "./timestamp-CEKPQVte.js";
+import { i as ne, u as H } from "./time-DxjbKG-a.js";
+import { t as U } from "./text-fFCFeCas.js";
+import { t as W } from "./select-Ceshp72e.js";
+import { t as re } from "./IconExternalLink-Be096l4a.js";
+import { t as G } from "./card-BxeZdx-o.js";
+import { t as ie } from "./switch-CiuLW56f.js";
+import { et as K, st as q } from "./main-DLKYFe1Y.js";
+import { t as J } from "./use-stripe-payment-redirect-result-CN5HA7Tz.js";
+var Y = e(c(), 1),
+  X = f(),
+  ae = [
+    { value: 40, label: `40 OCUs` },
+    { value: 100, label: `100 OCUs` },
+    { value: 200, label: `200 OCUs` },
+    { value: 400, label: `400 OCUs` },
+    { value: 1e3, label: `1,000 OCUs` },
+    { value: 2e3, label: `2,000 OCUs` },
+    { value: 4e3, label: `4,000 OCUs` },
+    { value: 8e3, label: `8,000 OCUs` },
+  ],
+  oe = () => {
+    let { data: e, isPending: t } = w();
+    return t || !e ? null : (0, X.jsx)(se, { settings: e });
+  },
+  se = ({ settings: e }) => {
+    let t = b(),
+      { toast: n } = P(),
+      { data: i } = T(),
+      a = (r) => {
+        let i = d(C, {
+          enabled: r.enabled ?? e.enabled,
+          amountCredits: r.amountCredits ?? (e.amountCredits || 100),
+          maxDailyTopups: e.maxDailyTopups,
+        });
+        t.mutate(i, {
+          onSuccess: () => {
+            n({ title: `Auto top-up settings updated` });
+          },
+          onError: (e) => {
+            n({ title: `Failed to update auto top-up settings`, description: j(e) });
+          },
+        });
+      };
+    return (0, X.jsxs)(G, {
+      className: `bg-surface-glass p-6`,
+      variant: `bordered`,
+      children: [
+        (0, X.jsxs)(`div`, {
+          className: `mb-6`,
+          children: [
+            (0, X.jsx)(`h2`, { className: `text-lg font-semibold text-content-primary`, children: `Auto Top-up` }),
+            (0, X.jsx)(U, {
+              className: `text-sm text-content-secondary`,
+              children: `Automatically add credits when your balance drops below 20 OCUs.`,
+            }),
+          ],
+        }),
+        (0, X.jsxs)(`div`, {
+          className: `flex flex-col gap-6`,
+          children: [
+            (0, X.jsxs)(`div`, {
+              className: `flex items-center gap-4`,
+              children: [
+                (0, X.jsx)(ie, {
+                  state: e.enabled ? `checked` : `unchecked`,
+                  isLoading: t.isPending,
+                  onToggle: (e) => a({ enabled: e }),
+                  disabled: t.isPending,
+                  id: `auto-topup-toggle`,
+                  "data-testid": `auto-topup-toggle`,
+                  "aria-label": `Enable auto top-up`,
+                }),
+                (0, X.jsx)(`label`, {
+                  className: `cursor-pointer font-medium text-content-primary`,
+                  htmlFor: `auto-topup-toggle`,
+                  children: `Enable auto top-up`,
+                }),
+              ],
+            }),
+            e.enabled &&
+              (0, X.jsx)(`div`, {
+                className: `flex flex-col gap-4`,
+                children: (0, X.jsxs)(`div`, {
+                  className: `flex flex-col gap-2`,
+                  children: [
+                    (0, X.jsx)(`label`, {
+                      htmlFor: `topup-amount-select`,
+                      className: `text-sm font-medium text-content-primary`,
+                      children: `Top-up amount`,
+                    }),
+                    (0, X.jsx)(W, {
+                      id: `topup-amount-select`,
+                      value: String(e.amountCredits || 100),
+                      onValueChange: (e) => a({ amountCredits: Number(e) }),
+                      disabled: t.isPending,
+                      placeholder: `Select amount`,
+                      children: ae.map((e) =>
+                        (0, X.jsxs)(
+                          W.Item,
+                          { value: String(e.value), children: [e.label, ` – $`, r(e.value).toFixed(2)] },
+                          e.value,
+                        ),
+                      ),
+                    }),
+                    (0, X.jsx)(U, {
+                      className: `text-sm text-content-secondary`,
+                      children: `This amount will be charged to your default payment method each time auto top-up triggers.`,
+                    }),
+                  ],
+                }),
+              }),
+            i?.lastAutoTopupAt &&
+              (0, X.jsxs)(U, {
+                className: `text-sm text-content-secondary`,
+                children: [`Last auto top-up: `, ne(V(i.lastAutoTopupAt))],
+              }),
+          ],
+        }),
+      ],
+    });
+  },
+  ce = ({ open: e, onClose: t, initialState: n = `confirm`, initialErrorMessage: r = `` }) => {
+    let [i, a] = (0, Y.useState)(n),
+      [o, s] = (0, Y.useState)(r),
+      c = N(),
+      { data: l } = T(),
+      { reload: u } = m(),
+      d = p(),
+      f = (0, Y.useRef)(),
+      g = (0, Y.useCallback)(() => {
+        f.current &&= (clearInterval(f.current), void 0);
+      }, []);
+    ((0, Y.useEffect)(() => {
+      i === `polling` && l && l.availableCredits > 0 && (g(), a(`success`));
+    }, [i, l, g]),
+      (0, Y.useEffect)(() => g, [g]));
+    let _ = async () => {
+        a(`polling`);
+        try {
+          await c.mutateAsync();
+        } catch (e) {
+          (s(
+            S(e)
+              ? `Only organization admins can request recovery credits. Please ask an admin to request them for you.`
+              : `Something went wrong. Please try again or contact support.`,
+          ),
+            a(`error`));
+          return;
+        }
+        let e = 0;
+        f.current = setInterval(() => {
+          (e++, e >= 24 ? (g(), a(`timeout`)) : u(!1));
+        }, 5e3);
+      },
+      v = () => {
+        (g(), a(`confirm`), s(``), t());
+      };
+    return (0, X.jsx)(z, {
+      open: e,
+      onOpenChange: (e) => !e && v(),
+      children: (0, X.jsxs)(z.Content, {
+        className: `max-w-md`,
+        "data-track-location": h.RecoveryCreditModal,
+        children: [
+          i === `confirm` &&
+            (0, X.jsxs)(X.Fragment, {
+              children: [
+                (0, X.jsx)(z.Header, {
+                  className: `mb-1.5`,
+                  children: (0, X.jsx)(z.Title, { children: `Request Recovery Credits` }),
+                }),
+                (0, X.jsxs)(z.Description, {
+                  children: [
+                    (0, X.jsx)(`span`, {
+                      className: `mb-3 block`,
+                      children: `Not ready to upgrade yet? That's fine. Let us help — 5 OCU to push your work.`,
+                    }),
+                    (0, X.jsx)(`span`, {
+                      className: `block`,
+                      children: `Once these credits are used, your environments will be stopped again.`,
+                    }),
+                  ],
+                }),
+                (0, X.jsxs)(z.Footer, {
+                  children: [
+                    (0, X.jsx)(I, {
+                      variant: `outline`,
+                      onClick: v,
+                      "data-tracking-id": `cancel-recovery-credit-modal`,
+                      children: `Cancel`,
+                    }),
+                    (0, X.jsx)(I, {
+                      variant: `primary`,
+                      onClick: _,
+                      "data-tracking-id": `confirm-recovery-credit-modal`,
+                      children: `Request credits`,
+                    }),
+                  ],
+                }),
+              ],
+            }),
+          i === `polling` &&
+            (0, X.jsxs)(X.Fragment, {
+              children: [
+                (0, X.jsx)(z.Header, {
+                  className: `mb-1.5`,
+                  children: (0, X.jsx)(z.Title, { children: `Request Recovery Credits` }),
+                }),
+                (0, X.jsxs)(`div`, {
+                  className: `flex items-center gap-3 py-4`,
+                  children: [
+                    (0, X.jsx)(F, { size: `sm`, className: `animate-spin` }),
+                    (0, X.jsx)(`span`, {
+                      className: `text-sm text-content-secondary`,
+                      children: `Activating credits...`,
+                    }),
+                  ],
+                }),
+              ],
+            }),
+          i === `success` &&
+            (0, X.jsxs)(X.Fragment, {
+              children: [
+                (0, X.jsx)(z.Header, {
+                  className: `mb-1.5`,
+                  children: (0, X.jsx)(z.Title, { children: `Recovery Credits Activated` }),
+                }),
+                (0, X.jsx)(z.Description, {
+                  children: `Recovery credits activated. You have a short window to start your environment and push your changes. We'd love to have you back — add credits to keep building.`,
+                }),
+                (0, X.jsxs)(z.Footer, {
+                  children: [
+                    (0, X.jsx)(I, {
+                      variant: `outline`,
+                      onClick: v,
+                      "data-tracking-id": `view-billing-recovery-credit-modal`,
+                      children: `View billing`,
+                    }),
+                    (0, X.jsx)(I, {
+                      variant: `primary`,
+                      onClick: () => {
+                        (v(), d(`/`));
+                      },
+                      "data-tracking-id": `go-to-environments-recovery-credit-modal`,
+                      children: `Go to environments`,
+                    }),
+                  ],
+                }),
+              ],
+            }),
+          i === `error` &&
+            (0, X.jsxs)(X.Fragment, {
+              children: [
+                (0, X.jsx)(z.Header, {
+                  className: `mb-1.5`,
+                  children: (0, X.jsx)(z.Title, { children: `Unable to Request Credits` }),
+                }),
+                (0, X.jsx)(z.Description, { children: o }),
+                (0, X.jsx)(z.Footer, {
+                  children: (0, X.jsx)(I, {
+                    variant: `outline`,
+                    onClick: v,
+                    "data-tracking-id": `close-recovery-credit-error-modal`,
+                    children: `Close`,
+                  }),
+                }),
+              ],
+            }),
+          i === `timeout` &&
+            (0, X.jsxs)(X.Fragment, {
+              children: [
+                (0, X.jsx)(z.Header, {
+                  className: `mb-1.5`,
+                  children: (0, X.jsx)(z.Title, { children: `Request Recovery Credits` }),
+                }),
+                (0, X.jsx)(z.Description, {
+                  children: `Credits are being processed. Please refresh the page in a moment.`,
+                }),
+                (0, X.jsx)(z.Footer, {
+                  children: (0, X.jsx)(I, {
+                    variant: `outline`,
+                    onClick: v,
+                    "data-tracking-id": `close-recovery-credit-modal`,
+                    children: `Close`,
+                  }),
+                }),
+              ],
+            }),
+        ],
+      }),
+    });
+  },
+  le = () => {
+    let { data: e } = T(),
+      { data: t } = M();
+    if (!t || t.tier === v.ENTERPRISE) return null;
+    let n = e?.topupPaymentFailure;
+    return n
+      ? (0, X.jsx)(B, {
+          variant: `danger`,
+          text:
+            n.errorMessage ||
+            `Your recent credit top-up payment failed. Please update your payment method in the Stripe Billing Portal.`,
+          "data-testid": `topup-failed-payment-banner`,
+        })
+      : null;
+  },
+  Z = () => {
+    let { value: e } = D(k.EnableFailedPaymentReconciler, !1),
+      { data: t } = T(),
+      { data: n } = M();
+    if (!e || !n || n.tier === v.ENTERPRISE) return null;
+    let r = t?.paymentFailure;
+    if (!r) return null;
+    if (r.state === E.PENDING_FIRST_PAYMENT)
+      return (0, X.jsx)(B, {
+        variant: `progress`,
+        text: `We are processing your first Core payment. Your subscription is active while this completes, and this page will update automatically.`,
+        "data-testid": `pending-first-payment-banner`,
+      });
+    if (r.state !== E.IN_GRACE && r.state !== E.SUSPENDED) return null;
+    let i = r.gracePeriodEndsAt ? V(r.gracePeriodEndsAt) : void 0,
+      a = i ? i <= new Date() : !1;
+    if (r.state === E.SUSPENDED && !i) {
+      let e = r.failedAt ? V(r.failedAt) : void 0;
+      return (0, X.jsx)(B, {
+        variant: `warning`,
+        text: e
+          ? `We couldn't complete your first Core payment. The original payment authorization can no longer be used. Your subscription was suspended on ${H(e, !0)}, and your organization has been downgraded. Cancel the suspended subscription if it is still listed, then subscribe to Core again to create a fresh payment authorization.`
+          : `We couldn't complete your first Core payment. The original payment authorization can no longer be used, and your organization has been downgraded. Cancel the suspended subscription if it is still listed, then subscribe to Core again to create a fresh payment authorization.`,
+        "data-testid": `first-payment-suspended-banner`,
+      });
+    }
+    if (r.state === E.SUSPENDED || a) {
+      let e = i;
+      return (0, X.jsx)(B, {
+        variant: `warning`,
+        text: e
+          ? `Payment for most recent billing period has failed. Your subscription was suspended on ${H(e, !0)}, and your organization has been downgraded. You may subscribe to Core again at any time to restore access.`
+          : `Payment for most recent billing period has failed. Your subscription was suspended, and your organization has been downgraded. You may subscribe to Core again at any time to restore access.`,
+        "data-testid": `suspended-payment-banner`,
+      });
+    }
+    return i
+      ? (0, X.jsx)(B, {
+          variant: `danger`,
+          text: `Payment for most recent billing period has failed. Please resolve the payment issue in the Stripe Billing Portal. Your subscription is in a grace period ending on ${H(i, !0)}, after which your organization will lose access.`,
+          "data-testid": `failed-payment-banner`,
+        })
+      : null;
+  },
+  Q = ({ credits: e, showDollarAmount: t = !1 }) => {
+    let i = r(e);
+    return (0, X.jsxs)(U, {
+      className: `text-2xl font-semibold text-content-primary`,
+      children: [
+        n(e),
+        t &&
+          (0, X.jsx)(`span`, {
+            className: `pl-2 text-md text-content-secondary`,
+            children: i > 0 ? `($${i.toFixed(2)})` : ``,
+          }),
+      ],
+    });
+  },
+  ue = ({ canManageBilling: e = !1 }) => {
+    let [t, n] = (0, Y.useState)(!1),
+      [r, i] = (0, Y.useState)(!1),
+      { value: a } = D(k.RecoveryCreditsEnabled, !1),
+      { data: c, isPending: d } = T(),
+      { data: f, isPending: p } = M(),
+      { reload: h } = m(),
+      g = f?.tier,
+      y = g === v.CORE,
+      b = g === v.FREE || g === v.FREE_ONA,
+      [, x] = u(o, l.withDefault(!1)),
+      { data: S } = ee({ enabled: e }),
+      C = (0, Y.useMemo)(() => {
+        if (!y) return !0;
+        if (!S) return !1;
+        let e = s(S);
+        return e ? e.status !== te.ACTIVE : !0;
+      }, [y, S]),
+      { toast: w } = P(),
+      [E, O] = (0, Y.useState)(!1),
+      A = (0, Y.useRef)(c?.totalCredits);
+    (0, Y.useEffect)(() => {
+      A.current = c?.totalCredits ?? 0;
+    }, [c]);
+    let j = (0, Y.useCallback)(() => {
+      let e = c?.totalCredits ?? 0,
+        t = 0;
+      O(!0);
+      let n = setInterval(() => {
+        (t++,
+          A.current === e
+            ? t >= 6
+              ? (clearInterval(n), O(!1))
+              : h(!1)
+            : (clearInterval(n),
+              O(!1),
+              w({ title: `OCUs added!`, description: `Your OCUs are now available for use.` })));
+      }, 5e3);
+      return () => {
+        (clearInterval(n), O(!1));
+      };
+    }, [h, c, w]);
+    if (d || p || !c) return null;
+    let N = c.totalCredits > 0 ? Math.round((c.availableCredits / c.totalCredits) * 100) : 0,
+      L = c.creditStatus === _.OUT_OF_CREDITS,
+      R = c.creditStatus === _.LOW_ON_CREDITS,
+      z = a && L && C && !c.recoveryCreditGrantedAt && c.totalCredits > 0;
+    return (0, X.jsxs)(G, {
+      className: `bg-surface-glass p-6`,
+      variant: `bordered`,
+      children: [
+        (0, X.jsxs)(`div`, {
+          className: `mb-6`,
+          children: [
+            (0, X.jsxs)(`h2`, {
+              className: `flex flex-row items-center text-lg font-semibold text-content-primary`,
+              children: [`IOI Compute Units`, E && (0, X.jsx)(F, { size: `sm`, className: `ml-2 animate-spin` })],
+            }),
+            (0, X.jsxs)(U, {
+              className: `text-sm text-content-secondary`,
+              children: [
+                `IOI Compute Units (OCUs) represent credits that are used for environment runtime and agent sessions.`,
+                ` `,
+                (0, X.jsx)(K, {}),
+              ],
+            }),
+          ],
+        }),
+        (0, X.jsxs)(`div`, {
+          className: `mb-6 flex flex-wrap gap-x-8 gap-y-4`,
+          children: [
+            (0, X.jsxs)(`div`, {
+              className: `flex-grow`,
+              children: [
+                (0, X.jsx)(U, { className: `mb-1 text-sm text-content-secondary`, children: `Total Purchased` }),
+                (0, X.jsx)(Q, { credits: c.totalCredits, showDollarAmount: !0 }),
+              ],
+            }),
+            (0, X.jsxs)(`div`, {
+              className: `flex-grow`,
+              children: [
+                (0, X.jsx)(U, { className: `mb-1 text-sm text-content-secondary`, children: `Available` }),
+                (0, X.jsx)(Q, { credits: c.availableCredits }),
+              ],
+            }),
+            (0, X.jsxs)(`div`, {
+              className: `flex-grow`,
+              children: [
+                (0, X.jsx)(U, { className: `mb-1 text-sm text-content-secondary`, children: `Used` }),
+                (0, X.jsx)(Q, { credits: c.usedCredits }),
+              ],
+            }),
+          ],
+        }),
+        (0, X.jsx)(`div`, {
+          className: `mb-6`,
+          children: (0, X.jsx)(`div`, {
+            className: `h-4 w-full rounded-full border border-surface-04 bg-surface-glass p-0.5`,
+            children: (0, X.jsx)(`div`, {
+              className: `h-full overflow-hidden rounded-full bg-surface-glass`,
+              children: (0, X.jsx)(`div`, {
+                className: `h-full rounded-full bg-gradient-to-r from-orange-100 to-orange-300 transition-all duration-300`,
+                style: { width: `${N}%` },
+              }),
+            }),
+          }),
+        }),
+        (0, X.jsxs)(`div`, {
+          className: `flex flex-col gap-2`,
+          children: [
+            y && (L || R)
+              ? (0, X.jsx)(B, {
+                  variant: `warning`,
+                  text: (0, X.jsxs)(X.Fragment, {
+                    children: [
+                      L && (0, X.jsx)(`span`, { children: `You've run out of OCUs. ` }),
+                      R && (0, X.jsx)(`span`, { children: `You're running low on OCUs. ` }),
+                      (0, X.jsx)(`span`, { children: `Add credits now to stay on track.` }),
+                    ],
+                  }),
+                  action: e
+                    ? {
+                        text: `Add Credits`,
+                        onClick: () => n(!0),
+                        "data-tracking-id": `add-credits-credit-balance`,
+                        variant: `primary`,
+                      }
+                    : void 0,
+                })
+              : y
+                ? (0, X.jsx)(B, {
+                    variant: `info`,
+                    text: `Need more OCUs? Add credits any time.`,
+                    action: e
+                      ? {
+                          text: `Add Credits`,
+                          onClick: () => n(!0),
+                          "data-tracking-id": `add-credits-credit-balance`,
+                          variant: `primary`,
+                        }
+                      : void 0,
+                  })
+                : (L || R) && b
+                  ? (0, X.jsx)(B, {
+                      variant: `warning`,
+                      text: L
+                        ? `You have no remaining OCUs. Subscribe to Core to continue using IOI.`
+                        : `You're running low on OCUs. Subscribe to Core to add more credits.`,
+                      action: e
+                        ? {
+                            text: `Upgrade`,
+                            onClick: () => x(!0),
+                            "data-tracking-id": `upgrade-credit-balance`,
+                            variant: `primary`,
+                          }
+                        : void 0,
+                    })
+                  : L || R
+                    ? (0, X.jsx)(B, {
+                        variant: `warning`,
+                        text: (0, X.jsxs)(X.Fragment, {
+                          children: [
+                            L && (0, X.jsx)(`span`, { children: `You've run out of OCUs. ` }),
+                            R && (0, X.jsx)(`span`, { children: `You're running low on OCUs. ` }),
+                          ],
+                        }),
+                      })
+                    : null,
+            (0, X.jsx)(le, {}),
+            e &&
+              z &&
+              (0, X.jsxs)(`p`, {
+                className: `text-sm text-content-tertiary`,
+                children: [
+                  `Push first, decide later.`,
+                  ` `,
+                  (0, X.jsx)(I, {
+                    variant: `link`,
+                    className: `h-auto p-0 text-sm`,
+                    onClick: () => i(!0),
+                    "data-tracking-id": `request-recovery-credits-credit-balance`,
+                    children: `Request 5 free OCU`,
+                  }),
+                  `.`,
+                ],
+              }),
+          ],
+        }),
+        e &&
+          (0, X.jsxs)(X.Fragment, {
+            children: [
+              (0, X.jsx)(fe, {
+                open: t,
+                onClose: (e) => {
+                  (n(!1), e && j());
+                },
+              }),
+              (0, X.jsx)(ce, { open: r, onClose: () => i(!1) }),
+            ],
+          }),
+      ],
+    });
+  },
+  $ = (e) => {
+    let t = r(e);
+    return { value: String(e), label: `${e} OCUs – $${t}` };
+  },
+  de = [$(40), $(100), $(200), $(400), $(1e3), $(2e3), $(4e3), $(8e3)],
+  fe = ({ open: e, onClose: t }) => {
+    let [n, r] = (0, Y.useState)(`100`),
+      [i, a] = (0, Y.useState)(!1),
+      { toast: o } = P(),
+      s = O(),
+      c = g();
+    return i
+      ? (0, X.jsx)(pe, {
+          selectedAmount: Number(n),
+          onClose: () => {
+            (a(!1), t());
+          },
+          onConfirm: async () => {
+            try {
+              (await c.mutateAsync(),
+                await s.mutateAsync(Number(n)),
+                o({
+                  title: `Verifying payment`,
+                  description: `We are verifying your top-up payment. This may take a minute.`,
+                }),
+                a(!1),
+                t(!0));
+            } catch (e) {
+              o({
+                title: `Unable to add OCUs`,
+                description: `${j(e)}. If the issue persists, try updating your payment method in the Stripe Portal below.`,
+              });
+            }
+          },
+          onBack: () => {
+            a(!1);
+          },
+          isPending: s.isPending,
+        })
+      : (0, X.jsx)(z, {
+          open: e,
+          onOpenChange: (e) => !e && t(),
+          children: (0, X.jsxs)(z.Content, {
+            className: `max-w-md`,
+            "data-track-location": h.BillingModal,
+            children: [
+              (0, X.jsxs)(z.Header, {
+                children: [
+                  (0, X.jsx)(z.Title, { children: `Add Credits` }),
+                  (0, X.jsx)(z.Description, {
+                    children: `Add OCUs to continue using IOI. This one-time purchase is available immediately and won't change your subscription.`,
+                  }),
+                ],
+              }),
+              (0, X.jsx)(z.Body, {
+                className: `flex flex-col gap-6`,
+                children: (0, X.jsxs)(`div`, {
+                  className: `flex flex-col gap-2`,
+                  children: [
+                    (0, X.jsx)(`label`, {
+                      htmlFor: `amount-select`,
+                      className: `text-md font-medium text-content-primary`,
+                      children: `Select amount`,
+                    }),
+                    (0, X.jsx)(W, {
+                      id: `amount-select`,
+                      value: n,
+                      onValueChange: r,
+                      placeholder: `Select amount`,
+                      className: `w-full`,
+                      children: de.map((e) => (0, X.jsx)(W.Item, { value: e.value, children: e.label }, e.value)),
+                    }),
+                  ],
+                }),
+              }),
+              (0, X.jsxs)(z.Footer, {
+                children: [
+                  (0, X.jsx)(z.Close, {
+                    asChild: !0,
+                    children: (0, X.jsx)(I, { variant: `outline`, children: `Cancel` }),
+                  }),
+                  (0, X.jsx)(I, {
+                    variant: `primary`,
+                    onClick: () => {
+                      a(!0);
+                    },
+                    "data-tracking-id": `continue-to-confirmation`,
+                    children: `Continue`,
+                  }),
+                ],
+              }),
+            ],
+          }),
+        });
+  },
+  pe = ({ selectedAmount: e, onClose: t, onConfirm: i, onBack: a, isPending: o }) => {
+    let s = r(e);
+    return (0, X.jsx)(z, {
+      open: !0,
+      onOpenChange: (e) => !e && t(),
+      children: (0, X.jsxs)(z.Content, {
+        className: `max-w-lg`,
+        "data-track-location": h.BillingModal,
+        children: [
+          (0, X.jsxs)(z.Header, {
+            children: [
+              (0, X.jsx)(z.Title, { children: `Confirm your purchase` }),
+              (0, X.jsxs)(z.Description, {
+                className: `space-y-4`,
+                children: [
+                  (0, X.jsxs)(`div`, {
+                    className: `border-border-secondary rounded-lg border bg-surface-secondary p-4`,
+                    children: [
+                      (0, X.jsx)(U, { className: `mb-3 font-semibold`, children: `Your purchase includes:` }),
+                      (0, X.jsxs)(`div`, {
+                        className: `space-y-2`,
+                        children: [
+                          (0, X.jsxs)(`div`, {
+                            className: `flex items-center justify-between`,
+                            children: [
+                              (0, X.jsx)(U, { className: `text-content-secondary`, children: `OCUs` }),
+                              (0, X.jsx)(U, { className: `font-medium`, children: n(e) }),
+                            ],
+                          }),
+                          (0, X.jsxs)(`div`, {
+                            className: `flex items-center justify-between`,
+                            children: [
+                              (0, X.jsx)(U, { className: `text-content-secondary`, children: `Amount` }),
+                              (0, X.jsxs)(U, { className: `font-medium`, children: [`$`, s.toFixed(2)] }),
+                            ],
+                          }),
+                          (0, X.jsx)(`div`, { className: `border-border-secondary my-2 border-t` }),
+                          (0, X.jsxs)(`div`, {
+                            className: `flex items-center justify-between`,
+                            children: [
+                              (0, X.jsx)(U, { className: `font-semibold`, children: `Total (before tax)` }),
+                              (0, X.jsxs)(U, { className: `font-semibold`, children: [`$`, s.toFixed(2)] }),
+                            ],
+                          }),
+                        ],
+                      }),
+                    ],
+                  }),
+                  (0, X.jsx)(U, {
+                    className: `text-sm text-content-secondary`,
+                    children: `This one-time purchase will be charged to your default payment method. Tax will be calculated based on your location.`,
+                  }),
+                ],
+              }),
+            ],
+          }),
+          (0, X.jsxs)(z.Footer, {
+            children: [
+              (0, X.jsx)(I, {
+                variant: `outline`,
+                onClick: a,
+                disabled: o,
+                "data-tracking-id": `back`,
+                children: `Back`,
+              }),
+              (0, X.jsx)(I, {
+                variant: `primary`,
+                onClick: i,
+                loading: o,
+                disabled: o,
+                "data-tracking-id": `confirm-purchase`,
+                children: `Confirm purchase`,
+              }),
+            ],
+          }),
+        ],
+      }),
+    });
+  },
+  me = () => {
+    let { mutate: e, isPending: t } = A(),
+      { toast: n } = P(),
+      { isDesktop: r } = R();
+    return (0, X.jsxs)(G, {
+      className: `flex flex-col gap-6 bg-surface-glass p-6`,
+      variant: `bordered`,
+      children: [
+        (0, X.jsxs)(`div`, {
+          children: [
+            (0, X.jsx)(`h2`, { className: `text-lg font-semibold text-content-primary`, children: `Billing ` }),
+            (0, X.jsx)(U, {
+              className: `text-sm text-content-secondary`,
+              children: `View payment history, download invoices, update payment methods, and modify VAT information.`,
+            }),
+          ],
+        }),
+        (0, X.jsx)(Z, {}),
+        (0, X.jsx)(`div`, {
+          className: `flex items-center justify-between`,
+          children: (0, X.jsx)(I, {
+            variant: `primary`,
+            onClick: () => {
+              let t = r ? null : window.open(``, `_blank`);
+              e(void 0, {
+                onSuccess: (e) => {
+                  e.portalUrl
+                    ? r && L
+                      ? L.openExternal({ url: e.portalUrl })
+                      : t
+                        ? (t.location.href = e.portalUrl)
+                        : window.open(e.portalUrl, `_blank`)
+                    : t && t.close();
+                },
+                onError: (e) => {
+                  (t && t.close(), n({ title: `Failed to open billing portal`, description: j(e) }));
+                },
+              });
+            },
+            loading: t,
+            TrailingIcon: re,
+            "data-tracking-id": `access-stripe-portal-stripe-portal-card`,
+            children: `Access billing portal`,
+          }),
+        }),
+      ],
+    });
+  },
+  he = () => {
+    a(`Billing`);
+    let { data: e, isLoading: n } = M(),
+      r = q(),
+      { redirectResult: o, clearStripePaymentRedirectParams: s } = J(),
+      c = y(),
+      l = x(),
+      { toast: u } = P(),
+      { canReadBilling: d, canUpdateBilling: f, isLoading: p } = r,
+      m = (0, Y.useRef)(!1);
+    if (
+      ((0, Y.useEffect)(() => {
+        !m.current && e && !n && !p && f && e.tier !== v.ENTERPRISE && ((m.current = !0), l.mutate());
+      }, [e, n, p, f, l]),
+      (0, Y.useEffect)(() => {
+        !o ||
+          !f ||
+          (o.redirectStatus === `succeeded`
+            ? c.mutate(
+                { setupIntentId: o.paymentIntent },
+                {
+                  onSuccess: () => {
+                    (u({ title: `Billing setup completed`, description: `Your billing has been successfully set up.` }),
+                      s());
+                  },
+                  onError: (e) => {
+                    (u({ title: `Failed to complete billing setup`, description: j(e) }), s());
+                  },
+                },
+              )
+            : o.redirectStatus === `canceled`
+              ? (u({
+                  title: `Billing setup cancelled`,
+                  description: `The billing setup was cancelled. Please try again.`,
+                }),
+                s())
+              : o.redirectStatus &&
+                (u({
+                  title: `Billing setup incomplete`,
+                  description: `The billing setup could not be completed. Please try again.`,
+                }),
+                s()));
+      }, [o, f, c, u, s]),
+      (!e && n) || p)
+    )
+      return null;
+    if (e?.tier === v.ENTERPRISE)
+      return d
+        ? (0, X.jsx)(B, {
+            variant: `info`,
+            "data-testid": `enterprise-tier-banner`,
+            className: `mt-6 max-w-[550px]`,
+            text: (0, X.jsxs)(`div`, {
+              className: `pl-2`,
+              children: [
+                (0, X.jsx)(U, { children: `Billing management is not available for Enterprise tier organizations.` }),
+                (0, X.jsx)(U, {
+                  children: `To make changes to your plan or billing, please contact your account representative.`,
+                }),
+              ],
+            }),
+          })
+        : (0, X.jsx)(i, {});
+    if (!d) return (0, X.jsx)(i, {});
+    let h = f;
+    return (0, X.jsxs)(`div`, {
+      className: `flex max-w-[820px] flex-col gap-6`,
+      children: [
+        (0, X.jsx)(`div`, {
+          className: `text-base text-content-secondary`,
+          children: `Manage usage and billing details`,
+        }),
+        (0, X.jsx)(t, { canManageBilling: h }),
+        (0, X.jsx)(ue, { canManageBilling: h }),
+        e?.tier === v.CORE && h && (0, X.jsx)(oe, {}),
+        h && (0, X.jsx)(me, {}),
+      ],
+    });
+  };
+export { he as default };

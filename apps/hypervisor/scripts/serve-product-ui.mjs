@@ -195,6 +195,9 @@ const FEATURE_FLAG_TAG = '<script>try{localStorage.setItem("feature_flag_supervi
 function augmentHtml(html) {
   if (!html.includes("</body>")) return html;
   const withFlags = html.includes("<head>") ? html.replace("<head>", `<head>${FEATURE_FLAG_TAG}`) : FEATURE_FLAG_TAG + html;
+  // Idempotent: the OWNED shell tree carries the augmentation tag in its own index.html (the
+  // first in-tree ownership fold) — don't double-inject when the document already loads it.
+  if (withFlags.includes('src="/ioi-augmentation.js"')) return withFlags;
   return withFlags.replace("</body>", AUG_TAG + "</body>");
 }
 const REPO_ROOT = join(HERE, "..", "..", "..");

@@ -1,0 +1,2510 @@
+const __vite__mapDeps = (
+  i,
+  m = __vite__mapDeps,
+  d = m.f ||
+    (m.f = [
+      globalThis.__toAssetUrl("assets/EnvironmentDetailLockStatus-Dl7SC91c.js"),
+      globalThis.__toAssetUrl("assets/vendor-DAwbZtf0.js"),
+      globalThis.__toAssetUrl("assets/rolldown-runtime-CGYlQKCx.js"),
+      globalThis.__toAssetUrl("assets/@mux-DLaEVubF.js"),
+      globalThis.__toAssetUrl("assets/use-boot-in-app-chat-t-J_VjKS.js"),
+      globalThis.__toAssetUrl("assets/use-desktop-A2HAwVgY.js"),
+      globalThis.__toAssetUrl("assets/banner-CFcSGYsz.js"),
+      globalThis.__toAssetUrl("assets/button-6YP03Qf2.js"),
+      globalThis.__toAssetUrl("assets/cn-DppMFCU8.js"),
+      globalThis.__toAssetUrl("assets/external-link-BKbp1Q22.js"),
+      globalThis.__toAssetUrl("assets/utils-C9bSuXia.js"),
+      globalThis.__toAssetUrl("assets/lock-state-DcH8gxwt.js"),
+    ]),
+) => i.map((i) => d[i]);
+import { a as e } from "./rolldown-runtime-CGYlQKCx.js";
+import {
+  $ as t,
+  Ar as n,
+  Ht as r,
+  Kt as i,
+  Ln as a,
+  N as o,
+  Rn as s,
+  Z as c,
+  cn as l,
+  ln as u,
+  ot as d,
+  un as f,
+  w as p,
+} from "./SegmentProvider-CXCNBY9U.js";
+import { n as m } from "./@mux-DLaEVubF.js";
+import { Gh as h, Qd as g, Qp as _, g_ as v, i_ as y, v_ as b, xg as x } from "./vendor-DAwbZtf0.js";
+import {
+  Ao as ee,
+  Ca as te,
+  Dt as S,
+  Ka as ne,
+  Li as C,
+  Mo as re,
+  No as ie,
+  Ua as ae,
+  Ya as oe,
+  bo as w,
+  fa as se,
+  lt as T,
+  so as E,
+  tn as ce,
+  tr as D,
+  vn as le,
+  vo as ue,
+  w as de,
+  yo as fe,
+} from "./use-boot-in-app-chat-t-J_VjKS.js";
+import { n as O } from "./toast-axaLeIzZ.js";
+import { a as pe, t as k } from "./button-6YP03Qf2.js";
+import { t as A } from "./cn-DppMFCU8.js";
+import { t as j } from "./dialog-BtjFqa-w.js";
+import { t as me } from "./banner-CFcSGYsz.js";
+import { t as M } from "./strings-C6LrS0GJ.js";
+import { t as he } from "./timestamp-CEKPQVte.js";
+import { c as ge, d as _e, n as ve } from "./time-DxjbKG-a.js";
+import { n as ye, r as N, t as be } from "./headings-CM9JBOhQ.js";
+import { t as xe } from "./use-temporary-value-Bpxt61FD.js";
+import { t as Se } from "./input-C42Z_4fO.js";
+import { t as P } from "./tooltip-6hqVQbwq.js";
+import { t as Ce } from "./Pill-99RRpZf2.js";
+import "./pill-AA_qJIlm.js";
+import { t as F } from "./text-fFCFeCas.js";
+import { n as we, t as I } from "./skeleton-Cm867Q_k.js";
+import { R as Te, c as Ee, h as De, l as Oe } from "./agent-queries-CGWy3JAw.js";
+import { r as L } from "./dropdown-menu-D3UmjGpQ.js";
+import { C as R, H as ke, R as Ae, l as je, o as Me, z as Ne } from "./environment-queries-zpiLcWfm.js";
+import { f as Pe } from "./runner-configuration-queries-CSQ6BmaB.js";
+import { u as Fe, v as Ie } from "./runner-queries-BAY_7mHt.js";
+import { a as Le, s as Re } from "./secret-queries-DrL94GSz.js";
+import { c as ze, o as Be } from "./automations-queries-HjQabXcP.js";
+import { t as Ve } from "./collapsible-CijQ-f1P.js";
+import { n as He, s as Ue } from "./phase-DI4YEQQ1.js";
+import {
+  c as We,
+  d as Ge,
+  i as Ke,
+  l as qe,
+  m as Je,
+  p as Ye,
+  r as Xe,
+  s as Ze,
+  u as Qe,
+} from "./DeleteEnvironmentModal-DVlWulBs.js";
+import { c as $e, l as et, n as tt, t as z } from "./environment-paa_Ds61.js";
+import { t as nt } from "./repo-url-BreAEtzd.js";
+import { t as rt } from "./IOILettermark-D8gLTlP3.js";
+import { t as it } from "./IconChevronDownSmall-9zzbc23a.js";
+import { t as B } from "./external-link-BKbp1Q22.js";
+import { t as at } from "./runner-capabilities-BaYicdCV.js";
+import { t as ot } from "./GitStatusPanel-MJlRDdBd.js";
+import { i as V, n as H, r as st } from "./error-message-Az-KJctk.js";
+import { a as U, n as ct } from "./SCMAuthentication-Cw9MmVYE.js";
+import { t as lt } from "./IconWarning-bjnFo87N.js";
+import { t as ut } from "./switch-CiuLW56f.js";
+import { a as dt, i as W, n as ft, o as pt, r as G, t as mt } from "./data-table-hWj1SxAH.js";
+import { t as ht } from "./textarea-65aCrC5K.js";
+import { n as gt, t as _t } from "./use-environment-details-outlet-context-De0KUEeV.js";
+import { t as vt } from "./IconCheck-CjhQLbZQ.js";
+import { t as yt } from "./IconCopy-N69_gkkW.js";
+import { t as bt } from "./IconError-oto7a9DP.js";
+import {
+  a as xt,
+  i as St,
+  n as K,
+  o as Ct,
+  r as wt,
+  s as Tt,
+  t as q,
+} from "./environment-start-steps-state-D0khfUq8.js";
+import { t as Et } from "./PrebuildLogsModal-DKPl6JcP.js";
+import { t as Dt } from "./use-stream-logs-VsswkNo3.js";
+import { t as Ot } from "./use-feature-project-based-onboarding-DZzkX8PW.js";
+var J = e(m(), 1),
+  Y = b(),
+  kt = ({ environmentId: e }) => {
+    let { data: t } = R(e),
+      { mayCreateProject: n, isPending: i } = o(),
+      [a, s] = (0, J.useState)(!1),
+      c = !!t?.metadata?.projectId,
+      l = !!(t ? nt(t) : void 0)?.repoUrl;
+    return i || !t || c || !l || !n || $e(t)
+      ? null
+      : (0, Y.jsxs)(Y.Fragment, {
+          children: [
+            (0, Y.jsx)(me, {
+              variant: `info`,
+              text: `Turn this environment into a project for one-click environments, faster startups, and shared config.`,
+              action: {
+                text: `+ Create project`,
+                onClick: () => s(!0),
+                "data-tracking-id": `create-project-banner-create`,
+              },
+              "data-testid": `create-project-banner`,
+            }),
+            a && (0, Y.jsx)(r, { environmentId: e, onClose: () => s(!1) }),
+          ],
+        });
+  },
+  At = ({ environmentId: e }) => {
+    let { data: t } = le(),
+      { data: n } = R(e),
+      [r, i] = (0, J.useState)(!1);
+    if (
+      !t ||
+      (t.tier !== C.FREE_ONA && t.tier !== C.CORE) ||
+      !n ||
+      (n.status?.phase !== E.STOPPING && n.status?.phase !== E.STOPPED)
+    )
+      return null;
+    let a = t.tier === C.FREE_ONA;
+    return (0, Y.jsxs)(Y.Fragment, {
+      children: [
+        (0, Y.jsx)(me, {
+          variant: `info`,
+          text: a
+            ? `Environments are ephemeral, stopped environments auto-delete after 4 days of inactivity. Subscribe to Core for longer retention and more control.`
+            : `Environments are ephemeral, stopped environments auto-delete after 7 days of inactivity.`,
+          action: a
+            ? {
+                text: `Subscribe`,
+                onClick: () => i(!0),
+                variant: `ghost`,
+                size: `xs`,
+                "data-tracking-id": `subscribe-environment-deletion-warning`,
+              }
+            : void 0,
+          "data-testid": `environment-deletion-warning`,
+        }),
+        r && (0, Y.jsx)(p, { onOpenChange: () => i(!1) }),
+      ],
+    });
+  },
+  jt = (function (e) {
+    return ((e.Example = `example`), e);
+  })({}),
+  Mt = {
+    example: {
+      id: `example`,
+      title: `Hello World`,
+      automationsFileContents: `tasks:
+    hello:
+        name: Hello World
+        command: |
+            echo "Hello, World!"
+        triggeredBy:
+        - manual
+        # - postEnvironmentStart
+        # - postDevcontainerStart
+
+services:
+    backend:
+        name: Backend Service
+        description: Example service simulating a backend
+        commands:
+            start: |
+                echo "Starting backend service..."
+                touch /tmp/backend.started
+                while true; do
+                    sleep 1
+                    date
+                done
+            ready: |
+                if [ -f /tmp/backend.started ]; then
+                    echo "Backend service is ready"
+                    exit 0
+                else
+                    echo "Backend service is not ready"
+                    exit 1
+                fi
+            # stop: |
+            # 	echo "Stopping backend service..."
+            # 	rm /tmp/backend.started
+            #   pkill backend
+        triggeredBy:
+            - postEnvironmentStart
+            # - postDevcontainerStart`,
+    },
+  },
+  Nt = ({ onClose: e }) =>
+    (0, Y.jsx)(j, {
+      open: !0,
+      onOpenChange: (0, J.useCallback)(
+        (t) => {
+          t || e();
+        },
+        [e],
+      ),
+      children: (0, Y.jsxs)(j.Content, {
+        className: `max-w-[600px]`,
+        "data-track-location": S.EnvironmentOnboardingAutomationsTemplateModal,
+        children: [
+          (0, Y.jsxs)(j.Header, {
+            children: [
+              (0, Y.jsx)(j.Title, { children: `Add automations` }),
+              (0, Y.jsx)(j.Description, { children: `Create an automations.yaml to run tasks and services` }),
+            ],
+          }),
+          (0, Y.jsx)(j.Body, {
+            className: `overflow-x max-w-full`,
+            children: (0, Y.jsx)(Pt, { template: Mt[jt.Example] }),
+          }),
+          (0, Y.jsx)(j.Footer, {
+            children: (0, Y.jsx)(j.Close, {
+              asChild: !0,
+              children: (0, Y.jsx)(k, { type: `button`, variant: `outline`, children: `Close` }),
+            }),
+          }),
+        ],
+      }),
+    }),
+  Pt = ({ template: e }) =>
+    (0, Y.jsxs)(`div`, {
+      className: `flex flex-col gap-2`,
+      children: [
+        (0, Y.jsxs)(F, {
+          children: [
+            `Add the following contents to `,
+            (0, Y.jsx)(`span`, { className: `font-mono`, children: `.ioi/automations.yaml` }),
+          ],
+        }),
+        (0, Y.jsx)(ht, {
+          value: e.automationsFileContents,
+          className: `min-h-[140px]`,
+          appearance: `code`,
+          copyable: !0,
+          "aria-label": `Automations template`,
+          "data-tracking-id": `copy-automations-template`,
+        }),
+        (0, Y.jsx)(F, { children: `And configure the environment to use the Automations using` }),
+        (0, Y.jsx)(Se, {
+          copyable: !0,
+          value: `ioi automations update -s .ioi/automations.yaml`,
+          "data-tracking-id": `copy-automations-update-command`,
+        }),
+      ],
+    }),
+  Ft = ({ children: e }) =>
+    (0, Y.jsx)(`div`, {
+      className: `@container`,
+      children: (0, Y.jsx)(`div`, {
+        className: `flex flex-col items-start justify-between gap-4 overflow-hidden @md:flex-row @md:items-center`,
+        children: e,
+      }),
+    }),
+  It = ({ completed: e, onNext: t }) => {
+    let [n, r] = (0, J.useState)(!1),
+      i = (0, J.useCallback)(() => {
+        r(!0);
+      }, []),
+      a = (0, J.useCallback)(() => {
+        r(!1);
+      }, []);
+    return (0, Y.jsxs)(Y.Fragment, {
+      children: [
+        (0, Y.jsxs)(Ft, {
+          children: [
+            (0, Y.jsx)(`div`, {
+              className: `flex flex-col items-center gap-4 @md:flex-row`,
+              children: (0, Y.jsx)(`div`, {
+                className: `flex shrink flex-col`,
+                children: e ? (0, Y.jsx)(Rt, {}) : (0, Y.jsx)(Lt, {}),
+              }),
+            }),
+            (0, Y.jsxs)(`div`, {
+              className: `flex gap-4`,
+              children: [
+                (0, Y.jsx)(B, {
+                  href: `https://ioi.com/docs/ioi/configuration/automations/overview`,
+                  iconSize: `sm`,
+                  children: `Docs`,
+                }),
+                (0, Y.jsx)(k, {
+                  variant: `secondary`,
+                  onClick: i,
+                  "data-tracking-id": `show-template-onboarding-automations-step`,
+                  children: e ? `Update template` : `Show example`,
+                }),
+                e &&
+                  (0, Y.jsx)(k, {
+                    variant: `primary`,
+                    onClick: t,
+                    "data-tracking-id": `next-step-onboarding-automations-step`,
+                    children: `Next`,
+                  }),
+              ],
+            }),
+          ],
+        }),
+        n && (0, Y.jsx)(Nt, { onClose: a }),
+      ],
+    });
+  },
+  Lt = () =>
+    (0, Y.jsxs)(`div`, {
+      className: `flex max-w-2xl flex-col gap-2`,
+      children: [
+        (0, Y.jsx)(N, {
+          className: `text-base font-bold`,
+          children: `Create an automations.yaml to run tasks and services`,
+        }),
+        (0, Y.jsxs)(F, {
+          className: `text-sm text-content-secondary`,
+          children: [
+            `Automations are reusable self-serve actions for automating common development workflows like seeding databases, provisioning infra, and configuring code assistants. Automations are defined in`,
+            ` `,
+            (0, Y.jsx)(`span`, { className: `font-mono`, children: `.ioi/automations.yaml` }),
+            `.`,
+          ],
+        }),
+      ],
+    }),
+  Rt = () =>
+    (0, Y.jsxs)(`div`, {
+      className: `flex flex-col gap-2`,
+      children: [
+        (0, Y.jsxs)(N, {
+          className: `flex items-center gap-1 text-base font-bold`,
+          children: [(0, Y.jsx)(U, { className: `text-content-green`, size: `lg` }), `Automations file added`],
+        }),
+        (0, Y.jsxs)(`div`, {
+          className: `flex items-center gap-1`,
+          children: [
+            (0, Y.jsx)(F, { className: `text-sm font-bold text-content-secondary`, children: `File path:` }),
+            (0, Y.jsx)(F, { className: `text-sm text-content-secondary`, children: `.ioi/automations.yaml` }),
+          ],
+        }),
+      ],
+    }),
+  zt = ({ environment: e, completed: t, onNext: n }) => {
+    let r = Ye(),
+      { selectedEditor: i } = Je(e?.id);
+    return (0, Y.jsxs)(Ft, {
+      children: [
+        (0, Y.jsx)(`div`, {
+          className: `flex flex-col items-center gap-4 @md:flex-row`,
+          children: (0, Y.jsx)(`div`, {
+            className: `flex shrink flex-col`,
+            children: t ? (0, Y.jsx)(Vt, {}) : (0, Y.jsx)(Bt, { environment: e }),
+          }),
+        }),
+        (0, Y.jsxs)(`div`, {
+          className: `flex gap-4`,
+          children: [
+            !t &&
+              (0, Y.jsx)(I, {
+                ready: !!i,
+                className: `h-[30px] w-[150px]`,
+                children: (0, Y.jsxs)(k, {
+                  variant: `secondary`,
+                  onClick: () => i && r(i, e),
+                  "data-tracking-id": `open-selected-editor-onboarding-commit-files-step`,
+                  children: [`Open `, i?.name],
+                }),
+              }),
+            t &&
+              (0, Y.jsx)(k, {
+                variant: `primary`,
+                onClick: n,
+                "data-tracking-id": `next-step-onboarding-commit-files-step`,
+                children: `Next`,
+              }),
+          ],
+        }),
+      ],
+    });
+  },
+  Bt = ({ environment: e }) => {
+    let t = (e?.status?.content?.git?.changedFiles?.length ?? 0) > 0,
+      n = (e?.status?.content?.git?.unpushedCommits?.length ?? 0) > 0;
+    return (0, Y.jsxs)(`div`, {
+      className: `flex max-w-2xl flex-col gap-2`,
+      children: [
+        (0, Y.jsx)(N, {
+          className: `text-base font-bold`,
+          children: `Commit and push the devcontainer and automation files`,
+        }),
+        (0, Y.jsx)(F, {
+          className: `text-sm text-content-secondary`,
+          children: `Add your dev container and automations files to your repository so that others can re-use the configuration. You can commit these to any branch, it doesn't have to be main.`,
+        }),
+        t &&
+          (0, Y.jsxs)(`div`, {
+            className: `mt-2 flex flex-col`,
+            children: [
+              (0, Y.jsx)(F, { className: `text-sm font-bold`, children: `Uncomitted files` }),
+              e?.status?.content?.git?.changedFiles.map((e) => (0, Y.jsx)(Ke, { file: e }, e.path)),
+            ],
+          }),
+        n &&
+          (0, Y.jsxs)(`div`, {
+            className: `mt-2 flex flex-col`,
+            children: [
+              (0, Y.jsx)(F, { className: `text-sm font-bold`, children: `Unpushed commits` }),
+              e?.status?.content?.git?.unpushedCommits.map((e) => (0, Y.jsx)(Xe, { commit: e }, e)),
+            ],
+          }),
+      ],
+    });
+  },
+  Vt = () =>
+    (0, Y.jsx)(`div`, {
+      className: `flex flex-col gap-2`,
+      children: (0, Y.jsxs)(N, {
+        className: `flex items-center gap-1 text-base font-bold`,
+        children: [(0, Y.jsx)(U, { className: `text-content-green`, size: `lg` }), `Files committed and pushed`],
+      }),
+    }),
+  Ht = {
+    nodejs: {
+      id: `nodejs`,
+      title: `Node.js & JavaScript`,
+      devContainer: {
+        sourceUrl: `https://github.com/devcontainers/images/blob/main/src/javascript-node/.devcontainer/devcontainer.json`,
+        rawUrl: `https://raw.githubusercontent.com/devcontainers/images/main/src/javascript-node/.devcontainer/devcontainer.json`,
+      },
+      dockerfile: {
+        sourceUrl: `https://github.com/devcontainers/images/blob/main/src/javascript-node/.devcontainer/Dockerfile`,
+        rawUrl: `https://raw.githubusercontent.com/devcontainers/images/main/src/javascript-node/.devcontainer/Dockerfile`,
+      },
+    },
+    go: {
+      id: `go`,
+      title: `Go`,
+      devContainer: {
+        sourceUrl: `https://github.com/devcontainers/images/blob/main/src/go/.devcontainer/devcontainer.json`,
+        rawUrl: `https://raw.githubusercontent.com/devcontainers/images/main/src/go/.devcontainer/devcontainer.json`,
+      },
+      dockerfile: {
+        sourceUrl: `https://github.com/devcontainers/images/blob/main/src/go/.devcontainer/Dockerfile`,
+        rawUrl: `https://raw.githubusercontent.com/devcontainers/images/main/src/go/.devcontainer/Dockerfile`,
+      },
+    },
+  };
+function Ut(e) {
+  return `
+        # Download Dockerfile and devcontainer.json files
+        curl -Slo .devcontainer/Dockerfile ${e.dockerfile.rawUrl}
+
+        curl -Slo .devcontainer/devcontainer.json ${e.devContainer.rawUrl}
+
+        # rebuild the dev container
+        ioi env devcontainer rebuild
+    `
+    .trim()
+    .split(
+      `
+`,
+    )
+    .map((e) => e.trim()).join(`
+`);
+}
+var Wt = ({ onClose: e }) => {
+    let [t, n] = (0, J.useState)(null),
+      r = (0, J.useCallback)(
+        (t) => {
+          t || e();
+        },
+        [e],
+      ),
+      i = (0, J.useCallback)((e) => {
+        n(e);
+      }, []),
+      a = (0, J.useCallback)(() => {
+        n(null);
+      }, []);
+    return (0, Y.jsx)(j, {
+      open: !0,
+      onOpenChange: r,
+      children: (0, Y.jsxs)(j.Content, {
+        className: `max-w-[600px]`,
+        "data-track-location": S.EnvironmentOnboardingDevContainerTemplateModal,
+        children: [
+          (0, Y.jsxs)(j.Header, {
+            children: [
+              (0, Y.jsx)(j.Title, { children: t ? t.title : `Choose your dev container template` }),
+              (0, Y.jsx)(j.Description, { children: `Install your tools by adding a dev container file` }),
+            ],
+          }),
+          (0, Y.jsx)(j.Body, {
+            className: `max-w-full overflow-hidden`,
+            children: t ? (0, Y.jsx)(Kt, { template: t }) : (0, Y.jsx)(Gt, { onSelectTemplate: i }),
+          }),
+          (0, Y.jsxs)(j.Footer, {
+            children: [
+              t &&
+                (0, Y.jsx)(k, {
+                  type: `button`,
+                  variant: `outline`,
+                  onClick: a,
+                  "data-tracking-id": `back-onboarding-devcontainer-template-modal`,
+                  children: `Back`,
+                }),
+              (0, Y.jsx)(j.Close, {
+                asChild: !0,
+                children: (0, Y.jsx)(k, { type: `button`, variant: `outline`, children: `Close` }),
+              }),
+            ],
+          }),
+        ],
+      }),
+    });
+  },
+  Gt = ({ onSelectTemplate: e }) =>
+    (0, Y.jsx)(`div`, {
+      className: `flex flex-col gap-2`,
+      children: Object.values(Ht).map((t) =>
+        (0, Y.jsx)(
+          k,
+          {
+            variant: `secondary`,
+            onClick: () => e(t),
+            "data-tracking-id": `select-template-${t.id}-onboarding-devcontainer-template-modal`,
+            children: t.title,
+          },
+          t.id,
+        ),
+      ),
+    }),
+  Kt = ({ template: e }) => {
+    let t = Ut(e);
+    return (0, Y.jsxs)(`div`, {
+      className: `flex flex-col gap-4`,
+      children: [
+        (0, Y.jsxs)(F, {
+          children: [
+            `To get started with `,
+            (0, Y.jsx)(`span`, { className: `font-bold`, children: e.title }),
+            ` you can use the`,
+            ` `,
+            (0, Y.jsx)(`span`, { className: `font-mono`, children: `Dockerfile` }),
+            ` and `,
+            (0, Y.jsx)(`span`, { className: `font-mono`, children: `devcontainer.json` }),
+            ` `,
+            `files from`,
+            ` `,
+            (0, Y.jsx)(B, {
+              href: `https://github.com/devcontainers/images`,
+              children: `github.com/devcontainers/images`,
+            }),
+            ` `,
+            `using the instructions below.`,
+          ],
+        }),
+        (0, Y.jsx)(F, { children: `The instructions should be executed in your IOI environment.` }),
+        (0, Y.jsx)(ht, {
+          value: t,
+          className: `min-h-[240px]`,
+          appearance: `code`,
+          copyable: !0,
+          "aria-label": `Dev container template instructions`,
+          "data-tracking-id": `copy-devcontainer-template`,
+        }),
+      ],
+    });
+  },
+  qt = ({ environment: e, completed: t, onNext: n }) => {
+    let [r, i] = (0, J.useState)(!1),
+      a = (0, J.useCallback)(() => {
+        i(!0);
+      }, []),
+      o = (0, J.useCallback)(() => {
+        i(!1);
+      }, []),
+      s = !!e?.status?.devcontainer?.devcontainerFilePresence,
+      c = e?.status?.devcontainer?.devcontainerFilePresence === w.GENERATED,
+      l = e?.status?.phase === E.RUNNING && !e?.status?.devcontainer?.devcontainerconfigInSync,
+      u = e?.status?.phase === E.STOPPED,
+      d = e?.status?.phase === E.UPDATING && e?.status?.devcontainer?.phase === fe.CREATING,
+      f;
+    u
+      ? (f = (0, Y.jsx)(Jt, {}))
+      : t
+        ? (f = (0, Y.jsx)(Qt, {}))
+        : d
+          ? (f = (0, Y.jsx)(Zt, {}))
+          : c
+            ? (f = (0, Y.jsx)(Yt, {}))
+            : l && (f = (0, Y.jsx)(Xt, {}));
+    let p = `Update Template`;
+    return (
+      u ? (p = `Show examples`) : c && (p = `Start from template`),
+      (0, Y.jsxs)(Y.Fragment, {
+        children: [
+          (0, Y.jsxs)(Ft, {
+            children: [
+              (0, Y.jsx)(`div`, {
+                className: `flex grow flex-col items-center gap-4 @md:flex-row`,
+                children: (0, Y.jsx)(I, {
+                  className: `h-12 grow`,
+                  ready: !!f,
+                  children: (0, Y.jsx)(`div`, { className: `flex flex-col`, children: f }),
+                }),
+              }),
+              (0, Y.jsxs)(`div`, {
+                className: `flex flex-col gap-4 lg:flex-row`,
+                children: [
+                  (0, Y.jsx)(B, {
+                    href: `https://ioi.com/docs/ioi/configuration/devcontainer/overview`,
+                    iconSize: `sm`,
+                    children: `Docs`,
+                  }),
+                  (0, Y.jsxs)(I, {
+                    className: `h-8 w-40`,
+                    ready: u || s,
+                    children: [
+                      (0, Y.jsx)(k, {
+                        variant: `secondary`,
+                        onClick: a,
+                        "data-tracking-id": `show-template-onboarding-devcontainer-step`,
+                        children: p,
+                      }),
+                      t &&
+                        (0, Y.jsx)(k, {
+                          variant: `primary`,
+                          onClick: n,
+                          "data-tracking-id": `next-step-onboarding-devcontainer-step`,
+                          children: `Next`,
+                        }),
+                    ],
+                  }),
+                ],
+              }),
+            ],
+          }),
+          r && (0, Y.jsx)(Wt, { onClose: o }),
+        ],
+      })
+    );
+  },
+  Jt = () =>
+    (0, Y.jsxs)(`div`, {
+      className: `flex flex-col gap-2`,
+      children: [
+        (0, Y.jsx)(N, {
+          className: `text-base font-bold`,
+          children: `Start your environment to see the status of your dev container`,
+        }),
+        (0, Y.jsx)(F, {
+          className: `text-sm text-content-secondary`,
+          children: `Make sure to add a base image to your configuration as well as any editor extensions.`,
+        }),
+      ],
+    }),
+  Yt = () =>
+    (0, Y.jsxs)(`div`, {
+      className: `flex flex-col gap-2`,
+      children: [
+        (0, Y.jsx)(N, {
+          className: `text-base font-bold`,
+          children: `We are creating a dev container file for you to customize`,
+        }),
+        (0, Y.jsx)(F, {
+          className: `text-sm text-content-secondary`,
+          children: `Make sure to add a base image to your configuration as well as any editor extensions.`,
+        }),
+      ],
+    }),
+  Xt = () =>
+    (0, Y.jsxs)(`div`, {
+      className: `flex flex-col gap-2`,
+      children: [
+        (0, Y.jsxs)(N, {
+          className: `flex items-center gap-1 text-base font-bold`,
+          children: [
+            (0, Y.jsx)(lt, { className: `text-content-orange`, size: `base` }),
+            `Dev container file is out of sync`,
+          ],
+        }),
+        (0, Y.jsxs)(`div`, {
+          className: `flex flex-col items-start gap-2`,
+          children: [
+            (0, Y.jsx)(F, {
+              className: `text-sm text-content-secondary`,
+              children: `The dev container file is out of sync with the current environment. Run the following commands in your environment to rebuild the dev container:`,
+            }),
+            (0, Y.jsx)(Se, {
+              copyable: !0,
+              className: `min-w-[260px]`,
+              value: `ioi env devcontainer rebuild`,
+              "data-tracking-id": `copy-devcontainer-rebuild-command`,
+            }),
+          ],
+        }),
+      ],
+    }),
+  Zt = () =>
+    (0, Y.jsxs)(`div`, {
+      className: `flex flex-col gap-2`,
+      children: [
+        (0, Y.jsxs)(N, {
+          className: `flex items-center gap-1 text-base font-bold`,
+          children: [
+            (0, Y.jsx)(pe, { size: `base`, className: `animate-spin text-content-orange` }),
+            `Rebuilding dev container`,
+          ],
+        }),
+        (0, Y.jsx)(`div`, {
+          className: `flex flex-col items-start gap-2`,
+          children: (0, Y.jsx)(F, {
+            className: `text-sm text-content-secondary`,
+            children: `Dev container is rebuilding.`,
+          }),
+        }),
+      ],
+    }),
+  Qt = () =>
+    (0, Y.jsxs)(`div`, {
+      className: `flex flex-col gap-2`,
+      children: [
+        (0, Y.jsxs)(N, {
+          className: `flex items-center gap-1 text-base font-bold`,
+          children: [
+            (0, Y.jsx)(U, { className: `text-content-green`, size: `lg` }),
+            `Dev container file added`,
+            (0, Y.jsx)(F, {}),
+          ],
+        }),
+        (0, Y.jsxs)(`div`, {
+          className: `flex items-center gap-1`,
+          children: [
+            (0, Y.jsx)(F, { className: `text-sm font-bold text-content-secondary`, children: `File path:` }),
+            (0, Y.jsx)(F, { className: `text-sm text-content-secondary`, children: `.devcontainer/devcontainer.json` }),
+          ],
+        }),
+        (0, Y.jsx)(F, {
+          className: `text-sm text-content-secondary`,
+          children: `Make sure to add a base image to your configuration as well as any other tools or editor extensions.`,
+        }),
+      ],
+    }),
+  $t = ({ environmentId: e, completed: t }) => {
+    let [n, i] = (0, J.useState)(!1),
+      a = x(),
+      o = (0, J.useCallback)(() => {
+        i(!0);
+      }, []),
+      s = (0, J.useCallback)(() => {
+        i(!1);
+      }, []),
+      c = (0, J.useCallback)(() => {
+        a(`/projects`);
+      }, [a]);
+    return (0, Y.jsxs)(Y.Fragment, {
+      children: [
+        (0, Y.jsxs)(Ft, {
+          children: [
+            (0, Y.jsx)(`div`, {
+              className: `flex flex-col items-center gap-4 @md:flex-row`,
+              children: (0, Y.jsx)(`div`, {
+                className: `flex shrink flex-col`,
+                children: t ? (0, Y.jsx)(tn, {}) : (0, Y.jsx)(en, {}),
+              }),
+            }),
+            (0, Y.jsxs)(`div`, {
+              className: `flex flex-col gap-4 lg:flex-row`,
+              children: [
+                (0, Y.jsx)(B, { href: `https://ioi.com/docs/ioi/projects/overview`, iconSize: `sm`, children: `Docs` }),
+                (0, Y.jsx)(k, {
+                  variant: `primary`,
+                  onClick: o,
+                  "data-tracking-id": `open-create-project-modal-environment-onboarding-share-step`,
+                  children: `Create`,
+                }),
+              ],
+            }),
+          ],
+        }),
+        n && (0, Y.jsx)(r, { environmentId: e, onClose: s, onSuccess: c }),
+      ],
+    });
+  },
+  en = () =>
+    (0, Y.jsxs)(`div`, {
+      className: `flex flex-col gap-2`,
+      children: [
+        (0, Y.jsx)(N, { className: `text-base font-bold`, children: `Turn this environment into a project` }),
+        (0, Y.jsx)(F, {
+          className: `text-sm text-content-secondary`,
+          children: `Projects allow others to reuse your dev container configuration and automations.`,
+        }),
+      ],
+    }),
+  tn = () =>
+    (0, Y.jsx)(`div`, {
+      className: `flex flex-col gap-2`,
+      children: (0, Y.jsxs)(N, {
+        className: `flex items-center gap-1 text-base font-bold`,
+        children: [(0, Y.jsx)(U, { className: `text-content-positive`, size: `lg` }), `Created project`],
+      }),
+    }),
+  X = (function (e) {
+    return (
+      (e.Devcontainer = `devcontainer`),
+      (e.Automations = `automations`),
+      (e.CommitFiles = `commit-files`),
+      (e.Share = `share`),
+      e
+    );
+  })({});
+function nn(e) {
+  let { data: t, isPending: n } = R(e),
+    { data: r, isPending: i } = ze(e),
+    { data: a, isPending: o } = Be(e),
+    s = rn(t),
+    c = an(r || [], a || []),
+    l = s && c && !on(t),
+    u = sn(t),
+    d = [
+      { id: `devcontainer`, title: `Install your tools`, completed: s },
+      { id: `automations`, title: `Add automations`, completed: c },
+      { id: `commit-files`, title: `Commit files`, completed: l },
+      { id: `share`, title: `Create project`, completed: u },
+    ],
+    f = `devcontainer`;
+  for (let e of d) {
+    if (!e.completed) {
+      f = e.id;
+      break;
+    }
+    f = e.id;
+  }
+  return { isLoading: n || i || o, steps: d, defaultActive: f };
+}
+function rn(e) {
+  if (!e) return !1;
+  let t =
+      e.status?.devcontainer?.devcontainerFilePresence === w.DISCOVERED ||
+      e.status?.devcontainer?.devcontainerFilePresence === w.SPECIFIED,
+    n = e.status?.devcontainer?.phase === fe.RUNNING,
+    r =
+      e.spec?.devcontainer?.session &&
+      e.status?.devcontainer?.session &&
+      e.spec?.devcontainer?.session !== e.status?.devcontainer?.session,
+    i = e.status?.devcontainer?.devcontainerconfigInSync ?? !1;
+  return n && t && i && !r;
+}
+function an(e, t) {
+  return e.length > 0 || t.length > 0;
+}
+function on(e) {
+  if (!e) return !0;
+  let t = new Set([`.ioi/automations.yaml`, `.devcontainer/devcontainer.json`, `.devcontainer/Dockerfile`]);
+  for (let n of e.status?.content?.git?.changedFiles || []) if (t.has(n.path)) return !0;
+  return (e.status?.content?.git?.unpushedCommits?.length ?? 0) > 0;
+}
+function sn(e) {
+  return !!e?.metadata?.projectId;
+}
+var cn = ({ environmentId: e }) => {
+    let { data: t, isPending: n } = R(e),
+      { steps: r, defaultActive: a, isLoading: s } = nn(t?.id),
+      [c, l] = (0, J.useState)(X.Devcontainer),
+      { mayCreateProject: u, isPending: d } = o(),
+      f = d || n,
+      p = (0, J.useRef)(!1);
+    (0, J.useEffect)(() => {
+      p.current || s || ((p.current = !0), l(a));
+    }, [s, a]);
+    let m = (0, J.useMemo)(() => r.find((e) => e.id === X.Devcontainer)?.completed ?? !1, [r]),
+      h = (0, J.useMemo)(() => r.find((e) => e.id === X.Automations)?.completed ?? !1, [r]),
+      g = (0, J.useMemo)(() => r.find((e) => e.id === X.CommitFiles)?.completed ?? !1, [r]);
+    return f || t?.metadata?.projectId || !u || $e(t)
+      ? null
+      : (0, Y.jsxs)(`div`, {
+          className: `flex flex-col gap-2.5 rounded-xl border border-dashed border-border-base px-6 pb-8 pt-6`,
+          "data-testid": `environment-onboarding`,
+          children: [
+            (0, Y.jsx)(ln, {}),
+            (0, Y.jsxs)(i, {
+              defaultValue: c,
+              value: c,
+              className: `flex flex-col gap-3`,
+              children: [
+                (0, Y.jsx)(i.List, {
+                  className: `mb-4`,
+                  children: r.map((e, t) =>
+                    (0, Y.jsxs)(
+                      i.Trigger,
+                      {
+                        value: e.id,
+                        onClick: () => l(e.id),
+                        LeadingIcon: () =>
+                          e.completed && (0, Y.jsx)(U, { size: `base`, className: `shrink-0 text-content-success` }),
+                        className: A(`font-medium`, {
+                          "flex-row-reverse justify-between @md:flex-row @md:justify-center": e.completed,
+                        }),
+                        "data-tracking-id": `environment-onboarding-step-${e.id}`,
+                        children: [t + 1, `. `, e.title],
+                      },
+                      e.id,
+                    ),
+                  ),
+                }),
+                (0, Y.jsx)(i.Content, {
+                  value: X.Devcontainer,
+                  children: (0, Y.jsx)(qt, {
+                    environment: t,
+                    completed: m,
+                    onNext: () => l(X.Automations),
+                    "data-track-location": S.EnvironmentOnboardingDevcontainer,
+                  }),
+                }),
+                (0, Y.jsx)(i.Content, {
+                  value: X.Automations,
+                  children: (0, Y.jsx)(It, {
+                    completed: h,
+                    onNext: () => l(X.CommitFiles),
+                    "data-track-location": S.EnvironmentOnboardingAutomations,
+                  }),
+                }),
+                (0, Y.jsx)(i.Content, {
+                  value: X.CommitFiles,
+                  children: (0, Y.jsx)(zt, {
+                    environment: t,
+                    completed: g,
+                    onNext: () => l(X.Share),
+                    "data-track-location": S.EnvironmentOnboardingCommitFiles,
+                  }),
+                }),
+                (0, Y.jsx)(i.Content, {
+                  value: X.Share,
+                  children: (0, Y.jsx)($t, {
+                    completed: !1,
+                    environmentId: e,
+                    "data-track-location": S.EnvironmentOnboardingShare,
+                  }),
+                }),
+              ],
+            }),
+          ],
+        });
+  },
+  ln = () =>
+    (0, Y.jsx)(`div`, {
+      className: `mt-2 flex flex-col`,
+      children: (0, Y.jsx)(ye, {
+        className: `text-md font-medium text-content-primary`,
+        children: `Finish configuring your development environment in your editor`,
+      }),
+    }),
+  un = ({ environment: e, userSecrets: t, organizationSecrets: n }) => {
+    let r = (0, J.useMemo)(() => {
+        let t = [],
+          n = e.status?.secrets ?? [];
+        for (let r of n)
+          if (r.warningMessage) {
+            let n = e.spec?.secrets?.find((e) => e.name === r.secretName);
+            n && t.push({ secret: n, warningMessage: r.warningMessage });
+          }
+        return t;
+      }, [e.status?.secrets, e.spec?.secrets]),
+      i = (0, J.useMemo)(() => {
+        let i = { organization: [], project: [], user: [], environment: [], overriden: new Set() },
+          a = new Map();
+        for (let o of e.spec?.secrets || []) {
+          if (r.some((e) => e.secret.name === o.name)) continue;
+          let e = o.name;
+          switch (o.mount.case) {
+            case `filePath`:
+              e = `file:${o.mount.value}`;
+              break;
+            case `environmentVariable`:
+              e = `env:${o.mount.value}`;
+              break;
+            case `gitCredentialHost`:
+              e = `git:${o.mount.value}`;
+              break;
+            case `containerRegistryBasicAuthHost`:
+              e = `registry:${o.mount.value}`;
+              break;
+          }
+          if (a.has(e)) {
+            let t = a.get(e);
+            i.overriden.add(t.id);
+          }
+          (a.set(e, o),
+            o.sourceRef
+              ? t.some((e) => e.id === o.sourceRef)
+                ? i.user.push(o)
+                : n.some((e) => e.id === o.sourceRef)
+                  ? i.organization.push(o)
+                  : i.project.push(o)
+              : i.environment.push(o));
+        }
+        return i;
+      }, [e.spec?.secrets, t, n, r]);
+    return i.organization.length + i.project.length + i.user.length + i.environment.length
+      ? (0, Y.jsxs)(mt, {
+          className: `table-fixed`,
+          "data-testid": `environment-secrets-table`,
+          children: [
+            (0, Y.jsx)(dt, {
+              className: `h-10 [&_th:last-child]:pl-0 [&_th:last-child]:pr-2 [&_th]:border-border-base [&_th]:border-b-[0.5] [&_th]:bg-transparent [&_th]:px-2 [&_th]:py-1`,
+              children: (0, Y.jsxs)(pt, {
+                children: [
+                  (0, Y.jsx)(W, { className: `w-[200px] text-sm font-bold text-content-secondary`, children: `Name` }),
+                  (0, Y.jsx)(W, {}),
+                  (0, Y.jsx)(W, {
+                    className: `w-[120px] text-right text-sm font-bold text-content-secondary`,
+                    children: `Source`,
+                  }),
+                  (0, Y.jsx)(W, { className: `w-[34px]` }),
+                ],
+              }),
+            }),
+            (0, Y.jsxs)(ft, {
+              children: [
+                i.organization.map((e, t) =>
+                  (0, Y.jsx)(
+                    dn,
+                    { secret: e, secretScope: `organization`, overriden: i.overriden.has(e.id) },
+                    `secret-${e.session}-${t}`,
+                  ),
+                ),
+                i.project.map((e, t) =>
+                  (0, Y.jsx)(
+                    dn,
+                    { secret: e, secretScope: `project`, overriden: i.overriden.has(e.id) },
+                    `secret-${e.session}-${t}`,
+                  ),
+                ),
+                i.user.map((e, t) =>
+                  (0, Y.jsx)(
+                    dn,
+                    { secret: e, secretScope: `user`, overriden: i.overriden.has(e.id) },
+                    `secret-${e.session}-${t}`,
+                  ),
+                ),
+                i.environment.map((e, t) =>
+                  (0, Y.jsx)(
+                    dn,
+                    { secret: e, secretScope: `environment`, overriden: i.overriden.has(e.id) },
+                    `secret-${e.session}-${t}`,
+                  ),
+                ),
+                r.map(({ secret: e, warningMessage: r }, i) =>
+                  (0, Y.jsx)(
+                    fn,
+                    { secret: e, warningMessage: r, userSecrets: t, organizationSecrets: n },
+                    `warning-secret-${e.session}-${i}`,
+                  ),
+                ),
+              ],
+            }),
+          ],
+        })
+      : (0, Y.jsx)(`div`, {
+          "data-testid": `environment-secrets-empty-state`,
+          children: (0, Y.jsx)(F, {
+            className: `text-base text-content-tertiary`,
+            children: `This environment has no secrets.`,
+          }),
+        });
+  },
+  dn = ({ secret: e, secretScope: t, overriden: n }) => {
+    let { toast: r } = O(),
+      [i, a] = xe(!1, 2e3),
+      o = (0, J.useCallback)(() => {
+        let t = ``;
+        (e.mount.case === `apiOnly` ? (t = e.name) : typeof e.mount.value == `string` && (t = e.mount.value),
+          navigator.clipboard.writeText(t).then(() => {
+            (a(!0), r({ title: `Copied to clipboard` }));
+          }));
+      }, [e.mount.value, e.mount.case, e.name, a, r]),
+      s = `Environment variable`,
+      c = `Copy name`;
+    return (
+      e.mount.case === `filePath` && typeof e.mount.value == `string`
+        ? ((s = e.mount.value), (c = `Copy path`))
+        : e.mount.case === `containerRegistryBasicAuthHost` && typeof e.mount.value == `string`
+          ? ((s = `Registry secret (hostname: ${e.mount.value})`), (c = `Copy registry hostname`))
+          : e.mount.case === `gitCredentialHost` && typeof e.mount.value == `string`
+            ? ((s = `Git credential (host: ${e.mount.value})`), (c = `Copy git host`))
+            : e.mount.case === `apiOnly` && ((s = `API only`), (c = `Copy name`)),
+      (0, Y.jsxs)(pt, {
+        className: `group border-0 hover:bg-surface-02 [&_td:first-child]:rounded-l-md [&_td:first-child]:pl-2 [&_td:last-child]:rounded-r-md [&_td:last-child]:pl-0 [&_td:last-child]:pr-2 [&_td]:px-2 [&_td]:py-1`,
+        "data-testid": `secret-${e.name}`,
+        children: [
+          (0, Y.jsx)(G, {
+            className: `p-0`,
+            children: (0, Y.jsx)(P, {
+              content: e.name,
+              children: (0, Y.jsx)(F, {
+                className: A(`truncate font-mono text-sm font-bold text-content-primary`, { "line-through": n }),
+                children: e.name,
+              }),
+            }),
+          }),
+          (0, Y.jsx)(G, {
+            children: (0, Y.jsx)(P, {
+              content: s,
+              children: (0, Y.jsx)(F, {
+                className: A(`truncate text-sm text-content-secondary`, { "line-through": n }),
+                children: s,
+              }),
+            }),
+          }),
+          (0, Y.jsx)(G, { className: `text-right`, children: (0, Y.jsx)(pn, { secretScope: t }) }),
+          (0, Y.jsx)(G, {
+            children: (0, Y.jsx)(P, {
+              content: c,
+              children: (0, Y.jsx)(k, {
+                variant: `link`,
+                size: `sm`,
+                disabled: i,
+                LeadingIcon: i ? (e) => (0, Y.jsx)(vt, { className: `text-green-500 hover:text-green-500`, ...e }) : yt,
+                className: `invisible h-full min-h-0 border-0 p-0 active:outline-0 group-hover:visible`,
+                onClick: o,
+                "aria-label": c,
+                "data-tracking-id": `copy-secret-value-environment-secrets-row`,
+              }),
+            }),
+          }),
+        ],
+      })
+    );
+  },
+  fn = ({ secret: e, warningMessage: t, userSecrets: n, organizationSecrets: r }) => {
+    let { toast: i } = O(),
+      [a, o] = xe(!1, 2e3),
+      s = (0, J.useCallback)(() => {
+        let t = ``;
+        (e.mount.case === `apiOnly` ? (t = e.name) : typeof e.mount.value == `string` && (t = e.mount.value),
+          navigator.clipboard.writeText(t).then(() => {
+            (o(!0), i({ title: `Copied to clipboard` }));
+          }));
+      }, [e.mount.value, e.mount.case, e.name, o, i]),
+      c = `project`;
+    e.sourceRef
+      ? n.some((t) => t.id === e.sourceRef)
+        ? (c = `user`)
+        : r.some((t) => t.id === e.sourceRef) && (c = `organization`)
+      : (c = `environment`);
+    let l = `Environment variable`,
+      u = `Copy name`;
+    return (
+      e.mount.case === `filePath` && typeof e.mount.value == `string`
+        ? ((l = e.mount.value), (u = `Copy path`))
+        : e.mount.case === `containerRegistryBasicAuthHost` && typeof e.mount.value == `string`
+          ? ((l = `Registry secret (hostname: ${e.mount.value})`), (u = `Copy registry hostname`))
+          : e.mount.case === `gitCredentialHost` && typeof e.mount.value == `string`
+            ? ((l = `Git credential (host: ${e.mount.value})`), (u = `Copy git host`))
+            : e.mount.case === `apiOnly` && ((l = `API only`), (u = `Copy name`)),
+      (0, Y.jsxs)(pt, {
+        className: `group border-0 hover:bg-surface-02 [&_td:first-child]:rounded-l-md [&_td:first-child]:pl-2 [&_td:last-child]:rounded-r-md [&_td:last-child]:pl-0 [&_td:last-child]:pr-2 [&_td]:px-2 [&_td]:py-1`,
+        "data-testid": `warning-secret-${e.name}`,
+        children: [
+          (0, Y.jsx)(G, {
+            className: `p-0`,
+            children: (0, Y.jsxs)(`div`, {
+              className: `flex items-center gap-2`,
+              children: [
+                (0, Y.jsx)(P, {
+                  content: t,
+                  usePortal: !0,
+                  children: (0, Y.jsx)(`svg`, {
+                    className: `h-4 w-4 text-yellow-500`,
+                    viewBox: `0 0 20 20`,
+                    fill: `currentColor`,
+                    children: (0, Y.jsx)(`path`, {
+                      fillRule: `evenodd`,
+                      d: `M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z`,
+                      clipRule: `evenodd`,
+                    }),
+                  }),
+                }),
+                (0, Y.jsx)(P, {
+                  content: e.name,
+                  children: (0, Y.jsx)(F, {
+                    className: `truncate font-mono text-sm font-bold text-content-primary`,
+                    children: e.name,
+                  }),
+                }),
+              ],
+            }),
+          }),
+          (0, Y.jsx)(G, {
+            children: (0, Y.jsx)(P, {
+              content: l,
+              children: (0, Y.jsx)(F, { className: `truncate text-sm text-content-secondary`, children: l }),
+            }),
+          }),
+          (0, Y.jsx)(G, { className: `text-right`, children: (0, Y.jsx)(pn, { secretScope: c }) }),
+          (0, Y.jsx)(G, {
+            children: (0, Y.jsx)(P, {
+              content: u,
+              children: (0, Y.jsx)(k, {
+                variant: `link`,
+                size: `sm`,
+                disabled: a,
+                LeadingIcon: a ? (e) => (0, Y.jsx)(vt, { className: `text-green-500 hover:text-green-500`, ...e }) : yt,
+                className: `invisible border-0 p-0 active:outline-0 group-hover:visible`,
+                onClick: s,
+                "aria-label": u,
+                "data-tracking-id": `copy-secret-value-environment-secrets-warning-row`,
+              }),
+            }),
+          }),
+        ],
+      })
+    );
+  },
+  pn = ({ secretScope: e }) => {
+    let t = { organization: `Organization`, project: `Project`, user: `User`, environment: `Environment` }[e];
+    return (0, Y.jsx)(Ce, { variant: `neutral`, size: `sm`, className: `whitespace-nowrap`, children: t });
+  },
+  mn = ({ environmentId: e, onClose: t }) => {
+    let { data: n } = R(e),
+      { data: r } = Re(),
+      { data: i } = T(),
+      { data: a } = Le(i?.organizationId);
+    return (0, Y.jsx)(j, {
+      open: !0,
+      onOpenChange: (0, J.useCallback)(
+        (e) => {
+          e || t();
+        },
+        [t],
+      ),
+      children: (0, Y.jsxs)(j.Content, {
+        className: `max-w-[600px]`,
+        "data-testid": `environment-secrets-modal-content`,
+        "data-track-location": S.EnvironmentSecretsModal,
+        children: [
+          (0, Y.jsxs)(j.Header, {
+            children: [
+              (0, Y.jsx)(j.Title, { children: `Secrets` }),
+              (0, Y.jsx)(j.Description, { children: `Secrets available in this environment` }),
+            ],
+          }),
+          (0, Y.jsx)(j.Body, {
+            className: `overflow-x max-w-full`,
+            children: (0, Y.jsx)(d, {
+              children:
+                n &&
+                r &&
+                a &&
+                (0, Y.jsx)(un, { environment: n, userSecrets: r.secrets, organizationSecrets: a.secrets }),
+            }),
+          }),
+          (0, Y.jsx)(j.Footer, {
+            children: (0, Y.jsx)(j.Close, {
+              asChild: !0,
+              children: (0, Y.jsx)(k, { type: `button`, variant: `outline`, children: `Close` }),
+            }),
+          }),
+        ],
+      }),
+    });
+  };
+function hn(e) {
+  if (!e) return { "start-machine": {}, clone: {}, "start-dev-container": {}, "load-automations": {} };
+  let t = Object.values(e || {}),
+    n = Z(t, `Creating virtual machine`),
+    r = Q(n?.lines ?? []),
+    i = Z(t, `Initializing content`),
+    a = Q(i?.lines ?? []),
+    o = Z(t, `Creating dev container`),
+    s = Q(o?.lines ?? []),
+    c = Z(t, `Loading automations`),
+    l = Q(c?.lines ?? []),
+    u = Z(t, `Running dev container background commands`),
+    d = Q(u?.lines ?? []),
+    f = o?.outcome,
+    p = s;
+  return (
+    f && ((f = u?.outcome), (p = d)),
+    {
+      "start-machine": { status: n?.outcome, line: r },
+      clone: { status: i?.outcome, line: a },
+      "start-dev-container": { status: f, line: p },
+      "load-automations": { status: c?.outcome, line: l },
+    }
+  );
+}
+function Z(e, t) {
+  let n = e.filter((e) => e.title === t);
+  if (!n.length) return;
+  if (n.length === 1) return n[0];
+  let r = n.find((e) => !e.outcome);
+  if (r) return r;
+  let i,
+    a = 0;
+  for (let e of n) {
+    let t =
+      e.lines
+        .filter((e) => e.type === `SectionLogLine`)
+        .pop()
+        ?.timestamp?.getTime() || 0;
+    (!a || t > a) && ((a = t), (i = e));
+  }
+  return i || n.pop();
+}
+function Q(e) {
+  return e.filter((e) => e.type === `SectionLogLine`).pop();
+}
+var gn = ({ size: e, className: t, ...n }) => {
+    switch (e) {
+      case `sm`:
+        return (0, Y.jsx)(`svg`, {
+          className: t,
+          ...n,
+          width: `16`,
+          height: `16`,
+          viewBox: `0 0 16 16`,
+          fill: `none`,
+          xmlns: `http://www.w3.org/2000/svg`,
+          children: (0, Y.jsx)(`path`, {
+            d: `M6.97938 3.1875H3.18771V6.97917M12.8127 9.02083V12.8125H9.02105M3.63889 3.63867L6.97938 6.97917M9.02105 9.02083L12.3616 12.3614`,
+            stroke: `currentColor`,
+            strokeWidth: `1.2`,
+            strokeLinecap: `round`,
+            strokeLinejoin: `round`,
+          }),
+        });
+      case `base`:
+        return (0, Y.jsx)(`svg`, {
+          className: t,
+          ...n,
+          width: `20`,
+          height: `20`,
+          viewBox: `0 0 20 20`,
+          fill: `none`,
+          xmlns: `http://www.w3.org/2000/svg`,
+          children: (0, Y.jsx)(`path`, {
+            d: `M8.83358 4.5H4.50024V8.83333M15.5002 11.1667V15.5H11.1669M5.01587 5.01563L8.83358 8.83333M11.1669 11.1667L14.9846 14.9844`,
+            stroke: `currentColor`,
+            strokeWidth: `1.2`,
+            strokeLinecap: `round`,
+            strokeLinejoin: `round`,
+          }),
+        });
+      case `lg`:
+        return (0, Y.jsx)(`svg`, {
+          className: t,
+          ...n,
+          width: `24`,
+          height: `24`,
+          viewBox: `0 0 24 24`,
+          fill: `none`,
+          xmlns: `http://www.w3.org/2000/svg`,
+          children: (0, Y.jsx)(`path`, {
+            d: `M10.6878 5.8125H5.81277V10.6875M18.1878 13.3125V18.1875H13.3128M6.39285 6.39258L10.6878 10.6875M13.3128 13.3125L17.6077 17.6075`,
+            stroke: `currentColor`,
+            strokeWidth: `1.35`,
+            strokeLinecap: `round`,
+            strokeLinejoin: `round`,
+          }),
+        });
+    }
+  },
+  _n = ({ state: e, className: t }) => {
+    let [n] = (0, J.useState)(e),
+      [r, i] = (0, J.useState)(!1);
+    (0, J.useEffect)(() => {
+      e !== n && i(!0);
+    }, [e, n]);
+    let a = (0, J.useMemo)(() => r || e !== n, [r, e, n]);
+    return (0, Y.jsxs)(`svg`, {
+      width: `24`,
+      height: `24`,
+      viewBox: `0 0 24 24`,
+      fill: `none`,
+      xmlns: `http://www.w3.org/2000/svg`,
+      className: t,
+      children: [
+        (0, Y.jsx)(`circle`, {
+          xmlns: `http://www.w3.org/2000/svg`,
+          cx: `12`,
+          cy: `12`,
+          r: `3`,
+          fill: `currentColor`,
+          className: A({
+            "transition-colors duration-300 [transition-property:r]": a,
+            "text-content-primary [r:3px]": e === q.Waiting,
+            "text-content-brand [r:3px]": e === q.Running,
+            "text-content-green [r:8px]": e === q.Success,
+            "text-content-tertiary [r:3px]": e === q.Empty,
+            "[r:0px]": e === q.Failure || e === q.Warning,
+          }),
+        }),
+        (0, Y.jsx)(`circle`, {
+          xmlns: `http://www.w3.org/2000/svg`,
+          cx: `12`,
+          cy: `12`,
+          r: `10`,
+          fill: `currentColor`,
+          opacity: 0.3,
+          className: A({
+            "transition-colors duration-150": a,
+            "text-content-tertiary dark:text-content-primary": e === q.Waiting,
+            "duration-2000 animate-circlePulse text-content-brand": e === q.Running,
+            "text-content-green": e === q.Success,
+            "[r:0px]": e === q.Empty || e === q.Failure || e === q.Warning,
+          }),
+        }),
+        e === q.Success &&
+          (0, Y.jsx)(`path`, {
+            d: `M8 12.5L11 15L16 9`,
+            stroke: `white`,
+            strokeWidth: `2`,
+            strokeLinejoin: `round`,
+            strokeLinecap: `round`,
+            strokeDasharray: 12,
+            strokeDashoffset: a ? 12 : 0,
+            className: A({ "animate-draw delay-500 duration-150": a }),
+          }),
+        e === q.Warning &&
+          (0, Y.jsx)(`path`, {
+            d: `M12 9.36996V12.3154M12 14.3404V14.3331M10.1211 6.14899L5.4324 13.7308C4.52227 15.2025 5.58084 17.1018 7.31124 17.1018H16.6887C18.4191 17.1018 19.4777 15.2025 18.5675 13.7308L13.8788 6.14898C13.0154 4.75275 10.9846 4.75275 10.1211 6.14899ZM12.1841 14.3404C12.1841 14.4421 12.1017 14.5245 12 14.5245C11.8983 14.5245 11.8159 14.4421 11.8159 14.3404C11.8159 14.2387 11.8983 14.1564 12 14.1564C12.1017 14.1564 12.1841 14.2387 12.1841 14.3404Z`,
+            stroke: `currentColor`,
+            strokeWidth: `1.5`,
+            strokeLinecap: `round`,
+            className: `text-content-yield`,
+          }),
+        e === q.Failure && (0, Y.jsx)(bt, { size: `lg`, className: `text-content-red`, inline: !0 }),
+      ],
+    });
+  };
+function vn(e) {
+  let { data: t, isPending: n } = Ie(e?.metadata?.runnerId),
+    { data: r } = Pe(e?.spec?.machine?.class);
+  if (!(n || !e || !t)) return { runnerName: t?.name, clazz: r };
+}
+function yn(e) {
+  return `The dev container failed to build.${e ? `\n\nError message:\n${e}` : ``}
+
+Please diagnose and fix this issue by:
+1. Running \`timeout 10 ioi env devcontainer logs\` to see the build logs
+2. Reading .devcontainer/devcontainer.json to understand the configuration
+3. Checking for common issues like:
+   - Privileged operations not supported (--privileged, --sysctl, --cap-add in runArgs)
+   - Commands requiring sudo in postCreateCommand
+   - Image pull failures or missing tags
+   - Feature installation failures
+4. Applying the appropriate fix
+5. Rebuilding the devcontainer to verify`;
+}
+var bn = ({ environment: e, latestLogLine: t }) => {
+    let n = x(),
+      r = (0, J.useMemo)(() => Tt(e), [e]),
+      i = (0, J.useMemo)(() => {
+        let e = `remote virtual machine`;
+        switch (r) {
+          case q.Failure:
+          case q.Waiting:
+          case q.Empty:
+            return `Start ${e}`;
+          case q.Running:
+            return `Starting ${e}`;
+          case q.Warning:
+          case q.Success:
+            return `Started ${e}`;
+        }
+      }, [r]),
+      a = vn(e),
+      o = [a?.runnerName, a?.clazz?.displayName, a?.clazz?.description].filter(Boolean).join(`\xA0\xA0•\xA0\xA0`),
+      s = (0, J.useMemo)(() => V(`machine`, e.status?.machine?.failureMessage), [e]),
+      c = (0, J.useMemo)(() => {
+        if (!K(e))
+          return s
+            ? e.status?.machine?.warningMessage
+            : [e.status?.machine?.failureMessage, e.status?.machine?.warningMessage].filter(Boolean).join(`
+`);
+      }, [e, s]),
+      l = (0, J.useMemo)(() => {
+        if (!(!s || K(e))) return (0, Y.jsx)(H, { error: s, rawMessage: e.status?.machine?.failureMessage });
+      }, [s, e]),
+      u = (0, J.useCallback)(() => n(z(e.id, t?.id)), [e.id, t?.id, n]),
+      d = (0, J.useMemo)(() => {
+        let e = !!t && r === q.Running;
+        if (!(r == q.Waiting || e) && u)
+          return (0, Y.jsx)(k, {
+            size: `sm`,
+            variant: `secondary`,
+            onClick: u,
+            "data-tracking-id": `show-logs-start-step`,
+            children: `Logs`,
+          });
+      }, [t, u, r]);
+    return (0, Y.jsx)($, {
+      environmentId: e.id,
+      title: i,
+      subtitle: o,
+      logLine: t,
+      text: c,
+      content: l,
+      state: r,
+      hoverActions: d,
+    });
+  },
+  xn = ({ environment: e, latestLogLine: t }) => {
+    let { toast: n } = O(),
+      r = x(),
+      i = Ae(),
+      a = (0, J.useMemo)(() => St(e), [e]),
+      o = (0, J.useMemo)(() => {
+        let t = $e(e);
+        switch (a) {
+          case q.Failure:
+          case q.Waiting:
+          case q.Empty:
+            return t ? `Initialize repository` : `Clone repository`;
+          case q.Running:
+            return t ? `Initializing repository` : `Cloning repository`;
+          case q.Warning:
+          case q.Success:
+            return t ? `Initialized repository` : `Cloned repository`;
+        }
+      }, [a, e]),
+      s = (0, J.useMemo)(() => Me(e.spec?.content?.initializer), [e]),
+      c = (0, J.useMemo)(() => V(`content`, e.status?.content?.failureMessage, { repoUrl: s }), [e, s]),
+      l = (0, J.useMemo)(() => {
+        if (!K(e))
+          return c
+            ? e.status?.content?.warningMessage
+            : [e.status?.content?.failureMessage, e.status?.content?.warningMessage].filter(Boolean).join(`
+`);
+      }, [e, c]),
+      u = (0, J.useMemo)(() => {
+        if (!K(e)) return e.status?.content?.phase == ue.FAILED;
+      }, [e]),
+      { data: d } = Fe(e.metadata?.runnerId, s, {
+        refetchUntilAuthenticated: !0,
+        sessionId: e.spec?.machine?.session,
+        enabled: u,
+      }),
+      f = u && d?.type == `AuthenticationRequired`,
+      [p, m] = (0, J.useState)(),
+      { data: h } = Pe(e.spec?.machine?.class),
+      g = (0, J.useCallback)(() => r(z(e.id, t?.id)), [e.id, t?.id, r]),
+      _ = (0, J.useMemo)(() => {
+        let e = !!t && a === q.Running;
+        if (!(a == q.Waiting || e) && g)
+          return (0, Y.jsx)(k, {
+            size: `sm`,
+            variant: `secondary`,
+            onClick: g,
+            "data-tracking-id": `show-logs-clone-step`,
+            children: `Logs`,
+          });
+      }, [t, g, a]),
+      v = (0, J.useMemo)(() => {
+        if (f)
+          return (0, Y.jsx)(k, {
+            size: `sm`,
+            variant: `primary`,
+            onClick: () => {
+              !d ||
+                !h ||
+                m({
+                  repoURL: s || ``,
+                  clazz: je(h),
+                  authResponse: d,
+                  onClose: () => m(void 0),
+                  onAuthSuccess: () => {
+                    m(void 0);
+                  },
+                  "data-track-location": S.EnvironmentSCMAuthenticationModal,
+                });
+            },
+            "data-track-label": `true`,
+            "data-tracking-id": `reauthenticate-clone-step`,
+            children: `Re-Authenticate`,
+          });
+      }, [d, h, f, s]),
+      y = (0, J.useMemo)(() => {
+        if (!(!c || K(e)))
+          return (0, Y.jsx)(H, {
+            error: c,
+            actions: f ? (st[c.errorCode] ?? []).filter((e) => e.actionId !== `configure_git_auth`) : void 0,
+            rawMessage: e.status?.content?.failureMessage,
+          });
+      }, [c, e, f]);
+    return (0, Y.jsxs)(Y.Fragment, {
+      children: [
+        (0, Y.jsx)($, {
+          environmentId: e.id,
+          title: o,
+          subtitle: e.status?.content?.git?.cloneUrl,
+          text: l,
+          content: y,
+          state: a,
+          logLine: t,
+          actions: v,
+          hoverActions: _,
+        }),
+        p &&
+          (0, Y.jsx)(Dn, {
+            ...p,
+            onClose: () => m(void 0),
+            onAuthSuccess: async () => {
+              if ((m(void 0), e.status?.phase === E.STOPPED))
+                try {
+                  await i.mutateAsync({ environmentId: e.id, skipPolicyCheck: !0 });
+                } catch (e) {
+                  n({
+                    title: `We couldn't start your environment. Sorry about that! Please retry.`,
+                    description: D(e),
+                  });
+                }
+            },
+          }),
+      ],
+    });
+  },
+  Sn = ({ environment: e, latestLogLine: t }) => {
+    let n = x(),
+      r = ke(),
+      i = Oe(),
+      a = De(),
+      { toast: o } = O(),
+      { state: s, canRebuild: c, rebuildReason: l } = (0, J.useMemo)(() => xt(e), [e]),
+      { value: u } = de(),
+      { data: d } = Ie(e.metadata?.runnerId),
+      f = at(d),
+      [p, m] = (0, J.useState)(!1),
+      [h, _] = (0, J.useState)(!1),
+      y = (0, J.useRef)(null);
+    (0, J.useEffect)(
+      () => () => {
+        y.current && clearTimeout(y.current);
+      },
+      [],
+    );
+    let { data: b } = Ee(e.id),
+      S = (0, J.useMemo)(() => {
+        if (b) return b.find((e) => e.spec?.agentId === Te.InEnvironmentIOI.id);
+      }, [b]),
+      C = (0, J.useMemo)(() => {
+        if (!S) return !1;
+        let e = S.status?.phase;
+        return e === te.RUNNING || e === te.PENDING;
+      }, [S]),
+      ie = (0, J.useMemo)(() => {
+        switch (s) {
+          case q.Failure:
+          case q.Waiting:
+          case q.Empty:
+            return `Start dev container`;
+          case q.Running:
+            return `Starting dev container`;
+          case q.Success:
+          case q.Warning:
+            return `Started dev container`;
+        }
+      }, [s]),
+      w = (0, J.useMemo)(() => {
+        if (!K(e)) return e.status?.devcontainer?.failureMessage;
+      }, [e]),
+      T = (0, J.useMemo)(() => V(`devcontainer`, e.status?.devcontainer?.failureMessage), [e]),
+      E = (0, J.useMemo)(() => {
+        if (!K(e))
+          return T
+            ? e.status?.devcontainer?.warningMessage
+            : [e.status?.devcontainer?.failureMessage, e.status?.devcontainer?.warningMessage].filter(Boolean).join(`
+`);
+      }, [e, T]),
+      ce = (0, J.useMemo)(() => {
+        if (!(!T || K(e))) return (0, Y.jsx)(H, { error: T, rawMessage: e.status?.devcontainer?.failureMessage });
+      }, [T, e]),
+      [le, ue] = c
+        ? [
+            l === `secrets`
+              ? `Environment secrets have changed since the container was built`
+              : `The dev container file is out of sync with the current environment`,
+            `Rebuild`,
+          ]
+        : [void 0, void 0],
+      fe = (0, J.useCallback)(async () => {
+        await r.mutateAsync(
+          { req: { environmentId: e.id, spec: v(re, { devcontainer: v(ee, { session: g() }) }) } },
+          {
+            onError(e) {
+              o({ title: `Failed to trigger rebuild of the dev container`, description: D(e) });
+            },
+          },
+        );
+      }, [o, r, e.id]),
+      pe = (0, J.useCallback)(async () => {
+        let t = yn(w);
+        m(!0);
+        try {
+          let n = S?.id;
+          ((n ||= (
+            await i.mutateAsync({
+              agentId: Te.InEnvironmentIOI.id,
+              codeContext: v(se, { context: { case: `environmentId`, value: e.id } }),
+            })
+          ).agentExecutionId),
+            await a.mutateAsync(
+              v(ae, {
+                agentExecutionId: n,
+                input: {
+                  case: `userInput`,
+                  value: v(ne, { id: g(), input: { case: `text`, value: v(oe, { content: t }) } }),
+                },
+              }),
+            ),
+            o({ title: `IOI is analyzing the issue`, description: `Check the AI sidebar for updates` }),
+            _(!0),
+            (y.current = setTimeout(() => _(!1), 3e4)));
+        } catch (e) {
+          o({ title: `Failed to ask IOI for help`, description: D(e) });
+        } finally {
+          m(!1);
+        }
+      }, [w, e.id, S, i, a, o]),
+      A = (0, J.useCallback)(() => n(z(e.id, t?.id)), [e.id, t?.id, n]),
+      j = (0, J.useMemo)(() => {
+        let t = e.status?.content?.contentLocationInMachine || ``;
+        return (e.status?.devcontainer?.devcontainerFilePath || ``).slice(t.length).replace(/^\//, ``);
+      }, [e]),
+      me = (0, J.useMemo)(() => {
+        let e = !!t && s === q.Running;
+        if (!(s == q.Waiting || e) && A)
+          return (0, Y.jsx)(k, {
+            size: `sm`,
+            variant: `secondary`,
+            onClick: A,
+            "data-tracking-id": `show-logs-devcontainer-step`,
+            children: `Logs`,
+          });
+      }, [t, A, s]),
+      M = s === q.Failure && u && f && !C;
+    return (0, Y.jsx)($, {
+      environmentId: e.id,
+      title: ie,
+      subtitle: j,
+      text: E,
+      content: ce,
+      hint: le,
+      logLine: t,
+      state: s,
+      actions: (0, Y.jsxs)(Y.Fragment, {
+        children: [
+          M &&
+            (0, Y.jsxs)(k, {
+              size: `sm`,
+              variant: `primary`,
+              onClick: pe,
+              loading: p,
+              disabled: h,
+              "data-track-label": `true`,
+              "data-tracking-id": `ask-ioi-devcontainer-step`,
+              children: [(0, Y.jsx)(rt, { className: `mr-1 size-4` }), `Ask IOI`],
+            }),
+          c &&
+            (0, Y.jsx)(k, {
+              size: `sm`,
+              variant: `primary`,
+              loading: r.isPending,
+              onClick: fe,
+              "data-track-label": `true`,
+              "data-tracking-id": `rebuild-devcontainer-step`,
+              children: ue,
+            }),
+        ],
+      }),
+      hoverActions: me,
+      hasNext: !1,
+    });
+  },
+  Cn = ({ environment: e, latestLogLine: t }) => {
+    let n = x(),
+      r = (0, J.useMemo)(() => wt(e), [e]),
+      i = (0, J.useMemo)(() => {
+        switch (r) {
+          case q.Failure:
+          case q.Waiting:
+          case q.Empty:
+            return `Load automations`;
+          case q.Running:
+            return `Loading automations`;
+          case q.Warning:
+          case q.Success:
+            return `Loaded automations`;
+        }
+      }, [r]),
+      a = (0, J.useCallback)(() => n(z(e.id, t?.id)), [e.id, t?.id, n]),
+      o = (0, J.useMemo)(
+        () => (r == q.Empty ? `No automations file` : e.status?.automationsFile?.automationsFilePath),
+        [r, e.status?.automationsFile?.automationsFilePath],
+      ),
+      s = (0, J.useMemo)(() => V(`automations`, e.status?.automationsFile?.failureMessage), [e]),
+      c = (0, J.useMemo)(() => {
+        if (!K(e))
+          return s
+            ? e.status?.automationsFile?.warningMessage
+            : [e.status?.automationsFile?.failureMessage, e.status?.automationsFile?.warningMessage].filter(Boolean)
+                .join(`
+`);
+      }, [e, s]),
+      l = (0, J.useMemo)(() => {
+        if (!(!s || K(e))) return (0, Y.jsx)(H, { error: s, rawMessage: e.status?.automationsFile?.failureMessage });
+      }, [s, e]),
+      u = (0, J.useMemo)(() => {
+        if (r != q.Waiting && a)
+          return (0, Y.jsx)(k, {
+            size: `sm`,
+            variant: `secondary`,
+            onClick: a,
+            "data-tracking-id": `show-logs-automations-step`,
+            children: `Logs`,
+          });
+      }, [a, r]);
+    return (0, Y.jsx)($, {
+      environmentId: e.id,
+      title: i,
+      subtitle: o,
+      text: c,
+      content: l,
+      state: r,
+      hoverActions: u,
+    });
+  },
+  wn = ({ environment: e, onShowSecrets: t }) => {
+    let { data: n, isPending: r } = Re(),
+      { data: i } = T(),
+      { data: a, isPending: o } = Le(i?.organizationId),
+      s = (0, J.useMemo)(() => Ct(e), [e]),
+      c = r || o,
+      l = (0, J.useMemo)(() => {
+        let t = { organization: [], project: [], user: [] };
+        if (!n) return t;
+        for (let r of e.spec?.secrets || [])
+          n.secrets.some((e) => e.id === r.sourceRef)
+            ? t.user.push(r)
+            : a?.secrets.some((e) => e.id === r.sourceRef)
+              ? t.organization.push(r)
+              : t.project.push(r);
+        return t;
+      }, [e.spec?.secrets, n, a]),
+      u = (0, J.useMemo)(() => {
+        if (c) return `Loading secrets`;
+        switch (s) {
+          case q.Failure:
+          case q.Waiting:
+          case q.Empty:
+            return `Load secrets`;
+          case q.Running:
+            return `Loading secrets`;
+          case q.Warning:
+          case q.Success:
+            return `Loaded secrets`;
+        }
+      }, [s, c]),
+      d = (0, J.useMemo)(() => {
+        let e = l.organization.length,
+          t = l.project.length,
+          n = l.user.length,
+          r = e + t + n;
+        if (s === q.Empty) return `No secrets configured`;
+        if (s === q.Success && r > 0) {
+          let r = [];
+          return (
+            e > 0 && r.push(e + ` ` + M(e, `organization secret`)),
+            t > 0 && r.push(t + ` ` + M(t, `project secret`)),
+            n > 0 && r.push(n + ` ` + M(n, `user secret`)),
+            r.join(` · `)
+          );
+        }
+        if (s === q.Warning && r > 0) {
+          let r = [];
+          return (
+            e > 0 && r.push(e + ` ` + M(e, `organization secret`)),
+            t > 0 && r.push(t + ` ` + M(t, `project secret`)),
+            n > 0 && r.push(n + ` ` + M(n, `user secret`)),
+            r.join(` · `)
+          );
+        }
+      }, [s, l]),
+      f = (0, J.useMemo)(() => {
+        if (K(e)) return;
+        let t = e.status?.secrets ?? [],
+          n = t.filter((e) => e.phase === ue.FAILED || e.failureMessage),
+          r = t.filter((e) => e.warningMessage),
+          i = [];
+        for (let e of n) e.failureMessage && i.push(`${e.secretName}: ${e.failureMessage}`);
+        for (let e of r) e.warningMessage && i.push(`${e.secretName}: ${e.warningMessage}`);
+        if (i.length)
+          return i.join(`
+`);
+      }, [e]),
+      p = (0, J.useMemo)(() => {
+        if (s === q.Success || s === q.Warning)
+          return (0, Y.jsx)(k, {
+            size: `sm`,
+            variant: `secondary`,
+            onClick: t,
+            "data-tracking-id": `view-secrets-step`,
+            children: `View`,
+          });
+      }, [t, s]),
+      m = (0, J.useMemo)(() => {
+        if (s === q.Empty)
+          return (0, Y.jsx)(B, {
+            href: `https://ioi.com/docs/ioi/projects/project-secrets`,
+            iconSize: `sm`,
+            children: `Learn about secrets`,
+          });
+      }, [s]);
+    return (0, Y.jsx)($, {
+      environmentId: e.id,
+      title: u,
+      subtitle: d,
+      text: f,
+      state: s,
+      "data-testid": `secrets-step`,
+      actions: m,
+      hoverActions: p,
+    });
+  },
+  Tn = ({ prebuildId: e, environmentId: t }) => {
+    let { data: r, error: i } = n(e),
+      [a, o] = (0, J.useState)(!1);
+    if (!e) return null;
+    if (i)
+      return (0, Y.jsx)($, {
+        environmentId: t,
+        title: `Started from prebuild`,
+        state: q.Success,
+        "data-testid": `prebuild-step`,
+      });
+    if (!r) return null;
+    let s = r.metadata?.createdAt ? he(r.metadata.createdAt) : void 0,
+      c = r.status?.completionTime ? he(r.status.completionTime) : void 0,
+      l = s && c ? ve(s, c) : void 0,
+      u = s ? _e(s) : void 0,
+      d = r.status?.warningMessage,
+      f = [];
+    return (
+      u && f.push(`Ran ${u}`),
+      l && f.push(l),
+      (0, Y.jsxs)(Y.Fragment, {
+        children: [
+          (0, Y.jsx)($, {
+            environmentId: t,
+            title: `Started from prebuild`,
+            subtitle: f.join(` · `) || void 0,
+            text: d,
+            state: d ? q.Warning : q.Success,
+            hoverActions: (0, Y.jsx)(k, {
+              size: `sm`,
+              variant: `secondary`,
+              onClick: () => o(!0),
+              "data-tracking-id": `show-logs-prebuild-step`,
+              children: `Logs`,
+            }),
+            "data-testid": `prebuild-step`,
+          }),
+          a && (0, Y.jsx)(Et, { prebuildId: e, open: a, onOpenChange: o }),
+        ],
+      })
+    );
+  },
+  $ = ({
+    environmentId: e,
+    title: t,
+    subtitle: n,
+    text: r,
+    content: i,
+    hint: a,
+    logLine: o,
+    actions: s,
+    hoverActions: c,
+    state: l,
+    className: u,
+    "data-testid": d,
+    hasNext: f = !0,
+  }) => {
+    let p = r,
+      m = x(),
+      h = (0, J.useCallback)(() => m(z(e, o?.id)), [e, o?.id, m]);
+    return (0, Y.jsxs)(`div`, {
+      className: A(`group flex flex-row gap-1 last:hover:rounded-b-xl`, u),
+      "data-testid": d,
+      children: [
+        (0, Y.jsxs)(`div`, {
+          className: `relative -left-[10px] -top-[3px] flex w-[40px] min-w-[40px] flex-col items-center`,
+          children: [
+            (0, Y.jsx)(En, { state: l }),
+            f &&
+              (0, Y.jsx)(`div`, { className: `h-full w-0.5 grow border-r-[1.5px] border-dashed border-gray-600/20` }),
+          ],
+        }),
+        (0, Y.jsxs)(`div`, {
+          className: `flex min-w-0 grow flex-col`,
+          children: [
+            (0, Y.jsxs)(`div`, {
+              className: `relative flex w-full flex-row items-center`,
+              children: [
+                (0, Y.jsxs)(`div`, {
+                  className: `flex flex-grow flex-col overflow-x-hidden`,
+                  children: [
+                    (0, Y.jsxs)(`div`, {
+                      className: `flex grow flex-col gap-1`,
+                      children: [
+                        (0, Y.jsx)(be, { className: `shrink-0 text-base`, children: t }),
+                        n &&
+                          (0, Y.jsx)(`span`, {
+                            className: `min-w-0 truncate text-base text-content-secondary`,
+                            children: n,
+                          }),
+                      ],
+                    }),
+                    a &&
+                      (0, Y.jsx)(`div`, {
+                        className: `h-fit max-w-full text-left`,
+                        children: (0, Y.jsx)(F, { className: `text-wrap text-sm text-content-secondary`, children: a }),
+                      }),
+                    i && (0, Y.jsx)(`div`, { className: `h-fit max-w-full`, children: i }),
+                    p &&
+                      (0, Y.jsx)(`div`, {
+                        className: `h-fit max-w-full`,
+                        children: (0, Y.jsx)(F, {
+                          className: `line-clamp-5 font-mono text-sm text-content-secondary`,
+                          children: p,
+                        }),
+                      }),
+                    (0, Y.jsx)(Ve, {
+                      open: l === q.Running && !!o,
+                      children: (0, Y.jsx)(Ve.Content, {
+                        children: (0, Y.jsxs)(`div`, {
+                          className: A(
+                            `mt-1 flex items-center justify-between gap-1`,
+                            `rounded-md border-[0.5px] border-border-base bg-surface-pure px-2 py-2`,
+                          ),
+                          children: [
+                            (0, Y.jsxs)(`div`, {
+                              className: `flex items-start gap-3 overflow-x-hidden`,
+                              children: [
+                                o?.timestamp &&
+                                  (0, Y.jsx)(`span`, {
+                                    className: `min-w-fit font-mono text-sm text-content-tertiary`,
+                                    children: ge(o.timestamp),
+                                  }),
+                                (0, Y.jsx)(F, {
+                                  className: `truncate font-mono text-sm text-content-primary`,
+                                  children: o?.line,
+                                }),
+                              ],
+                            }),
+                            (0, Y.jsx)(P, {
+                              content: `View logs`,
+                              children: (0, Y.jsx)(k, {
+                                LeadingIcon: gn,
+                                variant: `secondary`,
+                                size: `sm`,
+                                onClick: h,
+                                "data-tracking-id": `view-logs-logline-step`,
+                                "aria-label": `View logs`,
+                              }),
+                            }),
+                          ],
+                        }),
+                      }),
+                    }),
+                  ],
+                }),
+                (0, Y.jsxs)(`div`, {
+                  className: `absolute right-0 ml-2 flex items-center gap-2`,
+                  children: [
+                    c &&
+                      (0, Y.jsxs)(`span`, {
+                        className: A(`flex items-stretch invisible group-focus-within:visible group-hover:visible`),
+                        children: [
+                          (0, Y.jsx)(`span`, {
+                            className: `w-12 shrink-0 bg-gradient-to-r from-transparent to-surface-glass`,
+                            "aria-hidden": `true`,
+                          }),
+                          (0, Y.jsx)(`span`, { className: `flex items-center bg-surface-glass`, children: c }),
+                        ],
+                      }),
+                    s,
+                  ],
+                }),
+              ],
+            }),
+            f && (0, Y.jsx)(`div`, { className: `my-[10px]` }),
+          ],
+        }),
+      ],
+    });
+  },
+  En = ({ state: e }) =>
+    (0, Y.jsx)(`div`, {
+      className: `flex min-h-6 min-w-6 items-center justify-center`,
+      children: (0, Y.jsx)(_n, { state: e }),
+    }),
+  Dn = (e) => {
+    let t = (0, J.useMemo)(
+        () => (e.authResponse.type === `AuthenticationRequired` ? e.authResponse.patAuth : void 0),
+        [e],
+      ),
+      n = (0, J.useMemo)(() => (e.authResponse.type === `AuthenticationRequired` ? e.authResponse.url : ``), [e]),
+      r = (0, J.useMemo)(() => (e.authResponse.type === `AuthenticationRequired` ? e.authResponse.scmId : ``), [e]),
+      i = (0, J.useMemo)(() => (e.authResponse.type === `AuthenticationRequired` ? e.authResponse.scmName : ``), [e]);
+    return (0, Y.jsx)(`div`, {
+      children: (0, Y.jsx)(ct, {
+        repoURL: e.repoURL,
+        authenticationUrl: n,
+        patAuth: t,
+        scmId: r,
+        scmName: i,
+        onClose: e.onClose,
+        onClickContinue: e.onAuthSuccess,
+        runnerId: e.clazz.runnerId,
+        "data-track-location": e[`data-track-location`],
+      }),
+    });
+  },
+  On = ({ environment: e, effectiveState: n }) => {
+    let { toast: r } = O(),
+      i = Ae(),
+      o = Ne(),
+      l = i.isPending || o.isPending,
+      u = s(e),
+      d = a(e),
+      { handleStartError: f, modalProps: p } = c(),
+      m = (0, J.useMemo)(() => Ue(e), [e]),
+      h = l || m === `starting` || m === `deleting` || (!u && m === `stopping`),
+      g = i.isPending || m === `running` || m === `starting`,
+      _ = (0, J.useCallback)(async () => {
+        if (u)
+          try {
+            await i.mutateAsync({ environmentId: e.id, skipPolicyCheck: !0 });
+          } catch (e) {
+            if (f(e)) return;
+            r({ title: `Failed to start environment`, description: D(e) });
+          }
+        else if (d)
+          try {
+            await o.mutateAsync(e.id);
+          } catch (e) {
+            r({ title: `Failed to stop environment`, description: D(e) });
+          }
+      }, [u, d, e.id, f, i, o, r]);
+    return (0, Y.jsxs)(Y.Fragment, {
+      children: [
+        (0, Y.jsxs)(`div`, {
+          className: `inline-flex min-h-12 items-center justify-start gap-2`,
+          children: [
+            (0, Y.jsx)(ut, {
+              state: g ? `checked` : `unchecked`,
+              isLoading: h || m === `stopping`,
+              disabled: m === `deleted` || h,
+              onToggle: _,
+              id: `toggle-env-` + e.id,
+            }),
+            (0, Y.jsx)(`label`, {
+              className: A(
+                `grow cursor-pointer select-none justify-start text-base font-normal leading-tight text-content-primary`,
+                { "cursor-default": h || m === `deleted` },
+              ),
+              htmlFor: `toggle-env-` + e.id,
+              translate: `no`,
+              children: (0, Y.jsx)(kn, { state: n }),
+            }),
+          ],
+        }),
+        (0, Y.jsx)(t, { environment: e, ...p }),
+      ],
+    });
+  },
+  kn = ({ state: e }) => {
+    let t = et(e);
+    return t ? (0, Y.jsx)(be, { className: `text-nowrap text-xl`, children: t }) : null;
+  },
+  An = (0, J.lazy)(() =>
+    h(
+      () =>
+        import(`./EnvironmentDetailLockStatus-Dl7SC91c.js`).then((e) => ({ default: e.EnvironmentDetailLockStatus })),
+      __vite__mapDeps([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]),
+      import.meta.url,
+    ),
+  ),
+  jn = ({ environmentId: e, onShowSecrets: t }) => {
+    let { data: n } = R(e),
+      { data: r } = Ie(n?.metadata?.runnerId),
+      i = (0, J.useMemo)(() => {
+        if (n) return He(n);
+      }, [n]);
+    return !r || !n
+      ? (0, Y.jsx)(Nn, {})
+      : (0, Y.jsx)(Mn, { environment: n, runner: r, state: i, onShowSecrets: t }, n?.id);
+  },
+  Mn = ({ environment: e, runner: t, state: n, onShowSecrets: r }) => {
+    let { logGroups: i } = Dt({
+        environment: e,
+        logsUrl: (0, J.useMemo)(() => {
+          if (!(n?.state === E.STOPPED || n?.state === E.DELETED)) return tt(e);
+        }, [e, n?.state]),
+        maxLinesPerGroup: 5,
+      }),
+      a = (0, J.useMemo)(() => hn(i), [i]);
+    return (0, Y.jsxs)(`div`, {
+      "data-testid": `environment-start-sequence`,
+      translate: `no`,
+      children: [
+        (0, Y.jsx)(Fn, { environment: e, state: n, "data-tracking-id-none": !0 }),
+        (0, Y.jsx)(`div`, { className: `mt-[20px] w-full border-t border-border-subtle pb-[20px]` }),
+        (0, Y.jsx)(Tn, { prebuildId: e.metadata?.prebuildId, environmentId: e.id }, `step-prebuild-${e.id}`),
+        (0, Y.jsx)(bn, { environment: e, runner: t, latestLogLine: a[`start-machine`].line }, `step-machine-${e.id}`),
+        (0, Y.jsx)(xn, { environment: e, latestLogLine: a.clone.line }, `step-clone-${e.id}`),
+        (0, Y.jsx)(wn, { environment: e, onShowSecrets: r }, `step-secrets-${e.id}`),
+        (0, Y.jsx)(Cn, { environment: e, latestLogLine: a[`load-automations`].line }, `step-automations-${e.id}`),
+        (0, Y.jsx)(Sn, { environment: e, latestLogLine: a[`start-dev-container`].line }, `step-dev-container-${e.id}`),
+        (0, Y.jsx)(`div`, { className: `w-full pb-[20px]` }),
+      ],
+    });
+  },
+  Nn = () =>
+    (0, Y.jsxs)(Pn, {
+      children: [
+        (0, Y.jsxs)(`div`, {
+          className: `border-border flex w-full items-center gap-2 rounded-t-xl bg-surface-glass px-4 py-3`,
+          children: [
+            (0, Y.jsx)(`div`, {
+              className: `flex size-6 items-center justify-center`,
+              children: (0, Y.jsx)(I, { className: `size-5`, ready: !1 }),
+            }),
+            (0, Y.jsx)(we, { size: `lg`, ready: !1, className: `w-20` }),
+          ],
+        }),
+        (0, Y.jsx)(`div`, {
+          className: `flex flex-col border-t border-border-base`,
+          children: [`w-20`, `w-80`, `w-72`].map((e, t) =>
+            (0, Y.jsxs)(
+              `div`,
+              {
+                className: `flex h-10 w-full items-center gap-2 px-4 py-2`,
+                children: [
+                  (0, Y.jsx)(`div`, {
+                    className: `flex size-6 items-center justify-center`,
+                    children: (0, Y.jsx)(I, { className: `size-5`, ready: !1 }),
+                  }),
+                  (0, Y.jsx)(we, { size: `lg`, ready: !1, className: e }),
+                ],
+              },
+              t,
+            ),
+          ),
+        }),
+      ],
+    }),
+  Pn = ({ children: e }) =>
+    (0, Y.jsx)(`div`, {
+      className: `flex w-full flex-col rounded-xl border border-border-base bg-surface-glass`,
+      children: e,
+    }),
+  Fn = ({ state: e, environment: t }) =>
+    (0, Y.jsxs)(`div`, {
+      className: `flex w-full flex-col rounded-t-xl @container`,
+      children: [
+        (0, Y.jsx)(`div`, {
+          className: `flex w-full items-center gap-2`,
+          children: (0, Y.jsxs)(`div`, {
+            className: `flex w-full min-w-0 shrink flex-wrap items-center gap-2`,
+            children: [
+              (0, Y.jsx)(`div`, {
+                className: `flex h-full shrink-0 flex-row items-center gap-3`,
+                children: (0, Y.jsx)(On, { effectiveState: e, environment: t }, t.id),
+              }),
+              (0, Y.jsx)(`div`, { className: `h-2 flex-grow @lg:h-12`, "data-tracking-id-none": !0 }),
+              (0, Y.jsxs)(`div`, {
+                className: `flex min-w-0 shrink flex-wrap items-start gap-[20px]`,
+                children: [
+                  (0, Y.jsx)(zn, { environment: t }, `${t.id}-auto-stop`),
+                  (0, Y.jsx)(In, { environment: t }),
+                  (0, Y.jsx)(Ln, { environment: t }),
+                  (0, Y.jsx)(Rn, { environmentId: t.id }),
+                ],
+              }),
+            ],
+          }),
+        }),
+        (0, Y.jsx)(J.Suspense, { children: (0, Y.jsx)(An, { env: t }) }),
+      ],
+    }),
+  In = ({ environment: e }) => {
+    let t = e.metadata?.createdAt ? he(e.metadata.createdAt) : void 0;
+    return (0, Y.jsxs)(`div`, {
+      className: `flex min-w-0 flex-col`,
+      children: [
+        (0, Y.jsx)(F, { className: `truncate text-sm text-content-secondary`, children: `Created` }),
+        (0, Y.jsx)(F, {
+          className: `flex h-7 items-center truncate text-base text-content-primary`,
+          title: t?.toISOString(),
+          children: t ? _e(t) : ``,
+        }),
+      ],
+    });
+  },
+  Ln = ({ environment: e }) => {
+    let t = e.metadata?.lastStartedAt;
+    if (!t) return;
+    let n = he(t);
+    return (0, Y.jsxs)(`div`, {
+      className: `flex min-w-0 flex-col`,
+      children: [
+        (0, Y.jsx)(F, { className: `truncate text-sm text-content-secondary`, children: `Last started` }),
+        (0, Y.jsx)(F, {
+          className: `flex h-7 items-center truncate text-base text-content-primary`,
+          title: n.toISOString(),
+          children: _e(n),
+        }),
+      ],
+    });
+  },
+  Rn = ({ environmentId: e }) => {
+    let { data: t } = We(e, !0, 3e4),
+      n = qe(t),
+      [r, i] = (0, J.useState)(!1),
+      a = Qe(n);
+    return (0, Y.jsxs)(Y.Fragment, {
+      children: [
+        (0, Y.jsxs)(`div`, {
+          className: `flex min-w-0 flex-col`,
+          children: [
+            (0, Y.jsx)(F, { className: `truncate text-sm text-content-secondary`, children: `Resource usage` }),
+            (0, Y.jsx)(`div`, {
+              className: `flex h-7 items-center gap-1`,
+              children: (0, Y.jsx)(`button`, {
+                type: `button`,
+                className: `group rounded-[20px] outline-none focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-1 focus-visible:outline-border-brand`,
+                onClick: () => i(!0),
+                "data-tracking-id": `resource-usage-open-dialog`,
+                "aria-label": `View resource usage details: ${a}`,
+                children: (0, Y.jsx)(Ce, {
+                  variant: Ge(n),
+                  size: `sm`,
+                  TrailingIcon: it,
+                  className: `cursor-pointer select-none pr-1 transition-[filter] group-hover:brightness-95`,
+                  children: a,
+                }),
+              }),
+            }),
+          ],
+        }),
+        (0, Y.jsx)(Ze, { environmentId: e, open: r, onOpenChange: i }),
+      ],
+    });
+  },
+  zn = ({ className: e, environment: t }) => {
+    let { toast: n } = O(),
+      { data: r } = ce(),
+      i = l(t, r),
+      [a, o] = (0, J.useState)(null),
+      s = (0, J.useRef)(t);
+    s.current !== t && ((s.current = t), a !== null && o(null));
+    let c = a ?? u(t),
+      d = ke(),
+      p = (0, J.useCallback)(
+        async (e) => {
+          try {
+            let r = BigInt(e);
+            (o(f(Number(e))),
+              await d.mutateAsync({
+                req: { environmentId: t.id, spec: v(re, { timeout: v(ie, { disconnected: v(y, { seconds: r }) }) }) },
+              }),
+              n({ title: `Successfully updated auto-stop` }));
+          } catch (e) {
+            (o(null), n({ title: `Failed to update auto-stop value`, description: D(e) }));
+          }
+        },
+        [d, t.id, n],
+      );
+    return (0, Y.jsxs)(`div`, {
+      className: A(`flex min-w-0 flex-col`, e),
+      children: [
+        (0, Y.jsx)(`div`, {
+          className: `inline-block text-nowrap text-sm text-content-secondary`,
+          "data-tracking-id": `auto-stop-after-environment-start-sequence`,
+          children: `Auto-stop after`,
+        }),
+        (0, Y.jsx)(`div`, {
+          className: `flex h-7 items-center`,
+          children: (0, Y.jsxs)(L, {
+            children: [
+              (0, Y.jsx)(L.Trigger, {
+                asChild: !0,
+                children: (0, Y.jsxs)(`button`, {
+                  type: `button`,
+                  className: `flex items-center gap-1 text-base text-content-primary outline-none focus-visible:ring-1 focus-visible:ring-border-brand`,
+                  children: [
+                    (0, Y.jsx)(`span`, { className: `truncate`, children: c.label }),
+                    (0, Y.jsx)(_, { size: 20 }),
+                  ],
+                }),
+              }),
+              (0, Y.jsx)(L.Content, {
+                align: `start`,
+                className: `w-auto`,
+                children: (0, Y.jsx)(L.RadioGroup, {
+                  value: c.value,
+                  onValueChange: p,
+                  children: i.map((e) =>
+                    (0, Y.jsx)(
+                      L.RadioItem,
+                      {
+                        value: e.value,
+                        "data-tracking-id": `auto-stop-option-${e.value}-environment-start-sequence`,
+                        children: e.label,
+                      },
+                      e.value,
+                    ),
+                  ),
+                }),
+              }),
+            ],
+          }),
+        }),
+      ],
+    });
+  },
+  Bn = ({ environmentId: e, showingAgentConversation: t }) => {
+    let [n, r] = (0, J.useState)(!1),
+      { enabled: i, isLoading: a } = Ot(),
+      { data: o } = R(e),
+      s = _t(),
+      c = t ?? s?.showingAgentConversation ?? !1,
+      { value: l } = de(),
+      u = window.isWebview && !l ? o?.metadata?.name : void 0;
+    return (0, Y.jsxs)(`div`, {
+      className: `flex min-h-full flex-col gap-6 @container`,
+      "data-testid": `environment-details`,
+      children: [
+        i && (0, Y.jsx)(kt, { environmentId: e }),
+        !c && (0, Y.jsx)(gt, { showActionBar: !0 }),
+        (0, Y.jsx)(Vn, {
+          environmentId: e,
+          children: (0, Y.jsxs)(Y.Fragment, {
+            children: [
+              (0, Y.jsx)(At, { environmentId: e }),
+              u && (0, Y.jsx)(Hn, { name: u }),
+              (0, Y.jsx)(jn, { environmentId: e, onShowSecrets: () => r(!0) }),
+              !c && (0, Y.jsx)(ot, { environmentId: e }),
+              !a && !i && (0, Y.jsx)(cn, { environmentId: e, "data-track-location": S.EnvironmentOnboarding }),
+            ],
+          }),
+        }),
+        n && (0, Y.jsx)(mn, { onClose: () => r(!1), environmentId: e }),
+      ],
+    });
+  },
+  Vn = ({ children: e, environmentId: t }) => {
+    let { data: n, isPending: r } = R(t);
+    return !r && n ? e : null;
+  },
+  Hn = ({ name: e }) =>
+    (0, Y.jsxs)(`p`, {
+      className: `truncate text-base`,
+      children: [
+        (0, Y.jsx)(`span`, { className: `text-content-tertiary`, children: `Name ` }),
+        (0, Y.jsx)(`span`, { className: `font-mono text-content-primary`, children: e }),
+      ],
+    });
+export { Bn as t };

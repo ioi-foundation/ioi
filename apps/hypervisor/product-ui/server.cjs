@@ -5,7 +5,12 @@ const path = require('path');
 const http = require('http');
 
 const PORT = process.env.PORT || 9228;
-const PUBLIC_DIR = path.join(__dirname, 'public');
+// Shell tree selection: IOI_PRODUCT_UI_PUBLIC points at an alternate served tree — the OWNED
+// vendored source (product-ui/owned/public), proven wire-equivalent by the shell-parity oracle.
+// Default stays the original bundle so the switch is explicit and reversible.
+const PUBLIC_DIR = process.env.IOI_PRODUCT_UI_PUBLIC
+  ? path.resolve(process.env.IOI_PRODUCT_UI_PUBLIC)
+  : path.join(__dirname, 'public');
 
 const chunkMap = {};
 
@@ -1471,9 +1476,12 @@ function sanitizeHtml(content) {
 
 function transformJavaScript(content, pathname) {
   if (pathname.includes('/static/assets/use-boot-in-app-chat-')) {
+    // Formatting-tolerant: the served tree may be the original minified bundle OR the owned
+    // beautified source (same AST, different whitespace) — the semantic rewrite must land
+    // identically on both, and the shell-parity wire gate holds it to that.
     return content.replace(
-      'Bc=()=>{let{value:e,loading:t}=$(R.PylonWebChatDisabled,!1);return{value:e,loading:t}}',
-      'Bc=()=>({value:!0,loading:!1})'
+      /([$\w]+)\s*=\s*\(\)\s*=>\s*\{\s*let\s*\{\s*value:\s*([$\w]+),\s*loading:\s*([$\w]+),?\s*\}\s*=\s*[$\w]+\(\s*[$\w]+\.PylonWebChatDisabled,\s*!1,?\s*\)\s*;?\s*return\s*\{\s*value:\s*\2,\s*loading:\s*\3,?\s*\}\s*;?\s*\}/,
+      '$1=()=>({value:!0,loading:!1})'
     );
   }
   return content;

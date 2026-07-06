@@ -1,0 +1,47 @@
+import { a as e } from "./rolldown-runtime-CGYlQKCx.js";
+import { L as t, pr as n } from "./SegmentProvider-CXCNBY9U.js";
+import { n as r } from "./@mux-DLaEVubF.js";
+import { v_ as i } from "./vendor-DAwbZtf0.js";
+import { Ls as a, hn as o } from "./use-boot-in-app-chat-t-J_VjKS.js";
+import { t as s } from "./text-fFCFeCas.js";
+import { t as c } from "./avatar-CjN22mGB.js";
+import { a as l, n as u } from "./service-accounts-DLF2ke0D.js";
+var d = e(r(), 1),
+  f = i(),
+  p = ({ subject: e, avatarSize: r = 16 }) => {
+    let { data: i } = n(),
+      p = t(e),
+      { members: m } = o(p ? [p] : []),
+      h = (0, d.useMemo)(() => {
+        if (!e) return null;
+        if (e.principal === a.USER) {
+          let t = m.get(e.id);
+          if (t) return { name: t.fullName, avatarUrl: t.avatarUrl, principal: a.USER };
+        }
+        if (e.principal === a.SERVICE_ACCOUNT) {
+          let t = i?.serviceAccounts?.find((t) => t.id === e.id);
+          if (t) return { name: t.name, principal: a.SERVICE_ACCOUNT, id: t.id, isIOIServiceAccount: u(t) };
+        }
+        return null;
+      }, [e, m, i]);
+    return h
+      ? (0, f.jsxs)(`div`, {
+          className: `flex items-center gap-1.5`,
+          children: [
+            h.principal === a.USER
+              ? (0, f.jsxs)(c, {
+                  size: r,
+                  children: [
+                    h.avatarUrl && (0, f.jsx)(c.Image, { src: h.avatarUrl, alt: `${h.name}'s avatar` }),
+                    (0, f.jsx)(c.Fallback, { children: (0, f.jsx)(c.Initials, { name: h.name, size: r }) }),
+                  ],
+                })
+              : h.id
+                ? (0, f.jsx)(l, { id: h.id, size: r, isIOIServiceAccount: h.isIOIServiceAccount })
+                : null,
+            (0, f.jsx)(s, { className: `text-sm`, children: h.name }),
+          ],
+        })
+      : null;
+  };
+export { p as t };

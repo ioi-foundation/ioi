@@ -1,0 +1,6007 @@
+import { a as e } from "./rolldown-runtime-CGYlQKCx.js";
+import {
+  $t as t,
+  Ai as n,
+  Di as r,
+  Ei as i,
+  J as a,
+  Oi as o,
+  Q as s,
+  Qt as c,
+  ki as l,
+  kn as u,
+  pn as d,
+} from "./SegmentProvider-CXCNBY9U.js";
+import { n as f } from "./@mux-DLaEVubF.js";
+import {
+  $ as p,
+  Al as m,
+  Q as h,
+  Qp as g,
+  X as _,
+  am as v,
+  at as y,
+  ct as b,
+  e_ as x,
+  f_ as S,
+  g_ as C,
+  hp as w,
+  kp as T,
+  lm as E,
+  lt as D,
+  ot as O,
+  ql as k,
+  st as A,
+  v_ as j,
+  vc as M,
+  zd as N,
+} from "./vendor-DAwbZtf0.js";
+import {
+  Aa as P,
+  Ca as F,
+  Da as I,
+  Dt as L,
+  Ea as R,
+  Fa as z,
+  Ja as B,
+  Ka as V,
+  Ma as H,
+  Na as U,
+  Oa as ee,
+  Pa as W,
+  Xa as te,
+  Ya as ne,
+  d as re,
+  ja as G,
+  ka as ie,
+  qa as ae,
+  tr as oe,
+  wa as se,
+  wt as ce,
+} from "./use-boot-in-app-chat-t-J_VjKS.js";
+import { t as le } from "./use-theme-DWCPVAsU.js";
+import { t as ue } from "./toast-axaLeIzZ.js";
+import { a as de, t as K } from "./button-6YP03Qf2.js";
+import { t as q } from "./cn-DppMFCU8.js";
+import { n as fe, t as pe } from "./haptic-tWxzGXjs.js";
+import { d as me, t as he } from "./keyboard-combo--XtLCmBU.js";
+import { t as ge } from "./banner-CFcSGYsz.js";
+import { t as _e } from "./timestamp-CEKPQVte.js";
+import { n as ve } from "./utils-C9bSuXia.js";
+import { t as ye } from "./use-temporary-value-Bpxt61FD.js";
+import { t as be } from "./tooltip-6hqVQbwq.js";
+import { t as xe } from "./Pill-99RRpZf2.js";
+import "./pill-AA_qJIlm.js";
+import { t as J } from "./text-fFCFeCas.js";
+import {
+  A as Se,
+  C as Ce,
+  E as we,
+  M as Te,
+  O as Ee,
+  R as De,
+  S as Oe,
+  a as ke,
+  b as Ae,
+  f as je,
+  u as Me,
+  v as Ne,
+} from "./agent-queries-CGWy3JAw.js";
+import { C as Pe } from "./environment-queries-zpiLcWfm.js";
+import { u as Fe } from "./runner-queries-BAY_7mHt.js";
+import { T as Ie, l as Le, m as Re } from "./ui-state-C-W85cTH.js";
+import { t as Y } from "./collapsible-CijQ-f1P.js";
+import { s as ze } from "./phase-DI4YEQQ1.js";
+import { a as Be } from "./support-bundle-D0grXyZU.js";
+import { t as Ve } from "./agent-mode-ClxEfnvU.js";
+import { t as He } from "./IconRalphWiggum-BUv9dFXy.js";
+import { t as Ue } from "./IconInfo-Cl6kMnoJ.js";
+import { n as We, r as Ge, t as Ke } from "./popover-D9TQszBd.js";
+import { t as qe } from "./scroll-area-DiWW0x8z.js";
+import { a as Je, n as Ye } from "./SCMAuthentication-Cw9MmVYE.js";
+import { t as Xe } from "./delayed-DmSSX8Yq.js";
+import { t as Ze } from "./IconError-oto7a9DP.js";
+import { t as Qe } from "./IconCheckCircle-D5lhsn3C.js";
+import { i as $e } from "./log-groups-DdYND1nW.js";
+import { t as et } from "./IconChevronDown-CeMEEmUt.js";
+import { t as tt } from "./IconChevronRight-DCrLr53u.js";
+import { t as nt } from "./useStartupSteps-BVqq8tIE.js";
+import { t as rt } from "./lottie-r6RNWSob.js";
+import { t as it } from "./IOIWaiting-BAp9o46t.js";
+import { i as at, t as ot } from "./constants-CnBk-axB.js";
+import { t as st } from "./ImageLightbox-B7vf0zHI.js";
+import { r as ct, t as X } from "./Markdown-DJPLghlF.js";
+import "./register-Cy3DR9hT.js";
+var Z = e(f(), 1),
+  Q = j(),
+  lt = ve(E),
+  ut = ve(v),
+  dt = ({ getText: e, label: t = `Copy message`, className: n, tabIndex: r, "data-tracking-id": i }) => {
+    let [a, o] = ye(!1, 2e3),
+      s = (0, Z.useCallback)(async () => {
+        o(!0);
+        try {
+          (await navigator.clipboard.writeText(e()), pe(`confirm`));
+        } catch (e) {
+          (o(!1), ue({ title: `Failed to copy to clipboard`, description: oe(e) }));
+        }
+      }, [o, e]);
+    return (0, Q.jsx)(be, {
+      content: t,
+      children: (0, Q.jsx)(K, {
+        variant: `ghost`,
+        disabled: a,
+        className: q(`border-0 text-content-strong`, { "disabled:text-content-success disabled:opacity-100": a }, n),
+        size: `xs`,
+        LeadingIcon: a ? lt : ut,
+        onClick: s,
+        "aria-label": t,
+        tabIndex: r,
+        "data-tracking-id": i ?? `copy-to-clipboard`,
+      }),
+    });
+  };
+function ft(e, t = 50) {
+  return e.length <= t ? e : e.slice(0, t - 1) + `…`;
+}
+function pt(e) {
+  return e ? ft(e) : `Agent`;
+}
+function mt(e, t, n) {
+  return e === I.PARENT ? `Ask from ${n}` : t === ee.COMPLETE ? `${n} completed` : `Update from ${n}`;
+}
+var ht = `/ioi:ralph`,
+  gt = `/ioi:spec`,
+  _t = `/ioi:goal`,
+  vt = `/ioi:review`;
+function yt(e) {
+  if (e.startsWith(ht)) {
+    let t = e.slice(10);
+    if (
+      t === `` ||
+      t.startsWith(` `) ||
+      t.startsWith(`
+`)
+    )
+      return { mode: `ralph`, strippedContent: t.trimStart() };
+  }
+  if (e.startsWith(gt)) {
+    let t = e.slice(9);
+    if (
+      t === `` ||
+      t.startsWith(` `) ||
+      t.startsWith(`
+`)
+    )
+      return { mode: `spec`, strippedContent: t.trimStart() };
+  }
+  if (e.startsWith(_t)) {
+    let t = e.slice(9);
+    if (
+      t === `` ||
+      t.startsWith(` `) ||
+      t.startsWith(`
+`)
+    )
+      return { mode: `goal`, strippedContent: t.trimStart() };
+  }
+  if (e.startsWith(vt)) {
+    let t = e.slice(11);
+    if (
+      t === `` ||
+      t.startsWith(` `) ||
+      t.startsWith(`
+`)
+    )
+      return { mode: `review`, strippedContent: t.trimStart() };
+  }
+  return { mode: `agent`, strippedContent: e };
+}
+function bt(e) {
+  let t = /## User Request\s*\n\n([\s\S]*?)(?=\n##|\n\n## |$)/.exec(e);
+  if (t) {
+    let e = t[1]
+      .trim()
+      .split(
+        `
+`,
+      )[0]
+      .trim();
+    if (e) return e;
+  }
+  return (
+    e
+      .split(
+        `
+`,
+      )
+      .filter((e) => e.trim() && !e.startsWith(`A user mentioned`))[0]
+      ?.trim() || `Working on it…`
+  );
+}
+function xt(e, { idleMs: t = 600 } = {}) {
+  let n = (0, Z.useRef)(null);
+  (0, Z.useEffect)(() => {
+    let r = e.current;
+    if (!r) return;
+    let i = !0,
+      a = () => {
+        i &&
+          (r.classList.add(`is-scrolling`),
+          n.current && clearTimeout(n.current),
+          (n.current = setTimeout(() => {
+            ((n.current = null), i && r.classList.remove(`is-scrolling`));
+          }, t)));
+      },
+      o = () => {
+        i && r.classList.add(`is-hover`);
+      },
+      s = () => {
+        i && r.classList.remove(`is-hover`);
+      };
+    return (
+      r.addEventListener(`scroll`, a, { passive: !0 }),
+      r.addEventListener(`mouseenter`, o),
+      r.addEventListener(`mouseleave`, s),
+      () => {
+        ((i = !1),
+          r.removeEventListener(`scroll`, a),
+          r.removeEventListener(`mouseenter`, o),
+          r.removeEventListener(`mouseleave`, s),
+          (n.current &&= (clearTimeout(n.current), null)),
+          r.classList.remove(`is-hover`, `is-scrolling`));
+      }
+    );
+  }, [e, t]);
+}
+function St(e = {}) {
+  let { locale: t, timeZone: n } = new Intl.DateTimeFormat().resolvedOptions();
+  return { locale: e.locale ?? t, timeZone: e.timeZone ?? n, now: e.now ?? new Date() };
+}
+function Ct(e, t, n) {
+  let r = new Intl.DateTimeFormat(t, { timeZone: n, year: `numeric`, month: `numeric`, day: `numeric` }).formatToParts(
+    e,
+  );
+  return {
+    year: r.find((e) => e.type === `year`)?.value,
+    month: r.find((e) => e.type === `month`)?.value,
+    day: r.find((e) => e.type === `day`)?.value,
+  };
+}
+function wt(e, t = {}) {
+  let { locale: n, timeZone: r, now: i } = St(t),
+    a = Ct(i, n, r),
+    o = Ct(e, n, r);
+  return a.year === o.year && a.month === o.month && a.day === o.day
+    ? new Intl.DateTimeFormat(n, { timeStyle: `short`, timeZone: r }).format(e).toLocaleLowerCase(n)
+    : a.year === o.year
+      ? new Intl.DateTimeFormat(n, {
+          month: `short`,
+          day: `numeric`,
+          hour: `numeric`,
+          minute: `2-digit`,
+          timeZone: r,
+        }).format(e)
+      : new Intl.DateTimeFormat(n, {
+          month: `short`,
+          day: `numeric`,
+          year: `numeric`,
+          hour: `numeric`,
+          minute: `2-digit`,
+          timeZone: r,
+        }).format(e);
+}
+var Tt = {
+  agent: { label: `Agent`, colorClass: `text-content-inactive` },
+  spec: { label: `Plan`, colorClass: `text-content-brand-accent-01` },
+  goal: { label: `Goal`, colorClass: `text-content-orange` },
+  review: { label: `Review`, colorClass: `text-content-brand` },
+};
+function Et(e) {
+  return e.fragments
+    .map((e) => (e.type === `text` ? e.content : e.type === `agentMessage` ? e.payload : null))
+    .filter(Boolean).join(`
+`);
+}
+function Dt(e) {
+  return e?.length
+    ? e.includes(ie.GOAL)
+      ? `goal`
+      : e.includes(ie.SPEC) || e.includes(ie.PLANNING)
+        ? `spec`
+        : `agent`
+    : `agent`;
+}
+function Ot(e) {
+  return e.fragments.reduce((e, t) => {
+    if (e !== `agent`) return e;
+    if (t.type === `text`) {
+      let { mode: e } = yt(t.content);
+      return e === `ralph` ? `agent` : e;
+    }
+    return `agent`;
+  }, `agent`);
+}
+var kt = ({ role: e, messageType: t, senderExecutionId: n }) => {
+  let { data: r } = je(n || void 0),
+    i = mt(e, t, pt(r?.metadata?.name));
+  return (0, Q.jsxs)(`span`, {
+    className: `flex items-center gap-1 text-sm text-content-inactive`,
+    children: [(0, Q.jsx)(y, { size: 12, className: `shrink-0` }), i],
+  });
+};
+function At(e, t) {
+  let [n, r] = (0, Z.useState)(``);
+  return (
+    (0, Z.useEffect)(() => {
+      if (!e || e.length === 0) return;
+      let n;
+      if (e instanceof Uint8Array) n = e;
+      else if (Array.isArray(e)) n = new Uint8Array(e);
+      else if (typeof e == `object` && e) {
+        let t = Object.values(e);
+        n = new Uint8Array(t);
+      } else return;
+      let i = new Blob([n], { type: t || `image/png` }),
+        a = URL.createObjectURL(i);
+      return (
+        r(a),
+        () => {
+          URL.revokeObjectURL(a);
+        }
+      );
+    }, [e, t]),
+    n
+  );
+}
+function jt(e, t) {
+  let [n, r] = (0, Z.useState)(``);
+  return (
+    (0, Z.useEffect)(() => {
+      if (!e || !t) return;
+      let n = new AbortController();
+      return (
+        (async () => {
+          try {
+            let i = await fetch(e, { signal: n.signal, headers: { Authorization: `Bearer ${t}` } });
+            if (!i.ok) {
+              console.warn(`Failed to fetch blob from ${e}: ${i.status}`);
+              return;
+            }
+            let a = await i.blob();
+            r(URL.createObjectURL(a));
+          } catch {}
+        })(),
+        () => {
+          (n.abort(), r((e) => (e && URL.revokeObjectURL(e), ``)));
+        }
+      );
+    }, [e, t]),
+    n
+  );
+}
+function Mt(e, t) {
+  let n = jt(e.blobUrl, t),
+    r = At(e.data, e.mimeType);
+  return e.blobUrl ? n : r;
+}
+var Nt = ({ images: e, token: t }) => {
+    let [n, r] = (0, Z.useState)(-1),
+      [i, a] = (0, Z.useState)(new Map()),
+      o = (0, Z.useRef)(null);
+    xt(o);
+    let s = n >= 0,
+      c = (0, Z.useCallback)((e, t) => {
+        a((n) => {
+          if (n.get(e) === t) return n;
+          let r = new Map(n);
+          return (r.set(e, t), r);
+        });
+      }, []),
+      l = (0, Z.useMemo)(
+        () =>
+          e
+            .map((e) => {
+              let t = i.get(e.id);
+              return t ? { src: t, alt: `User uploaded image` } : null;
+            })
+            .filter((e) => e !== null),
+        [e, i],
+      ),
+      u = (0, Z.useCallback)((e) => {
+        r(e);
+      }, []),
+      d = (0, Z.useCallback)((e) => {
+        e || r(-1);
+      }, []);
+    return e.length === 0
+      ? null
+      : (0, Q.jsxs)(Q.Fragment, {
+          children: [
+            (0, Q.jsx)(`div`, {
+              ref: o,
+              className: `scrollbar-on-demand -mx-1 flex gap-2 overflow-x-auto px-1 pb-1`,
+              children: e.map((n, r) =>
+                (0, Q.jsx)(
+                  Pt,
+                  { image: n, index: r, singleImage: e.length === 1, onClick: u, onUrlReady: c, token: t },
+                  n.id,
+                ),
+              ),
+            }),
+            l.length > 0 &&
+              (0, Q.jsx)(st, { images: l, currentIndex: s ? n : 0, onIndexChange: r, open: s, onOpenChange: d }),
+          ],
+        });
+  },
+  Pt = ({ image: e, index: t, singleImage: n, onClick: r, onUrlReady: i, token: a }) => {
+    let o = Mt(e, a);
+    return (
+      (0, Z.useEffect)(() => {
+        o && i(e.id, o);
+      }, [o, e.id, i]),
+      o
+        ? (0, Q.jsx)(ct, {
+            src: o,
+            alt: `User uploaded image ${t + 1}`,
+            onClick: () => r(t),
+            fit: n ? `contain` : `cover`,
+            className: q(`shrink-0 border-border-subtle/60`, n ? `h-40 w-72 max-w-full` : `size-20`),
+          })
+        : null
+    );
+  };
+function Ft(e) {
+  let { strippedContent: t } = yt(e);
+  return { displayContent: t };
+}
+var It = ({ mode: e, message: t, isLast: n, isFromSubagent: r, subagentFragment: i }) => {
+    let a = (0, Z.useCallback)(() => Et(t), [t]),
+      o = t.createdAt ? wt(_e(t.createdAt)) : void 0,
+      s = !r && e !== `agent`;
+    return (0, Q.jsx)(`div`, {
+      className: `flex items-center justify-end`,
+      children: (0, Q.jsxs)(`div`, {
+        className: `flex items-center gap-1.5`,
+        children: [
+          (r || s || !!o) &&
+            (0, Q.jsxs)(`div`, {
+              className: q(`flex items-center gap-1.5 opacity-0 transition-opacity duration-200 ease-in-out`, {
+                "group-hover/row:opacity-100": !n,
+                "opacity-100": n,
+              }),
+              children: [
+                r && i
+                  ? (0, Q.jsx)(kt, { role: i.role, messageType: i.messageType, senderExecutionId: i.senderExecutionId })
+                  : s && (0, Q.jsx)(`span`, { className: q(`text-sm`, Tt[e].colorClass), children: Tt[e].label }),
+                o && (0, Q.jsx)(`span`, { className: `text-sm text-content-muted`, children: o }),
+              ],
+            }),
+          (0, Q.jsx)(dt, {
+            getText: a,
+            tabIndex: n ? void 0 : -1,
+            "data-tracking-id": `copy-to-clipboard-user-message`,
+          }),
+        ],
+      }),
+    });
+  },
+  Lt = ({ message: e, integrationSource: t, integrationURL: n }) => {
+    let r = bt(
+        e.fragments.filter((e) => e.type === `text`).map((e) => e.content).join(`
+`),
+      ),
+      i = t === `github` ? `GitHub PR` : `Integration`,
+      a = (0, Q.jsxs)(`div`, {
+        className: q(
+          `flex max-w-full items-center gap-1.5 rounded-lg border border-border-subtle bg-surface-muted px-3 py-1.5 text-sm text-content-secondary shadow-sm`,
+          n && `transition-colors group-hover:border-border-strong group-hover:bg-surface-01`,
+        ),
+        children: [
+          (0, Q.jsx)(O, { size: 14, className: `shrink-0 text-content-tertiary` }),
+          (0, Q.jsxs)(`span`, {
+            className: `truncate`,
+            children: [
+              (0, Q.jsx)(`span`, { className: `font-medium text-content-primary`, children: i }),
+              ` · `,
+              (0, Q.jsx)(`span`, { className: q(n && `group-hover:underline`), children: r }),
+            ],
+          }),
+        ],
+      });
+    return (0, Q.jsx)(`div`, {
+      className: `user-message flex w-fit max-w-full flex-col items-end gap-1 self-end`,
+      "data-message-id": `${e.type}-${e.id}`,
+      children: n
+        ? (0, Q.jsx)(`a`, {
+            href: n,
+            target: `_blank`,
+            rel: `noopener noreferrer`,
+            className: `group max-w-full`,
+            "data-tracking-id": `integration-prompt-bubble-link`,
+            children: a,
+          })
+        : a,
+    });
+  },
+  Rt = ({
+    message: e,
+    agentExecutionId: t,
+    isLast: n = !1,
+    isIntegrationPrompt: r,
+    integrationSource: i,
+    integrationURL: a,
+  }) => {
+    let { data: o } = Me(t);
+    if (r && i) return (0, Q.jsx)(Lt, { message: e, integrationSource: i, integrationURL: a });
+    let s = e.fragments.find((e) => e.type === `agentMessage`),
+      c = !!s,
+      l = Dt(e.modes),
+      u = l === `agent` ? Ot(e) : l,
+      d =
+        c && s.type === `agentMessage`
+          ? { role: s.role, messageType: s.messageType, senderExecutionId: s.senderExecutionId }
+          : void 0;
+    return (0, Q.jsxs)(`div`, {
+      className: `user-message group/row flex w-fit max-w-[90%] flex-col items-end gap-1 self-end`,
+      "data-message-id": `${e.type}-${e.id}`,
+      children: [
+        (0, Q.jsx)(`div`, {
+          className: `min-w-0 max-w-full flex-1 rounded-xl rounded-br-sm border border-border-subtle bg-surface-muted px-3 py-2 text-base text-content-primary dark:bg-surface-secondary`,
+          children: (0, Q.jsx)(`div`, {
+            className: `flex gap-2`,
+            children: (0, Q.jsxs)(`div`, {
+              className: `flex min-w-0 flex-1 flex-col gap-2`,
+              children: [
+                e.fragments.map((e) => {
+                  if (e.type === `text`) {
+                    let { displayContent: t } = Ft(e.content);
+                    return (0, Q.jsx)(X, { content: t }, e.id);
+                  }
+                  return e.type === `agentMessage` ? (0, Q.jsx)(X, { content: e.payload }, e.id) : null;
+                }),
+                (0, Q.jsx)(Nt, { images: e.fragments.filter((e) => e.type === `image`), token: o }),
+              ],
+            }),
+          }),
+        }),
+        (0, Q.jsx)(It, { mode: u, message: e, isLast: n, isFromSubagent: c, subagentFragment: d }),
+      ],
+    });
+  },
+  zt = ({ className: e, animating: t, ...n }) =>
+    (0, Q.jsxs)(`svg`, {
+      viewBox: `0 0 256 256`,
+      xmlns: `http://www.w3.org/2000/svg`,
+      className: e,
+      ...n,
+      children: [
+        (0, Q.jsx)(`path`, {
+          d: `M40,72s40-32,88,0,88,0,88,0`,
+          fill: `none`,
+          stroke: `currentColor`,
+          strokeLinecap: `round`,
+          strokeLinejoin: `round`,
+          strokeWidth: `16`,
+          className: `text-content-quaternary`,
+        }),
+        (0, Q.jsx)(`path`, {
+          d: `M40,72s40-32,88,0,88,0,88,0`,
+          fill: `none`,
+          stroke: `currentColor`,
+          strokeLinecap: `round`,
+          strokeLinejoin: `round`,
+          strokeWidth: `16`,
+          strokeDasharray: 256,
+          strokeDashoffset: 512,
+          className: q({ "animate-drawAndPause repeat-infinite": t }),
+        }),
+        (0, Q.jsx)(`path`, {
+          d: `M40,128s40-32,88,0,88,0,88,0`,
+          fill: `none`,
+          stroke: `currentColor`,
+          strokeLinecap: `round`,
+          strokeLinejoin: `round`,
+          strokeWidth: `16`,
+          className: `text-content-quaternary`,
+        }),
+        (0, Q.jsx)(`path`, {
+          d: `M40,128s40-32,88,0,88,0,88,0`,
+          fill: `none`,
+          stroke: `currentColor`,
+          strokeLinecap: `round`,
+          strokeLinejoin: `round`,
+          strokeWidth: `16`,
+          strokeDasharray: 256,
+          strokeDashoffset: 512,
+          className: q({ "animate-drawAndPause repeat-infinite": t }),
+        }),
+        (0, Q.jsx)(`path`, {
+          d: `M40,184s40-32,88,0,88,0,88,0`,
+          fill: `none`,
+          stroke: `currentColor`,
+          strokeLinecap: `round`,
+          strokeLinejoin: `round`,
+          strokeWidth: `16`,
+          className: `text-content-quaternary`,
+        }),
+        (0, Q.jsx)(`path`, {
+          d: `M40,184s40-32,88,0,88,0,88,0`,
+          fill: `none`,
+          stroke: `currentColor`,
+          strokeLinecap: `round`,
+          strokeLinejoin: `round`,
+          strokeWidth: `16`,
+          strokeDasharray: 256,
+          strokeDashoffset: 512,
+          className: q({ "animate-drawAndPause repeat-infinite": t }),
+        }),
+      ],
+    }),
+  Bt = ({ fragment: e, onClick: t }) =>
+    e.completed
+      ? (0, Q.jsx)(`div`, {
+          className: `cursor-pointer font-mono text-sm text-content-secondary hover:text-content-primary`,
+          onClick: () => t?.(e),
+          "data-tracking-id": `thoughts-conversation`,
+          children: `Thoughts`,
+        })
+      : (0, Q.jsxs)(`div`, {
+          className: `flex cursor-pointer items-center justify-start gap-1 hover:text-content-primary`,
+          onClick: () => t?.(e),
+          "data-tracking-id": `thinking-conversation`,
+          children: [
+            (0, Q.jsx)(zt, { className: `size-6 text-content-orange`, animating: !0 }),
+            (0, Q.jsxs)(`div`, {
+              className: `flex`,
+              children: [
+                (0, Q.jsx)(J, {
+                  className: `font-mono text-sm tracking-tight text-content-secondary`,
+                  children: `Thinking`,
+                }),
+                (0, Q.jsx)(J, {
+                  className: `animate-pulse font-mono text-sm tracking-tight text-content-secondary`,
+                  children: `…`,
+                }),
+              ],
+            }),
+          ],
+        });
+function Vt(e, t) {
+  let n = [];
+  for (let r of e) {
+    let e = t.get(r.questionId);
+    !e || e.type === `skipped` ? n.push(`**${r.question}**  \n[skipped]`) : n.push(`**${r.question}**  \n${e.value}`);
+  }
+  return n.join(`
+
+`);
+}
+function Ht(e) {
+  return Vt(e, new Map(e.map((e) => [e.questionId, { type: `skipped` }])));
+}
+var Ut = [
+    [`Executing`, `Executed`],
+    [`Reading`, `Read`],
+    [`Rebuilding`, `Rebuilt`],
+    [`Setting`, `Set`],
+    [`Recording`, `Recorded`],
+    [`Creating`, `Created`],
+    [`Spawning`, `Spawned`],
+    [`Sending`, `Sent`],
+    [`Signaling`, `Signaled`],
+    [`Getting`, `Got`],
+    [`Stopping`, `Stopped`],
+    [`Deleting`, `Deleted`],
+    [`Listing`, `Listed`],
+    [`Parsing`, `Parsed`],
+    [`Starting`, `Started`],
+    [`Adding`, `Added`],
+    [`Marking`, `Marked`],
+    [`Clearing`, `Cleared`],
+    [`Advancing`, `Advanced`],
+    [`Searching`, `Searched`],
+    [`Updating`, `Updated`],
+    [`Inserting`, `Inserted`],
+    [`Replacing`, `Replaced`],
+  ],
+  Wt = [
+    [`Read`, `Read`],
+    [`Replace`, `Replaced`],
+    [`Create`, `Created`],
+    [`Insert`, `Inserted`],
+    [`Update`, `Updated`],
+    [`Delete`, `Deleted`],
+    [`Get`, `Got`],
+    [`List`, `Listed`],
+    [`Add`, `Added`],
+    [`Search`, `Searched`],
+  ];
+function Gt(e) {
+  if (!e) return e;
+  for (let [t, n] of Ut) if (e.startsWith(t + ` `) || e === t) return n + e.slice(t.length);
+  for (let [t, n] of Wt) if (e.startsWith(t + ` `) || e === t) return n + e.slice(t.length);
+  return e;
+}
+var Kt = ({ action: e }) => {
+    let [t, n] = (0, Z.useState)(!1),
+      r = e.state === `completed` || e.state === `failed`,
+      i = e.state === `running` ? e.intentDescription : Gt(e.intentDescription);
+    return (0, Q.jsx)(`div`, {
+      className: q(`-mt-3 flex items-start gap-1 duration-700 animate-in fade-in first:mt-0`, {
+        "opacity-1 transition-none duration-0": e.state === `completed`,
+      }),
+      children: (0, Q.jsxs)(Y, {
+        open: t,
+        onOpenChange: n,
+        disabled: !r,
+        className: `flex min-w-0 flex-grow flex-col`,
+        children: [
+          (0, Q.jsx)(Y.Trigger, {
+            asChild: !0,
+            children: (0, Q.jsxs)(K, {
+              variant: `text`,
+              size: `md`,
+              className: `h-5 max-w-full self-start p-0 text-sm font-normal text-content-tertiary`,
+              onClick: () => n(!t),
+              "data-testid": `action-${e.actionId}`,
+              "data-tracking-id-none": !0,
+              children: [
+                e.state === `completed` &&
+                  (t
+                    ? (0, Q.jsx)(et, { size: `sm`, className: `shrink-0 text-content-tertiary`, "aria-hidden": `true` })
+                    : (0, Q.jsx)(tt, {
+                        size: `sm`,
+                        className: `shrink-0 text-content-tertiary`,
+                        "aria-hidden": `true`,
+                      })),
+                e.state === `failed` &&
+                  (0, Q.jsx)(Ze, { size: `sm`, className: `shrink-0 text-content-tertiary`, "aria-hidden": `true` }),
+                e.state === `running` &&
+                  (0, Q.jsx)(de, {
+                    size: `sm`,
+                    className: `shrink-0 animate-spin text-content-brand`,
+                    "aria-hidden": `true`,
+                  }),
+                i,
+              ],
+            }),
+          }),
+          (0, Q.jsx)(Y.Content, {
+            className: `ml-5 mt-1 text-sm text-content-secondary`,
+            children: (0, Q.jsx)(qt, { action: e }),
+          }),
+        ],
+      }),
+    });
+  },
+  qt = ({ action: e }) => {
+    let t = e.resultDescription && e.resultDescription.trim().length > 0;
+    return (0, Q.jsxs)(`div`, {
+      className: `flex flex-col overflow-hidden rounded-lg border border-border-base`,
+      children: [
+        (0, Q.jsx)(Jt, { action: e }),
+        (0, Q.jsx)(qe, {
+          orientation: `both`,
+          className: `flex max-h-[300px] pl-[3px]`,
+          children: (0, Q.jsx)(`pre`, {
+            className: `p-2 font-mono text-sm text-content-secondary`,
+            children: (0, Q.jsx)(`code`, {
+              children: t ? e.resultDescription : (0, Q.jsx)(`span`, { className: `italic`, children: `No output` }),
+            }),
+          }),
+        }),
+      ],
+    });
+  },
+  Jt = ({ action: e }) =>
+    (0, Q.jsxs)(`div`, {
+      className: `flex items-center gap-2 border-b border-border-base bg-surface-02 p-2`,
+      children: [
+        (0, Q.jsx)(a, { size: `base`, className: `shrink-0 text-content-secondary`, "aria-hidden": `true` }),
+        (0, Q.jsx)(J, {
+          className: `min-w-0 break-words text-sm font-bold text-content-secondary`,
+          children: Gt(e.intentDescription),
+        }),
+      ],
+    }),
+  Yt = ({ action: e }) =>
+    (0, Q.jsx)(`div`, {
+      className: q(`-mt-3 flex items-start gap-1 duration-700 animate-in fade-in`, {
+        "opacity-1 transition-none duration-0": e.state === `completed`,
+      }),
+      children: (0, Q.jsx)(`div`, {
+        className: `flex min-w-0 flex-grow flex-col`,
+        children: (0, Q.jsx)(Xt, { action: e }),
+      }),
+    }),
+  Xt = ({ action: e }) => {
+    let [t, n] = (0, Z.useState)(!1),
+      {
+        resultText: r,
+        shouldTruncate: i,
+        totalLines: a,
+      } = (0, Z.useMemo)(() => {
+        let n = e.resultDescription.split(`
+`),
+          r = n.length > 5;
+        return {
+          resultText: (r && !t ? n.slice(0, 5) : n).join(`
+`),
+          shouldTruncate: r,
+          totalLines: n.length,
+        };
+      }, [e.resultDescription, t]);
+    return (0, Q.jsxs)(`div`, {
+      className: `flex flex-col overflow-hidden rounded-lg border border-border-base`,
+      children: [
+        (0, Q.jsx)(Zt, { action: e }),
+        (0, Q.jsx)(qe, {
+          orientation: `both`,
+          className: `flex max-h-[300px] flex-col pb-0 pl-[3px] pt-[3px]`,
+          children: (0, Q.jsx)(`pre`, {
+            className: `grow p-2 font-mono text-sm text-content-secondary`,
+            children: (0, Q.jsx)(`code`, {
+              children:
+                e.state === `failed`
+                  ? (0, Q.jsxs)(`span`, {
+                      className: `flex items-start gap-1`,
+                      children: [
+                        (0, Q.jsx)(Ze, { size: `sm`, className: `shrink-0 text-content-destructive` }),
+                        ` `,
+                        r,
+                      ],
+                    })
+                  : r,
+            }),
+          }),
+        }),
+        i &&
+          (0, Q.jsx)(`div`, {
+            className: `flex shrink-0 items-center justify-center p-1`,
+            children: (0, Q.jsx)(K, {
+              variant: `ghost`,
+              size: `xs`,
+              onClick: () => n(!t),
+              className: `text-xs text-content-secondary`,
+              "data-tracking-id": `expand-shell-result`,
+              children: t ? `Show less` : `Show ${a - 5} more lines`,
+            }),
+          }),
+      ],
+    });
+  },
+  Zt = ({ action: e }) => {
+    let t = (0, Z.useMemo)(() => e.intentDescription.replace(/📟/g, ``).trim(), [e.intentDescription]);
+    return (0, Q.jsx)(`div`, {
+      className: q(`flex items-center gap-2 border-b border-border-base py-2`),
+      children: (0, Q.jsxs)(J, {
+        className: q(`min-w-0 break-words pl-3 font-mono text-sm font-normal text-content-primary`),
+        children: [`$ `, t],
+      }),
+    });
+  },
+  Qt = ({ fragment: e, environmentId: t }) => {
+    let n = N(d(t ?? ``)),
+      r = e.message.trim() || `Planning complete. Ready to start implementation.`;
+    return (
+      (0, Z.useEffect)(() => {
+        e.state === `onaSpecComplete` && t && n(Ve.Agent);
+      }, [e.state, t, n]),
+      e.state === `onaSpecComplete`
+        ? (0, Q.jsxs)(`div`, {
+            className: `mt-2 flex items-center gap-2 text-sm text-content-brand-accent-01`,
+            children: [
+              (0, Q.jsxs)(`div`, {
+                className: `relative`,
+                children: [
+                  (0, Q.jsx)(k, { size: 20 }),
+                  (0, Q.jsx)(Qe, {
+                    size: `sm`,
+                    className: `absolute -bottom-1 -right-1 rounded-full bg-surface-primary text-content-success`,
+                  }),
+                ],
+              }),
+              (0, Q.jsx)(`span`, { children: r }),
+            ],
+          })
+        : (0, Q.jsxs)(`div`, {
+            className: `mt-2 flex items-center gap-2 text-sm text-content-secondary`,
+            children: [(0, Q.jsx)(He, { size: 20 }), (0, Q.jsx)(`span`, { children: e.message })],
+          })
+    );
+  };
+function $t(e) {
+  return String.fromCharCode(65 + e);
+}
+var en = ({ fragment: e, onSubmit: t, onDismiss: n }) => {
+    let { questions: r } = e,
+      [i, a] = (0, Z.useState)(0),
+      [o, s] = (0, Z.useState)(new Map()),
+      [c, l] = (0, Z.useState)(new Map()),
+      [u, d] = (0, Z.useState)(null),
+      f = (0, Z.useRef)(null),
+      [m, h] = (0, Z.useState)(!0),
+      [_, v] = (0, Z.useState)(!1),
+      y = (0, Z.useRef)(i),
+      b = (0, Z.useRef)(null),
+      x = (0, Z.useRef)(null),
+      S = (0, Z.useRef)(!1),
+      C = (0, Z.useRef)(c);
+    C.current = c;
+    let w = (0, Z.useRef)(u);
+    w.current = u;
+    let T = r[i],
+      E = r.length,
+      D = i === E - 1,
+      O = o.get(T?.questionId),
+      k = c.get(T?.questionId) || ``,
+      A = O?.type === `other`,
+      j = O && (O.type !== `other` || O.value?.trim()),
+      M = (0, Z.useCallback)((e, t) => {
+        s((n) => {
+          let r = new Map(n);
+          return (r.set(e, { type: `choice`, value: t }), r);
+        });
+      }, []),
+      N = (0, Z.useCallback)((e) => {
+        s((t) => {
+          let n = new Map(t);
+          return (n.set(e, { type: `other`, value: C.current.get(e) || `` }), n);
+        });
+      }, []),
+      P = (0, Z.useCallback)((e, t) => {
+        (l((n) => {
+          let r = new Map(n);
+          return (r.set(e, t), r);
+        }),
+          s((n) => {
+            let r = new Map(n);
+            return (r.set(e, { type: `other`, value: t }), r);
+          }));
+      }, []),
+      F = (0, Z.useCallback)(() => {
+        let e = T?.questionId,
+          n = new Map(o);
+        (e && (n.set(e, { type: `skipped` }), s(n)), D ? t(n) : a((e) => e + 1));
+      }, [T?.questionId, D, o, t]),
+      I = (0, Z.useCallback)(() => {
+        D ? t(o) : a((e) => e + 1);
+      }, [D, o, t]),
+      L = (0, Z.useCallback)(
+        (e) => {
+          if (e.key === `Enter` && !e.shiftKey) {
+            (e.preventDefault(), e.stopPropagation(), j && I());
+            return;
+          }
+          e.key === `ArrowUp` || e.key === `ArrowDown` || e.key === `Escape` || e.stopPropagation();
+        },
+        [I, j],
+      ),
+      R = (0, Z.useCallback)(
+        (e) => {
+          e === `up` && i > 0 ? a((e) => e - 1) : e === `down` && i < E - 1 && a((e) => e + 1);
+        },
+        [i, E],
+      ),
+      z = (0, Z.useCallback)(() => (T ? T.choices.length + +!!T.allowOther : 0), [T]),
+      B = (0, Z.useCallback)(
+        (e) => {
+          if (T) {
+            if (e === T.choices.length && T.allowOther) N(T.questionId);
+            else if (e < T.choices.length) {
+              let t = T.choices[e];
+              M(T.questionId, t.text);
+            }
+          }
+        },
+        [T, M, N],
+      ),
+      V = (0, Z.useCallback)(
+        (e) => {
+          if (_) return;
+          let t = z();
+          if (
+            t === 0 ||
+            (e.target !== f.current && (e.key === `Enter` || e.key === ` `)) ||
+            (e.target === x.current && (e.key === `ArrowUp` || e.key === `ArrowDown`))
+          )
+            return;
+          let r = e.key.toLowerCase().charCodeAt(0) - 97;
+          if (r >= 0 && r < t && e.key.length === 1 && /^[a-z]$/i.test(e.key)) {
+            (e.preventDefault(), (S.current = !1), d(r), B(r));
+            return;
+          }
+          let i = w.current;
+          switch (e.key) {
+            case `ArrowDown`: {
+              (e.preventDefault(), (S.current = !0));
+              let n = i === null ? 0 : (i + 1) % t;
+              (d(n), B(n), f.current?.focus());
+              break;
+            }
+            case `ArrowUp`: {
+              (e.preventDefault(), (S.current = !0));
+              let n = i === null ? t - 1 : (i - 1 + t) % t;
+              (d(n), B(n), f.current?.focus());
+              break;
+            }
+            case `Enter`:
+              (e.preventDefault(), j && I());
+              break;
+            case `Escape`:
+              (e.preventDefault(), n ? n() : F());
+              break;
+          }
+        },
+        [_, z, j, I, F, n, B],
+      );
+    return (
+      (0, Z.useEffect)(() => {
+        (d(null), f.current?.focus());
+      }, [i]),
+      (0, Z.useEffect)(() => {
+        A && !S.current && requestAnimationFrame(() => b.current?.focus());
+      }, [A]),
+      (0, Z.useEffect)(() => {
+        if (y.current !== i) {
+          ((y.current = i), h(!1));
+          let e = setTimeout(() => {
+            h(!0);
+          }, 50);
+          return () => clearTimeout(e);
+        }
+      }, [i]),
+      (0, Z.useEffect)(() => {
+        let e = setTimeout(() => {
+          f.current?.focus();
+        }, 0);
+        return () => clearTimeout(e);
+      }, []),
+      T
+        ? (0, Q.jsxs)(`div`, {
+            ref: f,
+            className: `flex max-h-[min(60dvh,520px)] flex-col overflow-hidden rounded-t-lg border border-border-base bg-surface-primary shadow-sm outline-none focus:outline-none focus:ring-0`,
+            tabIndex: 0,
+            onKeyDown: V,
+            "data-testid": `clarifying-questions-panel`,
+            children: [
+              (0, Q.jsxs)(`div`, {
+                className: q(
+                  `flex shrink-0 cursor-pointer items-center justify-between px-4 pt-3`,
+                  _ ? `pb-3` : `pb-1.5`,
+                ),
+                onClick: () => v((e) => !e),
+                role: `button`,
+                tabIndex: -1,
+                "aria-expanded": !_,
+                "aria-label": _ ? `Expand questions` : `Collapse questions`,
+                "data-testid": `clarifying-questions-header`,
+                "data-tracking-id": `clarifying-questions-toggle`,
+                children: [
+                  (0, Q.jsxs)(`div`, {
+                    className: `flex items-center gap-1.5`,
+                    children: [
+                      (0, Q.jsx)(g, {
+                        size: 16,
+                        className: q(`text-content-secondary transition-transform duration-200`, _ && `-rotate-90`),
+                        "data-testid": `clarifying-questions-chevron`,
+                      }),
+                      (0, Q.jsx)(xe, { variant: `default`, size: `lg`, children: `Question ${i + 1}` }),
+                    ],
+                  }),
+                  (0, Q.jsxs)(`div`, {
+                    className: `flex items-center gap-1`,
+                    onClick: (e) => e.stopPropagation(),
+                    "data-testid": `clarifying-questions-nav`,
+                    "data-tracking-id": `clarifying-questions-nav`,
+                    children: [
+                      (0, Q.jsx)(`button`, {
+                        type: `button`,
+                        onClick: () => R(`up`),
+                        disabled: i === 0,
+                        className: `flex items-center justify-center text-content-secondary disabled:opacity-30`,
+                        "aria-label": `Previous question`,
+                        "data-tracking-id": `clarifying-questions-previous`,
+                        children: (0, Q.jsx)(p, { size: 20 }),
+                      }),
+                      (0, Q.jsxs)(`span`, {
+                        className: `text-sm text-content-tertiary`,
+                        "data-testid": `clarifying-questions-counter`,
+                        children: [i + 1, `/`, E],
+                      }),
+                      (0, Q.jsx)(`button`, {
+                        type: `button`,
+                        onClick: () => R(`down`),
+                        disabled: i === E - 1,
+                        className: `flex items-center justify-center text-content-secondary disabled:opacity-30`,
+                        "aria-label": `Next question`,
+                        "data-tracking-id": `clarifying-questions-next`,
+                        children: (0, Q.jsx)(g, { size: 20 }),
+                      }),
+                    ],
+                  }),
+                ],
+              }),
+              (0, Q.jsx)(`div`, {
+                className: q(
+                  `grid min-h-0 transition-[grid-template-rows] duration-200 ease-in-out`,
+                  _ ? `grid-rows-[0fr]` : `grid-rows-[1fr]`,
+                ),
+                "aria-hidden": _,
+                children: (0, Q.jsxs)(`div`, {
+                  className: `flex min-h-0 flex-col overflow-hidden`,
+                  children: [
+                    (0, Q.jsxs)(`div`, {
+                      ref: x,
+                      className: q(
+                        `min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-3 transition-opacity duration-200 ease-in-out [scrollbar-gutter:stable]`,
+                        m ? `opacity-100` : `opacity-0`,
+                      ),
+                      tabIndex: 0,
+                      "aria-label": `Question content and answer choices`,
+                      "data-testid": `clarifying-questions-scroll-region`,
+                      "aria-live": `polite`,
+                      "aria-atomic": `true`,
+                      children: [
+                        (0, Q.jsx)(`div`, {
+                          className: `mb-2`,
+                          children: (0, Q.jsx)(X, {
+                            content: T.question,
+                            className: `select-text text-base font-normal text-content-primary`,
+                          }),
+                        }),
+                        (0, Q.jsxs)(`div`, {
+                          className: `space-y-1`,
+                          children: [
+                            T.choices.map((e, t) => {
+                              let n = O?.type === `choice` && O.value === e.text;
+                              return (0, Q.jsxs)(
+                                `button`,
+                                {
+                                  type: `button`,
+                                  tabIndex: -1,
+                                  onClick: () => {
+                                    ((S.current = !1), d(null), M(T.questionId, e.text), f.current?.focus());
+                                  },
+                                  className: q(
+                                    `flex w-full min-w-0 items-center gap-2 rounded-md p-1 text-left outline-none transition-colors`,
+                                    n
+                                      ? `bg-surface-brand-subtle text-content-primary`
+                                      : u === t
+                                        ? `bg-surface-secondary ring-1 ring-border-brand`
+                                        : `hover:bg-surface-secondary`,
+                                  ),
+                                  "data-tracking-id": `clarifying-questions-choice`,
+                                  children: [
+                                    (0, Q.jsx)(`span`, {
+                                      className: q(
+                                        `flex size-6 shrink-0 items-center justify-center overflow-hidden rounded-md font-mono text-base font-medium`,
+                                        n
+                                          ? `bg-content-brand text-content-primary-inverted`
+                                          : `bg-surface-brand-subtle text-content-brand`,
+                                      ),
+                                      children: $t(t),
+                                    }),
+                                    (0, Q.jsx)(`span`, {
+                                      className: `min-w-0 flex-1 whitespace-normal break-words text-base font-normal text-content-primary`,
+                                      children: e.text,
+                                    }),
+                                  ],
+                                },
+                                e.label,
+                              );
+                            }),
+                            T.allowOther &&
+                              (() => {
+                                let e = u === T.choices.length;
+                                return (0, Q.jsxs)(`button`, {
+                                  type: `button`,
+                                  tabIndex: -1,
+                                  onClick: () => {
+                                    A || ((S.current = !1), d(null), N(T.questionId));
+                                  },
+                                  className: q(
+                                    `flex w-full min-w-0 items-center gap-2 rounded-md p-1 text-left outline-none transition-colors`,
+                                    A
+                                      ? `bg-surface-brand-subtle text-content-primary`
+                                      : e
+                                        ? `cursor-pointer bg-surface-brand-subtle ring-1 ring-border-brand`
+                                        : `cursor-pointer hover:bg-surface-secondary`,
+                                  ),
+                                  "data-tracking-id": `clarifying-questions-other`,
+                                  children: [
+                                    (0, Q.jsx)(`span`, {
+                                      className: q(
+                                        `flex size-6 shrink-0 items-center justify-center overflow-hidden rounded-md font-mono text-base font-medium`,
+                                        A
+                                          ? `bg-content-brand text-content-primary-inverted`
+                                          : `bg-surface-brand-subtle text-content-brand`,
+                                      ),
+                                      children: $t(T.choices.length),
+                                    }),
+                                    A
+                                      ? (0, Q.jsx)(`input`, {
+                                          ref: b,
+                                          type: `text`,
+                                          placeholder: `Type your answer...`,
+                                          value: k,
+                                          onChange: (e) => P(T.questionId, e.target.value),
+                                          className: `min-w-0 flex-1 border-none bg-transparent text-sm text-content-primary outline-none placeholder:text-content-muted focus:ring-0`,
+                                          autoFocus: !0,
+                                          onKeyDown: L,
+                                        })
+                                      : (0, Q.jsx)(`span`, {
+                                          className: `text-base text-content-tertiary`,
+                                          children: `Other...`,
+                                        }),
+                                  ],
+                                });
+                              })(),
+                          ],
+                        }),
+                      ],
+                    }),
+                    (0, Q.jsxs)(`div`, {
+                      className: `flex shrink-0 items-center justify-end gap-2 border-t border-border-subtle/60 px-4 pb-5 pt-3`,
+                      children: [
+                        (0, Q.jsxs)(`button`, {
+                          type: `button`,
+                          onClick: n ?? F,
+                          className: `flex items-center gap-1.5 text-sm font-medium text-content-secondary hover:text-content-primary`,
+                          "data-tracking-id": `clarifying-questions-skip`,
+                          "data-testid": `clarifying-questions-dismiss`,
+                          children: [
+                            (0, Q.jsx)(`span`, { children: n ? `Skip Questions` : `Skip` }),
+                            n &&
+                              !fe() &&
+                              (0, Q.jsx)(`span`, {
+                                className: `opacity-60`,
+                                children: (0, Q.jsx)(he, { keys: [`Esc`] }),
+                              }),
+                          ],
+                        }),
+                        (0, Q.jsxs)(K, {
+                          variant: `primary`,
+                          size: `sm`,
+                          onClick: I,
+                          disabled: !j,
+                          "data-tracking-id": `clarifying-questions-continue`,
+                          "data-testid": `clarifying-questions-action`,
+                          children: [
+                            (0, Q.jsx)(`span`, { children: D ? `Submit` : `Next` }),
+                            !fe() &&
+                              (0, Q.jsx)(`span`, {
+                                className: `ml-1 opacity-60`,
+                                children: (0, Q.jsx)(he, { keys: [`Enter`], variant: `inverted` }),
+                              }),
+                          ],
+                        }),
+                      ],
+                    }),
+                  ],
+                }),
+              }),
+            ],
+          })
+        : null
+    );
+  },
+  tn = ({ fragment: e, onClick: t }) => {
+    let n = () => e.title || `Code Annotation`,
+      r = e.startLine === e.endLine ? `Line ${e.startLine}` : `Lines ${e.startLine}-${e.endLine}`;
+    return (0, Q.jsxs)(`div`, {
+      className: `flex flex-col overflow-hidden rounded-lg border border-border-base`,
+      children: [
+        (0, Q.jsx)(nn, { fragment: e, title: n(), lineRange: r, onFileClick: () => t?.(e) }),
+        (0, Q.jsx)(rn, { fragment: e }),
+      ],
+    });
+  },
+  nn = ({ fragment: e, title: t, lineRange: n, onFileClick: r }) => {
+    let [i, a] = ye(!1, 2e3),
+      o = (0, Z.useCallback)(
+        async (t) => {
+          (t.preventDefault(), t.stopPropagation());
+          try {
+            (await navigator.clipboard.writeText(e.filePath), a(!0));
+          } catch (e) {
+            (a(!1), ue({ title: `Failed to copy file path`, description: oe(e) }));
+          }
+        },
+        [e.filePath, a],
+      );
+    return (0, Q.jsxs)(`div`, {
+      className: `flex items-start gap-2 bg-surface-02 p-2`,
+      children: [
+        (0, Q.jsx)(Ue, { size: `base`, className: `mt-0.5 shrink-0 text-content-secondary` }),
+        (0, Q.jsxs)(`div`, {
+          className: `flex min-w-0 flex-1 flex-col gap-1`,
+          children: [
+            (0, Q.jsx)(J, { className: `truncate text-sm font-bold text-content-secondary`, children: t }),
+            (0, Q.jsxs)(`div`, {
+              className: `group/path flex items-center justify-between gap-2`,
+              children: [
+                (0, Q.jsxs)(`div`, {
+                  className: `flex min-w-0 items-center gap-1`,
+                  children: [
+                    r
+                      ? (0, Q.jsx)(`button`, {
+                          className: `min-w-0 cursor-pointer truncate border-none bg-transparent p-0 text-left text-sm font-bold text-content-secondary hover:text-content-link hover:underline`,
+                          onClick: r,
+                          "data-tracking-id": `click-code-annotation-file-path`,
+                          children: e.filePath,
+                        })
+                      : (0, Q.jsx)(J, {
+                          className: `select-text truncate text-sm font-bold text-content-secondary`,
+                          children: e.filePath,
+                        }),
+                    (0, Q.jsx)(be, {
+                      content: i ? `Copied!` : `Copy file path`,
+                      children: (0, Q.jsx)(K, {
+                        variant: `ghost`,
+                        size: `xs`,
+                        LeadingIcon: () =>
+                          i
+                            ? (0, Q.jsx)(T, { className: `text-content-positive`, size: 14 })
+                            : (0, Q.jsx)(w, { size: 14 }),
+                        className: `shrink-0 opacity-0 transition-opacity group-hover/path:opacity-100`,
+                        onClick: o,
+                        "aria-label": `Copy file path`,
+                        title: `Copy file path`,
+                        "data-tracking-id": `copy-annotation-file-path`,
+                      }),
+                    }),
+                  ],
+                }),
+                (0, Q.jsx)(J, { className: `shrink-0 text-xs text-content-tertiary`, children: n }),
+              ],
+            }),
+          ],
+        }),
+      ],
+    });
+  },
+  rn = ({ fragment: e }) =>
+    (0, Q.jsx)(qe, {
+      orientation: `both`,
+      className: `flex max-h-[200px] border-t border-border-base p-0`,
+      children: (0, Q.jsx)(`div`, {
+        className: `p-3`,
+        children: (0, Q.jsx)(X, { content: e.description, className: `text-content-primary` }),
+      }),
+    }),
+  an = () => null,
+  on = (e, t, n, r) => {
+    let i = [`diff --git a/${e} b/${e}`, `--- a/${e}`, `+++ b/${e}`],
+      a = 0,
+      o = 0,
+      s = [];
+    for (let e of n)
+      for (let t of e.lines)
+        e.type === `removed`
+          ? (s.push(`-${t}`), a++)
+          : e.type === `added`
+            ? (s.push(`+${t}`), o++)
+            : (s.push(` ${t}`), a++, o++);
+    return (
+      (a === 0 || o === 0) && (s.unshift(` `), a++, o++, (t = Math.max(1, t - 1))),
+      i.push(`@@ -${t},${a} +${t},${o} @@`),
+      i.push(...s),
+      {
+        patch: i.join(`
+`),
+        stats: r,
+      }
+    );
+  },
+  sn = (e, t, n) => {
+    let r = e.indexOf(`<<<<<<< SEARCH`),
+      i = e.indexOf(`=======`),
+      a = e.indexOf(`>>>>>>> REPLACE`);
+    if (r === -1 || i === -1 || a === -1) return { patch: ``, stats: { additions: 0, deletions: 0 } };
+    let o = e.slice(r + 14, i).trim(),
+      s = e.slice(i + 7, a).trim(),
+      c = 0,
+      l = 0,
+      u = [];
+    if (o || s) {
+      let e = (e) =>
+          e.endsWith(`
+`)
+            ? e
+            : e +
+              `
+`,
+        t = h(e(o), e(s));
+      for (let e of t) {
+        let t = e.value.split(`
+`),
+          n = t.length > 0 && t[t.length - 1] === `` ? t.slice(0, -1) : t;
+        for (let t of n) e.added ? (u.push(`+${t}`), c++) : e.removed ? (u.push(`-${t}`), l++) : u.push(` ${t}`);
+      }
+    }
+    let d = u.filter((e) => e.startsWith(`-`) || e.startsWith(` `)).length,
+      f = u.filter((e) => e.startsWith(`+`) || e.startsWith(` `)).length;
+    return {
+      patch: [`diff --git a/${t} b/${t}`, `--- a/${t}`, `+++ b/${t}`, `@@ -${n},${d} +${n},${f} @@`, ...u].join(`
+`),
+      stats: { additions: c, deletions: l },
+    };
+  },
+  cn = ({ fragment: e, defaultOpen: t = !0, onHandleReveal: n }) => {
+    let r = (0, Z.useMemo)(
+      () =>
+        e.diff ? on(e.filePath, e.startLine, e.diff.diffGroups, e.diff.stats) : sn(e.content, e.filePath, e.startLine),
+      [e.content, e.diff, e.filePath, e.startLine],
+    );
+    return (0, Q.jsx)(Y, {
+      defaultOpen: t,
+      children: (0, Q.jsxs)(`div`, {
+        className: q(
+          `flex flex-col overflow-hidden rounded-lg border border-border-base bg-surface-muted px-1.5 py-1.5`,
+        ),
+        children: [
+          (0, Q.jsx)(ln, { filePath: e.filePath, diff: r, onHandleReveal: n }),
+          (0, Q.jsx)(Y.Content, { children: (0, Q.jsx)(un, { actionId: e.actionId, diff: r }) }),
+        ],
+      }),
+    });
+  },
+  ln = ({ filePath: e, diff: t, onHandleReveal: n }) => {
+    let [r, i] = ye(!1, 2e3),
+      o = (0, Z.useCallback)(
+        async (t) => {
+          (t.preventDefault(), t.stopPropagation());
+          try {
+            (await navigator.clipboard.writeText(e), i(!0));
+          } catch (e) {
+            (i(!1), ue({ title: `Failed to copy file path`, description: oe(e) }));
+          }
+        },
+        [e, i],
+      );
+    return (0, Q.jsxs)(`div`, {
+      className: `flex h-8 items-center justify-between px-2 py-0`,
+      children: [
+        (0, Q.jsxs)(`div`, {
+          className: `group/path flex min-w-0 items-center gap-2`,
+          children: [
+            n
+              ? (0, Q.jsx)(K, {
+                  variant: `ghost`,
+                  size: `xs`,
+                  LeadingIcon: a,
+                  className: `shrink-0 text-content-secondary`,
+                  onClick: (e) => {
+                    (e.preventDefault(), e.stopPropagation(), n?.());
+                  },
+                  title: `Open file`,
+                  "aria-label": `Open file`,
+                  "data-tracking-id": `open-file-from-diff`,
+                })
+              : (0, Q.jsx)(a, { size: `base`, className: `shrink-0 text-content-secondary` }),
+            (0, Q.jsx)(J, { className: `select-text truncate text-sm font-bold text-content-secondary`, children: e }),
+            (0, Q.jsx)(be, {
+              content: r ? `Copied!` : `Copy file path`,
+              children: (0, Q.jsx)(K, {
+                variant: `ghost`,
+                size: `xs`,
+                LeadingIcon: () =>
+                  r ? (0, Q.jsx)(T, { className: `text-content-positive`, size: 14 }) : (0, Q.jsx)(w, { size: 14 }),
+                className: `shrink-0 opacity-0 transition-opacity group-hover/path:opacity-100`,
+                onClick: o,
+                "aria-label": `Copy file path`,
+                title: `Copy file path`,
+                "data-tracking-id": `copy-file-path`,
+              }),
+            }),
+          ],
+        }),
+        (0, Q.jsx)(Y.Trigger, {
+          asChild: !0,
+          children: (0, Q.jsx)(`button`, {
+            className: `flex shrink-0 cursor-pointer items-center gap-1 rounded px-1 text-sm hover:bg-surface-secondary`,
+            "data-tracking-id": `toggle-file-diff`,
+            children:
+              t?.stats &&
+              (0, Q.jsxs)(Q.Fragment, {
+                children: [
+                  (0, Q.jsxs)(`span`, { className: `text-content-positive`, children: [`+`, t.stats.additions] }),
+                  (0, Q.jsxs)(`span`, { className: `text-content-red`, children: [`-`, t.stats.deletions] }),
+                ],
+              }),
+          }),
+        }),
+      ],
+    });
+  },
+  un = ({ actionId: e, diff: t }) => {
+    let { effectiveTheme: n } = le(),
+      r = (0, Z.useMemo)(
+        () => ({
+          theme: { dark: `ioi-dark`, light: `ioi-light` },
+          themeType: n,
+          diffStyle: `unified`,
+          diffIndicators: `bars`,
+          hunkSeparators: `simple`,
+          expandUnchanged: !1,
+          disableFileHeader: !0,
+          overflow: `scroll`,
+        }),
+        [n],
+      ),
+      i = (0, Z.useMemo)(() => ({ "--diffs-font-family": `var(--font-family-mono)`, "--diffs-gap-block": `0px` }), []);
+    return t.patch
+      ? (0, Q.jsx)(`div`, {
+          className: `overflow-hidden rounded-lg border border-border-base bg-surface-primary`,
+          "data-testid": `fragment-diff-${e}`,
+          children: (0, Q.jsx)(qe, {
+            orientation: `both`,
+            className: `max-h-[300px] !p-0 ![scrollbar-gutter:auto]`,
+            children: (0, Q.jsx)(M, { patch: t.patch, options: r, style: i }),
+          }),
+        })
+      : null;
+  },
+  dn = ({ fragment: e }) => {
+    let t = `https://` + e.host,
+      { data: n } = Fe(e.runnerId, t, { refetchUntilAuthenticated: !1, enabled: !0 }),
+      [r, i] = (0, Z.useState)(!1);
+    if (!n) return null;
+    let a = n?.type === `AuthenticationRequired`;
+    return (0, Q.jsxs)(`div`, {
+      className: q(`flex items-center gap-2 duration-700 animate-in fade-in`),
+      children: [
+        (0, Q.jsx)(`div`, {
+          className: `contents`,
+          children: a
+            ? (0, Q.jsx)(Ze, { size: `base`, className: `size-4 shrink-0 text-content-red` })
+            : (0, Q.jsx)(Je, { size: `base`, className: `size-4 shrink-0 text-content-green` }),
+        }),
+        (0, Q.jsx)(J, {
+          className: `text-base`,
+          children: a ? `Authentication required for ${n?.scmName}` : `Successfully authenticated with ${n?.scmName}`,
+        }),
+        a &&
+          (0, Q.jsx)(K, {
+            size: `sm`,
+            variant: `primary`,
+            className: `ml-auto`,
+            onClick: () => {
+              n && i(!0);
+            },
+            "data-tracking-id": `authenticate-host-authentication`,
+            children: `Authenticate`,
+          }),
+        r &&
+          a &&
+          (0, Q.jsx)(Ye, {
+            repoURL: t,
+            authenticationUrl: n.url,
+            patAuth: n.patAuth,
+            scmId: n.scmId,
+            scmName: n.scmName,
+            runnerId: e.runnerId,
+            onClose: () => i(!1),
+            onClickContinue: () => i(!1),
+            "data-track-location": L.AgentExecutionSCMAuthenticationModal,
+          }),
+      ],
+    });
+  };
+function fn(e) {
+  return e.trim().toLowerCase().replace(/\s+/g, ` `);
+}
+var pn = `create pr`,
+  mn = new Set([`create pr`, `update agents.md`, `create skill from this session`, `build`, `create automation`]);
+function hn(e) {
+  return fn(e.title) === pn;
+}
+function gn(e) {
+  return e.find(hn) ?? e.find((e) => e.variant === `primary`);
+}
+var _n = ({ fragment: e, onActionClick: t, hasCreatedPR: n = !1 }) => {
+  let r = (0, Z.useMemo)(() => e.actions.filter((e) => mn.has(fn(e.title)) && !(n && hn(e))), [e.actions, n]),
+    i = (0, Z.useMemo)(() => gn(r), [r]),
+    a = (0, Z.useMemo)(() => r.filter((e) => e !== i).slice(0, i ? 1 : 2), [r, i]);
+  return (
+    (0, Z.useEffect)(() => {
+      let e = (e) => {
+        let n = e.target?.tagName;
+        n === `TEXTAREA` ||
+          n === `INPUT` ||
+          (e.key === `Enter` && (e.metaKey || e.ctrlKey) && !e.shiftKey && (e.preventDefault(), i && t && t(i.prompt)));
+      };
+      return (window.addEventListener(`keydown`, e), () => window.removeEventListener(`keydown`, e));
+    }, [i, t]),
+    r.length === 0
+      ? null
+      : (0, Q.jsx)(`div`, {
+          className: `overflow-hidden rounded-t-lg border border-border-base bg-surface-primary shadow-sm`,
+          children: (0, Q.jsxs)(`div`, {
+            className: `flex items-center justify-end gap-2 px-4 pb-5 pt-3`,
+            children: [
+              a.map((e, n) =>
+                (0, Q.jsx)(
+                  K,
+                  {
+                    variant: `ghost`,
+                    size: `sm`,
+                    onClick: () => t?.(e.prompt),
+                    "data-tracking-id": `next-steps-proposal-secondary-action`,
+                    children: e.title,
+                  },
+                  `${e.title}-${n}`,
+                ),
+              ),
+              i &&
+                (0, Q.jsxs)(K, {
+                  variant: `primary`,
+                  size: `sm`,
+                  onClick: () => t?.(i.prompt),
+                  "data-tracking-id": `next-steps-proposal-primary-action`,
+                  children: [
+                    i.title,
+                    !fe() &&
+                      (0, Q.jsx)(`span`, {
+                        className: `ml-1 shrink-0 opacity-60`,
+                        children: (0, Q.jsx)(he, { keys: me, variant: `inverted` }),
+                      }),
+                  ],
+                }),
+            ],
+          }),
+        })
+  );
+};
+function vn(e, t) {
+  let { speed: n = 30 } = t,
+    [r, i] = (0, Z.useState)(``),
+    a = (0, Z.useRef)(0),
+    o = (0, Z.useRef)(``),
+    s = (0, Z.useRef)(``),
+    c = (0, Z.useRef)(e);
+  return (
+    (0, Z.useEffect)(() => {
+      if (!t.enabled) {
+        (i(e), (c.current = e));
+        return;
+      }
+      if (!e) {
+        (i(e || ``), (c.current = e));
+        return;
+      }
+      (e.startsWith(o.current) || ((a.current = 0), (o.current = ``), (s.current = ``)), (c.current = e));
+      let r = (t.mode ?? `word`) === `word` ? e.split(/(\s+)/) : e.split(``),
+        l = setInterval(() => {
+          if (a.current >= r.length) {
+            clearInterval(l);
+            return;
+          }
+          let e = r[a.current - 1];
+          if (e && s.current !== e) {
+            let t = s.current,
+              n = e.slice(t.length);
+            ((s.current = t + n), (o.current += n), i(o.current));
+            return;
+          }
+          let t = r[a.current];
+          ((o.current += t), i(o.current), (s.current = t), a.current++);
+        }, n);
+      return () => {
+        clearInterval(l);
+      };
+    }, [e, n, t.mode, t.enabled]),
+    { text: r }
+  );
+}
+var yn = `RALPH_COMPLETE`,
+  bn = `RALPH_SPEC_COMPLETE`,
+  xn = `RALPH_ITERATION_COMPLETE(`;
+function Sn(e, t) {
+  return e
+    .split(
+      `
+`,
+    )
+    .some((e) => e.trim() === t);
+}
+var Cn = ({ message: e }) =>
+  (0, Q.jsxs)(`div`, {
+    className: `mt-2 flex items-center gap-2 text-sm text-content-secondary`,
+    children: [(0, Q.jsx)(He, { size: 20 }), (0, Q.jsx)(`span`, { children: e })],
+  });
+function wn(e) {
+  let t = e.indexOf(xn);
+  if (t === -1) return null;
+  let n = e.indexOf(`)`, t);
+  if (n === -1) return null;
+  let r = e.slice(t + 25, n).split(`/`);
+  if (r.length !== 2) return null;
+  let i = parseInt(r[0], 10),
+    a = parseInt(r[1], 10);
+  return isNaN(i) || isNaN(a) ? null : { current: i, max: a };
+}
+var Tn = ({ fragment: e, agentExecution: t, shouldHighlight: n = !1 }) => {
+    let r = Ce(t),
+      i = e.completed || !r,
+      { text: a } = vn(e.content, { speed: 10, enabled: !i }),
+      o = Oe(t),
+      s = o.length > 0 ? o[0] : ``,
+      c = N(d(s)),
+      l = i ? e.content : a,
+      u = n ? l.replace(/^#+\s*summary\s*\n*/i, ``) : l,
+      f = Sn(u, yn),
+      p = Sn(u, bn),
+      m = wn(u);
+    (0, Z.useEffect)(() => {
+      f && s && c(Ve.Agent);
+    }, [f, s, c]);
+    let h = u;
+    return (
+      p && (h = h.replace(bn, ``).trim()),
+      f && (h = h.replace(yn, ``).trim()),
+      m && (h = h.replace(/RALPH_ITERATION_COMPLETE\(\d+\/\d+\)/g, ``).trim()),
+      (0, Q.jsxs)(`div`, {
+        children: [
+          n && (0, Q.jsx)(`div`, { className: `mb-2 text-xs font-medium text-content-muted`, children: `Summary` }),
+          (0, Q.jsxs)(`div`, {
+            "data-completed": i,
+            className: q({ "rounded-lg border border-border-base bg-surface-secondary p-4 dark:bg-transparent": n }),
+            children: [
+              h && (0, Q.jsx)(X, { content: h }),
+              p && (0, Q.jsx)(Cn, { message: `My brain is done talking, so my keyboard gets a turn.` }),
+              f && (0, Q.jsx)(Cn, { message: `is done` }),
+              m && (0, Q.jsx)(Cn, { message: `Iteration ${m.current}/${m.max} complete, continuing...` }),
+            ],
+          }),
+        ],
+      })
+    );
+  },
+  En = ({ fragment: e }) =>
+    e.status === z.IN_PROGRESS
+      ? (0, Q.jsxs)(`div`, {
+          className: `mt-4 flex items-center justify-between gap-2`,
+          children: [
+            (0, Q.jsx)(`h2`, {
+              id: `todo-${e.todoItemId}`,
+              className: `text-xl font-semibold tracking-[-0.2px] text-content-primary`,
+              children: e.title,
+            }),
+            (0, Q.jsx)(`div`, {
+              className: `rounded bg-surface-muted px-1.5 py-0.5 text-xs font-medium uppercase tracking-[0.5px] text-content-muted`,
+              children: `TODO`,
+            }),
+          ],
+        })
+      : null;
+function Dn(e, t) {
+  if (!t) return e;
+  let n = t.endsWith(`/`) ? t : t + `/`;
+  return e.startsWith(n) ? e.slice(n.length) : e === t ? `` : e;
+}
+function On(e) {
+  let t = N(Ie),
+    n = N(Le),
+    r = N(Re),
+    { data: i } = Pe(e),
+    a = i?.status?.devcontainer?.remoteWorkspaceFolder;
+  return (0, Z.useCallback)(
+    (e) => {
+      let i = Dn(e, a);
+      (t({ type: `changes` }),
+        n((e) => ({ tab: `file`, seq: e.seq + 1 })),
+        r((e) => ({ filePath: i, lineNumber: null, seq: e.seq + 1 })));
+    },
+    [a, t, n, r],
+  );
+}
+function kn(e) {
+  let t = N(Ie),
+    n = N(Le),
+    r = N(Re),
+    { data: i } = Pe(e),
+    a = i?.status?.devcontainer?.remoteWorkspaceFolder;
+  return (0, Z.useCallback)(
+    (e, i) => {
+      let o = Dn(e, a).replace(/^\.\//, ``),
+        s = i?.lineNumber && i.lineNumber > 0 ? Math.floor(i.lineNumber) : null;
+      (t({ type: `all-files` }),
+        n((e) => ({ tab: `file`, seq: e.seq + 1 })),
+        r((e) => ({ filePath: o, lineNumber: s, seq: e.seq + 1 })));
+    },
+    [a, t, n, r],
+  );
+}
+var An = ({ agentExecution: e, fragment: t, shouldHighlightFragment: n, onClick: r, ignore: i, onSendMessage: a }) => {
+    let o = Se(e),
+      s = On(o);
+    if (i?.has(t.type)) return null;
+    switch (t.type) {
+      case `text`:
+        return (0, Q.jsx)(Tn, { fragment: t, agentExecution: e, shouldHighlight: n }, t.id);
+      case `action`:
+        return t.intentDescription.startsWith(`📟`)
+          ? (0, Q.jsx)(Yt, { action: t }, `${t.type}-${t.actionId}`)
+          : (0, Q.jsx)(Kt, { action: t }, `${t.type}-${t.actionId}`);
+      case `fileModification`:
+        return (0, Q.jsx)(cn, { fragment: t, onHandleReveal: () => s(t.filePath) }, `${t.type}-${t.actionId}`);
+      case `environmentCreation`:
+        return (0, Q.jsx)(an, { environmentId: t.environmentId });
+      case `thinking`:
+        return (0, Q.jsx)(Bt, { fragment: t, onClick: r, "data-tracking-id": `thinking-fragment` }, t.id);
+      case `hostAuthenticationRequired`:
+        return (0, Q.jsx)(dn, { fragment: t }, t.id);
+      case `todoItem`:
+        return (0, Q.jsx)(En, { fragment: t }, t.id);
+      case `codeAnnotation`:
+        return (0, Q.jsx)(
+          tn,
+          {
+            fragment: t,
+            onClick: () => {
+              (r?.(t), s(t.filePath));
+            },
+            "data-tracking-id": `code-annotation-open-file`,
+          },
+          t.id,
+        );
+      case `agentModeChange`:
+        return (0, Q.jsx)(Qt, { fragment: t, environmentId: o }, t.id);
+      case `clarifyingQuestions`:
+        return (0, Q.jsx)(
+          en,
+          {
+            fragment: t,
+            onSubmit: (e) => {
+              a && a(Vt(t.questions, e));
+            },
+          },
+          t.id,
+        );
+      case `nextStepsProposal`:
+        return (0, Q.jsx)(_n, { fragment: t, onActionClick: a, hasCreatedPR: !!u(e) }, t.id);
+      case `userInputSeen`:
+        return null;
+    }
+  },
+  jn = ve(E),
+  Mn = ve(A),
+  Nn = ve(b),
+  Pn = /\b(read|reading)\b.*\bfile\b|\bfile\b.*\b(read|reading)\b/,
+  Fn =
+    /\b(write|writing|wrote|rewrite|rewriting|updated|updating|edit|editing|edited|create|creating|created)\b.*\bfile\b|\bfile\b.*\b(write|writing|wrote|rewrite|rewriting|updated|updating|edit|editing|edited|create|creating|created)\b/,
+  In = 4,
+  Ln = ({
+    message: e,
+    onClick: t,
+    agentExecution: n,
+    isLast: r,
+    onSendMessage: i,
+    readOnly: a,
+    isIntegrationPrompt: o,
+    integrationSource: s,
+    integrationURL: c,
+  }) => {
+    switch (e.type) {
+      case `agent`:
+        return (0, Q.jsx)(Rn, {
+          message: e,
+          onClick: t,
+          agentExecution: n,
+          isLast: r,
+          onSendMessage: i,
+          readOnly: a,
+          "data-tracking-id": `chat-bubble-agent`,
+        });
+      case `user`:
+        return (0, Q.jsx)(Rt, {
+          message: e,
+          agentExecutionId: n.id,
+          isLast: r,
+          isIntegrationPrompt: o,
+          integrationSource: s,
+          integrationURL: c,
+        });
+    }
+  },
+  Rn = ({ message: e, onClick: t, agentExecution: n, isLast: r, onSendMessage: i, readOnly: a }) => {
+    let o = ce(),
+      [s, c] = ye(!1, 2e3),
+      [l, u] = ye(!1, 2e3),
+      d = (0, Z.useCallback)(() => Te(e), [e]),
+      f = e?.fragments?.[0]?.id,
+      p = e?.fragments?.[e?.fragments?.length - 1]?.id,
+      m = (0, Z.useCallback)(() => {
+        (c(!0),
+          o(`agent_message_voted`, {
+            vote: `up`,
+            agent_id: n?.spec?.agentId,
+            agent_execution_id: n.id,
+            first_block_id: f,
+            last_block_id: p,
+          }));
+      }, [c, o, n?.spec?.agentId, n.id, f, p]),
+      h = (0, Z.useCallback)(() => {
+        (u(!0),
+          o(`agent_message_voted`, {
+            vote: `down`,
+            agent_id: n?.spec?.agentId,
+            agent_execution_id: n.id,
+            first_block_id: f,
+            last_block_id: p,
+          }));
+      }, [u, o, n?.spec?.agentId, n.id, f, p]),
+      g = n.status?.phase === F.WAITING_FOR_INPUT || n.status?.phase === F.STOPPED,
+      _ = g && n.spec?.desiredPhase !== F.STOPPED,
+      v = g && r;
+    return (0, Q.jsx)(`div`, {
+      className: `flex w-full flex-col gap-2 p-0 text-base`,
+      children: (0, Q.jsxs)(`div`, {
+        className: `group`,
+        children: [
+          (0, Q.jsx)(`div`, {
+            className: `flex flex-col gap-4`,
+            children: (0, Z.useMemo)(() => Bn(e.fragments, { collapseActionStreams: !0 }), [e.fragments]).map((a) => {
+              if (a.type === `collapsedActionStream`)
+                return (0, Q.jsx)(
+                  zn,
+                  {
+                    summary: a.summary,
+                    fragments: a.fragments,
+                    agentExecution: n,
+                    onFragmentClick: t,
+                    onSendMessage: i,
+                  },
+                  a.key,
+                );
+              let o = a.originalIndex === e.fragments.length - 1,
+                s = _ && r && o;
+              return (0, Q.jsx)(
+                An,
+                {
+                  agentExecution: n,
+                  fragment: a.fragment,
+                  shouldHighlightFragment: s,
+                  onClick: t,
+                  onSendMessage: i,
+                  "data-tracking-id": `default-tracking-id`,
+                },
+                a.fragment.id,
+              );
+            }),
+          }),
+          !a &&
+            (0, Q.jsx)(`div`, {
+              className: `mt-2 flex min-h-[25px] justify-start duration-700 animate-in fade-in`,
+              "aria-hidden": !v,
+              children: (0, Q.jsxs)(`div`, {
+                className: q(`flex items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100`, {
+                  "opacity-100": v,
+                }),
+                children: [
+                  (0, Q.jsx)(dt, {
+                    getText: d,
+                    label: `Copy to clipboard`,
+                    tabIndex: v ? void 0 : -1,
+                    "data-tracking-id": `copy-to-clipboard-chat-bubble`,
+                  }),
+                  (0, Q.jsx)(be, {
+                    content: `Give positive feedback`,
+                    children: (0, Q.jsx)(K, {
+                      variant: `ghost`,
+                      className: q(`border-0 text-content-strong`, {
+                        "disabled:text-content-success disabled:opacity-100": s,
+                      }),
+                      size: `xs`,
+                      LeadingIcon: s ? jn : Mn,
+                      onClick: m,
+                      disabled: s,
+                      "aria-label": `Thumbs up`,
+                      tabIndex: v ? void 0 : -1,
+                      "data-tracking-id": `thumbs-up-chat-bubble`,
+                    }),
+                  }),
+                  (0, Q.jsx)(be, {
+                    content: `Give negative feedback`,
+                    children: (0, Q.jsx)(K, {
+                      variant: `ghost`,
+                      className: q(`border-0 text-content-strong`, {
+                        "disabled:text-content-success disabled:opacity-100": l,
+                      }),
+                      size: `xs`,
+                      LeadingIcon: l ? jn : Nn,
+                      onClick: h,
+                      disabled: l,
+                      "aria-label": `Thumbs down`,
+                      tabIndex: v ? void 0 : -1,
+                      "data-tracking-id": `thumbs-down-chat-bubble`,
+                    }),
+                  }),
+                ],
+              }),
+            }),
+        ],
+      }),
+    });
+  },
+  zn = ({ summary: e, fragments: t, agentExecution: n, onFragmentClick: r, onSendMessage: i }) => {
+    let [a, o] = (0, Z.useState)(!1);
+    return (0, Q.jsx)(Y, {
+      open: a,
+      onOpenChange: o,
+      children: (0, Q.jsxs)(`div`, {
+        className: `flex flex-col gap-1`,
+        children: [
+          (0, Q.jsx)(Y.Trigger, {
+            asChild: !0,
+            children: (0, Q.jsxs)(K, {
+              variant: `text`,
+              size: `sm`,
+              className: `h-auto justify-start gap-1 p-0 text-left text-sm font-normal text-content-tertiary`,
+              "aria-expanded": a,
+              "data-testid": `action-stream-summary-toggle`,
+              "data-tracking-id-none": !0,
+              children: [
+                a
+                  ? (0, Q.jsx)(et, { size: `sm`, className: `shrink-0 text-content-tertiary` })
+                  : (0, Q.jsx)(tt, { size: `sm`, className: `shrink-0 text-content-tertiary` }),
+                e,
+              ],
+            }),
+          }),
+          (0, Q.jsx)(Y.Content, {
+            children: (0, Q.jsx)(`div`, {
+              className: `ml-5 flex flex-col gap-3`,
+              children: t.map((e) =>
+                (0, Q.jsx)(
+                  An,
+                  {
+                    agentExecution: n,
+                    fragment: e,
+                    shouldHighlightFragment: !1,
+                    onClick: r,
+                    onSendMessage: i,
+                    "data-tracking-id-none": !0,
+                  },
+                  e.id,
+                ),
+              ),
+            }),
+          }),
+        ],
+      }),
+    });
+  };
+function Bn(e, t) {
+  let n = [],
+    r = 0;
+  for (; r < e.length; ) {
+    let i = e[r];
+    if (!Vn(i)) {
+      (n.push({ type: `fragment`, fragment: i, originalIndex: r }), (r += 1));
+      continue;
+    }
+    let a = r;
+    for (; a < e.length && Vn(e[a]); ) a += 1;
+    let o = e.slice(r, a),
+      s = a < e.length;
+    if (t.collapseActionStreams && o.length >= In && s && o.every(Hn)) {
+      let e = o[0]?.id ?? r.toString(),
+        t = o[o.length - 1]?.id ?? a.toString();
+      n.push({ type: `collapsedActionStream`, key: `action-stream-${e}-${t}`, fragments: o, summary: Un(o) });
+    } else for (let t = r; t < a; t++) n.push({ type: `fragment`, fragment: e[t], originalIndex: t });
+    r = a;
+  }
+  return n;
+}
+function Vn(e) {
+  return e.type === `action` || e.type === `fileModification`;
+}
+function Hn(e) {
+  return e.type === `action` || e.type === `fileModification`;
+}
+function Un(e) {
+  let t = 0,
+    n = 0,
+    r = 0,
+    i = new Set(e.filter((e) => e.type === `fileModification`).map((e) => e.actionId));
+  for (let a of e) {
+    if (a.type === `fileModification`) {
+      n += 1;
+      continue;
+    }
+    if (a.type === `action`) {
+      if (Wn(a.intentDescription)) {
+        t += 1;
+        continue;
+      }
+      if (Gn(a.intentDescription)) {
+        i.has(a.actionId) || (n += 1);
+        continue;
+      }
+      r += 1;
+    }
+  }
+  let a = [];
+  return (
+    t > 0 && a.push(`read ${t} file${t === 1 ? `` : `s`}`),
+    n > 0 && a.push(`wrote ${n} file${n === 1 ? `` : `s`}`),
+    (r > 0 || a.length === 0) && a.push(`completed ${r} action${r === 1 ? `` : `s`}`),
+    a.join(`, `)
+  );
+}
+function Wn(e) {
+  return Pn.test(e.toLowerCase());
+}
+function Gn(e) {
+  let t = e.toLowerCase();
+  return Fn.test(t) || t.includes(`replace text in`);
+}
+var Kn = ({ size: e, className: t, ...n }) => {
+    switch (e) {
+      case `sm`:
+        return (0, Q.jsxs)(`svg`, {
+          className: t,
+          ...n,
+          width: `16`,
+          height: `16`,
+          viewBox: `0 0 16 16`,
+          fill: `none`,
+          xmlns: `http://www.w3.org/2000/svg`,
+          children: [
+            (0, Q.jsx)(`g`, {
+              clipPath: `url(#clip0_780_923)`,
+              children: (0, Q.jsx)(`path`, {
+                fillRule: `evenodd`,
+                clipRule: `evenodd`,
+                d: `M8 13.6875C11.1412 13.6875 13.6875 11.1412 13.6875 8C13.6875 4.85888 11.1412 2.3125 8 2.3125C4.85888 2.3125 2.3125 4.85888 2.3125 8C2.3125 11.1412 4.85888 13.6875 8 13.6875ZM8 15C11.866 15 15 11.866 15 8C15 4.134 11.866 1 8 1C4.134 1 1 4.134 1 8C1 11.866 4.134 15 8 15Z`,
+                fill: `currentColor`,
+              }),
+            }),
+            (0, Q.jsx)(`defs`, {
+              children: (0, Q.jsx)(`clipPath`, {
+                id: `clip0_780_923`,
+                children: (0, Q.jsx)(`rect`, { width: `14`, height: `14`, fill: `white`, transform: `translate(1 1)` }),
+              }),
+            }),
+          ],
+        });
+      case `base`:
+        return (0, Q.jsxs)(`svg`, {
+          className: t,
+          ...n,
+          width: `16`,
+          height: `16`,
+          viewBox: `0 0 16 16`,
+          fill: `none`,
+          xmlns: `http://www.w3.org/2000/svg`,
+          children: [
+            (0, Q.jsx)(`g`, {
+              clipPath: `url(#clip0_780_923)`,
+              children: (0, Q.jsx)(`path`, {
+                fillRule: `evenodd`,
+                clipRule: `evenodd`,
+                d: `M8 13.6875C11.1412 13.6875 13.6875 11.1412 13.6875 8C13.6875 4.85888 11.1412 2.3125 8 2.3125C4.85888 2.3125 2.3125 4.85888 2.3125 8C2.3125 11.1412 4.85888 13.6875 8 13.6875ZM8 15C11.866 15 15 11.866 15 8C15 4.134 11.866 1 8 1C4.134 1 1 4.134 1 8C1 11.866 4.134 15 8 15Z`,
+                fill: `currentColor`,
+              }),
+            }),
+            (0, Q.jsx)(`defs`, {
+              children: (0, Q.jsx)(`clipPath`, {
+                id: `clip0_780_923`,
+                children: (0, Q.jsx)(`rect`, { width: `14`, height: `14`, fill: `white`, transform: `translate(1 1)` }),
+              }),
+            }),
+          ],
+        });
+      case `lg`:
+        return (0, Q.jsxs)(`svg`, {
+          className: t,
+          ...n,
+          width: `20`,
+          height: `20`,
+          viewBox: `0 0 20 20`,
+          fill: `none`,
+          xmlns: `http://www.w3.org/2000/svg`,
+          children: [
+            (0, Q.jsx)(`g`, {
+              clipPath: `url(#clip0_780_926)`,
+              children: (0, Q.jsx)(`path`, {
+                fillRule: `evenodd`,
+                clipRule: `evenodd`,
+                d: `M10 16.5C13.5899 16.5 16.5 13.5899 16.5 10C16.5 6.41015 13.5899 3.5 10 3.5C6.41015 3.5 3.5 6.41015 3.5 10C3.5 13.5899 6.41015 16.5 10 16.5ZM10 18C14.4183 18 18 14.4183 18 10C18 5.58172 14.4183 2 10 2C5.58172 2 2 5.58172 2 10C2 14.4183 5.58172 18 10 18Z`,
+                fill: `currentColor`,
+              }),
+            }),
+            (0, Q.jsx)(`defs`, {
+              children: (0, Q.jsx)(`clipPath`, {
+                id: `clip0_780_926`,
+                children: (0, Q.jsx)(`rect`, { width: `16`, height: `16`, fill: `white`, transform: `translate(2 2)` }),
+              }),
+            }),
+          ],
+        });
+    }
+  },
+  qn = 1.166667,
+  Jn = ({ size: e, className: t, ...n }) => {
+    let r = e === `sm` ? 14 : e === `base` ? 16 : 20;
+    return (0, Q.jsxs)(`svg`, {
+      className: t,
+      ...n,
+      width: r,
+      height: r,
+      viewBox: `0 0 14 14`,
+      fill: `none`,
+      xmlns: `http://www.w3.org/2000/svg`,
+      children: [
+        (0, Q.jsx)(`path`, {
+          d: `M2.1875 10.6458H4.22917`,
+          stroke: `currentColor`,
+          strokeWidth: qn,
+          strokeLinecap: `round`,
+          strokeLinejoin: `round`,
+        }),
+        (0, Q.jsx)(`path`, {
+          d: `M2.1875 7H5.39583`,
+          stroke: `currentColor`,
+          strokeWidth: qn,
+          strokeLinecap: `round`,
+          strokeLinejoin: `round`,
+        }),
+        (0, Q.jsx)(`path`, {
+          d: `M2.1875 3.35416H11.8125`,
+          stroke: `currentColor`,
+          strokeWidth: qn,
+          strokeLinecap: `round`,
+          strokeLinejoin: `round`,
+        }),
+        (0, Q.jsx)(`path`, {
+          d: `M9.91699 6.125L9.04199 7.875L7.29199 8.75L9.04199 9.625L9.91699 11.375L10.792 9.625L12.542 8.75L10.792 7.875L9.91699 6.125Z`,
+          stroke: `currentColor`,
+          strokeWidth: qn,
+          strokeLinecap: `round`,
+          strokeLinejoin: `round`,
+        }),
+      ],
+    });
+  };
+function Yn(e) {
+  return e?.type === `agent`;
+}
+function Xn(e) {
+  return e?.type === `user`;
+}
+var Zn = 3;
+function Qn(e) {
+  let t = e
+    .split(
+      `
+`,
+    )
+    .filter((e) => e.trim() !== `ONA_SPEC_COMPLETE`).join(`
+`);
+  return t.trim() === `` ? null : t;
+}
+function $n(e) {
+  return e.type === `action`;
+}
+function er(e, t) {
+  if (t) return `${e}/blobs/${t}`;
+}
+function tr(e, t) {
+  let n = [],
+    r = new Set();
+  if (e.length === 0) return n;
+  let i,
+    a = !1;
+  for (let o of e) {
+    if (o.type === `user` && o.content.id) {
+      if (r.has(o.content.id)) {
+        console.warn(`Duplicate user input block filtered in UI`, {
+          blockId: o.id,
+          userInputId: o.content.id,
+          detectionPoint: `ui_rendering`,
+        });
+        continue;
+      }
+      r.add(o.content.id);
+    }
+    let e = o.type === `agentMsg` ? `user` : o.type;
+    if ((i && e !== i?.type && (n.push(i), (i = void 0), (a = !1)), o.type === `agentMsg`)) {
+      (i && n.push(i),
+        (i = {
+          type: `user`,
+          id: `message-${n.length + 1}`,
+          fragments: [
+            {
+              type: `agentMessage`,
+              id: o.id,
+              payload: o.content.payload,
+              messageType: o.content.type,
+              role: o.content.role,
+              senderExecutionId: o.content.senderExecutionId,
+            },
+          ],
+        }),
+        n.push(i),
+        (i = void 0));
+      continue;
+    }
+    if (
+      o.type === `user` &&
+      (i
+        ? Xn(i) && !i.modes && o.content.metadata?.modes.length && (i.modes = o.content.metadata.modes)
+        : (i = {
+            type: `user`,
+            id: `message-${n.length + 1}`,
+            fragments: [],
+            createdAt: o.content.createdAt,
+            ...(o.content.metadata?.modes.length ? { modes: o.content.metadata.modes } : {}),
+          }),
+      Xn(i))
+    )
+      if (o.content.inputs && o.content.inputs.length > 0)
+        for (let e of o.content.inputs)
+          switch (e.input.case) {
+            case `text`:
+              i.fragments.push({
+                type: `text`,
+                id: `${o.id}-text-${i.fragments.length}`,
+                content: e.input.value.content,
+              });
+              break;
+            case `image`: {
+              let n = e.input.value,
+                r = { type: `image`, id: `${o.id}-image-${i.fragments.length}`, data: n.data, mimeType: n.mimeType };
+              (n.dataRef && t && (r.blobUrl = er(t, n.dataRef)), i.fragments.push(r));
+              break;
+            }
+          }
+      else
+        switch (o.content.input.case) {
+          case `text`:
+            i.fragments.push({ type: `text`, id: o.id, content: o.content.input.value.content });
+            break;
+          case `image`: {
+            let e = o.content.input.value,
+              n = { type: `image`, id: o.id, data: e.data, mimeType: e.mimeType };
+            (e.dataRef && t && (n.blobUrl = er(t, e.dataRef)), i.fragments.push(n));
+            break;
+          }
+        }
+    if (o.type === `agent`) {
+      i ||= { type: `agent`, id: n.length + 1, fragments: [] };
+      let e = i.fragments.length;
+      if (Yn(i)) {
+        switch (o.content.output.case) {
+          case `userInputSeen`:
+            i.fragments.push({ type: `userInputSeen`, id: o.id, value: { id: o.content.output.value.id } });
+            break;
+          case `userInputDeleted`:
+            i.fragments.push({ type: `userInputDeleted`, id: o.id, value: { id: o.content.output.value.id } });
+            break;
+          case `text`: {
+            if (a) {
+              a = !1;
+              break;
+            }
+            let e = Qn(o.content.output.value.content);
+            if (e === null) break;
+            o.content.output.value.type === W.THOUGHTS
+              ? i.fragments.push({ type: `thinking`, id: o.id, content: e, completed: o.content.phase === U.COMPLETED })
+              : i.fragments.push({ type: `text`, id: o.id, content: e, completed: o.content.phase === U.COMPLETED });
+            break;
+          }
+          case `actionStarted`:
+            (i.fragments.push({
+              type: `action`,
+              id: o.id,
+              actionId: o.content.output.value.actionId,
+              state: `running`,
+              intentDescription: o.content.output.value.intentDescription,
+              resultDescription: ``,
+            }),
+              (a = !1));
+            break;
+          case `actionCompleted`:
+            nr(i, o.content.output.value);
+            break;
+          case `fileModification`: {
+            let e = o.content.output.value,
+              t = {
+                type: `fileModification`,
+                id: o.id,
+                actionId: e.actionId,
+                filePath: e.filePath,
+                content: e.content,
+                startLine: e.startLine || 1,
+              };
+            (e.diff &&
+              (t.diff = {
+                diffGroups: e.diff.diffGroups.map((e) => ({
+                  type: e.type === H.ADDED ? `added` : e.type === H.REMOVED ? `removed` : `unchanged`,
+                  lines: [...e.lines],
+                })),
+                stats: { additions: e.diff.stats?.additions ?? 0, deletions: e.diff.stats?.deletions ?? 0 },
+              }),
+              i.fragments.push(t));
+            break;
+          }
+          case `environmentCreation`:
+            i.fragments.push({
+              type: `environmentCreation`,
+              id: o.id,
+              actionId: o.content.output.value.actionId,
+              environmentId: o.content.output.value.environmentId,
+            });
+            break;
+          case `hostAuthenticationRequired`:
+            i.fragments.push({
+              type: `hostAuthenticationRequired`,
+              id: o.id,
+              actionId: o.content.output.value.actionId,
+              host: o.content.output.value.host,
+              runnerId: o.content.output.value.runnerId,
+            });
+            break;
+          case `todoItem`:
+            i.fragments.push({
+              type: `todoItem`,
+              id: o.id,
+              todoItemId: o.content.output.value.id,
+              title: o.content.output.value.title,
+              status: o.content.output.value.phase,
+            });
+            break;
+          case `todoGroup`: {
+            let e = o.content.output.value;
+            i.fragments.push({
+              type: `todoGroup`,
+              id: o.id,
+              groupId: e.groupId,
+              todos: e.todos.map((e) => ({ id: e.id, title: e.title, phase: e.phase })),
+            });
+            break;
+          }
+          case `codeAnnotation`:
+            i.fragments.push({
+              type: `codeAnnotation`,
+              id: o.id,
+              filePath: o.content.output.value.filePath,
+              startLine: o.content.output.value.startLine,
+              endLine: o.content.output.value.endLine,
+              description: o.content.output.value.description,
+              title: o.content.output.value.title || ``,
+            });
+            break;
+          case `agentModeChange`: {
+            let e = o.content.output.value,
+              t;
+            switch (e.state) {
+              case G.SPEC_COMPLETE:
+                t = `specComplete`;
+                break;
+              case G.ITERATION_COMPLETE:
+                t = `iterationComplete`;
+                break;
+              case G.COMPLETE:
+                t = `complete`;
+                break;
+              case G.ONA_SPEC_COMPLETE:
+                t = `onaSpecComplete`;
+                break;
+              default:
+                t = `complete`;
+            }
+            i.fragments.push({ type: `agentModeChange`, id: o.id, state: t, message: e.message });
+            break;
+          }
+          case `clarifyingQuestions`: {
+            let e = o.content.output.value;
+            (i.fragments.push({
+              type: `clarifyingQuestions`,
+              id: o.id,
+              questions: e.questions.map((e) => ({
+                questionId: e.questionId,
+                question: e.question,
+                choices: e.choices.map((e) => ({ label: e.label, text: e.text, description: e.description || void 0 })),
+                allowOther: e.allowOther,
+              })),
+            }),
+              (a = !0));
+            break;
+          }
+          case `nextStepsProposal`: {
+            let e = o.content.output.value;
+            (i.fragments.push({
+              type: `nextStepsProposal`,
+              id: o.id,
+              actions: e.actions.map((e) => ({
+                title: e.title,
+                prompt: e.prompt,
+                variant: e.variant === `primary` ? `primary` : `secondary`,
+              })),
+            }),
+              (a = !0));
+            break;
+          }
+        }
+        if (i.fragments.length > e)
+          for (let t = e; t < i.fragments.length; t++) {
+            let e = i.fragments[t];
+            o.content.todoGroupId && ((e.todoGroupId = o.content.todoGroupId), (e.todoItemId = o.content.todoItemId));
+          }
+      }
+    }
+  }
+  return (i && n.push(i), n);
+}
+function nr(e, t) {
+  let n = e.fragments.find((e) => $n(e) && e.actionId === t.actionId);
+  n && ((n.state = t.failed ? `failed` : `completed`), (n.resultDescription = t.resultDescription));
+}
+async function* rr(e, t) {
+  let n = 0;
+  for await (let r of $e(e, t)) {
+    let e = [];
+    for (let t of r) {
+      let r = ir(n++, t);
+      r && e.push(r);
+    }
+    yield e;
+  }
+}
+function ir(e, t) {
+  try {
+    let n = JSON.parse(t);
+    return n.id && `phase` in n
+      ? `userInput` in n
+        ? { id: `input-${n.id}`, type: `user`, content: x(V, n.userInput) }
+        : { id: `output-${n.id}`, type: `agent`, content: x(P, n) }
+      : n.actionStarted?.actionId
+        ? { id: `output-${n.actionStarted.actionId}`, type: `agent`, content: x(P, n) }
+        : `payload` in n && `type` in n && or(n.type)
+          ? { id: `agentmsg-${e}`, type: `agentMsg`, content: x(R, n) }
+          : { id: `input-${String(`id` in n ? n.id : e)}`, type: `user`, content: x(V, n) };
+  } catch (e) {
+    return (console.warn(`Failed to parse block:`, e, t), null);
+  }
+}
+var ar = new Set([`TYPE_UNSPECIFIED`, `TYPE_UPDATE`, `TYPE_COMPLETE`]);
+function or(e) {
+  return typeof e == `string` && ar.has(e);
+}
+function sr(e, t, n) {
+  let [r, i] = (0, Z.useState)(void 0),
+    [a, o] = (0, Z.useState)(!1),
+    [s, c] = (0, Z.useState)(),
+    l = (0, Z.useRef)([]),
+    [u, d] = (0, Z.useState)(0);
+  (0, Z.useEffect)(() => {
+    ((l.current = []), d((e) => e + 1), i(void 0), o(!1), c(void 0), p(0), h(void 0));
+  }, [e]);
+  let f = (0, Z.useRef)(0),
+    [, p] = (0, Z.useState)(0),
+    [m, h] = (0, Z.useState)(void 0),
+    { data: g, error: _ } = Me(e),
+    v = (e ? localStorage.getItem(`conversation-url-override-${e}`) : null) || t,
+    y = (0, Z.useCallback)(async (e, t) => {
+      for (let n = e; n >= 0 && !t.aborted; n--)
+        (c(n === 0 ? `Retrying now...` : `Retrying in ${n}s...`), await new Promise((e) => setTimeout(e, 1e3)));
+    }, []),
+    b = (0, Z.useCallback)(
+      async (t) => {
+        if (!v || !g || !e) return;
+        let n = ++f.current,
+          r;
+        for (; !t.aborted; )
+          try {
+            (o(!0), (l.current = []), d(0), c(void 0), h(void 0));
+            let a = Ne(Be(e), v, { signal: t, mode: `cors`, keepalive: !1, headers: { Authorization: `Bearer ${g}` } });
+            for await (let e of rr(a, t)) {
+              if (n !== f.current) return;
+              (l.current.push(...e), d((e) => e + 1));
+              let t = e.filter((e) => e.type === `agent`);
+              if (t.length > 0) {
+                let e = { timestamp: Date.now() },
+                  n = t[t.length - 1];
+                (n.type === `agent` && ((e.status = n.content.output.case), (e.id = n.content.id)), h(e));
+              }
+              r !== void 0 && ((r = void 0), i(void 0), p(0));
+            }
+            throw Error(`Stream closed unexpectedly`);
+          } catch (e) {
+            if (t.aborted) return;
+            ((r = e instanceof Error ? e : Error(String(e))),
+              p((e) => {
+                let t = e + 1;
+                return (t >= Zn && i(r), t);
+              }),
+              await y(3, t));
+          } finally {
+            t.aborted || o(!1);
+          }
+      },
+      [v, g, e, y],
+    );
+  (0, Z.useEffect)(() => {
+    let e = new AbortController();
+    return (
+      v && b(e.signal),
+      () => {
+        e.abort();
+      }
+    );
+  }, [v, b]);
+  let { messages: x, availableCommands: S } = (0, Z.useMemo)(() => cr(l.current, n, v), [u, n, v]);
+  return e
+    ? {
+        error: r ?? (_ || void 0),
+        isLoading: a,
+        loadingMessage: s,
+        messages: x,
+        availableCommands: S,
+        lastAgentBlockContext: m,
+      }
+    : {
+        error: void 0,
+        isLoading: !1,
+        loadingMessage: void 0,
+        messages: [],
+        availableCommands: [],
+        lastAgentBlockContext: void 0,
+      };
+}
+function cr(e, t, n) {
+  let r = new Map(),
+    i = [];
+  for (let t = 0; t < e.length; t++) {
+    let n = e[t],
+      a = r.get(n.id);
+    if (!a) (i.push(n.id), r.set(n.id, n));
+    else {
+      let e = lr(a, n);
+      r.set(n.id, e);
+    }
+    if (t > 0) {
+      let i = e[t - 1];
+      if (
+        i &&
+        i.id !== n.id &&
+        i.type === `agent` &&
+        i.content.output.case === `text` &&
+        i.content.phase !== U.COMPLETED
+      ) {
+        let e = r.get(i.id);
+        if (e && e.type === `agent`) {
+          let t = { ...e, content: { ...e.content, phase: U.COMPLETED } };
+          r.set(i.id, t);
+        }
+      }
+    }
+  }
+  let a = [];
+  for (let e of i) {
+    let t = r.get(e);
+    t && a.push(t);
+  }
+  for (let e of t ?? [])
+    if (!r.has(`input-${e.id}`)) {
+      let t = [];
+      e.content && t.push(C(B, { input: { case: `text`, value: C(ne, { content: e.content }) } }));
+      for (let n of e.images ?? [])
+        t.push(C(B, { input: { case: `image`, value: C(ae, { data: n.data, mimeType: n.mimeType }) } }));
+      if (t.length === 0) continue;
+      a.push({
+        id: e.id,
+        type: `user`,
+        content: C(V, { id: e.id, inputs: t, metadata: e.modes?.length ? C(te, { modes: e.modes }) : void 0 }),
+      });
+    }
+  let o = tr(a, n),
+    s = [];
+  for (let e = a.length - 1; e >= 0; e--) {
+    let t = a[e];
+    if (t.type === `agent` && t.content.output.case === `availableCommands`) {
+      s = t.content.output.value.commands.map((e) => ({ name: e.name, description: e.description }));
+      break;
+    }
+  }
+  return { messages: o, availableCommands: s };
+}
+function lr(e, t) {
+  if (e.type !== t.type) throw Error(`Cannot merge blocks of different types`);
+  return ur(e, t);
+}
+function ur(e, t) {
+  if (t.type === `user` || t.type === `agentMsg`) return t;
+  let n = t.content.phase === U.UPDATE || t.content.phase === U.DELTA;
+  if (e.type === `agent` && n && t.content.output.case === `text` && e.content.output.case === `text`) {
+    if (e.content.output.value.sequenceId >= t.content.output.value.sequenceId) return e;
+    if (t.content.output.value.sequenceId)
+      return {
+        ...e,
+        content: {
+          ...e.content,
+          output: {
+            ...e.content.output,
+            value: {
+              ...e.content.output.value,
+              sequenceId: t.content.output.value.sequenceId,
+              content: e.content.output.value.content + t.content.output.value.content,
+            },
+          },
+        },
+      };
+  }
+  return t;
+}
+function dr(e) {
+  for (let t of e)
+    if (Yn(t)) {
+      for (let e of t.fragments) if (e.type === `todoGroup`) return !0;
+    }
+  return !1;
+}
+function fr(e) {
+  return dr(e) ? yr(e) : pr(e);
+}
+function pr(e) {
+  let t = [],
+    n = 0,
+    r = new Map();
+  for (let i of e) {
+    if (Xn(i)) {
+      t.push(i);
+      continue;
+    }
+    if (Yn(i)) {
+      let e = mr(i, n, r, t);
+      (t.push(...e.results), (n = e.nextGroupIndex));
+    }
+  }
+  return t;
+}
+function mr(e, t, n, r) {
+  let i = [],
+    a = null,
+    o = e.id,
+    s = t,
+    c = hr(r);
+  if (c) {
+    let e = c.todos
+      .filter(({ todoStatus: e }) => e === z.IN_PROGRESS || e === z.PENDING)
+      .map((e) => ({ ...e, fragments: [] }));
+    e.length > 0 &&
+      ((a = {
+        type: `todo-group`,
+        groupId: `todo-group-${s}`,
+        instanceId: `todo-group-${s}:${t}`,
+        todos: e,
+        isContinuation: !0,
+      }),
+      (s += 1));
+  }
+  for (let r of e.fragments) {
+    if (r.type !== `todoItem`) {
+      if (a === null) ((a = vr(r, o)), (o += 1));
+      else if (a.type === `agent`) a.fragments.push(r);
+      else if (a.type === `todo-group`) {
+        let e = a.todos.find((e) => e.todoStatus === z.IN_PROGRESS),
+          t = a.todos.find((e) => e.todoStatus === z.PENDING);
+        e ? e.fragments.push(r) : t ? t.fragments.push(r) : (i.push(a), (a = vr(r, o)), (o += 1));
+      }
+      continue;
+    }
+    if (a?.type === `todo-group`) {
+      (r.title && n.set(r.todoItemId, r.title), gr(a.todos, r, n));
+      continue;
+    } else {
+      if (r.status === z.PENDING || r.status === z.IN_PROGRESS) {
+        (a && i.push(a),
+          (a = {
+            type: `todo-group`,
+            groupId: `todo-group-${s}`,
+            instanceId: `todo-group-${s}:${t}`,
+            todos: [_r(r, n)],
+            isContinuation: !1,
+          }),
+          (s += 1),
+          r.title && n.set(r.todoItemId, r.title));
+        continue;
+      }
+      a && a.fragments.push(r);
+    }
+  }
+  return (a && i.push(a), { results: i, nextGroupIndex: s });
+}
+function hr(e) {
+  for (let t = e.length - 1; t >= 0; t--) {
+    let n = e[t];
+    if (n.type === `todo-group`) return n;
+  }
+}
+function gr(e, t, n) {
+  for (let n of e)
+    if (n.todoId === t.todoItemId) {
+      ((n.todoStatus = n.todoStatus === z.DONE ? n.todoStatus : t.status), t.title && (n.todoTitle = t.title));
+      return;
+    }
+  t.status !== z.CLEARED && e.push(_r(t, n));
+}
+function _r(e, t) {
+  let n = e.title || t.get(e.todoItemId) || `Untitled TODO`;
+  return { todoId: e.todoItemId, todoStatus: e.status, todoTitle: n, fragments: [] };
+}
+function vr(e, t) {
+  return { type: `agent`, id: t, fragments: [e] };
+}
+function yr(e) {
+  let t = [],
+    n = new Set(),
+    r = null,
+    i = null;
+  for (let a of e) {
+    if (Xn(a)) {
+      if (r && a.fragments.every((e) => e.type === `agentMessage`)) {
+        t.push(a);
+        continue;
+      }
+      ((r &&= (n.add(r.groupId), t.push(r), null)), (i = a.id), t.push(a));
+      continue;
+    }
+    if (Yn(a))
+      for (let e of a.fragments) {
+        if (e.type === `userInputSeen`) continue;
+        if (e.type === `todoGroup`) {
+          let a = e;
+          if (r && r.groupId === a.groupId) xr(r, a.todos);
+          else {
+            r && (n.add(r.groupId), t.push(r));
+            let e = n.has(a.groupId),
+              o = e ? br(t, a.groupId) : void 0;
+            r = {
+              type: `todo-group`,
+              groupId: a.groupId,
+              instanceId: `${a.groupId}:${i ?? `origin`}`,
+              todos: a.todos.map((e) => {
+                let t = o?.todos.find((t) => t.todoId === e.id);
+                return { todoId: e.id, todoTitle: e.title, todoStatus: e.phase, fragments: t ? [...t.fragments] : [] };
+              }),
+              isContinuation: e,
+            };
+          }
+          continue;
+        }
+        let a = e.todoGroupId,
+          o = e.todoItemId;
+        if (a && o && r && r.groupId === a) {
+          let t = r.todos.find((e) => e.todoId === o);
+          if (t) {
+            t.fragments.push(e);
+            continue;
+          }
+        }
+        if (a && !o && r && r.groupId === a) {
+          let t = r.todos.find((e) => e.todoStatus === z.IN_PROGRESS);
+          if (t) {
+            t.fragments.push(e);
+            continue;
+          }
+        }
+        if (r) {
+          let i = r.todos.find((e) => e.todoStatus === z.IN_PROGRESS);
+          if (i) {
+            i.fragments.push(e);
+            continue;
+          }
+          (n.add(r.groupId), t.push(r), (r = null));
+        }
+        let s = t[t.length - 1];
+        s && s.type === `agent` ? s.fragments.push(e) : t.push({ type: `agent`, id: t.length + 1, fragments: [e] });
+      }
+  }
+  return (r && t.push(r), t);
+}
+function br(e, t) {
+  for (let n = e.length - 1; n >= 0; n--) {
+    let r = e[n];
+    if (r.type === `todo-group` && r.groupId === t) return r;
+  }
+}
+function xr(e, t) {
+  let n = new Map(e.todos.map((e) => [e.todoId, e]));
+  e.todos = t.map((e) => {
+    let t = n.get(e.id);
+    return t
+      ? ((t.todoStatus = e.phase), (t.todoTitle = e.title), t)
+      : { todoId: e.id, todoTitle: e.title, todoStatus: e.phase, fragments: [] };
+  });
+}
+function Sr(e) {
+  let t = e.length;
+  return { started: e.filter((e) => e.todoStatus === z.IN_PROGRESS || e.todoStatus === z.DONE).length, total: t };
+}
+function Cr(e) {
+  for (let t = e.length - 1; t >= 0; t--) {
+    let n = e[t];
+    if (n.type === `todo-group`) return n;
+  }
+}
+var wr = ({ todoGroup: e, defaultOpen: t = !1 }) => {
+    let n = e ? `${e.groupId}:${e.instanceId}` : null,
+      r = e?.todos.some((e) => e.todoStatus === z.IN_PROGRESS) ?? !1,
+      [i, a] = (0, Z.useState)(t || r),
+      [o, s] = (0, Z.useState)(null);
+    (0, Z.useEffect)(() => {
+      !n || !r || o === n || a(!0);
+    }, [n, o, r]);
+    let c = (e) => {
+      (a(e), n && (!e && r ? s(n) : e && s((e) => (e === n ? null : e))));
+    };
+    if (!e || e.todos.length === 0) return null;
+    let { started: l, total: u } = Sr(e.todos);
+    return (0, Q.jsx)(`div`, {
+      className: `pointer-events-none absolute right-4 top-2 z-20 hidden lg:block`,
+      children: (0, Q.jsxs)(Ke, {
+        open: i,
+        onOpenChange: c,
+        children: [
+          (0, Q.jsx)(Ge, {
+            asChild: !0,
+            children: (0, Q.jsx)(K, {
+              variant: `ghost`,
+              size: `sm`,
+              LeadingIcon: Jn,
+              "aria-label": `Show TODOs`,
+              className: q(`pointer-events-auto`, i && `bg-surface-hover`),
+              "data-testid": `conversation-todo-status-trigger`,
+              "data-tracking-id": `conversation-todo-status-trigger`,
+            }),
+          }),
+          (0, Q.jsxs)(We, {
+            side: `left`,
+            align: `start`,
+            sideOffset: 8,
+            className: `w-72 max-w-[calc(100vw-2rem)] px-4 py-3`,
+            onOpenAutoFocus: (e) => e.preventDefault(),
+            "data-testid": `conversation-todo-status-popover`,
+            children: [
+              (0, Q.jsxs)(`div`, {
+                className: `flex items-center gap-2`,
+                children: [
+                  (0, Q.jsx)(`div`, {
+                    className: `rounded bg-surface-muted px-1.5 py-0.5 text-xs font-medium uppercase tracking-[0.5px] text-content-muted`,
+                    children: `TODOS`,
+                  }),
+                  (0, Q.jsx)(`span`, {
+                    className: `ml-auto text-sm font-medium text-content-muted`,
+                    children: `${l}/${u}`,
+                  }),
+                ],
+              }),
+              (0, Q.jsx)(`div`, {
+                className: `mt-3 flex flex-col gap-2`,
+                children: e.todos.map((e) => (0, Q.jsx)(Tr, { todo: e }, e.todoId)),
+              }),
+            ],
+          }),
+        ],
+      }),
+    });
+  },
+  Tr = ({ todo: e }) => {
+    let t = e.todoStatus === z.DONE,
+      n = e.todoStatus === z.PENDING || e.todoStatus === z.CLEARED;
+    return (0, Q.jsxs)(`div`, {
+      className: q(`flex min-w-0 items-start gap-2 text-sm`, n && `text-content-muted`),
+      children: [
+        (0, Q.jsx)(`span`, {
+          className: `mt-0.5 flex size-4 shrink-0 items-center justify-center`,
+          children: (0, Q.jsx)(Er, { todo: e }),
+        }),
+        (0, Q.jsx)(`span`, {
+          className: q(`min-w-0 flex-1 text-wrap break-words text-content-primary`, {
+            "text-content-muted": n || t,
+            "line-through": e.todoStatus === z.CLEARED,
+          }),
+          children: e.todoTitle,
+        }),
+      ],
+    });
+  },
+  Er = ({ todo: e }) => {
+    switch (e.todoStatus) {
+      case z.DONE:
+        return (0, Q.jsx)(at, { className: `size-4 text-content-success` });
+      case z.IN_PROGRESS:
+        return (0, Q.jsx)(de, { size: `sm`, className: `size-4 animate-spin text-content-muted`, "aria-hidden": !0 });
+      case z.CLEARED:
+      case z.PENDING:
+        return (0, Q.jsx)(Kn, { size: `sm`, className: `size-4 text-content-muted` });
+      default:
+        return (0, Q.jsx)(_, { className: `size-4 text-content-muted` });
+    }
+  },
+  Dr = ({ environment: e, onClickStartupStatus: t }) => {
+    let n = e ? ze(e) === `starting` : !1,
+      { steps: r, activeStep: i } = nt(e),
+      a = !!t;
+    return (0, Q.jsx)(`div`, {
+      role: a ? `button` : void 0,
+      tabIndex: a ? 0 : void 0,
+      onClick: a ? t : void 0,
+      onKeyDown: a
+        ? (e) => {
+            (e.key === `Enter` || e.key === ` `) && (e.preventDefault(), t?.());
+          }
+        : void 0,
+      className: `flex animate-fade-in items-center py-1 ${a ? `group/pending cursor-pointer` : ``}`,
+      style: { animationDelay: `500ms`, animationFillMode: `backwards` },
+      "data-tracking-id-none": !0,
+      children: (0, Q.jsxs)(`div`, {
+        className: `flex flex-col gap-0.5`,
+        children: [
+          (0, Q.jsx)(`span`, {
+            className: `min-h-4 text-sm leading-4 text-content-tertiary`,
+            "data-testid": `pending-step-counter`,
+            "aria-hidden": !n,
+            children: n ? `Step ${i.index + 1} of ${r.length}` : null,
+          }),
+          (0, Q.jsxs)(`div`, {
+            className: `flex flex-col`,
+            children: [
+              (0, Q.jsx)(
+                s,
+                { className: `text-base font-semibold`, shimmer: !0, children: n ? i.label : `Thinking…` },
+                i.id,
+              ),
+              (0, Q.jsx)(`span`, {
+                className: `min-h-5 min-w-0 text-base leading-5 text-content-muted`,
+                "aria-hidden": !n || !i.description,
+                children: n ? i.description : null,
+              }),
+            ],
+          }),
+        ],
+      }),
+    });
+  },
+  Or = (e) => {
+    let t = N(Le),
+      n = (0, Z.useCallback)(() => {
+        t((e) => ({ tab: `environment`, seq: e.seq + 1 }));
+      }, [t]);
+    return (0, Q.jsx)(Dr, { ...e, onClickStartupStatus: n });
+  },
+  kr = {
+    v: `5.7.5`,
+    fr: 100,
+    ip: 0,
+    op: 525,
+    w: 36,
+    h: 36,
+    nm: `Comp 1`,
+    ddd: 0,
+    metadata: {
+      lottielabInteractivity: {
+        __version: `v1`,
+        initialState: `IOI enters`,
+        states: {
+          "IOI enters": { segment: [0, 1.1], speed: 1, direction: `forward`, loop: !1 },
+          Thinking: { segment: [1.25, 4], speed: 1, direction: `forward`, loop: !1 },
+          "IOI Leaves": { segment: [4.2, 5.25], speed: 1, direction: `forward`, loop: !1 },
+        },
+      },
+    },
+    assets: [],
+    layers: [
+      {
+        ddd: 0,
+        ind: 1,
+        ty: 4,
+        nm: `IOI-Logo`,
+        sr: 1,
+        ks: {
+          p: { a: 0, k: [0, 0], ix: 2 },
+          a: { a: 0, k: [0, 0], ix: 2 },
+          s: { a: 0, k: [100, 100], ix: 2 },
+          r: { a: 0, k: 0, ix: 2 },
+          o: { a: 0, k: 100, ix: 2 },
+          sk: { a: 0, k: 0, ix: 2 },
+          sa: { a: 0, k: 0, ix: 2 },
+        },
+        ao: 0,
+        shapes: [
+          {
+            ty: `gr`,
+            it: [
+              {
+                ty: `gr`,
+                it: [
+                  {
+                    ty: `gr`,
+                    nm: `IOI-Logo`,
+                    it: [
+                      {
+                        ty: `gr`,
+                        nm: `Path`,
+                        it: [
+                          {
+                            ty: `sh`,
+                            d: 1,
+                            ks: {
+                              a: 0,
+                              k: {
+                                c: !0,
+                                v: [
+                                  [18.8838, 0],
+                                  [21.2451, 1.02832],
+                                  [29.0127, 8.78613],
+                                  [30, 11.1426],
+                                  [30, 18.9004],
+                                  [29.0127, 21.2568],
+                                  [21.2451, 29.0146],
+                                  [18.8838, 30],
+                                  [11.1162, 30],
+                                  [8.71289, 29.0146],
+                                  [0.944336, 21.2568],
+                                  [0, 18.9004],
+                                  [0, 11.1426],
+                                  [0.944336, 8.74316],
+                                  [8.71289, 0.985352],
+                                  [11.1162, 0],
+                                  [18.8838, 0],
+                                ],
+                                i: [
+                                  [0, 0],
+                                  [-0.6007999999999996, -0.6428559999999999],
+                                  [-2.5892000000000017, -2.585936666666667],
+                                  [-9999999999976694e-20, -0.9427000000000003],
+                                  [0, -2.585933333333333],
+                                  [0.6006999999999998, -0.5998999999999981],
+                                  [2.589199999999998, -2.5859333333333367],
+                                  [0.9012999999999991, 0],
+                                  [2.5892000000000017, 0],
+                                  [0.6437100000000004, 0.6425999999999981],
+                                  [2.589518, 2.5859333333333367],
+                                  [944446e-10, 0.9425999999999988],
+                                  [0, 2.585933333333335],
+                                  [-0.6007419999999999, 0.6427800000000001],
+                                  [-2.589518, 2.5859360000000002],
+                                  [-0.9439999999999991, 0],
+                                  [-2.5892000000000017, 0],
+                                ],
+                                o: [
+                                  [0.9012999999999991, 0],
+                                  [2.589199999999998, 2.5859366666666666],
+                                  [0.6006999999999998, 0.5999300000000005],
+                                  [0, 2.585933333333333],
+                                  [-9999999999976694e-20, 0.9425999999999988],
+                                  [-2.589199999999998, 2.585933333333333],
+                                  [-0.6007999999999996, 0.6428999999999974],
+                                  [-2.5892000000000017, 0],
+                                  [-0.9439999999999991, 0],
+                                  [-2.589518, -2.585933333333333],
+                                  [-0.6007199999999999, -0.5998999999999981],
+                                  [0, -2.585933333333333],
+                                  [680581e-10, -0.9427000000000003],
+                                  [2.589518, -2.5859360000000002],
+                                  [0.6437100000000004, -0.599777],
+                                  [2.5892, 0],
+                                  [0, 0],
+                                ],
+                              },
+                            },
+                          },
+                          {
+                            ty: `tr`,
+                            p: { a: 0, k: [15, 15], ix: 2 },
+                            a: { a: 0, k: [15, 15], ix: 2 },
+                            s: { a: 0, k: [100, 100], ix: 2 },
+                            r: {
+                              a: 1,
+                              k: [
+                                { t: 125, s: [0], o: { x: [0], y: [0] }, i: { x: [0.58], y: [1] } },
+                                { t: 176, s: [90], i: { x: [0.75], y: [0.75] }, o: { x: [0.25], y: [0.25] } },
+                                { t: 225, s: [90], o: { x: [0], y: [0] }, i: { x: [0.58], y: [1] } },
+                                { t: 275, s: [270], i: { x: [0.75], y: [0.75] }, o: { x: [0.25], y: [0.25] } },
+                                { t: 325, s: [270], o: { x: [0], y: [0] }, i: { x: [0.58], y: [1] } },
+                                { t: 400, s: [540], i: { x: [0.75], y: [0.75] }, o: { x: [0.25], y: [0.25] } },
+                              ],
+                              ix: 2,
+                            },
+                            o: { a: 0, k: 100, ix: 2 },
+                            sk: { a: 0, k: 0, ix: 2 },
+                            sa: { a: 0, k: 0, ix: 2 },
+                          },
+                        ],
+                      },
+                      {
+                        ty: `gr`,
+                        nm: `Path`,
+                        it: [
+                          {
+                            ty: `sh`,
+                            d: 1,
+                            ks: {
+                              a: 0,
+                              k: {
+                                c: !0,
+                                v: [
+                                  [10.5996, 7],
+                                  [7, 10.5996],
+                                  [7, 19.4004],
+                                  [10.5996, 23],
+                                  [19.4004, 23],
+                                  [23, 19.4004],
+                                  [23, 10.5996],
+                                  [19.4004, 7],
+                                  [10.5996, 7],
+                                ],
+                                i: [
+                                  [0, 0],
+                                  [0.00021000000000004349, -1.9879100000000012],
+                                  [0, -2.933600000000002],
+                                  [-1.9879100000000012, -0.00019999999999953388],
+                                  [-2.933600000000002, 0],
+                                  [-0.00019999999999953388, 1.9878999999999998],
+                                  [0, 2.9336],
+                                  [1.9878999999999998, 0.00021000000000004349],
+                                  [2.9336, 0],
+                                ],
+                                o: [
+                                  [-1.9879100000000012, 0.00021000000000004349],
+                                  [0, 2.9336],
+                                  [0.00021000000000004349, 1.9878999999999998],
+                                  [2.9336, 0],
+                                  [1.9878999999999998, -0.00019999999999953388],
+                                  [0, -2.933600000000002],
+                                  [-0.00019999999999953388, -1.9879100000000012],
+                                  [-2.933600000000002, 0],
+                                  [0, 0],
+                                ],
+                              },
+                            },
+                          },
+                          {
+                            ty: `tr`,
+                            p: { a: 0, k: [15, 15], ix: 2 },
+                            a: { a: 0, k: [15, 15], ix: 2 },
+                            s: { a: 0, k: [100, 100], ix: 2 },
+                            r: { a: 0, k: 0, ix: 2 },
+                            o: { a: 0, k: 100, ix: 2 },
+                            sk: { a: 0, k: 0, ix: 2 },
+                            sa: { a: 0, k: 0, ix: 2 },
+                          },
+                        ],
+                      },
+                      {
+                        ty: `fl`,
+                        c: { a: 0, k: [0.0392156862745098, 0.054901960784313725, 0.09803921568627451], ix: 2 },
+                        o: { a: 0, k: 100, ix: 2 },
+                        r: 1,
+                        bm: 0,
+                      },
+                      {
+                        ty: `tr`,
+                        p: { a: 0, k: [0, 0], ix: 2 },
+                        a: { a: 0, k: [0, 0], ix: 2 },
+                        s: { a: 0, k: [100, 100], ix: 2 },
+                        r: { a: 0, k: 0, ix: 2 },
+                        o: { a: 0, k: 100, ix: 2 },
+                        sk: { a: 0, k: 0, ix: 2 },
+                        sa: { a: 0, k: 0, ix: 2 },
+                      },
+                    ],
+                  },
+                  {
+                    ty: `tr`,
+                    p: { a: 0, k: [15.00000286102295, 14.99999713897705], ix: 2 },
+                    a: { a: 0, k: [15, 15], ix: 2 },
+                    s: { a: 0, k: [100, 100], ix: 2 },
+                    r: { a: 0, k: 0, ix: 2 },
+                    o: { a: 0, k: 100, ix: 2 },
+                    sk: { a: 0, k: 0, ix: 2 },
+                    sa: { a: 0, k: 0, ix: 2 },
+                  },
+                ],
+              },
+              {
+                ty: `tr`,
+                p: {
+                  a: 1,
+                  k: [
+                    {
+                      t: 0,
+                      s: [17.999998092651367, -42.025131702423096],
+                      i: { x: [0.5034965034965035], y: [1.2658783783783785] },
+                      o: { x: [0.8], y: [0] },
+                    },
+                    {
+                      t: 100,
+                      s: [17.999998092651367, 17.974870681762695],
+                      i: { x: [0.75], y: [0.75] },
+                      o: { x: [0.25], y: [0.25] },
+                    },
+                    {
+                      t: 425,
+                      s: [17.999998092651367, 17.974870681762695],
+                      i: { x: [0.2], y: [1] },
+                      o: { x: [0.5314685314685315], y: [-0.19898648648648654] },
+                    },
+                    {
+                      t: 525,
+                      s: [17.999998092651367, 77.9748706817627],
+                      i: { x: [0.75], y: [0.75] },
+                      o: { x: [0.25], y: [0.25] },
+                    },
+                  ],
+                  ix: 2,
+                },
+                a: { a: 0, k: [15.000002158559596, 14.999997848905991], ix: 2 },
+                s: { a: 0, k: [100, 100], ix: 2 },
+                r: { a: 0, k: 0, ix: 2 },
+                o: { a: 0, k: 100, ix: 2 },
+                sk: { a: 0, k: 0, ix: 2 },
+                sa: { a: 0, k: 0, ix: 2 },
+              },
+            ],
+          },
+        ],
+        ip: 0,
+        op: 526,
+        st: 0,
+        bm: 0,
+      },
+    ],
+    markers: [],
+  },
+  Ar = { sm: `size-4`, md: `size-6`, lg: `size-8` },
+  $ = { ENTER: [0, 110], THINKING: [125, 400], LEAVE: [420, 525] },
+  jr = {
+    light: `brightness(0) saturate(100%) invert(10%) sepia(0%) saturate(0%) hue-rotate(0deg) brightness(102%) contrast(88%)`,
+    dark: `brightness(0) saturate(100%) invert(88%) sepia(0%) saturate(0%) hue-rotate(0deg) brightness(102%) contrast(88%)`,
+  },
+  Mr = ({ state: e, onExitComplete: t, onEnterComplete: n, size: r = `sm`, className: i }) => {
+    let a = (0, Z.useRef)(null),
+      [o, s] = (0, Z.useState)(`enter`);
+    (0, Z.useEffect)(() => {
+      let t = a.current;
+      if (t)
+        switch (e) {
+          case `entering`:
+            (s(`enter`), t.playSegments($.ENTER, !0));
+            break;
+          case `thinking`:
+            if (o === `thinking`) return;
+            (s(`thinking`), t.playSegments($.THINKING, !0));
+            break;
+          case `leaving`:
+            o === `thinking` ? s(`leave`) : (s(`leave`), t.playSegments($.LEAVE, !0));
+            break;
+        }
+    }, [e, o]);
+    let c = (0, Z.useCallback)(() => {
+      let r = a.current;
+      r &&
+        (o === `enter`
+          ? (n?.(), s(`thinking`), r.playSegments($.THINKING, !0))
+          : o === `thinking`
+            ? e === `leaving`
+              ? (s(`leave`), r.playSegments($.LEAVE, !0))
+              : r.playSegments($.THINKING, !0)
+            : o === `leave` && t?.());
+    }, [o, e, t, n]);
+    return (0, Q.jsx)(`div`, {
+      className: q(`relative`, Ar[r], i),
+      style: { filter: document.documentElement.classList.contains(`dark`) ? jr.dark : jr.light },
+      role: `img`,
+      "aria-label": `IOI thinking`,
+      children: (0, Q.jsx)(rt, {
+        lottieRef: a,
+        animationData: kr,
+        loop: !1,
+        autoplay: !1,
+        onComplete: c,
+        className: `size-full`,
+        rendererSettings: { preserveAspectRatio: `xMidYMid meet` },
+      }),
+    });
+  },
+  Nr = new Set([De.InEnvironmentCodexAppAgent.id]),
+  Pr = ({ todo: e, isLastGroup: t, agentExecution: n, onClick: r }) => {
+    let { todoId: i, todoTitle: a, todoStatus: o } = e,
+      c = (0, Z.useMemo)(() => e.fragments.filter(({ type: e }) => !Ir?.has(e)), [e.fragments]),
+      l = c.length,
+      u = l > 0,
+      [d, f] = (0, Z.useState)({ isOpen: !1, changedByUser: !1 }),
+      p = (0, Z.useRef)(null),
+      h = (0, Z.useRef)(!0),
+      g = we(n) === Ae.WORKING,
+      v = Ee(n),
+      y = o === z.PENDING,
+      b = o === z.IN_PROGRESS,
+      x = o === z.DONE,
+      S = o === z.CLEARED,
+      C = o === z.PENDING && !t,
+      w = b && g && t,
+      T = b && v && t,
+      E = n.spec?.agentId !== void 0 && Nr.has(n.spec.agentId),
+      D = () => {
+        p.current && (p.current.scrollTop = p.current.scrollHeight);
+      };
+    return (
+      (0, Z.useEffect)(() => {
+        d.changedByUser ||
+          (T && u ? (f({ isOpen: !0, changedByUser: !1 }), D()) : f({ isOpen: !1, changedByUser: !1 }));
+      }, [u, T, d.changedByUser]),
+      (0, Z.useEffect)(() => {
+        if (d.isOpen && h.current) {
+          let e = requestAnimationFrame(D);
+          return () => cancelAnimationFrame(e);
+        }
+      }, [d.isOpen, l]),
+      (0, Z.useEffect)(() => {
+        let e = p.current;
+        if (!e || !d.isOpen) return;
+        let t = () => {
+          let { scrollTop: t, scrollHeight: n, clientHeight: r } = e;
+          h.current = t + r >= n - 30;
+        };
+        return (e.addEventListener(`scroll`, t), () => e.removeEventListener(`scroll`, t));
+      }, [d.isOpen]),
+      (0, Q.jsxs)(Y, {
+        open: d.isOpen,
+        onOpenChange: (e) => {
+          (f({ isOpen: e, changedByUser: !0 }), e && ((h.current = !0), requestAnimationFrame(D)));
+        },
+        disabled: !u || (l !== void 0 && l === 0),
+        id: `todo-${i}`,
+        className: q(`border-b border-border-base transition-colors last:border-b-0`, { "border-transparent": y }),
+        children: [
+          (0, Q.jsx)(Y.Trigger, {
+            asChild: !0,
+            children: (0, Q.jsxs)(`button`, {
+              className: q(
+                `flex w-full items-center justify-between gap-4 px-4 py-3 text-left transition-all duration-300 ease-out`,
+                u && `hover:bg-surface-muted`,
+                !u && `cursor-default`,
+              ),
+              "aria-label": `${x ? `Completed` : T ? `Waiting for input` : b ? `In progress` : S ? `Cleared` : C ? `Postponed` : `Pending`}: ${a}`,
+              "data-tracking-id": `todo-container-toggle`,
+              children: [
+                (0, Q.jsxs)(`div`, {
+                  className: q(`flex min-w-0 flex-1 items-center gap-2`, { "opacity-50": y || S }),
+                  children: [
+                    (0, Q.jsx)(`div`, {
+                      className: `flex h-5 w-5 flex-shrink-0 items-center justify-center`,
+                      children: C
+                        ? (0, Q.jsx)(m, { className: `size-5 flex-shrink-0 text-content-muted` })
+                        : y || S
+                          ? (0, Q.jsx)(Kn, { size: `sm`, className: `size-5 flex-shrink-0 text-content-muted` })
+                          : x
+                            ? (0, Q.jsx)(at, { className: q(`size-5 text-content-success`) })
+                            : w
+                              ? E
+                                ? (0, Q.jsx)(de, {
+                                    size: `sm`,
+                                    className: `animate-spin text-content-muted`,
+                                    "aria-hidden": !0,
+                                  })
+                                : (0, Q.jsx)(Mr, { state: `thinking`, size: `sm`, className: `size-5` })
+                              : T
+                                ? E
+                                  ? (0, Q.jsx)(de, {
+                                      size: `sm`,
+                                      className: `animate-spin text-content-muted`,
+                                      "aria-hidden": !0,
+                                    })
+                                  : (0, Q.jsx)(it, { cycleInterval: 1e3, size: `sm`, className: `size-[17px]` })
+                                : b
+                                  ? (0, Q.jsx)(_, { className: `size-5 flex-shrink-0 text-content-muted` })
+                                  : null,
+                    }),
+                    (0, Q.jsxs)(`div`, {
+                      className: `flex min-w-0 flex-1 flex-col gap-0`,
+                      children: [
+                        b && g && t
+                          ? (0, Q.jsx)(s, { className: `min-w-0 truncate text-base text-content-primary`, children: a })
+                          : (0, Q.jsxs)(`div`, {
+                              className: `flex min-w-0 items-center gap-2`,
+                              children: [
+                                (0, Q.jsx)(`h2`, {
+                                  className: q(
+                                    `min-w-0 flex-1 truncate text-base text-content-primary transition-colors duration-300`,
+                                    { "text-content-muted": x || y || S || (b && !t), "line-through": S },
+                                  ),
+                                  children: a,
+                                }),
+                                T && (0, Q.jsx)(Fr, { agentExecution: n }),
+                                C &&
+                                  (0, Q.jsx)(`span`, {
+                                    className: `shrink-0 text-right text-xs`,
+                                    children: `Postponed`,
+                                  }),
+                              ],
+                            }),
+                        (0, Q.jsx)(Y, {
+                          open: b && t,
+                          children: (0, Q.jsx)(Y.Content, {
+                            children: (0, Q.jsx)(s, {
+                              className: `min-w-0 truncate font-mono text-sm`,
+                              shimmer: g,
+                              children: Lr(e),
+                            }),
+                          }),
+                        }),
+                      ],
+                    }),
+                  ],
+                }),
+                u &&
+                  (0, Q.jsx)(`div`, {
+                    className: `flex flex-shrink-0 items-center`,
+                    children: (0, Q.jsx)(tt, {
+                      size: `sm`,
+                      "aria-hidden": y,
+                      className: q(
+                        `flex-shrink-0 opacity-100 transition-[opacity,transform] duration-200`,
+                        { "opacity-40": S },
+                        d.isOpen && `rotate-90`,
+                      ),
+                    }),
+                  }),
+              ],
+            }),
+          }),
+          (0, Q.jsx)(Y.Content, {
+            children: (0, Q.jsx)(`div`, {
+              ref: p,
+              className: q(`w-full overflow-y-auto border-t border-border-base px-4 py-2 text-base`, `max-h-[40vh]`),
+              children: (0, Q.jsx)(`div`, {
+                className: `flex flex-col gap-4`,
+                children: c.map((t, i) =>
+                  (0, Q.jsx)(
+                    An,
+                    {
+                      fragment: t,
+                      agentExecution: n,
+                      shouldHighlightFragment: !1,
+                      onClick: r,
+                      "data-tracking-id": `default-tracking-id`,
+                      ignore: Ir,
+                    },
+                    `${e.todoId}-${i}`,
+                  ),
+                ),
+              }),
+            }),
+          }),
+        ],
+      })
+    );
+  },
+  Fr = ({ agentExecution: e }) => {
+    let n = c(e),
+      r = t(e) ?? `Waiting for input`;
+    return (0, Q.jsx)(`span`, {
+      className: q(
+        `shrink-0 rounded-full px-2 py-0.5 text-xs font-medium`,
+        n ? `bg-surface-brand-subtle text-content-brand` : `bg-surface-banner-warning-subtle text-content-warning`,
+      ),
+      children: r,
+    });
+  },
+  Ir = new Set([`todoItem`, `todoGroup`, `userInputSeen`, `userInputDeleted`]);
+function Lr(e) {
+  let t = e.fragments.length > 0 ? e.fragments[e.fragments.length - 1] : null,
+    n = `Thinking...`;
+  return (
+    t && t.type === `text` && t.content
+      ? (n = t.content
+          .split(
+            `
+`,
+          )[0]
+          .substring(0, 100))
+      : t &&
+        t.type === `action` &&
+        t.intentDescription &&
+        (n = t.state === `running` ? t.intentDescription : Gt(t.intentDescription)),
+    n
+  );
+}
+var Rr = new Set([`userInputSeen`]);
+function zr(e) {
+  return !!(e.type === `agent` && e.fragments.some((e) => !Rr.has(e.type)));
+}
+function Br(e, t, n, r) {
+  if (t) return !0;
+  if (r === F.STOPPED || e.length === 0) return !1;
+  let i = e[e.length - 1];
+  if (i.type === `user`) {
+    if (n === F.RUNNING || n === F.PENDING) {
+      let t = e.length >= 2 ? e[e.length - 2] : void 0;
+      if (t?.type === `agent` && t.fragments.some((e) => !Rr.has(e.type))) return !1;
+    }
+    return !0;
+  }
+  return !zr(i);
+}
+function Vr(e, t, n) {
+  let r = n?.status?.phase,
+    i = n?.spec?.desiredPhase,
+    a = t ? ze(t) === `starting` : !1;
+  return (0, Z.useMemo)(() => Br(e, a, r, i), [e, a, r, i]);
+}
+var Hr = `__pending-message-status`;
+function Ur(e) {
+  if (!e) return null;
+  let t = e.parentElement;
+  for (; t; ) {
+    let { overflow: e, overflowY: n } = getComputedStyle(t);
+    if (e === `auto` || e === `scroll` || n === `auto` || n === `scroll`) return t;
+    t = t.parentElement;
+  }
+  return document.documentElement;
+}
+var Wr = (0, Z.forwardRef)(({ messages: e, agentExecution: t, onClick: n, onSendMessage: r, readOnly: i }, a) => {
+  let { data: o } = Pe(Se(t)),
+    { value: s } = re(),
+    c = Vr(e, o, t),
+    l = !!o && c,
+    u = (0, Z.useRef)(null),
+    [d, f] = (0, Z.useState)(null),
+    p = (0, Z.useMemo)(() => fr(e), [e]),
+    m = (0, Z.useMemo)(() => (s ? Cr(p) : void 0), [p, s]),
+    h = (0, Z.useMemo)(() => (s ? p.filter((e) => e.type !== `todo-group`) : p), [p, s]),
+    g = (0, Z.useMemo)(() => {
+      let e = h.map((e, t) => ({ type: `message`, group: e, key: Kr(e, t), messageIndex: t }));
+      return (l && e.push({ type: `pending-status`, key: Hr }), e);
+    }, [l, h]),
+    _ = (0, Z.useRef)(h.length);
+  (0, Z.useEffect)(() => {
+    u.current && f(Ur(u.current));
+  }, []);
+  let v = D({
+    count: g.length,
+    getScrollElement: () => d,
+    estimateSize: () => 150,
+    overscan: 5,
+    getItemKey: (e) => g[e]?.key ?? `__missing-${e}`,
+  });
+  v.shouldAdjustScrollPositionOnItemSizeChange = () => !1;
+  let y = v.getVirtualItems();
+  ((0, Z.useImperativeHandle)(
+    a,
+    () => ({
+      scrollToBottom: () => {
+        g.length > 0 && v.scrollToIndex(g.length - 1, { align: `end` });
+      },
+    }),
+    [g.length, v],
+  ),
+    (0, Z.useEffect)(() => {
+      _.current = h.length;
+    }, [h.length]),
+    (0, Z.useEffect)(() => {
+      g.length > 0 &&
+        d &&
+        requestAnimationFrame(() => {
+          v.scrollToIndex(g.length - 1, { align: `end` });
+        });
+    }, [d]));
+  let b = t.metadata?.annotations?.[`agent-client-session/client`],
+    x = t.metadata?.annotations?.[`agent-client-session/url`],
+    S = b === `github` ? h.find((e) => e.type === `user`) : void 0,
+    C = Gr(h),
+    w = (e, a) => {
+      let o = a === h.length - 1,
+        s = a === C;
+      if (e.type === `user`) {
+        let a = e.id === S?.id;
+        return (0, Q.jsx)(`div`, {
+          className: `flex w-full justify-end`,
+          "data-message-id": `user-${e.id}`,
+          children: (0, Q.jsx)(Ln, {
+            agentExecution: t,
+            message: e,
+            onClick: n,
+            isLast: o,
+            onSendMessage: r,
+            readOnly: i,
+            isIntegrationPrompt: a,
+            integrationSource: b,
+            integrationURL: x,
+            "data-tracking-id-none": !0,
+          }),
+        });
+      } else if (e.type === `agent`)
+        return (0, Q.jsx)(`div`, {
+          className: `w-full`,
+          children: (0, Q.jsx)(Ln, {
+            agentExecution: t,
+            message: e,
+            onClick: n,
+            isLast: o,
+            onSendMessage: r,
+            readOnly: i,
+            "data-tracking-id-none": !0,
+          }),
+        });
+      else if (e.type === `todo-group`) {
+        let { started: r, total: i } = Sr(e.todos);
+        return (0, Q.jsxs)(`div`, {
+          className: `flex w-full flex-col gap-2`,
+          children: [
+            (0, Q.jsxs)(`div`, {
+              className: `flex items-center gap-2`,
+              children: [
+                (0, Q.jsx)(`div`, {
+                  className: `rounded bg-surface-muted px-1.5 py-0.5 text-xs font-medium uppercase tracking-[0.5px] text-content-muted`,
+                  children: e.isContinuation ? `TODOs (Continued)` : `TODOs`,
+                }),
+                (0, Q.jsxs)(`span`, { className: `text-sm font-medium text-content-muted`, children: [r, `/`, i] }),
+              ],
+            }),
+            (0, Q.jsx)(`div`, {
+              className: `flex flex-col overflow-clip rounded-lg border border-border-base bg-surface-pure dark:bg-surface-base`,
+              children: e.todos.map((e) =>
+                (0, Q.jsx)(
+                  Pr,
+                  { todo: e, isLastGroup: s, agentExecution: t, onClick: n, "data-tracking-id": `default-tracking-id` },
+                  e.todoId,
+                ),
+              ),
+            }),
+          ],
+        });
+      }
+      return null;
+    };
+  return (0, Q.jsxs)(`div`, {
+    ref: u,
+    style: { minHeight: `${v.getTotalSize()}px`, width: `100%`, position: `relative` },
+    children: [
+      s && (0, Q.jsx)(wr, { todoGroup: m }),
+      y.map((e) => {
+        let t = g[e.index];
+        if (!t) return null;
+        let n = t.type === `pending-status`;
+        return (0, Q.jsx)(
+          `div`,
+          {
+            "data-index": e.index,
+            "data-key": String(e.key),
+            ref: v.measureElement,
+            style: { position: `absolute`, top: 0, left: 0, width: `100%`, transform: `translateY(${e.start}px)` },
+            className: n ? `` : `pb-4`,
+            children:
+              t.type === `pending-status` ? o && (0, Q.jsx)(Or, { environment: o }) : w(t.group, t.messageIndex),
+          },
+          e.key,
+        );
+      }),
+    ],
+  });
+});
+Wr.displayName = `GroupedMessages`;
+function Gr(e) {
+  for (let t = e.length - 1; t >= 0; t--) if (e[t]?.type === `todo-group`) return t;
+  return -1;
+}
+function Kr(e, t) {
+  return e.type === `user`
+    ? `user-${e.id}-${t}`
+    : e.type === `agent`
+      ? `agent-${e.id}-${t}`
+      : `todo-group-${e.instanceId}-${t}`;
+}
+function qr(e) {
+  for (let t = e.length - 1; t >= 0; t--) {
+    let n = e[t];
+    if (n.type === `agent`)
+      for (let e = n.fragments.length - 1; e >= 0; e--) {
+        let t = n.fragments[e];
+        if (t.type === `fileModification` && (t.filePath === `spec.md` || t.filePath.endsWith(`/spec.md`)))
+          return t.filePath;
+      }
+  }
+  return null;
+}
+function Jr(e) {
+  for (let t = e.length - 1; t >= 0; t--) {
+    let n = e[t];
+    if (n.type === `agent`)
+      for (let r = n.fragments.length - 1; r >= 0; r--) {
+        let i = n.fragments[r];
+        if (i.type === `clarifyingQuestions` || i.type === `nextStepsProposal`)
+          return e.slice(t + 1).some((e) => e.type === `user`) ||
+            (i.type === `nextStepsProposal` && e.slice(t + 1).some((e) => e.type === `agent`))
+            ? null
+            : i;
+      }
+  }
+  return null;
+}
+function Yr(e, t, n) {
+  return e.type !== `clarifyingQuestions` && e.type !== `nextStepsProposal`
+    ? !1
+    : n.slice(t + 1).some((e) => e.type === `user`)
+      ? !0
+      : e.type === `nextStepsProposal`
+        ? n.slice(t + 1).some((e) => e.type === `agent`)
+        : !1;
+}
+function Xr(e, t, n, r, i, a, o) {
+  if (t === 0 || t <= e || !n) return { type: `none` };
+  if (r !== null && i !== r) {
+    let e = o - a;
+    return e <= 0 ? { type: `none` } : { type: `adjustScrollTop`, delta: e };
+  }
+  return { type: `scrollToBottom` };
+}
+var Zr = [],
+  Qr = [];
+function $r(e, t = `grouped`) {
+  let n = (0, Z.useRef)(0),
+    r = (0, Z.useCallback)(
+      (t) =>
+        e
+          ? e.subscribe(() => {
+              (n.current++, t());
+            })
+          : () => {},
+      [e],
+    ),
+    i = (0, Z.useCallback)(() => n.current, []);
+  return (
+    (0, Z.useSyncExternalStore)(r, i, i),
+    e ? (t === `transcript` ? (e.transcriptMessages ?? e.messages) : e.messages) : Zr
+  );
+}
+function ei(e) {
+  let t = (0, Z.useRef)(0),
+    n = (0, Z.useCallback)(
+      (n) =>
+        e
+          ? e.subscribe(() => {
+              (t.current++, n());
+            })
+          : () => {},
+      [e],
+    ),
+    r = (0, Z.useCallback)(() => t.current, []);
+  return ((0, Z.useSyncExternalStore)(n, r, r), e?.pendingUserMessages ?? Qr);
+}
+var ti = 80,
+  ni = 52,
+  ri = 40,
+  ii = 50,
+  ai = 600,
+  oi = 600,
+  si = `__pending-message-status`,
+  ci = (0, Z.forwardRef)(function (
+    {
+      stream: e,
+      overscanPx: t = ai,
+      pullThresholdPx: n = oi,
+      className: r,
+      agentExecution: i,
+      environment: a,
+      onClick: o,
+      onSendMessage: s,
+      readOnly: c,
+      pendingMessages: u,
+      inlineUnseenUserInputIds: d,
+      onScrollToLastUserMessageReady: f,
+      onScrollStateChange: p,
+    },
+    m,
+  ) {
+    let h = (0, Z.useRef)(null),
+      { value: g } = re(),
+      _ = (0, Z.useRef)(0);
+    (0, Z.useEffect)(() => {
+      let t = u?.length ?? 0;
+      (t > _.current && (P.current = !0), (_.current = t), e.setPendingMessages(u ?? []));
+    }, [e, u]);
+    let v = $r(e, g ? `transcript` : `grouped`),
+      y = ei(e),
+      b = e.latestTodoGroup,
+      { conversationRows: x, conversationMessages: S } = (0, Z.useMemo)(() => {
+        let e = (d === void 0 ? y : y.filter((e) => d.has(e.id))).map(fi),
+          t = [...v, ...e],
+          n = t.filter((e) => e.message.type !== `todo-group`).map((e) => e.message);
+        return { conversationRows: t.filter((e) => di(e, g)), conversationMessages: n };
+      }, [d, y, v, g]),
+      C = (0, Z.useMemo)(() => ui(x), [x]),
+      w = i.metadata?.annotations?.[`agent-client-session/client`],
+      T = i.metadata?.annotations?.[`agent-client-session/url`],
+      E = w === `github` && e.exhausted ? x.find((e) => e.message.type === `user`)?.message.id : void 0,
+      O = Vr(S, a, i),
+      k = !!a && O,
+      A = (0, Z.useMemo)(() => {
+        let e = x.map((e, t) => ({ type: `message`, key: e.key, row: e, messageIndex: t }));
+        return (k && e.push({ type: `pending-status`, key: si }), e);
+      }, [x, k]),
+      j = A.length,
+      M = (0, Z.useCallback)((e) => A[e]?.key ?? `__missing-${e}`, [A]),
+      N = D({
+        count: j,
+        getScrollElement: () => h.current,
+        estimateSize: (0, Z.useCallback)(
+          (e) => {
+            let t = A[e];
+            if (t?.type === `pending-status` || g) return ti;
+            let n = t?.type === `message` ? t.row : void 0;
+            return n?.message.type === `todo-group` ? ri + n.message.todos.length * ni : ti;
+          },
+          [A, g],
+        ),
+        overscan: Math.max(1, Math.ceil(t / ti)),
+        getItemKey: M,
+      }),
+      P = (0, Z.useRef)(!0),
+      F = (0, Z.useRef)(0),
+      I = (0, Z.useRef)(p);
+    I.current = p;
+    let L = (0, Z.useCallback)(() => {
+      let e = h.current;
+      if (!e || e.scrollTop === F.current) return;
+      F.current = e.scrollTop;
+      let t = e.scrollHeight - e.scrollTop - e.clientHeight <= ii;
+      (t !== P.current && I.current?.(t), (P.current = t));
+    }, []);
+    (0, Z.useImperativeHandle)(
+      m,
+      () => ({
+        scrollToBottom: () => {
+          let e = h.current;
+          e &&
+            ((e.scrollTop = e.scrollHeight - e.clientHeight),
+            (F.current = e.scrollTop),
+            (P.current = !0),
+            I.current?.(!0));
+        },
+      }),
+      [],
+    );
+    let R = (0, Z.useRef)(null),
+      z = (0, Z.useCallback)(() => {
+        if (R.current) return;
+        let t = e.loadOlder();
+        R.current = t;
+        let n = () => {
+          R.current === t && (R.current = null);
+        };
+        t.then(n, n);
+      }, [e]);
+    (0, Z.useEffect)(() => {
+      let e = h.current;
+      if (!e) return;
+      let t = () => {
+        (L(), e.scrollTop < n && (l(`cv.scrollNearTop`, { scrollTop: e.scrollTop, pullThresholdPx: n }), z()));
+      };
+      return (e.addEventListener(`scroll`, t, { passive: !0 }), () => e.removeEventListener(`scroll`, t));
+    }, [n, z, L]);
+    let B = (0, Z.useRef)(0),
+      V = (0, Z.useRef)(null),
+      H = (0, Z.useRef)(0),
+      U = (0, Z.useRef)({ type: `none` });
+    ((0, Z.useLayoutEffect)(() => {
+      let e = h.current;
+      if (!e) return;
+      let t = A[0]?.key ?? null,
+        n = Xr(B.current, j, P.current, V.current, t, H.current, e.scrollHeight);
+      ((B.current = j),
+        (V.current = t),
+        (H.current = e.scrollHeight),
+        n.type === `adjustScrollTop` ? ((e.scrollTop += n.delta), (F.current = e.scrollTop)) : (U.current = n));
+    }, [A, j]),
+      (0, Z.useEffect)(() => {
+        let e = U.current;
+        if (((U.current = { type: `none` }), e.type === `scrollToBottom`)) {
+          let e = h.current;
+          e && ((e.scrollTop = e.scrollHeight - e.clientHeight), (F.current = e.scrollTop));
+        }
+      }, [A, j]));
+    let ee = (0, Z.useRef)(j);
+    ((ee.current = j),
+      (0, Z.useEffect)(() => {
+        let e = h.current;
+        if (!e) return;
+        let t = e.firstElementChild;
+        if (!t) return;
+        let n = t.scrollHeight,
+          r = new ResizeObserver(() => {
+            let r = t.scrollHeight;
+            (r > n &&
+              P.current &&
+              ee.current > 0 &&
+              ((e.scrollTop = e.scrollHeight - e.clientHeight), (F.current = e.scrollTop)),
+              (n = r));
+          });
+        return (r.observe(t), () => r.disconnect());
+      }, [N]),
+      (0, Z.useEffect)(() => {
+        if (x.length === 0 || e.exhausted) return;
+        let t = h.current;
+        if (!t) return;
+        let n = N.getTotalSize(),
+          r = t.clientHeight;
+        n < r && (l(`cv.viewportFill`, { count: j, contentHeight: n, viewportHeight: r }), z());
+      }, [x.length, e.exhausted, z]));
+    let W = (0, Z.useMemo)(() => {
+        let e = null;
+        for (let t = v.length - 1; t >= 0; t--)
+          if (v[t].message.type === `user`) {
+            e = v[t].key;
+            break;
+          }
+        return e ? x.findIndex((t) => t.key === e) : -1;
+      }, [x, v]),
+      te = (0, Z.useCallback)(() => {
+        let e = W;
+        e >= 0 && ((P.current = !1), N.scrollToIndex(e, { align: `start` }));
+      }, [W, N]),
+      ne = (0, Z.useCallback)(() => {
+        te();
+      }, [te]);
+    (0, Z.useEffect)(() => {
+      if (f) return (f(W >= 0 ? ne : null), () => f(null));
+    }, [f, W, ne]);
+    let G = N.getVirtualItems(),
+      ie = x.length === 0 && !k && !e.exhausted,
+      ae = e.isLoadingOlder && !e.exhausted && x.length > 0;
+    return (0, Q.jsxs)(`div`, {
+      className: `relative h-full w-full`,
+      children: [
+        g && (0, Q.jsx)(wr, { todoGroup: b }),
+        (0, Q.jsxs)(`div`, {
+          ref: h,
+          id: ot,
+          "data-testid": `conversation-view`,
+          className: q(`relative h-full w-full overflow-y-auto overflow-x-hidden`, r),
+          children: [
+            (ie || ae) &&
+              (0, Q.jsx)(Xe, {
+                wait: 500,
+                children: (0, Q.jsx)(`div`, {
+                  className: `flex animate-fade-in justify-center py-3`,
+                  "data-testid": ie ? `initial-loading` : `loading-older`,
+                  children: (0, Q.jsx)(pi, {}),
+                }),
+              }),
+            (0, Q.jsx)(`div`, {
+              style: { height: `${N.getTotalSize()}px`, width: `100%`, position: `relative` },
+              className: `mt-4`,
+              children: G.map((e) => {
+                let t = A[e.index];
+                if (!t) return null;
+                let n = t.type === `pending-status`;
+                return (0, Q.jsx)(
+                  `div`,
+                  {
+                    "data-index": e.index,
+                    "data-key": String(e.key),
+                    ref: N.measureElement,
+                    style: { position: `absolute`, top: `${e.start}px`, left: 0, width: `100%` },
+                    className: n ? `` : `pb-4`,
+                    children:
+                      t.type === `pending-status`
+                        ? a &&
+                          (0, Q.jsx)(`div`, {
+                            className: `mx-auto max-w-[700px] p-4 sm:p-6`,
+                            children: (0, Q.jsx)(Or, { environment: a }),
+                          })
+                        : (0, Q.jsx)(`div`, {
+                            className: `mx-auto max-w-[700px] px-4 sm:px-6`,
+                            children: (0, Q.jsx)(li, {
+                              row: t.row,
+                              isLast: t.messageIndex === x.length - 1,
+                              isLastTodoGroup: t.messageIndex === C,
+                              agentExecution: i,
+                              onClick: o,
+                              onSendMessage: s,
+                              readOnly: c,
+                              integrationSource: w,
+                              integrationURL: T,
+                              firstUserMessageID: E,
+                            }),
+                          }),
+                  },
+                  e.key,
+                );
+              }),
+            }),
+            e.isCompletingHistory &&
+              (0, Q.jsx)(`div`, {
+                className: `flex justify-center py-3`,
+                "data-testid": `completing-history`,
+                children: (0, Q.jsx)(pi, {}),
+              }),
+          ],
+        }),
+      ],
+    });
+  });
+function li(e) {
+  let {
+      row: t,
+      isLast: n,
+      isLastTodoGroup: r,
+      agentExecution: i,
+      onClick: a,
+      onSendMessage: o,
+      readOnly: s,
+      integrationSource: c,
+      integrationURL: l,
+      firstUserMessageID: u,
+    } = e,
+    d = t.message;
+  if (d.type === `user`) {
+    let e = d.id === u;
+    return (0, Q.jsx)(`div`, {
+      className: `flex w-full justify-end`,
+      "data-message-id": `user-${d.id}`,
+      children: (0, Q.jsx)(Ln, {
+        agentExecution: i,
+        message: d,
+        onClick: a,
+        isLast: n,
+        onSendMessage: o,
+        readOnly: s,
+        isIntegrationPrompt: e,
+        integrationSource: c,
+        integrationURL: l,
+        "data-tracking-id": `user-message-conversation-view`,
+      }),
+    });
+  }
+  if (d.type === `agent`)
+    return (0, Q.jsx)(`div`, {
+      className: `w-full`,
+      children: (0, Q.jsx)(Ln, {
+        agentExecution: i,
+        message: d,
+        onClick: a,
+        isLast: n,
+        onSendMessage: o,
+        readOnly: s,
+        "data-tracking-id": `agent-message-conversation-view`,
+      }),
+    });
+  if (d.type === `todo-group`) {
+    let { started: e, total: t } = Sr(d.todos);
+    return (0, Q.jsxs)(`div`, {
+      className: `flex w-full flex-col gap-2`,
+      children: [
+        (0, Q.jsxs)(`div`, {
+          className: `flex items-center gap-2`,
+          children: [
+            (0, Q.jsx)(`div`, {
+              className: `rounded bg-surface-muted px-1.5 py-0.5 text-xs font-medium uppercase tracking-[0.5px] text-content-muted`,
+              children: d.isContinuation ? `TODOs (Continued)` : `TODOs`,
+            }),
+            (0, Q.jsx)(`span`, { className: `text-sm font-medium text-content-muted`, children: `${e}/${t}` }),
+          ],
+        }),
+        (0, Q.jsx)(`div`, {
+          className: `flex flex-col overflow-clip rounded-lg border border-border-base bg-surface-pure dark:bg-surface-base`,
+          children: d.todos.map((e) =>
+            (0, Q.jsx)(
+              Pr,
+              {
+                todo: e,
+                isLastGroup: r,
+                agentExecution: i,
+                onClick: a,
+                "data-tracking-id": `todo-container-conversation-view`,
+              },
+              e.todoId,
+            ),
+          ),
+        }),
+      ],
+    });
+  }
+  return null;
+}
+function ui(e) {
+  for (let t = e.length - 1; t >= 0; t--) if (e[t]?.message.type === `todo-group`) return t;
+  return -1;
+}
+function di(e, t) {
+  return e.message.type === `todo-group`
+    ? !t
+    : e.message.type === `user`
+      ? !0
+      : e.message.fragments.some((e) => e.type !== `userInputSeen`);
+}
+function fi(e) {
+  return { key: `pending-user-${e.id}`, message: e };
+}
+function pi() {
+  return (0, Q.jsx)(`span`, {
+    className: `inline-flex items-center gap-1`,
+    "aria-label": `Loading older messages`,
+    children: [0, 1, 2].map((e) =>
+      (0, Q.jsx)(
+        `span`,
+        {
+          className: `h-1.5 w-1.5 animate-pulse rounded-full bg-content-tertiary`,
+          style: { animationDelay: `${e * 200}ms` },
+        },
+        e,
+      ),
+    ),
+  });
+}
+var mi = (0, Z.forwardRef)(
+  (
+    {
+      messages: e,
+      stream: t,
+      onClick: n,
+      agentExecution: r,
+      className: i,
+      onSendMessage: a,
+      pendingInteractiveBlock: o,
+      readOnly: s,
+      pendingMessages: c,
+      inlineUnseenUserInputIds: l,
+      onScrollToLastUserMessageReady: u,
+      onScrollStateChange: d,
+    },
+    f,
+  ) => {
+    let p = Se(r),
+      m = (0, Z.useRef)(null),
+      h = (0, Z.useRef)(null);
+    (0, Z.useImperativeHandle)(
+      f,
+      () => ({
+        scrollToBottom: () => {
+          t ? m.current?.scrollToBottom() : h.current?.scrollToBottom();
+        },
+      }),
+      [t],
+    );
+    let g = (0, Z.useMemo)(
+        () =>
+          e
+            .map((t, n) => {
+              if (t.type !== `agent`) return t;
+              let r = t.fragments.filter(
+                (t) => !((o && t.id === o.id) || Yr(t, n, e) || (s && t.type === `nextStepsProposal`)),
+              );
+              return r.length === t.fragments.length ? t : { ...t, fragments: r };
+            })
+            .filter((e) => (e.type === `agent` ? e.fragments.some((e) => !Rr.has(e.type)) : !0)),
+        [e, o, s],
+      ),
+      { data: _ } = Pe(p);
+    return (0, Q.jsxs)(`div`, {
+      className: q(
+        t
+          ? `flex h-full w-full min-h-0 flex-col`
+          : `mx-auto flex h-full w-full max-w-[700px] flex-col items-start gap-4 p-4 sm:p-6`,
+        i,
+      ),
+      children: [
+        t
+          ? (0, Q.jsx)(`div`, {
+              className: `flex min-h-0 w-full flex-1`,
+              children: (0, Q.jsx)(ci, {
+                ref: m,
+                stream: t,
+                agentExecution: r,
+                environment: _,
+                onClick: n,
+                onSendMessage: a,
+                readOnly: s,
+                pendingMessages: c,
+                inlineUnseenUserInputIds: l,
+                onScrollToLastUserMessageReady: u,
+                onScrollStateChange: d,
+                "data-tracking-id": `conversation-view-chat-messages`,
+              }),
+            })
+          : (0, Q.jsx)(Wr, {
+              ref: h,
+              messages: g,
+              agentExecution: r,
+              onClick: n,
+              onSendMessage: a,
+              readOnly: s,
+              "data-tracking-id": `default-tracking-id`,
+            }),
+        (r?.status?.warningMessage || r?.status?.failureMessage) &&
+          (0, Q.jsxs)(`div`, {
+            className: q(`flex-col items-start gap-4`, { "mx-auto w-full max-w-[700px] px-4 sm:px-6 pb-4": t }),
+            children: [
+              r?.status?.warningMessage &&
+                (0, Q.jsx)(ge, {
+                  variant: `warning`,
+                  text: r.status.warningMessage,
+                  "data-testid": `agent-execution-warning-banner`,
+                }),
+              r?.status?.failureMessage &&
+                (0, Q.jsx)(ge, {
+                  variant: `danger`,
+                  text: r.status.failureMessage,
+                  "data-testid": `agent-execution-failure-banner`,
+                }),
+            ],
+          }),
+      ],
+    });
+  },
+);
+mi.displayName = `ChatMessages`;
+var hi = class extends Error {
+  constructor(e = `streaming v2 not enabled for this execution`) {
+    (super(e), (this.name = `StreamingV2NotEnabledError`));
+  }
+};
+function gi(e) {
+  return `${e.replace(/\/$/, ``)}/history`;
+}
+function _i(e) {
+  return `${e.replace(/\/$/, ``)}/live`;
+}
+function vi(e) {
+  return `${e.replace(/\/$/, ``)}/blobs`;
+}
+var yi = new Set([`availableCommands`, `clarifyingQuestions`, `nextStepsProposal`]);
+function bi(e) {
+  return e.type === `agent` && yi.has(e.content.output.case ?? ``);
+}
+var xi = class e {
+  _messages = [];
+  _items = [];
+  _transcriptItems = [];
+  _userMessages = [];
+  _optimisticPendingUserMessages = [];
+  _todoGroupsById = new Map();
+  _todoGroupSnapshotsById = new Map();
+  _currentAgentMessage = null;
+  _nextAgentId = 0;
+  _blockIdToMessageIdx = new Map();
+  _skipNextTextBlock = !1;
+  _processedUserInputIds = new Set();
+  _userInputSeenIds = new Set();
+  _userInputDeletedIds = new Set();
+  _processedUserInputSeenBlockIds = new Set();
+  _currentTurnSeenUserInputIds = new Set();
+  _lastSeqId = new Map();
+  _lastBlockId = null;
+  _lastUserMessageIdx = null;
+  blobUrl;
+  _resolveUserInput;
+  get items() {
+    return this._items;
+  }
+  get transcriptItems() {
+    return this._transcriptItems;
+  }
+  get pendingUserMessages() {
+    let e = (e) => {
+        let t = Ci(e.id);
+        return !this._userInputSeenIds.has(t) && !this._userInputDeletedIds.has(t);
+      },
+      t = this._userMessages.filter(e).toSorted(Ei),
+      n = new Set(t.map((e) => e.id));
+    return [...t, ...this._optimisticPendingUserMessages.filter((t) => e(t) && !n.has(Ci(t.id)))];
+  }
+  getTodoGroup(e) {
+    return this._todoGroupSnapshotsById.get(e) ?? this._todoGroupsById.get(e);
+  }
+  get messageCount() {
+    return this._messages.length;
+  }
+  setUserInputResolver(e) {
+    this._resolveUserInput = e;
+  }
+  async appendBlock(e) {
+    return this._appendBlock(e);
+  }
+  async _appendBlock(e) {
+    if (bi(e)) {
+      let t = e.type === `agent` ? e.content.output.case : void 0;
+      return (t === `clarifyingQuestions` && (this._skipNextTextBlock = !0), { changed: !1, liftedBlock: t });
+    }
+    return e.type === `user`
+      ? this._appendUserBlock(e)
+      : e.type === `agentMsg`
+        ? this._appendAgentMsgBlock(e)
+        : this._appendAgentBlock(e);
+  }
+  async _resolveUserInputBlock(e) {
+    if (!e || !this._resolveUserInput) return !1;
+    let t = await this._resolveUserInput(e);
+    return !t || t.content.id !== e ? !1 : this._appendUserBlock(t).changed;
+  }
+  _appendUserBlock(e) {
+    let t = e.content;
+    if (this._processedUserInputIds.has(t.id))
+      return (l(`ml.appendUserBlock.dedup`, { inputId: t.id }), { changed: !1 });
+    (this._processedUserInputIds.add(t.id),
+      l(`ml.appendUserBlock`, {
+        inputId: t.id,
+        blockId: e.id,
+        messageCountBefore: this._messages.length,
+        userMessageCountBefore: this._userMessages.length,
+        existingMessageTypes: this._messages.map((e) => `${e.type}:${e.id}`),
+        hasInputs: t.inputs && t.inputs.length > 0,
+        inputCase: t.input?.case,
+      }));
+    let n = this._buildUserMessage(e);
+    return (this._storeUserMessage(n), { changed: !0 });
+  }
+  _buildUserMessage(e) {
+    let t = e.content,
+      n = {
+        id: t.id,
+        type: `user`,
+        fragments: [],
+        createdAt: t.createdAt,
+        ...(t.metadata?.modes.length ? { modes: t.metadata.modes } : {}),
+      },
+      r =
+        t.inputs && t.inputs.length > 0
+          ? t.inputs.map((t) => ({ input: t.input, idPrefix: `${e.id}-` }))
+          : t.input?.case
+            ? [{ input: t.input, idPrefix: `` }]
+            : [];
+    for (let { input: t, idPrefix: i } of r)
+      switch (t.case) {
+        case `text`:
+          n.fragments.push({ type: `text`, id: i ? `${i}text-${n.fragments.length}` : e.id, content: t.value.content });
+          break;
+        case `image`: {
+          let r = t.value;
+          n.fragments.push({
+            type: `image`,
+            id: i ? `${i}image-${n.fragments.length}` : e.id,
+            data: r.data,
+            mimeType: r.mimeType,
+            blobUrl: r.dataRef ? Ai(this.blobUrl, r.dataRef) : void 0,
+          });
+          break;
+        }
+      }
+    return n;
+  }
+  _insertMessageAt(e, t) {
+    (this._messages.splice(e, 0, t), (this._lastUserMessageIdx = e));
+    for (let [t, n] of this._blockIdToMessageIdx) n >= e && this._blockIdToMessageIdx.set(t, n + 1);
+  }
+  _appendAgentMsgBlock(e) {
+    this._sealCurrentAgent();
+    let t = {
+      id: e.id,
+      type: `user`,
+      fragments: [
+        {
+          type: `agentMessage`,
+          id: e.id,
+          payload: e.content.payload,
+          messageType: e.content.type,
+          role: e.content.role,
+          senderExecutionId: e.content.senderExecutionId,
+        },
+      ],
+    };
+    return (
+      this._messages.push(t),
+      (this._lastUserMessageIdx = this._messages.length - 1),
+      (this._currentAgentMessage = null),
+      this._regroup(),
+      { changed: !0 }
+    );
+  }
+  async _appendAgentBlock(e) {
+    let t = e.content,
+      n = t.output.case;
+    if (
+      (l(`ml.appendAgentBlock`, {
+        blockId: e.id,
+        outputCase: n,
+        phase: t.phase,
+        todoGroupId: t.todoGroupId || ``,
+        todoItemId: t.todoItemId || ``,
+        hasCurrentAgent: this._currentAgentMessage !== null,
+        currentAgentFragCount: this._currentAgentMessage?.fragments.length ?? 0,
+        lastBlockId: this._lastBlockId,
+        ...(n === `text` && t.output.value ? { textPreview: (t.output.value.content ?? ``).slice(0, 200) } : {}),
+        ...(n === `todoGroup` && t.output.value
+          ? {
+              todoGroupSnapshot: {
+                groupId: t.output.value.groupId,
+                items: t.output.value.todos.map((e) => ({ id: e.id, title: e.title, phase: e.phase })),
+              },
+            }
+          : {}),
+      }),
+      n === `userInputSeen`)
+    )
+      return this._handleUserInputSeen(e);
+    if (n === `userInputDeleted`) return this._handleUserInputDeleted(e);
+    let r = this._blockIdToMessageIdx.get(e.id);
+    if (r !== void 0 && !(n === `todoGroup` && this._lastUserMessageIdx !== null && r < this._lastUserMessageIdx))
+      return this._mergeIntoExisting(e, r);
+    if (this._skipNextTextBlock && (n === `text` || n === `thought`))
+      return ((this._skipNextTextBlock = !1), { changed: !1 });
+    if ((this._currentAgentMessage === null && this._startNewAgentMessage(), n === `actionCompleted`))
+      return (
+        this._markActionCompleted(t.output.value),
+        this._blockIdToMessageIdx.set(e.id, this._messages.length - 1),
+        this._regroup(),
+        { changed: !0 }
+      );
+    if (this._lastBlockId !== null && this._lastBlockId !== e.id && this._currentAgentMessage) {
+      let e = this._currentAgentMessage.fragments.findLast((e) => e.id === this._lastBlockId);
+      e && (e.type === `text` || e.type === `thinking`) && !e.completed && (e.completed = !0);
+    }
+    let i = this._blockToFragment(e);
+    return i === null
+      ? { changed: !1 }
+      : (t.todoGroupId && ((i.todoGroupId = t.todoGroupId), (i.todoItemId = t.todoItemId)),
+        this._currentAgentMessage.fragments.push(i),
+        this._blockIdToMessageIdx.set(e.id, this._messages.length - 1),
+        (this._lastBlockId = e.id),
+        n === `text` && this._trackSequenceId(e.id, t.output.value.sequenceId ?? 0n),
+        n === `actionStarted` && (this._skipNextTextBlock = !1),
+        n === `clarifyingQuestions` && (this._skipNextTextBlock = !0),
+        this._regroup(),
+        { changed: !0 });
+  }
+  _mergeIntoExisting(e, t) {
+    let n = e.content,
+      r = this._messages[t];
+    if (!r || r.type !== `agent`) return { changed: !1 };
+    let i = n.output;
+    if (i.case === `actionCompleted`) return (this._markActionCompleted(i.value), this._regroup(), { changed: !0 });
+    let a = r.fragments.findIndex((t) => t.id === e.id);
+    if (a === -1) {
+      let t = this._blockToFragment(e);
+      return t === null
+        ? { changed: !1 }
+        : (r.fragments.push(t),
+          i.case === `text` && this._trackSequenceId(e.id, i.value.sequenceId ?? 0n),
+          this._regroup(),
+          { changed: !0 });
+    }
+    let o = r.fragments[a];
+    if (
+      (i.case === `text` && (o.type === `text` || o.type === `thinking`)) ||
+      (i.case === `thought` && o.type === `thinking`)
+    ) {
+      let t = i.case === `text` ? (i.value.sequenceId ?? 0n) : 0n,
+        s = this._mergeTextContent(o, e.id, i.value.content, t, n.phase, r.fragments, a);
+      if (s !== null) return (s && this._regroup(), { changed: s });
+    }
+    if (i.case === `todoGroup` && o.type === `todoGroup`) {
+      let e = i.value,
+        t = o;
+      return (
+        (t.groupId = e.groupId),
+        (t.todos = e.todos.map((e) => ({ id: e.id, title: e.title, phase: e.phase }))),
+        this._regroup(),
+        { changed: !0 }
+      );
+    }
+    if (i.case === `actionStarted` && o.type === `action`) {
+      let e = o;
+      if (e.state === `completed` || e.state === `failed`) return { changed: !1 };
+    }
+    let s = this._blockToFragment(e);
+    return s ? ((r.fragments[a] = s), this._regroup(), { changed: !0 }) : { changed: !1 };
+  }
+  async _handleUserInputSeen(e) {
+    if (e.id && this._processedUserInputSeenBlockIds.has(e.id)) return { changed: !1 };
+    e.id && this._processedUserInputSeenBlockIds.add(e.id);
+    let t = e.content.output,
+      n = (t.case === `userInputSeen` && t.value?.id) || ``,
+      r = n ? this._userInputSeenIds.has(n) : !0;
+    (n && this._userInputSeenIds.add(n), this._resolveUserInput && (await this._resolveUserInputBlock(n)));
+    let i = this._findUserMessage(n);
+    i && this._currentAgentMessage && this._currentAgentMessage.fragments.length > 0 && this._sealCurrentAgent();
+    let a =
+        this._currentAgentMessage === null ? this._messages.length : this._messages.indexOf(this._currentAgentMessage),
+      o = this._materializeUserInput(n, i, a);
+    return (
+      n && this._currentTurnSeenUserInputIds.add(n),
+      (this._skipNextTextBlock = !1),
+      o || !r ? (this._regroup(), { changed: !0 }) : { changed: !1 }
+    );
+  }
+  _handleUserInputDeleted(e) {
+    let t = e.content.output,
+      n = (t.case === `userInputDeleted` && t.value?.id) || ``;
+    return !n || this._userInputDeletedIds.has(n)
+      ? { changed: !1 }
+      : (this._userInputDeletedIds.add(n), { changed: !0 });
+  }
+  _storeUserMessage(e) {
+    let t = this._userMessages.findIndex((t) => t.id === e.id);
+    return t === -1
+      ? (this._userMessages.push(e), !0)
+      : wi([this._userMessages[t]], [e])
+        ? !1
+        : ((this._userMessages[t] = e), !0);
+  }
+  _findUserMessage(e) {
+    let t = this._userMessages.findIndex((t) => t.id === e);
+    if (t !== -1) return this._userMessages[t];
+    let n = this._optimisticPendingUserMessages.findIndex((t) => Ci(t.id) === e);
+    if (n !== -1) return { ...this._optimisticPendingUserMessages[n], id: e };
+  }
+  _materializeUserInput(e, t, n) {
+    return !e || !t || this._hasMaterializedUserInput(e) ? !1 : (this._insertMessageAt(Math.max(0, n), t), !0);
+  }
+  _hasMaterializedUserInput(e) {
+    return this._messages.some((t) => t.type === `user` && t.id === e);
+  }
+  _startNewAgentMessage() {
+    let e = { id: this._nextAgentId++, type: `agent`, fragments: [] };
+    (this._messages.push(e), (this._currentAgentMessage = e));
+  }
+  _sealCurrentAgent() {
+    if (this._currentAgentMessage) {
+      let e = this._currentAgentMessage.fragments
+        .filter((e) => (e.type === `text` || e.type === `thinking`) && !e.completed)
+        .map((e) => ({ type: e.type, id: e.id }));
+      e.length > 0 && l(`ml.sealCurrentAgent`, { agentId: this._currentAgentMessage.id, unsealedFragments: e });
+      for (let e of this._currentAgentMessage.fragments)
+        (e.type === `text` || e.type === `thinking`) && !e.completed && (e.completed = !0);
+    }
+    ((this._currentAgentMessage = null), (this._currentTurnSeenUserInputIds = new Set()));
+  }
+  _blockToFragment(e) {
+    let t = e.content,
+      n = t.output;
+    switch (n.case) {
+      case `text`:
+      case `thought`: {
+        let r = ki(n.value.content);
+        return r === null
+          ? null
+          : {
+              type: n.case === `thought` || n.value.type === W.THOUGHTS ? `thinking` : `text`,
+              id: e.id,
+              content: r,
+              completed: t.phase === U.COMPLETED,
+            };
+      }
+      case `actionStarted`:
+        return {
+          type: `action`,
+          id: e.id,
+          actionId: n.value.actionId,
+          state: `running`,
+          intentDescription: n.value.intentDescription,
+          resultDescription: ``,
+        };
+      case `actionCompleted`:
+        return {
+          type: `action`,
+          id: e.id,
+          actionId: n.value.actionId,
+          state: n.value.failed ? `failed` : `completed`,
+          intentDescription: ``,
+          resultDescription: n.value.resultDescription,
+        };
+      case `fileModification`: {
+        let t = n.value,
+          r = {
+            type: `fileModification`,
+            id: e.id,
+            actionId: t.actionId,
+            filePath: t.filePath,
+            content: t.content,
+            startLine: t.startLine || 1,
+          };
+        return (
+          t.diff &&
+            (r.diff = {
+              diffGroups: t.diff.diffGroups.map((e) => ({
+                type: e.type === H.ADDED ? `added` : e.type === H.REMOVED ? `removed` : `unchanged`,
+                lines: [...e.lines],
+              })),
+              stats: { additions: t.diff.stats?.additions ?? 0, deletions: t.diff.stats?.deletions ?? 0 },
+            }),
+          r
+        );
+      }
+      case `environmentCreation`:
+        return {
+          type: `environmentCreation`,
+          id: e.id,
+          actionId: n.value.actionId,
+          environmentId: n.value.environmentId,
+        };
+      case `hostAuthenticationRequired`:
+        return {
+          type: `hostAuthenticationRequired`,
+          id: e.id,
+          actionId: n.value.actionId,
+          host: n.value.host,
+          runnerId: n.value.runnerId,
+        };
+      case `todoItem`:
+        return { type: `todoItem`, id: e.id, todoItemId: n.value.id, title: n.value.title, status: n.value.phase };
+      case `todoGroup`: {
+        let t = n.value;
+        return {
+          type: `todoGroup`,
+          id: e.id,
+          groupId: t.groupId,
+          todos: t.todos.map((e) => ({ id: e.id, title: e.title, phase: e.phase })),
+        };
+      }
+      case `codeAnnotation`:
+        return {
+          type: `codeAnnotation`,
+          id: e.id,
+          filePath: n.value.filePath,
+          startLine: n.value.startLine,
+          endLine: n.value.endLine,
+          description: n.value.description,
+          title: n.value.title || ``,
+        };
+      case `agentModeChange`: {
+        let t;
+        switch (n.value.state) {
+          case G.SPEC_COMPLETE:
+            t = `specComplete`;
+            break;
+          case G.ITERATION_COMPLETE:
+            t = `iterationComplete`;
+            break;
+          case G.COMPLETE:
+            t = `complete`;
+            break;
+          case G.ONA_SPEC_COMPLETE:
+            t = `onaSpecComplete`;
+            break;
+          default:
+            t = `complete`;
+        }
+        return { type: `agentModeChange`, id: e.id, state: t, message: n.value.message };
+      }
+      case `clarifyingQuestions`:
+        return {
+          type: `clarifyingQuestions`,
+          id: e.id,
+          questions: n.value.questions.map((e) => ({
+            questionId: e.questionId,
+            question: e.question,
+            choices: e.choices.map((e) => ({ label: e.label, text: e.text, description: e.description || void 0 })),
+            allowOther: e.allowOther,
+          })),
+        };
+      case `nextStepsProposal`:
+        return {
+          type: `nextStepsProposal`,
+          id: e.id,
+          actions: n.value.actions.map((e) => ({
+            title: e.title,
+            prompt: e.prompt,
+            variant: e.variant === `primary` ? `primary` : `secondary`,
+          })),
+        };
+      case `userInput`:
+        return null;
+      case `userInputDeleted`:
+        return { type: `userInputDeleted`, id: e.id, value: { id: n.value.id } };
+      default:
+        return null;
+    }
+  }
+  _markActionCompleted(e) {
+    for (let t = this._messages.length - 1; t >= 0; t--) {
+      let n = this._messages[t];
+      if (n.type !== `agent`) continue;
+      let r = n.fragments.find((t) => t.type === `action` && t.actionId === e.actionId);
+      if (r) {
+        ((r.state = e.failed ? `failed` : `completed`), (r.resultDescription = e.resultDescription));
+        return;
+      }
+    }
+  }
+  _trackSequenceId(e, t) {
+    t > 0n && this._lastSeqId.set(e, t);
+  }
+  _mergeTextContent(e, t, n, r, i, a, o) {
+    let s = i === U.DELTA || i === U.UPDATE;
+    if (s) {
+      if (r > 0n) {
+        if (r <= (this._lastSeqId.get(t) ?? 0n)) return !1;
+        this._lastSeqId.set(t, r);
+      }
+    } else e.completed = !0;
+    let c = ki(s ? e.content + n : n);
+    return (c === null ? a.splice(o, 1) : (e.content = c), !0);
+  }
+  async prependChunk(t) {
+    if (t.blocks.length === 0) return !1;
+    let n = new e();
+    ((n._nextAgentId = 0), (n.blobUrl = this.blobUrl), n.setUserInputResolver(this._resolveUserInput));
+    for (let e of t.blocks) await n.appendBlock(e);
+    n._sealCurrentAgent();
+    let r = !1;
+    for (let e of n._userMessages) r = this._storeUserMessage(e) || r;
+    if (n._messages.length === 0) return r;
+    let i = this._fixBoundary(n),
+      a = n._messages.length;
+    for (let e of this._messages) e.type === `agent` && (e.id += a);
+    this._nextAgentId += a;
+    let o = +!!i,
+      s = i ? n._messages.length - 1 : -1,
+      c = new Map();
+    for (let [e, t] of this._blockIdToMessageIdx) i && t === 0 ? c.set(e, s) : c.set(e, t - o + a);
+    for (let [e, t] of n._blockIdToMessageIdx) c.set(e, t);
+    this._blockIdToMessageIdx = c;
+    for (let e of n._processedUserInputIds) this._processedUserInputIds.add(e);
+    for (let e of n._userInputSeenIds) this._userInputSeenIds.add(e);
+    for (let e of n._userInputDeletedIds) this._userInputDeletedIds.add(e);
+    for (let e of n._processedUserInputSeenBlockIds) this._processedUserInputSeenBlockIds.add(e);
+    return (
+      this._lastUserMessageIdx !== null && (this._lastUserMessageIdx = this._lastUserMessageIdx - o + a),
+      (this._messages = [...n._messages, ...this._messages]),
+      this._regroup(),
+      !0
+    );
+  }
+  _fixBoundary(e) {
+    if (e._messages.length === 0 || this._messages.length === 0) return !1;
+    let t = e._messages[e._messages.length - 1],
+      n = this._messages[0];
+    if (t.type !== `agent` || n.type !== `agent`) return !1;
+    let r = new Set(t.fragments.map((e) => e.id));
+    if (!n.fragments.some((e) => r.has(e.id))) return !1;
+    for (let e of n.fragments) {
+      let n = t.fragments.find((t) => t.id === e.id);
+      if (n)
+        if ((n.type === `text` && e.type === `text`) || (n.type === `thinking` && e.type === `thinking`))
+          ((n.content += e.content), (n.completed = e.completed));
+        else {
+          let r = t.fragments.indexOf(n);
+          r !== -1 && (t.fragments[r] = e);
+        }
+      else t.fragments.push(e);
+    }
+    return (this._messages.shift(), !0);
+  }
+  setPendingMessages(e) {
+    let t = this._optimisticPendingUserMessages.length,
+      n = this._optimisticPendingUserMessages,
+      r = [],
+      i = [];
+    for (let t of e) {
+      let e = `pending-${t.id}`,
+        n = [];
+      t.content && n.push({ type: `text`, id: `${e}-text-${n.length}`, content: t.content });
+      for (let r of t.images ?? [])
+        n.push({ type: `image`, id: `${e}-image-${n.length}`, data: r.data, mimeType: r.mimeType });
+      n.length !== 0 &&
+        (i.push({ id: e, type: `user`, fragments: n, ...(t.modes?.length ? { modes: t.modes } : {}) }), r.push(t.id));
+    }
+    this._optimisticPendingUserMessages = i;
+    let a = !wi(n, this._optimisticPendingUserMessages);
+    return (
+      l(`ml.setPendingMessages`, {
+        pendingCount: e.length,
+        beforeCount: t,
+        afterCount: this._optimisticPendingUserMessages.length,
+        added: r,
+      }),
+      a
+    );
+  }
+  _regroup() {
+    let e = fr(this._messages);
+    (this._todoGroupsById.clear(),
+      this._todoGroupSnapshotsById.clear(),
+      (this._items = e.map((e, t) => ({
+        key: Si(e, t),
+        message: e,
+        todoGroupId: e.type === `todo-group` ? e.groupId : void 0,
+      }))),
+      (this._transcriptItems = []));
+    for (let e of this._messages) {
+      let t = Di(e);
+      t && this._transcriptItems.push({ key: Si(t, this._transcriptItems.length), message: t });
+    }
+    for (let t of e) t.type === `todo-group` && this._todoGroupsById.set(t.groupId, t);
+    for (let e of this._messages)
+      if (e.type === `agent`)
+        for (let t of e.fragments) t.type === `todoGroup` && this._todoGroupSnapshotsById.set(t.groupId, Oi(t));
+    l(`ml.regroup`, {
+      messageCount: this._messages.length,
+      groupedCount: e.length,
+      groupedTypes: e.map((e) => e.type),
+      groupedDetail: e.map((e) =>
+        e.type === `user`
+          ? { type: `user`, id: e.id, fragmentCount: e.fragments.length }
+          : e.type === `todo-group`
+            ? {
+                type: `todo-group`,
+                groupId: e.groupId,
+                isContinuation: e.isContinuation,
+                todos: e.todos.map((e) => ({
+                  id: e.todoId,
+                  status: e.todoStatus,
+                  fragmentCount: e.fragments.length,
+                  fragmentTypes: e.fragments.map((e) => e.type),
+                })),
+              }
+            : {
+                type: `agent`,
+                fragmentCount: e.fragments.length,
+                fragmentTypes: e.fragments.map((e) => e.type),
+                fragmentIds: e.fragments.map((e) => e.id),
+              },
+      ),
+    });
+  }
+};
+function Si(e, t) {
+  if (e.type === `user`) return `user-${e.id}`;
+  if (e.type === `todo-group`) return `todo-${e.instanceId}`;
+  let n = e.fragments[0]?.id;
+  return n ? `agent-${n}` : `agent-${t}`;
+}
+function Ci(e) {
+  return e.startsWith(`pending-`) ? e.slice(8) : e;
+}
+function wi(e, t) {
+  if (e.length !== t.length) return !1;
+  for (let n = 0; n < e.length; n++) {
+    let r = e[n],
+      i = t[n];
+    if (!r || !i || r.id !== i.id || r.fragments.length !== i.fragments.length || !Ti(r.modes, i.modes)) return !1;
+    for (let e = 0; e < r.fragments.length; e++) {
+      let t = r.fragments[e],
+        n = i.fragments[e];
+      if (!t || !n || t.type !== n.type) return !1;
+      if (t.type === `text` && n.type === `text`) {
+        if (t.content !== n.content) return !1;
+      } else if (t.type === `image` && n.type === `image`) {
+        if (t.data !== n.data || t.mimeType !== n.mimeType || t.blobUrl !== n.blobUrl) return !1;
+      } else if (
+        t.type === `agentMessage` &&
+        n.type === `agentMessage` &&
+        (t.payload !== n.payload ||
+          t.messageType !== n.messageType ||
+          t.role !== n.role ||
+          t.senderExecutionId !== n.senderExecutionId)
+      )
+        return !1;
+    }
+  }
+  return !0;
+}
+function Ti(e, t) {
+  if ((e?.length ?? 0) !== (t?.length ?? 0)) return !1;
+  for (let n = 0; n < (e?.length ?? 0); n++) if (e?.[n] !== t?.[n]) return !1;
+  return !0;
+}
+function Ei(e, t) {
+  if (!e.createdAt && !t.createdAt) return 0;
+  if (!e.createdAt) return 1;
+  if (!t.createdAt) return -1;
+  let n = Number(e.createdAt.seconds - t.createdAt.seconds);
+  return n === 0 ? e.createdAt.nanos - t.createdAt.nanos : n;
+}
+function Di(e) {
+  if (e.type === `user`) return e;
+  let t = e.fragments.filter((e) => e.type !== `todoGroup` && e.type !== `todoItem`);
+  return t.length === 0 ? null : { ...e, fragments: t };
+}
+function Oi(e) {
+  return {
+    type: `todo-group`,
+    groupId: e.groupId,
+    instanceId: `${e.groupId}:snapshot`,
+    isContinuation: !1,
+    todos: e.todos.map((e) => ({ todoId: e.id, todoTitle: e.title, todoStatus: e.phase, fragments: [] })),
+  };
+}
+function ki(e) {
+  let t = e
+    .split(
+      `
+`,
+    )
+    .filter((e) => e.trim() !== `ONA_SPEC_COMPLETE`).join(`
+`);
+  return t.trim() === `` ? null : t;
+}
+function Ai(e, t) {
+  if (t && e)
+    try {
+      let n = new URL(e);
+      return ((n.pathname = `${n.pathname.replace(/\/$/, ``)}/${t}`), n.toString());
+    } catch {
+      return;
+    }
+}
+function ji(e) {
+  let t = r(e.executionId, e.storage),
+    n = new xi();
+  n.blobUrl = e.blobUrl;
+  let i = new Set(),
+    a = new Set(),
+    o = null,
+    s,
+    c = !1,
+    u = null,
+    d = !1,
+    f = !1,
+    p = null,
+    m = null,
+    h = null,
+    g = !1,
+    _ = Promise.resolve(),
+    v = new Set(),
+    y = new AbortController(),
+    b = null;
+  function x() {
+    if (((b = null), !g)) {
+      l(`stream.notify`, {
+        subscriberCount: v.size,
+        messageCount: n.messageCount,
+        itemCount: n.items.length,
+        messageTypes: n.items.map((e) => e.message.type),
+      });
+      for (let e of [...v])
+        try {
+          e();
+        } catch (e) {
+          console.warn(`MessageStream: subscriber threw`, e);
+        }
+    }
+  }
+  function S() {
+    (b !== null && (cancelAnimationFrame(b), (b = null)), x());
+  }
+  function C() {
+    g || b !== null || (b = requestAnimationFrame(x));
+  }
+  function w(e) {
+    let t,
+      n = !1,
+      r = _.catch(() => void 0).then(async () => {
+        if (g) {
+          n = !0;
+          return;
+        }
+        t = await e();
+      });
+    return (
+      (_ = r.then(
+        () => void 0,
+        () => void 0,
+      )),
+      r.then(() => {
+        if (n) throw Error(`MessageStream disposed`);
+        return t;
+      })
+    );
+  }
+  function T(e) {
+    let t = `blocks` in e ? e.blocks : [e];
+    for (let e of t) e.type === `agent` && e.content.todoGroupId && a.add(e.content.todoGroupId);
+  }
+  async function E(n) {
+    if (!n) return null;
+    for (let r of t.userInputs) {
+      let t = null;
+      try {
+        if (((t = await e.history.chunk(r.chunkId)), g)) return null;
+      } catch {
+        continue;
+      }
+      let i = t?.blocks[r.blockIdx];
+      if (i?.type === `user` && i.content.id === n) return i;
+    }
+    return null;
+  }
+  n.setUserInputResolver(E);
+  async function D(e) {
+    if (i.has(e.id)) return (l(`stream.feedChunkAppend.skip`, { chunkId: e.id, reason: `already processed` }), !1);
+    (i.add(e.id),
+      T(e),
+      l(`stream.feedChunkAppend`, {
+        chunkId: e.id,
+        blockCount: e.blocks.length,
+        blockTypes: e.blocks.map((e) => e.type),
+        blockIds: e.blocks.map((e) => e.id),
+        messageCountBefore: n.messageCount,
+      }));
+    let t = !1;
+    for (let r of e.blocks) {
+      let e = await n.appendBlock(r);
+      if (g) return t || e.changed;
+      e.changed && (t = !0);
+    }
+    return ((u = e.id), t);
+  }
+  async function O(e) {
+    return i.has(e.id) ? !1 : (i.add(e.id), T(e), await n.prependChunk(e));
+  }
+  function k(e) {
+    (o === null || !i.has(o)) && ((o = e.id), (s = e.previousId));
+  }
+  function A(e) {
+    ((o = e.id), (s = e.previousId), e.previousId === null && (c = !0));
+  }
+  function j(e, t) {
+    switch (e) {
+      case `availableCommands`:
+        return p === t ? !1 : ((p = t), !0);
+      case `clarifyingQuestions`:
+        return m === t ? !1 : ((m = t), !0);
+      case `nextStepsProposal`:
+        return h === t ? !1 : ((h = t), !0);
+    }
+  }
+  async function M() {
+    let n = !1;
+    for (let r of [`availableCommands`, `clarifyingQuestions`, `nextStepsProposal`]) {
+      let i = t[r];
+      if (i === null) {
+        n = j(r, null) || n;
+        continue;
+      }
+      try {
+        let t = await e.history.chunk(i.chunkId);
+        if (g) return;
+        n = j(r, t?.blocks[i.blockIdx] ?? null) || n;
+      } catch (e) {
+        (g || console.warn(`MessageStream: location block fetch failed`, e), (n = j(r, null) || n));
+      }
+    }
+    n && S();
+  }
+  async function N(e = `stateEvent`) {
+    (l(`stream.reconcile`, {
+      caller: e,
+      previousChunkId: t.previousChunkId,
+      newestProcessedId: u,
+      processedChunkCount: i.size,
+      oldestChunkId: o,
+    }),
+      await M(),
+      await P(),
+      await L(),
+      S());
+  }
+  async function P() {
+    let r = t.previousChunkId ?? ``;
+    if (
+      (l(`stream.reconcileHistory`, {
+        prev: r,
+        newestProcessedId: u,
+        processedChunkCount: i.size,
+        processedChunkIds: [...i],
+        oldestChunkId: o,
+        messageCount: n.messageCount,
+      }),
+      r === ``)
+    ) {
+      l(`stream.reconcileHistory.skip`, { reason: `no prev` });
+      return;
+    }
+    if (i.has(r)) {
+      l(`stream.reconcileHistory.skip`, { reason: `startId already processed`, startId: r });
+      return;
+    }
+    if (o === null) return F(r);
+    let a = null;
+    try {
+      if (((a = await e.history.chunk(r)), g)) return;
+    } catch {
+      l(`stream.reconcileHistory.fetchError`, { startId: r });
+      return;
+    }
+    if (a === null) {
+      l(`stream.reconcileHistory.seedNull`, { startId: r });
+      return;
+    }
+    if (
+      (l(`stream.reconcileHistory.seedFetched`, {
+        startId: r,
+        seedId: a.id,
+        seedBlockCount: a.blocks.length,
+        seedBlockTypes: a.blocks.map((e) => e.type),
+      }),
+      i.has(a.previousId ?? ``))
+    ) {
+      await D(a);
+      return;
+    }
+    return I(a);
+  }
+  async function F(n) {
+    l(`stream.fetchInitialPage`, { seedId: n, prev: t.previousChunkId ?? `` });
+    let [r, i] = await Promise.allSettled([e.history.chunk(n), e.history.chunksBefore(n)]);
+    if (g) return;
+    let a = r.status === `fulfilled` ? r.value : null,
+      o = i.status === `fulfilled` ? i.value : { chunks: [], hasMore: !1 },
+      s = [];
+    a && s.push(a);
+    for (let e of o.chunks) s.push(e);
+    if (o.chunks.length === 0 || !o.hasMore) {
+      let e = s[s.length - 1];
+      e && e.previousId === null && (c = !0);
+    }
+    if (s.length === 0) {
+      c = !0;
+      return;
+    }
+    s.reverse();
+    for (let e of s) (await D(e), k(e));
+    (s.length > 0 && A(s[0]),
+      l(`stream.fetchInitialPage.done`, { chunksLoaded: s.length, exhausted: c, newestProcessedId: u }));
+  }
+  async function I(t) {
+    let n = u;
+    if ((l(`stream.bridgeGap`, { seedId: t.id, startCursor: n }), !n)) {
+      (l(`stream.bridgeGap.noStartCursor`, { seedId: t.id }), await D(t));
+      return;
+    }
+    ((d = !0), S());
+    let r = n;
+    try {
+      for (;;) {
+        let t;
+        try {
+          t = await e.history.chunksAfter(r);
+        } catch {
+          if (g) return;
+          break;
+        }
+        if (g) return;
+        if (t.chunks.length === 0) break;
+        let n = !1;
+        for (let e = t.chunks.length - 1; e >= 0; e--) {
+          let r = t.chunks[e];
+          i.has(r.id) || ((await D(r)) && (n = !0));
+        }
+        if ((n && S(), !t.hasMore)) break;
+        r = t.chunks[0].id;
+      }
+      i.has(t.id) ||
+        (i.has(t.previousId ?? ``)
+          ? await D(t)
+          : l(`stream.bridgeGap.seedWithheld`, {
+              seedId: t.id,
+              seedPreviousId: t.previousId,
+              reason: `gap not fully bridged`,
+            }));
+    } finally {
+      ((d = !1), l(`stream.bridgeGap.done`, { newestProcessedId: u, processedChunkCount: i.size }), g || S());
+    }
+  }
+  async function L() {
+    for (let e of a) {
+      let n = t.todoGroups.get(e);
+      if (n && !i.has(n.firstChunkId)) {
+        l(`stream.completeTodoGroup`, {
+          groupId: e,
+          firstChunkId: n.firstChunkId,
+          lastChunkId: n.lastChunkId,
+          oldestChunkId: o,
+          processedChunkCount: i.size,
+        });
+        try {
+          if ((await ee(n.firstChunkId), g)) return;
+        } catch {}
+      }
+    }
+  }
+  async function R(e) {
+    switch (e.type) {
+      case `block`: {
+        let r = e.block.type,
+          i = e.block.id;
+        (l(`stream.liveBlock`, {
+          blockType: r,
+          blockId: i,
+          outputCase: r === `agent` ? e.block.content.output.case : r === `user` ? `userInput` : `agentMsg`,
+          phase: r === `agent` ? e.block.content.phase : void 0,
+          messageCountBefore: n.messageCount,
+          ...(r === `agent`
+            ? { todoGroupId: e.block.content.todoGroupId || ``, todoItemId: e.block.content.todoItemId || `` }
+            : {}),
+        }),
+          T(e.block));
+        let a = await n.appendBlock(e.block);
+        (l(`stream.liveBlock.result`, {
+          blockId: i,
+          changed: a.changed,
+          liftedBlock: a.liftedBlock,
+          messageCountAfter: n.messageCount,
+          itemTypes: n.items.map((e) => e.message.type),
+        }),
+          e.block.type === `user` && t.setClarifyingQuestions(null),
+          a.changed && C());
+        return;
+      }
+      case `state`:
+        (l(`stream.stateEvent`, {
+          chunkId: e.chunkId,
+          todoGroupCount: e.todoGroups.length,
+          userInputCount: e.userInputs.length,
+          hasAvailableCommands: e.availableCommands !== null,
+          hasClarifyingQuestions: e.clarifyingQuestions !== null,
+          hasNextStepsProposal: e.nextStepsProposal !== null,
+          processedChunkCount: i.size,
+          messageCountBefore: n.messageCount,
+        }),
+          t.setTodoGroups(e.todoGroups),
+          t.setAvailableCommands(e.availableCommands),
+          t.setClarifyingQuestions(e.clarifyingQuestions),
+          t.setNextStepsProposal(e.nextStepsProposal),
+          t.setUserInputs(e.userInputs),
+          t.setPreviousChunkId(e.chunkId),
+          S(),
+          await N(`stateEvent`));
+        return;
+    }
+  }
+  function z() {
+    let t,
+      r = !1,
+      i = new Promise((e) => {
+        t = e;
+      });
+    return (
+      (async () => {
+        l(`stream.consumeLive.start`, {});
+        try {
+          for await (let n of e.live.subscribe({ signal: y.signal })) {
+            if (g) return;
+            await w(async () => {
+              (await R(n), !r && n.type === `state` && ((r = !0), t()));
+            });
+          }
+          l(`stream.consumeLive.ended`, {
+            messageCount: n.messageCount,
+            itemTypes: n.items.map((e) => e.message.type),
+            fragments: n.items.map((e) =>
+              e.message.type === `agent`
+                ? e.message.fragments.map((e) => ({
+                    type: e.type,
+                    id: e.id,
+                    completed: `completed` in e ? e.completed : void 0,
+                  }))
+                : e.message.type,
+            ),
+          });
+        } catch (t) {
+          (l(`stream.consumeLive.error`, { error: String(t), messageCount: n.messageCount }),
+            g || (console.warn(`MessageStream: live subscription terminated`, t), e.onLiveError?.(t)));
+        }
+      })(),
+      i
+    );
+  }
+  let B = e.sseTimeoutMs ?? 3e4;
+  async function V() {
+    l(`stream.startup.loadState`, {});
+    let e = await t.load();
+    if (g) return;
+    l(`stream.startup.stateLoaded`, { hasCachedState: e, previousChunkId: t.previousChunkId });
+    let n = z(),
+      r = new Promise((e, t) => {
+        let r = setTimeout(() => t(Error(`SSE first state timeout`)), B);
+        n.then(
+          () => clearTimeout(r),
+          () => clearTimeout(r),
+        );
+      });
+    try {
+      (await Promise.race([n, r]), l(`stream.startup.sseSuccess`, {}));
+    } catch {
+      if (g) return;
+      (l(`stream.startup.sseFailed`, { reason: `timeout` }), e && (await w(() => N(`hydrate`))));
+    }
+  }
+  let H = V();
+  function U(e) {
+    return (
+      l(`stream.loadOlder`, { untilChunkId: e ?? null, oldestChunkId: o, processedChunkCount: i.size, exhausted: c }),
+      H.then(() =>
+        w(async () => {
+          ((f = !0), S());
+          try {
+            (await ee(e), await L());
+          } catch (e) {
+            g || console.warn(`MessageStream: loadOlder failed`, e);
+          } finally {
+            ((f = !1), g || S());
+          }
+        }).catch(() => {}),
+      )
+    );
+  }
+  async function ee(t) {
+    if (!(g || c) && o !== null && !(t && i.has(t))) {
+      l(`stream.loadOlderInner`, { untilChunkId: t ?? null, oldestChunkId: o, processedChunkCount: i.size });
+      do {
+        if (s === null) {
+          ((c = !0), S());
+          break;
+        }
+        let t = await e.history.chunksBefore(o);
+        if (g) return;
+        if (t.chunks.length === 0) {
+          ((c = !0), S());
+          break;
+        }
+        for (let e of t.chunks) i.has(e.id) || (await O(e));
+        if ((A(t.chunks[t.chunks.length - 1]), t.hasMore || (c = !0), S(), c)) break;
+      } while (t && !i.has(t));
+    }
+  }
+  function W(e) {
+    if (g) return () => {};
+    v.add(e);
+    let t = !0;
+    return () => {
+      t && ((t = !1), v.delete(e));
+    };
+  }
+  function te(e) {
+    l(`stream.setPendingMessages`, { count: e.length, ids: e.map((e) => e.id), messageCountBefore: n.messageCount });
+    let t = n.setPendingMessages(e);
+    (l(`stream.setPendingMessages.after`, {
+      messageCount: n.messageCount,
+      pendingUserMessageCount: n.pendingUserMessages.length,
+      itemTypes: n.items.map((e) => e.message.type),
+    }),
+      t && S());
+  }
+  function ne() {
+    let e;
+    for (let n of t.todoGroups.keys()) e = n;
+    if (e) return n.getTodoGroup(e);
+  }
+  function re() {
+    if (!g) {
+      ((g = !0), b !== null && (cancelAnimationFrame(b), (b = null)));
+      try {
+        y.abort();
+      } catch {}
+      try {
+        e.history.dispose();
+      } catch {}
+      v.clear();
+    }
+  }
+  return {
+    get messages() {
+      return n.items;
+    },
+    get transcriptMessages() {
+      return n.transcriptItems;
+    },
+    get pendingUserMessages() {
+      return n.pendingUserMessages;
+    },
+    get latestTodoGroup() {
+      return ne();
+    },
+    get availableCommands() {
+      return p;
+    },
+    get clarifyingQuestions() {
+      return m;
+    },
+    get nextStepsProposal() {
+      return h;
+    },
+    get exhausted() {
+      return c;
+    },
+    get isCompletingHistory() {
+      return d;
+    },
+    get isLoadingOlder() {
+      return f;
+    },
+    subscribe: W,
+    loadOlder: U,
+    setPendingMessages: te,
+    toSnapshot() {
+      return H.then(() =>
+        w(async () => {
+          let [r, a] = await Promise.all([e.history.toSnapshot(), t.toSnapshot()]);
+          return {
+            chunks: r,
+            streamState: a,
+            messages: n.items,
+            transcriptMessages: n.transcriptItems,
+            pendingUserMessages: n.pendingUserMessages,
+            processedChunkIds: [...i],
+            oldestChunkId: o,
+            exhausted: c,
+            completingHistory: d,
+          };
+        }),
+      );
+    },
+    dispose: re,
+  };
+}
+var Mi = `disposed: not in cache`;
+function Ni(e) {
+  let t = new AbortController(),
+    n = !1,
+    r = Promise.resolve();
+  function i(e) {
+    let t = r.then(e, e);
+    return ((r = t.catch(() => void 0)), t);
+  }
+  function a(e) {
+    return structuredClone(e);
+  }
+  function o(e) {
+    return { id: e.id, previousId: e.previousId, blocks: a(e.blocks) };
+  }
+  function s() {
+    try {
+      e.onCacheUsed?.(e.executionId);
+    } catch (e) {
+      console.warn(`ConversationHistory: onCacheUsed failed`, e);
+    }
+  }
+  async function c(t) {
+    try {
+      return await e.cache.getChunk(e.executionId, t);
+    } catch (e) {
+      return (console.warn(`ConversationHistory: cache.getChunk failed; treating as miss`, e), null);
+    }
+  }
+  async function l(t) {
+    try {
+      await e.cache.putChunk(e.executionId, t);
+    } catch (e) {
+      console.warn(`ConversationHistory: cache.putChunk failed`, e);
+    }
+  }
+  async function u(t) {
+    if (t.length !== 0)
+      try {
+        await e.cache.putChunks(e.executionId, t);
+      } catch (e) {
+        console.warn(`ConversationHistory: cache.putChunks failed`, e);
+      }
+  }
+  async function d(r) {
+    let i = await c(r);
+    if (i) return i;
+    if (n) throw Error(Mi);
+    let a = await e.source.chunkAt({ id: r, signal: t.signal });
+    return a ? (await l(a), a) : null;
+  }
+  function f(e) {
+    return (s(), i(() => d(e)).then((e) => (e ? o(e) : null)));
+  }
+  async function p(e) {
+    let t = await c(e);
+    if (!t) return null;
+    let n = [],
+      r = t.previousId;
+    for (; r !== null && n.length < 10; ) {
+      let e = await c(r);
+      if (!e) break;
+      (n.push(e), (r = e.previousId));
+    }
+    return { chunks: n, hasMore: r !== null };
+  }
+  async function m(r) {
+    let i = await p(r);
+    if (i && (i.chunks.length > 0 || !i.hasMore)) return i;
+    if (n) throw Error(Mi);
+    let a = await e.source.chunksBefore({ id: r, signal: t.signal });
+    return (await u(a.chunks), a);
+  }
+  function h(e) {
+    return (s(), i(() => m(e)).then((e) => ({ chunks: e.chunks.map(o), hasMore: e.hasMore })));
+  }
+  async function g(r) {
+    if (n) throw Error(Mi);
+    let i = await e.source.chunksAfter({ id: r, signal: t.signal });
+    return (await u(i.chunks), i);
+  }
+  function _(e) {
+    return (s(), i(() => g(e)).then((e) => ({ chunks: e.chunks.map(o), hasMore: e.hasMore })));
+  }
+  function v() {
+    if (!n) {
+      n = !0;
+      try {
+        t.abort();
+      } catch {}
+    }
+  }
+  function y() {
+    return (s(), i(() => e.cache.toSnapshot(e.executionId)));
+  }
+  return { chunk: f, chunksBefore: h, chunksAfter: _, toSnapshot: y, dispose: v };
+}
+function Pi(e, t) {
+  if (t.length < 1) return null;
+  let n = t[0],
+    r = t.slice(1);
+  try {
+    switch (n) {
+      case 1: {
+        let e = S(P, r);
+        return { id: `output-${e.id}`, type: `agent`, content: e };
+      }
+      case 2: {
+        let t = S(V, r);
+        return { id: `input-${t.id || e}`, type: `user`, content: t };
+      }
+      case 3: {
+        let t = S(R, r);
+        return { id: `agentmsg-${e}`, type: `agentMsg`, content: t };
+      }
+      default:
+        return (console.warn(`Unknown binary block tag: ${n}`), null);
+    }
+  } catch (e) {
+    return (console.warn(`Failed to parse binary block:`, e), null);
+  }
+}
+function Fi(e) {
+  async function t(t, n) {
+    let r = `${e.url()}?${t.toString()}`,
+      i = await fetch(r, {
+        method: `GET`,
+        mode: `cors`,
+        headers: { Authorization: `Bearer ${e.authToken()}`, Accept: `application/json` },
+        signal: n,
+      });
+    if (i.status === 404) throw new hi();
+    if (!i.ok) throw Error(`history: HTTP ${i.status}`);
+    return Ii(await i.json());
+  }
+  return {
+    async chunkAt(e) {
+      let n = new URLSearchParams();
+      n.set(`at`, e.id);
+      let { chunks: r } = await t(n, e.signal);
+      return r.length === 0 ? null : r[0];
+    },
+    async chunksBefore(e) {
+      let n = new URLSearchParams();
+      return (n.set(`before`, e.id), t(n, e.signal));
+    },
+    async chunksAfter(e) {
+      let n = new URLSearchParams();
+      return (n.set(`after`, e.id), t(n, e.signal));
+    },
+  };
+}
+function Ii(e) {
+  return { chunks: (Array.isArray(e.chunks) ? e.chunks : []).map(Li), hasMore: e.has_more === !0 };
+}
+function Li(e) {
+  if (typeof e.id != `string` || e.id.length === 0) throw Error(`history: chunk missing id`);
+  let t;
+  if (e.previous_id === null || e.previous_id === void 0) t = null;
+  else if (typeof e.previous_id == `string`) t = e.previous_id.length === 0 ? null : e.previous_id;
+  else throw Error(`history: chunk previous_id must be string or null`);
+  let n = Array.isArray(e.frames) ? e.frames : [],
+    r = [];
+  for (let t = 0; t < n.length; t++) {
+    let i = n[t];
+    if (typeof i != `string`) {
+      console.warn(`HistorySource: chunk ${e.id} frame[${t}] is not a string; skipping`);
+      continue;
+    }
+    let a;
+    try {
+      a = Ri(i);
+    } catch (n) {
+      console.warn(`HistorySource: chunk ${e.id} frame[${t}] base64 decode failed; skipping`, n);
+      continue;
+    }
+    let o = Pi(r.length, a);
+    o && r.push(o);
+  }
+  return { id: e.id, previousId: t, blocks: r };
+}
+function Ri(e) {
+  let t = atob(e),
+    n = new Uint8Array(t.length);
+  for (let e = 0; e < t.length; e++) n[e] = t.charCodeAt(e);
+  return n;
+}
+var zi = `block`,
+  Bi = `state`,
+  Vi = `end`,
+  Hi = 3e3;
+function Ui(e) {
+  return {
+    subscribe(t) {
+      return { [Symbol.asyncIterator]: () => Wi({ ...t, url: e.url, authToken: e.authToken }) };
+    },
+  };
+}
+async function* Wi(e) {
+  let t = e.reconnectDelayMs ?? Hi;
+  for (; !e.signal.aborted; ) {
+    try {
+      for await (let t of Gi(e)) {
+        if (e.signal.aborted) return;
+        t.type !== `end` && t.type !== `keepalive` && (yield t);
+      }
+      if (e.signal.aborted) return;
+    } catch (t) {
+      if (t instanceof hi) throw t;
+      if (e.signal.aborted) return;
+    }
+    if ((await Qi(t, e.signal), e.signal.aborted)) return;
+  }
+}
+async function* Gi(e) {
+  let t = await fetch(e.url(), {
+    method: `GET`,
+    mode: `cors`,
+    headers: { Authorization: `Bearer ${e.authToken()}`, Accept: `text/event-stream` },
+    signal: e.signal,
+  });
+  if (t.status === 404) throw new hi();
+  if (!t.ok || !t.body) throw Error(`live: HTTP ${t.status}`);
+  let n = t.body.getReader(),
+    r = new TextDecoder(`utf-8`),
+    i = ``;
+  try {
+    for (; !e.signal.aborted; ) {
+      let { done: e, value: t } = await n.read();
+      if (e) return;
+      for (i += r.decode(t, { stream: !0 }); ; ) {
+        let e = Zi(i);
+        if (!e) break;
+        let t = i.slice(0, e.start);
+        i = i.slice(e.end);
+        let n = Ki(t);
+        if (n && (yield n, n.type === `end`)) return;
+      }
+    }
+  } finally {
+    e.signal.aborted || n.releaseLock();
+  }
+}
+function Ki(e) {
+  let t = ``,
+    n = [],
+    r = !1;
+  for (let i of e.split(`
+`))
+    if (i !== ``) {
+      if (i.startsWith(`:`)) {
+        r = !0;
+        continue;
+      }
+      i.startsWith(`event:`) ? (t = i.slice(6).trim()) : i.startsWith(`data:`) && n.push(i.slice(5).replace(/^ /, ``));
+    }
+  if (t === Vi) return { type: `end` };
+  if (t === Bi && n.length > 0) {
+    let e;
+    try {
+      e = JSON.parse(n.join(``));
+    } catch (e) {
+      return (console.warn(`live: failed to parse state payload`, e), null);
+    }
+    if (typeof e.chunk_id != `string`) return (console.warn(`live: state payload missing chunk_id`), null);
+    let t = qi(e.todo_groups);
+    return {
+      type: `state`,
+      chunkId: e.chunk_id,
+      todoGroups: t ?? [],
+      availableCommands: Yi(e.available_commands),
+      clarifyingQuestions: Yi(e.clarifying_questions),
+      nextStepsProposal: Yi(e.next_steps_proposal),
+      userInputs: Ji(e.user_inputs),
+    };
+  }
+  if (t === zi && n.length > 0) {
+    let e;
+    try {
+      e = JSON.parse(n.join(``));
+    } catch (e) {
+      return (console.warn(`live: failed to parse block payload`, e), null);
+    }
+    if (typeof e.frame != `string` || e.frame.length === 0)
+      return (console.warn(`live: block payload missing frame`), null);
+    let t;
+    try {
+      t = Xi(e.frame);
+    } catch (e) {
+      return (console.warn(`live: failed to decode block payload`, e), null);
+    }
+    let r = Pi(0, t);
+    return r ? { type: `block`, block: r } : null;
+  }
+  return r && t === `` && n.length === 0 ? { type: `keepalive` } : null;
+}
+function qi(e) {
+  if (e == null) return [];
+  if (!Array.isArray(e)) return (console.warn(`live: todo_groups is not an array`), null);
+  let t = [];
+  for (let n of e) {
+    if (!n || typeof n != `object`) return (console.warn(`live: todo_groups entry is not an object`), null);
+    let e = n.group_id,
+      r = n.first_chunk_id,
+      i = n.last_chunk_id;
+    if (typeof e != `string` || e.length === 0) return (console.warn(`live: todo_groups entry missing group_id`), null);
+    if (typeof r != `string` || r.length === 0)
+      return (console.warn(`live: todo_groups entry missing first_chunk_id`), null);
+    if (typeof i != `string` || i.length === 0)
+      return (console.warn(`live: todo_groups entry missing last_chunk_id`), null);
+    t.push({ groupId: e, firstChunkId: r, lastChunkId: i });
+  }
+  return t;
+}
+function Ji(e) {
+  if (!Array.isArray(e)) return [];
+  let t = [];
+  for (let n of e) {
+    let e = Yi(n);
+    e && t.push(e);
+  }
+  return t;
+}
+function Yi(e) {
+  if (typeof e != `object` || !e) return null;
+  let t = e;
+  if (typeof t.chunk_id != `string` || t.chunk_id.length === 0) return null;
+  let n = typeof t.block_idx == `number` ? t.block_idx : 0;
+  return { chunkId: t.chunk_id, blockIdx: n };
+}
+function Xi(e) {
+  let t = atob(e),
+    n = new Uint8Array(t.length);
+  for (let e = 0; e < t.length; e++) n[e] = t.charCodeAt(e);
+  return n;
+}
+function Zi(e) {
+  let t = e.indexOf(`
+
+`),
+    n = e.indexOf(`\r
+\r
+`);
+  return t === -1 && n === -1
+    ? null
+    : n !== -1 && (t === -1 || n < t)
+      ? { start: n, end: n + 4 }
+      : { start: t, end: t + 2 };
+}
+function Qi(e, t) {
+  return new Promise((n) => {
+    if (t.aborted) {
+      n();
+      return;
+    }
+    let r = setTimeout(() => {
+        (t.removeEventListener(`abort`, i), n());
+      }, e),
+      i = () => {
+        (clearTimeout(r), n());
+      };
+    t.addEventListener(`abort`, i, { once: !0 });
+  });
+}
+function $i(e, t, r = {}) {
+  let { data: a, error: s } = Me(e),
+    c = (0, Z.useRef)(a);
+  c.current = a;
+  let l = (0, Z.useRef)(t);
+  l.current = t;
+  let u = (0, Z.useRef)(r.liveSource),
+    d = (0, Z.useRef)(r.historySource),
+    f = (0, Z.useRef)(r.chunkCache),
+    [p, m] = (0, Z.useState)(null),
+    [h, g] = (0, Z.useState)(void 0),
+    [_, v] = (0, Z.useState)(!0);
+  return (
+    (0, Z.useEffect)(() => {
+      if ((m(null), g(void 0), v(!0), !e)) return;
+      let t = e,
+        r = !1,
+        a = null;
+      function s() {
+        if (r) return;
+        let e = c.current,
+          p = l.current;
+        if (!e || !p?.history || !p.live) {
+          setTimeout(s, 50);
+          return;
+        }
+        let h = () => {
+            let e = c.current;
+            if (!e) throw Error(`auth token unavailable`);
+            return e;
+          },
+          _ = () => l.current?.history ?? ``,
+          y = () => l.current?.live ?? ``,
+          b = f.current ?? n(),
+          x = d.current ?? Fi({ url: _, authToken: h }),
+          S = u.current ?? Ui({ url: y, authToken: h }),
+          C = ji({
+            executionId: t,
+            history: Ni({ executionId: t, source: x, cache: b, onCacheUsed: (e) => void i(e) }),
+            live: S,
+            blobUrl: l.current?.blobs,
+            storage: o(),
+            onLiveError: (e) => {
+              r || g(e instanceof Error ? e : Error(String(e)));
+            },
+          });
+        (m(C), v(!1), (a = () => C.dispose()));
+      }
+      return (
+        s(),
+        () => {
+          ((r = !0), a?.());
+        }
+      );
+    }, [e]),
+    e ? { stream: p, error: h ?? (s || void 0), isLoading: _ } : { stream: null, isLoading: !1 }
+  );
+}
+function ea(e, t, n, r, i) {
+  let a = ta({ conversationUrls: i, conversationUrl: t, annotations: n }),
+    o = a !== void 0,
+    s = $i(o ? e : void 0, a),
+    c = sr(o ? void 0 : e, o ? void 0 : t, r);
+  return o
+    ? { kind: `v2`, error: s.error, isLoading: s.isLoading, stream: s.stream }
+    : {
+        kind: `v1`,
+        error: c.error,
+        isLoading: c.isLoading,
+        loadingMessage: c.loadingMessage,
+        messages: c.messages,
+        availableCommands: c.availableCommands,
+        lastAgentBlockContext: c.lastAgentBlockContext,
+      };
+}
+function ta(e) {
+  if (e.conversationUrls?.history && e.conversationUrls.live) return e.conversationUrls;
+  if (!(!e.conversationUrl || !ke(e.annotations)))
+    return C(se, { history: gi(e.conversationUrl), live: _i(e.conversationUrl), blobs: vi(e.conversationUrl) });
+}
+export {
+  Jr as a,
+  kn as c,
+  en as d,
+  Gt as f,
+  yt as h,
+  ei as i,
+  _n as l,
+  Vt as m,
+  mi as n,
+  qr as o,
+  Ht as p,
+  $r as r,
+  fr as s,
+  ea as t,
+  gn as u,
+};

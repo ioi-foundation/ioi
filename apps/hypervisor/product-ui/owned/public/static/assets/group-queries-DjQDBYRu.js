@@ -1,0 +1,1181 @@
+import { a as e } from "./rolldown-runtime-CGYlQKCx.js";
+import { n as t } from "./@mux-DLaEVubF.js";
+import { Kh as n, Xh as r, Yh as i, Zh as a, eg as o, g_ as s, og as c, qh as l } from "./vendor-DAwbZtf0.js";
+import {
+  Bn as u,
+  Dr as d,
+  Li as f,
+  Lr as p,
+  Rs as m,
+  Sr as h,
+  _r as g,
+  hr as _,
+  jt as v,
+  kr as y,
+  lt as b,
+  vn as x,
+  xr as S,
+} from "./use-boot-in-app-chat-t-J_VjKS.js";
+import {
+  a as C,
+  d as w,
+  f as T,
+  i as E,
+  l as D,
+  n as O,
+  o as k,
+  p as ee,
+  r as A,
+  s as j,
+  t as M,
+  u as N,
+} from "./group_pb-I8ZEj2uf.js";
+var P = e(t(), 1),
+  F = (e) =>
+    u(async (t) => {
+      let n = new Map(),
+        r = await e.groupService.listGroups({ filter: { groupIds: t } });
+      for (let e of r.groups) n.set(e.id, e);
+      return n;
+    }, 25),
+  I = null,
+  L = (e) => ((!I || I.api !== e) && (I = { loader: F(e), api: e }), I.loader);
+function R(e, t, n) {
+  let r = new Set(e.filter((e) => e.resourceType === n).map((e) => `${e.resourceId}:${e.resourceRole}`)),
+    i = new Set(t.filter((e) => e.resourceType === n).map((e) => `${e.resourceId}:${e.resourceRole}`));
+  if (r.size !== i.size) return !0;
+  for (let e of r) if (!i.has(e)) return !0;
+  return !1;
+}
+(new Set([N.ORG_ADMIN, N.ORG_MEMBER]),
+  new Set([N.AGENT_ADMIN]),
+  new Set([N.AGENT_ADMIN, N.AGENT_EXECUTOR, N.AGENT_VIEWER]),
+  new Set([N.AGENT_ADMIN]),
+  new Set([N.AGENT_EXECUTION_ADMIN, N.AGENT_EXECUTION_USER]),
+  new Set([N.ENVIRONMENT_IDENTITY, N.ENVIRONMENT_USER, N.RUNNER_ADMIN, N.RUNNER_MANAGED_ADMIN, N.RUNNER_USER]),
+  new Set([N.AGENT_EXECUTION_ADMIN, N.AGENT_EXECUTION_USER]),
+  new Set([N.AGENT_EXECUTION_USER, N.AGENT_EXECUTION_VIEWER, N.WORKFLOW_ADMIN]),
+  new Set([
+    N.AGENT_EXECUTION_ADMIN,
+    N.AGENT_EXECUTION_RUNNER,
+    N.AGENT_EXECUTION_USER,
+    N.AGENT_EXECUTION_VIEWER,
+    N.WORKFLOW_ADMIN,
+  ]),
+  new Set([N.AGENT_EXECUTION_USER]),
+  new Set([N.AGENT_EXECUTION_ADMIN, N.AGENT_EXECUTION_USER]),
+  new Set([N.AGENT_EXECUTION_RUNNER]),
+  new Set([N.AGENT_EXECUTION_RUNNER, N.AGENT_EXECUTION_USER]),
+  new Set([N.ENVIRONMENT_IDENTITY]),
+  new Set([N.ORG_ADMIN]),
+  new Set([N.ORG_ADMIN]),
+  new Set([N.ORG_ADMIN, N.ORG_AUDIT_LOG_READER]),
+  new Set([N.ORG_ADMIN]),
+  new Set([N.ORG_ADMIN]),
+  new Set([N.ORG_ADMIN, N.ORG_BILLING_VIEWER, N.ORG_MEMBER]),
+  new Set([N.ORG_ADMIN, N.ORG_BILLING_VIEWER]),
+  new Set([N.ORG_ADMIN]),
+  new Set([N.ORG_ADMIN]),
+  new Set([N.ORG_ADMIN]),
+  new Set([N.ORG_ADMIN]),
+  new Set([N.ORG_ADMIN]),
+  new Set([N.ORG_ADMIN]),
+  new Set([N.ORG_ADMIN, N.ORG_MEMBER]),
+  new Set([N.ORG_ADMIN]),
+  new Set([N.ORG_ADMIN]),
+  new Set([N.ORG_ADMIN]),
+  new Set([N.ORG_ADMIN]),
+  new Set([N.ORG_ADMIN]),
+  new Set([N.ORG_ADMIN]),
+  new Set([N.ENVIRONMENT_USER]),
+  new Set([N.RUNNER_ADMIN, N.RUNNER_MANAGED_ADMIN, N.RUNNER_USER]),
+  new Set([N.ENVIRONMENT_ADMIN, N.ENVIRONMENT_RUNNER]),
+  new Set([N.ENVIRONMENT_IDENTITY, N.ENVIRONMENT_USER]),
+  new Set([N.ENVIRONMENT_IDENTITY, N.ENVIRONMENT_USER]),
+  new Set([
+    N.ENVIRONMENT_ADMIN,
+    N.ENVIRONMENT_IDENTITY,
+    N.ENVIRONMENT_RUNNER,
+    N.ENVIRONMENT_USER,
+    N.ENVIRONMENT_VIEWER,
+  ]),
+  new Set([N.ENVIRONMENT_ADMIN, N.ENVIRONMENT_IDENTITY]),
+  new Set([N.ENVIRONMENT_IDENTITY, N.ENVIRONMENT_USER]),
+  new Set([N.ENVIRONMENT_ADMIN, N.RUNNER_ADMIN]),
+  new Set([N.ORG_ADMIN]),
+  new Set([N.ENVIRONMENT_USER]),
+  new Set([N.ENVIRONMENT_RUNNER]),
+  new Set([N.RUNNER_ADMIN, N.RUNNER_IDENTITY]),
+  new Set([N.RUNNER_ADMIN]),
+  new Set([N.RUNNER_ADMIN, N.RUNNER_IDENTITY, N.RUNNER_LOCAL_ADMIN, N.RUNNER_MANAGED_ADMIN, N.RUNNER_USER]),
+  new Set([N.RUNNER_ADMIN, N.RUNNER_LOCAL_ADMIN]),
+  new Set([N.ENVIRONMENT_USER, N.ENVIRONMENT_SERVICE_ADMIN, N.ENVIRONMENT_SERVICE_ENV, N.ENVIRONMENT_SERVICE_USER]),
+  new Set([N.ENVIRONMENT_IDENTITY, N.ENVIRONMENT_USER]),
+  new Set([N.ENVIRONMENT_SERVICE_ADMIN, N.ENVIRONMENT_SERVICE_ENV]),
+  new Set([
+    N.ENVIRONMENT_USER,
+    N.ENVIRONMENT_SERVICE_ADMIN,
+    N.ENVIRONMENT_SERVICE_ENV,
+    N.ENVIRONMENT_SERVICE_USER,
+    N.ENVIRONMENT_SERVICE_VIEWER,
+  ]),
+  new Set([N.ENVIRONMENT_USER, N.ENVIRONMENT_SERVICE_ADMIN, N.ENVIRONMENT_SERVICE_ENV]),
+  new Set([N.ENVIRONMENT_SERVICE_ENV, N.ENVIRONMENT_SERVICE_USER]),
+  new Set([N.ENVIRONMENT_SERVICE_ENV]),
+  new Set([N.ENVIRONMENT_IDENTITY, N.ENVIRONMENT_USER]),
+  new Set([N.ENVIRONMENT_TASK_ADMIN, N.ENVIRONMENT_TASK_ENV]),
+  new Set([
+    N.ENVIRONMENT_USER,
+    N.ENVIRONMENT_TASK_ADMIN,
+    N.ENVIRONMENT_TASK_ENV,
+    N.ENVIRONMENT_TASK_USER,
+    N.ENVIRONMENT_TASK_VIEWER,
+  ]),
+  new Set([N.ENVIRONMENT_USER, N.ENVIRONMENT_TASK_ADMIN, N.ENVIRONMENT_TASK_ENV]),
+  new Set([N.ENVIRONMENT_TASK_ENV, N.ENVIRONMENT_TASK_USER]),
+  new Set([N.ENVIRONMENT_TASK_ADMIN, N.ENVIRONMENT_TASK_ENV, N.ENVIRONMENT_TASK_USER]),
+  new Set([N.ENVIRONMENT_TASK_ENV, N.ENVIRONMENT_TASK_USER]),
+  new Set([N.ENVIRONMENT_TASK_ADMIN, N.ENVIRONMENT_TASK_ENV]),
+  new Set([N.ENVIRONMENT_TASK_ADMIN, N.ENVIRONMENT_TASK_ENV, N.ENVIRONMENT_TASK_USER, N.ENVIRONMENT_TASK_VIEWER]),
+  new Set([N.ENVIRONMENT_TASK_ENV]),
+  new Set([N.ORG_ADMIN, N.ORG_INSIGHTS_VIEWER]),
+  new Set([N.ORG_ADMIN, N.ORG_GROUPS_ADMIN]),
+  new Set([N.GROUP_ADMIN, N.ORG_ADMIN]),
+  new Set([N.GROUP_ADMIN]),
+  new Set([N.GROUP_ADMIN, N.GROUP_VIEWER, N.ORG_ADMIN, N.ORG_MEMBER]),
+  new Set([N.GROUP_ADMIN, N.ORG_ADMIN]),
+  new Set([N.GROUP_ADMIN, N.ORG_ADMIN]),
+  new Set([N.GROUP_ADMIN, N.ORG_ADMIN]),
+  new Set([N.GROUP_ADMIN, N.GROUP_VIEWER, N.ORG_ADMIN, N.ORG_MEMBER]),
+  new Set([
+    N.RUNNER_ADMIN,
+    N.RUNNER_IDENTITY,
+    N.RUNNER_MANAGED_ADMIN,
+    N.RUNNER_USER,
+    N.SERVICE_ACCOUNT_IDENTITY,
+    N.USER_IDENTITY,
+  ]),
+  new Set([N.HOST_AUTHENTICATION_TOKEN_ADMIN]),
+  new Set([N.HOST_AUTHENTICATION_TOKEN_ADMIN, N.HOST_AUTHENTICATION_TOKEN_UPDATER]),
+  new Set([N.HOST_AUTHENTICATION_TOKEN_ADMIN, N.HOST_AUTHENTICATION_TOKEN_UPDATER]),
+  new Set([N.ORG_ADMIN]),
+  new Set([N.ORG_ADMIN]),
+  new Set([N.ORG_ADMIN, N.ORG_MEMBER]),
+  new Set([N.ORG_ADMIN]),
+  new Set([N.USER_IDENTITY]),
+  new Set([N.USER_IDENTITY]),
+  new Set([N.USER_IDENTITY]),
+  new Set([N.ORG_ADMIN, N.ORG_MEMBER]),
+  new Set([N.ORG_ADMIN]),
+  new Set([N.ORG_ADMIN]),
+  new Set([N.ORG_ADMIN, N.ORG_MEMBER]),
+  new Set([N.ORG_ADMIN]),
+  new Set([N.ORG_ADMIN, N.ORG_MEMBER]),
+  new Set([N.ORG_ADMIN]),
+  new Set([N.ORG_ADMIN]),
+  new Set([N.ORG_ADMIN]),
+  new Set([N.ORG_ADMIN]),
+  new Set([N.ORG_ADMIN, N.ORG_MEMBER]),
+  new Set([N.ORG_ADMIN]),
+  new Set([N.ORG_ADMIN]),
+  new Set([N.ORG_ADMIN]),
+  new Set([N.ORG_ADMIN]),
+  new Set([N.ORG_ADMIN]),
+  new Set([N.ORG_ADMIN]),
+  new Set([N.ORG_ADMIN]),
+  new Set([N.ORG_ADMIN]),
+  new Set([N.ORG_ADMIN]),
+  new Set([N.USER_IDENTITY]),
+  new Set([N.USER_ADMIN, N.USER_IDENTITY]),
+  new Set([N.USER_ADMIN, N.USER_IDENTITY]),
+  new Set([N.PROJECT_ADMIN, N.PROJECT_EDITOR, N.PROJECT_USER]),
+  new Set([N.PROJECT_ADMIN, N.PROJECT_EDITOR]),
+  new Set([N.PROJECT_ADMIN, N.PROJECT_EDITOR, N.PROJECT_USER]),
+  new Set([N.PROJECT_ADMIN, N.PROJECT_EDITOR, N.PROJECT_USER]),
+  new Set([N.PROJECT_ADMIN, N.PROJECT_EDITOR]),
+  new Set([N.ORG_ADMIN, N.ORG_MEMBER, N.ORG_PROJECTS_ADMIN]),
+  new Set([N.PROJECT_ADMIN, N.PROJECT_EDITOR]),
+  new Set([N.PROJECT_ADMIN]),
+  new Set([N.PROJECT_ADMIN]),
+  new Set([N.PROJECT_ADMIN]),
+  new Set([N.PROJECT_ADMIN, N.PROJECT_EDITOR, N.PROJECT_USER]),
+  new Set([N.PROJECT_ADMIN, N.PROJECT_EDITOR]),
+  new Set([N.PROJECT_ADMIN, N.PROJECT_EDITOR]),
+  new Set([N.PROJECT_ADMIN, N.PROJECT_EDITOR, N.PROJECT_USER]),
+  new Set([N.PROJECT_ADMIN, N.PROJECT_EDITOR]),
+  new Set([N.ORG_ADMIN]),
+  new Set([N.ORG_ADMIN]),
+  new Set([N.ORG_ADMIN, N.ORG_MEMBER]),
+  new Set([N.ORG_ADMIN]),
+  new Set([N.ORG_ADMIN, N.ORG_MEMBER, N.ORG_RUNNERS_ADMIN]),
+  new Set([N.ORG_ADMIN, N.ORG_RUNNERS_ADMIN]),
+  new Set([N.RUNNER_ADMIN]),
+  new Set([N.RUNNER_ADMIN, N.RUNNER_LOCAL_ADMIN, N.RUNNER_MANAGED_ADMIN]),
+  new Set([N.RUNNER_ADMIN, N.RUNNER_LOCAL_ADMIN, N.RUNNER_MANAGED_ADMIN]),
+  new Set([N.RUNNER_ADMIN]),
+  new Set([
+    N.RUNNER_ADMIN,
+    N.RUNNER_CONFIGURATION_READER,
+    N.RUNNER_IDENTITY,
+    N.RUNNER_LOCAL_ADMIN,
+    N.RUNNER_MANAGED_ADMIN,
+    N.RUNNER_USER,
+  ]),
+  new Set([N.RUNNER_ADMIN, N.RUNNER_IDENTITY, N.RUNNER_LOCAL_ADMIN]),
+  new Set([N.RUNNER_ADMIN]),
+  new Set([N.RUNNER_ADMIN]),
+  new Set([N.RUNNER_ADMIN, N.RUNNER_CONFIGURATION_READER, N.RUNNER_IDENTITY, N.RUNNER_MANAGED_ADMIN, N.RUNNER_USER]),
+  new Set([N.RUNNER_ADMIN]),
+  new Set([N.RUNNER_ADMIN, N.RUNNER_USER]),
+  new Set([N.RUNNER_ADMIN]),
+  new Set([N.RUNNER_ADMIN]),
+  new Set([N.RUNNER_ADMIN, N.RUNNER_CONFIGURATION_READER, N.RUNNER_IDENTITY, N.RUNNER_MANAGED_ADMIN, N.RUNNER_USER]),
+  new Set([N.RUNNER_ADMIN]),
+  new Set([N.ORG_ADMIN, N.PROJECT_ADMIN, N.PROJECT_EDITOR, N.SERVICE_ACCOUNT_IDENTITY, N.USER_IDENTITY]),
+  new Set([N.ORG_ADMIN, N.PROJECT_ADMIN, N.PROJECT_EDITOR, N.SERVICE_ACCOUNT_IDENTITY, N.USER_IDENTITY]),
+  new Set([
+    N.ORG_ADMIN,
+    N.ORG_MEMBER,
+    N.PROJECT_ADMIN,
+    N.PROJECT_EDITOR,
+    N.PROJECT_USER,
+    N.SERVICE_ACCOUNT_IDENTITY,
+    N.USER_IDENTITY,
+  ]),
+  new Set([N.ENVIRONMENT_IDENTITY]),
+  new Set([N.ORG_ADMIN, N.PROJECT_ADMIN, N.PROJECT_EDITOR, N.SERVICE_ACCOUNT_IDENTITY, N.USER_IDENTITY]),
+  new Set([N.ORG_ADMIN, N.ORG_SECURITY_ADMIN]),
+  new Set([N.ORG_ADMIN]),
+  new Set([N.ORG_ADMIN, N.ORG_MEMBER, N.SECURITY_POLICY_ADMIN, N.SECURITY_POLICY_VIEWER]),
+  new Set([N.ORG_ADMIN, N.SECURITY_POLICY_ADMIN]),
+  new Set([N.ORG_ADMIN]),
+  new Set([N.SERVICE_ACCOUNT_ADMIN]),
+  new Set([N.SERVICE_ACCOUNT_ADMIN]),
+  new Set([N.SERVICE_ACCOUNT_ADMIN, N.SERVICE_ACCOUNT_IDENTITY]),
+  new Set([N.SERVICE_ACCOUNT_ADMIN]),
+  new Set([N.SERVICE_ACCOUNT_IDENTITY]),
+  new Set([N.SERVICE_ACCOUNT_ADMIN, N.SERVICE_ACCOUNT_IDENTITY]),
+  new Set([N.SERVICE_ACCOUNT_ADMIN, N.SERVICE_ACCOUNT_IDENTITY]),
+  new Set([N.ORG_ADMIN, N.ORG_MEMBER]),
+  new Set([N.ORG_ADMIN, N.SESSION_ADMIN]),
+  new Set([N.ORG_ADMIN, N.ORG_MEMBER, N.SESSION_ADMIN, N.SESSION_USER]),
+  new Set([N.ORG_ADMIN, N.SESSION_ADMIN]),
+  new Set([N.ORG_ADMIN, N.SESSION_ADMIN, N.SESSION_USER]),
+  new Set([N.ORG_ADMIN, N.SESSION_ADMIN]),
+  new Set([N.ORG_ADMIN, N.SESSION_ADMIN, N.SESSION_USER]),
+  new Set([N.ORG_ADMIN, N.SESSION_ADMIN]),
+  new Set([N.SNAPSHOT_ADMIN, N.SNAPSHOT_RUNNER]),
+  new Set([N.SNAPSHOT_ADMIN, N.SNAPSHOT_RUNNER]),
+  new Set([N.SNAPSHOT_ADMIN]),
+  new Set([N.ORG_ADMIN]),
+  new Set([N.ORG_ADMIN, N.TEAM_ADMIN]),
+  new Set([N.ORG_ADMIN, N.ORG_MEMBER, N.TEAM_ADMIN, N.TEAM_VIEWER]),
+  new Set([N.ORG_ADMIN, N.TEAM_ADMIN]),
+  new Set([N.ORG_ADMIN, N.TEAM_ADMIN]),
+  new Set([N.ORG_ADMIN, N.TEAM_ADMIN]),
+  new Set([N.ORG_ADMIN, N.ORG_MEMBER, N.TEAM_ADMIN, N.TEAM_VIEWER]),
+  new Set([N.ORG_ADMIN, N.ORG_MEMBER]),
+  new Set([N.ORG_ADMIN, N.ORG_MEMBER]),
+  new Set([N.ORG_ADMIN]),
+  new Set([N.USER_ADMIN, N.USER_IDENTITY]),
+  new Set([N.USER_ADMIN, N.USER_VIEWER]),
+  new Set([N.USER_ADMIN]),
+  new Set([N.USER_IDENTITY]),
+  new Set([N.USER_IDENTITY]),
+  new Set([N.USER_IDENTITY]),
+  new Set([N.USER_IDENTITY]),
+  new Set([N.USER_IDENTITY]),
+  new Set([N.PROJECT_ADMIN]),
+  new Set([N.WARMPOOL_ADMIN]),
+  new Set([N.WARMPOOL_ADMIN, N.WARMPOOL_RUNNER, N.WARMPOOL_VIEWER]),
+  new Set([N.WARMPOOL_ADMIN]),
+  new Set([N.WARMPOOL_RUNNER]),
+  new Set([N.ORG_ADMIN]),
+  new Set([N.ORG_ADMIN, N.WEBHOOK_ADMIN]),
+  new Set([N.ORG_ADMIN, N.ORG_MEMBER, N.WEBHOOK_ADMIN, N.WEBHOOK_VIEWER]),
+  new Set([N.ORG_ADMIN, N.WEBHOOK_ADMIN]),
+  new Set([N.ORG_ADMIN, N.ORG_AUTOMATIONS_ADMIN]),
+  new Set([N.ORG_ADMIN, N.WORKFLOW_ADMIN]),
+  new Set([N.WORKFLOW_ADMIN]),
+  new Set([N.ORG_ADMIN, N.WORKFLOW_ADMIN, N.WORKFLOW_EXECUTOR, N.WORKFLOW_USER, N.WORKFLOW_VIEWER]),
+  new Set([N.ORG_ADMIN, N.WORKFLOW_ADMIN]),
+  new Set([N.ORG_ADMIN, N.WORKFLOW_ADMIN, N.WORKFLOW_EXECUTOR, N.WORKFLOW_USER]),
+  new Set([N.ORG_ADMIN, N.WORKFLOW_ADMIN]),
+  new Set([N.ORG_ADMIN, N.WORKFLOW_ADMIN, N.WORKFLOW_EXECUTOR, N.WORKFLOW_USER, N.WORKFLOW_VIEWER]),
+  new Set([N.ORG_ADMIN, N.WORKFLOW_ADMIN]),
+  new Set([N.ORG_ADMIN, N.WORKFLOW_ADMIN, N.WORKFLOW_EXECUTOR]),
+  new Set([N.ORG_ADMIN, N.WORKFLOW_ADMIN]),
+  new Set([N.ORG_ADMIN, N.WORKFLOW_ADMIN, N.WORKFLOW_EXECUTOR, N.WORKFLOW_USER, N.WORKFLOW_VIEWER]),
+  new Set([N.ORG_ADMIN, N.WORKFLOW_ADMIN]));
+var z = {
+  [N.AGENT_ADMIN]: new Set([`agent:delete`, `agent:read`, `agent:update`]),
+  [N.AGENT_EXECUTOR]: new Set([`agent:read`]),
+  [N.AGENT_VIEWER]: new Set([`agent:read`]),
+  [N.AGENT_EXECUTION_ADMIN]: new Set([
+    `agentexecution:control`,
+    `agentexecution:delete`,
+    `agentexecution:read`,
+    `agentexecution:update`,
+  ]),
+  [N.AGENT_EXECUTION_RUNNER]: new Set([
+    `agentexecution:read`,
+    `agentexecution:update_metadata`,
+    `agentexecution:update_status`,
+  ]),
+  [N.AGENT_EXECUTION_USER]: new Set([
+    `agentexecution:control`,
+    `agentexecution:delete`,
+    `agentexecution:log_access`,
+    `agentexecution:read`,
+    `agentexecution:send_message`,
+    `agentexecution:update`,
+    `agentexecution:update_status`,
+  ]),
+  [N.AGENT_EXECUTION_VIEWER]: new Set([`agentexecution:log_access`, `agentexecution:read`]),
+  [N.ENVIRONMENT_ADMIN]: new Set([
+    `environment:delete`,
+    `environment:read`,
+    `environment:update`,
+    `environment:update_kernel_controls`,
+  ]),
+  [N.ENVIRONMENT_IDENTITY]: new Set([
+    `agentexecution:create`,
+    `agentsecurityevent:create`,
+    `environment:log_access`,
+    `environment:port_access`,
+    `environment:read`,
+    `environment:update`,
+    `environment:update_automations_file`,
+    `environmentservice:create`,
+    `environmenttask:create`,
+    `secret:read_value`,
+  ]),
+  [N.ENVIRONMENT_RUNNER]: new Set([`environment:delete`, `environment:read`, `environment:update_status`]),
+  [N.ENVIRONMENT_USER]: new Set([
+    `agentexecution:create`,
+    `environment:access`,
+    `environment:log_access`,
+    `environment:port_access`,
+    `environment:read`,
+    `environment:update_automations_file`,
+    `environment:update_ssh`,
+    `environmentservice:control`,
+    `environmentservice:create`,
+    `environmentservice:read`,
+    `environmentservice:update`,
+    `environmenttask:create`,
+    `environmenttask:read`,
+    `environmenttask:update`,
+  ]),
+  [N.ENVIRONMENT_VIEWER]: new Set([`environment:read`]),
+  [N.ENVIRONMENT_SERVICE_ADMIN]: new Set([
+    `environmentservice:control`,
+    `environmentservice:delete`,
+    `environmentservice:read`,
+    `environmentservice:update`,
+  ]),
+  [N.ENVIRONMENT_SERVICE_ENV]: new Set([
+    `environmentservice:control`,
+    `environmentservice:delete`,
+    `environmentservice:read`,
+    `environmentservice:update`,
+    `environmentservice:update_commands`,
+    `environmentservice:update_status`,
+  ]),
+  [N.ENVIRONMENT_SERVICE_USER]: new Set([
+    `environmentservice:control`,
+    `environmentservice:read`,
+    `environmentservice:update_commands`,
+  ]),
+  [N.ENVIRONMENT_SERVICE_VIEWER]: new Set([`environmentservice:read`]),
+  [N.ENVIRONMENT_TASK_ADMIN]: new Set([
+    `environmenttask:delete`,
+    `environmenttask:read`,
+    `environmenttask:update`,
+    `environmenttaskexecution:control`,
+    `environmenttaskexecution:delete`,
+    `environmenttaskexecution:read`,
+  ]),
+  [N.ENVIRONMENT_TASK_ENV]: new Set([
+    `environmenttask:delete`,
+    `environmenttask:read`,
+    `environmenttask:update`,
+    `environmenttask:update_command`,
+    `environmenttaskexecution:control`,
+    `environmenttaskexecution:create`,
+    `environmenttaskexecution:delete`,
+    `environmenttaskexecution:read`,
+    `environmenttaskexecution:update_status`,
+  ]),
+  [N.ENVIRONMENT_TASK_USER]: new Set([
+    `environmenttask:read`,
+    `environmenttask:update_command`,
+    `environmenttaskexecution:control`,
+    `environmenttaskexecution:create`,
+    `environmenttaskexecution:read`,
+  ]),
+  [N.ENVIRONMENT_TASK_VIEWER]: new Set([`environmenttask:read`, `environmenttaskexecution:read`]),
+  [N.GROUP_ADMIN]: new Set([
+    `group:delete`,
+    `group:grant`,
+    `group:read`,
+    `group:update`,
+    `groupmembership:create`,
+    `groupmembership:delete`,
+    `groupmembership:read`,
+  ]),
+  [N.GROUP_VIEWER]: new Set([`group:read`, `groupmembership:read`]),
+  [N.HOST_AUTHENTICATION_TOKEN_ADMIN]: new Set([
+    `hostauthenticationtoken:delete`,
+    `hostauthenticationtoken:read`,
+    `hostauthenticationtoken:update`,
+  ]),
+  [N.HOST_AUTHENTICATION_TOKEN_UPDATER]: new Set([`hostauthenticationtoken:read`, `hostauthenticationtoken:update`]),
+  [N.ORG_ADMIN]: new Set(
+    `agent:create.announcementbanner:create.announcementbanner:update.auditlogentry:read.billing:create.billing:delete.billing:read.billing:read_usage.billing:update.coupon:verify.couponredemption:create.couponredemption:read.customdomain:create.customdomain:delete.customdomain:read.customdomain:update.domainverification:create.domainverification:delete.domainverification:read.domainverification:update.domainverification:verify.environment:update_lockdown.environmentusagerecord:read.group:create.group:delete.group:read.group:update.groupmembership:create.groupmembership:delete.groupmembership:read.integration:create.integration:delete.integration:read.integration:update.oidc:read.oidc:update.org:delete.org:read.org:update.organization_llm_integration:read.orginvite:create.orginvite:delete.orginvite:read.orginvite:update.orgpolicy:read.orgpolicy:update.orgscim:create.orgscim:delete.orgscim:read.orgscim:update.orgsso:create.orgsso:delete.orgsso:read.orgsso:update.project:create.prompt:create.prompt:delete.prompt:read.prompt:update.runner:create_local.runner:create_remote.secret:create.secret:delete.secret:read.secret:update.securitypolicy:create.securitypolicy:delete.securitypolicy:read.securitypolicy:update.serviceaccount:create.session:create.session:delete.session:read.session:update.sessionresource:create.sessionresource:delete.sessionresource:read.sessionresource:update.team:create.team:delete.team:read.team:update.teammembership:create.teammembership:delete.teammembership:read.termsofservice:accept.termsofservice:read.termsofservice:update.webhook:create.webhook:delete.webhook:read.webhook:update.workflow:create.workflow:delete.workflow:read.workflow:update.workflowexecution:create.workflowexecution:delete.workflowexecution:read.workflowexecution:update.workflowexecutionaction:create.workflowexecutionaction:delete.workflowexecutionaction:read.workflowexecutionaction:update`.split(
+      `.`,
+    ),
+  ),
+  [N.ORG_AUDIT_LOG_READER]: new Set([`auditlogentry:read`]),
+  [N.ORG_AUTOMATIONS_ADMIN]: new Set([`workflow:create`]),
+  [N.ORG_BILLING_VIEWER]: new Set([`billing:read`, `billing:read_usage`]),
+  [N.ORG_GROUPS_ADMIN]: new Set([`group:create`]),
+  [N.ORG_INSIGHTS_VIEWER]: new Set([`environmentusagerecord:read`]),
+  [N.ORG_MEMBER]: new Set([
+    `agent:create`,
+    `billing:read`,
+    `customdomain:read`,
+    `group:read`,
+    `groupmembership:read`,
+    `integration:read`,
+    `oidc:read`,
+    `org:read`,
+    `organization_llm_integration:read`,
+    `orgpolicy:read`,
+    `project:create`,
+    `prompt:read`,
+    `runner:create_local`,
+    `secret:read`,
+    `securitypolicy:read`,
+    `session:create`,
+    `session:read`,
+    `team:read`,
+    `teammembership:read`,
+    `termsofservice:accept`,
+    `termsofservice:read`,
+    `webhook:read`,
+  ]),
+  [N.ORG_PROJECTS_ADMIN]: new Set([`project:create`]),
+  [N.ORG_RUNNERS_ADMIN]: new Set([`runner:create_local`, `runner:create_remote`]),
+  [N.ORG_SECURITY_ADMIN]: new Set([`securitypolicy:create`]),
+  [N.PROJECT_ADMIN]: new Set([
+    `prebuild:create`,
+    `prebuild:delete`,
+    `prebuild:log_access`,
+    `prebuild:read`,
+    `prebuild:update`,
+    `project:delete`,
+    `project:grant`,
+    `project:insights_read`,
+    `project:insights_write`,
+    `project:read`,
+    `project:update`,
+    `projectenvironmentclass:create`,
+    `projectenvironmentclass:read`,
+    `projectenvironmentclass:update`,
+    `secret:create`,
+    `secret:delete`,
+    `secret:read`,
+    `secret:update`,
+    `warmpool:create`,
+  ]),
+  [N.PROJECT_EDITOR]: new Set([
+    `prebuild:create`,
+    `prebuild:delete`,
+    `prebuild:log_access`,
+    `prebuild:read`,
+    `prebuild:update`,
+    `project:delete`,
+    `project:read`,
+    `project:update`,
+    `projectenvironmentclass:create`,
+    `projectenvironmentclass:read`,
+    `projectenvironmentclass:update`,
+    `secret:create`,
+    `secret:delete`,
+    `secret:read`,
+    `secret:update`,
+  ]),
+  [N.PROJECT_USER]: new Set([
+    `prebuild:create`,
+    `prebuild:log_access`,
+    `prebuild:read`,
+    `project:read`,
+    `projectenvironmentclass:read`,
+    `secret:read`,
+  ]),
+  [N.RUNNER_ADMIN]: new Set([
+    `agentexecution:create`,
+    `environment:create`,
+    `environment:update_kernel_controls`,
+    `environmentclass:create`,
+    `environmentclass:delete`,
+    `environmentclass:read`,
+    `environmentclass:update`,
+    `hostauthenticationtoken:create`,
+    `runner:create_token`,
+    `runner:delete`,
+    `runner:grant`,
+    `runner:logs_access`,
+    `runner:read`,
+    `runner:update`,
+    `runnerllmintegration:create`,
+    `runnerllmintegration:delete`,
+    `runnerllmintegration:read`,
+    `runnerllmintegration:update`,
+    `runnerllmintegration:use`,
+    `runnerscmintegration:create`,
+    `runnerscmintegration:delete`,
+    `runnerscmintegration:read`,
+    `runnerscmintegration:update`,
+  ]),
+  [N.RUNNER_CONFIGURATION_READER]: new Set([`runner:read`, `runnerllmintegration:read`, `runnerscmintegration:read`]),
+  [N.RUNNER_IDENTITY]: new Set([
+    `environmentclass:create`,
+    `environmentclass:read`,
+    `hostauthenticationtoken:create`,
+    `runner:read`,
+    `runner:update`,
+    `runnerllmintegration:read`,
+    `runnerscmintegration:read`,
+  ]),
+  [N.RUNNER_LOCAL_ADMIN]: new Set([
+    `environmentclass:read`,
+    `environmentclass:update`,
+    `runner:delete`,
+    `runner:grant`,
+    `runner:read`,
+    `runner:update`,
+  ]),
+  [N.RUNNER_MANAGED_ADMIN]: new Set([
+    `agentexecution:create`,
+    `environment:create`,
+    `environmentclass:read`,
+    `hostauthenticationtoken:create`,
+    `runner:delete`,
+    `runner:grant`,
+    `runner:read`,
+    `runnerllmintegration:read`,
+    `runnerscmintegration:read`,
+  ]),
+  [N.RUNNER_USER]: new Set([
+    `agentexecution:create`,
+    `environment:create`,
+    `environmentclass:read`,
+    `hostauthenticationtoken:create`,
+    `runner:read`,
+    `runnerllmintegration:read`,
+    `runnerllmintegration:use`,
+    `runnerscmintegration:read`,
+  ]),
+  [N.SECURITY_POLICY_ADMIN]: new Set([`securitypolicy:read`, `securitypolicy:update`]),
+  [N.SECURITY_POLICY_VIEWER]: new Set([`securitypolicy:read`]),
+  [N.SERVICE_ACCOUNT_ADMIN]: new Set([
+    `serviceaccount:create_token`,
+    `serviceaccount:delete`,
+    `serviceaccount:read`,
+    `serviceaccount:update`,
+    `serviceaccounttoken:delete`,
+    `serviceaccounttoken:read`,
+  ]),
+  [N.SERVICE_ACCOUNT_IDENTITY]: new Set([
+    `hostauthenticationtoken:create`,
+    `secret:create`,
+    `secret:delete`,
+    `secret:read`,
+    `secret:update`,
+    `serviceaccount:read`,
+    `serviceaccounttoken:create`,
+    `serviceaccounttoken:delete`,
+    `serviceaccounttoken:read`,
+  ]),
+  [N.SESSION_ADMIN]: new Set([
+    `session:delete`,
+    `session:read`,
+    `session:update`,
+    `sessionresource:create`,
+    `sessionresource:delete`,
+    `sessionresource:read`,
+    `sessionresource:update`,
+  ]),
+  [N.SESSION_USER]: new Set([`session:read`, `sessionresource:create`, `sessionresource:read`]),
+  [N.SNAPSHOT_ADMIN]: new Set([`snapshot:delete`, `snapshot:read`, `snapshot:update`]),
+  [N.SNAPSHOT_RUNNER]: new Set([`snapshot:delete`, `snapshot:read`]),
+  [N.TEAM_ADMIN]: new Set([
+    `team:delete`,
+    `team:read`,
+    `team:update`,
+    `teammembership:create`,
+    `teammembership:delete`,
+    `teammembership:read`,
+  ]),
+  [N.TEAM_VIEWER]: new Set([`team:read`, `teammembership:read`]),
+  [N.USER_ADMIN]: new Set([
+    `personalaccesstoken:delete`,
+    `personalaccesstoken:read`,
+    `user:delete`,
+    `user:read`,
+    `user:update_role`,
+  ]),
+  [N.USER_IDENTITY]: new Set([
+    `hostauthenticationtoken:create`,
+    `notification:delete`,
+    `notification:read`,
+    `notification:update`,
+    `personalaccesstoken:create`,
+    `personalaccesstoken:delete`,
+    `personalaccesstoken:read`,
+    `secret:create`,
+    `secret:delete`,
+    `secret:read`,
+    `secret:update`,
+    `user:delete`,
+    `user:update_self`,
+    `userpreference:create`,
+    `userpreference:delete`,
+    `userpreference:read`,
+    `userpreference:update`,
+  ]),
+  [N.USER_VIEWER]: new Set([`user:read`]),
+  [N.WARMPOOL_ADMIN]: new Set([`warmpool:delete`, `warmpool:read`, `warmpool:update`]),
+  [N.WARMPOOL_RUNNER]: new Set([`warmpool:read`, `warmpool:update_status`]),
+  [N.WARMPOOL_VIEWER]: new Set([`warmpool:read`]),
+  [N.WEBHOOK_ADMIN]: new Set([`webhook:delete`, `webhook:read`, `webhook:update`]),
+  [N.WEBHOOK_VIEWER]: new Set([`webhook:read`]),
+  [N.WORKFLOW_ADMIN]: new Set([
+    `agentexecution:log_access`,
+    `agentexecution:read`,
+    `workflow:delete`,
+    `workflow:grant`,
+    `workflow:read`,
+    `workflow:update`,
+    `workflowexecution:create`,
+    `workflowexecution:delete`,
+    `workflowexecution:read`,
+    `workflowexecution:update`,
+    `workflowexecutionaction:create`,
+    `workflowexecutionaction:delete`,
+    `workflowexecutionaction:read`,
+    `workflowexecutionaction:update`,
+  ]),
+  [N.WORKFLOW_EXECUTOR]: new Set([
+    `workflow:read`,
+    `workflowexecution:create`,
+    `workflowexecution:read`,
+    `workflowexecutionaction:create`,
+    `workflowexecutionaction:read`,
+  ]),
+  [N.WORKFLOW_USER]: new Set([
+    `workflow:read`,
+    `workflowexecution:create`,
+    `workflowexecution:read`,
+    `workflowexecutionaction:read`,
+  ]),
+  [N.WORKFLOW_VIEWER]: new Set([`workflow:read`, `workflowexecution:read`, `workflowexecutionaction:read`]),
+};
+function B(e) {
+  let t = new Map();
+  for (let n of e) {
+    let { resourceId: e, resourceType: r, resourceRole: i, groupId: a } = n;
+    t.has(r) || t.set(r, new Map());
+    let o = t.get(r),
+      s = o.get(e);
+    (s || ((s = { resourceId: e, resourceType: r, permissions: new Set(), groupIds: [] }), o.set(e, s)),
+      s.groupIds.includes(a) || s.groupIds.push(a));
+    let c = z[i];
+    if (c) for (let e of c) s.permissions.add(e);
+  }
+  return { data: t, groupPermissions: (e, n) => t.get(e)?.get(n)?.permissions ?? new Set() };
+}
+var V = {
+    listAll: () => _([`groups`, `list`]),
+    list: (e) => _([`groups`, `list`, `all`, { search: e || `` }]),
+    listPage: (e, t, n) => _([`groups`, `list`, `page`, e, { search: t || ``, ...n }]),
+    listInfinite: (e, t) => _([`groups`, `list`, `infinite`, { search: e || ``, ...t }]),
+    get: (e) => _([`groups`, `get`, e]),
+    getByName: (e) => _([`groups`, `getByName`, e]),
+    memberships: (e, t) => _([`groups`, `memberships`, e, ...(t == null ? [] : [t])]),
+    membershipsCursor: (e, t, n) => _([`groups`, `memberships`, e, `cursor`, t, { search: n || `` }]),
+    roleAssignments: (e, t, n) =>
+      _([
+        `groups`,
+        `roleAssignments`,
+        Object.fromEntries(
+          Object.entries({ resourceType: e, resourceId: t, groupId: n }).filter(([, e]) => e !== void 0),
+        ),
+      ]),
+    userRoleAssignments: (e, t) => _([`groups`, `roleAssignments`, `forUser`, e, t]),
+    userResourcePermissions: (e) => _([`groups`, `resourcePermissions`, `forUser`, e]),
+  },
+  H = 5 * 6e4,
+  U = 60 * 6e4,
+  W = 5 * 6e4,
+  G = (e) => {
+    let t = d(),
+      { data: n } = b();
+    return i({
+      queryKey: e.id ? V.get(e.id) : V.getByName(e.name),
+      queryFn: async () => {
+        let n = s(j, { group: e.id ? { case: `id`, value: e.id } : { case: `name`, value: e.name } });
+        return (await t.groupService.getGroup(n)).group;
+      },
+      throwOnError: h,
+      retry: S,
+      enabled: !!n && !!(e.id || e.name),
+      staleTime: H,
+      gcTime: U,
+    });
+  },
+  K = (e) => r(G(e)),
+  q = 50,
+  J = (e = ``, t = ``, n) => {
+    let r = d(),
+      { data: a } = b();
+    return i({
+      queryKey: V.listPage(e, t, n),
+      queryFn: async () => {
+        let i = await r.groupService.listGroups({
+          pagination: { pageSize: q, token: e },
+          filter: {
+            search: t || void 0,
+            systemManaged: n?.systemManaged,
+            directShare: n?.directShare,
+            excludeAssignedToResource: n?.excludeAssignedToResource,
+          },
+        });
+        return { groups: i.groups, nextToken: i.pagination?.nextToken ?? `` };
+      },
+      enabled: !!a,
+      staleTime: H,
+      refetchOnWindowFocus: !1,
+      refetchOnReconnect: !1,
+      throwOnError: h,
+      retry: S,
+      placeholderData: c,
+    });
+  },
+  Y = (e = ``, t = ``, n) => r(J(e, t, n)),
+  X = ({ search: e = ``, filters: t, enabled: r = !0 }) => {
+    let i = d(),
+      { data: a } = b();
+    return n({
+      queryKey: V.listInfinite(e, t),
+      queryFn: async ({ pageParam: n }) => {
+        let r = await i.groupService.listGroups({
+          pagination: { pageSize: q, token: n },
+          filter: {
+            search: e || void 0,
+            systemManaged: t?.systemManaged,
+            directShare: t?.directShare,
+            excludeAssignedToResource: t?.excludeAssignedToResource,
+          },
+        });
+        return { groups: r.groups, nextToken: r.pagination?.nextToken ?? `` };
+      },
+      initialPageParam: ``,
+      getNextPageParam: (e) => (e.nextToken ? e.nextToken : void 0),
+      enabled: !!a && r,
+      staleTime: H,
+      refetchOnWindowFocus: !1,
+      refetchOnReconnect: !1,
+      retry: S,
+    });
+  },
+  Z = () => L(d()),
+  Q = (e) => {
+    let t = Z(),
+      { data: n } = b(),
+      r = (0, P.useMemo)(() => [...new Set(e.filter(Boolean))], [e]);
+    return a({
+      queries: r.map((e) => ({
+        queryKey: V.get(e),
+        queryFn: () => t.load(e),
+        enabled: !!e && !!n,
+        staleTime: H,
+        retry: S,
+      })),
+      combine: (e) => {
+        let t = new Map();
+        for (let n = 0; n < e.length; n++) {
+          let i = e[n].data;
+          i && t.set(r[n], i);
+        }
+        return { groups: t, isLoading: e.some((e) => e.isLoading), isPending: e.some((e) => e.isPending) };
+      },
+    });
+  },
+  $ = () => {
+    let e = d(),
+      t = o();
+    return l({
+      mutationFn: async ({ organizationId: t, name: n, description: r, subjects: i }) => {
+        let a = s(M, { organizationId: t, name: n, description: r }),
+          o = (await e.groupService.createGroup(a)).group;
+        if (i && i.length > 0) {
+          let t = i.map((t) => {
+            let n = s(O, { groupId: o.id, subject: s(m, { id: t.id, principal: t.principal }) });
+            return Promise.resolve(e.groupService.createMembership(n));
+          });
+          await Promise.all(t);
+        }
+        return o;
+      },
+      onSuccess: (e, n) => {
+        (t.invalidateQueries({ queryKey: V.listAll() }),
+          t.setQueryData(V.get(e.id), e),
+          n.subjects && n.subjects.length > 0 && t.invalidateQueries({ queryKey: V.memberships(e.id) }));
+      },
+      throwOnError: h,
+      retry: S,
+    });
+  },
+  te = () => {
+    let e = d(),
+      t = o();
+    return l({
+      mutationFn: async ({ groupId: t, name: n, description: r }) => {
+        let i = s(ee, { groupId: t, name: n, description: r });
+        return (await e.groupService.updateGroup(i)).group;
+      },
+      onSuccess: (e) => {
+        (t.invalidateQueries({ queryKey: V.listAll() }), t.setQueryData(V.get(e.id), e));
+      },
+      throwOnError: h,
+      retry: S,
+    });
+  },
+  ne = () => {
+    let e = d(),
+      t = o();
+    return l({
+      mutationFn: async (t) => {
+        let n = s(E, { groupId: t });
+        return await e.groupService.deleteGroup(n);
+      },
+      onSuccess: (e, n) => {
+        (t.invalidateQueries({ queryKey: V.listAll() }),
+          t.removeQueries({ queryKey: V.get(n) }),
+          t.removeQueries({ queryKey: V.memberships(n) }));
+      },
+      throwOnError: h,
+      retry: S,
+    });
+  },
+  re = () => {
+    let e = d(),
+      t = o();
+    return l({
+      mutationFn: async ({ groupId: t, subjects: n }) => {
+        let r = n.map((n) => {
+          let r = s(O, { groupId: t, subject: s(m, { id: n.id, principal: n.principal }) });
+          return Promise.resolve(e.groupService.createMembership(r));
+        });
+        return (await Promise.all(r)).map((e) => e.member);
+      },
+      onSuccess: (e, { groupId: n }) => {
+        (t.invalidateQueries({ queryKey: V.listAll() }),
+          t.invalidateQueries({ queryKey: V.memberships(n) }),
+          t.invalidateQueries({ queryKey: v.listMembersInfinite(``).slice(0, -1) }));
+      },
+      throwOnError: h,
+      retry: S,
+    });
+  },
+  ie = (e, t = 100) => {
+    let n = d(),
+      { data: r } = b(),
+      { data: a } = x();
+    return i({
+      queryKey: V.memberships(e, t),
+      queryFn: async () => {
+        if (a?.tier !== f.ENTERPRISE) return [];
+        let r = s(D, { groupId: e, pagination: { pageSize: t } });
+        return (await n.groupService.listMemberships(r)).members;
+      },
+      enabled: !!r && !!e && !!a,
+      staleTime: H,
+      refetchOnWindowFocus: !1,
+      refetchOnReconnect: !1,
+      throwOnError: h,
+      retry: S,
+    });
+  },
+  ae = (e, t = 100) => (y({ resourceType: p.GROUP_MEMBERSHIP_CHANGED }), r(ie(e, t))),
+  oe = 50,
+  se = (e, t = ``, n = ``) => {
+    let r = d(),
+      { data: a } = b(),
+      { data: o } = x();
+    return i({
+      queryKey: V.membershipsCursor(e, t, n),
+      queryFn: async () => {
+        if (o?.tier !== f.ENTERPRISE) return { members: [], nextToken: `` };
+        let i = s(D, { groupId: e, pagination: { pageSize: oe, token: t }, filter: n ? { search: n } : void 0 }),
+          a = await r.groupService.listMemberships(i);
+        return { members: a.members, nextToken: a.pagination?.nextToken ?? `` };
+      },
+      enabled: !!a && !!e && !!o,
+      staleTime: H,
+      refetchOnWindowFocus: !1,
+      refetchOnReconnect: !1,
+      throwOnError: h,
+      retry: S,
+      placeholderData: c,
+    });
+  },
+  ce = (e, t = ``, n = ``) => r(se(e, t, n)),
+  le = () => {
+    let e = d(),
+      t = o();
+    return l({
+      mutationFn: async ({ membershipId: t }) => {
+        let n = s(C, { membershipId: t });
+        return await e.groupService.deleteMembership(n);
+      },
+      onSuccess: (e, { groupId: n }) => {
+        (t.invalidateQueries({ queryKey: V.listAll() }),
+          t.invalidateQueries({ queryKey: V.memberships(n) }),
+          t.invalidateQueries({ queryKey: v.listMembersInfinite(``).slice(0, -1) }));
+      },
+      throwOnError: h,
+      retry: S,
+    });
+  },
+  ue = ({ resourceType: e, resourceId: t, groupId: n, resourceRoles: r, enabled: a = !0 }) => {
+    let o = d(),
+      { data: s } = b(),
+      { data: c } = x();
+    return i({
+      queryKey: V.roleAssignments(e, t, n),
+      queryFn: async () => {
+        if (!s) throw Error(`User not authenticated`);
+        if (e !== p.WORKFLOW && !n && c?.tier !== f.ENTERPRISE) return { assignments: [] };
+        let i = { resourceTypes: [e] };
+        return (
+          t && (i.resourceId = t),
+          n && (i.groupId = n),
+          r && r.length > 0 && (i.resourceRoles = r),
+          {
+            assignments: await g(
+              (e) => o.groupService.listRoleAssignments({ ...e, filter: i }),
+              {},
+              (e) => e.assignments,
+              100,
+            ),
+          }
+        );
+      },
+      enabled: a && !!s && !!c,
+      staleTime: W,
+      throwOnError: h,
+      retry: S,
+    });
+  },
+  de = (e) => (y({ resourceType: p.ROLE_ASSIGNMENT_CHANGED }), r(ue(e))),
+  fe = () => {
+    let e = d(),
+      t = o();
+    return l({
+      mutationFn: async ({ groupId: t, resourceType: n, resourceId: r, resourceRole: i }) => {
+        let a = s(A, { groupId: t, resourceType: n, resourceId: r, resourceRole: i });
+        return (await e.groupService.createRoleAssignment(a)).assignment;
+      },
+      onSuccess: (e, { resourceType: n, resourceId: r }) => {
+        t.invalidateQueries({ queryKey: V.roleAssignments(n, r) });
+      },
+      throwOnError: h,
+      retry: S,
+    });
+  },
+  pe = () => {
+    let e = d(),
+      t = o();
+    return l({
+      mutationFn: async ({ assignmentId: t }) => {
+        let n = s(k, { assignmentId: t });
+        return await e.groupService.deleteRoleAssignment(n);
+      },
+      onSuccess: (e, { resourceType: n, resourceId: r }) => {
+        t.invalidateQueries({ queryKey: V.roleAssignments(n, r) });
+      },
+      throwOnError: h,
+      retry: S,
+    });
+  },
+  me = () => {
+    let e = d(),
+      t = o();
+    return l({
+      mutationFn: async ({ resourceType: t, resourceId: n, operations: r }) => {
+        let i = r.map((r) => {
+          switch (r.type) {
+            case `create`:
+              return e.groupService.createRoleAssignment(
+                s(A, { groupId: r.groupId, resourceType: t, resourceId: n, resourceRole: r.role }),
+              );
+            case `update`:
+              return e.groupService
+                .deleteRoleAssignment(s(k, { assignmentId: r.assignmentId }))
+                .then(() =>
+                  e.groupService.createRoleAssignment(
+                    s(A, { groupId: r.groupId, resourceType: t, resourceId: n, resourceRole: r.role }),
+                  ),
+                );
+            case `delete`:
+              return e.groupService.deleteRoleAssignment(s(k, { assignmentId: r.assignmentId }));
+          }
+        });
+        await Promise.all(i);
+      },
+      onSuccess: (e, { resourceType: n, resourceId: r }) => {
+        t.invalidateQueries({ queryKey: V.roleAssignments(n, r) });
+      },
+      throwOnError: h,
+      retry: S,
+    });
+  },
+  he = [
+    { type: p.PROJECT, queryKey: [`projects`] },
+    { type: p.RUNNER, queryKey: [`runners`] },
+  ];
+function ge(e) {
+  return Array.isArray(e);
+}
+function _e(e) {
+  return typeof e == `object` && !!e && `assignments` in e && Array.isArray(e.assignments);
+}
+function ve(e, t) {
+  return e.length === t.length ? e.every((e, n) => e === t[n]) : !1;
+}
+var ye = ({ enabled: e = !0 } = {}) => {
+    let t = d(),
+      { data: n } = b(),
+      { data: r } = x();
+    return i({
+      queryKey: V.userResourcePermissions(),
+      queryFn: async () => {
+        if (!n) throw Error(`User not authenticated`);
+        let e = { userId: n.id, resourceTypes: [p.PROJECT, p.RUNNER, p.ORGANIZATION, p.WORKFLOW, p.GROUP] },
+          r = await g(
+            (n) => t.groupService.listRoleAssignments({ ...n, filter: e }),
+            {},
+            (e) => e.assignments,
+            100,
+          );
+        return { assignments: r, ...B(r) };
+      },
+      enabled: e && !!n && !!r,
+      staleTime: 15 * 6e4,
+      throwOnError: h,
+      retry: S,
+    });
+  },
+  be = ({ enabled: e = !0 } = {}) => {
+    let { data: t } = b(),
+      n = o(),
+      i = r(ye({ enabled: e })),
+      a = (0, P.useRef)();
+    return (
+      (0, P.useEffect)(() => {
+        if (!e || !t) return;
+        let r = V.userResourcePermissions(),
+          i = n.getQueryCache().subscribe((e) => {
+            if (e.type !== `updated`) return;
+            let t = e.query,
+              i = t.queryKey;
+            if (!ge(i) || !ve(i, r)) return;
+            let o = t.state.data;
+            if (!_e(o)) return;
+            let s = a.current;
+            if (!s) {
+              a.current = o;
+              return;
+            }
+            (he.forEach(({ type: e, queryKey: t }) => {
+              R(s.assignments, o.assignments, e) &&
+                n.invalidateQueries({ queryKey: _(t) }).catch((e) => {
+                  console.error(`Failed to invalidate ${t.join(`/`)} after permission change:`, e);
+                });
+            }),
+              (a.current = o));
+          });
+        return () => {
+          i();
+        };
+      }, [e, t, n]),
+      i
+    );
+  };
+async function xe(e) {
+  (await e.invalidateQueries({ queryKey: _([`groups`]) }), await e.invalidateQueries({ queryKey: _([`permissions`]) }));
+}
+async function Se(e) {
+  (await e.invalidateQueries({ queryKey: _([`groups`, `roleAssignments`]) }),
+    await e.invalidateQueries({ queryKey: _([`groups`, `resourcePermissions`]) }),
+    await e.invalidateQueries({ queryKey: _([`permissions`]) }));
+}
+var Ce = () => {
+    let e = d(),
+      t = o();
+    return l({
+      mutationFn: async ({ resourceType: t, resourceId: n, principal: r, principalId: i, role: a }) => {
+        let o = s(w, { resourceType: t, resourceId: n, principal: r, principalId: i, role: a });
+        await e.groupService.shareResourceWithPrincipal(o);
+      },
+      onSuccess: (e, { resourceType: n, resourceId: r }) => {
+        (t.invalidateQueries({ queryKey: V.roleAssignments(n, r) }), t.invalidateQueries({ queryKey: V.listAll() }));
+      },
+      throwOnError: h,
+      retry: S,
+    });
+  },
+  we = () => {
+    let e = d(),
+      t = o();
+    return l({
+      mutationFn: async ({ resourceType: t, resourceId: n, principal: r, principalId: i }) => {
+        let a = s(T, { resourceType: t, resourceId: n, principal: r, principalId: i });
+        await e.groupService.unshareResourceWithPrincipal(a);
+      },
+      onSuccess: (e, { resourceType: n, resourceId: r }) => {
+        (t.invalidateQueries({ queryKey: V.roleAssignments(n, r) }), t.invalidateQueries({ queryKey: V.listAll() }));
+      },
+      throwOnError: h,
+      retry: S,
+    });
+  };
+export {
+  z as C,
+  te as S,
+  X as _,
+  re as a,
+  Ce as b,
+  fe as c,
+  pe as d,
+  K as f,
+  ae as g,
+  Y as h,
+  Se as i,
+  ne as l,
+  Q as m,
+  V as n,
+  me as o,
+  ce as p,
+  xe as r,
+  $ as s,
+  W as t,
+  le as u,
+  de as v,
+  we as x,
+  be as y,
+};

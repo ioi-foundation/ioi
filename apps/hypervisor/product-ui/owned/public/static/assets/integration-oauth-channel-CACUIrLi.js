@@ -1,0 +1,30 @@
+import { a as e } from "./rolldown-runtime-CGYlQKCx.js";
+import { mt as t } from "./SegmentProvider-CXCNBY9U.js";
+import { n } from "./@mux-DLaEVubF.js";
+import { eg as r } from "./vendor-DAwbZtf0.js";
+var i = e(n(), 1),
+  a = `ioi-integration-oauth`;
+function o(e) {
+  let n = r();
+  (0, i.useEffect)(() => {
+    if (!e) return;
+    let r;
+    try {
+      r = new BroadcastChannel(a);
+    } catch {
+      return;
+    }
+    let i = (r) => {
+      r.data.type === `integration-oauth-completed` &&
+        r.data.integrationId === e &&
+        n.invalidateQueries({ queryKey: t.validation(e) });
+    };
+    return (
+      r.addEventListener(`message`, i),
+      () => {
+        (r.removeEventListener(`message`, i), r.close());
+      }
+    );
+  }, [e, n]);
+}
+export { o as n, a as t };

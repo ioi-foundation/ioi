@@ -685,6 +685,26 @@ and Work Ledger inspects evidence.
 Application surfaces are major product modes inside one or more first-class
 clients.
 
+Implementation status — shell ownership program (2026-07-05): the product
+shell is owned by ADOPTION, not recreation, so no "current version vs
+recreated version" gap exists for discrepancies to hide in. The running
+bundle is vendored as an editable source tree
+(`apps/hypervisor/product-ui/owned/public`, built by
+`scripts/vendor-product-ui.mjs`: app chunks beautified, third-party
+`vendor-*.js` verbatim, hand edits preserved as recorded owned-edits) and the
+live estate serves from it (`IOI_PRODUCT_UI_PUBLIC`). Every ownership step is
+gated by the shell-parity oracle (`verify-hypervisor-shell-parity.mjs`, 6
+checks): per-file AST equivalence (esbuild minify(original) ==
+minify(owned), byte-for-byte), wire equivalence for all 383 assets through
+the real serve-time transforms, and a committed behavioral freeze
+(`apps/hypervisor/shell-parity/`) covering DOM fingerprints, the runtime
+animation inventory sampled through load (transient spinners included),
+network manifest, and console signature per route. Intentional changes land
+as owned-edits plus a reviewed baseline re-freeze in the same change; the
+first fold (the augmentation script tag moving into the owned index.html) is
+in. Serve-time code transforms must stay formatting-tolerant — they apply to
+both the minified original and the beautified owned source.
+
 ```text
 Hypervisor Workbench
   code, systems, workflow, workspace, editor, terminal, browser, and

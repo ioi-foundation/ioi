@@ -1,0 +1,1410 @@
+import { a as e } from "./rolldown-runtime-CGYlQKCx.js";
+import { n as t } from "./@mux-DLaEVubF.js";
+import {
+  Gl as n,
+  Op as r,
+  Qp as i,
+  Xh as a,
+  cg as o,
+  hu as s,
+  kp as c,
+  v_ as l,
+  vg as u,
+  xg as d,
+} from "./vendor-DAwbZtf0.js";
+import {
+  Do as f,
+  Dt as p,
+  So as m,
+  Un as h,
+  Vn as g,
+  it as _,
+  ot as v,
+  so as y,
+  tn as ee,
+  tr as b,
+  wt as x,
+} from "./use-boot-in-app-chat-t-J_VjKS.js";
+import { n as S } from "./toast-axaLeIzZ.js";
+import { t as C } from "./button-6YP03Qf2.js";
+import { t as w } from "./cn-DppMFCU8.js";
+import { n as te } from "./haptic-tWxzGXjs.js";
+import { t as T } from "./ipc-Dxb-zSYw.js";
+import { t as ne } from "./use-desktop-A2HAwVgY.js";
+import { _ as re, d as ie, l as ae, t as E } from "./keyboard-combo--XtLCmBU.js";
+import { t as D } from "./dialog-BtjFqa-w.js";
+import { t as oe } from "./banner-CFcSGYsz.js";
+import { d as se } from "./time-DxjbKG-a.js";
+import { n as O } from "./utils-C9bSuXia.js";
+import { n as ce } from "./headings-CM9JBOhQ.js";
+import { t as le } from "./input-C42Z_4fO.js";
+import { t as k } from "./tooltip-6hqVQbwq.js";
+import { t as ue } from "./Pill-99RRpZf2.js";
+import "./pill-AA_qJIlm.js";
+import { t as A } from "./text-fFCFeCas.js";
+import { t as j } from "./skeleton-Cm867Q_k.js";
+import { r as M } from "./dropdown-menu-D3UmjGpQ.js";
+import { C as de, M as fe, R as pe, v as me, x as he } from "./environment-queries-zpiLcWfm.js";
+import { g as ge } from "./project-queries-BMZ3qCU_.js";
+import { t as N } from "./EditorIcon-CXY7bnUG.js";
+import { a as _e } from "./phase-DI4YEQQ1.js";
+import { o as ve } from "./url-validation-Ph7WWpDb.js";
+import { n as ye, t as be } from "./IconFile-Dekdrvbx.js";
+import { a as xe } from "./environment-paa_Ds61.js";
+import { t as Se } from "./EnvironmentStatusDot-BqbKxNCW.js";
+import { n as Ce, t as P } from "./git-status-BQMeC1k2.js";
+import { t as we } from "./IconChevronDownSmall-9zzbc23a.js";
+import { n as Te, t as F } from "./bytes-wXWf7Wq9.js";
+import { t as Ee } from "./IconArrowLeft-DER3051x.js";
+import { t as I } from "./external-link-BKbp1Q22.js";
+import { t as L } from "./button-group-BAfnksgW.js";
+import { t as De } from "./IconInfo-Cl6kMnoJ.js";
+import { t as Oe } from "./IconRefresh-Clasnt5q.js";
+import { t as ke } from "./details-url-BbcIdGZp.js";
+import { t as R } from "./notification-DHNU01HE.js";
+import { n as Ae, r as je, t as Me } from "./popover-D9TQszBd.js";
+import { t as Ne } from "./scroll-area-DiWW0x8z.js";
+import { n as Pe, r as Fe } from "./GitStatusPanel-MJlRDdBd.js";
+var z = e(t(), 1),
+  B = `DEFAULT_EDITOR`;
+function V() {
+  let { data: e, isPending: t } = _(B);
+  return { editorId: e?.value, isPending: t };
+}
+function Ie() {
+  let { toast: e } = S(),
+    { mutateAsync: t } = v();
+  return (0, z.useCallback)(
+    async (n) => {
+      try {
+        await t({ key: B, value: n });
+      } catch (t) {
+        e({ title: `Failed to update default editor`, description: b(t) });
+      }
+    },
+    [t, e],
+  );
+}
+var H = `DEFAULT_EDITOR_PER_ENV`;
+function U(e, t) {
+  let { editorId: n, editorVersion: r, isPending: i } = Le(e),
+    { data: a, isLoading: o } = ee(),
+    { data: s, isPending: c } = h({ allowedByPolicy: !0 }),
+    { data: l, isLoading: u } = ge(t),
+    d = typeof s?.editors.length == `number` && s?.editors.length <= 1,
+    f = a?.defaultEditorId,
+    p = s?.editors.find((e) => e.id === n) || s?.editors.find((e) => e.id === f) || s?.editors[0],
+    m = (0, z.useMemo)(() => {
+      if (l?.recommendedEditors) return l.recommendedEditors;
+    }, [l?.recommendedEditors]);
+  return {
+    selectedEditor: p,
+    selectedEditorVersion: r,
+    isSingleEditor: d,
+    availableEditors: s?.editors,
+    recommendedEditors: m,
+    isPending: c || o || i || u,
+  };
+}
+function Le(e) {
+  let { editorId: t, isPending: n } = V(),
+    { data: r, isPending: i } = _(H),
+    a,
+    o,
+    s = r?.value;
+  try {
+    if (s && e) {
+      let t = JSON.parse(s).find(([t, n]) => t === e);
+      t && ((a = t[1]), (o = t[2]));
+    }
+  } catch {
+    console.error(`failed to parse DEFAULT_EDITOR_PER_ENV user prefence`);
+  }
+  return { editorId: a || t, editorVersion: o, isPending: i || n };
+}
+function W(e) {
+  let { editorId: t } = V(),
+    { mutateAsync: n } = v(),
+    { data: r } = fe({ archivalStatus: f.ACTIVE }),
+    { data: i } = _(H),
+    a = i?.value;
+  return (0, z.useCallback)(
+    async (i, o) => {
+      if (!(!e || !r?.environments))
+        try {
+          let s = [];
+          (a && (s = JSON.parse(a)), Array.isArray(s) || (s = []));
+          let c = r.environments.filter((e) => e.spec?.desiredPhase !== y.DELETED && e.status?.phase !== y.DELETING),
+            l = s.filter(([t, n]) => t !== e && !!c.find((e) => e.id === t));
+          (i !== t && l.unshift([e, i, o]),
+            JSON.stringify(l.slice(0, 30)).length >= 2480 && (l = l.slice(0, 20)),
+            await n({ key: H, value: JSON.stringify(l) }));
+        } catch (e) {
+          console.error(`Failed to update editor preference for env`, e);
+        }
+    },
+    [n, e, t, a, r],
+  );
+}
+function G() {
+  let e = g(),
+    t = pe(),
+    { isDesktop: n } = ne(),
+    r = x(),
+    i = (0, z.useCallback)(
+      (e) => {
+        r(`Open Editor`, { editor_id: e.id, editor_alias: e.alias, editor_name: e.name });
+      },
+      [r],
+    );
+  return (0, z.useCallback)(
+    async (r, a, o) => {
+      try {
+        a && _e(a) && t.mutate({ environmentId: a.id });
+        let s = null;
+        ve(r.urlTemplate) &&
+          !n &&
+          new URL(r.urlTemplate).protocol === `https:` &&
+          (s = window.open(`about:blank`, `_blank`));
+        let c = (await e.mutateAsync({ editorId: r.id, environment: a, version: o })).url;
+        if (!c) return;
+        if (n && T) {
+          await T.openExternal({ url: c });
+          return;
+        }
+        if (s) s.location.href = c;
+        else {
+          let e = document.createElement(`iframe`);
+          ((e.src = c),
+            (e.style.display = `none`),
+            document.body.appendChild(e),
+            setTimeout(() => document.body.removeChild(e), 2e3));
+        }
+        i(r);
+      } catch (e) {
+        console.error(e);
+      }
+    },
+    [n, e, t, i],
+  );
+}
+var K = l(),
+  Re = O(n),
+  ze = ({ environment: e, editors: t, recommendedEditors: n, hideDefaultEditorUI: r = !1 }) => {
+    let i = d(),
+      { selectedEditor: a, selectedEditorVersion: o } = U(e.id, e.metadata?.projectId),
+      [s, c] = (0, z.useState)(!1),
+      l = new Set(Object.keys(n?.editors ?? {})),
+      u = t.filter((e) => l.has(e.alias)),
+      f = t.filter((e) => !l.has(e.alias));
+    return (0, K.jsxs)(`div`, {
+      className: w(`relative overflow-hidden transition-[width] duration-200 ease-in-out`, s ? `w-128` : `w-64`),
+      children: [
+        (0, K.jsx)(`div`, {
+          className: w(`flex w-64 flex-col transition-all duration-200 ease-in-out`, s ? `hidden` : `flex`),
+          children: (0, K.jsxs)(j, {
+            ready: !!t,
+            children: [
+              r && (0, K.jsx)(M.Label, { children: `Open in` }),
+              u.length > 0 &&
+                (0, K.jsxs)(M.Group, {
+                  children: [
+                    !r && (0, K.jsx)(M.Label, { children: `Recommended` }),
+                    u.map((t) =>
+                      (0, K.jsx)(
+                        q,
+                        {
+                          editor: t,
+                          environment: e,
+                          isSelected: !r && t.id === a?.id,
+                          selectedEditorVersion: o,
+                          recommendedVersions: n?.editors?.[t.alias]?.versions,
+                          hideCheckmark: r,
+                        },
+                        t.id,
+                      ),
+                    ),
+                  ],
+                }),
+              u.length > 0 && f.length > 0 && (0, K.jsx)(M.Separator, {}),
+              f.length > 0 &&
+                (0, K.jsxs)(M.Group, {
+                  children: [
+                    !r && u.length > 0 && (0, K.jsx)(M.Label, { children: `Others` }),
+                    f.map((t) =>
+                      (0, K.jsx)(
+                        q,
+                        {
+                          editor: t,
+                          environment: e,
+                          isSelected: !r && t.id === a?.id,
+                          selectedEditorVersion: o,
+                          hideCheckmark: r,
+                        },
+                        t.id,
+                      ),
+                    ),
+                  ],
+                }),
+              (0, K.jsx)(M.Separator, {}),
+              (0, K.jsxs)(M.Group, {
+                children: [
+                  (0, K.jsx)(M.Label, { children: `Other options` }),
+                  (0, K.jsx)(M.Item, {
+                    onSelect: (e) => {
+                      (e.preventDefault(), c(!0));
+                    },
+                    "data-tracking-id": `open-ssh-from-editor-dropdown`,
+                    "data-testid": `open-ssh`,
+                    LeadingIcon: Re,
+                    children: `SSH`,
+                  }),
+                  !r &&
+                    (0, K.jsx)(M.Item, {
+                      onClick: () => i(`/settings/preferences`),
+                      "data-tracking-id": `change-default-editor`,
+                      children: `Change default editor`,
+                    }),
+                  (0, K.jsx)(M.Item, {
+                    onClick: () => window.open(`https://ioi.com/docs/ioi/editors/overview`, `_blank`),
+                    "data-tracking-id": `troubleshoot-editor`,
+                    children: `Troubleshoot`,
+                  }),
+                ],
+              }),
+            ],
+          }),
+        }),
+        (0, K.jsx)(`div`, {
+          className: w(`transition-all duration-200 ease-in-out`, s ? `block` : `hidden`),
+          children: (0, K.jsx)(Be, { environment: e, onBack: () => c(!1) }),
+        }),
+      ],
+    });
+  },
+  Be = ({ environment: e, onBack: t }) =>
+    (0, K.jsxs)(`div`, {
+      className: `flex w-128 flex-col gap-4 p-4`,
+      children: [
+        (0, K.jsxs)(`button`, {
+          onClick: t,
+          "data-tracking-id": `back-from-ssh`,
+          className: `flex items-center gap-1 text-sm text-content-secondary hover:text-content-primary`,
+          children: [(0, K.jsx)(Ee, { size: `sm` }), `Back`],
+        }),
+        (0, K.jsxs)(`div`, {
+          children: [
+            (0, K.jsx)(ce, { children: `Connect via SSH` }),
+            (0, K.jsx)(A, {
+              muted: !0,
+              className: `text-base`,
+              children: `How to connect via SSH from your local machine using the CLI`,
+            }),
+          ],
+        }),
+        (0, K.jsxs)(`div`, {
+          className: `flex flex-col gap-4`,
+          children: [
+            (0, K.jsxs)(`div`, {
+              className: `flex flex-col gap-1`,
+              children: [
+                (0, K.jsx)(`p`, { className: `text-sm font-bold`, children: `Setup SSH host config` }),
+                (0, K.jsx)(le, {
+                  copyable: !0,
+                  value: `ioi env ssh-config`,
+                  "data-tracking-id": `copy-ssh-config-command`,
+                }),
+              ],
+            }),
+            (0, K.jsxs)(`div`, {
+              className: `flex flex-col gap-1`,
+              children: [
+                (0, K.jsx)(`p`, { className: `text-sm font-bold`, children: `Connect to dev container` }),
+                (0, K.jsx)(le, {
+                  copyable: !0,
+                  value: `ssh ${e.id}.ioi.environment`,
+                  "data-tracking-id": `copy-ssh-connect-command`,
+                }),
+              ],
+            }),
+          ],
+        }),
+        (0, K.jsx)(`div`, { className: `-mx-1 my-1 h-px bg-content-tertiary/20` }),
+        (0, K.jsx)(`p`, { className: `text-sm text-content-secondary`, children: `Documentation` }),
+        (0, K.jsxs)(`div`, {
+          className: `flex flex-col gap-2`,
+          children: [
+            (0, K.jsx)(`div`, {
+              children: (0, K.jsx)(I, {
+                href: `https://ioi.com/docs/ioi/integrations/cli`,
+                children: `Install the CLI`,
+              }),
+            }),
+            (0, K.jsx)(`div`, {
+              children: (0, K.jsx)(I, {
+                href: `https://ioi.com/docs/ioi/integrations/cli#ssh-configuration`,
+                children: `SSH Configuration`,
+              }),
+            }),
+          ],
+        }),
+      ],
+    }),
+  q = ({
+    editor: e,
+    environment: t,
+    isSelected: n,
+    selectedEditorVersion: r,
+    recommendedVersions: i,
+    hideCheckmark: a = !1,
+  }) => {
+    let o = G(),
+      s = W(t.id);
+    return e.versions.length > 1
+      ? (0, K.jsx)(Ve, {
+          editor: e,
+          environment: t,
+          selectedEditorVersion: r,
+          recommendedVersions: i,
+          hideCheckmark: a,
+        })
+      : (0, K.jsxs)(M.Item, {
+          onSelect: () => {
+            (o(e, t, void 0), s(e.id, void 0));
+          },
+          "aria-label": `Open in ${e.name}`,
+          "aria-current": n ? `true` : void 0,
+          LeadingIcon: (t) => (0, K.jsx)(N, { editor: e, size: `sm`, className: `shrink-0` }),
+          children: [
+            (0, K.jsx)(`span`, { className: `min-w-0 flex-1 truncate`, children: e.name }),
+            n &&
+              !a &&
+              (0, K.jsx)(`div`, {
+                className: `flex items-center justify-center gap-2 p-0.5 pl-2`,
+                children: (0, K.jsx)(c, { className: `size-4`, "aria-hidden": `true` }),
+              }),
+          ],
+        });
+  },
+  Ve = ({ editor: e, environment: t, selectedEditorVersion: n, recommendedVersions: i, hideCheckmark: a = !1 }) => {
+    let o = G(),
+      s = W(t.id),
+      l = n ?? e.versions[0]?.version,
+      u = new Set(i ?? []),
+      d = i && i.length > 0,
+      f = d ? e.versions.filter((e) => u.has(e.version)) : [],
+      p = d ? e.versions.filter((e) => !u.has(e.version)) : e.versions,
+      m = (0, z.useRef)(null),
+      h = (0, z.useRef)(null);
+    return (0, K.jsxs)(M.Sub, {
+      children: [
+        (0, K.jsxs)(`div`, {
+          className: w(
+            `relative flex cursor-default select-none items-center rounded text-sm`,
+            `cursor-pointer`,
+            `mx-1 h-8 text-base`,
+            `group`,
+          ),
+          children: [
+            (0, K.jsxs)(M.Item, {
+              className: w(
+                `flex h-full flex-1 items-center gap-2 py-1.5 pl-2 pr-1`,
+                `rounded-l rounded-r-none focus:outline-none`,
+                `mx-0 min-w-0 hover:bg-transparent focus:bg-surface-hover`,
+              ),
+              onSelect: () => {
+                (o(e, t, l), s(e.id, l));
+              },
+              ref: m,
+              onKeyDown: (e) => {
+                e.key === `ArrowRight` && (e.preventDefault(), h.current?.focus());
+              },
+              "aria-label": `Open in ${e.name} ${l}`,
+              "data-testid": `editor-open-${e.id}`,
+              children: [
+                (0, K.jsx)(N, { editor: e, size: `sm`, className: `shrink-0` }),
+                (0, K.jsx)(`span`, { className: `min-w-0 flex-1 truncate text-left`, children: e.name }),
+                (0, K.jsx)(ue, { size: `sm`, variant: `neutral`, children: l }),
+              ],
+            }),
+            (0, K.jsx)(M.SubTrigger, {
+              ref: h,
+              onKeyDown: (e) => {
+                e.key === `ArrowLeft` && (e.preventDefault(), m.current?.focus());
+              },
+              className: w(
+                `flex h-full cursor-default items-center justify-center rounded-l-none rounded-r pl-1.5 pr-2`,
+                `focus:bg-surface-hover focus:outline-none`,
+                `[&>svg:last-child]:hidden`,
+                `mx-0`,
+              ),
+              "aria-label": `Select ${e.name} version`,
+              "data-testid": `editor-version-trigger-${e.id}`,
+              children: (0, K.jsx)(r, { className: `size-4 text-content-secondary` }),
+            }),
+          ],
+        }),
+        (0, K.jsx)(M.Portal, {
+          children: (0, K.jsxs)(M.SubContent, {
+            sideOffset: 5,
+            children: [
+              f.length > 0 &&
+                (0, K.jsxs)(K.Fragment, {
+                  children: [
+                    (0, K.jsx)(M.Label, { children: `Recommended` }),
+                    f.map((n) => {
+                      let r = l === n.version;
+                      return (0, K.jsxs)(
+                        M.Item,
+                        {
+                          onSelect: () => {
+                            (o(e, t, n.version), s(e.id, n.version));
+                          },
+                          children: [
+                            (0, K.jsx)(`span`, {
+                              className: `flex flex-1 items-center gap-2`,
+                              children: (0, K.jsx)(`span`, { children: n.version }),
+                            }),
+                            r &&
+                              !a &&
+                              (0, K.jsx)(`div`, {
+                                className: `ml-2 flex items-center justify-center gap-2 p-0.5`,
+                                children: (0, K.jsx)(c, {
+                                  className: `size-4 text-content-brand`,
+                                  "aria-hidden": `true`,
+                                }),
+                              }),
+                          ],
+                        },
+                        n.version,
+                      );
+                    }),
+                  ],
+                }),
+              f.length > 0 && p.length > 0 && (0, K.jsx)(M.Separator, {}),
+              p.length > 0 &&
+                (0, K.jsxs)(K.Fragment, {
+                  children: [
+                    f.length > 0 && (0, K.jsx)(M.Label, { children: `Others` }),
+                    p.map((n) => {
+                      let r = l === n.version;
+                      return (0, K.jsxs)(
+                        M.Item,
+                        {
+                          onSelect: () => {
+                            (o(e, t, n.version), s(e.id, n.version));
+                          },
+                          children: [
+                            (0, K.jsx)(`span`, {
+                              className: `flex flex-1 items-center gap-2`,
+                              children: (0, K.jsx)(`span`, { children: n.version }),
+                            }),
+                            r &&
+                              !a &&
+                              (0, K.jsx)(`div`, {
+                                className: `ml-2 flex items-center justify-center gap-2 p-0.5`,
+                                children: (0, K.jsx)(c, {
+                                  className: `size-4 text-content-brand`,
+                                  "aria-hidden": `true`,
+                                }),
+                              }),
+                          ],
+                        },
+                        n.version,
+                      );
+                    }),
+                  ],
+                }),
+            ],
+          }),
+        }),
+      ],
+    });
+  },
+  He = (e) => {
+    let t = (0, z.useCallback)(
+      (t) => {
+        if (!(t.key?.toLowerCase() !== `a` || !t.shiftKey)) {
+          if (re()) {
+            if (!t.metaKey) return;
+          } else if (!t.ctrlKey) return;
+          t.defaultPrevented || (t.preventDefault(), e(!0));
+        }
+      },
+      [e],
+    );
+    (0, z.useEffect)(
+      () => (
+        document.addEventListener(`keydown`, t),
+        () => {
+          document.removeEventListener(`keydown`, t);
+        }
+      ),
+      [t],
+    );
+  },
+  Ue = ({ environment: e, disabled: t }) => {
+    let n = G(),
+      {
+        selectedEditor: r,
+        selectedEditorVersion: i,
+        isSingleEditor: a,
+        availableEditors: o,
+        recommendedEditors: s,
+        isPending: c,
+      } = U(e.id, e.metadata?.projectId),
+      l = (0, z.useRef)(null),
+      u = (e) => e.versions?.[0]?.version;
+    return (
+      He((t) => {
+        t && r && n(r, e, i || u(r));
+      }),
+      (0, K.jsx)(`div`, {
+        "data-testid": `open-in-default-editor`,
+        ref: l,
+        children: (0, K.jsx)(j, {
+          ready: !!r && !c,
+          children:
+            r &&
+            (0, K.jsxs)(L, {
+              variant: `ghost`,
+              className: `rounded-lg border border-border-subtle hover:border-border-base dark:border-border-base`,
+              children: [
+                (0, K.jsx)(k, {
+                  content: t
+                    ? `Start environment to open in editor`
+                    : (0, K.jsxs)(`div`, {
+                        className: `flex flex-row items-center gap-2`,
+                        children: [`Open editor`, (0, K.jsx)(E, { keys: ae, className: `ml-1` })],
+                      }),
+                  usePortal: !0,
+                  children: (0, K.jsx)(L.Item, {
+                    onClick: () => n(r, e, i || u(r)),
+                    disabled: t,
+                    LeadingIcon: (e) => (0, K.jsx)(N, { editor: r, size: `sm`, className: `shrink-0` }),
+                    "aria-label": `Open ${r.name}`,
+                    className: `aspect-auto w-8 pl-2.5 pr-1`,
+                    "data-tracking-id": `open-in-selected-editor`,
+                  }),
+                }),
+                !a &&
+                  (0, K.jsxs)(M, {
+                    children: [
+                      (0, K.jsx)(M.Trigger, {
+                        asChild: !0,
+                        children: (0, K.jsx)(L.Item, {
+                          "data-testid": `open-editor-selection-popover`,
+                          LeadingIcon: we,
+                          "aria-label": `Expand editor selection`,
+                          disabled: t,
+                          className: `aspect-auto w-7 pl-1 pr-2`,
+                        }),
+                      }),
+                      (0, K.jsx)(M.Portal, {
+                        children: (0, K.jsx)(M.Content, {
+                          align: `end`,
+                          className: `w-auto min-w-64 transition-all duration-200`,
+                          "data-track-location": p.EnvironmentEditorPopover,
+                          children: (0, K.jsx)(ze, { environment: e, editors: o || [], recommendedEditors: s }),
+                        }),
+                      }),
+                    ],
+                  }),
+              ],
+            }),
+        }),
+      })
+    );
+  };
+function J(e) {
+  if (!e) return `unknown`;
+  let t = We(e);
+  return t.some((e) => e.level === `high`) ? `high` : t.some((e) => e.level === `medium`) ? `medium` : `low`;
+}
+function Y(e) {
+  return e > 90 ? `high` : e > 70 ? `medium` : `low`;
+}
+function We(e) {
+  let { vm: t } = e,
+    n = t.memory.total_bytes > 0 ? (t.memory.used_bytes / t.memory.total_bytes) * 100 : 0,
+    r = t.data_disk ?? t.disk,
+    i = r.total_bytes > 0 ? (r.used_bytes / r.total_bytes) * 100 : 0;
+  return [
+    { key: `cpu`, label: `CPU`, percent: t.cpu.usage_percent, level: Y(t.cpu.usage_percent) },
+    { key: `memory`, label: `Memory`, percent: n, level: Y(n) },
+    { key: `disk`, label: `Disk`, percent: i, level: Y(i) },
+  ];
+}
+var Ge = { low: `success`, medium: `warning`, high: `danger`, unknown: `neutral` },
+  Ke = { low: `Healthy`, medium: `Watch`, high: `Constrained`, unknown: `N/A` };
+function qe(e) {
+  return Ge[e];
+}
+function Je(e) {
+  return Ke[e];
+}
+var Ye = {
+  low: `Everything's running smoothly`,
+  medium: `Usage is elevated — things may start to slow down`,
+  high: `This environment may become unresponsive`,
+  unknown: `Live metrics are still warming up`,
+};
+function Xe(e) {
+  return Ye[e];
+}
+var X = !1,
+  Z = ({ labelWidth: e, valueWidth: t }) =>
+    (0, K.jsxs)(`div`, {
+      className: `flex items-baseline justify-between gap-x-2`,
+      children: [
+        (0, K.jsx)(j, { ready: X, className: `h-5 rounded`, style: { width: e } }),
+        (0, K.jsx)(j, { ready: X, className: `h-5 rounded`, style: { width: t } }),
+      ],
+    }),
+  Q = ({ labelWidth: e, valueWidth: t }) =>
+    (0, K.jsxs)(`div`, {
+      className: `flex flex-col gap-1.5`,
+      children: [
+        (0, K.jsxs)(`div`, {
+          className: `flex items-baseline justify-between gap-x-2`,
+          children: [
+            (0, K.jsx)(j, { ready: X, className: `h-5 rounded`, style: { width: e } }),
+            (0, K.jsx)(j, { ready: X, className: `h-5 rounded`, style: { width: t } }),
+          ],
+        }),
+        (0, K.jsx)(j, { ready: X, className: `h-2 w-full rounded-full` }),
+      ],
+    }),
+  Ze = () =>
+    (0, K.jsxs)(`div`, {
+      className: `flex flex-col gap-5`,
+      children: [
+        (0, K.jsx)(Q, { labelWidth: `36px`, valueWidth: `52px` }),
+        (0, K.jsx)(Q, { labelWidth: `60px`, valueWidth: `130px` }),
+        (0, K.jsx)(Q, { labelWidth: `40px`, valueWidth: `130px` }),
+        (0, K.jsxs)(`div`, {
+          className: `flex flex-col gap-1`,
+          children: [
+            (0, K.jsx)(Z, { labelWidth: `72px`, valueWidth: `110px` }),
+            (0, K.jsx)(Z, { labelWidth: `76px`, valueWidth: `110px` }),
+          ],
+        }),
+        (0, K.jsx)(`div`, {
+          className: `border-t border-border-base pt-5`,
+          children: (0, K.jsx)(Z, { labelWidth: `190px`, valueWidth: `150px` }),
+        }),
+        (0, K.jsxs)(`div`, {
+          className: `flex items-center justify-between border-t border-border-base pt-5`,
+          children: [
+            (0, K.jsx)(j, { ready: X, className: `h-5 rounded`, style: { width: `130px` } }),
+            (0, K.jsx)(j, { ready: X, className: `h-8 rounded`, style: { width: `90px` } }),
+          ],
+        }),
+      ],
+    }),
+  Qe = ({ data: e, diskIORate: t, error: n, isLoading: r, lastUpdated: i, onRefresh: a, projectId: o }) => {
+    let s = e ? J(e) : `unknown`,
+      c = e && (s === `medium` || s === `high`) ? ot(e, o) : void 0;
+    return (0, K.jsxs)(`div`, {
+      "data-testid": `resource-usage-panel`,
+      className: `flex flex-col gap-5`,
+      children: [
+        c && (0, K.jsx)(oe, { variant: s === `high` ? `danger` : `warning`, text: c }),
+        e && (0, K.jsx)(et, { snapshot: e, diskIORate: t }),
+        !e && !n && r && (0, K.jsx)(Ze, {}),
+        !e &&
+          n &&
+          (0, K.jsxs)(`div`, {
+            className: `flex flex-col items-center gap-3 py-8 text-center`,
+            children: [
+              (0, K.jsx)(A, {
+                className: `text-base font-medium text-content-primary`,
+                children: `Couldn't load resource usage`,
+              }),
+              (0, K.jsx)(A, {
+                className: `text-sm text-content-secondary`,
+                children: `Try again, or contact support if the issue persists.`,
+              }),
+              a &&
+                (0, K.jsx)(C, {
+                  variant: `secondary`,
+                  size: `sm`,
+                  onClick: a,
+                  disabled: r,
+                  "data-tracking-id": `resource-usage-retry`,
+                  LeadingIcon: (e) => (0, K.jsx)(Oe, { ...e, className: w(e.className, r && `animate-spin`) }),
+                  children: `Retry`,
+                }),
+            ],
+          }),
+        (0, K.jsx)($e, { lastUpdated: i, isLoading: r, onRefresh: a }),
+        e &&
+          n &&
+          (0, K.jsx)(oe, {
+            variant: `danger`,
+            text: `Couldn't refresh data. Try again, or contact support if the issue persists.`,
+            action: a ? { text: `Retry`, onClick: a, disabled: r, "data-tracking-id": `resource-usage-retry` } : void 0,
+          }),
+      ],
+    });
+  },
+  $e = ({ lastUpdated: e, isLoading: t, onRefresh: n }) => {
+    let [, r] = (0, z.useState)(0);
+    if (
+      ((0, z.useEffect)(() => {
+        let e = setInterval(() => r((e) => e + 1), 1e4);
+        return () => clearInterval(e);
+      }, []),
+      !e)
+    )
+      return null;
+    let i = `Updated ${Date.now() - e.getTime() < 5e3 ? `just now` : se(e)}`;
+    return (0, K.jsxs)(`div`, {
+      className: `flex items-center justify-between pt-2`,
+      children: [
+        (0, K.jsxs)(`div`, {
+          className: `flex items-center gap-1.5`,
+          children: [
+            (0, K.jsx)(Te, {
+              size: `sm`,
+              className: `text-content-tertiary`,
+              style: { marginTop: -1 },
+              "aria-hidden": !0,
+            }),
+            (0, K.jsx)(A, { className: `text-sm text-content-tertiary`, children: i }),
+          ],
+        }),
+        n &&
+          (0, K.jsx)(C, {
+            variant: `secondary`,
+            size: `sm`,
+            onClick: n,
+            disabled: t,
+            "data-tracking-id": `resource-usage-refresh`,
+            LeadingIcon: (e) => (0, K.jsx)(Oe, { ...e, className: w(e.className, t && `animate-spin`) }),
+            children: `Refresh`,
+          }),
+      ],
+    });
+  },
+  et = ({ snapshot: e, diskIORate: t }) => {
+    let { vm: n } = e,
+      r = !!n.data_disk,
+      i = n.memory.total_bytes > 0 ? (n.memory.used_bytes / n.memory.total_bytes) * 100 : 0,
+      a = n.disk.total_bytes > 0 ? (n.disk.used_bytes / n.disk.total_bytes) * 100 : 0;
+    return (0, K.jsxs)(`div`, {
+      className: `flex flex-col gap-5`,
+      children: [
+        (0, K.jsx)($, { label: `CPU`, percent: n.cpu.usage_percent }),
+        (0, K.jsx)($, {
+          label: `Memory`,
+          percent: i,
+          detail: `${F(n.memory.used_bytes)} / ${F(n.memory.total_bytes)}`,
+        }),
+        (0, K.jsx)($, {
+          label: r ? `System Disk` : `Disk`,
+          percent: a,
+          detail: `${F(n.disk.used_bytes)} / ${F(n.disk.total_bytes)}`,
+        }),
+        n.data_disk &&
+          (0, K.jsx)($, {
+            label: `Data Disk`,
+            percent: n.data_disk.total_bytes > 0 ? (n.data_disk.used_bytes / n.data_disk.total_bytes) * 100 : 0,
+            detail: `${F(n.data_disk.used_bytes)} / ${F(n.data_disk.total_bytes)}`,
+          }),
+        (0, K.jsxs)(`div`, {
+          className: `flex flex-col gap-3`,
+          children: [
+            (0, K.jsx)(nt, { label: `Disk Read`, bytesPerSec: t?.readBytesPerSec, opsPerSec: t?.readOpsPerSec }),
+            (0, K.jsx)(nt, { label: `Disk Write`, bytesPerSec: t?.writeBytesPerSec, opsPerSec: t?.writeOpsPerSec }),
+          ],
+        }),
+        (0, K.jsx)(`div`, {
+          className: `border-t border-border-subtle pt-5`,
+          children: (0, K.jsxs)(rt, {
+            label: `Load average (1m / 5m / 15m)`,
+            tooltip: `Average number of processes waiting to run over 1, 5, and 15 minute windows. Values above the core count indicate saturation.`,
+            children: [
+              (0, K.jsxs)(`span`, { className: `text-sm text-content-tertiary`, children: [n.cpu.cores, ` cores`] }),
+              (0, K.jsxs)(`span`, {
+                className: `font-mono text-base text-content-primary`,
+                children: [n.load.avg1.toFixed(2), ` / `, n.load.avg5.toFixed(2), ` / `, n.load.avg15.toFixed(2)],
+              }),
+            ],
+          }),
+        }),
+      ],
+    });
+  },
+  tt = {
+    "Disk Read": `Data read from disk per second. IOPS = individual read operations per second.`,
+    "Disk Write": `Data written to disk per second. IOPS = individual write operations per second.`,
+  },
+  nt = ({ label: e, bytesPerSec: t, opsPerSec: n }) =>
+    (0, K.jsx)(rt, {
+      label: e,
+      tooltip: tt[e],
+      children:
+        t != null && n != null
+          ? (0, K.jsxs)(K.Fragment, {
+              children: [
+                (0, K.jsxs)(`span`, { className: `text-sm text-content-tertiary`, children: [Math.round(n), ` iops`] }),
+                (0, K.jsxs)(`span`, { className: `font-mono text-base text-content-primary`, children: [F(t), `/s`] }),
+              ],
+            })
+          : (0, K.jsxs)(K.Fragment, {
+              children: [
+                (0, K.jsx)(`span`, { className: `text-sm text-content-tertiary`, children: `Refresh to update` }),
+                (0, K.jsx)(`span`, { className: `font-mono text-base text-content-primary`, children: `N/A` }),
+              ],
+            }),
+    }),
+  rt = ({ label: e, tooltip: t, children: n }) =>
+    (0, K.jsxs)(`div`, {
+      className: `flex flex-wrap items-baseline justify-between gap-x-2`,
+      children: [
+        (0, K.jsxs)(`div`, {
+          className: `flex items-center gap-1`,
+          children: [
+            (0, K.jsx)(A, { className: `text-base text-content-strong`, children: e }),
+            t &&
+              (0, K.jsx)(k, {
+                content: t,
+                usePortal: !0,
+                className: `!m-0 max-w-xs`,
+                children: (0, K.jsx)(`span`, {
+                  className: `inline-flex`,
+                  style: { marginTop: -1 },
+                  children: (0, K.jsx)(De, {
+                    size: `sm`,
+                    className: `size-3.5 text-content-tertiary`,
+                    "aria-hidden": !0,
+                  }),
+                }),
+              }),
+          ],
+        }),
+        (0, K.jsx)(`div`, { className: `flex flex-wrap items-baseline gap-x-1.5`, children: n }),
+      ],
+    }),
+  it = {
+    cpu: {
+      headline: `CPU usage is elevated.`,
+      detail: `Builds and background tasks may take longer.`,
+      action: `A larger environment can help maintain performance.`,
+    },
+    memory: {
+      headline: `Memory usage is elevated.`,
+      detail: `The editor or running processes may feel less responsive.`,
+      action: `A larger environment can help maintain performance.`,
+    },
+    disk: {
+      headline: `Disk usage is elevated.`,
+      detail: `Git operations and builds may take longer.`,
+      action: `A larger environment provides additional storage capacity.`,
+    },
+  },
+  at = {
+    cpu: {
+      headline: `CPU is nearing capacity.`,
+      detail: `Builds and tasks may stall or be interrupted.`,
+      action: `Switch to a larger environment to maintain reliable performance.`,
+    },
+    memory: {
+      headline: `Memory is nearing capacity.`,
+      detail: `Processes may be terminated as limits are reached.`,
+      action: `Switch to a larger environment to prevent interruptions.`,
+    },
+    disk: {
+      headline: `Disk is nearly full.`,
+      detail: `Writes may fail and builds may stop.`,
+      action: `Switch to a larger environment for additional storage.`,
+    },
+  };
+function ot(e, t) {
+  let n = We(e).reduce((e, t) => (t.percent > e.percent ? t : e)),
+    { headline: r, detail: i, action: a } = (n.level === `high` ? at : it)[n.key];
+  return (0, K.jsxs)(`span`, {
+    children: [
+      (0, K.jsx)(`span`, { className: `font-medium`, children: r }),
+      (0, K.jsx)(`br`, {}),
+      i,
+      ` `,
+      a,
+      t &&
+        (0, K.jsxs)(K.Fragment, {
+          children: [
+            ` `,
+            (0, K.jsx)(o, {
+              to: `/projects/${t}/settings`,
+              className: `underline`,
+              "data-tracking-id": `resource-usage-project-settings`,
+              children: `Project settings`,
+            }),
+          ],
+        }),
+    ],
+  });
+}
+function st(e) {
+  return w(
+    `h-full rounded-full transition-all duration-500`,
+    { low: `bg-content-brand`, medium: `bg-[rgb(var(--ioi-orange-300))]`, high: `bg-[rgb(var(--ioi-red-300))]` }[e],
+  );
+}
+var $ = ({ label: e, percent: t, detail: n }) => {
+  let r = Math.min(100, Math.max(0, t)),
+    i = Y(r);
+  return (0, K.jsxs)(`div`, {
+    className: `flex flex-col gap-1.5`,
+    children: [
+      (0, K.jsxs)(`div`, {
+        className: `flex flex-wrap items-baseline justify-between gap-x-2`,
+        children: [
+          (0, K.jsx)(A, { className: `text-base text-content-strong`, children: e }),
+          (0, K.jsxs)(`div`, {
+            className: `flex flex-wrap items-baseline gap-x-2`,
+            children: [
+              n && (0, K.jsx)(`span`, { className: `font-mono text-sm text-content-tertiary`, children: n }),
+              (0, K.jsxs)(`span`, {
+                className: `font-mono text-base text-content-primary`,
+                children: [r.toFixed(1), `%`],
+              }),
+            ],
+          }),
+        ],
+      }),
+      (0, K.jsx)(`div`, {
+        className: `h-2.5 w-full overflow-hidden rounded-full border border-border-subtle bg-surface-base`,
+        children: (0, K.jsx)(`div`, { className: st(i), style: { width: `${r}%` } }),
+      }),
+    ],
+  });
+};
+async function ct(e, t, n) {
+  let r = await fetch(e, { signal: n, mode: `cors`, headers: { Authorization: `Bearer ${t}` } });
+  if (!r.ok) throw Error(`HTTP ${r.status}: ${r.statusText}`);
+  return await r.json();
+}
+function lt(e, t, n) {
+  let { data: r } = de(e),
+    { data: i } = me(t ? e : void 0),
+    o = r?.status?.environmentUrls?.vmLiveUsage,
+    s = t && !!o && !!i,
+    c = (0, z.useRef)(null),
+    l = (0, z.useRef)(void 0);
+  t || ((c.current = null), (l.current = void 0));
+  let u = a({
+    queryKey: [`vm-live-usage`, e, o],
+    queryFn: ({ signal: e }) => ct(o, i, e),
+    enabled: s,
+    refetchInterval: n,
+    refetchIntervalInBackground: !1,
+    refetchOnWindowFocus: !0,
+    staleTime: 1e4,
+    retry: !1,
+    structuralSharing: !1,
+  });
+  if (u.data && u.dataUpdatedAt) {
+    let e = c.current;
+    if (e && e.snapshot !== u.data) {
+      let t = (u.dataUpdatedAt - e.fetchedAt) / 1e3;
+      if (t > 0) {
+        let n = e.snapshot.vm.disk_io,
+          r = u.data.vm.disk_io;
+        l.current = {
+          readBytesPerSec: Math.max(0, (r.read_bytes - n.read_bytes) / t),
+          writeBytesPerSec: Math.max(0, (r.write_bytes - n.write_bytes) / t),
+          readOpsPerSec: Math.max(0, (r.read_ops - n.read_ops) / t),
+          writeOpsPerSec: Math.max(0, (r.write_ops - n.write_ops) / t),
+        };
+      }
+    }
+    (!e || e.snapshot !== u.data) && (c.current = { snapshot: u.data, fetchedAt: u.dataUpdatedAt });
+  }
+  return {
+    data: u.data,
+    diskIORate: l.current,
+    error: u.error?.message,
+    isLoading: u.isLoading,
+    lastUpdated: u.dataUpdatedAt ? new Date(u.dataUpdatedAt) : void 0,
+    refetch: async () => {
+      await u.refetch();
+    },
+  };
+}
+var ut = ({ environmentId: e, open: t, onOpenChange: n }) => {
+  let { data: r, diskIORate: i, error: a, isLoading: o, lastUpdated: s, refetch: c } = lt(e, t),
+    { data: l } = de(e),
+    u = l?.metadata?.projectId,
+    d = J(r);
+  return (0, K.jsx)(D, {
+    open: t,
+    onOpenChange: n,
+    children: (0, K.jsxs)(D.Content, {
+      className: `max-w-xl`,
+      "data-track-location": p.ResourceUsageModal,
+      children: [
+        (0, K.jsxs)(D.Header, {
+          children: [
+            (0, K.jsxs)(`div`, {
+              className: `flex items-center gap-2`,
+              children: [
+                (0, K.jsx)(D.Title, { children: `Resource Usage` }),
+                (0, K.jsx)(k, {
+                  content: Xe(d),
+                  usePortal: !0,
+                  sideOffset: 4,
+                  className: `!m-0`,
+                  children: (0, K.jsx)(`span`, {
+                    children: (0, K.jsx)(ue, { variant: qe(d), size: `md`, children: Je(d) }),
+                  }),
+                }),
+              ],
+            }),
+            (0, K.jsx)(D.Description, { children: `CPU, memory, disk, and load for this environment.` }),
+          ],
+        }),
+        (0, K.jsx)(Qe, { data: r, diskIORate: i, error: a, isLoading: o, lastUpdated: s, onRefresh: c, projectId: u }),
+      ],
+    }),
+  });
+};
+function dt(e) {
+  return e?.status?.content?.git?.branch
+    ? { type: `branch`, value: e.status.content.git.branch }
+    : (e?.status?.failureMessage?.length ?? 0) > 0
+      ? { type: `branch`, value: `no branch` }
+      : xe(e?.spec?.content?.initializer);
+}
+function ft(e) {
+  return (0, z.useMemo)(() => dt(e), [e]);
+}
+function pt(e) {
+  return ft(e)?.value;
+}
+var mt = ({ size: e, className: t, ...n }) => {
+    switch (e) {
+      case `sm`:
+        return (0, K.jsx)(`svg`, {
+          className: t,
+          ...n,
+          width: `16`,
+          height: `16`,
+          viewBox: `0 0 16 16`,
+          fill: `none`,
+          xmlns: `http://www.w3.org/2000/svg`,
+          children: (0, K.jsx)(`path`, {
+            fillRule: `evenodd`,
+            clipRule: `evenodd`,
+            d: `M8 10.1875C9.20812 10.1875 10.1875 9.20812 10.1875 8C10.1875 6.79188 9.20812 5.8125 8 5.8125C6.79188 5.8125 5.8125 6.79188 5.8125 8C5.8125 9.20812 6.79188 10.1875 8 10.1875ZM8 11.5C9.70869 11.5 11.1314 10.2755 11.4386 8.65625H14.3438H15V7.34375H14.3438H11.4386C11.1314 5.72443 9.70869 4.5 8 4.5C6.29131 4.5 4.86859 5.72443 4.56142 7.34375H1.65625H1V8.65625H1.65625H4.56142C4.86859 10.2755 6.29131 11.5 8 11.5Z`,
+            fill: `currentColor`,
+          }),
+        });
+      case `base`:
+        return (0, K.jsx)(`svg`, {
+          className: t,
+          ...n,
+          width: `20`,
+          height: `20`,
+          viewBox: `0 0 20 20`,
+          fill: `none`,
+          xmlns: `http://www.w3.org/2000/svg`,
+          children: (0, K.jsx)(`path`, {
+            fillRule: `evenodd`,
+            clipRule: `evenodd`,
+            d: `M10 12.5C11.3807 12.5 12.5 11.3807 12.5 10C12.5 8.61929 11.3807 7.5 10 7.5C8.61929 7.5 7.5 8.61929 7.5 10C7.5 11.3807 8.61929 12.5 10 12.5ZM10 14C11.9528 14 13.5787 12.6006 13.9298 10.75H17.25H18V9.25H17.25H13.9298C13.5787 7.39935 11.9528 6 10 6C8.04721 6 6.42125 7.39935 6.0702 9.25H2.75H2V10.75H2.75H6.0702C6.42125 12.6006 8.04721 14 10 14Z`,
+            fill: `currentColor`,
+          }),
+        });
+      case `lg`:
+        return (0, K.jsx)(`svg`, {
+          className: t,
+          ...n,
+          width: `24`,
+          height: `24`,
+          viewBox: `0 0 24 24`,
+          fill: `none`,
+          xmlns: `http://www.w3.org/2000/svg`,
+          children: (0, K.jsx)(`path`, {
+            fillRule: `evenodd`,
+            clipRule: `evenodd`,
+            d: `M12 14.8125C13.5533 14.8125 14.8125 13.5533 14.8125 12C14.8125 10.4467 13.5533 9.1875 12 9.1875C10.4467 9.1875 9.1875 10.4467 9.1875 12C9.1875 13.5533 10.4467 14.8125 12 14.8125ZM12 16.5C14.1969 16.5 16.026 14.9257 16.421 12.8438H20.1562H21V11.1562H20.1562H16.421C16.026 9.07427 14.1969 7.5 12 7.5C9.80311 7.5 7.97391 9.07427 7.57897 11.1562H3.84375H3V12.8438H3.84375H7.57897C7.97391 14.9257 9.80311 16.5 12 16.5Z`,
+            fill: `currentColor`,
+          }),
+        });
+    }
+  },
+  ht = ({ git: e }) => {
+    let t = Ce(e) ?? 0;
+    if (!e) return null;
+    let n = P(t, { includeLabel: !0 });
+    return (0, K.jsxs)(`div`, {
+      className: `flex max-h-[min(600px,calc(var(--radix-popper-available-height,80vh)-16px))] w-auto flex-col`,
+      children: [
+        (0, K.jsxs)(`div`, {
+          className: `flex shrink-0 flex-col gap-1 border-b border-border-subtle px-3 py-2`,
+          children: [
+            (0, K.jsxs)(`div`, {
+              className: `flex items-center justify-between`,
+              children: [
+                (0, K.jsx)(`span`, { className: `text-md font-medium`, children: `Git status` }),
+                (0, K.jsx)(R, { children: n }),
+              ],
+            }),
+            e.branch &&
+              (0, K.jsxs)(`p`, {
+                className: `flex items-center gap-1 text-md text-content-secondary`,
+                children: [
+                  (0, K.jsx)(s, { className: `size-4 shrink-0 text-content-secondary` }),
+                  (0, K.jsx)(`span`, {
+                    className: `min-w-0 truncate text-content-secondary`,
+                    title: e.branch,
+                    children: e.branch,
+                  }),
+                ],
+              }),
+          ],
+        }),
+        (0, K.jsx)(Ne, {
+          orientation: `vertical`,
+          className: `mx-[2px] my-[2px] min-h-0 flex-1`,
+          children: (0, K.jsxs)(`div`, {
+            className: `flex flex-col gap-3 px-2.5 py-1.5`,
+            children: [
+              (0, K.jsx)(Fe, { gitStatus: e }),
+              e.changedFiles.length > 0 ? (0, K.jsx)(Pe, { gitStatus: e }) : null,
+            ],
+          }),
+        }),
+      ],
+    });
+  },
+  gt = ({ commit: e }) =>
+    (0, K.jsxs)(`div`, {
+      className: `flex items-center gap-2`,
+      children: [
+        (0, K.jsx)(mt, { className: `size-4 shrink-0`, size: `sm` }),
+        (0, K.jsx)(`span`, { className: `truncate text-sm text-content-secondary`, title: e, children: e }),
+      ],
+    }),
+  _t = ({ file: e }) => {
+    let t = e.path.split(`/`),
+      n = t.slice(0, t.length - 1),
+      r = t[t.length - 1];
+    return (0, K.jsxs)(`div`, {
+      className: `flex items-center gap-2`,
+      children: [
+        (0, K.jsx)(be, { className: `size-4 shrink-0`, size: `sm` }),
+        (0, K.jsx)(`span`, { className: `max-w-[70%] shrink-0 truncate text-sm font-bold`, title: r, children: r }),
+        (0, K.jsx)(`span`, {
+          className: `shrink truncate text-sm text-content-secondary`,
+          title: e.path,
+          children: n.join(`/`),
+        }),
+        (0, K.jsx)(vt, { changeType: e.changeType }),
+      ],
+    });
+  },
+  vt = ({ changeType: e }) => {
+    let t;
+    switch (e) {
+      case m.UNSPECIFIED:
+        t = (0, K.jsx)(`span`, {});
+        break;
+      case m.ADDED:
+        t = (0, K.jsx)(`span`, { className: `text-content-positive`, children: `A` });
+        break;
+      case m.MODIFIED:
+        t = (0, K.jsx)(`span`, { className: `text-content-yield`, children: `M` });
+        break;
+      case m.DELETED:
+        t = (0, K.jsx)(`span`, { className: `text-content-negative`, children: `D` });
+        break;
+      case m.RENAMED:
+        t = (0, K.jsx)(`span`, { className: `text-content-positive`, children: `R` });
+        break;
+      case m.COPIED:
+        t = (0, K.jsx)(`span`, { className: `text-content-positive`, children: `C` });
+        break;
+      case m.UPDATED_BUT_UNMERGED:
+        t = (0, K.jsx)(`span`, { className: `text-content-negative`, children: `!` });
+        break;
+      case m.UNTRACKED:
+        t = (0, K.jsx)(`span`, { className: `text-content-negative`, children: `U` });
+        break;
+    }
+    return (0, K.jsx)(`div`, { className: `ml-auto h-5 w-9 text-right text-base`, children: t });
+  },
+  yt = ({ environment: e, agentExecution: t }) => {
+    let n = ye(e, t),
+      r = pt(e),
+      a = e.status?.content?.git,
+      o = a?.totalUnpushedCommits || 0,
+      s = a?.totalChangedFiles || 0,
+      c = o > 0 || s > 0,
+      l = o + s;
+    return (0, K.jsx)(`div`, {
+      className: `flex w-full flex-col overflow-hidden rounded-xl border border-border-subtle bg-surface-glass py-2.5 pl-3 pr-4`,
+      children: (0, K.jsxs)(`div`, {
+        className: `flex flex-col gap-0.5`,
+        children: [
+          (0, K.jsxs)(`div`, {
+            className: `flex items-center gap-2`,
+            children: [
+              (0, K.jsx)(Se, { env: e, size: `lg`, className: `m-0 flex-shrink-0` }),
+              (0, K.jsx)(`div`, {
+                className: `flex flex-col justify-center`,
+                children: (0, K.jsx)(`span`, { className: `text-base font-medium text-content-primary`, children: n }),
+              }),
+              c &&
+                (0, K.jsxs)(K.Fragment, {
+                  children: [
+                    (0, K.jsx)(R, { children: P(l) }),
+                    (0, K.jsxs)(Me, {
+                      children: [
+                        (0, K.jsx)(je, {
+                          asChild: !0,
+                          children: (0, K.jsx)(C, {
+                            variant: `ghost`,
+                            size: `xs`,
+                            type: `button`,
+                            className: `data-[state=open]:bg-surface-hover`,
+                            LeadingIcon: O(i),
+                            "aria-label": `Show git status`,
+                          }),
+                        }),
+                        (0, K.jsx)(Ae, {
+                          className: `w-auto min-w-[300px] max-w-[500px]`,
+                          children: (0, K.jsx)(ht, { git: a }),
+                        }),
+                      ],
+                    }),
+                  ],
+                }),
+            ],
+          }),
+          (0, K.jsx)(`span`, { className: `ml-8 truncate text-content-muted`, children: r }),
+        ],
+      }),
+    });
+  },
+  bt = ({ environment: e, open: t, onClose: n, agentExecution: r, force: i }) => {
+    let { toast: a } = S(),
+      o = u(),
+      s = d(),
+      c = he(),
+      l = r ? `session` : `environment`,
+      f = !!r,
+      m = (0, z.useMemo)(() => {
+        if (i)
+          return `This will force delete the ${l}, which may leave some infrastructure or files behind that require manual cleanup.`;
+        let t = e.status?.content?.git,
+          n = t?.totalUnpushedCommits || 0,
+          r = t?.totalChangedFiles || 0,
+          a = n > 0 || r > 0;
+        return f
+          ? a
+            ? `This will permanently delete this session, its environment, and all unsaved work. This action cannot be undone.`
+            : `This will permanently delete this session and its environment. This action cannot be undone.`
+          : a
+            ? `This will permanently delete the environment and all unsaved work. This action cannot be undone.`
+            : `This will permanently delete the environment. This action cannot be undone.`;
+      }, [i, l, f, e.status?.content?.git]),
+      h = (e) => {
+        e || n();
+      },
+      g = (0, z.useCallback)(async () => {
+        try {
+          (await c.mutateAsync({ environmentId: e.id, force: i }),
+            o.pathname == ke({ environment: { id: e.id } }) && s(`/`),
+            n());
+        } catch (e) {
+          a({ title: `${i ? `Failed to force delete` : `Failed to delete`} ${l}`, description: b(e) });
+        }
+      }, [c, e.id, i, a, o.pathname, n, s, l]);
+    (0, z.useEffect)(() => {
+      if (!t) return;
+      let e = (e) => {
+        e.key === `Enter` && (e.metaKey || e.ctrlKey) && !e.shiftKey && !c.isPending && (e.preventDefault(), g());
+      };
+      return (window.addEventListener(`keydown`, e), () => window.removeEventListener(`keydown`, e));
+    }, [t, g, c.isPending]);
+    let _ = i ? p.ForceDeleteEnvironmentModal : p.DeleteEnvironmentModal,
+      v = i ? `Irreversible Action` : `Delete ${l}`,
+      y = i ? `Force delete` : `Delete`,
+      ee = i
+        ? `cancel-force-delete-environment-delete-environment-modal`
+        : `cancel-delete-environment-delete-environment-modal`,
+      x = i
+        ? `confirm-force-delete-environment-delete-environment-modal`
+        : `confirm-delete-environment-delete-environment-modal`;
+    return (0, K.jsx)(D, {
+      open: t,
+      onOpenChange: h,
+      children: (0, K.jsxs)(D.Content, {
+        className: `max-w-inherit max-w-xl`,
+        "data-track-location": _,
+        children: [
+          (0, K.jsxs)(D.Header, {
+            children: [
+              (0, K.jsx)(D.Title, { children: v }),
+              i ? (0, K.jsx)(D.Description, {}) : (0, K.jsx)(D.Description, { children: m }),
+            ],
+          }),
+          (0, K.jsxs)(D.Body, {
+            className: i ? `flex flex-col gap-4` : `flex flex-col`,
+            children: [(0, K.jsx)(yt, { environment: e, agentExecution: r }), i && (0, K.jsx)(A, { children: m })],
+          }),
+          (0, K.jsxs)(D.Footer, {
+            children: [
+              (0, K.jsx)(D.Close, {
+                asChild: !0,
+                children: (0, K.jsx)(C, {
+                  type: `button`,
+                  variant: `outline`,
+                  onClick: (e) => {
+                    (e.stopPropagation(), n());
+                  },
+                  "data-tracking-id": ee,
+                  children: `Cancel`,
+                }),
+              }),
+              (0, K.jsxs)(C, {
+                autoFocus: !0,
+                variant: `destructive`,
+                loading: c.isPending,
+                onClick: async (e) => {
+                  (e.stopPropagation(), await g());
+                },
+                "data-tracking-id": x,
+                children: [
+                  y,
+                  !te() && (0, K.jsx)(E, { keys: ie, variant: `destructive`, className: `ml-1 shrink-0 opacity-80` }),
+                ],
+              }),
+            ],
+          }),
+        ],
+      }),
+    });
+  },
+  xt = (e) => (0, K.jsx)(bt, { ...e, force: !1 }),
+  St = (e) => (0, K.jsx)(bt, { ...e, force: !0 });
+export {
+  ht as a,
+  lt as c,
+  qe as d,
+  Ue as f,
+  Ie as h,
+  _t as i,
+  J as l,
+  U as m,
+  St as n,
+  pt as o,
+  G as p,
+  gt as r,
+  ut as s,
+  xt as t,
+  Je as u,
+};
