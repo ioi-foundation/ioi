@@ -7006,6 +7006,30 @@ const server = http.createServer((req, res) => {
       const m = pathname.match(/^\/api\/(ioi\.v1\.[A-Za-z]+\/[A-Za-z]+)/);
       if (m) fallthrough.add(m[1]);
     }
+    // UNIVERSAL CAPTURE FALLBACK (Phase 1 — boot-depth: guarantee every relative seed asset is
+    // present). A GET made BY a booted /__apps seed page (Referer under /__apps/) for a same-origin
+    // path not matched by any estate route above is served from the local capture if it exists —
+    // so a seed is NEVER blocked by a routing-allowlist gap. Scoped to seed-origin requests, so it
+    // can never shadow an estate route or the product-ui bundle. Declared transforms only
+    // (capitalized brand rewrite on html/js); assets are byte-faithful otherwise.
+    {
+      const ref = String(req.headers["referer"] || "");
+      const fromSeed = /\/__apps\//.test(ref);
+      const estate = /^\/(__ioi|__apps|v1|api|scim|graphql-gateway|sentry-tunnel|supervisor\.v1|assets\/content-addressable-storage)\b/.test(pathname);
+      if (req.method === "GET" && fromSeed && !estate) {
+        const capBase = process.env.IOI_HARVEST_CAPTURE_URL || process.env.IOI_HARVEST_MIRROR_URL || "http://127.0.0.1:9225";
+        try {
+          const capResp = await fetch(capBase + req.url, { redirect: "manual" });
+          if (capResp.status === 200) {
+            const ct = capResp.headers.get("content-type") || "application/octet-stream";
+            let buf = Buffer.from(await capResp.arrayBuffer());
+            if (/text\/html|javascript|ecmascript/.test(ct)) buf = Buffer.from(buf.toString("utf8").replace(/Palantir/g, "IOI"), "utf8");
+            res.writeHead(200, { "Content-Type": ct, "Cache-Control": "no-cache", "content-length": String(buf.length) });
+            return res.end(buf);
+          }
+        } catch { /* capture offline or absent → fall through to the mock */ }
+      }
+    }
     proxyToProductUi(req, res, body);
   });
 });

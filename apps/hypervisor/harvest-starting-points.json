@@ -1,0 +1,1088 @@
+{
+  "schema_version": "ioi.hypervisor.harvest-ux-parity-inventory.v1",
+  "phase": "local-capture-only (no live re-harvest)",
+  "capture": "http://127.0.0.1:9225",
+  "serve": "http://127.0.0.1:4173",
+  "total_seeds": 39,
+  "booted_past_shell": 15,
+  "asset_parity_checked": 34,
+  "by_class": {
+    "boots_graph": 6,
+    "blocked_missing_capture": 13,
+    "shell_only": 11,
+    "boots_table_list": 4,
+    "boots_editor_canvas": 3,
+    "boots_wizard": 1,
+    "boots_landing": 1
+  },
+  "seeds": [
+    {
+      "owner": "Studio",
+      "slug": "designer",
+      "capture": "/workspace/solution-design/",
+      "intended_grammar": "editor_canvas",
+      "tier": "high_value",
+      "served": 200,
+      "classification": "boots_graph",
+      "booted_past_shell": true,
+      "satisfies_grammar": true,
+      "controls": 45,
+      "panels": 72,
+      "asset_parity": [
+        {
+          "asset": "380927b6529ef7aad157c64b3e6b0381e6817184",
+          "ok": true,
+          "served_bytes": 3747,
+          "capture_bytes": 3747
+        },
+        {
+          "asset": "befb599c66f54098f755924f4f271aca572440ee",
+          "ok": true,
+          "served_bytes": 139643,
+          "capture_bytes": 139643
+        }
+      ],
+      "rebound_lane": "odk composition patterns + surface descriptors",
+      "unbound_note": "typed concept/component/resource canvas; in-canvas open/save/reference/load-lineage = named gaps"
+    },
+    {
+      "owner": "Studio",
+      "slug": "machinery",
+      "capture": "/workspace/machinery-app/",
+      "intended_grammar": "graph",
+      "tier": "high_value",
+      "served": 200,
+      "classification": "boots_graph",
+      "booted_past_shell": true,
+      "satisfies_grammar": true,
+      "controls": 39,
+      "panels": 85,
+      "asset_parity": [
+        {
+          "asset": "3dec4bc4028a3524f86d38cb96a9cb30a7f13479",
+          "ok": true,
+          "served_bytes": 3536,
+          "capture_bytes": 3536
+        },
+        {
+          "asset": "befb599c66f54098f755924f4f271aca572440ee",
+          "ok": true,
+          "served_bytes": 139643,
+          "capture_bytes": 139643
+        }
+      ],
+      "rebound_lane": null,
+      "unbound_note": "process/state-machine graph; data lanes unbound"
+    },
+    {
+      "owner": "Studio",
+      "slug": "workshop",
+      "capture": "/workspace/workshop/",
+      "intended_grammar": "editor_canvas",
+      "tier": "high_value",
+      "served": 0,
+      "classification": "blocked_missing_capture",
+      "booted_past_shell": false,
+      "satisfies_grammar": false,
+      "controls": 0,
+      "panels": 0,
+      "asset_parity": [],
+      "rebound_lane": null,
+      "unbound_note": "application/module builder; unbound"
+    },
+    {
+      "owner": "Studio",
+      "slug": "module",
+      "capture": "/workspace/module/",
+      "intended_grammar": "editor_canvas",
+      "tier": "aux",
+      "served": 200,
+      "classification": "shell_only",
+      "booted_past_shell": false,
+      "satisfies_grammar": false,
+      "controls": 19,
+      "panels": 85,
+      "asset_parity": [
+        {
+          "asset": "0f576b1af9fa4d97b57a318f65593239aa50160a",
+          "ok": true,
+          "served_bytes": 4897,
+          "capture_bytes": 4897
+        },
+        {
+          "asset": "d486f2a153ae3a22bd2cc1c1f8fe0ed9cfd86451",
+          "ok": true,
+          "served_bytes": 139643,
+          "capture_bytes": 139643
+        }
+      ],
+      "rebound_lane": null,
+      "unbound_note": "compute-module builder; unbound"
+    },
+    {
+      "owner": "Automations",
+      "slug": "monitors",
+      "capture": "/workspace/object-monitoring/",
+      "intended_grammar": "wizard",
+      "tier": "high_value",
+      "served": 200,
+      "classification": "boots_graph",
+      "booted_past_shell": true,
+      "satisfies_grammar": false,
+      "controls": 29,
+      "panels": 68,
+      "asset_parity": [
+        {
+          "asset": "6ecabb63b607c3ff82f2493c421ffbcbc5796b9f",
+          "ok": true,
+          "served_bytes": 4431,
+          "capture_bytes": 4431
+        },
+        {
+          "asset": "d486f2a153ae3a22bd2cc1c1f8fe0ed9cfd86451",
+          "ok": true,
+          "served_bytes": 139643,
+          "capture_bytes": 139643
+        }
+      ],
+      "rebound_lane": null,
+      "unbound_note": "condition\u2192effect monitor wizard; unbound"
+    },
+    {
+      "owner": "Automations",
+      "slug": "scheduler",
+      "capture": "/workspace/scheduler/",
+      "intended_grammar": "table_list",
+      "tier": "aux",
+      "served": 200,
+      "classification": "shell_only",
+      "booted_past_shell": false,
+      "satisfies_grammar": false,
+      "controls": 19,
+      "panels": 80,
+      "asset_parity": [
+        {
+          "asset": "93057b78c917716cdf1698080277bfa7222a09b3",
+          "ok": true,
+          "served_bytes": 3516,
+          "capture_bytes": 3516
+        },
+        {
+          "asset": "d486f2a153ae3a22bd2cc1c1f8fe0ed9cfd86451",
+          "ok": true,
+          "served_bytes": 139643,
+          "capture_bytes": 139643
+        }
+      ],
+      "rebound_lane": null,
+      "unbound_note": "schedule table; unbound"
+    },
+    {
+      "owner": "Provenance",
+      "slug": "lineage",
+      "capture": "/workspace/monocle/",
+      "intended_grammar": "graph",
+      "tier": "high_value",
+      "served": 200,
+      "classification": "boots_graph",
+      "booted_past_shell": true,
+      "satisfies_grammar": true,
+      "controls": 67,
+      "panels": 108,
+      "asset_parity": [
+        {
+          "asset": "03f767818a2dc185b57697c175b0263003b38362",
+          "ok": true,
+          "served_bytes": 6210,
+          "capture_bytes": 6210
+        },
+        {
+          "asset": "befb599c66f54098f755924f4f271aca572440ee",
+          "ok": true,
+          "served_bytes": 139643,
+          "capture_bytes": 139643
+        }
+      ],
+      "rebound_lane": "Work Ledger cross-object lineage edges",
+      "unbound_note": "lineage graph editor; in-canvas resource-search lanes = named gaps"
+    },
+    {
+      "owner": "Data",
+      "slug": "ingest",
+      "capture": "/workspace/hyperauto/",
+      "intended_grammar": "wizard",
+      "tier": "high_value",
+      "served": 200,
+      "classification": "shell_only",
+      "booted_past_shell": false,
+      "satisfies_grammar": false,
+      "controls": 19,
+      "panels": 85,
+      "asset_parity": [
+        {
+          "asset": "390cd937d37bcc6251de76aeebcee18e5b5bde37",
+          "ok": true,
+          "served_bytes": 3536,
+          "capture_bytes": 3536
+        },
+        {
+          "asset": "befb599c66f54098f755924f4f271aca572440ee",
+          "ok": true,
+          "served_bytes": 139643,
+          "capture_bytes": 139643
+        }
+      ],
+      "rebound_lane": null,
+      "unbound_note": "source-first pipeline wizard; unbound"
+    },
+    {
+      "owner": "Data",
+      "slug": "sources",
+      "capture": "/workspace/data-ingestion-app/",
+      "intended_grammar": "table_list",
+      "tier": "high_value",
+      "served": 200,
+      "classification": "shell_only",
+      "booted_past_shell": false,
+      "satisfies_grammar": false,
+      "controls": 19,
+      "panels": 85,
+      "asset_parity": [
+        {
+          "asset": "2b3e667509b042ace353a7df8f3380f61da8bea6",
+          "ok": true,
+          "served_bytes": 4507,
+          "capture_bytes": 4507
+        },
+        {
+          "asset": "d486f2a153ae3a22bd2cc1c1f8fe0ed9cfd86451",
+          "ok": true,
+          "served_bytes": 139643,
+          "capture_bytes": 139643
+        }
+      ],
+      "rebound_lane": null,
+      "unbound_note": "Sources/Syncs/Listeners IA; unbound"
+    },
+    {
+      "owner": "Data",
+      "slug": "pipeline",
+      "capture": "/workspace/builder/",
+      "intended_grammar": "editor_canvas",
+      "tier": "high_value",
+      "served": 200,
+      "classification": "blocked_missing_capture",
+      "booted_past_shell": false,
+      "satisfies_grammar": false,
+      "controls": 22,
+      "panels": 85,
+      "asset_parity": [
+        {
+          "asset": "28d71e308020c321b540e6ffe586f612bc60204d",
+          "ok": true,
+          "served_bytes": 6992,
+          "capture_bytes": 6992
+        },
+        {
+          "asset": "d486f2a153ae3a22bd2cc1c1f8fe0ed9cfd86451",
+          "ok": true,
+          "served_bytes": 139643,
+          "capture_bytes": 139643
+        }
+      ],
+      "rebound_lane": null,
+      "unbound_note": "Pipeline Builder canvas; boots as classified from the local capture"
+    },
+    {
+      "owner": "Data",
+      "slug": "dataset",
+      "capture": "/workspace/dataset/",
+      "intended_grammar": "table_list",
+      "tier": "aux",
+      "served": 200,
+      "classification": "shell_only",
+      "booted_past_shell": false,
+      "satisfies_grammar": false,
+      "controls": 20,
+      "panels": 91,
+      "asset_parity": [
+        {
+          "asset": "67c1e22d4615adc4f8477035b07bd7c1ac48e831",
+          "ok": true,
+          "served_bytes": 6958,
+          "capture_bytes": 6958
+        },
+        {
+          "asset": "d486f2a153ae3a22bd2cc1c1f8fe0ed9cfd86451",
+          "ok": true,
+          "served_bytes": 139643,
+          "capture_bytes": 139643
+        }
+      ],
+      "rebound_lane": null,
+      "unbound_note": "dataset preview/table; unbound"
+    },
+    {
+      "owner": "Ontology",
+      "slug": "schema",
+      "capture": "/workspace/ontology/",
+      "intended_grammar": "editor_canvas",
+      "tier": "high_value",
+      "served": 200,
+      "classification": "boots_table_list",
+      "booted_past_shell": true,
+      "satisfies_grammar": false,
+      "controls": 29,
+      "panels": 87,
+      "asset_parity": [
+        {
+          "asset": "faa603e29f65ca1514a76dc71779491ed4b22ae9",
+          "ok": true,
+          "served_bytes": 4209,
+          "capture_bytes": 4209
+        },
+        {
+          "asset": "d486f2a153ae3a22bd2cc1c1f8fe0ed9cfd86451",
+          "ok": true,
+          "served_bytes": 139643,
+          "capture_bytes": 139643
+        }
+      ],
+      "rebound_lane": null,
+      "unbound_note": "schema workbench (types/functions/health/history); unbound"
+    },
+    {
+      "owner": "Ontology",
+      "slug": "explorer",
+      "capture": "/workspace/hubble/",
+      "intended_grammar": "table_list",
+      "tier": "high_value",
+      "served": 200,
+      "classification": "boots_graph",
+      "booted_past_shell": true,
+      "satisfies_grammar": false,
+      "controls": 19,
+      "panels": 85,
+      "asset_parity": [
+        {
+          "asset": "b76cbb4f95af4b4740d127f0ae8615811f1de550",
+          "ok": true,
+          "served_bytes": 4144,
+          "capture_bytes": 4144
+        },
+        {
+          "asset": "d486f2a153ae3a22bd2cc1c1f8fe0ed9cfd86451",
+          "ok": true,
+          "served_bytes": 139643,
+          "capture_bytes": 139643
+        }
+      ],
+      "rebound_lane": null,
+      "unbound_note": "object explorer + saved sets; unbound"
+    },
+    {
+      "owner": "Ontology",
+      "slug": "objectview",
+      "capture": "/workspace/object-view/",
+      "intended_grammar": "document",
+      "tier": "aux",
+      "served": 0,
+      "classification": "blocked_missing_capture",
+      "booted_past_shell": false,
+      "satisfies_grammar": false,
+      "controls": 0,
+      "panels": 0,
+      "asset_parity": [],
+      "rebound_lane": null,
+      "unbound_note": "object view; unbound"
+    },
+    {
+      "owner": "Ontology",
+      "slug": "objecteditor",
+      "capture": "/workspace/object-view-editor/",
+      "intended_grammar": "editor_canvas",
+      "tier": "aux",
+      "served": 0,
+      "classification": "blocked_missing_capture",
+      "booted_past_shell": false,
+      "satisfies_grammar": false,
+      "controls": 0,
+      "panels": 0,
+      "asset_parity": [],
+      "rebound_lane": null,
+      "unbound_note": "object-view editor; unbound"
+    },
+    {
+      "owner": "Evaluations",
+      "slug": "evalsuites",
+      "capture": "/workspace/evals/",
+      "intended_grammar": "table_list",
+      "tier": "high_value",
+      "served": 200,
+      "classification": "boots_editor_canvas",
+      "booted_past_shell": true,
+      "satisfies_grammar": false,
+      "controls": 25,
+      "panels": 85,
+      "asset_parity": [
+        {
+          "asset": "d7da04221925e43c47208c744f41ea4a7980fe50",
+          "ok": true,
+          "served_bytes": 3803,
+          "capture_bytes": 3803
+        },
+        {
+          "asset": "d486f2a153ae3a22bd2cc1c1f8fe0ed9cfd86451",
+          "ok": true,
+          "served_bytes": 139643,
+          "capture_bytes": 139643
+        }
+      ],
+      "rebound_lane": null,
+      "unbound_note": "eval-suite library; unbound"
+    },
+    {
+      "owner": "Evaluations",
+      "slug": "analysis",
+      "capture": "/workspace/insight/",
+      "intended_grammar": "editor_canvas",
+      "tier": "high_value",
+      "served": 200,
+      "classification": "shell_only",
+      "booted_past_shell": false,
+      "satisfies_grammar": false,
+      "controls": 19,
+      "panels": 85,
+      "asset_parity": [
+        {
+          "asset": "f49879c0bf7c86ded1d48ffe5666b77c1f10be23",
+          "ok": true,
+          "served_bytes": 4190,
+          "capture_bytes": 4190
+        },
+        {
+          "asset": "d486f2a153ae3a22bd2cc1c1f8fe0ed9cfd86451",
+          "ok": true,
+          "served_bytes": 139643,
+          "capture_bytes": 139643
+        }
+      ],
+      "rebound_lane": null,
+      "unbound_note": "object-set-first analysis canvas; unbound"
+    },
+    {
+      "owner": "Evaluations",
+      "slug": "quiver",
+      "capture": "/workspace/quiver/",
+      "intended_grammar": "editor_canvas",
+      "tier": "high_value",
+      "served": 200,
+      "classification": "shell_only",
+      "booted_past_shell": false,
+      "satisfies_grammar": false,
+      "controls": 19,
+      "panels": 85,
+      "asset_parity": [
+        {
+          "asset": "20d6b0380ba9532a1265bba65e9de4b2b7c82dd0",
+          "ok": true,
+          "served_bytes": 4166,
+          "capture_bytes": 4166
+        },
+        {
+          "asset": "d486f2a153ae3a22bd2cc1c1f8fe0ed9cfd86451",
+          "ok": true,
+          "served_bytes": 139643,
+          "capture_bytes": 139643
+        }
+      ],
+      "rebound_lane": null,
+      "unbound_note": "time-series analysis canvas; unbound"
+    },
+    {
+      "owner": "Foundry",
+      "slug": "models",
+      "capture": "/workspace/model-catalog/",
+      "intended_grammar": "catalog",
+      "tier": "high_value",
+      "served": 200,
+      "classification": "boots_table_list",
+      "booted_past_shell": true,
+      "satisfies_grammar": true,
+      "controls": 44,
+      "panels": 85,
+      "asset_parity": [
+        {
+          "asset": "d5ace9f36a54f16003cd893ca1f6dc9c4cdb8e82",
+          "ok": true,
+          "served_bytes": 4338,
+          "capture_bytes": 4338
+        },
+        {
+          "asset": "d486f2a153ae3a22bd2cc1c1f8fe0ed9cfd86451",
+          "ok": true,
+          "served_bytes": 139643,
+          "capture_bytes": 139643
+        }
+      ],
+      "rebound_lane": null,
+      "unbound_note": "model registry home; unbound"
+    },
+    {
+      "owner": "Foundry",
+      "slug": "modelstudio",
+      "capture": "/workspace/model-studio/",
+      "intended_grammar": "editor_canvas",
+      "tier": "high_value",
+      "served": 200,
+      "classification": "shell_only",
+      "booted_past_shell": false,
+      "satisfies_grammar": false,
+      "controls": 19,
+      "panels": 85,
+      "asset_parity": [
+        {
+          "asset": "3c44bb9e336d88335f73b692bfe8631c716d84da",
+          "ok": true,
+          "served_bytes": 4177,
+          "capture_bytes": 4177
+        },
+        {
+          "asset": "d486f2a153ae3a22bd2cc1c1f8fe0ed9cfd86451",
+          "ok": true,
+          "served_bytes": 139643,
+          "capture_bytes": 139643
+        }
+      ],
+      "rebound_lane": null,
+      "unbound_note": "model studio; unbound"
+    },
+    {
+      "owner": "Foundry",
+      "slug": "inference",
+      "capture": "/workspace/foundry-inference-app/",
+      "intended_grammar": "wizard",
+      "tier": "aux",
+      "served": 200,
+      "classification": "boots_wizard",
+      "booted_past_shell": true,
+      "satisfies_grammar": true,
+      "controls": 30,
+      "panels": 85,
+      "asset_parity": [
+        {
+          "asset": "8030c239a82cca5a46f51b9c060cb5b45af8f7a3",
+          "ok": true,
+          "served_bytes": 3611,
+          "capture_bytes": 3611
+        },
+        {
+          "asset": "d486f2a153ae3a22bd2cc1c1f8fe0ed9cfd86451",
+          "ok": true,
+          "served_bytes": 139643,
+          "capture_bytes": 139643
+        }
+      ],
+      "rebound_lane": null,
+      "unbound_note": "inference app; unbound"
+    },
+    {
+      "owner": "Marketplace",
+      "slug": "listings",
+      "capture": "/workspace/marketplace/",
+      "intended_grammar": "catalog",
+      "tier": "high_value",
+      "served": 200,
+      "classification": "boots_graph",
+      "booted_past_shell": true,
+      "satisfies_grammar": true,
+      "controls": 38,
+      "panels": 85,
+      "asset_parity": [
+        {
+          "asset": "6a2ca9b051aa081e42ae1551be0ed870b7c235ac",
+          "ok": true,
+          "served_bytes": 3967,
+          "capture_bytes": 3967
+        },
+        {
+          "asset": "d486f2a153ae3a22bd2cc1c1f8fe0ed9cfd86451",
+          "ok": true,
+          "served_bytes": 139643,
+          "capture_bytes": 139643
+        }
+      ],
+      "rebound_lane": "daemon marketplace listing plane",
+      "unbound_note": "store browse + install wizard; drill-down = named gap"
+    },
+    {
+      "owner": "Marketplace",
+      "slug": "registry",
+      "capture": "/workspace/artifacts/",
+      "intended_grammar": "table_list",
+      "tier": "high_value",
+      "served": 200,
+      "classification": "blocked_missing_capture",
+      "booted_past_shell": false,
+      "satisfies_grammar": false,
+      "controls": 22,
+      "panels": 85,
+      "asset_parity": [
+        {
+          "asset": "ea548d80f0abe4763e67c3770ce1f94c4fd0037d",
+          "ok": true,
+          "served_bytes": 3996,
+          "capture_bytes": 3996
+        },
+        {
+          "asset": "d486f2a153ae3a22bd2cc1c1f8fe0ed9cfd86451",
+          "ok": true,
+          "served_bytes": 139643,
+          "capture_bytes": 139643
+        }
+      ],
+      "rebound_lane": null,
+      "unbound_note": "versioned artifact registry; unbound"
+    },
+    {
+      "owner": "Developer Console",
+      "slug": "devconsole",
+      "capture": "/workspace/developer-console/",
+      "intended_grammar": "wizard",
+      "tier": "high_value",
+      "served": 200,
+      "classification": "blocked_missing_capture",
+      "booted_past_shell": false,
+      "satisfies_grammar": false,
+      "controls": 3,
+      "panels": 2,
+      "asset_parity": [
+        {
+          "asset": "c4ffd9a53da469f31969b17d2b7a4bdd12e2ac3b",
+          "ok": true,
+          "served_bytes": 3699,
+          "capture_bytes": 3699
+        },
+        {
+          "asset": "d486f2a153ae3a22bd2cc1c1f8fe0ed9cfd86451",
+          "ok": true,
+          "served_bytes": 139643,
+          "capture_bytes": 139643
+        }
+      ],
+      "rebound_lane": null,
+      "unbound_note": "OAuth app registration + SDK on-ramps (self-bootstrapped)"
+    },
+    {
+      "owner": "Developer Console",
+      "slug": "widgets",
+      "capture": "/workspace/custom-widgets/",
+      "intended_grammar": "editor_canvas",
+      "tier": "high_value",
+      "served": 200,
+      "classification": "blocked_missing_capture",
+      "booted_past_shell": false,
+      "satisfies_grammar": false,
+      "controls": 3,
+      "panels": 2,
+      "asset_parity": [
+        {
+          "asset": "f8851a3aa0205e65cd9deba322b28bb2f8874cc4",
+          "ok": true,
+          "served_bytes": 410,
+          "capture_bytes": 410
+        },
+        {
+          "asset": "490794135cd2acc4e3ce47c0fa29a071cc1e690e",
+          "ok": true,
+          "served_bytes": 101569,
+          "capture_bytes": 101569
+        }
+      ],
+      "rebound_lane": null,
+      "unbound_note": "widget-set authoring (self-bootstrapped)"
+    },
+    {
+      "owner": "Developer Console",
+      "slug": "developer",
+      "capture": "/workspace/developer/",
+      "intended_grammar": "table_list",
+      "tier": "aux",
+      "served": 200,
+      "classification": "blocked_missing_capture",
+      "booted_past_shell": false,
+      "satisfies_grammar": false,
+      "controls": 3,
+      "panels": 2,
+      "asset_parity": [
+        {
+          "asset": "df1b9a988b918c2eb2574f901f00cbec575ba04b",
+          "ok": true,
+          "served_bytes": 5181,
+          "capture_bytes": 5181
+        },
+        {
+          "asset": "d486f2a153ae3a22bd2cc1c1f8fe0ed9cfd86451",
+          "ok": true,
+          "served_bytes": 139643,
+          "capture_bytes": 139643
+        }
+      ],
+      "rebound_lane": null,
+      "unbound_note": "developer home; unbound"
+    },
+    {
+      "owner": "Workbench",
+      "slug": "workspaces",
+      "capture": "/workspace/code-workspaces/",
+      "intended_grammar": "editor_canvas",
+      "tier": "high_value",
+      "served": 200,
+      "classification": "boots_landing",
+      "booted_past_shell": true,
+      "satisfies_grammar": false,
+      "controls": 38,
+      "panels": 87,
+      "asset_parity": [
+        {
+          "asset": "a192be65385fbec183b64a3a4445342c293d4a99",
+          "ok": true,
+          "served_bytes": 4823,
+          "capture_bytes": 4823
+        },
+        {
+          "asset": "d486f2a153ae3a22bd2cc1c1f8fe0ed9cfd86451",
+          "ok": true,
+          "served_bytes": 139643,
+          "capture_bytes": 139643
+        }
+      ],
+      "rebound_lane": null,
+      "unbound_note": "code workspace IDE; unbound"
+    },
+    {
+      "owner": "Workbench",
+      "slug": "repositories",
+      "capture": "/workspace/code-repositories/",
+      "intended_grammar": "table_list",
+      "tier": "aux",
+      "served": 0,
+      "classification": "blocked_missing_capture",
+      "booted_past_shell": false,
+      "satisfies_grammar": false,
+      "controls": 0,
+      "panels": 0,
+      "asset_parity": [],
+      "rebound_lane": null,
+      "unbound_note": "code repositories; unbound"
+    },
+    {
+      "owner": "Workbench",
+      "slug": "notepad",
+      "capture": "/workspace/notepad/",
+      "intended_grammar": "document",
+      "tier": "aux",
+      "served": 200,
+      "classification": "blocked_missing_capture",
+      "booted_past_shell": false,
+      "satisfies_grammar": false,
+      "controls": 22,
+      "panels": 85,
+      "asset_parity": [
+        {
+          "asset": "03e694a5e1d71ab994018e8430c52cef86734a6e",
+          "ok": true,
+          "served_bytes": 4168,
+          "capture_bytes": 4168
+        },
+        {
+          "asset": "d486f2a153ae3a22bd2cc1c1f8fe0ed9cfd86451",
+          "ok": true,
+          "served_bytes": 139643,
+          "capture_bytes": 139643
+        }
+      ],
+      "rebound_lane": null,
+      "unbound_note": "notepad document; unbound"
+    },
+    {
+      "owner": "Provenance",
+      "slug": "vertex",
+      "capture": "/workspace/vertex/",
+      "intended_grammar": "graph",
+      "tier": "high_value",
+      "served": 200,
+      "classification": "blocked_missing_capture",
+      "booted_past_shell": false,
+      "satisfies_grammar": false,
+      "controls": 22,
+      "panels": 85,
+      "asset_parity": [
+        {
+          "asset": "41e692ff1f29f950cfd1138af3e68ce9561e1b88",
+          "ok": true,
+          "served_bytes": 4899,
+          "capture_bytes": 4899
+        },
+        {
+          "asset": "d486f2a153ae3a22bd2cc1c1f8fe0ed9cfd86451",
+          "ok": true,
+          "served_bytes": 139643,
+          "capture_bytes": 139643
+        }
+      ],
+      "rebound_lane": null,
+      "unbound_note": "Vertex graph exploration canvas; boots as classified from the local capture"
+    },
+    {
+      "owner": "Environments",
+      "slug": "map",
+      "capture": "/workspace/map/",
+      "intended_grammar": "editor_canvas",
+      "tier": "aux",
+      "served": 200,
+      "classification": "blocked_missing_capture",
+      "booted_past_shell": false,
+      "satisfies_grammar": false,
+      "controls": 19,
+      "panels": 85,
+      "asset_parity": [
+        {
+          "asset": "41e692ff1f29f950cfd1138af3e68ce9561e1b88",
+          "ok": true,
+          "served_bytes": 4899,
+          "capture_bytes": 4899
+        },
+        {
+          "asset": "d486f2a153ae3a22bd2cc1c1f8fe0ed9cfd86451",
+          "ok": true,
+          "served_bytes": 139643,
+          "capture_bytes": 139643
+        }
+      ],
+      "rebound_lane": null,
+      "unbound_note": "geospatial map canvas; unbound"
+    },
+    {
+      "owner": "Domain Apps",
+      "slug": "slate",
+      "capture": "/workspace/slate/",
+      "intended_grammar": "editor_canvas",
+      "tier": "high_value",
+      "served": 200,
+      "classification": "blocked_missing_capture",
+      "booted_past_shell": false,
+      "satisfies_grammar": false,
+      "controls": 3,
+      "panels": 2,
+      "asset_parity": [],
+      "rebound_lane": null,
+      "unbound_note": "Slate app builder; unbound"
+    },
+    {
+      "owner": "Domain Apps",
+      "slug": "logic",
+      "capture": "/workspace/logic-app/",
+      "intended_grammar": "editor_canvas",
+      "tier": "aux",
+      "served": 200,
+      "classification": "shell_only",
+      "booted_past_shell": false,
+      "satisfies_grammar": false,
+      "controls": 19,
+      "panels": 85,
+      "asset_parity": [
+        {
+          "asset": "defa2edefd1d62a4890c7ca00adf26263ce757ef",
+          "ok": true,
+          "served_bytes": 4023,
+          "capture_bytes": 4023
+        },
+        {
+          "asset": "d486f2a153ae3a22bd2cc1c1f8fe0ed9cfd86451",
+          "ok": true,
+          "served_bytes": 139643,
+          "capture_bytes": 139643
+        }
+      ],
+      "rebound_lane": null,
+      "unbound_note": "Logic builder; unbound"
+    },
+    {
+      "owner": "Domain Apps",
+      "slug": "contour",
+      "capture": "/workspace/contour-app/",
+      "intended_grammar": "editor_canvas",
+      "tier": "aux",
+      "served": 200,
+      "classification": "shell_only",
+      "booted_past_shell": false,
+      "satisfies_grammar": false,
+      "controls": 19,
+      "panels": 85,
+      "asset_parity": [
+        {
+          "asset": "8f762a4d7e8b06deab709eb20cdc52ab3b0236ff",
+          "ok": true,
+          "served_bytes": 4190,
+          "capture_bytes": 4190
+        },
+        {
+          "asset": "d486f2a153ae3a22bd2cc1c1f8fe0ed9cfd86451",
+          "ok": true,
+          "served_bytes": 139643,
+          "capture_bytes": 139643
+        }
+      ],
+      "rebound_lane": null,
+      "unbound_note": "Contour analysis; unbound"
+    },
+    {
+      "owner": "Domain Apps",
+      "slug": "fusion",
+      "capture": "/workspace/fusion/",
+      "intended_grammar": "editor_canvas",
+      "tier": "aux",
+      "served": 200,
+      "classification": "shell_only",
+      "booted_past_shell": false,
+      "satisfies_grammar": false,
+      "controls": 20,
+      "panels": 85,
+      "asset_parity": [
+        {
+          "asset": "7748c63ebfe181de7b632365a915eacb03f869a5",
+          "ok": true,
+          "served_bytes": 4166,
+          "capture_bytes": 4166
+        },
+        {
+          "asset": "d486f2a153ae3a22bd2cc1c1f8fe0ed9cfd86451",
+          "ok": true,
+          "served_bytes": 139643,
+          "capture_bytes": 139643
+        }
+      ],
+      "rebound_lane": null,
+      "unbound_note": "Fusion spreadsheet; unbound"
+    },
+    {
+      "owner": "Missions",
+      "slug": "jobs",
+      "capture": "/workspace/job-tracker/",
+      "intended_grammar": "table_list",
+      "tier": "high_value",
+      "served": 200,
+      "classification": "boots_editor_canvas",
+      "booted_past_shell": true,
+      "satisfies_grammar": false,
+      "controls": 41,
+      "panels": 85,
+      "asset_parity": [
+        {
+          "asset": "28d71e308020c321b540e6ffe586f612bc60204d",
+          "ok": true,
+          "served_bytes": 6992,
+          "capture_bytes": 6992
+        },
+        {
+          "asset": "d486f2a153ae3a22bd2cc1c1f8fe0ed9cfd86451",
+          "ok": true,
+          "served_bytes": 139643,
+          "capture_bytes": 139643
+        }
+      ],
+      "rebound_lane": "daemon jobs queue",
+      "unbound_note": "run/job status table"
+    },
+    {
+      "owner": "Missions",
+      "slug": "incidents",
+      "capture": "/workspace/issues-app/",
+      "intended_grammar": "table_list",
+      "tier": "high_value",
+      "served": 200,
+      "classification": "boots_table_list",
+      "booted_past_shell": true,
+      "satisfies_grammar": true,
+      "controls": 39,
+      "panels": 85,
+      "asset_parity": [
+        {
+          "asset": "bc9233668f88f8942fce47d457d31dae2401810a",
+          "ok": true,
+          "served_bytes": 3470,
+          "capture_bytes": 3470
+        },
+        {
+          "asset": "d486f2a153ae3a22bd2cc1c1f8fe0ed9cfd86451",
+          "ok": true,
+          "served_bytes": 139643,
+          "capture_bytes": 139643
+        }
+      ],
+      "rebound_lane": "daemon incident inbox",
+      "unbound_note": "status-lane remediation inbox"
+    },
+    {
+      "owner": "Governance",
+      "slug": "approvals",
+      "capture": "/workspace/approvals-app/",
+      "intended_grammar": "table_list",
+      "tier": "high_value",
+      "served": 200,
+      "classification": "boots_table_list",
+      "booted_past_shell": true,
+      "satisfies_grammar": true,
+      "controls": 30,
+      "panels": 86,
+      "asset_parity": [
+        {
+          "asset": "c8bfe2d4226c51b8c3d281d0cac5dd9f9996c28d",
+          "ok": true,
+          "served_bytes": 3596,
+          "capture_bytes": 3596
+        },
+        {
+          "asset": "d486f2a153ae3a22bd2cc1c1f8fe0ed9cfd86451",
+          "ok": true,
+          "served_bytes": 139643,
+          "capture_bytes": 139643
+        }
+      ],
+      "rebound_lane": "daemon approval-requests",
+      "unbound_note": "approvals inbox; per-row drilldown = named gap"
+    },
+    {
+      "owner": "Improvement",
+      "slug": "changes",
+      "capture": "/workspace/upgrade-assistant/",
+      "intended_grammar": "table_list",
+      "tier": "high_value",
+      "served": 200,
+      "classification": "boots_editor_canvas",
+      "booted_past_shell": true,
+      "satisfies_grammar": false,
+      "controls": 49,
+      "panels": 90,
+      "asset_parity": [
+        {
+          "asset": "2542ef121badda26ea35acd25ec6de56bddee923",
+          "ok": true,
+          "served_bytes": 3691,
+          "capture_bytes": 3691
+        },
+        {
+          "asset": "d486f2a153ae3a22bd2cc1c1f8fe0ed9cfd86451",
+          "ok": true,
+          "served_bytes": 139643,
+          "capture_bytes": 139643
+        }
+      ],
+      "rebound_lane": "daemon improvement-proposals",
+      "unbound_note": "change inbox"
+    }
+  ],
+  "_doc": "Canonical mapped starting-point record \u2014 per Hypervisor application seed: owner surface, /__apps slug, local capture route, empirical boot classification from the LOCAL CAPTURE ONLY (boots_* / shell_only / blocked_missing_capture), control/panel inventory, static-asset parity, rebound lane, and unbound-lane note. Regenerate with verify-hypervisor-harvest-ux-parity-inventory.mjs. This is the fidelity oracle + follow-up map for dissect / native-rebind / reassert cuts.",
+  "_finding": "Boot depth is bounded by the captured DATA state, not assets or routing: every seed loads its full relative asset graph (0 failed requests) and the universal capture fallback guarantees any capture-present seed asset is served; apps captured logged-out/empty render shell/landing regardless of entry route (richest-entry routing was tested and refuted). Deeper fidelity therefore comes from the daemon-rebind phase (supplying data), which unifies boot-depth and truth-binding for data-empty apps."
+}
