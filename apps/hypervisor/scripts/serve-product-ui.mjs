@@ -944,7 +944,7 @@ function renderWorkLedger(entries, scopedProject) {
 // ---- Operations — the first real Operations estate card: execution health over the automation
 // substrate (scheduler · run health · needs-attention · webhook health). Real records only;
 // drilldowns into Automation detail / Work Ledger / Run Timeline. No fake incidents/cost/capacity.
-function renderOperations(ops, authpol, prov, provReceipts, spendRecon, storageBackends, storageIncidents, akashDepin, failoverRuns, failoverPlans) {
+function renderOperations(ops, authpol, prov, provReceipts, spendRecon, storageBackends, storageIncidents, akashDepin, failoverRuns, failoverPlans, goalRuns, ledgerEntries) {
   ops = ops || {};
   authpol = authpol || {};
   prov = prov || {};
@@ -971,6 +971,64 @@ function renderOperations(ops, authpol, prov, provReceipts, spendRecon, storageB
   const schedSection = (sch.automations || []).length
     ? `<table><thead><tr><th>Automation</th><th>Project</th><th>State</th><th>Schedule</th><th>Next run</th><th>Last run</th><th>Concurrency · on-fail</th></tr></thead><tbody>${schedRows}</tbody></table>`
     : `<div class="empty">No scheduled automations yet. Add a time/cron schedule to an automation to populate scheduler health.</div>`;
+  // ---- Jobs — one queue over EVERY execution kind (40-job-tracker graft). The reference job
+  // tracker's one-list-of-all-jobs grammar lands on the existing Operations surface: automation
+  // runs, harness executions, IOI Agent coordination runs, and failover recovery runs, merged
+  // newest-first with type chips. Each row carries its own proof affordance (timeline or state
+  // root); a failover run parked at a wallet gate says so. Rows come verbatim from the owning
+  // projections — no synthesized job states.
+  const jobs = [];
+  (runs.recent || []).forEach((r) => jobs.push({
+    type: "automation", name: r.name || r.automation_id || "run", id: r.execution_id || "",
+    project: r.project_id || "—", status: r.status || "", at: r.started_at || "",
+    proof: r.timeline_ref ? `<a href="${r.timeline_ref}" target="_blank" rel="noopener">timeline ↗</a>` : "—",
+  }));
+  (goalRuns || []).forEach((g) => jobs.push({
+    type: "ioi-agent", name: `coordination · ${String(g.normalized_goal || "goal").slice(0, 44)}`, id: g.goal_run_id || "",
+    project: g.project_ref || "—", status: g.status || "", at: g.created_at || "",
+    proof: g.goal_run_id ? `<a href="/__ioi/run-timeline/goal-run/${enc(g.goal_run_id)}" target="_blank" rel="noopener">proof ↗</a>` : "—",
+  }));
+  (ledgerEntries || []).filter((e) => e.kind === "harness_execution").slice(0, 12).forEach((e) => jobs.push({
+    type: "harness", name: `${e.harness || "harness"} → ${e.session_ref || "session"}`, id: e.session_ref || "",
+    project: e.project_id || "—", status: e.status || "", at: e.timestamp || "",
+    proof: e.state_root ? `<code style="font-size:10px">${CX_ESC(String(e.state_root).slice(0, 18))}</code>` : "—",
+  }));
+  ((failoverRuns || {}).runs || []).forEach((r) => jobs.push({
+    type: "failover", name: `recovery · ${r.failure_condition || "failure"}`, id: r.run_ref || "",
+    project: r.environment_ref || "—", status: r.status || "", at: r.started_at || "",
+    proof: r.state_root ? `<code style="font-size:10px">${CX_ESC(String(r.state_root).slice(0, 18))}</code>` : "—",
+  }));
+  jobs.sort((a, b) => String(b.at).localeCompare(String(a.at)));
+  const jobPill = (s) => {
+    const st = String(s || "");
+    if (st.startsWith("awaiting_authority")) return `<span class="pill warn">wallet gate: ${CX_ESC(st.replace("awaiting_authority_", ""))}</span>`;
+    const cls = ["done", "succeeded", "restored", "restored_with_warning", "success"].includes(st) ? "ok"
+      : ["failed", "refused", "failure", "error"].includes(st) ? "warn" : "muted";
+    return `<span class="pill ${cls}">${CX_ESC(st || "—")}</span>`;
+  };
+  const JOB_TYPES = [["", "All"], ["automation", "Automation"], ["harness", "Harness"], ["ioi-agent", "IOI Agent"], ["failover", "Failover"]];
+  const jobCounts = {};
+  jobs.forEach((j) => { jobCounts[j.type] = (jobCounts[j.type] || 0) + 1; });
+  const jobsChips = `<div class="chips" id="jobs-chips">${JOB_TYPES.map(([v, l]) => `<button class="chip${v === "" ? " on" : ""}" data-job-type="${v}" onclick="jobsChip(this)">${l} ${v === "" ? jobs.length : jobCounts[v] || 0}</button>`).join("")}</div>`;
+  const jobRows = jobs.slice(0, 40).map((j) => `<tr data-job="${CX_ESC(j.type)}">
+      <td>${CX_ESC(j.name)}<div style="color:#878a93;font-size:11px;margin-top:1px"><code style="font-size:10px">${CX_ESC(j.id)}</code></div></td>
+      <td><span class="pill muted">${CX_ESC(j.type)}</span></td>
+      <td>${CX_ESC(j.project)}</td>
+      <td>${jobPill(j.status)}</td>
+      <td>${CX_ESC(j.at)}</td>
+      <td>${j.proof}</td>
+    </tr>`).join("");
+  const jobsSection = jobs.length
+    ? `${jobsChips}<table><thead><tr><th>Job</th><th>Type</th><th>Project</th><th>Status</th><th>When</th><th>Proof</th></tr></thead><tbody id="jobs-body">${jobRows}</tbody></table><div class="empty" id="jobs-empty" style="display:none">No jobs of this type yet.</div>`
+    : `<div class="empty">No jobs yet — automation runs, harness executions, IOI Agent coordination, and failover recovery land here as they happen.</div>`;
+  const jobsScript = `<script>
+    function jobsChip(b){
+      document.querySelectorAll('#jobs-chips .chip').forEach(function(x){x.classList.toggle('on',x===b);});
+      var want=b.getAttribute('data-job-type');var shown=0;
+      document.querySelectorAll('#jobs-body tr').forEach(function(r){var on=!want||r.getAttribute('data-job')===want;r.style.display=on?'':'none';if(on)shown++;});
+      var e=document.getElementById('jobs-empty');if(e)e.style.display=shown?'none':'';
+    }
+  </script>`;
   // Operate console (source shape: job console = queue/list + selectable status detail + remediation
   // + in-surface proof, not a monitor-only table). Rows select into a sticky drawer that joins the
   // run to its scheduler record IN-PAYLOAD (both come from the one /operations projection) and
@@ -1103,7 +1161,8 @@ function renderOperations(ops, authpol, prov, provReceipts, spendRecon, storageB
       d.innerHTML=h;
     });});
   </script>`;
-  const inner = `<h1>Operations</h1><p class="sub">What is running, what fired, what failed, what needs attention — grounded in the automation substrate. Select a run to inspect and act on it in place. <a href="/__ioi/work-ledger">Open Work Ledger →</a></p>
+  const inner = `<h1>Operations</h1><p class="sub">What is running, what fired, what failed, what needs attention — every execution kind in one queue, grounded in the owning projections. Select an automation run to inspect and act on it in place. <a href="/__ioi/work-ledger">Open Work Ledger →</a></p>
+    <div id="ops-jobs"><h2>Jobs <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— automation runs · harness executions · IOI Agent coordination · failover recovery, newest first</span></h2>${jobsSection}${jobsScript}</div>
     <h2>Scheduler</h2>${schedSection}
     <div class="wlwrap"><div>
     <h2 style="margin-top:0">Run health</h2>${runSection}
@@ -4431,7 +4490,7 @@ const server = http.createServer((req, res) => {
     }
     // ---- Operations — execution health over the automation substrate (estate surface #9).
     if (pathname === "/__ioi/operations" && req.method === "GET") {
-      const [r, authpol, prov, provReceipts, spendRecon, storageB, storageInc, akashDepin, failoverRuns, failoverPlans2] = await Promise.all([
+      const [r, authpol, prov, provReceipts, spendRecon, storageB, storageInc, akashDepin, failoverRuns, failoverPlans2, goalRunsRes, ledgerRes] = await Promise.all([
         fetch(`${DAEMON}/v1/hypervisor/operations`).then((x) => x.json()).catch(() => ({})),
         fetch(`${DAEMON}/v1/hypervisor/auth/policy`).then((x) => x.json()).catch(() => ({})),
         fetch(`${DAEMON}/v1/hypervisor/providers`).then((x) => x.json()).catch(() => ({})),
@@ -4442,9 +4501,11 @@ const server = http.createServer((req, res) => {
         fetch(`${DAEMON}/v1/hypervisor/akash-deployments`).then((x) => x.json()).catch(() => ({})),
         fetch(`${DAEMON}/v1/hypervisor/failover/runs`).then((x) => x.json()).catch(() => ({})),
         fetch(`${DAEMON}/v1/hypervisor/failover/plans`).then((x) => x.json()).catch(() => ({})),
+        fetch(`${DAEMON}/v1/hypervisor/goal-runs`).then((x) => x.json()).catch(() => ({})),
+        fetch(`${DAEMON}/v1/hypervisor/work-ledger`).then((x) => x.json()).catch(() => ({})),
       ]);
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
-      res.end(renderOperations(r, authpol, prov, provReceipts, spendRecon, storageB, storageInc, akashDepin, failoverRuns, failoverPlans2));
+      res.end(renderOperations(r, authpol, prov, provReceipts, spendRecon, storageB, storageInc, akashDepin, failoverRuns, failoverPlans2, goalRunsRes.goal_runs || [], ledgerRes.entries || []));
       return;
     }
     // ---- Environments — substrate estate; reads the daemon env-summary projection (paged) + classes.
