@@ -2643,10 +2643,15 @@ async function odkPickers() {
 }
 // ---- payload builders (form -> daemon JSON), shared by create + patch.
 function odkOntologyPayload(p) {
-  const csv = (k) => (p.get(k) || "").split(",").map((s) => s.trim()).filter(Boolean);
+  // The typed CanonicalObjectModel is authored as JSON; a parse failure is marked so the daemon
+  // rejects it with a clean error (never silently dropped to an empty model).
+  const raw = (p.get("canonical_object_model") || "").trim();
+  let com;
+  if (!raw) com = { value_types: [], object_types: [], link_types: [], action_types: [] };
+  else { try { com = JSON.parse(raw); } catch { com = { __json_parse_error: true }; } }
   return {
     domain: (p.get("domain") || "").trim(), version: (p.get("version") || "0.1.0").trim(), description: (p.get("description") || "").trim(),
-    canonical_object_model: { objects: csv("com_objects"), actions: csv("com_actions"), events: csv("com_events"), states: csv("com_states"), roles: csv("com_roles") },
+    canonical_object_model: com,
   };
 }
 function odkRecipePayload(p) {
@@ -2683,17 +2688,23 @@ function odkDetailActions(family, id) {
 }
 // ---- forms
 function renderOdkOntologyForm(existing) {
-  const ex = existing || {}; const isEdit = !!existing; const com = ex.canonical_object_model || {};
+  const ex = existing || {}; const isEdit = !!existing;
+  const com = ex.canonical_object_model || { value_types: [], object_types: [], link_types: [], action_types: [] };
+  const comJson = JSON.stringify(com, null, 2);
   const action = isEdit ? `/__ioi/odk/ontologies/${encodeURIComponent(ex.id)}/patch` : `/__ioi/odk/ontologies`;
+  const shape = `value_types: [{ id, name, base, enum_values? }]   base ∈ string integer double boolean timestamp date enum markdown geo_point attachment
+object_types: [{ id, name, title_property?, properties:[{ id, name, value_type, required? }] }]   value_type → a base or a declared value_type id
+link_types: [{ id, name, from, to, cardinality }]   from/to → object_type ids · cardinality ∈ one_to_one one_to_many many_to_many
+action_types: [{ id, name, kind, applies_to? }]   kind ∈ create_object modify_object delete_object function
+Type ids match ^[a-z][a-z0-9_]*$. Health is "ready" only with ≥1 typed object (properties + title) and ≥1 link or action.`;
   const inner = `<p><a href="/__ioi/odk">← ODK</a></p><h1>${isEdit ? "Edit" : "New"} Domain Ontology</h1>
-    <p class="sub">The semantic root. Draft-only; nothing is generated or executed.</p>
+    <p class="sub">The typed semantic root — validated fail-closed by the daemon. Draft-only; nothing is generated or executed.</p>
     <form method="post" action="${action}">
       <div class="two">${odkField("Domain", "domain", ex.domain, "lending")}${odkField("Version", "version", ex.version || "0.1.0")}</div>
       ${odkArea("Description", "description", ex.description)}
-      <h2>Canonical object model <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— comma-separated</span></h2>
-      <div class="two">${odkCsvField("Objects", "com_objects", com.objects, "Loan, Borrower")}${odkCsvField("Actions", "com_actions", com.actions, "approve, fund")}</div>
-      <div class="two">${odkCsvField("Events", "com_events", com.events, "Funded")}${odkCsvField("States", "com_states", com.states, "draft, funded")}</div>
-      ${odkCsvField("Roles", "com_roles", com.roles, "officer")}
+      <h2>Canonical object model <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— typed JSON</span></h2>
+      <details style="margin:0 0 8px"><summary class="sub" style="cursor:pointer">Shape — value / object / link / action types</summary><pre class="sub" style="white-space:pre-wrap;margin:6px 0 0">${CX_ESC(shape)}</pre></details>
+      <div class="field"><label>canonical_object_model (JSON)</label><textarea name="canonical_object_model" rows="16" style="font-family:ui-monospace,monospace;font-size:12px">${CX_ESC(comJson)}</textarea></div>
       <div class="row"><button class="act" type="submit">${isEdit ? "Save draft" : "Create draft ontology"}</button> <a class="act ghost" href="/__ioi/odk">Cancel</a></div>
     </form>`;
   return automationsShell(`${isEdit ? "Edit" : "New"} Domain Ontology`, inner);
@@ -2786,19 +2797,70 @@ function odkProofCitations(rec, lists) {
     ${cits.length ? `<table><thead><tr><th>Kind</th><th>Status</th><th>When</th><th>Proof</th></tr></thead><tbody>${rows}</tbody></table><p class="sub" style="margin:6px 0 0">${cits.length} citation${cits.length === 1 ? "" : "s"} · <a href="/__ioi/work-ledger">Provenance →</a></p>`
       : `<div class="empty">No proof-stream citations yet — receipts cite this ref when governed work touches it.</div>`}</div>`;
 }
+// ---- Ontology-manager rendering. The typed CanonicalObjectModel is daemon-validated authority;
+// health is honest (draft/incomplete allowed); the plane owns NO object instances, so no explorer
+// rows are ever shown — the schema/explorer captures stay secondary reference grammars.
+function ontologyHealthPill(h) {
+  const st = (h && h.status) || "empty";
+  const cls = st === "ready" ? "ok" : st === "empty" ? "muted" : "warn";
+  return `<span class="pill ${cls}">${CX_ESC(st)}</span>`;
+}
+function renderOntologyHealth(h) {
+  h = h || {}; const c = h.counts || {};
+  const counts = `${c.object_types || 0} obj · ${c.value_types || 0} val · ${c.link_types || 0} link · ${c.action_types || 0} act`;
+  const gaps = (h.gaps && h.gaps.length)
+    ? `<ul style="margin:6px 0 0;padding-left:18px">${h.gaps.map((g) => `<li class="sub" style="margin:0">${CX_ESC(g)}</li>`).join("")}</ul>`
+    : `<div class="sub" style="margin:6px 0 0">No gaps — the required semantic pieces are present.</div>`;
+  const instances = h.object_instances == null ? 0 : h.object_instances;
+  return `<div style="border:1px solid #24262d;border-radius:10px;padding:12px 14px;margin:0 0 14px;background:#15171c">
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><b>Readiness</b> ${ontologyHealthPill(h)} <span class="sub" style="margin:0">${CX_ESC(counts)}</span></div>
+    ${gaps}
+    <div class="sub" style="margin:8px 0 0"><b>${CX_ESC(String(instances))}</b> object instances — ${CX_ESC(h.object_data_note || "schema only; no object-instance plane is bound.")}</div>
+  </div>`;
+}
+function renderOntologyModel(com) {
+  com = com || {}; const esc = CX_ESC; const idc = (x) => `<code>${esc(x || "")}</code>`;
+  const arr = (k) => (Array.isArray(com[k]) ? com[k] : []);
+  const vts = arr("value_types"), ots = arr("object_types"), lts = arr("link_types"), ats = arr("action_types");
+  const valueTable = vts.length
+    ? `<table><thead><tr><th>Value type</th><th>Base</th><th>Enum</th></tr></thead><tbody>${vts.map((v) => `<tr><td>${esc(v.name || v.id)} ${idc(v.id)}</td><td><span class="pill muted">${esc(v.base || "string")}</span></td><td>${(v.enum_values && v.enum_values.length) ? v.enum_values.map((e) => `<span class="pill muted">${esc(e)}</span>`).join(" ") : "—"}</td></tr>`).join("")}</tbody></table>`
+    : `<div class="empty">No value types.</div>`;
+  const objBlocks = ots.length ? ots.map((o) => {
+    const props = Array.isArray(o.properties) ? o.properties : [];
+    const ptable = props.length
+      ? `<table><thead><tr><th>Property</th><th>Value type</th><th>Required</th></tr></thead><tbody>${props.map((p) => `<tr><td>${esc(p.name || p.id)} ${idc(p.id)}${o.title_property === p.id ? ` <span class="pill ok">title</span>` : ""}</td><td><code>${esc(p.value_type || "")}</code></td><td>${p.required ? "yes" : "—"}</td></tr>`).join("")}</tbody></table>`
+      : `<div class="empty">No properties.</div>`;
+    return `<div style="border:1px solid #24262d;border-radius:10px;padding:10px 12px;margin:0 0 10px;background:#15171c"><div style="font-weight:600;margin-bottom:4px">${esc(o.name || o.id)} ${idc(o.id)}</div>${ptable}</div>`;
+  }).join("") : `<div class="empty">No object types — the model is an empty draft.</div>`;
+  const linkTable = lts.length
+    ? `<table><thead><tr><th>Link</th><th>From → To</th><th>Cardinality</th></tr></thead><tbody>${lts.map((l) => `<tr><td>${esc(l.name || l.id)} ${idc(l.id)}</td><td><code>${esc(l.from || "")}</code> → <code>${esc(l.to || "")}</code></td><td><span class="pill muted">${esc(l.cardinality || "")}</span></td></tr>`).join("")}</tbody></table>`
+    : `<div class="empty">No link types.</div>`;
+  const actTable = ats.length
+    ? `<table><thead><tr><th>Action / function</th><th>Kind</th><th>Applies to</th></tr></thead><tbody>${ats.map((a) => `<tr><td>${esc(a.name || a.id)} ${idc(a.id)}</td><td><span class="pill muted">${esc(a.kind || "")}</span></td><td>${a.applies_to ? `<code>${esc(a.applies_to)}</code>` : "—"}</td></tr>`).join("")}</tbody></table>`
+    : `<div class="empty">No action / function types.</div>`;
+  return `<h2>Value types (${vts.length})</h2>${valueTable}<h2>Object types (${ots.length})</h2>${objBlocks}<h2>Link types (${lts.length})</h2>${linkTable}<h2>Actions &amp; functions (${ats.length})</h2>${actTable}`;
+}
 function renderOdkOntologyDetail(o, lists) {
-  const chips = (arr) => (arr && arr.length) ? arr.map((x) => `<span class="pill muted">${CX_ESC(x)}</span>`).join(" ") : "—";
   const com = o.canonical_object_model || {};
+  // Legacy (pre-hardening) untyped string arrays are shown as clearly-labeled, non-authoritative names.
+  const legacyChips = (arr) => arr.map((x) => `<span class="pill muted">${CX_ESC(typeof x === "string" ? x : (x.name || x.id || ""))}</span>`).join(" ");
+  const legacy = [["objects", com.objects], ["actions", com.actions], ["events", com.events], ["states", com.states], ["roles", com.roles]]
+    .filter(([, v]) => Array.isArray(v) && v.length && v.every((x) => typeof x === "string"));
+  const legacyBlock = legacy.length
+    ? `<h2>Legacy names <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— untyped, pre-hardening; not part of the validated model</span></h2><dl class="grid">${legacy.map(([k, v]) => `<dt>${CX_ESC(k)}</dt><dd>${legacyChips(v)}</dd>`).join("")}</dl>`
+    : "";
   const grid = `<dl class="grid">
     <dt>Id</dt><dd><code>${CX_ESC(o.id)}</code></dd><dt>Ref</dt><dd><code>${CX_ESC(o.ref)}</code></dd>
     <dt>Domain · version</dt><dd>${CX_ESC(o.domain)} · ${CX_ESC(o.version || "")}</dd>
-    <dt>Status</dt><dd><span class="pill warn">${CX_ESC(o.status || "draft")}</span></dd>
+    <dt>Status · revision</dt><dd><span class="pill warn">${CX_ESC(o.status || "draft")}</span> <span class="pill muted">rev ${CX_ESC(String(o.revision || 1))}</span></dd>
     <dt>Description</dt><dd>${CX_ESC(o.description || "—")}</dd>
-    <dt>Objects</dt><dd>${chips(com.objects)}</dd><dt>Actions</dt><dd>${chips(com.actions)}</dd>
-    <dt>Events</dt><dd>${chips(com.events)}</dd><dt>States</dt><dd>${chips(com.states)}</dd><dt>Roles</dt><dd>${chips(com.roles)}</dd>
     <dt>Created · updated</dt><dd>${CX_ESC(o.created_at || "")}<br><span class="sub" style="margin:0">${CX_ESC(o.updated_at || "")}</span></dd>
   </dl>`;
-  return automationsShell(o.domain || "Domain Ontology", `<p><a href="/__ioi/odk">← ODK</a></p><h1>${CX_ESC(o.domain || o.id)}</h1><p class="sub">DomainOntology · draft.</p>${odkDetailActions("ontologies", o.id)}${grid}${odkReferencedBy(o, lists, "ontologies")}${odkProofCitations(o, lists)}`);
+  const hist = (o.history && o.history.length)
+    ? `<h2>History (${o.history.length})</h2><dl class="grid">${o.history.slice().reverse().map((e) => `<dt>rev ${CX_ESC(String(e.revision || ""))} · ${CX_ESC(e.op || "")}</dt><dd>${CX_ESC(e.summary || "")}<br><span class="sub" style="margin:0">${CX_ESC(e.at || "")}${e.receipt_ref ? ` · <code>${CX_ESC(e.receipt_ref)}</code>` : ""}</span></dd>`).join("")}</dl>`
+    : "";
+  const explorerNote = `<p class="sub" style="margin:14px 0 0"><b>Object explorer:</b> no rows — this ontology binds no object-instance plane (schema only). The <a href="/__apps/explorer">Object explorer capture ↗</a> is a secondary reference grammar, not a rebound surface.</p>`;
+  return automationsShell(o.domain || "Domain Ontology", `<p><a href="/__ioi/odk">← ODK</a></p><h1>${CX_ESC(o.domain || o.id)}</h1><p class="sub">DomainOntology · draft · the typed semantic world-model (daemon-validated).</p>${odkDetailActions("ontologies", o.id)}${renderOntologyHealth(o.health)}${grid}${renderOntologyModel(com)}${legacyBlock}${hist}${explorerNote}${odkReferencedBy(o, lists, "ontologies")}${odkProofCitations(o, lists)}`);
 }
 function renderOdkRecipeDetail(r, lists) {
   const refrow = (label, arr) => `<dt>${label}</dt><dd>${(arr && arr.length) ? arr.map((x) => odkRefLink(x)).join(" ") : "—"}</dd>`;
@@ -2884,10 +2946,34 @@ function renderDataSourcesSection(dataSources) {
     table;
 }
 
+// The daemon ontology manager is authority: each row carries the typed-model counts, honest health,
+// and revision. NO object/explorer rows are shown (schema only — no object-instance plane is bound);
+// the schema/explorer captures are secondary reference grammars.
+function renderOntologySection(ontologies) {
+  ontologies = Array.isArray(ontologies) ? ontologies : [];
+  const rows = ontologies.map((o) => {
+    const h = o.health || {}; const c = h.counts || {};
+    const model = `${c.object_types || 0} obj · ${c.value_types || 0} val · ${c.link_types || 0} link · ${c.action_types || 0} act`;
+    const gaps = (h.gaps && h.gaps.length) ? ` <span class="sub" style="margin:0" title="${CX_ESC(h.gaps.join("; "))}">${h.gaps.length} gap${h.gaps.length === 1 ? "" : "s"}</span>` : "";
+    return `<tr>
+      <td><a href="/__ioi/odk/ontologies/${encodeURIComponent(o.id)}"><b>${CX_ESC(o.domain || o.id)}</b></a><div class="meta" style="color:#878a93;font-size:11.5px;margin-top:2px"><code>${CX_ESC(o.ref || "")}</code> · v${CX_ESC(o.version || "0.1.0")}</div></td>
+      <td>${CX_ESC(model)}</td>
+      <td>${ontologyHealthPill(h)}${gaps}</td>
+      <td><span class="pill muted">rev ${CX_ESC(String(o.revision || 1))}</span></td>
+    </tr>`;
+  }).join("");
+  const table = ontologies.length
+    ? `<table><thead><tr><th>Domain</th><th>Object model</th><th>Health</th><th>Revision</th></tr></thead><tbody>${rows}</tbody></table>`
+    : `<div class="empty">No ontologies yet. Create one — a typed CanonicalObjectModel (value / object / link / action types), validated fail-closed by the daemon. Health is honest: <code>ready</code> only when the required semantic pieces exist.</div>`;
+  return `<h2 id="domain-ontologies" style="display:flex;justify-content:space-between;align-items:center">Domain Ontologies <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— the daemon ontology manager (${ontologies.length}) · authority</span> <a class="act" href="/__ioi/odk/ontologies/new">+ New ontology</a></h2>`
+    + `<p class="sub" style="margin:-4px 0 10px">The typed world-model is <b>daemon truth</b> — object / link / action / value types validated fail-closed, every revision receipted. Health is honest (draft/incomplete allowed; <code>ready</code> only when required pieces exist). <b>No object / explorer rows are shown</b> — schema only; a real ontology-bound object plane is not built. The <a href="/__apps/schema">Schema workbench capture ↗</a> and <a href="/__apps/explorer">Object explorer capture ↗</a> are secondary reference grammars, not rebound surfaces.</p>`
+    + table;
+}
+
 function renderOdkLanding(ov, lists) {
   const o = ov || {}; const sub = o.substrate || {};
   const note = o.status_note || "ODK foundation: drafts only. No transformation runs, no generated UI artifacts, no Domain App creation.";
-  const head = `<h1>Ontology</h1><p class="sub">The semantic world-model systems act on — author draft ontologies, value types, surface descriptors, and manifests over real substrate (planes scaffolded by the ODK developer kit). The <a href="#data-planes">Data planes</a> (recipes, sources) share this surface until their dedicated surface lands. Nothing here transforms data or generates a running app. <a href="/__apps/schema">Schema workbench seed (adopting) →</a> · <a href="/__apps/explorer">Object explorer seed (adopting) →</a></p>`;
+  const head = `<h1>Ontology</h1><p class="sub">The semantic world-model systems act on — a typed, daemon-validated CanonicalObjectModel (object / link / action / value types) plus surface descriptors and manifests over real substrate (planes scaffolded by the ODK developer kit). The <a href="#data-planes">Data planes</a> (recipes, sources) share this surface until their dedicated surface lands. Nothing here transforms data or generates a running app; the object model is a validated schema, not object data.</p>`;
   const banner = `<div class="chips"><span class="pill warn">draft-only</span> <span class="sub" style="margin:0">${CX_ESC(note)}</span></div>`;
   const stat = (label, val) => `<div style="flex:1;min-width:104px;padding:12px 14px;border:1px solid #24262d;border-radius:10px;background:#15171c"><div style="font-size:22px;font-weight:700;color:#fff">${CX_ESC(String(val == null ? "—" : val))}</div><div style="color:#878a93;font-size:12px;margin-top:2px">${CX_ESC(label)}</div></div>`;
   const stats = `<h2>Substrate</h2><div class="row" style="gap:10px;align-items:stretch">${stat("Env classes", sub.environment_classes)}${stat("Foundry specs", sub.foundry_specs)}${stat("Foundry plans", sub.foundry_run_plans)}${stat("Ledger", sub.work_ledger_entries)}${stat("Connectors", sub.connectors)}</div>`;
@@ -2895,7 +2981,7 @@ function renderOdkLanding(ov, lists) {
   const outkinds = `<div class="chips"><span class="chiplabel">Recipe output kinds</span>${(o.recipe_output_kinds || []).map((k) => `<span class="pill muted">${CX_ESC(k)}</span>`).join("")}</div>`;
   const section = (title, family, items, nameKey, newLabel) => `<h2 style="display:flex;justify-content:space-between;align-items:center">${title} (${items.length}) <a class="act" href="/__ioi/odk/${family}/new">+ ${newLabel}</a></h2>${items.length ? items.map((x) => odkCard(family, x, nameKey)).join("") : `<div class="empty">None yet.</div>`}`;
   return automationsShell("Ontology", head + banner + stats + patterns + outkinds
-    + section("Domain Ontologies", "ontologies", lists.ontologies, "domain", "New ontology")
+    + renderOntologySection(lists.ontologies)
     + `<div id="data-planes">` + renderDataSourcesSection(lists.data_sources || []) + section("Data Recipes", "data-recipes", lists.data_recipes, "name", "New recipe") + `</div>`
     + section("Surface Descriptors", "surface-descriptors", lists.surface_descriptors, "name", "New descriptor")
     + section("ODK Manifests", "manifests", lists.manifests, "name", "New manifest"));

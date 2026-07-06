@@ -57,6 +57,29 @@ const RECIPE_OUTPUT_KINDS: &[&str] = &[
     "training_material",
 ];
 
+// ---- Ontology-manager contract vocabulary. The DomainOntology carries a typed CanonicalObjectModel
+// (value types, object types with typed properties, relation/link types, action/function
+// declarations). These enums are the schema-workbench semantics validated fail-closed at write time.
+/// Base value types a declared value_type may specialize (an `enum` base must carry `enum_values`).
+const BASE_VALUE_TYPES: &[&str] = &[
+    "string",
+    "integer",
+    "double",
+    "boolean",
+    "timestamp",
+    "date",
+    "enum",
+    "markdown",
+    "geo_point",
+    "attachment",
+];
+/// Relation cardinalities a link_type may declare.
+const LINK_CARDINALITIES: &[&str] = &["one_to_one", "one_to_many", "many_to_many"];
+/// Action/function kinds an action_type may declare (non-`function` kinds require an object target).
+const ACTION_KINDS: &[&str] = &["create_object", "modify_object", "delete_object", "function"];
+/// Receipts for ontology create/patch land here (history is also embedded on the record).
+const KIND_ONT_RECEIPT: &str = "odk-ontology-receipts";
+
 fn safe(seg: &str) -> String {
     seg.replace(
         |c: char| !c.is_ascii_alphanumeric() && c != '-' && c != '_',
@@ -226,6 +249,19 @@ fn json_del(data_dir: &str, kind: &str, id: &str) -> Json<Value> {
     let removed = remove_record(data_dir, kind, id);
     Json(json!({ "ok": removed, "removed": removed, "id": id }))
 }
+/// Count ontologies whose readiness health matches `status` (records without health read as `empty`).
+fn ont_health_count(ontologies: &[Value], status: &str) -> usize {
+    ontologies
+        .iter()
+        .filter(|o| {
+            o.get("health")
+                .and_then(|h| h.get("status"))
+                .and_then(|v| v.as_str())
+                .unwrap_or("empty")
+                == status
+        })
+        .count()
+}
 
 // =================================== OVERVIEW ====================================================
 
@@ -279,11 +315,292 @@ pub(crate) async fn handle_odk_overview(State(st): State<Arc<DaemonState>>) -> J
         },
         "composition_patterns": COMPOSITION_PATTERNS,
         "recipe_output_kinds": RECIPE_OUTPUT_KINDS,
+        // Ontology-manager contract projections (over ODK — not a second plane).
+        "object_model_vocab": {
+            "base_value_types": BASE_VALUE_TYPES,
+            "link_cardinalities": LINK_CARDINALITIES,
+            "action_kinds": ACTION_KINDS
+        },
+        "ontology_health": {
+            "ready": ont_health_count(&ontologies, "ready"),
+            "incomplete": ont_health_count(&ontologies, "incomplete"),
+            "empty": ont_health_count(&ontologies, "empty")
+        },
         "recent_ontologies": recents(&ontologies, "domain"),
         "recent_data_recipes": recents(&recipes, "name"),
         "recent_manifests": recents(&manifests, "name"),
         "recent_surface_descriptors": recents(&descriptors, "name")
     }))
+}
+
+// ============================ ONTOLOGY-MANAGER CONTRACT =========================================
+//
+// The DomainOntology is the semantic spine the rest of the estate leans on, so its typed model is
+// validated fail-closed. A CanonicalObjectModel is the four typed collections:
+//   value_types   [{ id, name, base, enum_values? }]
+//   object_types  [{ id, name, title_property?, properties:[{ id, name, value_type, required? }] }]
+//   link_types    [{ id, name, from, to, cardinality }]     (from/to resolve to object_type ids)
+//   action_types  [{ id, name, kind, applies_to? }]         (applies_to resolves to an object_type)
+// A `value_type` on a property resolves to a base type OR a declared value_type id. Type ids match
+// `^[a-z][a-z0-9_]*$`. Legacy string-array keys (objects/actions/events/states/roles) are TOLERATED
+// for back-compat but are not a typed model — they count as `empty` health, never validated as types.
+// The plane owns NO object instances: `object_instances` is always 0 and explorer rows require a
+// real ontology-bound object plane (not built here).
+
+type VErr = (String, String);
+fn verr(code: &str, msg: String) -> VErr {
+    (code.to_string(), msg)
+}
+/// Type ids are lowercase-first, then `[a-z0-9_]` — a stable machine identifier (no crate regex dep).
+fn valid_type_id(s: &str) -> bool {
+    let mut chars = s.chars();
+    match chars.next() {
+        Some(c) if c.is_ascii_lowercase() => {}
+        _ => return false,
+    }
+    chars.all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_')
+}
+/// A COM collection: absent/null → empty; present must be an array (else a fail-closed error).
+fn com_arr<'a>(com: &'a Value, key: &str) -> Result<Vec<&'a Value>, VErr> {
+    match com.get(key) {
+        None | Some(Value::Null) => Ok(vec![]),
+        Some(Value::Array(a)) => Ok(a.iter().collect()),
+        Some(_) => Err(verr(
+            "ontology_collection_invalid",
+            format!("`{key}` must be an array of typed entries"),
+        )),
+    }
+}
+fn entry_id(e: &Value) -> &str {
+    e.get("id").and_then(|v| v.as_str()).unwrap_or("")
+}
+fn entry_name(e: &Value) -> String {
+    e.get("name")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string()
+}
+/// Validate ids (shape + uniqueness) and names (present + unique, case-insensitive) for a collection.
+fn check_ids_and_names(entries: &[&Value], label: &str) -> Result<Vec<String>, VErr> {
+    let mut ids: Vec<String> = Vec::new();
+    let mut names_lc: Vec<String> = Vec::new();
+    for e in entries {
+        let id = entry_id(e);
+        if !valid_type_id(id) {
+            return Err(verr(
+                "ontology_type_id_invalid",
+                format!("{label} id '{id}' is invalid — must match ^[a-z][a-z0-9_]*$"),
+            ));
+        }
+        if ids.iter().any(|x| x == id) {
+            return Err(verr(
+                "ontology_duplicate_id",
+                format!("duplicate {label} id '{id}'"),
+            ));
+        }
+        let name = entry_name(e);
+        if name.trim().is_empty() {
+            return Err(verr(
+                "ontology_name_required",
+                format!("{label} '{id}' requires a name"),
+            ));
+        }
+        let nl = name.to_lowercase();
+        if names_lc.iter().any(|x| *x == nl) {
+            return Err(verr(
+                "ontology_duplicate_name",
+                format!("duplicate {label} name '{name}'"),
+            ));
+        }
+        ids.push(id.to_string());
+        names_lc.push(nl);
+    }
+    Ok(ids)
+}
+
+/// Validate a CanonicalObjectModel fail-closed and project its readiness health. Returns the health
+/// object on success (draft/incomplete are allowed — status is honest), or a typed error to reject.
+fn validate_object_model(com: &Value) -> Result<Value, VErr> {
+    // A serve-form JSON textarea that failed to parse marks itself so the author sees a clean error.
+    if com.get("__json_parse_error").is_some() {
+        return Err(verr(
+            "ontology_object_model_json_invalid",
+            "canonical_object_model must be valid JSON".into(),
+        ));
+    }
+    let value_types = com_arr(com, "value_types")?;
+    let object_types = com_arr(com, "object_types")?;
+    let link_types = com_arr(com, "link_types")?;
+    let action_types = com_arr(com, "action_types")?;
+
+    let value_ids = check_ids_and_names(&value_types, "value_type")?;
+    let object_ids = check_ids_and_names(&object_types, "object_type")?;
+    let _link_ids = check_ids_and_names(&link_types, "link_type")?;
+    let _action_ids = check_ids_and_names(&action_types, "action_type")?;
+
+    // Value types: base must be known; an `enum` base must enumerate its values.
+    for vt in &value_types {
+        let base = vt.get("base").and_then(|v| v.as_str()).unwrap_or("string");
+        if !BASE_VALUE_TYPES.contains(&base) {
+            return Err(verr(
+                "ontology_value_base_invalid",
+                format!("value_type '{}' base '{base}' is not a known base type", entry_id(vt)),
+            ));
+        }
+        if base == "enum"
+            && !vt
+                .get("enum_values")
+                .and_then(|v| v.as_array())
+                .map(|a| !a.is_empty())
+                .unwrap_or(false)
+        {
+            return Err(verr(
+                "ontology_enum_values_required",
+                format!("enum value_type '{}' must declare non-empty enum_values", entry_id(vt)),
+            ));
+        }
+    }
+    let resolves_value = |vt: &str| BASE_VALUE_TYPES.contains(&vt) || value_ids.iter().any(|x| x == vt);
+
+    // Object types: typed properties resolve to a value type; title_property resolves to a property.
+    let mut gaps: Vec<String> = Vec::new();
+    for obj in &object_types {
+        let oid = entry_id(obj);
+        let oname = entry_name(obj);
+        let disp = if oname.is_empty() { oid.to_string() } else { oname };
+        let props = com_arr(obj, "properties")?;
+        let prop_ids = check_ids_and_names(&props, &format!("property (object '{oid}')"))?;
+        for p in &props {
+            let pvt = p.get("value_type").and_then(|v| v.as_str()).unwrap_or("");
+            if pvt.is_empty() {
+                return Err(verr(
+                    "ontology_property_value_type_required",
+                    format!("property '{}' on object '{oid}' requires a value_type", entry_id(p)),
+                ));
+            }
+            if !resolves_value(pvt) {
+                return Err(verr(
+                    "ontology_ref_unresolved",
+                    format!("property '{}' on object '{oid}' references unknown value_type '{pvt}'", entry_id(p)),
+                ));
+            }
+        }
+        match obj
+            .get("title_property")
+            .and_then(|v| v.as_str())
+            .filter(|s| !s.is_empty())
+        {
+            Some(tp) if !prop_ids.iter().any(|x| x == tp) => {
+                return Err(verr(
+                    "ontology_ref_unresolved",
+                    format!("object '{oid}' title_property '{tp}' is not one of its properties"),
+                ));
+            }
+            Some(_) => {}
+            None => gaps.push(format!("object '{disp}' has no title_property")),
+        }
+        if prop_ids.is_empty() {
+            gaps.push(format!("object '{disp}' has no properties"));
+        }
+    }
+
+    // Link types: cardinality is enumerated; both ends resolve to declared object types.
+    for lk in &link_types {
+        let lid = entry_id(lk);
+        let card = lk.get("cardinality").and_then(|v| v.as_str()).unwrap_or("");
+        if !LINK_CARDINALITIES.contains(&card) {
+            return Err(verr(
+                "ontology_cardinality_invalid",
+                format!("link_type '{lid}' cardinality '{card}' must be one of {LINK_CARDINALITIES:?}"),
+            ));
+        }
+        for end in ["from", "to"] {
+            let t = lk.get(end).and_then(|v| v.as_str()).unwrap_or("");
+            if !object_ids.iter().any(|x| x == t) {
+                return Err(verr(
+                    "ontology_ref_unresolved",
+                    format!("link_type '{lid}' {end} '{t}' does not resolve to a declared object_type"),
+                ));
+            }
+        }
+    }
+
+    // Action/function types: kind is enumerated; object-mutating kinds must target an object type.
+    for ac in &action_types {
+        let aid = entry_id(ac);
+        let kind = ac.get("kind").and_then(|v| v.as_str()).unwrap_or("");
+        if !ACTION_KINDS.contains(&kind) {
+            return Err(verr(
+                "ontology_action_kind_invalid",
+                format!("action_type '{aid}' kind '{kind}' must be one of {ACTION_KINDS:?}"),
+            ));
+        }
+        let applies_to = ac.get("applies_to").and_then(|v| v.as_str()).unwrap_or("");
+        if !applies_to.is_empty() && !object_ids.iter().any(|x| x == applies_to) {
+            return Err(verr(
+                "ontology_ref_unresolved",
+                format!("action_type '{aid}' applies_to '{applies_to}' does not resolve to a declared object_type"),
+            ));
+        }
+        if kind != "function" && applies_to.is_empty() {
+            return Err(verr(
+                "ontology_action_target_required",
+                format!("action_type '{aid}' of kind '{kind}' requires an applies_to object_type"),
+            ));
+        }
+    }
+
+    // Readiness projection — honest: draft/incomplete allowed, `ready` only when the required
+    // semantic pieces exist (≥1 typed object with properties + a title, and ≥1 relation or action).
+    let (n_obj, n_link, n_act) = (object_types.len(), link_types.len(), action_types.len());
+    let status = if n_obj == 0 {
+        gaps.insert(0, "no object_types declared — the model is an empty draft".into());
+        "empty"
+    } else {
+        if n_link == 0 && n_act == 0 {
+            gaps.push("no link_types or action_types — the model declares no relations or behaviors".into());
+        }
+        if gaps.is_empty() {
+            "ready"
+        } else {
+            "incomplete"
+        }
+    };
+    let legacy = |k: &str| com.get(k).and_then(|v| v.as_array()).map(|a| a.len()).unwrap_or(0);
+    let legacy_untyped =
+        legacy("objects") + legacy("actions") + legacy("events") + legacy("states") + legacy("roles");
+
+    Ok(json!({
+        "status": status,
+        "counts": {
+            "value_types": value_types.len(),
+            "object_types": n_obj,
+            "link_types": n_link,
+            "action_types": n_act
+        },
+        "gaps": gaps,
+        "object_instances": 0,
+        "object_data_note": "schema only — no object-instance/projection plane is bound; explorer rows require a real ontology-bound object plane (not built here)",
+        "legacy_untyped_names": legacy_untyped
+    }))
+}
+
+/// Write an ontology receipt and return the full receipt record (its ref is embedded in history).
+fn ontology_receipt(data_dir: &str, ontology_ref: &str, op: &str, summary: &str) -> Value {
+    let id = format!("ontr_{:x}", nanos());
+    let receipt_ref = format!("agentgres://odk-ontology-receipt/{id}");
+    let rec = json!({
+        "schema_version": "ioi.hypervisor.odk.ontology-receipt.v1",
+        "receipt_id": id,
+        "receipt_ref": receipt_ref,
+        "ontology_ref": ontology_ref,
+        "op": op,
+        "outcome": "ok",
+        "summary": summary,
+        "at": iso_now()
+    });
+    let _ = persist_record(data_dir, KIND_ONT_RECEIPT, &id, &rec);
+    rec
 }
 
 // ================================ DOMAIN ONTOLOGY ================================================
@@ -300,8 +617,9 @@ pub(crate) async fn handle_odk_ontology_list(
     Json(json!({ "ok": true, "ontologies": items }))
 }
 
-/// POST /v1/hypervisor/odk/domain-ontologies — create a DomainOntology DRAFT. The semantic root:
-/// it embeds the CanonicalObjectModel (objects/actions/events/states/roles), kept lightweight.
+/// POST /v1/hypervisor/odk/domain-ontologies — create a DomainOntology DRAFT. The semantic root: it
+/// embeds a typed CanonicalObjectModel (value/object/link/action types), validated fail-closed, and
+/// carries revision 1 + a create receipt + a readiness health projection.
 pub(crate) async fn handle_odk_ontology_create(
     State(st): State<Arc<DaemonState>>,
     Json(body): Json<Value>,
@@ -317,23 +635,34 @@ pub(crate) async fn handle_odk_ontology_create(
             "A DomainOntology must declare a non-empty domain.",
         );
     };
+    let com = body.get("canonical_object_model").cloned().unwrap_or_else(|| {
+        json!({ "value_types": [], "object_types": [], "link_types": [], "action_types": [] })
+    });
+    let health = match validate_object_model(&com) {
+        Ok(h) => h,
+        Err((code, msg)) => return bad(&code, &msg),
+    };
     let id = format!("ont_{:x}", nanos());
     let now = iso_now();
-    let com = body.get("canonical_object_model").cloned().unwrap_or_else(|| {
-        json!({ "objects": [], "actions": [], "events": [], "states": [], "roles": [] })
-    });
+    let oref = format!("ontology://{id}");
+    let receipt = ontology_receipt(&st.data_dir, &oref, "created", "DomainOntology draft created");
+    let receipt_ref = receipt.get("receipt_ref").cloned().unwrap_or(Value::Null);
     let record = json!({
         "schema_version": "ioi.hypervisor.odk.domain-ontology.v1",
         "object": "ioi.hypervisor.odk.domain_ontology",
         "id": id,
-        "ref": format!("ontology://{id}"),
+        "ref": oref,
         "domain": domain,
         "version": body.get("version").and_then(|v| v.as_str()).unwrap_or("0.1.0"),
         "description": body.get("description").and_then(|v| v.as_str()).unwrap_or(""),
         "status": "draft",
-        // CanonicalObjectModel embedded (draft, lightweight — not a separate lifecycle table yet).
+        // Typed CanonicalObjectModel embedded + validated; health is the readiness projection.
         "canonical_object_model": com,
-        "created_at": now,
+        "health": health,
+        "revision": 1,
+        "receipt_refs": [receipt_ref.clone()],
+        "history": [ { "revision": 1, "op": "created", "at": now.clone(), "summary": "DomainOntology draft created", "receipt_ref": receipt_ref } ],
+        "created_at": now.clone(),
         "updated_at": now
     });
     let _ = persist_record(&st.data_dir, KIND_ONT, &id, &record);
@@ -347,6 +676,8 @@ pub(crate) async fn handle_odk_ontology_get(
     json_get(&st.data_dir, KIND_ONT, "ontology", &id)
 }
 
+/// PATCH — fail-closed on a malformed model (revision is NOT bumped on rejection); on success bumps
+/// the revision, recomputes health, appends a history entry, and writes a patch receipt.
 pub(crate) async fn handle_odk_ontology_patch(
     State(st): State<Arc<DaemonState>>,
     AxumPath(id): AxumPath<String>,
@@ -355,12 +686,46 @@ pub(crate) async fn handle_odk_ontology_patch(
     let Some(mut o) = load(&st.data_dir, KIND_ONT, &id) else {
         return Json(json!({ "ok": false, "reason": "ontology not found" }));
     };
+    // Validate a replacement model BEFORE mutating anything — a bad patch changes nothing.
+    if let Some(new_com) = body.get("canonical_object_model") {
+        if let Err((code, msg)) = validate_object_model(new_com) {
+            return Json(json!({ "ok": false, "error": { "code": code, "message": msg } }));
+        }
+    }
+    let mut changed: Vec<&str> = Vec::new();
     for key in ["domain", "version", "description", "canonical_object_model"] {
         if let Some(v) = body.get(key) {
             o[key] = v.clone();
+            changed.push(key);
         }
     }
-    o["updated_at"] = json!(iso_now());
+    // Recompute health from the resulting model (guaranteed valid — it was checked above or unchanged).
+    let com = o.get("canonical_object_model").cloned().unwrap_or_else(|| json!({}));
+    if let Ok(health) = validate_object_model(&com) {
+        o["health"] = health;
+    }
+    let rev = o.get("revision").and_then(|v| v.as_u64()).unwrap_or(1) + 1;
+    o["revision"] = json!(rev);
+    let now = iso_now();
+    o["updated_at"] = json!(now.clone());
+    let summary = format!(
+        "patched: {}",
+        if changed.is_empty() { "no-op".to_string() } else { changed.join(", ") }
+    );
+    let oref = o.get("ref").and_then(|v| v.as_str()).unwrap_or("").to_string();
+    let receipt = ontology_receipt(&st.data_dir, &oref, "patched", &summary);
+    let receipt_ref = receipt.get("receipt_ref").cloned().unwrap_or(Value::Null);
+    // Append a bounded history entry + carry the receipt ref.
+    let mut hist = o.get("history").and_then(|v| v.as_array()).cloned().unwrap_or_default();
+    hist.push(json!({ "revision": rev, "op": "patched", "at": now, "summary": summary, "receipt_ref": receipt_ref.clone() }));
+    let len = hist.len();
+    if len > 20 {
+        hist = hist[len - 20..].to_vec();
+    }
+    o["history"] = json!(hist);
+    let mut refs = o.get("receipt_refs").and_then(|v| v.as_array()).cloned().unwrap_or_default();
+    refs.push(receipt_ref);
+    o["receipt_refs"] = json!(refs);
     let _ = persist_record(&st.data_dir, KIND_ONT, &id, &o);
     Json(json!({ "ok": true, "ontology": o }))
 }
@@ -370,6 +735,60 @@ pub(crate) async fn handle_odk_ontology_delete(
     AxumPath(id): AxumPath<String>,
 ) -> Json<Value> {
     json_del(&st.data_dir, KIND_ONT, &id)
+}
+
+/// GET /v1/hypervisor/odk/domain-ontologies/:id/health — the readiness projection (over ODK).
+pub(crate) async fn handle_odk_ontology_health(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(id): AxumPath<String>,
+) -> (StatusCode, Json<Value>) {
+    match load(&st.data_dir, KIND_ONT, &id) {
+        Some(o) => (
+            StatusCode::OK,
+            Json(json!({
+                "ok": true,
+                "ontology_ref": o.get("ref").cloned().unwrap_or(Value::Null),
+                "revision": o.get("revision").cloned().unwrap_or(json!(1)),
+                "health": o.get("health").cloned().unwrap_or_else(|| json!({ "status": "empty" }))
+            })),
+        ),
+        None => (
+            StatusCode::NOT_FOUND,
+            Json(json!({ "ok": false, "reason": "ontology not found" })),
+        ),
+    }
+}
+
+/// GET /v1/hypervisor/odk/domain-ontologies/:id/history — embedded history + persisted receipts.
+pub(crate) async fn handle_odk_ontology_history(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(id): AxumPath<String>,
+) -> (StatusCode, Json<Value>) {
+    let Some(o) = load(&st.data_dir, KIND_ONT, &id) else {
+        return (
+            StatusCode::NOT_FOUND,
+            Json(json!({ "ok": false, "reason": "ontology not found" })),
+        );
+    };
+    let oref = o.get("ref").and_then(|v| v.as_str()).unwrap_or("").to_string();
+    let mut receipts = read_record_dir(&st.data_dir, KIND_ONT_RECEIPT);
+    receipts.retain(|r| r.get("ontology_ref").and_then(|v| v.as_str()) == Some(oref.as_str()));
+    receipts.sort_by(|a, b| {
+        b.get("at")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .cmp(a.get("at").and_then(|v| v.as_str()).unwrap_or(""))
+    });
+    (
+        StatusCode::OK,
+        Json(json!({
+            "ok": true,
+            "ontology_ref": oref,
+            "revision": o.get("revision").cloned().unwrap_or(json!(1)),
+            "history": o.get("history").cloned().unwrap_or_else(|| json!([])),
+            "receipts": receipts
+        })),
+    )
 }
 
 // =================================== DATA RECIPE ================================================
@@ -875,5 +1294,114 @@ mod odk_tests {
         assert!(RECIPE_OUTPUT_KINDS.contains(&"ontology_objects"));
         assert!(RECIPE_OUTPUT_KINDS.contains(&"training_material"));
         assert!(!RECIPE_OUTPUT_KINDS.contains(&"magic"));
+    }
+
+    // ---- Ontology-manager contract validation.
+
+    #[test]
+    fn type_id_shape_is_enforced() {
+        assert!(valid_type_id("loan"));
+        assert!(valid_type_id("loan_v2"));
+        assert!(!valid_type_id("Loan")); // uppercase-first
+        assert!(!valid_type_id("2loan")); // digit-first
+        assert!(!valid_type_id("loan type")); // space
+        assert!(!valid_type_id("")); // empty
+    }
+
+    /// A well-formed model with a typed object (property → base value_type), a relation and an action.
+    fn ready_model() -> Value {
+        json!({
+            "value_types": [{ "id": "money", "name": "Money", "base": "double" }],
+            "object_types": [
+                { "id": "loan", "name": "Loan", "title_property": "title",
+                  "properties": [
+                    { "id": "title", "name": "Title", "value_type": "string" },
+                    { "id": "amount", "name": "Amount", "value_type": "money" }
+                  ] },
+                { "id": "borrower", "name": "Borrower", "title_property": "name",
+                  "properties": [ { "id": "name", "name": "Name", "value_type": "string" } ] }
+            ],
+            "link_types": [{ "id": "held_by", "name": "Held by", "from": "loan", "to": "borrower", "cardinality": "one_to_many" }],
+            "action_types": [{ "id": "approve", "name": "Approve", "kind": "modify_object", "applies_to": "loan" }]
+        })
+    }
+
+    #[test]
+    fn ready_model_projects_ready_health() {
+        let h = validate_object_model(&ready_model()).expect("valid");
+        assert_eq!(h["status"], "ready");
+        assert_eq!(h["counts"]["object_types"], 2);
+        assert_eq!(h["object_instances"], 0);
+        assert_eq!(h["gaps"].as_array().unwrap().len(), 0);
+    }
+
+    #[test]
+    fn empty_model_is_allowed_but_empty_health() {
+        let h = validate_object_model(&json!({})).expect("empty is allowed as a draft");
+        assert_eq!(h["status"], "empty");
+    }
+
+    #[test]
+    fn legacy_string_array_model_is_tolerated_as_empty() {
+        // Back-compat: the pre-hardening shape (string arrays) must still validate (health empty).
+        let legacy = json!({ "objects": ["Loan", "Borrower"], "actions": ["approve"], "states": ["draft"], "roles": [], "events": [] });
+        let h = validate_object_model(&legacy).expect("legacy shape must not be rejected");
+        assert_eq!(h["status"], "empty");
+        assert_eq!(h["legacy_untyped_names"], 4);
+    }
+
+    #[test]
+    fn object_without_relation_or_action_is_incomplete() {
+        let m = json!({
+            "object_types": [{ "id": "loan", "name": "Loan", "title_property": "title",
+                "properties": [{ "id": "title", "name": "Title", "value_type": "string" }] }]
+        });
+        let h = validate_object_model(&m).expect("valid but incomplete");
+        assert_eq!(h["status"], "incomplete");
+        assert!(h["gaps"].as_array().unwrap().iter().any(|g| g.as_str().unwrap().contains("relations or behaviors")));
+    }
+
+    #[test]
+    fn invalid_type_id_is_rejected() {
+        let mut m = ready_model();
+        m["object_types"][0]["id"] = json!("Loan Type!");
+        assert_eq!(validate_object_model(&m).unwrap_err().0, "ontology_type_id_invalid");
+    }
+
+    #[test]
+    fn duplicate_object_name_is_rejected() {
+        let mut m = ready_model();
+        m["object_types"][1]["name"] = json!("loan"); // dup of "Loan" (case-insensitive)
+        assert_eq!(validate_object_model(&m).unwrap_err().0, "ontology_duplicate_name");
+    }
+
+    #[test]
+    fn unresolved_link_end_is_rejected() {
+        let mut m = ready_model();
+        m["link_types"][0]["to"] = json!("nonexistent");
+        assert_eq!(validate_object_model(&m).unwrap_err().0, "ontology_ref_unresolved");
+    }
+
+    #[test]
+    fn unresolved_property_value_type_is_rejected() {
+        let mut m = ready_model();
+        m["object_types"][0]["properties"][1]["value_type"] = json!("currency"); // not a base nor declared
+        assert_eq!(validate_object_model(&m).unwrap_err().0, "ontology_ref_unresolved");
+    }
+
+    #[test]
+    fn bad_cardinality_and_action_kind_are_rejected() {
+        let mut m = ready_model();
+        m["link_types"][0]["cardinality"] = json!("some_to_many");
+        assert_eq!(validate_object_model(&m).unwrap_err().0, "ontology_cardinality_invalid");
+        let mut m2 = ready_model();
+        m2["action_types"][0]["kind"] = json!("teleport");
+        assert_eq!(validate_object_model(&m2).unwrap_err().0, "ontology_action_kind_invalid");
+    }
+
+    #[test]
+    fn enum_value_type_requires_values() {
+        let m = json!({ "value_types": [{ "id": "grade", "name": "Grade", "base": "enum" }] });
+        assert_eq!(validate_object_model(&m).unwrap_err().0, "ontology_enum_values_required");
     }
 }

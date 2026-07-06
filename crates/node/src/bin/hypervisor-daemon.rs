@@ -1091,6 +1091,14 @@ async fn async_main() -> anyhow::Result<()> {
                 .delete(odk_routes::handle_odk_ontology_delete),
         )
         .route(
+            "/v1/hypervisor/odk/domain-ontologies/:id/health",
+            get(odk_routes::handle_odk_ontology_health),
+        )
+        .route(
+            "/v1/hypervisor/odk/domain-ontologies/:id/history",
+            get(odk_routes::handle_odk_ontology_history),
+        )
+        .route(
             "/v1/hypervisor/odk/data-recipes",
             get(odk_routes::handle_odk_recipe_list).post(odk_routes::handle_odk_recipe_create),
         )
