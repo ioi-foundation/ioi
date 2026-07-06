@@ -421,7 +421,25 @@ function renderConnectionsCockpit(connectors, scmConnectors, leases, devFacts) {
     <div class="card" style="display:block"><b>Identity &amp; provisioning</b> ${scimPill}
       <div class="sub" style="margin:4px 0 0;text-transform:none;letter-spacing:0">SCIM base <code>/scim/v2</code> · OIDC login <code>/v1/hypervisor/auth/oidc/start</code> · session introspection <code>/v1/hypervisor/auth/whoami</code>. Identity authenticates people; it never becomes machine authority.</div></div>
   </div>`;
-  return connectionsShell(add + authClients + devConsole + `<div class="cnwrap"><div>` + body + `</div>` + drawer + `</div>` + script);
+  // ---- Tool Analytics facet (native primitive, first slice — folds here, no new card). Tool
+  // VOLUME from the lease records (how often each tool was actually leased) against the DECLARED
+  // surface (connector + MCP gateway contracts); declared-but-never-leased is the real
+  // missing-capability list. Latency/error per tool call is not recorded — named, not charted.
+  const taLeased = {};
+  (leases || []).forEach((l) => (l.allowed_tools || []).forEach((t) => { taLeased[t] = (taLeased[t] || 0) + 1; }));
+  const taDeclared = new Set();
+  (connectors || []).forEach((c) => (c.allowed_tools || []).forEach((t) => taDeclared.add(typeof t === "string" ? t : (t.name || ""))));
+  ((devFacts || {}).mcpTools ? (devFacts.mcpTools.tools || []) : []).forEach((t) => taDeclared.add(t.name || ""));
+  taDeclared.delete("");
+  const taNever = [...taDeclared].filter((t) => !taLeased[t]).sort();
+  const taTop = Object.entries(taLeased).sort((a, b) => b[1] - a[1]).slice(0, 10);
+  const toolAnalytics = `<div id="conn-tool-analytics"><h2>Tool Analytics <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— lease volume per tool vs the declared surface; per-call latency/error is not recorded yet (named gap)</span></h2>
+    <div class="card" style="display:block"><b>Leased tool volume</b>
+      <div class="chips" style="margin:6px 0 0">${taTop.length ? taTop.map(([t, n]) => `<span class="pill ok">${CX_ESC(t)} ×${n}</span>`).join("") : `<span class="sub" style="margin:0">no tool leases yet</span>`}</div></div>
+    <div class="card" style="display:block"><b>Declared but never leased</b> ${taNever.length ? `<span class="pill warn">${taNever.length} unused capabilit${taNever.length === 1 ? "y" : "ies"}</span>` : `<span class="pill ok">none — every declared tool has been leased</span>`}
+      <div class="chips" style="margin:6px 0 0">${taNever.slice(0, 12).map((t) => `<span class="pill muted">${CX_ESC(t)}</span>`).join("")}${taNever.length > 12 ? `<span class="sub" style="margin:0">+${taNever.length - 12} more</span>` : ""}</div></div>
+  </div>`;
+  return connectionsShell(add + authClients + devConsole + toolAnalytics + `<div class="cnwrap"><div>` + body + `</div>` + drawer + `</div>` + script);
 }
 
 // ---- Automations cockpit — the owned, PROJECT-FIRST surface for HypervisorAutomationSpec ----------
@@ -850,6 +868,52 @@ function renderHome(ops, ledger, sessions, approvals, failoverRuns) {
   return automationsShell("Governed Work Readout", inner);
 }
 
+// ---- Search (67-search graft) — typed cross-estate discovery with open-action handoffs.
+// Case-insensitive substring over LIVE daemon projections at query time: no index, no stale
+// results, nothing invented; every hit links into the surface that owns it. Sources and their
+// coverage are listed on the empty state so what is NOT searchable is visible too.
+function renderSearchResults(q, groups, sources) {
+  const total = groups.reduce((n, g) => n + g.items.length, 0);
+  const form = `<form method="get" action="/__ioi/search" class="row" style="margin:0 0 18px"><input name="q" value="${CX_ESC(q || "")}" placeholder="session refs, projects, automations, models, ontologies, approvals…" style="flex:1;padding:10px 14px;border-radius:10px;border:1px solid #2a2c33;background:#0e0f13;color:#e6e7ea;font:inherit" autofocus><button class="act" type="submit">Search</button></form>`;
+  const groupSec = (g) => `<h2>${CX_ESC(g.name)} (${g.items.length})</h2>${g.items.slice(0, 12).map((it) => `<a class="card" href="${it.href}"${it.top ? ' target="_top"' : ""}><div class="main"><div class="name">${CX_ESC(it.label)}</div><div class="meta">${CX_ESC(it.meta || "")}</div></div><span class="act ghost">Open →</span></a>`).join("")}`;
+  const body = !q
+    ? `<div class="empty">Type a query. Searchable now (live, exact-substring): ${sources.map((s) => `<code>${CX_ESC(s)}</code>`).join(" ")}. Anything else is not indexed — by design there is no stale search truth.</div>`
+    : total
+      ? groups.filter((g) => g.items.length).map(groupSec).join("")
+      : `<div class="empty">No matches for <b>${CX_ESC(q)}</b> across ${sources.length} live projections.</div>`;
+  return automationsShell("Search", `<h1>Search</h1><p class="sub">Cross-estate discovery over live daemon projections — each result opens in its owning surface. Matching is exact-substring at query time; nothing is indexed, so nothing is stale.</p>${form}${body}`);
+}
+
+// ---- Code Repositories (13-code-repositories graft — folds into the Workbench container, no
+// catalog card). Repos as FIRST-CLASS over project truth: every repository-backed project, the
+// SCM host bindings with their real auth posture, and the governed-publish trail from the proof
+// stream. Publishing itself stays a wallet-authorized crossing on the SCM lanes — nothing here
+// mutates a repository.
+function renderCodeRepositories(projectsRes, scmRes, ledgerEntries) {
+  const enc = encodeURIComponent;
+  const projects = (projectsRes || {}).projects || [];
+  const scm = (scmRes || {}).connectors || [];
+  const publishes = (ledgerEntries || []).filter((e) => String(e.kind || "").includes("publish") || String(e.op || "").includes("publish"));
+  const scmStrip = scm.length
+    ? scm.map((c) => {
+      const bound = c.auth_posture === "token-lease:bound";
+      return `<div class="card"><div class="main"><div class="name">${CX_ESC(c.name || c.kind || "scm host")}${bound ? "" : ' <span class="pill warn">needs auth</span>'}</div><div class="meta">${CX_ESC(c.kind || "")} · <code>${CX_ESC(c.host || c.remote_url || "")}</code>${c.connected_login ? ` · @${CX_ESC(c.connected_login)}` : ""} · posture <code>${CX_ESC(c.auth_posture || "unbound")}</code></div></div>${bound ? '<span class="pill ok">bound</span>' : `<a class="act ghost" href="/settings/runners?user-settings=git-authentications" target="_blank">Git authentications ↗</a>`}</div>`;
+    }).join("")
+    : `<div class="empty">No SCM hosts bound — bind one via <a href="/settings/runners?user-settings=git-authentications" target="_blank">Git authentications ↗</a> to enable governed publish lanes (sealed host token, wallet-authorized crossings).</div>`;
+  const repoCard = (p) => {
+    const pid = String(p.project_id || "").replace(/^project:/, "");
+    return `<div class="card"><div class="main"><div class="name">${CX_ESC(p.project_name || pid || "project")}</div>
+      <div class="meta"><code>${CX_ESC(p.repository_url || "no repository_url")}</code> · <code style="font-size:10px">${CX_ESC(p.project_id || "")}</code></div></div>
+      <span><a class="act ghost" href="/projects/${enc(p.project_id || pid)}" target="_top">Project →</a> <a class="act ghost" href="/__ioi/automations?project=${enc(pid)}">Automations →</a></span></div>`;
+  };
+  const pubRows = publishes.slice(0, 10).map((e) => `<tr><td>${CX_ESC(e.kind || e.op || "")}</td><td><span class="pill ${(e.status === "done" || e.status === "published" || e.status === "success") ? "ok" : "muted"}">${CX_ESC(e.status || "—")}</span></td><td>${CX_ESC(e.timestamp || "")}</td><td><code style="font-size:10px">${CX_ESC((e.state_root || "").slice(0, 18) || "—")}</code></td></tr>`).join("");
+  const inner = `<h1>Code Repositories</h1><p class="sub">Repository-backed work as first-class truth — every project's repo, the SCM host bindings with their sealed-credential posture, and the governed-publish trail. Publishing is a wallet-authorized crossing; nothing on this page mutates a repository. <a href="/__ioi/workbench">Workbench →</a></p>
+    <h2>SCM hosts</h2>${scmStrip}
+    <h2>Repositories (${projects.length})</h2>${projects.length ? projects.map(repoCard).join("") : `<div class="empty">No repository-backed projects yet — create a project with a repository_url and it lands here.</div>`}
+    <h2>Governed publishes</h2>${publishes.length ? `<table><thead><tr><th>Kind</th><th>Status</th><th>When</th><th>Proof</th></tr></thead><tbody>${pubRows}</tbody></table>` : `<div class="empty">No governed publishes recorded yet — a wallet-authorized publish writes its receipt to the proof stream and appears here.</div>`}`;
+  return automationsShell("Code Repositories", inner);
+}
+
 // ---- Sessions root (rail root per canon; the P1 gap for the SWE-migration + provider-recovery
 // demos). Session lifecycle FACTS over the daemon records: lifecycle chips with counts, each
 // session's admitted harness binding (selection is session truth, not UI state), its environment
@@ -1255,8 +1319,21 @@ function renderOperations(ops, authpol, prov, provReceipts, spendRecon, storageB
       d.innerHTML=h;
     });});
   </script>`;
+  // ---- Work Analytics facet (native primitive, first slice — folds here, no new card). Funnels
+  // over the proof stream and run health: status funnel with failure rate, ledger kind histogram,
+  // and the improvement handoff into the real proposal lane. Latency beyond per-run duration is
+  // not recorded — named, not charted.
+  const waKinds = {};
+  (ledgerEntries || []).forEach((e) => { const k = e.kind || "?"; waKinds[k] = (waKinds[k] || 0) + 1; });
+  const waTotal = runs.total || 0;
+  const waFailRate = waTotal ? Math.round(((runs.failed || 0) / waTotal) * 100) : 0;
+  const workAnalytics = `<div id="ops-work-analytics"><h2>Work Analytics <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— funnels over the proof stream; deeper latency percentiles are not recorded yet (named gap)</span></h2>
+    <div class="chips" style="margin:0 0 8px"><span class="chiplabel">run funnel</span><span class="pill muted">total ${waTotal}</span><span class="pill ok">done ${runs.done || 0}</span><span class="pill warn">failed ${runs.failed || 0}</span><span class="pill muted">running ${runs.running || 0}</span><span class="pill ${waFailRate > 20 ? "warn" : "muted"}">failure rate ${waFailRate}%</span></div>
+    <div class="chips" style="margin:0 0 8px"><span class="chiplabel">ledger kinds</span>${Object.entries(waKinds).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([k, n]) => `<span class="pill muted">${CX_ESC(k)} ${n}</span>`).join("") || `<span class="sub" style="margin:0">no entries yet</span>`}</div>
+    <p class="sub" style="margin:4px 0 0">${(runs.failed || 0) > 0 ? `${runs.failed} failed run${runs.failed > 1 ? "s are" : " is an"} improvement candidate${runs.failed > 1 ? "s" : ""} — mine them in <a href="/__ioi/agent-studio">Agent Studio →</a>` : "No failed runs — nothing to mine right now."}</p></div>`;
   const inner = `<h1>Operations</h1><p class="sub">What is running, what fired, what failed, what needs attention — every execution kind in one queue, grounded in the owning projections. Select an automation run to inspect and act on it in place. <a href="/__ioi/work-ledger">Open Work Ledger →</a></p>
     <div id="ops-jobs"><h2>Jobs <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— automation runs · harness executions · IOI Agent coordination · failover recovery, newest first</span></h2>${jobsSection}${jobsScript}</div>
+    ${workAnalytics}
     <h2>Scheduler</h2>${schedSection}
     <div class="wlwrap"><div>
     <h2 style="margin-top:0">Run health</h2>${runSection}
@@ -1567,7 +1644,7 @@ function renderWorkbench(summary, editorTargets, sessionsRes, goalRuns) {
   const targets = (editorTargets && editorTargets.targets) || [];
   const vb = targets.find((t) => t.target_id === "vscode-browser");
   const vbOpenable = vb?.open_posture?.openable === true;
-  const head = `<h1>Workbench</h1><p class="sub">Enter an environment's live console — files, terminal, ports, and tasks. Pick an active environment to get to work, or open its session or run timeline. <a href="/__ioi/environments">Environment posture →</a></p>`;
+  const head = `<h1>Workbench</h1><p class="sub">Enter an environment's live console — files, terminal, ports, and tasks. Pick an active environment to get to work, or open its session or run timeline. <a href="/__ioi/environments">Environment posture →</a> · <a href="/__ioi/code">Code Repositories →</a></p>`;
   // Editor targets — the daemon registry with PROBED open posture. An editor that cannot open on
   // this host renders disabled WITH the probe's reason (never hidden, never a dead link).
   const etRows = targets.map((t) => {
@@ -4716,6 +4793,53 @@ const server = http.createServer((req, res) => {
     if (pathname === "/__ioi/applications" && req.method === "GET") {
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
       res.end(renderApplications());
+      return;
+    }
+    // ---- Search — typed cross-estate discovery, fan-out over live projections at query time.
+    if (pathname === "/__ioi/search" && req.method === "GET") {
+      const q = (new URL(req.url, "http://x").searchParams.get("q") || "").trim().toLowerCase();
+      const J = (p) => fetch(`${DAEMON}${p}`).then((x) => x.json()).catch(() => ({}));
+      const SOURCES = ["projects", "sessions", "automations", "model routes", "connectors", "ontologies", "data recipes", "surface descriptors", "manifests", "domain apps", "approval requests", "failover runs", "environments"];
+      let groups = [];
+      if (q) {
+        const [pj, se, au, mr, cn, on, rc, sd, mf, da, ap, fo, ev] = await Promise.all([
+          J("/v1/hypervisor/projects"), J("/v1/hypervisor/sessions"), J("/v1/hypervisor/automations"),
+          J("/v1/hypervisor/model-routes"), J("/v1/hypervisor/connectors"), J("/v1/hypervisor/odk/domain-ontologies"),
+          J("/v1/hypervisor/odk/data-recipes"), J("/v1/hypervisor/odk/surface-descriptors"), J("/v1/hypervisor/odk/manifests"),
+          J("/v1/hypervisor/domain-apps"), J("/v1/hypervisor/governance/approval-requests"), J("/v1/hypervisor/failover/runs"),
+          J("/v1/hypervisor/environments-summary?limit=60"),
+        ]);
+        const hit = (...fields) => fields.some((f) => String(f || "").toLowerCase().includes(q));
+        const enc2 = encodeURIComponent;
+        groups = [
+          { name: "Projects", items: (pj.projects || []).filter((p) => hit(p.project_name, p.project_id, p.repository_url)).map((p) => ({ label: p.project_name || p.project_id, meta: p.repository_url || "", href: `/projects/${enc2(p.project_id || "")}`, top: true })) },
+          { name: "Sessions", items: (se.sessions || []).filter((s) => hit(s.session_ref, s.project_ref, s.lifecycle_state)).map((s) => ({ label: s.session_ref, meta: `${s.lifecycle_state || ""} · ${s.project_ref || "no project"}`, href: "/__ioi/sessions" })) },
+          { name: "Automations", items: (au.automations || []).filter((a) => hit(a.name, a.automation_id, a.trigger_kind)).map((a) => ({ label: a.name || a.automation_id, meta: a.trigger_kind || "", href: `/__ioi/automations/${enc2(a.automation_id)}` })) },
+          { name: "Model routes", items: (mr.routes || []).filter((r) => hit(r.display_name, r.route_id, r.route_ref)).map((r) => ({ label: r.display_name || r.route_id, meta: `${(r.availability || {}).state || ""} · ${(r.custody || {}).weight_class || ""}`, href: "/__ioi/foundry" })) },
+          { name: "Connectors", items: (cn.connectors || []).filter((c) => hit(c.name, c.connector_id, c.kind)).map((c) => ({ label: c.name || c.connector_id, meta: c.kind || "", href: "/__ioi/connections" })) },
+          { name: "Ontologies", items: (on.ontologies || on.domain_ontologies || []).filter((o) => hit(o.domain, o.id, o.ref)).map((o) => ({ label: o.domain || o.id, meta: o.ref || "", href: `/__ioi/odk/ontologies/${enc2(o.id || "")}` })) },
+          { name: "Data recipes", items: (rc.data_recipes || []).filter((r) => hit(r.name, r.id, r.ref)).map((r) => ({ label: r.name || r.id, meta: r.output_kind || "", href: `/__ioi/odk/data-recipes/${enc2(r.id || "")}` })) },
+          { name: "Surface descriptors", items: (sd.surface_descriptors || []).filter((d) => hit(d.name, d.id, d.composition_pattern)).map((d) => ({ label: d.name || d.id, meta: d.composition_pattern || "", href: `/__ioi/odk/surface-descriptors/${enc2(d.id || "")}` })) },
+          { name: "Manifests", items: (mf.manifests || []).filter((m) => hit(m.name, m.id, m.ref)).map((m) => ({ label: m.name || m.id, meta: m.ref || "", href: `/__ioi/odk/manifests/${enc2(m.id || "")}` })) },
+          { name: "Domain apps", items: (da.domain_apps || []).filter((a) => hit(a.name, a.domain_app_id, a.surface_descriptor_ref)).map((a) => ({ label: a.name || a.domain_app_id, meta: a.visibility || "", href: `/__ioi/domain-apps/${enc2(a.domain_app_id || "")}` })) },
+          { name: "Approval requests", items: (ap.approval_requests || []).filter((a) => hit(a.subject_ref, a.request_kind, a.id, a.status)).map((a) => ({ label: `${a.request_kind || "approval"} · ${a.subject_ref || ""}`, meta: a.status || "", href: "/__ioi/governance?tab=approvals" })) },
+          { name: "Failover runs", items: (fo.runs || []).filter((r) => hit(r.run_ref, r.failure_condition, r.status, r.environment_ref)).map((r) => ({ label: r.run_ref, meta: `${r.status || ""} · ${r.failure_condition || ""}`, href: "/__ioi/operations" })) },
+          { name: "Environments", items: ((ev.environments) || []).filter((e) => hit(e.id, e.project_id, e.phase)).map((e) => ({ label: e.id, meta: `${e.phase || ""} · ${e.project_id || ""}`, href: `/workspaces/${enc2(e.id)}`, top: true })) },
+        ];
+      }
+      res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
+      res.end(renderSearchResults(q, groups, SOURCES));
+      return;
+    }
+    // ---- Code Repositories (folds into Workbench; repos over project truth + SCM posture).
+    if (pathname === "/__ioi/code" && req.method === "GET") {
+      const [pjRes, scmRes, ledRes] = await Promise.all([
+        fetch(`${DAEMON}/v1/hypervisor/projects`).then((x) => x.json()).catch(() => ({})),
+        fetch(`${DAEMON}/v1/hypervisor/scm-connectors`).then((x) => x.json()).catch(() => ({})),
+        fetch(`${DAEMON}/v1/hypervisor/work-ledger`).then((x) => x.json()).catch(() => ({})),
+      ]);
+      res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
+      res.end(renderCodeRepositories(pjRes, scmRes, ledRes.entries || []));
       return;
     }
     // ---- Sessions root (rail root; session lifecycle facts + admitted bindings).
