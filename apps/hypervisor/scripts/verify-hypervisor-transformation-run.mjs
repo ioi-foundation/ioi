@@ -167,7 +167,7 @@ async function run() {
   const t = page.text;
   ok("Manager renders transformation runs as daemon truth (Resources)", page.status === 200 && /Transformation runs \(\d+\)/.test(t) && /no source contact/.test(t));
   ok("ladder: ConnectorMapping + PolicyBoundDataView + TransformationRun all declared", /ConnectorMapping<\/code> <span class="pill ok">declared/.test(t) && /PolicyBoundDataView<\/code> <span class="pill ok">declared/.test(t) && /TransformationRun \+ receipts<\/code> <span class="pill ok">declared/.test(t));
-  ok("ladder: OntologyProjection is the only remaining missing rung", /OntologyProjection<\/code> <span class="pill muted">missing/.test(t));
+  ok("ladder: OntologyProjection named; only the live crossing (credential authority) missing", /OntologyProjection<\/code>/.test(t) && /credential authority\)<\/code> <span class="pill muted">missing/.test(t));
   ok("0-objects boundary preserved; brand-clean", /0 objects/.test(t) && !/\bPalantir\b/.test(t) && !/\bFoundry\b/.test(t));
 
   // Cleanup — leave no draft debris.

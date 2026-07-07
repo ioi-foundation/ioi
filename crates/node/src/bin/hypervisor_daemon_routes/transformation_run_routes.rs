@@ -28,7 +28,7 @@ use super::{iso_now, persist_record, read_record_dir, remove_record, DaemonState
 const RUN_SCHEMA: &str = "ioi.hypervisor.odk.transformation-run.v1";
 const RECEIPT_SCHEMA: &str = "ioi.hypervisor.odk.transformation-run-receipt.v1";
 const OVERVIEW_SCHEMA: &str = "ioi.hypervisor.odk.transformation-runs-overview.v1";
-const RECORD_DIR: &str = "odk-transformation-runs";
+pub(crate) const RECORD_DIR: &str = "odk-transformation-runs";
 const RECEIPT_DIR: &str = "odk-transformation-run-receipts";
 
 /// v1 lifecycle. `executed`/`materialized` are reserved for a future connector-adapter cut.

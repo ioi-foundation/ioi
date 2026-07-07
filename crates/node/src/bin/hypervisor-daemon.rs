@@ -94,6 +94,8 @@ mod connector_mapping_routes;
 mod policy_bound_data_view_routes;
 #[path = "hypervisor_daemon_routes/transformation_run_routes.rs"]
 mod transformation_run_routes;
+#[path = "hypervisor_daemon_routes/ontology_projection_routes.rs"]
+mod ontology_projection_routes;
 #[path = "hypervisor_daemon_routes/harness_routes.rs"]
 mod harness_routes;
 #[path = "hypervisor_daemon_routes/model_routes.rs"]
@@ -1182,6 +1184,35 @@ async fn async_main() -> anyhow::Result<()> {
         .route(
             "/v1/hypervisor/odk/transformation-runs/:id/cancel",
             post(transformation_run_routes::handle_run_cancel),
+        )
+        // OntologyProjection — the fourth and final inert rung: the explorer/search/read SHAPE for
+        // ontology-bound data. Projection declared, no materialized objects (object_instances 0).
+        .route(
+            "/v1/hypervisor/odk/ontology-projections",
+            get(ontology_projection_routes::handle_projections_list)
+                .post(ontology_projection_routes::handle_projection_create),
+        )
+        .route(
+            "/v1/hypervisor/odk/ontology-projections/overview",
+            get(ontology_projection_routes::handle_projections_overview),
+        )
+        .route(
+            "/v1/hypervisor/odk/ontology-projections/:id",
+            get(ontology_projection_routes::handle_projection_get)
+                .patch(ontology_projection_routes::handle_projection_patch)
+                .delete(ontology_projection_routes::handle_projection_delete),
+        )
+        .route(
+            "/v1/hypervisor/odk/ontology-projections/:id/history",
+            get(ontology_projection_routes::handle_projection_history),
+        )
+        .route(
+            "/v1/hypervisor/odk/ontology-projections/:id/recheck",
+            post(ontology_projection_routes::handle_projection_recheck),
+        )
+        .route(
+            "/v1/hypervisor/odk/ontology-projections/:id/retire",
+            post(ontology_projection_routes::handle_projection_retire),
         )
         .route(
             "/v1/hypervisor/odk/data-recipes",
