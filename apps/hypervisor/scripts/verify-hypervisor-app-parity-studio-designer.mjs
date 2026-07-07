@@ -111,6 +111,15 @@ async function run() {
   const projRec = (await jd("GET", `/v1/hypervisor/odk/ontology-projections/${proj}`)).j.ontology_projection;
   const viewRec = (await jd("GET", `/v1/hypervisor/odk/policy-bound-data-views/${view}`)).j.policy_bound_data_view;
 
+  // A real DomainApp RESOURCE: a domain_app surface descriptor carrying this ontology_ref → a DomainApp
+  // whose ontology_refs (an ARRAY, DERIVED from the descriptor) includes it. This is the resource the
+  // Resources lane must render — the regression the review caught (filter was on the singular field).
+  const sd = (await jd("POST", "/v1/hypervisor/odk/surface-descriptors", { name: "dsg-parity-sd", composition_pattern: "domain_app", ontology_ref: ont.ref, recipe_refs: [] })).j.surface_descriptor;
+  const dapp = (await jd("POST", "/v1/hypervisor/domain-apps", { name: "Dsg Parity App", description: "draft", surface_descriptor_ref: sd?.ref, visibility: "private" })).j.domain_app;
+  if (dapp?.domain_app_id) cleanup.unshift(["DELETE", `/v1/hypervisor/domain-apps/${dapp.domain_app_id}`]);
+  if (sd?.id) cleanup.unshift(["DELETE", `/v1/hypervisor/odk/surface-descriptors/${sd.id}`]);
+  ok("fixture sanity: the DomainApp derived ontology_refs (array) includes this ontology", Array.isArray(dapp?.ontology_refs) && dapp.ontology_refs.includes(ont.ref), JSON.stringify(dapp?.ontology_refs || null));
+
   // 3. IOI surface = the design-map grammar over real composition.
   const dsg = await page(`${SERVE}/__ioi/studio/designer?ontology=${encodeURIComponent(ont.id)}`);
   const t = dsg.text;
@@ -119,8 +128,9 @@ async function run() {
   ok("CONCEPTS render the real object model (object type Loan + Money value type + Approve action)", t.includes("Loan") && t.includes("Money") && t.includes("Approve") && /🧩 3/.test(t), "1 object + 1 value + 1 action + 0 link = 3 concepts");
   // COMPONENTS = the real composition refs.
   ok("COMPONENTS render the real mapping · policy view · projection refs (not fabricated labels)", mapRec?.ref && viewRec?.ref && projRec?.ref && t.includes(mapRec.ref) && t.includes(viewRec.ref) && t.includes(projRec.ref));
-  // RESOURCES = the real generated set.
+  // RESOURCES = the real generated set + the real DomainApp surface descriptor.
   ok("RESOURCES render the real materialized object set (ref + object count)", setRec?.ref && t.includes(setRec.ref) && new RegExp(`${setRec.count || 2} obj`).test(t));
+  ok("RESOURCES render the real DomainApp surface descriptor (domain-app ref + surface-descriptor ref)", dapp?.domain_app_ref && t.includes(dapp.domain_app_ref) && sd?.ref && t.includes(sd.ref), dapp?.domain_app_ref || "no domain app");
 
   // 4. NO AUTHORING — the map is read-only (no create/save form posting to the surface).
   ok("the surface is READ-ONLY (no authoring form posts to /__ioi/studio/designer)", !/action="\/__ioi\/studio\/designer/.test(t));
