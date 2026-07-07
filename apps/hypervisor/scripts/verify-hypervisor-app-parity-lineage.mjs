@@ -131,7 +131,7 @@ async function run() {
   ok("receipt chain shows the run's registration act", /id="lineage-receipts"/.test(t) && /materialized_output_registered/.test(t));
 
   // 4. Honest gaps.
-  ok("Provenance proof-stream edges shown 'where available' — honest 0 for the ODK chain (named gap)", /0 Provenance proof-stream edges/.test(t) && /not yet threaded into the Provenance proof stream/.test(t));
+  ok("Provenance proof-stream edges are THREADED (a built chain shows ≥1 real edge, not the 0-gap)", /Provenance proof-stream entr(y|ies) reference this lineage chain/.test(t) && />odk_materialization</.test(t) && /no receipt authority is duplicated/.test(t));
   ok("terminology: no 'Work Ledger' UI prose leaks into the lineage surface", !/Work Ledger/.test(t));
   ok("unsupported Monocle lanes named (resource search / graph expansion / cross-tenant catalog)", /resource search, arbitrary graph expansion, cross-tenant catalog/.test(t));
   ok("reference capture linked as secondary baseline; brand-clean", t.includes("/__apps/lineage") && !/\bPalantir\b/.test(t) && !/\bFoundry\b/.test(t));

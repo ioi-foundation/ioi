@@ -773,6 +773,31 @@ pub(crate) async fn handle_work_ledger(
             "affected_runtime_refs": g(&r, "affected_runtime_refs"), "receipt_ref": g(&r, "ref"),
         }));
     }
+    // ODK materialization crossings — each materialized object set is a governed act: a materializing
+    // run read a declared source under a held CapabilityLease + sealed connector session and
+    // registered a bounded, all-or-nothing object set BEHIND a pre-output receipt. Project each set
+    // into the one proof stream BY REFERENCE. The pre-output + registration receipts already exist on
+    // the ODK materializing-run receipt family; this projection MINTS NOTHING (it is a read-time view)
+    // — receipt authority is not duplicated, only surfaced. This turns the lineage surface's
+    // "0 Provenance proof-stream edges" into real cross-plane edges.
+    for r in read_record_dir(&st.data_dir, "odk-materialized-object-sets") {
+        entries.push(json!({
+            "id": g(&r, "id"), "kind": "odk_materialization", "timestamp": g(&r, "registered_at"),
+            "status": "registered", "object_count": g(&r, "count"),
+            "ontology_ref": g(&r, "ontology_ref"), "object_type_id": g(&r, "object_type_id"),
+            "materialized_set_ref": g(&r, "ref"),
+            "materializing_run_ref": g(&r, "materializing_run_ref"),
+            "connector_session_ref": g(&r, "connector_session_ref"),
+            "capability_lease_plan_ref": g(&r, "capability_lease_plan_ref"),
+            "ontology_projection_id": g(&r, "ontology_projection_id"),
+            // The proof pointer IS the existing pre-output receipt — referenced, never re-minted.
+            "receipt_ref": g(&r, "pre_output_receipt_ref"),
+            "pre_output_receipt_ref": g(&r, "pre_output_receipt_ref"),
+            "source_contact": g(&r, "source_contact"),
+            "lineage_ref": "/__ioi/lineage",
+            "authority_rule": "projected by reference from the existing ODK materialization receipts; the Provenance proof stream mints no receipt here",
+        }));
+    }
     entries.sort_by(|a, b| {
         b.get("timestamp").and_then(|v| v.as_str()).unwrap_or("")
             .cmp(a.get("timestamp").and_then(|v| v.as_str()).unwrap_or(""))

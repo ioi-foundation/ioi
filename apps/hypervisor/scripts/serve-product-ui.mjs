@@ -3203,14 +3203,21 @@ function renderDataLineage(lists, selectedId) {
   const receiptPane = `<h2 id="lineage-receipts">Receipt chain <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— the run's auditable acts (${receiptRefs.length})</span></h2>`
     + (run ? `<dl class="grid">${(run.history || []).slice().reverse().slice(0, 8).map((h) => `<dt>${CX_ESC(h.op || "")}</dt><dd>${CX_ESC(h.summary || "")}<br><span class="sub" style="margin:0"><code>${CX_ESC(h.receipt_ref || "")}</code></span></dd>`).join("")}</dl>` : `<div class="empty">The materializing run for this set is no longer resolvable.</div>`);
 
-  // Provenance proof-stream edges — WHERE AVAILABLE (honest; the ODK materialization receipts are not
-  // yet threaded into the Provenance proof stream, so today this is 0). Backing route unchanged.
+  // Provenance proof-stream edges — the ODK materialization receipts are THREADED into the Provenance
+  // proof stream (daemon-side, by reference — no receipt re-minted); each entry that references this
+  // chain is a real cross-plane edge. Backing route unchanged.
   const chainRefs = [primary.ref, primary.materializing_run_ref, primary.connector_session_ref, primary.capability_lease_plan_ref].filter(Boolean);
   const provEdges = provStream.filter((e) => chainRefs.some((r) => JSON.stringify(e).includes(r)));
-  const ledgerPane = `<h2 id="lineage-provenance-stream">Provenance proof-stream edges <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— where available</span></h2>`
+  const provEdgeRows = provEdges.slice(0, 8).map((e) => `<tr>
+    <td><span class="pill muted">${CX_ESC(e.kind || "—")}</span></td>
+    <td>${CX_ESC(e.status || "")}${e.object_count != null ? ` · ${CX_ESC(String(e.object_count))} objects` : ""}</td>
+    <td><code style="font-size:10.5px">${CX_ESC(e.receipt_ref || "—")}</code></td>
+    <td class="sub" style="margin:0">${CX_ESC(e.timestamp || "")}</td>
+  </tr>`).join("");
+  const ledgerPane = `<h2 id="lineage-provenance-stream">Provenance proof-stream edges <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— threaded from the ODK materialization receipts, by reference</span></h2>`
     + (provEdges.length
-      ? `<div class="sub">${provEdges.length} Provenance proof-stream entr${provEdges.length === 1 ? "y" : "ies"} reference this lineage chain.</div>`
-      : omBoundaryNote(`<b>0 Provenance proof-stream edges</b> for this chain — the ODK materialization receipts live on their own run stream and are <b>not yet threaded into the Provenance proof stream</b> (a named gap). The resolved ladder refs + object provenance above are the authoritative lineage today.`));
+      ? `<p class="sub" style="margin:0 0 8px">${provEdges.length} Provenance proof-stream entr${provEdges.length === 1 ? "y" : "ies"} reference this lineage chain — projected by reference from the existing materialization receipts (<b>no receipt authority is duplicated</b>).</p><table><thead><tr><th>Kind</th><th>Outcome</th><th>Receipt (existing)</th><th>When</th></tr></thead><tbody>${provEdgeRows}</tbody></table>`
+      : omBoundaryNote(`<b>0 Provenance proof-stream edges</b> for this chain — no materialization receipt references it yet. The resolved ladder refs + object provenance above are the authoritative lineage.`));
 
   const gaps = omBoundaryNote(`This is <b>real provenance</b> in the Monocle lineage grammar. Freeform Monocle lanes — resource search, arbitrary graph expansion, cross-tenant catalog search — are <b>reference-only</b>, not bound. The <a href="/__apps/lineage">Monocle reference capture ↗</a> is the familiar baseline, never a rebound surface.`);
 
