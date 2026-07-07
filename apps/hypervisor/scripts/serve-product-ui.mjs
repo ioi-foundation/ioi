@@ -975,7 +975,7 @@ function renderEvaluations(suites, suiteOv, subjects, foundryEvalSpecs, feedback
       : omBoundaryNote(`<b>No eval suites declared yet</b> — declare one above. A suite is an inert declaration (subject scope · admissibility · candidate handoffs); it never scores or executes. This library reads the real daemon eval-suite contract; nothing is fabricated.`));
 
   // Assessment subjects in scope — REAL Missions execution truth (mission runs / failures / blockers).
-  const subjRow = (kind, label, ref, when, proof) => `<tr><td><span class="pill muted" style="margin:0">${CX_ESC(kind)}</span></td><td>${CX_ESC(label)}</td><td class="sub" style="margin:0">${CX_ESC(when || "")}</td><td>${proof ? `<a href="${CX_ESC(proof)}" target="_blank" rel="noopener">proof ↗</a>` : "—"}</td></tr>`;
+  const subjRow = (kind, label, when, proof) => `<tr><td><span class="pill muted" style="margin:0">${CX_ESC(kind)}</span></td><td>${CX_ESC(label)}</td><td class="sub" style="margin:0">${CX_ESC(when || "")}</td><td>${proof ? `<a href="${CX_ESC(proof)}" target="_blank" rel="noopener">proof ↗</a>` : "—"}</td></tr>`;
   const subjRows = [
     ...missionRuns.slice(0, 6).map((r) => subjRow("mission_run", r.name || r.execution_id || "—", r.started_at, r.timeline_ref)),
     ...failedRuns.slice(0, 6).map((r) => subjRow("failed_run", r.name || r.execution_id || "—", r.finished_at, r.timeline_ref)),
