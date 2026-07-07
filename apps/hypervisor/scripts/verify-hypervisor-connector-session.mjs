@@ -100,7 +100,8 @@ async function run() {
   const mrun2Id = mrun2R.j.materializing_run?.id;
   track("materializing-runs", mrun2Id);
   // Connector fixture (NO credential yet).
-  const connR = await jd("POST", "/v1/hypervisor/connectors", { service: "odk-csn-fixture", base_url: "https://db.invalid", name: "ODK Session Fixture" });
+  // The connector's base_url must be the ORIGIN AUTHORITY for the source endpoint (credential↔source binding).
+  const connR = await jd("POST", "/v1/hypervisor/connectors", { service: "odk-csn-fixture", base_url: "postgres://unreachable.invalid:5432", name: "ODK Session Fixture" });
   const connId = connR.j.connector?.connector_id || connR.j.connector_id;
   if (!dataSourceId || !mapId || !viewId || !trunId || !projId || !planId || !mrunId || !connId) { console.error("BLOCKED: fixtures failed"); process.exit(2); }
 
@@ -155,6 +156,11 @@ async function run() {
   await reject("unknown run", { materializing_run_id: "mrun_nope", connector_id: connId, name: "x" }, "session_run_unknown");
   await reject("run does not HOLD its lease", { materializing_run_id: mrun2Id, connector_id: connId, name: "x" }, "session_lease_not_obtained");
   await reject("unknown connector", { materializing_run_id: mrunId, connector_id: "conn_nope", name: "x" }, "session_connector_unknown");
+  // A connector that is NOT the origin authority for the source endpoint cannot bind its credential.
+  const wrongConn = await jd("POST", "/v1/hypervisor/connectors", { service: "csn-wrong-origin", base_url: "https://elsewhere.invalid", name: "Wrong Origin" });
+  const wrongConnId = wrongConn.j.connector?.connector_id || wrongConn.j.connector_id;
+  await reject("connector not the source's origin authority (confused-deputy)", { materializing_run_id: mrunId, connector_id: wrongConnId, name: "x" }, "session_connector_source_mismatch");
+  await fetch(`${DAEMON}/v1/hypervisor/connectors/${wrongConnId}`, { method: "DELETE" }).catch(() => {});
   await reject("TTL widening (9999 > run's 900)", { materializing_run_id: mrunId, connector_id: connId, name: "x", ttl_seconds: 9999 }, "session_ttl_widening_rejected");
 
   // 6. Release + receipts tell the whole story, credential-free.

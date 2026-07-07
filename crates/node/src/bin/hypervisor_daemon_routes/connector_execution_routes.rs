@@ -234,8 +234,23 @@ pub(crate) async fn handle_run_execute(State(st): State<Arc<DaemonState>>, AxumP
     let receipt = run_receipt(&data_dir, &run_ref, "execution_requested", "ok", &format!("read-only execution requested: kind {kind} · limit {limit} · session {}", s(&session, "id", "")));
     push_history(&mut run, "execution_requested", "read-only execution requested", &receipt);
 
-    // Resolve the sealed credential IN-MEMORY for the read — used for the header, then dropped.
     let connector_id = s(&session, "connector_id", "");
+    // RE-CHECK the credential↔endpoint binding at execution (never cached): the session's connector
+    // must STILL be the origin authority for the declared endpoint. Endpoints are immutable, but a
+    // connector's base_url can change (its /policy route) — so this is re-proven at the crossing,
+    // BEFORE the sealed credential is ever resolved. A stale binding sends the bearer nowhere.
+    let source_endpoint = s(&source, "endpoint", "");
+    match find_by_key(&data_dir, "connectors", "connector_id", &connector_id) {
+        Some(c) if crate::connector_session_routes::connector_covers_endpoint(&s(&c, "base_url", ""), &source_endpoint) => {}
+        _ => {
+            let receipt = run_receipt(&data_dir, &run_ref, "execution_refused", "execution_connector_source_mismatch", "the session's connector is no longer the origin authority for the declared source endpoint — refused before any credential resolution or source contact");
+            push_history(&mut run, "execution_refused", "connector↔source binding stale", &receipt);
+            let _ = persist_record(&data_dir, crate::materializing_run_routes::RECORD_DIR, &id, &run);
+            return (StatusCode::BAD_REQUEST, Json(json!({ "ok": false, "error": { "code": "execution_connector_source_mismatch", "message": "the session's connector is not the origin authority for the declared source endpoint" } })));
+        }
+    }
+
+    // Resolve the sealed credential IN-MEMORY for the read — used for the header, then dropped.
     let bearer: Option<String> = match find_by_key(&data_dir, "connector-credentials", "connector_id", &connector_id) {
         Some(cred_rec) => resolve_sealed_credential(&cred_rec).await.0,
         None => None,

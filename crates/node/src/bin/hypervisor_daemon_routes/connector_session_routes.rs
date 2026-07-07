@@ -76,6 +76,39 @@ fn source_kind_networked(kind: &str) -> bool {
     !matches!(kind, "file_drop" | "local_folder")
 }
 
+/// Split a URL into (scheme, authority, path) — authority lowercased; path defaults to "/".
+fn url_parts(u: &str) -> Option<(String, String, String)> {
+    let (scheme, rest) = u.split_once("://")?;
+    if scheme.is_empty() || rest.is_empty() {
+        return None;
+    }
+    let (authority, path) = match rest.find('/') {
+        Some(i) => (&rest[..i], &rest[i..]),
+        None => (rest, "/"),
+    };
+    let authority = authority.split(['?', '#']).next().unwrap_or(authority);
+    if authority.is_empty() {
+        return None;
+    }
+    let path = path.split(['?', '#']).next().unwrap_or(path);
+    Some((scheme.to_ascii_lowercase(), authority.to_ascii_lowercase(), path.to_string()))
+}
+/// Does the connector's `base_url` cover the data-source endpoint? A sealed credential may only be
+/// sent to the endpoint its connector is the ORIGIN AUTHORITY for: same scheme + host:port, and the
+/// endpoint path AT OR UNDER the base_url path. This binds the credential to the exact source it
+/// authorizes — connector A's bearer can never reach data-source B's endpoint. Fail-closed on any
+/// unparseable URL.
+pub(crate) fn connector_covers_endpoint(base_url: &str, endpoint: &str) -> bool {
+    let (Some((bs, ba, bp)), Some((es, ea, ep))) = (url_parts(base_url), url_parts(endpoint)) else {
+        return false;
+    };
+    if bs != es || ba != ea {
+        return false;
+    }
+    let base_path = bp.trim_end_matches('/'); // "" (root) covers all paths
+    base_path.is_empty() || ep == base_path || ep.starts_with(&format!("{base_path}/"))
+}
+
 /// Everything a session needs, resolved fresh: the run (holding its lease), its plan, the connector.
 struct SessionInputs {
     run: Value,
@@ -129,10 +162,18 @@ fn validate_inputs(data_dir: &str, body: &Value) -> Result<SessionInputs, VErr> 
     if !source_kind_networked(&kind) {
         return Err(verr("session_source_kind_unsupported", format!("source kind '{kind}' has no connector session to open (local kinds are read in-place by a future execution cut)")));
     }
-    // The connector that HOLDS the sealed credential must be registered in the connector estate.
+    // The connector that HOLDS the sealed credential must be registered in the connector estate AND
+    // be the ORIGIN AUTHORITY for the declared source endpoint — the credential is bound to the
+    // exact source it may reach, never a different endpoint.
     let connector_id = opt_s(body, "connector_id").unwrap_or_default();
-    if find_by_key(data_dir, "connectors", "connector_id", &connector_id).is_none() {
-        return Err(verr("session_connector_unknown", format!("connector_id '{connector_id}' is not registered in the connector estate")));
+    let connector = find_by_key(data_dir, "connectors", "connector_id", &connector_id)
+        .ok_or_else(|| verr("session_connector_unknown", format!("connector_id '{connector_id}' is not registered in the connector estate")))?;
+    let source_endpoint = s(&source, "endpoint", "");
+    if !connector_covers_endpoint(&s(&connector, "base_url", ""), &source_endpoint) {
+        return Err(verr(
+            "session_connector_source_mismatch",
+            format!("connector '{connector_id}' (base_url '{}') is not the origin authority for the source endpoint '{}' — a session cannot bind a credential to an endpoint it does not authorize", s(&connector, "base_url", ""), s(&source, "endpoint", "")),
+        ));
     }
     // TTL: bounded by the run's (which was bounded by the plan's).
     let run_ttl = run.get("ttl_seconds").and_then(|v| v.as_u64()).unwrap_or(0);
@@ -455,6 +496,21 @@ mod connector_session_tests {
         assert!(lease_expired(&json!(1000), 2000));
         assert!(!lease_expired(&json!(3000), 2000));
         assert!(!lease_expired(&Value::Null, 2000));
+    }
+
+    #[test]
+    fn connector_authority_binds_credential_to_endpoint() {
+        // same origin, endpoint under (or at) the base_url path → covered
+        assert!(connector_covers_endpoint("http://127.0.0.1:18099", "http://127.0.0.1:18099/rows"));
+        assert!(connector_covers_endpoint("https://db.invalid", "https://db.invalid/rows?limit=5"));
+        assert!(connector_covers_endpoint("https://host/api", "https://host/api/loans"));
+        // different host:port → the confused-deputy case → refused
+        assert!(!connector_covers_endpoint("http://127.0.0.1:18099", "http://127.0.0.1:9/rows"));
+        assert!(!connector_covers_endpoint("https://a.host", "https://b.host/rows"));
+        // scheme mismatch, path sibling (not under), and unparseable → refused
+        assert!(!connector_covers_endpoint("http://host", "https://host/rows"));
+        assert!(!connector_covers_endpoint("https://host/api", "https://host/apiv2/x"));
+        assert!(!connector_covers_endpoint("not-a-url", "https://host/rows"));
     }
 
     #[test]

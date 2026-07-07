@@ -51,7 +51,7 @@ function dirContains(dir, needle) {
 const grantFor = (ch) => mintApprovalGrant({ policyHash: ch.approval?.policy_hash, requestHash: ch.approval?.request_hash });
 
 // A full ladder → held lease → open sealed session over the given endpoint. Returns ids.
-async function buildChain(tag, endpoint, kind, connId, cleanup) {
+async function buildChain(tag, endpoint, kind, connId, cleanup, opts = {}) {
   const track = (k, id) => { if (id) cleanup.push(["DELETE", `/v1/hypervisor/odk/${k}/${id}`]); };
   const ds = (await jd("POST", "/v1/hypervisor/data-sources", { name: `${tag}-src`, kind, endpoint, credential_posture: "wallet_credential_lease" })).j.data_source?.source_id;
   cleanup.push(["DELETE", `/v1/hypervisor/data-sources/${ds}`]);
@@ -85,7 +85,7 @@ async function buildChain(tag, endpoint, kind, connId, cleanup) {
   const ch = await jd("POST", `/v1/hypervisor/odk/materializing-runs/${mrun}/acquire-lease`, {});
   await jd("POST", `/v1/hypervisor/odk/materializing-runs/${mrun}/acquire-lease`, { wallet_approval_grant: grantFor(ch.j) });
   let session = null;
-  if (kind === "rest_api") {
+  if (kind === "rest_api" && !opts.skipSession) {
     session = (await jd("POST", "/v1/hypervisor/odk/connector-sessions", { materializing_run_id: mrun, connector_id: connId, name: `${tag}-session` })).j.connector_session?.id;
     track("connector-sessions", session);
     const ch2 = await jd("POST", `/v1/hypervisor/odk/connector-sessions/${session}/open`, {});
@@ -119,6 +119,9 @@ async function run() {
   const connR = await jd("POST", "/v1/hypervisor/connectors", { service: "odk-exec-verify", base_url: `http://127.0.0.1:${port}`, name: "Exec Verify Fixture" });
   const connId = connR.j.connector?.connector_id || connR.j.connector_id;
   await jd("POST", `/v1/hypervisor/connectors/${connId}/credential`, { token: SENTINEL });
+  const connUnreachR = await jd("POST", "/v1/hypervisor/connectors", { service: "odk-exec-unreachable", base_url: "http://127.0.0.1:9", name: "Exec Unreachable Fixture" });
+  const connUnreachId = connUnreachR.j.connector?.connector_id || connUnreachR.j.connector_id;
+  await jd("POST", `/v1/hypervisor/connectors/${connUnreachId}/credential`, { token: SENTINEL });
 
   try {
     // Chain A: the happy path.
@@ -183,7 +186,7 @@ async function run() {
     ok("malformed batch left a validation_result refusal in the receipt story", (histC.j.receipts || []).some((r) => r.op === "validation_result" && r.outcome === "execution_batch_invalid"));
 
     // Chain D: unreachable rest endpoint → source_contact_failed receipted.
-    const Dc = await buildChain("execD", "http://127.0.0.1:9/rows", "rest_api", connId, cleanup);
+    const Dc = await buildChain("execD", "http://127.0.0.1:9/rows", "rest_api", connUnreachId, cleanup);
     const exD = await jd("POST", `/v1/hypervisor/odk/materializing-runs/${Dc.mrun}/execute`, { connector_session_id: Dc.session, limit: 10 });
     const histD = await jd("GET", `/v1/hypervisor/odk/materializing-runs/${Dc.mrun}/history`);
     ok("unreachable source → 502 + source_contact_failed receipted (no output)", exD.status === 502 && exD.j.error?.code === "execution_source_unreachable" && (histD.j.receipts || []).some((r) => r.op === "source_contact_failed"));
@@ -200,6 +203,17 @@ async function run() {
     const exF = await jd("POST", `/v1/hypervisor/odk/materializing-runs/${F.mrun}/execute`, { connector_session_id: F.session, limit: 10 });
     const projF = await jd("GET", `/v1/hypervisor/odk/ontology-projections/${F.proj}`);
     ok("fail-closed: duplicate object_key rejects the whole batch (zero registered)", exF.status === 422 && exF.j.error?.code === "execution_batch_invalid" && (exF.j.error?.errors || []).some((e) => /duplicate object key/.test(e)) && projF.j.ontology_projection?.health?.object_instances === 0);
+
+    // Chain G — CONFUSED-DEPUTY: connector A holds the sentinel for the fixture origin, but the
+    // session is opened with the UNREACHABLE-origin connector against the fixture data source. The
+    // credential↔endpoint binding must refuse the session, and the fixture must receive ZERO requests.
+    const G = await buildChain("execG", `http://127.0.0.1:${port}/rows`, "rest_api", connId, cleanup, { skipSession: true });
+    const hitsBeforeG = hits;
+    const badSession = await jd("POST", "/v1/hypervisor/odk/connector-sessions", { materializing_run_id: G.mrun, connector_id: connUnreachId, name: "confused-deputy-session" });
+    ok("fail-closed: session refused when the connector is not the source's origin authority", badSession.status === 400 && badSession.j.error?.code === "session_connector_source_mismatch");
+    // The matching connector opens a legit session; then re-point is impossible (endpoints immutable),
+    // so the execution re-check is proven at the unit level — here we assert the source stayed silent.
+    ok("the confused-deputy attempt contacted the source ZERO times", hits === hitsBeforeG, `hits ${hitsBeforeG}→${hits}`);
 
     // Credentialed endpoints are refused at DECLARATION (never enter declared truth).
     const credEp = await jd("POST", "/v1/hypervisor/data-sources", { name: "cred-ep", kind: "rest_api", endpoint: `http://127.0.0.1:${port}/rows?api_key=${SENTINEL}`, credential_posture: "wallet_credential_lease" });
@@ -229,6 +243,8 @@ async function run() {
     }
     await fetch(`${DAEMON}/v1/hypervisor/connectors/${connId}/credential`, { method: "DELETE" }).catch(() => {});
     await fetch(`${DAEMON}/v1/hypervisor/connectors/${connId}`, { method: "DELETE" }).catch(() => {});
+    await fetch(`${DAEMON}/v1/hypervisor/connectors/${connUnreachId}/credential`, { method: "DELETE" }).catch(() => {});
+    await fetch(`${DAEMON}/v1/hypervisor/connectors/${connUnreachId}`, { method: "DELETE" }).catch(() => {});
     srv.close();
   }
 }
