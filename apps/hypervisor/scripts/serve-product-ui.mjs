@@ -1001,7 +1001,7 @@ function renderApplications() {
     { icon: "🧬", name: "Ontology", desc: "The semantic world-model — object/link/action types, functions, value types, saved object sets.", href: "/__ioi/odk" },
     { icon: "🌐", name: "Data", desc: "Supply the world-model — sources, syncs, data recipes, datasets, media sets, consent posture.", href: "/__ioi/odk#data-planes" },
     { icon: "🛡", name: "Governance", desc: "Authority — approvals, identity, leases, revocation, release gates, kill switches, budgets, gaps.", href: "/__ioi/governance" },
-    { icon: "🚀", name: "Missions", desc: "Fleet of running systems — sessions root live; dedicated fleet console adopting.", href: "/__ioi/sessions" },
+    { icon: "🚀", name: "Missions", desc: "Fleet of running systems — the mission run queue + incident/blocker inbox over daemon truth.", href: "/__ioi/missions" },
     { icon: "📒", name: "Provenance", desc: "Proof plane — unified receipts stream, state roots, timelines live; lineage canvas adopting.", href: "/__ioi/work-ledger" },
     { icon: "🧪", name: "Evaluations", desc: "Feedback with evidence-eligibility consent + eval handoffs live; suites & scorecards adopting.", href: "/__ioi/feedback" },
     { icon: "📈", name: "Improvement", desc: "Proposals, what-if simulation, apply-under-gates — proposal lane live; change inbox adopting.", href: "/__ioi/agent-studio#improvement-proposals" },
@@ -1449,7 +1449,7 @@ function renderOperations(ops, authpol, prov, provReceipts, spendRecon, storageB
     <div class="chips" style="margin:0 0 8px"><span class="chiplabel">run funnel</span><span class="pill muted">total ${waTotal}</span><span class="pill ok">done ${runs.done || 0}</span><span class="pill warn">failed ${runs.failed || 0}</span><span class="pill muted">running ${runs.running || 0}</span><span class="pill ${waFailRate > 20 ? "warn" : "muted"}">failure rate ${waFailRate}%</span></div>
     <div class="chips" style="margin:0 0 8px"><span class="chiplabel">ledger kinds</span>${Object.entries(waKinds).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([k, n]) => `<span class="pill muted">${CX_ESC(k)} ${n}</span>`).join("") || `<span class="sub" style="margin:0">no entries yet</span>`}</div>
     <p class="sub" style="margin:4px 0 0">${(runs.failed || 0) > 0 ? `${runs.failed} failed run${runs.failed > 1 ? "s are" : " is an"} improvement candidate${runs.failed > 1 ? "s" : ""} — mine them in <a href="/__ioi/agent-studio">Studio →</a>` : "No failed runs — nothing to mine right now."} · capture operator judgment in <a href="/__ioi/feedback">Feedback &amp; Annotations →</a></p></div>`;
-  const inner = `<h1>Operations</h1><p class="sub">What is running, what fired, what failed, what needs attention — every execution kind in one queue, grounded in the owning projections. Select an automation run to inspect and act on it in place. <a href="/__ioi/work-ledger">Open Provenance →</a></p>
+  const inner = `<h1>Operations</h1><p class="sub">Substrate &amp; infrastructure — scheduler health, providers, placement/failover, storage custody, capacity, spend. Select an automation run to inspect and act on it in place. Suite/run work — the mission run queue + incident inbox — lives in <a href="/__ioi/missions">Missions →</a>. <a href="/__ioi/work-ledger">Open Provenance →</a></p>
     <div id="ops-jobs"><h2>Jobs <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— automation runs · harness executions · IOI Agent coordination · failover recovery, newest first</span></h2>${jobsSection}${jobsScript}</div>
     ${workAnalytics}
     <h2>Scheduler</h2>${schedSection}
@@ -3116,6 +3116,60 @@ const LINEAGE_NODE_KINDS = [
 function lineageLegend() {
   return `<div class="chips" style="margin:0 0 10px"><span class="chiplabel">Nodes</span>${LINEAGE_NODE_KINDS.map(([, ic, l]) => `<span class="pill muted" style="margin:0">${ic} ${CX_ESC(l)}</span>`).join(" ")}</div>`
     + `<div class="chips" style="margin:0 0 12px"><span class="chiplabel">Edges</span>${["mapped_by", "gated_by", "planned_by", "projected_as", "read_under", "produced_by", "receipted_by", "contains", "hashed_as", "mapped_from"].map((e) => `<span class="pill muted" style="margin:0"><code>${e}</code></span>`).join(" ")}</div>`;
+}
+// ============================ MISSIONS (owner surface for suite/run work — jobs + incidents seeds)
+// The Application UX Parity Baseline phase, applied to the Missions owner-family. The reference
+// captures (/__apps/jobs = job-tracker "Builds", /__apps/incidents = issues-app) are the familiar
+// baselines; this IOI-owned surface renders the SAME table/list grammar — a run/job status queue and
+// a status-lane remediation inbox — but over REAL daemon truth: the operations run queue (recent
+// runs, statuses, scheduled missions) and the mission-level incidents (run failures + GoalRun
+// blockers, each linking back to its own proof/timeline). Naming: Missions is the owner surface for
+// suite/run work; Operations stays substrate/infra (its storage-repair / provider-failover incidents
+// live there, NOT here). Nothing is fabricated — empty run queue / zero incidents render honest empty
+// states. Unsupported reference lanes (create/assign incidents, edit job definitions, board views,
+// SLA/escalation, comments/assignees) are named gaps, not hidden.
+function renderMissions(ops, goalRuns) {
+  const enc = (s) => encodeURIComponent(String(s || ""));
+  const runs = (ops && ops.runs) || {};
+  const recent = Array.isArray(runs.recent) ? runs.recent : [];
+  const failures = Array.isArray(runs.failures) ? runs.failures : [];
+  const scheduled = Array.isArray(ops && ops.scheduler && ops.scheduler.automations) ? ops.scheduler.automations : [];
+  const gr = Array.isArray(goalRuns) ? goalRuns : [];
+  const blocked = gr.filter((r) => Array.isArray(r.blockers) && r.blockers.length);
+  const sub = (txt) => `<span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">${txt}</span>`;
+  const statusPill = (st) => { const s = String(st || "").toLowerCase(); const cls = ["done", "succeeded", "ok", "completed"].includes(s) ? "ok" : (["failed", "error", "errored"].includes(s) ? "warn" : "muted"); return `<span class="pill ${cls}" style="margin:0">${CX_ESC(st || "—")}</span>`; };
+
+  const head = `<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap"><div><h1 style="margin:0">Missions</h1><p class="sub" style="margin:4px 0 0">The fleet of running systems — mission runs, their queue and status, and the incidents and blockers that need attention, over IOI daemon truth. Reference grammar: <a href="/__apps/jobs">Builds ↗</a> · <a href="/__apps/incidents">Issues ↗</a> (secondary captures).</p></div><div class="row" style="gap:8px"><a class="act ghost" href="/__ioi/operations">Operations (substrate)</a><a class="act ghost" href="/__ioi/work-ledger">Proof stream</a></div></div>`;
+
+  const total = runs.total || 0, running = runs.running || 0, done = runs.done || 0, failed = runs.failed || 0;
+  const incidentCount = failures.length + blocked.length;
+  const banner = `<div class="row" style="gap:10px;align-items:stretch;margin:12px 0 14px;flex-wrap:wrap">${[
+    ["Runs", total, false], ["Running", running, false], ["Done", done, false], ["Failed", failed, !!failed], ["Incidents", incidentCount, !!incidentCount], ["Scheduled", scheduled.length, false],
+  ].map(([l, n, warn]) => `<div style="flex:1;min-width:104px;padding:11px 13px;border:1px solid #24262d;border-radius:10px;background:#15171c"><div style="font-size:20px;font-weight:700;color:#fff">${n}</div><div style="color:#878a93;font-size:12px;margin-top:2px">${CX_ESC(l)}${warn ? ` <span class="pill warn" style="margin:0">attention</span>` : ""}</div></div>`).join("")}</div>`;
+
+  // Lane A — run/job queue (jobs seed).
+  const runRows = recent.map((r) => `<tr><td>${CX_ESC(r.name || r.execution_id || "—")}</td><td>${statusPill(r.status)}</td><td><code style="font-size:10.5px">${CX_ESC(r.project_id || "—")}</code></td><td class="sub" style="margin:0">${CX_ESC(r.started_at || "")}</td><td>${r.timeline_ref ? `<a href="${CX_ESC(r.timeline_ref)}" target="_blank" rel="noopener">timeline ↗</a>` : "—"} · <a href="/__ioi/work-ledger">proof</a></td></tr>`).join("");
+  const queue = `<h2 id="missions-queue">Run queue ${sub(`— recent mission runs (${recent.length} of ${total})`)}</h2>`
+    + (recent.length ? `<table><thead><tr><th>Mission run</th><th>Status</th><th>Project</th><th>Started</th><th>Proof</th></tr></thead><tbody>${runRows}</tbody></table>`
+      : omBoundaryNote(`<b>No mission runs yet</b> — run an automation to populate the queue. This lane reads the real daemon run queue; nothing is fabricated.`));
+
+  // Scheduled missions (only when present — no fabricated schedule rows).
+  const schedRows = scheduled.map((a) => `<tr><td>${CX_ESC(a.name || a.automation_id || "—")}</td><td><code style="font-size:10.5px">${CX_ESC((a.schedule_spec && a.schedule_spec.cron) || a.trigger_kind || "—")}</code></td><td>${a.enabled ? `<span class="pill ok" style="margin:0">enabled</span>` : `<span class="pill muted" style="margin:0">paused</span>`}</td><td class="sub" style="margin:0">${CX_ESC(a.next_run_at || "")}</td></tr>`).join("");
+  const scheduledPane = scheduled.length ? `<h2 id="missions-scheduled">Scheduled missions ${sub(`— ${scheduled.length}`)}</h2><table><thead><tr><th>Automation</th><th>Schedule</th><th>State</th><th>Next run</th></tr></thead><tbody>${schedRows}</tbody></table>` : "";
+
+  // Lane B — incident / remediation inbox (incidents seed): real run failures + GoalRun blockers.
+  const failRows = failures.map((r) => `<tr><td><span class="pill warn" style="margin:0">run failure</span></td><td>${CX_ESC(r.name || r.execution_id || "—")}</td><td><code style="font-size:10.5px">${CX_ESC(r.status || "failed")}</code></td><td class="sub" style="margin:0">${CX_ESC(r.finished_at || r.started_at || "")}</td><td>${r.timeline_ref ? `<a href="${CX_ESC(r.timeline_ref)}" target="_blank" rel="noopener">timeline ↗</a>` : "—"}</td></tr>`).join("");
+  const BLOCKER_CAP = 50;
+  const blockerRows = blocked.slice(0, BLOCKER_CAP).map((r) => { const b = (r.blockers && r.blockers[0]) || {}; return `<tr><td><span class="pill warn" style="margin:0">blocker</span></td><td>${CX_ESC(r.normalized_goal || r.goal_ref || r.goal_run_id || "—")}</td><td><code style="font-size:10.5px">${CX_ESC(b.reason_code || "—")}${b.role_key ? ` · ${CX_ESC(b.role_key)}` : ""}</code></td><td class="sub" style="margin:0">${CX_ESC(r.updated_at || r.created_at || "")}</td><td>${r.goal_run_id ? `<a href="/__ioi/run-timeline/goal-run/${enc(r.goal_run_id)}" target="_blank" rel="noopener">proof ↗</a>` : "—"}</td></tr>`; }).join("");
+  const shown = failures.length + Math.min(blocked.length, BLOCKER_CAP);
+  const capNote = shown < incidentCount ? ` (showing first ${shown})` : "";
+  const incidents = `<h2 id="missions-incidents">Incidents &amp; blockers ${sub(`— run failures + mission blockers needing remediation (${incidentCount})${capNote}`)}</h2>`
+    + (incidentCount ? `<table><thead><tr><th>Kind</th><th>Subject</th><th>Reason</th><th>When</th><th>Remediation</th></tr></thead><tbody>${failRows}${blockerRows}</tbody></table>`
+      : omBoundaryNote(`<b>No incidents</b> — no failed mission runs and no blocked mission runs right now. This lane reads real run failures + GoalRun blockers; it never fabricates incidents or remediation actions.`));
+
+  const gaps = omBoundaryNote(`Supported lanes above are real daemon truth (run queue · scheduled missions · incidents/blockers, each with its remediation proof link). Unsupported reference lanes — creating/assigning incidents, editing job/build definitions, board/kanban views, SLA &amp; escalation policy, comments/assignees — are <b>named gaps</b> (no authority contract yet), not silently hidden. Substrate/infra incidents (storage repair, provider failover) live in <a href="/__ioi/operations">Operations</a>, not here. The <a href="/__apps/jobs">Builds</a> + <a href="/__apps/incidents">Issues</a> captures are the familiar baselines, never rebound surfaces.`);
+
+  return automationsShell("Missions", head + banner + queue + scheduledPane + incidents + gaps);
 }
 // ============================ VERTEX (Provenance graph/exploration lens over real materialized truth)
 // The Application UX Parity Baseline phase, applied to Vertex. The reference capture (/__apps/vertex,
@@ -6295,6 +6349,18 @@ const server = http.createServer((req, res) => {
       return;
     }
     // ---- Operations — execution health over the automation substrate (estate surface #9).
+    // ---- Missions — owner surface for suite/run work (jobs + incidents seeds). Reads the real
+    // operations run queue + goal-runs; renders the run/job queue and the mission-level incident
+    // inbox (run failures + GoalRun blockers). Operations stays substrate/infra (separate route).
+    if (pathname === "/__ioi/missions" && req.method === "GET") {
+      const [opsRes, grRes] = await Promise.all([
+        fetch(`${DAEMON}/v1/hypervisor/operations`).then((x) => x.json()).catch(() => ({})),
+        fetch(`${DAEMON}/v1/hypervisor/goal-runs`).then((x) => x.json()).catch(() => ({})),
+      ]);
+      res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
+      res.end(renderMissions(opsRes, grRes.goal_runs || []));
+      return;
+    }
     if (pathname === "/__ioi/operations" && req.method === "GET") {
       const [r, authpol, prov, provReceipts, spendRecon, storageB, storageInc, akashDepin, failoverRuns, failoverPlans2, goalRunsRes, ledgerRes] = await Promise.all([
         fetch(`${DAEMON}/v1/hypervisor/operations`).then((x) => x.json()).catch(() => ({})),
