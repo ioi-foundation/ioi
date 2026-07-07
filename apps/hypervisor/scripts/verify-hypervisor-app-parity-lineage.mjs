@@ -17,7 +17,7 @@
 //     and zero source hashes (the legend grammar remains, but no data is fabricated).
 //   - HONEST GAPS: Work Ledger edges shown "where available" (0 for the ODK chain today, named);
 //     unsupported Monocle lanes (resource search / graph expansion / cross-tenant catalog) named.
-//   - MATRIX current + honest: lineage=daemon_bound → /__ioi/lineage; vertex stays queued.
+//   - MATRIX current + honest: lineage=daemon_bound → /__ioi/lineage; vertex=daemon_bound → /__ioi/vertex.
 //   - Brand-clean; the pipeline surface (#21) still renders (regression hold).
 //
 // Usage: node apps/hypervisor/scripts/verify-hypervisor-app-parity-lineage.mjs
@@ -54,8 +54,8 @@ async function run() {
   const matrix = JSON.parse(spawnSync("node", ["-e", `import(${JSON.stringify(path.join(here, "..", "harvest-app-parity-matrix.json"))}, { with: { type: "json" } }).then(m => console.log(JSON.stringify(m.default)))`], { encoding: "utf8" }).stdout || "{}");
   const bySlug = Object.fromEntries((matrix.seeds || []).map((s) => [s.slug, s]));
   ok("matrix classifies lineage as daemon_bound → /__ioi/lineage", bySlug.lineage?.parity_class === "daemon_bound" && bySlug.lineage?.daemon_surface === "/__ioi/lineage");
-  ok("matrix keeps vertex queued (not claimed covered); pipeline still daemon_bound", bySlug.vertex?.parity_class === "queued" && bySlug.pipeline?.parity_class === "daemon_bound");
-  ok("matrix queues vertex as a Provenance lens (canon: Work Ledger evolves into Provenance)", bySlug.vertex?.surface_name === "Provenance" && /Provenance graph\/exploration lens/.test(bySlug.vertex?.binding || ""));
+  ok("matrix binds vertex as daemon_bound → /__ioi/vertex (its own cut, #24); pipeline still daemon_bound", bySlug.vertex?.parity_class === "daemon_bound" && bySlug.vertex?.daemon_surface === "/__ioi/vertex" && bySlug.pipeline?.parity_class === "daemon_bound");
+  ok("matrix keeps vertex a Provenance lens (canon: Work Ledger evolves into Provenance)", bySlug.vertex?.surface_name === "Provenance" && /Provenance graph\/exploration lens/.test(bySlug.vertex?.binding || ""));
 
   // 1. Reference baseline.
   const ref = await page(`${SERVE}/__apps/lineage`);

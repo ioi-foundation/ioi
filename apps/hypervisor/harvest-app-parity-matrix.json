@@ -9,8 +9,7 @@
   "total_seeds": 39,
   "by_parity_class": {
     "reference_capture": 36,
-    "daemon_bound": 2,
-    "queued": 1
+    "daemon_bound": 3
   },
   "legend": {
     "reference_capture": "the /__apps/<slug> reference baseline serves; not yet bound to daemon truth",
@@ -378,13 +377,13 @@
       "capture_base": "/workspace/vertex/",
       "grammar": "graph",
       "tier": "high_value",
-      "parity_class": "queued",
+      "parity_class": "daemon_bound",
       "capture_state": "blocked_missing_capture",
       "reference_capture": "/__apps/vertex",
-      "note": "the first materialized objects need a graph/exploration lens; queued as a Provenance surface, not a Work Ledger app",
-      "target_surface": "/__ioi/work-ledger",
+      "note": "Vertex graph grammar (nodes · relations · neighborhood) over real cross-plane materialized truth; no fake nodes for unmaterialized ontologies; freeform graph canvas / arbitrary path-finding / cross-tenant object search / saved explorations = named gaps",
+      "daemon_surface": "/__ioi/vertex",
       "surface_name": "Provenance",
-      "binding": "a Provenance graph/exploration lens over materialized object sets, projections, and Provenance proof-stream edges"
+      "binding": "a Provenance graph/exploration lens over materialized object sets, projections, objects, and the threaded proof-stream odk_materialization edges (cross-plane: ODK ↔ Provenance)"
     },
     {
       "owner": "Environments",

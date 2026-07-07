@@ -3117,6 +3117,89 @@ function lineageLegend() {
   return `<div class="chips" style="margin:0 0 10px"><span class="chiplabel">Nodes</span>${LINEAGE_NODE_KINDS.map(([, ic, l]) => `<span class="pill muted" style="margin:0">${ic} ${CX_ESC(l)}</span>`).join(" ")}</div>`
     + `<div class="chips" style="margin:0 0 12px"><span class="chiplabel">Edges</span>${["mapped_by", "gated_by", "planned_by", "projected_as", "read_under", "produced_by", "receipted_by", "contains", "hashed_as", "mapped_from"].map((e) => `<span class="pill muted" style="margin:0"><code>${e}</code></span>`).join(" ")}</div>`;
 }
+// ============================ VERTEX (Provenance graph/exploration lens over real materialized truth)
+// The Application UX Parity Baseline phase, applied to Vertex. The reference capture (/__apps/vertex,
+// /workspace/vertex/) is the familiar baseline; this IOI-owned surface renders the SAME graph
+// exploration grammar — a node/relation graph you explore by neighborhood — but every node/edge is
+// REAL and CROSS-PLANE: materialized object sets, their projections + runs, the objects themselves,
+// AND the threaded Provenance proof-stream `odk_materialization` edges (the #23 payoff) that connect
+// ODK materialization to the Provenance plane. Vertex is the GRAPH (nodes · relations · expand a
+// node's neighborhood); lineage is the PATH. No graph data is invented: an ontology with no
+// materialized objects shows an empty graph. Unsupported Vertex lanes (freeform graph canvas,
+// arbitrary path-finding, cross-tenant object search, saved explorations) are named gaps.
+const VERTEX_NODE_KINDS = [
+  ["set", "📦", "Object set"], ["projection", "🔭", "Projection"], ["run", "⚙", "Materializing run"],
+  ["object", "▪", "Object"], ["proof", "🧾", "Proof-stream edge"],
+];
+function renderVertex(lists, selectedId) {
+  const ontologies = Array.isArray(lists.ontologies) ? lists.ontologies : [];
+  const allSets = Array.isArray(lists.materialized_sets) ? lists.materialized_sets : [];
+  const has = new Set(allSets.map((s) => s.ontology_ref));
+  const selected = ontologies.find((x) => x.id === selectedId) || ontologies.find((x) => has.has(x.ref)) || ontologies[0] || null;
+  const oref = selected ? selected.ref : "__none__";
+  const oid = selected ? selected.id : "";
+  const sets = allSets.filter((s) => s.ontology_ref === oref);
+  const projs = (lists.ontology_projections || []).filter((p) => p.ontology_ref === oref);
+  const runs = (lists.materializing_runs || []).filter((r) => r.ontology_ref === oref);
+  const provStream = Array.isArray(lists.provenance_stream) ? lists.provenance_stream : [];
+  const setRefs = new Set(sets.map((s) => s.ref));
+  const proofEdges = provStream.filter((e) => e.kind === "odk_materialization" && setRefs.has(e.materialized_set_ref));
+  const objectCount = sets.reduce((a, s) => a + (s.count || 0), 0);
+
+  const switcher = ontologies.length
+    ? `<div class="chips" style="margin:0 0 14px">${ontologies.map((x) => {
+        const on = selected && x.id === selected.id;
+        return `<a href="/__ioi/vertex?ontology=${encodeURIComponent(x.id)}" class="pill ${on ? "ok" : "muted"}" style="text-decoration:none;margin:0">${CX_ESC(x.domain || x.id)}${has.has(x.ref) ? ` <span class="pill ok" style="margin-left:4px">graph</span>` : ""}</a>`;
+      }).join(" ")}</div>`
+    : `<div class="empty">No ontologies yet.</div>`;
+
+  const head = `<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap"><div><h1 style="margin:0">Vertex</h1><p class="sub" style="margin:4px 0 0">Explore the materialized object graph — object sets, projections, objects, and the cross-plane Provenance proof-stream edges as a navigable node/relation graph, over IOI daemon truth. Reference grammar: <a href="/__apps/vertex">Vertex ↗</a> (secondary capture).</p></div><div class="row" style="gap:8px"><a class="act ghost" href="/__ioi/lineage?ontology=${encodeURIComponent(oid)}">Lineage path</a><a class="act ghost" href="/__ioi/pipeline?ontology=${encodeURIComponent(oid)}">Pipeline</a></div></div>`;
+
+  // HONEST EMPTY — no materialized objects ⇒ no graph. Never fabricate nodes.
+  if (!sets.length) {
+    const note = omBoundaryNote(`This ontology has materialized <b>no objects</b>, so there is <b>no graph to explore</b> — Vertex renders the real materialized object graph (sets · projections · objects · proof-stream edges), which appears only once a pipeline is built. Build one from the <a href="/__ioi/pipeline?ontology=${encodeURIComponent(oid)}">Pipeline Builder</a>. The <a href="/__apps/vertex">Vertex reference capture ↗</a> is the familiar baseline, never a rebound surface.`);
+    return automationsShell("Vertex", head + switcher + `<div class="chips" style="margin:10px 0 12px"><span class="pill muted">empty graph</span> <span class="sub" style="margin:0">${selected ? `No materialized objects for <b>${CX_ESC(selected.domain || selected.id)}</b>.` : "Select or create an ontology."}</span></div>` + note);
+  }
+
+  // Graph catalog — node-type counts (the exploration summary).
+  const counts = { set: sets.length, projection: projs.length, run: runs.length, object: objectCount, proof: proofEdges.length };
+  const catalog = `<div class="row" style="gap:10px;align-items:stretch;margin:0 0 14px;flex-wrap:wrap">${VERTEX_NODE_KINDS.map(([k, ic, l]) => `<div style="flex:1;min-width:118px;padding:11px 13px;border:1px solid #24262d;border-radius:10px;background:#15171c"><div style="font-size:20px;font-weight:700;color:#fff">${ic} ${counts[k]}</div><div style="color:#878a93;font-size:12px;margin-top:2px">${CX_ESC(l)}${k === "proof" ? " <span class=\"pill ok\" style=\"margin:0\">cross-plane</span>" : ""}</div></div>`).join("")}</div>`;
+
+  // Node inventory (grouped) — the graph's nodes, real refs.
+  const nodeChip = (ic, label, ref) => `<span class="pill muted" style="margin:0" title="${CX_ESC(ref || "")}">${ic} ${CX_ESC(label)}</span>`;
+  const inv = `<h2 id="vertex-nodes">Nodes <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">(${counts.set + counts.projection + counts.run + counts.object + counts.proof})</span></h2>`
+    + `<div class="chips" style="margin:0 0 6px"><span class="chiplabel">Object sets</span>${sets.map((s) => nodeChip("📦", `${s.count || 0} obj`, s.ref)).join(" ")}</div>`
+    + `<div class="chips" style="margin:0 0 6px"><span class="chiplabel">Projections</span>${projs.map((p) => nodeChip("🔭", p.name || p.id, p.ref)).join(" ")}</div>`
+    + `<div class="chips" style="margin:0 0 6px"><span class="chiplabel">Runs</span>${runs.filter((r) => r.status === "executed").map((r) => nodeChip("⚙", r.name || r.id, r.ref)).join(" ") || `<span class="sub" style="margin:0">—</span>`}</div>`
+    + `<div class="chips" style="margin:0 0 6px"><span class="chiplabel">Proof edges</span>${proofEdges.length ? proofEdges.map((e) => nodeChip("🧾", e.kind, e.receipt_ref)).join(" ") : `<span class="sub" style="margin:0">none</span>`}</div>`;
+
+  // Neighborhood — expand the primary set: its projection, run, cross-plane proof edge, and objects.
+  const primary = sets.slice().sort((a, b) => String(b.registered_at || "").localeCompare(String(a.registered_at || "")))[0];
+  const projById = new Map(projs.map((p) => [p.id, p]));
+  const proj = projById.get(primary.ontology_projection_id) || null;
+  const proofEdge = proofEdges.find((e) => e.materialized_set_ref === primary.ref) || null;
+  const rel = (from, type, to, toRef) => `<tr><td><code style="font-size:10.5px">${CX_ESC(from)}</code></td><td><span class="pill muted" style="margin:0">${CX_ESC(type)}</span></td><td>${CX_ESC(to)}${toRef ? ` <code style="font-size:10px;opacity:.7">${CX_ESC(String(toRef).slice(0, 26))}…</code>` : ""}</td></tr>`;
+  const objs = (primary.objects || []).slice(0, 6);
+  const relRows = [
+    proj ? rel(primary.ref, "projected_by", "Projection", proj.ref) : "",
+    primary.materializing_run_ref ? rel(primary.ref, "produced_by", "Materializing run", primary.materializing_run_ref) : "",
+    proofEdge ? rel(primary.ref, "proven_by", "Proof-stream edge (Provenance)", proofEdge.receipt_ref) : "",
+    ...objs.map((o) => rel(primary.ref, "contains", `Object ${o.object_key || ""}`, o.source_hash)),
+  ].filter(Boolean).join("");
+  const neighborhood = `<h2 id="vertex-neighborhood">Neighborhood <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— expand <code>${CX_ESC(primary.ref || "")}</code> (${primary.count || 0} objects)</span></h2>`
+    + `<table><thead><tr><th>From</th><th>Relation</th><th>To</th></tr></thead><tbody>${relRows}</tbody></table>`;
+
+  // Cross-plane highlight — the proof-stream edge is what makes this a cross-plane graph.
+  const crossPlane = proofEdge
+    ? omBoundaryNote(`<b>Cross-plane:</b> this object set is connected to the <a href="/__ioi/work-ledger">Provenance proof stream</a> by a threaded <code>odk_materialization</code> edge (proof <code>${CX_ESC(String(proofEdge.receipt_ref || "").slice(0, 40))}…</code>) — the materialized objects and their receipt are reachable as one graph, not isolated ODK records.`)
+    : omBoundaryNote(`This set has no threaded Provenance proof-stream edge yet — the graph is ODK-local until the materialization receipt is threaded.`);
+
+  const gaps = omBoundaryNote(`This is <b>real cross-plane graph truth</b> in the Vertex grammar. Unsupported Vertex lanes — freeform graph canvas, arbitrary path-finding, cross-tenant object search, saved explorations — are <b>reference-only</b>, not bound. The <a href="/__apps/vertex">Vertex reference capture ↗</a> is the familiar baseline, never a rebound surface.`);
+
+  const banner = `<div class="chips" style="margin:10px 0 12px"><span class="pill ok">graph</span> <span class="sub" style="margin:0">${counts.set} object set${counts.set === 1 ? "" : "s"} · ${objectCount} object${objectCount === 1 ? "" : "s"} · ${counts.proof} cross-plane proof edge${counts.proof === 1 ? "" : "s"} for <b>${CX_ESC(selected.domain || selected.id)}</b></span></div>`;
+  return automationsShell("Vertex", head + switcher + banner + catalog + inv + neighborhood + crossPlane + gaps);
+}
+
 function renderDataLineage(lists, selectedId) {
   const ontologies = Array.isArray(lists.ontologies) ? lists.ontologies : [];
   const allSets = Array.isArray(lists.materialized_sets) ? lists.materialized_sets : [];
@@ -3144,7 +3227,7 @@ function renderDataLineage(lists, selectedId) {
       }).join(" ")}</div>`
     : `<div class="empty">No ontologies yet.</div>`;
 
-  const head = `<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap"><div><h1 style="margin:0">Data lineage</h1><p class="sub" style="margin:4px 0 0">Where materialized objects came from — the ODK provenance graph as a Monocle-familiar lineage of typed nodes + edges, over IOI daemon truth. Reference grammar: <a href="/__apps/lineage">Monocle lineage ↗</a> (secondary capture).</p></div><a class="act ghost" href="/__ioi/pipeline?ontology=${encodeURIComponent(oid)}">Open pipeline</a></div>`;
+  const head = `<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap"><div><h1 style="margin:0">Data lineage</h1><p class="sub" style="margin:4px 0 0">Where materialized objects came from — the ODK provenance graph as a Monocle-familiar lineage of typed nodes + edges, over IOI daemon truth. Reference grammar: <a href="/__apps/lineage">Monocle lineage ↗</a> (secondary capture).</p></div><div class="row" style="gap:8px"><a class="act ghost" href="/__ioi/vertex?ontology=${encodeURIComponent(oid)}">Explore graph</a><a class="act ghost" href="/__ioi/pipeline?ontology=${encodeURIComponent(oid)}">Open pipeline</a></div></div>`;
 
   // HONEST EMPTY — no materialized objects ⇒ no lineage. Never fabricate nodes.
   if (!sets.length) {
@@ -6985,6 +7068,26 @@ const server = http.createServer((req, res) => {
       }
     }
     // ---- ODK — controlled builder over the daemon ODK object plane (estate surface #5).
+    if (pathname === "/__ioi/vertex" && req.method === "GET") {
+      const J = (p) => fetch(`${DAEMON}${p}`).then((r) => r.json()).catch(() => ({}));
+      const [o, ms, op, mr, wl] = await Promise.all([
+        J("/v1/hypervisor/odk/domain-ontologies"),
+        J("/v1/hypervisor/odk/materialized-object-sets"),
+        J("/v1/hypervisor/odk/ontology-projections"),
+        J("/v1/hypervisor/odk/materializing-runs"),
+        J("/v1/hypervisor/work-ledger"),
+      ]);
+      const selectedOntology = new URL(req.url, "http://x").searchParams.get("ontology") || "";
+      res.writeHead(200, HTMLH);
+      res.end(renderVertex({
+        ontologies: o.ontologies || [],
+        materialized_sets: ms.materialized_object_sets || [],
+        ontology_projections: op.ontology_projections || [],
+        materializing_runs: mr.materializing_runs || [],
+        provenance_stream: Array.isArray(wl) ? wl : (wl.entries || wl.work_ledger || []),
+      }, selectedOntology));
+      return;
+    }
     if (pathname === "/__ioi/lineage" && req.method === "GET") {
       const J = (p) => fetch(`${DAEMON}${p}`).then((r) => r.json()).catch(() => ({}));
       const [o, mr, ms, wl, cm, pv, op, lp, dsr] = await Promise.all([
