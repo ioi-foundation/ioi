@@ -96,6 +96,8 @@ mod policy_bound_data_view_routes;
 mod transformation_run_routes;
 #[path = "hypervisor_daemon_routes/ontology_projection_routes.rs"]
 mod ontology_projection_routes;
+#[path = "hypervisor_daemon_routes/capability_lease_plan_routes.rs"]
+mod capability_lease_plan_routes;
 #[path = "hypervisor_daemon_routes/harness_routes.rs"]
 mod harness_routes;
 #[path = "hypervisor_daemon_routes/model_routes.rs"]
@@ -1213,6 +1215,32 @@ async fn async_main() -> anyhow::Result<()> {
         .route(
             "/v1/hypervisor/odk/ontology-projections/:id/retire",
             post(ontology_projection_routes::handle_projection_retire),
+        )
+        // CapabilityLease PLAN — credential-authority planning for ODK materialization. Declares the
+        // exact lease scope a future materializing run may ask for; mints NOTHING. The only gateway
+        // is the existing capability-lease primitive.
+        .route(
+            "/v1/hypervisor/odk/capability-lease-plans",
+            get(capability_lease_plan_routes::handle_plans_list)
+                .post(capability_lease_plan_routes::handle_plan_create),
+        )
+        .route(
+            "/v1/hypervisor/odk/capability-lease-plans/overview",
+            get(capability_lease_plan_routes::handle_plans_overview),
+        )
+        .route(
+            "/v1/hypervisor/odk/capability-lease-plans/:id",
+            get(capability_lease_plan_routes::handle_plan_get)
+                .patch(capability_lease_plan_routes::handle_plan_patch)
+                .delete(capability_lease_plan_routes::handle_plan_delete),
+        )
+        .route(
+            "/v1/hypervisor/odk/capability-lease-plans/:id/history",
+            get(capability_lease_plan_routes::handle_plan_history),
+        )
+        .route(
+            "/v1/hypervisor/odk/capability-lease-plans/:id/revoke",
+            post(capability_lease_plan_routes::handle_plan_revoke),
         )
         .route(
             "/v1/hypervisor/odk/data-recipes",

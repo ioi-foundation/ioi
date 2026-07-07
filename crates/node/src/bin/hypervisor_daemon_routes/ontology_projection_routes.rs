@@ -30,7 +30,7 @@ use super::{iso_now, persist_record, read_record_dir, remove_record, DaemonState
 const PROJ_SCHEMA: &str = "ioi.hypervisor.odk.ontology-projection.v1";
 const RECEIPT_SCHEMA: &str = "ioi.hypervisor.odk.ontology-projection-receipt.v1";
 const OVERVIEW_SCHEMA: &str = "ioi.hypervisor.odk.ontology-projections-overview.v1";
-const RECORD_DIR: &str = "odk-ontology-projections";
+pub(crate) const RECORD_DIR: &str = "odk-ontology-projections";
 const RECEIPT_DIR: &str = "odk-ontology-projection-receipts";
 
 /// Declarative lifecycle. There is no "live"/"serving" state — a projection never serves rows here.
