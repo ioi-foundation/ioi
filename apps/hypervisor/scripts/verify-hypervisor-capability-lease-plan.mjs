@@ -159,7 +159,7 @@ async function run() {
   const t = page.text;
   ok("Manager renders lease plans as daemon truth (Resources, 'not minted')", page.status === 200 && /Capability-lease plans \(\d+\)/.test(t) && /not minted/.test(t) && t.includes("materialize-loans-lease"));
   ok("ladder rung 5: CapabilityLease plan declared (nothing minted)", /CapabilityLease plan<\/code> <span class="pill ok">declared/.test(t) && /nothing minted/.test(t));
-  ok("Materializing run remains the only missing crossing", /Materializing run \(credential authority\)<\/code> <span class="pill muted">missing/.test(t));
+  ok("execution + rows remain the missing crossings", /Connector execution<\/code> <span class="pill muted">missing/.test(t) && /Materialized rows<\/code> <span class="pill muted">missing/.test(t));
   ok("0-objects boundary preserved; brand-clean", /0 objects/.test(t) && !/\bPalantir\b/.test(t) && !/\bFoundry\b/.test(t));
 
   // Cleanup — leave no draft debris.

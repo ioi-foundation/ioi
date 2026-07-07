@@ -98,6 +98,8 @@ mod transformation_run_routes;
 mod ontology_projection_routes;
 #[path = "hypervisor_daemon_routes/capability_lease_plan_routes.rs"]
 mod capability_lease_plan_routes;
+#[path = "hypervisor_daemon_routes/materializing_run_routes.rs"]
+mod materializing_run_routes;
 #[path = "hypervisor_daemon_routes/harness_routes.rs"]
 mod harness_routes;
 #[path = "hypervisor_daemon_routes/model_routes.rs"]
@@ -1241,6 +1243,40 @@ async fn async_main() -> anyhow::Result<()> {
         .route(
             "/v1/hypervisor/odk/capability-lease-plans/:id/revoke",
             post(capability_lease_plan_routes::handle_plan_revoke),
+        )
+        // MaterializingRun (lease acquisition) — THE first live authority crossing: obtains a REAL
+        // wallet-gated CapabilityLease from the existing gateway by citing a declared plan. No
+        // source contact, no credential resolution, no rows; execution is the next cut.
+        .route(
+            "/v1/hypervisor/odk/materializing-runs",
+            get(materializing_run_routes::handle_mruns_list)
+                .post(materializing_run_routes::handle_mrun_create),
+        )
+        .route(
+            "/v1/hypervisor/odk/materializing-runs/overview",
+            get(materializing_run_routes::handle_mruns_overview),
+        )
+        .route(
+            "/v1/hypervisor/odk/materializing-runs/:id",
+            get(materializing_run_routes::handle_mrun_get)
+                .patch(materializing_run_routes::handle_mrun_patch)
+                .delete(materializing_run_routes::handle_mrun_delete),
+        )
+        .route(
+            "/v1/hypervisor/odk/materializing-runs/:id/history",
+            get(materializing_run_routes::handle_mrun_history),
+        )
+        .route(
+            "/v1/hypervisor/odk/materializing-runs/:id/acquire-lease",
+            post(materializing_run_routes::handle_mrun_acquire_lease),
+        )
+        .route(
+            "/v1/hypervisor/odk/materializing-runs/:id/release-lease",
+            post(materializing_run_routes::handle_mrun_release_lease),
+        )
+        .route(
+            "/v1/hypervisor/odk/materializing-runs/:id/cancel",
+            post(materializing_run_routes::handle_mrun_cancel),
         )
         .route(
             "/v1/hypervisor/odk/data-recipes",

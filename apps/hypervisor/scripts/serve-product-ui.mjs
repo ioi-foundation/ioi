@@ -2962,14 +2962,30 @@ function renderDataSourcesSection(dataSources) {
 function omBoundaryNote(text) {
   return `<div style="border:1px dashed #3a3d46;border-radius:10px;padding:10px 12px;margin:0 0 12px;background:#141519;color:#9a9da6;font-size:12.5px">${text}</div>`;
 }
-function omContractLadder(nMappings, nViews, nRuns, nProjections, nLeasePlans) {
+function omContractLadder(nMappings, nViews, nRuns, nProjections, nLeasePlans, nLeasesObtained) {
   const declared = `<tr><td><code>ConnectorMapping</code> <span class="pill ok">declared</span></td><td>declared source fields → typed object properties</td><td class="sub" style="margin:0">${nMappings} mapping${nMappings === 1 ? "" : "s"} · inert (no extraction)</td></tr>`
     + `<tr><td><code>PolicyBoundDataView</code> <span class="pill ok">declared</span></td><td>the capability envelope — who/what may read · transform · distill · train · evaluate · export · publish · route, for what purpose, under which receipt obligations</td><td class="sub" style="margin:0">${nViews} view${nViews === 1 ? "" : "s"} · gate only (nothing runs)</td></tr>`
     + `<tr><td><code>TransformationRun + receipts</code> <span class="pill ok">declared</span></td><td>auditable plan / dry-run against the gate — validates shape, envelope, intent; every act (and every refusal) receipted</td><td class="sub" style="margin:0">${nRuns} run${nRuns === 1 ? "" : "s"} · plan/dry-run only (no source contact)</td></tr>`
     + `<tr><td><code>OntologyProjection</code> <span class="pill ok">declared</span></td><td>the explorer/search/read SHAPE — what an authorized surface would render, search, filter, relate, and act on</td><td class="sub" style="margin:0">${nProjections} projection${nProjections === 1 ? "" : "s"} · shape only, no materialized objects</td></tr>`
-    + `<tr><td><code>CapabilityLease plan</code> <span class="pill ok">declared</span></td><td>the EXACT lease scope a future materializing run may ask for — subject, purpose, operations, property scope, postures, obligations, bounded TTL; the only gateway is the existing capability-lease primitive</td><td class="sub" style="margin:0">${nLeasePlans} plan${nLeasePlans === 1 ? "" : "s"} · nothing minted, no credential material</td></tr>`
-    + `<tr><td><code>Materializing run (credential authority)</code> <span class="pill muted">missing</span></td><td>the live connector read — a run that obtains a REAL lease from the gateway by citing a declared plan, then extracts under it</td><td class="sub" style="margin:0">the only remaining crossing — a deliberate future cut; until then object_instances stays 0</td></tr>`;
+    + `<tr><td><code>CapabilityLease plan</code> <span class="pill ok">declared</span></td><td>the EXACT lease scope a materializing run may ask for — subject, purpose, operations, property scope, postures, obligations, bounded TTL; the only gateway is the existing capability-lease primitive</td><td class="sub" style="margin:0">${nLeasePlans} plan${nLeasePlans === 1 ? "" : "s"} · nothing minted, no credential material</td></tr>`
+    + `<tr><td><code>CapabilityLease obtained</code> <span class="pill ok">live</span></td><td>the FIRST live crossing — a run cites a declared plan and obtains a REAL wallet-gated lease from the gateway; no source contact, no credential resolution, any bearer token dropped</td><td class="sub" style="margin:0">${nLeasesObtained} lease${nLeasesObtained === 1 ? "" : "s"} obtained · real gateway leases, credential material never surfaced</td></tr>`
+    + `<tr><td><code>Connector execution</code> <span class="pill muted">missing</span></td><td>reading the source under an obtained lease — credential resolution + extraction, receipted before output</td><td class="sub" style="margin:0">the next cut; until then no source is contacted</td></tr>`
+    + `<tr><td><code>Materialized rows</code> <span class="pill muted">missing</span></td><td>registered, receipted output that finally lets a projection's rows exist</td><td class="sub" style="margin:0">after execution — until then object_instances stays 0</td></tr>`;
   return `<table><thead><tr><th>Contract</th><th>What it declares</th><th>Status / unlocks</th></tr></thead><tbody>${declared}</tbody></table>`;
+}
+// Materializing runs bound to the selected ontology — the live lease-acquisition rung.
+function omMaterializingRuns(runs) {
+  runs = Array.isArray(runs) ? runs : [];
+  if (!runs.length) return `<div class="empty">No materializing runs. A run cites a declared lease plan and may obtain a <b>real</b> wallet-gated CapabilityLease from the gateway — no source contact, no credential material, no rows; execution is the next cut.</div>`;
+  const pill = (st) => `<span class="pill ${st === "lease_obtained" ? "ok" : st === "planned" ? "muted" : "warn"}">${CX_ESC(st || "planned")}</span>`;
+  const rows = runs.map((r) => `<tr>
+    <td><b>${CX_ESC(r.name || r.id)}</b><div class="meta" style="color:#878a93;font-size:11.5px;margin-top:2px"><code>${CX_ESC(r.ref || "")}</code></div></td>
+    <td><code>${CX_ESC(r.subject || "—")}</code></td>
+    <td>${r.lease && r.lease.lease_id ? `<code>${CX_ESC(r.lease.lease_id)}</code>` : "—"}</td>
+    <td>${CX_ESC(String(r.ttl_seconds || 0))}s</td>
+    <td>${pill(r.status)} <span class="pill warn" title="no source contact, no credential material, no rows — execution is the next cut">no execution</span></td>
+  </tr>`).join("");
+  return `<table><thead><tr><th>Run</th><th>Subject</th><th>Lease</th><th>TTL</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table>`;
 }
 // Capability-lease plans bound to the selected ontology — the declared credential authority, minted never.
 function omLeasePlans(plans) {
@@ -3146,6 +3162,7 @@ function renderOntologyManager(ov, lists, selectedId) {
   const truns = (lists.transformation_runs || []).filter((r) => r.ontology_ref === boundRef);
   const projs = (lists.ontology_projections || []).filter((p) => p.ontology_ref === boundRef);
   const lplans = (lists.capability_lease_plans || []).filter((p) => p.ontology_ref === boundRef);
+  const mruns = (lists.materializing_runs || []).filter((r) => r.ontology_ref === boundRef);
   const resourceSection = (title, family, items, nameKey, newLabel) => `<h3 style="display:flex;justify-content:space-between;align-items:center;margin:12px 0 6px">${title} (${items.length}) <a class="act ghost" href="/__ioi/odk/${family}/new">+ ${newLabel}</a></h3>${items.length ? items.map((x) => odkCard(family, x, nameKey)).join("") : `<div class="empty">None bound to this ontology.</div>`}`;
   const resourcesPane = `<h2 id="pane-resources">Resources <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— bound to ${selected ? CX_ESC(selected.domain) : "—"}</span></h2>`
     + `<h3 style="margin:12px 0 6px">Connector mappings (${maps.length}) <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— source fields → object properties · daemon truth · inert</span></h3>${omConnectorMappings(maps)}`
@@ -3153,6 +3170,7 @@ function renderOntologyManager(ov, lists, selectedId) {
     + `<h3 style="margin:12px 0 6px">Transformation runs (${truns.length}) <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— auditable plans/dry-runs against the gate · daemon truth · no source contact</span></h3>${omTransformationRuns(truns)}`
     + `<h3 style="margin:12px 0 6px">Ontology projections (${projs.length}) <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— the declared explorer/search shape · daemon truth · no materialized objects</span></h3>${projs.length ? projs.map((p) => `<div class="chips" style="margin:0 0 6px"><b>${CX_ESC(p.name || p.id)}</b> <span class="pill ${p.status === "ready" ? "ok" : p.status === "blocked" ? "warn" : "muted"}">${CX_ESC(p.status || "draft")}</span> <span class="pill muted">${(p.visible_properties || []).length} visible</span> <span class="pill warn" title="shape only — nothing materialized">0 objects</span> <span class="sub" style="margin:0"><code>${CX_ESC(p.ref || "")}</code></span></div>`).join("") : `<div class="empty">No projections. A projection declares what an authorized explorer <b>would</b> render — shape only, never rows.</div>`}`
     + `<h3 style="margin:12px 0 6px">Capability-lease plans (${lplans.length}) <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— declared credential authority · gateway: the capability-lease primitive · nothing minted</span></h3>${omLeasePlans(lplans)}`
+    + `<h3 style="margin:12px 0 6px">Materializing runs (${mruns.length}) <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— live lease acquisition against the gateway · no execution, no rows</span></h3>${omMaterializingRuns(mruns)}`
     + resourceSection("Data recipes", "data-recipes", recs, "name", "New recipe")
     + resourceSection("Surface descriptors", "surface-descriptors", descs, "name", "New descriptor")
     + resourceSection("ODK manifests", "manifests", mans, "name", "New manifest");
@@ -3169,7 +3187,7 @@ function renderOntologyManager(ov, lists, selectedId) {
     : `<h2 id="pane-explorer">Object data &amp; Explorer <span class="pill muted">unavailable</span></h2>`
       + omBoundaryNote(`This ontology binds <b>no object-instance plane</b>, so there are <b>no rows to explore</b> — declare an OntologyProjection to give this lane its read/search shape; rows still require a future materializing run under credential authority. The <a href="/__apps/explorer">Object Explorer reference grammar ↗</a> is secondary, never a rebound surface.`);
   const explorerPane = explorerHead
-    + `<h3 style="margin:12px 0 6px">Authority-crossing ladder <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— contract-complete; only the live crossing remains</span></h3>` + omContractLadder(maps.length, pviews.length, truns.length, projs.length, lplans.length);
+    + `<h3 style="margin:12px 0 6px">Authority-crossing ladder <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— five declared rungs + the first live crossing; execution and rows remain</span></h3>` + omContractLadder(maps.length, pviews.length, truns.length, projs.length, lplans.length, mruns.filter((r) => r.status === "lease_obtained").length);
 
   const counts = { "object-types": ots.length, "properties": propCount, "link-types": lts.length, "action-types": nonFuncActs.length, "value-types": vts.length, "groups": 0, "interfaces": 0, "functions": funcs.length };
   const panes = objectTypesPane + propertiesPane + linkPane + actionPane + valuePane
@@ -6722,7 +6740,7 @@ const server = http.createServer((req, res) => {
     // ---- ODK — controlled builder over the daemon ODK object plane (estate surface #5).
     if (pathname === "/__ioi/odk" && req.method === "GET") {
       const J = (p) => fetch(`${DAEMON}${p}`).then((r) => r.json()).catch(() => ({}));
-      const [ov, o, r, d, m, ds, cm, pv, tr, op, lp] = await Promise.all([
+      const [ov, o, r, d, m, ds, cm, pv, tr, op, lp, mr] = await Promise.all([
         J("/v1/hypervisor/odk/overview"),
         J("/v1/hypervisor/odk/domain-ontologies"),
         J("/v1/hypervisor/odk/data-recipes"),
@@ -6734,6 +6752,7 @@ const server = http.createServer((req, res) => {
         J("/v1/hypervisor/odk/transformation-runs"),
         J("/v1/hypervisor/odk/ontology-projections"),
         J("/v1/hypervisor/odk/capability-lease-plans"),
+        J("/v1/hypervisor/odk/materializing-runs"),
       ]);
       const selectedOntology = new URL(req.url, "http://x").searchParams.get("ontology") || "";
       res.writeHead(200, HTMLH);
@@ -6748,6 +6767,7 @@ const server = http.createServer((req, res) => {
         transformation_runs: tr.transformation_runs || [],
         ontology_projections: op.ontology_projections || [],
         capability_lease_plans: lp.capability_lease_plans || [],
+        materializing_runs: mr.materializing_runs || [],
       }, selectedOntology));
       return;
     }

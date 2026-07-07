@@ -26,7 +26,7 @@ use super::{iso_now, persist_record, read_record_dir, remove_record, DaemonState
 const PLAN_SCHEMA: &str = "ioi.hypervisor.odk.capability-lease-plan.v1";
 const RECEIPT_SCHEMA: &str = "ioi.hypervisor.odk.capability-lease-plan-receipt.v1";
 const OVERVIEW_SCHEMA: &str = "ioi.hypervisor.odk.capability-lease-plans-overview.v1";
-const RECORD_DIR: &str = "odk-capability-lease-plans";
+pub(crate) const RECORD_DIR: &str = "odk-capability-lease-plans";
 const RECEIPT_DIR: &str = "odk-capability-lease-plan-receipts";
 
 /// The ONLY authority gateway a materializing run may cross. Cited, never duplicated.

@@ -171,7 +171,7 @@ async function run() {
   ok("Explorer pane renders the DECLARED shape (projection declared · no materialized objects)", page.status === 200 && /projection declared/.test(t) && /no materialized objects/.test(t) && t.includes("loan-explorer"));
   ok("declared shape shows columns + 0-objects boundary cell (no fabricated rows)", /0 objects — projection declared, nothing materialized/.test(t));
   ok("ladder is CONTRACT-COMPLETE: all four rungs declared", (t.match(/(ConnectorMapping|PolicyBoundDataView|TransformationRun \+ receipts|OntologyProjection)<\/code> <span class="pill ok">declared/g) || []).length === 4);
-  ok("only the live crossing (materializing run under credential authority) remains missing", /Materializing run \(credential authority\)<\/code> <span class="pill muted">missing/.test(t));
+  ok("execution + materialized rows remain the missing crossings", /Connector execution<\/code> <span class="pill muted">missing/.test(t) && /Materialized rows<\/code> <span class="pill muted">missing/.test(t));
   ok("brand-clean (no Palantir/Foundry leak)", !/\bPalantir\b/.test(t) && !/\bFoundry\b/.test(t));
 
   // Cleanup.
