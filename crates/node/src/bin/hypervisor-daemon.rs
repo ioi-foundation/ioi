@@ -102,6 +102,8 @@ mod capability_lease_plan_routes;
 mod materializing_run_routes;
 #[path = "hypervisor_daemon_routes/connector_session_routes.rs"]
 mod connector_session_routes;
+#[path = "hypervisor_daemon_routes/connector_execution_routes.rs"]
+mod connector_execution_routes;
 #[path = "hypervisor_daemon_routes/harness_routes.rs"]
 mod harness_routes;
 #[path = "hypervisor_daemon_routes/model_routes.rs"]
@@ -1313,6 +1315,26 @@ async fn async_main() -> anyhow::Result<()> {
         .route(
             "/v1/hypervisor/odk/connector-sessions/:id/cancel",
             post(connector_session_routes::handle_session_cancel),
+        )
+        // Connector execution + materialized rows — the FINAL rung: one bounded read-only batch
+        // through the landed ladder, receipted before output, all-or-nothing. The first cut where a
+        // projection's object_instances may become nonzero.
+        .route(
+            "/v1/hypervisor/odk/materializing-runs/:id/execute",
+            post(connector_execution_routes::handle_run_execute),
+        )
+        .route(
+            "/v1/hypervisor/odk/materialized-object-sets",
+            get(connector_execution_routes::handle_sets_list),
+        )
+        .route(
+            "/v1/hypervisor/odk/materialized-object-sets/overview",
+            get(connector_execution_routes::handle_sets_overview),
+        )
+        .route(
+            "/v1/hypervisor/odk/materialized-object-sets/:id",
+            get(connector_execution_routes::handle_set_get)
+                .delete(connector_execution_routes::handle_set_delete),
         )
         .route(
             "/v1/hypervisor/odk/data-recipes",

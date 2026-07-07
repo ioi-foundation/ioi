@@ -321,7 +321,13 @@ fn push_history(record: &mut Value, op: &str, summary: &str, receipt_ref: Value)
 }
 /// Merge validated inputs onto a record (shared by create + patch + recheck).
 fn apply_inputs(record: &mut Value, inputs: &ProjInputs) {
-    let health = project_health(inputs);
+    let mut health = project_health(inputs);
+    // Materialized state survives re-validation: a registered, receipted object set is truth until
+    // its set is removed — a shape edit never silently zeroes real instances.
+    if record.pointer("/health/materialized").and_then(|v| v.as_bool()).unwrap_or(false) {
+        health["object_instances"] = record.pointer("/health/object_instances").cloned().unwrap_or(json!(0));
+        health["materialized"] = json!(true);
+    }
     let status = if health["status"] == "ready" { "ready" } else { "draft" };
     record["connector_mapping_id"] = inputs.mapping.get("id").cloned().unwrap_or(Value::Null);
     record["connector_mapping_ref"] = inputs.mapping.get("ref").cloned().unwrap_or(Value::Null);

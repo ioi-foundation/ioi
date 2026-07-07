@@ -8915,7 +8915,7 @@ fn capability_lease_request_hash(req: &CapabilityLeaseRequest) -> String {
 /// Resolve a sealed credential record into a usable token + (source, key_source). Two kinds:
 /// a github-app record MINTS a fresh installation token (RS256 JWT → exchange); any other record
 /// opens its sealed PAT. The secret material (pem / sealed token) never leaves the daemon.
-async fn resolve_sealed_credential(
+pub(crate) async fn resolve_sealed_credential(
     rec: &Value,
 ) -> (Option<String>, Option<String>, Option<String>) {
     let key_source = rec["key_source"].as_str().map(str::to_string);

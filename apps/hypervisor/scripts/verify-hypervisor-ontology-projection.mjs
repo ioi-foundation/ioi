@@ -163,7 +163,7 @@ async function run() {
   const ov = await jd("GET", "/v1/hypervisor/odk/ontology-projections/overview");
   ok("overview: declarative lifecycle + missing live authority + no-rows governance gaps", JSON.stringify(ov.j.lifecycle_states) === JSON.stringify(["draft", "ready", "blocked", "retired"]) && /credential authority/.test(ov.j.missing_authority || "") && (ov.j.governance_gaps || []).some((g) => /never rows|no materialized/i.test(g)));
   const all = await jd("GET", "/v1/hypervisor/odk/ontology-projections");
-  ok("no projection anywhere reports instances or materialization", (all.j.ontology_projections || []).every((p) => p.health?.object_instances === 0 && p.health?.materialized === false));
+  ok("no unmaterialized projection reports instances (materialization is set-backed only)", (all.j.ontology_projections || []).every((p) => (p.health?.materialized === true && !!p.materialized?.set_ref) || (p.health?.object_instances === 0 && p.health?.materialized === false)));
 
   // 6. ODK Manager UX — declared explorer shape + contract-complete ladder.
   const page = await fetch(`${SERVE}/__ioi/odk?ontology=${encodeURIComponent(ontId)}`).then(async (r) => ({ status: r.status, text: await r.text() })).catch(() => ({ status: 0, text: "" }));

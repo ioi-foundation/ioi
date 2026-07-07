@@ -2962,7 +2962,7 @@ function renderDataSourcesSection(dataSources) {
 function omBoundaryNote(text) {
   return `<div style="border:1px dashed #3a3d46;border-radius:10px;padding:10px 12px;margin:0 0 12px;background:#141519;color:#9a9da6;font-size:12.5px">${text}</div>`;
 }
-function omContractLadder(nMappings, nViews, nRuns, nProjections, nLeasePlans, nLeasesObtained, nSessions) {
+function omContractLadder(nMappings, nViews, nRuns, nProjections, nLeasePlans, nLeasesObtained, nSessions, nExecutions, nInstances) {
   const declared = `<tr><td><code>ConnectorMapping</code> <span class="pill ok">declared</span></td><td>declared source fields → typed object properties</td><td class="sub" style="margin:0">${nMappings} mapping${nMappings === 1 ? "" : "s"} · inert (no extraction)</td></tr>`
     + `<tr><td><code>PolicyBoundDataView</code> <span class="pill ok">declared</span></td><td>the capability envelope — who/what may read · transform · distill · train · evaluate · export · publish · route, for what purpose, under which receipt obligations</td><td class="sub" style="margin:0">${nViews} view${nViews === 1 ? "" : "s"} · gate only (nothing runs)</td></tr>`
     + `<tr><td><code>TransformationRun + receipts</code> <span class="pill ok">declared</span></td><td>auditable plan / dry-run against the gate — validates shape, envelope, intent; every act (and every refusal) receipted</td><td class="sub" style="margin:0">${nRuns} run${nRuns === 1 ? "" : "s"} · plan/dry-run only (no source contact)</td></tr>`
@@ -2970,8 +2970,12 @@ function omContractLadder(nMappings, nViews, nRuns, nProjections, nLeasePlans, n
     + `<tr><td><code>CapabilityLease plan</code> <span class="pill ok">declared</span></td><td>the EXACT lease scope a materializing run may ask for — subject, purpose, operations, property scope, postures, obligations, bounded TTL; the only gateway is the existing capability-lease primitive</td><td class="sub" style="margin:0">${nLeasePlans} plan${nLeasePlans === 1 ? "" : "s"} · nothing minted, no credential material</td></tr>`
     + `<tr><td><code>CapabilityLease obtained</code> <span class="pill ok">live</span></td><td>the FIRST live crossing — a run cites a declared plan and obtains a REAL wallet-gated lease from the gateway; no source contact, no credential resolution, any bearer token dropped</td><td class="sub" style="margin:0">${nLeasesObtained} lease${nLeasesObtained === 1 ? "" : "s"} obtained · real gateway leases, credential material never surfaced</td></tr>`
     + `<tr><td><code>Sealed connector session</code> <span class="pill ok">live</span></td><td>the credential-handling crossing — the gateway resolves the SEALED credential server-side for the exact lease scope; labels only, material never surfaced</td><td class="sub" style="margin:0">${nSessions} session${nSessions === 1 ? "" : "s"} obtained · no source contact</td></tr>`
-    + `<tr><td><code>Connector execution</code> <span class="pill muted">missing</span></td><td>reading the source under an obtained lease — credential resolution + extraction, receipted before output</td><td class="sub" style="margin:0">the next cut; until then no source is contacted</td></tr>`
-    + `<tr><td><code>Materialized rows</code> <span class="pill muted">missing</span></td><td>registered, receipted output that finally lets a projection's rows exist</td><td class="sub" style="margin:0">after execution — until then object_instances stays 0</td></tr>`;
+    + (nExecutions > 0
+      ? `<tr><td><code>Connector execution</code> <span class="pill ok">live</span></td><td>one allowlisted read-only adapter path — the declared endpoint, one bounded batch, receipted before output</td><td class="sub" style="margin:0">${nExecutions} execution${nExecutions === 1 ? "" : "s"} · read-only, all-or-nothing</td></tr>`
+      : `<tr><td><code>Connector execution</code> <span class="pill muted">missing</span></td><td>reading the source under an obtained lease + sealed session — one bounded read-only batch, receipted before output</td><td class="sub" style="margin:0">no execution has run for this ontology</td></tr>`)
+    + (nInstances > 0
+      ? `<tr><td><code>Materialized rows</code> <span class="pill ok">live</span></td><td>registered, receipted object sets — the projection's rows finally exist</td><td class="sub" style="margin:0">${nInstances} object instance${nInstances === 1 ? "" : "s"} · hashes + provenance, never secrets</td></tr>`
+      : `<tr><td><code>Materialized rows</code> <span class="pill muted">missing</span></td><td>registered, receipted output that finally lets a projection's rows exist</td><td class="sub" style="margin:0">until an execution registers a batch, object_instances stays 0</td></tr>`);
   return `<table><thead><tr><th>Contract</th><th>What it declares</th><th>Status / unlocks</th></tr></thead><tbody>${declared}</tbody></table>`;
 }
 // Sealed connector sessions — the credential-handling rung: resolution proven, material never surfaced.
@@ -3017,12 +3021,12 @@ function omLeasePlans(plans) {
 }
 // The DECLARED explorer shape from a ready OntologyProjection — daemon truth about what an
 // authorized surface WOULD render. Zero rows, always: projection declared ≠ objects materialized.
-function omDeclaredExplorerShape(proj) {
+function omDeclaredExplorerShape(proj, mset) {
   const cols = (proj.visible_properties || []).map((p) => `<th>${CX_ESC(p)}${p === proj.title_field ? ` <span class="pill ok" style="margin-left:4px">title</span>` : ""}${p === proj.key_field ? ` <span class="pill muted" style="margin-left:4px">key</span>` : ""}</th>`).join("");
   const affordance = (arr, idKey, kind) => (arr || []).map((a) => `<span class="pill ${a.enabled ? "ok" : "muted"}" title="${a.enabled ? "enabled (gated by the policy view)" : "declared, not enabled"}">${CX_ESC(a[idKey] || "")} · ${kind}${a.enabled ? "" : " (declared)"}</span>`).join(" ");
   return `<div style="border:1px solid #24262d;border-radius:10px;padding:12px 14px;margin:0 0 12px;background:#15171c">
-    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px"><b>${CX_ESC(proj.name || proj.id)}</b> <code style="font-size:11px">${CX_ESC(proj.ref || "")}</code> <span class="pill ${proj.status === "ready" ? "ok" : "warn"}">${CX_ESC(proj.status || "draft")}</span> <span class="pill muted">${CX_ESC(proj.layout || "table")}</span></div>
-    <table><thead><tr>${cols}</tr></thead><tbody><tr><td colspan="${(proj.visible_properties || []).length || 1}" style="text-align:center;color:#878a93;padding:18px 8px">0 objects — projection declared, nothing materialized. Rows require a future materializing run under credential authority.</td></tr></tbody></table>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px"><b>${CX_ESC(proj.name || proj.id)}</b> <code style="font-size:11px">${CX_ESC(proj.ref || "")}</code> <span class="pill ${proj.status === "ready" ? "ok" : "warn"}">${CX_ESC(proj.status || "draft")}</span> <span class="pill muted">${CX_ESC(proj.layout || "table")}</span>${(mset && (mset.objects || []).length) ? ` <span class="pill ok">${mset.count} objects · materialized</span> <span class="pill muted" title="registered all-or-nothing behind a pre-output receipt"><code style="font-size:10px">${CX_ESC(mset.ref || "")}</code></span>` : ""}</div>
+    <table><thead><tr>${cols}</tr></thead><tbody>${(mset && (mset.objects || []).length) ? mset.objects.slice(0, 20).map((o) => `<tr>${(proj.visible_properties || []).map((vp) => `<td>${CX_ESC(String((o.properties || {})[vp] ?? ""))}</td>`).join("")}</tr>`).join("") : `<tr><td colspan="${(proj.visible_properties || []).length || 1}" style="text-align:center;color:#878a93;padding:18px 8px">0 objects — projection declared, nothing materialized. Rows require a future materializing run under credential authority.</td></tr>`}</tbody></table>
     <div class="chips" style="margin-top:8px"><span class="chiplabel">Facets</span>${(proj.facet_properties || []).length ? proj.facet_properties.map((f) => `<span class="pill muted">${CX_ESC(f)}</span>`).join("") : `<span class="sub" style="margin:0">none</span>`}</div>
     <div class="chips"><span class="chiplabel">Sort</span>${(proj.sort_fields || []).length ? proj.sort_fields.map((f) => `<span class="pill muted">${CX_ESC(f)}</span>`).join("") : `<span class="sub" style="margin:0">none</span>`}</div>
     <div class="chips"><span class="chiplabel">Actions</span>${(proj.action_affordances || []).length ? affordance(proj.action_affordances, "action_type_id", "action") : `<span class="sub" style="margin:0">none</span>`}</div>
@@ -3101,6 +3105,8 @@ function renderOntologyManager(ov, lists, selectedId) {
   const funcs = ats.filter((a) => a.kind === "function");
   const nonFuncActs = ats.filter((a) => a.kind !== "function");
   const health = (selected && selected.health) || {};
+  const msets = (lists.materialized_sets || []).filter((m) => selected && m.ontology_ref === selected.ref);
+  const totalInstances = msets.reduce((a, m) => a + (m.count || 0), 0);
   const rollup = o.ontology_health || {};
   const propCount = ots.reduce((n, x) => n + (Array.isArray(x.properties) ? x.properties.length : 0), 0);
   const idc = (x) => `<code>${CX_ESC(x || "")}</code>`;
@@ -3115,10 +3121,10 @@ function renderOntologyManager(ov, lists, selectedId) {
 
   // ---- Panes.
   const objectTypesPane = `<h2 id="pane-object-types" style="display:flex;justify-content:space-between;align-items:center">Object types <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">(${ots.length})</span> <a class="act" href="/__ioi/odk/ontologies/${selected ? encodeURIComponent(selected.id) : "new"}${selected ? "/edit" : ""}">Configure model</a></h2>`
-    + omBoundaryNote(`<b>0 objects</b> across all types — the object-instance plane is <b>not bound</b>. Object counts stay 0 until an <code>OntologyProjection</code> exists; nothing here fabricates rows.`)
+    + omBoundaryNote(totalInstances > 0 ? `<b>${totalInstances} objects</b> materialized across ${msets.length} receipted set${msets.length === 1 ? "" : "s"} — bounded read-only batches under held leases + sealed sessions; hashes + provenance, never secrets.` : `<b>0 objects</b> across all types — the object-instance plane is <b>not bound</b>. Object counts stay 0 until an <code>OntologyProjection</code> exists; nothing here fabricates rows.`)
     + (ots.length ? ots.map((t) => {
         const props = Array.isArray(t.properties) ? t.properties : [];
-        return `<div style="border:1px solid #24262d;border-radius:10px;padding:11px 13px;margin:0 0 9px;background:#15171c"><div style="display:flex;justify-content:space-between;align-items:center"><div style="font-weight:600">${CX_ESC(t.name || t.id)} ${idc(t.id)}</div><a class="act ghost" href="/__ioi/odk/ontologies/${encodeURIComponent(selected.id)}">Configure</a></div><div class="sub" style="margin:4px 0 0">${props.length} propert${props.length === 1 ? "y" : "ies"} · <b>0</b> objects · title <code>${CX_ESC(t.title_property || "—")}</code></div></div>`;
+        return `<div style="border:1px solid #24262d;border-radius:10px;padding:11px 13px;margin:0 0 9px;background:#15171c"><div style="display:flex;justify-content:space-between;align-items:center"><div style="font-weight:600">${CX_ESC(t.name || t.id)} ${idc(t.id)}</div><a class="act ghost" href="/__ioi/odk/ontologies/${encodeURIComponent(selected.id)}">Configure</a></div><div class="sub" style="margin:4px 0 0">${props.length} propert${props.length === 1 ? "y" : "ies"} · <b>${msets.filter((m) => m.object_type_id === t.id).reduce((a, m) => a + (m.count || 0), 0)}</b> objects · title <code>${CX_ESC(t.title_property || "—")}</code></div></div>`;
       }).join("") : `<div class="empty">No object types yet. ${selected ? `<a href="/__ioi/odk/ontologies/${encodeURIComponent(selected.id)}/edit">Add typed object types →</a>` : `<a href="/__ioi/odk/ontologies/new">Create an ontology →</a>`}</div>`);
 
   const propRows = ots.flatMap((t) => (Array.isArray(t.properties) ? t.properties : []).map((p) => `<tr><td>${CX_ESC(t.name || t.id)}</td><td>${CX_ESC(p.name || p.id)} ${idc(p.id)}</td><td><code>${CX_ESC(p.value_type || "")}</code></td><td>${p.required ? "yes" : "—"}${t.title_property === p.id ? ` <span class="pill ok">title</span>` : ""}</td></tr>`)).join("");
@@ -3188,6 +3194,7 @@ function renderOntologyManager(ov, lists, selectedId) {
     + `<h3 style="margin:12px 0 6px">Capability-lease plans (${lplans.length}) <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— declared credential authority · gateway: the capability-lease primitive · nothing minted</span></h3>${omLeasePlans(lplans)}`
     + `<h3 style="margin:12px 0 6px">Materializing runs (${mruns.length}) <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— live lease acquisition against the gateway · no execution, no rows</span></h3>${omMaterializingRuns(mruns)}`
     + `<h3 style="margin:12px 0 6px">Sealed connector sessions (${csns.length}) <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— credential resolution proven, material never surfaced · no source contact</span></h3>${omConnectorSessions(csns)}`
+    + `<h3 style="margin:12px 0 6px">Materialized object sets (${msets.length}) <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— bounded, receipted, all-or-nothing · hashes + provenance</span></h3>${msets.length ? `<table><thead><tr><th>Set</th><th>Object type</th><th>Objects</th><th>Registered</th></tr></thead><tbody>${msets.map((m) => `<tr><td><code>${CX_ESC(m.ref || "")}</code></td><td><code>${CX_ESC(m.object_type_id || "")}</code></td><td><b>${m.count || 0}</b></td><td class="sub" style="margin:0">${CX_ESC(m.registered_at || "")}</td></tr>`).join("")}</tbody></table>` : `<div class="empty">No materialized sets. Execution registers one bounded batch, all-or-nothing, behind a pre-output receipt.</div>`}`
     + resourceSection("Data recipes", "data-recipes", recs, "name", "New recipe")
     + resourceSection("Surface descriptors", "surface-descriptors", descs, "name", "New descriptor")
     + resourceSection("ODK manifests", "manifests", mans, "name", "New manifest");
@@ -3200,11 +3207,11 @@ function renderOntologyManager(ov, lists, selectedId) {
   const explorerHead = activeProjs.length
     ? `<h2 id="pane-explorer">Object data &amp; Explorer <span class="pill ok">projection declared</span> <span class="pill warn">no materialized objects</span></h2>`
       + omBoundaryNote(`<b>Projection declared, no materialized objects.</b> The explorer shape below is daemon truth — what an authorized surface <b>would</b> render, search, filter, relate, and act on. There are <b>no rows</b>: object_instances stays 0 until a future materializing run executes under credential authority. The <a href="/__apps/explorer">Object Explorer reference grammar ↗</a> is secondary, never a rebound surface.`)
-      + activeProjs.map((p) => omDeclaredExplorerShape(p)).join("")
+      + activeProjs.map((p) => omDeclaredExplorerShape(p, msets.find((m) => m.ontology_projection_id === p.id))).join("")
     : `<h2 id="pane-explorer">Object data &amp; Explorer <span class="pill muted">unavailable</span></h2>`
       + omBoundaryNote(`This ontology binds <b>no object-instance plane</b>, so there are <b>no rows to explore</b> — declare an OntologyProjection to give this lane its read/search shape; rows still require a future materializing run under credential authority. The <a href="/__apps/explorer">Object Explorer reference grammar ↗</a> is secondary, never a rebound surface.`);
   const explorerPane = explorerHead
-    + `<h3 style="margin:12px 0 6px">Authority-crossing ladder <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— five declared rungs + the first live crossing; execution and rows remain</span></h3>` + omContractLadder(maps.length, pviews.length, truns.length, projs.length, lplans.length, mruns.filter((r) => r.status === "lease_obtained").length, csns.filter((c) => c.status === "session_obtained").length);
+    + `<h3 style="margin:12px 0 6px">Authority-crossing ladder <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— five declared rungs + the first live crossing; execution and rows remain</span></h3>` + omContractLadder(maps.length, pviews.length, truns.length, projs.length, lplans.length, mruns.filter((r) => ["lease_obtained", "executed"].includes(r.status)).length, csns.filter((c) => c.status === "session_obtained").length, mruns.filter((r) => r.status === "executed").length, totalInstances);
 
   const counts = { "object-types": ots.length, "properties": propCount, "link-types": lts.length, "action-types": nonFuncActs.length, "value-types": vts.length, "groups": 0, "interfaces": 0, "functions": funcs.length };
   const panes = objectTypesPane + propertiesPane + linkPane + actionPane + valuePane
@@ -6757,7 +6764,7 @@ const server = http.createServer((req, res) => {
     // ---- ODK — controlled builder over the daemon ODK object plane (estate surface #5).
     if (pathname === "/__ioi/odk" && req.method === "GET") {
       const J = (p) => fetch(`${DAEMON}${p}`).then((r) => r.json()).catch(() => ({}));
-      const [ov, o, r, d, m, ds, cm, pv, tr, op, lp, mr, cs] = await Promise.all([
+      const [ov, o, r, d, m, ds, cm, pv, tr, op, lp, mr, cs, ms] = await Promise.all([
         J("/v1/hypervisor/odk/overview"),
         J("/v1/hypervisor/odk/domain-ontologies"),
         J("/v1/hypervisor/odk/data-recipes"),
@@ -6771,6 +6778,7 @@ const server = http.createServer((req, res) => {
         J("/v1/hypervisor/odk/capability-lease-plans"),
         J("/v1/hypervisor/odk/materializing-runs"),
         J("/v1/hypervisor/odk/connector-sessions"),
+        J("/v1/hypervisor/odk/materialized-object-sets"),
       ]);
       const selectedOntology = new URL(req.url, "http://x").searchParams.get("ontology") || "";
       res.writeHead(200, HTMLH);
@@ -6787,6 +6795,7 @@ const server = http.createServer((req, res) => {
         capability_lease_plans: lp.capability_lease_plans || [],
         materializing_runs: mr.materializing_runs || [],
         connector_sessions: cs.connector_sessions || [],
+        materialized_sets: ms.materialized_object_sets || [],
       }, selectedOntology));
       return;
     }

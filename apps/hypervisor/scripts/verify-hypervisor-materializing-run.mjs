@@ -146,9 +146,9 @@ async function run() {
   ok("receipts record request, refusal, decision, release (the full crossing story)", ["created", "lease_requested", "lease_refused", "lease_obtained", "lease_released"].every((o) => opsSeen.includes(o)), opsSeen.join(","));
   ok("no credential material in any receipt", !JSON.stringify(hist.j.receipts || []).match(/"token"|hunter2|secret_key/i));
   const ov = await jd("GET", "/v1/hypervisor/odk/materializing-runs/overview");
-  ok("overview: lifecycle + lease-acquisition-only governance gaps", JSON.stringify(ov.j.lifecycle_states) === JSON.stringify(["planned", "lease_obtained", "lease_released", "cancelled"]) && (ov.j.governance_gaps || []).some((g) => /never contacts the source/i.test(g)));
+  ok("overview: lifecycle + lease-acquisition-only governance gaps", JSON.stringify(ov.j.lifecycle_states) === JSON.stringify(["planned", "lease_obtained", "executed", "lease_released", "cancelled"]) && (ov.j.governance_gaps || []).some((g) => /never contacts the source/i.test(g)));
   const allRuns = await jd("GET", "/v1/hypervisor/odk/materializing-runs");
-  ok("no run anywhere reports execution or object instances", (allRuns.j.materializing_runs || []).every((r) => r.execution?.source_contacted === false && r.execution?.object_instances === 0));
+  ok("no non-executed run reports execution or object instances", (allRuns.j.materializing_runs || []).filter((r) => r.status !== "executed").every((r) => r.execution?.source_contacted === false && r.execution?.object_instances === 0));
 
   // 8. UX ladder — the crossing rendered honestly.
   const page = await fetch(`${SERVE}/__ioi/odk?ontology=${encodeURIComponent(ontId)}`).then(async (r) => ({ status: r.status, text: await r.text() })).catch(() => ({ status: 0, text: "" }));

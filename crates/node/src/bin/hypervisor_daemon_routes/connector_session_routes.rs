@@ -29,7 +29,7 @@ use crate::lifecycle_routes::{authorize_capability_lease, CapabilityLeaseRequest
 const SESSION_SCHEMA: &str = "ioi.hypervisor.odk.connector-session.v1";
 const RECEIPT_SCHEMA: &str = "ioi.hypervisor.odk.connector-session-receipt.v1";
 const OVERVIEW_SCHEMA: &str = "ioi.hypervisor.odk.connector-sessions-overview.v1";
-const RECORD_DIR: &str = "odk-connector-sessions";
+pub(crate) const RECORD_DIR: &str = "odk-connector-sessions";
 const RECEIPT_DIR: &str = "odk-connector-session-receipts";
 
 /// Lifecycle: a session request exists, may be opened (the crossing), and released — nothing reads.

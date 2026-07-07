@@ -36,7 +36,7 @@ pub(crate) const RECORD_DIR: &str = "odk-materializing-runs";
 const RECEIPT_DIR: &str = "odk-materializing-run-receipts";
 
 /// Lifecycle: a run exists, may obtain its lease, and may release it — nothing executes.
-const LIFECYCLE_STATES: &[&str] = &["planned", "lease_obtained", "lease_released", "cancelled"];
+const LIFECYCLE_STATES: &[&str] = &["planned", "lease_obtained", "executed", "lease_released", "cancelled"];
 /// What still does not exist after this rung — the two remaining cuts, named.
 const MISSING_AUTHORITY: &[&str] = &["ConnectorExecution", "MaterializedRows"];
 const PLAINTEXT_SECRET_KEYS: &[&str] = &["secret", "password", "api_key", "apikey", "token", "credential"];
@@ -262,7 +262,7 @@ pub(crate) async fn handle_mruns_overview(State(st): State<Arc<DaemonState>>) ->
         "ok": true,
         "schema_version": OVERVIEW_SCHEMA,
         "materializing_runs": items.len(),
-        "lifecycle": { "planned": by("planned"), "lease_obtained": by("lease_obtained"), "lease_released": by("lease_released"), "cancelled": by("cancelled") },
+        "lifecycle": { "planned": by("planned"), "lease_obtained": by("lease_obtained"), "executed": by("executed"), "lease_released": by("lease_released"), "cancelled": by("cancelled") },
         "lifecycle_states": LIFECYCLE_STATES,
         "missing_authority": MISSING_AUTHORITY,
         "governance_gaps": [
@@ -478,7 +478,7 @@ pub(crate) async fn handle_mrun_patch(State(st): State<Arc<DaemonState>>, AxumPa
     }
     let scope_keys = ["capability_lease_plan_id", "subject", "purpose", "requested_operations", "requested_properties", "ttl_seconds"];
     let scope_affecting = scope_keys.iter().any(|k| patch.get(*k).is_some());
-    if scope_affecting && status == "lease_obtained" {
+    if scope_affecting && (status == "lease_obtained" || status == "executed") {
         let _ = run_receipt(&st.data_dir, &s(&existing, "ref", ""), "patch_rejected", "materializing_run_scope_frozen", "scope-affecting patch refused — the obtained lease's scope is frozen");
         return Json(json!({ "ok": false, "error": { "code": "materializing_run_scope_frozen", "message": "the lease is obtained — its scope is frozen; release it to re-plan" } }));
     }
@@ -529,7 +529,7 @@ mod materializing_run_tests {
 
     #[test]
     fn lifecycle_and_missing_authority_are_explicit() {
-        assert_eq!(LIFECYCLE_STATES, &["planned", "lease_obtained", "lease_released", "cancelled"]);
+        assert_eq!(LIFECYCLE_STATES, &["planned", "lease_obtained", "executed", "lease_released", "cancelled"]);
         assert_eq!(MISSING_AUTHORITY, &["ConnectorExecution", "MaterializedRows"]);
     }
 
