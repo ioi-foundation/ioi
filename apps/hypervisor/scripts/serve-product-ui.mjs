@@ -914,6 +914,91 @@ function renderFeedbackQueue(ov, entries, flash) {
   return automationsShell("Evaluations", inner);
 }
 
+// ============================ EVALUATIONS (owner surface — eval-suite library, declaration-only)
+// The Application UX Parity Baseline phase, applied to the Evaluations owner-family. The reference
+// capture (/__apps/evalsuites, /workspace/evals/) is the familiar eval-suite library baseline; this
+// IOI-owned owner surface renders the SAME table/list grammar over REAL daemon truth: the inert
+// eval-suite contract (a suite DECLARES what it would assess + under what admissibility — never how
+// it scores), the real assessment SUBJECTS available (mission runs / failed runs / GoalRun blockers,
+// from the Missions plane), the consent ladder + feedback candidate source, and Foundry model_eval
+// draft specs as adjacent inputs. NOTHING is scored/executed here — EvalRun execution, verdicts,
+// judges, scorecards, auto-mining, the analysis/Quiver canvases, and promotion are NAMED GAPS.
+// Naming: Evaluations is the owner surface; /__ioi/feedback stays a compatibility sublane.
+function renderEvaluations(suites, suiteOv, subjects, foundryEvalSpecs, feedbackOv, flash) {
+  const enc = encodeURIComponent;
+  const list = Array.isArray(suites) ? suites : [];
+  const ov = suiteOv || {};
+  const subjectKinds = ov.subject_kinds || ["mission_run", "failed_run", "goal_run", "goal_run_blocker", "feedback_entry", "session", "domain_app", "surface_object"];
+  const evidenceKinds = ov.evidence_kinds || ["proof_ref", "timeline_ref", "receipt_ref", "source_hash", "state_root", "transcript_ref"];
+  const ladder = ov.consent_ladder || (feedbackOv || {}).consent_ladder || ["never_train", "synthetic_only", "redacted_opt_in", "full_private_opt_in", "org_policy"];
+  const byHealth = ov.by_health || {};
+  const subj = subjects || {};
+  const missionRuns = Array.isArray(subj.missionRuns) ? subj.missionRuns : [];
+  const failedRuns = Array.isArray(subj.failedRuns) ? subj.failedRuns : [];
+  const blockers = Array.isArray(subj.blockers) ? subj.blockers : [];
+  const drafts = Array.isArray(foundryEvalSpecs) ? foundryEvalSpecs : [];
+  const sub = (txt) => `<span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">${txt}</span>`;
+  const flashHtml = flash ? `<div class="card" style="display:block;border-color:#5c4a23"><b style="color:#d6a13a">Refused:</b> <span class="sub" style="margin:0;text-transform:none;letter-spacing:0">${CX_ESC(flash)}</span></div>` : "";
+
+  const head = `<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap"><div><h1 style="margin:0">Evaluations</h1><p class="sub" style="margin:4px 0 0">The eval-suite library — declared assessment suites over real subjects, evidence, and consent, as a table/list over IOI daemon truth. A suite declares WHAT it would assess and under WHAT admissibility; <b>nothing scores or executes here</b>. Reference grammar: <a href="/__apps/evalsuites">Eval-suite library ↗</a> (secondary capture).</p></div><div class="row" style="gap:8px"><a class="act ghost" href="/__ioi/feedback">Feedback &amp; annotations</a><a class="act ghost" href="/__ioi/work-ledger">Proof stream</a></div></div>`;
+
+  const banner = `<div class="row" style="gap:10px;align-items:stretch;margin:12px 0 14px;flex-wrap:wrap">${[
+    ["Suites", list.length, false], ["Declared", byHealth.declared || list.filter((s) => s.health === "declared").length, false], ["Empty", byHealth.empty || list.filter((s) => s.health === "empty").length, false], ["Subjects in scope", missionRuns.length + failedRuns.length + blockers.length, false],
+  ].map(([l, n, warn]) => `<div style="flex:1;min-width:120px;padding:11px 13px;border:1px solid #24262d;border-radius:10px;background:#15171c"><div style="font-size:20px;font-weight:700;color:#fff">${n}</div><div style="color:#878a93;font-size:12px;margin-top:2px">${CX_ESC(l)}${warn ? ` <span class="pill warn" style="margin:0">attention</span>` : ""}</div></div>`).join("")}</div>`;
+
+  // Declare form — inert: it records a DECLARATION (no run button, no scoring).
+  const checks = (name, opts, cls) => opts.map((o) => `<label style="display:inline-flex;align-items:center;gap:4px;margin:0 10px 4px 0;font-size:12px;color:#c7c9d1"><input type="checkbox" name="${name}" value="${o}"> ${CX_ESC(o)}${cls === "consent" && o === "never_train" ? " ⚠" : ""}</label>`).join("");
+  const form = `<details style="margin:0 0 16px"><summary style="cursor:pointer;color:#9ea1ab;font-size:13px">Declare an eval suite <span class="sub" style="margin:0">(inert — records what would be assessed; no scoring/execution)</span></summary>
+    <form method="post" action="/__ioi/evaluations"><div class="card" style="display:block;margin-top:8px">
+    <div class="field"><label>Name (required)</label><input name="name" style="width:100%;padding:8px 10px;border-radius:8px;border:1px solid #2a2c33;background:#0e0f13;color:#e6e7ea;font:inherit" placeholder="e.g. Failed-run triage rubric v1"></div>
+    <div class="field"><label>Subject scope (required — the real subject kinds this suite assesses)</label><div>${checks("subject_scope", subjectKinds, "subject")}</div></div>
+    <div class="field"><label>Consent requirements (required — admissible evidence-eligibility rungs; never_train alone fails closed)</label><div>${checks("consent_requirements", ladder, "consent")}</div></div>
+    <div class="field"><label>Evidence requirements (optional)</label><div>${checks("evidence_requirements", evidenceKinds, "evidence")}</div></div>
+    <div class="two"><div class="field"><label>Rubric refs (optional, space-separated)</label><input name="rubric_refs" style="width:100%;padding:8px 10px;border-radius:8px;border:1px solid #2a2c33;background:#0e0f13;color:#e6e7ea;font:inherit" placeholder="rubric://…"></div>
+    <div class="field"><label>Candidate refs (optional — named eval/feedback handoffs)</label><input name="candidate_refs" style="width:100%;padding:8px 10px;border-radius:8px;border:1px solid #2a2c33;background:#0e0f13;color:#e6e7ea;font:inherit" placeholder="eval://… feedback://…"></div></div>
+    <div class="row" style="margin-top:6px"><button class="act" type="submit">Declare suite</button></div></div></form></details>`;
+
+  // Library — the bound seed. Real suites over the inert daemon contract; honest empty otherwise.
+  const healthPill = (h) => `<span class="pill ${h === "declared" ? "ok" : "muted"}" style="margin:0">${CX_ESC(h || "empty")}</span>`;
+  const suiteRow = (s) => `<tr>
+    <td><b>${CX_ESC(s.name || s.id)}</b>${s.description ? `<div style="color:#878a93;font-size:11px;margin-top:1px">${CX_ESC(String(s.description).slice(0, 80))}</div>` : ""}<div class="sub" style="margin:1px 0 0"><code style="font-size:10px">${CX_ESC(s.ref || "")}</code></div></td>
+    <td>${(s.subject_scope || []).map((k) => `<span class="pill muted" style="margin:0 3px 3px 0">${CX_ESC(k)}</span>`).join("") || "—"}</td>
+    <td>${(s.consent_requirements || []).map((c) => `<span class="pill ${c === "never_train" ? "warn" : "ok"}" style="margin:0 3px 3px 0">${CX_ESC(c)}</span>`).join("") || "—"}</td>
+    <td>${(s.evidence_requirements || []).map((e) => `<code style="font-size:10px;margin-right:4px">${CX_ESC(e)}</code>`).join("") || "<span class='sub' style='margin:0'>none</span>"}</td>
+    <td>${(s.candidate_refs || []).length}</td>
+    <td><span class="pill muted" style="margin:0">${CX_ESC(s.status || "draft")}</span> ${healthPill(s.health)}</td>
+    <td><form class="inline" method="post" action="/__ioi/evaluations/${enc(s.id)}/delete"><button class="act ghost" type="submit">Delete</button></form></td>
+  </tr>`;
+  const library = `<h2 id="eval-suite-library">Eval-suite library ${sub(`— declared suites (${list.length})`)}</h2>`
+    + (list.length
+      ? `<table><thead><tr><th>Suite</th><th>Subject scope</th><th>Consent required</th><th>Evidence required</th><th>Candidates</th><th>Status</th><th></th></tr></thead><tbody>${list.map(suiteRow).join("")}</tbody></table>`
+      : omBoundaryNote(`<b>No eval suites declared yet</b> — declare one above. A suite is an inert declaration (subject scope · admissibility · candidate handoffs); it never scores or executes. This library reads the real daemon eval-suite contract; nothing is fabricated.`));
+
+  // Assessment subjects in scope — REAL Missions execution truth (mission runs / failures / blockers).
+  const subjRow = (kind, label, ref, when, proof) => `<tr><td><span class="pill muted" style="margin:0">${CX_ESC(kind)}</span></td><td>${CX_ESC(label)}</td><td class="sub" style="margin:0">${CX_ESC(when || "")}</td><td>${proof ? `<a href="${CX_ESC(proof)}" target="_blank" rel="noopener">proof ↗</a>` : "—"}</td></tr>`;
+  const subjRows = [
+    ...missionRuns.slice(0, 6).map((r) => subjRow("mission_run", r.name || r.execution_id || "—", r.started_at, r.timeline_ref)),
+    ...failedRuns.slice(0, 6).map((r) => subjRow("failed_run", r.name || r.execution_id || "—", r.finished_at, r.timeline_ref)),
+    ...blockers.slice(0, 6).map((r) => subjRow("goal_run_blocker", (r.normalized_goal || r.goal_ref || r.goal_run_id || "—"), r.updated_at, r.goal_run_id ? `/__ioi/run-timeline/goal-run/${enc(r.goal_run_id)}` : "")),
+  ].join("");
+  const totalSubjects = missionRuns.length + failedRuns.length + blockers.length;
+  const subjectsPane = `<h2 id="eval-subjects">Assessment subjects in scope ${sub(`— real execution truth a suite can draw on (${totalSubjects})`)}</h2>`
+    + (totalSubjects
+      ? `<table><thead><tr><th>Kind</th><th>Subject</th><th>When</th><th>Evidence</th></tr></thead><tbody>${subjRows}</tbody></table><p class="sub" style="margin:6px 0 0">Subjects come from <a href="/__ioi/missions">Missions</a>; each carries its own proof/timeline as admissible evidence.</p>`
+      : omBoundaryNote(`No mission runs or blockers to assess yet — subjects appear as <a href="/__ioi/missions">Missions</a> produces real runs.`));
+
+  // Consent + candidate inputs (feedback plane) and Foundry model_eval drafts (adjacent, not execution).
+  const fbTotal = (feedbackOv || {}).total || 0;
+  const consentPane = `<h2 id="eval-inputs">Evidence-eligibility &amp; candidate inputs ${sub(`— the consent ladder that gates admission`)}</h2>`
+    + `<div class="chips" style="margin:0 0 8px"><span class="chiplabel">Consent ladder</span>${ladder.map((c) => `<span class="pill ${c === "never_train" ? "warn" : "muted"}" style="margin:0"><code>${CX_ESC(c)}</code></span>`).join(" ")}</div>`
+    + `<p class="sub" style="margin:0 0 6px">Candidate evidence is minted in <a href="/__ioi/feedback">Feedback &amp; annotations</a> (${fbTotal} entr${fbTotal === 1 ? "y" : "ies"}) — converting an entry emits a named <code>eval://</code> handoff, gated on consent. This suite library only <b>references</b> those candidates; it never trains or scores.</p>`
+    + (drafts.length ? `<div class="chips" style="margin:6px 0 0"><span class="chiplabel">Foundry model_eval drafts</span>${drafts.slice(0, 8).map((d) => `<span class="pill muted" style="margin:0" title="adjacent draft input — not eval execution">${CX_ESC(d.name || d.id || d.spec_id || "spec")}</span>`).join(" ")}</div>` : "");
+
+  const gaps = omBoundaryNote(`Supported here is real daemon truth: the inert eval-suite declaration + real subjects + consent gate + candidate references. <b>Named gaps</b> (no authority contract yet, deliberately not built): EvalRun execution · scoring / verdicts · judge / model evaluation · scorecards · auto-mining failed runs into evals · the object-set analysis canvas (<a href="/__apps/analysis">analysis seed</a>) · Quiver time-series analysis (<a href="/__apps/quiver">quiver seed</a>) · promotion decisions. The <a href="/__apps/evalsuites">eval-suite reference capture ↗</a> is the familiar baseline, never a rebound surface.`);
+
+  return automationsShell("Evaluations", head + flashHtml + banner + form + library + subjectsPane + consentPane + gaps);
+}
+
 // ---- Search (67-search graft) — typed cross-estate discovery with open-action handoffs.
 // Case-insensitive substring over LIVE daemon projections at query time: no index, no stale
 // results, nothing invented; every hit links into the surface that owns it. Sources and their
@@ -1003,7 +1088,7 @@ function renderApplications() {
     { icon: "🛡", name: "Governance", desc: "Authority — approvals, identity, leases, revocation, release gates, kill switches, budgets, gaps.", href: "/__ioi/governance" },
     { icon: "🚀", name: "Missions", desc: "Fleet of running systems — the mission run queue + incident/blocker inbox over daemon truth.", href: "/__ioi/missions" },
     { icon: "📒", name: "Provenance", desc: "Proof plane — unified receipts stream, state roots, timelines live; lineage canvas adopting.", href: "/__ioi/work-ledger" },
-    { icon: "🧪", name: "Evaluations", desc: "Feedback with evidence-eligibility consent + eval handoffs live; suites & scorecards adopting.", href: "/__ioi/feedback" },
+    { icon: "🧪", name: "Evaluations", desc: "Eval-suite library over real subjects/consent + feedback candidate source; scoring & EvalRun adopting.", href: "/__ioi/evaluations" },
     { icon: "📈", name: "Improvement", desc: "Proposals, what-if simulation, apply-under-gates — proposal lane live; change inbox adopting.", href: "/__ioi/agent-studio#improvement-proposals" },
     { icon: "🏗", name: "Foundry", desc: "Model substrate — catalog, routes, draft specs, run plans, promotion previews.", href: "/__ioi/foundry" },
     { icon: "🛒", name: "Marketplace", desc: "Distribution — listings, publish candidates, admission reviews (admission-only).", href: "/__ioi/marketplace" },
@@ -6265,6 +6350,52 @@ const server = http.createServer((req, res) => {
       const r = await fetch(`${DAEMON}/v1/hypervisor/feedback-entries/${encodeURIComponent(fid)}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) });
       const j = await r.json().catch(() => ({}));
       res.writeHead(302, { Location: r.ok ? "/__ioi/feedback" : `/__ioi/feedback?refused=${encodeURIComponent((j.error && j.error.message) || "invalid")}`, "Cache-Control": "no-cache" });
+      return res.end();
+    }
+    // ---- Evaluations — owner surface for the Evaluations family (eval-suite library). Renders the
+    // inert eval-suite contract + real assessment subjects (Missions) + consent ladder + Foundry
+    // model_eval drafts. Declaration-only; nothing scores/executes. /__ioi/feedback stays a sublane.
+    if (pathname === "/__ioi/evaluations" && req.method === "GET") {
+      const flash = new URL(req.url, "http://x").searchParams.get("refused") || "";
+      const [suitesRes, ovRes, opsRes, grRes, foundryRes, fbOvRes] = await Promise.all([
+        fetch(`${DAEMON}/v1/hypervisor/eval-suites`).then((x) => x.json()).catch(() => ({})),
+        fetch(`${DAEMON}/v1/hypervisor/eval-suites/overview`).then((x) => x.json()).catch(() => ({})),
+        fetch(`${DAEMON}/v1/hypervisor/operations`).then((x) => x.json()).catch(() => ({})),
+        fetch(`${DAEMON}/v1/hypervisor/goal-runs`).then((x) => x.json()).catch(() => ({})),
+        fetch(`${DAEMON}/v1/hypervisor/foundry/specs`).then((x) => x.json()).catch(() => ({})),
+        fetch(`${DAEMON}/v1/hypervisor/feedback/overview`).then((x) => x.json()).catch(() => ({})),
+      ]);
+      const runs = (opsRes.runs) || {};
+      const subjects = {
+        missionRuns: Array.isArray(runs.recent) ? runs.recent : [],
+        failedRuns: Array.isArray(runs.failures) ? runs.failures : [],
+        blockers: (grRes.goal_runs || []).filter((r) => Array.isArray(r.blockers) && r.blockers.length),
+      };
+      const foundryEvalSpecs = (foundryRes.specs || foundryRes.model_specs || []).filter((s) => /eval/i.test(s.kind || s.spec_kind || s.intent || s.spec_type || ""));
+      res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
+      res.end(renderEvaluations(suitesRes.eval_suites || [], ovRes, subjects, foundryEvalSpecs, fbOvRes, flash));
+      return;
+    }
+    if (pathname === "/__ioi/evaluations" && req.method === "POST") {
+      const f = new URLSearchParams(body.toString("utf8"));
+      const splitRefs = (v) => (v || "").split(/[\s,]+/).map((x) => x.trim()).filter(Boolean);
+      const payload = {
+        name: f.get("name") || "",
+        subject_scope: f.getAll("subject_scope"),
+        consent_requirements: f.getAll("consent_requirements"),
+        evidence_requirements: f.getAll("evidence_requirements"),
+        rubric_refs: splitRefs(f.get("rubric_refs")),
+        candidate_refs: splitRefs(f.get("candidate_refs")),
+      };
+      const r = await fetch(`${DAEMON}/v1/hypervisor/eval-suites`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) });
+      const j = await r.json().catch(() => ({}));
+      res.writeHead(302, { Location: r.ok ? "/__ioi/evaluations" : `/__ioi/evaluations?refused=${encodeURIComponent((j.error && j.error.message) || "invalid")}`, "Cache-Control": "no-cache" });
+      return res.end();
+    }
+    if (pathname.startsWith("/__ioi/evaluations/") && pathname.endsWith("/delete") && req.method === "POST") {
+      const sid = decodeURIComponent(pathname.slice("/__ioi/evaluations/".length).split("/")[0]);
+      await fetch(`${DAEMON}/v1/hypervisor/eval-suites/${encodeURIComponent(sid)}`, { method: "DELETE" }).catch(() => {});
+      res.writeHead(302, { Location: "/__ioi/evaluations", "Cache-Control": "no-cache" });
       return res.end();
     }
     // ---- Search — typed cross-estate discovery, fan-out over live projections at query time.
