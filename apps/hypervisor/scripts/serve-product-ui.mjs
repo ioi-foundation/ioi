@@ -2344,7 +2344,7 @@ function renderAgentStudio(agents, profiles, routes, providers, conversations, r
     ? agents.filter((a) => `${a.id || ""} ${pickv(a, "model_id", "modelId") || ""}`.toLowerCase().includes(qn))
     : agents;
   const activeCount = agents.filter((a) => (a.status || "") === "active").length;
-  const head = `<h1>Studio</h1><p class="sub"><a href="/__apps/designer">System canvas seed (adopting) →</a> · Compose systems &amp; agents. The agent lens is live — the agent estate — every configured agent, its model route and runtime posture, the platform's harness adapters, and recent activity. Author and operate agents here; <a href="/__ioi/automations">put one to work in an Automation →</a></p>`;
+  const head = `<h1>Studio</h1><p class="sub"><a href="/__ioi/studio/designer">System design canvas →</a> (the concept/component/resource map over real composition) · reference <a href="/__apps/designer">Designer seed ↗</a> · Compose systems &amp; agents. The agent lens is live — the agent estate — every configured agent, its model route and runtime posture, the platform's harness adapters, and recent activity. Author and operate agents here; <a href="/__ioi/automations">put one to work in an Automation →</a></p>`;
   const styles = `<style>.wrap{max-width:1180px}.asgrid{display:grid;grid-template-columns:248px 1fr;gap:20px;align-items:start}.aslist{position:sticky;top:16px;max-height:82vh;overflow:auto;display:flex;flex-direction:column;gap:6px}.asrow{display:block;padding:10px 12px;border:1px solid #24262d;border-radius:10px;background:#15171c;text-decoration:none;color:inherit}.asrow:hover{border-color:#3a82f6}.asrow.sel{border-color:#3a82f6;box-shadow:0 0 0 1px #3a82f6 inset}.asrow .nm{font-weight:600;color:#fff;font-size:12.5px}.asrow .ml{color:#878a93;font-size:11.5px;margin-top:2px;word-break:break-all}.asearch{width:100%;box-sizing:border-box;padding:9px 12px;border-radius:9px;border:1px solid #2a2c33;background:#0e0f13;color:#e6e7ea;font:inherit;margin-bottom:10px}</style>`;
   if (!agents.length) {
     // Registry truth still renders without agents — routes exist independently of the agent estate.
@@ -3337,6 +3337,96 @@ function renderVertex(lists, selectedId) {
 
   const banner = `<div class="chips" style="margin:10px 0 12px"><span class="pill ok">graph</span> <span class="sub" style="margin:0">${counts.set} object set${counts.set === 1 ? "" : "s"} · ${objectCount} object${objectCount === 1 ? "" : "s"} · ${counts.proof} cross-plane proof edge${counts.proof === 1 ? "" : "s"} for <b>${CX_ESC(selected.domain || selected.id)}</b></span></div>`;
   return automationsShell("Vertex", head + switcher + banner + catalog + inv + neighborhood + crossPlane + gaps);
+}
+
+// ============================ STUDIO · DESIGNER (system/solution-design canvas over real composition)
+// The Application UX Parity Baseline phase, applied to the Studio `designer` seed. The reference
+// capture (/__apps/designer, /workspace/solution-design/) is the familiar typed concept/component/
+// resource DESIGN canvas; this IOI-owned surface renders the SAME grammar as a READ-ONLY typed map
+// over REAL daemon composition truth: an ontology's canonical object model (object/value/action/link
+// types = CONCEPTS), the composition that shapes it (connector mappings · policy views · projections
+// = COMPONENTS), and what that composition generates (materialized object sets · domain-app surface
+// descriptors = RESOURCES). Nothing is authored/saved here — canvas authoring, save/open/reference/
+// load-lineage, process-graph execution (machinery), and the workshop/module builders are NAMED GAPS.
+// Owner: Studio (/__ioi/agent-studio); this is a dedicated daemon-bound surface, no route rename.
+function renderStudioDesigner(lists, selectedId) {
+  const enc = (s) => encodeURIComponent(String(s || ""));
+  const ontologies = Array.isArray(lists.ontologies) ? lists.ontologies : [];
+  const mappings = Array.isArray(lists.connector_mappings) ? lists.connector_mappings : [];
+  const policyViews = Array.isArray(lists.policy_views) ? lists.policy_views : [];
+  const projections = Array.isArray(lists.projections) ? lists.projections : [];
+  const sets = Array.isArray(lists.materialized_sets) ? lists.materialized_sets : [];
+  const domainApps = Array.isArray(lists.domain_apps) ? lists.domain_apps : [];
+  const sub = (txt) => `<span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">${txt}</span>`;
+  const composed = new Set(mappings.map((m) => m.ontology_ref));
+  const selected = ontologies.find((x) => x.id === selectedId) || ontologies.find((x) => composed.has(x.ref)) || ontologies[0] || null;
+  const oref = selected ? selected.ref : "__none__";
+  const oid = selected ? selected.id : "";
+
+  const switcher = ontologies.length
+    ? `<div class="chips" style="margin:0 0 14px">${ontologies.map((x) => {
+        const on = selected && x.id === selected.id;
+        return `<a href="/__ioi/studio/designer?ontology=${enc(x.id)}" class="pill ${on ? "ok" : "muted"}" style="text-decoration:none;margin:0">${CX_ESC(x.domain || x.id)}${composed.has(x.ref) ? ` <span class="pill ok" style="margin-left:4px">composed</span>` : ""}</a>`;
+      }).join(" ")}</div>`
+    : `<div class="empty">No ontologies yet.</div>`;
+
+  const head = `<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap"><div><h1 style="margin:0">Designer</h1><p class="sub" style="margin:4px 0 0">The system-design canvas — an ontology's concepts, the components that compose them, and the resources they generate, as a typed read-only map over IOI daemon truth. Reference grammar: <a href="/__apps/designer">Designer ↗</a> (secondary capture). Owner: <a href="/__ioi/agent-studio">Agent Studio</a>.</p></div><div class="row" style="gap:8px"><a class="act ghost" href="/__ioi/odk?ontology=${enc(oid)}">Ontology Manager</a><a class="act ghost" href="/__ioi/pipeline?ontology=${enc(oid)}">Build pipeline</a></div></div>`;
+
+  if (!selected) {
+    return automationsShell("Designer", head + switcher + omBoundaryNote(`No ontologies to design over yet — create one in the <a href="/__ioi/odk">Ontology Manager</a>. This canvas renders real composition truth; it never fabricates concepts.`));
+  }
+
+  const model = selected.canonical_object_model || {};
+  const objectTypes = Array.isArray(model.object_types) ? model.object_types : [];
+  const valueTypes = Array.isArray(model.value_types) ? model.value_types : [];
+  const actionTypes = Array.isArray(model.action_types) ? model.action_types : [];
+  const linkTypes = Array.isArray(model.link_types) ? model.link_types : [];
+  const myMappings = mappings.filter((m) => m.ontology_ref === oref);
+  const myViews = policyViews.filter((v) => v.ontology_ref === oref);
+  const myProjections = projections.filter((p) => p.ontology_ref === oref);
+  const mySets = sets.filter((s) => s.ontology_ref === oref);
+  const myApps = domainApps.filter((a) => a.ontology_ref === oref || a.ontology_id === oid);
+  const conceptCount = objectTypes.length + valueTypes.length + actionTypes.length + linkTypes.length;
+  const componentCount = myMappings.length + myViews.length + myProjections.length;
+  const resourceCount = mySets.length + myApps.length;
+
+  const banner = `<div class="row" style="gap:10px;align-items:stretch;margin:12px 0 14px;flex-wrap:wrap">${[
+    ["Concepts", conceptCount, "🧩"], ["Components", componentCount, "🧱"], ["Resources", resourceCount, "📦"],
+  ].map(([l, n, ic]) => `<div style="flex:1;min-width:120px;padding:11px 13px;border:1px solid #24262d;border-radius:10px;background:#15171c"><div style="font-size:20px;font-weight:700;color:#fff">${ic} ${n}</div><div style="color:#878a93;font-size:12px;margin-top:2px">${CX_ESC(l)}</div></div>`).join("")}</div>`;
+
+  // CONCEPTS — the ontology's canonical object model (typed nodes; no authoring).
+  const actionsFor = (otId) => actionTypes.filter((a) => a.applies_to === otId);
+  const conceptRows = objectTypes.map((ot) => `<tr>
+    <td>🧩 <b>${CX_ESC(ot.name || ot.id)}</b> <code style="font-size:10px;opacity:.7">${CX_ESC(ot.id)}</code></td>
+    <td>${(ot.properties || []).length} <span class="sub" style="margin:0">props</span>${ot.title_property ? ` · title <code style="font-size:10px">${CX_ESC(ot.title_property)}</code>` : ""}</td>
+    <td>${actionsFor(ot.id).map((a) => `<span class="pill muted" style="margin:0 3px 3px 0">${CX_ESC(a.name || a.id)}</span>`).join("") || "<span class='sub' style='margin:0'>—</span>"}</td>
+  </tr>`).join("");
+  const conceptsPane = objectTypes.length
+    ? `<h2 id="designer-concepts">Concepts ${sub(`— object types + their properties/actions (${objectTypes.length} object · ${valueTypes.length} value · ${actionTypes.length} action · ${linkTypes.length} link types)`)}</h2>`
+      + `<table><thead><tr><th>Object type</th><th>Shape</th><th>Actions</th></tr></thead><tbody>${conceptRows}</tbody></table>`
+      + (valueTypes.length || linkTypes.length ? `<div class="chips" style="margin:8px 0 0">${valueTypes.map((v) => `<span class="pill muted" style="margin:0">◇ ${CX_ESC(v.name || v.id)}</span>`).join(" ")}${linkTypes.map((l) => `<span class="pill muted" style="margin:0">↔ ${CX_ESC(l.name || l.id)}</span>`).join(" ")}</div>` : "")
+    : `<h2 id="designer-concepts">Concepts</h2>` + omBoundaryNote(`This ontology declares <b>no object types</b> yet — there are no concepts to map. Define them in the <a href="/__ioi/odk?ontology=${enc(oid)}">Ontology Manager</a>; nothing is invented here.`);
+
+  // COMPONENTS — the composition that shapes concepts (real refs).
+  const compChip = (ic, label, ref, meta) => `<span class="pill muted" style="margin:0 4px 4px 0" title="${CX_ESC(ref || "")}">${ic} ${CX_ESC(label)}${meta ? ` <span style="opacity:.6">${CX_ESC(meta)}</span>` : ""}</span>`;
+  const componentsPane = `<h2 id="designer-components">Components ${sub(`— the composition that shapes these concepts (${componentCount})`)}</h2>`
+    + (componentCount
+      ? `<div class="chips" style="margin:0 0 6px"><span class="chiplabel">Mappings</span>${myMappings.map((m) => compChip("🔌", m.name || m.id, m.ref, `→ ${m.object_type_id || ""}`)).join("") || "<span class='sub' style='margin:0'>—</span>"}</div>`
+        + `<div class="chips" style="margin:0 0 6px"><span class="chiplabel">Policy views</span>${myViews.map((v) => compChip("🛡", v.name || v.id, v.ref, (v.allowed_operations || []).join("/"))).join("") || "<span class='sub' style='margin:0'>—</span>"}</div>`
+        + `<div class="chips" style="margin:0 0 6px"><span class="chiplabel">Projections</span>${myProjections.map((p) => compChip("🔭", p.name || p.id, p.ref, `${(p.visible_properties || []).length} props`)).join("") || "<span class='sub' style='margin:0'>—</span>"}</div>`
+      : omBoundaryNote(`No components compose this ontology yet — add a connector mapping + projection in the <a href="/__ioi/pipeline?ontology=${enc(oid)}">Pipeline Builder</a>. Components appear only once real composition exists.`));
+
+  // RESOURCES — what the composition generates (materialized sets + surface descriptors).
+  const resourcesPane = `<h2 id="designer-resources">Resources ${sub(`— what this composition generates (${resourceCount})`)}</h2>`
+    + (resourceCount
+      ? `<div class="chips" style="margin:0 0 6px"><span class="chiplabel">Object sets</span>${mySets.map((s) => compChip("📦", `${s.count || 0} obj`, s.ref, s.object_type_id)).join("") || "<span class='sub' style='margin:0'>none</span>"}</div>`
+        + `<div class="chips" style="margin:0 0 6px"><span class="chiplabel">Surface descriptors</span>${myApps.length ? myApps.map((a) => compChip("🖥", a.name || a.id || a.domain_app_id, a.ref || a.surface_descriptor_ref, "")).join("") : "<span class='sub' style='margin:0'>none — no domain-app surfaces generated yet (named gap)</span>"}</div>`
+      : omBoundaryNote(`This composition has generated <b>no resources</b> yet — materialize a set from the <a href="/__ioi/pipeline?ontology=${enc(oid)}">pipeline</a> to see it here. Surface descriptors (domain-app surfaces) appear once a domain app is composed.`));
+
+  const gaps = omBoundaryNote(`This is a <b>read-only design map</b> over real composition truth. Unsupported Designer lanes — in-canvas authoring, save/open, drag-to-reference, load-lineage into the canvas — are <b>named gaps</b> (no authority contract yet), not silently hidden. Sibling Studio seeds stay reference-only too: the <a href="/__apps/machinery">machinery</a> process/state-machine graph (data lanes unbound), the <a href="/__apps/workshop">workshop</a> and module builders. The <a href="/__apps/designer">Designer reference capture ↗</a> is the familiar baseline, never a rebound surface.`);
+
+  const summary = `<div class="chips" style="margin:10px 0 12px"><span class="pill ok">design map</span> <span class="sub" style="margin:0">${conceptCount} concept${conceptCount === 1 ? "" : "s"} · ${componentCount} component${componentCount === 1 ? "" : "s"} · ${resourceCount} resource${resourceCount === 1 ? "" : "s"} for <b>${CX_ESC(selected.domain || selected.id)}</b></span></div>`;
+  return automationsShell("Designer", head + switcher + summary + banner + conceptsPane + componentsPane + resourcesPane + gaps);
 }
 
 function renderDataLineage(lists, selectedId) {
@@ -7265,6 +7355,30 @@ const server = http.createServer((req, res) => {
       }
     }
     // ---- ODK — controlled builder over the daemon ODK object plane (estate surface #5).
+    // ---- Studio · Designer — the system-design canvas (designer seed). Read-only typed map over
+    // real ODK composition (concepts/components) + generated resources. Owner: /__ioi/agent-studio.
+    if (pathname === "/__ioi/studio/designer" && req.method === "GET") {
+      const J = (p) => fetch(`${DAEMON}${p}`).then((r) => r.json()).catch(() => ({}));
+      const [o, cm, pv, op, ms, da] = await Promise.all([
+        J("/v1/hypervisor/odk/domain-ontologies"),
+        J("/v1/hypervisor/odk/connector-mappings"),
+        J("/v1/hypervisor/odk/policy-bound-data-views"),
+        J("/v1/hypervisor/odk/ontology-projections"),
+        J("/v1/hypervisor/odk/materialized-object-sets"),
+        J("/v1/hypervisor/domain-apps"),
+      ]);
+      const selectedOntology = new URL(req.url, "http://x").searchParams.get("ontology") || "";
+      res.writeHead(200, HTMLH);
+      res.end(renderStudioDesigner({
+        ontologies: o.ontologies || [],
+        connector_mappings: cm.connector_mappings || [],
+        policy_views: pv.policy_bound_data_views || [],
+        projections: op.ontology_projections || [],
+        materialized_sets: ms.materialized_object_sets || [],
+        domain_apps: da.domain_apps || da.apps || [],
+      }, selectedOntology));
+      return;
+    }
     if (pathname === "/__ioi/vertex" && req.method === "GET") {
       const J = (p) => fetch(`${DAEMON}${p}`).then((r) => r.json()).catch(() => ({}));
       const [o, ms, op, mr, wl] = await Promise.all([
