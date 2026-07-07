@@ -8,8 +8,8 @@
   ],
   "total_seeds": 39,
   "by_parity_class": {
-    "daemon_bound": 7,
-    "reference_capture": 32
+    "daemon_bound": 8,
+    "reference_capture": 31
   },
   "legend": {
     "reference_capture": "the /__apps/<slug> reference baseline serves; not yet bound to daemon truth",
@@ -488,10 +488,13 @@
       "capture_base": "/workspace/approvals-app/",
       "grammar": "table_list",
       "tier": "high_value",
-      "parity_class": "reference_capture",
+      "parity_class": "daemon_bound",
       "capture_state": "boots_table_list",
       "reference_capture": "/__apps/approvals",
-      "note": "approvals inbox; per-row drilldown = named gap"
+      "note": "real decision queue on the Governance owner surface; honest empty when no requests; reviewer assignment / delegation / threaded comments / SLA-escalation / identity-team review workflows / audit exports = named gaps",
+      "daemon_surface": "/__ioi/governance?tab=approvals",
+      "surface_name": "Governance",
+      "binding": "the approvals decision queue — the review-inbox grammar over real daemon ApprovalRequest records (status-count inbox chips, blast radius from would_call/required_authority_refs, age, per-row inspector drawer, in-row approve/reject/revoke transitions); release controls, kill switches, cohorts, improvement gates render as supporting Governance context"
     },
     {
       "owner": "Improvement",
