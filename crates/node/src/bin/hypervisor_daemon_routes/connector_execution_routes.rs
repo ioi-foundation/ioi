@@ -64,6 +64,21 @@ fn find_by_key(data_dir: &str, dir: &str, key: &str, id: &str) -> Option<Value> 
 fn expired(expires_at: &Value, now_millis: i64) -> bool {
     expires_at.as_i64().map(|e| e < now_millis).unwrap_or(false)
 }
+/// Endpoint form for receipts/provenance/records: userinfo and query are stripped — declared truth
+/// and audit trails carry host + path only (the GET itself uses the declared endpoint verbatim).
+fn redacted_endpoint(endpoint: &str) -> String {
+    let (scheme, rest) = match endpoint.split_once("://") {
+        Some((sc, r)) => (sc, r),
+        None => return endpoint.split(['?', '#']).next().unwrap_or(endpoint).to_string(),
+    };
+    let had_query = rest.contains('?');
+    let no_q = rest.split(['?', '#']).next().unwrap_or(rest);
+    let no_user = match no_q.rsplit_once('@') {
+        Some((_, host)) => host,
+        None => no_q,
+    };
+    format!("{scheme}://{no_user}{}", if had_query { "?…redacted" } else { "" })
+}
 fn sha256_hex(input: &str) -> String {
     let mut h = Sha256::new();
     h.update(input.as_bytes());
@@ -234,10 +249,20 @@ pub(crate) async fn handle_run_execute(State(st): State<Arc<DaemonState>>, AxumP
 
     // THE READ — one GET of the DECLARED endpoint, verbatim. Read-only by construction.
     let endpoint = s(&source, "endpoint", "");
-    let receipt = run_receipt(&data_dir, &run_ref, "source_contact_started", "ok", &format!("GET {endpoint} (declared endpoint, verbatim; bearer attached, never recorded)"));
-    push_history(&mut run, "source_contact_started", &format!("GET {endpoint}"), &receipt);
+    let display_endpoint = redacted_endpoint(&endpoint);
+    let receipt = run_receipt(&data_dir, &run_ref, "source_contact_started", "ok", &format!("GET {display_endpoint} (declared endpoint, verbatim; bearer attached, never recorded)"));
+    push_history(&mut run, "source_contact_started", &format!("GET {display_endpoint}"), &receipt);
     let started = now_ms();
-    let resp = reqwest::Client::new()
+    let client = match reqwest::Client::builder()
+        .redirect(reqwest::redirect::Policy::none())
+        .build()
+    {
+        Ok(c) => c,
+        Err(e) => {
+            return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "ok": false, "error": { "code": "execution_adapter_unavailable", "message": format!("adapter client could not initialize: {e}") } })));
+        }
+    };
+    let resp = client
         .get(&endpoint)
         .header("Authorization", format!("Bearer {bearer}"))
         .header("User-Agent", "ioi-hypervisor-odk-adapter")
@@ -251,15 +276,21 @@ pub(crate) async fn handle_run_execute(State(st): State<Arc<DaemonState>>, AxumP
             (st_, r.text().await.unwrap_or_default())
         }
         Err(e) => {
-            let receipt = run_receipt(&data_dir, &run_ref, "source_contact_failed", "execution_source_unreachable", &format!("GET {endpoint} failed: {e}"));
+            let receipt = run_receipt(&data_dir, &run_ref, "source_contact_failed", "execution_source_unreachable", &format!("GET {display_endpoint} failed: {e}"));
             push_history(&mut run, "source_contact_failed", "source unreachable", &receipt);
             let _ = persist_record(&data_dir, crate::materializing_run_routes::RECORD_DIR, &id, &run);
             return (StatusCode::BAD_GATEWAY, Json(json!({ "ok": false, "error": { "code": "execution_source_unreachable", "message": format!("the declared endpoint did not answer: {e}") } })));
         }
     };
     let elapsed_ms = now_ms() - started;
+    if (300..400).contains(&(http_status as i32)) {
+        let receipt = run_receipt(&data_dir, &run_ref, "source_contact_failed", "execution_source_redirect_rejected", &format!("GET {display_endpoint} → http {http_status} redirect REFUSED — the adapter reads the DECLARED endpoint verbatim and never follows a redirect to an undeclared URL"));
+        push_history(&mut run, "source_contact_failed", &format!("redirect refused (http {http_status})"), &receipt);
+        let _ = persist_record(&data_dir, crate::materializing_run_routes::RECORD_DIR, &id, &run);
+        return (StatusCode::BAD_GATEWAY, Json(json!({ "ok": false, "error": { "code": "execution_source_redirect_rejected", "message": "the declared endpoint answered with a redirect — refused; the adapter never follows redirects to undeclared URLs" } })));
+    }
     if !(200..300).contains(&(http_status as i32)) {
-        let receipt = run_receipt(&data_dir, &run_ref, "source_contact_failed", "execution_source_error", &format!("GET {endpoint} → http {http_status}"));
+        let receipt = run_receipt(&data_dir, &run_ref, "source_contact_failed", "execution_source_error", &format!("GET {display_endpoint} → http {http_status}"));
         push_history(&mut run, "source_contact_failed", &format!("http {http_status}"), &receipt);
         let _ = persist_record(&data_dir, crate::materializing_run_routes::RECORD_DIR, &id, &run);
         return (StatusCode::BAD_GATEWAY, Json(json!({ "ok": false, "error": { "code": "execution_source_error", "message": format!("the declared endpoint answered http {http_status}") } })));
@@ -276,7 +307,7 @@ pub(crate) async fn handle_run_execute(State(st): State<Arc<DaemonState>>, AxumP
     let fetched = rows.len();
     let truncated = fetched as u64 > limit;
     let rows: Vec<Value> = rows.into_iter().take(limit as usize).collect();
-    let receipt = run_receipt(&data_dir, &run_ref, "source_contact_completed", "ok", &format!("GET {endpoint} → http {http_status} · {fetched} rows fetched · {} accepted (limit {limit}) · {elapsed_ms}ms", rows.len()));
+    let receipt = run_receipt(&data_dir, &run_ref, "source_contact_completed", "ok", &format!("GET {display_endpoint} → http {http_status} · {fetched} rows fetched · {} accepted (limit {limit}) · {elapsed_ms}ms", rows.len()));
     push_history(&mut run, "source_contact_completed", &format!("{fetched} rows fetched"), &receipt);
 
     // TRANSFORM + VALIDATE through the landed ladder — all-or-nothing, no partial truth.
@@ -284,6 +315,7 @@ pub(crate) async fn handle_run_execute(State(st): State<Arc<DaemonState>>, AxumP
     let bindings = run_bindings(&mapping, &requested);
     let mut objects: Vec<Value> = Vec::new();
     let mut errors: Vec<String> = Vec::new();
+    let mut seen_keys: Vec<String> = Vec::new();
     for (i, row) in rows.iter().enumerate() {
         let mut properties = serde_json::Map::new();
         let mut provenance = serde_json::Map::new();
@@ -310,6 +342,10 @@ pub(crate) async fn handle_run_execute(State(st): State<Arc<DaemonState>>, AxumP
         }
         if object_key.trim().is_empty() {
             errors.push(format!("row {i}: empty object key"));
+        } else if seen_keys.iter().any(|k| k == &object_key) {
+            errors.push(format!("row {i}: duplicate object key '{object_key}' — semantic identity must be unique within a batch"));
+        } else {
+            seen_keys.push(object_key.clone());
         }
         if title.trim().is_empty() {
             errors.push(format!("row {i}: empty title"));
@@ -320,7 +356,7 @@ pub(crate) async fn handle_run_execute(State(st): State<Arc<DaemonState>>, AxumP
             "object_type_id": s(&mapping, "object_type_id", ""),
             "properties": properties,
             "source_hash": sha256_hex(&row.to_string()),
-            "provenance": { "mapped_from": provenance, "connector_id": connector_id, "endpoint": endpoint, "session_ref": session.pointer("/session/session_ref").cloned().unwrap_or(Value::Null) }
+            "provenance": { "mapped_from": provenance, "connector_id": connector_id, "endpoint": display_endpoint, "session_ref": session.pointer("/session/session_ref").cloned().unwrap_or(Value::Null) }
         }));
     }
     if !errors.is_empty() {
@@ -361,7 +397,7 @@ pub(crate) async fn handle_run_execute(State(st): State<Arc<DaemonState>>, AxumP
         "count": count,
         "rows_fetched": fetched,
         "truncated_to_limit": truncated,
-        "source_contact": { "endpoint": endpoint, "http_status": http_status, "elapsed_ms": elapsed_ms, "at": iso_now() },
+        "source_contact": { "endpoint": display_endpoint, "http_status": http_status, "elapsed_ms": elapsed_ms, "at": iso_now() },
         "pre_output_receipt_ref": pre.get("receipt_ref").cloned().unwrap_or(Value::Null),
         "registered_at": iso_now(),
         "runtimeTruthSource": "daemon-runtime"
@@ -372,23 +408,44 @@ pub(crate) async fn handle_run_execute(State(st): State<Arc<DaemonState>>, AxumP
         let _ = persist_record(&data_dir, crate::materializing_run_routes::RECORD_DIR, &id, &run);
         return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "ok": false, "error": { "code": "execution_output_persist_failed", "message": "output could not persist" } })));
     }
+    // FINALIZATION IS ATOMIC-OR-ROLLED-BACK: every write after the set is CHECKED; any failure
+    // removes the set (and restores the projection) so no partial truth ever remains — a set never
+    // exists without its projection flip, and a run never stays executable beside a live set.
+    let rollback_set = |why: &str| {
+        let _ = remove_record(&data_dir, SET_DIR, &set_id);
+        let _ = run_receipt(&data_dir, &run_ref, "execution_refused", "execution_finalize_failed", &format!("finalization failed ({why}) — the set was ROLLED BACK; no partial truth remains"));
+    };
+    let prior_projection = projection.clone();
     projection["health"]["object_instances"] = json!(count);
     projection["health"]["materialized"] = json!(true);
     projection["health"]["note"] = json!("materialized — a bounded, receipted object set is registered for this projection");
     projection["materialized"] = json!({ "set_ref": set_ref, "count": count, "at": iso_now(), "materializing_run_ref": run_ref });
     projection["updated_at"] = json!(iso_now());
-    let _ = persist_record(&data_dir, crate::ontology_projection_routes::RECORD_DIR, &projection_id, &projection);
-
+    if let Err(e) = persist_record(&data_dir, crate::ontology_projection_routes::RECORD_DIR, &projection_id, &projection) {
+        rollback_set(&format!("projection persist: {e}"));
+        return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "ok": false, "error": { "code": "execution_finalize_failed", "message": "the projection flip could not persist — the set was rolled back; no partial truth remains" } })));
+    }
     run["status"] = json!("executed");
     run["execution"] = json!({
         "source_contacted": true, "data_moved": true, "rows_extracted": count, "object_instances": count,
-        "endpoint": endpoint, "materialized_set_ref": set_ref, "completed_at": iso_now(),
+        "endpoint": display_endpoint, "materialized_set_ref": set_ref, "completed_at": iso_now(),
         "note": "one bounded read-only batch, registered all-or-nothing under the held lease + sealed session"
     });
     run["updated_at"] = json!(iso_now());
-    let receipt = run_receipt(&data_dir, &run_ref, "materialized_output_registered", "ok", &format!("{count} ontology-bound objects registered as {set_ref}; projection {projection_id} object_instances 0 → {count}"));
+    let receipt = match run_receipt_checked(&data_dir, &run_ref, "materialized_output_registered", "ok", &format!("{count} ontology-bound objects registered as {set_ref}; projection {projection_id} object_instances 0 → {count}")) {
+        Ok(r) => r,
+        Err(e) => {
+            let _ = persist_record(&data_dir, crate::ontology_projection_routes::RECORD_DIR, &projection_id, &prior_projection);
+            rollback_set(&format!("registration receipt: {e}"));
+            return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "ok": false, "error": { "code": "execution_finalize_failed", "message": "the registration receipt could not persist — projection restored, set rolled back" } })));
+        }
+    };
     push_history(&mut run, "materialized_output_registered", &format!("{count} objects registered"), &receipt);
-    let _ = persist_record(&data_dir, crate::materializing_run_routes::RECORD_DIR, &id, &run);
+    if let Err(e) = persist_record(&data_dir, crate::materializing_run_routes::RECORD_DIR, &id, &run) {
+        let _ = persist_record(&data_dir, crate::ontology_projection_routes::RECORD_DIR, &projection_id, &prior_projection);
+        rollback_set(&format!("run persist: {e}"));
+        return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "ok": false, "error": { "code": "execution_finalize_failed", "message": "the run state could not persist — projection restored, set rolled back (the run stays re-executable with no live set beside it)" } })));
+    }
     (StatusCode::OK, Json(json!({ "ok": true, "materializing_run": run, "materialized_object_set": set })))
 }
 
@@ -483,6 +540,14 @@ mod connector_execution_tests {
         let pids: Vec<&str> = b.iter().map(|(p, _, _, _)| p.as_str()).collect();
         assert!(pids.contains(&"loan_id") && pids.contains(&"title") && pids.contains(&"amount"));
         assert!(!pids.contains(&"extra")); // unrequested field excluded
+    }
+
+    #[test]
+    fn endpoint_redaction_strips_userinfo_and_query() {
+        assert_eq!(redacted_endpoint("https://host/rows"), "https://host/rows");
+        assert_eq!(redacted_endpoint("https://host/rows?api_key=X"), "https://host/rows?…redacted");
+        assert_eq!(redacted_endpoint("https://u:p@host/rows"), "https://host/rows");
+        assert_eq!(redacted_endpoint("https://u:p@host/rows?t=1"), "https://host/rows?…redacted");
     }
 
     #[test]

@@ -103,12 +103,14 @@ async function run() {
   const rows = [{ id: "L-1", disp: "First Loan", amt: 1250.5 }, { id: "L-2", disp: "Second Loan", amt: 90000 }, { id: "L-3", disp: "Third Loan", amt: 42.0 }];
   const bad = [{ id: "L-1", disp: "ok", amt: 1.0 }, { disp: "missing key", amt: "not-a-number" }];
   let hits = 0; let authedHits = 0;
+  const dup = [{ id: "L-1", disp: "First", amt: 1.0 }, { id: "L-1", disp: "Same key again", amt: 2.0 }];
   const srv = http.createServer((req, res) => {
     hits++;
     if (req.headers.authorization !== `Bearer ${SENTINEL}`) { res.writeHead(401); return res.end("unauthorized"); }
     authedHits++;
+    if (req.url === "/redirect") { res.writeHead(302, { Location: "/rows" }); return res.end(); }
     res.writeHead(200, { "content-type": "application/json" });
-    res.end(JSON.stringify(req.url === "/bad-rows" ? bad : rows));
+    res.end(JSON.stringify(req.url === "/bad-rows" ? bad : req.url === "/dup-rows" ? dup : rows));
   });
   await new Promise((r) => srv.listen(0, "127.0.0.1", r));
   const port = srv.address().port;
@@ -185,6 +187,25 @@ async function run() {
     const exD = await jd("POST", `/v1/hypervisor/odk/materializing-runs/${Dc.mrun}/execute`, { connector_session_id: Dc.session, limit: 10 });
     const histD = await jd("GET", `/v1/hypervisor/odk/materializing-runs/${Dc.mrun}/history`);
     ok("unreachable source → 502 + source_contact_failed receipted (no output)", exD.status === 502 && exD.j.error?.code === "execution_source_unreachable" && (histD.j.receipts || []).some((r) => r.op === "source_contact_failed"));
+
+    // Chain E: redirect refused — the adapter never follows a redirect to an undeclared URL.
+    const E = await buildChain("execE", `http://127.0.0.1:${port}/redirect`, "rest_api", connId, cleanup);
+    const exE = await jd("POST", `/v1/hypervisor/odk/materializing-runs/${E.mrun}/execute`, { connector_session_id: E.session, limit: 10 });
+    const histE = await jd("GET", `/v1/hypervisor/odk/materializing-runs/${E.mrun}/history`);
+    const projE = await jd("GET", `/v1/hypervisor/odk/ontology-projections/${E.proj}`);
+    ok("fail-closed: 302 redirect REFUSED (declared endpoint verbatim; receipted; zero output)", exE.status === 502 && exE.j.error?.code === "execution_source_redirect_rejected" && (histE.j.receipts || []).some((r) => r.outcome === "execution_source_redirect_rejected") && projE.j.ontology_projection?.health?.object_instances === 0);
+
+    // Chain F: duplicate object keys in one batch — semantic identity must be unique.
+    const F = await buildChain("execF", `http://127.0.0.1:${port}/dup-rows`, "rest_api", connId, cleanup);
+    const exF = await jd("POST", `/v1/hypervisor/odk/materializing-runs/${F.mrun}/execute`, { connector_session_id: F.session, limit: 10 });
+    const projF = await jd("GET", `/v1/hypervisor/odk/ontology-projections/${F.proj}`);
+    ok("fail-closed: duplicate object_key rejects the whole batch (zero registered)", exF.status === 422 && exF.j.error?.code === "execution_batch_invalid" && (exF.j.error?.errors || []).some((e) => /duplicate object key/.test(e)) && projF.j.ontology_projection?.health?.object_instances === 0);
+
+    // Credentialed endpoints are refused at DECLARATION (never enter declared truth).
+    const credEp = await jd("POST", "/v1/hypervisor/data-sources", { name: "cred-ep", kind: "rest_api", endpoint: `http://127.0.0.1:${port}/rows?api_key=${SENTINEL}`, credential_posture: "wallet_credential_lease" });
+    ok("fail-closed: endpoint embedding a credential is refused at declaration", credEp.status === 400 && credEp.j.error?.code === "data_source_endpoint_credentialed");
+    const userinfoEp = await jd("POST", "/v1/hypervisor/data-sources", { name: "cred-ep2", kind: "rest_api", endpoint: `http://user:${SENTINEL}@127.0.0.1:${port}/rows`, credential_posture: "wallet_credential_lease" });
+    ok("fail-closed: endpoint with URL userinfo is refused at declaration", userinfoEp.status === 400 && userinfoEp.j.error?.code === "data_source_endpoint_credentialed");
 
     // Surface: first bounded rows + the complete ladder; fresh chains stay honest.
     const page = await fetch(`${SERVE}/__ioi/odk?ontology=${encodeURIComponent(A.ontId)}`).then(async (r) => ({ status: r.status, text: await r.text() })).catch(() => ({ status: 0, text: "" }));

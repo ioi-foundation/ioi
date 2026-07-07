@@ -48,6 +48,31 @@ const CREDENTIAL_POSTURES: &[&str] = &[
     "provider_vault_token",
     "customer_boundary",
 ];
+/// Query keys in an endpoint URL that would smuggle a credential into declared truth.
+const SENSITIVE_ENDPOINT_QUERY_KEYS: &[&str] = &[
+    "api_key", "apikey", "token", "secret", "password", "key", "access_token", "credential",
+];
+
+/// An endpoint that embeds credentials (userinfo or a sensitive query param) is rejected — the
+/// credential planes hold secrets; declared truth never does.
+fn endpoint_carries_credentials(endpoint: &str) -> bool {
+    if let Some((_, rest)) = endpoint.split_once("://") {
+        let authority = rest.split(['/', '?', '#']).next().unwrap_or("");
+        if authority.contains('@') {
+            return true;
+        }
+    }
+    if let Some((_, query)) = endpoint.split_once('?') {
+        for pair in query.split('&') {
+            let k = pair.split('=').next().unwrap_or("").to_ascii_lowercase();
+            if SENSITIVE_ENDPOINT_QUERY_KEYS.contains(&k.as_str()) {
+                return true;
+            }
+        }
+    }
+    false
+}
+
 /// Body keys that would be a plaintext secret — rejected outright (no secret ever enters the plane).
 const PLAINTEXT_SECRET_KEYS: &[&str] = &["secret", "password", "api_key", "apikey", "token", "credential"];
 
@@ -201,6 +226,14 @@ pub(crate) async fn handle_data_source_create(
             "A network data source kind requires an endpoint.",
         );
     }
+    if let Some(e) = &endpoint {
+        if endpoint_carries_credentials(e) {
+            return err(
+                "data_source_endpoint_credentialed",
+                "The endpoint embeds credential material (userinfo or a sensitive query param) — declare credential_posture instead; secrets never enter declared truth.",
+            );
+        }
+    }
     let credential_posture = s(&body, "credential_posture", "no_credentials_required");
     if !CREDENTIAL_POSTURES.contains(&credential_posture.as_str()) {
         return err(
@@ -241,6 +274,16 @@ mod data_source_tests {
         assert_eq!(kind_requires_endpoint("postgres"), Some(true));
         assert_eq!(kind_requires_endpoint("local_folder"), Some(false));
         assert_eq!(kind_requires_endpoint("nonsense"), None);
+    }
+
+    #[test]
+    fn credentialed_endpoints_are_detected() {
+        assert!(endpoint_carries_credentials("https://user:pass@host/rows"));
+        assert!(endpoint_carries_credentials("https://host/rows?api_key=x"));
+        assert!(endpoint_carries_credentials("https://host/rows?limit=5&TOKEN=x"));
+        assert!(!endpoint_carries_credentials("https://host/rows"));
+        assert!(!endpoint_carries_credentials("https://host/rows?limit=5&cursor=abc"));
+        assert!(!endpoint_carries_credentials("postgres://host:5432/db"));
     }
 
     #[test]
