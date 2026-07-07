@@ -2955,22 +2955,37 @@ function renderDataSourcesSection(dataSources) {
 // authority (receipts, policy gates, substrate readiness, conformance, source-neutrality) is threaded
 // SIDEWAYS into that familiar IA rather than replacing it.
 
-// The authority-crossing LADDER. ConnectorMapping (rung 1) and PolicyBoundDataView (rung 2, the
-// capability gate) are real inert daemon contracts; the rest remain named-but-missing. Each rung
-// must exist before the next is allowed to do anything — this is the honest boundary the whole
-// surface is careful about.
+// The authority-crossing LADDER. ConnectorMapping (rung 1), PolicyBoundDataView (rung 2, the
+// capability gate) and TransformationRun (rung 3, plan/dry-run only — the first "a run may exist"
+// rung, NOT live source contact) are real inert daemon contracts; OntologyProjection remains
+// named-but-missing. Each rung must exist before the next is allowed to do anything — this is the
+// honest boundary the whole surface is careful about.
 const OM_MISSING_CONTRACTS = [
-  ["TransformationRun + receipts", "auditable mapping runs recorded before any projection exists", "object projections you can trust"],
   ["OntologyProjection", "the explicit model → explorer / search / runtime bridge", "Object Explorer rows & saved object sets"],
 ];
 function omBoundaryNote(text) {
   return `<div style="border:1px dashed #3a3d46;border-radius:10px;padding:10px 12px;margin:0 0 12px;background:#141519;color:#9a9da6;font-size:12.5px">${text}</div>`;
 }
-function omContractLadder(nMappings, nViews) {
+function omContractLadder(nMappings, nViews, nRuns) {
   const declared = `<tr><td><code>ConnectorMapping</code> <span class="pill ok">declared</span></td><td>declared source fields → typed object properties</td><td class="sub" style="margin:0">${nMappings} mapping${nMappings === 1 ? "" : "s"} · inert (no extraction)</td></tr>`
-    + `<tr><td><code>PolicyBoundDataView</code> <span class="pill ok">declared</span></td><td>the capability envelope — who/what may read · transform · distill · train · evaluate · export · publish · route, for what purpose, under which receipt obligations</td><td class="sub" style="margin:0">${nViews} view${nViews === 1 ? "" : "s"} · gate only (nothing runs)</td></tr>`;
+    + `<tr><td><code>PolicyBoundDataView</code> <span class="pill ok">declared</span></td><td>the capability envelope — who/what may read · transform · distill · train · evaluate · export · publish · route, for what purpose, under which receipt obligations</td><td class="sub" style="margin:0">${nViews} view${nViews === 1 ? "" : "s"} · gate only (nothing runs)</td></tr>`
+    + `<tr><td><code>TransformationRun + receipts</code> <span class="pill ok">declared</span></td><td>auditable plan / dry-run against the gate — validates shape, envelope, intent; every act (and every refusal) receipted</td><td class="sub" style="margin:0">${nRuns} run${nRuns === 1 ? "" : "s"} · plan/dry-run only (no source contact; live reads are a future connector-adapter cut)</td></tr>`;
   const missing = OM_MISSING_CONTRACTS.map(([name, what, unlocks]) => `<tr><td><code>${CX_ESC(name)}</code> <span class="pill muted">missing</span></td><td>${CX_ESC(what)}</td><td class="sub" style="margin:0">unlocks ${CX_ESC(unlocks)}</td></tr>`).join("");
   return `<table><thead><tr><th>Contract</th><th>What it declares</th><th>Status / unlocks</th></tr></thead><tbody>${declared}${missing}</tbody></table>`;
+}
+// Transformation runs bound to the selected ontology — daemon truth: auditable plans/dry-runs only.
+function omTransformationRuns(runs) {
+  runs = Array.isArray(runs) ? runs : [];
+  if (!runs.length) return `<div class="empty">No transformation runs. A run is an <b>auditable plan / dry-run</b> against a ready mapping + a ready policy gate — it validates shape, envelope, and intent, and emits receipts. It never contacts a source; live reads are a future connector-adapter cut.</div>`;
+  const pill = (st) => `<span class="pill ${st === "dry_run_ready" ? "ok" : st === "blocked" ? "warn" : "muted"}">${CX_ESC(st || "planned")}</span>`;
+  const rows = runs.map((r) => `<tr>
+    <td><b>${CX_ESC(r.name || r.id)}</b><div class="meta" style="color:#878a93;font-size:11.5px;margin-top:2px"><code>${CX_ESC(r.ref || "")}</code></div></td>
+    <td><code>${CX_ESC(r.object_type_id || "—")}</code></td>
+    <td>${(r.requested_fields || []).length} field${(r.requested_fields || []).length === 1 ? "" : "s"}</td>
+    <td><span class="pill muted">${CX_ESC(r.output_intent || "—")}</span></td>
+    <td>${pill(r.status)} <span class="pill warn" title="plan/dry-run only — no source contact, no data movement">no source contact</span></td>
+  </tr>`).join("");
+  return `<table><thead><tr><th>Run</th><th>Object type</th><th>Fields</th><th>Intent</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table>`;
 }
 // Policy-bound data views bound to the selected ontology — daemon truth: the declared capability
 // gates over the mapped data. Declarative only; a view authorizes nothing to run.
@@ -3102,10 +3117,12 @@ function renderOntologyManager(ov, lists, selectedId) {
   const mans = (lists.manifests || []).filter((m) => (m.ontology_refs || []).includes(boundRef));
   const maps = (lists.connector_mappings || []).filter((m) => m.ontology_ref === boundRef);
   const pviews = (lists.policy_views || []).filter((v) => v.ontology_ref === boundRef);
+  const truns = (lists.transformation_runs || []).filter((r) => r.ontology_ref === boundRef);
   const resourceSection = (title, family, items, nameKey, newLabel) => `<h3 style="display:flex;justify-content:space-between;align-items:center;margin:12px 0 6px">${title} (${items.length}) <a class="act ghost" href="/__ioi/odk/${family}/new">+ ${newLabel}</a></h3>${items.length ? items.map((x) => odkCard(family, x, nameKey)).join("") : `<div class="empty">None bound to this ontology.</div>`}`;
   const resourcesPane = `<h2 id="pane-resources">Resources <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— bound to ${selected ? CX_ESC(selected.domain) : "—"}</span></h2>`
     + `<h3 style="margin:12px 0 6px">Connector mappings (${maps.length}) <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— source fields → object properties · daemon truth · inert</span></h3>${omConnectorMappings(maps)}`
     + `<h3 style="margin:12px 0 6px">Policy-bound data views (${pviews.length}) <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— the capability gate over mapped data · daemon truth · declarative</span></h3>${omPolicyViews(pviews)}`
+    + `<h3 style="margin:12px 0 6px">Transformation runs (${truns.length}) <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— auditable plans/dry-runs against the gate · daemon truth · no source contact</span></h3>${omTransformationRuns(truns)}`
     + resourceSection("Data recipes", "data-recipes", recs, "name", "New recipe")
     + resourceSection("Surface descriptors", "surface-descriptors", descs, "name", "New descriptor")
     + resourceSection("ODK manifests", "manifests", mans, "name", "New manifest");
@@ -3116,7 +3133,7 @@ function renderOntologyManager(ov, lists, selectedId) {
   //      (ConnectorMapping now declared/inert; the rest still missing).
   const explorerPane = `<h2 id="pane-explorer">Object data &amp; Explorer <span class="pill muted">unavailable</span></h2>`
     + omBoundaryNote(`This ontology binds <b>no object-instance plane</b>, so there are <b>no rows to explore</b> — the reference Object Explorer is a search surface over real objects; ours stays empty until the authority crossing below is made. The <a href="/__apps/explorer">Object Explorer reference grammar ↗</a> is secondary, never a rebound surface.`)
-    + `<h3 style="margin:12px 0 6px">Authority-crossing ladder</h3>` + omContractLadder(maps.length, pviews.length);
+    + `<h3 style="margin:12px 0 6px">Authority-crossing ladder</h3>` + omContractLadder(maps.length, pviews.length, truns.length);
 
   const counts = { "object-types": ots.length, "properties": propCount, "link-types": lts.length, "action-types": nonFuncActs.length, "value-types": vts.length, "groups": 0, "interfaces": 0, "functions": funcs.length };
   const panes = objectTypesPane + propertiesPane + linkPane + actionPane + valuePane
@@ -6669,7 +6686,7 @@ const server = http.createServer((req, res) => {
     // ---- ODK — controlled builder over the daemon ODK object plane (estate surface #5).
     if (pathname === "/__ioi/odk" && req.method === "GET") {
       const J = (p) => fetch(`${DAEMON}${p}`).then((r) => r.json()).catch(() => ({}));
-      const [ov, o, r, d, m, ds, cm, pv] = await Promise.all([
+      const [ov, o, r, d, m, ds, cm, pv, tr] = await Promise.all([
         J("/v1/hypervisor/odk/overview"),
         J("/v1/hypervisor/odk/domain-ontologies"),
         J("/v1/hypervisor/odk/data-recipes"),
@@ -6678,6 +6695,7 @@ const server = http.createServer((req, res) => {
         J("/v1/hypervisor/data-sources"),
         J("/v1/hypervisor/odk/connector-mappings"),
         J("/v1/hypervisor/odk/policy-bound-data-views"),
+        J("/v1/hypervisor/odk/transformation-runs"),
       ]);
       const selectedOntology = new URL(req.url, "http://x").searchParams.get("ontology") || "";
       res.writeHead(200, HTMLH);
@@ -6689,6 +6707,7 @@ const server = http.createServer((req, res) => {
         data_sources: ds.data_sources || [],
         connector_mappings: cm.connector_mappings || [],
         policy_views: pv.policy_bound_data_views || [],
+        transformation_runs: tr.transformation_runs || [],
       }, selectedOntology));
       return;
     }

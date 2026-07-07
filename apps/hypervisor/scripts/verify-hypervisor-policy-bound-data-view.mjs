@@ -139,7 +139,7 @@ async function run() {
   ok("view row declares 'no execution' (declarative gate)", /no execution/.test(t));
   ok("ladder: ConnectorMapping declared", /ConnectorMapping<\/code> <span class="pill ok">declared/.test(t));
   ok("ladder: PolicyBoundDataView declared (gate only)", /PolicyBoundDataView<\/code> <span class="pill ok">declared/.test(t) && /gate only/.test(t));
-  ok("ladder: TransformationRun+receipts and OntologyProjection still missing", /TransformationRun \+ receipts<\/code> <span class="pill muted">missing/.test(t) && /OntologyProjection<\/code> <span class="pill muted">missing/.test(t));
+  ok("ladder: downstream rungs named (TransformationRun present; OntologyProjection still missing)", /TransformationRun \+ receipts<\/code>/.test(t) && /OntologyProjection<\/code> <span class="pill muted">missing/.test(t));
   ok("0-objects boundary preserved (no object rows anywhere)", /0 objects/.test(t));
   ok("surface is brand-clean (no Palantir/Foundry leak)", !/\bPalantir\b/.test(t) && !/\bFoundry\b/.test(t));
 

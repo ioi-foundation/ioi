@@ -28,7 +28,7 @@ use super::{iso_now, persist_record, read_record_dir, remove_record, DaemonState
 const VIEW_SCHEMA: &str = "ioi.hypervisor.odk.policy-bound-data-view.v1";
 const RECEIPT_SCHEMA: &str = "ioi.hypervisor.odk.policy-bound-data-view-receipt.v1";
 const OVERVIEW_SCHEMA: &str = "ioi.hypervisor.odk.policy-bound-data-views-overview.v1";
-const RECORD_DIR: &str = "odk-policy-bound-data-views";
+pub(crate) const RECORD_DIR: &str = "odk-policy-bound-data-views";
 const RECEIPT_DIR: &str = "odk-policy-bound-data-view-receipts";
 
 /// The operations an autonomous system could be authorized to perform over the mapped data.

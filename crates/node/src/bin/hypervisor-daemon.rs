@@ -92,6 +92,8 @@ mod data_source_routes;
 mod connector_mapping_routes;
 #[path = "hypervisor_daemon_routes/policy_bound_data_view_routes.rs"]
 mod policy_bound_data_view_routes;
+#[path = "hypervisor_daemon_routes/transformation_run_routes.rs"]
+mod transformation_run_routes;
 #[path = "hypervisor_daemon_routes/harness_routes.rs"]
 mod harness_routes;
 #[path = "hypervisor_daemon_routes/model_routes.rs"]
@@ -1151,6 +1153,35 @@ async fn async_main() -> anyhow::Result<()> {
         .route(
             "/v1/hypervisor/odk/policy-bound-data-views/:id/history",
             get(policy_bound_data_view_routes::handle_policy_view_history),
+        )
+        // TransformationRun — the third rung: an auditable PLAN/DRY-RUN contract. No live source
+        // contact; executed/materialized are reserved for a future connector-adapter cut.
+        .route(
+            "/v1/hypervisor/odk/transformation-runs",
+            get(transformation_run_routes::handle_runs_list)
+                .post(transformation_run_routes::handle_run_create),
+        )
+        .route(
+            "/v1/hypervisor/odk/transformation-runs/overview",
+            get(transformation_run_routes::handle_runs_overview),
+        )
+        .route(
+            "/v1/hypervisor/odk/transformation-runs/:id",
+            get(transformation_run_routes::handle_run_get)
+                .patch(transformation_run_routes::handle_run_patch)
+                .delete(transformation_run_routes::handle_run_delete),
+        )
+        .route(
+            "/v1/hypervisor/odk/transformation-runs/:id/history",
+            get(transformation_run_routes::handle_run_history),
+        )
+        .route(
+            "/v1/hypervisor/odk/transformation-runs/:id/dry-run",
+            post(transformation_run_routes::handle_run_dry_run),
+        )
+        .route(
+            "/v1/hypervisor/odk/transformation-runs/:id/cancel",
+            post(transformation_run_routes::handle_run_cancel),
         )
         .route(
             "/v1/hypervisor/odk/data-recipes",
