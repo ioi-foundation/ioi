@@ -82,8 +82,8 @@ export const SEED_INVENTORY = [
   { owner: "Domain Apps", ownerUrl: "/__ioi/domain-apps", slug: "fusion", captureBase: "/workspace/fusion/", grammar: "editor_canvas", tier: "aux", reboundLane: null, note: "Fusion spreadsheet; unbound" },
 
   // ── Missions / Improvement / Governance (already rebound, kept in inventory for coverage) ─
-  { owner: "Missions", ownerUrl: "/__ioi/operations", slug: "jobs", captureBase: "/workspace/job-tracker/", grammar: "table_list", tier: "high_value", reboundLane: "daemon jobs queue", note: "run/job status table" },
-  { owner: "Missions", ownerUrl: "/__ioi/operations", slug: "incidents", captureBase: "/workspace/issues-app/", grammar: "table_list", tier: "high_value", reboundLane: "daemon incident inbox", note: "status-lane remediation inbox" },
+  { owner: "Missions", ownerUrl: "/__ioi/missions", slug: "jobs", captureBase: "/workspace/job-tracker/", grammar: "table_list", tier: "high_value", reboundLane: "daemon jobs queue", note: "run/job status table" },
+  { owner: "Missions", ownerUrl: "/__ioi/missions", slug: "incidents", captureBase: "/workspace/issues-app/", grammar: "table_list", tier: "high_value", reboundLane: "daemon incident inbox", note: "status-lane remediation inbox" },
   { owner: "Governance", ownerUrl: "/__ioi/governance", slug: "approvals", captureBase: "/workspace/approvals-app/", grammar: "table_list", tier: "high_value", reboundLane: "daemon approval-requests", note: "approvals inbox; per-row drilldown = named gap" },
   { owner: "Improvement", ownerUrl: "/__ioi/agent-studio", slug: "changes", captureBase: "/workspace/upgrade-assistant/", grammar: "table_list", tier: "high_value", reboundLane: "daemon improvement-proposals", note: "change inbox" },
 ];

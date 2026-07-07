@@ -8,8 +8,8 @@
   ],
   "total_seeds": 39,
   "by_parity_class": {
-    "reference_capture": 36,
-    "daemon_bound": 3
+    "reference_capture": 34,
+    "daemon_bound": 5
   },
   "legend": {
     "reference_capture": "the /__apps/<slug> reference baseline serves; not yet bound to daemon truth",
@@ -452,10 +452,13 @@
       "capture_base": "/workspace/job-tracker/",
       "grammar": "table_list",
       "tier": "high_value",
-      "parity_class": "reference_capture",
+      "parity_class": "daemon_bound",
       "capture_state": "boots_editor_canvas",
       "reference_capture": "/__apps/jobs",
-      "note": "run/job status table"
+      "note": "run-queue lane of the Missions owner surface; honest empty when no runs; freeform job-definition editing / board views / arbitrary filtering = named gaps; substrate/infra scheduler health stays in Operations",
+      "daemon_surface": "/__ioi/missions",
+      "surface_name": "Missions",
+      "binding": "the Missions run/job queue — the real operations run queue (recent runs, statuses, run counts) + scheduled missions, table/list grammar over daemon truth"
     },
     {
       "owner": "Missions",
@@ -464,10 +467,13 @@
       "capture_base": "/workspace/issues-app/",
       "grammar": "table_list",
       "tier": "high_value",
-      "parity_class": "reference_capture",
+      "parity_class": "daemon_bound",
       "capture_state": "boots_table_list",
       "reference_capture": "/__apps/incidents",
-      "note": "status-lane remediation inbox"
+      "note": "incident lane of the Missions owner surface; honest empty when no failures/blockers; create/assign incidents / SLA / comments = named gaps; substrate/infra incidents (storage repair, provider failover) stay in Operations",
+      "daemon_surface": "/__ioi/missions",
+      "surface_name": "Missions",
+      "binding": "the Missions incident/remediation inbox — real run failures + GoalRun blockers, each linking to its own proof/timeline, status-lane grammar over daemon truth"
     },
     {
       "owner": "Governance",
