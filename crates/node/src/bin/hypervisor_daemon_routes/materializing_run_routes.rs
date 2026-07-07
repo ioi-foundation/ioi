@@ -32,7 +32,7 @@ use crate::lifecycle_routes::{authorize_capability_lease, CapabilityLeaseRequest
 const RUN_SCHEMA: &str = "ioi.hypervisor.odk.materializing-run.v1";
 const RECEIPT_SCHEMA: &str = "ioi.hypervisor.odk.materializing-run-receipt.v1";
 const OVERVIEW_SCHEMA: &str = "ioi.hypervisor.odk.materializing-runs-overview.v1";
-const RECORD_DIR: &str = "odk-materializing-runs";
+pub(crate) const RECORD_DIR: &str = "odk-materializing-runs";
 const RECEIPT_DIR: &str = "odk-materializing-run-receipts";
 
 /// Lifecycle: a run exists, may obtain its lease, and may release it — nothing executes.
@@ -84,7 +84,7 @@ struct RunInputs {
 
 /// Re-verify the cited plan against CURRENT ladder truth — the same drift discipline as every rung:
 /// the gate is checked at each act, never cached. Returns the drifted thing's name on failure.
-fn check_plan_against_truth(data_dir: &str, plan: &Value) -> Result<(), String> {
+pub(crate) fn check_plan_against_truth(data_dir: &str, plan: &Value) -> Result<(), String> {
     let source_id = s(plan, "data_source_id", "");
     let source = find_by_key(data_dir, crate::data_source_routes::RECORD_DIR, "source_id", &source_id)
         .ok_or_else(|| format!("data source '{source_id}' no longer resolves"))?;

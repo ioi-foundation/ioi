@@ -100,6 +100,8 @@ mod ontology_projection_routes;
 mod capability_lease_plan_routes;
 #[path = "hypervisor_daemon_routes/materializing_run_routes.rs"]
 mod materializing_run_routes;
+#[path = "hypervisor_daemon_routes/connector_session_routes.rs"]
+mod connector_session_routes;
 #[path = "hypervisor_daemon_routes/harness_routes.rs"]
 mod harness_routes;
 #[path = "hypervisor_daemon_routes/model_routes.rs"]
@@ -1277,6 +1279,40 @@ async fn async_main() -> anyhow::Result<()> {
         .route(
             "/v1/hypervisor/odk/materializing-runs/:id/cancel",
             post(materializing_run_routes::handle_mrun_cancel),
+        )
+        // Sealed connector session — the credential-handling crossing: a lease-holding run opens a
+        // sealed session through the SAME gateway (credential_required:true). Labels only, no
+        // credential material, no source contact; execution is the next cut.
+        .route(
+            "/v1/hypervisor/odk/connector-sessions",
+            get(connector_session_routes::handle_sessions_list)
+                .post(connector_session_routes::handle_session_create),
+        )
+        .route(
+            "/v1/hypervisor/odk/connector-sessions/overview",
+            get(connector_session_routes::handle_sessions_overview),
+        )
+        .route(
+            "/v1/hypervisor/odk/connector-sessions/:id",
+            get(connector_session_routes::handle_session_get)
+                .patch(connector_session_routes::handle_session_patch)
+                .delete(connector_session_routes::handle_session_delete),
+        )
+        .route(
+            "/v1/hypervisor/odk/connector-sessions/:id/history",
+            get(connector_session_routes::handle_session_history),
+        )
+        .route(
+            "/v1/hypervisor/odk/connector-sessions/:id/open",
+            post(connector_session_routes::handle_session_open),
+        )
+        .route(
+            "/v1/hypervisor/odk/connector-sessions/:id/release",
+            post(connector_session_routes::handle_session_release),
+        )
+        .route(
+            "/v1/hypervisor/odk/connector-sessions/:id/cancel",
+            post(connector_session_routes::handle_session_cancel),
         )
         .route(
             "/v1/hypervisor/odk/data-recipes",
