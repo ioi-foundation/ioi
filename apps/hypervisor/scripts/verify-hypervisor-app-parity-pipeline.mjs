@@ -54,7 +54,7 @@ async function run() {
   const matrix = JSON.parse(spawnSync("node", ["-e", `import(${JSON.stringify(path.join(here, "..", "harvest-app-parity-matrix.json"))}, { with: { type: "json" } }).then(m => console.log(JSON.stringify(m.default)))`], { encoding: "utf8" }).stdout || "{}");
   const bySlug = Object.fromEntries((matrix.seeds || []).map((s) => [s.slug, s]));
   ok("matrix classifies pipeline as daemon_bound → /__ioi/pipeline", bySlug.pipeline?.parity_class === "daemon_bound" && bySlug.pipeline?.daemon_surface === "/__ioi/pipeline");
-  ok("matrix queues the graph pair (vertex + lineage) — named, not claimed covered", bySlug.vertex?.parity_class === "queued" && bySlug.lineage?.parity_class === "queued");
+  ok("matrix queues the next graph surface (vertex) — named, not claimed covered", bySlug.vertex?.parity_class === "queued");
   ok("matrix is honest estate-wide: most seeds are reference_capture only, none over-claimed", (matrix.by_parity_class?.reference_capture || 0) >= 30 && !(matrix.seeds || []).some((s) => s.parity_class === "covered"));
 
   // 1. Reference baseline boots the familiar grammar, brand-clean.

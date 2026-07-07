@@ -9,8 +9,8 @@
   "total_seeds": 39,
   "by_parity_class": {
     "reference_capture": 36,
-    "queued": 2,
-    "daemon_bound": 1
+    "daemon_bound": 2,
+    "queued": 1
   },
   "legend": {
     "reference_capture": "the /__apps/<slug> reference baseline serves; not yet bound to daemon truth",
@@ -98,12 +98,12 @@
       "capture_base": "/workspace/monocle/",
       "grammar": "graph",
       "tier": "high_value",
-      "parity_class": "queued",
+      "parity_class": "daemon_bound",
       "capture_state": "boots_graph",
       "reference_capture": "/__apps/lineage",
-      "note": "Monocle lineage graph over receipts + materialized object provenance",
-      "target_surface": "/__ioi/work-ledger",
-      "binding": "Work Ledger + ODK materialized-object lineage"
+      "note": "Monocle lineage grammar over real provenance; no fake nodes for unmaterialized ontologies; freeform resource-search / graph-expansion / cross-tenant catalog = named gaps",
+      "daemon_surface": "/__ioi/lineage",
+      "binding": "ODK materialization provenance (MaterializedObjectSet → run → session → lease → projection → mapping → datasource; per-object source hashes + mapped_from; pre-output + registration receipts; Work Ledger edges where available)"
     },
     {
       "owner": "Data",

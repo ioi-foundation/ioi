@@ -3095,6 +3095,111 @@ function omNav(counts) {
     return `<a href="#pane-${id}" style="display:flex;justify-content:space-between;align-items:center;padding:6px 9px;border-radius:7px;color:#c9ccd3;font-size:13px;text-decoration:none">${CX_ESC(label)}${c == null ? "" : ` <span class="pill muted" style="margin:0">${c}</span>`}</a>`;
   }).join("")}</nav>`;
 }
+// ============================ DATA LINEAGE (Monocle parity over real ODK provenance) =============
+// The Application UX Parity Baseline phase, applied to Monocle / Data Lineage. The reference capture
+// (/__apps/lineage, /workspace/monocle/) is the familiar baseline; this IOI-owned surface renders
+// the SAME lineage-graph grammar — typed nodes + edges + a legend — but every node/edge is REAL
+// PROVENANCE from the ODK materialization chain: a materialized object set traced back through its
+// run, session, lease, projection, mapping, and datasource, plus per-OBJECT provenance (source hash
+// + which source field produced each property) and the auditable receipt chain. No graph data is
+// invented: an ontology with no materialized objects shows NO lineage (honest empty), never fake
+// nodes. Work Ledger edges are shown "where available". Unsupported Monocle lanes (freeform resource
+// search, arbitrary graph expansion, cross-tenant catalog search) are visible but named gaps.
+const LINEAGE_NODE_KINDS = [
+  ["datasource", "🌐", "Datasource"], ["mapping", "🔗", "Mapping"], ["policy", "🛡", "Policy view"],
+  ["plan", "📋", "Transform plan"], ["projection", "🔭", "Projection"], ["lease", "🎟", "Lease + session"],
+  ["run", "⚙", "Materializing run"], ["receipt", "🧾", "Receipt"], ["set", "📦", "Object set"], ["object", "▪", "Object"],
+];
+function lineageLegend() {
+  return `<div class="chips" style="margin:0 0 10px"><span class="chiplabel">Nodes</span>${LINEAGE_NODE_KINDS.map(([, ic, l]) => `<span class="pill muted" style="margin:0">${ic} ${CX_ESC(l)}</span>`).join(" ")}</div>`
+    + `<div class="chips" style="margin:0 0 12px"><span class="chiplabel">Edges</span>${["mapped_by", "gated_by", "planned_by", "projected_as", "read_under", "produced_by", "receipted_by", "contains", "hashed_as", "mapped_from"].map((e) => `<span class="pill muted" style="margin:0"><code>${e}</code></span>`).join(" ")}</div>`;
+}
+function renderDataLineage(lists, selectedId) {
+  const ontologies = Array.isArray(lists.ontologies) ? lists.ontologies : [];
+  const allSets = Array.isArray(lists.materialized_sets) ? lists.materialized_sets : [];
+  const withLineage = new Set(allSets.map((s) => s.ontology_ref));
+  const selected = ontologies.find((x) => x.id === selectedId)
+    || ontologies.find((x) => withLineage.has(x.ref)) || ontologies[0] || null;
+  const oref = selected ? selected.ref : "__none__";
+  const oid = selected ? selected.id : "";
+  const sets = allSets.filter((s) => s.ontology_ref === oref);
+  const runs = (lists.materializing_runs || []).filter((r) => r.ontology_ref === oref);
+  const ledger = Array.isArray(lists.work_ledger) ? lists.work_ledger : [];
+
+  const switcher = ontologies.length
+    ? `<div class="chips" style="margin:0 0 14px">${ontologies.map((x) => {
+        const on = selected && x.id === selected.id; const has = withLineage.has(x.ref);
+        return `<a href="/__ioi/lineage?ontology=${encodeURIComponent(x.id)}" class="pill ${on ? "ok" : "muted"}" style="text-decoration:none;margin:0">${CX_ESC(x.domain || x.id)}${has ? ` <span class="pill ok" style="margin-left:4px">lineage</span>` : ""}</a>`;
+      }).join(" ")}</div>`
+    : `<div class="empty">No ontologies yet.</div>`;
+
+  const head = `<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap"><div><h1 style="margin:0">Data lineage</h1><p class="sub" style="margin:4px 0 0">Where materialized objects came from — the ODK provenance graph as a Monocle-familiar lineage of typed nodes + edges, over IOI daemon truth. Reference grammar: <a href="/__apps/lineage">Monocle lineage ↗</a> (secondary capture).</p></div><a class="act ghost" href="/__ioi/pipeline?ontology=${encodeURIComponent(oid)}">Open pipeline</a></div>`;
+
+  // HONEST EMPTY — no materialized objects ⇒ no lineage. Never fabricate nodes.
+  if (!sets.length) {
+    const note = omBoundaryNote(`This ontology has materialized <b>no objects</b>, so there is <b>no lineage to show</b> — a lineage graph appears only once a pipeline is built (a materializing run registers a receipted object set). Build one from the <a href="/__ioi/pipeline?ontology=${encodeURIComponent(oid)}">Pipeline Builder</a>. The <a href="/__apps/lineage">Monocle reference capture ↗</a> is the familiar baseline, never a rebound surface.`);
+    return automationsShell("Data lineage", head + switcher + `<div class="chips" style="margin:10px 0 12px"><span class="pill muted">no lineage</span> <span class="sub" style="margin:0">${selected ? `No materialized objects for <b>${CX_ESC(selected.domain || selected.id)}</b>.` : "Select or create an ontology."}</span></div>` + lineageLegend() + note);
+  }
+
+  // The primary lineage path — trace the most recent set back through the chain (real refs only).
+  const primary = sets.slice().sort((a, b) => String(b.registered_at || "").localeCompare(String(a.registered_at || "")))[0];
+  const run = runs.find((r) => r.ref === primary.materializing_run_ref) || null;
+  const contact = primary.source_contact || {};
+  const node = (kind, ic, label, ref, detail) => `<div style="flex:0 0 auto;min-width:120px;max-width:158px;border:1px solid #235c3b;border-radius:11px;padding:9px 11px;background:#15171c">
+    <div style="font-size:15px">${ic} <span style="font-weight:600;font-size:12px">${CX_ESC(label)}</span></div>
+    ${ref ? `<div class="sub" style="margin:4px 0 0;font-size:10px"><code>${CX_ESC(String(ref).length > 30 ? String(ref).slice(0, 30) + "…" : ref)}</code></div>` : ""}
+    ${detail ? `<div class="sub" style="margin:3px 0 0;font-size:10.5px;color:#6f7280">${CX_ESC(detail)}</div>` : ""}
+  </div>`;
+  const edge = (label) => `<div style="flex:0 0 auto;color:#5f626b;padding:0 5px;font-size:10px;text-align:center">${CX_ESC(label)}<br>→</div>`;
+  const path = `<div style="display:flex;align-items:center;gap:0;overflow-x:auto;padding:4px 2px 12px">`
+    + node("datasource", "🌐", "Datasource", contact.endpoint || "", `http ${contact.http_status || "—"}`)
+    + edge("mapped_by")
+    + node("mapping", "🔗", "Mapping", primary.object_type_id ? `object:${primary.object_type_id}` : "", "fields → properties")
+    + edge("projected_as")
+    + node("projection", "🔭", "Projection", primary.ontology_projection_id || "", "read shape")
+    + edge("leased_by")
+    + node("lease", "🎟", "Lease + session", primary.connector_session_ref || primary.capability_lease_plan_ref || "", "sealed session")
+    + edge("produced_by")
+    + node("run", "⚙", "Materializing run", primary.materializing_run_ref || "", `${primary.count || 0} objects`)
+    + edge("receipted_by")
+    + node("receipt", "🧾", "Pre-output receipt", primary.pre_output_receipt_ref || "", "before output")
+    + edge("contains")
+    + node("set", "📦", "Object set", primary.ref || "", `${primary.count || 0} objects`)
+    + `</div>`;
+
+  // OBJECT-LEVEL PROVENANCE — the new lineage truth: each object's source hash + mapped_from edges.
+  const objs = (primary.objects || []).slice(0, 8);
+  const objRows = objs.map((o) => {
+    const mapped = Object.entries((o.provenance || {}).mapped_from || {});
+    return `<tr>
+      <td><code>${CX_ESC(o.object_key || "")}</code></td>
+      <td><code style="font-size:10.5px" title="${CX_ESC(o.source_hash || "")}">${CX_ESC(String(o.source_hash || "").slice(0, 20))}…</code></td>
+      <td>${mapped.length ? mapped.map(([prop, sf]) => `<span class="pill muted" style="margin:0"><code>${CX_ESC(prop)}</code> <span style="opacity:.6">mapped_from</span> <code>${CX_ESC(String(sf))}</code></span>`).join(" ") : "—"}</td>
+    </tr>`;
+  }).join("");
+  const objPane = `<h2 id="lineage-objects">Object provenance <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— per-object source hash + which source field produced each property (${(primary.objects || []).length} object${(primary.objects || []).length === 1 ? "" : "s"}, first ${objs.length})</span></h2><table><thead><tr><th>Object</th><th>Source hash (sha256)</th><th>Property ← source field</th></tr></thead><tbody>${objRows}</tbody></table>`;
+
+  // Receipt chain — auditable, from the run's own receipt stream.
+  const receiptRefs = run ? (run.receipt_refs || []) : [];
+  const receiptPane = `<h2 id="lineage-receipts">Receipt chain <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— the run's auditable acts (${receiptRefs.length})</span></h2>`
+    + (run ? `<dl class="grid">${(run.history || []).slice().reverse().slice(0, 8).map((h) => `<dt>${CX_ESC(h.op || "")}</dt><dd>${CX_ESC(h.summary || "")}<br><span class="sub" style="margin:0"><code>${CX_ESC(h.receipt_ref || "")}</code></span></dd>`).join("")}</dl>` : `<div class="empty">The materializing run for this set is no longer resolvable.</div>`);
+
+  // Work Ledger edges — WHERE AVAILABLE (honest; the ODK chain is not yet in the Work Ledger stream).
+  const chainRefs = [primary.ref, primary.materializing_run_ref, primary.connector_session_ref, primary.capability_lease_plan_ref].filter(Boolean);
+  const ledgerEdges = ledger.filter((e) => chainRefs.some((r) => JSON.stringify(e).includes(r)));
+  const ledgerPane = `<h2 id="lineage-ledger">Work Ledger edges <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— where available</span></h2>`
+    + (ledgerEdges.length
+      ? `<div class="sub">${ledgerEdges.length} Work Ledger entr${ledgerEdges.length === 1 ? "y" : "ies"} reference this lineage chain.</div>`
+      : omBoundaryNote(`<b>0 Work Ledger edges</b> for this chain — the ODK materialization receipts live on their own run stream and are <b>not yet threaded into the Work Ledger</b> proof plane (a named gap). Object provenance above is the authoritative lineage today.`));
+
+  const gaps = omBoundaryNote(`This is <b>real provenance</b> in the Monocle lineage grammar. Freeform Monocle lanes — resource search, arbitrary graph expansion, cross-tenant catalog search — are <b>reference-only</b>, not bound. The <a href="/__apps/lineage">Monocle reference capture ↗</a> is the familiar baseline, never a rebound surface.`);
+
+  const banner = `<div class="chips" style="margin:10px 0 12px"><span class="pill ok">lineage</span> <span class="sub" style="margin:0">${sets.length} materialized set${sets.length === 1 ? "" : "s"} · ${sets.reduce((a, s) => a + (s.count || 0), 0)} object instance${sets.reduce((a, s) => a + (s.count || 0), 0) === 1 ? "" : "s"} for <b>${CX_ESC(selected.domain || selected.id)}</b> · newest traced below</span></div>`;
+  return automationsShell("Data lineage", head + switcher + banner + lineageLegend()
+    + `<h2 id="lineage-graph">Lineage <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— provenance path for <code>${CX_ESC(primary.ref || "")}</code></span></h2>` + path
+    + objPane + receiptPane + ledgerPane + gaps);
+}
+
 // ============================ PIPELINE BUILDER (reference-UX parity over the ODK ladder) =========
 // The Application UX Parity Baseline phase, applied to the Data Pipeline Builder. The reference
 // capture (/__apps/pipeline, /workspace/builder/) is the FAMILIAR STARTING POINT; this IOI-owned
@@ -3178,7 +3283,7 @@ function renderPipelineBuilder(lists, selectedId) {
   // Honest gaps + the reference baseline link (secondary).
   const gaps = omBoundaryNote(`This is the pipeline's <b>daemon truth</b>, rendered in the reference builder grammar. Freeform canvas authoring — drag-connect nodes, a transform code editor, run scheduling, deploy — are <b>reference-only lanes</b>, not yet bound: author stages in the <a href="/__ioi/odk?ontology=${encodeURIComponent(oid)}">Ontology Manager</a> and execute via a materializing run. The <a href="/__apps/pipeline">Pipeline Builder reference capture ↗</a> is the familiar baseline, never a rebound surface.`);
 
-  const head = `<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap"><div><h1 style="margin:0">Pipeline Builder</h1><p class="sub" style="margin:4px 0 0">Build ontology-bound object data — the ODK authority ladder as a datasource → transform → output pipeline, over IOI daemon truth. Reference grammar: <a href="/__apps/pipeline">Pipeline Builder ↗</a> (secondary capture).</p></div><a class="act ghost" href="/__ioi/odk?ontology=${encodeURIComponent(oid)}">Open in Ontology Manager</a></div>`;
+  const head = `<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap"><div><h1 style="margin:0">Pipeline Builder</h1><p class="sub" style="margin:4px 0 0">Build ontology-bound object data — the ODK authority ladder as a datasource → transform → output pipeline, over IOI daemon truth. Reference grammar: <a href="/__apps/pipeline">Pipeline Builder ↗</a> (secondary capture).</p></div><div class="row" style="gap:8px"><a class="act ghost" href="/__ioi/lineage?ontology=${encodeURIComponent(oid)}">View lineage</a><a class="act ghost" href="/__ioi/odk?ontology=${encodeURIComponent(oid)}">Open in Ontology Manager</a></div></div>`;
   const banner = `<div class="chips" style="margin:10px 0 14px"><span class="pill ${instances > 0 ? "ok" : "muted"}">${instances > 0 ? "built" : "not built"}</span> <span class="sub" style="margin:0">${selected ? `Pipeline for <b>${CX_ESC(selected.domain || selected.id)}</b> · ${nodes.filter((n) => n.cls === "live").length}/${nodes.length} stages live · ${instances} object instance${instances === 1 ? "" : "s"}` : "Select or create an ontology to see its pipeline."}</span></div>`;
   return automationsShell("Pipeline Builder", head + switcher + banner + toolbar + `<h2 id="pipeline-canvas">Pipeline <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— datasource → transforms → output · daemon truth</span></h2>` + flow + gaps + previewPane);
 }
@@ -6850,6 +6955,24 @@ const server = http.createServer((req, res) => {
       }
     }
     // ---- ODK — controlled builder over the daemon ODK object plane (estate surface #5).
+    if (pathname === "/__ioi/lineage" && req.method === "GET") {
+      const J = (p) => fetch(`${DAEMON}${p}`).then((r) => r.json()).catch(() => ({}));
+      const [o, mr, ms, wl] = await Promise.all([
+        J("/v1/hypervisor/odk/domain-ontologies"),
+        J("/v1/hypervisor/odk/materializing-runs"),
+        J("/v1/hypervisor/odk/materialized-object-sets"),
+        J("/v1/hypervisor/work-ledger"),
+      ]);
+      const selectedOntology = new URL(req.url, "http://x").searchParams.get("ontology") || "";
+      res.writeHead(200, HTMLH);
+      res.end(renderDataLineage({
+        ontologies: o.ontologies || [],
+        materializing_runs: mr.materializing_runs || [],
+        materialized_sets: ms.materialized_object_sets || [],
+        work_ledger: Array.isArray(wl) ? wl : (wl.entries || wl.work_ledger || []),
+      }, selectedOntology));
+      return;
+    }
     if (pathname === "/__ioi/pipeline" && req.method === "GET") {
       const J = (p) => fetch(`${DAEMON}${p}`).then((r) => r.json()).catch(() => ({}));
       const [o, ds, cm, pv, tr, op, lp, mr, cs, ms] = await Promise.all([
