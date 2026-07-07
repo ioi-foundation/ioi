@@ -1097,11 +1097,11 @@ function renderWorkLedger(entries, scopedProject) {
   const projects = [...new Set(entries.map((e) => e.project_id).filter(Boolean))];
   const chip = (f, v, label) => `<button class="chip" data-facet="${f}" data-val="${v}" onclick="wlChip(this)">${label}</button>`;
   const filters = `<div class="chips">
-    <span class="chiplabel">kind</span>${chip("kind", "run", "Runs")}${chip("kind", "harness_execution", "Harness runs")}${chip("kind", "goal_run", "IOI Agent coordination")}${chip("kind", "goal_run_invocation", "Agent invocations")}${chip("kind", "goal_run_reconciliation", "Reconciliations")}${chip("kind", "memory_lifecycle", "Memory lifecycle")}${chip("kind", "simulation_report", "Simulations")}${chip("kind", "policy_rollout", "Rollouts")}${chip("kind", "rollout_enforcement", "Rollout enforcement")}${chip("kind", "provider_crossing", "Provider crossings")}${chip("kind", "storage_custody", "Storage custody")}${chip("kind", "trigger", "Trigger events")}${chip("kind", "marketplace_publish", "Publishes")}${chip("kind", "kill_enforcement", "Kill enforcements")}
-    <span class="chiplabel">status</span>${chip("status", "done", "Done")}${chip("status", "success", "Success")}${chip("status", "failed", "Failed")}${chip("status", "failure", "Failure")}${chip("status", "accepted", "Accepted")}${chip("status", "rejected", "Rejected")}
+    <span class="chiplabel">kind</span>${chip("kind", "run", "Runs")}${chip("kind", "harness_execution", "Harness runs")}${chip("kind", "goal_run", "IOI Agent coordination")}${chip("kind", "goal_run_invocation", "Agent invocations")}${chip("kind", "goal_run_reconciliation", "Reconciliations")}${chip("kind", "memory_lifecycle", "Memory lifecycle")}${chip("kind", "simulation_report", "Simulations")}${chip("kind", "policy_rollout", "Rollouts")}${chip("kind", "rollout_enforcement", "Rollout enforcement")}${chip("kind", "provider_crossing", "Provider crossings")}${chip("kind", "storage_custody", "Storage custody")}${chip("kind", "odk_materialization", "Materializations")}${chip("kind", "trigger", "Trigger events")}${chip("kind", "marketplace_publish", "Publishes")}${chip("kind", "kill_enforcement", "Kill enforcements")}
+    <span class="chiplabel">status</span>${chip("status", "done", "Done")}${chip("status", "success", "Success")}${chip("status", "registered", "Registered")}${chip("status", "failed", "Failed")}${chip("status", "failure", "Failure")}${chip("status", "accepted", "Accepted")}${chip("status", "rejected", "Rejected")}
     <span class="chiplabel">project</span><select id="wl-project" onchange="wlFilter()"><option value="">all</option>${projects.map((p) => `<option value="${CX_ESC(p)}">${CX_ESC(p)}</option>`).join("")}</select>
   </div>`;
-  const icon = (k) => (k === "run" ? "▶" : k === "harness_execution" ? "🤖" : k === "goal_run" ? "🎯" : k === "goal_run_invocation" ? "🤝" : k === "goal_run_reconciliation" ? "⚖" : k === "memory_lifecycle" ? "🧬" : k === "simulation_report" ? "🔮" : k === "policy_rollout" ? "🚦" : k === "rollout_enforcement" ? "🚫" : k === "improvement_applied" ? "📈" : k === "memory_projection" ? "🧠" : k === "marketplace_publish" ? "🛒" : k === "domain_app_runtime" ? "🧩" : k === "kill_enforcement" ? "🛑" : k === "provider_crossing" ? "🔌" : k === "storage_custody" ? "🗄" : "🪝");
+  const icon = (k) => (k === "run" ? "▶" : k === "harness_execution" ? "🤖" : k === "goal_run" ? "🎯" : k === "goal_run_invocation" ? "🤝" : k === "goal_run_reconciliation" ? "⚖" : k === "memory_lifecycle" ? "🧬" : k === "simulation_report" ? "🔮" : k === "policy_rollout" ? "🚦" : k === "rollout_enforcement" ? "🚫" : k === "improvement_applied" ? "📈" : k === "memory_projection" ? "🧠" : k === "marketplace_publish" ? "🛒" : k === "domain_app_runtime" ? "🧩" : k === "kill_enforcement" ? "🛑" : k === "provider_crossing" ? "🔌" : k === "storage_custody" ? "🗄" : k === "odk_materialization" ? "📦" : "🪝");
   // A ledger row's headline: automation name for runs, else the harness/session/subject it proves.
   const title = (e) => e.kind === "provider_crossing"
     ? `provider ${CX_ESC(e.op || "op")} · ${CX_ESC(e.provider || "")} ${CX_ESC(String(e.account_ref || e.environment_ref || "").slice(-22))}`
@@ -1117,10 +1117,11 @@ function renderWorkLedger(entries, scopedProject) {
     : e.kind === "marketplace_publish" ? `publish ${CX_ESC(e.listing_id || e.candidate_ref || "")}`
     : e.kind === "kill_enforcement" ? `kill ${CX_ESC(e.subject_ref || "")}`
     : e.kind === "domain_app_runtime" ? `${CX_ESC(e.action || "runtime")} ${CX_ESC(e.domain_app_ref || "")}`
+    : e.kind === "odk_materialization" ? `materialized ${CX_ESC(String(e.object_count == null ? "" : e.object_count))} object${e.object_count === 1 ? "" : "s"} → ${CX_ESC(e.object_type_id || "objects")}`
     : CX_ESC(e.automation_name || "—");
   const rows = entries.map((e, i) => {
     const st = e.status || "";
-    const pill = (st === "done" || st === "accepted" || st === "success" || st === "published") ? "ok" : (st === "failed" || st === "rejected" || st === "failure") ? "warn" : "muted";
+    const pill = (st === "done" || st === "accepted" || st === "success" || st === "published" || st === "registered") ? "ok" : (st === "failed" || st === "rejected" || st === "failure") ? "warn" : "muted";
     const proof = (e.state_root || "").slice(0, 20) || "—";
     return `<tr class="wlrow" data-kind="${CX_ESC(e.kind)}" data-status="${CX_ESC(st)}" data-project="${CX_ESC(e.project_id || "")}" data-i="${i}" onclick="wlOpen(${i})">
       <td>${icon(e.kind)} ${title(e)}</td>
@@ -1161,8 +1162,8 @@ function renderWorkLedger(entries, scopedProject) {
     function wlOpen(i){
       var e=WL[i];if(!e)return;
       function row(k,v){return (v===0||v)?('<div class="wlk">'+k+'</div><div class="wlv">'+wesc(v)+'</div>'):'';}
-      var titles={run:'▶',harness_execution:'🤖',marketplace_publish:'🛒',domain_app_runtime:'🧩',kill_enforcement:'🛑'};
-      var hd=e.kind==='harness_execution'?((e.harness||'harness')+' → '+(e.session_ref||'session')):(e.automation_name||e.listing_id||e.subject_ref||e.domain_app_ref||'—');
+      var titles={run:'▶',harness_execution:'🤖',marketplace_publish:'🛒',domain_app_runtime:'🧩',kill_enforcement:'🛑',odk_materialization:'📦'};
+      var hd=e.kind==='harness_execution'?((e.harness||'harness')+' → '+(e.session_ref||'session')):e.kind==='odk_materialization'?('materialized '+(e.object_count==null?'':e.object_count)+' → '+(e.object_type_id||'objects')):(e.automation_name||e.listing_id||e.subject_ref||e.domain_app_ref||'—');
       var h='<h3>'+(titles[e.kind]||'🪝')+' '+wesc(hd)+'</h3><div class="wlgrid">';
       h+=row('Kind',e.kind)+row('Project',e.project_id)+row('Status',e.status)+row('Trigger',e.trigger_kind||e.kind)+row('When',e.timestamp);
       if(e.kind==='run'){h+=row('Environment',e.environment_id)+row('Authority',e.authority?JSON.stringify(e.authority):'')+row('Steps',e.counts?JSON.stringify(e.counts):'');}
@@ -1171,6 +1172,7 @@ function renderWorkLedger(entries, scopedProject) {
       if(e.kind==='trigger'){h+=row('Reason',e.reason)+row('Request',e.request_id);}
       if(e.kind==='provider_crossing'){h+=row('Op',e.op)+row('Provider',e.provider)+row('Account',e.account_ref)+row('Environment',e.environment_ref)+row('Receipt',e.receipt_ref)+row('Grant',e.grant_ref)+row('Candidate',e.candidate_ref)+row('Quote',e.quote_ref)+row('Execution mode',e.execution_mode)+row('Teardown',e.teardown_state)+row('State root',e.state_root_evidence)+row('Cost estimate',e.cost_estimate?JSON.stringify(e.cost_estimate):'');}
       if(e.kind==='storage_custody'){h+=row('Op',e.op)+row('Backend',e.backend)+row('Backend ref',e.backend_ref)+row('Archive',e.archive_ref)+row('Material',e.material_ref)+row('Environment',e.environment_ref)+row('State root',e.state_root)+row('Commitment',e.commitment?(e.commitment.address||''):'')+row('Grant',e.grant_ref)+row('Incident',e.incident_ref)+row('Repair',e.repair_ref)+row('Custody rule',e.custody_rule);}
+      if(e.kind==='odk_materialization'){h+=row('Objects',e.object_count)+row('Ontology',e.ontology_ref)+row('Object type',e.object_type_id)+row('Object set',e.materialized_set_ref)+row('Materializing run',e.materializing_run_ref)+row('Sealed session',e.connector_session_ref)+row('Lease plan',e.capability_lease_plan_ref)+row('Projection',e.ontology_projection_id)+row('Pre-output receipt',e.pre_output_receipt_ref)+row('Source',e.source_contact?e.source_contact.endpoint:'')+row('Authority',e.authority_rule);}
       h+='</div><h4>Hashes</h4><div class="wlgrid">'+row('State root',e.state_root)+row('Payload hash',e.payload_hash)+row('Headers hash',e.headers_hash)+'</div>';
       // Backlinks — this ledger entry is an executable cross-reference map: every cross-object
       // ref it names is rendered as a navigable link into the surface that owns that object, so
@@ -1188,6 +1190,7 @@ function renderWorkLedger(entries, scopedProject) {
       if(e.listing_id){links+=bl('Listing',e.listing_id,'/__ioi/marketplace');}
       if(e.kind==='provider_crossing'){links+=bl('Provider health',e.account_ref||'provider accounts','/__ioi/operations')+bl('Provider accounts',e.account_ref||'environments','/__ioi/environments');if(e.exposure_ref){links+=bl('Spend reconciliation',e.exposure_ref,e.spend_reconciliation_ref||'/__ioi/operations');}}
       if(e.kind==='storage_custody'){links+=bl('Storage backend health',e.backend_ref||'storage backends',e.storage_health_ref||'/__ioi/operations')+bl('Archive custody',e.archive_ref||'environments','/__ioi/environments');}
+      if(e.kind==='odk_materialization'){var oid=String(e.ontology_ref||'').replace('ontology://','');var q=oid?('?ontology='+oid):'';links+=bl('Lineage graph',e.materialized_set_ref,'/__ioi/lineage'+q)+bl('Pipeline',e.ontology_ref,'/__ioi/pipeline'+q)+bl('Object set',e.materialized_set_ref,'/__ioi/odk'+q+'#pane-explorer')+bl('Materializing run',e.materializing_run_ref,'/__ioi/odk'+q+'#pane-resources')+bl('Sealed session',e.connector_session_ref,'/__ioi/odk'+q+'#pane-resources')+bl('Lease plan',e.capability_lease_plan_ref,'/__ioi/odk'+q+'#pane-resources');}
       if(e.release_control_ref){links+=bl('Release control',e.release_control_ref,'/__ioi/governance');}
       if(e.approval_request_ref){links+=bl('Approval request',e.approval_request_ref,'/__ioi/governance');}
       if(e.kill_switch_ref){links+=bl('Kill switch',e.kill_switch_ref,'/__ioi/governance');}

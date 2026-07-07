@@ -131,9 +131,20 @@ async function run() {
   const s2 = await stream();
   ok("a fresh (unmaterialized) ontology contributes NO odk_materialization entry", !s2.some((e) => e.kind === "odk_materialization" && e.ontology_ref === fresh.ref));
 
-  // 5. Regression: the Provenance surface still renders with the new kind present.
+  // 5. The Provenance surface renders odk_materialization as a FIRST-CLASS kind (not a generic row):
+  //    facet chip, icon/title, and a drawer with the object-set/run/session/plan/receipt backlinks.
   const prov = await page(`${SERVE}/__ioi/work-ledger`);
-  ok("regression: the Provenance surface (/__ioi/work-ledger) still renders", prov.status === 200 && /Provenance/.test(prov.text) && !/\bPalantir\b/.test(prov.text));
+  const pt = prov.text;
+  ok("Provenance surface renders + is brand-clean", prov.status === 200 && /Provenance/.test(pt) && !/\bPalantir\b/.test(pt));
+  ok("odk_materialization is a first-class facet chip ('Materializations')", /data-val="odk_materialization"/.test(pt) && />Materializations</.test(pt));
+  ok("the materialization row has its own title (not the generic '—' fallback)", new RegExp(`data-kind="odk_materialization"[^>]*>[\\s\\S]*?materialized 2 objects → loan`).test(pt));
+  ok("the row carries the kind for filtering + a 'registered' status pill", new RegExp(`data-kind="odk_materialization" data-status="registered"`).test(pt));
+  // The drawer data is embedded as JSON in the page (wl-data); the drawer JS renders backlinks from
+  // it. Assert the embedded entry carries every backlink ref the drawer will render.
+  const wlData = JSON.parse((pt.match(/<script id="wl-data" type="application\/json">([\s\S]*?)<\/script>/) || [])[1]?.replace(/\\u003c/g, "<") || "[]");
+  const de = wlData.find((e) => e.kind === "odk_materialization" && e.materialized_set_ref === set.ref);
+  ok("drawer entry carries the full backlink set (set · run · session · plan · projection · existing receipt)", de && de.materialized_set_ref && de.materializing_run_ref && de.connector_session_ref && de.capability_lease_plan_ref && de.ontology_projection_id && de.receipt_ref === set.pre_output_receipt_ref);
+  ok("drawer will render Lineage + Pipeline backlinks (ontology resolvable from the entry)", de && String(de.ontology_ref || "").startsWith("ontology://"));
 
   srv.close();
   for (const [method, p] of cleanup) await jd(method, p);
