@@ -4060,6 +4060,7 @@ function govApprovalsQueue(records) {
     ? `<div class="wlwrap"><div><table><thead><tr><th>Request</th><th>Target</th><th>Blast radius</th><th>Age</th><th>Status</th><th>Decide</th></tr></thead><tbody id="aq-body">${rows}</tbody></table><div class="empty" id="aq-empty" style="display:${byStatus.pending ? "none" : ""}">Nothing in this view — pick another inbox chip.</div></div>
        <div class="wldrawer" id="aq-drawer"><div class="sub" style="margin:0">Select a request to inspect its full record — blast radius, policy posture, decision history.</div></div></div>`
     : `<div class="empty">No approval requests yet — governed work creates them when it parks at a gate, or record one below.</div>`;
+  const gaps = omBoundaryNote(`This is the <b>real decision queue</b> over daemon ApprovalRequest records — status counts, blast radius, age, per-row inspector, and in-row decisions are daemon truth. Unsupported reference lanes — <b>reviewer assignment</b>, delegation, threaded comments, SLA/escalation timers, identity/team review workflows, audit exports — are <b>named gaps</b> (no authority contract yet), not hidden. The <a href="/__apps/approvals">approvals reference capture ↗</a> is the familiar baseline, never a rebound surface.`);
   const dataTag = `<script id="aq-data" type="application/json">${JSON.stringify(records).replace(/</g, "\\u003c")}</script>`;
   const script = `<script>
     var AQ=[];try{AQ=JSON.parse(document.getElementById('aq-data').textContent||'[]');}catch(e){}
@@ -4085,7 +4086,7 @@ function govApprovalsQueue(records) {
       document.getElementById('aq-drawer').innerHTML=h;
     }
   </script>`;
-  return inbox + table + dataTag + script;
+  return inbox + table + gaps + dataTag + script;
 }
 function govControlTab(fam, records, cohorts, joins) {
   const forms = {
