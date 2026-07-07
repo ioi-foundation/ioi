@@ -8,8 +8,8 @@
   ],
   "total_seeds": 39,
   "by_parity_class": {
-    "reference_capture": 34,
-    "daemon_bound": 5
+    "reference_capture": 33,
+    "daemon_bound": 6
   },
   "legend": {
     "reference_capture": "the /__apps/<slug> reference baseline serves; not yet bound to daemon truth",
@@ -209,10 +209,13 @@
       "capture_base": "/workspace/evals/",
       "grammar": "table_list",
       "tier": "high_value",
-      "parity_class": "reference_capture",
+      "parity_class": "daemon_bound",
       "capture_state": "boots_editor_canvas",
       "reference_capture": "/__apps/evalsuites",
-      "note": "eval-suite library; unbound"
+      "note": "declaration-only owner surface; /__ioi/feedback kept as a compatibility sublane; honest empty when no suites; EvalRun execution / scoring / verdicts / judge / scorecards / auto-mining / analysis+quiver canvases / promotion = named gaps",
+      "daemon_surface": "/__ioi/evaluations",
+      "surface_name": "Evaluations",
+      "binding": "the eval-suite library — the inert daemon eval-suite contract (a suite declares subject_scope + evidence/consent requirements + named candidate handoffs) over real assessment subjects (Missions runs/failures/blockers) + the consent ladder + feedback candidate source, table/list grammar over daemon truth"
     },
     {
       "owner": "Evaluations",

@@ -36,6 +36,8 @@ mod binding_routes;
 mod domain_apps_routes;
 #[path = "hypervisor_daemon_routes/feedback_routes.rs"]
 mod feedback_routes;
+#[path = "hypervisor_daemon_routes/eval_suite_routes.rs"]
+mod eval_suite_routes;
 #[path = "hypervisor_daemon_routes/goalrun_routes.rs"]
 mod goalrun_routes;
 #[path = "hypervisor_daemon_routes/ioi_agent_routes.rs"]
@@ -1633,6 +1635,24 @@ async fn async_main() -> anyhow::Result<()> {
             get(feedback_routes::handle_feedback_get)
                 .patch(feedback_routes::handle_feedback_patch)
                 .delete(feedback_routes::handle_feedback_delete),
+        )
+        // Eval-suite library object plane (foundation) — DECLARATION-ONLY. A suite declares what it
+        // would assess (subject_scope), under what admissibility (evidence/consent requirements), and
+        // which named candidate handoffs it draws on. There is NO run/scoring/judge here; EvalRun
+        // execution, verdicts, and scorecards are named gaps.
+        .route(
+            "/v1/hypervisor/eval-suites/overview",
+            get(eval_suite_routes::handle_eval_suite_overview),
+        )
+        .route(
+            "/v1/hypervisor/eval-suites",
+            get(eval_suite_routes::handle_eval_suite_list).post(eval_suite_routes::handle_eval_suite_create),
+        )
+        .route(
+            "/v1/hypervisor/eval-suites/:id",
+            get(eval_suite_routes::handle_eval_suite_get)
+                .patch(eval_suite_routes::handle_eval_suite_patch)
+                .delete(eval_suite_routes::handle_eval_suite_delete),
         )
         // Governance object plane (foundation) — a READ PROJECTION aggregating real authority /
         // identity / lease / admission substrate + naming missing controls. No CRUD, no mutation.
