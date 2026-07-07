@@ -42,6 +42,9 @@ const DAEMON_BOUND = {
   // Evaluations owner-family: only evalsuites binds in this cut (analysis + quiver stay reference_capture).
   // The eval-suite library renders the INERT daemon eval-suite contract (a declaration; no scoring).
   evalsuites: { daemon_surface: "/__ioi/evaluations", surface_name: "Evaluations", binding: "the eval-suite library — the inert daemon eval-suite contract (a suite declares subject_scope + evidence/consent requirements + named candidate handoffs) over real assessment subjects (Missions runs/failures/blockers) + the consent ladder + feedback candidate source, table/list grammar over daemon truth", note: "declaration-only owner surface; /__ioi/feedback kept as a compatibility sublane; honest empty when no suites; EvalRun execution / scoring / verdicts / judge / scorecards / auto-mining / analysis+quiver canvases / promotion = named gaps" },
+  // Studio owner-family: only designer binds in this cut (machinery/workshop/module stay reference_capture).
+  // A dedicated /__ioi/studio/designer surface; the /__ioi/agent-studio owner links to it (no rename).
+  designer: { daemon_surface: "/__ioi/studio/designer", surface_name: "Studio", binding: "the system-design canvas — a read-only typed concept/component/resource map over real ODK composition (an ontology's object/value/action/link types = concepts; connector mappings + policy views + projections = components; materialized object sets + domain-app surface descriptors = resources)", note: "read-only design map; owner surface stays /__ioi/agent-studio (no route rename); honest empty when an ontology has no concepts/components/resources; in-canvas authoring / save-open / drag-to-reference / load-lineage / machinery process-graph execution / workshop+module builders = named gaps" },
 };
 // Named-next targets (owner binding declared; surface not built yet).
 const QUEUED = {};

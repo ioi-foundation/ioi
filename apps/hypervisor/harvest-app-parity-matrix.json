@@ -8,8 +8,8 @@
   ],
   "total_seeds": 39,
   "by_parity_class": {
-    "reference_capture": 33,
-    "daemon_bound": 6
+    "daemon_bound": 7,
+    "reference_capture": 32
   },
   "legend": {
     "reference_capture": "the /__apps/<slug> reference baseline serves; not yet bound to daemon truth",
@@ -25,10 +25,13 @@
       "capture_base": "/workspace/solution-design/",
       "grammar": "editor_canvas",
       "tier": "high_value",
-      "parity_class": "reference_capture",
+      "parity_class": "daemon_bound",
       "capture_state": "boots_graph",
       "reference_capture": "/__apps/designer",
-      "note": "typed concept/component/resource canvas; in-canvas open/save/reference/load-lineage = named gaps"
+      "note": "read-only design map; owner surface stays /__ioi/agent-studio (no route rename); honest empty when an ontology has no concepts/components/resources; in-canvas authoring / save-open / drag-to-reference / load-lineage / machinery process-graph execution / workshop+module builders = named gaps",
+      "daemon_surface": "/__ioi/studio/designer",
+      "surface_name": "Studio",
+      "binding": "the system-design canvas — a read-only typed concept/component/resource map over real ODK composition (an ontology's object/value/action/link types = concepts; connector mappings + policy views + projections = components; materialized object sets + domain-app surface descriptors = resources)"
     },
     {
       "owner": "Studio",
