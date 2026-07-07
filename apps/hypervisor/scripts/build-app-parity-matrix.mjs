@@ -33,13 +33,11 @@ const captureState = Object.fromEntries((startingPoints.seeds || []).map((s) => 
 const DAEMON_BOUND = {
   pipeline: { daemon_surface: "/__ioi/pipeline", binding: "ODK authority ladder (DataSource → ConnectorMapping → PolicyBoundDataView → TransformationRun → OntologyProjection → CapabilityLease → ConnectorSession → MaterializedObjectSet)", note: "the ODK ladder rendered as a datasource→transform→output pipeline; supported lanes = daemon truth, freeform authoring/schedule/deploy = named gaps" },
   lineage: { daemon_surface: "/__ioi/lineage", binding: "ODK materialization provenance (MaterializedObjectSet → run → session → lease → projection → mapping → datasource, resolved to live ladder refs; per-object source hashes + mapped_from; pre-output + registration receipts; Provenance proof-stream edges where available)", note: "Monocle lineage grammar over real provenance; upstream ladder refs resolved to live records; no fake nodes for unmaterialized ontologies; freeform resource-search / graph-expansion / cross-tenant catalog = named gaps" },
+  // Canon: Work Ledger evolves into Provenance — Vertex is a Provenance graph/exploration lens.
+  vertex: { daemon_surface: "/__ioi/vertex", surface_name: "Provenance", binding: "a Provenance graph/exploration lens over materialized object sets, projections, objects, and the threaded proof-stream odk_materialization edges (cross-plane: ODK ↔ Provenance)", note: "Vertex graph grammar (nodes · relations · neighborhood) over real cross-plane materialized truth; no fake nodes for unmaterialized ontologies; freeform graph canvas / arbitrary path-finding / cross-tenant object search / saved explorations = named gaps" },
 };
-// Named-next targets (owner binding declared; surface not built yet). Canon: Work Ledger evolves
-// into Provenance — the /__ioi/work-ledger route is the Provenance surface; vertex is a Provenance
-// graph/exploration lens (not a "Work Ledger app").
-const QUEUED = {
-  vertex: { target_surface: "/__ioi/work-ledger", surface_name: "Provenance", binding: "a Provenance graph/exploration lens over materialized object sets, projections, and Provenance proof-stream edges", note: "the first materialized objects need a graph/exploration lens; queued as a Provenance surface, not a Work Ledger app" },
-};
+// Named-next targets (owner binding declared; surface not built yet).
+const QUEUED = {};
 
 function parityClass(slug) {
   if (DAEMON_BOUND[slug]) return "daemon_bound";

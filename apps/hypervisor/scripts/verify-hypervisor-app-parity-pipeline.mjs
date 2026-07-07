@@ -16,7 +16,7 @@
 //   - UNSUPPORTED LANES = NAMED GAPS: Schedule + Deploy shown unavailable; freeform authoring is a
 //     reference-only lane; the capture is linked as the secondary baseline, never rebound.
 //   - CONDITIONALLY HONEST: a fresh ontology's pipeline is "not built" with 0/7 stages live.
-//   - PARITY MATRIX current + honest: pipeline=daemon_bound, vertex+lineage=queued, rest
+//   - PARITY MATRIX current + honest: pipeline=daemon_bound, vertex+lineage=daemon_bound, rest
 //     reference_capture; no false "covered".
 //   - No brand/reference leak; the ODK ladder itself remains intact (Ontology Manager still renders).
 //
@@ -54,7 +54,7 @@ async function run() {
   const matrix = JSON.parse(spawnSync("node", ["-e", `import(${JSON.stringify(path.join(here, "..", "harvest-app-parity-matrix.json"))}, { with: { type: "json" } }).then(m => console.log(JSON.stringify(m.default)))`], { encoding: "utf8" }).stdout || "{}");
   const bySlug = Object.fromEntries((matrix.seeds || []).map((s) => [s.slug, s]));
   ok("matrix classifies pipeline as daemon_bound → /__ioi/pipeline", bySlug.pipeline?.parity_class === "daemon_bound" && bySlug.pipeline?.daemon_surface === "/__ioi/pipeline");
-  ok("matrix queues the next graph surface (vertex) — named, not claimed covered", bySlug.vertex?.parity_class === "queued");
+  ok("matrix binds the sibling graph surfaces (lineage + vertex) as daemon_bound — their own cuts, not claimed by pipeline", bySlug.lineage?.parity_class === "daemon_bound" && bySlug.vertex?.parity_class === "daemon_bound" && bySlug.vertex?.daemon_surface === "/__ioi/vertex");
   ok("matrix is honest estate-wide: most seeds are reference_capture only, none over-claimed", (matrix.by_parity_class?.reference_capture || 0) >= 30 && !(matrix.seeds || []).some((s) => s.parity_class === "covered"));
 
   // 1. Reference baseline boots the familiar grammar, brand-clean.
