@@ -55,6 +55,7 @@ async function run() {
   const bySlug = Object.fromEntries((matrix.seeds || []).map((s) => [s.slug, s]));
   ok("matrix classifies lineage as daemon_bound → /__ioi/lineage", bySlug.lineage?.parity_class === "daemon_bound" && bySlug.lineage?.daemon_surface === "/__ioi/lineage");
   ok("matrix keeps vertex queued (not claimed covered); pipeline still daemon_bound", bySlug.vertex?.parity_class === "queued" && bySlug.pipeline?.parity_class === "daemon_bound");
+  ok("matrix queues vertex as a Provenance lens (canon: Work Ledger evolves into Provenance)", bySlug.vertex?.surface_name === "Provenance" && /Provenance graph\/exploration lens/.test(bySlug.vertex?.binding || ""));
 
   // 1. Reference baseline.
   const ref = await page(`${SERVE}/__apps/lineage`);
@@ -112,8 +113,17 @@ async function run() {
   const lin = await page(`${SERVE}/__ioi/lineage?ontology=${encodeURIComponent(ont.id)}`);
   const t = lin.text;
   ok("IOI /__ioi/lineage renders the Monocle 'Data lineage' grammar (title + legend)", lin.status === 200 && /<h1[^>]*>Data lineage/.test(t) && /chiplabel">Nodes/.test(t) && /chiplabel">Edges/.test(t));
-  ok("typed provenance PATH present (datasource → … → object set)", ["Datasource", "Mapping", "Projection", "Lease + session", "Materializing run", "Pre-output receipt", "Object set"].every((n) => t.includes(`${n}<`)));
-  ok("typed EDGES present (mapped_by · projected_as · produced_by · receipted_by · contains)", ["mapped_by", "projected_as", "produced_by", "receipted_by", "contains"].every((e) => t.includes(`>${e}<`)));
+  ok("typed provenance PATH present (datasource → mapping → policy → … → object set)", ["Datasource", "Mapping", "Policy view", "Projection", "Lease + session", "Materializing run", "Pre-output receipt", "Object set"].every((n) => t.includes(`${n}<`)));
+  ok("typed EDGES present (mapped_by · gated_by · projected_as · produced_by · receipted_by · contains)", ["mapped_by", "gated_by", "projected_as", "produced_by", "receipted_by", "contains"].every((e) => t.includes(`>${e}<`)));
+  // The nodes carry the set's ACTUAL resolved daemon refs, not fabricated labels — assert each.
+  const setRec = ex.j.materialized_object_set;
+  const projRec = (await jd("GET", `/v1/hypervisor/odk/ontology-projections/${proj}`)).j.ontology_projection;
+  const mapRec = (await jd("GET", `/v1/hypervisor/odk/connector-mappings/${map}`)).j.connector_mapping;
+  const viewRec = (await jd("GET", `/v1/hypervisor/odk/policy-bound-data-views/${view}`)).j.policy_bound_data_view;
+  const planRec = (await jd("GET", `/v1/hypervisor/odk/capability-lease-plans/${plan}`)).j.capability_lease_plan;
+  ok("nodes carry the REAL resolved ladder refs (mapping · policy · projection · plan · run · receipt · set)", [mapRec?.ref, viewRec?.ref, projRec?.ref, planRec?.ref, setRec?.materializing_run_ref, setRec?.pre_output_receipt_ref, setRec?.ref].every((r) => r && t.includes(String(r).slice(0, 32))), "all 7 refs rendered");
+  ok("the Mapping node is the actual ConnectorMapping ref (not object:<type_id>)", mapRec?.ref?.startsWith("connector-mapping://") && t.includes(mapRec.ref.slice(0, 32)) && !/object:loan/.test(t));
+  ok("header states how many upstream refs resolved to live records (5/5)", /5\/5 upstream ladder refs resolved/.test(t));
 
   // 3. Per-object provenance — the real new truth.
   ok("object provenance pane renders real objects (L-1) + source hashes (sha256)", /id="lineage-objects"/.test(t) && />L-1</.test(t) && /sha256:/.test(t));
@@ -121,7 +131,8 @@ async function run() {
   ok("receipt chain shows the run's registration act", /id="lineage-receipts"/.test(t) && /materialized_output_registered/.test(t));
 
   // 4. Honest gaps.
-  ok("Work Ledger edges shown 'where available' — honest 0 for the ODK chain (named gap)", /0 Work Ledger edges/.test(t));
+  ok("Provenance proof-stream edges shown 'where available' — honest 0 for the ODK chain (named gap)", /0 Provenance proof-stream edges/.test(t) && /not yet threaded into the Provenance proof stream/.test(t));
+  ok("terminology: no 'Work Ledger' UI prose leaks into the lineage surface", !/Work Ledger/.test(t));
   ok("unsupported Monocle lanes named (resource search / graph expansion / cross-tenant catalog)", /resource search, arbitrary graph expansion, cross-tenant catalog/.test(t));
   ok("reference capture linked as secondary baseline; brand-clean", t.includes("/__apps/lineage") && !/\bPalantir\b/.test(t) && !/\bFoundry\b/.test(t));
 

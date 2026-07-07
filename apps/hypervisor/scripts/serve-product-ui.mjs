@@ -3103,7 +3103,7 @@ function omNav(counts) {
 // run, session, lease, projection, mapping, and datasource, plus per-OBJECT provenance (source hash
 // + which source field produced each property) and the auditable receipt chain. No graph data is
 // invented: an ontology with no materialized objects shows NO lineage (honest empty), never fake
-// nodes. Work Ledger edges are shown "where available". Unsupported Monocle lanes (freeform resource
+// nodes. Provenance proof-stream edges are shown "where available". Unsupported Monocle lanes (freeform resource
 // search, arbitrary graph expansion, cross-tenant catalog search) are visible but named gaps.
 const LINEAGE_NODE_KINDS = [
   ["datasource", "🌐", "Datasource"], ["mapping", "🔗", "Mapping"], ["policy", "🛡", "Policy view"],
@@ -3124,7 +3124,15 @@ function renderDataLineage(lists, selectedId) {
   const oid = selected ? selected.id : "";
   const sets = allSets.filter((s) => s.ontology_ref === oref);
   const runs = (lists.materializing_runs || []).filter((r) => r.ontology_ref === oref);
-  const ledger = Array.isArray(lists.work_ledger) ? lists.work_ledger : [];
+  const provStream = Array.isArray(lists.provenance_stream) ? lists.provenance_stream : [];
+  // Resolvers for the REAL ladder records the set does not itself carry (mapping/policy/source):
+  // a set holds run/session/plan/projection/receipt refs; the projection carries mapping + policy,
+  // and the mapping carries the data source — so the full chain resolves to actual daemon refs.
+  const projById = new Map((lists.ontology_projections || []).map((p) => [p.id, p]));
+  const mapById = new Map((lists.connector_mappings || []).map((m) => [m.id, m]));
+  const viewById = new Map((lists.policy_views || []).map((v) => [v.id, v]));
+  const planByRef = new Map((lists.capability_lease_plans || []).map((p) => [p.ref, p]));
+  const srcById = new Map((lists.data_sources || []).map((d) => [d.source_id, d]));
 
   const switcher = ontologies.length
     ? `<div class="chips" style="margin:0 0 14px">${ontologies.map((x) => {
@@ -3141,24 +3149,34 @@ function renderDataLineage(lists, selectedId) {
     return automationsShell("Data lineage", head + switcher + `<div class="chips" style="margin:10px 0 12px"><span class="pill muted">no lineage</span> <span class="sub" style="margin:0">${selected ? `No materialized objects for <b>${CX_ESC(selected.domain || selected.id)}</b>.` : "Select or create an ontology."}</span></div>` + lineageLegend() + note);
   }
 
-  // The primary lineage path — trace the most recent set back through the chain (real refs only).
+  // The primary lineage path — trace the most recent set back through the chain, resolving each
+  // stage to its ACTUAL daemon ref (the set carries run/session/plan/projection/receipt; projection
+  // → mapping → source resolves the rest). A ref that no longer resolves shows the ref the set does
+  // carry, or "—" — never a fabricated label.
   const primary = sets.slice().sort((a, b) => String(b.registered_at || "").localeCompare(String(a.registered_at || "")))[0];
   const run = runs.find((r) => r.ref === primary.materializing_run_ref) || null;
+  const projection = projById.get(primary.ontology_projection_id) || null;
+  const mapping = projection ? mapById.get(projection.connector_mapping_id) : null;
+  const view = projection ? viewById.get(projection.policy_view_id) : null;
+  const source = mapping ? srcById.get(mapping.data_source_id) : null;
+  const plan = planByRef.get(primary.capability_lease_plan_ref) || null;
   const contact = primary.source_contact || {};
   const node = (kind, ic, label, ref, detail) => `<div style="flex:0 0 auto;min-width:120px;max-width:158px;border:1px solid #235c3b;border-radius:11px;padding:9px 11px;background:#15171c">
     <div style="font-size:15px">${ic} <span style="font-weight:600;font-size:12px">${CX_ESC(label)}</span></div>
-    ${ref ? `<div class="sub" style="margin:4px 0 0;font-size:10px"><code>${CX_ESC(String(ref).length > 30 ? String(ref).slice(0, 30) + "…" : ref)}</code></div>` : ""}
+    ${ref ? `<div class="sub" style="margin:4px 0 0;font-size:10px"><code>${CX_ESC(String(ref).length > 32 ? String(ref).slice(0, 32) + "…" : ref)}</code></div>` : `<div class="sub" style="margin:4px 0 0;font-size:10px;color:#6f7280">—</div>`}
     ${detail ? `<div class="sub" style="margin:3px 0 0;font-size:10.5px;color:#6f7280">${CX_ESC(detail)}</div>` : ""}
   </div>`;
   const edge = (label) => `<div style="flex:0 0 auto;color:#5f626b;padding:0 5px;font-size:10px;text-align:center">${CX_ESC(label)}<br>→</div>`;
   const path = `<div style="display:flex;align-items:center;gap:0;overflow-x:auto;padding:4px 2px 12px">`
-    + node("datasource", "🌐", "Datasource", contact.endpoint || "", `http ${contact.http_status || "—"}`)
+    + node("datasource", "🌐", "Datasource", source ? source.source_ref : "", contact.endpoint ? `${contact.endpoint} · http ${contact.http_status || "—"}` : (source ? source.kind : ""))
     + edge("mapped_by")
-    + node("mapping", "🔗", "Mapping", primary.object_type_id ? `object:${primary.object_type_id}` : "", "fields → properties")
+    + node("mapping", "🔗", "Mapping", mapping ? mapping.ref : "", mapping ? `${primary.object_type_id || ""} · fields → properties` : "mapping retired")
+    + edge("gated_by")
+    + node("policy", "🛡", "Policy view", view ? view.ref : "", view ? "capability envelope" : "view retired")
     + edge("projected_as")
-    + node("projection", "🔭", "Projection", primary.ontology_projection_id || "", "read shape")
+    + node("projection", "🔭", "Projection", projection ? projection.ref : (primary.ontology_projection_id || ""), "read shape")
     + edge("leased_by")
-    + node("lease", "🎟", "Lease + session", primary.connector_session_ref || primary.capability_lease_plan_ref || "", "sealed session")
+    + node("lease", "🎟", "Lease + session", plan ? plan.ref : (primary.capability_lease_plan_ref || ""), primary.connector_session_ref ? `session ${String(primary.connector_session_ref).replace("connector-session://", "").slice(0, 10)}…` : "sealed session")
     + edge("produced_by")
     + node("run", "⚙", "Materializing run", primary.materializing_run_ref || "", `${primary.count || 0} objects`)
     + edge("receipted_by")
@@ -3166,6 +3184,7 @@ function renderDataLineage(lists, selectedId) {
     + edge("contains")
     + node("set", "📦", "Object set", primary.ref || "", `${primary.count || 0} objects`)
     + `</div>`;
+  const resolvedRefs = [source && source.source_ref, mapping && mapping.ref, view && view.ref, projection && projection.ref, plan && plan.ref].filter(Boolean).length;
 
   // OBJECT-LEVEL PROVENANCE — the new lineage truth: each object's source hash + mapped_from edges.
   const objs = (primary.objects || []).slice(0, 8);
@@ -3184,19 +3203,20 @@ function renderDataLineage(lists, selectedId) {
   const receiptPane = `<h2 id="lineage-receipts">Receipt chain <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— the run's auditable acts (${receiptRefs.length})</span></h2>`
     + (run ? `<dl class="grid">${(run.history || []).slice().reverse().slice(0, 8).map((h) => `<dt>${CX_ESC(h.op || "")}</dt><dd>${CX_ESC(h.summary || "")}<br><span class="sub" style="margin:0"><code>${CX_ESC(h.receipt_ref || "")}</code></span></dd>`).join("")}</dl>` : `<div class="empty">The materializing run for this set is no longer resolvable.</div>`);
 
-  // Work Ledger edges — WHERE AVAILABLE (honest; the ODK chain is not yet in the Work Ledger stream).
+  // Provenance proof-stream edges — WHERE AVAILABLE (honest; the ODK materialization receipts are not
+  // yet threaded into the Provenance proof stream, so today this is 0). Backing route unchanged.
   const chainRefs = [primary.ref, primary.materializing_run_ref, primary.connector_session_ref, primary.capability_lease_plan_ref].filter(Boolean);
-  const ledgerEdges = ledger.filter((e) => chainRefs.some((r) => JSON.stringify(e).includes(r)));
-  const ledgerPane = `<h2 id="lineage-ledger">Work Ledger edges <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— where available</span></h2>`
-    + (ledgerEdges.length
-      ? `<div class="sub">${ledgerEdges.length} Work Ledger entr${ledgerEdges.length === 1 ? "y" : "ies"} reference this lineage chain.</div>`
-      : omBoundaryNote(`<b>0 Work Ledger edges</b> for this chain — the ODK materialization receipts live on their own run stream and are <b>not yet threaded into the Work Ledger</b> proof plane (a named gap). Object provenance above is the authoritative lineage today.`));
+  const provEdges = provStream.filter((e) => chainRefs.some((r) => JSON.stringify(e).includes(r)));
+  const ledgerPane = `<h2 id="lineage-provenance-stream">Provenance proof-stream edges <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— where available</span></h2>`
+    + (provEdges.length
+      ? `<div class="sub">${provEdges.length} Provenance proof-stream entr${provEdges.length === 1 ? "y" : "ies"} reference this lineage chain.</div>`
+      : omBoundaryNote(`<b>0 Provenance proof-stream edges</b> for this chain — the ODK materialization receipts live on their own run stream and are <b>not yet threaded into the Provenance proof stream</b> (a named gap). The resolved ladder refs + object provenance above are the authoritative lineage today.`));
 
   const gaps = omBoundaryNote(`This is <b>real provenance</b> in the Monocle lineage grammar. Freeform Monocle lanes — resource search, arbitrary graph expansion, cross-tenant catalog search — are <b>reference-only</b>, not bound. The <a href="/__apps/lineage">Monocle reference capture ↗</a> is the familiar baseline, never a rebound surface.`);
 
   const banner = `<div class="chips" style="margin:10px 0 12px"><span class="pill ok">lineage</span> <span class="sub" style="margin:0">${sets.length} materialized set${sets.length === 1 ? "" : "s"} · ${sets.reduce((a, s) => a + (s.count || 0), 0)} object instance${sets.reduce((a, s) => a + (s.count || 0), 0) === 1 ? "" : "s"} for <b>${CX_ESC(selected.domain || selected.id)}</b> · newest traced below</span></div>`;
   return automationsShell("Data lineage", head + switcher + banner + lineageLegend()
-    + `<h2 id="lineage-graph">Lineage <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— provenance path for <code>${CX_ESC(primary.ref || "")}</code></span></h2>` + path
+    + `<h2 id="lineage-graph">Lineage <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— provenance path for <code>${CX_ESC(primary.ref || "")}</code> · ${resolvedRefs}/5 upstream ladder refs resolved to live records</span></h2>` + path
     + objPane + receiptPane + ledgerPane + gaps);
 }
 
@@ -6957,11 +6977,16 @@ const server = http.createServer((req, res) => {
     // ---- ODK — controlled builder over the daemon ODK object plane (estate surface #5).
     if (pathname === "/__ioi/lineage" && req.method === "GET") {
       const J = (p) => fetch(`${DAEMON}${p}`).then((r) => r.json()).catch(() => ({}));
-      const [o, mr, ms, wl] = await Promise.all([
+      const [o, mr, ms, wl, cm, pv, op, lp, dsr] = await Promise.all([
         J("/v1/hypervisor/odk/domain-ontologies"),
         J("/v1/hypervisor/odk/materializing-runs"),
         J("/v1/hypervisor/odk/materialized-object-sets"),
         J("/v1/hypervisor/work-ledger"),
+        J("/v1/hypervisor/odk/connector-mappings"),
+        J("/v1/hypervisor/odk/policy-bound-data-views"),
+        J("/v1/hypervisor/odk/ontology-projections"),
+        J("/v1/hypervisor/odk/capability-lease-plans"),
+        J("/v1/hypervisor/data-sources"),
       ]);
       const selectedOntology = new URL(req.url, "http://x").searchParams.get("ontology") || "";
       res.writeHead(200, HTMLH);
@@ -6969,7 +6994,13 @@ const server = http.createServer((req, res) => {
         ontologies: o.ontologies || [],
         materializing_runs: mr.materializing_runs || [],
         materialized_sets: ms.materialized_object_sets || [],
-        work_ledger: Array.isArray(wl) ? wl : (wl.entries || wl.work_ledger || []),
+        // Backing proof stream (route stays /v1/hypervisor/work-ledger; the surface is Provenance).
+        provenance_stream: Array.isArray(wl) ? wl : (wl.entries || wl.work_ledger || []),
+        connector_mappings: cm.connector_mappings || [],
+        policy_views: pv.policy_bound_data_views || [],
+        ontology_projections: op.ontology_projections || [],
+        capability_lease_plans: lp.capability_lease_plans || [],
+        data_sources: dsr.data_sources || [],
       }, selectedOntology));
       return;
     }

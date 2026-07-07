@@ -101,9 +101,9 @@
       "parity_class": "daemon_bound",
       "capture_state": "boots_graph",
       "reference_capture": "/__apps/lineage",
-      "note": "Monocle lineage grammar over real provenance; no fake nodes for unmaterialized ontologies; freeform resource-search / graph-expansion / cross-tenant catalog = named gaps",
+      "note": "Monocle lineage grammar over real provenance; upstream ladder refs resolved to live records; no fake nodes for unmaterialized ontologies; freeform resource-search / graph-expansion / cross-tenant catalog = named gaps",
       "daemon_surface": "/__ioi/lineage",
-      "binding": "ODK materialization provenance (MaterializedObjectSet → run → session → lease → projection → mapping → datasource; per-object source hashes + mapped_from; pre-output + registration receipts; Work Ledger edges where available)"
+      "binding": "ODK materialization provenance (MaterializedObjectSet → run → session → lease → projection → mapping → datasource, resolved to live ladder refs; per-object source hashes + mapped_from; pre-output + registration receipts; Provenance proof-stream edges where available)"
     },
     {
       "owner": "Data",
@@ -381,9 +381,10 @@
       "parity_class": "queued",
       "capture_state": "blocked_missing_capture",
       "reference_capture": "/__apps/vertex",
-      "note": "the first materialized objects need a graph/exploration surface",
+      "note": "the first materialized objects need a graph/exploration lens; queued as a Provenance surface, not a Work Ledger app",
       "target_surface": "/__ioi/work-ledger",
-      "binding": "graph exploration over materialized object sets, projections, and Work Ledger edges"
+      "surface_name": "Provenance",
+      "binding": "a Provenance graph/exploration lens over materialized object sets, projections, and Provenance proof-stream edges"
     },
     {
       "owner": "Environments",
