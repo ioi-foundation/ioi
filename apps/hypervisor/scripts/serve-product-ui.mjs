@@ -3385,7 +3385,9 @@ function renderStudioDesigner(lists, selectedId) {
   const myViews = policyViews.filter((v) => v.ontology_ref === oref);
   const myProjections = projections.filter((p) => p.ontology_ref === oref);
   const mySets = sets.filter((s) => s.ontology_ref === oref);
-  const myApps = domainApps.filter((a) => a.ontology_ref === oref || a.ontology_id === oid);
+  // DomainApps carry ontology_refs (an ARRAY, derived from the surface descriptor) — not a singular
+  // ontology_ref; filter on membership, and read domain_app_ref/domain_app_id (the real field names).
+  const myApps = domainApps.filter((a) => Array.isArray(a.ontology_refs) && a.ontology_refs.includes(oref));
   const conceptCount = objectTypes.length + valueTypes.length + actionTypes.length + linkTypes.length;
   const componentCount = myMappings.length + myViews.length + myProjections.length;
   const resourceCount = mySets.length + myApps.length;
@@ -3420,7 +3422,7 @@ function renderStudioDesigner(lists, selectedId) {
   const resourcesPane = `<h2 id="designer-resources">Resources ${sub(`— what this composition generates (${resourceCount})`)}</h2>`
     + (resourceCount
       ? `<div class="chips" style="margin:0 0 6px"><span class="chiplabel">Object sets</span>${mySets.map((s) => compChip("📦", `${s.count || 0} obj`, s.ref, s.object_type_id)).join("") || "<span class='sub' style='margin:0'>none</span>"}</div>`
-        + `<div class="chips" style="margin:0 0 6px"><span class="chiplabel">Surface descriptors</span>${myApps.length ? myApps.map((a) => compChip("🖥", a.name || a.id || a.domain_app_id, a.ref || a.surface_descriptor_ref, "")).join("") : "<span class='sub' style='margin:0'>none — no domain-app surfaces generated yet (named gap)</span>"}</div>`
+        + `<div class="chips" style="margin:0 0 6px"><span class="chiplabel">Surface descriptors</span>${myApps.length ? myApps.map((a) => compChip("🖥", a.name || a.domain_app_id, a.domain_app_ref, a.surface_descriptor_ref || "")).join("") : "<span class='sub' style='margin:0'>none — no domain-app surfaces generated yet (named gap)</span>"}</div>`
       : omBoundaryNote(`This composition has generated <b>no resources</b> yet — materialize a set from the <a href="/__ioi/pipeline?ontology=${enc(oid)}">pipeline</a> to see it here. Surface descriptors (domain-app surfaces) appear once a domain app is composed.`));
 
   const gaps = omBoundaryNote(`This is a <b>read-only design map</b> over real composition truth. Unsupported Designer lanes — in-canvas authoring, save/open, drag-to-reference, load-lineage into the canvas — are <b>named gaps</b> (no authority contract yet), not silently hidden. Sibling Studio seeds stay reference-only too: the <a href="/__apps/machinery">machinery</a> process/state-machine graph (data lanes unbound), the <a href="/__apps/workshop">workshop</a> and module builders. The <a href="/__apps/designer">Designer reference capture ↗</a> is the familiar baseline, never a rebound surface.`);
