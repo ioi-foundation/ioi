@@ -79,6 +79,8 @@ async function run() {
   ok("consent GATE: an absent consent requirement fails closed", badNoConsent.status === 400 && /consent/.test(badNoConsent.j.error?.code || ""));
   const badSubject = await jd("POST", "/v1/hypervisor/eval-suites", { name: "x", subject_scope: ["not_a_subject"], consent_requirements: ["org_policy"] });
   ok("subject scope is validated (unknown kind fails closed)", badSubject.status === 400 && /subject_scope/.test(badSubject.j.error?.code || ""));
+  const badCandidate = await jd("POST", "/v1/hypervisor/eval-suites", { name: "x", subject_scope: ["failed_run"], consent_requirements: ["org_policy"], candidate_refs: ["https://external.example/x"] });
+  ok("candidate_refs are LOCAL handoffs only — an external URL fails closed (allowlisted schemes only)", badCandidate.status === 400 && /candidate_ref/.test(badCandidate.j.error?.code || ""));
   const runAttempt = await jd("POST", `/v1/hypervisor/eval-suites/${suite?.id}/run`, {});
   ok("there is NO run/execute endpoint (assessment does not execute here)", runAttempt.status >= 400);
 
@@ -92,7 +94,9 @@ async function run() {
   const gr = (await jd("GET", "/v1/hypervisor/goal-runs")).j.goal_runs || [];
   const blocked = gr.filter((r) => Array.isArray(r.blockers) && r.blockers.length);
   const sampleSubject = blocked[0];
-  ok("assessment SUBJECTS lane shows real Missions execution truth (a real blocker's proof link)", /id="eval-subjects"/.test(t) && (!sampleSubject || t.includes(`/__ioi/run-timeline/goal-run/${sampleSubject.goal_run_id}`)), sampleSubject ? sampleSubject.goal_run_id : "no blockers (honest ok)");
+  // The proof must render as an actual ANCHOR in the Evidence cell — not plain text (guards the
+  // subjRow arg-order regression where the URL leaked into the When column and Evidence showed "—").
+  ok("assessment SUBJECTS lane renders a real blocker's proof as an <a href> link in the Evidence cell", /id="eval-subjects"/.test(t) && (!sampleSubject || t.includes(`<a href="/__ioi/run-timeline/goal-run/${sampleSubject.goal_run_id}" target="_blank" rel="noopener">proof ↗</a>`)), sampleSubject ? sampleSubject.goal_run_id : "no blockers (honest ok)");
   ok("the consent ladder is shown as the admission gate", /Consent ladder/.test(t) && t.includes("never_train") && t.includes("org_policy"));
 
   // 4. No false coverage — named gaps + brand-clean.

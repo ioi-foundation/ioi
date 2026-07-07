@@ -57,6 +57,16 @@ const CONSENT_LADDER: &[&str] = &[
     "full_private_opt_in",
     "org_policy",
 ];
+/// Candidate handoffs are LOCAL evidence refs, never arbitrary external URLs — allowlist the schemes
+/// the feedback/eval plane actually mints (a suite references candidates; it does not fetch them).
+const CANDIDATE_SCHEMES: &[&str] = &["eval://", "feedback://", "training-candidate://"];
+
+/// A candidate ref must use an allowlisted local scheme and carry a body after it.
+fn candidate_ref_ok(cr: &str) -> bool {
+    CANDIDATE_SCHEMES
+        .iter()
+        .any(|s| cr.starts_with(s) && cr.len() > s.len())
+}
 
 fn nanos() -> u128 {
     std::time::SystemTime::now()
@@ -216,10 +226,10 @@ pub(crate) async fn handle_eval_suite_create(
         return bad("eval_suite_candidate_invalid", "candidate_refs must be an array of strings");
     };
     for cr in &candidate_refs {
-        if !cr.contains("://") {
+        if !candidate_ref_ok(cr) {
             return bad(
                 "eval_suite_candidate_ref_invalid",
-                &format!("candidate `{cr}` is not a named ref — expected e.g. eval://… · feedback://… · training-candidate://…"),
+                &format!("candidate `{cr}` is not a local handoff ref — expected an allowlisted scheme ({CANDIDATE_SCHEMES:?}), not an external URL"),
             );
         }
     }
@@ -322,8 +332,8 @@ pub(crate) async fn handle_eval_suite_patch(
             return bad("eval_suite_candidate_invalid", "candidate_refs must be an array of strings");
         };
         for c in &cr {
-            if !c.contains("://") {
-                return bad("eval_suite_candidate_ref_invalid", &format!("candidate `{c}` is not a named ref"));
+            if !candidate_ref_ok(c) {
+                return bad("eval_suite_candidate_ref_invalid", &format!("candidate `{c}` is not a local handoff ref (allowed schemes: {CANDIDATE_SCHEMES:?})"));
             }
         }
         e["health"] = json!(health_of(cr.len()));
@@ -363,6 +373,17 @@ mod tests {
     fn health_is_declared_completeness_not_a_score() {
         assert_eq!(health_of(0), "empty");
         assert_eq!(health_of(3), "declared");
+    }
+
+    #[test]
+    fn candidate_refs_are_local_handoffs_only() {
+        assert!(candidate_ref_ok("eval://c1"));
+        assert!(candidate_ref_ok("feedback://fb_123"));
+        assert!(candidate_ref_ok("training-candidate://t9"));
+        assert!(!candidate_ref_ok("https://external.example/x")); // no external URLs
+        assert!(!candidate_ref_ok("eval://")); // scheme with no body
+        assert!(!candidate_ref_ok("mission-run://m1")); // scheme not on the allowlist
+        assert!(!candidate_ref_ok("just-a-string"));
     }
 
     #[test]
