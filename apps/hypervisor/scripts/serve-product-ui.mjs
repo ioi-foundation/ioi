@@ -3095,6 +3095,94 @@ function omNav(counts) {
     return `<a href="#pane-${id}" style="display:flex;justify-content:space-between;align-items:center;padding:6px 9px;border-radius:7px;color:#c9ccd3;font-size:13px;text-decoration:none">${CX_ESC(label)}${c == null ? "" : ` <span class="pill muted" style="margin:0">${c}</span>`}</a>`;
   }).join("")}</nav>`;
 }
+// ============================ PIPELINE BUILDER (reference-UX parity over the ODK ladder) =========
+// The Application UX Parity Baseline phase, applied to the Data Pipeline Builder. The reference
+// capture (/__apps/pipeline, /workspace/builder/) is the FAMILIAR STARTING POINT; this IOI-owned
+// surface renders the SAME builder grammar — a datasource → transform → output pipeline of nodes on
+// a canvas, with a Build / Preview / Schedule / Deploy toolbar — but every node is DAEMON TRUTH: the
+// landed ODK ladder for the selected ontology IS the pipeline. Supported lanes reflect real daemon
+// state; unsupported builder lanes (freeform canvas authoring, drag-connect, transform code editor,
+// schedule, deploy) are visible but honest named gaps. Reference-familiar UX; IOI truth underneath.
+function pipeStatusPill(cls, label) {
+  const c = cls === "live" ? "ok" : cls === "declared" ? "warn" : "muted";
+  return `<span class="pill ${c}" style="margin:0">${CX_ESC(label)}</span>`;
+}
+function renderPipelineBuilder(lists, selectedId) {
+  const ontologies = Array.isArray(lists.ontologies) ? lists.ontologies : [];
+  const sets = Array.isArray(lists.materialized_sets) ? lists.materialized_sets : [];
+  const builtRefs = new Set(sets.map((s) => s.ontology_ref));
+  // Prefer an explicit selection; else a "built" pipeline (has a materialized set); else most recent.
+  const selected = ontologies.find((x) => x.id === selectedId)
+    || ontologies.find((x) => builtRefs.has(x.ref))
+    || ontologies[0] || null;
+  const oref = selected ? selected.ref : "__none__";
+  const oid = selected ? selected.id : "";
+  const F = (arr) => (Array.isArray(arr) ? arr : []).filter((x) => x.ontology_ref === oref);
+  const maps = F(lists.connector_mappings), views = F(lists.policy_views), truns = F(lists.transformation_runs);
+  const projs = F(lists.ontology_projections), plans = F(lists.capability_lease_plans), mruns = F(lists.materializing_runs);
+  const sessions = F(lists.connector_sessions), osets = F(lists.materialized_sets);
+  const dsIds = new Set(maps.map((m) => m.data_source_id).filter(Boolean));
+  const dsources = (lists.data_sources || []).filter((d) => dsIds.has(d.source_id));
+  const instances = osets.reduce((a, s) => a + (s.count || 0), 0);
+  const anyReady = (arr, pred) => arr.filter(pred).length;
+
+  // The pipeline nodes, in ODK-ladder order. Each node: real daemon state → live / declared / missing.
+  const mk = (icon, label, kind, n, live, declared, count, detail, pane) => ({ icon, label, kind, n, cls: n === 0 ? "missing" : live ? "live" : declared ? "declared" : "declared", count, detail, pane });
+  const nodes = [
+    mk("🌐", "Datasource", "input", dsources.length, dsources.length > 0, true, dsources.length, dsources.map((d) => d.name || d.source_id).slice(0, 2).join(", "), "data"),
+    mk("🔗", "Object mapping", "transform", maps.length, anyReady(maps, (m) => (m.health || {}).status === "ready") > 0, true, maps.length, "source fields → typed properties", "resources"),
+    mk("🛡", "Policy gate", "transform", views.length, anyReady(views, (v) => (v.health || {}).status === "ready") > 0, true, views.length, "capability envelope", "resources"),
+    mk("📋", "Transform plan", "transform", truns.length, anyReady(truns, (r) => r.status === "dry_run_ready") > 0, true, truns.length, "dry-run validated", "resources"),
+    mk("🔭", "Read projection", "transform", projs.length, anyReady(projs, (p) => p.status === "ready") > 0, true, projs.length, "explorer/search shape", "resources"),
+    mk("🎟", "Lease + session", "authority", plans.length, anyReady(mruns, (r) => ["lease_obtained", "executed"].includes(r.status)) > 0 && anyReady(sessions, (c) => c.status === "session_obtained") > 0, plans.length > 0, plans.length, `${anyReady(mruns, (r) => ["lease_obtained", "executed"].includes(r.status))} lease · ${anyReady(sessions, (c) => c.status === "session_obtained")} session`, "resources"),
+    mk("📦", "Materialized objects", "output", osets.length, instances > 0, osets.length > 0, instances, `${instances} object instance${instances === 1 ? "" : "s"}`, "explorer"),
+  ];
+  const nodeCard = (nd) => `<div style="flex:0 0 auto;min-width:132px;max-width:150px;border:1px solid ${nd.cls === "live" ? "#235c3b" : nd.cls === "declared" ? "#5c4a23" : "#24262d"};border-radius:11px;padding:10px 11px;background:#15171c">
+    <div style="font-size:18px">${nd.icon}</div>
+    <div style="font-weight:600;font-size:12.5px;margin:3px 0 5px">${CX_ESC(nd.label)}</div>
+    ${pipeStatusPill(nd.cls, nd.cls === "live" ? "live" : nd.cls === "declared" ? "declared" : "missing")}
+    <div class="sub" style="margin:6px 0 0;font-size:11px">${nd.cls === "output" ? "" : ""}<b>${CX_ESC(String(nd.count))}</b> ${nd.kind === "output" ? "objects" : nd.kind === "input" ? "source" + (nd.count === 1 ? "" : "s") : "record" + (nd.count === 1 ? "" : "s")}</div>
+    <div class="sub" style="margin:2px 0 0;font-size:10.5px;color:#6f7280">${CX_ESC(nd.detail || "")}</div>
+    ${selected ? `<a href="/__ioi/odk?ontology=${encodeURIComponent(oid)}#pane-${nd.pane}" class="sub" style="margin:5px 0 0;display:inline-block;font-size:10.5px">open →</a>` : ""}
+  </div>`;
+  const flow = `<div style="display:flex;align-items:center;gap:0;overflow-x:auto;padding:4px 2px 10px">${nodes.map((nd, i) => `${i ? `<div style="flex:0 0 auto;color:#5f626b;padding:0 6px;font-size:15px">→</div>` : ""}${nodeCard(nd)}`).join("")}</div>`;
+
+  // Toolbar — reference grammar (Build / Preview / Schedule / Deploy); supported vs named-gap.
+  const toolbar = `<div class="row" style="gap:8px;align-items:center;margin:0 0 12px;flex-wrap:wrap">
+    <a class="act" href="/__ioi/odk?ontology=${encodeURIComponent(oid)}">▶ Build</a>
+    <a class="act ghost" href="#pipeline-preview">Preview</a>
+    <span class="pill muted" title="no pipeline scheduler yet — a named gap">Schedule · unavailable</span>
+    <span class="pill muted" title="no pipeline deploy yet — a named gap">Deploy · unavailable</span>
+    <span class="sub" style="margin:0 0 0 auto">Build authors + executes through the ODK authority ladder — nothing runs freeform here.</span>
+  </div>`;
+
+  // Selector — every ontology is a pipeline; a materialized set marks it "built".
+  const switcher = ontologies.length
+    ? `<div class="chips" style="margin:0 0 14px">${ontologies.map((x) => {
+        const on = selected && x.id === selected.id; const built = builtRefs.has(x.ref);
+        return `<a href="/__ioi/pipeline?ontology=${encodeURIComponent(x.id)}" class="pill ${on ? "ok" : "muted"}" style="text-decoration:none;margin:0">${CX_ESC(x.domain || x.id)}${built ? ` <span class="pill ok" style="margin-left:4px">built</span>` : ""}</a>`;
+      }).join(" ")}</div>`
+    : `<div class="empty">No pipelines yet. A pipeline is an ontology's ODK ladder — <a href="/__ioi/odk/ontologies/new">create an ontology</a> to start one.</div>`;
+
+  // Preview pane — the projection's declared read shape + the first materialized rows (daemon truth).
+  const proj = projs.find((p) => p.status !== "retired") || projs[0] || null;
+  const mset = osets.find((s) => proj && s.ontology_projection_id === proj.id) || osets[0] || null;
+  const cols = proj ? (proj.visible_properties || []) : [];
+  const previewTable = proj
+    ? `<table><thead><tr>${cols.map((c) => `<th>${CX_ESC(c)}</th>`).join("")}</tr></thead><tbody>${(mset && (mset.objects || []).length)
+        ? mset.objects.slice(0, 20).map((o) => `<tr>${cols.map((c) => `<td>${CX_ESC(String((o.properties || {})[c] ?? ""))}</td>`).join("")}</tr>`).join("")
+        : `<tr><td colspan="${cols.length || 1}" style="text-align:center;color:#878a93;padding:16px 8px">No rows yet — Build a materializing run to populate this output (object_instances stays 0 until then).</td></tr>`}</tbody></table>`
+    : `<div class="empty">No read projection on this pipeline yet — add one in the Ontology Manager.</div>`;
+  const previewPane = `<h2 id="pipeline-preview">Preview <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— the output dataset (declared columns · ${mset ? (mset.count || 0) : 0} rows · daemon truth)</span></h2>${previewTable}`;
+
+  // Honest gaps + the reference baseline link (secondary).
+  const gaps = omBoundaryNote(`This is the pipeline's <b>daemon truth</b>, rendered in the reference builder grammar. Freeform canvas authoring — drag-connect nodes, a transform code editor, run scheduling, deploy — are <b>reference-only lanes</b>, not yet bound: author stages in the <a href="/__ioi/odk?ontology=${encodeURIComponent(oid)}">Ontology Manager</a> and execute via a materializing run. The <a href="/__apps/pipeline">Pipeline Builder reference capture ↗</a> is the familiar baseline, never a rebound surface.`);
+
+  const head = `<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap"><div><h1 style="margin:0">Pipeline Builder</h1><p class="sub" style="margin:4px 0 0">Build ontology-bound object data — the ODK authority ladder as a datasource → transform → output pipeline, over IOI daemon truth. Reference grammar: <a href="/__apps/pipeline">Pipeline Builder ↗</a> (secondary capture).</p></div><a class="act ghost" href="/__ioi/odk?ontology=${encodeURIComponent(oid)}">Open in Ontology Manager</a></div>`;
+  const banner = `<div class="chips" style="margin:10px 0 14px"><span class="pill ${instances > 0 ? "ok" : "muted"}">${instances > 0 ? "built" : "not built"}</span> <span class="sub" style="margin:0">${selected ? `Pipeline for <b>${CX_ESC(selected.domain || selected.id)}</b> · ${nodes.filter((n) => n.cls === "live").length}/${nodes.length} stages live · ${instances} object instance${instances === 1 ? "" : "s"}` : "Select or create an ontology to see its pipeline."}</span></div>`;
+  return automationsShell("Pipeline Builder", head + switcher + banner + toolbar + `<h2 id="pipeline-canvas">Pipeline <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— datasource → transforms → output · daemon truth</span></h2>` + flow + gaps + previewPane);
+}
+
 function renderOntologyManager(ov, lists, selectedId) {
   const o = ov || {};
   const ontologies = Array.isArray(lists.ontologies) ? lists.ontologies : [];
@@ -3219,7 +3307,7 @@ function renderOntologyManager(ov, lists, selectedId) {
     + omUnavailablePane("Interfaces", "Shared type interfaces are not modeled yet.", "OntologyInterface")
     + functionsPane + healthPane + cleanupPane + configPane + resourcesPane + dataPane + explorerPane;
 
-  const head = `<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap"><div><h1 style="margin:0">Ontology Manager</h1><p class="sub" style="margin:4px 0 0">The daemon ontology manager — a typed, fail-closed CanonicalObjectModel over IOI authority. The familiar workbench grammar (object / link / action / value types · functions · health · configuration), re-authored over daemon truth. Reference grammar: <a href="/__apps/schema">Ontology Manager ↗</a> · <a href="/__apps/explorer">Object Explorer ↗</a> (secondary captures).</p></div><a class="act" href="/__ioi/odk/ontologies/new">+ New Ontology</a></div>`;
+  const head = `<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap"><div><h1 style="margin:0">Ontology Manager</h1><p class="sub" style="margin:4px 0 0">The daemon ontology manager — a typed, fail-closed CanonicalObjectModel over IOI authority. The familiar workbench grammar (object / link / action / value types · functions · health · configuration), re-authored over daemon truth. This ladder also renders as a <a href="/__ioi/pipeline">Pipeline Builder →</a>. Reference grammar: <a href="/__apps/schema">Ontology Manager ↗</a> · <a href="/__apps/explorer">Object Explorer ↗</a> (secondary captures).</p></div><a class="act" href="/__ioi/odk/ontologies/new">+ New Ontology</a></div>`;
   const body = head + switcher + `<div style="display:flex;gap:20px;align-items:flex-start">${omNav(counts)}<div style="flex:1;min-width:0">${panes}</div></div>`;
   return automationsShell("Ontology Manager", body);
 }
@@ -6762,6 +6850,36 @@ const server = http.createServer((req, res) => {
       }
     }
     // ---- ODK — controlled builder over the daemon ODK object plane (estate surface #5).
+    if (pathname === "/__ioi/pipeline" && req.method === "GET") {
+      const J = (p) => fetch(`${DAEMON}${p}`).then((r) => r.json()).catch(() => ({}));
+      const [o, ds, cm, pv, tr, op, lp, mr, cs, ms] = await Promise.all([
+        J("/v1/hypervisor/odk/domain-ontologies"),
+        J("/v1/hypervisor/data-sources"),
+        J("/v1/hypervisor/odk/connector-mappings"),
+        J("/v1/hypervisor/odk/policy-bound-data-views"),
+        J("/v1/hypervisor/odk/transformation-runs"),
+        J("/v1/hypervisor/odk/ontology-projections"),
+        J("/v1/hypervisor/odk/capability-lease-plans"),
+        J("/v1/hypervisor/odk/materializing-runs"),
+        J("/v1/hypervisor/odk/connector-sessions"),
+        J("/v1/hypervisor/odk/materialized-object-sets"),
+      ]);
+      const selectedOntology = new URL(req.url, "http://x").searchParams.get("ontology") || "";
+      res.writeHead(200, HTMLH);
+      res.end(renderPipelineBuilder({
+        ontologies: o.ontologies || [],
+        data_sources: ds.data_sources || [],
+        connector_mappings: cm.connector_mappings || [],
+        policy_views: pv.policy_bound_data_views || [],
+        transformation_runs: tr.transformation_runs || [],
+        ontology_projections: op.ontology_projections || [],
+        capability_lease_plans: lp.capability_lease_plans || [],
+        materializing_runs: mr.materializing_runs || [],
+        connector_sessions: cs.connector_sessions || [],
+        materialized_sets: ms.materialized_object_sets || [],
+      }, selectedOntology));
+      return;
+    }
     if (pathname === "/__ioi/odk" && req.method === "GET") {
       const J = (p) => fetch(`${DAEMON}${p}`).then((r) => r.json()).catch(() => ({}));
       const [ov, o, r, d, m, ds, cm, pv, tr, op, lp, mr, cs, ms] = await Promise.all([
