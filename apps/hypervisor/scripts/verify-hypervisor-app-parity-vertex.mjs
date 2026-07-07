@@ -140,6 +140,10 @@ async function run() {
   ok("unsupported Vertex lanes named (freeform canvas / path-finding / cross-tenant / saved explorations)", /freeform graph canvas, arbitrary path-finding, cross-tenant object search, saved explorations/.test(t));
   ok("cross-links to the Lineage path + Pipeline; reference capture linked as secondary", t.includes("/__ioi/lineage") && t.includes("/__ioi/pipeline") && t.includes("/__apps/vertex"));
   ok("terminology: no 'Work Ledger' UI prose leaks; brand-clean (no Palantir/Foundry)", !/Work Ledger app/.test(t) && !/\bPalantir\b/.test(t) && !/\bFoundry\b/.test(t));
+  // DISCOVERABILITY: Vertex is a daemon_bound PROVENANCE lens, so the owning Provenance surface
+  // (/__ioi/work-ledger) must link to it first-class — not only via Lineage/Pipeline deep links.
+  const prov = await page(`${SERVE}/__ioi/work-ledger`);
+  ok("the owning Provenance surface (/__ioi/work-ledger) links to Vertex first-class", prov.status === 200 && prov.text.includes("/__ioi/vertex"));
 
   // 7. NO FAKE NODES for an unmaterialized ontology.
   const fresh = (await jd("POST", "/v1/hypervisor/odk/domain-ontologies", { domain: "vtx-parity-fresh", canonical_object_model: { object_types: [{ id: "a", name: "A", title_property: "t", properties: [{ id: "t", name: "T", value_type: "string" }] }], action_types: [{ id: "x", name: "X", kind: "modify_object", applies_to: "a" }] } })).j.ontology?.id;

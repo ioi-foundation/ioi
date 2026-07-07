@@ -1087,7 +1087,7 @@ function renderWorkLedger(entries, scopedProject) {
   const scope = scopedProject
     ? `<p class="sub" style="margin:-10px 0 16px"><span class="pill ok">project: ${CX_ESC(scopedProject)}</span> · <a href="/__ioi/work-ledger">view all projects →</a></p>`
     : "";
-  const head = `<h1>Provenance</h1><p class="sub"><a href="/__apps/lineage">Lineage canvas seed (adopting) →</a> · The proof plane — one chronological stream of admitted work — runs and trigger receipts across every project and automation, each with its state root and a link to the full timeline.</p>${scope}`;
+  const head = `<h1>Provenance</h1><p class="sub"><a href="/__apps/lineage">Lineage canvas seed (adopting) →</a> · The proof plane — one chronological stream of admitted work — runs and trigger receipts across every project and automation, each with its state root and a link to the full timeline.</p><p class="sub" style="margin:-8px 0 0">Graph lenses over materialized truth: <a href="/__ioi/lineage">Data lineage →</a> · <a href="/__ioi/vertex">Vertex graph →</a></p>${scope}`;
   if (!entries.length) {
     const msg = scopedProject
       ? "No admitted work yet for this project. Run one of its automations to create ledger evidence."
@@ -1190,7 +1190,7 @@ function renderWorkLedger(entries, scopedProject) {
       if(e.listing_id){links+=bl('Listing',e.listing_id,'/__ioi/marketplace');}
       if(e.kind==='provider_crossing'){links+=bl('Provider health',e.account_ref||'provider accounts','/__ioi/operations')+bl('Provider accounts',e.account_ref||'environments','/__ioi/environments');if(e.exposure_ref){links+=bl('Spend reconciliation',e.exposure_ref,e.spend_reconciliation_ref||'/__ioi/operations');}}
       if(e.kind==='storage_custody'){links+=bl('Storage backend health',e.backend_ref||'storage backends',e.storage_health_ref||'/__ioi/operations')+bl('Archive custody',e.archive_ref||'environments','/__ioi/environments');}
-      if(e.kind==='odk_materialization'){var oid=String(e.ontology_ref||'').replace('ontology://','');var q=oid?('?ontology='+oid):'';links+=bl('Lineage graph',e.materialized_set_ref,'/__ioi/lineage'+q)+bl('Pipeline',e.ontology_ref,'/__ioi/pipeline'+q)+bl('Object set',e.materialized_set_ref,'/__ioi/odk'+q+'#pane-explorer')+bl('Materializing run',e.materializing_run_ref,'/__ioi/odk'+q+'#pane-resources')+bl('Sealed session',e.connector_session_ref,'/__ioi/odk'+q+'#pane-resources')+bl('Lease plan',e.capability_lease_plan_ref,'/__ioi/odk'+q+'#pane-resources');}
+      if(e.kind==='odk_materialization'){var oid=String(e.ontology_ref||'').replace('ontology://','');var q=oid?('?ontology='+oid):'';links+=bl('Lineage graph',e.materialized_set_ref,'/__ioi/lineage'+q)+bl('Vertex graph',e.materialized_set_ref,'/__ioi/vertex'+q)+bl('Pipeline',e.ontology_ref,'/__ioi/pipeline'+q)+bl('Object set',e.materialized_set_ref,'/__ioi/odk'+q+'#pane-explorer')+bl('Materializing run',e.materializing_run_ref,'/__ioi/odk'+q+'#pane-resources')+bl('Sealed session',e.connector_session_ref,'/__ioi/odk'+q+'#pane-resources')+bl('Lease plan',e.capability_lease_plan_ref,'/__ioi/odk'+q+'#pane-resources');}
       if(e.release_control_ref){links+=bl('Release control',e.release_control_ref,'/__ioi/governance');}
       if(e.approval_request_ref){links+=bl('Approval request',e.approval_request_ref,'/__ioi/governance');}
       if(e.kill_switch_ref){links+=bl('Kill switch',e.kill_switch_ref,'/__ioi/governance');}

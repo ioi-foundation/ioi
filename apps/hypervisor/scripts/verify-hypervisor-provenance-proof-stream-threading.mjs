@@ -136,6 +136,7 @@ async function run() {
   const prov = await page(`${SERVE}/__ioi/work-ledger`);
   const pt = prov.text;
   ok("Provenance surface renders + is brand-clean", prov.status === 200 && /Provenance/.test(pt) && !/\bPalantir\b/.test(pt));
+  ok("Provenance surface links its daemon-bound graph lenses first-class (Data lineage + Vertex graph)", pt.includes("/__ioi/lineage") && pt.includes("/__ioi/vertex"));
   ok("odk_materialization is a first-class facet chip ('Materializations')", /data-val="odk_materialization"/.test(pt) && />Materializations</.test(pt));
   ok("the materialization row has its own title (not the generic '—' fallback)", new RegExp(`data-kind="odk_materialization"[^>]*>[\\s\\S]*?materialized 2 objects → loan`).test(pt));
   ok("the row carries the kind for filtering + a 'registered' status pill", new RegExp(`data-kind="odk_materialization" data-status="registered"`).test(pt));
