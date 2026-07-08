@@ -67,9 +67,10 @@ const SUBSTRATE_BOUND = {
   models: { substrate_surface: "/__ioi/foundry", surface_name: "Foundry", binding: "the model registry — the Foundry Model Catalog over the real daemon model-route registry (per-route honest availability from probe evidence + staleness, weight custody, credential posture, admission trail, and admitted session-binding usage), plus the substrate stats and the draft Foundry specs/run-plans where they connect", note: "catalog grammar over real model-route truth; route administration lives in Agent Studio (linked); honest empty when no routes; fine-tuning / prompt playground / live inference evals / deployment automation / training runs / unbacked model cards = named gaps" },
 };
 // Port-progress overlays — a seed advances reference_port_pending → reference_ported → daemon_wired
-// as its reference UX shell is captured, ported, and finally wired + parity-verified. Empty until
-// #32 (Pipeline Builder) begins the first real port. `reference_workspace` = the mirror path the
-// Playwright harness opens (`:9225<capture_base>`), also carried on every row from the inventory.
+// as its reference UX shell is captured, ported, and finally wired + parity-verified against a VALID
+// reference. #32 (Pipeline Builder) begins the first `reference_ported` shell; `daemon_wired` stays 0
+// until a valid (non-errored) reference boots to certify parity. `reference_workspace` = the mirror
+// path the Playwright harness opens (`:9225<capture_base>`), also carried on every row.
 const REFERENCE_PORT_PENDING = {};
 // A source-neutral reference shell/layout ported + wired to daemon truth, but NOT yet promoted to
 // daemon_wired — here because parity VERIFICATION is blocked (the local reference errors / is
@@ -141,7 +142,7 @@ const matrix = {
   phase: "Reference UX Port",
   doctrine: "Reference UX port first (port the source-neutralized reference shell/layout) → daemon truth inside that UX (wire panels, tables, graph nodes, toolbars, drawers, empty + disabled states) → IOI-native redesign later. The dark IOI surfaces built #3–#30 are substrate, not parity.",
   parity_rule: "Only `daemon_wired` counts as TRUE reference UX parity: a ported, source-neutral reference shell wired to daemon truth that passes the Playwright visual + structural harness (global shell rail, header, toolbar, body, right panel, bottom tray). `substrate_bound` = a dark IOI surface (custom automationsShell) over daemon truth — valuable substrate, NOT parity. A surface must not claim parity without side-by-side screenshots + structural assertions.",
-  reset_note: "PR #31 presentation-layer rebase: the former `daemon_bound` class is retired. Its 10 surfaces are reclassified `substrate_bound`; the daemon planes, fail-closed contracts, and truth verifiers are all preserved. #32 (Pipeline Builder) begins the first real `daemon_wired` port.",
+  reset_note: "PR #31 presentation-layer rebase: the former `daemon_bound` class is retired. Its 10 surfaces are reclassified `substrate_bound`; the daemon planes, fail-closed contracts, and truth verifiers are all preserved. #32 (Pipeline Builder) begins the first `reference_ported` shell; `daemon_wired` remains 0 until a valid (non-errored) reference boots to certify parity.",
   estate_backstop: {
     executable_seeds: rows.length,
     note: "The 39 executable seeds are the migration queue; the 45-app local-composition crosswalk is the estate backstop so coverage does not shrink.",
