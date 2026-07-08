@@ -1,30 +1,30 @@
 #!/usr/bin/env node
-// SUBSTRATE-TRUTH verifier (reclassified substrate_bound by the #31 Reference-UX-Port reset — checks DAEMON TRUTH, NOT reference UX parity) — Pipeline Builder done-bar.
+// PIPELINE BUILDER REFERENCE PORT — #32 done-bar (the FIRST daemon_wired / true-parity cut).
 //
-// The estate-wide parity phase, proven on its first surface. Doctrine: reference UX parity first
-// (local capture, no live re-harvest, no invented daemon truth), IOI substrate underneath (bind
-// supported lanes to daemon truth, keep unsupported lanes as honest named gaps), IOI-native later.
+// Unlike the substrate-truth verifiers, this proves REFERENCE UX PARITY: /__ioi/pipeline is a ported
+// source-neutral reference builder SHELL (left rail · header · graph toolbar · canvas node cards ·
+// right output panel · bottom tray) — NOT the dark automationsShell — wired to the real ODK authority
+// ladder, and it PASSES the Playwright visual+structural harness (the reference shell regions are
+// reproduced). Data still comes from daemon truth; unsupported controls are disabled IN PLACE.
 //
 // Asserts:
-//   - REFERENCE BASELINE: /__apps/pipeline boots the reference Pipeline Builder grammar (title +
-//     Build/Preview/Transform toolbar) brand-clean — the familiar starting point.
-//   - IOI SURFACE = DAEMON TRUTH: /__ioi/pipeline renders "Pipeline Builder" with the same
-//     datasource → transform → output node flow + Build/Preview toolbar, over DAEMON TRUTH.
-//   - SUPPORTED LANES = DAEMON TRUTH: a fully-built pipeline (a real materializing run, executed)
-//     shows 7/7 stages live, a "built" banner, the real object-instance count, and the first
-//     materialized rows in Preview.
-//   - UNSUPPORTED LANES = NAMED GAPS: Schedule + Deploy shown unavailable; freeform authoring is a
-//     reference-only lane; the capture is linked as the secondary baseline, never rebound.
-//   - CONDITIONALLY HONEST: a fresh ontology's pipeline is "not built" with 0/7 stages live.
-//   - PARITY MATRIX current + honest: pipeline=substrate_bound, vertex+lineage=substrate_bound, rest
-//     reference_capture; no false "covered".
-//   - No brand/reference leak; the ODK ladder itself remains intact (Ontology Manager still renders).
+//   - MATRIX: pipeline = daemon_wired → /__ioi/pipeline (port_surface); lineage+vertex stay substrate_bound.
+//   - PORTED SHELL (not automationsShell): the page is the pb-shell with a rail + canvas; no .wrap doc.
+//   - STRUCTURAL PARITY (Playwright harness): pipeline passes — reference shell regions reproduced,
+//     real screenshots captured.
+//   - DAEMON TRUTH INSIDE THE SHELL: a fully-built pipeline shows 7/7 stages live, the built state, the
+//     real object-instance count, the datasource→transform→output node cards, and real Preview rows.
+//   - UNSUPPORTED CONTROLS DISABLED IN PLACE: Build + Preview enabled; Schedule + Deploy present but
+//     disabled (named gaps), not moved to a separate page.
+//   - CONDITIONALLY HONEST: a fresh ontology's pipeline is "not built" (0/7 live). Brand-clean; the
+//     ODK ladder (Ontology Manager) remains intact.
 //
 // Usage: node apps/hypervisor/scripts/verify-hypervisor-app-parity-pipeline.mjs
-// Exit 2 = BLOCKED (daemon/capture not running).
+// Exit 2 = BLOCKED (daemon/capture/serve not running).
 
 import http from "node:http";
 import { spawnSync } from "node:child_process";
+import { readFileSync, existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { mintApprovalGrant } from "../../../scripts/lib/mint-approval-grant.mjs";
@@ -32,6 +32,7 @@ import { mintApprovalGrant } from "../../../scripts/lib/mint-approval-grant.mjs"
 const SERVE = (process.env.IOI_HYPERVISOR_SERVE_URL || "http://127.0.0.1:4173").replace(/\/$/, "");
 const DAEMON = (process.env.IOI_HYPERVISOR_DAEMON_URL || "http://127.0.0.1:8765").replace(/\/$/, "");
 const here = path.dirname(fileURLToPath(import.meta.url));
+const appRoot = path.resolve(here, "..");
 
 const results = [];
 const ok = (name, cond, detail) => { results.push({ name, pass: !!cond, detail: detail || "" }); };
@@ -48,16 +49,16 @@ async function run() {
   const cleanup = [];
   const SENTINEL = "pipeline-parity-bearer";
 
-  // 0. The parity matrix is current + honest (child process --check).
+  // 0. Matrix — pipeline is daemon_wired (TRUE parity); siblings still substrate_bound.
   const check = spawnSync("node", [path.join(here, "build-app-parity-matrix.mjs"), "--check"], { encoding: "utf8" });
   ok("parity matrix is current (regenerated == committed)", check.status === 0, (check.stderr || "").trim().slice(0, 80));
   const matrix = JSON.parse(spawnSync("node", ["-e", `import(${JSON.stringify(path.join(here, "..", "harvest-app-parity-matrix.json"))}, { with: { type: "json" } }).then(m => console.log(JSON.stringify(m.default)))`], { encoding: "utf8" }).stdout || "{}");
   const bySlug = Object.fromEntries((matrix.seeds || []).map((s) => [s.slug, s]));
-  ok("matrix classifies pipeline as substrate_bound → /__ioi/pipeline", bySlug.pipeline?.parity_class === "substrate_bound" && bySlug.pipeline?.substrate_surface === "/__ioi/pipeline");
-  ok("matrix binds the sibling graph surfaces (lineage + vertex) as substrate_bound — their own cuts, not claimed by pipeline", bySlug.lineage?.parity_class === "substrate_bound" && bySlug.vertex?.parity_class === "substrate_bound" && bySlug.vertex?.substrate_surface === "/__ioi/vertex");
-  ok("matrix is honest estate-wide: most seeds are reference_capture only, none over-claimed", (matrix.by_parity_class?.reference_capture || 0) >= (matrix.by_parity_class?.substrate_bound || 0) && !(matrix.seeds || []).some((s) => s.parity_class === "covered"));
+  ok("matrix classifies pipeline as daemon_wired → /__ioi/pipeline (first TRUE parity)", bySlug.pipeline?.parity_class === "daemon_wired" && bySlug.pipeline?.port_surface === "/__ioi/pipeline" && bySlug.pipeline?.candidate_surface === "/__ioi/pipeline");
+  ok("sibling graph surfaces stay substrate_bound (not falsely promoted to parity)", bySlug.lineage?.parity_class === "substrate_bound" && bySlug.vertex?.parity_class === "substrate_bound");
+  ok("estate honest: reference_capture still the majority; no false 'covered'", (matrix.by_parity_class?.reference_capture || 0) >= (matrix.by_parity_class?.daemon_wired || 0) && !(matrix.seeds || []).some((s) => s.parity_class === "covered"));
 
-  // 1. Reference baseline boots the familiar grammar, brand-clean.
+  // 1. Reference baseline boots the familiar builder, brand-clean.
   const ref = await page(`${SERVE}/__apps/pipeline`);
   ok("reference baseline /__apps/pipeline boots the Pipeline Builder grammar (brand-clean)", ref.status === 200 && /<title>[^<]*Pipeline Builder/.test(ref.text) && !/\bPalantir\b/.test(ref.text));
 
@@ -110,28 +111,38 @@ async function run() {
   if (setId) cleanup.unshift(["DELETE", `/v1/hypervisor/odk/materialized-object-sets/${setId}`]);
   if (!ont?.id || ex.j.materializing_run?.status !== "executed") { console.error("BLOCKED: could not build the pipeline fixture"); srv.close(); process.exit(2); }
 
-  // 2. The IOI surface renders the SAME grammar over the built pipeline's daemon truth.
+  // 2. PORTED SHELL — a reference builder shell, not the dark automationsShell.
   const built = await page(`${SERVE}/__ioi/pipeline?ontology=${encodeURIComponent(ont.id)}`);
   const t = built.text;
-  ok("IOI /__ioi/pipeline renders the Pipeline Builder grammar (title + Build/Preview toolbar)", built.status === 200 && /<h1[^>]*>Pipeline Builder/.test(t) && />▶ Build</.test(t) && /#pipeline-preview/.test(t));
-  ok("same node grammar: datasource → transform → output stages present", ["Datasource", "Object mapping", "Policy gate", "Transform plan", "Read projection", "Materialized objects"].every((n) => t.includes(`>${n}<`)));
-  ok("SUPPORTED LANES = daemon truth: a built pipeline shows 7/7 stages live + built banner", /7\/7 stages live/.test(t) && /pill ok">built/.test(t));
-  ok("output node carries the real object-instance count (3)", /3 object instances/.test(t) || /<b>3<\/b> objects/.test(t));
-  ok("Preview shows the first materialized rows (daemon truth, not a mock)", /id="pipeline-preview"/.test(t) && />L-1</.test(t) && />First Loan</.test(t));
+  ok("the surface is a PORTED reference builder shell (pb-shell: rail + canvas + tray), NOT automationsShell", built.status === 200 && /class="pb-shell"/.test(t) && /class="pb-rail"/.test(t) && /id="pb-canvas"/.test(t) && !/max-width:920px/.test(t) && !/class="wrap"/.test(t));
+  ok("the ported shell carries the builder regions (header title · graph toolbar · right output panel · bottom tray)", /class="pb-header"/.test(t) && /class="pb-toolbar"/.test(t) && /class="pb-right"/.test(t) && /class="pb-tray"/.test(t) && /Pipeline Builder<\/div>/.test(t));
 
-  // 3. Unsupported lanes are honest named gaps; capture is the secondary baseline.
-  ok("UNSUPPORTED LANES = named gaps: Schedule + Deploy shown unavailable", /Schedule · unavailable/.test(t) && /Deploy · unavailable/.test(t));
-  ok("freeform authoring is a reference-only lane (honest)", /reference-only lanes/.test(t));
-  ok("reference capture linked as the secondary baseline, never rebound", t.includes("/__apps/pipeline"));
-  ok("IOI surface is brand/reference clean", !/\bPalantir\b/.test(t) && !/\bFoundry\b/.test(t));
+  // 3. STRUCTURAL PARITY — the Playwright harness confirms the reference shell is reproduced.
+  const artDir = path.join(appRoot, ".artifacts", "pipeline-port-verify");
+  const h = spawnSync("node", [path.join(here, "harness-reference-parity.mjs")], { encoding: "utf8", timeout: 90000, env: { ...process.env, IOI_HARNESS_SURFACES: "pipeline", IOI_HARNESS_ARTIFACT_DIR: artDir } });
+  let hp = null;
+  if (h.status === 0 && existsSync(path.join(artDir, "result.json"))) hp = (JSON.parse(readFileSync(path.join(artDir, "result.json"), "utf8")).surfaces || [])[0];
+  ok("Playwright harness: the port PASSES structural parity (reference shell regions reproduced) with real screenshots", hp && hp.structural_parity === true && hp.evidence_ok === true, hp ? `regions ioi[${hp.ioi_regions}] score ${hp.parity_score}` : "harness did not run");
+  ok("the port reproduces the reference's load-bearing regions (rail + body) at score ≥ 0.8", hp && ["rail", "body"].every((r) => hp.ioi_regions.includes(r)) && hp.parity_score >= 0.8);
 
-  // 4. Conditionally honest — a fresh ontology's pipeline is "not built".
+  // 4. DAEMON TRUTH inside the shell.
+  ok("datasource → transform → output node cards present (the ODK ladder as the canvas graph)", ["Datasource", "Object mapping", "Policy gate", "Transform plan", "Read projection", "Lease + session", "Materialized objects"].every((n) => t.includes(`>${n}<`)));
+  ok("a built pipeline shows 7/7 stages live + the built state (daemon truth)", /7\/7 stages live/.test(t) && /pb-live">built/.test(t));
+  ok("the output carries the real object-instance count (3)", /3 object instances materialized/.test(t) || />3<\/div>/.test(t));
+  ok("Preview (bottom tray) shows the first materialized rows — daemon truth, not a mock", /id="pb-preview"/.test(t) && />L-1</.test(t) && />First Loan</.test(t));
+
+  // 5. Unsupported controls disabled IN PLACE (not moved to a separate page).
+  ok("Build + Preview are enabled controls in the toolbar", /pb-btn primary"[^>]*>▶ Build</.test(t) && /href="#pb-preview"/.test(t));
+  ok("Schedule + Deploy are present but DISABLED in place (named gaps, not hidden)", /<button[^>]*disabled[^>]*>Schedule<\/button>/.test(t) && /<button[^>]*disabled[^>]*>Deploy<\/button>/.test(t));
+  ok("reference capture linked as the secondary baseline; brand/reference clean", t.includes("/__apps/pipeline") && !/\bPalantir\b/.test(t) && !/\bFoundry\b/.test(t));
+
+  // 6. Conditionally honest — a fresh ontology's pipeline is "not built".
   const fresh = (await jd("POST", "/v1/hypervisor/odk/domain-ontologies", { domain: "pipe-parity-fresh", canonical_object_model: { object_types: [{ id: "a", name: "A", title_property: "t", properties: [{ id: "t", name: "T", value_type: "string" }] }], action_types: [{ id: "x", name: "X", kind: "modify_object", applies_to: "a" }] } })).j.ontology?.id;
   track("domain-ontologies", fresh);
   const freshPage = await page(`${SERVE}/__ioi/pipeline?ontology=${encodeURIComponent(fresh)}`);
-  ok("a fresh ontology's pipeline is honestly 'not built' (0/7 stages live)", /pill muted">not built/.test(freshPage.text) && /0\/7 stages live/.test(freshPage.text));
+  ok("a fresh ontology's pipeline is honestly 'not built' (0/7 stages live)", /pb-declared">not built/.test(freshPage.text) && /0\/7 stages live/.test(freshPage.text));
 
-  // 5. The ODK ladder itself is intact + cross-links to the pipeline view.
+  // 7. The ODK ladder itself is intact + cross-links to the pipeline view.
   const odk = await page(`${SERVE}/__ioi/odk?ontology=${encodeURIComponent(ont.id)}`);
   ok("the ODK ladder is intact (Ontology Manager still renders) + links to the pipeline view", /Ontology Manager/.test(odk.text) && odk.text.includes("/__ioi/pipeline"));
 
@@ -145,6 +156,6 @@ run().then(() => {
   let fail = 0;
   for (const r of results) { console.log(`  ${r.pass ? "PASS" : "FAIL"}  ${r.name}${r.detail ? `  (${r.detail})` : ""}`); if (!r.pass) fail++; }
   console.log(`\n${results.length - fail}/${results.length} passed`);
-  console.log(`substrate-truth-pipeline readiness: ${fail ? "FAIL" : "OK"}`);
+  console.log(`pipeline-port readiness: ${fail ? "FAIL" : "OK"}`);
   process.exit(fail ? 1 : 0);
 }).catch((e) => { console.error("verifier crashed:", e); process.exit(1); });

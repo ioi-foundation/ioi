@@ -57,7 +57,7 @@ async function run() {
   const bySlug = Object.fromEntries((matrix.seeds || []).map((s) => [s.slug, s]));
   ok("matrix binds jobs as substrate_bound → /__ioi/missions (Missions)", bySlug.jobs?.parity_class === "substrate_bound" && bySlug.jobs?.substrate_surface === "/__ioi/missions" && bySlug.jobs?.surface_name === "Missions");
   ok("matrix binds incidents as substrate_bound → /__ioi/missions (Missions)", bySlug.incidents?.parity_class === "substrate_bound" && bySlug.incidents?.substrate_surface === "/__ioi/missions" && bySlug.incidents?.surface_name === "Missions");
-  ok("no over-claim estate-wide (no 'covered'); prior substrate_bound surfaces intact (pipeline/lineage/vertex)", !(matrix.seeds || []).some((s) => s.parity_class === "covered") && ["pipeline", "lineage", "vertex"].every((k) => bySlug[k]?.parity_class === "substrate_bound"));
+  ok("no over-claim estate-wide (no 'covered'); prior reclassified surfaces still bound (substrate_bound|daemon_wired) (pipeline/lineage/vertex)", !(matrix.seeds || []).some((s) => s.parity_class === "covered") && ["pipeline", "lineage", "vertex"].every((k) => ["substrate_bound", "daemon_wired"].includes(bySlug[k]?.parity_class)));
 
   // 1. Reference baselines (raw familiar captures; brand-clean enforced on the IOI surface below).
   const refJobs = await page(`${SERVE}/__apps/jobs`);

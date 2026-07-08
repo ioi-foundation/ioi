@@ -915,7 +915,7 @@ function renderFeedbackQueue(ov, entries, flash) {
 }
 
 // ============================ EVALUATIONS (owner surface — eval-suite library, declaration-only)
-// The Application UX Parity Baseline phase, applied to the Evaluations owner-family. The reference
+// The Reference UX Port program (post-#31 reset), substrate for the Evaluations owner-family. The reference
 // capture (/__apps/evalsuites, /workspace/evals/) is the familiar eval-suite library baseline; this
 // IOI-owned owner surface renders the SAME table/list grammar over REAL daemon truth: the inert
 // eval-suite contract (a suite DECLARES what it would assess + under what admissibility — never how
@@ -3185,7 +3185,7 @@ function omNav(counts) {
   }).join("")}</nav>`;
 }
 // ============================ DATA LINEAGE (Monocle parity over real ODK provenance) =============
-// The Application UX Parity Baseline phase, applied to Monocle / Data Lineage. The reference capture
+// The Reference UX Port program (post-#31 reset), substrate for Monocle / Data Lineage. The reference capture
 // (/__apps/lineage, /workspace/monocle/) is the familiar baseline; this IOI-owned surface renders
 // the SAME lineage-graph grammar — typed nodes + edges + a legend — but every node/edge is REAL
 // PROVENANCE from the ODK materialization chain: a materialized object set traced back through its
@@ -3204,7 +3204,7 @@ function lineageLegend() {
     + `<div class="chips" style="margin:0 0 12px"><span class="chiplabel">Edges</span>${["mapped_by", "gated_by", "planned_by", "projected_as", "read_under", "produced_by", "receipted_by", "contains", "hashed_as", "mapped_from"].map((e) => `<span class="pill muted" style="margin:0"><code>${e}</code></span>`).join(" ")}</div>`;
 }
 // ============================ MISSIONS (owner surface for suite/run work — jobs + incidents seeds)
-// The Application UX Parity Baseline phase, applied to the Missions owner-family. The reference
+// The Reference UX Port program (post-#31 reset), substrate for the Missions owner-family. The reference
 // captures (/__apps/jobs = job-tracker "Builds", /__apps/incidents = issues-app) are the familiar
 // baselines; this IOI-owned surface renders the SAME table/list grammar — a run/job status queue and
 // a status-lane remediation inbox — but over REAL daemon truth: the operations run queue (recent
@@ -3258,7 +3258,7 @@ function renderMissions(ops, goalRuns) {
   return automationsShell("Missions", head + banner + queue + scheduledPane + incidents + gaps);
 }
 // ============================ VERTEX (Provenance graph/exploration lens over real materialized truth)
-// The Application UX Parity Baseline phase, applied to Vertex. The reference capture (/__apps/vertex,
+// The Reference UX Port program (post-#31 reset), substrate for Vertex. The reference capture (/__apps/vertex,
 // /workspace/vertex/) is the familiar baseline; this IOI-owned surface renders the SAME graph
 // exploration grammar — a node/relation graph you explore by neighborhood — but every node/edge is
 // REAL and CROSS-PLANE: materialized object sets, their projections + runs, the objects themselves,
@@ -3341,7 +3341,7 @@ function renderVertex(lists, selectedId) {
 }
 
 // ============================ STUDIO · DESIGNER (system/solution-design canvas over real composition)
-// The Application UX Parity Baseline phase, applied to the Studio `designer` seed. The reference
+// The Reference UX Port program (post-#31 reset), substrate for the Studio `designer` seed. The reference
 // capture (/__apps/designer, /workspace/solution-design/) is the familiar typed concept/component/
 // resource DESIGN canvas; this IOI-owned surface renders the SAME grammar as a READ-ONLY typed map
 // over REAL daemon composition truth: an ontology's canonical object model (object/value/action/link
@@ -3433,7 +3433,7 @@ function renderStudioDesigner(lists, selectedId) {
 }
 
 // ============================ STUDIO · MACHINERY (process/state-machine DEFINITIONS, read-only)
-// The Application UX Parity Baseline phase, applied to the Studio `machinery` seed. The reference
+// The Reference UX Port program (post-#31 reset), substrate for the Studio `machinery` seed. The reference
 // capture (/__apps/machinery, /workspace/machinery-app/) is the familiar process/state-machine graph
 // builder; this IOI-owned surface renders the SAME grammar as a READ-ONLY view over REAL daemon
 // state-machine DEFINITIONS — declared states (initial/normal/final), transitions (from→to, event,
@@ -3613,7 +3613,7 @@ function renderDataLineage(lists, selectedId) {
 }
 
 // ============================ PIPELINE BUILDER (reference-UX parity over the ODK ladder) =========
-// The Application UX Parity Baseline phase, applied to the Data Pipeline Builder. The reference
+// The Reference UX Port program (post-#31 reset), substrate for the Data Pipeline Builder. The reference
 // capture (/__apps/pipeline, /workspace/builder/) is the FAMILIAR STARTING POINT; this IOI-owned
 // surface renders the SAME builder grammar — a datasource → transform → output pipeline of nodes on
 // a canvas, with a Build / Preview / Schedule / Deploy toolbar — but every node is DAEMON TRUTH: the
@@ -3624,6 +3624,14 @@ function pipeStatusPill(cls, label) {
   const c = cls === "live" ? "ok" : cls === "declared" ? "warn" : "muted";
   return `<span class="pill ${c}" style="margin:0">${CX_ESC(label)}</span>`;
 }
+// ============================ PIPELINE BUILDER — reference UX PORT (#32, first daemon_wired cut).
+// A PORTED reference builder shell, NOT the dark automationsShell: a source-neutral rebuild of the
+// /workspace/builder/ layout — a full-height left RAIL (pipelines + stage palette), a HEADER bar, a
+// graph TOOLBAR (Build/Preview/Schedule/Deploy — unsupported controls disabled IN PLACE, not hidden),
+// a central CANVAS rendering the ODK authority ladder as connected pipeline node cards, a right
+// OUTPUT PANEL (projection schema + output stats), and a bottom TRAY (preview rows + warnings). Every
+// cell is REAL daemon truth (the same ODK-ladder data the substrate view used). It must clear the
+// Playwright visual+structural harness (rail + body reproduced) — that is what makes it parity.
 function renderPipelineBuilder(lists, selectedId) {
   const ontologies = Array.isArray(lists.ontologies) ? lists.ontologies : [];
   const sets = Array.isArray(lists.materialized_sets) ? lists.materialized_sets : [];
@@ -3654,50 +3662,134 @@ function renderPipelineBuilder(lists, selectedId) {
     mk("🎟", "Lease + session", "authority", plans.length, anyReady(mruns, (r) => ["lease_obtained", "executed"].includes(r.status)) > 0 && anyReady(sessions, (c) => c.status === "session_obtained") > 0, plans.length > 0, plans.length, `${anyReady(mruns, (r) => ["lease_obtained", "executed"].includes(r.status))} lease · ${anyReady(sessions, (c) => c.status === "session_obtained")} session`, "resources"),
     mk("📦", "Materialized objects", "output", osets.length, instances > 0, osets.length > 0, instances, `${instances} object instance${instances === 1 ? "" : "s"}`, "explorer"),
   ];
-  const nodeCard = (nd) => `<div style="flex:0 0 auto;min-width:132px;max-width:150px;border:1px solid ${nd.cls === "live" ? "#235c3b" : nd.cls === "declared" ? "#5c4a23" : "#24262d"};border-radius:11px;padding:10px 11px;background:#15171c">
-    <div style="font-size:18px">${nd.icon}</div>
-    <div style="font-weight:600;font-size:12.5px;margin:3px 0 5px">${CX_ESC(nd.label)}</div>
-    ${pipeStatusPill(nd.cls, nd.cls === "live" ? "live" : nd.cls === "declared" ? "declared" : "missing")}
-    <div class="sub" style="margin:6px 0 0;font-size:11px">${nd.cls === "output" ? "" : ""}<b>${CX_ESC(String(nd.count))}</b> ${nd.kind === "output" ? "objects" : nd.kind === "input" ? "source" + (nd.count === 1 ? "" : "s") : "record" + (nd.count === 1 ? "" : "s")}</div>
-    <div class="sub" style="margin:2px 0 0;font-size:10.5px;color:#6f7280">${CX_ESC(nd.detail || "")}</div>
-    ${selected ? `<a href="/__ioi/odk?ontology=${encodeURIComponent(oid)}#pane-${nd.pane}" class="sub" style="margin:5px 0 0;display:inline-block;font-size:10.5px">open →</a>` : ""}
-  </div>`;
-  const flow = `<div style="display:flex;align-items:center;gap:0;overflow-x:auto;padding:4px 2px 10px">${nodes.map((nd, i) => `${i ? `<div style="flex:0 0 auto;color:#5f626b;padding:0 6px;font-size:15px">→</div>` : ""}${nodeCard(nd)}`).join("")}</div>`;
+  const enc = encodeURIComponent, esc = CX_ESC;
+  const oname = selected ? esc(selected.domain || selected.id) : "no pipeline";
 
-  // Toolbar — reference grammar (Build / Preview / Schedule / Deploy); supported vs named-gap.
-  const toolbar = `<div class="row" style="gap:8px;align-items:center;margin:0 0 12px;flex-wrap:wrap">
-    <a class="act" href="/__ioi/odk?ontology=${encodeURIComponent(oid)}">▶ Build</a>
-    <a class="act ghost" href="#pipeline-preview">Preview</a>
-    <span class="pill muted" title="no pipeline scheduler yet — a named gap">Schedule · unavailable</span>
-    <span class="pill muted" title="no pipeline deploy yet — a named gap">Deploy · unavailable</span>
-    <span class="sub" style="margin:0 0 0 auto">Build authors + executes through the ODK authority ladder — nothing runs freeform here.</span>
-  </div>`;
-
-  // Selector — every ontology is a pipeline; a materialized set marks it "built".
-  const switcher = ontologies.length
-    ? `<div class="chips" style="margin:0 0 14px">${ontologies.map((x) => {
-        const on = selected && x.id === selected.id; const built = builtRefs.has(x.ref);
-        return `<a href="/__ioi/pipeline?ontology=${encodeURIComponent(x.id)}" class="pill ${on ? "ok" : "muted"}" style="text-decoration:none;margin:0">${CX_ESC(x.domain || x.id)}${built ? ` <span class="pill ok" style="margin-left:4px">built</span>` : ""}</a>`;
-      }).join(" ")}</div>`
-    : `<div class="empty">No pipelines yet. A pipeline is an ontology's ODK ladder — <a href="/__ioi/odk/ontologies/new">create an ontology</a> to start one.</div>`;
-
-  // Preview pane — the projection's declared read shape + the first materialized rows (daemon truth).
+  // Preview + output projection (daemon truth) — feeds the bottom tray + right output panel.
   const proj = projs.find((p) => p.status !== "retired") || projs[0] || null;
   const mset = osets.find((s) => proj && s.ontology_projection_id === proj.id) || osets[0] || null;
   const cols = proj ? (proj.visible_properties || []) : [];
   const previewTable = proj
-    ? `<table><thead><tr>${cols.map((c) => `<th>${CX_ESC(c)}</th>`).join("")}</tr></thead><tbody>${(mset && (mset.objects || []).length)
-        ? mset.objects.slice(0, 20).map((o) => `<tr>${cols.map((c) => `<td>${CX_ESC(String((o.properties || {})[c] ?? ""))}</td>`).join("")}</tr>`).join("")
-        : `<tr><td colspan="${cols.length || 1}" style="text-align:center;color:#878a93;padding:16px 8px">No rows yet — Build a materializing run to populate this output (object_instances stays 0 until then).</td></tr>`}</tbody></table>`
-    : `<div class="empty">No read projection on this pipeline yet — add one in the Ontology Manager.</div>`;
-  const previewPane = `<h2 id="pipeline-preview">Preview <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— the output dataset (declared columns · ${mset ? (mset.count || 0) : 0} rows · daemon truth)</span></h2>${previewTable}`;
+    ? `<table class="pb-table"><thead><tr>${cols.map((c) => `<th>${esc(c)}</th>`).join("")}</tr></thead><tbody>${(mset && (mset.objects || []).length)
+        ? mset.objects.slice(0, 12).map((o) => `<tr>${cols.map((c) => `<td>${esc(String((o.properties || {})[c] ?? ""))}</td>`).join("")}</tr>`).join("")
+        : `<tr><td colspan="${cols.length || 1}" class="pb-empty-cell">No rows yet — Build a materializing run to populate this output (object_instances stays 0 until then).</td></tr>`}</tbody></table>`
+    : `<div class="pb-empty">No read projection on this pipeline yet — add one in the Ontology Manager.</div>`;
 
-  // Honest gaps + the reference baseline link (secondary).
-  const gaps = omBoundaryNote(`This is the pipeline's <b>daemon truth</b>, rendered in the reference builder grammar. Freeform canvas authoring — drag-connect nodes, a transform code editor, run scheduling, deploy — are <b>reference-only lanes</b>, not yet bound: author stages in the <a href="/__ioi/odk?ontology=${encodeURIComponent(oid)}">Ontology Manager</a> and execute via a materializing run. The <a href="/__apps/pipeline">Pipeline Builder reference capture ↗</a> is the familiar baseline, never a rebound surface.`);
+  // ---- LEFT RAIL: pipeline list + the datasource/transform/output stage palette (tool groups).
+  const railPipes = ontologies.length
+    ? ontologies.map((x) => { const on = selected && x.id === selected.id; const built = builtRefs.has(x.ref); return `<a class="pb-pipe ${on ? "on" : ""}" href="/__ioi/pipeline?ontology=${enc(x.id)}">${esc(x.domain || x.id)}${built ? `<span class="pb-tag">built</span>` : ""}</a>`; }).join("")
+    : `<div class="pb-empty">No pipelines yet. <a href="/__ioi/odk/ontologies/new">Create an ontology</a>.</div>`;
+  const paletteGroups = [
+    ["Datasource", nodes.slice(0, 1)],
+    ["Transform", nodes.slice(1, 5)],
+    ["Output", nodes.slice(5)],
+  ];
+  const palette = paletteGroups.map(([g, ns]) => `<div class="pb-pgroup"><div class="pb-pgtitle">${esc(g)}</div>${ns.map((nd) => `<div class="pb-tool pb-${nd.cls}"><span>${nd.icon}</span> ${esc(nd.label)}</div>`).join("")}</div>`).join("");
+  const rail = `<aside class="pb-rail">
+    <div class="pb-railhead">Pipelines</div><div class="pb-pipes">${railPipes}</div>
+    <div class="pb-railhead">Stages</div>${palette}
+  </aside>`;
 
-  const head = `<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap"><div><h1 style="margin:0">Pipeline Builder</h1><p class="sub" style="margin:4px 0 0">Build ontology-bound object data — the ODK authority ladder as a datasource → transform → output pipeline, over IOI daemon truth. Reference grammar: <a href="/__apps/pipeline">Pipeline Builder ↗</a> (secondary capture).</p></div><div class="row" style="gap:8px"><a class="act ghost" href="/__ioi/lineage?ontology=${encodeURIComponent(oid)}">View lineage</a><a class="act ghost" href="/__ioi/odk?ontology=${encodeURIComponent(oid)}">Open in Ontology Manager</a></div></div>`;
-  const banner = `<div class="chips" style="margin:10px 0 14px"><span class="pill ${instances > 0 ? "ok" : "muted"}">${instances > 0 ? "built" : "not built"}</span> <span class="sub" style="margin:0">${selected ? `Pipeline for <b>${CX_ESC(selected.domain || selected.id)}</b> · ${nodes.filter((n) => n.cls === "live").length}/${nodes.length} stages live · ${instances} object instance${instances === 1 ? "" : "s"}` : "Select or create an ontology to see its pipeline."}</span></div>`;
-  return automationsShell("Pipeline Builder", head + switcher + banner + toolbar + `<h2 id="pipeline-canvas">Pipeline <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— datasource → transforms → output · daemon truth</span></h2>` + flow + gaps + previewPane);
+  // ---- HEADER: title + which pipeline + build state.
+  const header = `<header class="pb-header">
+    <div class="pb-title">Pipeline Builder</div>
+    <div class="pb-crumb">${oname}${selected ? ` · <span class="pb-state pb-${instances > 0 ? "live" : "declared"}">${instances > 0 ? "built" : "not built"}</span> · ${nodes.filter((n) => n.cls === "live").length}/${nodes.length} stages live · ${instances} object${instances === 1 ? "" : "s"}` : ""}</div>
+    <div class="pb-headacts"><a class="pb-btn ghost" href="/__ioi/lineage?ontology=${enc(oid)}">Lineage</a><a class="pb-btn ghost" href="/__ioi/odk?ontology=${enc(oid)}">Ontology Manager</a></div>
+  </header>`;
+
+  // ---- TOOLBAR: Build (supported) / Preview (supported) / Schedule + Deploy (disabled in place).
+  const toolbar = `<div class="pb-toolbar">
+    <a class="pb-btn primary" href="/__ioi/odk?ontology=${enc(oid)}">▶ Build</a>
+    <a class="pb-btn ghost" href="#pb-preview">Preview</a>
+    <span class="pb-tsep"></span>
+    <button class="pb-btn ghost" disabled title="No pipeline scheduler yet — a named gap (author + run via a materializing run).">Schedule</button>
+    <button class="pb-btn ghost" disabled title="No pipeline deploy yet — a named gap.">Deploy</button>
+    <span class="pb-toolnote">Build authors + executes through the ODK authority ladder — nothing runs freeform.</span>
+  </div>`;
+
+  // ---- CANVAS: the ODK ladder as connected pipeline node cards (the graph body).
+  const nodeCard = (nd) => `<div class="pb-node pb-${nd.cls}"${selected ? ` onclick="location.href='/__ioi/odk?ontology=${enc(oid)}#pane-${nd.pane}'"` : ""}>
+    <div class="pb-nicon">${nd.icon}</div>
+    <div class="pb-nlabel">${esc(nd.label)}</div>
+    <div class="pb-nstat"><span class="pb-dot pb-${nd.cls}"></span>${nd.cls === "live" ? "live" : nd.cls === "declared" ? "declared" : "missing"}</div>
+    <div class="pb-ncount"><b>${esc(String(nd.count))}</b> ${nd.kind === "output" ? "objects" : nd.kind === "input" ? "source" + (nd.count === 1 ? "" : "s") : "record" + (nd.count === 1 ? "" : "s")}</div>
+    <div class="pb-ndetail">${esc(nd.detail || "")}</div>
+  </div>`;
+  const canvas = `<div class="pb-canvas" id="pb-canvas">${selected
+    ? `<div class="pb-flow">${nodes.map((nd, i) => `${i ? `<div class="pb-arrow">→</div>` : ""}${nodeCard(nd)}`).join("")}</div>`
+    : `<div class="pb-empty" style="margin:40px auto">Select or create a pipeline in the rail to see its datasource → transform → output graph.</div>`}</div>`;
+
+  // ---- RIGHT OUTPUT PANEL: the projection's declared read shape + output stats (daemon truth).
+  const rightPanel = `<aside class="pb-right">
+    <div class="pb-railhead">Output</div>
+    <div class="pb-outstat"><div class="pb-outnum">${instances}</div><div class="pb-outlbl">object instance${instances === 1 ? "" : "s"} materialized</div></div>
+    ${proj ? `<div class="pb-outbox"><div class="pb-outboxt">Read projection</div><div class="pb-outcode">${esc(proj.name || proj.id)}</div><div class="pb-schema">${cols.length ? cols.map((c) => `<span class="pb-col">${esc(c)}</span>`).join("") : "<span class='pb-muted'>no columns declared</span>"}</div></div>` : `<div class="pb-empty">No read projection yet.</div>`}
+    <div class="pb-outbox"><div class="pb-outboxt">Warnings</div>${nodes.filter((n) => n.cls === "missing").length ? nodes.filter((n) => n.cls === "missing").map((n) => `<div class="pb-warn">${n.icon} ${esc(n.label)} not built</div>`).join("") : `<div class="pb-muted">all ladder stages present</div>`}</div>
+  </aside>`;
+
+  // ---- BOTTOM TRAY: preview rows + suggestions/warnings (named gaps in place).
+  const tray = `<div class="pb-tray" id="pb-preview">
+    <div class="pb-traytabs"><span class="pb-tab on">Preview</span><span class="pb-tab">Suggestions</span><span class="pb-tab">Warnings</span><span class="pb-traynote">${proj ? `output dataset · declared columns · ${mset ? (mset.count || 0) : 0} rows · daemon truth` : "no output yet"}</span></div>
+    <div class="pb-traybody">${previewTable}
+      <div class="pb-gapnote">Freeform canvas authoring — drag-connect nodes, transform code editor, scheduling, deploy — are <b>reference-only lanes disabled above</b>, not yet wired. Author stages in the <a href="/__ioi/odk?ontology=${enc(oid)}">Ontology Manager</a>; execute via a materializing run. Reference: <a href="/__apps/pipeline">Pipeline Builder capture ↗</a>.</div>
+    </div>
+  </div>`;
+
+  const css = `:root{color-scheme:dark}*{box-sizing:border-box}
+    body{margin:0;background:#0c0d10;color:#e6e7ea;font:13px/1.5 -apple-system,Segoe UI,Roboto,sans-serif}
+    a{color:#8ab4ff;text-decoration:none}
+    .pb-shell{display:flex;height:100vh;width:100vw;overflow:hidden}
+    .pb-rail{flex:0 0 232px;width:232px;height:100vh;background:#0e0f13;border-right:1px solid #23252c;overflow-y:auto;padding:12px 0}
+    .pb-railhead{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:#6f7280;padding:12px 14px 6px;font-weight:600}
+    .pb-pipes{padding:0 8px}
+    .pb-pipe{display:flex;align-items:center;justify-content:space-between;padding:7px 10px;border-radius:8px;color:#cbd0da;margin:1px 0}
+    .pb-pipe:hover{background:#15171c}.pb-pipe.on{background:#17233a;color:#fff}
+    .pb-tag{font-size:10px;padding:1px 6px;border-radius:999px;background:#11281b;color:#46c277;border:1px solid #235c3b}
+    .pb-pgroup{padding:2px 8px 8px}.pb-pgtitle{font-size:11px;color:#878a93;padding:6px 6px 3px;font-weight:600}
+    .pb-tool{display:flex;align-items:center;gap:7px;padding:6px 9px;border-radius:7px;border:1px solid #24262d;background:#15171c;margin:3px 0;font-size:12px;color:#c7c9d1}
+    .pb-tool.pb-live{border-color:#235c3b}.pb-tool.pb-declared{border-color:#5c4a23}.pb-tool.pb-missing{opacity:.6}
+    .pb-main{flex:1;min-width:0;display:flex;flex-direction:column;height:100vh}
+    .pb-header{flex:0 0 auto;height:52px;display:flex;align-items:center;gap:14px;padding:0 18px;border-bottom:1px solid #23252c;background:#0e0f13}
+    .pb-title{font-weight:700;font-size:15px;letter-spacing:-.01em}
+    .pb-crumb{color:#9a9da6;font-size:12.5px}.pb-state{padding:1px 8px;border-radius:999px;font-size:11px;border:1px solid}
+    .pb-headacts{margin-left:auto;display:flex;gap:8px}
+    .pb-toolbar{flex:0 0 auto;height:46px;display:flex;align-items:center;gap:8px;padding:0 16px;border-bottom:1px solid #23252c;background:#0d0e12}
+    .pb-tsep{width:1px;height:22px;background:#23252c;margin:0 4px}
+    .pb-toolnote{margin-left:auto;color:#6f7280;font-size:11.5px}
+    .pb-btn{padding:6px 13px;border-radius:8px;border:1px solid #2a2c33;background:transparent;color:#cbd0da;font:inherit;font-size:12.5px;font-weight:600;cursor:pointer}
+    .pb-btn.primary{background:#fff;color:#111;border-color:#fff}.pb-btn.ghost:hover{color:#fff;border-color:#3a3d45}
+    .pb-btn[disabled]{opacity:.42;cursor:not-allowed}
+    .pb-live{color:#46c277}.pb-declared{color:#d6a13a}.pb-missing{color:#9a9da6}
+    .pb-canvas{flex:1 1 auto;overflow:auto;padding:26px 22px;background:radial-gradient(circle at 18px 18px,#191b21 1px,transparent 1px);background-size:24px 24px}
+    .pb-flow{display:flex;align-items:center;gap:0;min-height:220px}
+    .pb-arrow{flex:0 0 auto;color:#4a4d55;padding:0 8px;font-size:17px}
+    .pb-node{flex:0 0 auto;width:158px;border:1px solid #24262d;border-radius:12px;padding:12px 13px;background:#15171c;cursor:pointer}
+    .pb-node:hover{border-color:#3a82f6}
+    .pb-node.pb-live{border-color:#235c3b}.pb-node.pb-declared{border-color:#5c4a23}
+    .pb-nicon{font-size:19px}.pb-nlabel{font-weight:600;font-size:13px;margin:4px 0 6px}
+    .pb-nstat{display:flex;align-items:center;gap:6px;font-size:11.5px;color:#9a9da6}
+    .pb-dot{width:7px;height:7px;border-radius:50%;background:#5a5d65}.pb-dot.pb-live{background:#46c277}.pb-dot.pb-declared{background:#d6a13a}
+    .pb-ncount{font-size:12px;margin:7px 0 0}.pb-ndetail{font-size:10.5px;color:#6f7280;margin:3px 0 0;min-height:14px}
+    .pb-right{flex:0 0 300px;width:300px;height:100vh;border-left:1px solid #23252c;background:#0e0f13;overflow-y:auto;padding:0 0 20px}
+    .pb-outstat{padding:10px 16px}.pb-outnum{font-size:30px;font-weight:700}.pb-outlbl{color:#878a93;font-size:12px}
+    .pb-outbox{margin:12px 14px;border:1px solid #24262d;border-radius:10px;padding:11px 12px;background:#15171c}
+    .pb-outboxt{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#878a93;font-weight:600;margin:0 0 7px}
+    .pb-outcode{font-family:ui-monospace,monospace;font-size:11.5px;color:#cbd0da;margin:0 0 8px}
+    .pb-schema{display:flex;flex-wrap:wrap;gap:5px}.pb-col{font-size:11px;padding:2px 8px;border-radius:6px;border:1px solid #2a2c33;color:#cbd0da}
+    .pb-warn{font-size:12px;color:#d6a13a;margin:3px 0}.pb-muted{color:#6f7280;font-size:12px}
+    .pb-tray{flex:0 0 218px;height:218px;border-top:1px solid #23252c;background:#0d0e12;display:flex;flex-direction:column}
+    .pb-traytabs{flex:0 0 auto;display:flex;align-items:center;gap:16px;padding:0 16px;height:38px;border-bottom:1px solid #23252c}
+    .pb-tab{font-size:12.5px;color:#878a93;padding:10px 0;border-bottom:2px solid transparent}.pb-tab.on{color:#fff;border-bottom-color:#3a82f6}
+    .pb-traynote{margin-left:auto;color:#6f7280;font-size:11.5px}
+    .pb-traybody{flex:1;overflow:auto;padding:12px 16px}
+    .pb-table{border-collapse:collapse;width:100%;font-size:12px}.pb-table th{text-align:left;color:#878a93;font-weight:600;padding:4px 12px 4px 0;border-bottom:1px solid #23252c}
+    .pb-table td{padding:4px 12px 4px 0;border-bottom:1px solid #171920;color:#c7c9d1}
+    .pb-empty-cell{text-align:center;color:#878a93;padding:16px 8px}
+    .pb-empty{color:#6f7280;padding:14px;border:1px dashed #24262d;border-radius:10px}
+    .pb-gapnote{margin:12px 0 0;padding:10px 12px;border:1px solid #24262d;border-radius:9px;background:#121319;color:#9a9da6;font-size:11.5px;line-height:1.6}`;
+
+  return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Pipeline Builder</title><style>${css}</style></head>
+    <body><div class="pb-shell">${rail}<div class="pb-main">${header}${toolbar}${canvas}${tray}</div>${rightPanel}</div></body></html>`;
 }
 
 function renderOntologyManager(ov, lists, selectedId) {
