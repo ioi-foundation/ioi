@@ -70,7 +70,7 @@ async function run() {
   const h = spawnSync("node", [path.join(here, "harness-reference-parity.mjs")], { encoding: "utf8", timeout: 90000, env: { ...process.env, IOI_HARNESS_SURFACES: "approvals", IOI_HARNESS_ARTIFACT_DIR: artDir } });
   let hp = null;
   if (h.status === 0 && existsSync(path.join(artDir, "result.json"))) hp = (JSON.parse(readFileSync(path.join(artDir, "result.json"), "utf8")).surfaces || [])[0];
-  ok("Playwright harness: the port PASSES structural parity against a VALID (non-errored) reference, with real screenshots", hp && hp.structural_parity === true && hp.reference_valid === true && hp.reference_errored === false && hp.evidence_ok === true, hp ? `ref[${hp.reference_regions}] ioi[${hp.ioi_regions}] score ${hp.parity_score} errored=${hp.reference_errored}` : "harness did not run");
+  ok("Playwright harness: the port PASSES structural parity — BOTH reference and IOI valid (non-errored), real screenshots", hp && hp.structural_parity === true && hp.reference_valid === true && hp.reference_errored === false && hp.ioi_valid === true && hp.ioi_errored === false && hp.evidence_ok === true, hp ? `ref[${hp.reference_regions}] ioi[${hp.ioi_regions}] score ${hp.parity_score} ref_err=${hp.reference_errored} ioi_err=${hp.ioi_errored}` : "harness did not run");
   ok("the port reproduces the reference shell (rail + header + body) at score ≥ 0.8", hp && ["rail", "header", "body"].every((r) => hp.ioi_regions.includes(r)) && hp.parity_score >= 0.8);
 
   // 4. DAEMON TRUTH — the real fixture renders + counts cross-check the live daemon.
