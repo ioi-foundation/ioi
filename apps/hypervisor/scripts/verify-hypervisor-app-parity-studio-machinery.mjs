@@ -71,6 +71,9 @@ async function run() {
     ["non-string state kind (must reject, not coerce to normal)", { name: "x", states: [S("a", "initial"), { id: "b", kind: ["final"] }] }, "state_machine_state_kind_invalid"],
     ["oversized state id (length bound)", { name: "x", states: [{ id: "a".repeat(200), kind: "initial" }] }, "state_machine_state_id_invalid"],
     ["empty input port", { name: "x", states: [S("a", "initial")], inputs: ["", "ok"] }, "state_machine_inputs_invalid"],
+    ["non-string guard_ref (must reject, not silently drop the guard)", { name: "x", states: [S("a", "initial"), S("b", "final")], transitions: [{ id: "t", from: "a", to: "b", guard_ref: ["g1"] }], guards: [{ id: "g1", name: "ok" }] }, "state_machine_guard_ref_invalid"],
+    ["oversized free text (guard expression)", { name: "x", states: [S("a", "initial")], guards: [{ id: "g1", expression: "x".repeat(5000) }] }, "state_machine_guard_field_invalid"],
+    ["non-string free text (transition event)", { name: "x", states: [S("a", "initial"), S("b", "final")], transitions: [{ id: "t", from: "a", to: "b", event: { x: 1 } }] }, "state_machine_transition_field_invalid"],
   ];
   let laneFails = 0, laneDetail = "";
   for (const [label, body, code] of lanes) {
@@ -91,6 +94,13 @@ async function run() {
   const selfLoop = (await C({ name: "parity-selfloop", states: [S("a", "initial")], transitions: [{ id: "t", from: "a", to: "a" }] })).j.state_machine;
   track(selfLoop?.id);
   ok("health honesty: a PURE self-loop stays incomplete (a transition to nowhere-new never overstates 'ready')", selfLoop?.health === "incomplete", selfLoop?.health);
+  // Reachability: a declared final that the initial state cannot reach must NOT make the machine ready.
+  const unreachable = (await C({ name: "parity-unreachable", states: [S("a", "initial"), S("b", "normal"), S("c", "final")], transitions: [{ id: "t", from: "a", to: "b" }] })).j.state_machine;
+  track(unreachable?.id);
+  ok("health honesty: an UNREACHABLE final state does NOT make a machine 'ready' (reachability is checked)", unreachable?.health === "incomplete", unreachable?.health);
+  const disconnectedFinal = (await C({ name: "parity-disconnected", states: [S("a", "initial"), S("z", "final")] })).j.state_machine;
+  track(disconnectedFinal?.id);
+  ok("health honesty: initial + a disconnected final (no transition) is incomplete, not ready", disconnectedFinal?.health === "incomplete", disconnectedFinal?.health);
   ok("status is always draft (inert); the record carries NO run/current-state/instance field", ready?.status === "draft" && !("current_state" in (ready || {})) && !("running" in (ready || {})) && !("instance" in (ready || {})) && !("run" in (ready || {})));
 
   // 4. NO EXECUTION endpoint (definition-only).

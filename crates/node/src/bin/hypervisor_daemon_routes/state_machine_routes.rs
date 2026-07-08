@@ -86,6 +86,16 @@ fn owner_ref_ok(s: &str) -> bool {
 fn bounded_text(s: &str) -> bool {
     s.len() <= MAX_TEXT
 }
+/// An OPTIONAL free-text field on a nested element: absent/null → ""; a bounded string → itself; a
+/// present non-string OR over-long string → Err(code) (never silently coerced to "", never unbounded).
+fn opt_text<'a>(v: &'a Value, key: &str, code: &'static str) -> Result<&'a str, (String, String)> {
+    match v.get(key) {
+        None | Some(Value::Null) => Ok(""),
+        Some(Value::String(s)) if s.len() <= MAX_TEXT => Ok(s.as_str()),
+        Some(Value::String(_)) => Err((code.to_string(), format!("`{key}` exceeds {MAX_TEXT} chars"))),
+        Some(_) => Err((code.to_string(), format!("`{key}` must be a string"))),
+    }
+}
 
 /// Parse a JSON array of strings; None if a non-string element is present (absent = empty).
 fn str_array(v: Option<&Value>) -> Option<Vec<String>> {
@@ -129,7 +139,9 @@ fn validate_definition(body: &Value) -> Result<Validated, (String, String)> {
         if !guard_ids.insert(id.to_string()) {
             return err("state_machine_duplicate_guard_id", format!("duplicate guard id `{id}`"));
         }
-        guards.push(json!({ "id": id, "name": text(g, "name"), "expression": text(g, "expression") }));
+        let gname = opt_text(g, "name", "state_machine_guard_field_invalid")?;
+        let gexpr = opt_text(g, "expression", "state_machine_guard_field_invalid")?;
+        guards.push(json!({ "id": id, "name": gname, "expression": gexpr }));
     }
 
     // ---- States. {id, name, kind}
@@ -137,6 +149,8 @@ fn validate_definition(body: &Value) -> Result<Validated, (String, String)> {
     let mut state_ids = HashSet::new();
     let mut initial_count = 0usize;
     let mut final_count = 0usize;
+    let mut initial_id: Option<String> = None;
+    let mut final_ids: HashSet<String> = HashSet::new();
     let Ok(state_list) = arr_or_empty(body, "states") else {
         return err("state_machine_states_invalid", "states must be an array of objects".into());
     };
@@ -162,9 +176,10 @@ fn validate_definition(body: &Value) -> Result<Validated, (String, String)> {
         if !STATE_KINDS.contains(&kind) {
             return err("state_machine_state_kind_invalid", format!("state `{id}` kind `{kind}` must be one of {STATE_KINDS:?}"));
         }
-        if kind == "initial" { initial_count += 1; }
-        if kind == "final" { final_count += 1; }
-        states.push(json!({ "id": id, "name": text(s, "name"), "kind": kind }));
+        if kind == "initial" { initial_count += 1; initial_id = Some(id.to_string()); }
+        if kind == "final" { final_count += 1; final_ids.insert(id.to_string()); }
+        let sname = opt_text(s, "name", "state_machine_state_field_invalid")?;
+        states.push(json!({ "id": id, "name": sname, "kind": kind }));
     }
 
     // Exactly one initial state — but only enforced once a machine has states (an empty draft is a
@@ -181,7 +196,7 @@ fn validate_definition(body: &Value) -> Result<Validated, (String, String)> {
     // ---- Transitions. {id, from, to, event?, guard_ref?}
     let mut transitions = Vec::new();
     let mut transition_ids = HashSet::new();
-    let mut non_self_transitions = 0usize;
+    let mut adj: HashMap<String, Vec<String>> = HashMap::new();
     let Ok(transition_list) = arr_or_empty(body, "transitions") else {
         return err("state_machine_transitions_invalid", "transitions must be an array of objects".into());
     };
@@ -204,12 +219,15 @@ fn validate_definition(body: &Value) -> Result<Validated, (String, String)> {
         if !state_ids.contains(to) {
             return err("state_machine_transition_end_unresolved", format!("transition `{id}` to `{to}` does not resolve to a declared state"));
         }
-        let guard_ref = text(t, "guard_ref");
+        // guard_ref: a present value must be a string (never silently dropped); empty = no guard; a
+        // non-empty guard_ref must resolve to a declared guard.
+        let guard_ref = opt_text(t, "guard_ref", "state_machine_guard_ref_invalid")?;
         if !guard_ref.is_empty() && !guard_ids.contains(guard_ref) {
             return err("state_machine_guard_unresolved", format!("transition `{id}` guard_ref `{guard_ref}` does not resolve to a declared guard"));
         }
-        if from != to { non_self_transitions += 1; }
-        transitions.push(json!({ "id": id, "from": from, "to": to, "event": text(t, "event"), "guard_ref": guard_ref }));
+        let event = opt_text(t, "event", "state_machine_transition_field_invalid")?;
+        adj.entry(from.to_string()).or_default().push(to.to_string());
+        transitions.push(json!({ "id": id, "from": from, "to": to, "event": event, "guard_ref": guard_ref }));
     }
 
     // ---- Declared inputs / outputs (named ports) — each a non-empty, bounded name.
@@ -243,13 +261,40 @@ fn validate_definition(body: &Value) -> Result<Validated, (String, String)> {
         }
     }
 
-    // ---- Health — declared completeness, never runtime state. A machine is `ready` only when it has
-    // exactly one initial state AND a way forward that is not just a self-loop: at least one
-    // NON-self transition or a declared final state. A pure self-loop stays `incomplete` (nothing
-    // beyond the initial state is reachable), so `ready` never overstates a machine's completeness.
+    // ---- Reachability from the initial state (BFS over the transition graph) — `ready` must reflect
+    // what is actually REACHABLE, never a disconnected terminal.
+    let reachable: HashSet<String> = {
+        let mut seen: HashSet<String> = HashSet::new();
+        if let Some(init) = &initial_id {
+            let mut stack = vec![init.clone()];
+            seen.insert(init.clone());
+            while let Some(cur) = stack.pop() {
+                if let Some(nexts) = adj.get(&cur) {
+                    for n in nexts {
+                        if seen.insert(n.clone()) {
+                            stack.push(n.clone());
+                        }
+                    }
+                }
+            }
+        }
+        seen
+    };
+    // Forward motion: at least one non-self transition FROM a reachable state (a pure self-loop, or a
+    // transition out of an unreachable island, does not count).
+    let has_forward = transitions.iter().any(|t| {
+        let from = t.get("from").and_then(Value::as_str).unwrap_or("");
+        let to = t.get("to").and_then(Value::as_str).unwrap_or("");
+        from != to && reachable.contains(from)
+    });
+    // If the machine declares any final state, at least one must be REACHABLE from the initial state.
+    let final_reachable = final_ids.is_empty() || final_ids.iter().any(|f| reachable.contains(f));
+
+    // ---- Health — declared completeness, never runtime state. `ready` requires exactly one initial
+    // state, real forward motion, and (if a terminal is declared) a reachable terminal.
     let health = if states.is_empty() {
         "empty"
-    } else if initial_count == 1 && (non_self_transitions >= 1 || final_count >= 1) {
+    } else if initial_count == 1 && has_forward && final_reachable {
         "ready"
     } else {
         "incomplete"
@@ -437,16 +482,22 @@ mod tests {
     }
 
     #[test]
-    fn ready_requires_initial_plus_transition_or_final() {
-        // one state, initial, no transition, not final → incomplete
+    fn ready_requires_initial_forward_and_reachable_terminal() {
+        // one state, initial, no transition → incomplete (no forward motion)
         let v = validate_definition(&def(json!([{ "id": "a", "kind": "initial" }]), json!([]), json!([]))).unwrap();
         assert_eq!(v.health, "incomplete");
-        // initial + a final state → ready (terminal reachable)
+        // initial + a final state but NO transition → the terminal is UNREACHABLE → incomplete (honest)
         let v = validate_definition(&def(json!([{ "id": "a", "kind": "initial" }, { "id": "b", "kind": "final" }]), json!([]), json!([]))).unwrap();
-        assert_eq!(v.health, "ready");
-        // initial + one transition → ready
+        assert_eq!(v.health, "incomplete");
+        // initial + one transition (no terminal declared) → ready (forward motion, vacuous terminal)
         let v = validate_definition(&def(json!([{ "id": "a", "kind": "initial" }, { "id": "b", "kind": "normal" }]), json!([{ "id": "t1", "from": "a", "to": "b" }]), json!([]))).unwrap();
         assert_eq!(v.health, "ready");
+        // initial + final + a transition that REACHES the final → ready
+        let v = validate_definition(&def(json!([{ "id": "a", "kind": "initial" }, { "id": "b", "kind": "final" }]), json!([{ "id": "t", "from": "a", "to": "b" }]), json!([]))).unwrap();
+        assert_eq!(v.health, "ready");
+        // initial + UNREACHABLE final (transition leads elsewhere) → incomplete (reachability checked)
+        let v = validate_definition(&def(json!([{ "id": "a", "kind": "initial" }, { "id": "b", "kind": "normal" }, { "id": "c", "kind": "final" }]), json!([{ "id": "t", "from": "a", "to": "b" }]), json!([]))).unwrap();
+        assert_eq!(v.health, "incomplete");
     }
 
     #[test]
@@ -503,5 +554,12 @@ mod tests {
         assert!(validate_definition(&json!({ "name": "m", "states": Value::Null, "transitions": Value::Null, "guards": Value::Null })).is_ok());
         // but a non-array container is rejected
         assert_eq!(validate_definition(&json!({ "name": "m", "states": "not-an-array" })).unwrap_err().0, "state_machine_states_invalid");
+
+        // a present NON-STRING guard_ref is rejected, never silently dropped into an unguarded transition
+        assert_eq!(validate_definition(&def(json!([{ "id": "a", "kind": "initial" }, { "id": "b", "kind": "final" }]), json!([{ "id": "t", "from": "a", "to": "b", "guard_ref": ["g1"] }]), json!([{ "id": "g1", "name": "ok" }]))).unwrap_err().0, "state_machine_guard_ref_invalid");
+        // free-text fields are bounded + must be strings (guard expression / state name / transition event)
+        assert_eq!(validate_definition(&def(json!([{ "id": "a", "kind": "initial" }]), json!([]), json!([{ "id": "g1", "expression": "x".repeat(MAX_TEXT + 1) }]))).unwrap_err().0, "state_machine_guard_field_invalid");
+        assert_eq!(validate_definition(&def(json!([{ "id": "a", "kind": "initial", "name": 42 }]), json!([]), json!([]))).unwrap_err().0, "state_machine_state_field_invalid");
+        assert_eq!(validate_definition(&def(json!([{ "id": "a", "kind": "initial" }, { "id": "b", "kind": "final" }]), json!([{ "id": "t", "from": "a", "to": "b", "event": { "x": 1 } }]), json!([]))).unwrap_err().0, "state_machine_transition_field_invalid");
     }
 }
