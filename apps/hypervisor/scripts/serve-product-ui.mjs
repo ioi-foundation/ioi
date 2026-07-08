@@ -3917,9 +3917,132 @@ function renderOntologyManager(ov, lists, selectedId) {
     + omUnavailablePane("Interfaces", "Shared type interfaces are not modeled yet.", "OntologyInterface")
     + functionsPane + healthPane + cleanupPane + configPane + resourcesPane + dataPane + explorerPane;
 
-  const head = `<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap"><div><h1 style="margin:0">Ontology Manager</h1><p class="sub" style="margin:4px 0 0">The daemon ontology manager — a typed, fail-closed CanonicalObjectModel over IOI authority. The familiar workbench grammar (object / link / action / value types · functions · health · configuration), re-authored over daemon truth. This ladder also renders as a <a href="/__ioi/pipeline">Pipeline Builder →</a>. Reference grammar: <a href="/__apps/schema">Ontology Manager ↗</a> · <a href="/__apps/explorer">Object Explorer ↗</a> (secondary captures).</p></div><a class="act" href="/__ioi/odk/ontologies/new">+ New Ontology</a></div>`;
+  const head = `<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap"><div><h1 style="margin:0">Ontology Manager</h1><p class="sub" style="margin:4px 0 0">The daemon ontology manager <b>substrate/authoring view</b> — a typed, fail-closed CanonicalObjectModel over IOI authority (object / link / action / value types · functions · health · configuration), and the create/edit lanes. The ported reference schema workbench is at <a href="/__ioi/ontology/manager">Ontology Manager (ported) →</a>. This ladder also renders as a <a href="/__ioi/pipeline">Pipeline Builder →</a>. Reference grammar: <a href="/__apps/schema">Ontology Manager ↗</a> · <a href="/__apps/explorer">Object Explorer ↗</a> (secondary captures).</p></div><a class="act" href="/__ioi/odk/ontologies/new">+ New Ontology</a></div>`;
   const body = head + switcher + `<div style="display:flex;gap:20px;align-items:flex-start">${omNav(counts)}<div style="flex:1;min-width:0">${panes}</div></div>`;
   return automationsShell("Ontology Manager", body);
+}
+
+// ============================ ONTOLOGY MANAGER — reference UX PORT (#34, daemon_wired candidate).
+// A PORTED source-neutral schema-workbench shell (left RAIL of ontologies + schema-section nav ·
+// HEADER with ontology + health + counts · TOOLBAR · BODY typed sections: object/value/link/action
+// types + functions + health · right DETAIL panel: configuration + resources · bottom TRAY), NOT the
+// dark automationsShell, over the REAL ODK CanonicalObjectModel. Read-only schema view (authoring
+// stays in /__ioi/odk); the /__apps/schema reference BOOTS so the harness can certify parity.
+function renderOntologyManagerPort(ov, lists, selectedId) {
+  const enc = encodeURIComponent, esc = CX_ESC;
+  const o = ov || {};
+  const ontologies = Array.isArray(lists.ontologies) ? lists.ontologies : [];
+  const selected = ontologies.find((x) => x.id === selectedId) || ontologies.find((x) => (x.health || {}).status === "ready") || ontologies[0] || null;
+  const com = (selected && selected.canonical_object_model) || {};
+  const arr = (k) => (Array.isArray(com[k]) ? com[k] : []);
+  const vts = arr("value_types"), ots = arr("object_types"), lts = arr("link_types"), ats = arr("action_types");
+  const funcs = ats.filter((a) => a.kind === "function"), nonFuncActs = ats.filter((a) => a.kind !== "function");
+  const health = (selected && selected.health) || {};
+  const msets = (lists.materialized_sets || []).filter((m) => selected && m.ontology_ref === selected.ref);
+  const projs = (lists.projections || []).filter((p) => selected && p.ontology_ref === selected.ref);
+  const totalInstances = msets.reduce((a, m) => a + (m.count || 0), 0);
+  const propCount = ots.reduce((n, x) => n + (Array.isArray(x.properties) ? x.properties.length : 0), 0);
+  const rollup = o.ontology_health || {};
+  const idc = (x) => `<code class="om-code">${esc(x || "")}</code>`;
+  const hstate = health.status || "empty";
+  const hpill = `<span class="om-pill ${hstate === "ready" ? "ok" : hstate === "empty" ? "muted" : "warn"}">${esc(hstate)}</span>`;
+
+  const oid = selected ? selected.id : "";
+  const SECTIONS = [["object-types", "Object types", ots.length], ["properties", "Properties", propCount], ["value-types", "Value types", vts.length], ["link-types", "Link types", lts.length], ["action-types", "Actions", nonFuncActs.length], ["functions", "Functions", funcs.length], ["health", "Health", (health.gaps || []).length]];
+
+  const rail = `<aside class="om-rail">
+    <div class="om-brand">Ontology</div>
+    <div class="om-railsec">Ontologies</div>
+    ${ontologies.length ? ontologies.map((x) => { const on = selected && x.id === selected.id; const st = (x.health || {}).status || "empty"; return `<a class="om-onto ${on ? "on" : ""}" href="/__ioi/ontology/manager?ontology=${enc(x.id)}">${esc(x.domain || x.id)}<span class="om-dot om-${st === "ready" ? "ok" : st === "empty" ? "muted" : "warn"}"></span></a>`; }).join("") : `<div class="om-empty">No ontologies yet.</div>`}
+    <div class="om-railsec">Schema</div>
+    ${SECTIONS.map(([id, label, n]) => `<a class="om-navitem" href="#om-${id}">${esc(label)}<span class="om-count">${n}</span></a>`).join("")}
+  </aside>`;
+
+  const header = `<header class="om-header">
+    <div class="om-title">Ontology Manager</div>
+    <div class="om-crumb">${selected ? `${esc(selected.domain || selected.id)} · v${esc(selected.version || "0.1.0")} ${hpill} · ${ots.length} object type${ots.length === 1 ? "" : "s"} · ${totalInstances} object${totalInstances === 1 ? "" : "s"}` : "no ontology"}</div>
+    <div class="om-headacts"><a class="om-btn ghost" href="/__ioi/odk?ontology=${enc(oid)}">Substrate view</a><a class="om-btn ghost" href="/__ioi/pipeline?ontology=${enc(oid)}">Pipeline</a></div>
+  </header>`;
+
+  const toolbar = `<div class="om-toolbar">
+    <a class="om-btn primary" href="/__ioi/odk/ontologies/${selected ? enc(selected.id) + "/edit" : "new"}">Configure model</a>
+    <button class="om-btn ghost" disabled title="In-canvas schema editing (drag types/links) is a named gap — author in the Ontology Manager substrate.">Edit in canvas</button>
+    <span class="om-toolnote">Read-only schema over real daemon truth. Authoring + object materialization live in the <a href="/__ioi/odk?ontology=${enc(oid)}">substrate view</a> + <a href="/__ioi/pipeline?ontology=${enc(oid)}">pipeline</a>.</span>
+  </div>`;
+
+  const objectCards = ots.length
+    ? ots.map((t) => { const props = Array.isArray(t.properties) ? t.properties : []; const objs = msets.filter((m) => m.object_type_id === t.id).reduce((a, m) => a + (m.count || 0), 0); return `<div class="om-card"><div class="om-cardhd"><b>${esc(t.name || t.id)}</b> ${idc(t.id)}</div><div class="om-sub">${props.length} propert${props.length === 1 ? "y" : "ies"} · <b>${objs}</b> object${objs === 1 ? "" : "s"} · title ${idc(t.title_property || "—")}</div></div>`; }).join("")
+    : `<div class="om-empty">No object types yet.</div>`;
+  const tbl = (head, rows, empty) => rows ? `<table class="om-table"><thead><tr>${head.map((h) => `<th>${h}</th>`).join("")}</tr></thead><tbody>${rows}</tbody></table>` : `<div class="om-empty">${empty}</div>`;
+  const propRows = ots.flatMap((t) => (Array.isArray(t.properties) ? t.properties : []).map((p) => `<tr><td>${esc(t.name || t.id)}</td><td>${esc(p.name || p.id)} ${idc(p.id)}</td><td>${idc(p.value_type || "")}</td><td>${p.required ? "yes" : "—"}${t.title_property === p.id ? ` <span class="om-pill ok">title</span>` : ""}</td></tr>`)).join("");
+  const valRows = vts.map((v) => `<tr><td>${esc(v.name || v.id)} ${idc(v.id)}</td><td><span class="om-pill muted">${esc(v.base || "string")}</span></td><td>${(v.enum_values && v.enum_values.length) ? v.enum_values.map((e) => `<span class="om-pill muted">${esc(e)}</span>`).join(" ") : "—"}</td></tr>`).join("");
+  const linkRows = lts.map((l) => `<tr><td>${esc(l.name || l.id)} ${idc(l.id)}</td><td>${idc(l.from || "")} → ${idc(l.to || "")}</td><td><span class="om-pill muted">${esc(l.cardinality || "")}</span></td></tr>`).join("");
+  const actRows = nonFuncActs.map((a) => `<tr><td>${esc(a.name || a.id)} ${idc(a.id)}</td><td><span class="om-pill muted">${esc(a.kind || "")}</span></td><td>${a.applies_to ? idc(a.applies_to) : "—"}</td></tr>`).join("");
+  const funcRows = funcs.map((a) => `<tr><td>${esc(a.name || a.id)} ${idc(a.id)}</td><td>${a.applies_to ? idc(a.applies_to) : "—"}</td></tr>`).join("");
+  const healthBlock = `<div class="om-healthbox"><div class="om-cardhd"><b>Readiness</b> ${hpill} <span class="om-sub">${esc(`${(health.counts || {}).object_types || 0} obj · ${(health.counts || {}).value_types || 0} val · ${(health.counts || {}).link_types || 0} link · ${(health.counts || {}).action_types || 0} act`)}</span></div>${(health.gaps || []).length ? `<ul class="om-gaps">${health.gaps.map((g) => `<li>${esc(g)}</li>`).join("")}</ul>` : `<div class="om-sub">No gaps — the required semantic pieces are present.</div>`}<div class="om-sub" style="margin-top:6px"><b>${esc(String(health.object_instances == null ? 0 : health.object_instances))}</b> object instances — ${esc(health.object_data_note || "schema only; no object-instance plane bound until an OntologyProjection exists.")}</div></div>`;
+
+  const body = `<main class="om-body" id="om-body" role="main">${selected ? `
+    <section id="om-object-types"><h2>Object types <span class="om-sub">(${ots.length})</span></h2>${objectCards}</section>
+    <section id="om-properties"><h2>Properties <span class="om-sub">(${propCount})</span></h2>${tbl(["Object type", "Property", "Value type", "Required"], propRows, "No properties declared.")}</section>
+    <section id="om-value-types"><h2>Value types <span class="om-sub">(${vts.length})</span></h2>${tbl(["Value type", "Base", "Enum"], valRows, "No value types.")}</section>
+    <section id="om-link-types"><h2>Link types <span class="om-sub">(${lts.length})</span></h2>${tbl(["Link", "From → To", "Cardinality"], linkRows, "No link types.")}</section>
+    <section id="om-action-types"><h2>Actions <span class="om-sub">(${nonFuncActs.length})</span></h2><div class="om-note">Action <b>declarations</b> only — writeback/execution is not wired (needs a PolicyBoundDataView + TransformationRun). Declaring an action never runs it.</div>${tbl(["Action", "Kind", "Applies to"], actRows, "No action types.")}</section>
+    <section id="om-functions"><h2>Functions <span class="om-sub">(${funcs.length})</span></h2><div class="om-note">Function <b>declarations</b> only — evaluation/execution is not wired.</div>${tbl(["Function", "Applies to"], funcRows, "No function declarations.")}</section>
+    <section id="om-health"><h2>Health</h2>${healthBlock}</section>
+  ` : `<div class="om-empty" style="margin:40px auto">Select or create an ontology in the rail to see its schema.</div>`}</main>`;
+
+  const rightPanel = `<aside class="om-right">
+    <div class="om-railsec">Configuration</div>
+    ${selected ? `<div class="om-outbox"><div class="om-outrow"><span class="om-k">Ref</span><span class="om-v">${idc(selected.ref)}</span></div><div class="om-outrow"><span class="om-k">Revision</span><span class="om-v">rev ${esc(String(selected.revision || 1))}</span></div><div class="om-outrow"><span class="om-k">Receipts</span><span class="om-v">${(selected.receipt_refs || []).length}</span></div><div class="om-outrow"><span class="om-k">History</span><span class="om-v">${(selected.history || []).length}</span></div></div>` : ""}
+    <div class="om-railsec">Resources</div>
+    <div class="om-outbox"><div class="om-outrow"><span class="om-k">Object sets</span><span class="om-v">${msets.length} · ${totalInstances} obj</span></div><div class="om-outrow"><span class="om-k">Projections</span><span class="om-v">${projs.length}</span></div></div>
+    <div class="om-railsec">Estate</div>
+    <div class="om-outbox"><span class="om-pill ok">${rollup.ready || 0} ready</span> <span class="om-pill warn">${rollup.incomplete || 0} incomplete</span> <span class="om-pill muted">${rollup.empty || 0} empty</span></div>
+    <div class="om-railsec">Named gaps</div>
+    <div class="om-outbox"><div class="om-sub">in-canvas schema editing · action/function execution · orphan-reference cleanup scan — reference-only, no authority contract yet.</div></div>
+  </aside>`;
+
+  const tray = `<div class="om-tray"><span class="om-sub">Ported schema workbench over the real ODK CanonicalObjectModel. Authoring + materialization: <a href="/__ioi/odk?ontology=${enc(oid)}">substrate view</a>. Reference: <a href="/__apps/schema" target="_blank" rel="noopener">Ontology Manager ↗</a> · <a href="/__apps/explorer" target="_blank" rel="noopener">Object Explorer ↗</a>.</span></div>`;
+
+  const css = `:root{color-scheme:dark}*{box-sizing:border-box}
+    body{margin:0;background:#0c0d10;color:#e6e7ea;font:13px/1.5 -apple-system,Segoe UI,Roboto,sans-serif}
+    a{color:#8ab4ff;text-decoration:none}
+    .om-shell{display:flex;height:100vh;width:100vw;overflow:hidden}
+    .om-rail{flex:0 0 236px;width:236px;height:100vh;background:#0e0f13;border-right:1px solid #23252c;overflow-y:auto;padding:14px 10px}
+    .om-brand{font-weight:700;font-size:15px;padding:2px 8px 10px}
+    .om-railsec{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:#6f7280;padding:12px 8px 6px;font-weight:600}
+    .om-onto,.om-navitem{display:flex;align-items:center;justify-content:space-between;padding:7px 10px;border-radius:8px;color:#cbd0da;margin:1px 0}
+    .om-onto:hover,.om-navitem:hover{background:#15171c}.om-onto.on{background:#17233a;color:#fff}
+    .om-count{font-size:11px;color:#878a93}.om-dot{width:8px;height:8px;border-radius:50%}
+    .om-main{flex:1;min-width:0;display:flex;flex-direction:column;height:100vh}
+    .om-header{flex:0 0 auto;height:54px;display:flex;align-items:center;gap:14px;padding:0 20px;border-bottom:1px solid #23252c;background:#0e0f13}
+    .om-title{font-weight:700;font-size:16px}.om-crumb{color:#9a9da6;font-size:12.5px}.om-headacts{margin-left:auto;display:flex;gap:8px}
+    .om-toolbar{flex:0 0 auto;height:46px;display:flex;align-items:center;gap:10px;padding:0 18px;border-bottom:1px solid #23252c;background:#0d0e12}
+    .om-toolnote{margin-left:auto;color:#6f7280;font-size:11.5px}
+    .om-body{flex:1 1 auto;overflow:auto;padding:16px 20px}
+    .om-body section{margin:0 0 22px}.om-body h2{font-size:14px;margin:0 0 8px;font-weight:600}.om-body h2 .om-sub{font-weight:400}
+    .om-card{border:1px solid #24262d;border-radius:10px;padding:10px 13px;margin:0 0 8px;background:#15171c}
+    .om-cardhd{display:flex;align-items:center;gap:8px}.om-sub{color:#878a93;font-size:11.5px}
+    .om-table{border-collapse:collapse;width:100%;font-size:12.5px;margin:0 0 4px}
+    .om-table th{text-align:left;color:#878a93;font-weight:600;padding:6px 14px 6px 0;border-bottom:1px solid #23252c}
+    .om-table td{padding:6px 14px 6px 0;border-bottom:1px solid #171920}
+    .om-code{font-family:ui-monospace,monospace;font-size:11px;color:#9aa0ab}
+    .om-note{color:#9a9da6;font-size:11.5px;border:1px solid #24262d;border-radius:8px;padding:8px 11px;margin:0 0 8px;background:#121319}
+    .om-healthbox{border:1px solid #24262d;border-radius:10px;padding:12px 14px;background:#15171c}.om-gaps{margin:6px 0 0;padding-left:18px;color:#9a9da6}
+    .om-right{flex:0 0 292px;width:292px;height:100vh;border-left:1px solid #23252c;background:#0e0f13;overflow-y:auto;padding:0 12px 20px}
+    .om-outbox{margin:2px 6px 8px;border:1px solid #24262d;border-radius:10px;padding:10px 12px;background:#15171c}
+    .om-outrow{display:flex;justify-content:space-between;gap:8px;margin:3px 0}.om-k{color:#878a93;font-size:12px}.om-v{font-size:12px}
+    .om-tray{flex:0 0 44px;height:44px;display:flex;align-items:center;padding:0 18px;border-top:1px solid #23252c;background:#0d0e12;color:#6f7280;font-size:11.5px}
+    .om-pill{display:inline-block;padding:1px 8px;border-radius:999px;font-size:11px;border:1px solid;white-space:nowrap}
+    .om-pill.ok,.om-dot.om-ok{color:#46c277;border-color:#235c3b;background:#11281b}.om-dot.om-ok{background:#46c277}
+    .om-pill.warn,.om-dot.om-warn{color:#d6a13a;border-color:#5c4a23}.om-dot.om-warn{background:#d6a13a}
+    .om-pill.muted,.om-dot.om-muted{color:#9a9da6;border-color:#2a2c33}.om-dot.om-muted{background:#5a5d65}
+    .om-empty{color:#6f7280;padding:16px;border:1px dashed #24262d;border-radius:10px}
+    .om-btn{padding:6px 12px;border-radius:8px;border:1px solid #2a2c33;background:transparent;color:#cbd0da;font:inherit;font-size:12.5px;font-weight:600;cursor:pointer}
+    .om-btn.primary{background:#fff;color:#111;border-color:#fff}.om-btn.ghost:hover{color:#fff;border-color:#3a3d45}.om-btn[disabled]{opacity:.42;cursor:not-allowed}`;
+
+  return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Ontology Manager</title><style>${css}</style></head>
+    <body><div class="om-shell">${rail}<div class="om-main">${header}${toolbar}${body}${tray}</div>${rightPanel}</div></body></html>`;
 }
 
 // Family dispatch config: api path segment, single response key, form + detail + payload.
@@ -7735,6 +7858,21 @@ const server = http.createServer((req, res) => {
         connector_sessions: cs.connector_sessions || [],
         materialized_sets: ms.materialized_object_sets || [],
       }, selectedOntology));
+      return;
+    }
+    // Ontology Manager — reference UX PORT (#34, daemon_wired). Ported schema-workbench shell over the
+    // real ODK CanonicalObjectModel; the /__ioi/odk substrate/authoring surface stays as-is.
+    if (pathname === "/__ioi/ontology/manager" && req.method === "GET") {
+      const J = (p) => fetch(`${DAEMON}${p}`).then((r) => r.json()).catch(() => ({}));
+      const [ov, o, op, ms] = await Promise.all([
+        J("/v1/hypervisor/odk/overview"),
+        J("/v1/hypervisor/odk/domain-ontologies"),
+        J("/v1/hypervisor/odk/ontology-projections"),
+        J("/v1/hypervisor/odk/materialized-object-sets"),
+      ]);
+      const selectedOntology = new URL(req.url, "http://x").searchParams.get("ontology") || "";
+      res.writeHead(200, HTMLH);
+      res.end(renderOntologyManagerPort(ov, { ontologies: o.ontologies || [], projections: op.ontology_projections || [], materialized_sets: ms.materialized_object_sets || [] }, selectedOntology));
       return;
     }
     if (pathname === "/__ioi/odk" && req.method === "GET") {

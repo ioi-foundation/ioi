@@ -55,7 +55,11 @@ async function run() {
   ok("the 10 former daemon_bound surfaces are all reclassified (substrate_bound|daemon_wired|...) with a candidate_surface + reference_workspace", FORMER.every((k) => RECLASSED.has(bySlug[k]?.parity_class) && bySlug[k]?.candidate_surface && bySlug[k]?.reference_workspace), FORMER.filter((k) => !RECLASSED.has(bySlug[k]?.parity_class)).join(",") || "all reclassified");
   ok("the retired `daemon_bound` class appears on NO seed", !(matrix.seeds || []).some((s) => s.parity_class === "daemon_bound"));
   const bc = matrix.by_parity_class || {};
-  ok("by_parity_class: the 10 former surfaces sum across (substrate_bound + daemon_wired + ported states); reference_capture 29", (bc.substrate_bound || 0) + (bc.daemon_wired || 0) + (bc.reference_ported || 0) + (bc.reference_port_pending || 0) === 10 && bc.reference_capture === 29, JSON.stringify(bc));
+  const portTotal = (bc.substrate_bound || 0) + (bc.daemon_wired || 0) + (bc.reference_ported || 0) + (bc.reference_port_pending || 0);
+  // The reset floor holds as new ports advance out of reference_capture: at LEAST the 10 former
+  // surfaces are reclassified (≥10 port-states), reference_capture only ever SHRINKS from its 29 reset
+  // baseline (a surface promoted to a port state is one fewer capture), and the classes sum to 39.
+  ok("by_parity_class honest: ≥10 port-states (the 10 former + any promoted), reference_capture ≤ 29 (only shrinks), classes sum to 39", portTotal >= 10 && (bc.reference_capture || 0) <= 29 && (bc.reference_capture || 0) + portTotal === 39, JSON.stringify(bc));
 
   // 2. Parity is EARNED, not claimed — reference_capture stays the majority; no over-claim.
   ok("reference_capture is the majority class (parity is earned surface-by-surface, not blanket-claimed)", bc.reference_capture > ((bc.substrate_bound || 0) + (bc.daemon_wired || 0)));
