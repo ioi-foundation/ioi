@@ -1,17 +1,21 @@
 #!/usr/bin/env node
-// PIPELINE BUILDER REFERENCE PORT — #32 done-bar (the FIRST daemon_wired / true-parity cut).
+// PIPELINE BUILDER REFERENCE PORT — #32 done-bar (reference_ported; daemon_wired BLOCKED, honestly).
 //
-// Unlike the substrate-truth verifiers, this proves REFERENCE UX PARITY: /__ioi/pipeline is a ported
-// source-neutral reference builder SHELL (left rail · header · graph toolbar · canvas node cards ·
-// right output panel · bottom tray) — NOT the dark automationsShell — wired to the real ODK authority
-// ladder, and it PASSES the Playwright visual+structural harness (the reference shell regions are
-// reproduced). Data still comes from daemon truth; unsupported controls are disabled IN PLACE.
+// /__ioi/pipeline is a ported source-neutral reference builder SHELL (left rail · header · graph
+// toolbar · canvas node cards · right output panel · bottom tray) — NOT the dark automationsShell —
+// fully wired to the real ODK authority ladder. It is NOT daemon_wired: every /workspace/builder/*
+// route in the local mirror renders "An error occurred" (only the global platform nav renders), so
+// there is NO valid builder reference to prove structural parity against. This verifier asserts the
+// port is real + wired AND that the harness correctly REFUSES to grant parity against the errored
+// reference (the guard works) — so parity is not falsely claimed.
 //
 // Asserts:
-//   - MATRIX: pipeline = daemon_wired → /__ioi/pipeline (port_surface); lineage+vertex stay substrate_bound.
+//   - MATRIX: pipeline = reference_ported → /__ioi/pipeline (port_surface) with a parity_blocked note;
+//     0 daemon_wired; lineage/vertex stay substrate_bound.
 //   - PORTED SHELL (not automationsShell): the page is the pb-shell with a rail + canvas; no .wrap doc.
-//   - STRUCTURAL PARITY (Playwright harness): pipeline passes — reference shell regions reproduced,
-//     real screenshots captured.
+//   - GUARD: the local builder REFERENCE errors, and the harness therefore records structural_parity
+//     FALSE for pipeline (an error page can never yield a parity pass) — daemon_wired stays blocked.
+//   - PORT IS REAL: the IOI candidate itself renders the builder shell regions (rail+body+…).
 //   - DAEMON TRUTH INSIDE THE SHELL: a fully-built pipeline shows 7/7 stages live, the built state, the
 //     real object-instance count, the datasource→transform→output node cards, and real Preview rows.
 //   - UNSUPPORTED CONTROLS DISABLED IN PLACE: Build + Preview enabled; Schedule + Deploy present but
@@ -54,9 +58,9 @@ async function run() {
   ok("parity matrix is current (regenerated == committed)", check.status === 0, (check.stderr || "").trim().slice(0, 80));
   const matrix = JSON.parse(spawnSync("node", ["-e", `import(${JSON.stringify(path.join(here, "..", "harvest-app-parity-matrix.json"))}, { with: { type: "json" } }).then(m => console.log(JSON.stringify(m.default)))`], { encoding: "utf8" }).stdout || "{}");
   const bySlug = Object.fromEntries((matrix.seeds || []).map((s) => [s.slug, s]));
-  ok("matrix classifies pipeline as daemon_wired → /__ioi/pipeline (first TRUE parity)", bySlug.pipeline?.parity_class === "daemon_wired" && bySlug.pipeline?.port_surface === "/__ioi/pipeline" && bySlug.pipeline?.candidate_surface === "/__ioi/pipeline");
-  ok("sibling graph surfaces stay substrate_bound (not falsely promoted to parity)", bySlug.lineage?.parity_class === "substrate_bound" && bySlug.vertex?.parity_class === "substrate_bound");
-  ok("estate honest: reference_capture still the majority; no false 'covered'", (matrix.by_parity_class?.reference_capture || 0) >= (matrix.by_parity_class?.daemon_wired || 0) && !(matrix.seeds || []).some((s) => s.parity_class === "covered"));
+  ok("matrix classifies pipeline as reference_ported → /__ioi/pipeline (shell ported + wired) with a parity_blocked note", bySlug.pipeline?.parity_class === "reference_ported" && bySlug.pipeline?.port_surface === "/__ioi/pipeline" && bySlug.pipeline?.candidate_surface === "/__ioi/pipeline" && /error/i.test(bySlug.pipeline?.parity_blocked || ""));
+  ok("no false parity: 0 daemon_wired (the errored builder reference cannot certify parity); siblings stay substrate_bound", (matrix.by_parity_class?.daemon_wired || 0) === 0 && bySlug.lineage?.parity_class === "substrate_bound" && bySlug.vertex?.parity_class === "substrate_bound");
+  ok("estate honest: reference_capture still the majority; no false 'covered'", (matrix.by_parity_class?.reference_capture || 0) >= (matrix.by_parity_class?.reference_ported || 0) && !(matrix.seeds || []).some((s) => s.parity_class === "covered"));
 
   // 1. Reference baseline boots the familiar builder, brand-clean.
   const ref = await page(`${SERVE}/__apps/pipeline`);
@@ -117,13 +121,15 @@ async function run() {
   ok("the surface is a PORTED reference builder shell (pb-shell: rail + canvas + tray), NOT automationsShell", built.status === 200 && /class="pb-shell"/.test(t) && /class="pb-rail"/.test(t) && /id="pb-canvas"/.test(t) && !/max-width:920px/.test(t) && !/class="wrap"/.test(t));
   ok("the ported shell carries the builder regions (header title · graph toolbar · right output panel · bottom tray)", /class="pb-header"/.test(t) && /class="pb-toolbar"/.test(t) && /class="pb-right"/.test(t) && /class="pb-tray"/.test(t) && /Pipeline Builder<\/div>/.test(t));
 
-  // 3. STRUCTURAL PARITY — the Playwright harness confirms the reference shell is reproduced.
+  // 3. GUARD — the local builder reference ERRORS, so the harness must REFUSE to grant parity, and
+  //    the port itself must still render the real builder shell regions (the port is legitimate).
   const artDir = path.join(appRoot, ".artifacts", "pipeline-port-verify");
   const h = spawnSync("node", [path.join(here, "harness-reference-parity.mjs")], { encoding: "utf8", timeout: 90000, env: { ...process.env, IOI_HARNESS_SURFACES: "pipeline", IOI_HARNESS_ARTIFACT_DIR: artDir } });
   let hp = null;
   if (h.status === 0 && existsSync(path.join(artDir, "result.json"))) hp = (JSON.parse(readFileSync(path.join(artDir, "result.json"), "utf8")).surfaces || [])[0];
-  ok("Playwright harness: the port PASSES structural parity (reference shell regions reproduced) with real screenshots", hp && hp.structural_parity === true && hp.evidence_ok === true, hp ? `regions ioi[${hp.ioi_regions}] score ${hp.parity_score}` : "harness did not run");
-  ok("the port reproduces the reference's load-bearing regions (rail + body) at score ≥ 0.8", hp && ["rail", "body"].every((r) => hp.ioi_regions.includes(r)) && hp.parity_score >= 0.8);
+  ok("harness ran + captured real screenshots for the pipeline reference vs IOI port", hp && hp.evidence_ok === true, hp ? `ref ${hp.reference_screenshot_bytes}b · ioi ${hp.ioi_screenshot_bytes}b` : "harness did not run");
+  ok("GUARD: the local builder REFERENCE errors, so the harness refuses parity (structural_parity FALSE, reference_valid FALSE)", hp && hp.reference_errored === true && hp.structural_parity === false && hp.reference_valid === false, hp ? `errored=${hp.reference_errored} valid=${hp.reference_valid} parity=${hp.structural_parity}` : "n/a");
+  ok("the PORT itself is a real builder shell (the IOI candidate renders rail + body + more, ready for parity once a valid reference exists)", hp && ["rail", "body"].every((r) => hp.ioi_regions.includes(r)) && hp.ioi_regions.length >= 4);
 
   // 4. DAEMON TRUTH inside the shell.
   ok("datasource → transform → output node cards present (the ODK ladder as the canvas graph)", ["Datasource", "Object mapping", "Policy gate", "Transform plan", "Read projection", "Lease + session", "Materialized objects"].every((n) => t.includes(`>${n}<`)));

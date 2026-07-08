@@ -18,7 +18,7 @@
   "by_parity_class": {
     "substrate_bound": 9,
     "reference_capture": 29,
-    "daemon_wired": 1
+    "reference_ported": 1
   },
   "legend": {
     "reference_capture": "the /__apps/<slug> reference baseline serves; no IOI port exists",
@@ -164,14 +164,15 @@
       "capture_base": "/workspace/builder/",
       "grammar": "editor_canvas",
       "tier": "high_value",
-      "parity_class": "daemon_wired",
+      "parity_class": "reference_ported",
       "capture_state": "blocked_missing_capture",
       "reference_capture": "/__apps/pipeline",
       "reference_workspace": "/workspace/builder/",
-      "note": "TRUE parity (#32): source-neutral reference builder shell (rail/header/toolbar/canvas/right/tray), NOT automationsShell; passes the Playwright structural harness; Build + Preview supported, Schedule + Deploy disabled IN PLACE (named gaps), freeform drag-authoring/transform-code-editor = reference-only lanes disabled in the toolbar",
+      "note": "shell ported + wired (source-neutral builder shell: rail/header/toolbar/canvas/right/tray, NOT automationsShell; Build+Preview supported, Schedule+Deploy disabled in place); NOT daemon_wired — parity verification blocked on an errored local reference",
       "port_surface": "/__ioi/pipeline",
       "surface_name": "Data",
-      "binding": "ported Pipeline Builder shell over the real ODK authority ladder (DataSource → ConnectorMapping → PolicyBoundDataView → TransformationRun → OntologyProjection → CapabilityLease → ConnectorSession → MaterializedObjectSet) rendered as canvas node cards; live/declared/missing per stage from daemon truth; preview rows + output schema from the real projection + materialized set",
+      "parity_blocked": "local /workspace/builder/* reference errors ('An error occurred') — no valid builder canvas captured; daemon_wired blocked until a working builder reference is re-harvested",
+      "binding": "ported Pipeline Builder shell over the real ODK authority ladder (DataSource → ... → MaterializedObjectSet) as canvas node cards; live/declared/missing per stage from daemon truth; preview rows + output schema from the real projection + materialized set",
       "candidate_surface": "/__ioi/pipeline"
     },
     {

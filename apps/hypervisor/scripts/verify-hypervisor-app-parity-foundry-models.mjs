@@ -44,7 +44,7 @@ async function run() {
   const bySlug = Object.fromEntries((matrix.seeds || []).map((s) => [s.slug, s]));
   ok("matrix binds models as substrate_bound → /__ioi/foundry (Foundry)", bySlug.models?.parity_class === "substrate_bound" && bySlug.models?.substrate_surface === "/__ioi/foundry" && bySlug.models?.surface_name === "Foundry");
   ok("matrix keeps modelstudio + inference reference_capture (NOT over-claimed in this cut)", bySlug.modelstudio?.parity_class === "reference_capture" && bySlug.inference?.parity_class === "reference_capture");
-  ok("no 'covered' anywhere; prior reclassified surfaces still bound (substrate_bound|daemon_wired) (pipeline/lineage/vertex/jobs/incidents/evalsuites/designer/approvals)", !(matrix.seeds || []).some((s) => s.parity_class === "covered") && ["pipeline", "lineage", "vertex", "jobs", "incidents", "evalsuites", "designer", "approvals"].every((k) => ["substrate_bound", "daemon_wired"].includes(bySlug[k]?.parity_class)));
+  ok("no 'covered' anywhere; prior reclassified surfaces still bound (substrate_bound|daemon_wired) (pipeline/lineage/vertex/jobs/incidents/evalsuites/designer/approvals)", !(matrix.seeds || []).some((s) => s.parity_class === "covered") && ["pipeline", "lineage", "vertex", "jobs", "incidents", "evalsuites", "designer", "approvals"].every((k) => ["substrate_bound", "daemon_wired", "reference_ported", "reference_port_pending"].includes(bySlug[k]?.parity_class)));
 
   // 1. Reference baseline.
   const ref = await page(`${SERVE}/__apps/models`);

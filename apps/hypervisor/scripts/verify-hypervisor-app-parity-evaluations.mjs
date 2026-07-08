@@ -61,7 +61,7 @@ async function run() {
   const bySlug = Object.fromEntries((matrix.seeds || []).map((s) => [s.slug, s]));
   ok("matrix binds evalsuites as substrate_bound → /__ioi/evaluations (Evaluations)", bySlug.evalsuites?.parity_class === "substrate_bound" && bySlug.evalsuites?.substrate_surface === "/__ioi/evaluations" && bySlug.evalsuites?.surface_name === "Evaluations");
   ok("matrix keeps analysis + quiver reference_capture (NOT over-claimed in this cut)", bySlug.analysis?.parity_class === "reference_capture" && bySlug.quiver?.parity_class === "reference_capture");
-  ok("no 'covered' anywhere; prior reclassified surfaces still bound (substrate_bound|daemon_wired) (pipeline/lineage/vertex/jobs/incidents)", !(matrix.seeds || []).some((s) => s.parity_class === "covered") && ["pipeline", "lineage", "vertex", "jobs", "incidents"].every((k) => ["substrate_bound", "daemon_wired"].includes(bySlug[k]?.parity_class)));
+  ok("no 'covered' anywhere; prior reclassified surfaces still bound (substrate_bound|daemon_wired) (pipeline/lineage/vertex/jobs/incidents)", !(matrix.seeds || []).some((s) => s.parity_class === "covered") && ["pipeline", "lineage", "vertex", "jobs", "incidents"].every((k) => ["substrate_bound", "daemon_wired", "reference_ported", "reference_port_pending"].includes(bySlug[k]?.parity_class)));
 
   // 1. Reference baseline.
   const ref = await page(`${SERVE}/__apps/evalsuites`);

@@ -87,12 +87,15 @@ async function run() {
     ok("RULE: every daemon_wired surface PASSES structural parity (none claims parity without it)", wired.every((s) => s.structural_parity === true), wired.length ? wired.map((s) => `${s.slug}:${s.structural_parity}`).join(",") : "0 daemon_wired yet");
     ok("RULE: no substrate_bound / port-pending / ported surface is mislabeled as passing parity", !res.surfaces.some((s) => s.structural_parity === true && s.matrix_class !== "daemon_wired"));
 
-    // The concrete reset proof: a SUBSTRATE surface (lineage) does NOT reproduce the reference shell,
-    // while a PORTED daemon_wired surface (pipeline, #32) DOES — the two states are visibly different.
+    // GUARD (review #32): an ERROR-PAGE reference can never certify parity — its shell chrome renders,
+    // so region-matching would falsely pass. The harness must refuse parity for any errored reference.
+    ok("GUARD: no surface with an ERRORED reference is granted structural parity (error pages can't certify parity)", !res.surfaces.some((s) => s.reference_errored === true && s.structural_parity === true), res.surfaces.filter((s) => s.reference_errored).map((s) => `${s.slug}:parity=${s.structural_parity}`).join(",") || "none errored");
+
+    // The concrete reset proof: a SUBSTRATE surface (lineage) does NOT reproduce the reference shell.
+    // The PORTED surface (pipeline, #32) has its shell built but parity is BLOCKED on an errored ref.
     const lin = bySurface.lineage, pipe = bySurface.pipeline;
     ok("a SUBSTRATE surface (lineage) has the reference shell available but does NOT reproduce it (structural parity FALSE)", lin && ["rail", "header", "body"].every((r) => lin.reference_regions.includes(r)) && lin.structural_parity === false, `lin ref[${lin?.reference_regions}] ioi[${lin?.ioi_regions}] score ${lin?.parity_score}`);
-    ok("the PORTED surface (pipeline, #32) REPRODUCES the reference shell (structural parity TRUE) — substrate ≠ parity, demonstrated", pipe && pipe.matrix_class === "daemon_wired" && pipe.structural_parity === true && ["rail", "body"].every((r) => pipe.ioi_regions.includes(r)), `pipe ioi[${pipe?.ioi_regions}] score ${pipe?.parity_score}`);
-    ok("no substrate surface renders more IOI regions than its reference (no fabricated shell)", res.surfaces.every((s) => s.ioi_regions.length <= s.reference_regions.length || s.matrix_class === "daemon_wired"));
+    ok("the PORTED surface (pipeline) renders a real builder shell BUT is honestly NOT parity — its local reference errors (guard blocks daemon_wired)", pipe && pipe.matrix_class === "reference_ported" && ["rail", "body"].every((r) => pipe.ioi_regions.includes(r)) && pipe.reference_errored === true && pipe.structural_parity === false, `pipe ioi[${pipe?.ioi_regions}] ref_errored=${pipe?.reference_errored} parity=${pipe?.structural_parity}`);
   }
 
   // 4. The daemon truth verifiers are preserved (spot-check one still passes end-to-end).
