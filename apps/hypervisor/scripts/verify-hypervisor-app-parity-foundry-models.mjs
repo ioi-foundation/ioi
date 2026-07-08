@@ -42,9 +42,9 @@ async function run() {
   ok("parity matrix is current (regenerated == committed)", check.status === 0, (check.stderr || "").trim().slice(0, 80));
   const matrix = JSON.parse(spawnSync("node", ["-e", `import(${JSON.stringify(path.join(here, "..", "harvest-app-parity-matrix.json"))}, { with: { type: "json" } }).then(m => console.log(JSON.stringify(m.default)))`], { encoding: "utf8" }).stdout || "{}");
   const bySlug = Object.fromEntries((matrix.seeds || []).map((s) => [s.slug, s]));
-  ok("matrix binds models as daemon_bound → /__ioi/foundry (Foundry)", bySlug.models?.parity_class === "daemon_bound" && bySlug.models?.daemon_surface === "/__ioi/foundry" && bySlug.models?.surface_name === "Foundry");
+  ok("matrix binds models as substrate_bound → /__ioi/foundry (Foundry)", bySlug.models?.parity_class === "substrate_bound" && bySlug.models?.substrate_surface === "/__ioi/foundry" && bySlug.models?.surface_name === "Foundry");
   ok("matrix keeps modelstudio + inference reference_capture (NOT over-claimed in this cut)", bySlug.modelstudio?.parity_class === "reference_capture" && bySlug.inference?.parity_class === "reference_capture");
-  ok("no 'covered' anywhere; prior daemon_bound surfaces intact (pipeline/lineage/vertex/jobs/incidents/evalsuites/designer/approvals)", !(matrix.seeds || []).some((s) => s.parity_class === "covered") && ["pipeline", "lineage", "vertex", "jobs", "incidents", "evalsuites", "designer", "approvals"].every((k) => bySlug[k]?.parity_class === "daemon_bound"));
+  ok("no 'covered' anywhere; prior substrate_bound surfaces intact (pipeline/lineage/vertex/jobs/incidents/evalsuites/designer/approvals)", !(matrix.seeds || []).some((s) => s.parity_class === "covered") && ["pipeline", "lineage", "vertex", "jobs", "incidents", "evalsuites", "designer", "approvals"].every((k) => bySlug[k]?.parity_class === "substrate_bound"));
 
   // 1. Reference baseline.
   const ref = await page(`${SERVE}/__apps/models`);

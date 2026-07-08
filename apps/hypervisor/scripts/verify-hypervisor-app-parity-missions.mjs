@@ -17,7 +17,7 @@
 // daemon reports — exactly. A surface that invented incidents/runs would diverge from the daemon.
 //
 // Asserts:
-//   - MATRIX: jobs + incidents = daemon_bound → /__ioi/missions (Missions), not over-claimed.
+//   - MATRIX: jobs + incidents = substrate_bound → /__ioi/missions (Missions), not over-claimed.
 //   - REFERENCE BASELINES: /__apps/jobs + /__apps/incidents boot the familiar table grammar.
 //   - IOI SURFACE = SAME GRAMMAR OVER REAL TRUTH: /__ioi/missions renders the run queue + incident
 //     inbox; the run count, the newest real run, the incident count, and a real blocker's goal-run
@@ -55,9 +55,9 @@ async function run() {
   ok("parity matrix is current (regenerated == committed)", check.status === 0, (check.stderr || "").trim().slice(0, 80));
   const matrix = JSON.parse(spawnSync("node", ["-e", `import(${JSON.stringify(path.join(here, "..", "harvest-app-parity-matrix.json"))}, { with: { type: "json" } }).then(m => console.log(JSON.stringify(m.default)))`], { encoding: "utf8" }).stdout || "{}");
   const bySlug = Object.fromEntries((matrix.seeds || []).map((s) => [s.slug, s]));
-  ok("matrix binds jobs as daemon_bound → /__ioi/missions (Missions)", bySlug.jobs?.parity_class === "daemon_bound" && bySlug.jobs?.daemon_surface === "/__ioi/missions" && bySlug.jobs?.surface_name === "Missions");
-  ok("matrix binds incidents as daemon_bound → /__ioi/missions (Missions)", bySlug.incidents?.parity_class === "daemon_bound" && bySlug.incidents?.daemon_surface === "/__ioi/missions" && bySlug.incidents?.surface_name === "Missions");
-  ok("no over-claim estate-wide (no 'covered'); prior daemon_bound surfaces intact (pipeline/lineage/vertex)", !(matrix.seeds || []).some((s) => s.parity_class === "covered") && ["pipeline", "lineage", "vertex"].every((k) => bySlug[k]?.parity_class === "daemon_bound"));
+  ok("matrix binds jobs as substrate_bound → /__ioi/missions (Missions)", bySlug.jobs?.parity_class === "substrate_bound" && bySlug.jobs?.substrate_surface === "/__ioi/missions" && bySlug.jobs?.surface_name === "Missions");
+  ok("matrix binds incidents as substrate_bound → /__ioi/missions (Missions)", bySlug.incidents?.parity_class === "substrate_bound" && bySlug.incidents?.substrate_surface === "/__ioi/missions" && bySlug.incidents?.surface_name === "Missions");
+  ok("no over-claim estate-wide (no 'covered'); prior substrate_bound surfaces intact (pipeline/lineage/vertex)", !(matrix.seeds || []).some((s) => s.parity_class === "covered") && ["pipeline", "lineage", "vertex"].every((k) => bySlug[k]?.parity_class === "substrate_bound"));
 
   // 1. Reference baselines (raw familiar captures; brand-clean enforced on the IOI surface below).
   const refJobs = await page(`${SERVE}/__apps/jobs`);
