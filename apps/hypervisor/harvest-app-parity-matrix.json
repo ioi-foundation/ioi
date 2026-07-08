@@ -8,8 +8,8 @@
   ],
   "total_seeds": 39,
   "by_parity_class": {
-    "daemon_bound": 9,
-    "reference_capture": 30
+    "daemon_bound": 10,
+    "reference_capture": 29
   },
   "legend": {
     "reference_capture": "the /__apps/<slug> reference baseline serves; not yet bound to daemon truth",
@@ -40,10 +40,13 @@
       "capture_base": "/workspace/machinery-app/",
       "grammar": "graph",
       "tier": "high_value",
-      "parity_class": "reference_capture",
+      "parity_class": "daemon_bound",
       "capture_state": "boots_graph",
       "reference_capture": "/__apps/machinery",
-      "note": "process/state-machine graph; data lanes unbound"
+      "note": "DEFINITION-ONLY, read-only surface; a new inert daemon contract with fail-closed writes; owner surface stays /__ioi/agent-studio; honest empty/incomplete when a machine is under-declared; execution / stepping a running instance / scheduling / Automations-Missions-ODK binding / in-canvas graph authoring / simulation / versioning = named gaps (a later authority-crossing cut)",
+      "daemon_surface": "/__ioi/studio/machinery",
+      "surface_name": "Studio",
+      "binding": "the process/state-machine definition view — a read-only rendering of the inert daemon state-machine plane (declared states initial/normal/final, transitions from→to with event + guard, declared guards, inputs/outputs, owners, health empty|incomplete|ready, and edit history)"
     },
     {
       "owner": "Studio",

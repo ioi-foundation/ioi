@@ -53,7 +53,7 @@ async function run() {
   const matrix = JSON.parse(spawnSync("node", ["-e", `import(${JSON.stringify(path.join(here, "..", "harvest-app-parity-matrix.json"))}, { with: { type: "json" } }).then(m => console.log(JSON.stringify(m.default)))`], { encoding: "utf8" }).stdout || "{}");
   const bySlug = Object.fromEntries((matrix.seeds || []).map((s) => [s.slug, s]));
   ok("matrix binds designer as daemon_bound → /__ioi/studio/designer (Studio)", bySlug.designer?.parity_class === "daemon_bound" && bySlug.designer?.daemon_surface === "/__ioi/studio/designer" && bySlug.designer?.surface_name === "Studio");
-  ok("matrix keeps machinery + workshop + module reference_capture (NOT over-claimed in this cut)", ["machinery", "workshop", "module"].every((k) => bySlug[k]?.parity_class === "reference_capture"));
+  ok("matrix keeps workshop + module reference_capture (designer's siblings NOT over-claimed)", ["workshop", "module"].every((k) => bySlug[k]?.parity_class === "reference_capture"));
   ok("no 'covered' anywhere; prior daemon_bound surfaces intact (pipeline/lineage/vertex/jobs/incidents/evalsuites)", !(matrix.seeds || []).some((s) => s.parity_class === "covered") && ["pipeline", "lineage", "vertex", "jobs", "incidents", "evalsuites"].every((k) => bySlug[k]?.parity_class === "daemon_bound"));
 
   // 1. Reference baseline.
