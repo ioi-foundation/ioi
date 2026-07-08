@@ -53,7 +53,7 @@ async function capture(ctx, url, pngPath) {
     await page.goto(url, { waitUntil: "domcontentloaded", timeout: 25000 });
     await page.waitForTimeout(2800); // let the reference SPA hydrate
   } catch (e) { loaded = false; err = String(e.message || e).slice(0, 100); }
-  let regions = [], title = "", divCount = 0;
+  let regions = [], title = "", divCount = 0, errored = false, visibleText = "";
   try {
     // A region counts as PRESENT only when a visible element matching its selectors ALSO satisfies a
     // LAYOUT (bounding-box) predicate — a left-anchored tall rail, a top-anchored wide header, etc.
@@ -74,10 +74,14 @@ async function capture(ctx, url, pngPath) {
       };
       const present = {};
       for (const [k, q] of Object.entries(sel)) present[k] = boxes(q).some(geom[k]);
-      return { present, title: document.title, divCount: document.querySelectorAll("div").length };
+      const vt = (document.body && document.body.innerText || "").replace(/\s+/g, " ").trim();
+      return { present, title: document.title, divCount: document.querySelectorAll("div").length, visibleText: vt.slice(0, 400) };
     }, { sel: REGIONS, VW, VH });
     regions = Object.keys(res.present).filter((k) => res.present[k]);
-    title = res.title; divCount = res.divCount;
+    title = res.title; divCount = res.divCount; visibleText = res.visibleText;
+    // A reference/candidate showing an ERROR page is NOT a valid parity surface — its shell chrome
+    // (global nav rail, body) still renders, so region-matching would falsely score parity. Detect it.
+    errored = /an error occurred|something went wrong|failed to load|page not found|not found|forbidden|unauthori[sz]ed/i.test(visibleText);
   } catch (e) { err = err || String(e.message || e).slice(0, 100); }
   // Screenshot capture is MANDATORY evidence — a surface with no screenshot is a harness failure, not
   // best-effort. Record its byte size so it can never be a 0-byte placeholder.
@@ -87,7 +91,7 @@ async function capture(ctx, url, pngPath) {
     screenshotOk = buf && buf.length > 1000; screenshotBytes = buf ? buf.length : 0;
   } catch (e) { err = err || `screenshot failed: ${String(e.message || e).slice(0, 60)}`; }
   await page.close();
-  return { url, loaded, err, title, divCount, regions, screenshotOk, screenshotBytes };
+  return { url, loaded, err, title, divCount, regions, screenshotOk, screenshotBytes, errored, visibleText };
 }
 
 function parityOf(refRegions, ioiRegions) {
@@ -143,16 +147,20 @@ async function run() {
     const ref = await capture(ctx, s.reference_url, refPng);
     const ioi = await capture(ctx, s.ioi_url, ioiPng);
     const p = parityOf(ref.regions, ioi.regions);
-    // Visual+structural: BOTH screenshots must be real evidence for a parity verdict to be trustworthy.
+    // GUARDS for a trustworthy parity verdict: (1) BOTH screenshots are real evidence; (2) the
+    // REFERENCE is a VALID surface, not an error page (an error page renders only global chrome, so
+    // region-matching would falsely score parity). A parity claim requires a valid reference.
     const evidence_ok = ref.screenshotOk && ioi.screenshotOk;
-    const structural_parity = p.structural_parity && evidence_ok;
+    const reference_valid = !ref.errored && ref.loaded && ref.regions.length > 0;
+    const structural_parity = p.structural_parity && evidence_ok && reference_valid;
     rows.push({ slug: s.slug, owner: s.owner, matrix_class: s.matrix_class, reference_workspace: s.reference_workspace,
       reference_url: s.reference_url, ioi_url: s.ioi_url,
       reference_regions: ref.regions, ioi_regions: ioi.regions, shared: p.shared, parity_score: p.score,
-      structural_parity, evidence_ok, reference_loaded: ref.loaded, ioi_loaded: ioi.loaded,
+      structural_parity, evidence_ok, reference_valid, reference_errored: ref.errored,
+      reference_loaded: ref.loaded, ioi_loaded: ioi.loaded,
       reference_screenshot_bytes: ref.screenshotBytes, ioi_screenshot_bytes: ioi.screenshotBytes,
-      reference_title: ref.title, ioi_title: ioi.title });
-    console.log(`  ${structural_parity ? "PARITY " : "substrate"}  ${s.slug.padEnd(12)} ref[${ref.regions.join(",")}] ioi[${ioi.regions.join(",")}] score ${p.score} shots ${ref.screenshotBytes}/${ioi.screenshotBytes}`);
+      reference_title: ref.title, ioi_title: ioi.title, reference_visible_text: ref.visibleText });
+    console.log(`  ${structural_parity ? "PARITY " : ref.errored ? "REF-ERR " : "substrate"}  ${s.slug.padEnd(12)} ref[${ref.regions.join(",")}]${ref.errored ? "(errored)" : ""} ioi[${ioi.regions.join(",")}] score ${p.score}`);
   }
   await browser.close();
   const result = {
@@ -169,5 +177,6 @@ async function run() {
 
 run().then((r) => {
   const parity = r.surfaces.filter((s) => s.structural_parity).length;
-  console.log(`${r.surfaces.length} surface(s) · ${parity} at structural parity · ${r.surfaces.length - parity} substrate_bound`);
+  const errored = r.surfaces.filter((s) => s.reference_errored).length;
+  console.log(`${r.surfaces.length} surface(s) · ${parity} at structural parity · ${r.surfaces.length - parity} not-yet-parity (${errored} with an errored reference)`);
 }).catch((e) => { console.error("harness crashed:", e); process.exit(1); });
