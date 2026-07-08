@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Application UX Parity Baseline — Pipeline Builder done-bar.
+// SUBSTRATE-TRUTH verifier (reclassified substrate_bound by the #31 Reference-UX-Port reset — checks DAEMON TRUTH, NOT reference UX parity) — Pipeline Builder done-bar.
 //
 // The estate-wide parity phase, proven on its first surface. Doctrine: reference UX parity first
 // (local capture, no live re-harvest, no invented daemon truth), IOI substrate underneath (bind
@@ -8,7 +8,7 @@
 // Asserts:
 //   - REFERENCE BASELINE: /__apps/pipeline boots the reference Pipeline Builder grammar (title +
 //     Build/Preview/Transform toolbar) brand-clean — the familiar starting point.
-//   - IOI SURFACE = SAME GRAMMAR: /__ioi/pipeline renders "Pipeline Builder" with the same
+//   - IOI SURFACE = DAEMON TRUTH: /__ioi/pipeline renders "Pipeline Builder" with the same
 //     datasource → transform → output node flow + Build/Preview toolbar, over DAEMON TRUTH.
 //   - SUPPORTED LANES = DAEMON TRUTH: a fully-built pipeline (a real materializing run, executed)
 //     shows 7/7 stages live, a "built" banner, the real object-instance count, and the first
@@ -145,6 +145,6 @@ run().then(() => {
   let fail = 0;
   for (const r of results) { console.log(`  ${r.pass ? "PASS" : "FAIL"}  ${r.name}${r.detail ? `  (${r.detail})` : ""}`); if (!r.pass) fail++; }
   console.log(`\n${results.length - fail}/${results.length} passed`);
-  console.log(`app-parity-pipeline readiness: ${fail ? "FAIL" : "OK"}`);
+  console.log(`substrate-truth-pipeline readiness: ${fail ? "FAIL" : "OK"}`);
   process.exit(fail ? 1 : 0);
 }).catch((e) => { console.error("verifier crashed:", e); process.exit(1); });

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Application UX Parity Baseline — Studio · Designer done-bar (designer seed only).
+// SUBSTRATE-TRUTH verifier (reclassified substrate_bound by the #31 Reference-UX-Port reset — checks DAEMON TRUTH, NOT reference UX parity) — Studio · Designer done-bar (designer seed only).
 //
 // The parity phase's seventh surface, and the first of the Studio canvas family. The reference
 // capture (/__apps/designer = the solution-design canvas) is the familiar typed concept/component/
@@ -157,6 +157,6 @@ run().then(() => {
   let fail = 0;
   for (const r of results) { console.log(`  ${r.pass ? "PASS" : "FAIL"}  ${r.name}${r.detail ? `  (${r.detail})` : ""}`); if (!r.pass) fail++; }
   console.log(`\n${results.length - fail}/${results.length} passed`);
-  console.log(`app-parity-studio-designer readiness: ${fail ? "FAIL" : "OK"}`);
+  console.log(`substrate-truth-studio-designer readiness: ${fail ? "FAIL" : "OK"}`);
   process.exit(fail ? 1 : 0);
 }).catch((e) => { console.error("verifier crashed:", e); process.exit(1); });

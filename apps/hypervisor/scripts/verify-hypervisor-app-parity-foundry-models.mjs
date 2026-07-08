@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Application UX Parity Baseline — Foundry · Models done-bar (models seed only).
+// SUBSTRATE-TRUTH verifier (reclassified substrate_bound by the #31 Reference-UX-Port reset — checks DAEMON TRUTH, NOT reference UX parity) — Foundry · Models done-bar (models seed only).
 //
 // The parity phase's ninth surface. The reference capture (/__apps/models = the model-catalog app)
 // is the familiar baseline; the IOI-owned Foundry landing already renders the SAME catalog grammar at
@@ -86,6 +86,6 @@ run().then(() => {
   let fail = 0;
   for (const r of results) { console.log(`  ${r.pass ? "PASS" : "FAIL"}  ${r.name}${r.detail ? `  (${r.detail})` : ""}`); if (!r.pass) fail++; }
   console.log(`\n${results.length - fail}/${results.length} passed`);
-  console.log(`app-parity-foundry-models readiness: ${fail ? "FAIL" : "OK"}`);
+  console.log(`substrate-truth-foundry-models readiness: ${fail ? "FAIL" : "OK"}`);
   process.exit(fail ? 1 : 0);
 }).catch((e) => { console.error("verifier crashed:", e); process.exit(1); });

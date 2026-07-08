@@ -100,9 +100,26 @@ const rows = SEED_INVENTORY.map((e) => {
     note: e.note,
   };
   const overlay = OVERLAY_FOR(e.slug);
-  if (overlay) Object.assign(row, overlay);
+  if (overlay) {
+    Object.assign(row, overlay);
+    // The ONE canonical field the Playwright harness opens as the IOI candidate for EVERY port-state
+    // (substrate_bound → its substrate_surface; a ported state → its port_surface). Guaranteed present
+    // for every non-reference_capture row (validated below) so no port-state can escape the harness.
+    row.candidate_surface = overlay.port_surface || overlay.substrate_surface || null;
+  }
   return row;
 });
+
+// INVARIANT: every port-state row MUST carry a candidate_surface — otherwise a future daemon_wired /
+// reference_ported / reference_port_pending seed could silently escape the harness and claim parity
+// unverified. Fail generation loudly if the overlay forgot it.
+const PORT_STATES = new Set(["substrate_bound", "reference_port_pending", "reference_ported", "daemon_wired"]);
+for (const r of rows) {
+  if (PORT_STATES.has(r.parity_class) && !r.candidate_surface) {
+    console.error(`FATAL: seed '${r.slug}' is ${r.parity_class} but has no candidate_surface (add port_surface/substrate_surface to its overlay).`);
+    process.exit(2);
+  }
+}
 
 const byClass = rows.reduce((m, r) => ((m[r.parity_class] = (m[r.parity_class] || 0) + 1), m), {});
 const matrix = {
