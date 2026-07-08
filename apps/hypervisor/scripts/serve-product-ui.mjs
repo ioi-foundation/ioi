@@ -2344,7 +2344,7 @@ function renderAgentStudio(agents, profiles, routes, providers, conversations, r
     ? agents.filter((a) => `${a.id || ""} ${pickv(a, "model_id", "modelId") || ""}`.toLowerCase().includes(qn))
     : agents;
   const activeCount = agents.filter((a) => (a.status || "") === "active").length;
-  const head = `<h1>Studio</h1><p class="sub"><a href="/__ioi/studio/designer">System design canvas →</a> (the concept/component/resource map over real composition) · reference <a href="/__apps/designer">Designer seed ↗</a> · Compose systems &amp; agents. The agent lens is live — the agent estate — every configured agent, its model route and runtime posture, the platform's harness adapters, and recent activity. Author and operate agents here; <a href="/__ioi/automations">put one to work in an Automation →</a></p>`;
+  const head = `<h1>Studio</h1><p class="sub"><a href="/__ioi/studio/designer">System design canvas →</a> (concept/component/resource map) · <a href="/__ioi/studio/machinery">Machinery →</a> (process/state-machine definitions) · reference <a href="/__apps/designer">Designer</a> · <a href="/__apps/machinery">Machinery</a> seeds ↗ · Compose systems &amp; agents. The agent lens is live — the agent estate — every configured agent, its model route and runtime posture, the platform's harness adapters, and recent activity. Author and operate agents here; <a href="/__ioi/automations">put one to work in an Automation →</a></p>`;
   const styles = `<style>.wrap{max-width:1180px}.asgrid{display:grid;grid-template-columns:248px 1fr;gap:20px;align-items:start}.aslist{position:sticky;top:16px;max-height:82vh;overflow:auto;display:flex;flex-direction:column;gap:6px}.asrow{display:block;padding:10px 12px;border:1px solid #24262d;border-radius:10px;background:#15171c;text-decoration:none;color:inherit}.asrow:hover{border-color:#3a82f6}.asrow.sel{border-color:#3a82f6;box-shadow:0 0 0 1px #3a82f6 inset}.asrow .nm{font-weight:600;color:#fff;font-size:12.5px}.asrow .ml{color:#878a93;font-size:11.5px;margin-top:2px;word-break:break-all}.asearch{width:100%;box-sizing:border-box;padding:9px 12px;border-radius:9px;border:1px solid #2a2c33;background:#0e0f13;color:#e6e7ea;font:inherit;margin-bottom:10px}</style>`;
   if (!agents.length) {
     // Registry truth still renders without agents — routes exist independently of the agent estate.
@@ -3430,6 +3430,73 @@ function renderStudioDesigner(lists, selectedId) {
 
   const summary = `<div class="chips" style="margin:10px 0 12px"><span class="pill ok">design map</span> <span class="sub" style="margin:0">${conceptCount} concept${conceptCount === 1 ? "" : "s"} · ${componentCount} component${componentCount === 1 ? "" : "s"} · ${resourceCount} resource${resourceCount === 1 ? "" : "s"} for <b>${CX_ESC(selected.domain || selected.id)}</b></span></div>`;
   return automationsShell("Designer", head + switcher + summary + banner + conceptsPane + componentsPane + resourcesPane + gaps);
+}
+
+// ============================ STUDIO · MACHINERY (process/state-machine DEFINITIONS, read-only)
+// The Application UX Parity Baseline phase, applied to the Studio `machinery` seed. The reference
+// capture (/__apps/machinery, /workspace/machinery-app/) is the familiar process/state-machine graph
+// builder; this IOI-owned surface renders the SAME grammar as a READ-ONLY view over REAL daemon
+// state-machine DEFINITIONS — declared states (initial/normal/final), transitions (from→to, event,
+// guard), guards, declared inputs/outputs, owners, health (empty|incomplete|ready), and the edit
+// history. Nothing runs: there is no run/step/execute affordance, no current-state, no scheduling —
+// a running instance + automation/mission/ODK binding is a later authority-crossing cut. Owner:
+// Studio (/__ioi/agent-studio); dedicated /__ioi/studio/machinery surface (no route rename).
+function renderStudioMachinery(machines, selectedId) {
+  const enc = (s) => encodeURIComponent(String(s || ""));
+  const list = Array.isArray(machines) ? machines : [];
+  const sub = (txt) => `<span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">${txt}</span>`;
+  const healthPill = (h) => `<span class="pill ${h === "ready" ? "ok" : h === "incomplete" ? "warn" : "muted"}" style="margin:0">${CX_ESC(h || "empty")}</span>`;
+  const selected = list.find((m) => m.id === selectedId) || list[0] || null;
+
+  const head = `<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap"><div><h1 style="margin:0">Machinery</h1><p class="sub" style="margin:4px 0 0">Process &amp; state-machine definitions — declared states, transitions, and guards as a read-only grammar over IOI daemon truth. These are <b>definitions, not running processes</b>: nothing here executes, steps, or schedules. Reference grammar: <a href="/__apps/machinery">Machinery ↗</a> (secondary capture). Owner: <a href="/__ioi/agent-studio">Agent Studio</a>.</p></div><div class="row" style="gap:8px"><a class="act ghost" href="/__ioi/studio/designer">Designer</a></div></div>`;
+
+  if (!list.length) {
+    return automationsShell("Machinery", head + omBoundaryNote(`<b>No state machines defined yet.</b> This plane holds inert process/state-machine <b>definitions</b> (states · transitions · guards · declared inputs/outputs · owners) — never a running instance. Definitions are created against the daemon state-machine plane; this surface renders them read-only. Nothing is fabricated.`));
+  }
+
+  const switcher = `<div class="chips" style="margin:0 0 14px">${list.map((m) => {
+    const on = selected && m.id === selected.id;
+    return `<a href="/__ioi/studio/machinery?machine=${enc(m.id)}" class="pill ${on ? "ok" : "muted"}" style="text-decoration:none;margin:0">${CX_ESC(m.name || m.id)} ${healthPill(m.health)}</a>`;
+  }).join(" ")}</div>`;
+
+  const m = selected;
+  const states = Array.isArray(m.states) ? m.states : [];
+  const transitions = Array.isArray(m.transitions) ? m.transitions : [];
+  const guards = Array.isArray(m.guards) ? m.guards : [];
+  const inputs = Array.isArray(m.inputs) ? m.inputs : [];
+  const outputs = Array.isArray(m.outputs) ? m.outputs : [];
+  const owners = Array.isArray(m.owner_refs) ? m.owner_refs : [];
+  const history = Array.isArray(m.history) ? m.history : [];
+  const guardName = (id) => { const g = guards.find((x) => x.id === id); return g ? (g.name || g.id) : id; };
+
+  const banner = `<div class="chips" style="margin:0 0 12px"><span class="pill muted">${CX_ESC(m.status || "draft")}</span> ${healthPill(m.health)} <span class="sub" style="margin:0"><code style="font-size:10.5px">${CX_ESC(m.ref || "")}</code> · ${states.length} state${states.length === 1 ? "" : "s"} · ${transitions.length} transition${transitions.length === 1 ? "" : "s"} · ${guards.length} guard${guards.length === 1 ? "" : "s"}</span></div>`;
+
+  const kindPill = (k) => k === "initial" ? `<span class="pill ok" style="margin:0">initial</span>` : k === "final" ? `<span class="pill muted" style="margin:0">final</span>` : `<span class="pill muted" style="margin:0">normal</span>`;
+  const statesPane = `<h2 id="machinery-states">States ${sub(`— ${states.length}`)}</h2>`
+    + (states.length
+      ? `<table><thead><tr><th>State</th><th>Kind</th></tr></thead><tbody>${states.map((s) => `<tr><td><b>${CX_ESC(s.name || s.id)}</b> <code style="font-size:10px;opacity:.7">${CX_ESC(s.id)}</code></td><td>${kindPill(s.kind)}</td></tr>`).join("")}</tbody></table>`
+      : omBoundaryNote(`This machine declares <b>no states</b> yet (health <code>empty</code>) — nothing is invented.`));
+
+  const transRows = transitions.map((tr) => `<tr><td><code style="font-size:10.5px">${CX_ESC(tr.id)}</code></td><td><code>${CX_ESC(tr.from)}</code> <span style="color:#5f626b">→</span> <code>${CX_ESC(tr.to)}</code></td><td>${tr.event ? CX_ESC(tr.event) : "<span class='sub' style='margin:0'>—</span>"}</td><td>${tr.guard_ref ? `<span class="pill muted" style="margin:0">${CX_ESC(guardName(tr.guard_ref))}</span>` : "<span class='sub' style='margin:0'>—</span>"}</td></tr>`).join("");
+  const transPane = `<h2 id="machinery-transitions">Transitions ${sub(`— ${transitions.length}`)}</h2>`
+    + (transitions.length
+      ? `<table><thead><tr><th>Id</th><th>From → To</th><th>Event</th><th>Guard</th></tr></thead><tbody>${transRows}</tbody></table>`
+      : omBoundaryNote(`No transitions declared yet — a machine with an initial state but no transition (and no final state) stays <code>incomplete</code>.`));
+
+  const chipsPane = (label, arr, ic) => `<div class="chips" style="margin:0 0 6px"><span class="chiplabel">${CX_ESC(label)}</span>${arr.length ? arr.map((x) => `<span class="pill muted" style="margin:0">${ic} ${CX_ESC(typeof x === "string" ? x : (x.name || x.id))}</span>`).join(" ") : `<span class="sub" style="margin:0">none</span>`}</div>`;
+  const auxPane = `<h2 id="machinery-interface">Interface &amp; ownership</h2>`
+    + chipsPane("Guards", guards, "🛡")
+    + chipsPane("Inputs", inputs, "▸")
+    + chipsPane("Outputs", outputs, "▪")
+    + chipsPane("Owners", owners, "◎");
+
+  const historyPane = history.length
+    ? `<h2 id="machinery-history">History ${sub(`— the definition's edit acts (${history.length})`)}</h2><dl class="grid">${history.slice().reverse().slice(0, 8).map((h) => `<dt>${CX_ESC(h.op || "")}</dt><dd>${CX_ESC(h.summary || "")}<br><span class="sub" style="margin:0">${CX_ESC(h.at || "")}</span></dd>`).join("")}</dl>`
+    : "";
+
+  const gaps = omBoundaryNote(`This is a <b>read-only definition view</b> over real daemon state machines. There is deliberately <b>no run affordance</b>: execution / stepping a running instance, scheduling, and binding a machine to Automations / Missions / ODK are <b>named gaps</b> (a later authority-crossing cut), not hidden. In-canvas graph authoring (drag states/transitions), simulation, and versioning are also named gaps. Sibling Studio seeds stay reference-only: the <a href="/__apps/workshop">workshop</a> and <a href="/__apps/module">module</a> builders. The <a href="/__apps/machinery">Machinery reference capture ↗</a> is the familiar baseline, never a rebound surface.`);
+
+  return automationsShell("Machinery", head + switcher + banner + statesPane + transPane + auxPane + historyPane + gaps);
 }
 
 function renderDataLineage(lists, selectedId) {
@@ -7381,6 +7448,14 @@ const server = http.createServer((req, res) => {
         materialized_sets: ms.materialized_object_sets || [],
         domain_apps: da.domain_apps || da.apps || [],
       }, selectedOntology));
+      return;
+    }
+    // ---- Studio · Machinery — read-only process/state-machine DEFINITION view. Owner: agent-studio.
+    if (pathname === "/__ioi/studio/machinery" && req.method === "GET") {
+      const r = await fetch(`${DAEMON}/v1/hypervisor/state-machines`).then((x) => x.json()).catch(() => ({}));
+      const selectedMachine = new URL(req.url, "http://x").searchParams.get("machine") || "";
+      res.writeHead(200, HTMLH);
+      res.end(renderStudioMachinery(r.state_machines || [], selectedMachine));
       return;
     }
     if (pathname === "/__ioi/vertex" && req.method === "GET") {

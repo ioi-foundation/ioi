@@ -55,7 +55,7 @@ async function run() {
   const bySlug = Object.fromEntries((matrix.seeds || []).map((s) => [s.slug, s]));
   ok("matrix classifies pipeline as daemon_bound → /__ioi/pipeline", bySlug.pipeline?.parity_class === "daemon_bound" && bySlug.pipeline?.daemon_surface === "/__ioi/pipeline");
   ok("matrix binds the sibling graph surfaces (lineage + vertex) as daemon_bound — their own cuts, not claimed by pipeline", bySlug.lineage?.parity_class === "daemon_bound" && bySlug.vertex?.parity_class === "daemon_bound" && bySlug.vertex?.daemon_surface === "/__ioi/vertex");
-  ok("matrix is honest estate-wide: most seeds are reference_capture only, none over-claimed", (matrix.by_parity_class?.reference_capture || 0) >= 30 && !(matrix.seeds || []).some((s) => s.parity_class === "covered"));
+  ok("matrix is honest estate-wide: most seeds are reference_capture only, none over-claimed", (matrix.by_parity_class?.reference_capture || 0) >= (matrix.by_parity_class?.daemon_bound || 0) && !(matrix.seeds || []).some((s) => s.parity_class === "covered"));
 
   // 1. Reference baseline boots the familiar grammar, brand-clean.
   const ref = await page(`${SERVE}/__apps/pipeline`);

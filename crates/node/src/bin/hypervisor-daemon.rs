@@ -38,6 +38,8 @@ mod domain_apps_routes;
 mod feedback_routes;
 #[path = "hypervisor_daemon_routes/eval_suite_routes.rs"]
 mod eval_suite_routes;
+#[path = "hypervisor_daemon_routes/state_machine_routes.rs"]
+mod state_machine_routes;
 #[path = "hypervisor_daemon_routes/goalrun_routes.rs"]
 mod goalrun_routes;
 #[path = "hypervisor_daemon_routes/ioi_agent_routes.rs"]
@@ -1653,6 +1655,24 @@ async fn async_main() -> anyhow::Result<()> {
             get(eval_suite_routes::handle_eval_suite_get)
                 .patch(eval_suite_routes::handle_eval_suite_patch)
                 .delete(eval_suite_routes::handle_eval_suite_delete),
+        )
+        // Process / state-machine DEFINITION object plane (foundation) — DEFINITION-ONLY. A machine
+        // declares states, transitions, guards, inputs/outputs, and owners; writes are fail-closed.
+        // There is NO run/step/execution, no scheduling, and no automation binding here — that is a
+        // later authority-crossing cut.
+        .route(
+            "/v1/hypervisor/state-machines/overview",
+            get(state_machine_routes::handle_state_machine_overview),
+        )
+        .route(
+            "/v1/hypervisor/state-machines",
+            get(state_machine_routes::handle_state_machine_list).post(state_machine_routes::handle_state_machine_create),
+        )
+        .route(
+            "/v1/hypervisor/state-machines/:id",
+            get(state_machine_routes::handle_state_machine_get)
+                .patch(state_machine_routes::handle_state_machine_patch)
+                .delete(state_machine_routes::handle_state_machine_delete),
         )
         // Governance object plane (foundation) — a READ PROJECTION aggregating real authority /
         // identity / lease / admission substrate + naming missing controls. No CRUD, no mutation.
