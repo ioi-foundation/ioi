@@ -17,9 +17,9 @@
   "total_seeds": 39,
   "by_parity_class": {
     "substrate_bound": 8,
-    "reference_capture": 29,
+    "reference_capture": 28,
     "reference_ported": 1,
-    "daemon_wired": 1
+    "daemon_wired": 2
   },
   "legend": {
     "reference_capture": "the /__apps/<slug> reference baseline serves; no IOI port exists",
@@ -196,11 +196,15 @@
       "capture_base": "/workspace/ontology/",
       "grammar": "editor_canvas",
       "tier": "high_value",
-      "parity_class": "reference_capture",
+      "parity_class": "daemon_wired",
       "capture_state": "boots_table_list",
       "reference_capture": "/__apps/schema",
       "reference_workspace": "/workspace/ontology/",
-      "note": "schema workbench (types/functions/health/history); unbound"
+      "note": "true parity (#34): source-neutral schema-workbench shell (rail/header/toolbar/body/right/tray), NOT automationsShell; passes the Playwright harness against the VALID /__apps/schema reference; READ-ONLY over daemon truth — authoring/create-edit + object materialization stay in the /__ioi/odk substrate (linked first-class); in-canvas schema editing / action+function execution / orphan-reference cleanup = named gaps disabled in place; Object Explorer is the sibling #35 cut",
+      "port_surface": "/__ioi/ontology/manager",
+      "surface_name": "Ontology",
+      "binding": "ported Ontology-Manager schema workbench over the real ODK CanonicalObjectModel — a left rail of ontologies (live health pills) + schema-section nav, header (domain · version · health status · object/instance counts), typed schema sections (object types with per-type object counts, properties, value types, link types, actions, functions, health/gaps/instances), and a right panel (configuration ref/revision/receipts/history + resources materialized sets/projections + estate rollup); every cell is daemon truth",
+      "candidate_surface": "/__ioi/ontology/manager"
     },
     {
       "owner": "Ontology",
