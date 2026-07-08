@@ -16,8 +16,9 @@
   ],
   "total_seeds": 39,
   "by_parity_class": {
-    "substrate_bound": 10,
-    "reference_capture": 29
+    "substrate_bound": 9,
+    "reference_capture": 29,
+    "daemon_wired": 1
   },
   "legend": {
     "reference_capture": "the /__apps/<slug> reference baseline serves; no IOI port exists",
@@ -163,13 +164,14 @@
       "capture_base": "/workspace/builder/",
       "grammar": "editor_canvas",
       "tier": "high_value",
-      "parity_class": "substrate_bound",
+      "parity_class": "daemon_wired",
       "capture_state": "blocked_missing_capture",
       "reference_capture": "/__apps/pipeline",
       "reference_workspace": "/workspace/builder/",
-      "note": "the ODK ladder rendered as a datasource→transform→output pipeline; supported lanes = daemon truth, freeform authoring/schedule/deploy = named gaps",
-      "substrate_surface": "/__ioi/pipeline",
-      "binding": "ODK authority ladder (DataSource → ConnectorMapping → PolicyBoundDataView → TransformationRun → OntologyProjection → CapabilityLease → ConnectorSession → MaterializedObjectSet)",
+      "note": "TRUE parity (#32): source-neutral reference builder shell (rail/header/toolbar/canvas/right/tray), NOT automationsShell; passes the Playwright structural harness; Build + Preview supported, Schedule + Deploy disabled IN PLACE (named gaps), freeform drag-authoring/transform-code-editor = reference-only lanes disabled in the toolbar",
+      "port_surface": "/__ioi/pipeline",
+      "surface_name": "Data",
+      "binding": "ported Pipeline Builder shell over the real ODK authority ladder (DataSource → ConnectorMapping → PolicyBoundDataView → TransformationRun → OntologyProjection → CapabilityLease → ConnectorSession → MaterializedObjectSet) rendered as canvas node cards; live/declared/missing per stage from daemon truth; preview rows + output schema from the real projection + materialized set",
       "candidate_surface": "/__ioi/pipeline"
     },
     {

@@ -54,7 +54,7 @@ async function run() {
   const bySlug = Object.fromEntries((matrix.seeds || []).map((s) => [s.slug, s]));
   ok("matrix binds designer as substrate_bound → /__ioi/studio/designer (Studio)", bySlug.designer?.parity_class === "substrate_bound" && bySlug.designer?.substrate_surface === "/__ioi/studio/designer" && bySlug.designer?.surface_name === "Studio");
   ok("matrix keeps workshop + module reference_capture (designer's siblings NOT over-claimed)", ["workshop", "module"].every((k) => bySlug[k]?.parity_class === "reference_capture"));
-  ok("no 'covered' anywhere; prior substrate_bound surfaces intact (pipeline/lineage/vertex/jobs/incidents/evalsuites)", !(matrix.seeds || []).some((s) => s.parity_class === "covered") && ["pipeline", "lineage", "vertex", "jobs", "incidents", "evalsuites"].every((k) => bySlug[k]?.parity_class === "substrate_bound"));
+  ok("no 'covered' anywhere; prior reclassified surfaces still bound (substrate_bound|daemon_wired) (pipeline/lineage/vertex/jobs/incidents/evalsuites)", !(matrix.seeds || []).some((s) => s.parity_class === "covered") && ["pipeline", "lineage", "vertex", "jobs", "incidents", "evalsuites"].every((k) => ["substrate_bound", "daemon_wired"].includes(bySlug[k]?.parity_class)));
 
   // 1. Reference baseline.
   const ref = await page(`${SERVE}/__apps/designer`);

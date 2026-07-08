@@ -1,7 +1,7 @@
 #!/usr/bin/env node
-// Application UX Parity Baseline — matrix generator.
+// Reference UX Port — parity matrix generator (post-#31 reset).
 //
-// The estate-wide parity program (phase doctrine: reference UX parity first, IOI substrate
+// The Reference UX Port program (post-#31 reset doctrine: port the reference shell first, IOI substrate
 // underneath, IOI-native UX later). This reads the canonical seed inventory + the capture-state
 // starting-points artifact and emits a single per-seed PARITY MATRIX with an honest `parity_class`
 // overlay — the program-level record of how far each application seed has travelled from "captured
@@ -43,7 +43,6 @@ const captureState = Object.fromEntries((startingPoints.seeds || []).map((s) => 
 //
 // substrate_surface = the existing dark IOI surface (kept as substrate/admin/debug view).
 const SUBSTRATE_BOUND = {
-  pipeline: { substrate_surface: "/__ioi/pipeline", binding: "ODK authority ladder (DataSource → ConnectorMapping → PolicyBoundDataView → TransformationRun → OntologyProjection → CapabilityLease → ConnectorSession → MaterializedObjectSet)", note: "the ODK ladder rendered as a datasource→transform→output pipeline; supported lanes = daemon truth, freeform authoring/schedule/deploy = named gaps" },
   lineage: { substrate_surface: "/__ioi/lineage", binding: "ODK materialization provenance (MaterializedObjectSet → run → session → lease → projection → mapping → datasource, resolved to live ladder refs; per-object source hashes + mapped_from; pre-output + registration receipts; Provenance proof-stream edges where available)", note: "Monocle lineage grammar over real provenance; upstream ladder refs resolved to live records; no fake nodes for unmaterialized ontologies; freeform resource-search / graph-expansion / cross-tenant catalog = named gaps" },
   // Canon: Work Ledger evolves into Provenance — Vertex is a Provenance graph/exploration lens.
   vertex: { substrate_surface: "/__ioi/vertex", surface_name: "Provenance", binding: "a Provenance graph/exploration lens over materialized object sets, projections, objects, and the threaded proof-stream odk_materialization edges (cross-plane: ODK ↔ Provenance)", note: "Vertex graph grammar (nodes · relations · neighborhood) over real cross-plane materialized truth; no fake nodes for unmaterialized ontologies; freeform graph canvas / arbitrary path-finding / cross-tenant object search / saved explorations = named gaps" },
@@ -73,7 +72,14 @@ const SUBSTRATE_BOUND = {
 // Playwright harness opens (`:9225<capture_base>`), also carried on every row from the inventory.
 const REFERENCE_PORT_PENDING = {};
 const REFERENCE_PORTED = {};
-const DAEMON_WIRED = {};
+// TRUE reference UX parity — a ported source-neutral reference shell wired to daemon truth that PASSES
+// the Playwright visual + structural harness. port_surface = the ported IOI surface the harness opens.
+const DAEMON_WIRED = {
+  // #32 — Pipeline Builder: the /workspace/builder/ shell ported source-neutrally (rail · header ·
+  // graph toolbar · canvas with ODK-ladder node cards · right output panel · bottom tray), wired to
+  // the real ODK ladder. Passes the harness (reference rail+body reproduced; score 1.0). First parity.
+  pipeline: { port_surface: "/__ioi/pipeline", surface_name: "Data", reference_workspace: "/workspace/builder/", binding: "ported Pipeline Builder shell over the real ODK authority ladder (DataSource → ConnectorMapping → PolicyBoundDataView → TransformationRun → OntologyProjection → CapabilityLease → ConnectorSession → MaterializedObjectSet) rendered as canvas node cards; live/declared/missing per stage from daemon truth; preview rows + output schema from the real projection + materialized set", note: "TRUE parity (#32): source-neutral reference builder shell (rail/header/toolbar/canvas/right/tray), NOT automationsShell; passes the Playwright structural harness; Build + Preview supported, Schedule + Deploy disabled IN PLACE (named gaps), freeform drag-authoring/transform-code-editor = reference-only lanes disabled in the toolbar" },
+};
 
 function parityClass(slug) {
   if (DAEMON_WIRED[slug]) return "daemon_wired";
