@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Application UX Parity Baseline — Monocle / Data Lineage done-bar.
+// SUBSTRATE-TRUTH verifier (reclassified substrate_bound by the #31 Reference-UX-Port reset — checks DAEMON TRUTH, NOT reference UX parity) — Monocle / Data Lineage done-bar.
 //
 // The parity phase's second surface. /__apps/lineage (Monocle) is the reference baseline; the
 // IOI-owned /__ioi/lineage renders the SAME lineage-graph grammar (typed nodes + edges + legend) but
@@ -8,7 +8,7 @@
 //
 // Asserts:
 //   - REFERENCE BASELINE: /__apps/lineage boots the Monocle "Data lineage" grammar, brand-clean.
-//   - IOI SURFACE = SAME GRAMMAR OVER REAL PROVENANCE: for a freshly materialized fixture object set,
+//   - IOI SURFACE = DAEMON TRUTH OVER REAL PROVENANCE: for a freshly materialized fixture object set,
 //     /__ioi/lineage renders the typed provenance path (Datasource → Mapping → Projection → Lease +
 //     session → Materializing run → Pre-output receipt → Object set) with typed edges, plus
 //     PER-OBJECT provenance (real source hashes + property ← source-field mapped_from edges) and the
@@ -158,6 +158,6 @@ run().then(() => {
   let fail = 0;
   for (const r of results) { console.log(`  ${r.pass ? "PASS" : "FAIL"}  ${r.name}${r.detail ? `  (${r.detail})` : ""}`); if (!r.pass) fail++; }
   console.log(`\n${results.length - fail}/${results.length} passed`);
-  console.log(`app-parity-lineage readiness: ${fail ? "FAIL" : "OK"}`);
+  console.log(`substrate-truth-lineage readiness: ${fail ? "FAIL" : "OK"}`);
   process.exit(fail ? 1 : 0);
 }).catch((e) => { console.error("verifier crashed:", e); process.exit(1); });

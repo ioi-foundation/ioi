@@ -47,6 +47,7 @@ const PARITY_THRESHOLD = 0.8;
 
 async function capture(ctx, url, pngPath) {
   const page = await ctx.newPage();
+  const VW = 1440, VH = 900;
   let loaded = true, err = "";
   try {
     await page.goto(url, { waitUntil: "domcontentloaded", timeout: 25000 });
@@ -54,24 +55,39 @@ async function capture(ctx, url, pngPath) {
   } catch (e) { loaded = false; err = String(e.message || e).slice(0, 100); }
   let regions = [], title = "", divCount = 0;
   try {
-    const res = await page.evaluate((sel) => {
-      const visible = (el) => {
-        const r = el.getBoundingClientRect();
-        const s = getComputedStyle(el);
-        return r.width > 24 && r.height > 24 && s.visibility !== "hidden" && s.display !== "none";
+    // A region counts as PRESENT only when a visible element matching its selectors ALSO satisfies a
+    // LAYOUT (bounding-box) predicate — a left-anchored tall rail, a top-anchored wide header, etc.
+    // Selector-spoofing (a hidden or wrongly-placed div with class "rail") does NOT satisfy geometry.
+    const res = await page.evaluate(({ sel, VW, VH }) => {
+      const boxes = (q) => Array.from(document.querySelectorAll(q)).map((el) => {
+        const r = el.getBoundingClientRect(); const s = getComputedStyle(el);
+        const vis = r.width > 24 && r.height > 24 && s.visibility !== "hidden" && s.display !== "none" && s.opacity !== "0";
+        return { vis, left: r.left, top: r.top, right: r.right, bottom: r.bottom, w: r.width, h: r.height };
+      }).filter((b) => b.vis);
+      const geom = {
+        rail: (b) => b.left < VW * 0.15 && b.h > VH * 0.4,
+        header: (b) => b.top < VH * 0.15 && b.w > VW * 0.5 && b.h < VH * 0.28,
+        toolbar: (b) => b.top < VH * 0.4 && b.w > VW * 0.25 && b.h < VH * 0.22,
+        body: (b) => b.w > VW * 0.4 && b.h > VH * 0.35,
+        right: (b) => b.right > VW * 0.8 && b.h > VH * 0.3 && b.w < VW * 0.6,
+        tray: (b) => b.bottom > VH * 0.8 && b.w > VW * 0.4 && b.h < VH * 0.4,
       };
       const present = {};
-      for (const [k, q] of Object.entries(sel)) {
-        present[k] = Array.from(document.querySelectorAll(q)).some(visible);
-      }
+      for (const [k, q] of Object.entries(sel)) present[k] = boxes(q).some(geom[k]);
       return { present, title: document.title, divCount: document.querySelectorAll("div").length };
-    }, REGIONS);
+    }, { sel: REGIONS, VW, VH });
     regions = Object.keys(res.present).filter((k) => res.present[k]);
     title = res.title; divCount = res.divCount;
   } catch (e) { err = err || String(e.message || e).slice(0, 100); }
-  try { await page.screenshot({ path: pngPath, fullPage: false }); } catch { /* best effort */ }
+  // Screenshot capture is MANDATORY evidence — a surface with no screenshot is a harness failure, not
+  // best-effort. Record its byte size so it can never be a 0-byte placeholder.
+  let screenshotOk = false, screenshotBytes = 0;
+  try {
+    const buf = await page.screenshot({ path: pngPath, fullPage: false });
+    screenshotOk = buf && buf.length > 1000; screenshotBytes = buf ? buf.length : 0;
+  } catch (e) { err = err || `screenshot failed: ${String(e.message || e).slice(0, 60)}`; }
   await page.close();
-  return { url, loaded, err, title, divCount, regions };
+  return { url, loaded, err, title, divCount, regions, screenshotOk, screenshotBytes };
 }
 
 function parityOf(refRegions, ioiRegions) {
@@ -85,13 +101,14 @@ function parityOf(refRegions, ioiRegions) {
 function surfacesFromMatrix() {
   const matrix = JSON.parse(readFileSync(path.join(appRoot, "harvest-app-parity-matrix.json"), "utf8"));
   const filter = (process.env.IOI_HARNESS_SURFACES || "").split(",").map((s) => s.trim()).filter(Boolean);
-  // Every seed that has an IOI candidate surface to compare (substrate_bound or any port state).
+  // EVERY port-state seed (any non-reference_capture) is included, keyed on the canonical
+  // candidate_surface — no port-state row can escape the harness by using a different field name.
   const PORT_STATES = new Set(["substrate_bound", "reference_port_pending", "reference_ported", "daemon_wired"]);
   return (matrix.seeds || [])
-    .filter((s) => PORT_STATES.has(s.parity_class) && s.substrate_surface)
+    .filter((s) => PORT_STATES.has(s.parity_class))
     .filter((s) => !filter.length || filter.includes(s.slug))
     .map((s) => ({ slug: s.slug, owner: s.owner, matrix_class: s.parity_class, reference_workspace: s.reference_workspace,
-      reference_url: `${SERVE}/__apps/${s.slug}`, ioi_url: `${SERVE}${s.substrate_surface}` }));
+      reference_url: `${SERVE}/__apps/${s.slug}`, ioi_url: `${SERVE}${s.candidate_surface || s.substrate_surface || ""}` }));
 }
 
 function contactSheet(rows) {
@@ -126,12 +143,16 @@ async function run() {
     const ref = await capture(ctx, s.reference_url, refPng);
     const ioi = await capture(ctx, s.ioi_url, ioiPng);
     const p = parityOf(ref.regions, ioi.regions);
+    // Visual+structural: BOTH screenshots must be real evidence for a parity verdict to be trustworthy.
+    const evidence_ok = ref.screenshotOk && ioi.screenshotOk;
+    const structural_parity = p.structural_parity && evidence_ok;
     rows.push({ slug: s.slug, owner: s.owner, matrix_class: s.matrix_class, reference_workspace: s.reference_workspace,
       reference_url: s.reference_url, ioi_url: s.ioi_url,
       reference_regions: ref.regions, ioi_regions: ioi.regions, shared: p.shared, parity_score: p.score,
-      structural_parity: p.structural_parity, reference_loaded: ref.loaded, ioi_loaded: ioi.loaded,
+      structural_parity, evidence_ok, reference_loaded: ref.loaded, ioi_loaded: ioi.loaded,
+      reference_screenshot_bytes: ref.screenshotBytes, ioi_screenshot_bytes: ioi.screenshotBytes,
       reference_title: ref.title, ioi_title: ioi.title });
-    console.log(`  ${p.structural_parity ? "PARITY " : "substrate"}  ${s.slug.padEnd(12)} ref[${ref.regions.join(",")}] ioi[${ioi.regions.join(",")}] score ${p.score}`);
+    console.log(`  ${structural_parity ? "PARITY " : "substrate"}  ${s.slug.padEnd(12)} ref[${ref.regions.join(",")}] ioi[${ioi.regions.join(",")}] score ${p.score} shots ${ref.screenshotBytes}/${ioi.screenshotBytes}`);
   }
   await browser.close();
   const result = {

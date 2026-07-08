@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Application UX Parity Baseline — Governance · Approvals done-bar (approvals seed only).
+// SUBSTRATE-TRUTH verifier (reclassified substrate_bound by the #31 Reference-UX-Port reset — checks DAEMON TRUTH, NOT reference UX parity) — Governance · Approvals done-bar (approvals seed only).
 //
 // The parity phase's eighth surface. The reference capture (/__apps/approvals = the approvals inbox)
 // is the familiar baseline; the IOI-owned Governance owner surface already renders the SAME
@@ -17,7 +17,7 @@
 // Asserts:
 //   - MATRIX: approvals = substrate_bound → /__ioi/governance?tab=approvals (Governance); not over-claimed.
 //   - REFERENCE BASELINE: /__apps/approvals boots the approvals-inbox grammar.
-//   - IOI SURFACE = SAME GRAMMAR OVER REAL TRUTH: the queue renders; total, pending/approved counts,
+//   - IOI SURFACE = DAEMON TRUTH (substrate, not reference UX parity): the queue renders; total, pending/approved counts,
 //     and the oldest+newest pending requests all MATCH the live daemon; the fixture renders in-row.
 //   - NO FALSE COVERAGE: named gaps (reviewer assignment / delegation / comments / SLA / identity-team
 //     / audit exports); brand-clean; reference seed secondary.
@@ -107,6 +107,6 @@ run().then(() => {
   let fail = 0;
   for (const r of results) { console.log(`  ${r.pass ? "PASS" : "FAIL"}  ${r.name}${r.detail ? `  (${r.detail})` : ""}`); if (!r.pass) fail++; }
   console.log(`\n${results.length - fail}/${results.length} passed`);
-  console.log(`app-parity-approvals readiness: ${fail ? "FAIL" : "OK"}`);
+  console.log(`substrate-truth-approvals readiness: ${fail ? "FAIL" : "OK"}`);
   process.exit(fail ? 1 : 0);
 }).catch((e) => { console.error("verifier crashed:", e); process.exit(1); });

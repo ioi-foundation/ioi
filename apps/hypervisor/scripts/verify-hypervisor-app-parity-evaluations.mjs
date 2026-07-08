@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Application UX Parity Baseline — Evaluations owner-family done-bar (evalsuites seed only).
+// SUBSTRATE-TRUTH verifier (reclassified substrate_bound by the #31 Reference-UX-Port reset — checks DAEMON TRUTH, NOT reference UX parity) — Evaluations owner-family done-bar (evalsuites seed only).
 //
 // The parity phase's sixth surface, and the start of the assessment-over-execution story. The
 // reference capture (/__apps/evalsuites = the eval-suite library) is the familiar baseline; the
@@ -22,7 +22,7 @@
 //   - INERT DAEMON CONTRACT: create declares a suite (health=declared, status=draft, NO score field);
 //     consent is a GATE (never_train-only + empty both fail closed); unknown subject kind fails
 //     closed; there is NO run/execute endpoint.
-//   - IOI SURFACE = SAME GRAMMAR OVER REAL TRUTH: the created suite renders (name, ref, subject_scope,
+//   - IOI SURFACE = DAEMON TRUTH (substrate, not reference UX parity): the created suite renders (name, ref, subject_scope,
 //     consent, evidence, health); a real Missions subject appears in the subjects lane; honest empty
 //     when no suites; the consent ladder is shown.
 //   - NO FALSE COVERAGE: named gaps present (EvalRun execution · scoring/verdicts · judge · scorecards
@@ -123,6 +123,6 @@ run().then(() => {
   let fail = 0;
   for (const r of results) { console.log(`  ${r.pass ? "PASS" : "FAIL"}  ${r.name}${r.detail ? `  (${r.detail})` : ""}`); if (!r.pass) fail++; }
   console.log(`\n${results.length - fail}/${results.length} passed`);
-  console.log(`app-parity-evaluations readiness: ${fail ? "FAIL" : "OK"}`);
+  console.log(`substrate-truth-evaluations readiness: ${fail ? "FAIL" : "OK"}`);
   process.exit(fail ? 1 : 0);
 }).catch((e) => { console.error("verifier crashed:", e); process.exit(1); });

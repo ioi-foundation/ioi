@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Application UX Parity Baseline — Vertex (Provenance graph/exploration lens) done-bar.
+// SUBSTRATE-TRUTH verifier (reclassified substrate_bound by the #31 Reference-UX-Port reset — checks DAEMON TRUTH, NOT reference UX parity) — Vertex (Provenance graph/exploration lens) done-bar.
 //
 // The parity phase's fourth surface, and the cross-plane one. /__apps/vertex is the reference
 // baseline; the IOI-owned /__ioi/vertex renders the SAME graph-exploration grammar (node-type
@@ -11,7 +11,7 @@
 //
 // Asserts:
 //   - REFERENCE BASELINE: /__apps/vertex boots the Vertex graph grammar, brand-clean.
-//   - IOI SURFACE = SAME GRAMMAR OVER REAL TRUTH: for a freshly materialized fixture object set,
+//   - IOI SURFACE = DAEMON TRUTH (substrate, not reference UX parity): for a freshly materialized fixture object set,
 //     /__ioi/vertex renders the node-type catalog (real counts), the node inventory (real ladder
 //     refs), and a neighborhood expansion of the newest set with typed relations (projected_by /
 //     produced_by / proven_by / contains) carrying real projection · run · proof · object refs.
@@ -167,6 +167,6 @@ run().then(() => {
   let fail = 0;
   for (const r of results) { console.log(`  ${r.pass ? "PASS" : "FAIL"}  ${r.name}${r.detail ? `  (${r.detail})` : ""}`); if (!r.pass) fail++; }
   console.log(`\n${results.length - fail}/${results.length} passed`);
-  console.log(`app-parity-vertex readiness: ${fail ? "FAIL" : "OK"}`);
+  console.log(`substrate-truth-vertex readiness: ${fail ? "FAIL" : "OK"}`);
   process.exit(fail ? 1 : 0);
 }).catch((e) => { console.error("verifier crashed:", e); process.exit(1); });

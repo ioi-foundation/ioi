@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Application UX Parity Baseline — Missions owner-family done-bar (jobs + incidents seeds).
+// SUBSTRATE-TRUTH verifier (reclassified substrate_bound by the #31 Reference-UX-Port reset — checks DAEMON TRUTH, NOT reference UX parity) — Missions owner-family done-bar (jobs + incidents seeds).
 //
 // The parity phase's first OPERATIONAL owner-family. The reference captures (/__apps/jobs = the
 // job-tracker "Builds" table, /__apps/incidents = the issues-app remediation inbox) are the familiar
@@ -19,7 +19,7 @@
 // Asserts:
 //   - MATRIX: jobs + incidents = substrate_bound → /__ioi/missions (Missions), not over-claimed.
 //   - REFERENCE BASELINES: /__apps/jobs + /__apps/incidents boot the familiar table grammar.
-//   - IOI SURFACE = SAME GRAMMAR OVER REAL TRUTH: /__ioi/missions renders the run queue + incident
+//   - IOI SURFACE = DAEMON TRUTH (substrate, not reference UX parity): /__ioi/missions renders the run queue + incident
 //     inbox; the run count, the newest real run, the incident count, and a real blocker's goal-run
 //     proof link all MATCH the live daemon (no fabrication).
 //   - HONEST EMPTY / NO SILENT CAP: incident count == real failures + blockers exactly; when the
@@ -111,6 +111,6 @@ run().then(() => {
   let fail = 0;
   for (const r of results) { console.log(`  ${r.pass ? "PASS" : "FAIL"}  ${r.name}${r.detail ? `  (${r.detail})` : ""}`); if (!r.pass) fail++; }
   console.log(`\n${results.length - fail}/${results.length} passed`);
-  console.log(`app-parity-missions readiness: ${fail ? "FAIL" : "OK"}`);
+  console.log(`substrate-truth-missions readiness: ${fail ? "FAIL" : "OK"}`);
   process.exit(fail ? 1 : 0);
 }).catch((e) => { console.error("verifier crashed:", e); process.exit(1); });

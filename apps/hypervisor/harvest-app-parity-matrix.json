@@ -42,7 +42,8 @@
       "note": "read-only design map; owner surface stays /__ioi/agent-studio (no route rename); honest empty when an ontology has no concepts/components/resources; in-canvas authoring / save-open / drag-to-reference / load-lineage / machinery process-graph execution / workshop+module builders = named gaps",
       "substrate_surface": "/__ioi/studio/designer",
       "surface_name": "Studio",
-      "binding": "the system-design canvas — a read-only typed concept/component/resource map over real ODK composition (an ontology's object/value/action/link types = concepts; connector mappings + policy views + projections = components; materialized object sets + domain-app surface descriptors = resources)"
+      "binding": "the system-design canvas — a read-only typed concept/component/resource map over real ODK composition (an ontology's object/value/action/link types = concepts; connector mappings + policy views + projections = components; materialized object sets + domain-app surface descriptors = resources)",
+      "candidate_surface": "/__ioi/studio/designer"
     },
     {
       "owner": "Studio",
@@ -58,7 +59,8 @@
       "note": "DEFINITION-ONLY, read-only surface; a new inert daemon contract with fail-closed writes; owner surface stays /__ioi/agent-studio; honest empty/incomplete when a machine is under-declared; execution / stepping a running instance / scheduling / Automations-Missions-ODK binding / in-canvas graph authoring / simulation / versioning = named gaps (a later authority-crossing cut)",
       "substrate_surface": "/__ioi/studio/machinery",
       "surface_name": "Studio",
-      "binding": "the process/state-machine definition view — a read-only rendering of the inert daemon state-machine plane (declared states initial/normal/final, transitions from→to with event + guard, declared guards, inputs/outputs, owners, health empty|incomplete|ready, and edit history)"
+      "binding": "the process/state-machine definition view — a read-only rendering of the inert daemon state-machine plane (declared states initial/normal/final, transitions from→to with event + guard, declared guards, inputs/outputs, owners, health empty|incomplete|ready, and edit history)",
+      "candidate_surface": "/__ioi/studio/machinery"
     },
     {
       "owner": "Studio",
@@ -125,7 +127,8 @@
       "reference_workspace": "/workspace/monocle/",
       "note": "Monocle lineage grammar over real provenance; upstream ladder refs resolved to live records; no fake nodes for unmaterialized ontologies; freeform resource-search / graph-expansion / cross-tenant catalog = named gaps",
       "substrate_surface": "/__ioi/lineage",
-      "binding": "ODK materialization provenance (MaterializedObjectSet → run → session → lease → projection → mapping → datasource, resolved to live ladder refs; per-object source hashes + mapped_from; pre-output + registration receipts; Provenance proof-stream edges where available)"
+      "binding": "ODK materialization provenance (MaterializedObjectSet → run → session → lease → projection → mapping → datasource, resolved to live ladder refs; per-object source hashes + mapped_from; pre-output + registration receipts; Provenance proof-stream edges where available)",
+      "candidate_surface": "/__ioi/lineage"
     },
     {
       "owner": "Data",
@@ -166,7 +169,8 @@
       "reference_workspace": "/workspace/builder/",
       "note": "the ODK ladder rendered as a datasource→transform→output pipeline; supported lanes = daemon truth, freeform authoring/schedule/deploy = named gaps",
       "substrate_surface": "/__ioi/pipeline",
-      "binding": "ODK authority ladder (DataSource → ConnectorMapping → PolicyBoundDataView → TransformationRun → OntologyProjection → CapabilityLease → ConnectorSession → MaterializedObjectSet)"
+      "binding": "ODK authority ladder (DataSource → ConnectorMapping → PolicyBoundDataView → TransformationRun → OntologyProjection → CapabilityLease → ConnectorSession → MaterializedObjectSet)",
+      "candidate_surface": "/__ioi/pipeline"
     },
     {
       "owner": "Data",
@@ -247,7 +251,8 @@
       "note": "declaration-only owner surface; /__ioi/feedback kept as a compatibility sublane; honest empty when no suites; EvalRun execution / scoring / verdicts / judge / scorecards / auto-mining / analysis+quiver canvases / promotion = named gaps",
       "substrate_surface": "/__ioi/evaluations",
       "surface_name": "Evaluations",
-      "binding": "the eval-suite library — the inert daemon eval-suite contract (a suite declares subject_scope + evidence/consent requirements + named candidate handoffs) over real assessment subjects (Missions runs/failures/blockers) + the consent ladder + feedback candidate source, table/list grammar over daemon truth"
+      "binding": "the eval-suite library — the inert daemon eval-suite contract (a suite declares subject_scope + evidence/consent requirements + named candidate handoffs) over real assessment subjects (Missions runs/failures/blockers) + the consent ladder + feedback candidate source, table/list grammar over daemon truth",
+      "candidate_surface": "/__ioi/evaluations"
     },
     {
       "owner": "Evaluations",
@@ -289,7 +294,8 @@
       "note": "catalog grammar over real model-route truth; route administration lives in Agent Studio (linked); honest empty when no routes; fine-tuning / prompt playground / live inference evals / deployment automation / training runs / unbacked model cards = named gaps",
       "substrate_surface": "/__ioi/foundry",
       "surface_name": "Foundry",
-      "binding": "the model registry — the Foundry Model Catalog over the real daemon model-route registry (per-route honest availability from probe evidence + staleness, weight custody, credential posture, admission trail, and admitted session-binding usage), plus the substrate stats and the draft Foundry specs/run-plans where they connect"
+      "binding": "the model registry — the Foundry Model Catalog over the real daemon model-route registry (per-route honest availability from probe evidence + staleness, weight custody, credential posture, admission trail, and admitted session-binding usage), plus the substrate stats and the draft Foundry specs/run-plans where they connect",
+      "candidate_surface": "/__ioi/foundry"
     },
     {
       "owner": "Foundry",
@@ -435,7 +441,8 @@
       "note": "Vertex graph grammar (nodes · relations · neighborhood) over real cross-plane materialized truth; no fake nodes for unmaterialized ontologies; freeform graph canvas / arbitrary path-finding / cross-tenant object search / saved explorations = named gaps",
       "substrate_surface": "/__ioi/vertex",
       "surface_name": "Provenance",
-      "binding": "a Provenance graph/exploration lens over materialized object sets, projections, objects, and the threaded proof-stream odk_materialization edges (cross-plane: ODK ↔ Provenance)"
+      "binding": "a Provenance graph/exploration lens over materialized object sets, projections, objects, and the threaded proof-stream odk_materialization edges (cross-plane: ODK ↔ Provenance)",
+      "candidate_surface": "/__ioi/vertex"
     },
     {
       "owner": "Environments",
@@ -516,7 +523,8 @@
       "note": "run-queue lane of the Missions owner surface; honest empty when no runs; freeform job-definition editing / board views / arbitrary filtering = named gaps; substrate/infra scheduler health stays in Operations",
       "substrate_surface": "/__ioi/missions",
       "surface_name": "Missions",
-      "binding": "the Missions run/job queue — the real operations run queue (recent runs, statuses, run counts) + scheduled missions, table/list grammar over daemon truth"
+      "binding": "the Missions run/job queue — the real operations run queue (recent runs, statuses, run counts) + scheduled missions, table/list grammar over daemon truth",
+      "candidate_surface": "/__ioi/missions"
     },
     {
       "owner": "Missions",
@@ -532,7 +540,8 @@
       "note": "incident lane of the Missions owner surface; honest empty when no failures/blockers; create/assign incidents / SLA / comments = named gaps; substrate/infra incidents (storage repair, provider failover) stay in Operations",
       "substrate_surface": "/__ioi/missions",
       "surface_name": "Missions",
-      "binding": "the Missions incident/remediation inbox — real run failures + GoalRun blockers, each linking to its own proof/timeline, status-lane grammar over daemon truth"
+      "binding": "the Missions incident/remediation inbox — real run failures + GoalRun blockers, each linking to its own proof/timeline, status-lane grammar over daemon truth",
+      "candidate_surface": "/__ioi/missions"
     },
     {
       "owner": "Governance",
@@ -548,7 +557,8 @@
       "note": "real decision queue on the Governance owner surface; honest empty when no requests; reviewer assignment / delegation / threaded comments / SLA-escalation / identity-team review workflows / audit exports = named gaps",
       "substrate_surface": "/__ioi/governance?tab=approvals",
       "surface_name": "Governance",
-      "binding": "the approvals decision queue — the review-inbox grammar over real daemon ApprovalRequest records (status-count inbox chips, blast radius from would_call/required_authority_refs, age, per-row inspector drawer, in-row approve/reject/revoke transitions); release controls, kill switches, cohorts, improvement gates render as supporting Governance context"
+      "binding": "the approvals decision queue — the review-inbox grammar over real daemon ApprovalRequest records (status-count inbox chips, blast radius from would_call/required_authority_refs, age, per-row inspector drawer, in-row approve/reject/revoke transitions); release controls, kill switches, cohorts, improvement gates render as supporting Governance context",
+      "candidate_surface": "/__ioi/governance?tab=approvals"
     },
     {
       "owner": "Improvement",

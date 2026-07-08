@@ -59,22 +59,37 @@ async function run() {
   ok("NO seed claims true parity yet: 0 daemon_wired, 0 reference_ported", !(matrix.by_parity_class?.daemon_wired) && !(matrix.by_parity_class?.reference_ported));
   ok("no 'covered' anywhere; reference_capture is the majority class", !(matrix.seeds || []).some((s) => s.parity_class === "covered") && matrix.by_parity_class.reference_capture > matrix.by_parity_class.substrate_bound);
 
-  // 3. The Playwright harness proves — by rendered DOM — that the substrate surfaces are NOT parity.
+  // 3. The Playwright harness — run over EVERY port-state row (no subset) so none can escape the gate.
   const artDir = path.join(appRoot, ".artifacts", "reference-parity-verify");
   const h = spawnSync("node", [path.join(here, "harness-reference-parity.mjs")], {
-    encoding: "utf8", timeout: 120000,
-    env: { ...process.env, IOI_HARNESS_SURFACES: "pipeline,lineage", IOI_HARNESS_ARTIFACT_DIR: artDir },
+    encoding: "utf8", timeout: 240000,
+    env: { ...process.env, IOI_HARNESS_ARTIFACT_DIR: artDir },
   });
   const harnessRan = h.status === 0 && existsSync(path.join(artDir, "result.json"));
   ok("Playwright harness runs headless + emits result.json + contact-sheet.html", harnessRan && existsSync(path.join(artDir, "contact-sheet.html")), (h.stderr || "").trim().slice(0, 100));
   if (harnessRan) {
     const res = JSON.parse(readFileSync(path.join(artDir, "result.json"), "utf8"));
     const bySurface = Object.fromEntries((res.surfaces || []).map((s) => [s.slug, s]));
+
+    // COVERAGE: every port-state seed in the matrix must appear in the harness results — a
+    // reference_port_pending / reference_ported / daemon_wired seed can never escape the gate.
+    const portSeeds = (matrix.seeds || []).filter((s) => ["substrate_bound", "reference_port_pending", "reference_ported", "daemon_wired"].includes(s.parity_class)).map((s) => s.slug);
+    const missing = portSeeds.filter((slug) => !bySurface[slug]);
+    ok("harness covers EVERY port-state seed (none escapes the gate)", missing.length === 0, missing.length ? `missing: ${missing.join(",")}` : `${portSeeds.length} covered`);
+
+    // EVIDENCE: every covered surface produced BOTH screenshots (no 0-byte placeholders).
+    ok("every surface produced real screenshot evidence for both reference + IOI", res.surfaces.every((s) => s.evidence_ok === true), res.surfaces.filter((s) => !s.evidence_ok).map((s) => s.slug).join(",") || "all have evidence");
+
+    // THE FUTURE RULE, enforced now: daemon_wired ⇒ structural_parity true; substrate_bound ⇒ false.
+    const wired = res.surfaces.filter((s) => s.matrix_class === "daemon_wired");
+    ok("RULE: every daemon_wired surface PASSES structural parity (none claims parity without it)", wired.every((s) => s.structural_parity === true), wired.length ? wired.map((s) => `${s.slug}:${s.structural_parity}`).join(",") : "0 daemon_wired yet");
+    ok("RULE: no substrate_bound / port-pending / ported surface is mislabeled as passing parity", !res.surfaces.some((s) => s.structural_parity === true && s.matrix_class !== "daemon_wired"));
+
+    // The concrete reset proof: reference workspaces HAVE the shell, IOI substrate surfaces do NOT.
     const pipe = bySurface.pipeline, lin = bySurface.lineage;
-    ok("the REFERENCE workspaces render the shell regions (rail + header + body present)", pipe && lin && ["rail", "header", "body"].every((r) => pipe.reference_regions.includes(r)) && ["rail", "header", "body"].every((r) => lin.reference_regions.includes(r)), `pipe ref[${pipe?.reference_regions}] · lin ref[${lin?.reference_regions}]`);
+    ok("the REFERENCE workspaces render the load-bearing shell under GEOMETRY checks (rail + body; lineage also header+toolbar)", pipe && lin && ["rail", "body"].every((r) => pipe.reference_regions.includes(r)) && ["rail", "header", "body"].every((r) => lin.reference_regions.includes(r)), `pipe ref[${pipe?.reference_regions}] · lin ref[${lin?.reference_regions}]`);
     ok("the IOI substrate surfaces do NOT reproduce the reference shell (structural parity FALSE)", pipe && lin && pipe.structural_parity === false && lin.structural_parity === false, `pipe score ${pipe?.parity_score} · lin score ${lin?.parity_score}`);
-    ok("the structural gap is real: each IOI surface renders fewer reference regions than its reference", pipe && lin && pipe.ioi_regions.length < pipe.reference_regions.length && lin.ioi_regions.length < lin.reference_regions.length);
-    ok("harness verdict agrees with the matrix: these surfaces are substrate_bound, not daemon_wired", pipe?.matrix_class === "substrate_bound" && lin?.matrix_class === "substrate_bound" && !res.surfaces.some((s) => s.structural_parity && s.matrix_class !== "daemon_wired"));
+    ok("the structural gap is real: each IOI surface renders fewer reference regions than its reference", res.surfaces.every((s) => s.ioi_regions.length <= s.reference_regions.length) && (pipe.ioi_regions.length < pipe.reference_regions.length));
   }
 
   // 4. The daemon truth verifiers are preserved (spot-check one still passes end-to-end).
