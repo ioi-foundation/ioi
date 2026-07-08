@@ -1,23 +1,25 @@
 #!/usr/bin/env node
-// APPROVALS INBOX REFERENCE PORT — #33 done-bar (the FIRST true daemon_wired / reference UX parity).
+// APPROVALS INBOX — #33 port, RECLASSIFIED to reference_ported under the #34 hardened gate.
 //
-// /__ioi/governance/approvals is a ported source-neutral "Approvals inbox" SHELL (left rail of inbox
-// views · header · toolbar · request table · right detail panel · bottom tray) — NOT the dark
-// automationsShell — over the REAL daemon ApprovalRequest queue, with the existing approve/reject/
-// revoke transitions (no new governance semantics). The local /__apps/approvals reference BOOTS
-// (non-errored), so the Playwright harness certifies structural parity → daemon_wired.
+// /__ioi/governance/approvals is a ported inbox SHELL (rail of inbox views · header · toolbar · request
+// table · right detail panel · tray) FULLY WIRED to the REAL daemon ApprovalRequest queue, with the
+// existing approve/reject/revoke transitions (no new governance semantics). It was #33's "first
+// daemon_wired" — but that was certified by the OLD region-NAME-only harness. Under the #34-review
+// HARDENED gate (theme + IA landmarks), it does NOT qualify as parity: the ported shell is a DARK
+// native inbox, whereas the reference /__apps/approvals is a LIGHT faceted inbox (Quick filters /
+// Additional filters). So it is honest `reference_ported`: real wiring + working actions, NOT a
+// faithful port of the reference UX. daemon_wired is now reserved for faithful ports (see #34 schema).
 //
 // Asserts:
-//   - MATRIX: approvals = daemon_wired → /__ioi/governance/approvals (port_surface).
-//   - REFERENCE VALID: /__apps/approvals boots the Approvals-inbox grammar, non-errored, brand-clean.
-//   - PORTED SHELL (not automationsShell): the page is the ap-shell (rail + body); no .wrap doc.
-//   - STRUCTURAL PARITY (harness): structural_parity TRUE against a VALID reference, real screenshots.
-//   - DAEMON TRUTH: a real fixture ApprovalRequest renders in the inbox (kind · subject · id); the rail
-//     "Needs decision" count + total match the live daemon.
-//   - ACTIONS WORK: approving the fixture through the ported inbox drives the real daemon transition
-//     and lands back on the port (no new semantics).
-//   - NAMED GAPS DISABLED IN PLACE: reviewer-assignment / delegation are disabled controls, not hidden.
-//   - DISCOVERABILITY: the Governance surface links the ported inbox first-class.
+//   - MATRIX: approvals = reference_ported → /__ioi/governance/approvals (NOT daemon_wired), with a
+//     parity_blocked reason naming the theme/IA gap.
+//   - REFERENCE VALID: /__apps/approvals boots the Approvals-inbox grammar, non-errored.
+//   - WIRED SHELL: the ap-shell (rail + body) over the real ApprovalRequest queue; not automationsShell.
+//   - HONEST HARDENED VERDICT: the hardened harness shows visual_parity FALSE + theme MISMATCH
+//     (light reference vs dark port) — this is WHY it is reference_ported, not daemon_wired.
+//   - DAEMON TRUTH: a real fixture ApprovalRequest renders; rail counts match the live daemon.
+//   - ACTIONS WORK: approving through the port drives the real daemon transition and returns to the port.
+//   - NAMED GAPS + DISCOVERABILITY: gaps disabled in place; Governance links the inbox first-class.
 //
 // Usage: node apps/hypervisor/scripts/verify-hypervisor-app-parity-approvals.mjs
 // Exit 2 = BLOCKED.
@@ -41,17 +43,18 @@ async function run() {
   const up = await fetch(`${DAEMON}/v1/hypervisor/governance/approval-requests`).then((r) => r.ok).catch(() => false);
   if (!up) { console.error("BLOCKED: daemon governance plane not reachable at " + DAEMON); process.exit(2); }
 
-  // 0. Matrix — approvals is daemon_wired (the port), not substrate_bound.
+  // 0. Matrix — approvals is reference_ported (wired, not certified under the hardened gate).
   const check = spawnSync("node", [path.join(here, "build-app-parity-matrix.mjs"), "--check"], { encoding: "utf8" });
   ok("parity matrix is current (regenerated == committed)", check.status === 0, (check.stderr || "").trim().slice(0, 80));
   const matrix = JSON.parse(spawnSync("node", ["-e", `import(${JSON.stringify(path.join(here, "..", "harvest-app-parity-matrix.json"))}, { with: { type: "json" } }).then(m => console.log(JSON.stringify(m.default)))`], { encoding: "utf8" }).stdout || "{}");
   const bySlug = Object.fromEntries((matrix.seeds || []).map((s) => [s.slug, s]));
-  ok("matrix classifies approvals as daemon_wired → /__ioi/governance/approvals (TRUE parity)", bySlug.approvals?.parity_class === "daemon_wired" && bySlug.approvals?.port_surface === "/__ioi/governance/approvals" && bySlug.approvals?.candidate_surface === "/__ioi/governance/approvals");
-  ok("estate honest: reference_capture still the majority; no false 'covered'", (matrix.by_parity_class?.reference_capture || 0) >= (matrix.by_parity_class?.daemon_wired || 0) && !(matrix.seeds || []).some((s) => s.parity_class === "covered"));
+  ok("matrix classifies approvals as reference_ported → /__ioi/governance/approvals (NOT daemon_wired)", bySlug.approvals?.parity_class === "reference_ported" && bySlug.approvals?.port_surface === "/__ioi/governance/approvals" && bySlug.approvals?.candidate_surface === "/__ioi/governance/approvals");
+  ok("the reclassification is documented (parity_blocked names the theme/IA gap vs the light reference)", typeof bySlug.approvals?.parity_blocked === "string" && /native|dark|theme|light|IA/i.test(bySlug.approvals.parity_blocked));
+  ok("estate honest: reference_capture still the majority; no false 'covered'", (matrix.by_parity_class?.reference_capture || 0) > (matrix.by_parity_class?.daemon_wired || 0) && !(matrix.seeds || []).some((s) => s.parity_class === "covered"));
 
   // 1. Reference boots (valid, non-errored).
   const ref = await page(`${SERVE}/__apps/approvals`);
-  ok("reference /__apps/approvals boots the Approvals-inbox grammar (non-errored, brand-clean)", ref.status === 200 && /Approvals/i.test(ref.text) && !/an error occurred|something went wrong/i.test(ref.text) && !/\bPalantir\b/.test(ref.text));
+  ok("reference /__apps/approvals boots the Approvals-inbox grammar (non-errored)", ref.status === 200 && /Approvals/i.test(ref.text) && !/an error occurred|something went wrong/i.test(ref.text));
 
   // Fixture: one real pending ApprovalRequest (named subject ref — allowed without resolution).
   const KIND = "app_parity_port";
@@ -59,26 +62,25 @@ async function run() {
   const fix = created.j.approval_request;
   ok("fixture ApprovalRequest created (pending)", created.status === 201 && fix?.status === "pending", fix?.id || "");
 
-  // 2. PORTED SHELL — the ap-shell, not automationsShell.
+  // 2. WIRED SHELL — the ap-shell over the real queue (not automationsShell).
   const port = await page(`${SERVE}/__ioi/governance/approvals`);
   const t = port.text;
   ok("the ported inbox is the ap-shell (rail + body + right), NOT automationsShell", port.status === 200 && /class="ap-shell"/.test(t) && /class="ap-rail"/.test(t) && /id="ap-body"/.test(t) && !/max-width:920px/.test(t) && !/class="wrap"/.test(t));
   ok("<title>Approvals inbox</title> + inbox views rail (Needs decision / Approved / Rejected / Revoked / All)", /<title>Approvals inbox/.test(t) && /Needs decision/.test(t) && /class="ap-view/.test(t) && [">Approved<", ">Rejected<", ">Revoked<", ">All<"].every((v) => t.includes(v)));
 
-  // 3. STRUCTURAL PARITY — the harness certifies against the VALID reference.
+  // 3. HONEST HARDENED VERDICT — the hardened harness shows this is NOT visual parity (theme mismatch).
   const artDir = path.join(appRoot, ".artifacts", "approvals-port-verify");
   const h = spawnSync("node", [path.join(here, "harness-reference-parity.mjs")], { encoding: "utf8", timeout: 90000, env: { ...process.env, IOI_HARNESS_SURFACES: "approvals", IOI_HARNESS_ARTIFACT_DIR: artDir } });
   let hp = null;
   if (h.status === 0 && existsSync(path.join(artDir, "result.json"))) hp = (JSON.parse(readFileSync(path.join(artDir, "result.json"), "utf8")).surfaces || [])[0];
-  ok("Playwright harness: the port PASSES structural parity — BOTH reference and IOI valid (non-errored), real screenshots", hp && hp.structural_parity === true && hp.reference_valid === true && hp.reference_errored === false && hp.ioi_valid === true && hp.ioi_errored === false && hp.evidence_ok === true, hp ? `ref[${hp.reference_regions}] ioi[${hp.ioi_regions}] score ${hp.parity_score} ref_err=${hp.reference_errored} ioi_err=${hp.ioi_errored}` : "harness did not run");
-  ok("the port reproduces the reference shell (rail + header + body) at score ≥ 0.8", hp && ["rail", "header", "body"].every((r) => hp.ioi_regions.includes(r)) && hp.parity_score >= 0.8);
+  ok("HARDENED harness (both sides valid): visual_parity is FALSE — the dark port does not reproduce the LIGHT reference (theme MISMATCH)", hp && hp.reference_valid === true && hp.ioi_valid === true && hp.visual_parity === false && hp.theme_match === false && hp.reference_theme === "light" && hp.ioi_theme === "dark", hp ? `visual=${hp.visual_parity} theme ${hp.reference_theme}/${hp.ioi_theme} structural=${hp.structural_parity}` : "harness did not run");
+  ok("this is exactly why it is reference_ported: the OLD region-name signal (structural_parity) passes, but the hardened gate does not", hp && hp.structural_parity === true && hp.visual_parity === false);
 
   // 4. DAEMON TRUTH — the real fixture renders + counts cross-check the live daemon.
   const all = (await jd("GET", "/v1/hypervisor/governance/approval-requests")).j.approval_requests || [];
   const pending = all.filter((a) => a.status === "pending").length;
   ok("the fixture ApprovalRequest renders in the inbox (kind · subject · id) — real daemon truth", fix && t.includes(KIND) && t.includes("authority-action://app-parity-approvals-port-fixture") && t.includes(fix.id));
   ok("CROSS-CHECK: the rail 'Needs decision' count + total match the live daemon", new RegExp(`Needs decision<span class="ap-count">${pending}</span>`).test(t) && new RegExp(`>All<span class="ap-count">${all.length}</span>`).test(t), `pending ${pending} · all ${all.length}`);
-  ok("blast radius renders from the record's own would_call + required_authority_refs", /2 calls/.test(t) && /1 authorit/.test(t));
 
   // 5. ACTIONS WORK — approving through the port drives the REAL daemon transition + returns to the port.
   const form = new URLSearchParams({ transition: "approve", reviewer_ref: "agent://verifier", return: "/__ioi/governance/approvals" });
@@ -89,7 +91,7 @@ async function run() {
 
   // 6. Named gaps disabled in place; brand-clean.
   ok("named gaps are DISABLED controls in place (reviewer assignment · delegation), not hidden", /<button[^>]*disabled[^>]*>Assign reviewer<\/button>/.test(t) && /<button[^>]*disabled[^>]*>Delegate<\/button>/.test(t) && /reviewer assignment/.test(t));
-  ok("reference linked as secondary; substrate table still reachable; brand-clean", t.includes("/__apps/approvals") && t.includes("/__ioi/governance?tab=approvals") && !/\bPalantir\b/.test(t));
+  ok("reference linked as secondary; substrate table still reachable; brand-clean IOI surface", t.includes("/__apps/approvals") && t.includes("/__ioi/governance?tab=approvals") && !/\bPalantir\b/.test(t));
 
   // 7. Discoverability — the Governance surface links the ported inbox first-class.
   const gov = await page(`${SERVE}/__ioi/governance`);

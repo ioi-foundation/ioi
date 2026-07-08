@@ -59,48 +59,52 @@ const SUBSTRATE_BOUND = {
   // Studio machinery: the process/state-machine DEFINITION plane (a new inert daemon contract).
   // Definition-only — no run/step/scheduling/binding. workshop + module stay reference_capture.
   machinery: { substrate_surface: "/__ioi/studio/machinery", surface_name: "Studio", binding: "the process/state-machine definition view — a read-only rendering of the inert daemon state-machine plane (declared states initial/normal/final, transitions from→to with event + guard, declared guards, inputs/outputs, owners, health empty|incomplete|ready, and edit history)", note: "DEFINITION-ONLY, read-only surface; a new inert daemon contract with fail-closed writes; owner surface stays /__ioi/agent-studio; honest empty/incomplete when a machine is under-declared; execution / stepping a running instance / scheduling / Automations-Missions-ODK binding / in-canvas graph authoring / simulation / versioning = named gaps (a later authority-crossing cut)" },
-  // Governance owner-family: only approvals binds in this cut. The Governance owner surface already
-  // renders the review-inbox queue over real ApprovalRequest records; this formalizes it in the matrix.
+  // NOTE: Governance/approvals is NOT here — it is `reference_ported` (a wired inbox shell that is not a
+  // faithful light port; see REFERENCE_PORTED below), not substrate_bound.
   // Foundry owner-family: only models binds in this cut (modelstudio + inference stay reference_capture).
   // The Foundry landing's Model Catalog already renders the real model-route registry; this formalizes it.
   models: { substrate_surface: "/__ioi/foundry", surface_name: "Foundry", binding: "the model registry — the Foundry Model Catalog over the real daemon model-route registry (per-route honest availability from probe evidence + staleness, weight custody, credential posture, admission trail, and admitted session-binding usage), plus the substrate stats and the draft Foundry specs/run-plans where they connect", note: "catalog grammar over real model-route truth; route administration lives in Agent Studio (linked); honest empty when no routes; fine-tuning / prompt playground / live inference evals / deployment automation / training runs / unbacked model cards = named gaps" },
 };
 // Port-progress overlays — a seed advances reference_port_pending → reference_ported → daemon_wired
 // as its reference UX shell is captured, ported, and finally wired + parity-verified against a VALID
-// reference. #32 (Pipeline Builder) begins the first `reference_ported` shell; `daemon_wired` stays 0
-// until a valid (non-errored) reference boots to certify parity. `reference_workspace` = the mirror
-// path the Playwright harness opens (`:9225<capture_base>`), also carried on every row.
+// reference. `reference_workspace` = the mirror path the Playwright harness opens
+// (`:9225<capture_base>`), also carried on every row.
 const REFERENCE_PORT_PENDING = {};
-// A source-neutral reference shell/layout ported + wired to daemon truth, but NOT yet promoted to
-// daemon_wired — here because parity VERIFICATION is blocked (the local reference errors / is
-// unavailable). port_surface = the ported IOI surface; parity_blocked names why.
+// A reference shell/layout ported + wired to daemon truth, but NOT yet promoted to daemon_wired —
+// here because parity VERIFICATION does not pass the HARDENED harness (#34): either the local
+// reference errors, OR the ported shell is a substrate-native redesign that does not reproduce the
+// reference's theme + IA landmarks (region-name overlap alone is NOT parity). port_surface = the
+// ported IOI surface; `parity_blocked` names why. `reference_landmarks` (when present) is the IA
+// label set the hardened harness requires in BOTH the reference and the candidate.
 const REFERENCE_PORTED = {
-  // #32 — Pipeline Builder: the builder shell ported source-neutrally (rail · header · graph toolbar ·
-  // canvas with ODK-ladder node cards · right output panel · bottom tray) and fully wired to the real
-  // ODK ladder. BLOCKED from daemon_wired: every /workspace/builder/* route in the local mirror
-  // (incl. the crosswalk's example RID) renders "An error occurred" — only the global platform nav
-  // renders, so there is NO valid builder reference to prove structural parity against. The harness
-  // now guards this (an errored reference can never yield a parity pass). daemon_wired awaits a
-  // working builder capture (re-harvest of /workspace/builder with an installed pipeline example).
+  // #32 — Pipeline Builder: the builder shell ported source-neutrally and fully wired to the real ODK
+  // ladder. BLOCKED from daemon_wired: every /workspace/builder/* route in the local mirror (incl. the
+  // crosswalk's example RID) renders "An error occurred" — there is NO valid builder reference to prove
+  // parity against. The harness guards this (an errored reference can never yield a parity pass).
   pipeline: { port_surface: "/__ioi/pipeline", surface_name: "Data", reference_workspace: "/workspace/builder/", parity_blocked: "local /workspace/builder/* reference errors ('An error occurred') — no valid builder canvas captured; daemon_wired blocked until a working builder reference is re-harvested", binding: "ported Pipeline Builder shell over the real ODK authority ladder (DataSource → ... → MaterializedObjectSet) as canvas node cards; live/declared/missing per stage from daemon truth; preview rows + output schema from the real projection + materialized set", note: "shell ported + wired (source-neutral builder shell: rail/header/toolbar/canvas/right/tray, NOT automationsShell; Build+Preview supported, Schedule+Deploy disabled in place); NOT daemon_wired — parity verification blocked on an errored local reference" },
+  // #33 — Approvals inbox: ported + fully wired to the real daemon ApprovalRequest queue (approve/
+  // reject/revoke are the existing transitions). RECLASSIFIED from daemon_wired under the #34 hardened
+  // gate: the ported /__ioi/governance/approvals is a DARK native inbox shell, whereas the reference
+  // /__apps/approvals is a LIGHT faceted inbox (Quick filters / Additional filters sidebar). It passed
+  // only the old region-NAME harness; it does NOT reproduce the reference theme + IA, so it is honest
+  // reference_ported, not parity. A dedicated faithful-port cut can promote it.
+  approvals: { port_surface: "/__ioi/governance/approvals", surface_name: "Governance", reference_workspace: "/workspace/approvals-app/", parity_blocked: "the ported inbox is a dark native shell; the reference is a light faceted inbox (Quick filters / Additional filters). Wired to real ApprovalRequest truth, but does NOT reproduce the reference theme + IA under the hardened harness — awaiting a faithful light reference port", binding: "ported Approvals-inbox shell over the real daemon ApprovalRequest queue — inbox views with live counts, request table (kind · target · blast radius · age · status · in-row approve/reject/revoke), by-status detail; every cell is daemon truth", note: "wired to real daemon transitions (no new governance semantics); reviewer-assignment / delegation / comments / SLA / audit-export = named gaps; substrate table stays at /__ioi/governance?tab=approvals; NOT daemon_wired — the shell is native-dark, not a faithful light port of the reference" },
 };
-// TRUE reference UX parity — a ported source-neutral reference shell wired to daemon truth that PASSES
-// the Playwright visual + structural harness AGAINST A VALID (non-errored) reference.
+// TRUE reference UX parity — a FAITHFUL port of the reference UX (same theme + IA + layout) wired to
+// daemon truth, that PASSES the HARDENED Playwright harness (visual_parity: region geometry + theme
+// match + reproduction of the reference's IA landmarks) against a VALID (non-errored) reference.
+// `reference_landmarks` = the reference's IA label set the hardened harness requires in BOTH sides.
 const DAEMON_WIRED = {
-  // #33 — Approvals inbox: the /workspace/approvals-app/ shell ported source-neutrally (left rail of
-  // inbox views · header · toolbar · request table · right detail panel · bottom tray), NOT
-  // automationsShell, over the REAL daemon ApprovalRequest queue with the existing approve/reject/
-  // revoke transitions (no new semantics). The reference BOOTS (non-errored), so the harness certifies
-  // structural parity → FIRST true daemon_wired. Substrate table kept at ?tab=approvals.
-  approvals: { port_surface: "/__ioi/governance/approvals", surface_name: "Governance", reference_workspace: "/workspace/approvals-app/", binding: "ported Approvals-inbox shell over the real daemon ApprovalRequest queue — a left rail of inbox views (Needs decision / Approved / Rejected / Revoked / All with live counts), header (pending count + oldest age), a request table (kind · target · blast radius from would_call/required_authority_refs · age · status · in-row approve/reject/revoke), and a right detail panel (by-status + named gaps); every cell is daemon truth", note: "FIRST true parity (#33): source-neutral Approvals-inbox shell (rail/header/toolbar/body/right/tray), NOT automationsShell; passes the Playwright harness against the VALID /__apps/approvals reference; decisions are the existing daemon transitions (no new governance semantics); reviewer-assignment / delegation / comments / SLA / audit-export = named gaps disabled in place; substrate table stays at /__ioi/governance?tab=approvals" },
-  // #34 — Ontology Manager (schema): the /workspace/ontology/ schema-workbench shell ported
-  // source-neutrally (left rail of ontologies + schema-section nav · header with ontology/health/counts ·
-  // toolbar · body of typed schema sections: object/value/link/action types + functions + health ·
-  // right detail panel: configuration + resources · bottom tray), NOT automationsShell, over the REAL
-  // ODK CanonicalObjectModel. Read-only schema view — authoring + object materialization stay in the
-  // /__ioi/odk substrate. The /__apps/schema reference BOOTS (non-errored), so the harness certifies
-  // structural parity → daemon_wired. Object Explorer (explorer seed) is the sibling #35 cut.
-  schema: { port_surface: "/__ioi/ontology/manager", surface_name: "Ontology", reference_workspace: "/workspace/ontology/", binding: "ported Ontology-Manager schema workbench over the real ODK CanonicalObjectModel — a left rail of ontologies (live health pills) + schema-section nav, header (domain · version · health status · object/instance counts), typed schema sections (object types with per-type object counts, properties, value types, link types, actions, functions, health/gaps/instances), and a right panel (configuration ref/revision/receipts/history + resources materialized sets/projections + estate rollup); every cell is daemon truth", note: "true parity (#34): source-neutral schema-workbench shell (rail/header/toolbar/body/right/tray), NOT automationsShell; passes the Playwright harness against the VALID /__apps/schema reference; READ-ONLY over daemon truth — authoring/create-edit + object materialization stay in the /__ioi/odk substrate (linked first-class); in-canvas schema editing / action+function execution / orphan-reference cleanup = named gaps disabled in place; Object Explorer is the sibling #35 cut" },
+  // #34 — Ontology Manager (schema): a FAITHFUL source-neutral port of the reference Ontology Manager —
+  // a DARK global platform rail + a LIGHT app rail (Discover / Proposals / History · Resources: object/
+  // property/link/action/value types + functions · Health issues / Cleanup / Ontology configuration) +
+  // a LIGHT header (title · ontology switcher · "Search resources…" · New) + a LIGHT card-first body
+  // ("Object types recently modified" as object-type cards), then the typed schema detail below. Light
+  // theme + card-first IA + the reference's landmark labels, wired to the REAL ODK CanonicalObjectModel.
+  // READ-ONLY (authoring + object materialization stay in /__ioi/odk). The /__apps/schema reference
+  // BOOTS (light, non-errored), so the HARDENED harness certifies visual_parity → daemon_wired. This is
+  // the first surface to clear the hardened gate; #33 approvals was reclassified reference_ported.
+  schema: { port_surface: "/__ioi/ontology/manager", surface_name: "Ontology", reference_workspace: "/workspace/ontology/", reference_landmarks: ["Ontology Manager", "Discover", "Resources", "Object types", "Properties", "Link types", "Action types", "Value types", "Functions", "Health"], binding: "faithful port of the reference Ontology Manager over the real ODK CanonicalObjectModel — dark global rail + light app rail (Discover/Proposals/History · Resources object/property/link/action/value types + functions · Health/Cleanup/Configuration) + light header (ontology switcher · search · New) + light card-first body (object-type cards with per-type object + dependent counts), then typed schema detail + configuration; every cell is daemon truth", note: "TRUE parity (#34) under the HARDENED gate: light two-rail reference-faithful shell (matches the reference theme + IA landmarks + card-first body), NOT a native redesign; passes the hardened Playwright harness (theme + landmarks + geometry) against the VALID /__apps/schema reference; READ-ONLY over daemon truth — authoring/create-edit + object materialization stay in the /__ioi/odk substrate (linked first-class); in-canvas schema editing / Proposals / Shared properties / Groups / Interfaces / Cleanup / action+function execution = named gaps in place; Object Explorer is the sibling #35 cut" },
 };
 
 function parityClass(slug) {
@@ -154,8 +158,8 @@ const matrix = {
   schema_version: "ioi.hypervisor.app-parity-matrix.v2",
   phase: "Reference UX Port",
   doctrine: "Reference UX port first (port the source-neutralized reference shell/layout) → daemon truth inside that UX (wire panels, tables, graph nodes, toolbars, drawers, empty + disabled states) → IOI-native redesign later. The dark IOI surfaces built #3–#30 are substrate, not parity.",
-  parity_rule: "Only `daemon_wired` counts as TRUE reference UX parity: a ported, source-neutral reference shell wired to daemon truth that passes the Playwright visual + structural harness (global shell rail, header, toolbar, body, right panel, bottom tray). `substrate_bound` = a dark IOI surface (custom automationsShell) over daemon truth — valuable substrate, NOT parity. A surface must not claim parity without side-by-side screenshots + structural assertions.",
-  reset_note: "PR #31 presentation-layer rebase: the former `daemon_bound` class is retired. Its 10 surfaces are reclassified `substrate_bound`; the daemon planes, fail-closed contracts, and truth verifiers are all preserved. #32 (Pipeline Builder) begins the first `reference_ported` shell; `daemon_wired` remains 0 until a valid (non-errored) reference boots to certify parity.",
+  parity_rule: "Only `daemon_wired` counts as TRUE reference UX parity: a FAITHFUL port of the reference UX (same theme + IA + layout) wired to daemon truth that passes the HARDENED Playwright harness — `visual_parity` = region geometry + theme (light/dark) match + reproduction of the reference's IA landmarks. Region-name overlap alone is NOT parity (#34 review). `substrate_bound` = a dark IOI surface (custom automationsShell) over daemon truth — valuable substrate, NOT parity. `reference_ported` = a shell ported + wired but not certified under the hardened gate (errored reference OR a native redesign that does not reproduce the reference theme + IA). A surface must not claim parity without side-by-side screenshots + the hardened harness pass.",
+  reset_note: "PR #31 presentation-layer rebase: the former `daemon_bound` class is retired; its 10 surfaces are reclassified `substrate_bound`, with all daemon planes / fail-closed contracts / truth verifiers preserved. #34 review HARDENED the parity gate (theme + IA landmarks, not just region names): #34 Ontology Manager is the first FAITHFUL light two-rail port to certify `daemon_wired`; #33 approvals was reclassified `reference_ported` (a wired but native-dark shell — not a faithful port of the light reference). #32 pipeline stays `reference_ported` (errored local builder reference).",
   estate_backstop: {
     executable_seeds: rows.length,
     note: "The 39 executable seeds are the migration queue; the 45-app local-composition crosswalk is the estate backstop so coverage does not shrink.",
