@@ -8,8 +8,8 @@
   ],
   "total_seeds": 39,
   "by_parity_class": {
-    "daemon_bound": 8,
-    "reference_capture": 31
+    "daemon_bound": 9,
+    "reference_capture": 30
   },
   "legend": {
     "reference_capture": "the /__apps/<slug> reference baseline serves; not yet bound to daemon truth",
@@ -251,10 +251,13 @@
       "capture_base": "/workspace/model-catalog/",
       "grammar": "catalog",
       "tier": "high_value",
-      "parity_class": "reference_capture",
+      "parity_class": "daemon_bound",
       "capture_state": "boots_table_list",
       "reference_capture": "/__apps/models",
-      "note": "model registry home; unbound"
+      "note": "catalog grammar over real model-route truth; route administration lives in Agent Studio (linked); honest empty when no routes; fine-tuning / prompt playground / live inference evals / deployment automation / training runs / unbacked model cards = named gaps",
+      "daemon_surface": "/__ioi/foundry",
+      "surface_name": "Foundry",
+      "binding": "the model registry — the Foundry Model Catalog over the real daemon model-route registry (per-route honest availability from probe evidence + staleness, weight custody, credential posture, admission trail, and admitted session-binding usage), plus the substrate stats and the draft Foundry specs/run-plans where they connect"
     },
     {
       "owner": "Foundry",

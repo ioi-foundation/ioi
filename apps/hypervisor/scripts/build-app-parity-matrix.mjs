@@ -48,6 +48,9 @@ const DAEMON_BOUND = {
   // Governance owner-family: only approvals binds in this cut. The Governance owner surface already
   // renders the review-inbox queue over real ApprovalRequest records; this formalizes it in the matrix.
   approvals: { daemon_surface: "/__ioi/governance?tab=approvals", surface_name: "Governance", binding: "the approvals decision queue — the review-inbox grammar over real daemon ApprovalRequest records (status-count inbox chips, blast radius from would_call/required_authority_refs, age, per-row inspector drawer, in-row approve/reject/revoke transitions); release controls, kill switches, cohorts, improvement gates render as supporting Governance context", note: "real decision queue on the Governance owner surface; honest empty when no requests; reviewer assignment / delegation / threaded comments / SLA-escalation / identity-team review workflows / audit exports = named gaps" },
+  // Foundry owner-family: only models binds in this cut (modelstudio + inference stay reference_capture).
+  // The Foundry landing's Model Catalog already renders the real model-route registry; this formalizes it.
+  models: { daemon_surface: "/__ioi/foundry", surface_name: "Foundry", binding: "the model registry — the Foundry Model Catalog over the real daemon model-route registry (per-route honest availability from probe evidence + staleness, weight custody, credential posture, admission trail, and admitted session-binding usage), plus the substrate stats and the draft Foundry specs/run-plans where they connect", note: "catalog grammar over real model-route truth; route administration lives in Agent Studio (linked); honest empty when no routes; fine-tuning / prompt playground / live inference evals / deployment automation / training runs / unbacked model cards = named gaps" },
 };
 // Named-next targets (owner binding declared; surface not built yet).
 const QUEUED = {};
