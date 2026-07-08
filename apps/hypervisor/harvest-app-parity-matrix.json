@@ -16,9 +16,10 @@
   ],
   "total_seeds": 39,
   "by_parity_class": {
-    "substrate_bound": 9,
+    "substrate_bound": 8,
     "reference_capture": 29,
-    "reference_ported": 1
+    "reference_ported": 1,
+    "daemon_wired": 1
   },
   "legend": {
     "reference_capture": "the /__apps/<slug> reference baseline serves; no IOI port exists",
@@ -553,15 +554,15 @@
       "capture_base": "/workspace/approvals-app/",
       "grammar": "table_list",
       "tier": "high_value",
-      "parity_class": "substrate_bound",
+      "parity_class": "daemon_wired",
       "capture_state": "boots_table_list",
       "reference_capture": "/__apps/approvals",
       "reference_workspace": "/workspace/approvals-app/",
-      "note": "real decision queue on the Governance owner surface; honest empty when no requests; reviewer assignment / delegation / threaded comments / SLA-escalation / identity-team review workflows / audit exports = named gaps",
-      "substrate_surface": "/__ioi/governance?tab=approvals",
+      "note": "FIRST true parity (#33): source-neutral Approvals-inbox shell (rail/header/toolbar/body/right/tray), NOT automationsShell; passes the Playwright harness against the VALID /__apps/approvals reference; decisions are the existing daemon transitions (no new governance semantics); reviewer-assignment / delegation / comments / SLA / audit-export = named gaps disabled in place; substrate table stays at /__ioi/governance?tab=approvals",
+      "port_surface": "/__ioi/governance/approvals",
       "surface_name": "Governance",
-      "binding": "the approvals decision queue — the review-inbox grammar over real daemon ApprovalRequest records (status-count inbox chips, blast radius from would_call/required_authority_refs, age, per-row inspector drawer, in-row approve/reject/revoke transitions); release controls, kill switches, cohorts, improvement gates render as supporting Governance context",
-      "candidate_surface": "/__ioi/governance?tab=approvals"
+      "binding": "ported Approvals-inbox shell over the real daemon ApprovalRequest queue — a left rail of inbox views (Needs decision / Approved / Rejected / Revoked / All with live counts), header (pending count + oldest age), a request table (kind · target · blast radius from would_call/required_authority_refs · age · status · in-row approve/reject/revoke), and a right detail panel (by-status + named gaps); every cell is daemon truth",
+      "candidate_surface": "/__ioi/governance/approvals"
     },
     {
       "owner": "Improvement",

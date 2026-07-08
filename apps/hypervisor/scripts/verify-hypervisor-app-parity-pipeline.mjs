@@ -59,7 +59,7 @@ async function run() {
   const matrix = JSON.parse(spawnSync("node", ["-e", `import(${JSON.stringify(path.join(here, "..", "harvest-app-parity-matrix.json"))}, { with: { type: "json" } }).then(m => console.log(JSON.stringify(m.default)))`], { encoding: "utf8" }).stdout || "{}");
   const bySlug = Object.fromEntries((matrix.seeds || []).map((s) => [s.slug, s]));
   ok("matrix classifies pipeline as reference_ported → /__ioi/pipeline (shell ported + wired) with a parity_blocked note", bySlug.pipeline?.parity_class === "reference_ported" && bySlug.pipeline?.port_surface === "/__ioi/pipeline" && bySlug.pipeline?.candidate_surface === "/__ioi/pipeline" && /error/i.test(bySlug.pipeline?.parity_blocked || ""));
-  ok("no false parity: 0 daemon_wired (the errored builder reference cannot certify parity); siblings stay substrate_bound", (matrix.by_parity_class?.daemon_wired || 0) === 0 && bySlug.lineage?.parity_class === "substrate_bound" && bySlug.vertex?.parity_class === "substrate_bound");
+  ok("no false parity for pipeline: NOT daemon_wired (its errored builder reference cannot certify parity); lineage/vertex stay substrate_bound", bySlug.pipeline?.parity_class !== "daemon_wired" && bySlug.lineage?.parity_class === "substrate_bound" && bySlug.vertex?.parity_class === "substrate_bound");
   ok("estate honest: reference_capture still the majority; no false 'covered'", (matrix.by_parity_class?.reference_capture || 0) >= (matrix.by_parity_class?.reference_ported || 0) && !(matrix.seeds || []).some((s) => s.parity_class === "covered"));
 
   // 1. Reference baseline boots the familiar builder, brand-clean.
