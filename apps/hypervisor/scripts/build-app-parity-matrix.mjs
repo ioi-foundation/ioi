@@ -28,41 +28,61 @@ const appRoot = path.resolve(here, "..");
 const startingPoints = JSON.parse(readFileSync(path.join(appRoot, "harvest-starting-points.json"), "utf8"));
 const captureState = Object.fromEntries((startingPoints.seeds || []).map((s) => [s.slug, s.classification]));
 
-// The ONLY per-seed overlay — everything else is a reference capture until a cut binds it.
-// daemon_surface = the IOI-owned surface that renders the reference grammar over daemon truth.
-const DAEMON_BOUND = {
-  pipeline: { daemon_surface: "/__ioi/pipeline", binding: "ODK authority ladder (DataSource → ConnectorMapping → PolicyBoundDataView → TransformationRun → OntologyProjection → CapabilityLease → ConnectorSession → MaterializedObjectSet)", note: "the ODK ladder rendered as a datasource→transform→output pipeline; supported lanes = daemon truth, freeform authoring/schedule/deploy = named gaps" },
-  lineage: { daemon_surface: "/__ioi/lineage", binding: "ODK materialization provenance (MaterializedObjectSet → run → session → lease → projection → mapping → datasource, resolved to live ladder refs; per-object source hashes + mapped_from; pre-output + registration receipts; Provenance proof-stream edges where available)", note: "Monocle lineage grammar over real provenance; upstream ladder refs resolved to live records; no fake nodes for unmaterialized ontologies; freeform resource-search / graph-expansion / cross-tenant catalog = named gaps" },
+// ─── Reference UX Port taxonomy (reset, PR #31) ───────────────────────────────────────────────
+// Presentation-layer rebase: the surfaces below are dark IOI surfaces over daemon truth. They are
+// valuable SUBSTRATE, but they are NOT reference UX parity — they use the custom automationsShell,
+// not a ported reference shell. So they are `substrate_bound`, not the old (retired) `daemon_bound`.
+// A seed only becomes true parity (`daemon_wired`) once its reference UX shell is ported,
+// source-neutralized, wired to daemon truth, and passes the Playwright visual + structural harness.
+//
+//   reference_capture     — /__apps/<slug> serves; no IOI port exists.
+//   substrate_bound       — a dark IOI surface renders daemon truth (valuable, NOT UX parity).
+//   reference_port_pending — selected for porting; reference screenshots + selectors captured.
+//   reference_ported      — source-neutral reference shell/layout ported, still static/minimally wired.
+//   daemon_wired          — ported UX wired to daemon truth AND passes visual/structural parity (TRUE parity).
+//
+// substrate_surface = the existing dark IOI surface (kept as substrate/admin/debug view).
+const SUBSTRATE_BOUND = {
+  pipeline: { substrate_surface: "/__ioi/pipeline", binding: "ODK authority ladder (DataSource → ConnectorMapping → PolicyBoundDataView → TransformationRun → OntologyProjection → CapabilityLease → ConnectorSession → MaterializedObjectSet)", note: "the ODK ladder rendered as a datasource→transform→output pipeline; supported lanes = daemon truth, freeform authoring/schedule/deploy = named gaps" },
+  lineage: { substrate_surface: "/__ioi/lineage", binding: "ODK materialization provenance (MaterializedObjectSet → run → session → lease → projection → mapping → datasource, resolved to live ladder refs; per-object source hashes + mapped_from; pre-output + registration receipts; Provenance proof-stream edges where available)", note: "Monocle lineage grammar over real provenance; upstream ladder refs resolved to live records; no fake nodes for unmaterialized ontologies; freeform resource-search / graph-expansion / cross-tenant catalog = named gaps" },
   // Canon: Work Ledger evolves into Provenance — Vertex is a Provenance graph/exploration lens.
-  vertex: { daemon_surface: "/__ioi/vertex", surface_name: "Provenance", binding: "a Provenance graph/exploration lens over materialized object sets, projections, objects, and the threaded proof-stream odk_materialization edges (cross-plane: ODK ↔ Provenance)", note: "Vertex graph grammar (nodes · relations · neighborhood) over real cross-plane materialized truth; no fake nodes for unmaterialized ontologies; freeform graph canvas / arbitrary path-finding / cross-tenant object search / saved explorations = named gaps" },
+  vertex: { substrate_surface: "/__ioi/vertex", surface_name: "Provenance", binding: "a Provenance graph/exploration lens over materialized object sets, projections, objects, and the threaded proof-stream odk_materialization edges (cross-plane: ODK ↔ Provenance)", note: "Vertex graph grammar (nodes · relations · neighborhood) over real cross-plane materialized truth; no fake nodes for unmaterialized ontologies; freeform graph canvas / arbitrary path-finding / cross-tenant object search / saved explorations = named gaps" },
   // Missions owner-family: jobs + incidents seeds bound to /__ioi/missions (the owner surface for
   // suite/run work). Operations stays substrate/infra. Both are the SAME owner surface, two lanes.
-  jobs: { daemon_surface: "/__ioi/missions", surface_name: "Missions", binding: "the Missions run/job queue — the real operations run queue (recent runs, statuses, run counts) + scheduled missions, table/list grammar over daemon truth", note: "run-queue lane of the Missions owner surface; honest empty when no runs; freeform job-definition editing / board views / arbitrary filtering = named gaps; substrate/infra scheduler health stays in Operations" },
-  incidents: { daemon_surface: "/__ioi/missions", surface_name: "Missions", binding: "the Missions incident/remediation inbox — real run failures + GoalRun blockers, each linking to its own proof/timeline, status-lane grammar over daemon truth", note: "incident lane of the Missions owner surface; honest empty when no failures/blockers; create/assign incidents / SLA / comments = named gaps; substrate/infra incidents (storage repair, provider failover) stay in Operations" },
+  jobs: { substrate_surface: "/__ioi/missions", surface_name: "Missions", binding: "the Missions run/job queue — the real operations run queue (recent runs, statuses, run counts) + scheduled missions, table/list grammar over daemon truth", note: "run-queue lane of the Missions owner surface; honest empty when no runs; freeform job-definition editing / board views / arbitrary filtering = named gaps; substrate/infra scheduler health stays in Operations" },
+  incidents: { substrate_surface: "/__ioi/missions", surface_name: "Missions", binding: "the Missions incident/remediation inbox — real run failures + GoalRun blockers, each linking to its own proof/timeline, status-lane grammar over daemon truth", note: "incident lane of the Missions owner surface; honest empty when no failures/blockers; create/assign incidents / SLA / comments = named gaps; substrate/infra incidents (storage repair, provider failover) stay in Operations" },
   // Evaluations owner-family: only evalsuites binds in this cut (analysis + quiver stay reference_capture).
   // The eval-suite library renders the INERT daemon eval-suite contract (a declaration; no scoring).
-  evalsuites: { daemon_surface: "/__ioi/evaluations", surface_name: "Evaluations", binding: "the eval-suite library — the inert daemon eval-suite contract (a suite declares subject_scope + evidence/consent requirements + named candidate handoffs) over real assessment subjects (Missions runs/failures/blockers) + the consent ladder + feedback candidate source, table/list grammar over daemon truth", note: "declaration-only owner surface; /__ioi/feedback kept as a compatibility sublane; honest empty when no suites; EvalRun execution / scoring / verdicts / judge / scorecards / auto-mining / analysis+quiver canvases / promotion = named gaps" },
+  evalsuites: { substrate_surface: "/__ioi/evaluations", surface_name: "Evaluations", binding: "the eval-suite library — the inert daemon eval-suite contract (a suite declares subject_scope + evidence/consent requirements + named candidate handoffs) over real assessment subjects (Missions runs/failures/blockers) + the consent ladder + feedback candidate source, table/list grammar over daemon truth", note: "declaration-only owner surface; /__ioi/feedback kept as a compatibility sublane; honest empty when no suites; EvalRun execution / scoring / verdicts / judge / scorecards / auto-mining / analysis+quiver canvases / promotion = named gaps" },
   // Studio owner-family: only designer binds in this cut (machinery/workshop/module stay reference_capture).
   // A dedicated /__ioi/studio/designer surface; the /__ioi/agent-studio owner links to it (no rename).
-  designer: { daemon_surface: "/__ioi/studio/designer", surface_name: "Studio", binding: "the system-design canvas — a read-only typed concept/component/resource map over real ODK composition (an ontology's object/value/action/link types = concepts; connector mappings + policy views + projections = components; materialized object sets + domain-app surface descriptors = resources)", note: "read-only design map; owner surface stays /__ioi/agent-studio (no route rename); honest empty when an ontology has no concepts/components/resources; in-canvas authoring / save-open / drag-to-reference / load-lineage / machinery process-graph execution / workshop+module builders = named gaps" },
+  designer: { substrate_surface: "/__ioi/studio/designer", surface_name: "Studio", binding: "the system-design canvas — a read-only typed concept/component/resource map over real ODK composition (an ontology's object/value/action/link types = concepts; connector mappings + policy views + projections = components; materialized object sets + domain-app surface descriptors = resources)", note: "read-only design map; owner surface stays /__ioi/agent-studio (no route rename); honest empty when an ontology has no concepts/components/resources; in-canvas authoring / save-open / drag-to-reference / load-lineage / machinery process-graph execution / workshop+module builders = named gaps" },
   // Studio machinery: the process/state-machine DEFINITION plane (a new inert daemon contract).
   // Definition-only — no run/step/scheduling/binding. workshop + module stay reference_capture.
-  machinery: { daemon_surface: "/__ioi/studio/machinery", surface_name: "Studio", binding: "the process/state-machine definition view — a read-only rendering of the inert daemon state-machine plane (declared states initial/normal/final, transitions from→to with event + guard, declared guards, inputs/outputs, owners, health empty|incomplete|ready, and edit history)", note: "DEFINITION-ONLY, read-only surface; a new inert daemon contract with fail-closed writes; owner surface stays /__ioi/agent-studio; honest empty/incomplete when a machine is under-declared; execution / stepping a running instance / scheduling / Automations-Missions-ODK binding / in-canvas graph authoring / simulation / versioning = named gaps (a later authority-crossing cut)" },
+  machinery: { substrate_surface: "/__ioi/studio/machinery", surface_name: "Studio", binding: "the process/state-machine definition view — a read-only rendering of the inert daemon state-machine plane (declared states initial/normal/final, transitions from→to with event + guard, declared guards, inputs/outputs, owners, health empty|incomplete|ready, and edit history)", note: "DEFINITION-ONLY, read-only surface; a new inert daemon contract with fail-closed writes; owner surface stays /__ioi/agent-studio; honest empty/incomplete when a machine is under-declared; execution / stepping a running instance / scheduling / Automations-Missions-ODK binding / in-canvas graph authoring / simulation / versioning = named gaps (a later authority-crossing cut)" },
   // Governance owner-family: only approvals binds in this cut. The Governance owner surface already
   // renders the review-inbox queue over real ApprovalRequest records; this formalizes it in the matrix.
-  approvals: { daemon_surface: "/__ioi/governance?tab=approvals", surface_name: "Governance", binding: "the approvals decision queue — the review-inbox grammar over real daemon ApprovalRequest records (status-count inbox chips, blast radius from would_call/required_authority_refs, age, per-row inspector drawer, in-row approve/reject/revoke transitions); release controls, kill switches, cohorts, improvement gates render as supporting Governance context", note: "real decision queue on the Governance owner surface; honest empty when no requests; reviewer assignment / delegation / threaded comments / SLA-escalation / identity-team review workflows / audit exports = named gaps" },
+  approvals: { substrate_surface: "/__ioi/governance?tab=approvals", surface_name: "Governance", binding: "the approvals decision queue — the review-inbox grammar over real daemon ApprovalRequest records (status-count inbox chips, blast radius from would_call/required_authority_refs, age, per-row inspector drawer, in-row approve/reject/revoke transitions); release controls, kill switches, cohorts, improvement gates render as supporting Governance context", note: "real decision queue on the Governance owner surface; honest empty when no requests; reviewer assignment / delegation / threaded comments / SLA-escalation / identity-team review workflows / audit exports = named gaps" },
   // Foundry owner-family: only models binds in this cut (modelstudio + inference stay reference_capture).
   // The Foundry landing's Model Catalog already renders the real model-route registry; this formalizes it.
-  models: { daemon_surface: "/__ioi/foundry", surface_name: "Foundry", binding: "the model registry — the Foundry Model Catalog over the real daemon model-route registry (per-route honest availability from probe evidence + staleness, weight custody, credential posture, admission trail, and admitted session-binding usage), plus the substrate stats and the draft Foundry specs/run-plans where they connect", note: "catalog grammar over real model-route truth; route administration lives in Agent Studio (linked); honest empty when no routes; fine-tuning / prompt playground / live inference evals / deployment automation / training runs / unbacked model cards = named gaps" },
+  models: { substrate_surface: "/__ioi/foundry", surface_name: "Foundry", binding: "the model registry — the Foundry Model Catalog over the real daemon model-route registry (per-route honest availability from probe evidence + staleness, weight custody, credential posture, admission trail, and admitted session-binding usage), plus the substrate stats and the draft Foundry specs/run-plans where they connect", note: "catalog grammar over real model-route truth; route administration lives in Agent Studio (linked); honest empty when no routes; fine-tuning / prompt playground / live inference evals / deployment automation / training runs / unbacked model cards = named gaps" },
 };
-// Named-next targets (owner binding declared; surface not built yet).
-const QUEUED = {};
+// Port-progress overlays — a seed advances reference_port_pending → reference_ported → daemon_wired
+// as its reference UX shell is captured, ported, and finally wired + parity-verified. Empty until
+// #32 (Pipeline Builder) begins the first real port. `reference_workspace` = the mirror path the
+// Playwright harness opens (`:9225<capture_base>`), also carried on every row from the inventory.
+const REFERENCE_PORT_PENDING = {};
+const REFERENCE_PORTED = {};
+const DAEMON_WIRED = {};
 
 function parityClass(slug) {
-  if (DAEMON_BOUND[slug]) return "daemon_bound";
-  if (QUEUED[slug]) return "queued";
+  if (DAEMON_WIRED[slug]) return "daemon_wired";
+  if (REFERENCE_PORTED[slug]) return "reference_ported";
+  if (REFERENCE_PORT_PENDING[slug]) return "reference_port_pending";
+  if (SUBSTRATE_BOUND[slug]) return "substrate_bound";
   return "reference_capture";
 }
+const OVERLAY_FOR = (slug) => DAEMON_WIRED[slug] || REFERENCE_PORTED[slug] || REFERENCE_PORT_PENDING[slug] || SUBSTRATE_BOUND[slug] || null;
 
 const rows = SEED_INVENTORY.map((e) => {
   const cls = parityClass(e.slug);
@@ -76,29 +96,40 @@ const rows = SEED_INVENTORY.map((e) => {
     parity_class: cls,
     capture_state: captureState[e.slug] || "unknown",
     reference_capture: `/__apps/${e.slug}`,
+    reference_workspace: e.captureBase,
     note: e.note,
   };
-  if (DAEMON_BOUND[e.slug]) Object.assign(row, DAEMON_BOUND[e.slug]);
-  if (QUEUED[e.slug]) Object.assign(row, QUEUED[e.slug]);
+  const overlay = OVERLAY_FOR(e.slug);
+  if (overlay) Object.assign(row, overlay);
   return row;
 });
 
 const byClass = rows.reduce((m, r) => ((m[r.parity_class] = (m[r.parity_class] || 0) + 1), m), {});
 const matrix = {
-  schema_version: "ioi.hypervisor.app-parity-matrix.v1",
-  phase: "Application UX Parity Baseline",
-  doctrine: "reference UX parity first (local capture, no live re-harvest, no invented daemon truth), IOI substrate underneath (bind supported lanes to daemon truth, keep unsupported lanes as honest named gaps), IOI-native UX later",
+  schema_version: "ioi.hypervisor.app-parity-matrix.v2",
+  phase: "Reference UX Port",
+  doctrine: "Reference UX port first (port the source-neutralized reference shell/layout) → daemon truth inside that UX (wire panels, tables, graph nodes, toolbars, drawers, empty + disabled states) → IOI-native redesign later. The dark IOI surfaces built #3–#30 are substrate, not parity.",
+  parity_rule: "Only `daemon_wired` counts as TRUE reference UX parity: a ported, source-neutral reference shell wired to daemon truth that passes the Playwright visual + structural harness (global shell rail, header, toolbar, body, right panel, bottom tray). `substrate_bound` = a dark IOI surface (custom automationsShell) over daemon truth — valuable substrate, NOT parity. A surface must not claim parity without side-by-side screenshots + structural assertions.",
+  reset_note: "PR #31 presentation-layer rebase: the former `daemon_bound` class is retired. Its 10 surfaces are reclassified `substrate_bound`; the daemon planes, fail-closed contracts, and truth verifiers are all preserved. #32 (Pipeline Builder) begins the first real `daemon_wired` port.",
+  estate_backstop: {
+    executable_seeds: rows.length,
+    note: "The 39 executable seeds are the migration queue; the 45-app local-composition crosswalk is the estate backstop so coverage does not shrink.",
+    crosswalk: "internal-docs/reverse-engineering/palantir/local-composition-application-crosswalk.md",
+    reference_mirror: "http://127.0.0.1:9225 (proxied token-injected via serve /__apps/<slug>)",
+  },
   generated_from: ["apps/hypervisor/scripts/harvest-seed-inventory.mjs", "apps/hypervisor/harvest-starting-points.json"],
   total_seeds: rows.length,
   by_parity_class: byClass,
   legend: {
-    reference_capture: "the /__apps/<slug> reference baseline serves; not yet bound to daemon truth",
-    daemon_bound: "an IOI-owned surface renders the reference grammar over REAL daemon truth (supported lanes daemon-true, unsupported = named gaps)",
-    queued: "named as the next daemon-bound target (owner binding declared, surface not built yet)",
+    reference_capture: "the /__apps/<slug> reference baseline serves; no IOI port exists",
+    substrate_bound: "a dark IOI surface (custom shell) renders REAL daemon truth — valuable substrate, NOT reference UX parity",
+    reference_port_pending: "selected for porting; reference screenshots + selectors captured (not yet ported)",
+    reference_ported: "source-neutral reference shell/layout ported, still static or minimally wired",
+    daemon_wired: "ported reference UX wired to daemon truth AND passing visual/structural parity — the ONLY true-parity state",
     capture_state: "what the LOCAL CAPTURE does when booted (boots_*/shell_only/blocked_missing_capture) — NOT a parity claim",
   },
   seeds: rows,
-  _doc: "Generated by build-app-parity-matrix.mjs. Do not hand-edit; change the inventory / the DAEMON_BOUND+QUEUED overlay and regenerate. Run with --check to fail on staleness.",
+  _doc: "Generated by build-app-parity-matrix.mjs. Do not hand-edit; change the inventory / the SUBSTRATE_BOUND + REFERENCE_PORT_PENDING/REFERENCE_PORTED/DAEMON_WIRED overlays and regenerate. Run with --check to fail on staleness.",
 };
 
 const outPath = path.join(appRoot, "harvest-app-parity-matrix.json");

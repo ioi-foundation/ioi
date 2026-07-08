@@ -16,7 +16,7 @@
 // compatibility sublane. The suite card no longer points Evaluations at /__ioi/feedback.
 //
 // Asserts:
-//   - MATRIX: evalsuites = daemon_bound → /__ioi/evaluations (Evaluations); analysis + quiver stay
+//   - MATRIX: evalsuites = substrate_bound → /__ioi/evaluations (Evaluations); analysis + quiver stay
 //     reference_capture; nothing over-claimed.
 //   - REFERENCE BASELINE: /__apps/evalsuites boots the eval-suite library grammar.
 //   - INERT DAEMON CONTRACT: create declares a suite (health=declared, status=draft, NO score field);
@@ -59,9 +59,9 @@ async function run() {
   ok("parity matrix is current (regenerated == committed)", check.status === 0, (check.stderr || "").trim().slice(0, 80));
   const matrix = JSON.parse(spawnSync("node", ["-e", `import(${JSON.stringify(path.join(here, "..", "harvest-app-parity-matrix.json"))}, { with: { type: "json" } }).then(m => console.log(JSON.stringify(m.default)))`], { encoding: "utf8" }).stdout || "{}");
   const bySlug = Object.fromEntries((matrix.seeds || []).map((s) => [s.slug, s]));
-  ok("matrix binds evalsuites as daemon_bound → /__ioi/evaluations (Evaluations)", bySlug.evalsuites?.parity_class === "daemon_bound" && bySlug.evalsuites?.daemon_surface === "/__ioi/evaluations" && bySlug.evalsuites?.surface_name === "Evaluations");
+  ok("matrix binds evalsuites as substrate_bound → /__ioi/evaluations (Evaluations)", bySlug.evalsuites?.parity_class === "substrate_bound" && bySlug.evalsuites?.substrate_surface === "/__ioi/evaluations" && bySlug.evalsuites?.surface_name === "Evaluations");
   ok("matrix keeps analysis + quiver reference_capture (NOT over-claimed in this cut)", bySlug.analysis?.parity_class === "reference_capture" && bySlug.quiver?.parity_class === "reference_capture");
-  ok("no 'covered' anywhere; prior daemon_bound surfaces intact (pipeline/lineage/vertex/jobs/incidents)", !(matrix.seeds || []).some((s) => s.parity_class === "covered") && ["pipeline", "lineage", "vertex", "jobs", "incidents"].every((k) => bySlug[k]?.parity_class === "daemon_bound"));
+  ok("no 'covered' anywhere; prior substrate_bound surfaces intact (pipeline/lineage/vertex/jobs/incidents)", !(matrix.seeds || []).some((s) => s.parity_class === "covered") && ["pipeline", "lineage", "vertex", "jobs", "incidents"].every((k) => bySlug[k]?.parity_class === "substrate_bound"));
 
   // 1. Reference baseline.
   const ref = await page(`${SERVE}/__apps/evalsuites`);

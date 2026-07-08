@@ -15,7 +15,7 @@
 // total, status counts, and the oldest+newest pending requests match the daemon exactly.
 //
 // Asserts:
-//   - MATRIX: approvals = daemon_bound → /__ioi/governance?tab=approvals (Governance); not over-claimed.
+//   - MATRIX: approvals = substrate_bound → /__ioi/governance?tab=approvals (Governance); not over-claimed.
 //   - REFERENCE BASELINE: /__apps/approvals boots the approvals-inbox grammar.
 //   - IOI SURFACE = SAME GRAMMAR OVER REAL TRUTH: the queue renders; total, pending/approved counts,
 //     and the oldest+newest pending requests all MATCH the live daemon; the fixture renders in-row.
@@ -51,8 +51,8 @@ async function run() {
   ok("parity matrix is current (regenerated == committed)", check.status === 0, (check.stderr || "").trim().slice(0, 80));
   const matrix = JSON.parse(spawnSync("node", ["-e", `import(${JSON.stringify(path.join(here, "..", "harvest-app-parity-matrix.json"))}, { with: { type: "json" } }).then(m => console.log(JSON.stringify(m.default)))`], { encoding: "utf8" }).stdout || "{}");
   const bySlug = Object.fromEntries((matrix.seeds || []).map((s) => [s.slug, s]));
-  ok("matrix binds approvals as daemon_bound → /__ioi/governance?tab=approvals (Governance)", bySlug.approvals?.parity_class === "daemon_bound" && bySlug.approvals?.daemon_surface === "/__ioi/governance?tab=approvals" && bySlug.approvals?.surface_name === "Governance");
-  ok("no 'covered' anywhere; prior daemon_bound surfaces intact (pipeline/lineage/vertex/jobs/incidents/evalsuites/designer)", !(matrix.seeds || []).some((s) => s.parity_class === "covered") && ["pipeline", "lineage", "vertex", "jobs", "incidents", "evalsuites", "designer"].every((k) => bySlug[k]?.parity_class === "daemon_bound"));
+  ok("matrix binds approvals as substrate_bound → /__ioi/governance?tab=approvals (Governance)", bySlug.approvals?.parity_class === "substrate_bound" && bySlug.approvals?.substrate_surface === "/__ioi/governance?tab=approvals" && bySlug.approvals?.surface_name === "Governance");
+  ok("no 'covered' anywhere; prior substrate_bound surfaces intact (pipeline/lineage/vertex/jobs/incidents/evalsuites/designer)", !(matrix.seeds || []).some((s) => s.parity_class === "covered") && ["pipeline", "lineage", "vertex", "jobs", "incidents", "evalsuites", "designer"].every((k) => bySlug[k]?.parity_class === "substrate_bound"));
 
   // 1. Reference baseline.
   const ref = await page(`${SERVE}/__apps/approvals`);

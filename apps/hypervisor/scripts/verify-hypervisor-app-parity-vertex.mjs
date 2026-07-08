@@ -21,7 +21,7 @@
 //     catalog, zero source hashes (the grammar remains, but no data is fabricated).
 //   - HONEST GAPS: unsupported Vertex lanes named (freeform canvas / path-finding / cross-tenant /
 //     saved explorations). Reference capture linked as secondary; brand-clean.
-//   - MATRIX current + honest: vertex=daemon_bound → /__ioi/vertex, Provenance lens.
+//   - MATRIX current + honest: vertex=substrate_bound → /__ioi/vertex, Provenance lens.
 //   - Regression: the lineage surface (#22/#23) still renders and now links back to Vertex.
 //
 // Usage: node apps/hypervisor/scripts/verify-hypervisor-app-parity-vertex.mjs
@@ -57,7 +57,7 @@ async function run() {
   ok("parity matrix is current (regenerated == committed)", check.status === 0, (check.stderr || "").trim().slice(0, 80));
   const matrix = JSON.parse(spawnSync("node", ["-e", `import(${JSON.stringify(path.join(here, "..", "harvest-app-parity-matrix.json"))}, { with: { type: "json" } }).then(m => console.log(JSON.stringify(m.default)))`], { encoding: "utf8" }).stdout || "{}");
   const bySlug = Object.fromEntries((matrix.seeds || []).map((s) => [s.slug, s]));
-  ok("matrix classifies vertex as daemon_bound → /__ioi/vertex", bySlug.vertex?.parity_class === "daemon_bound" && bySlug.vertex?.daemon_surface === "/__ioi/vertex");
+  ok("matrix classifies vertex as substrate_bound → /__ioi/vertex", bySlug.vertex?.parity_class === "substrate_bound" && bySlug.vertex?.substrate_surface === "/__ioi/vertex");
   ok("matrix keeps vertex a Provenance lens (canon: Work Ledger evolves into Provenance)", bySlug.vertex?.surface_name === "Provenance" && /Provenance graph\/exploration lens/.test(bySlug.vertex?.binding || ""));
   ok("matrix declares vertex cross-plane (ODK ↔ Provenance proof-stream edges)", /cross-plane/.test(bySlug.vertex?.binding || "") && /odk_materialization/.test(bySlug.vertex?.binding || ""));
 
@@ -140,7 +140,7 @@ async function run() {
   ok("unsupported Vertex lanes named (freeform canvas / path-finding / cross-tenant / saved explorations)", /freeform graph canvas, arbitrary path-finding, cross-tenant object search, saved explorations/.test(t));
   ok("cross-links to the Lineage path + Pipeline; reference capture linked as secondary", t.includes("/__ioi/lineage") && t.includes("/__ioi/pipeline") && t.includes("/__apps/vertex"));
   ok("terminology: no 'Work Ledger' UI prose leaks; brand-clean (no Palantir/Foundry)", !/Work Ledger app/.test(t) && !/\bPalantir\b/.test(t) && !/\bFoundry\b/.test(t));
-  // DISCOVERABILITY: Vertex is a daemon_bound PROVENANCE lens, so the owning Provenance surface
+  // DISCOVERABILITY: Vertex is a substrate_bound PROVENANCE lens, so the owning Provenance surface
   // (/__ioi/work-ledger) must link to it first-class — not only via Lineage/Pipeline deep links.
   const prov = await page(`${SERVE}/__ioi/work-ledger`);
   ok("the owning Provenance surface (/__ioi/work-ledger) links to Vertex first-class", prov.status === 200 && prov.text.includes("/__ioi/vertex"));

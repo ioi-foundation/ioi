@@ -44,9 +44,9 @@ async function run() {
   ok("parity matrix is current (regenerated == committed)", check.status === 0, (check.stderr || "").trim().slice(0, 80));
   const matrix = JSON.parse(spawnSync("node", ["-e", `import(${JSON.stringify(path.join(here, "..", "harvest-app-parity-matrix.json"))}, { with: { type: "json" } }).then(m => console.log(JSON.stringify(m.default)))`], { encoding: "utf8" }).stdout || "{}");
   const bySlug = Object.fromEntries((matrix.seeds || []).map((s) => [s.slug, s]));
-  ok("matrix binds machinery as daemon_bound → /__ioi/studio/machinery (Studio)", bySlug.machinery?.parity_class === "daemon_bound" && bySlug.machinery?.daemon_surface === "/__ioi/studio/machinery" && bySlug.machinery?.surface_name === "Studio");
+  ok("matrix binds machinery as substrate_bound → /__ioi/studio/machinery (Studio)", bySlug.machinery?.parity_class === "substrate_bound" && bySlug.machinery?.substrate_surface === "/__ioi/studio/machinery" && bySlug.machinery?.surface_name === "Studio");
   ok("matrix keeps workshop + module reference_capture (NOT over-claimed in this cut)", bySlug.workshop?.parity_class === "reference_capture" && bySlug.module?.parity_class === "reference_capture");
-  ok("no 'covered' anywhere; prior daemon_bound surfaces intact (9)", !(matrix.seeds || []).some((s) => s.parity_class === "covered") && ["pipeline", "lineage", "vertex", "jobs", "incidents", "evalsuites", "designer", "approvals", "models"].every((k) => bySlug[k]?.parity_class === "daemon_bound"));
+  ok("no 'covered' anywhere; prior substrate_bound surfaces intact (9)", !(matrix.seeds || []).some((s) => s.parity_class === "covered") && ["pipeline", "lineage", "vertex", "jobs", "incidents", "evalsuites", "designer", "approvals", "models"].every((k) => bySlug[k]?.parity_class === "substrate_bound"));
 
   // 1. Reference baseline.
   const ref = await page(`${SERVE}/__apps/machinery`);

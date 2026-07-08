@@ -124,3 +124,6 @@ scripts/verify-hypervisor-workbench-functional.mjs
 scripts/verify-hypervisor-run-timeline-functional.mjs
 scripts/verify-hypervisor-git-auth-native-functional.mjs
 scripts/verify-hypervisor-settings-trio-functional.mjs
+
+# Reference UX parity harness artifacts (screenshots + contact sheet)
+apps/hypervisor/.artifacts/
