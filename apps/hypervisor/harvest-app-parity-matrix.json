@@ -3,7 +3,7 @@
   "phase": "Reference UX Port",
   "doctrine": "Reference UX port first (port the source-neutralized reference shell/layout) → daemon truth inside that UX (wire panels, tables, graph nodes, toolbars, drawers, empty + disabled states) → IOI-native redesign later. The dark IOI surfaces built #3–#30 are substrate, not parity.",
   "parity_rule": "Only `daemon_wired` counts as TRUE reference UX parity: a ported, source-neutral reference shell wired to daemon truth that passes the Playwright visual + structural harness (global shell rail, header, toolbar, body, right panel, bottom tray). `substrate_bound` = a dark IOI surface (custom automationsShell) over daemon truth — valuable substrate, NOT parity. A surface must not claim parity without side-by-side screenshots + structural assertions.",
-  "reset_note": "PR #31 presentation-layer rebase: the former `daemon_bound` class is retired. Its 10 surfaces are reclassified `substrate_bound`; the daemon planes, fail-closed contracts, and truth verifiers are all preserved. #32 (Pipeline Builder) begins the first real `daemon_wired` port.",
+  "reset_note": "PR #31 presentation-layer rebase: the former `daemon_bound` class is retired. Its 10 surfaces are reclassified `substrate_bound`; the daemon planes, fail-closed contracts, and truth verifiers are all preserved. #32 (Pipeline Builder) begins the first `reference_ported` shell; `daemon_wired` remains 0 until a valid (non-errored) reference boots to certify parity.",
   "estate_backstop": {
     "executable_seeds": 39,
     "note": "The 39 executable seeds are the migration queue; the 45-app local-composition crosswalk is the estate backstop so coverage does not shrink.",

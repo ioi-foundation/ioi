@@ -3624,14 +3624,15 @@ function pipeStatusPill(cls, label) {
   const c = cls === "live" ? "ok" : cls === "declared" ? "warn" : "muted";
   return `<span class="pill ${c}" style="margin:0">${CX_ESC(label)}</span>`;
 }
-// ============================ PIPELINE BUILDER — reference UX PORT (#32, first daemon_wired cut).
+// ============================ PIPELINE BUILDER — reference UX PORT (#32, first reference_ported shell).
 // A PORTED reference builder shell, NOT the dark automationsShell: a source-neutral rebuild of the
 // /workspace/builder/ layout — a full-height left RAIL (pipelines + stage palette), a HEADER bar, a
 // graph TOOLBAR (Build/Preview/Schedule/Deploy — unsupported controls disabled IN PLACE, not hidden),
 // a central CANVAS rendering the ODK authority ladder as connected pipeline node cards, a right
 // OUTPUT PANEL (projection schema + output stats), and a bottom TRAY (preview rows + warnings). Every
-// cell is REAL daemon truth (the same ODK-ladder data the substrate view used). It must clear the
-// Playwright visual+structural harness (rail + body reproduced) — that is what makes it parity.
+// cell is REAL daemon truth. This is `reference_ported`, NOT `daemon_wired`: the local /workspace/
+// builder/* reference currently ERRORS, so parity cannot yet be certified by the Playwright harness —
+// daemon_wired awaits a valid (non-errored) builder reference to compare against.
 function renderPipelineBuilder(lists, selectedId) {
   const ontologies = Array.isArray(lists.ontologies) ? lists.ontologies : [];
   const sets = Array.isArray(lists.materialized_sets) ? lists.materialized_sets : [];
