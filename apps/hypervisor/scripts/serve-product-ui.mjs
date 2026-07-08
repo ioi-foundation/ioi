@@ -4188,6 +4188,113 @@ function govAge(iso) {
   if (h < 48) return `${h}h ${m % 60}m`;
   return `${Math.floor(h / 24)}d`;
 }
+// ============================ APPROVALS INBOX — reference UX PORT (#33, first true daemon_wired).
+// A PORTED source-neutral "Approvals inbox" shell (left RAIL of inbox views · HEADER · toolbar ·
+// BODY request table · right DETAIL panel · bottom tray), NOT the dark automationsShell, over the
+// REAL daemon ApprovalRequest queue — the same records + the same approve/reject/revoke transitions
+// the substrate ?tab=approvals view uses (no new governance semantics). The local /__apps/approvals
+// reference BOOTS (non-errored), so this can pass the Playwright visual+structural harness and earn
+// daemon_wired. Kept alongside the substrate tab; actions post `return` to land back here.
+function renderApprovalsPort(records, statusFilter) {
+  const enc = encodeURIComponent, esc = CX_ESC;
+  const all = Array.isArray(records) ? records : [];
+  const VIEWS = [["pending", "Needs decision"], ["approved", "Approved"], ["rejected", "Rejected"], ["revoked", "Revoked"], ["", "All"]];
+  const byStatus = { pending: 0, approved: 0, rejected: 0, revoked: 0 };
+  for (const a of all) if (byStatus[a.status] != null) byStatus[a.status]++;
+  const view = VIEWS.some(([v]) => v === statusFilter) ? statusFilter : "pending";
+  const rows = view ? all.filter((a) => a.status === view) : all;
+  const pend = all.filter((a) => a.status === "pending");
+  const oldest = pend.length ? pend.reduce((o, a) => (String(a.created_at || "") < String(o.created_at || "") ? a : o)) : null;
+  const RET = `<input type="hidden" name="return" value="/__ioi/governance/approvals${view ? `?status=${view}` : ""}">`;
+  const blast = (a) => { const wc = (a.would_call || []).length, ar = (a.required_authority_refs || []).length; return (!wc && !ar) ? `<span class="ap-muted">none</span>` : `${wc ? `<span class="ap-pill warn">${wc} call${wc > 1 ? "s" : ""}</span>` : ""}${ar ? ` <span class="ap-pill muted">${ar} authorit${ar > 1 ? "ies" : "y"}</span>` : ""}`; };
+  const decide = (a) => a.status === "pending"
+    ? govTform("approvals", a.id, "approve", "Approve", "primary", `<input name="reviewer_ref" placeholder="reviewer" class="ap-inp">` + RET) + govTform("approvals", a.id, "reject", "Reject", "ghost", RET)
+    : a.status === "approved" ? govTform("approvals", a.id, "revoke", "Revoke", "ghost", RET) : `<span class="ap-muted">terminal</span>`;
+  const statusPill = (s) => `<span class="ap-pill ${s === "approved" ? "ok" : s === "pending" ? "warn" : "muted"}">${esc(s || "")}</span>`;
+
+  const rail = `<aside class="ap-rail">
+    <div class="ap-railbrand">Approvals</div>
+    <div class="ap-railsec">Inbox</div>
+    ${VIEWS.map(([v, label]) => `<a class="ap-view ${v === view ? "on" : ""}" href="/__ioi/governance/approvals${v ? `?status=${v}` : ""}">${esc(label)}<span class="ap-count">${v ? (byStatus[v] || 0) : all.length}</span></a>`).join("")}
+    <div class="ap-railsec">Governance</div>
+    <a class="ap-view" href="/__ioi/governance">Overview</a>
+    <a class="ap-view" href="/__ioi/governance?tab=releases">Release controls</a>
+    <a class="ap-view" href="/__ioi/governance?tab=kill-switches">Kill switches</a>
+  </aside>`;
+
+  const header = `<header class="ap-header">
+    <div class="ap-title">Approvals</div>
+    <div class="ap-crumb">${byStatus.pending} pending${pend.length ? ` · oldest ${esc(govAge(oldest.created_at))}` : ""} · ${all.length} total</div>
+    <div class="ap-headacts"><a class="ap-btn ghost" href="/__ioi/work-ledger">Proof stream</a></div>
+  </header>`;
+
+  const toolbar = `<div class="ap-toolbar">
+    <span class="ap-tbtitle">${esc(VIEWS.find(([v]) => v === view)[1])} <span class="ap-muted">(${rows.length})</span></span>
+    <button class="ap-btn ghost" disabled title="Bulk assignment is a named gap — no reviewer-assignment authority yet.">Assign reviewer</button>
+    <button class="ap-btn ghost" disabled title="Delegation is a named gap.">Delegate</button>
+    <span class="ap-toolnote">Decisions are the real daemon ApprovalRequest transitions — nothing is faked. Reference: <a href="/__apps/approvals" target="_blank" rel="noopener">Approvals inbox ↗</a>.</span>
+  </div>`;
+
+  const body = `<div class="ap-body" id="ap-body">${rows.length
+    ? `<table class="ap-table"><thead><tr><th>Request</th><th>Target</th><th>Blast radius</th><th>Age</th><th>Status</th><th>Decide</th></tr></thead><tbody>${rows.map((a) => `<tr>
+        <td><b>${esc(a.request_kind || "approval")}</b><div class="ap-sub">${esc(String(a.reason || "").slice(0, 70) || "no reason recorded")} · <code>${esc(a.id || "")}</code></div></td>
+        <td>${govSubjectLink(a.subject_ref)}</td>
+        <td>${blast(a)}</td>
+        <td title="${esc(a.created_at || "")}">${esc(govAge(a.created_at))}</td>
+        <td>${statusPill(a.status)}</td>
+        <td class="ap-decide">${decide(a)}</td>
+      </tr>`).join("")}</tbody></table>`
+    : `<div class="ap-empty">Nothing in <b>${esc(VIEWS.find(([v]) => v === view)[1])}</b> — pick another inbox view in the rail.</div>`}</div>`;
+
+  const rightPanel = `<aside class="ap-right">
+    <div class="ap-railsec">Queue</div>
+    <div class="ap-stat"><div class="ap-statnum">${byStatus.pending}</div><div class="ap-statlbl">need a decision</div></div>
+    <div class="ap-outbox"><div class="ap-outt">By status</div>${["pending", "approved", "rejected", "revoked"].map((s) => `<div class="ap-outrow">${statusPill(s)} <span class="ap-muted">${byStatus[s] || 0}</span></div>`).join("")}</div>
+    <div class="ap-outbox"><div class="ap-outt">Named gaps</div><div class="ap-gaps">reviewer assignment · delegation · threaded comments · SLA/escalation · identity/team review workflows · audit exports — <b>reference-only lanes</b> (disabled above), no authority contract yet.</div></div>
+  </aside>`;
+
+  const tray = `<div class="ap-tray"><span class="ap-muted">Ported Approvals inbox over real daemon ApprovalRequest records. In-row Approve/Reject/Revoke are the existing daemon transitions. The <a href="/__apps/approvals" target="_blank" rel="noopener">Approvals inbox capture ↗</a> is the reference; the substrate table remains at <a href="/__ioi/governance?tab=approvals">Governance → Approval Requests</a>.</span></div>`;
+
+  const css = `:root{color-scheme:dark}*{box-sizing:border-box}
+    body{margin:0;background:#0c0d10;color:#e6e7ea;font:13px/1.5 -apple-system,Segoe UI,Roboto,sans-serif}
+    a{color:#8ab4ff;text-decoration:none}
+    .ap-shell{display:flex;height:100vh;width:100vw;overflow:hidden}
+    .ap-rail{flex:0 0 236px;width:236px;height:100vh;background:#0e0f13;border-right:1px solid #23252c;overflow-y:auto;padding:14px 10px}
+    .ap-railbrand{font-weight:700;font-size:15px;padding:2px 8px 12px}
+    .ap-railsec{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:#6f7280;padding:12px 8px 6px;font-weight:600}
+    .ap-view{display:flex;align-items:center;justify-content:space-between;padding:7px 10px;border-radius:8px;color:#cbd0da;margin:1px 0}
+    .ap-view:hover{background:#15171c}.ap-view.on{background:#17233a;color:#fff}
+    .ap-count{font-size:11px;color:#878a93}.ap-view.on .ap-count{color:#8ab4ff}
+    .ap-main{flex:1;min-width:0;display:flex;flex-direction:column;height:100vh}
+    .ap-header{flex:0 0 auto;height:54px;display:flex;align-items:center;gap:14px;padding:0 20px;border-bottom:1px solid #23252c;background:#0e0f13}
+    .ap-title{font-weight:700;font-size:16px}.ap-crumb{color:#9a9da6;font-size:12.5px}.ap-headacts{margin-left:auto}
+    .ap-toolbar{flex:0 0 auto;height:46px;display:flex;align-items:center;gap:10px;padding:0 18px;border-bottom:1px solid #23252c;background:#0d0e12}
+    .ap-tbtitle{font-weight:600}.ap-toolnote{margin-left:auto;color:#6f7280;font-size:11.5px}
+    .ap-body{flex:1 1 auto;overflow:auto;padding:10px 18px}
+    .ap-table{border-collapse:collapse;width:100%;font-size:12.5px}
+    .ap-table th{text-align:left;color:#878a93;font-weight:600;padding:8px 14px 8px 0;border-bottom:1px solid #23252c;position:sticky;top:0;background:#0c0d10}
+    .ap-table td{padding:9px 14px 9px 0;border-bottom:1px solid #171920;vertical-align:top}
+    .ap-sub{color:#878a93;font-size:11px;margin-top:2px}.ap-decide{white-space:nowrap}
+    .ap-right{flex:0 0 288px;width:288px;height:100vh;border-left:1px solid #23252c;background:#0e0f13;overflow-y:auto;padding:0 12px 20px}
+    .ap-stat{padding:12px 8px}.ap-statnum{font-size:30px;font-weight:700}.ap-statlbl{color:#878a93;font-size:12px}
+    .ap-outbox{margin:10px 6px;border:1px solid #24262d;border-radius:10px;padding:11px 12px;background:#15171c}
+    .ap-outt{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#878a93;font-weight:600;margin:0 0 8px}
+    .ap-outrow{display:flex;align-items:center;gap:8px;margin:4px 0}.ap-gaps{color:#9a9da6;font-size:11.5px;line-height:1.6}
+    .ap-tray{flex:0 0 46px;height:46px;display:flex;align-items:center;padding:0 18px;border-top:1px solid #23252c;background:#0d0e12;color:#6f7280;font-size:11.5px}
+    .ap-pill{display:inline-block;padding:1px 8px;border-radius:999px;font-size:11px;border:1px solid;white-space:nowrap}
+    .ap-pill.ok{color:#46c277;border-color:#235c3b}.ap-pill.warn{color:#d6a13a;border-color:#5c4a23}.ap-pill.muted{color:#9a9da6;border-color:#2a2c33}
+    .ap-muted{color:#6f7280}.ap-empty{color:#6f7280;padding:24px;border:1px dashed #24262d;border-radius:12px;margin:16px 0}
+    .ap-inp{width:92px;padding:5px 8px;border-radius:7px;border:1px solid #2a2c33;background:#0e0f13;color:#e6e7ea;font:inherit;font-size:11.5px;margin-right:4px}
+    form.inline{display:inline}
+    .act{padding:5px 11px;border-radius:7px;border:1px solid #2a2c33;background:transparent;color:#cbd0da;font:inherit;font-size:12px;font-weight:600;cursor:pointer;margin-right:4px}
+    .act.primary{background:#fff;color:#111;border-color:#fff}.act.ghost:hover{color:#fff;border-color:#3a3d45}
+    .ap-btn{padding:6px 12px;border-radius:8px;border:1px solid #2a2c33;background:transparent;color:#cbd0da;font:inherit;font-size:12.5px;font-weight:600;cursor:pointer}
+    .ap-btn.ghost:hover{color:#fff;border-color:#3a3d45}.ap-btn[disabled]{opacity:.42;cursor:not-allowed}`;
+
+  return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Approvals inbox</title><style>${css}</style></head>
+    <body><div class="ap-shell">${rail}<div class="ap-main">${header}${toolbar}${body}${tray}</div>${rightPanel}</div></body></html>`;
+}
+
 function govApprovalsQueue(records) {
   const enc = encodeURIComponent;
   const byStatus = { pending: 0, approved: 0, rejected: 0, revoked: 0 };
@@ -4331,7 +4438,7 @@ function renderGovernance(ov, controls, tab, joins) {
   const histChips = (obj, cls) => { const e = Object.entries(obj || {}); return e.length ? e.map(([k, n]) => `<span class="pill ${cls || "muted"}">${CX_ESC(k)}: ${CX_ESC(String(n))}</span>`).join(" ") : `<span class="sub" style="margin:0">none</span>`; };
   const stat = (label, val) => `<div style="flex:1;min-width:112px;padding:12px 14px;border:1px solid #24262d;border-radius:10px;background:#15171c"><div style="font-size:22px;font-weight:700;color:#fff">${CX_ESC(String(val == null ? "—" : val))}</div><div style="color:#878a93;font-size:12px;margin-top:2px">${CX_ESC(label)}</div></div>`;
 
-  const head = `<h1>Governance</h1><p class="sub">A horizontal control lens over real authority, identity, lease and admission substrate. It surfaces posture, what can be revoked, what a release/improvement gate would govern, and — plainly — the controls that do not exist yet. It reads only; it mutates nothing.</p>`;
+  const head = `<h1>Governance</h1><p class="sub">A horizontal control lens over real authority, identity, lease and admission substrate. It surfaces posture, what can be revoked, what a release/improvement gate would govern, and — plainly — the controls that do not exist yet. It reads only; it mutates nothing.</p><p class="sub" style="margin:-8px 0 0"><a href="/__ioi/governance/approvals">▶ Open the Approvals inbox →</a> (the ported reference UX over the real ApprovalRequest queue)</p>`;
   const banner = `<div class="chips"><span class="pill muted">projection-only</span> <span class="sub" style="margin:0">${CX_ESC(o.status_note || "Read projection; creates and mutates nothing.")}</span></div>`;
   const summary = `<div class="row" style="gap:10px;align-items:stretch">
     ${stat("Grants active", `${sub.authority_grants_active ?? "—"} / ${sub.authority_grants_total ?? "—"}`)}
@@ -7861,6 +7968,15 @@ const server = http.createServer((req, res) => {
       }));
       return;
     }
+    // Approvals inbox — reference UX PORT (#33, daemon_wired). Ported source-neutral inbox shell over
+    // the real ApprovalRequest queue; the substrate table stays at /__ioi/governance?tab=approvals.
+    if (pathname === "/__ioi/governance/approvals" && req.method === "GET") {
+      const status = new URL(req.url, "http://x").searchParams.get("status") || "";
+      const ap = await fetch(`${DAEMON}/v1/hypervisor/governance/approval-requests`).then((x) => x.json()).catch(() => ({}));
+      res.writeHead(200, HTMLH);
+      res.end(renderApprovalsPort(ap.approval_requests || [], status));
+      return;
+    }
     // Governance control-object mutations (record-only; the daemon executes no enforcement).
     if (pathname.startsWith("/__ioi/governance/")) {
       const segs = pathname.slice("/__ioi/governance/".length).split("/");
@@ -7869,7 +7985,10 @@ const server = http.createServer((req, res) => {
       if (cfg && req.method === "POST") {
         const api = `/v1/hypervisor/governance/${cfg.api}`;
         const p = new URLSearchParams(body.toString());
-        const back = `/__ioi/governance?tab=${fam}`;
+        // Redirect back to the caller's surface — the ported Approvals inbox (#33) posts a `return`
+        // to land back on itself; everything else falls back to the substrate tab. Same-origin only.
+        const ret = p.get("return");
+        const back = (ret && ret.startsWith("/__ioi/")) ? ret : `/__ioi/governance?tab=${fam}`;
         // create (POST to family root)
         if (!segs[1]) {
           const csv = (k) => (p.get(k) || "").split(",").map((s) => s.trim()).filter(Boolean);

@@ -1,112 +1,108 @@
 #!/usr/bin/env node
-// SUBSTRATE-TRUTH verifier (reclassified substrate_bound by the #31 Reference-UX-Port reset — checks DAEMON TRUTH, NOT reference UX parity) — Governance · Approvals done-bar (approvals seed only).
+// APPROVALS INBOX REFERENCE PORT — #33 done-bar (the FIRST true daemon_wired / reference UX parity).
 //
-// The parity phase's eighth surface. The reference capture (/__apps/approvals = the approvals inbox)
-// is the familiar baseline; the IOI-owned Governance owner surface already renders the SAME
-// review-inbox grammar at /__ioi/governance?tab=approvals over REAL daemon ApprovalRequest records
-// (status-count inbox chips, blast radius, age, per-row inspector, in-row decisions). This cut
-// FORMALIZES that binding (matrix + verifier) and names the unsupported lanes.
-//
-// SCOPE (tight, by direction): only `approvals` binds. Release controls, kill switches, cohorts, and
-// improvement gates remain supporting Governance context (not separate parity claims).
-//
-// Because the queue is a read-only projection over existing ApprovalRequest truth, the guard is a
-// CROSS-CHECK: create one fixture request, then read the live daemon and assert the rendered queue's
-// total, status counts, and the oldest+newest pending requests match the daemon exactly.
+// /__ioi/governance/approvals is a ported source-neutral "Approvals inbox" SHELL (left rail of inbox
+// views · header · toolbar · request table · right detail panel · bottom tray) — NOT the dark
+// automationsShell — over the REAL daemon ApprovalRequest queue, with the existing approve/reject/
+// revoke transitions (no new governance semantics). The local /__apps/approvals reference BOOTS
+// (non-errored), so the Playwright harness certifies structural parity → daemon_wired.
 //
 // Asserts:
-//   - MATRIX: approvals = substrate_bound → /__ioi/governance?tab=approvals (Governance); not over-claimed.
-//   - REFERENCE BASELINE: /__apps/approvals boots the approvals-inbox grammar.
-//   - IOI SURFACE = DAEMON TRUTH (substrate, not reference UX parity): the queue renders; total, pending/approved counts,
-//     and the oldest+newest pending requests all MATCH the live daemon; the fixture renders in-row.
-//   - NO FALSE COVERAGE: named gaps (reviewer assignment / delegation / comments / SLA / identity-team
-//     / audit exports); brand-clean; reference seed secondary.
-//   - DISCOVERABILITY: the Governance overview links the approvals lens first-class (tab + link).
+//   - MATRIX: approvals = daemon_wired → /__ioi/governance/approvals (port_surface).
+//   - REFERENCE VALID: /__apps/approvals boots the Approvals-inbox grammar, non-errored, brand-clean.
+//   - PORTED SHELL (not automationsShell): the page is the ap-shell (rail + body); no .wrap doc.
+//   - STRUCTURAL PARITY (harness): structural_parity TRUE against a VALID reference, real screenshots.
+//   - DAEMON TRUTH: a real fixture ApprovalRequest renders in the inbox (kind · subject · id); the rail
+//     "Needs decision" count + total match the live daemon.
+//   - ACTIONS WORK: approving the fixture through the ported inbox drives the real daemon transition
+//     and lands back on the port (no new semantics).
+//   - NAMED GAPS DISABLED IN PLACE: reviewer-assignment / delegation are disabled controls, not hidden.
+//   - DISCOVERABILITY: the Governance surface links the ported inbox first-class.
 //
 // Usage: node apps/hypervisor/scripts/verify-hypervisor-app-parity-approvals.mjs
 // Exit 2 = BLOCKED.
 
 import { spawnSync } from "node:child_process";
+import { readFileSync, existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const SERVE = (process.env.IOI_HYPERVISOR_SERVE_URL || "http://127.0.0.1:4173").replace(/\/$/, "");
 const DAEMON = (process.env.IOI_HYPERVISOR_DAEMON_URL || "http://127.0.0.1:8765").replace(/\/$/, "");
 const here = path.dirname(fileURLToPath(import.meta.url));
+const appRoot = path.resolve(here, "..");
 
 const results = [];
 const ok = (name, cond, detail) => { results.push({ name, pass: !!cond, detail: detail || "" }); };
-async function jd(method, p, body) {
-  const r = await fetch(`${DAEMON}${p}`, { method, headers: { "content-type": "application/json" }, body: body ? JSON.stringify(body) : undefined });
-  return { status: r.status, j: await r.json().catch(() => ({})) };
-}
+const jd = async (method, p, body) => { const r = await fetch(`${DAEMON}${p}`, { method, headers: { "content-type": "application/json" }, body: body ? JSON.stringify(body) : undefined }); return { status: r.status, j: await r.json().catch(() => ({})) }; };
 const page = (url) => fetch(url).then(async (r) => ({ status: r.status, text: await r.text() })).catch(() => ({ status: 0, text: "" }));
 
 async function run() {
   const up = await fetch(`${DAEMON}/v1/hypervisor/governance/approval-requests`).then((r) => r.ok).catch(() => false);
   if (!up) { console.error("BLOCKED: daemon governance plane not reachable at " + DAEMON); process.exit(2); }
 
-  // 0. Matrix current + honest.
+  // 0. Matrix — approvals is daemon_wired (the port), not substrate_bound.
   const check = spawnSync("node", [path.join(here, "build-app-parity-matrix.mjs"), "--check"], { encoding: "utf8" });
   ok("parity matrix is current (regenerated == committed)", check.status === 0, (check.stderr || "").trim().slice(0, 80));
   const matrix = JSON.parse(spawnSync("node", ["-e", `import(${JSON.stringify(path.join(here, "..", "harvest-app-parity-matrix.json"))}, { with: { type: "json" } }).then(m => console.log(JSON.stringify(m.default)))`], { encoding: "utf8" }).stdout || "{}");
   const bySlug = Object.fromEntries((matrix.seeds || []).map((s) => [s.slug, s]));
-  ok("matrix binds approvals as substrate_bound → /__ioi/governance?tab=approvals (Governance)", bySlug.approvals?.parity_class === "substrate_bound" && bySlug.approvals?.substrate_surface === "/__ioi/governance?tab=approvals" && bySlug.approvals?.surface_name === "Governance");
-  ok("no 'covered' anywhere; prior reclassified surfaces still bound (substrate_bound|daemon_wired) (pipeline/lineage/vertex/jobs/incidents/evalsuites/designer)", !(matrix.seeds || []).some((s) => s.parity_class === "covered") && ["pipeline", "lineage", "vertex", "jobs", "incidents", "evalsuites", "designer"].every((k) => ["substrate_bound", "daemon_wired", "reference_ported", "reference_port_pending"].includes(bySlug[k]?.parity_class)));
+  ok("matrix classifies approvals as daemon_wired → /__ioi/governance/approvals (TRUE parity)", bySlug.approvals?.parity_class === "daemon_wired" && bySlug.approvals?.port_surface === "/__ioi/governance/approvals" && bySlug.approvals?.candidate_surface === "/__ioi/governance/approvals");
+  ok("estate honest: reference_capture still the majority; no false 'covered'", (matrix.by_parity_class?.reference_capture || 0) >= (matrix.by_parity_class?.daemon_wired || 0) && !(matrix.seeds || []).some((s) => s.parity_class === "covered"));
 
-  // 1. Reference baseline.
+  // 1. Reference boots (valid, non-errored).
   const ref = await page(`${SERVE}/__apps/approvals`);
-  ok("reference baseline /__apps/approvals boots the approvals-inbox grammar", ref.status === 200 && /<title>[^<]*(Approval|Task|Request|Inbox)/i.test(ref.text));
+  ok("reference /__apps/approvals boots the Approvals-inbox grammar (non-errored, brand-clean)", ref.status === 200 && /Approvals/i.test(ref.text) && !/an error occurred|something went wrong/i.test(ref.text) && !/\bPalantir\b/.test(ref.text));
 
-  // 2. Fixture: one real pending ApprovalRequest (named subject ref — allowed without resolution).
-  const KIND = "app_parity_fixture";
-  const created = await jd("POST", "/v1/hypervisor/governance/approval-requests", {
-    subject_ref: "authority-action://app-parity-approvals-fixture", request_kind: KIND,
-    reason: "app-parity-approvals verifier fixture", required_authority_refs: ["authority-action://parity-a"], would_call: ["tool://parity-x", "tool://parity-y"],
-  });
+  // Fixture: one real pending ApprovalRequest (named subject ref — allowed without resolution).
+  const KIND = "app_parity_port";
+  const created = await jd("POST", "/v1/hypervisor/governance/approval-requests", { subject_ref: "authority-action://app-parity-approvals-port-fixture", request_kind: KIND, reason: "app-parity approvals PORT fixture", required_authority_refs: ["authority-action://parity-a"], would_call: ["tool://parity-x", "tool://parity-y"] });
   const fix = created.j.approval_request;
-  ok("fixture ApprovalRequest created (pending, real ref)", created.status === 201 && fix?.status === "pending" && fix?.ref?.startsWith("approval-request://"), fix?.id || "");
+  ok("fixture ApprovalRequest created (pending)", created.status === 201 && fix?.status === "pending", fix?.id || "");
 
-  // 3. Live daemon truth — the projection the queue must reflect.
+  // 2. PORTED SHELL — the ap-shell, not automationsShell.
+  const port = await page(`${SERVE}/__ioi/governance/approvals`);
+  const t = port.text;
+  ok("the ported inbox is the ap-shell (rail + body + right), NOT automationsShell", port.status === 200 && /class="ap-shell"/.test(t) && /class="ap-rail"/.test(t) && /id="ap-body"/.test(t) && !/max-width:920px/.test(t) && !/class="wrap"/.test(t));
+  ok("<title>Approvals inbox</title> + inbox views rail (Needs decision / Approved / Rejected / Revoked / All)", /<title>Approvals inbox/.test(t) && /Needs decision/.test(t) && /class="ap-view/.test(t) && [">Approved<", ">Rejected<", ">Revoked<", ">All<"].every((v) => t.includes(v)));
+
+  // 3. STRUCTURAL PARITY — the harness certifies against the VALID reference.
+  const artDir = path.join(appRoot, ".artifacts", "approvals-port-verify");
+  const h = spawnSync("node", [path.join(here, "harness-reference-parity.mjs")], { encoding: "utf8", timeout: 90000, env: { ...process.env, IOI_HARNESS_SURFACES: "approvals", IOI_HARNESS_ARTIFACT_DIR: artDir } });
+  let hp = null;
+  if (h.status === 0 && existsSync(path.join(artDir, "result.json"))) hp = (JSON.parse(readFileSync(path.join(artDir, "result.json"), "utf8")).surfaces || [])[0];
+  ok("Playwright harness: the port PASSES structural parity against a VALID (non-errored) reference, with real screenshots", hp && hp.structural_parity === true && hp.reference_valid === true && hp.reference_errored === false && hp.evidence_ok === true, hp ? `ref[${hp.reference_regions}] ioi[${hp.ioi_regions}] score ${hp.parity_score} errored=${hp.reference_errored}` : "harness did not run");
+  ok("the port reproduces the reference shell (rail + header + body) at score ≥ 0.8", hp && ["rail", "header", "body"].every((r) => hp.ioi_regions.includes(r)) && hp.parity_score >= 0.8);
+
+  // 4. DAEMON TRUTH — the real fixture renders + counts cross-check the live daemon.
   const all = (await jd("GET", "/v1/hypervisor/governance/approval-requests")).j.approval_requests || [];
-  const total = all.length;
-  const byStatus = { pending: 0, approved: 0, rejected: 0, revoked: 0 };
-  for (const a of all) if (byStatus[a.status] != null) byStatus[a.status]++;
-  const pend = all.filter((a) => a.status === "pending");
-  const sortedPend = pend.slice().sort((a, b) => String(a.created_at || "").localeCompare(String(b.created_at || "")));
-  const oldestPend = sortedPend[0];
-  const newestPend = sortedPend[sortedPend.length - 1];
+  const pending = all.filter((a) => a.status === "pending").length;
+  ok("the fixture ApprovalRequest renders in the inbox (kind · subject · id) — real daemon truth", fix && t.includes(KIND) && t.includes("authority-action://app-parity-approvals-port-fixture") && t.includes(fix.id));
+  ok("CROSS-CHECK: the rail 'Needs decision' count + total match the live daemon", new RegExp(`Needs decision<span class="ap-count">${pending}</span>`).test(t) && new RegExp(`>All<span class="ap-count">${all.length}</span>`).test(t), `pending ${pending} · all ${all.length}`);
+  ok("blast radius renders from the record's own would_call + required_authority_refs", /2 calls/.test(t) && /1 authorit/.test(t));
 
-  // 4. IOI surface = the review-inbox queue over real truth (cross-checked).
-  const q = await page(`${SERVE}/__ioi/governance?tab=approvals`);
-  const t = q.text;
-  ok("IOI /__ioi/governance?tab=approvals renders the review-inbox queue (inbox chips + queue table)", q.status === 200 && /id="aq-inbox"/.test(t) && />Request<\/th>/.test(t) && />Blast radius<\/th>/.test(t) && />Decide<\/th>/.test(t));
-  ok("CROSS-CHECK: status-count inbox chips match the daemon (pending / approved / all)", new RegExp(`Needs decision ${byStatus.pending}\\b`).test(t) && new RegExp(`Approved ${byStatus.approved}\\b`).test(t) && new RegExp(`All ${total}\\b`).test(t), `pending ${byStatus.pending} · approved ${byStatus.approved} · all ${total}`);
-  ok("CROSS-CHECK: the family total matches the daemon record count", new RegExp(`Approval Requests \\(${total}\\)`).test(t));
-  ok("the fixture request renders in-row (kind + subject_ref + id)", fix && t.includes(KIND) && t.includes("authority-action://app-parity-approvals-fixture") && t.includes(fix.id));
-  ok("blast radius renders from the record's own would_call + required_authority_refs", />2 calls</.test(t) && /1 authority</.test(t));
-  ok("CROSS-CHECK: newest + oldest pending requests both render (queue spans the real range)", oldestPend && newestPend && t.includes(oldestPend.id) && t.includes(newestPend.id) && /oldest pending/.test(t), `${oldestPend?.id} … ${newestPend?.id}`);
+  // 5. ACTIONS WORK — approving through the port drives the REAL daemon transition + returns to the port.
+  const form = new URLSearchParams({ transition: "approve", reviewer_ref: "agent://verifier", return: "/__ioi/governance/approvals" });
+  const act = await fetch(`${SERVE}/__ioi/governance/approvals/${encodeURIComponent(fix.id)}/transition`, { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" }, body: form.toString(), redirect: "manual" }).catch(() => null);
+  const loc = act ? (act.headers.get("location") || "") : "";
+  const after = (await jd("GET", `/v1/hypervisor/governance/approval-requests/${fix.id}`)).j.approval_request;
+  ok("Approve through the ported inbox drives the real daemon transition (pending → approved) and returns to the port", act && (act.status === 302 || act.status === 303) && loc.includes("/__ioi/governance/approvals") && after?.status === "approved", `redirect ${loc} · now ${after?.status}`);
 
-  // 5. No false coverage — named gaps + brand-clean + secondary reference.
-  ok("named gaps: reviewer assignment / delegation / comments / SLA / identity-team / audit exports", /reviewer assignment/.test(t) && /delegation/.test(t) && /threaded comments/.test(t) && /SLA/.test(t) && /identity\/team/.test(t) && /audit exports/.test(t));
-  ok("reference capture linked as secondary; IOI surface brand-clean (no Palantir)", t.includes("/__apps/approvals") && !/\bPalantir\b/.test(t));
+  // 6. Named gaps disabled in place; brand-clean.
+  ok("named gaps are DISABLED controls in place (reviewer assignment · delegation), not hidden", /<button[^>]*disabled[^>]*>Assign reviewer<\/button>/.test(t) && /<button[^>]*disabled[^>]*>Delegate<\/button>/.test(t) && /reviewer assignment/.test(t));
+  ok("reference linked as secondary; substrate table still reachable; brand-clean", t.includes("/__apps/approvals") && t.includes("/__ioi/governance?tab=approvals") && !/\bPalantir\b/.test(t));
 
-  // 6. Discoverability — the Governance overview links the approvals lens first-class.
-  const ov = await page(`${SERVE}/__ioi/governance`);
-  ok("Governance overview links the approvals lens first-class (tab + link)", ov.status === 200 && ov.text.includes("/__ioi/governance?tab=approvals") && />Approval Requests</.test(ov.text));
+  // 7. Discoverability — the Governance surface links the ported inbox first-class.
+  const gov = await page(`${SERVE}/__ioi/governance`);
+  ok("the Governance surface links the ported Approvals inbox first-class", gov.status === 200 && gov.text.includes("/__ioi/governance/approvals"));
 
-  // 7. Cleanup — delete the fixture; the queue total drops back.
-  if (fix?.id) {
-    const del = await jd("DELETE", `/v1/hypervisor/governance/approval-requests/${fix.id}`);
-    const after = (await jd("GET", "/v1/hypervisor/governance/approval-requests")).j.approval_requests || [];
-    ok("fixture cleaned up (deleted; queue total returns to baseline)", (del.status === 200 || del.status === 204) && after.length === total - 1, `${total} → ${after.length}`);
-  }
+  // 8. Cleanup.
+  if (fix?.id) await jd("DELETE", `/v1/hypervisor/governance/approval-requests/${fix.id}`);
 }
 
 run().then(() => {
   let fail = 0;
   for (const r of results) { console.log(`  ${r.pass ? "PASS" : "FAIL"}  ${r.name}${r.detail ? `  (${r.detail})` : ""}`); if (!r.pass) fail++; }
   console.log(`\n${results.length - fail}/${results.length} passed`);
-  console.log(`substrate-truth-approvals readiness: ${fail ? "FAIL" : "OK"}`);
+  console.log(`approvals-port readiness: ${fail ? "FAIL" : "OK"}`);
   process.exit(fail ? 1 : 0);
 }).catch((e) => { console.error("verifier crashed:", e); process.exit(1); });
