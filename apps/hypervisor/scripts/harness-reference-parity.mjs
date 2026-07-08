@@ -9,7 +9,9 @@
 //
 // It is deliberately honest about the current estate: the dark IOI substrate surfaces (custom
 // automationsShell) render NONE of the reference shell regions, so their structural parity fails —
-// which is exactly why they are `substrate_bound`, not `daemon_wired`.
+// which is exactly why they are `substrate_bound`, not `daemon_wired`. It also refuses to certify
+// parity when EITHER SIDE is an error page (reference OR IOI candidate) — an error page renders only
+// global chrome, so a `structural_parity` verdict requires reference_valid AND ioi_valid.
 //
 // Reference is loaded via serve's token-injected proxy /__apps/<slug> (== :9225<capture_base>).
 //
@@ -147,20 +149,22 @@ async function run() {
     const ref = await capture(ctx, s.reference_url, refPng);
     const ioi = await capture(ctx, s.ioi_url, ioiPng);
     const p = parityOf(ref.regions, ioi.regions);
-    // GUARDS for a trustworthy parity verdict: (1) BOTH screenshots are real evidence; (2) the
-    // REFERENCE is a VALID surface, not an error page (an error page renders only global chrome, so
-    // region-matching would falsely score parity). A parity claim requires a valid reference.
+    // GUARDS for a trustworthy parity verdict: (1) BOTH screenshots are real evidence; (2) BOTH sides
+    // are VALID surfaces, not error pages — an error page renders only global chrome, so region-
+    // matching would falsely score parity whether it's the REFERENCE or the IOI CANDIDATE that errored.
+    // A parity claim requires a valid reference AND a valid (non-errored) IOI candidate.
     const evidence_ok = ref.screenshotOk && ioi.screenshotOk;
     const reference_valid = !ref.errored && ref.loaded && ref.regions.length > 0;
-    const structural_parity = p.structural_parity && evidence_ok && reference_valid;
+    const ioi_valid = !ioi.errored && ioi.loaded;
+    const structural_parity = p.structural_parity && evidence_ok && reference_valid && ioi_valid;
     rows.push({ slug: s.slug, owner: s.owner, matrix_class: s.matrix_class, reference_workspace: s.reference_workspace,
       reference_url: s.reference_url, ioi_url: s.ioi_url,
       reference_regions: ref.regions, ioi_regions: ioi.regions, shared: p.shared, parity_score: p.score,
-      structural_parity, evidence_ok, reference_valid, reference_errored: ref.errored,
+      structural_parity, evidence_ok, reference_valid, reference_errored: ref.errored, ioi_valid, ioi_errored: ioi.errored,
       reference_loaded: ref.loaded, ioi_loaded: ioi.loaded,
       reference_screenshot_bytes: ref.screenshotBytes, ioi_screenshot_bytes: ioi.screenshotBytes,
-      reference_title: ref.title, ioi_title: ioi.title, reference_visible_text: ref.visibleText });
-    console.log(`  ${structural_parity ? "PARITY " : ref.errored ? "REF-ERR " : "substrate"}  ${s.slug.padEnd(12)} ref[${ref.regions.join(",")}]${ref.errored ? "(errored)" : ""} ioi[${ioi.regions.join(",")}] score ${p.score}`);
+      reference_title: ref.title, ioi_title: ioi.title, reference_visible_text: ref.visibleText, ioi_visible_text: ioi.visibleText });
+    console.log(`  ${structural_parity ? "PARITY " : ref.errored ? "REF-ERR " : ioi.errored ? "IOI-ERR " : "substrate"}  ${s.slug.padEnd(12)} ref[${ref.regions.join(",")}]${ref.errored ? "(errored)" : ""} ioi[${ioi.regions.join(",")}]${ioi.errored ? "(errored)" : ""} score ${p.score}`);
   }
   await browser.close();
   const result = {

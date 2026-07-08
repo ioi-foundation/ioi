@@ -87,9 +87,11 @@ async function run() {
     ok("RULE: every daemon_wired surface PASSES structural parity (none claims parity without it)", wired.every((s) => s.structural_parity === true), wired.length ? wired.map((s) => `${s.slug}:${s.structural_parity}`).join(",") : "0 daemon_wired yet");
     ok("RULE: no substrate_bound / port-pending / ported surface is mislabeled as passing parity", !res.surfaces.some((s) => s.structural_parity === true && s.matrix_class !== "daemon_wired"));
 
-    // GUARD (review #32): an ERROR-PAGE reference can never certify parity — its shell chrome renders,
-    // so region-matching would falsely pass. The harness must refuse parity for any errored reference.
-    ok("GUARD: no surface with an ERRORED reference is granted structural parity (error pages can't certify parity)", !res.surfaces.some((s) => s.reference_errored === true && s.structural_parity === true), res.surfaces.filter((s) => s.reference_errored).map((s) => `${s.slug}:parity=${s.structural_parity}`).join(",") || "none errored");
+    // GUARD (review #32 + #33): an ERROR PAGE can never certify parity — its shell chrome renders, so
+    // region-matching would falsely pass. The harness must refuse parity when EITHER SIDE errored (the
+    // reference OR the IOI candidate).
+    ok("GUARD: no surface with an ERRORED reference OR errored IOI candidate is granted structural parity", !res.surfaces.some((s) => (s.reference_errored === true || s.ioi_errored === true) && s.structural_parity === true), res.surfaces.filter((s) => s.reference_errored || s.ioi_errored).map((s) => `${s.slug}:ref_err=${s.reference_errored}/ioi_err=${s.ioi_errored}/parity=${s.structural_parity}`).join(",") || "none errored");
+    ok("every daemon_wired surface has BOTH a valid reference AND a valid (non-errored) IOI candidate", res.surfaces.filter((s) => s.matrix_class === "daemon_wired").every((s) => s.reference_valid === true && s.ioi_valid === true), res.surfaces.filter((s) => s.matrix_class === "daemon_wired").map((s) => `${s.slug}:ref_valid=${s.reference_valid}/ioi_valid=${s.ioi_valid}`).join(",") || "0 daemon_wired");
 
     // The concrete reset proof: a SUBSTRATE surface (lineage) does NOT reproduce the reference shell.
     // The PORTED surface (pipeline, #32) has its shell built but parity is BLOCKED on an errored ref.

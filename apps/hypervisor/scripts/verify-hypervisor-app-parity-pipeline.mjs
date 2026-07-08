@@ -129,7 +129,7 @@ async function run() {
   if (h.status === 0 && existsSync(path.join(artDir, "result.json"))) hp = (JSON.parse(readFileSync(path.join(artDir, "result.json"), "utf8")).surfaces || [])[0];
   ok("harness ran + captured real screenshots for the pipeline reference vs IOI port", hp && hp.evidence_ok === true, hp ? `ref ${hp.reference_screenshot_bytes}b · ioi ${hp.ioi_screenshot_bytes}b` : "harness did not run");
   ok("GUARD: the local builder REFERENCE errors, so the harness refuses parity (structural_parity FALSE, reference_valid FALSE)", hp && hp.reference_errored === true && hp.structural_parity === false && hp.reference_valid === false, hp ? `errored=${hp.reference_errored} valid=${hp.reference_valid} parity=${hp.structural_parity}` : "n/a");
-  ok("the PORT itself is a real builder shell (the IOI candidate renders rail + body + more, ready for parity once a valid reference exists)", hp && ["rail", "body"].every((r) => hp.ioi_regions.includes(r)) && hp.ioi_regions.length >= 4);
+  ok("the PORT itself is a real, VALID builder shell (IOI non-errored, renders rail + body + more, ready for parity once a valid reference exists)", hp && hp.ioi_valid === true && hp.ioi_errored === false && ["rail", "body"].every((r) => hp.ioi_regions.includes(r)) && hp.ioi_regions.length >= 4);
 
   // 4. DAEMON TRUTH inside the shell.
   ok("datasource → transform → output node cards present (the ODK ladder as the canvas graph)", ["Datasource", "Object mapping", "Policy gate", "Transform plan", "Read projection", "Lease + session", "Materialized objects"].every((n) => t.includes(`>${n}<`)));
