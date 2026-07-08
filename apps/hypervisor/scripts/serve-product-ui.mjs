@@ -2919,7 +2919,7 @@ function renderOntologyModel(com) {
     const ptable = props.length
       ? `<table><thead><tr><th>Property</th><th>Value type</th><th>Required</th></tr></thead><tbody>${props.map((p) => `<tr><td>${esc(p.name || p.id)} ${idc(p.id)}${o.title_property === p.id ? ` <span class="pill ok">title</span>` : ""}</td><td><code>${esc(p.value_type || "")}</code></td><td>${p.required ? "yes" : "—"}</td></tr>`).join("")}</tbody></table>`
       : `<div class="empty">No properties.</div>`;
-    return `<div style="border:1px solid #24262d;border-radius:10px;padding:10px 12px;margin:0 0 10px;background:#15171c"><div style="font-weight:600;margin-bottom:4px">${esc(o.name || o.id)} ${idc(o.id)}</div>${ptable}</div>`;
+    return `<div id="ot-${encodeURIComponent(o.id || "")}" style="border:1px solid #24262d;border-radius:10px;padding:10px 12px;margin:0 0 10px;background:#15171c;scroll-margin-top:16px"><div style="font-weight:600;margin-bottom:4px">${esc(o.name || o.id)} ${idc(o.id)}</div>${ptable}</div>`;
   }).join("") : `<div class="empty">No object types — the model is an empty draft.</div>`;
   const linkTable = lts.length
     ? `<table><thead><tr><th>Link</th><th>From → To</th><th>Cardinality</th></tr></thead><tbody>${lts.map((l) => `<tr><td>${esc(l.name || l.id)} ${idc(l.id)}</td><td><code>${esc(l.from || "")}</code> → <code>${esc(l.to || "")}</code></td><td><span class="pill muted">${esc(l.cardinality || "")}</span></td></tr>`).join("")}</tbody></table>`
@@ -3922,12 +3922,17 @@ function renderOntologyManager(ov, lists, selectedId) {
   return automationsShell("Ontology Manager", body);
 }
 
-// ============================ ONTOLOGY MANAGER — reference UX PORT (#34, daemon_wired candidate).
-// A PORTED source-neutral schema-workbench shell (left RAIL of ontologies + schema-section nav ·
-// HEADER with ontology + health + counts · TOOLBAR · BODY typed sections: object/value/link/action
-// types + functions + health · right DETAIL panel: configuration + resources · bottom TRAY), NOT the
-// dark automationsShell, over the REAL ODK CanonicalObjectModel. Read-only schema view (authoring
-// stays in /__ioi/odk); the /__apps/schema reference BOOTS so the harness can certify parity.
+// ============================ ONTOLOGY MANAGER — reference UX PORT (#34, daemon_wired).
+// A FAITHFUL source-neutral port of the reference Ontology Manager UX (NOT a dark native redesign):
+//   - a DARK global platform RAIL (source-neutral IOI nav: Home/Search/…/Applications · Ontology Manager)
+//   - a LIGHT app RAIL: Discover / Proposals / History · Resources (Object types · Properties · Link
+//     types · Action types · Value types · Functions) · Health issues / Cleanup / Ontology configuration
+//   - a LIGHT HEADER: app title · ontology switcher · "Search resources…" · New
+//   - a LIGHT card-first BODY: "Object types recently modified" as object-type CARDS, then the typed
+//     schema detail + configuration below.
+// Light theme + card-first IA + the reference's landmark labels — matched so the HARDENED harness
+// (theme + IA landmarks + region geometry, #34 review) can certify visual parity. Wired to the REAL
+// ODK CanonicalObjectModel; READ-ONLY (authoring + object materialization stay in /__ioi/odk).
 function renderOntologyManagerPort(ov, lists, selectedId) {
   const enc = encodeURIComponent, esc = CX_ESC;
   const o = ov || {};
@@ -3948,101 +3953,174 @@ function renderOntologyManagerPort(ov, lists, selectedId) {
   const hpill = `<span class="om-pill ${hstate === "ready" ? "ok" : hstate === "empty" ? "muted" : "warn"}">${esc(hstate)}</span>`;
 
   const oid = selected ? selected.id : "";
-  const SECTIONS = [["object-types", "Object types", ots.length], ["properties", "Properties", propCount], ["value-types", "Value types", vts.length], ["link-types", "Link types", lts.length], ["action-types", "Actions", nonFuncActs.length], ["functions", "Functions", funcs.length], ["health", "Health", (health.gaps || []).length]];
+  const domainLabel = selected ? esc(selected.domain || selected.id) : "no ontology";
+  const objsOf = (t) => msets.filter((m) => m.object_type_id === t.id).reduce((a, m) => a + (m.count || 0), 0);
+  const depsOf = (t) => lts.filter((l) => l.from === t.id || l.to === t.id).length;
+  const svg = (p) => `<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
+  const CUBE = '<path d="M12 2l9 5v10l-9 5-9-5V7z"/>';
 
-  const rail = `<aside class="om-rail">
-    <div class="om-brand">Ontology</div>
-    <div class="om-railsec">Ontologies</div>
-    ${ontologies.length ? ontologies.map((x) => { const on = selected && x.id === selected.id; const st = (x.health || {}).status || "empty"; return `<a class="om-onto ${on ? "on" : ""}" href="/__ioi/ontology/manager?ontology=${enc(x.id)}">${esc(x.domain || x.id)}<span class="om-dot om-${st === "ready" ? "ok" : st === "empty" ? "muted" : "warn"}"></span></a>`; }).join("") : `<div class="om-empty">No ontologies yet.</div>`}
-    <div class="om-railsec">Schema</div>
-    ${SECTIONS.map(([id, label, n]) => `<a class="om-navitem" href="#om-${id}">${esc(label)}<span class="om-count">${n}</span></a>`).join("")}
+  // DARK global platform rail — source-neutral IOI nav, faithful to the reference's left chrome.
+  const gitem = (icon, label, href, on) => (href ? `<a class="og-gitem${on ? " on" : ""}" href="${href}">` : `<span class="og-gitem muted">`) + `<span class="og-gico">${icon}</span><span class="og-glabel">${esc(label)}</span>` + (href ? `</a>` : `</span>`);
+  const globalRail = `<aside class="og-grail">
+    <div class="og-brand"><span class="og-logo">${svg(CUBE)}</span></div>
+    ${gitem(svg('<path d="M3 10l9-7 9 7"/><path d="M5 9v11h14V9"/>'), "Home", "/ai")}
+    ${gitem(svg('<circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/>'), "Search", "")}
+    ${gitem(svg('<path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9"/>'), "Notifications", "")}
+    ${gitem(svg('<path d="M12 3v18M5 8h14M5 16h14"/>'), "What's New", "")}
+    <div class="og-gdiv"></div>
+    ${gitem(svg('<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/>'), "Recent", "")}
+    ${gitem(svg('<path d="M3 7h6l2 2h10v11H3z"/>'), "Files", "")}
+    ${gitem(svg(CUBE), "Ontology", "/__ioi/odk")}
+    ${gitem(svg('<rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/>'), "Applications", "/__ioi/home")}
+    <div class="og-gsec">Applications</div>
+    ${gitem(svg(CUBE), "Ontology Manager", "/__ioi/ontology/manager", true)}
+    <div class="og-gspacer"></div>
+    ${gitem(svg('<circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 015 0c0 2-2.5 2-2.5 4M12 17h.01"/>'), "Support", "")}
+    ${gitem(svg('<circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/>'), "Account", "")}
   </aside>`;
 
-  const header = `<header class="om-header">
-    <div class="om-title">Ontology Manager</div>
-    <div class="om-crumb">${selected ? `${esc(selected.domain || selected.id)} · v${esc(selected.version || "0.1.0")} ${hpill} · ${ots.length} object type${ots.length === 1 ? "" : "s"} · ${totalInstances} object${totalInstances === 1 ? "" : "s"}` : "no ontology"}</div>
-    <div class="om-headacts"><a class="om-btn ghost" href="/__ioi/odk?ontology=${enc(oid)}">Substrate view</a><a class="om-btn ghost" href="/__ioi/pipeline?ontology=${enc(oid)}">Pipeline</a></div>
+  // LIGHT header — app title, ontology switcher (all ontologies), search, New.
+  const header = `<header class="og-header">
+    <span class="og-happ">${svg(CUBE)}</span>
+    <span class="og-htitle">Ontology Manager</span>
+    <details class="og-ontomenu"><summary>${domainLabel}${selected ? ` <span class="og-ver">v${esc(selected.version || "0.1.0")}</span>` : ""} ▾</summary>
+      <div class="og-ontolist">${ontologies.length ? ontologies.map((x) => `<a class="og-ontoitem${selected && x.id === selected.id ? " on" : ""}" href="/__ioi/ontology/manager?ontology=${enc(x.id)}">${esc(x.domain || x.id)} <span class="og-dot og-${(x.health || {}).status === "ready" ? "ok" : (x.health || {}).status === "empty" ? "muted" : "warn"}"></span></a>`).join("") : `<div class="og-none">No ontologies yet.</div>`}</div>
+    </details>
+    <div class="og-search" title="Search + ⌘K command palette are reference-only — not wired (named gap)"><span class="og-sico">${svg('<circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/>')}</span><input placeholder="Search resources…" disabled aria-label="Search resources (reference-only, not wired)"><kbd>⌘K</kbd></div>
+    <a class="og-new" href="/__ioi/odk/ontologies/new">New</a>
   </header>`;
 
-  const toolbar = `<div class="om-toolbar">
-    <a class="om-btn primary" href="/__ioi/odk/ontologies/${selected ? enc(selected.id) + "/edit" : "new"}">Configure model</a>
-    <button class="om-btn ghost" disabled title="In-canvas schema editing (drag types/links) is a named gap — author in the Ontology Manager substrate.">Edit in canvas</button>
-    <span class="om-toolnote">Read-only schema over real daemon truth. Authoring + object materialization live in the <a href="/__ioi/odk?ontology=${enc(oid)}">substrate view</a> + <a href="/__ioi/pipeline?ontology=${enc(oid)}">pipeline</a>.</span>
-  </div>`;
+  // LIGHT app rail — Discover / Proposals / History · Resources · Health / Cleanup / Configuration.
+  const arailItem = (label, count, href) => {
+    const c = count == null ? "" : `<span class="og-c">${count}</span>`;
+    return href
+      ? `<a class="og-nav" href="${href}">${esc(label)}${c}</a>`
+      : `<span class="og-nav gap" title="${esc(label)} is a reference-only lane — no authority contract yet (named gap).">${esc(label)}${c}</span>`;
+  };
+  const appRail = `<nav class="og-arail" aria-label="Ontology Manager">
+    ${arailItem("Discover", null, "#og-discover")}
+    ${arailItem("Proposals", null, null)}
+    ${arailItem("History", (selected && (selected.history || []).length) || 0, "#og-config")}
+    <div class="og-asec">Resources</div>
+    ${arailItem("Object types", ots.length, "#og-discover")}
+    ${arailItem("Properties", propCount, "#og-properties")}
+    ${arailItem("Shared properties", 0, null)}
+    ${arailItem("Link types", lts.length, "#og-link-types")}
+    ${arailItem("Action types", nonFuncActs.length, "#og-action-types")}
+    ${arailItem("Groups", 0, null)}
+    ${arailItem("Interfaces", 0, null)}
+    ${arailItem("Value types", vts.length, "#og-value-types")}
+    ${arailItem("Functions", funcs.length, "#og-functions")}
+    <div class="og-adiv"></div>
+    ${arailItem("Health issues", (health.gaps || []).length, "#og-health")}
+    ${arailItem("Cleanup", null, null)}
+    ${arailItem("Ontology configuration", null, "#og-config")}
+  </nav>`;
 
-  const objectCards = ots.length
-    ? ots.map((t) => { const props = Array.isArray(t.properties) ? t.properties : []; const objs = msets.filter((m) => m.object_type_id === t.id).reduce((a, m) => a + (m.count || 0), 0); return `<div class="om-card"><div class="om-cardhd"><b>${esc(t.name || t.id)}</b> ${idc(t.id)}</div><div class="om-sub">${props.length} propert${props.length === 1 ? "y" : "ies"} · <b>${objs}</b> object${objs === 1 ? "" : "s"} · title ${idc(t.title_property || "—")}</div></div>`; }).join("")
-    : `<div class="om-empty">No object types yet.</div>`;
-  const tbl = (head, rows, empty) => rows ? `<table class="om-table"><thead><tr>${head.map((h) => `<th>${h}</th>`).join("")}</tr></thead><tbody>${rows}</tbody></table>` : `<div class="om-empty">${empty}</div>`;
+  // LIGHT card-first body: object-type cards ("recently modified"), then typed detail + configuration.
+  const cardOf = (t) => {
+    const desc = (t.description || "").trim();
+    return `<a class="og-card" href="/__ioi/odk/ontologies/${selected ? enc(selected.id) : "new"}#ot-${enc(t.id)}" title="${esc(t.name || t.id)} — open in the substrate ontology detail">
+      <div class="og-cardtop"><span class="og-cardico">${svg(CUBE)}</span><span class="og-cardname">${esc(t.name || t.id)}</span><span class="og-cardbook">${svg('<path d="M4 5a2 2 0 012-2h12v18H6a2 2 0 01-2-2z"/><path d="M8 3v18"/>')}</span></div>
+      <div class="og-cardobj"><b>${objsOf(t)}</b> object${objsOf(t) === 1 ? "" : "s"}</div>
+      <div class="og-carddep">${depsOf(t)} dependent${depsOf(t) === 1 ? "" : "s"}</div>
+      <div class="og-carddesc">${desc ? esc(desc) : "No description"}</div>
+    </a>`;
+  };
+  const tbl = (head, rows, empty) => rows ? `<table class="og-table"><thead><tr>${head.map((h) => `<th>${h}</th>`).join("")}</tr></thead><tbody>${rows}</tbody></table>` : `<div class="og-none">${empty}</div>`;
   const propRows = ots.flatMap((t) => (Array.isArray(t.properties) ? t.properties : []).map((p) => `<tr><td>${esc(t.name || t.id)}</td><td>${esc(p.name || p.id)} ${idc(p.id)}</td><td>${idc(p.value_type || "")}</td><td>${p.required ? "yes" : "—"}${t.title_property === p.id ? ` <span class="om-pill ok">title</span>` : ""}</td></tr>`)).join("");
   const valRows = vts.map((v) => `<tr><td>${esc(v.name || v.id)} ${idc(v.id)}</td><td><span class="om-pill muted">${esc(v.base || "string")}</span></td><td>${(v.enum_values && v.enum_values.length) ? v.enum_values.map((e) => `<span class="om-pill muted">${esc(e)}</span>`).join(" ") : "—"}</td></tr>`).join("");
   const linkRows = lts.map((l) => `<tr><td>${esc(l.name || l.id)} ${idc(l.id)}</td><td>${idc(l.from || "")} → ${idc(l.to || "")}</td><td><span class="om-pill muted">${esc(l.cardinality || "")}</span></td></tr>`).join("");
   const actRows = nonFuncActs.map((a) => `<tr><td>${esc(a.name || a.id)} ${idc(a.id)}</td><td><span class="om-pill muted">${esc(a.kind || "")}</span></td><td>${a.applies_to ? idc(a.applies_to) : "—"}</td></tr>`).join("");
   const funcRows = funcs.map((a) => `<tr><td>${esc(a.name || a.id)} ${idc(a.id)}</td><td>${a.applies_to ? idc(a.applies_to) : "—"}</td></tr>`).join("");
-  const healthBlock = `<div class="om-healthbox"><div class="om-cardhd"><b>Readiness</b> ${hpill} <span class="om-sub">${esc(`${(health.counts || {}).object_types || 0} obj · ${(health.counts || {}).value_types || 0} val · ${(health.counts || {}).link_types || 0} link · ${(health.counts || {}).action_types || 0} act`)}</span></div>${(health.gaps || []).length ? `<ul class="om-gaps">${health.gaps.map((g) => `<li>${esc(g)}</li>`).join("")}</ul>` : `<div class="om-sub">No gaps — the required semantic pieces are present.</div>`}<div class="om-sub" style="margin-top:6px"><b>${esc(String(health.object_instances == null ? 0 : health.object_instances))}</b> object instances — ${esc(health.object_data_note || "schema only; no object-instance plane bound until an OntologyProjection exists.")}</div></div>`;
+  const body = `<main class="og-body" role="main">${selected ? `
+    <section id="og-discover" class="og-discover">
+      <div class="og-sechd"><h2>Object types recently modified in ${domainLabel}</h2><a class="og-configlink" href="/__ioi/odk/ontologies/${enc(selected.id)}/edit">Configure</a></div>
+      ${ots.length ? `<div class="og-cards">${ots.map(cardOf).join("")}</div>` : `<div class="og-none">No object types yet. <a href="/__ioi/odk/ontologies/${enc(selected.id)}/edit">Add typed object types →</a></div>`}
+    </section>
+    <section id="og-properties"><h2>Properties <span class="og-subn">${propCount}</span></h2>${tbl(["Object type", "Property", "Value type", "Required"], propRows, "No properties declared.")}</section>
+    <section id="og-value-types"><h2>Value types <span class="og-subn">${vts.length}</span></h2>${tbl(["Value type", "Base", "Enum"], valRows, "No value types.")}</section>
+    <section id="og-link-types"><h2>Link types <span class="og-subn">${lts.length}</span></h2>${tbl(["Link", "From → To", "Cardinality"], linkRows, "No link types.")}</section>
+    <section id="og-action-types"><h2>Action types <span class="og-subn">${nonFuncActs.length}</span></h2><div class="og-note">Action <b>declarations</b> only — writeback/execution is not wired (needs a PolicyBoundDataView + TransformationRun). Declaring an action never runs it.</div>${tbl(["Action", "Kind", "Applies to"], actRows, "No action types.")}</section>
+    <section id="og-functions"><h2>Functions <span class="og-subn">${funcs.length}</span></h2><div class="og-note">Function <b>declarations</b> only — evaluation/execution is not wired.</div>${tbl(["Function", "Applies to"], funcRows, "No function declarations.")}</section>
+    <section id="og-health"><h2>Health issues</h2><div class="og-healthbox"><div class="og-sechd2"><b>Readiness</b> ${hpill} <span class="og-sub">${(health.counts || {}).object_types || 0} obj · ${(health.counts || {}).value_types || 0} val · ${(health.counts || {}).link_types || 0} link · ${(health.counts || {}).action_types || 0} act</span></div>${(health.gaps || []).length ? `<ul class="og-gaps">${health.gaps.map((g) => `<li>${esc(g)}</li>`).join("")}</ul>` : `<div class="og-sub">No health issues — the required semantic pieces are present.</div>`}<div class="og-sub" style="margin-top:6px"><b>${esc(String(health.object_instances == null ? 0 : health.object_instances))}</b> object instances — ${esc(health.object_data_note || "schema only; no object-instance plane bound until an OntologyProjection exists.")}</div></div></section>
+    <section id="og-config"><h2>Ontology configuration</h2><div class="og-cfg">
+      <div class="og-cfgrow"><span>Ref</span>${idc(selected.ref)}</div>
+      <div class="og-cfgrow"><span>Revision</span><b>rev ${esc(String(selected.revision || 1))}</b></div>
+      <div class="og-cfgrow"><span>Receipts</span><b>${(selected.receipt_refs || []).length}</b></div>
+      <div class="og-cfgrow"><span>History</span><b>${(selected.history || []).length}</b></div>
+      <div class="og-cfgrow"><span>Object sets · objects</span><b>${msets.length} · ${totalInstances}</b></div>
+      <div class="og-cfgrow"><span>Projections</span><b>${projs.length}</b></div>
+      <div class="og-cfgrow"><span>Estate</span><span><span class="om-pill ok">${rollup.ready || 0} ready</span> <span class="om-pill warn">${rollup.incomplete || 0} incomplete</span> <span class="om-pill muted">${rollup.empty || 0} empty</span></span></div>
+      <a class="og-editlink" href="/__ioi/odk/ontologies/${enc(selected.id)}/edit">Configure model in substrate →</a>
+      <div class="og-note" style="margin-top:8px">Named gaps (reference-only lanes, no authority contract yet): in-canvas schema editing · Proposals · Shared properties · Groups · Interfaces · Cleanup · action/function execution. Reference: <a href="/__apps/schema" target="_blank" rel="noopener">Ontology Manager ↗</a>.</div>
+    </div></section>
+  ` : `<div class="og-none" style="margin:40px auto;max-width:520px">Select or create an ontology to see its schema. <a href="/__ioi/odk/ontologies/new">Create an ontology →</a></div>`}</main>`;
 
-  const body = `<main class="om-body" id="om-body" role="main">${selected ? `
-    <section id="om-object-types"><h2>Object types <span class="om-sub">(${ots.length})</span></h2>${objectCards}</section>
-    <section id="om-properties"><h2>Properties <span class="om-sub">(${propCount})</span></h2>${tbl(["Object type", "Property", "Value type", "Required"], propRows, "No properties declared.")}</section>
-    <section id="om-value-types"><h2>Value types <span class="om-sub">(${vts.length})</span></h2>${tbl(["Value type", "Base", "Enum"], valRows, "No value types.")}</section>
-    <section id="om-link-types"><h2>Link types <span class="om-sub">(${lts.length})</span></h2>${tbl(["Link", "From → To", "Cardinality"], linkRows, "No link types.")}</section>
-    <section id="om-action-types"><h2>Actions <span class="om-sub">(${nonFuncActs.length})</span></h2><div class="om-note">Action <b>declarations</b> only — writeback/execution is not wired (needs a PolicyBoundDataView + TransformationRun). Declaring an action never runs it.</div>${tbl(["Action", "Kind", "Applies to"], actRows, "No action types.")}</section>
-    <section id="om-functions"><h2>Functions <span class="om-sub">(${funcs.length})</span></h2><div class="om-note">Function <b>declarations</b> only — evaluation/execution is not wired.</div>${tbl(["Function", "Applies to"], funcRows, "No function declarations.")}</section>
-    <section id="om-health"><h2>Health</h2>${healthBlock}</section>
-  ` : `<div class="om-empty" style="margin:40px auto">Select or create an ontology in the rail to see its schema.</div>`}</main>`;
-
-  const rightPanel = `<aside class="om-right">
-    <div class="om-railsec">Configuration</div>
-    ${selected ? `<div class="om-outbox"><div class="om-outrow"><span class="om-k">Ref</span><span class="om-v">${idc(selected.ref)}</span></div><div class="om-outrow"><span class="om-k">Revision</span><span class="om-v">rev ${esc(String(selected.revision || 1))}</span></div><div class="om-outrow"><span class="om-k">Receipts</span><span class="om-v">${(selected.receipt_refs || []).length}</span></div><div class="om-outrow"><span class="om-k">History</span><span class="om-v">${(selected.history || []).length}</span></div></div>` : ""}
-    <div class="om-railsec">Resources</div>
-    <div class="om-outbox"><div class="om-outrow"><span class="om-k">Object sets</span><span class="om-v">${msets.length} · ${totalInstances} obj</span></div><div class="om-outrow"><span class="om-k">Projections</span><span class="om-v">${projs.length}</span></div></div>
-    <div class="om-railsec">Estate</div>
-    <div class="om-outbox"><span class="om-pill ok">${rollup.ready || 0} ready</span> <span class="om-pill warn">${rollup.incomplete || 0} incomplete</span> <span class="om-pill muted">${rollup.empty || 0} empty</span></div>
-    <div class="om-railsec">Named gaps</div>
-    <div class="om-outbox"><div class="om-sub">in-canvas schema editing · action/function execution · orphan-reference cleanup scan — reference-only, no authority contract yet.</div></div>
-  </aside>`;
-
-  const tray = `<div class="om-tray"><span class="om-sub">Ported schema workbench over the real ODK CanonicalObjectModel. Authoring + materialization: <a href="/__ioi/odk?ontology=${enc(oid)}">substrate view</a>. Reference: <a href="/__apps/schema" target="_blank" rel="noopener">Ontology Manager ↗</a> · <a href="/__apps/explorer" target="_blank" rel="noopener">Object Explorer ↗</a>.</span></div>`;
-
-  const css = `:root{color-scheme:dark}*{box-sizing:border-box}
-    body{margin:0;background:#0c0d10;color:#e6e7ea;font:13px/1.5 -apple-system,Segoe UI,Roboto,sans-serif}
-    a{color:#8ab4ff;text-decoration:none}
-    .om-shell{display:flex;height:100vh;width:100vw;overflow:hidden}
-    .om-rail{flex:0 0 236px;width:236px;height:100vh;background:#0e0f13;border-right:1px solid #23252c;overflow-y:auto;padding:14px 10px}
-    .om-brand{font-weight:700;font-size:15px;padding:2px 8px 10px}
-    .om-railsec{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:#6f7280;padding:12px 8px 6px;font-weight:600}
-    .om-onto,.om-navitem{display:flex;align-items:center;justify-content:space-between;padding:7px 10px;border-radius:8px;color:#cbd0da;margin:1px 0}
-    .om-onto:hover,.om-navitem:hover{background:#15171c}.om-onto.on{background:#17233a;color:#fff}
-    .om-count{font-size:11px;color:#878a93}.om-dot{width:8px;height:8px;border-radius:50%}
-    .om-main{flex:1;min-width:0;display:flex;flex-direction:column;height:100vh}
-    .om-header{flex:0 0 auto;height:54px;display:flex;align-items:center;gap:14px;padding:0 20px;border-bottom:1px solid #23252c;background:#0e0f13}
-    .om-title{font-weight:700;font-size:16px}.om-crumb{color:#9a9da6;font-size:12.5px}.om-headacts{margin-left:auto;display:flex;gap:8px}
-    .om-toolbar{flex:0 0 auto;height:46px;display:flex;align-items:center;gap:10px;padding:0 18px;border-bottom:1px solid #23252c;background:#0d0e12}
-    .om-toolnote{margin-left:auto;color:#6f7280;font-size:11.5px}
-    .om-body{flex:1 1 auto;overflow:auto;padding:16px 20px}
-    .om-body section{margin:0 0 22px}.om-body h2{font-size:14px;margin:0 0 8px;font-weight:600}.om-body h2 .om-sub{font-weight:400}
-    .om-card{border:1px solid #24262d;border-radius:10px;padding:10px 13px;margin:0 0 8px;background:#15171c}
-    .om-cardhd{display:flex;align-items:center;gap:8px}.om-sub{color:#878a93;font-size:11.5px}
-    .om-table{border-collapse:collapse;width:100%;font-size:12.5px;margin:0 0 4px}
-    .om-table th{text-align:left;color:#878a93;font-weight:600;padding:6px 14px 6px 0;border-bottom:1px solid #23252c}
-    .om-table td{padding:6px 14px 6px 0;border-bottom:1px solid #171920}
-    .om-code{font-family:ui-monospace,monospace;font-size:11px;color:#9aa0ab}
-    .om-note{color:#9a9da6;font-size:11.5px;border:1px solid #24262d;border-radius:8px;padding:8px 11px;margin:0 0 8px;background:#121319}
-    .om-healthbox{border:1px solid #24262d;border-radius:10px;padding:12px 14px;background:#15171c}.om-gaps{margin:6px 0 0;padding-left:18px;color:#9a9da6}
-    .om-right{flex:0 0 292px;width:292px;height:100vh;border-left:1px solid #23252c;background:#0e0f13;overflow-y:auto;padding:0 12px 20px}
-    .om-outbox{margin:2px 6px 8px;border:1px solid #24262d;border-radius:10px;padding:10px 12px;background:#15171c}
-    .om-outrow{display:flex;justify-content:space-between;gap:8px;margin:3px 0}.om-k{color:#878a93;font-size:12px}.om-v{font-size:12px}
-    .om-tray{flex:0 0 44px;height:44px;display:flex;align-items:center;padding:0 18px;border-top:1px solid #23252c;background:#0d0e12;color:#6f7280;font-size:11.5px}
+  const css = `html{color-scheme:light}*{box-sizing:border-box}
+    body{margin:0;background:#f4f5f7;color:#1a1d21;font:13px/1.55 -apple-system,Segoe UI,Roboto,sans-serif}
+    a{color:#2f6fd8;text-decoration:none}
+    .og-shell{display:flex;height:100vh;width:100vw;overflow:hidden}
+    .og-grail{flex:0 0 220px;width:220px;height:100vh;background:#21242b;color:#c4c8d0;display:flex;flex-direction:column;padding:10px 10px 12px;overflow-y:auto}
+    .og-brand{padding:4px 8px 10px}.og-logo{display:inline-flex;color:#7aa2ff}
+    .og-gitem{display:flex;align-items:center;gap:11px;padding:7px 9px;border-radius:7px;color:#c4c8d0;font-size:13px}
+    .og-gitem:hover{background:#2c3038;color:#fff}.og-gitem.on{background:#2f6fd8;color:#fff}
+    .og-gitem.muted{color:#8b909a;cursor:default}.og-gitem.muted:hover{background:transparent;color:#8b909a}
+    .og-gico{display:inline-flex;width:18px}.og-glabel{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .og-gdiv{height:1px;background:#33373f;margin:8px 6px}
+    .og-gsec{font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;color:#7a7f89;padding:12px 9px 5px;font-weight:600}
+    .og-gspacer{flex:1 1 auto;min-height:14px}
+    .og-main{flex:1;min-width:0;display:flex;flex-direction:column;height:100vh}
+    .og-header{flex:0 0 auto;height:54px;display:flex;align-items:center;gap:12px;padding:0 16px;background:#fff;border-bottom:1px solid #e6e8ec}
+    .og-happ{display:inline-flex;color:#5b6472}.og-htitle{font-weight:700;font-size:15px}
+    .og-ontomenu{position:relative}.og-ontomenu>summary{list-style:none;cursor:pointer;font-size:12.5px;color:#3a3f46;background:#f1f3f6;border:1px solid #e0e3e8;border-radius:7px;padding:4px 10px}
+    .og-ontomenu>summary::-webkit-details-marker{display:none}.og-ver{color:#8b9099}
+    .og-ontolist{position:absolute;top:34px;left:0;min-width:230px;background:#fff;border:1px solid #e0e3e8;border-radius:9px;box-shadow:0 8px 28px rgba(20,24,31,.14);padding:6px;z-index:20}
+    .og-ontoitem{display:flex;align-items:center;justify-content:space-between;padding:6px 9px;border-radius:6px;color:#3a3f46}
+    .og-ontoitem:hover{background:#f1f3f6}.og-ontoitem.on{background:#eef2fb;color:#1a1d21;font-weight:600}
+    .og-search{margin-left:8px;flex:1 1 auto;max-width:520px;display:flex;align-items:center;gap:8px;background:#f1f3f6;border:1px solid #e0e3e8;border-radius:8px;padding:5px 10px;color:#8b9099}
+    .og-search input{flex:1;border:0;background:transparent;font:inherit;color:#3a3f46;outline:none}
+    .og-search kbd{font:inherit;font-size:11px;color:#9aa0a8;border:1px solid #e0e3e8;border-radius:4px;padding:0 5px;background:#fff}
+    .og-new{margin-left:auto;background:#2f6fd8;color:#fff;font-weight:600;font-size:12.5px;border-radius:7px;padding:6px 14px}
+    .og-work{flex:1 1 auto;display:flex;min-height:0}
+    .og-arail{flex:0 0 292px;width:292px;background:#fff;border-right:1px solid #e6e8ec;overflow-y:auto;padding:10px 8px}
+    .og-nav{display:flex;align-items:center;justify-content:space-between;padding:7px 12px;border-radius:7px;color:#3a3f46;font-size:13px;margin:1px 0}
+    .og-nav:hover{background:#f1f3f6}.og-nav .og-c{font-size:12px;color:#8b9099}
+    .og-nav.gap{color:#a2a7af;cursor:default}.og-nav.gap:hover{background:transparent}
+    .og-asec{font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;color:#8b9099;padding:14px 12px 5px;font-weight:600}
+    .og-adiv{height:1px;background:#eceef1;margin:8px 10px}
+    .og-body{flex:1 1 auto;overflow:auto;padding:20px 24px;background:#f4f5f7}
+    .og-body section{margin:0 0 26px}
+    .og-sechd{display:flex;align-items:center;justify-content:space-between;margin:0 0 12px}
+    .og-body h2{font-size:15px;margin:0 0 12px;font-weight:600}.og-subn{color:#9aa0a8;font-weight:400;font-size:13px}
+    .og-configlink{font-size:13px}
+    .og-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px}
+    .og-card{display:block;background:#fff;border:1px solid #e4e7ec;border-radius:10px;padding:14px 15px;box-shadow:0 1px 2px rgba(20,24,31,.04);color:#1a1d21}
+    .og-card:hover{border-color:#c9d3e6;box-shadow:0 3px 10px rgba(20,24,31,.08)}
+    .og-cardtop{display:flex;align-items:center;gap:9px;margin:0 0 8px}.og-cardico{display:inline-flex;color:#5b6472}
+    .og-cardname{font-weight:600;font-size:13.5px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.og-cardbook{color:#b6bcc4}
+    .og-cardobj{font-size:12.5px;color:#3a3f46}.og-carddep{font-size:12px;color:#8b9099;margin:2px 0 8px}
+    .og-carddesc{font-size:12.5px;color:#9aa0a8;font-style:italic}
+    .og-table{border-collapse:collapse;width:100%;font-size:12.5px;background:#fff;border:1px solid #e6e8ec;border-radius:8px;overflow:hidden}
+    .og-table th{text-align:left;color:#8b9099;font-weight:600;padding:8px 14px;border-bottom:1px solid #eceef1;background:#fafbfc}
+    .og-table td{padding:8px 14px;border-bottom:1px solid #f0f1f4}
+    .og-note{color:#6b7178;font-size:12px;border:1px solid #e4e7ec;border-radius:8px;padding:9px 12px;margin:0 0 10px;background:#fbfcfd}
+    .og-healthbox,.og-cfg{background:#fff;border:1px solid #e6e8ec;border-radius:10px;padding:14px 16px}
+    .og-sechd2{display:flex;align-items:center;gap:8px;margin:0 0 6px}.og-gaps{margin:6px 0 0;padding-left:18px;color:#6b7178}
+    .og-cfgrow{display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px solid #f0f1f4}.og-cfgrow>span:first-child{color:#8b9099}
+    .og-editlink{display:inline-block;margin-top:10px;font-size:13px}
+    .og-none{color:#8b9099;padding:16px;border:1px dashed #d8dbe0;border-radius:10px;background:#fff}
+    .og-sub{color:#8b9099;font-size:12px}
+    .om-code{font-family:ui-monospace,monospace;font-size:11px;color:#6b7178;background:#f1f3f6;padding:1px 5px;border-radius:4px}
+    .og-dot{width:8px;height:8px;border-radius:50%;display:inline-block}
+    .og-dot.og-ok{background:#22a35a}.og-dot.og-warn{background:#d6a13a}.og-dot.og-muted{background:#aab0b8}
     .om-pill{display:inline-block;padding:1px 8px;border-radius:999px;font-size:11px;border:1px solid;white-space:nowrap}
-    .om-pill.ok,.om-dot.om-ok{color:#46c277;border-color:#235c3b;background:#11281b}.om-dot.om-ok{background:#46c277}
-    .om-pill.warn,.om-dot.om-warn{color:#d6a13a;border-color:#5c4a23}.om-dot.om-warn{background:#d6a13a}
-    .om-pill.muted,.om-dot.om-muted{color:#9a9da6;border-color:#2a2c33}.om-dot.om-muted{background:#5a5d65}
-    .om-empty{color:#6f7280;padding:16px;border:1px dashed #24262d;border-radius:10px}
-    .om-btn{padding:6px 12px;border-radius:8px;border:1px solid #2a2c33;background:transparent;color:#cbd0da;font:inherit;font-size:12.5px;font-weight:600;cursor:pointer}
-    .om-btn.primary{background:#fff;color:#111;border-color:#fff}.om-btn.ghost:hover{color:#fff;border-color:#3a3d45}.om-btn[disabled]{opacity:.42;cursor:not-allowed}`;
+    .om-pill.ok{color:#1a7f43;border-color:#bfe4cd;background:#eafaf0}
+    .om-pill.warn{color:#a2730c;border-color:#efd9a6;background:#fdf6e6}
+    .om-pill.muted{color:#6b7178;border-color:#e0e3e8;background:#f3f4f6}`;
 
   return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Ontology Manager</title><style>${css}</style></head>
-    <body><div class="om-shell">${rail}<div class="om-main">${header}${toolbar}${body}${tray}</div>${rightPanel}</div></body></html>`;
+    <body><div class="og-shell">${globalRail}<div class="og-main">${header}<div class="og-work">${appRail}${body}</div></div></body></html>`;
 }
 
 // Family dispatch config: api path segment, single response key, form + detail + payload.
@@ -4311,13 +4389,13 @@ function govAge(iso) {
   if (h < 48) return `${h}h ${m % 60}m`;
   return `${Math.floor(h / 24)}d`;
 }
-// ============================ APPROVALS INBOX — reference UX PORT (#33, first true daemon_wired).
-// A PORTED source-neutral "Approvals inbox" shell (left RAIL of inbox views · HEADER · toolbar ·
-// BODY request table · right DETAIL panel · bottom tray), NOT the dark automationsShell, over the
-// REAL daemon ApprovalRequest queue — the same records + the same approve/reject/revoke transitions
-// the substrate ?tab=approvals view uses (no new governance semantics). The local /__apps/approvals
-// reference BOOTS (non-errored), so this can pass the Playwright visual+structural harness and earn
-// daemon_wired. Kept alongside the substrate tab; actions post `return` to land back here.
+// ============================ APPROVALS INBOX — reference UX PORT (#33, reference_ported after #34).
+// A PORTED "Approvals inbox" shell (left RAIL of inbox views · HEADER · toolbar · BODY request table ·
+// right DETAIL panel · bottom tray) over the REAL daemon ApprovalRequest queue — the same records + the
+// same approve/reject/revoke transitions the substrate ?tab=approvals view uses (no new governance
+// semantics). Fully WIRED, but under the #34-hardened parity gate (theme + IA landmarks) this dark
+// native shell does NOT reproduce the LIGHT faceted reference, so it is `reference_ported`, NOT
+// `daemon_wired`. A dedicated faithful-light-port cut can promote it. Actions post `return` to land here.
 function renderApprovalsPort(records, statusFilter) {
   const enc = encodeURIComponent, esc = CX_ESC;
   const all = Array.isArray(records) ? records : [];
@@ -8106,8 +8184,8 @@ const server = http.createServer((req, res) => {
       }));
       return;
     }
-    // Approvals inbox — reference UX PORT (#33, daemon_wired). Ported source-neutral inbox shell over
-    // the real ApprovalRequest queue; the substrate table stays at /__ioi/governance?tab=approvals.
+    // Approvals inbox — reference UX PORT (#33, reference_ported after #34). Wired inbox shell over the
+    // real ApprovalRequest queue; the substrate table stays at /__ioi/governance?tab=approvals.
     if (pathname === "/__ioi/governance/approvals" && req.method === "GET") {
       const status = new URL(req.url, "http://x").searchParams.get("status") || "";
       const ap = await fetch(`${DAEMON}/v1/hypervisor/governance/approval-requests`).then((x) => x.json()).catch(() => ({}));

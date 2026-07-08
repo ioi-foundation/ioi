@@ -1,23 +1,28 @@
 #!/usr/bin/env node
-// Reference UX Port — the Playwright visual + structural parity harness (PR #31 infrastructure).
+// Reference UX Port — the Playwright visual + structural parity harness (PR #31 infra; hardened #34).
 //
 // The reset's done-bar: a surface is only TRUE reference UX parity (`daemon_wired`) when its ported
-// shell structurally matches the reference workspace. This harness opens the reference capture and
-// the IOI candidate SIDE BY SIDE in a real browser, screenshots both, detects the reference shell
-// REGIONS (global rail · header · toolbar · body · right panel · bottom tray) in each, and computes a
-// structural-parity verdict. It proves nothing by prose — it looks at the rendered DOM.
+// shell genuinely reproduces the reference workspace UX. This harness opens the reference capture and
+// the IOI candidate SIDE BY SIDE in a real browser, screenshots both, and computes a parity verdict.
+// It proves nothing by prose — it looks at the rendered DOM.
 //
-// It is deliberately honest about the current estate: the dark IOI substrate surfaces (custom
-// automationsShell) render NONE of the reference shell regions, so their structural parity fails —
-// which is exactly why they are `substrate_bound`, not `daemon_wired`. It also refuses to certify
-// parity when EITHER SIDE is an error page (reference OR IOI candidate) — an error page renders only
-// global chrome, so a `structural_parity` verdict requires reference_valid AND ioi_valid.
+// #34 HARDENING (review): region-NAME overlap alone is too coarse — a dark 6-box layout scored 1.0
+// against a light two-rail reference with completely different IA. `visual_parity` (the daemon_wired
+// gate) now additionally requires:
+//   - THEME MATCH — the reference and the candidate must render the same light/dark body theme
+//     (sampled from the content area's effective background luminance, not the chrome).
+//   - REFERENCE LANDMARKS — the surface's reference-specific IA labels (declared on the matrix row as
+//     `reference_landmarks`) must appear in BOTH the reference AND the candidate. This ties parity to
+//     the actual navigation/information architecture, not just "there is a left box".
+//   - CORE REGION GEOMETRY + a strong region-name overlap (as before).
+// `structural_parity` is kept as the coarse region-only signal (informational: "has the shell boxes").
+// daemon_wired ⇒ visual_parity. An error page on EITHER side (reference OR candidate) can never certify.
 //
 // Reference is loaded via serve's token-injected proxy /__apps/<slug> (== :9225<capture_base>).
 //
 // Output (artifact dir): screens/*.png + contact-sheet.html + result.json.
 // Env: IOI_HYPERVISOR_SERVE_URL (default http://127.0.0.1:4173)
-//      IOI_HARNESS_SURFACES=pipeline,lineage  (comma list; default = every substrate_bound + port seed)
+//      IOI_HARNESS_SURFACES=schema,approvals  (comma list; default = every substrate_bound + port seed)
 //      IOI_HARNESS_ARTIFACT_DIR (default apps/hypervisor/.artifacts/reference-parity)
 //
 // Usage: node apps/hypervisor/scripts/harness-reference-parity.mjs
@@ -43,11 +48,14 @@ const REGIONS = {
   tray: `footer, [role="contentinfo"], [class*="tray" i], [class*="bottompanel" i], [class*="bottom-panel" i], [class*="previewpanel" i], [class*="statusbar" i]`,
 };
 const REGION_KEYS = Object.keys(REGIONS);
-// Structural parity (daemon_wired) requires the load-bearing regions AND a strong overall overlap.
+// Structural parity (the coarse signal) requires the load-bearing regions AND a strong overlap.
 const CORE_REGIONS = ["rail", "header", "body"];
 const PARITY_THRESHOLD = 0.8;
+// visual_parity (the daemon_wired gate) additionally requires this fraction of the reference's own
+// landmarks to be reproduced in the candidate.
+const LANDMARK_THRESHOLD = 0.8;
 
-async function capture(ctx, url, pngPath) {
+async function capture(ctx, url, pngPath, landmarks) {
   const page = await ctx.newPage();
   const VW = 1440, VH = 900;
   let loaded = true, err = "";
@@ -55,12 +63,12 @@ async function capture(ctx, url, pngPath) {
     await page.goto(url, { waitUntil: "domcontentloaded", timeout: 25000 });
     await page.waitForTimeout(2800); // let the reference SPA hydrate
   } catch (e) { loaded = false; err = String(e.message || e).slice(0, 100); }
-  let regions = [], title = "", divCount = 0, errored = false, visibleText = "";
+  let regions = [], title = "", divCount = 0, errored = false, visibleText = "", theme = "unknown", bodyLuminance = null, landmarksPresent = [];
   try {
     // A region counts as PRESENT only when a visible element matching its selectors ALSO satisfies a
     // LAYOUT (bounding-box) predicate — a left-anchored tall rail, a top-anchored wide header, etc.
     // Selector-spoofing (a hidden or wrongly-placed div with class "rail") does NOT satisfy geometry.
-    const res = await page.evaluate(({ sel, VW, VH }) => {
+    const res = await page.evaluate(({ sel, VW, VH, landmarks }) => {
       const boxes = (q) => Array.from(document.querySelectorAll(q)).map((el) => {
         const r = el.getBoundingClientRect(); const s = getComputedStyle(el);
         const vis = r.width > 24 && r.height > 24 && s.visibility !== "hidden" && s.display !== "none" && s.opacity !== "0";
@@ -76,11 +84,44 @@ async function capture(ctx, url, pngPath) {
       };
       const present = {};
       for (const [k, q] of Object.entries(sel)) present[k] = boxes(q).some(geom[k]);
+      // THEME — sample effective background luminance across a DENSE grid in the CONTENT area (x ≥
+      // 0.5·VW, right of any dark left-hand chrome) and take the MEDIAN. Luminance is only read from a
+      // SUBSTANTIAL element (≥ 2% of the viewport) — mirroring the region path's size discipline — so a
+      // small planted light element at a known probe point cannot flip the theme (review #34).
+      const lumOf = (el) => {
+        const m = (el && getComputedStyle(el).backgroundColor || "").match(/rgba?\(([^)]+)\)/);
+        if (!m) return null;
+        const p = m[1].split(",").map((x) => parseFloat(x));
+        if (p.length >= 4 && p[3] === 0) return null; // transparent
+        return (0.2126 * p[0] + 0.7152 * p[1] + 0.0722 * p[2]) / 255;
+      };
+      const effLum = (x, y) => { let el = document.elementFromPoint(x, y); let n = 0; while (el && n++ < 30) { const r = el.getBoundingClientRect(); if (r.width * r.height >= VW * VH * 0.02) { const l = lumOf(el); if (l != null) return l; } el = el.parentElement; } return 1; };
+      const pts = [];
+      for (const fx of [0.5, 0.62, 0.74, 0.86, 0.94]) for (const fy of [0.28, 0.46, 0.64, 0.8]) pts.push([fx, fy]);
+      const lums = pts.map(([fx, fy]) => effLum(VW * fx, VH * fy)).sort((a, b) => a - b);
+      const bodyLuminance = lums[Math.floor(lums.length / 2)]; // median resists a handful of planted outliers
+      const theme = bodyLuminance >= 0.5 ? "light" : "dark";
+      // LANDMARKS — count a reference IA label only when it appears as VISIBLE, IN-VIEWPORT text (checked
+      // per text node via its Range rect), so an off-screen (left:-9999px) / hidden / 1px dump of the
+      // labels does NOT count as reproducing the IA. Match on WORD/PHRASE boundaries (not raw substring),
+      // so 'Health' cannot match 'HealthCheck' and 'New' cannot match 'renew' (review #34).
+      const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+      let visSeen = ""; let tn;
+      while ((tn = walker.nextNode())) {
+        const txt = (tn.textContent || "").trim(); if (!txt) continue;
+        const par = tn.parentElement; if (!par) continue;
+        const cs = getComputedStyle(par); if (cs.visibility === "hidden" || cs.display === "none" || cs.opacity === "0") continue;
+        const rng = document.createRange(); rng.selectNodeContents(tn); const rr = rng.getBoundingClientRect();
+        if (rr.width > 4 && rr.height > 4 && rr.right > 0 && rr.bottom > 0 && rr.left < VW && rr.top < VH) visSeen += " " + txt;
+      }
+      const visLc = visSeen.toLowerCase().replace(/\s+/g, " ");
+      const escRe = (s) => String(s).toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const landmarksPresent = (landmarks || []).filter((l) => new RegExp("(^|[^a-z0-9])" + escRe(l) + "([^a-z0-9]|$)").test(visLc));
       const vt = (document.body && document.body.innerText || "").replace(/\s+/g, " ").trim();
-      return { present, title: document.title, divCount: document.querySelectorAll("div").length, visibleText: vt.slice(0, 400) };
-    }, { sel: REGIONS, VW, VH });
+      return { present, title: document.title, divCount: document.querySelectorAll("div").length, visibleText: vt.slice(0, 600), theme, bodyLuminance, landmarksPresent };
+    }, { sel: REGIONS, VW, VH, landmarks: landmarks || [] });
     regions = Object.keys(res.present).filter((k) => res.present[k]);
-    title = res.title; divCount = res.divCount; visibleText = res.visibleText;
+    title = res.title; divCount = res.divCount; visibleText = res.visibleText; theme = res.theme; bodyLuminance = res.bodyLuminance; landmarksPresent = res.landmarksPresent;
     // A reference/candidate showing an ERROR page is NOT a valid parity surface — its shell chrome
     // (global nav rail, body) still renders, so region-matching would falsely score parity. Detect it.
     errored = /an error occurred|something went wrong|failed to load|page not found|not found|forbidden|unauthori[sz]ed/i.test(visibleText);
@@ -93,15 +134,38 @@ async function capture(ctx, url, pngPath) {
     screenshotOk = buf && buf.length > 1000; screenshotBytes = buf ? buf.length : 0;
   } catch (e) { err = err || `screenshot failed: ${String(e.message || e).slice(0, 60)}`; }
   await page.close();
-  return { url, loaded, err, title, divCount, regions, screenshotOk, screenshotBytes, errored, visibleText };
+  return { url, loaded, err, title, divCount, regions, screenshotOk, screenshotBytes, errored, visibleText, theme, bodyLuminance, landmarksPresent };
 }
 
-function parityOf(refRegions, ioiRegions) {
-  const refSet = new Set(refRegions), ioiSet = new Set(ioiRegions);
-  const shared = refRegions.filter((r) => ioiSet.has(r));
-  const score = refRegions.length ? shared.length / refRegions.length : 0;
+// The parity computation. `structural_parity` = coarse region-only signal. `visual_parity` = the
+// daemon_wired gate = regions AND theme match AND reference-landmark reproduction.
+function parityOf(ref, ioi, landmarks) {
+  const refSet = new Set(ref.regions), ioiSet = new Set(ioi.regions);
+  const shared = ref.regions.filter((r) => ioiSet.has(r));
+  const regionScore = ref.regions.length ? shared.length / ref.regions.length : 0;
   const coreOk = CORE_REGIONS.every((r) => !refSet.has(r) || ioiSet.has(r));
-  return { shared, score: Math.round(score * 100) / 100, structural_parity: score >= PARITY_THRESHOLD && coreOk };
+  const structural_parity = regionScore >= PARITY_THRESHOLD && coreOk;
+
+  const themeMatch = ref.theme === ioi.theme && ref.theme !== "unknown";
+  // Landmark coverage is measured over the landmarks that ACTUALLY appear in the reference — a landmark
+  // spec that doesn't match the reference is a spec bug (applicable shrinks → coverage can't be gamed).
+  const refLm = new Set(ref.landmarksPresent), ioiLm = new Set(ioi.landmarksPresent);
+  const declared = Array.isArray(landmarks) ? landmarks : [];
+  const applicable = declared.filter((l) => refLm.has(l));
+  const covered = applicable.filter((l) => ioiLm.has(l));
+  const landmarkCoverage = applicable.length ? covered.length / applicable.length : 0;
+  // A trustworthy landmark gate needs a real spec: enough declared landmarks AND most of them present
+  // in the reference (so a surface can't pass by declaring one trivially-shared word).
+  const landmarkSpecOk = declared.length >= 5 && applicable.length >= Math.ceil(declared.length * 0.6);
+  const landmarkOk = landmarkSpecOk && landmarkCoverage >= LANDMARK_THRESHOLD;
+
+  const visual_parity = structural_parity && themeMatch && landmarkOk;
+  return {
+    shared, region_score: Math.round(regionScore * 100) / 100, structural_parity,
+    theme_match: themeMatch, landmark_declared: declared.length, landmark_applicable: applicable.length,
+    landmark_covered: covered.length, landmark_coverage: Math.round(landmarkCoverage * 100) / 100,
+    landmarks_missing: applicable.filter((l) => !ioiLm.has(l)), visual_parity,
+  };
 }
 
 function surfacesFromMatrix() {
@@ -114,6 +178,7 @@ function surfacesFromMatrix() {
     .filter((s) => PORT_STATES.has(s.parity_class))
     .filter((s) => !filter.length || filter.includes(s.slug))
     .map((s) => ({ slug: s.slug, owner: s.owner, matrix_class: s.parity_class, reference_workspace: s.reference_workspace,
+      reference_landmarks: Array.isArray(s.reference_landmarks) ? s.reference_landmarks : [],
       reference_url: `${SERVE}/__apps/${s.slug}`, ioi_url: `${SERVE}${s.candidate_surface || s.substrate_surface || ""}` }));
 }
 
@@ -121,11 +186,12 @@ function contactSheet(rows) {
   const cell = (r) => `<section style="border:1px solid #24262d;border-radius:10px;padding:14px;margin:0 0 18px;background:#15171c">
     <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
       <h2 style="margin:0;font-size:16px">${r.slug} <span style="color:#878a93;font-weight:400;font-size:13px">· ${r.owner} · matrix: ${r.matrix_class}</span></h2>
-      <span style="padding:3px 10px;border-radius:999px;font-size:12px;background:${r.structural_parity ? "#14361f;color:#7ee0a2" : "#3a1f14;color:#e0a27e"}">${r.structural_parity ? "structural parity ✓ (daemon_wired-eligible)" : "NOT parity — substrate_bound"} · score ${r.parity_score}</span>
+      <span style="padding:3px 10px;border-radius:999px;font-size:12px;background:${r.visual_parity ? "#14361f;color:#7ee0a2" : "#3a1f14;color:#e0a27e"}">${r.visual_parity ? "VISUAL PARITY ✓ (daemon_wired-eligible)" : "NOT visual parity"} · regions ${r.region_score} · theme ${r.reference_theme}/${r.ioi_theme}${r.theme_match ? "✓" : "✗"} · landmarks ${r.landmark_covered}/${r.landmark_applicable}</span>
     </div>
     <table style="margin:8px 0;border-collapse:collapse;font-size:12px;color:#c7c9d1"><tr><th style="text-align:left;padding:2px 12px 2px 0">region</th>${["rail","header","toolbar","body","right","tray"].map((k)=>`<th style="padding:2px 8px">${k}</th>`).join("")}</tr>
       <tr><td style="padding:2px 12px 2px 0">reference</td>${["rail","header","toolbar","body","right","tray"].map((k)=>`<td style="text-align:center">${r.reference_regions.includes(k)?"●":"·"}</td>`).join("")}</tr>
       <tr><td style="padding:2px 12px 2px 0">IOI</td>${["rail","header","toolbar","body","right","tray"].map((k)=>`<td style="text-align:center">${r.ioi_regions.includes(k)?"●":"·"}</td>`).join("")}</tr></table>
+    ${r.landmarks_missing && r.landmarks_missing.length ? `<div style="color:#e0a27e;font-size:12px;margin:0 0 6px">landmarks missing in IOI: ${r.landmarks_missing.join(" · ")}</div>` : ""}
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
       <figure style="margin:0"><figcaption style="color:#878a93;font-size:12px;margin:0 0 4px">reference — <code>${r.reference_url}</code></figcaption><img src="screens/${r.slug}-reference.png" style="width:100%;border:1px solid #2a2c33;border-radius:6px"></figure>
       <figure style="margin:0"><figcaption style="color:#878a93;font-size:12px;margin:0 0 4px">IOI candidate — <code>${r.ioi_url}</code></figcaption><img src="screens/${r.slug}-ioi.png" style="width:100%;border:1px solid #2a2c33;border-radius:6px"></figure>
@@ -133,7 +199,7 @@ function contactSheet(rows) {
   return `<!doctype html><meta charset="utf-8"><title>Reference UX Parity — contact sheet</title>
     <body style="font-family:system-ui,sans-serif;background:#0e0f13;color:#e6e7ea;max-width:1100px;margin:0 auto;padding:24px">
     <h1 style="margin:0 0 4px">Reference UX Parity — contact sheet</h1>
-    <p style="color:#878a93;margin:0 0 20px">Side-by-side reference workspace vs IOI candidate. Structural parity requires the reference shell regions (rail · header · toolbar · body · right · tray). Only <b>daemon_wired</b> is true parity. ${rows.length} surface(s).</p>
+    <p style="color:#878a93;margin:0 0 20px">Side-by-side reference vs IOI candidate. <b>visual_parity</b> (the daemon_wired gate) requires region geometry + theme match + reproduction of the reference's IA landmarks — not just region-name overlap. ${rows.length} surface(s).</p>
     ${rows.map(cell).join("")}</body>`;
 }
 
@@ -146,31 +212,34 @@ async function run() {
   for (const s of surfaces) {
     const refPng = path.join(ARTIFACT_DIR, "screens", `${s.slug}-reference.png`);
     const ioiPng = path.join(ARTIFACT_DIR, "screens", `${s.slug}-ioi.png`);
-    const ref = await capture(ctx, s.reference_url, refPng);
-    const ioi = await capture(ctx, s.ioi_url, ioiPng);
-    const p = parityOf(ref.regions, ioi.regions);
-    // GUARDS for a trustworthy parity verdict: (1) BOTH screenshots are real evidence; (2) BOTH sides
-    // are VALID surfaces, not error pages — an error page renders only global chrome, so region-
-    // matching would falsely score parity whether it's the REFERENCE or the IOI CANDIDATE that errored.
-    // A parity claim requires a valid reference AND a valid (non-errored) IOI candidate.
+    const ref = await capture(ctx, s.reference_url, refPng, s.reference_landmarks);
+    const ioi = await capture(ctx, s.ioi_url, ioiPng, s.reference_landmarks);
+    const p = parityOf(ref, ioi, s.reference_landmarks);
+    // GUARDS: (1) BOTH screenshots are real evidence; (2) BOTH sides are VALID surfaces, not error
+    // pages — an error page renders only global chrome, so matching would falsely score parity whether
+    // it is the REFERENCE or the IOI CANDIDATE that errored. Parity requires both valid.
     const evidence_ok = ref.screenshotOk && ioi.screenshotOk;
     const reference_valid = !ref.errored && ref.loaded && ref.regions.length > 0;
     const ioi_valid = !ioi.errored && ioi.loaded;
     const structural_parity = p.structural_parity && evidence_ok && reference_valid && ioi_valid;
+    const visual_parity = p.visual_parity && evidence_ok && reference_valid && ioi_valid;
     rows.push({ slug: s.slug, owner: s.owner, matrix_class: s.matrix_class, reference_workspace: s.reference_workspace,
-      reference_url: s.reference_url, ioi_url: s.ioi_url,
-      reference_regions: ref.regions, ioi_regions: ioi.regions, shared: p.shared, parity_score: p.score,
-      structural_parity, evidence_ok, reference_valid, reference_errored: ref.errored, ioi_valid, ioi_errored: ioi.errored,
+      reference_url: s.reference_url, ioi_url: s.ioi_url, reference_landmarks: s.reference_landmarks,
+      reference_regions: ref.regions, ioi_regions: ioi.regions, shared: p.shared, region_score: p.region_score,
+      structural_parity, visual_parity, evidence_ok, reference_valid, reference_errored: ref.errored, ioi_valid, ioi_errored: ioi.errored,
+      reference_theme: ref.theme, ioi_theme: ioi.theme, theme_match: p.theme_match,
+      reference_body_luminance: ref.bodyLuminance, ioi_body_luminance: ioi.bodyLuminance,
+      landmark_declared: p.landmark_declared, landmark_applicable: p.landmark_applicable, landmark_covered: p.landmark_covered, landmark_coverage: p.landmark_coverage, landmarks_missing: p.landmarks_missing,
       reference_loaded: ref.loaded, ioi_loaded: ioi.loaded,
       reference_screenshot_bytes: ref.screenshotBytes, ioi_screenshot_bytes: ioi.screenshotBytes,
       reference_title: ref.title, ioi_title: ioi.title, reference_visible_text: ref.visibleText, ioi_visible_text: ioi.visibleText });
-    console.log(`  ${structural_parity ? "PARITY " : ref.errored ? "REF-ERR " : ioi.errored ? "IOI-ERR " : "substrate"}  ${s.slug.padEnd(12)} ref[${ref.regions.join(",")}]${ref.errored ? "(errored)" : ""} ioi[${ioi.regions.join(",")}]${ioi.errored ? "(errored)" : ""} score ${p.score}`);
+    console.log(`  ${visual_parity ? "PARITY  " : ref.errored ? "REF-ERR " : ioi.errored ? "IOI-ERR " : "no-parity"}  ${s.slug.padEnd(12)} regions ${p.region_score} theme ${ref.theme}/${ioi.theme}${p.theme_match ? "✓" : "✗"} landmarks ${p.landmark_covered}/${p.landmark_applicable}${p.visual_parity ? "" : p.landmarks_missing && p.landmarks_missing.length ? ` [missing: ${p.landmarks_missing.slice(0, 4).join(",")}]` : ""}`);
   }
   await browser.close();
   const result = {
-    schema: "ioi.hypervisor.reference-parity-harness.v1",
-    parity_threshold: PARITY_THRESHOLD, core_regions: CORE_REGIONS, region_keys: REGION_KEYS,
-    rule: "Only daemon_wired = true parity. A surface passes structural parity when it reproduces the reference shell regions (score >= threshold + core regions present).",
+    schema: "ioi.hypervisor.reference-parity-harness.v2",
+    parity_threshold: PARITY_THRESHOLD, landmark_threshold: LANDMARK_THRESHOLD, core_regions: CORE_REGIONS, region_keys: REGION_KEYS,
+    rule: "Only daemon_wired = true parity. visual_parity (the daemon_wired gate) requires region geometry + theme match + reproduction of the reference's IA landmarks. structural_parity is the coarse region-only signal.",
     surfaces: rows,
   };
   writeFileSync(path.join(ARTIFACT_DIR, "result.json"), JSON.stringify(result, null, 2) + "\n");
@@ -180,7 +249,7 @@ async function run() {
 }
 
 run().then((r) => {
-  const parity = r.surfaces.filter((s) => s.structural_parity).length;
-  const errored = r.surfaces.filter((s) => s.reference_errored).length;
-  console.log(`${r.surfaces.length} surface(s) · ${parity} at structural parity · ${r.surfaces.length - parity} not-yet-parity (${errored} with an errored reference)`);
+  const parity = r.surfaces.filter((s) => s.visual_parity).length;
+  const errored = r.surfaces.filter((s) => s.reference_errored || s.ioi_errored).length;
+  console.log(`${r.surfaces.length} surface(s) · ${parity} at VISUAL parity · ${r.surfaces.length - parity} not-yet-parity (${errored} with an errored side)`);
 }).catch((e) => { console.error("harness crashed:", e); process.exit(1); });
