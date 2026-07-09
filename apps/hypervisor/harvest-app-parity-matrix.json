@@ -233,7 +233,7 @@
       "port_surface": "/__ioi/ontology/explorer",
       "surface_name": "Ontology",
       "parity_blocked": "local /workspace/hubble reference does not cleanly boot — the /__apps/explorer proxy renders a blank body and the mirror's data lanes render 'Failed to load' (no backend); no valid reference to certify visual_parity until a re-harvest",
-      "binding": "faithful Object Explorer shell over real ODK truth — an object-type CATALOG (name · status · objects · usage · type groups · description) across all ontologies + a working server-side type filter, an object-set CATALOG over real materialized object sets (name · ontology · object type · object count), and Shortcuts; every populated cell is daemon truth",
+      "binding": "faithful Object Explorer shell over real ODK truth — an object-type CATALOG (name · status · objects · usage · ontology · description) across all ontologies + a working server-side type filter, an object-set CATALOG over real materialized object sets (name · ontology · object type · object count), and Shortcuts; every populated cell is daemon truth",
       "candidate_surface": "/__ioi/ontology/explorer"
     },
     {
