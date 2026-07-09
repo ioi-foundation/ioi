@@ -17,8 +17,8 @@
   "total_seeds": 39,
   "by_parity_class": {
     "substrate_bound": 8,
-    "reference_capture": 28,
-    "reference_ported": 2,
+    "reference_capture": 27,
+    "reference_ported": 3,
     "daemon_wired": 1
   },
   "legend": {
@@ -225,11 +225,16 @@
       "capture_base": "/workspace/hubble/",
       "grammar": "table_list",
       "tier": "high_value",
-      "parity_class": "reference_capture",
+      "parity_class": "reference_ported",
       "capture_state": "boots_graph",
       "reference_capture": "/__apps/explorer",
       "reference_workspace": "/workspace/hubble/",
-      "note": "object explorer + saved sets; unbound"
+      "note": "reference_ported (#35): faithful light Object-Explorer shell (global rail + search header + Shortcuts + object-type catalog + object-set catalog), wired to real object types + materialized sets, first-class linked to /__ioi/ontology/manager; READ-ONLY; object-instance full-text search / faceted Filter-by / Recents / Favorites / sort / type-group+application tabs / Created-by-me+Shared-with-me = named gaps disabled in place; NOT daemon_wired — the local Hubble reference is blank/failed, so the hardened harness cannot certify parity",
+      "port_surface": "/__ioi/ontology/explorer",
+      "surface_name": "Ontology",
+      "parity_blocked": "local /workspace/hubble reference does not cleanly boot — the /__apps/explorer proxy renders a blank body and the mirror's data lanes render 'Failed to load' (no backend); no valid reference to certify visual_parity until a re-harvest",
+      "binding": "faithful Object Explorer shell over real ODK truth — an object-type CATALOG (name · status · objects · usage · type groups · description) across all ontologies + a working server-side type filter, an object-set CATALOG over real materialized object sets (name · ontology · object type · object count), and Shortcuts; every populated cell is daemon truth",
+      "candidate_surface": "/__ioi/ontology/explorer"
     },
     {
       "owner": "Ontology",
