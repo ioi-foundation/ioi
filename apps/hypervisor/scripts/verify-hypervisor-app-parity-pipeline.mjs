@@ -53,7 +53,7 @@ async function run() {
   const cleanup = [];
   const SENTINEL = "pipeline-parity-bearer";
 
-  // 0. Matrix — pipeline is daemon_wired (TRUE parity); siblings still substrate_bound.
+  // 0. Matrix — pipeline is reference_ported (shell ported + wired, NOT certified parity); siblings substrate_bound.
   const check = spawnSync("node", [path.join(here, "build-app-parity-matrix.mjs"), "--check"], { encoding: "utf8" });
   ok("parity matrix is current (regenerated == committed)", check.status === 0, (check.stderr || "").trim().slice(0, 80));
   const matrix = JSON.parse(spawnSync("node", ["-e", `import(${JSON.stringify(path.join(here, "..", "harvest-app-parity-matrix.json"))}, { with: { type: "json" } }).then(m => console.log(JSON.stringify(m.default)))`], { encoding: "utf8" }).stdout || "{}");
@@ -61,6 +61,19 @@ async function run() {
   ok("matrix classifies pipeline as reference_ported → /__ioi/pipeline (shell ported + wired) with a parity_blocked note", bySlug.pipeline?.parity_class === "reference_ported" && bySlug.pipeline?.port_surface === "/__ioi/pipeline" && bySlug.pipeline?.candidate_surface === "/__ioi/pipeline" && /error/i.test(bySlug.pipeline?.parity_blocked || ""));
   ok("no false parity for pipeline: NOT daemon_wired (its errored builder reference cannot certify parity); lineage/vertex stay substrate_bound", bySlug.pipeline?.parity_class !== "daemon_wired" && bySlug.lineage?.parity_class === "substrate_bound" && bySlug.vertex?.parity_class === "substrate_bound");
   ok("estate honest: reference_capture still the majority; no false 'covered'", (matrix.by_parity_class?.reference_capture || 0) >= (matrix.by_parity_class?.reference_ported || 0) && !(matrix.seeds || []).some((s) => s.parity_class === "covered"));
+
+  // 0b. DATA-CLEAN PREFLIGHT (#37) — the block is MACHINE-PROVEN from the live mirror, not prose. The
+  // data-clean gate must be FALSE for pipeline to honestly stay reference_ported; if a re-harvest ever
+  // makes it TRUE, this section FAILS and forces the promotion decision (declare landmarks → hardened
+  // harness → daemon_wired). The re-harvest workflow that would flip it is asserted to exist.
+  const pfDir = path.join(appRoot, ".artifacts", "pipeline-reference-preflight");
+  const pf = spawnSync("node", [path.join(here, "verify-pipeline-reference-data-clean.mjs")], { encoding: "utf8", timeout: 120000, env: { ...process.env, IOI_HARNESS_ARTIFACT_DIR: pfDir } });
+  let pfr = null;
+  if (existsSync(path.join(pfDir, "result.json"))) { try { pfr = JSON.parse(readFileSync(path.join(pfDir, "result.json"), "utf8")); } catch { /* */ } }
+  ok("the data-clean preflight ran + emitted a result.json (proves the reference state from the live mirror)", pfr && typeof pfr.data_clean === "boolean" && Array.isArray(pfr.lanes) && pfr.lanes.length >= 3, pfr ? `data_clean=${pfr.data_clean} lanes=${pfr.lanes.length}` : `exit ${pf.status}`);
+  ok("the reference is NOT data-clean → pipeline HONESTLY stays reference_ported (trip-wire: flips to a FAIL the day a re-harvest makes it data-clean, forcing promotion)", pfr && pfr.data_clean === false && bySlug.pipeline?.parity_class === "reference_ported", pfr ? `data_clean=${pfr.data_clean} class=${bySlug.pipeline?.parity_class}` : "preflight missing");
+  ok("the block is SPECIFIC: proxy errors + landing data-fails + the canvas fails to initialize on a MISSING lazy chunk (backfill target)", pfr && /an error occurred/i.test(pfr.blocking_reason) && /failed to load|unable to load/i.test(pfr.blocking_reason) && /failed to initialize/i.test(pfr.blocking_reason) && pfr.lanes.some((l) => (l.missing_lazy_chunks || []).length > 0), pfr ? `chunks=${[...new Set(pfr.lanes.flatMap((l) => l.missing_lazy_chunks || []))].length}` : "n/a");
+  ok("the re-harvest workflow exists (the runnable path to flip data_clean true), guarded (no live capture by default)", existsSync(path.join(here, "reharvest-pipeline-builder.mjs")) && existsSync(path.join(here, "verify-pipeline-reference-data-clean.mjs")));
 
   // 1. Reference baseline boots the familiar builder, brand-clean.
   const ref = await page(`${SERVE}/__apps/pipeline`);
