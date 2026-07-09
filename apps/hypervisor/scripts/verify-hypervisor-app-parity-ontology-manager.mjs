@@ -11,7 +11,7 @@
 //
 // This verifier enforces the #34-review HARDENED bar — region-NAME overlap is NOT enough:
 //   - MATRIX: schema = daemon_wired → /__ioi/ontology/manager, with a real reference_landmarks spec.
-//     approvals was reclassified daemon_wired → reference_ported (its dark shell fails the hardened gate).
+//     approvals is also daemon_wired → /__ioi/governance/approvals (the faithful light re-port, #36).
 //   - REFERENCE VALID + LIGHT: /__apps/schema boots the Ontology-Manager grammar, non-errored.
 //   - FAITHFUL PORTED SHELL: the og-shell (dark global rail + light app rail + light card-first body),
 //     LIGHT theme, card-first — NOT the dark automationsShell and NOT the earlier dark om-shell.
@@ -46,14 +46,14 @@ async function run() {
   const up = await fetch(`${DAEMON}/v1/hypervisor/odk/domain-ontologies`).then((r) => r.ok).catch(() => false);
   if (!up) { console.error("BLOCKED: daemon ODK plane not reachable at " + DAEMON); process.exit(2); }
 
-  // 0. Matrix — schema is daemon_wired with a real landmark spec; approvals is reference_ported.
+  // 0. Matrix — schema is daemon_wired with a real landmark spec; approvals is also daemon_wired (#36).
   const check = spawnSync("node", [path.join(here, "build-app-parity-matrix.mjs"), "--check"], { encoding: "utf8" });
   ok("parity matrix is current (regenerated == committed)", check.status === 0, (check.stderr || "").trim().slice(0, 80));
   const matrix = JSON.parse(spawnSync("node", ["-e", `import(${JSON.stringify(path.join(here, "..", "harvest-app-parity-matrix.json"))}, { with: { type: "json" } }).then(m => console.log(JSON.stringify(m.default)))`], { encoding: "utf8" }).stdout || "{}");
   const bySlug = Object.fromEntries((matrix.seeds || []).map((s) => [s.slug, s]));
   ok("matrix classifies schema as daemon_wired → /__ioi/ontology/manager (TRUE parity)", bySlug.schema?.parity_class === "daemon_wired" && bySlug.schema?.port_surface === "/__ioi/ontology/manager" && bySlug.schema?.candidate_surface === "/__ioi/ontology/manager");
   ok("schema carries a real reference_landmarks spec (≥ 5 IA labels the hardened harness requires)", Array.isArray(bySlug.schema?.reference_landmarks) && bySlug.schema.reference_landmarks.length >= 5 && bySlug.schema.reference_landmarks.includes("Discover") && bySlug.schema.reference_landmarks.includes("Object types"), (bySlug.schema?.reference_landmarks || []).length + " landmarks");
-  ok("approvals reclassified daemon_wired → reference_ported (its dark shell fails the hardened gate)", bySlug.approvals?.parity_class === "reference_ported" && typeof bySlug.approvals?.parity_blocked === "string" && /native|dark|theme|IA/i.test(bySlug.approvals.parity_blocked));
+  ok("approvals is also daemon_wired (the faithful light re-port, #36) — schema is not the only parity surface", bySlug.approvals?.parity_class === "daemon_wired" && Array.isArray(bySlug.approvals?.reference_landmarks) && bySlug.approvals.reference_landmarks.length >= 5);
   ok("daemon_wired is sacred: reference_capture is the majority; no false 'covered'", (matrix.by_parity_class?.reference_capture || 0) > (matrix.by_parity_class?.daemon_wired || 0) && !(matrix.seeds || []).some((s) => s.parity_class === "covered"));
 
   // 1. Reference boots (valid, non-errored). It is a third-party light capture — brand strings on the

@@ -3,7 +3,7 @@
   "phase": "Reference UX Port",
   "doctrine": "Reference UX port first (port the source-neutralized reference shell/layout) → daemon truth inside that UX (wire panels, tables, graph nodes, toolbars, drawers, empty + disabled states) → IOI-native redesign later. The dark IOI surfaces built #3–#30 are substrate, not parity.",
   "parity_rule": "Only `daemon_wired` counts as TRUE reference UX parity: a FAITHFUL port of the reference UX (same theme + IA + layout) wired to daemon truth that passes the HARDENED Playwright harness — `visual_parity` = region geometry + theme (light/dark) match + reproduction of the reference's IA landmarks. Region-name overlap alone is NOT parity (#34 review). `substrate_bound` = a dark IOI surface (custom automationsShell) over daemon truth — valuable substrate, NOT parity. `reference_ported` = a shell ported + wired but not certified under the hardened gate (errored reference OR a native redesign that does not reproduce the reference theme + IA). A surface must not claim parity without side-by-side screenshots + the hardened harness pass.",
-  "reset_note": "PR #31 presentation-layer rebase: the former `daemon_bound` class is retired; its 10 surfaces are reclassified `substrate_bound`, with all daemon planes / fail-closed contracts / truth verifiers preserved. #34 review HARDENED the parity gate (theme + IA landmarks, not just region names): #34 Ontology Manager is the first FAITHFUL light two-rail port to certify `daemon_wired`; #33 approvals was reclassified `reference_ported` (a wired but native-dark shell — not a faithful port of the light reference). #32 pipeline stays `reference_ported` (errored local builder reference).",
+  "reset_note": "PR #31 presentation-layer rebase: the former `daemon_bound` class is retired; its 10 surfaces are reclassified `substrate_bound`, with all daemon planes / fail-closed contracts / truth verifiers preserved. #34 review HARDENED the parity gate (theme + IA landmarks, not just region names): #34 Ontology Manager is the first FAITHFUL light two-rail port to certify `daemon_wired`; #33 approvals was reclassified `reference_ported` (a wired but native-dark shell), then #36 RE-PORTED it as a FAITHFUL light faceted inbox and PROMOTED it back to `daemon_wired` — the second faithful port. #35 Object Explorer is `reference_ported` (blank/failed local Hubble reference). #32 pipeline stays `reference_ported` (errored local builder reference).",
   "estate_backstop": {
     "executable_seeds": 39,
     "note": "The 39 executable seeds are the migration queue; the 45-app local-composition crosswalk is the estate backstop so coverage does not shrink.",
@@ -18,8 +18,8 @@
   "by_parity_class": {
     "substrate_bound": 8,
     "reference_capture": 27,
-    "reference_ported": 3,
-    "daemon_wired": 1
+    "reference_ported": 2,
+    "daemon_wired": 2
   },
   "legend": {
     "reference_capture": "the /__apps/<slug> reference baseline serves; no IOI port exists",
@@ -575,15 +575,24 @@
       "capture_base": "/workspace/approvals-app/",
       "grammar": "table_list",
       "tier": "high_value",
-      "parity_class": "reference_ported",
+      "parity_class": "daemon_wired",
       "capture_state": "boots_table_list",
       "reference_capture": "/__apps/approvals",
       "reference_workspace": "/workspace/approvals-app/",
-      "note": "wired to real daemon transitions (no new governance semantics); reviewer-assignment / delegation / comments / SLA / audit-export = named gaps; substrate table stays at /__ioi/governance?tab=approvals; NOT daemon_wired — the shell is native-dark, not a faithful light port of the reference",
+      "note": "TRUE parity (#36) under the HARDENED gate: light faceted-inbox reference-faithful shell (matches the reference theme + IA landmarks + faceted layout), NOT the earlier dark native shell; passes the hardened Playwright harness against the VALID data-clean /__apps/approvals reference; decisions are the existing daemon transitions (no new governance semantics); reviewer-assignment / delegation / comments / SLA / audit-export + the unwired facets = named gaps disabled in place; substrate table stays at /__ioi/governance?tab=approvals",
       "port_surface": "/__ioi/governance/approvals",
       "surface_name": "Governance",
-      "parity_blocked": "the ported inbox is a dark native shell; the reference is a light faceted inbox (Quick filters / Additional filters). Wired to real ApprovalRequest truth, but does NOT reproduce the reference theme + IA under the hardened harness — awaiting a faithful light reference port",
-      "binding": "ported Approvals-inbox shell over the real daemon ApprovalRequest queue — inbox views with live counts, request table (kind · target · blast radius · age · status · in-row approve/reject/revoke), by-status detail; every cell is daemon truth",
+      "reference_landmarks": [
+        "Approvals",
+        "Quick filters",
+        "Your inbox",
+        "Created by you",
+        "All requests",
+        "Additional filters",
+        "Request type",
+        "Status"
+      ],
+      "binding": "faithful port of the reference Approvals inbox over the real daemon ApprovalRequest queue — dark global rail + a light faceted sidebar (Quick filters: Your inbox / Created by you / All requests with live counts · Additional filters: Status wired to ?status=, Request type / Created by / Assigned to you / Project / Users-or-groups / Groups as faithful named-gap facets) + a light request list (kind · subject · id · created · status pill) + an on-select right detail with approve/reject/revoke; every populated cell is daemon truth",
       "candidate_surface": "/__ioi/governance/approvals"
     },
     {
