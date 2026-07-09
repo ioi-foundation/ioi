@@ -48,9 +48,11 @@ const DEFAULT_RIDS = [
 const RIDS = (process.env.IOI_BUILDER_EXAMPLE_RID || "").split(",").map((s) => s.trim()).filter(Boolean);
 const CANVAS_RIDS = RIDS.length ? RIDS : DEFAULT_RIDS;
 
-// A page is ERRORED if any of these appear; a DATA lane FAILED if any of these appear.
-const PAGE_ERR = /an error occurred|something went wrong|failed to initialize|not found|forbidden|unauthori[sz]ed/i;
-const DATA_FAIL = /failed to load|unable to load|couldn'?t load|no results found|loading…/i;
+// A page is ERRORED if any of these appear; a DATA lane FAILED if any of these appear. Broadened to
+// catch React error-boundary / RID / init strings (review #37) — the dangerous direction is a crashed
+// canvas reading as non-errored.
+const PAGE_ERR = /an error occurred|something went wrong|went wrong|failed to initiali[sz]e|unable to (?:initiali[sz]e|render|display)|invalid resource identifier|not found|forbidden|unauthori[sz]ed|\bTypeError\b|cannot read propert/i;
+const DATA_FAIL = /failed to load|unable to load|couldn'?t load|no results found|loading\s*(?:\.\.\.|…)/i;
 
 async function capture(ctx, url, pngPath) {
   const page = await ctx.newPage();
@@ -68,7 +70,7 @@ async function capture(ctx, url, pngPath) {
   let loaded = true;
   try { await page.goto(url, { waitUntil: "domcontentloaded", timeout: 25000 }); await page.waitForTimeout(5000); }
   catch { loaded = false; }
-  let info = { url, loaded, theme: "?", railLen: 0, contentLen: 0, regions: [], canvasNodes: 0, toolbar: false, outputPanel: false, tray: false, pageErr: false, dataFail: false, sample: "", full: "", stubbedChunks };
+  let info = { url, loaded, theme: "?", railLen: 0, contentLen: 0, bodyLen: 0, regions: [], canvasNodes: 0, canvasBody: false, toolbar: false, outputPanel: false, tray: false, pageErr: false, dataFail: false, sample: "", full: "", stubbedChunks };
   try {
     const res = await page.evaluate(({ VW, VH }) => {
       const lumOf = (el) => { const m = (el && getComputedStyle(el).backgroundColor || "").match(/rgba?\(([^)]+)\)/); if (!m) return null; const p = m[1].split(",").map(Number); if (p.length >= 4 && p[3] === 0) return null; return (0.2126 * p[0] + 0.7152 * p[1] + 0.0722 * p[2]) / 255; };
@@ -76,29 +78,35 @@ async function capture(ctx, url, pngPath) {
       const pts = []; for (const fx of [0.5, 0.64, 0.78, 0.9]) for (const fy of [0.3, 0.5, 0.7]) pts.push([fx, fy]);
       const lums = pts.map(([fx, fy]) => effLum(VW * fx, VH * fy)).sort((a, b) => a - b);
       const theme = lums[Math.floor(lums.length / 2)] >= 0.5 ? "light" : "dark";
-      // visible in-viewport text split rail vs content (content = x >= 0.16·VW)
+      // visible in-viewport text: rail (x<0.16·VW) vs content (x>=0.16·VW) vs BODY (content AND below the
+      // header/toolbar band, top>=0.2·VH). The landing gate uses bodyLen so full-width header chrome
+      // (breadcrumb/tabs/search/title) can't alone satisfy the "renders builder IA" floor (review #37).
       const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
-      let railLen = 0, contentLen = 0, all = ""; let tn;
+      let railLen = 0, contentLen = 0, bodyLen = 0, all = ""; let tn;
       while ((tn = walker.nextNode())) {
         const txt = (tn.textContent || "").trim(); if (!txt) continue;
         const par = tn.parentElement; if (!par) continue;
         const cs = getComputedStyle(par); if (cs.visibility === "hidden" || cs.display === "none" || cs.opacity === "0") continue;
         const rng = document.createRange(); rng.selectNodeContents(tn); const r = rng.getBoundingClientRect();
-        if (r.width > 3 && r.height > 3 && r.right > 0 && r.bottom > 0 && r.left < VW && r.top < VH) { all += " " + txt; if (r.left < VW * 0.16) railLen += txt.length; else contentLen += txt.length; }
+        if (r.width > 3 && r.height > 3 && r.right > 0 && r.bottom > 0 && r.left < VW && r.top < VH) { all += " " + txt; if (r.left < VW * 0.16) railLen += txt.length; else { contentLen += txt.length; if (r.top >= VH * 0.2) bodyLen += txt.length; } }
       }
       const vis = (q) => Array.from(document.querySelectorAll(q)).filter((el) => { const r = el.getBoundingClientRect(); const s = getComputedStyle(el); return r.width > 24 && r.height > 20 && s.visibility !== "hidden" && s.display !== "none" && s.opacity !== "0"; });
       const boxes = (q) => vis(q).map((el) => el.getBoundingClientRect());
       const geom = { rail: (b) => b.left < VW * 0.15 && b.height > VH * 0.4, header: (b) => b.top < VH * 0.15 && b.width > VW * 0.5 && b.height < VH * 0.28, toolbar: (b) => b.top < VH * 0.45 && b.width > VW * 0.25 && b.height < VH * 0.22, body: (b) => b.width > VW * 0.4 && b.height > VH * 0.35, right: (b) => b.right > VW * 0.8 && b.height > VH * 0.3 && b.width < VW * 0.6, tray: (b) => b.bottom > VH * 0.8 && b.width > VW * 0.4 && b.height < VH * 0.4 };
       const SEL = { rail: 'nav,[class*="rail" i],[class*="sidebar" i]', header: 'header,[class*="header" i],[class*="topbar" i]', toolbar: '[role="toolbar"],[class*="toolbar" i]', body: 'main,[class*="canvas" i],[class*="graph" i],table', right: 'aside,[class*="rightpanel" i],[class*="right-panel" i],[class*="outputpanel" i],[class*="inspector" i]', tray: 'footer,[class*="tray" i],[class*="bottompanel" i],[class*="previewpanel" i],[class*="statusbar" i]' };
       const regions = Object.keys(SEL).filter((k) => boxes(SEL[k]).some(geom[k]));
-      // canvas graph NODES: visible node/vertex/card-in-canvas elements in the central body region.
-      const nodeEls = vis('[class*="node" i],[data-node],[class*="vertex" i],[class*="pipelinenode" i],[class*="board" i] [class*="card" i],[class*="graph" i] [class*="card" i]').filter((el) => { const r = el.getBoundingClientRect(); return r.left > VW * 0.16 && r.width > 60 && r.width < VW * 0.5 && r.height > 30; });
+      // canvas graph NODES: scoped to a canvas/GRAPH ANCESTOR (not any element whose class contains
+      // 'node'/'board' — that matches TreeNode / dashboard chrome), node-sized, in the content column.
+      const nodeEls = vis('[class*="canvas" i] [class*="node" i],[class*="graph" i] [class*="node" i],[class*="canvas" i] [data-node],[class*="graph" i] [data-node],[class*="vertex" i],[class*="pipelinenode" i],[class*="pipelineboard" i] [class*="card" i],[class*="graph" i] [class*="card" i]').filter((el) => { const r = el.getBoundingClientRect(); return r.left > VW * 0.16 && r.width > 60 && r.width < VW * 0.5 && r.height > 30; });
       const canvasNodes = nodeEls.length;
+      // The pipeline GRAPH BODY must actually be present (a canvas/graph container filling the body) —
+      // so a shell rendering a nodes list + toolbar/aside/footer chrome but no graph fails canvasClean.
+      const canvasBody = boxes('[class*="canvas" i],[class*="graph" i],[class*="board" i]').some(geom.body);
       const toolbar = boxes(SEL.toolbar).some(geom.toolbar);
       const outputPanel = boxes(SEL.right).some(geom.right);
       const tray = boxes(SEL.tray).some(geom.tray);
       const clean = all.replace(/\s+/g, " ").trim();
-      return { theme, railLen, contentLen, regions, canvasNodes, toolbar, outputPanel, tray, sample: clean.slice(0, 200), full: clean.slice(0, 4000), title: document.title };
+      return { theme, railLen, contentLen, bodyLen, regions, canvasNodes, canvasBody, toolbar, outputPanel, tray, sample: clean.slice(0, 200), full: clean.slice(0, 4000), title: document.title };
     }, { VW, VH });
     Object.assign(info, res);
     info.pageErr = PAGE_ERR.test(info.full || "");
@@ -132,22 +140,27 @@ async function run() {
 
   await browser.close();
 
-  // Per-lane data-clean judgement.
-  const contentFloor = 120; // more than global-chrome-only
-  const iaOk = (l) => (l.contentLen || 0) >= contentFloor && !l.pageErr;                 // real IA content, not blank/errored
-  const landingClean = (l) => iaOk(l) && !l.dataFail;                                     // + no failed data lane
-  const canvasClean = (l) => iaOk(l) && !l.dataFail && l.canvasNodes >= 2 && l.toolbar && l.outputPanel && l.tray;
+  // Per-lane data-clean judgement. iaOk uses BODY-region text (not header chrome). A landing must also
+  // carry a builder-specific IA marker (not merely be a non-error page). A canvas must present a real
+  // graph BODY + nodes + toolbar + output panel + tray. The dangerous direction is a false PASS.
+  const contentFloor = 120; // body-region text beyond global chrome
+  const BUILDER_MARK = /pipeline|builder|datasource|transform|dataset|output/i;
+  const iaOk = (l) => (l.bodyLen || 0) >= contentFloor && !l.pageErr;
+  const builderIa = (l) => BUILDER_MARK.test(l.title || "") || BUILDER_MARK.test(l.sample || "");
+  const landingClean = (l) => iaOk(l) && !l.dataFail && builderIa(l);
+  const canvasClean = (l) => iaOk(l) && !l.dataFail && l.canvasBody && l.canvasNodes >= 2 && l.toolbar && l.outputPanel && l.tray;
 
-  const proxyOk = iaOk(proxyLanding);
+  const proxyOk = landingClean(proxyLanding);
   const directLandingOk = landingClean(directLanding);
   const cleanCanvas = canvasLanes.find(canvasClean) || null;
   const data_clean = proxyOk && directLandingOk && !!cleanCanvas;
 
   // Exact blocking reason (first failing gate).
   const reasons = [];
-  if (!proxyOk) reasons.push(`proxy /__apps/pipeline not data-clean (${proxyLanding.pageErr ? `errored: "${proxyLanding.error_reason}"` : `blank/global-chrome-only content=${proxyLanding.contentLen}`})`);
-  if (!directLandingOk) reasons.push(`direct landing /workspace/builder/ not data-clean (${directLanding.pageErr ? `errored: "${directLanding.error_reason}"` : directLanding.dataFail ? `data lane failed: "${directLanding.error_reason}"` : `blank content=${directLanding.contentLen}`})`);
-  if (!cleanCanvas) reasons.push(`no data-clean canvas among ${CANVAS_RIDS.length} target(s): ${canvasLanes.map((l) => `${l.lane}(${l.pageErr ? `err:"${l.error_reason}"` : l.dataFail ? `data-fail:"${l.error_reason}"` : `nodes=${l.canvasNodes} toolbar=${l.toolbar} output=${l.outputPanel} tray=${l.tray}`}${(l.stubbedChunks || []).length ? `; missing lazy chunk(s): ${l.stubbedChunks.join(",")}` : ""})`).join(" · ")}`);
+  const landingWhy = (l) => l.pageErr ? `errored: "${l.error_reason}"` : l.dataFail ? `data lane failed: "${l.error_reason}"` : (l.bodyLen || 0) < contentFloor ? `blank/global-chrome-only body=${l.bodyLen}` : !builderIa(l) ? `no builder IA marker (title/sample lack pipeline/builder/datasource/…)` : "ok?";
+  if (!proxyOk) reasons.push(`proxy /__apps/pipeline not data-clean (${landingWhy(proxyLanding)})`);
+  if (!directLandingOk) reasons.push(`direct landing /workspace/builder/ not data-clean (${landingWhy(directLanding)})`);
+  if (!cleanCanvas) reasons.push(`no data-clean canvas among ${CANVAS_RIDS.length} target(s): ${canvasLanes.map((l) => `${l.lane}(${l.pageErr ? `err:"${l.error_reason}"` : l.dataFail ? `data-fail:"${l.error_reason}"` : `graphBody=${l.canvasBody} nodes=${l.canvasNodes} toolbar=${l.toolbar} output=${l.outputPanel} tray=${l.tray}`}${(l.stubbedChunks || []).length ? `; missing lazy chunk(s): ${l.stubbedChunks.join(",")}` : ""})`).join(" · ")}`);
   const blocking_reason = data_clean ? "" : reasons.join("  |  ");
 
   const result = {
@@ -156,12 +169,12 @@ async function run() {
     surface: "pipeline", proxy_route: "/__apps/pipeline", direct_route: "/workspace/builder/", canvas_rids: CANVAS_RIDS,
     data_clean, blocking_reason,
     gate: "data_clean requires: proxy landing IA (non-blank, non-errored) + direct landing IA with no data-fail + a canvas with >=2 graph nodes + toolbar + right output panel + bottom tray, no error/data-fail. Blank/global-chrome-only never passes.",
-    lanes: lanes.map((l) => ({ lane: l.lane, kind: l.kind, url: l.url, title: l.title, theme: l.theme, contentLen: l.contentLen, regions: l.regions, canvasNodes: l.canvasNodes, toolbar: l.toolbar, outputPanel: l.outputPanel, tray: l.tray, pageErr: l.pageErr, dataFail: l.dataFail, error_reason: l.error_reason, missing_lazy_chunks: l.stubbedChunks || [], screenshotBytes: l.screenshotBytes, screenshot: l.screenshot, sample: l.sample })),
+    lanes: lanes.map((l) => ({ lane: l.lane, kind: l.kind, url: l.url, title: l.title, theme: l.theme, contentLen: l.contentLen, bodyLen: l.bodyLen, regions: l.regions, canvasBody: l.canvasBody, canvasNodes: l.canvasNodes, toolbar: l.toolbar, outputPanel: l.outputPanel, tray: l.tray, pageErr: l.pageErr, dataFail: l.dataFail, error_reason: l.error_reason, missing_lazy_chunks: l.stubbedChunks || [], screenshotBytes: l.screenshotBytes, screenshot: l.screenshot, sample: l.sample })),
   };
   writeFileSync(path.join(ARTIFACT_DIR, "result.json"), JSON.stringify(result, null, 2) + "\n");
 
   console.log(`\nPipeline reference data-clean preflight → ${data_clean ? "DATA-CLEAN ✓" : "NOT data-clean ✗"}`);
-  for (const l of result.lanes) console.log(`  ${l.lane.padEnd(16)} ${l.kind.padEnd(15)} err=${l.pageErr ? "Y" : "·"} dataFail=${l.dataFail ? "Y" : "·"} content=${String(l.contentLen).padStart(4)} nodes=${l.canvasNodes} tb=${l.toolbar ? "Y" : "·"} out=${l.outputPanel ? "Y" : "·"} tray=${l.tray ? "Y" : "·"}${l.error_reason ? `  [${l.error_reason}]` : ""}${(l.missing_lazy_chunks || []).length ? `  {missing chunk: ${l.missing_lazy_chunks.join(",")}}` : ""}`);
+  for (const l of result.lanes) console.log(`  ${l.lane.padEnd(16)} ${l.kind.padEnd(15)} err=${l.pageErr ? "Y" : "·"} dataFail=${l.dataFail ? "Y" : "·"} body=${String(l.bodyLen).padStart(4)} graph=${l.canvasBody ? "Y" : "·"} nodes=${l.canvasNodes} tb=${l.toolbar ? "Y" : "·"} out=${l.outputPanel ? "Y" : "·"} tray=${l.tray ? "Y" : "·"}${l.error_reason ? `  [${l.error_reason}]` : ""}${(l.missing_lazy_chunks || []).length ? `  {missing chunk: ${l.missing_lazy_chunks.join(",")}}` : ""}`);
   if (!data_clean) console.log(`\nBLOCKING REASON: ${blocking_reason}`);
   console.log(`\nartifact: ${path.relative(process.cwd(), ARTIFACT_DIR)}/ (result.json + screens/)`);
   return result;

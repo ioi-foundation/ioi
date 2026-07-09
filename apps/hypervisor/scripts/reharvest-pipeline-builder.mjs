@@ -75,15 +75,17 @@ async function main() {
   mkdirSync(artifactDir, { recursive: true });
   const auth = authFreshness(authPath);
   const sessionFresh = auth.fresh;
-  const liveStatus = await reachable(liveBase);
   const toolsPresent = existsSync(installer) && existsSync(scaffolder);
   const expStr = auth.tokenExp ? new Date(auth.tokenExp * 1000).toISOString().slice(0, 16) + "Z" : "no PALANTIR_TOKEN";
+  // The DEFAULT dry-run contacts NOTHING external. Only probe Foundry reachability when a live capture
+  // is actually being attempted (IOI_REHARVEST_LIVE=1) — and even then it is an UNauthenticated HEAD.
+  const liveStatus = live ? await reachable(liveBase) : null;
 
   console.log("=== Pipeline Builder re-harvest — readiness ===");
   console.log(`  auth state        : ${auth.present ? `${auth.cookies} cookies; PALANTIR_TOKEN exp ${expStr}` : "MISSING"} (${path.relative(repoRoot, authPath)})`);
   console.log(`  session fresh     : ${sessionFresh ? "yes" : "NO — token stale/expired; re-harvest needs a FRESH Foundry login"}`);
   console.log(`  capture tools     : ${toolsPresent ? "present" : "MISSING"} (install_application_examples.mjs / scaffold_examples.mjs)`);
-  console.log(`  live Foundry      : ${liveBase} → HTTP ${liveStatus} (reachable ${liveStatus ? "yes" : "no"}; NOT authenticated by this script)`);
+  console.log(`  live Foundry      : ${liveBase} → ${liveStatus === null ? "not probed (dry-run; zero external contact)" : `HTTP ${liveStatus} (unauthenticated HEAD)`}`);
   console.log(`  target RIDs       : ${BUILDER_RIDS.join(" · ")}`);
 
   console.log("\n=== current reference state (data-clean preflight) ===");
