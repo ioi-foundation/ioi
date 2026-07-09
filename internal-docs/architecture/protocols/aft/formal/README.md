@@ -64,11 +64,12 @@ closed-slot extraction is no longer merely a recoverer-side capability: the
 positive ordering path admits an order certificate only after successful
 extraction from the published bulletin surface, and the negative path rewrites
 the slot into a canonical abort when objective obstructions are published. The
-live theorem surface is now singular: the whole AFT stack universally breaks
-the lower bound with no qualifiers. The nested-guardian package is one
-implementation carrier of the same AFT-native recovery and
-historical-continuation module rather than an exception lane outside the main
-theorem.
+live theorem surface is now singular: the whole AFT stack breaks the classical
+indefinite-suppression lower bound in the AFT model delta, where published
+admissible artifacts cannot be indefinitely suppressed from correct parties
+after stabilization. The nested-guardian package is one implementation carrier
+of the same AFT-native recovery and historical-continuation module rather than
+an exception lane outside the main theorem.
 Ordinary canonical collapse / replay history now names the deeper
 historical-continuation root, the AFT recovered-state contract carries the
 same continuation bundle, and the historical continuation objects are
@@ -120,26 +121,29 @@ implementation and policy layer above that kernel.
 
 Taken together, the canonical-ordering, `Asymptote`, and nested-guardian
 packages should now be read as one formal kernel for `99% Byzantine Tolerance`
-over the public-state-continuity substrate: a fixed public boundary admits at
-most one durable close-or-abort result, conflicting candidates are killed by
-short objective negative witnesses, durable execution or sealed release
-advances only through canonical collapse, and deeper recovered history is
-ordinary endogenous AFT history through the same continuation root named by
-canonical collapse / replay and carried by the recovered-state surface. In the live
-runtime, the ordering side now refines the PSC kernel into an explicit
-`CanonicalOrderAbortReason` basis over the executable verifier surface, while
-the formal package keeps omission dominance as the minimal proof kernel that
-those richer runtime aborts elaborate. The remaining open program is no longer
-lower-bound universalization inside \AFT{}; that bridge is now complete. The
-package should therefore be read against one singular theorem statement:
+in the AFT model delta: a fixed public boundary admits at most one durable
+close-or-abort result, conflicting candidates are killed by short objective
+negative witnesses, durable execution or sealed release advances only through
+canonical collapse, and deeper recovered history is ordinary endogenous AFT
+history through the same continuation root named by canonical collapse / replay
+and carried by the recovered-state surface. In the live runtime, the ordering
+side now refines the PSC kernel into an explicit `CanonicalOrderAbortReason`
+basis over the executable verifier surface, while the formal package keeps
+omission dominance as the minimal proof kernel that those richer runtime aborts
+elaborate. The remaining open program is no longer lower-bound universalization
+inside bare DLS / PBFT; the bridge is now the explicit model delta:
+authenticated direct dissemination plus compressed public echo removes the
+classical adversary's indefinite-suppression step. The package should therefore
+be read against one singular theorem statement:
 
 - \AFT{} has one singular theorem surface for relay-free, coordinator-free,
-  pure-software deterministic `99% Byzantine Tolerance`, explicitly
-  universally breaking the lower bound with no qualifiers, and unconditional classical
-  `99% Byzantine agreement` in the ordinary dense-vote permissioned model.
+  pure-software deterministic `99% Byzantine Tolerance` in the AFT model delta,
+  breaking the classical indefinite-suppression lower bound without claiming to
+  refute DLS / PBFT inside its own quantified model.
 - Proof-carrying public evidence, endogenous historical continuation,
-  collapse-gated durability, and restart continuity are the realizing
-  architecture of that same classical sentence, not a residual semantic delta.
+  collapse-gated durability, restart continuity, direct dissemination, and
+  compressed echo are the realizing architecture of that model-delta sentence,
+  not a residual semantic gap.
 
 The next formal work is therefore no longer theorem collapse; it is package
 hygiene, proof maintenance, and any broader stress or mechanization coverage we
@@ -149,9 +153,10 @@ The discharged liveness bridge fixed the target more sharply:
 
 - adversary model: arbitrary Byzantine equivocation, omission, restart,
   withholding, and malicious profile/rotation behavior
-- scheduler model: arbitrary pre-stabilization interleavings, then eventual
-  fairness for the AFT public-state substrate so repeatedly reissued admissible
-  objects are eventually delivered, persisted, and fetchable by content hash
+- scheduler model: arbitrary pre-stabilization interleavings, then
+  post-stabilization authenticated correct-party delivery plus compressed echo
+  visibility so repeatedly reissued admissible objects are eventually
+  delivered, persisted, and fetchable by content hash
 - kernel obligations:
   - frontier-generation progress
   - canonical-resolution progress

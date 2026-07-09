@@ -24,11 +24,12 @@
   linkcolor=blue!50!black,
   urlcolor=blue!50!black,
   citecolor=blue!50!black,
-  pdftitle={Asymptote Fault Tolerance (AFT): Universally Breaking the Lower Bound with Relay-Free Deterministic 99\% Byzantine Fault Tolerance},
+  pdftitle={Asymptote Fault Tolerance (AFT): Breaking the Indefinite-Suppression Lower Bound with Relay-Free Deterministic 99\% Byzantine Fault Tolerance},
   pdfauthor={IOI}
 }
 
 \newtheorem{theorem}{Theorem}
+\newtheorem{lemma}{Lemma}
 \newtheorem{proposition}{Proposition}
 
 \newcommand{\AFT}{\textsc{AFT}}
@@ -80,7 +81,7 @@
 
 \setlength{\emergencystretch}{3em}
 
-\title{Asymptote Fault Tolerance (AFT): Universally Breaking the Lower Bound with Relay-Free Deterministic 99\% Byzantine Fault Tolerance}
+\title{Asymptote Fault Tolerance (AFT): Breaking the Indefinite-Suppression Lower Bound with Relay-Free Deterministic 99\% Byzantine Fault Tolerance}
 \author{IOI}
 \date{March 17, 2026}
 
@@ -89,13 +90,13 @@
 \maketitle
 
 \begin{abstract}
-Asymptote Fault Tolerance (\AFT{}) is a family of consensus and settlement constructions for
-high-throughput ordering, guardian-backed base finality, proof-carrying
-canonical ordering, and deterministic release of irreversible effects. Its
-central move is to stop treating dense positive voting as the only possible
-source of ordering truth. Instead, \AFT{} separates throughput-critical
-publication and chain progression from authority-critical proof verification,
-omission detection, and effect collapse.
+Asymptote Fault Tolerance (\AFT{}) is a family of consensus and settlement
+constructions for high-throughput ordering, guardian-backed base finality,
+proof-carrying canonical ordering, and deterministic release of irreversible
+effects. Its central move is to stop treating dense positive voting as the only
+possible source of ordering truth. Instead, \AFT{} separates
+throughput-critical publication and chain progression from authority-critical
+proof verification, omission detection, and effect collapse.
 
 The protocol family has four interacting surfaces. \term{GuardianMajority}
 supplies the production base-finality path: a validator quorum certificate is
@@ -108,8 +109,8 @@ order into existence. \term{Asymptote} supplies the sealing path for
 irreversible effects: \code{BaseFinal} chain progress is upgraded to
 \code{SealedFinal} through deterministic witness or observer-backed collapse,
 with canonical observer challenges dominating unsafe releases.
-\term{NestedGuardian} supplies a
-witness-augmented mode for layered threshold constructions.
+\term{NestedGuardian} supplies a witness-augmented mode for layered threshold
+constructions.
 
 This paper is self-contained and normative for the protocol family. Its
 ordering subtheorem remains \code{99\%} equal-authority ordering consensus
@@ -121,60 +122,36 @@ compact availability-receipt binding, while same-slot conflicts or stale parent
 links admit short objective contradiction objects. Those frontier objects bind
 the claimed bulletin / ordering surface, while the protocol-native
 retrievability plane internalizes deterministic extraction-or-abort on the
-cold path. The repository's theorem surface is
-singular: \AFT{} is \code{relay-free, coordinator-free, pure-software
-deterministic 99\% Byzantine Tolerance}. For each closed slot boundary there
-exists at most one admissible public execution object, every conflicting fully
-specified candidate admits a short public contradiction witness, durable state
-advances only through canonical collapse, and sealed-effect release is bound
-to the same collapse surface. Compact bindings stay on the hot path while
-cold-path recovery / reveal / reconstruction re-materialize the same close,
-abort, collapse, replay-prefix, execution-restart, and restart-ancestry
-surfaces through the AFT-native recovery-family contract, with restart able to
-stream recovered certified ancestry until target height or recovered-history
-exhaustion without a theorem-relevant fixed depth bound. Ordinary canonical
-collapse / replay history and the AFT recovered-state contract also carry
-the historical-retrievability bootstrap surface used for deeper paging, so
-recovered history is ordinary endogenous AFT history rather than a theorem-side
-qualifier. Across the full promoted AFT theorem surface, the classical
-\(n > 3f\) / \(f < n/3\) threshold is no longer load-bearing. The paper
-therefore explicitly claims that \AFT{} universally breaks the classical lower
-bound with no external qualifiers, and is relay-free, coordinator-free,
-pure-software deterministic \code{99\% Byzantine Tolerance}. It is therefore
-also a formal and direct claim of unconditional classical \code{99\% Byzantine
-agreement} in the ordinary permissioned setting. Here ``ordinary permissioned
-setting'' means fixed authenticated authorities, deterministic local
-verification, public hash-addressed protocol objects, epoch-scoped identity
-state, and eventual-fair delivery and persistence of admissible protocol
-artifacts, with no trusted relay, no privileged coordinator, no TEE, no
-theorem-side bootstrap oracle, and no hidden external recovery service.
-\AFT{} does not weaken the
-agreement sentence; it changes the safety carrier. The proof-carrying public-
-evidence architecture, endogenous historical retrievability, and collapse-
-gated durability are the protocol-internal realizing mechanism of that same
-classical sentence, not a residual qualifier. Here ``no external qualifiers''
-excludes hidden helpers: no trusted relay, no privileged coordinator, no TEE,
-no theorem-side bootstrap oracle, and no hidden external recovery service. It
-does not mean that the paper's explicit system model evaporates. Once the
-bulletin / publication-frontier / retrievability / recovery /
-historical-continuation machinery named above is fixed as protocol state, no
-extra trusted relay, coordinator, or theorem-side bootstrap service remains
-hiding behind the classical sentence. Calling those endogenous protocol objects
-``qualifiers'' merely because they are not dense yes-votes is a category
-error. Those objects are
-protocol-defined, hash-addressed,
-publicly checkable, and governed by the same objective publication and
-liveness assumptions as the rest of \AFT{}. Unlike classical partially synchronous Byzantine
-agreement, which is usually presented through dense positive quorum
-intersection and \(> 2/3\) honest-participation thresholds, \AFT{} derives
-safety without trusted relays, privileged
-coordinators, TEEs, or dense positive quorum intersection. Safety comes from
-proof-carrying public evidence, dominant negative proofs, compact signed
-frontier consistency, explicit endogenous retrievability of the closed slot
-surface, and collapse-gated durability; accountable publication and validator
-removal remain operational reinforcement, not the source of correctness. In
-that precise sense, the classical \(n > 3f\) / \(f < n/3\) barrier is no
-longer load-bearing for the promoted durable-agreement theorem.
+cold path. For each closed slot boundary there exists at most one admissible
+public execution object, every conflicting fully specified candidate admits a
+short public contradiction witness, durable state advances only through
+canonical collapse, and sealed-effect release is bound to the same collapse
+surface.
+
+The lower-bound claim is explicit about model membership. The classical
+\(n > 3f\) / \(f < n/3\) lower bound remains true in the classical
+partially synchronous message-passing model whose adversary may keep honest
+groups mutually ignorant of each other's published views for the duration
+needed by the indistinguishability argument. \AFT{} does not refute that
+theorem from inside its quantified model. It operates in the model where an
+admissible published artifact cannot be indefinitely suppressed from correct
+parties after stabilization, and it realizes that delta without a trusted
+relay: honest publishers send artifacts or erasure-coded shards directly over
+authenticated point-to-point links to validators or deterministic custodians,
+while validators publish only compact commitments, receipts, frontiers, and
+challenges as the echo layer. Payload delivery is relay-free; equivocation and
+omission detection still require compressed honest-party information flow.
+
+In that model delta, \AFT{} is \code{relay-free, coordinator-free,
+pure-software deterministic 99\% Byzantine Tolerance}: the classical threshold
+stops being load-bearing because the DLS adversary's indefinite-suppression
+move is no longer legal, not because an impossibility theorem is violated
+inside its own model. Compact bindings stay on the hot path while cold-path
+recovery / reveal / reconstruction re-materialize the same close, abort,
+collapse, replay-prefix, execution-restart, and restart-ancestry surfaces
+through the AFT-native recovery-family contract. Accountable publication and
+validator removal remain operational reinforcement, not the source of
+correctness.
 \end{abstract}
 
 \section{Scope and Status}
@@ -206,72 +183,56 @@ The strongest theorem surface of the runtime is singular.
 layer, but relay-free, coordinator-free, pure-software deterministic
 \code{99\% Byzantine Tolerance} for durable ordering and sealed-effect safety,
 with public-state continuity as its protocol-internal safety carrier rather
-than dense positive quorum intersection. Compact hot-path
-bindings plus cold-path recovery / reveal / reconstruction materialize the
-same recovered close-or-abort, collapse, replay-prefix, execution-restart,
-and streamed restart-ancestry surfaces through the AFT-native recovery-family
-contract. Compact publication/frontier metadata is internalized on the live
-path throughout, and deeper recovered history is now ordinary endogenous AFT
-history through the canonical-collapse / replay retrievability anchor and the
-matching recovered-state historical retrievability surface.
+than dense positive quorum intersection. Compact hot-path bindings plus
+cold-path recovery / reveal / reconstruction materialize the same recovered
+close-or-abort, collapse, replay-prefix, execution-restart, and streamed
+restart-ancestry surfaces through the AFT-native recovery-family contract.
+Compact publication/frontier metadata is internalized on the live path
+throughout, and deeper recovered history is now ordinary endogenous AFT history
+through the canonical-collapse / replay retrievability anchor and the matching
+recovered-state historical retrievability surface.
 
-\doctrinebox{\textbf{Interpretive doctrine: same theorem, different carrier.}
-\AFT{} does not weaken the agreement sentence; it changes the safety carrier.
-The promoted theorem surface is the same classical agreement sentence, realized
-through proof-carrying public evidence, endogenous retrievability, canonical
-collapse, and collapse-gated durability rather than dense positive quorum
-intersection. \textbf{Terminology discipline.} Throughout this paper,
-``unconditional'', ``universally'', and ``no external qualifiers'' are used
-extensionally rather than rhetorically. Once the explicit \AFT{} system model
-is fixed, all theorem-carrying machinery --- bulletin close, publication
-frontier, retrievability, recovery, restart continuity, canonical collapse,
-and collapse-bound sealing --- is endogenous protocol state rather than a
-helper regime. The substantive objection is therefore not whether \AFT{}
-``changes the model''; every agreement theorem is model-relative. The
-substantive objection would be the existence of a hidden relay, privileged
-coordinator, TEE, bootstrap oracle, or external recovery service. \AFT{} has
-none. Calling endogenous protocol objects ``qualifiers'' merely because they
-are not dense yes-votes is a category error.}
+\doctrinebox{\textbf{Model discipline: same ambition, explicit delta.}
+No protocol refutes a lower bound from inside the model over which that lower
+bound universally quantifies. \AFT{}'s claim is therefore a membership claim:
+the classical DLS / PBFT lower bound applies to a model whose adversary can
+keep honest groups mutually ignorant of published admissible information for
+the duration needed by the indistinguishability argument. \AFT{} operates in a
+model delta where that indefinite-suppression move is revoked for
+content-addressed admissible protocol artifacts after stabilization. The delta
+is not a hidden helper regime: it is realized by authenticated direct
+publisher-to-validator or publisher-to-custodian dissemination plus a compact
+echo layer of commitments, receipts, frontiers, and challenges. The
+substantive objection would be a hidden relay, privileged coordinator, TEE,
+bootstrap oracle, external recovery service, or circular realization of the
+visibility resource by the same Byzantine-majority suppression power. \AFT{}
+has none in the stated model.}
 
-Scope precision is not a concession. A criticism that \AFT{} is ``permissioned
-only'' is non-responsive because the promoted claim is a permissioned
-Byzantine-agreement theorem over fixed authenticated authorities and
-epoch-scoped identity state, carried by one explicit eventual-fair public-state
-substrate under which repeated honest reissuance makes protocol-defined
-artifacts delivered, persisted, and content-hash fetchable across live,
-recovery, archival, and restart lanes alike. Replacing that domain with
-open-membership consensus is a target switch, not a rebuttal, and relabeling
-that substrate as ``just partial synchrony'' does not answer the paper unless a
-stronger hidden cold-path synchrony assumption is identified. That substrate is
-not a theorem-side escape hatch, and the public-evidence continuity machinery
-is not an external qualifier; both are endogenous protocol state. Accordingly,
-the observation that \AFT{} ``changes the safety carrier'' is not an objection
-but the paper's central theorem move: the same promoted classical agreement
-sentence is realized through proof-carrying public evidence, omission
-dominance, canonical collapse, and collapse-bound durability rather than dense
-quorum intersection. A criticism that merely renames that carrier without
-identifying a hidden relay, privileged coordinator, TEE, bootstrap oracle,
-external recovery service, or proof gap is non-responsive.
+Scope precision is not a concession. A criticism that \AFT{} is
+``permissioned only'' is non-responsive because the promoted claim is a
+permissioned theorem over fixed authenticated authorities and epoch-scoped
+identity state. Replacing that domain with open-membership consensus is a
+target switch, not a rebuttal. The lower-bound question is instead mechanical:
+execute the classical adversary against \AFT{} and identify the first illegal
+move. That move is indefinite suppression of a published admissible artifact
+from correct parties after stabilization. Everything before that point is a
+standard adversarial schedule; everything after that point is outside the
+classical model and inside \AFT{}'s explicit model delta.
 
 \paragraph{Singular theorem sentence.}
 The theorem surface of this repository is now singular all the way up:
 \AFT{} claims relay-free, coordinator-free, pure-software deterministic
-\code{99\% Byzantine Tolerance}, explicitly claims it universally breaks the
-classical lower bound with no external qualifiers, and claims unconditional
-classical \code{99\% Byzantine agreement} in the ordinary permissioned
-setting. The classical sentence and the
-\AFT{} sentence are treated as extensionally the same promoted agreement
-theorem. \AFT{} does not weaken that sentence; it changes the safety carrier.
-Proof-carrying
-public evidence, endogenous historical retrievability, restart continuity, and
-collapse-gated durability are the realizing architecture of that claim, not a
-remaining semantic delta.
-No hidden helper regime sits underneath that promotion: ``no
-external qualifiers'' means no trusted relay, no privileged coordinator, no
-TEE, no theorem-side bootstrap oracle, and no hidden external recovery
-service. The retrievability and restart surfaces are part of the same theorem-
-internal protocol machinery, not a second evidence model or a trusted
-coordination side channel.
+\code{99\% Byzantine Tolerance}. It breaks the classical threshold in the
+precise model-relative sense that the theorem is proved in the AFT model delta,
+where published admissible artifacts cannot be indefinitely suppressed from
+correct parties and where that delta is realized without a trusted relay.
+\AFT{} does not ask credit for defeating DLS / PBFT while remaining inside the
+bare DLS / PBFT model. It identifies the exact adversary power removed,
+implements the removal through standard authenticated channels and compressed
+echo, and then proves the close-or-abort safety surface in that model.
+Proof-carrying public evidence, endogenous historical retrievability, restart
+continuity, and collapse-gated durability are the realizing architecture of
+that claim, not a residual semantic gap.
 
 \paragraph{Claim ladder.}
 The full promoted claim should be read as a constructed ladder:
@@ -290,47 +251,41 @@ close-or-abort surface,
 \toprule
 \textbf{Dimension} & \textbf{AFT realizing surface} & \textbf{Promoted singular claim} \\
 \midrule
-Agreement object & canonical close-or-abort / canonical collapse surface & ordinary classical agreement object with no architecture-specific restatement \\
-Safety carrier & compact commitments, short contradiction objects, cold-path recovery, endogenous historical retrievability & unconditional classical agreement sentence with no separate evidence-model caveat \\
-History / bootstrap & canonical-collapse / replay historical retrievability root plus recovered-state historical retrievability surface & no semantic distinction between \AFT{} retrievability history and ordinary agreement history \\
-Liveness burden & composed recurrence/reduction/totality/collapse chain plus persistent churn simulator & one completed classical-agreement-style theorem surface under the target adversary model \\
+Agreement object & canonical close-or-abort / canonical collapse surface & one durable decision surface in \(M_{\mathrm{AFT}}\) \\
+Safety carrier & compact commitments, short contradiction objects, cold-path recovery, endogenous historical retrievability & dense positive quorum intersection is no longer load-bearing \\
+History / bootstrap & canonical-collapse / replay historical retrievability root plus recovered-state historical retrievability surface & recovered history remains endogenous AFT state \\
+Liveness burden & direct authenticated dissemination, compressed echo, recurrence/reduction/totality/collapse chain, persistent churn simulator & completed theorem surface under the AFT model delta \\
 \bottomrule
 \end{tabularx}
 \end{center}
 
 \paragraph{Target adversary/scheduler model and discharged liveness kernel.}
 The singular theorem is interpreted under one explicit liveness model rather
-than a vague aspiration. Byzantine authorities may equivocate,
-omit, reorder, withhold reveals, withhold historical-retrievability objects,
-rotate maliciously, and crash/restart arbitrarily. Before stabilization the
-scheduler may delay or interleave publication, registry, recovery, archival,
-and restart traffic arbitrarily. After stabilization the scheduler is assumed
-only to be eventually fair for the AFT public-state substrate: if an honest
-participant keeps reissuing an admissible object that the protocol depends on,
-at least one copy is eventually delivered, persisted, and fetchable by content
-hash, and governing profile/activation churn quiesces into bounded windows
-long enough for progress to compose. Under that model, the liveness bridge is
-the conjunction of five obligations: frontier-generation progress,
-canonical-resolution progress, recovery-completion progress,
-restart/historical-retrievability re-entry progress, and infinite composition of
-those four obligations across reassignment, outage, profile rotation, and
-archival page boundaries. That kernel is no longer open; it is the discharged
-bridge that supports the promoted singular classical-agreement sentence.
-No stronger synchrony assumption is smuggled in for recovery, archival paging,
-or restart. Those lanes are required to progress on that same eventual-fair
-public-state substrate: repeated honest reissuance must eventually make one
-admissible copy delivered, persisted, and fetchable by content hash whether
-the object is a live frontier, a recovery-family artifact, or a historical-
-continuation page.
+than a vague aspiration. Byzantine authorities may equivocate, omit, reorder,
+withhold reveals, withhold historical-retrievability objects, rotate
+maliciously, and crash/restart arbitrarily. Before stabilization the scheduler
+may delay or interleave publication, registry, recovery, archival, and restart
+traffic arbitrarily. After stabilization, authenticated channels between
+correct parties eventually deliver direct publisher sends and compact echo
+objects; repeatedly published admissible artifacts become visible and
+content-hash fetchable to correct parties; and governing profile/activation
+churn quiesces into bounded windows long enough for progress to compose. Under
+that model, the liveness bridge is the conjunction of five obligations:
+frontier-generation progress, canonical-resolution progress,
+recovery-completion progress, restart/historical-retrievability re-entry
+progress, and infinite composition of those four obligations across
+reassignment, outage, profile rotation, and archival page boundaries. That
+kernel is no longer open; it is the discharged bridge that supports the
+promoted AFT model-delta theorem.
 
 The relevant liveness fact is not that \AFT{} declines to claim a fully
-asynchronous theorem; the relevant fact is that it states one explicit
-eventual-fair public-state substrate and uses that same substrate uniformly
-across live ordering, recovery, archival paging, and restart. Calling this
-``just partial synchrony'' conceals the actual burden discharged here: the
-protocol does not require universal timely receipt, but only eventual delivery,
-persistence, and hash-fetchability of repeatedly reissued admissible public
-artifacts on the same theorem-carrying substrate.
+asynchronous theorem; the relevant fact is that it states the exact
+post-stabilization visibility resource used to halt the classical adversary.
+The protocol does not require universal timely receipt before the cutoff. It
+requires eventual delivery, persistence, and hash-fetchability of repeatedly
+published admissible artifacts after stabilization, realized by direct
+authenticated dissemination and compressed echo rather than by a trusted
+publication service.
 
 \paragraph{Current artifact map and completion status.}
 That kernel is now grounded in concrete repository artifacts rather than prose
@@ -605,10 +560,11 @@ guardian and witness statements.
 Consensus proceeds in heights and views. A slot is identified by
 \((height, view)\). Epoch-scoped policy and committee state bind the
 admissible evidence for that slot. The family should be read under a
-bulletin-board recoverability model rather than a pure point-to-point timely
-receipt model: safety depends on whether admissible evidence becomes publicly
-retrievable by the slot cutoff, not on whether every participant receives every
-message before that cutoff.
+model-delta publication and recoverability discipline rather than a pure
+point-to-point timely receipt discipline: safety depends on whether the closed
+boundary fixes a unique public evidence surface, while liveness depends on
+correct-party delivery and eventual visibility of admissible content-addressed
+artifacts after stabilization.
 
 Slots are externally paced by a public cutoff object \(\tau_h\) and a public
 randomness beacon \(R_h\). Honest validators that observe the same closed
@@ -644,6 +600,59 @@ O_h = \mathrm{CanonicalOrder}(R_h, E_h),
 root_h = \mathrm{Execute}(root_{h-1}, O_h).
 \]
 
+\subsection{Classical lower bound and AFT model delta}
+
+Let \(M_{\mathrm{DLS}}\) denote the standard authenticated partially
+synchronous message-passing model used by the classical DLS / PBFT lower-bound
+argument. Its adversary may delay messages so that two honest groups cannot
+distinguish ``the other group is slow'' from ``the other group is faulty'' for
+the duration required by the indistinguishability construction.
+
+Let \(M_{\mathrm{AFT}}\) denote the AFT model delta. It keeps fixed authenticated
+authorities, deterministic local verification, and partial synchrony among
+correct parties, but it removes one adversary power: after stabilization, an
+admissible content-addressed protocol artifact repeatedly published by a
+correct party cannot be indefinitely suppressed from correct parties. Payload
+delivery is realized by direct authenticated dissemination from the publisher
+to validators or deterministic custodians; equivocation, omission, and
+retrievability detection are realized by compact echo objects rather than by
+payload relay.
+
+\paragraph{Adversary-execution trace.}
+Run the classical indistinguishability adversary against \AFT{}:
+\begin{enumerate}[leftmargin=1.5em]
+\item The adversary may schedule delays, split honest validators into views,
+and make Byzantine validators equivocate or omit.
+\item The adversary may hide a Byzantine sender's conflicting statements until
+an honest validator publishes a protocol-admissible commitment, receipt,
+frontier, challenge, or reconstruction / abort artifact.
+\item The first illegal step is indefinite suppression of that published
+admissible artifact from another correct validator after stabilization. In
+\(M_{\mathrm{DLS}}\), that suppression power is available to the adversary
+long enough to drive the lower-bound execution. In \(M_{\mathrm{AFT}}\), the artifact
+eventually becomes visible and content-hash fetchable.
+\end{enumerate}
+That stopped step is the model delta. The rest of \AFT{} is protocol design
+inside \(M_{\mathrm{AFT}}\): compact frontiers bind the claimed surface, contradiction
+objects kill conflicts, retrievability objects reconstruct or abort the full
+surface, and canonical collapse gates durability.
+
+\begin{lemma}[Direct dissemination plus compressed echo realizes the delta]
+\label{lem:direct-dissemination-echo}
+Assume authenticated point-to-point channels among correct parties that
+eventually deliver after stabilization. An honest publisher sends its artifact
+or erasure-coded shards directly to the validators or deterministic custodians
+named by the slot policy. No non-sender validator must relay the payload for
+honest-artifact delivery. Validators then publish compact commitments,
+availability receipts, publication frontiers, observer transcripts, challenges,
+and reconstruction / abort objects that expose what they received or what the
+public surface lacks. The payload path discharges honest delivery; the echo
+path discharges equivocation, omission, and retrievability detection. The
+classical adversary's indefinite-suppression step is therefore unavailable
+without introducing a trusted relay, coordinator, TEE, bootstrap oracle, or
+external recovery service.
+\end{lemma}
+
 \subsection{Core assumptions}
 
 The family-level safety claims rely on the following explicit assumptions:
@@ -651,13 +660,21 @@ The family-level safety claims rely on the following explicit assumptions:
 \begin{itemize}[leftmargin=1.5em]
 \item \textbf{Objective publication:} admitted bulletin entries, transcripts,
 and challenges have stable hashes and objective inclusion paths.
+\item \textbf{Authenticated direct dissemination:} after stabilization,
+authenticated channels between correct parties eventually deliver the
+publisher's direct artifact or shard sends to the validators or deterministic
+custodians named by the slot policy.
+\item \textbf{Compressed echo visibility:} validators publish compact
+commitments, receipts, frontiers, transcripts, challenges, and reconstruction /
+abort artifacts that make equivocation, omission, stale lineage, and
+retrievability failures objectively visible without echoing full payloads.
 \item \textbf{Verifiable bulletin availability:} the protocol exports a
 bulletin-availability object, compact publication-frontier metadata that binds
 the same slot surface, and a canonical bulletin-close object for each closed
-ordering slot; the remaining assumption is that the underlying publication
-substrate satisfies the retrieval semantics claimed by those objects. The live
-runtime also requires successful closed-slot extraction before positive
-canonical-order admission.
+ordering slot; the remaining assumption is that direct dissemination and the
+compressed echo layer satisfy the retrieval semantics claimed by those objects.
+The live runtime also requires successful closed-slot extraction before
+positive canonical-order admission.
 \item \textbf{Compact frontier consistency:} any carried
 \code{PublicationFrontier} must bind the same-slot bulletin commitment, ordered
 surface, and compact availability receipt, and same-slot conflicts or stale
@@ -668,25 +685,25 @@ acceptance does not depend on private local facts.
 \item \textbf{Public derivability over universal receipt:} honest validators
 that observe the same closed public boundary derive the same close-or-abort
 result; universal timely receipt is not required.
-\item \textbf{Independent publication path:} suppressing negative evidence
-requires capture of both the validator plane and the publication / registry
-surface.
+\item \textbf{Independent echo path:} suppressing negative evidence requires
+capture of both the payload-delivery path and the compact publication /
+registry echo surface.
 \item \textbf{Sealed-effect gating:} irreversible effects are released only
 after surviving the canonical close-or-abort surface.
 \item \textbf{Fixed epoch identities:} the validator set is epoch-scoped and
 stable while the accountable rules of that epoch are enforced.
 \end{itemize}
 
-Here and throughout, ``ordinary permissioned setting'' means fixed
-authenticated authorities, deterministic local verification, public
-hash-addressed protocol objects, epoch-scoped identity state, and eventual-
-fair delivery and persistence of admissible protocol artifacts, with no
+Here and throughout, the AFT permissioned model means fixed authenticated
+authorities, deterministic local verification, authenticated point-to-point
+channels among correct parties, public hash-addressed protocol objects,
+epoch-scoped identity state, and eventual visibility / persistence /
+hash-fetchability of admissible protocol artifacts after stabilization, with no
 trusted relay, privileged coordinator, TEE, theorem-side bootstrap oracle, or
-hidden external recovery service.
-Fixed authenticated membership is part of the theorem statement, not a missing
-crutch. The hidden-helper exclusions are relay, coordinator, TEE, bootstrap
-oracle, and external recovery service --- not epoch-scoped authenticated
-identity itself.
+hidden external recovery service. Fixed authenticated membership is part of the
+theorem statement, not a missing crutch. The hidden-helper exclusions are
+relay, coordinator, TEE, bootstrap oracle, and external recovery service ---
+not epoch-scoped authenticated identity itself.
 
 \subsection{Evidence objects}
 
@@ -1501,8 +1518,8 @@ depend on a dense majority of positive votes. This section isolates the
 ordering lane, not the theorem ceiling. Once composed with endogenous
 retrievability, canonical collapse, recovery and restart continuity, and
 collapse-bound sealed-effect gating, the promoted \AFT{} theorem surface is
-exactly the paper's unconditional classical \code{99\% Byzantine agreement}
-claim in the ordinary permissioned setting.
+exactly the paper's relay-free deterministic \code{99\% Byzantine Tolerance}
+claim in the AFT model delta.
 
 With the accountable publication rules of
 Section~\ref{sec:system-model}, invalid positive ordering attempts are not only
@@ -1983,9 +2000,9 @@ recovery-family contract, canonical-collapse / replay retrievability anchor, and
 recovered-state historical retrievability surface are therefore part of ordinary endogenous
 \AFT{} history rather than a narrower theorem-side qualifier. The directly
 discharged recurrence/reduction/totality/collapse chain closes the former
-distance to unconditional classical \code{99\% Byzantine agreement}, so no
-lower-bound, recoverability, or architecture-specific semantic gap remains at
-the theorem surface.
+distance to the relay-free deterministic \code{99\% Byzantine Tolerance}
+theorem in \(M_{\mathrm{AFT}}\), so no recoverability or architecture-specific semantic
+gap remains at the AFT theorem surface.
 
 \section{Security and Assumption Surface}
 
@@ -2416,12 +2433,13 @@ admit short objective obstruction witnesses,
 \item \code{99\%} equal-authority ordering consensus under explicit
 assumptions,
 \item deterministic sealed-effect collapse with challenge dominance,
-\item a relay-free, coordinator-free, pure-software public-state-continuity
+\item a relay-free, coordinator-free, pure-software model-delta
 theorem yielding deterministic \code{99\% Byzantine Tolerance} for durable
 ordering and sealed-effect safety over the explicit bulletin /
-retrievability substrate,
-\item that the whole \AFT{} stack universally breaks the lower bound with no
-external qualifiers,
+retrievability surface,
+\item that the whole \AFT{} stack breaks the classical indefinite-suppression
+lower bound by identifying the first illegal adversary step and realizing the
+visibility delta without a trusted relay,
 \item a witness-augmented mode for layered threshold constructions,
 \item machine-checked deterministic safety kernels for the major protocol
 surfaces.
@@ -2435,18 +2453,15 @@ This paper does \textbf{not} claim:
 \item that public state continuity arises for free inside the classical DLS /
 PBFT partially synchronous message-passing model,
 \item that the classical \(n > 3f\) / \(f < n/3\) lower bound has been
-refuted inside that bare model; the claim is instead that \AFT{} breaks the
-bound at the promoted agreement-theorem surface by replacing dense honest-
-supermajority intersection with a protocol-internal public-evidence carrier.
-Remove that carrier and the paper is no longer claiming the same result. This
-is not a retreat to ``outside the model.'' It is the exact location of the
-break. \AFT{} does not merely vary a parameter inside the dense-vote carrier;
-it replaces the carrier with endogenous public-evidence continuity while
-preserving the same promoted agreement sentence at theorem surface. The paper
-does not ask credit for defeating an impossibility theorem while secretly
-continuing to use the old carrier; it supplies a new endogenous carrier and
-claims the same promoted agreement sentence on that basis. A reviewer who says
-only ``the carrier changed'' has described the mechanism, not rebutted it,
+refuted inside that bare model; the claim is instead that \AFT{} operates in
+the explicit \(M_{\mathrm{AFT}}\) model delta where the adversary cannot indefinitely
+suppress published admissible artifacts from correct parties after
+stabilization. Remove that visibility resource, or realize it circularly
+through the same Byzantine-majority relay set, and the paper is no longer
+claiming the same result. This is not a retreat; it is the exact location of
+the break. \AFT{} does not merely vary a parameter inside the dense-vote
+carrier. It replaces the carrier with direct dissemination plus compressed
+public echo and states the new proof obligation at theorem surface,
 \item freedom from bulletin-publication, protocol-native retrievability
 obligations, or proof-soundness assumptions,
 \item that compact publication-frontier summaries make the bulletin surface
@@ -2458,15 +2473,17 @@ witness, and outage schedules,
 current repository alone.
 \end{itemize}
 
-\subsection{Public-state-continuity theorem}
+\subsection{Model-delta public-state-continuity theorem}
 \label{sec:accountable-ba}
 
 The runtime supports a stronger theorem than the older accountable summary
 because the mechanism and system model are now stated directly at theorem
 surface.
 
-\begin{theorem}[Relay-Free Deterministic 99\% Byzantine Tolerance]
-Assume the system model of Section~\ref{sec:system-model}, guardian
+\begin{theorem}[Relay-Free Deterministic 99\% Byzantine Tolerance in \(M_{\mathrm{AFT}}\)]
+Assume the system model of Section~\ref{sec:system-model}, including the
+direct-dissemination / compressed-echo delta of
+Lemma~\ref{lem:direct-dissemination-echo}, guardian
 non-equivocation, proof soundness, compact signed publication-frontier
 summaries whose same-slot and predecessor-link contradictions are objectively
 checkable, protocol-native retrievability objects plus canonical
@@ -2479,20 +2496,22 @@ may behave arbitrarily without creating a conflicting valid durable
 canonical-order outcome or a conflicting valid sealed-effect release outcome.
 Honest validators that observe the same closed public boundary derive the same
 close-or-abort result; publication, penalties, and validator-set updates only
-accelerate convergence and future hygiene. This is unconditional classical
-Byzantine agreement in the ordinary permissioned setting. \AFT{} does not
-weaken that agreement sentence; it realizes it through protocol-internal
-public-evidence continuity machinery rather than dense positive quorum
-intersection.
+accelerate convergence and future hygiene. The classical \(n > 3f\) /
+\(f < n/3\) threshold is not load-bearing in \(M_{\mathrm{AFT}}\), because the
+classical adversary's indefinite-suppression step is no longer legal.
 \end{theorem}
 
-``Unconditional'' is used here in the only theorem-salient sense: once the
-explicit \AFT{} system model is fixed, no further safety-carrying helper or
-exception clause remains. Bulletin close, publication frontier,
-retrievability, recovery, restart continuity, canonical collapse, and
-collapse-bound sealing are not theorem-side caveats; they are the protocol-
-internal realizing mechanism. A criticism that \AFT{} ``changes the model''
-without identifying a hidden external helper is therefore non-responsive.
+The theorem does not claim that DLS / PBFT has been refuted inside
+\(M_{\mathrm{DLS}}\). It claims that \AFT{} is not a member of that model:
+the first illegal lower-bound adversary step is indefinite suppression of a
+published admissible artifact from correct parties after stabilization.
+Bulletin close, publication frontier, retrievability, recovery, restart
+continuity, canonical collapse, and collapse-bound sealing are not
+theorem-side caveats; they are the protocol-internal realizing mechanism of
+\(M_{\mathrm{AFT}}\). A criticism that \AFT{} ``changes the model'' is therefore
+descriptive rather than fatal unless it identifies circular realization of the
+visibility resource or a hidden relay, coordinator, TEE, bootstrap oracle, or
+external recovery service.
 
 The theorem is stronger than the older accountable summary because
 invalid positive objects are not merely rejectable or penalty-bearing. They are
@@ -2514,23 +2533,21 @@ collapse wrapper itself.
 
 \begin{theorem}[Realizing-Mechanism Statement]
 The new publication-frontier slice is not the theorem by itself; the theorem is
-the same promoted classical agreement sentence, carried by the full \AFT{}
+the promoted AFT model-delta sentence, carried by the full \AFT{}
 public-evidence continuity architecture. Compact
 signed publication-frontier summaries, compact availability receipts, short
 frontier contradiction objects, endogenous retrievability profiles, manifests,
 custody assignments, custody receipts, custody responses, retrievability
 challenges, canonical extraction-or-abort, canonical collapse, and historical
-retrievability together realize the same
-unconditional classical
-\code{99\% Byzantine agreement} sentence stated above. Removing that
+retrievability together realize the direct-dissemination / compressed-echo
+visibility resource stated above. Removing that
 protocol-native retrievability plane removes part of the realizing mechanism
 rather than merely shaving off an optional refinement.
 \end{theorem}
 
 \begin{proposition}[Scoped Witness-Coded Constructive Corollary]
 Assume the hypotheses of the relay-free deterministic
-\code{99\% Byzantine Tolerance} theorem with AFT's public-state continuity
-machinery as its protocol-internal safety carrier, plus sound witness assignment and witness
+\code{99\% Byzantine Tolerance} theorem in \(M_{\mathrm{AFT}}\), plus sound witness assignment and witness
 certificate binding, a completed witness-coded recovery family with compact
 hot-path bindings and cold-path share delivery / reveal / reconstruction, and
 availability of the retained recovered publication surface together with any
@@ -2552,27 +2569,25 @@ that the live AFT stack can re-materialize the same durable and
 restart-critical surfaces without violating the throughput guardrails, while
 keeping deeper recovered history inside ordinary endogenous AFT state.
 
-This is one constructive route to classical partially
-synchronous Byzantine agreement rather than as a weaker contrast class. In the
-classical dense-vote presentation, worst-case progress is usually phrased in
-terms of \(> 2/3\) honest participation and quorum intersection as the main
-safety mechanism. In \AFT{}'s realization, the same promoted agreement sentence is
-obtained instead through uniquely valid public-evidence objects plus dominant
-negative proofs, without trusted relays, privileged coordinators, TEEs, or
-dense positive quorum intersection. The live publication-frontier slice
-internalizes compact same-slot and predecessor consistency on the hot path,
-while explicit recoverability of the bound bulletin surface, canonical
-collapse, and historical retrievability complete the same ordinary agreement
-sentence. Publication and accountability serve as reinforcement rather than the
-source of correctness. Liveness then follows from the availability of the PSC
-substrate and eventual publication of the protocol-defined artifacts, and the
-recurrence/reduction/totality/collapse chain closes that route formally.
-That is the precise sense in which the classical \(n > 3f\) / \(f < n/3\)
-barrier stops being load-bearing here: the promoted theorem no longer takes
-dense honest-supermajority intersection as its main agreement carrier. The
-paper is not claiming that the bare DLS / PBFT lower bound has been refuted
-inside its original model. The theorem reading is therefore: same promoted
-agreement sentence, different safety carrier.
+This is one constructive route to Byzantine agreement in a realizable
+permissioned model delta rather than a weaker contrast class. In the classical
+dense-vote presentation, worst-case progress is usually phrased in terms of
+\(> 2/3\) honest participation and quorum intersection as the main safety
+mechanism. In \AFT{}'s realization, authority is obtained instead through
+uniquely valid public-evidence objects plus dominant negative proofs, without
+trusted relays, privileged coordinators, TEEs, or dense positive quorum
+intersection. The live publication-frontier slice internalizes compact
+same-slot and predecessor consistency on the hot path, while explicit
+recoverability of the bound bulletin surface, canonical collapse, and
+historical retrievability complete the same AFT model-delta theorem.
+Publication and accountability serve as reinforcement rather than the source
+of correctness. Liveness then follows from direct authenticated dissemination,
+compressed echo visibility, and eventual publication of the protocol-defined
+artifacts, and the recurrence/reduction/totality/collapse chain closes that
+route formally. That is the precise sense in which the classical \(n > 3f\) /
+\(f < n/3\) barrier stops being load-bearing here: the promoted theorem no
+longer grants the adversary indefinite suppression of published admissible
+information.
 
 The correct one-line summary is:
 

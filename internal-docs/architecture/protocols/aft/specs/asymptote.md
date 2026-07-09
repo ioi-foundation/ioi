@@ -63,6 +63,23 @@ In `Asymptote`, the positive witness is the canonical close proof over the
 transcript and challenge commitments, and the negative witness is the objective
 observer challenge surface that forces `Abort`.
 
+## Model Delta and Echo
+
+`Asymptote` should be read inside the AFT model delta, not as a refutation of
+the DLS/PBFT lower bound inside the bare message-passing model. Payload or
+artifact delivery is direct: the publisher sends the required artifact or
+erasure-coded shards over authenticated links to the validators or deterministic
+custodians named by policy. The adversary may delay and equivocate before
+stabilization, but after stabilization it may not indefinitely suppress a
+published admissible artifact from correct parties.
+
+The observer lane is the compressed echo. Direct delivery answers "did my
+artifact reach you"; observer transcripts, challenge commitments, canonical
+closes, and canonical aborts answer "what did the sender tell everyone else, and
+what public evidence contradicts it." That echo is unavoidable for Byzantine
+equivocation detection, but it carries commitments and challenge evidence rather
+than replaying the payload.
+
 ## Slot States
 
 - `Pending`

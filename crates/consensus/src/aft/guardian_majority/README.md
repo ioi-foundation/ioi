@@ -4,8 +4,8 @@
 
 Canonical prose specs:
 
-- [`guardian_majority.md`](/home/heathledger/Documents/ioi/repos/ioi/docs/architecture/consensus/aft/specs/guardian_majority.md)
-- [`nested_guardian.md`](/home/heathledger/Documents/ioi/repos/ioi/docs/architecture/consensus/aft/specs/nested_guardian.md)
+- [`guardian_majority.md`](../../../../../internal-docs/architecture/protocols/aft/specs/guardian_majority.md)
+- [`nested_guardian.md`](../../../../../internal-docs/architecture/protocols/aft/specs/nested_guardian.md)
 
 It replaces the old single-device non-equivocation story with:
 

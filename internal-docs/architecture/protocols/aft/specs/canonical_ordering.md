@@ -2,11 +2,31 @@
 
 This document is the normative protocol model for AFT's proof-carrying
 equal-authority ordering path. It is the ordering-specific component of the
-repository's broader `99% Byzantine Tolerance` claim over an explicit
-public-state-continuity substrate.
+repository's broader `99% Byzantine Tolerance` claim in the AFT model delta:
+admissible content-addressed artifacts cannot be indefinitely suppressed from
+correct parties after stabilization, and that visibility resource is realized
+by direct authenticated dissemination plus compressed public echo.
 
 Consensus is obtained because the ordered set is accepted when it is uniquely
 and recoverably *proved*, not because it wins a dense validator vote.
+
+## Model Delta and Echo
+
+Canonical ordering lives in the AFT model delta. The publisher sends the
+admissible artifact or erasure-coded shards directly over authenticated links to
+the validators or deterministic custodians named by policy; payload delivery is
+not delegated to validator relay flooding. Validators publish compact
+commitments, availability receipts, `PublicationFrontier` objects,
+contradiction witnesses, retrievability challenges, and reconstruction / abort
+objects as the echo layer.
+
+This split is the theorem-critical distinction. Direct dissemination handles
+"my artifact reaches you." Compressed echo handles "what did the sender tell
+everyone else, and which public surface is inconsistent, missing, or
+unrecoverable." The classical lower-bound adversary's indefinite suppression of
+published admissible artifacts is the first step that becomes illegal after
+stabilization; equivocation detection still requires compact honest-party
+information flow.
 
 ## Objective
 
@@ -464,14 +484,16 @@ ancestry until target height or recovered-history exhaustion without a
 theorem-relevant fixed depth bound; the remaining boundary is broader
 recovered-history availability outside the retained recovered publication
 surface, not local ancestry composition. The live theorem story is now
-singular rather than two-tiered: the whole AFT stack universally breaks the
-lower bound with no qualifiers. Ordinary canonical collapse and replay
-history now name the deeper historical retrievability root, the AFT recovered
-state contract carries the same historical retrievability surface for restart
-consumers, and the historical retrievability objects are profile-hash-bound,
-activation-hash-bound, and validated by predecessor/checkpoint history
-rather than mutable latest indexes. Archived continuation is therefore no
-longer a theorem-side qualifier; it is ordinary endogenous AFT history.
+singular rather than two-tiered: the whole AFT stack breaks the classical
+indefinite-suppression lower bound by operating in the AFT model delta instead
+of the bare DLS/PBFT message-passing model. Ordinary canonical collapse and
+replay history now name the deeper historical retrievability root, the AFT
+recovered state contract carries the same historical retrievability surface for
+restart consumers, and the historical retrievability objects are
+profile-hash-bound, activation-hash-bound, and validated by
+predecessor/checkpoint history rather than mutable latest indexes. Archived
+continuation is therefore no longer a theorem-side qualifier; it is ordinary
+endogenous AFT history.
 When the recovered certificate carries objective omission proofs, the same
 recovered lane now routes into the ordinary `OmissionDominated` abort path
 while keeping the omission evidence and recovered bulletin entries public.
@@ -484,11 +506,10 @@ therefore no longer blocked on public close-or-abort integration or on the
 total absence of non-parity redundancy; the former scope boundary beyond the
 completed recovery-family contract is now closed. The stronger follow-on
 program is closed too: this achieved result explicitly claims the whole AFT
-stack universally breaks the lower bound with no qualifiers, and the same
-`99% Byzantine Tolerance` result is now promoted directly to unconditional
-classical `99% Byzantine agreement` in the ordinary dense-vote permissioned
-model. The current theorem should therefore be sold as finished and categorical
-full stop, not as a timid preview of a stronger sentence that still lies ahead.
+stack breaks the classical indefinite-suppression lower bound in the AFT model
+delta, and the `99% Byzantine Tolerance` result should be sold as finished and
+categorical in that model. It should not be framed as a refutation of DLS/PBFT
+while remaining inside the bare dense-vote message-passing model.
 
 The current registry shape is:
 

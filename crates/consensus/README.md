@@ -9,11 +9,11 @@ transport, tentative progress, and admissibility evidence.
 
 Primary protocol specs:
 
-*   [`../../docs/architecture/consensus/aft/specs/guardian_majority.md`](../../docs/architecture/consensus/aft/specs/guardian_majority.md)
-*   [`../../docs/architecture/consensus/aft/specs/asymptote.md`](../../docs/architecture/consensus/aft/specs/asymptote.md)
-*   [`../../docs/architecture/consensus/aft/specs/nested_guardian.md`](../../docs/architecture/consensus/aft/specs/nested_guardian.md)
-*   [`../../docs/architecture/consensus/aft/formal/guardian_majority/README.md`](../../docs/architecture/consensus/aft/formal/guardian_majority/README.md)
-*   [`../../docs/architecture/consensus/aft/formal/nested_guardian/README.md`](../../docs/architecture/consensus/aft/formal/nested_guardian/README.md)
+*   [`../../internal-docs/architecture/protocols/aft/specs/guardian_majority.md`](../../internal-docs/architecture/protocols/aft/specs/guardian_majority.md)
+*   [`../../internal-docs/architecture/protocols/aft/specs/asymptote.md`](../../internal-docs/architecture/protocols/aft/specs/asymptote.md)
+*   [`../../internal-docs/architecture/protocols/aft/specs/nested_guardian.md`](../../internal-docs/architecture/protocols/aft/specs/nested_guardian.md)
+*   [`../../internal-docs/architecture/protocols/aft/formal/guardian_majority/README.md`](../../internal-docs/architecture/protocols/aft/formal/guardian_majority/README.md)
+*   [`../../internal-docs/architecture/protocols/aft/formal/nested_guardian/README.md`](../../internal-docs/architecture/protocols/aft/formal/nested_guardian/README.md)
 
 ## Architecture
 

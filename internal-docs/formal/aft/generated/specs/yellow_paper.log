@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.25 (TeX Live 2023/Debian) (preloaded format=pdflatex 2026.2.20)  28 MAR 2026 20:20
+This is pdfTeX, Version 3.141592653-2.6-1.40.25 (TeX Live 2023/Debian) (preloaded format=pdflatex 2026.2.20)  9 JUL 2026 08:22
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -880,38 +880,40 @@ File: pgflibraryshapes.multipart.code.tex 2023-01-15 v3.1.10 (3.1.10)
 ))
 Package hyperref Info: Option `colorlinks' set `true' on input line 29.
 \c@theorem=\count355
-\c@proposition=\count356
-LaTeX Font Info:    Trying to load font information for T1+lmr on input line 87
+\c@lemma=\count356
+\c@proposition=\count357
+LaTeX Font Info:    Trying to load font information for T1+lmr on input line 88
 .
  (/usr/share/texmf/tex/latex/lm/t1lmr.fd
 File: t1lmr.fd 2015/05/01 v1.6.1 Font defs for Latin Modern
 )
 (/usr/share/texlive/texmf-dist/tex/latex/l3backend/l3backend-pdftex.def
 File: l3backend-pdftex.def 2024-01-04 L3 backend support: PDF output (pdfTeX)
-\l__color_backend_stack_int=\count357
+\l__color_backend_stack_int=\count358
 \l__pdf_internal_box=\box100
 )
-(./yellow_paper.aux)
+(/home/heathledger/Documents/ioi/repos/ioi/internal-docs/formal/aft/generated/s
+pecs/yellow_paper.aux)
 \openout1 = `yellow_paper.aux'.
 
-LaTeX Font Info:    Checking defaults for OML/cmm/m/it on input line 87.
-LaTeX Font Info:    ... okay on input line 87.
-LaTeX Font Info:    Checking defaults for OMS/cmsy/m/n on input line 87.
-LaTeX Font Info:    ... okay on input line 87.
-LaTeX Font Info:    Checking defaults for OT1/cmr/m/n on input line 87.
-LaTeX Font Info:    ... okay on input line 87.
-LaTeX Font Info:    Checking defaults for T1/cmr/m/n on input line 87.
-LaTeX Font Info:    ... okay on input line 87.
-LaTeX Font Info:    Checking defaults for TS1/cmr/m/n on input line 87.
-LaTeX Font Info:    ... okay on input line 87.
-LaTeX Font Info:    Checking defaults for OMX/cmex/m/n on input line 87.
-LaTeX Font Info:    ... okay on input line 87.
-LaTeX Font Info:    Checking defaults for U/cmr/m/n on input line 87.
-LaTeX Font Info:    ... okay on input line 87.
-LaTeX Font Info:    Checking defaults for PD1/pdf/m/n on input line 87.
-LaTeX Font Info:    ... okay on input line 87.
-LaTeX Font Info:    Checking defaults for PU/pdf/m/n on input line 87.
-LaTeX Font Info:    ... okay on input line 87.
+LaTeX Font Info:    Checking defaults for OML/cmm/m/it on input line 88.
+LaTeX Font Info:    ... okay on input line 88.
+LaTeX Font Info:    Checking defaults for OMS/cmsy/m/n on input line 88.
+LaTeX Font Info:    ... okay on input line 88.
+LaTeX Font Info:    Checking defaults for OT1/cmr/m/n on input line 88.
+LaTeX Font Info:    ... okay on input line 88.
+LaTeX Font Info:    Checking defaults for T1/cmr/m/n on input line 88.
+LaTeX Font Info:    ... okay on input line 88.
+LaTeX Font Info:    Checking defaults for TS1/cmr/m/n on input line 88.
+LaTeX Font Info:    ... okay on input line 88.
+LaTeX Font Info:    Checking defaults for OMX/cmex/m/n on input line 88.
+LaTeX Font Info:    ... okay on input line 88.
+LaTeX Font Info:    Checking defaults for U/cmr/m/n on input line 88.
+LaTeX Font Info:    ... okay on input line 88.
+LaTeX Font Info:    Checking defaults for PD1/pdf/m/n on input line 88.
+LaTeX Font Info:    ... okay on input line 88.
+LaTeX Font Info:    Checking defaults for PU/pdf/m/n on input line 88.
+LaTeX Font Info:    ... okay on input line 88.
 
 *geometry* driver: auto-detecting
 *geometry* detected driver: pdftex
@@ -920,7 +922,7 @@ LaTeX Font Info:    ... okay on input line 87.
 * paper: <default>
 * layout: <same size as paper>
 * layoutoffset:(h,v)=(0.0pt,0.0pt)
-* modes: 
+* modes:
 * h-part:(L,W,R)=(72.26999pt, 469.75502pt, 72.26999pt)
 * v-part:(T,H,B)=(72.26999pt, 650.43001pt, 72.26999pt)
 * \paperwidth=614.295pt
@@ -947,38 +949,38 @@ LaTeX Font Info:    ... okay on input line 87.
 * \@reversemarginfalse
 * (1in=72.27pt=25.4mm, 1cm=28.453pt)
 
-LaTeX Info: Redefining \microtypecontext on input line 87.
-Package microtype Info: Applying patch `item' on input line 87.
-Package microtype Info: Applying patch `toc' on input line 87.
-Package microtype Info: Applying patch `eqnum' on input line 87.
-Package microtype Info: Applying patch `footnote' on input line 87.
-Package microtype Info: Applying patch `verbatim' on input line 87.
+LaTeX Info: Redefining \microtypecontext on input line 88.
+Package microtype Info: Applying patch `item' on input line 88.
+Package microtype Info: Applying patch `toc' on input line 88.
+Package microtype Info: Applying patch `eqnum' on input line 88.
+Package microtype Info: Applying patch `footnote' on input line 88.
+Package microtype Info: Applying patch `verbatim' on input line 88.
 Package microtype Info: Generating PDF output.
 Package microtype Info: Character protrusion enabled (level 2).
 Package microtype Info: Using default protrusion set `alltext'.
 Package microtype Info: Automatic font expansion enabled (level 2),
 (microtype)             stretch: 20, shrink: 20, step: 1, non-selected.
 Package microtype Info: Using default expansion set `alltext-nott'.
-LaTeX Info: Redefining \showhyphens on input line 87.
+LaTeX Info: Redefining \showhyphens on input line 88.
 Package microtype Info: No adjustment of tracking.
 Package microtype Info: No adjustment of interword spacing.
 Package microtype Info: No adjustment of character kerning.
 (/usr/share/texlive/texmf-dist/tex/latex/microtype/mt-cmr.cfg
-File: mt-cmr.cfg 2013/05/19 v2.2 microtype config. file: Computer Modern Roman 
+File: mt-cmr.cfg 2013/05/19 v2.2 microtype config. file: Computer Modern Roman
 (RS)
 )
 (/usr/share/texlive/texmf-dist/tex/context/base/mkii/supp-pdf.mkii
 [Loading MPS to PDF converter (version 2006.09.02).]
-\scratchcounter=\count358
+\scratchcounter=\count359
 \scratchdimen=\dimen318
 \scratchbox=\box101
-\nofMPsegments=\count359
-\nofMParguments=\count360
+\nofMPsegments=\count360
+\nofMParguments=\count361
 \everyMPshowfont=\toks51
-\MPscratchCnt=\count361
+\MPscratchCnt=\count362
 \MPscratchDim=\dimen319
-\MPnumerator=\count362
-\makeMPintoPDFobject=\count363
+\MPnumerator=\count363
+\makeMPintoPDFobject=\count364
 \everyMPtoPDFconversion=\toks52
 ) (/usr/share/texlive/texmf-dist/tex/latex/epstopdf-pkg/epstopdf-base.sty
 Package: epstopdf-base 2020-01-24 v2.11 Base part for package epstopdf
@@ -989,43 +991,45 @@ Package epstopdf-base Info: Redefining graphics rule for `.eps' on input line 4
 File: epstopdf-sys.cfg 2010/07/13 v1.3 Configuration of (r)epstopdf for TeX Liv
 e
 ))
-Package hyperref Info: Link coloring ON on input line 87.
+Package hyperref Info: Link coloring ON on input line 88.
 
-(./yellow_paper.out) (./yellow_paper.out)
+(/home/heathledger/Documents/ioi/repos/ioi/internal-docs/formal/aft/generated/s
+pecs/yellow_paper.out)
+(/home/heathledger/Documents/ioi/repos/ioi/internal-docs/formal/aft/generated/s
+pecs/yellow_paper.out)
 \@outlinefile=\write5
 \openout5 = `yellow_paper.out'.
 
 LaTeX Font Info:    Trying to load font information for OT1+lmr on input line 9
-0.
-
-(/usr/share/texmf/tex/latex/lm/ot1lmr.fd
+1.
+ (/usr/share/texmf/tex/latex/lm/ot1lmr.fd
 File: ot1lmr.fd 2015/05/01 v1.6.1 Font defs for Latin Modern
 )
 LaTeX Font Info:    Trying to load font information for OML+lmm on input line 9
-0.
+1.
 
 (/usr/share/texmf/tex/latex/lm/omllmm.fd
 File: omllmm.fd 2015/05/01 v1.6.1 Font defs for Latin Modern
 )
-LaTeX Font Info:    Trying to load font information for OMS+lmsy on input line 
-90.
+LaTeX Font Info:    Trying to load font information for OMS+lmsy on input line
+91.
 
 (/usr/share/texmf/tex/latex/lm/omslmsy.fd
 File: omslmsy.fd 2015/05/01 v1.6.1 Font defs for Latin Modern
 )
-LaTeX Font Info:    Trying to load font information for OMX+lmex on input line 
-90.
+LaTeX Font Info:    Trying to load font information for OMX+lmex on input line
+91.
 
 (/usr/share/texmf/tex/latex/lm/omxlmex.fd
 File: omxlmex.fd 2015/05/01 v1.6.1 Font defs for Latin Modern
 )
 LaTeX Font Info:    External font `lmex10' loaded for size
-(Font)              <12> on input line 90.
+(Font)              <12> on input line 91.
 LaTeX Font Info:    External font `lmex10' loaded for size
-(Font)              <8> on input line 90.
+(Font)              <8> on input line 91.
 LaTeX Font Info:    External font `lmex10' loaded for size
-(Font)              <6> on input line 90.
-LaTeX Font Info:    Trying to load font information for U+msa on input line 90.
+(Font)              <6> on input line 91.
+LaTeX Font Info:    Trying to load font information for U+msa on input line 91.
 
 
 (/usr/share/texlive/texmf-dist/tex/latex/amsfonts/umsa.fd
@@ -1034,7 +1038,7 @@ File: umsa.fd 2013/01/14 v3.01 AMS symbols A
 (/usr/share/texlive/texmf-dist/tex/latex/microtype/mt-msa.cfg
 File: mt-msa.cfg 2006/02/04 v1.1 microtype config. file: AMS symbols (a) (RS)
 )
-LaTeX Font Info:    Trying to load font information for U+msb on input line 90.
+LaTeX Font Info:    Trying to load font information for U+msb on input line 91.
 
 
 (/usr/share/texlive/texmf-dist/tex/latex/amsfonts/umsb.fd
@@ -1047,7 +1051,7 @@ Package microtype Info: Character `029' is missing
 (microtype)             in font `T1/lmr/m/sc/10'.
 (microtype)             Ignoring protrusion settings for this character.
 LaTeX Font Info:    Trying to load font information for T1+lmtt on input line 1
-08.
+09.
 
 (/usr/share/texmf/tex/latex/lm/t1lmtt.fd
 File: t1lmtt.fd 2015/05/01 v1.6.1 Font defs for Latin Modern
@@ -1057,12 +1061,24 @@ Package microtype Info: Loading generic protrusion settings for font family
 (microtype)             For optimal results, create family-specific settings.
 (microtype)             See the microtype manual for details.
 LaTeX Font Info:    External font `lmex10' loaded for size
-(Font)              <10> on input line 140.
+(Font)              <10> on input line 132.
 LaTeX Font Info:    External font `lmex10' loaded for size
-(Font)              <7> on input line 140.
+(Font)              <7> on input line 132.
 LaTeX Font Info:    External font `lmex10' loaded for size
-(Font)              <5> on input line 140.
- [1
+(Font)              <5> on input line 132.
+
+Underfull \hbox (badness 7486) in paragraph at lines 145--155
+[]\T1/lmr/m/n/10 (+20) In that model delta, \T1/lmr/m/sc/10 (+20) AFT \T1/lmr/m
+/n/10 (+20) is \T1/lmtt/m/n/10 relay-free, coordinator-free, pure-software
+ []
+
+
+Underfull \hbox (badness 3471) in paragraph at lines 145--155
+\T1/lmtt/m/n/10 deterministic 99% Byzantine Tolerance\T1/lmr/m/n/10 (+20) : the
+ clas-si-cal thresh-old stops be-ing load-
+ []
+
+[1
 
 {/var/lib/texmf/fonts/map/pdftex/updmap/pdftex.map}{/usr/share/texmf/fonts/enc/
 dvips/lm/lm-ec.enc}{/usr/share/texmf/fonts/enc/dvips/lm/lm-mathit.enc}{/usr/sha
@@ -1071,148 +1087,132 @@ Package microtype Info: Character `029' is missing
 (microtype)             in font `T1/lmr/m/sc/10.95'.
 (microtype)             Ignoring protrusion settings for this character.
 LaTeX Font Info:    Trying to load font information for TS1+lmr on input line 1
-89.
- (/usr/share/texmf/tex/latex/lm/ts1lmr.fd
+66.
+
+(/usr/share/texmf/tex/latex/lm/ts1lmr.fd
 File: ts1lmr.fd 2015/05/01 v1.6.1 Font defs for Latin Modern
-) [2{/usr/share/texmf/fonts/enc/dvips/lm/lm-ts1.enc}]
+)
 LaTeX Font Info:    External font `lmex10' loaded for size
-(Font)              <10.95> on input line 234.
- [3]
-Underfull \hbox (badness 2285) in paragraph at lines 298--298
-\T1/lmr/m/n/10 (+20) re-triev-abil-ity his-tory and or-di-nary
- []
-
-
-Underfull \hbox (badness 4779) in paragraph at lines 298--298
-[]|\T1/lmr/m/n/10 (+20) one com-pleted classical-agreement-
- []
-
-[4] [5]
-Overfull \hbox (30.20566pt too wide) in paragraph at lines 474--476
- [][] 
- []
-
-[6]
-Underfull \hbox (badness 1097) in paragraph at lines 521--521
+(Font)              <10.95> on input line 209.
+ [2{/usr/share/texmf/fonts/enc/dvips/lm/lm-ts1.enc}] [3] [4] [5]
+Underfull \hbox (badness 1097) in paragraph at lines 480--480
 []|\T1/lmr/m/n/10 (+20) Public bul-letin com-mit-
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 521--521
+Underfull \hbox (badness 10000) in paragraph at lines 480--480
 []|\T1/lmtt/m/n/10 SealedFinalityProof
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 537--537
+Underfull \hbox (badness 10000) in paragraph at lines 496--496
 []|\T1/lmr/m/n/10 (+20) Live through
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 537--537
+Underfull \hbox (badness 10000) in paragraph at lines 496--496
 []|\T1/lmr/m/n/10 (+20) Experimental op-er-a-
  []
 
-[7{/usr/share/texmf/fonts/enc/dvips/lm/lm-mathsy.enc}] [8] [9]
-Overfull \hbox (34.92125pt too wide) in paragraph at lines 713--717
+[6] [7{/usr/share/texmf/fonts/enc/dvips/lm/lm-mathsy.enc}] [8] [9]
+Overfull \hbox (34.92125pt too wide) in paragraph at lines 734--738
 \T1/lmtt/m/n/10.95 ConflictingTranscript \T1/lmr/m/n/10.95 (-20) blame the as-s
 igned ob-server; \T1/lmtt/m/n/10.95 TranscriptMismatch\T1/lmr/m/n/10.95 (-20) ,
  \T1/lmtt/m/n/10.95 VetoTranscriptPresent\T1/lmr/m/n/10.95 (-20) ,
  []
 
-[10] [11{/usr/share/texmf/fonts/enc/dvips/lm/lm-mathex.enc}]
-Overfull \hbox (7.09868pt too wide) in paragraph at lines 822--867
+[10] [11]
+Overfull \hbox (7.09868pt too wide) in paragraph at lines 843--888
 \T1/lmtt/m/n/10.95 CanonicalCollapseObject \T1/lmr/m/n/10.95 (-20) also car-rie
 s a rolling \T1/lmtt/m/n/10.95 previous_canonical_collapse_commitment_hash\T1/l
 mr/m/n/10.95 (-20) ,
  []
 
-[12]
+[12{/usr/share/texmf/fonts/enc/dvips/lm/lm-mathex.enc}]
 
 LaTeX Font Warning: Font shape `T1/lmr/m/scit' undefined
-(Font)              using `T1/lmr/m/scsl' instead on input line 873.
+(Font)              using `T1/lmr/m/scsl' instead on input line 894.
 
-[13] [14] [15] [16] [17]
-Overfull \hbox (2.07002pt too wide) in paragraph at lines 1257--1257
-[]|[]| 
+[13] [14] [15] [16] [17] [18]
+Overfull \hbox (2.07002pt too wide) in paragraph at lines 1278--1278
+[]|[]|
  []
 
 
-Overfull \hbox (19.07002pt too wide) in paragraph at lines 1257--1257
-[]|[]| 
+Overfull \hbox (19.07002pt too wide) in paragraph at lines 1278--1278
+[]|[]|
  []
 
-[18] [19] [20] [21] [22]
-Overfull \hbox (156.97281pt too wide) in paragraph at lines 1471--1476
- [][] 
- []
-
-[23] [24] [25] [26]
-Overfull \hbox (96.32828pt too wide) in paragraph at lines 1673--1676
+[19] [20] [21] [22] [23] [24] [25] [26]
+Overfull \hbox (96.32828pt too wide) in paragraph at lines 1697--1700
 []\T1/lmr/m/n/10.95 (-20) exactly one canon-i-cal out-come ob-ject: \T1/lmtt/m/
 n/10.95 AsymptoteObserverCanonicalClose \T1/lmr/m/n/10.95 (-20) or \T1/lmtt/m/n
-/10.95 AsymptoteObserverCanonicalAbort\T1/lmr/m/n/10.95 (-20) . 
+/10.95 AsymptoteObserverCanonicalAbort\T1/lmr/m/n/10.95 (-20) .
  []
 
 [27]
-Overfull \hbox (187.0389pt too wide) detected at line 1758
+Overfull \hbox (187.0389pt too wide) detected at line 1782
 []\OT1/lmr/m/n/10.95 (\OML/lmm/m/it/10.95 e\OT1/lmr/m/n/10.95 )  \OMS/lmsy/m/n/
 10.95 ([])  []\OT1/lmr/m/n/10.95 ([](\OML/lmm/m/it/10.95 e\OT1/lmr/m/n/10.95 ))
  \OMS/lmsy/m/n/10.95 ^ []\OT1/lmr/m/n/10.95 ([](\OML/lmm/m/it/10.95 e\OT1/lmr/m
 /n/10.95 )) \OMS/lmsy/m/n/10.95 ^ []\OT1/lmr/m/n/10.95 (\OML/lmm/m/it/10.95 e\O
 T1/lmr/m/n/10.95 ) \OMS/lmsy/m/n/10.95 ^ []\OT1/lmr/m/n/10.95 (\OML/lmm/m/it/10
-.95 e\OT1/lmr/m/n/10.95 ) = []([](\OML/lmm/m/it/10.95 @[]\OT1/lmr/m/n/10.95 )) 
+.95 e\OT1/lmr/m/n/10.95 ) = []([](\OML/lmm/m/it/10.95 @[]\OT1/lmr/m/n/10.95 ))
 \OMS/lmsy/m/n/10.95 ^ :[]\OT1/lmr/m/n/10.95 (\OML/lmm/m/it/10.95 e\OT1/lmr/m/n/
 10.95 )\OML/lmm/m/it/10.95 :
  []
 
 [28] [29] [30] [31] [32]
-Overfull \hbox (261.88245pt too wide) in paragraph at lines 2053--2061
+Overfull \hbox (411.34952pt too wide) in paragraph at lines 2077--2085
 \T1/lmr/m/n/10.95 (-20) The for-mal pack-age in-cludes an ex-e-cutable TLC wit-
-ness mod-ule, \T1/lmtt/m/n/10.95 docs/architecture/consensus/aft/formal/canonical_ordering/Canon
-icalOrderingOmissionTrace.tla\T1/lmr/m/n/10.95 (-20) ,
+ness mod-ule, \T1/lmtt/m/n/10.95 internal-docs/architecture/protocols/aft/forma
+l/canonical_ordering/CanonicalOrderingOmissionTrace.tla\T1/lmr/m/n/10.95 (-20)
+,
  []
 
 
-Overfull \hbox (17.3097pt too wide) in paragraph at lines 2053--2061
-\T1/lmr/m/n/10.95 (-20) paired with \T1/lmtt/m/n/10.95 docs/architecture/consensus/aft/formal/ca
-nonical_ordering/CanonicalOrderingOmissionTrace.cfg\T1/lmr/m/n/10.95 (-20) .
+Overfull \hbox (166.77676pt too wide) in paragraph at lines 2077--2085
+\T1/lmr/m/n/10.95 (-20) paired with \T1/lmtt/m/n/10.95 internal-docs/architectu
+re/protocols/aft/formal/canonical_ordering/CanonicalOrderingOmissionTrace.cfg\T
+1/lmr/m/n/10.95 (-20) .
  []
 
 
-Overfull \hbox (344.72334pt too wide) in paragraph at lines 2078--2094
+Overfull \hbox (494.19041pt too wide) in paragraph at lines 2102--2118
 []\T1/lmr/m/n/10.95 (-20) The same for-mal pack-age car-ries a bounded recursiv
-e-continuity model, \T1/lmtt/m/n/10.95 docs/architecture/consensus/aft/formal/canonical_ordering
-/CanonicalCollapseRecursiveContinuity.tla\T1/lmr/m/n/10.95 (-20) ,
+e-continuity model, \T1/lmtt/m/n/10.95 internal-docs/architecture/protocols/aft
+/formal/canonical_ordering/CanonicalCollapseRecursiveContinuity.tla\T1/lmr/m/n/
+10.95 (-20) ,
  []
 
 
-Overfull \hbox (51.8021pt too wide) in paragraph at lines 2078--2094
-\T1/lmr/m/n/10.95 (-20) paired with \T1/lmtt/m/n/10.95 docs/architecture/consensus/aft/formal/ca
-nonical_ordering/CanonicalCollapseRecursiveContinuity.cfg\T1/lmr/m/n/10.95 (-20
-) .
+Overfull \hbox (201.26917pt too wide) in paragraph at lines 2102--2118
+\T1/lmr/m/n/10.95 (-20) paired with \T1/lmtt/m/n/10.95 internal-docs/architectu
+re/protocols/aft/formal/canonical_ordering/CanonicalCollapseRecursiveContinuity
+.cfg\T1/lmr/m/n/10.95 (-20) .
  []
 
 [33]
-Underfull \hbox (badness 3919) in paragraph at lines 2138--2138
+Underfull \hbox (badness 3919) in paragraph at lines 2162--2162
 []|\T1/lmtt/m/n/8 CanonicalOrderProofSystem\T1/lmr/m/n/8 (+20) , with con-crete
  vari-ants \T1/lmtt/m/n/8 HashBindingV1 \T1/lmr/m/n/8 (+20) and
  []
 
 [34]
-Underfull \hbox (badness 1082) in paragraph at lines 2174--2174
-[]|\T1/lmtt/m/n/10 AsymptoteObserverChallenge\T1/lmr/m/n/10 (+20) , with kinds 
+Underfull \hbox (badness 1082) in paragraph at lines 2198--2198
+[]|\T1/lmtt/m/n/10 AsymptoteObserverChallenge\T1/lmr/m/n/10 (+20) , with kinds
 \T1/lmtt/m/n/10 MissingTranscript\T1/lmr/m/n/10 (+20) ,
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 2174--2174
+Underfull \hbox (badness 10000) in paragraph at lines 2198--2198
 \T1/lmtt/m/n/10 TranscriptMismatch\T1/lmr/m/n/10 (+20) , \T1/lmtt/m/n/10 VetoTr
 anscriptPresent\T1/lmr/m/n/10 (+20) ,
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 2179--2185
-\T1/lmtt/m/n/10.95 ioi_crypto::sign::guardian_committee\T1/lmr/m/n/10.95 (+20) 
+Underfull \hbox (badness 10000) in paragraph at lines 2203--2209
+\T1/lmtt/m/n/10.95 ioi_crypto::sign::guardian_committee\T1/lmr/m/n/10.95 (+20)
 , \T1/lmtt/m/n/10.95 ioi_services::guardian_registry\T1/lmr/m/n/10.95 (+20) , a
 nd the
  []
@@ -1222,52 +1222,47 @@ Overfull \vbox (126.58403pt too high) has occurred while \output is active []
 
 
 [36]
-Underfull \hbox (badness 1057) in paragraph at lines 2219--2256
+Underfull \hbox (badness 1057) in paragraph at lines 2243--2280
 \T1/lmr/m/n/10.95 (+20) tion, val-ida-tor fi-nal-iza-tion pub-lishes a protocol
 -visible \T1/lmtt/m/n/10.95 CanonicalCollapseObject \T1/lmr/m/n/10.95 (+20) thr
 ough
  []
 
 
-Underfull \hbox (badness 2626) in paragraph at lines 2219--2256
+Underfull \hbox (badness 2626) in paragraph at lines 2243--2280
 \T1/lmtt/m/n/10.95 publish_aft_canonical_collapse_object@v1 \T1/lmr/m/n/10.95 (
 +20) af-ter lo-cal post-commit header en-rich-ment,
  []
 
 
-Overfull \hbox (245.39755pt too wide) in paragraph at lines 2219--2256
+Overfull \hbox (245.39755pt too wide) in paragraph at lines 2243--2280
 \T1/lmtt/m/n/10.95 guardian_registry \T1/lmr/m/n/10.95 (-20) ex-poses \T1/lmtt/
 m/n/10.95 load_canonical_collapse_object\T1/lmr/m/n/10.95 (-20) , and \T1/lmtt/
 m/n/10.95 GuardianMajorityEngine::verify_published_canonical_collapse_object
  []
 
 
-Overfull \hbox (30.57375pt too wide) in paragraph at lines 2219--2256
+Overfull \hbox (30.57375pt too wide) in paragraph at lines 2243--2280
 \T1/lmr/m/n/10.95 (-20) con-ti-nu-ity slice, val-ida-tor or-ches-tra-tion now s
 igns both \T1/lmtt/m/n/10.95 previous_canonical_collapse_commitment_hash
  []
 
 
-Underfull \hbox (badness 2393) in paragraph at lines 2219--2256
+Underfull \hbox (badness 2393) in paragraph at lines 2243--2280
 \T1/lmr/m/n/10.95 (+20) and a typed \T1/lmtt/m/n/10.95 CanonicalCollapseExtensi
 onCertificate \T1/lmr/m/n/10.95 (+20) into each pro-duced AFT block
  []
 
-[37] [38] [39]
+[37] [38] [39] [40]
 
 LaTeX Font Warning: Font shape `T1/lmr/m/scit' undefined
-(Font)              using `T1/lmr/m/scsl' instead on input line 2476.
-
-[40]
-
-LaTeX Font Warning: Font shape `T1/lmr/m/scit' undefined
-(Font)              using `T1/lmr/m/scsl' instead on input line 2510.
+(Font)              using `T1/lmr/m/scsl' instead on input line 2536.
 
 [41] [42]
 LaTeX Font Info:    Font shape `T1/lmtt/bx/n' in size <10.95> not available
-(Font)              Font shape `T1/lmtt/b/n' tried instead on input line 2599.
-LaTeX Font Info:    Trying to load font information for TS1+lmtt on input line 
-2599.
+(Font)              Font shape `T1/lmtt/b/n' tried instead on input line 2621.
+LaTeX Font Info:    Trying to load font information for TS1+lmtt on input line
+2621.
  (/usr/share/texmf/tex/latex/lm/ts1lmtt.fd
 File: ts1lmtt.fd 2015/05/01 v1.6.1 Font defs for Latin Modern
 )
@@ -1282,7 +1277,7 @@ Package microtype Info: Character `texttrademark ' is missing
 
 ] [44] [45]
 LaTeX Font Info:    External font `lmex10' loaded for size
-(Font)              <9> on input line 2605.
+(Font)              <9> on input line 2627.
  [46]
 [47] [48] [49] [50] [51
 
@@ -1297,7 +1292,9 @@ LaTeX Font Info:    External font `lmex10' loaded for size
 [77] [78] [79] [80
 
 ] [81] [82] [83] [84] [85] [86] [87] [88] [89] [90] [91]
-[92] [93] [94] [95] [96] [97] (./yellow_paper.aux)
+[92] [93] [94] [95] [96] [97]
+(/home/heathledger/Documents/ioi/repos/ioi/internal-docs/formal/aft/generated/s
+pecs/yellow_paper.aux)
  ***********
 LaTeX2e <2023-11-01> patch level 1
 L3 programming layer <2024-01-22>
@@ -1307,16 +1304,16 @@ L3 programming layer <2024-01-22>
 LaTeX Font Warning: Some font shapes were not available, defaults substituted.
 
 Package rerunfilecheck Info: File `yellow_paper.out' has not changed.
-(rerunfilecheck)             Checksum: C58D3E6CBC4A3AB7F2FCF3BBC8966DF1;16933.
- ) 
+(rerunfilecheck)             Checksum: D5A4AE4387789FCFEC9987AC8A7E7D03;17277.
+ )
 Here is how much of TeX's memory you used:
- 28167 strings out of 476182
- 526680 string characters out of 5795595
+ 28180 strings out of 476182
+ 527714 string characters out of 5795595
  1996975 words of memory out of 5000000
- 49034 multiletter control sequences out of 15000+600000
- 674213 words of font info for 297 fonts, out of 8000000 for 9000
+ 49052 multiletter control sequences out of 15000+600000
+ 673505 words of font info for 291 fonts, out of 8000000 for 9000
  14 hyphenation exceptions out of 8191
- 102i,12n,107p,1009b,821s stack positions out of 10000i,1000n,20000p,200000b,200000s
+ 102i,12n,107p,1009b,859s stack positions out of 10000i,1000n,20000p,200000b,200000s
 </usr/share/texmf/fonts/type1/public/lm/lmbx10.pfb></usr/share/texmf/fonts/ty
 pe1/public/lm/lmbx12.pfb></usr/share/texmf/fonts/type1/public/lm/lmbx8.pfb></us
 r/share/texmf/fonts/type1/public/lm/lmcsc10.pfb></usr/share/texmf/fonts/type1/p
@@ -1326,17 +1323,19 @@ ic/lm/lmmi6.pfb></usr/share/texmf/fonts/type1/public/lm/lmmi7.pfb></usr/share/t
 exmf/fonts/type1/public/lm/lmmi8.pfb></usr/share/texmf/fonts/type1/public/lm/lm
 r10.pfb></usr/share/texmf/fonts/type1/public/lm/lmr12.pfb></usr/share/texmf/fon
 ts/type1/public/lm/lmr17.pfb></usr/share/texmf/fonts/type1/public/lm/lmr6.pfb><
-/usr/share/texmf/fonts/type1/public/lm/lmr8.pfb></usr/share/texmf/fonts/type1/p
-ublic/lm/lmri10.pfb></usr/share/texmf/fonts/type1/public/lm/lmsy10.pfb></usr/sh
-are/texmf/fonts/type1/public/lm/lmsy6.pfb></usr/share/texmf/fonts/type1/public/
-lm/lmsy8.pfb></usr/share/texmf/fonts/type1/public/lm/lmtk10.pfb></usr/share/tex
-mf/fonts/type1/public/lm/lmtt10.pfb></usr/share/texmf/fonts/type1/public/lm/lmt
-t8.pfb></usr/share/texmf/fonts/type1/public/lm/lmtt9.pfb></usr/share/texmf/font
-s/type1/public/lm/lmtti10.pfb>
-Output written on yellow_paper.pdf (97 pages, 771023 bytes).
+/usr/share/texmf/fonts/type1/public/lm/lmr7.pfb></usr/share/texmf/fonts/type1/p
+ublic/lm/lmr8.pfb></usr/share/texmf/fonts/type1/public/lm/lmri10.pfb></usr/shar
+e/texmf/fonts/type1/public/lm/lmsy10.pfb></usr/share/texmf/fonts/type1/public/l
+m/lmsy6.pfb></usr/share/texmf/fonts/type1/public/lm/lmsy8.pfb></usr/share/texmf
+/fonts/type1/public/lm/lmtk10.pfb></usr/share/texmf/fonts/type1/public/lm/lmtt1
+0.pfb></usr/share/texmf/fonts/type1/public/lm/lmtt8.pfb></usr/share/texmf/fonts
+/type1/public/lm/lmtt9.pfb></usr/share/texmf/fonts/type1/public/lm/lmtti10.pfb>
+
+Output written on /home/heathledger/Documents/ioi/repos/ioi/internal-docs/forma
+l/aft/generated/specs/yellow_paper.pdf (97 pages, 799016 bytes).
 PDF statistics:
- 1057 PDF objects out of 1200 (max. 8388607)
- 896 compressed objects within 9 object streams
- 249 named destinations out of 1000 (max. 500000)
- 64165 words of extra memory for PDF output out of 74296 (max. 10000000)
+ 1075 PDF objects out of 1200 (max. 8388607)
+ 911 compressed objects within 10 object streams
+ 255 named destinations out of 1000 (max. 500000)
+ 64173 words of extra memory for PDF output out of 74296 (max. 10000000)
 
