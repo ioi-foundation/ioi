@@ -27,7 +27,7 @@
 //         IOI_REHARVEST_LIVE=1 node …/reharvest-pipeline-builder.mjs             # live capture (needs a FRESH auth.json)
 
 import { spawnSync } from "node:child_process";
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync, mkdirSync, rmSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -64,11 +64,16 @@ function authFreshness(p) {
 async function reachable(url) { return fetch(url, { method: "HEAD" }).then((r) => r.status).catch(() => 0); }
 
 async function runPreflight() {
-  const r = spawnSync("node", [preflight], { encoding: "utf8", timeout: 120000, env: { ...process.env, IOI_HARNESS_ARTIFACT_DIR: artifactDir } });
-  let result = null;
   const rp = path.join(artifactDir, "result.json");
-  if (existsSync(rp)) { try { result = JSON.parse(readFileSync(rp, "utf8")); } catch { /* */ } }
-  return { ran: r.status === 0 || existsSync(rp), stdout: (r.stdout || "").trim(), result };
+  // Remove any STALE artifact first, and parse ONLY on a clean exit (status 0). A BLOCKED (exit 2) /
+  // crash / timeout preflight must NEVER let a prior run's result.json masquerade as the current state
+  // (review: a stale {"data_clean":true} + a dead mirror printed "DATA-CLEAN"). Same pattern as the
+  // pipeline verifier.
+  try { if (existsSync(rp)) rmSync(rp); } catch { /* */ }
+  const r = spawnSync("node", [preflight], { encoding: "utf8", timeout: 180000, env: { ...process.env, IOI_HARNESS_ARTIFACT_DIR: artifactDir } });
+  let result = null;
+  if (r.status === 0 && existsSync(rp)) { try { result = JSON.parse(readFileSync(rp, "utf8")); } catch { /* */ } }
+  return { status: r.status, blocked: r.status === 2, ran: r.status === 0 && !!result, stdout: (r.stdout || "").trim(), result };
 }
 
 async function main() {
@@ -90,15 +95,20 @@ async function main() {
 
   console.log("\n=== current reference state (data-clean preflight) ===");
   const pf = await runPreflight();
-  const dataClean = pf.result ? pf.result.data_clean : null;
+  // data_clean is null when the preflight did NOT complete cleanly (blocked / crash / timeout) — never
+  // inferred from a stale artifact. Only a clean exit-0 result yields true/false.
+  const dataClean = pf.ran && pf.result ? pf.result.data_clean : null;
+  const dcState = pf.blocked ? "BLOCKED — the preflight could not reach the :9225 mirror / :4173 serve" : dataClean === null ? "UNKNOWN — the preflight did not complete (crash/timeout); re-run with the mirror + serve up" : dataClean ? "TRUE ✓" : "FALSE ✗";
   // The PRECISE blocker: the builder shell + eddie backend ARE captured; the canvas is a lazy webpack
   // chunk and the mirror serves an empty STUB for missing chunk hashes → the canvas crashes. The
   // preflight records the exact stubbed hashes per lane — the surgical backfill target.
-  const missingChunks = pf.result ? [...new Set((pf.result.lanes || []).flatMap((l) => l.missing_lazy_chunks || []))] : [];
-  console.log(`  data_clean        : ${dataClean === null ? "unknown (preflight did not run)" : dataClean ? "TRUE ✓" : "FALSE ✗"}`);
-  if (pf.result && !pf.result.data_clean) console.log(`  blocking reason   : ${pf.result.blocking_reason}`);
-  console.log(`  root cause        : the builder shell + eddie backend are captured; the canvas is a lazy JS chunk and ${missingChunks.length} chunk hash(es) are MISSING from the frontend asset store → the mirror serves an empty stub → crash.`);
-  if (missingChunks.length) console.log(`  missing chunks    : ${missingChunks.join("\n                      ")}`);
+  const missingChunks = pf.ran && pf.result ? [...new Set((pf.result.lanes || []).flatMap((l) => l.missing_lazy_chunks || []))] : [];
+  console.log(`  data_clean        : ${dcState}`);
+  if (pf.ran && pf.result && !pf.result.data_clean) console.log(`  blocking reason   : ${pf.result.blocking_reason}`);
+  if (missingChunks.length) {
+    console.log(`  root cause        : the builder shell + eddie backend are captured; the canvas is a lazy JS chunk and ${missingChunks.length} chunk hash(es) are MISSING from the frontend asset store → the mirror serves an empty stub → crash.`);
+    console.log(`  missing chunks    : ${missingChunks.join("\n                      ")}`);
+  }
 
   console.log("\n=== re-harvest plan (surgical — the eddie data is already captured) ===");
   console.log("  1. Refresh the Foundry session (the recorded token is stale/expired):");
@@ -132,8 +142,9 @@ async function main() {
     schema: "ioi.hypervisor.pipeline-reharvest-plan.v1",
     generated_for: "#37 Pipeline Builder re-harvest workflow",
     readiness: { auth_present: auth.present, auth_cookies: auth.cookies, token_exp: auth.tokenExp, token_exp_iso: expStr, session_fresh: sessionFresh, tools_present: toolsPresent, live_base: liveBase, live_status: liveStatus, target_rids: BUILDER_RIDS },
+    preflight_status: pf.blocked ? "blocked" : pf.ran ? "ran" : "did_not_complete",
     current_data_clean: dataClean,
-    current_blocking_reason: pf.result ? pf.result.blocking_reason : "preflight did not run",
+    current_blocking_reason: pf.ran && pf.result ? pf.result.blocking_reason : pf.blocked ? "BLOCKED — preflight could not reach the mirror/serve" : "preflight did not complete (crash/timeout)",
     root_cause: "builder shell + eddie backend are captured; the canvas is a lazy webpack chunk and its chunk hash(es) are missing from the frontend asset store → the mirror serves an empty stub → the canvas crashes",
     missing_lazy_chunks: missingChunks,
     requires: "a FRESH authenticated Foundry session (config/auth.json is stale/expired) to backfill the missing chunk(s); no offline path — the mirror stubs absent chunks",
@@ -142,7 +153,7 @@ async function main() {
   };
   writeFileSync(path.join(artifactDir, "reharvest-plan.json"), JSON.stringify(plan, null, 2) + "\n");
   console.log(`\nartifact: ${path.relative(process.cwd(), path.join(artifactDir, "reharvest-plan.json"))}`);
-  console.log(`\nSUMMARY: reference is ${dataClean ? "DATA-CLEAN — promotion path is open" : "NOT data-clean — pipeline stays reference_ported until a fresh-session re-harvest"}.`);
+  console.log(`\nSUMMARY: ${dataClean === true ? "reference is DATA-CLEAN — promotion path is open" : dataClean === false ? "reference is NOT data-clean — pipeline stays reference_ported until a fresh-session re-harvest" : pf.blocked ? "preflight BLOCKED (mirror/serve down) — state UNKNOWN; bring them up and re-run" : "preflight did not complete — state UNKNOWN; re-run"}.`);
 }
 
 main().catch((e) => { console.error("reharvest workflow crashed:", e); process.exit(1); });
