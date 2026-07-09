@@ -58,30 +58,33 @@ async function run() {
   ok("parity matrix is current (regenerated == committed)", check.status === 0, (check.stderr || "").trim().slice(0, 80));
   const matrix = JSON.parse(spawnSync("node", ["-e", `import(${JSON.stringify(path.join(here, "..", "harvest-app-parity-matrix.json"))}, { with: { type: "json" } }).then(m => console.log(JSON.stringify(m.default)))`], { encoding: "utf8" }).stdout || "{}");
   const bySlug = Object.fromEntries((matrix.seeds || []).map((s) => [s.slug, s]));
-  ok("matrix classifies pipeline as reference_ported → /__ioi/pipeline (shell ported + wired) with a parity_blocked note", bySlug.pipeline?.parity_class === "reference_ported" && bySlug.pipeline?.port_surface === "/__ioi/pipeline" && bySlug.pipeline?.candidate_surface === "/__ioi/pipeline" && /error/i.test(bySlug.pipeline?.parity_blocked || ""));
-  ok("no false parity for pipeline: NOT daemon_wired (its errored builder reference cannot certify parity); lineage/vertex stay substrate_bound", bySlug.pipeline?.parity_class !== "daemon_wired" && bySlug.lineage?.parity_class === "substrate_bound" && bySlug.vertex?.parity_class === "substrate_bound");
+  ok("matrix classifies pipeline as reference_ported → /__ioi/pipeline (shell ported + wired) with a CORS/origin parity_blocked note that RETRACTS the missing-chunk claim", bySlug.pipeline?.parity_class === "reference_ported" && bySlug.pipeline?.port_surface === "/__ioi/pipeline" && bySlug.pipeline?.candidate_surface === "/__ioi/pipeline" && /CORS|origin/i.test(bySlug.pipeline?.parity_blocked || "") && /WRONG|ZERO|NOT missing|NO re-?harvest/i.test(bySlug.pipeline?.parity_blocked || ""));
+  ok("no false parity for pipeline: NOT daemon_wired (its CORS/origin-blocked reference is not yet harness-certifiable); lineage/vertex stay substrate_bound", bySlug.pipeline?.parity_class !== "daemon_wired" && bySlug.lineage?.parity_class === "substrate_bound" && bySlug.vertex?.parity_class === "substrate_bound");
   ok("estate honest: reference_capture still the majority; no false 'covered'", (matrix.by_parity_class?.reference_capture || 0) >= (matrix.by_parity_class?.reference_ported || 0) && !(matrix.seeds || []).some((s) => s.parity_class === "covered"));
 
-  // 0b. DATA-CLEAN PREFLIGHT (#37) — the block is MACHINE-PROVEN from the live mirror, not prose. The
-  // data-clean gate must be FALSE for pipeline to honestly stay reference_ported; if a re-harvest ever
-  // makes it TRUE, this section FAILS and forces the promotion decision (declare landmarks → hardened
-  // harness → daemon_wired). The re-harvest workflow that would flip it is asserted to exist.
+  // 0b. DATA-CLEAN PREFLIGHT (#37 infra; #38 DIAGNOSIS RE-BASELINE) — the block is MACHINE-PROVEN from the
+  // live mirror, not prose. `data_clean` (the harness-path/proxy reference certifiable) must be FALSE for
+  // pipeline to honestly stay reference_ported; if it ever flips TRUE this section FAILS and forces the
+  // promotion decision (declare landmarks → hardened harness → daemon_wired). #38 corrected WHY it is
+  // blocked: NOT missing chunks (signature stub detection finds ZERO) but a CORS/ORIGIN MISMATCH — the
+  // matching-origin canvas renders a clean pipeline graph while the cross-origin lane is CORS-blocked.
   const pfDir = path.join(appRoot, ".artifacts", "pipeline-reference-preflight");
   const pfResultPath = path.join(pfDir, "result.json");
   // Remove any STALE artifact first, so a timeout / crash / BLOCK can never let a prior run's result.json
   // yield a stale pass. Scale the timeout to the (configurable) lane count + margin.
   try { if (existsSync(pfResultPath)) rmSync(pfResultPath); } catch { /* */ }
-  const ridCount = ((process.env.IOI_BUILDER_EXAMPLE_RID || "").split(",").map((s) => s.trim()).filter(Boolean).length) || 2;
-  const pf = spawnSync("node", [path.join(here, "verify-pipeline-reference-data-clean.mjs")], { encoding: "utf8", timeout: (2 + ridCount) * 30000 + 60000, env: { ...process.env, IOI_HARNESS_ARTIFACT_DIR: pfDir } });
+  const ridCount = ((process.env.IOI_BUILDER_EXAMPLE_RID || "").split(",").map((s) => s.trim()).filter(Boolean).length) || 1;
+  const pf = spawnSync("node", [path.join(here, "verify-pipeline-reference-data-clean.mjs")], { encoding: "utf8", timeout: (3 + ridCount) * 30000 + 60000, env: { ...process.env, IOI_HARNESS_ARTIFACT_DIR: pfDir } });
   if (pf.status === 2) { console.error("BLOCKED: the pipeline data-clean preflight could not reach the :9225 mirror / :4173 serve"); process.exit(2); }
   // Read the result ONLY when the preflight completed cleanly (exit 0) — a timeout (status null) / crash
   // (1) leaves pfr null → the asserts below fail (the block cannot be proven from a stale/absent result).
   let pfr = null;
   if (pf.status === 0 && existsSync(pfResultPath)) { try { pfr = JSON.parse(readFileSync(pfResultPath, "utf8")); } catch { /* */ } }
-  ok("the data-clean preflight ran + emitted a result.json (proves the reference state from the live mirror)", pfr && typeof pfr.data_clean === "boolean" && Array.isArray(pfr.lanes) && pfr.lanes.length >= 3, pfr ? `data_clean=${pfr.data_clean} lanes=${pfr.lanes.length}` : `exit ${pf.status}`);
-  ok("the reference is NOT data-clean → pipeline HONESTLY stays reference_ported (trip-wire: flips to a FAIL the day a re-harvest makes it data-clean, forcing promotion)", pfr && pfr.data_clean === false && bySlug.pipeline?.parity_class === "reference_ported", pfr ? `data_clean=${pfr.data_clean} class=${bySlug.pipeline?.parity_class}` : "preflight missing");
-  ok("the block is SPECIFIC: proxy errors + landing data-fails + the canvas fails to initialize on a MISSING lazy chunk (backfill target)", pfr && /an error occurred/i.test(pfr.blocking_reason) && /failed to load|unable to load/i.test(pfr.blocking_reason) && /failed to initialize/i.test(pfr.blocking_reason) && pfr.lanes.some((l) => (l.missing_lazy_chunks || []).length > 0), pfr ? `chunks=${[...new Set(pfr.lanes.flatMap((l) => l.missing_lazy_chunks || []))].length}` : "n/a");
-  ok("the re-harvest workflow exists (the runnable path to flip data_clean true), guarded (no live capture by default)", existsSync(path.join(here, "reharvest-pipeline-builder.mjs")) && existsSync(path.join(here, "verify-pipeline-reference-data-clean.mjs")));
+  ok("the data-clean preflight ran + emitted a result.json (proves the reference state from the live mirror)", pfr && typeof pfr.data_clean === "boolean" && Array.isArray(pfr.lanes) && pfr.lanes.length >= 3, pfr ? `data_clean=${pfr.data_clean} diagnosis=${pfr.diagnosis} lanes=${pfr.lanes.length}` : `exit ${pf.status}`);
+  ok("the harness-path reference is NOT data_clean → pipeline HONESTLY stays reference_ported (trip-wire: flips to a FAIL the day the proxy/harness reference becomes certifiable, forcing the promotion decision)", pfr && pfr.data_clean === false && bySlug.pipeline?.parity_class === "reference_ported", pfr ? `data_clean=${pfr.data_clean} class=${bySlug.pipeline?.parity_class}` : "preflight missing");
+  ok("the blocker is a CORS/ORIGIN MISMATCH, not missing data: the matching-origin canvas renders clean while the cross-origin lane is CORS-blocked → 'Failed to initialize'", pfr && pfr.diagnosis === "cors_origin_mismatch" && pfr.reference_data_complete === true && pfr.lanes.some((l) => l.corsBlocked && (l.crossOriginFetchFails || 0) > 0) && /cors|origin/i.test(pfr.blocking_reason || ""), pfr ? `diagnosis=${pfr.diagnosis} data_complete=${pfr.reference_data_complete}` : "n/a");
+  ok("#37's 'missing lazy chunks / needs fresh Foundry auth' diagnosis is RETRACTED: signature stub detection finds ZERO missing chunks; the gate states NO re-harvest / NO fresh auth is required", pfr && pfr.missing_chunk === false && (pfr.generated_stub_chunks || []).length === 0 && /no re-?harvest and no fresh/i.test(pfr.blocking_reason || ""), pfr ? `missing_chunk=${pfr.missing_chunk} stubs=${(pfr.generated_stub_chunks || []).length}` : "n/a");
+  ok("the pipeline reference remediation planner exists (diagnosis-driven; re-harvest is only its missing-chunk branch, guarded — no live capture by default) + the data-clean gate", existsSync(path.join(here, "reharvest-pipeline-builder.mjs")) && existsSync(path.join(here, "verify-pipeline-reference-data-clean.mjs")));
 
   // 1. Reference baseline boots the familiar builder, brand-clean.
   const ref = await page(`${SERVE}/__apps/pipeline`);
