@@ -1,30 +1,32 @@
 #!/usr/bin/env node
-// PIPELINE BUILDER RE-HARVEST WORKFLOW (#37 infrastructure).
+// PIPELINE BUILDER REFERENCE — REMEDIATION PLANNER (#37 infra; #38 DIAGNOSIS RE-BASELINE).
 //
-// The path to a DATA-CLEAN Pipeline Builder reference. It is honest about the hard requirement: the
-// local :9225 mirror is a STATIC capture with no eddie/Foundry backend, so it cannot render the
-// pipeline list, the marketplace examples, or a pipeline CANVAS (the graph editor). Making the builder
-// reference data-clean requires RE-CAPTURING a working pipeline example from a LIVE authenticated
-// Foundry session — the existing capture tools
-// (internal-docs/reverse-engineering/palantir/tools/harvesting/{install_application_examples,scaffold_examples}.mjs)
-// both drive Playwright against `liveBase` (test.usw-23.palantirfoundry.com) using
-// config/auth.json. There is NO offline scaffold path.
+// Reads the data-clean PREFLIGHT (verify-pipeline-reference-data-clean.mjs) and prints the CORRECT
+// remediation for whatever the gate actually diagnoses — it is DIAGNOSIS-DRIVEN, not a fixed re-harvest
+// script. #37 assumed the only blocker was "missing lazy chunks needing a fresh-session re-harvest."
+// #38 proved that WRONG: signature-based stub detection finds ZERO missing chunks (the earlier <400b
+// heuristic false-positived genuinely-small REAL chunks like the 364b `splitPathsBySizeLoader`). The
+// captured data is COMPLETE — from the MATCHING origin (localhost:9225) the canvas renders a clean
+// pipeline graph. The real blocker is a CORS/ORIGIN MISMATCH: the app's captured fetch URLs are absolute
+// localhost:9225, so loading the mirror from a different origin (127.0.0.1:9225 — the harness/proxy
+// origin) makes every eddie/session fetch cross-origin → CORS-blocked → the canvas "Failed to initialize."
 //
-// This workflow:
-//   1. Assesses READINESS (auth-state freshness, tool presence, target RIDs, live reachability) —
-//      WITHOUT authenticating to or mutating anything on Foundry.
-//   2. Runs the data-clean PREFLIGHT (verify-pipeline-reference-data-clean.mjs) and reports the current
-//      reference state + the exact blocking reason.
-//   3. Prints the exact re-harvest PLAN to produce a data-clean capture.
-//   4. Emits reharvest-plan.json.
+// Remediation therefore BRANCHES on the gate's `diagnosis`:
+//   - cors_origin_mismatch : ALIGN THE ORIGIN (serve the mirror same-origin as the app's fetch URLs, or
+//                            add permissive CORS on the mirror) + point the harness reference at the
+//                            data-clean canvas. NO re-harvest, NO fresh Foundry auth. (← current state)
+//   - missing_chunk        : re-harvest ONLY the signature-detected stub hash(es) — refresh auth (headful
+//                            Foundry login) + backfill via download_missing_assets.js. Guarded (below).
+//   - app_data_failure     : the eddie backend capture is genuinely incomplete → a broader recapture.
+//   - data_clean           : the harness-path reference is certifiable → the promotion path is open.
 //
-// It DEFAULTS TO DRY-RUN and NEVER contacts Palantir on its own. A live capture is an outward-facing
-// action against a third-party service and is gated behind BOTH a fresh session AND an explicit opt-in
-// (IOI_REHARVEST_LIVE=1); on a stale session it refuses. This PR ships the workflow + the gate; it does
-// not execute a live capture (the recorded session is stale).
+// It DEFAULTS TO DRY-RUN and NEVER contacts Palantir on its own. The live re-harvest branch (only ever
+// the fix for a genuine missing_chunk) is gated behind BOTH a fresh session AND an explicit opt-in
+// (IOI_REHARVEST_LIVE=1); on a stale session it refuses. For the CURRENT (cors_origin_mismatch) blocker
+// a live re-harvest is NOT the fix and is never triggered.
 //
-// Usage:  node apps/hypervisor/scripts/reharvest-pipeline-builder.mjs            # dry-run assessment
-//         IOI_REHARVEST_LIVE=1 node …/reharvest-pipeline-builder.mjs             # live capture (needs a FRESH auth.json)
+// Usage:  node apps/hypervisor/scripts/reharvest-pipeline-builder.mjs            # dry-run remediation plan
+//         IOI_REHARVEST_LIVE=1 node …/reharvest-pipeline-builder.mjs             # live re-harvest branch (needs FRESH auth.json AND a missing_chunk diagnosis)
 
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync, writeFileSync, mkdirSync, rmSync } from "node:fs";
@@ -45,7 +47,8 @@ const BUILDER_RIDS = ["ri.eddie.main.pipeline.e73d6ae7-f6fe-4ac5-82a2-320d9f1885
 const live = process.env.IOI_REHARVEST_LIVE === "1";
 
 // Freshness is the PALANTIR_TOKEN JWT `exp`, not merely "some cookie unexpired" — the session token is
-// what the capture tools authenticate with, and it expires well before the cookie envelope.
+// what the capture tools authenticate with, and it expires well before the cookie envelope. (Only the
+// missing_chunk branch needs it; assessed regardless so the plan can report readiness.)
 function authFreshness(p) {
   if (!existsSync(p)) return { present: false, cookies: 0, tokenExp: null, fresh: false };
   try {
@@ -76,84 +79,92 @@ async function runPreflight() {
   return { status: r.status, blocked: r.status === 2, ran: r.status === 0 && !!result, stdout: (r.stdout || "").trim(), result };
 }
 
+// The remediation for a given gate diagnosis — the branch table, as data.
+function remediationFor(diagnosis) {
+  switch (diagnosis) {
+    case "data_clean":
+      return { branch: "promotion_open", needs_live_capture: false, steps: ["the harness-path (proxy) reference is data-clean — declare pipeline reference_landmarks", "run the hardened parity harness (harness-reference-parity.mjs)", "if visual_parity passes: flip matrix reference_ported → daemon_wired (WITH side-by-side screenshots)"] };
+    case "cors_origin_mismatch":
+      return { branch: "origin_alignment", needs_live_capture: false, steps: ["the captured data is COMPLETE — do NOT re-harvest and do NOT refresh Foundry auth", "ALIGN THE ORIGIN: serve the mirror from the SAME origin the app's captured fetch URLs use (localhost:9225), or add permissive CORS headers on the mirror for the harness/proxy origin (127.0.0.1:9225)", "point the harness reference at the data-clean CANVAS (…/sandbox/…), not the data-partial builder landing list", "re-run verify-pipeline-reference-data-clean.mjs — data_clean flips TRUE when the proxy/harness lane renders the clean graph", "THEN the promotion path opens (declare reference_landmarks → hardened harness → daemon_wired)"] };
+    case "missing_chunk":
+      return { branch: "reharvest_missing_chunk", needs_live_capture: true, steps: ["refresh the Foundry session (headful login): node internal-docs/reverse-engineering/palantir/tools/harvesting/refresh_auth.js", "backfill ONLY the signature-detected stub hash(es) via download_missing_assets.js (set MISSING_ASSETS to those hashes under /assets/content-addressable-storage/frontend/)", "re-run the preflight — data_clean flips only when a canvas renders graph + toolbar + panel with no error/data-fail", "then declare reference_landmarks → hardened harness → daemon_wired"] };
+    default:
+      return { branch: "recapture_or_investigate", needs_live_capture: true, steps: ["the reference is neither data-clean nor a clean CORS/missing-chunk case — inspect the preflight lanes + screenshots", "if the matching-origin canvas is NOT data-complete, the eddie backend capture is incomplete → recapture via install_application_examples.mjs with a builder filter (needs a fresh session)"] };
+  }
+}
+
 async function main() {
   mkdirSync(artifactDir, { recursive: true });
   const auth = authFreshness(authPath);
   const sessionFresh = auth.fresh;
   const toolsPresent = existsSync(installer) && existsSync(scaffolder);
   const expStr = auth.tokenExp ? new Date(auth.tokenExp * 1000).toISOString().slice(0, 16) + "Z" : "no PALANTIR_TOKEN";
-  // The DEFAULT dry-run contacts NOTHING external. Only probe Foundry reachability when a live capture
-  // is actually being attempted (IOI_REHARVEST_LIVE=1) — and even then it is an UNauthenticated HEAD.
-  const liveStatus = live ? await reachable(liveBase) : null;
-
-  console.log("=== Pipeline Builder re-harvest — readiness ===");
-  console.log(`  auth state        : ${auth.present ? `${auth.cookies} cookies; PALANTIR_TOKEN exp ${expStr}` : "MISSING"} (${path.relative(repoRoot, authPath)})`);
-  console.log(`  session fresh     : ${sessionFresh ? "yes" : "NO — token stale/expired; re-harvest needs a FRESH Foundry login"}`);
-  console.log(`  capture tools     : ${toolsPresent ? "present" : "MISSING"} (install_application_examples.mjs / scaffold_examples.mjs)`);
-  console.log(`  live Foundry      : ${liveBase} → ${liveStatus === null ? "not probed (dry-run; zero external contact)" : `HTTP ${liveStatus} (unauthenticated HEAD)`}`);
-  console.log(`  target RIDs       : ${BUILDER_RIDS.join(" · ")}`);
 
   console.log("\n=== current reference state (data-clean preflight) ===");
   const pf = await runPreflight();
-  // data_clean is null when the preflight did NOT complete cleanly (blocked / crash / timeout) — never
-  // inferred from a stale artifact. Only a clean exit-0 result yields true/false.
+  // data_clean / diagnosis are null when the preflight did NOT complete cleanly (blocked / crash /
+  // timeout) — never inferred from a stale artifact. Only a clean exit-0 result yields a real state.
   const dataClean = pf.ran && pf.result ? pf.result.data_clean : null;
+  const diagnosis = pf.ran && pf.result ? pf.result.diagnosis : null;
   const dcState = pf.blocked ? "BLOCKED — the preflight could not reach the :9225 mirror / :4173 serve" : dataClean === null ? "UNKNOWN — the preflight did not complete (crash/timeout); re-run with the mirror + serve up" : dataClean ? "TRUE ✓" : "FALSE ✗";
-  // The PRECISE blocker: the builder shell + eddie backend ARE captured; the canvas is a lazy webpack
-  // chunk and the mirror serves an empty STUB for missing chunk hashes → the canvas crashes. The
-  // preflight records the exact stubbed hashes per lane — the surgical backfill target.
-  const missingChunks = pf.ran && pf.result ? [...new Set((pf.result.lanes || []).flatMap((l) => l.missing_lazy_chunks || []))] : [];
+  // The genuine missing-chunk set is the gate's SIGNATURE-detected stubs (empty when — as now — nothing
+  // is actually missing). NOT a size heuristic.
+  const missingChunks = pf.ran && pf.result ? (pf.result.generated_stub_chunks || []) : [];
+  const referenceDataComplete = pf.ran && pf.result ? !!pf.result.reference_data_complete : null;
   console.log(`  data_clean        : ${dcState}`);
+  console.log(`  diagnosis         : ${diagnosis || "(unknown)"}`);
+  console.log(`  data complete?    : ${referenceDataComplete === null ? "unknown" : referenceDataComplete ? "YES — the matching-origin canvas renders a clean pipeline graph" : "no"}`);
   if (pf.ran && pf.result && !pf.result.data_clean) console.log(`  blocking reason   : ${pf.result.blocking_reason}`);
-  if (missingChunks.length) {
-    console.log(`  root cause        : the builder shell + eddie backend are captured; the canvas is a lazy JS chunk and ${missingChunks.length} chunk hash(es) are MISSING from the frontend asset store → the mirror serves an empty stub → crash.`);
-    console.log(`  missing chunks    : ${missingChunks.join("\n                      ")}`);
-  }
+  console.log(`  missing chunks    : ${missingChunks.length ? missingChunks.join(", ") + " (signature-detected)" : "none (signature-detected → #37's missing-chunk claim is retracted)"}`);
 
-  console.log("\n=== re-harvest plan (surgical — the eddie data is already captured) ===");
-  console.log("  1. Refresh the Foundry session (the recorded token is stale/expired):");
-  console.log("       node " + path.relative(repoRoot, path.join(palantirRoot, "tools", "harvesting", "refresh_auth.js")));
-  console.log("     (headful login to " + liveBase + " → saves a fresh storageState to " + path.relative(repoRoot, authPath) + ").");
-  console.log("  2. Backfill ONLY the missing lazy chunk(s) via download_missing_assets.js (set MISSING_ASSETS");
-  console.log("     to the hashes above, under /assets/content-addressable-storage/frontend/):");
-  console.log("       node " + path.relative(repoRoot, path.join(palantirRoot, "tools", "harvesting", "download_missing_assets.js")));
-  console.log("     (or full recapture: node " + path.relative(repoRoot, installer) + " with a builder filter.)");
-  console.log("  3. Re-run this workflow / the preflight — data_clean flips to TRUE only when a canvas");
-  console.log("     renders graph nodes + toolbar + output panel + tray with no error/data-fail.");
-  console.log("  4. THEN, and only then, the promotion path opens (declare pipeline reference_landmarks,");
-  console.log("     run the hardened parity harness, flip matrix reference_ported → daemon_wired).");
+  const rem = remediationFor(diagnosis);
+  console.log(`\n=== remediation (branch: ${rem.branch}) ===`);
+  rem.steps.forEach((s, i) => console.log(`  ${i + 1}. ${s}`));
+
+  // The auth/live readiness only matters for the re-harvest branch; report it, but make clear it is not
+  // the current path.
+  console.log("\n=== re-harvest readiness (relevant ONLY to a missing_chunk diagnosis) ===");
+  console.log(`  auth state        : ${auth.present ? `${auth.cookies} cookies; PALANTIR_TOKEN exp ${expStr}` : "MISSING"} (${path.relative(repoRoot, authPath)})`);
+  console.log(`  session fresh     : ${sessionFresh ? "yes" : "NO — a stale token would block the re-harvest branch, but that branch is NOT the current fix"}`);
+  console.log(`  capture tools     : ${toolsPresent ? "present" : "MISSING"} (install_application_examples.mjs / scaffold_examples.mjs)`);
+  console.log(`  target RIDs       : ${BUILDER_RIDS.join(" · ")}`);
 
   let liveOutcome = "not_attempted";
   if (live) {
-    if (!sessionFresh) {
+    if (!rem.needs_live_capture) {
+      liveOutcome = "no_live_capture_needed_for_this_diagnosis";
+      console.log(`\n[live] IOI_REHARVEST_LIVE=1 but the current diagnosis is '${diagnosis}', whose fix does NOT involve contacting Foundry (${rem.branch}). Refusing to contact Foundry — a re-harvest would not fix this blocker.`);
+    } else if (!sessionFresh) {
       liveOutcome = "refused_stale_session";
-      console.log("\n[live] IOI_REHARVEST_LIVE=1 but the session is STALE — refusing to contact Foundry. Refresh " + path.relative(repoRoot, authPath) + " first.");
+      console.log("\n[live] IOI_REHARVEST_LIVE=1 + a missing_chunk diagnosis, but the session is STALE — refusing to contact Foundry. Refresh " + path.relative(repoRoot, authPath) + " first.");
     } else {
       liveOutcome = "would_run_live_capture";
-      console.log("\n[live] IOI_REHARVEST_LIVE=1 + fresh session — a live capture would run here. (Left as an explicit");
-      console.log("       operator step; wire the spawn of install_application_examples.mjs with APP_FILTER for the");
-      console.log("       builder once a fresh session is confirmed, then re-run the preflight.)");
+      const liveStatus = await reachable(liveBase); // only probe when we would genuinely capture
+      console.log(`\n[live] IOI_REHARVEST_LIVE=1 + missing_chunk + fresh session — a live backfill would run here (live Foundry ${liveBase} → HTTP ${liveStatus}, unauthenticated HEAD). Left as an explicit operator step: wire download_missing_assets.js with the stub hashes above, then re-run the preflight.`);
     }
   } else {
-    console.log("\n[dry-run] default mode — no contact with Foundry. Set IOI_REHARVEST_LIVE=1 (with a fresh session) to capture.");
+    console.log("\n[dry-run] default mode — no contact with Foundry. A live re-harvest is only ever the fix for a missing_chunk diagnosis; set IOI_REHARVEST_LIVE=1 (with a fresh session) then.");
   }
 
   const plan = {
-    schema: "ioi.hypervisor.pipeline-reharvest-plan.v1",
-    generated_for: "#37 Pipeline Builder re-harvest workflow",
-    readiness: { auth_present: auth.present, auth_cookies: auth.cookies, token_exp: auth.tokenExp, token_exp_iso: expStr, session_fresh: sessionFresh, tools_present: toolsPresent, live_base: liveBase, live_status: liveStatus, target_rids: BUILDER_RIDS },
+    schema: "ioi.hypervisor.pipeline-remediation-plan.v2",
+    generated_for: "#38 Pipeline Builder reference remediation planner (diagnosis-driven; supersedes the #37 fixed re-harvest plan)",
+    readiness: { auth_present: auth.present, auth_cookies: auth.cookies, token_exp: auth.tokenExp, token_exp_iso: expStr, session_fresh: sessionFresh, tools_present: toolsPresent, live_base: liveBase, target_rids: BUILDER_RIDS },
     preflight_status: pf.blocked ? "blocked" : pf.ran ? "ran" : "did_not_complete",
     current_data_clean: dataClean,
+    diagnosis,
+    reference_data_complete: referenceDataComplete,
     current_blocking_reason: pf.ran && pf.result ? pf.result.blocking_reason : pf.blocked ? "BLOCKED — preflight could not reach the mirror/serve" : "preflight did not complete (crash/timeout)",
-    root_cause: "builder shell + eddie backend are captured; the canvas is a lazy webpack chunk and its chunk hash(es) are missing from the frontend asset store → the mirror serves an empty stub → the canvas crashes",
-    missing_lazy_chunks: missingChunks,
-    requires: "a FRESH authenticated Foundry session (config/auth.json is stale/expired) to backfill the missing chunk(s); no offline path — the mirror stubs absent chunks",
+    missing_chunks_signature_detected: missingChunks,
+    retraction: "#37's root cause ('missing lazy chunks needing a fresh-session re-harvest') is RETRACTED — signature stub detection finds ZERO missing chunks; the captured data is complete and the blocker is a CORS/origin mismatch (fix = origin alignment, no auth).",
+    remediation_branch: rem.branch,
+    remediation_needs_live_capture: rem.needs_live_capture,
+    remediation_steps: rem.steps,
     live_mode: live, live_outcome: liveOutcome,
-    plan: ["refresh config/auth.json via `node …/refresh_auth.js` (headful Foundry login)", "backfill the missing lazy chunk hash(es) via `node …/download_missing_assets.js` (set MISSING_ASSETS), or full recapture via install_application_examples.mjs with a builder filter", "re-run verify-pipeline-reference-data-clean.mjs", "if data_clean: declare pipeline reference_landmarks + run the hardened harness + flip matrix reference_ported→daemon_wired"],
   };
   writeFileSync(path.join(artifactDir, "reharvest-plan.json"), JSON.stringify(plan, null, 2) + "\n");
   console.log(`\nartifact: ${path.relative(process.cwd(), path.join(artifactDir, "reharvest-plan.json"))}`);
-  console.log(`\nSUMMARY: ${dataClean === true ? "reference is DATA-CLEAN — promotion path is open" : dataClean === false ? "reference is NOT data-clean — pipeline stays reference_ported until a fresh-session re-harvest" : pf.blocked ? "preflight BLOCKED (mirror/serve down) — state UNKNOWN; bring them up and re-run" : "preflight did not complete — state UNKNOWN; re-run"}.`);
+  console.log(`\nSUMMARY: ${dataClean === true ? "reference is DATA-CLEAN — promotion path is open" : diagnosis === "cors_origin_mismatch" ? "reference DATA is complete; blocked by a CORS/origin mismatch — fix is ORIGIN ALIGNMENT (no re-harvest, no fresh auth); pipeline stays reference_ported" : diagnosis === "missing_chunk" ? "reference blocked by a genuinely missing chunk — the re-harvest branch applies (fresh session + backfill)" : pf.blocked ? "preflight BLOCKED (mirror/serve down) — state UNKNOWN; bring them up and re-run" : "preflight did not complete / other — state UNKNOWN; inspect lanes"}.`);
 }
 
-main().catch((e) => { console.error("reharvest workflow crashed:", e); process.exit(1); });
+main().catch((e) => { console.error("remediation planner crashed:", e); process.exit(1); });
