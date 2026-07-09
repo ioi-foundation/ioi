@@ -4546,111 +4546,176 @@ function govAge(iso) {
   if (h < 48) return `${h}h ${m % 60}m`;
   return `${Math.floor(h / 24)}d`;
 }
-// ============================ APPROVALS INBOX — reference UX PORT (#33, reference_ported after #34).
-// A PORTED "Approvals inbox" shell (left RAIL of inbox views · HEADER · toolbar · BODY request table ·
-// right DETAIL panel · bottom tray) over the REAL daemon ApprovalRequest queue — the same records + the
-// same approve/reject/revoke transitions the substrate ?tab=approvals view uses (no new governance
-// semantics). Fully WIRED, but under the #34-hardened parity gate (theme + IA landmarks) this dark
-// native shell does NOT reproduce the LIGHT faceted reference, so it is `reference_ported`, NOT
-// `daemon_wired`. A dedicated faithful-light-port cut can promote it. Actions post `return` to land here.
-function renderApprovalsPort(records, statusFilter) {
+// ============================ APPROVALS INBOX — reference UX PORT (#36, daemon_wired TRUE parity).
+// A FAITHFUL LIGHT port of the reference "Approvals inbox" (dark global RAIL · light HEADER · a light
+// faceted SIDEBAR: Quick filters [Your inbox / Created by you / All requests] + Additional filters
+// [Status wired to ?status=, plus faithful named-gap facets] · a light request LIST with status pills ·
+// an on-select right DETAIL with approve/reject/revoke), over the REAL daemon ApprovalRequest queue —
+// the same records + the same transitions the substrate ?tab=approvals view uses (no new governance
+// semantics). #33 shipped this as a dark native shell; #34's hardened gate correctly refused it; #36
+// REBUILT it faithfully so it passes the hardened harness (theme + IA landmarks) → PROMOTED to
+// `daemon_wired`, closing the #34 reclassification loop. Actions post a same-origin `return` to land here.
+function renderApprovalsPort(records, statusFilter, opts) {
   const enc = encodeURIComponent, esc = CX_ESC;
   const all = Array.isArray(records) ? records : [];
-  const VIEWS = [["pending", "Needs decision"], ["approved", "Approved"], ["rejected", "Rejected"], ["revoked", "Revoked"], ["", "All"]];
+  const STATUSES = [["pending", "Pending approval"], ["approved", "Approved"], ["rejected", "Rejected"], ["revoked", "Revoked"]];
   const byStatus = { pending: 0, approved: 0, rejected: 0, revoked: 0 };
   for (const a of all) if (byStatus[a.status] != null) byStatus[a.status]++;
-  const view = VIEWS.some(([v]) => v === statusFilter) ? statusFilter : "pending";
-  const rows = view ? all.filter((a) => a.status === view) : all;
-  const pend = all.filter((a) => a.status === "pending");
-  const oldest = pend.length ? pend.reduce((o, a) => (String(a.created_at || "") < String(o.created_at || "") ? a : o)) : null;
-  const RET = `<input type="hidden" name="return" value="/__ioi/governance/approvals${view ? `?status=${view}` : ""}">`;
-  const blast = (a) => { const wc = (a.would_call || []).length, ar = (a.required_authority_refs || []).length; return (!wc && !ar) ? `<span class="ap-muted">none</span>` : `${wc ? `<span class="ap-pill warn">${wc} call${wc > 1 ? "s" : ""}</span>` : ""}${ar ? ` <span class="ap-pill muted">${ar} authorit${ar > 1 ? "ies" : "y"}</span>` : ""}`; };
+  const view = ["pending", "approved", "rejected", "revoked", "all"].includes(statusFilter) ? statusFilter : "pending";
+  const rows = view === "all" ? all : all.filter((a) => a.status === view);
+  const selected = (opts && opts.selected) ? all.find((a) => a.id === opts.selected) : null;
+  const svg = (p) => `<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
+  const CHECK = '<rect x="3" y="3" width="18" height="18" rx="4"/><path d="M8 12l3 3 5-6"/>';
+  const CUBE = '<path d="M12 2l9 5v10l-9 5-9-5V7z"/>';
+
+  // DARK global platform rail — Approvals active (faithful to the reference's left chrome).
+  const gitem = (icon, label, href, on) => (href ? `<a class="og-gitem${on ? " on" : ""}" href="${href}">` : `<span class="og-gitem muted">`) + `<span class="og-gico">${icon}</span><span class="og-glabel">${esc(label)}</span>` + (href ? `</a>` : `</span>`);
+  const globalRail = `<aside class="og-grail">
+    <div class="og-brand"><span class="og-logo">${svg(CHECK)}</span></div>
+    ${gitem(svg('<path d="M3 10l9-7 9 7"/><path d="M5 9v11h14V9"/>'), "Home", "/ai")}
+    ${gitem(svg('<circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/>'), "Search", "")}
+    ${gitem(svg('<path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9"/>'), "Notifications", "")}
+    ${gitem(svg('<path d="M12 3v18M5 8h14M5 16h14"/>'), "What's New", "")}
+    <div class="og-gdiv"></div>
+    ${gitem(svg('<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/>'), "Recent", "")}
+    ${gitem(svg('<path d="M3 7h6l2 2h10v11H3z"/>'), "Files", "")}
+    ${gitem(svg(CUBE), "Ontology", "/__ioi/odk")}
+    ${gitem(svg('<rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/>'), "Applications", "/__ioi/home")}
+    <div class="og-gsec">Applications</div>
+    ${gitem(svg(CHECK), "Approvals", "/__ioi/governance/approvals", true)}
+    <div class="og-gspacer"></div>
+    ${gitem(svg('<circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 015 0c0 2-2.5 2-2.5 4M12 17h.01"/>'), "Support", "")}
+    ${gitem(svg('<circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/>'), "Account", "")}
+  </aside>`;
+
+  const header = `<header class="ap-hd"><span class="ap-happ">${svg(CHECK)}</span><span class="ap-htitle">Approvals</span><a class="ap-subst" href="/__ioi/governance?tab=approvals">Substrate table →</a></header>`;
+
+  // LIGHT faceted filter sidebar — Quick filters (real status shortcuts) + Additional filters (Status
+  // is wired to ?status=; the rest are faithful faceted controls disabled as named gaps).
+  const qf = (label, count, href, on, gap) => gap
+    ? `<span class="ap-qf gap" title="${esc(label)} needs a per-user creator/identity plane — named gap (no count)"><span class="ap-qfi">${svg('<circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/>')}</span>${esc(label)}<span class="ap-qfc">—</span></span>`
+    : `<a class="ap-qf${on ? " on" : ""}" href="${href}"><span class="ap-qfi">${svg('<path d="M3 7h6l2 2h10v9H3z"/>')}</span>${esc(label)}<span class="ap-qfc">${count}</span></a>`;
+  const statusOpt = (v, label) => `<option value="${v}"${v === view ? " selected" : ""}>${esc(label)}</option>`;
+  const facets = `<aside class="ap-facets">
+    <div class="ap-fsec">Quick filters</div>
+    <div class="ap-qfbox">
+      ${qf("Your inbox", byStatus.pending, "/__ioi/governance/approvals?status=pending", view === "pending")}
+      ${qf("Created by you", 0, "", false, true)}
+      ${qf("All requests", all.length, "/__ioi/governance/approvals?status=all", view === "all")}
+    </div>
+    <div class="ap-fsec">Additional filters <a class="ap-clear" href="/__ioi/governance/approvals">Clear</a></div>
+    <form class="ap-ff" method="GET" action="/__ioi/governance/approvals">
+      <label class="ap-flabel">Request type</label>
+      <select class="ap-fsel" disabled title="Request-type facet is a named gap"><option>Access requests</option></select>
+      <label class="ap-flabel">Status</label>
+      <select class="ap-fsel" name="status" onchange="this.form.submit()">${statusOpt("all", "All requests")}${STATUSES.map(([v, l]) => statusOpt(v, l)).join("")}</select>
+      <label class="ap-flabel">Created by</label>
+      <select class="ap-fsel" disabled title="named gap"><option>Select user</option></select>
+      <label class="ap-fcheck gap" title="named gap"><input type="checkbox" disabled> Assigned to you</label>
+      <label class="ap-flabel">Project requested to</label>
+      <select class="ap-fsel" disabled title="named gap"><option>Select project</option></select>
+      <label class="ap-flabel">Users or groups in request</label>
+      <select class="ap-fsel" disabled title="named gap"><option>Select user or group</option></select>
+      <label class="ap-flabel">Groups requested to</label>
+      <select class="ap-fsel" disabled title="named gap"><option>Select group</option></select>
+    </form>
+  </aside>`;
+
+  const statusPill = (s) => `<span class="ap-pill ${s === "approved" ? "ok" : s === "pending" ? "warn" : "muted"}">${esc(s === "pending" ? "Pending approval" : ((s || "").charAt(0).toUpperCase() + (s || "").slice(1)))}</span>`;
+  const subjShort = (r) => { const s = String(r || ""); return esc(s.length > 46 ? s.slice(0, 46) + "…" : s); };
+  const rowHref = (a) => `/__ioi/governance/approvals?${view ? `status=${view}&` : ""}req=${enc(a.id)}`;
+  const listHeading = view === "pending" ? "Your inbox" : view === "all" ? "All requests" : (STATUSES.find(([v]) => v === view) || [, "Requests"])[1];
+  const list = `<main class="ap-list" role="main">
+    <div class="ap-listhd"><h2>${esc(listHeading)} <span class="ap-n">(${rows.length})</span></h2>
+      <div class="ap-listtools"><span class="ap-search" title="Full-text request search is a named gap">${svg('<circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/>')} Search for requests…</span><span class="ap-sort" title="Sort is a named gap">Sort: Recently created ▾</span></div>
+    </div>
+    ${rows.length ? `<div class="ap-rows">${rows.map((a) => `<a class="ap-row${selected && selected.id === a.id ? " on" : ""}" href="${rowHref(a)}">
+      <span class="ap-rowic">${svg('<rect x="4" y="3" width="14" height="18" rx="2"/><path d="M8 8h6M8 12h6M8 16h3"/>')}</span>
+      <span class="ap-rowmain"><span class="ap-rowtitle">${esc(a.request_kind || "approval")} · ${subjShort(a.subject_ref)} <code class="ap-code">${esc(a.id || "")}</code></span><span class="ap-rowsub">Created ${esc(govAge(a.created_at))}${a.reason ? ` · ${esc(String(a.reason).slice(0, 60))}` : ""}</span></span>
+      <span class="ap-rowst">${statusPill(a.status)}</span></a>`).join("")}</div>`
+      : `<div class="ap-empty">Nothing in <b>${esc(listHeading)}</b> — pick another filter.</div>`}
+  </main>`;
+
+  // Right detail panel — ONLY when a request is selected (faithful: the reference default has no detail).
+  // The approve/reject/revoke forms are the REAL daemon transitions (preserved wiring), return-aware.
+  const RET = `<input type="hidden" name="return" value="${esc(rowHref(selected || { id: "" }))}">`;
+  const blast = (a) => { const wc = (a.would_call || []).length, ar = (a.required_authority_refs || []).length; return (!wc && !ar) ? "none declared" : `${wc ? `${wc} call${wc > 1 ? "s" : ""}` : ""}${wc && ar ? " · " : ""}${ar ? `${ar} authorit${ar > 1 ? "ies" : "y"}` : ""}`; };
   const decide = (a) => a.status === "pending"
     ? govTform("approvals", a.id, "approve", "Approve", "primary", `<input name="reviewer_ref" placeholder="reviewer" class="ap-inp">` + RET) + govTform("approvals", a.id, "reject", "Reject", "ghost", RET)
-    : a.status === "approved" ? govTform("approvals", a.id, "revoke", "Revoke", "ghost", RET) : `<span class="ap-muted">terminal</span>`;
-  const statusPill = (s) => `<span class="ap-pill ${s === "approved" ? "ok" : s === "pending" ? "warn" : "muted"}">${esc(s || "")}</span>`;
+    : a.status === "approved" ? govTform("approvals", a.id, "revoke", "Revoke", "ghost", RET) : `<span class="ap-muted">terminal — no further transition</span>`;
+  const detail = selected ? `<aside class="ap-detail">
+    <div class="ap-dhd"><b>${esc(selected.request_kind || "approval")}</b> ${statusPill(selected.status)}</div>
+    <div class="ap-drow"><span>Subject</span>${govSubjectLink(selected.subject_ref)}</div>
+    <div class="ap-drow"><span>Request id</span><code class="ap-code">${esc(selected.id || "")}</code></div>
+    <div class="ap-drow"><span>Reason</span>${esc(selected.reason || "—")}</div>
+    <div class="ap-drow"><span>Blast radius</span>${blast(selected)}</div>
+    <div class="ap-drow"><span>Created</span>${esc(selected.created_at || "")}</div>
+    <div class="ap-dactions">${decide(selected)}</div>
+    <a class="ap-dclose" href="/__ioi/governance/approvals${view ? `?status=${view}` : ""}">Close</a>
+    <div class="ap-dgaps">Named gaps: reviewer assignment · delegation · threaded comments · SLA/escalation · audit exports — reference-only lanes.</div>
+  </aside>` : "";
 
-  const rail = `<aside class="ap-rail">
-    <div class="ap-railbrand">Approvals</div>
-    <div class="ap-railsec">Inbox</div>
-    ${VIEWS.map(([v, label]) => `<a class="ap-view ${v === view ? "on" : ""}" href="/__ioi/governance/approvals${v ? `?status=${v}` : ""}">${esc(label)}<span class="ap-count">${v ? (byStatus[v] || 0) : all.length}</span></a>`).join("")}
-    <div class="ap-railsec">Governance</div>
-    <a class="ap-view" href="/__ioi/governance">Overview</a>
-    <a class="ap-view" href="/__ioi/governance?tab=releases">Release controls</a>
-    <a class="ap-view" href="/__ioi/governance?tab=kill-switches">Kill switches</a>
-  </aside>`;
-
-  const header = `<header class="ap-header">
-    <div class="ap-title">Approvals</div>
-    <div class="ap-crumb">${byStatus.pending} pending${pend.length ? ` · oldest ${esc(govAge(oldest.created_at))}` : ""} · ${all.length} total</div>
-    <div class="ap-headacts"><a class="ap-btn ghost" href="/__ioi/work-ledger">Proof stream</a></div>
-  </header>`;
-
-  const toolbar = `<div class="ap-toolbar">
-    <span class="ap-tbtitle">${esc(VIEWS.find(([v]) => v === view)[1])} <span class="ap-muted">(${rows.length})</span></span>
-    <button class="ap-btn ghost" disabled title="Bulk assignment is a named gap — no reviewer-assignment authority yet.">Assign reviewer</button>
-    <button class="ap-btn ghost" disabled title="Delegation is a named gap.">Delegate</button>
-    <span class="ap-toolnote">Decisions are the real daemon ApprovalRequest transitions — nothing is faked. Reference: <a href="/__apps/approvals" target="_blank" rel="noopener">Approvals inbox ↗</a>.</span>
-  </div>`;
-
-  const body = `<div class="ap-body" id="ap-body">${rows.length
-    ? `<table class="ap-table"><thead><tr><th>Request</th><th>Target</th><th>Blast radius</th><th>Age</th><th>Status</th><th>Decide</th></tr></thead><tbody>${rows.map((a) => `<tr>
-        <td><b>${esc(a.request_kind || "approval")}</b><div class="ap-sub">${esc(String(a.reason || "").slice(0, 70) || "no reason recorded")} · <code>${esc(a.id || "")}</code></div></td>
-        <td>${govSubjectLink(a.subject_ref)}</td>
-        <td>${blast(a)}</td>
-        <td title="${esc(a.created_at || "")}">${esc(govAge(a.created_at))}</td>
-        <td>${statusPill(a.status)}</td>
-        <td class="ap-decide">${decide(a)}</td>
-      </tr>`).join("")}</tbody></table>`
-    : `<div class="ap-empty">Nothing in <b>${esc(VIEWS.find(([v]) => v === view)[1])}</b> — pick another inbox view in the rail.</div>`}</div>`;
-
-  const rightPanel = `<aside class="ap-right">
-    <div class="ap-railsec">Queue</div>
-    <div class="ap-stat"><div class="ap-statnum">${byStatus.pending}</div><div class="ap-statlbl">need a decision</div></div>
-    <div class="ap-outbox"><div class="ap-outt">By status</div>${["pending", "approved", "rejected", "revoked"].map((s) => `<div class="ap-outrow">${statusPill(s)} <span class="ap-muted">${byStatus[s] || 0}</span></div>`).join("")}</div>
-    <div class="ap-outbox"><div class="ap-outt">Named gaps</div><div class="ap-gaps">reviewer assignment · delegation · threaded comments · SLA/escalation · identity/team review workflows · audit exports — <b>reference-only lanes</b> (disabled above), no authority contract yet.</div></div>
-  </aside>`;
-
-  const tray = `<div class="ap-tray"><span class="ap-muted">Ported Approvals inbox over real daemon ApprovalRequest records. In-row Approve/Reject/Revoke are the existing daemon transitions. The <a href="/__apps/approvals" target="_blank" rel="noopener">Approvals inbox capture ↗</a> is the reference; the substrate table remains at <a href="/__ioi/governance?tab=approvals">Governance → Approval Requests</a>.</span></div>`;
-
-  const css = `:root{color-scheme:dark}*{box-sizing:border-box}
-    body{margin:0;background:#0c0d10;color:#e6e7ea;font:13px/1.5 -apple-system,Segoe UI,Roboto,sans-serif}
-    a{color:#8ab4ff;text-decoration:none}
+  const css = `html{color-scheme:light}*{box-sizing:border-box}
+    body{margin:0;background:#f4f5f7;color:#1a1d21;font:13px/1.55 -apple-system,Segoe UI,Roboto,sans-serif}
+    a{color:#2f6fd8;text-decoration:none}
     .ap-shell{display:flex;height:100vh;width:100vw;overflow:hidden}
-    .ap-rail{flex:0 0 236px;width:236px;height:100vh;background:#0e0f13;border-right:1px solid #23252c;overflow-y:auto;padding:14px 10px}
-    .ap-railbrand{font-weight:700;font-size:15px;padding:2px 8px 12px}
-    .ap-railsec{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:#6f7280;padding:12px 8px 6px;font-weight:600}
-    .ap-view{display:flex;align-items:center;justify-content:space-between;padding:7px 10px;border-radius:8px;color:#cbd0da;margin:1px 0}
-    .ap-view:hover{background:#15171c}.ap-view.on{background:#17233a;color:#fff}
-    .ap-count{font-size:11px;color:#878a93}.ap-view.on .ap-count{color:#8ab4ff}
+    .og-grail{flex:0 0 220px;width:220px;height:100vh;background:#21242b;color:#c4c8d0;display:flex;flex-direction:column;padding:10px 10px 12px;overflow-y:auto}
+    .og-brand{padding:4px 8px 10px}.og-logo{display:inline-flex;color:#7aa2ff}
+    .og-gitem{display:flex;align-items:center;gap:11px;padding:7px 9px;border-radius:7px;color:#c4c8d0;font-size:13px}
+    .og-gitem:hover{background:#2c3038;color:#fff}.og-gitem.on{background:#2f6fd8;color:#fff}
+    .og-gitem.muted{color:#8b909a;cursor:default}.og-gitem.muted:hover{background:transparent;color:#8b909a}
+    .og-gico{display:inline-flex;width:18px}.og-glabel{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .og-gdiv{height:1px;background:#33373f;margin:8px 6px}
+    .og-gsec{font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;color:#7a7f89;padding:12px 9px 5px;font-weight:600}
+    .og-gspacer{flex:1 1 auto;min-height:14px}
     .ap-main{flex:1;min-width:0;display:flex;flex-direction:column;height:100vh}
-    .ap-header{flex:0 0 auto;height:54px;display:flex;align-items:center;gap:14px;padding:0 20px;border-bottom:1px solid #23252c;background:#0e0f13}
-    .ap-title{font-weight:700;font-size:16px}.ap-crumb{color:#9a9da6;font-size:12.5px}.ap-headacts{margin-left:auto}
-    .ap-toolbar{flex:0 0 auto;height:46px;display:flex;align-items:center;gap:10px;padding:0 18px;border-bottom:1px solid #23252c;background:#0d0e12}
-    .ap-tbtitle{font-weight:600}.ap-toolnote{margin-left:auto;color:#6f7280;font-size:11.5px}
-    .ap-body{flex:1 1 auto;overflow:auto;padding:10px 18px}
-    .ap-table{border-collapse:collapse;width:100%;font-size:12.5px}
-    .ap-table th{text-align:left;color:#878a93;font-weight:600;padding:8px 14px 8px 0;border-bottom:1px solid #23252c;position:sticky;top:0;background:#0c0d10}
-    .ap-table td{padding:9px 14px 9px 0;border-bottom:1px solid #171920;vertical-align:top}
-    .ap-sub{color:#878a93;font-size:11px;margin-top:2px}.ap-decide{white-space:nowrap}
-    .ap-right{flex:0 0 288px;width:288px;height:100vh;border-left:1px solid #23252c;background:#0e0f13;overflow-y:auto;padding:0 12px 20px}
-    .ap-stat{padding:12px 8px}.ap-statnum{font-size:30px;font-weight:700}.ap-statlbl{color:#878a93;font-size:12px}
-    .ap-outbox{margin:10px 6px;border:1px solid #24262d;border-radius:10px;padding:11px 12px;background:#15171c}
-    .ap-outt{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#878a93;font-weight:600;margin:0 0 8px}
-    .ap-outrow{display:flex;align-items:center;gap:8px;margin:4px 0}.ap-gaps{color:#9a9da6;font-size:11.5px;line-height:1.6}
-    .ap-tray{flex:0 0 46px;height:46px;display:flex;align-items:center;padding:0 18px;border-top:1px solid #23252c;background:#0d0e12;color:#6f7280;font-size:11.5px}
-    .ap-pill{display:inline-block;padding:1px 8px;border-radius:999px;font-size:11px;border:1px solid;white-space:nowrap}
-    .ap-pill.ok{color:#46c277;border-color:#235c3b}.ap-pill.warn{color:#d6a13a;border-color:#5c4a23}.ap-pill.muted{color:#9a9da6;border-color:#2a2c33}
-    .ap-muted{color:#6f7280}.ap-empty{color:#6f7280;padding:24px;border:1px dashed #24262d;border-radius:12px;margin:16px 0}
-    .ap-inp{width:92px;padding:5px 8px;border-radius:7px;border:1px solid #2a2c33;background:#0e0f13;color:#e6e7ea;font:inherit;font-size:11.5px;margin-right:4px}
+    .ap-hd{flex:0 0 auto;height:52px;display:flex;align-items:center;gap:11px;padding:0 20px;background:#fff;border-bottom:1px solid #e6e8ec}
+    .ap-happ{display:inline-flex;color:#2f6fd8}.ap-htitle{font-weight:700;font-size:16px}.ap-subst{margin-left:auto;font-size:12.5px}
+    .ap-work{flex:1 1 auto;display:flex;min-height:0}
+    .ap-facets{flex:0 0 300px;width:300px;background:#f4f5f7;overflow-y:auto;padding:18px 18px 24px}
+    .ap-fsec{font-size:13px;font-weight:600;color:#3a3f46;margin:14px 0 8px;display:flex;justify-content:space-between;align-items:baseline}
+    .ap-fsec:first-child{margin-top:0}.ap-clear{font-size:12px;font-weight:400}
+    .ap-qfbox{background:#fff;border:1px solid #e2e5ea;border-radius:10px;padding:6px;box-shadow:0 1px 2px rgba(20,24,31,.04)}
+    .ap-qf{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:7px;color:#3a3f46;font-size:13px}
+    .ap-qf:hover{background:#f1f3f6}.ap-qf.on{background:#eef2fb;color:#1a3d7a;font-weight:600}
+    .ap-qf.gap{color:#a2a7af;cursor:default}.ap-qfi{display:inline-flex;color:#8b9099}.ap-qf.on .ap-qfi{color:#2f6fd8}
+    .ap-qfc{margin-left:auto;font-size:12px;color:#8b9099}
+    .ap-ff{display:flex;flex-direction:column;gap:5px;background:#fff;border:1px solid #e2e5ea;border-radius:10px;padding:12px}
+    .ap-flabel{font-size:11.5px;color:#6b7178;margin-top:6px}
+    .ap-fsel{padding:7px 9px;border:1px solid #d6dae0;border-radius:7px;font:inherit;font-size:12.5px;background:#fff;color:#3a3f46}
+    .ap-fsel[disabled]{background:#eef1f5;color:#3a3f46;cursor:not-allowed}
+    .ap-fcheck{display:flex;align-items:center;gap:7px;font-size:12.5px;color:#6b7178;margin-top:8px}.ap-fcheck.gap{cursor:not-allowed}
+    .ap-list{flex:1 1 auto;overflow:auto;padding:18px 22px;background:#f4f5f7}
+    .ap-listhd{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 14px}
+    .ap-list h2{font-size:15px;margin:0;font-weight:600}.ap-n{color:#9aa0a8;font-weight:400}
+    .ap-listtools{display:flex;align-items:center;gap:12px}
+    .ap-search{display:inline-flex;align-items:center;gap:7px;background:#fff;border:1px solid #d6dae0;border-radius:8px;padding:6px 12px;color:#9aa0a8;font-size:12.5px;cursor:not-allowed}
+    .ap-sort{color:#6b7178;font-size:12.5px;cursor:not-allowed}
+    .ap-rows{background:#fff;border:1px solid #e6e8ec;border-radius:10px;overflow:hidden}
+    .ap-row{display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid #f0f1f4;color:#1a1d21}
+    .ap-row:last-child{border-bottom:0}.ap-row:hover{background:#f7f9fc}.ap-row.on{background:#eef2fb}
+    .ap-rowic{display:inline-flex;color:#8b9099}
+    .ap-rowmain{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+    .ap-rowtitle{font-weight:600;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .ap-rowsub{font-size:12px;color:#8b9099}.ap-rowst{flex:0 0 auto}
+    .ap-detail{flex:0 0 320px;width:320px;background:#fff;border-left:1px solid #e6e8ec;overflow-y:auto;padding:18px}
+    .ap-dhd{display:flex;align-items:center;gap:9px;font-size:14px;margin:0 0 12px}
+    .ap-drow{display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-bottom:1px solid #f0f1f4;font-size:12.5px}.ap-drow>span:first-child{color:#8b9099}
+    .ap-dactions{margin:14px 0 8px;display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+    .ap-dclose{font-size:12.5px}.ap-dgaps{color:#8b9099;font-size:11.5px;margin-top:12px;line-height:1.6}
+    .ap-pill{display:inline-block;padding:2px 10px;border-radius:999px;font-size:11.5px;border:1px solid;white-space:nowrap;font-weight:500}
+    .ap-pill.ok{color:#1a7f43;border-color:#bfe4cd;background:#eafaf0}
+    .ap-pill.warn{color:#2f6fd8;border-color:#c5d8f5;background:#eef4fe}
+    .ap-pill.muted{color:#6b7178;border-color:#e0e3e8;background:#f3f4f6}
+    .ap-muted{color:#8b9099}.ap-code{font-family:ui-monospace,monospace;font-size:11px;color:#6b7178;background:#f1f3f6;padding:1px 5px;border-radius:4px}
+    .ap-empty{color:#8b9099;padding:24px;border:1px dashed #d8dbe0;border-radius:12px;background:#fff}
+    .ap-inp{width:96px;padding:6px 9px;border-radius:7px;border:1px solid #d6dae0;background:#fff;color:#1a1d21;font:inherit;font-size:12px;margin-right:4px}
     form.inline{display:inline}
-    .act{padding:5px 11px;border-radius:7px;border:1px solid #2a2c33;background:transparent;color:#cbd0da;font:inherit;font-size:12px;font-weight:600;cursor:pointer;margin-right:4px}
-    .act.primary{background:#fff;color:#111;border-color:#fff}.act.ghost:hover{color:#fff;border-color:#3a3d45}
-    .ap-btn{padding:6px 12px;border-radius:8px;border:1px solid #2a2c33;background:transparent;color:#cbd0da;font:inherit;font-size:12.5px;font-weight:600;cursor:pointer}
-    .ap-btn.ghost:hover{color:#fff;border-color:#3a3d45}.ap-btn[disabled]{opacity:.42;cursor:not-allowed}`;
+    .act{padding:6px 13px;border-radius:7px;border:1px solid #d6dae0;background:#fff;color:#3a3f46;font:inherit;font-size:12.5px;font-weight:600;cursor:pointer;margin-right:4px}
+    .act.primary{background:#2f6fd8;color:#fff;border-color:#2f6fd8}.act.ghost:hover{border-color:#b6bcc4}`;
 
   return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Approvals inbox</title><style>${css}</style></head>
-    <body><div class="ap-shell">${rail}<div class="ap-main">${header}${toolbar}${body}${tray}</div>${rightPanel}</div></body></html>`;
+    <body><div class="ap-shell">${globalRail}<div class="ap-main">${header}<div class="ap-work">${facets}${list}${detail}</div></div></div></body></html>`;
 }
 
 function govApprovalsQueue(records) {
@@ -8356,13 +8421,16 @@ const server = http.createServer((req, res) => {
       }));
       return;
     }
-    // Approvals inbox — reference UX PORT (#33, reference_ported after #34). Wired inbox shell over the
-    // real ApprovalRequest queue; the substrate table stays at /__ioi/governance?tab=approvals.
+    // Approvals inbox — reference UX PORT (#36, daemon_wired). FAITHFUL light faceted inbox (dark global
+    // rail + Quick/Additional filter sidebar + request list + on-select detail) over the real
+    // ApprovalRequest queue; substrate table stays at /__ioi/governance?tab=approvals.
     if (pathname === "/__ioi/governance/approvals" && req.method === "GET") {
-      const status = new URL(req.url, "http://x").searchParams.get("status") || "";
+      const sp = new URL(req.url, "http://x").searchParams;
+      const status = sp.get("status") || "";
+      const selected = sp.get("req") || "";
       const ap = await fetch(`${DAEMON}/v1/hypervisor/governance/approval-requests`).then((x) => x.json()).catch(() => ({}));
       res.writeHead(200, HTMLH);
-      res.end(renderApprovalsPort(ap.approval_requests || [], status));
+      res.end(renderApprovalsPort(ap.approval_requests || [], status, { selected }));
       return;
     }
     // Governance control-object mutations (record-only; the daemon executes no enforcement).
@@ -8376,7 +8444,9 @@ const server = http.createServer((req, res) => {
         // Redirect back to the caller's surface — the ported Approvals inbox (#33) posts a `return`
         // to land back on itself; everything else falls back to the substrate tab. Same-origin only.
         const ret = p.get("return");
-        const back = (ret && ret.startsWith("/__ioi/")) ? ret : `/__ioi/governance?tab=${fam}`;
+        // Same-origin path only, and no characters that could break out of an HTML attribute / a header
+        // (defense-in-depth: the href is also CX_ESC'd on the failure-render paths).
+        const back = (ret && ret.startsWith("/__ioi/") && !/["'<>\r\n]/.test(ret)) ? ret : `/__ioi/governance?tab=${fam}`;
         // create (POST to family root)
         if (!segs[1]) {
           const csv = (k) => (p.get(k) || "").split(",").map((s) => s.trim()).filter(Boolean);
@@ -8389,7 +8459,7 @@ const server = http.createServer((req, res) => {
           const r = await fetch(`${DAEMON}${api}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) }).then((x) => x.json()).catch(() => ({}));
           if (r && r.ok) { res.writeHead(302, { Location: back, "Cache-Control": "no-cache" }); return res.end(); }
           res.writeHead(200, HTMLH);
-          res.end(automationsShell("Governance", `<div class="empty">Create failed: ${CX_ESC((r.error && r.error.message) || "invalid")}</div><p><a href="${back}">← back</a></p>`));
+          res.end(automationsShell("Governance", `<div class="empty">Create failed: ${CX_ESC((r.error && r.error.message) || "invalid")}</div><p><a href="${CX_ESC(back)}">← back</a></p>`));
           return;
         }
         const id = decodeURIComponent(segs[1]);
@@ -8399,7 +8469,7 @@ const server = http.createServer((req, res) => {
           const rv = (p.get("reviewer_ref") || "").trim(); if (rv) patch.reviewer_ref = rv;
           const tr = (p.get("trip_reason") || "").trim(); if (tr) patch.trip_reason = tr;
           const r = await fetch(`${DAEMON}${api}/${encodeURIComponent(id)}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify(patch) }).then((x) => x.json()).catch(() => ({}));
-          if (r && r.ok === false && r.error) { res.writeHead(200, HTMLH); res.end(automationsShell("Governance", `<div class="empty">Transition failed: ${CX_ESC(r.error.message || "invalid")}</div><p><a href="${back}">← back</a></p>`)); return; }
+          if (r && r.ok === false && r.error) { res.writeHead(200, HTMLH); res.end(automationsShell("Governance", `<div class="empty">Transition failed: ${CX_ESC(r.error.message || "invalid")}</div><p><a href="${CX_ESC(back)}">← back</a></p>`)); return; }
           res.writeHead(302, { Location: back, "Cache-Control": "no-cache" }); return res.end();
         }
         if (action === "delete") {
@@ -8409,7 +8479,7 @@ const server = http.createServer((req, res) => {
         // Effectful KillSwitch enforcement (after trip).
         if (action === "enforce" && fam === "kill-switches") {
           const r = await fetch(`${DAEMON}${api}/${encodeURIComponent(id)}/enforce`, { method: "POST", headers: { "content-type": "application/json" }, body: "{}" }).then((x) => x.json()).catch(() => ({}));
-          if (r && r.ok === false && r.error) { res.writeHead(200, HTMLH); res.end(automationsShell("Governance", `<div class="empty">Enforce failed: ${CX_ESC(r.error.message || "invalid")}</div><p><a href="${back}">← back</a></p>`)); return; }
+          if (r && r.ok === false && r.error) { res.writeHead(200, HTMLH); res.end(automationsShell("Governance", `<div class="empty">Enforce failed: ${CX_ESC(r.error.message || "invalid")}</div><p><a href="${CX_ESC(back)}">← back</a></p>`)); return; }
           res.writeHead(302, { Location: back, "Cache-Control": "no-cache" }); return res.end();
         }
       }
@@ -8507,7 +8577,7 @@ const server = http.createServer((req, res) => {
         if (r && r.ok === false && r.error) {
           const reasons = (r.error.blocked_reasons || []).join(", ");
           res.writeHead(200, HTMLH);
-          res.end(automationsShell("Marketplace", `<div class="empty">Publish blocked: ${CX_ESC(r.error.message || "")}${reasons ? " — " + CX_ESC(reasons) : ""}</div><p><a href="${back}">← back</a></p>`));
+          res.end(automationsShell("Marketplace", `<div class="empty">Publish blocked: ${CX_ESC(r.error.message || "")}${reasons ? " — " + CX_ESC(reasons) : ""}</div><p><a href="${CX_ESC(back)}">← back</a></p>`));
           return;
         }
       }

@@ -46,7 +46,7 @@ async function run() {
   const bySlug = Object.fromEntries((matrix.seeds || []).map((s) => [s.slug, s]));
   ok("matrix classifies explorer as reference_ported → /__ioi/ontology/explorer (NOT daemon_wired)", bySlug.explorer?.parity_class === "reference_ported" && bySlug.explorer?.port_surface === "/__ioi/ontology/explorer" && bySlug.explorer?.candidate_surface === "/__ioi/ontology/explorer");
   ok("the block is documented (parity_blocked names the blank/failed local Hubble reference)", typeof bySlug.explorer?.parity_blocked === "string" && /hubble|blank|failed to load|no backend|re-?harvest/i.test(bySlug.explorer.parity_blocked));
-  ok("daemon_wired stays sacred: schema is still the only daemon_wired; reference_capture is the majority", bySlug.schema?.parity_class === "daemon_wired" && (matrix.by_parity_class?.daemon_wired || 0) === 1 && (matrix.by_parity_class?.reference_capture || 0) > (matrix.by_parity_class?.reference_ported || 0));
+  ok("daemon_wired stays sacred: only FAITHFUL ports are daemon_wired (schema + approvals), explorer is NOT; reference_capture is the majority", bySlug.schema?.parity_class === "daemon_wired" && bySlug.explorer?.parity_class !== "daemon_wired" && (matrix.by_parity_class?.reference_capture || 0) > (matrix.by_parity_class?.daemon_wired || 0) && (matrix.by_parity_class?.reference_capture || 0) > (matrix.by_parity_class?.reference_ported || 0));
   ok("explorer declares NO reference_landmarks (a blank reference has no IA to reproduce — it must not be gameable into parity)", !Array.isArray(bySlug.explorer?.reference_landmarks) || bySlug.explorer.reference_landmarks.length === 0);
 
   // Fixtures: TWO real DomainOntologies — GizmoKind (the match) + WidgetKind (a GUARANTEED non-matching
