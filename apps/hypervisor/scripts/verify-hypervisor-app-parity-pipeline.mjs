@@ -28,7 +28,7 @@
 
 import http from "node:http";
 import { spawnSync } from "node:child_process";
-import { readFileSync, existsSync } from "node:fs";
+import { readFileSync, existsSync, rmSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { mintApprovalGrant } from "../../../scripts/lib/mint-approval-grant.mjs";
@@ -67,9 +67,17 @@ async function run() {
   // makes it TRUE, this section FAILS and forces the promotion decision (declare landmarks → hardened
   // harness → daemon_wired). The re-harvest workflow that would flip it is asserted to exist.
   const pfDir = path.join(appRoot, ".artifacts", "pipeline-reference-preflight");
-  const pf = spawnSync("node", [path.join(here, "verify-pipeline-reference-data-clean.mjs")], { encoding: "utf8", timeout: 120000, env: { ...process.env, IOI_HARNESS_ARTIFACT_DIR: pfDir } });
+  const pfResultPath = path.join(pfDir, "result.json");
+  // Remove any STALE artifact first, so a timeout / crash / BLOCK can never let a prior run's result.json
+  // yield a stale pass. Scale the timeout to the (configurable) lane count + margin.
+  try { if (existsSync(pfResultPath)) rmSync(pfResultPath); } catch { /* */ }
+  const ridCount = ((process.env.IOI_BUILDER_EXAMPLE_RID || "").split(",").map((s) => s.trim()).filter(Boolean).length) || 2;
+  const pf = spawnSync("node", [path.join(here, "verify-pipeline-reference-data-clean.mjs")], { encoding: "utf8", timeout: (2 + ridCount) * 30000 + 60000, env: { ...process.env, IOI_HARNESS_ARTIFACT_DIR: pfDir } });
+  if (pf.status === 2) { console.error("BLOCKED: the pipeline data-clean preflight could not reach the :9225 mirror / :4173 serve"); process.exit(2); }
+  // Read the result ONLY when the preflight completed cleanly (exit 0) — a timeout (status null) / crash
+  // (1) leaves pfr null → the asserts below fail (the block cannot be proven from a stale/absent result).
   let pfr = null;
-  if (existsSync(path.join(pfDir, "result.json"))) { try { pfr = JSON.parse(readFileSync(path.join(pfDir, "result.json"), "utf8")); } catch { /* */ } }
+  if (pf.status === 0 && existsSync(pfResultPath)) { try { pfr = JSON.parse(readFileSync(pfResultPath, "utf8")); } catch { /* */ } }
   ok("the data-clean preflight ran + emitted a result.json (proves the reference state from the live mirror)", pfr && typeof pfr.data_clean === "boolean" && Array.isArray(pfr.lanes) && pfr.lanes.length >= 3, pfr ? `data_clean=${pfr.data_clean} lanes=${pfr.lanes.length}` : `exit ${pf.status}`);
   ok("the reference is NOT data-clean → pipeline HONESTLY stays reference_ported (trip-wire: flips to a FAIL the day a re-harvest makes it data-clean, forcing promotion)", pfr && pfr.data_clean === false && bySlug.pipeline?.parity_class === "reference_ported", pfr ? `data_clean=${pfr.data_clean} class=${bySlug.pipeline?.parity_class}` : "preflight missing");
   ok("the block is SPECIFIC: proxy errors + landing data-fails + the canvas fails to initialize on a MISSING lazy chunk (backfill target)", pfr && /an error occurred/i.test(pfr.blocking_reason) && /failed to load|unable to load/i.test(pfr.blocking_reason) && /failed to initialize/i.test(pfr.blocking_reason) && pfr.lanes.some((l) => (l.missing_lazy_chunks || []).length > 0), pfr ? `chunks=${[...new Set(pfr.lanes.flatMap((l) => l.missing_lazy_chunks || []))].length}` : "n/a");
