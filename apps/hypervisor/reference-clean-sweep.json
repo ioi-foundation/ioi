@@ -1,0 +1,3910 @@
+{
+ "schema": "ioi.hypervisor.reference-clean-sweep.v1",
+ "swept_at": "2026-07-10T15:45:41.079Z",
+ "serve": "http://127.0.0.1:4173",
+ "mirror": "http://127.0.0.1:9225",
+ "total_seeds": 39,
+ "by_state": {
+  "needs_origin_alignment": 13,
+  "errored_reference": 6,
+  "shell_clean_only": 10,
+  "data_clean": 6,
+  "data_failed": 4
+ },
+ "doctrine": "reference cleanliness only — no ports, no promotions, parity_class untouched; local mirror lanes only (no live dependency); screenshots corroborate, DOM/text/network classify",
+ "ranked_next": [
+  {
+   "rank": 1,
+   "slug": "incidents",
+   "owner": "Missions",
+   "score": 27,
+   "why": {
+    "data_clean_reference": true,
+    "daemon_truth_bindable": "/__ioi/missions",
+    "owner_value": "Missions (4)",
+    "fabrication_risk": "low (table_list)",
+    "ia_landmarks": [
+     "Home",
+     "Search…",
+     "ctrl + J",
+     "Notifications",
+     "Gift Icon",
+     "What's New",
+     "Recent",
+     "Files"
+    ],
+    "live_palantir_dependency": "none (local mirror lanes only)"
+   }
+  },
+  {
+   "rank": 2,
+   "slug": "models",
+   "owner": "Foundry",
+   "score": 26,
+   "why": {
+    "data_clean_reference": true,
+    "daemon_truth_bindable": "/__ioi/foundry",
+    "owner_value": "Foundry (3)",
+    "fabrication_risk": "low (catalog)",
+    "ia_landmarks": [
+     "Home",
+     "Search…",
+     "ctrl + J",
+     "Notifications",
+     "Gift Icon",
+     "What's New",
+     "Recent",
+     "Files"
+    ],
+    "live_palantir_dependency": "none (local mirror lanes only)"
+   }
+  },
+  {
+   "rank": 3,
+   "slug": "listings",
+   "owner": "Marketplace",
+   "score": 19,
+   "why": {
+    "data_clean_reference": true,
+    "daemon_truth_bindable": "no existing surface — new binding work",
+    "owner_value": "Marketplace (2)",
+    "fabrication_risk": "low (catalog)",
+    "ia_landmarks": [
+     "Home",
+     "Search…",
+     "ctrl + J",
+     "Notifications",
+     "Gift Icon",
+     "What's New",
+     "Recent",
+     "Files"
+    ],
+    "live_palantir_dependency": "none (local mirror lanes only)"
+   }
+  }
+ ],
+ "seeds": [
+  {
+   "slug": "designer",
+   "owner": "Studio",
+   "parity_class": "substrate_bound",
+   "grammar": "editor_canvas",
+   "reference_path": "http://localhost:9225/workspace/solution-design/",
+   "candidate_surface": "/__ioi/studio/designer",
+   "substrate_surface": "/__ioi/studio/designer",
+   "clean_state": "needs_origin_alignment",
+   "reason": "proxy lane shows a failure (\"Failed to load favorites\") with CORS-blocked session lanes, but the capture-origin lane (http://localhost:9225) renders the app failure-free WITH data (rows 12/0 · nodes 0 · cards 64 · lines 690) — align the reference URL like pipeline #38/#39",
+   "lane_used": "origin",
+   "shell_regions": [
+    "rail",
+    "header",
+    "body"
+   ],
+   "landmarks_observed": [
+    "Home",
+    "Search…",
+    "ctrl + J",
+    "Notifications",
+    "Gift Icon",
+    "What's New",
+    "Recent",
+    "Files",
+    "Ontology",
+    "Applications",
+    "View all",
+    "Training",
+    "Add to favorites",
+    "AIP logo icon",
+    "AIP Assist",
+    "ctrl + shift + U",
+    "Support",
+    "Account"
+   ],
+   "matrix_landmarks_present": [],
+   "body_sample": "Skip to content\nHome\nSearch…\nctrl + J\nNotifications\nWhat's New\nRecent\nFiles\nOntology\nApplications\nAPPLICATIONS\nView all\nTraining\nAIP Assist\nctrl + shift + U\nSupport\nLJ\nAccount\nSolution Designer\nNew Diagram\nHelp\nSolution Designer\nSolution Designer helps you to transform business problems into Foundry solutions using a graph-based interface, with examples, editing tools, and resource links for collaborative and iterative design.\nHave a workflow in mind? Use AIP Architect to help you plan it.\nAnswer a few questions to get AIP suggestions on how to implement your workflow in Foundry.\nStart plannin",
+   "data_evidence": {
+    "table_rows": 12,
+    "graph_nodes": 0,
+    "cards": 64,
+    "list_items": 0,
+    "repeated_rows": 0,
+    "body_text_chars": 35310,
+    "meaningful_lines": 690
+   },
+   "error_text": "",
+   "missing_chunks": [],
+   "cors_evidence": [],
+   "modal_evidence": {
+    "overlay_pre": false,
+    "overlay_post": false,
+    "dismissed_reveals_data": false
+   },
+   "capture_store": {
+    "present": true,
+    "file_count": 3,
+    "deep_route_dirs": [],
+    "bytes": 160653
+   },
+   "lanes_summary": [
+    {
+     "lane": "proxy",
+     "url": "http://127.0.0.1:4173/__apps/designer",
+     "loaded": true,
+     "nav_error": "",
+     "regions": [
+      "rail",
+      "header",
+      "toolbar",
+      "body"
+     ],
+     "data_score": 3,
+     "chunk_404s": 0,
+     "api_failures": 0,
+     "cross_origin_9225": 19,
+     "cors_signals": 8,
+     "console_errors": 20,
+     "screenshot": ".artifacts/reference-clean-sweep/designer-proxy.png"
+    },
+    {
+     "lane": "origin",
+     "url": "http://localhost:9225/workspace/solution-design/",
+     "loaded": true,
+     "nav_error": "",
+     "regions": [
+      "rail",
+      "header",
+      "body"
+     ],
+     "data_score": 7,
+     "chunk_404s": 0,
+     "api_failures": 0,
+     "cross_origin_9225": 0,
+     "cors_signals": 0,
+     "console_errors": 1,
+     "screenshot": ".artifacts/reference-clean-sweep/designer-origin.png"
+    }
+   ],
+   "screenshot": ".artifacts/reference-clean-sweep/designer-origin.png"
+  },
+  {
+   "slug": "machinery",
+   "owner": "Studio",
+   "parity_class": "substrate_bound",
+   "grammar": "graph",
+   "reference_path": "http://localhost:9225/workspace/machinery-app/",
+   "candidate_surface": "/__ioi/studio/machinery",
+   "substrate_surface": "/__ioi/studio/machinery",
+   "clean_state": "needs_origin_alignment",
+   "reason": "proxy lane shows a failure (\"Failed to load Machinery Marketplace examples.\"), but the capture-origin lane (http://localhost:9225) renders the app failure-free WITH data (rows 12/0 · nodes 0 · cards 3 · lines 49) — align the reference URL like pipeline #38/#39",
+   "lane_used": "origin",
+   "shell_regions": [
+    "rail",
+    "header",
+    "body"
+   ],
+   "landmarks_observed": [
+    "Home",
+    "Search…",
+    "ctrl + J",
+    "Notifications",
+    "Gift Icon",
+    "What's New",
+    "Recent",
+    "Files",
+    "Ontology",
+    "Applications",
+    "View all",
+    "Training",
+    "Add to favorites",
+    "AIP logo icon",
+    "AIP Assist",
+    "ctrl + shift + U",
+    "Support",
+    "Account"
+   ],
+   "matrix_landmarks_present": [],
+   "body_sample": "Skip to content\nHome\nSearch…\nctrl + J\nNotifications\nWhat's New\nRecent\nFiles\nOntology\nApplications\nAPPLICATIONS\nView all\nTraining\nAIP Assist\nctrl + shift + U\nSupport\nLJ\nAccount\nMachinery\nNew graph\nHelp\nMachinery\nBuild, manage and monitor your business processes with precision. Streamline operations and drive efficiency through strategic automations.\nView\nRecents\nFavorites\nFILES\nCREATOR\nLAST EDITED BY\nLAST VIEWED\nUse AIP Logic to classify and edit objects Walkthrough\n/test-ab81f6/test4/AIP Chatbot with transcribed video context (2026-04-26 22:22:24)/logic/Use AIP Logic to classify and edit objec",
+   "data_evidence": {
+    "table_rows": 12,
+    "graph_nodes": 0,
+    "cards": 3,
+    "list_items": 0,
+    "repeated_rows": 0,
+    "body_text_chars": 4973,
+    "meaningful_lines": 49
+   },
+   "error_text": "",
+   "missing_chunks": [],
+   "cors_evidence": [],
+   "modal_evidence": {
+    "overlay_pre": false,
+    "overlay_post": false,
+    "dismissed_reveals_data": false
+   },
+   "capture_store": {
+    "present": true,
+    "file_count": 3,
+    "deep_route_dirs": [],
+    "bytes": 1143077
+   },
+   "lanes_summary": [
+    {
+     "lane": "proxy",
+     "url": "http://127.0.0.1:4173/__apps/machinery",
+     "loaded": true,
+     "nav_error": "",
+     "regions": [
+      "rail",
+      "header",
+      "body"
+     ],
+     "data_score": 5,
+     "chunk_404s": 0,
+     "api_failures": 0,
+     "cross_origin_9225": 0,
+     "cors_signals": 0,
+     "console_errors": 1,
+     "screenshot": ".artifacts/reference-clean-sweep/machinery-proxy.png"
+    },
+    {
+     "lane": "origin",
+     "url": "http://localhost:9225/workspace/machinery-app/",
+     "loaded": true,
+     "nav_error": "",
+     "regions": [
+      "rail",
+      "header",
+      "body"
+     ],
+     "data_score": 7,
+     "chunk_404s": 0,
+     "api_failures": 0,
+     "cross_origin_9225": 0,
+     "cors_signals": 0,
+     "console_errors": 0,
+     "screenshot": ".artifacts/reference-clean-sweep/machinery-origin.png"
+    }
+   ],
+   "screenshot": ".artifacts/reference-clean-sweep/machinery-origin.png"
+  },
+  {
+   "slug": "workshop",
+   "owner": "Studio",
+   "parity_class": "reference_capture",
+   "grammar": "editor_canvas",
+   "reference_path": "/__apps/workshop",
+   "candidate_surface": null,
+   "substrate_surface": null,
+   "clean_state": "errored_reference",
+   "reason": "navigation failed on every lane (navigation triggered a content-type download — the captured app document is an empty 307 + application/octet-stream response (broken capture, cannot boot on any lane) · navigation triggered a content-type download — the captured app document is an empty 307 + application/octet-stream response (broken capture, cannot boot on any lane))",
+   "lane_used": "proxy",
+   "shell_regions": [],
+   "landmarks_observed": [],
+   "matrix_landmarks_present": [],
+   "body_sample": "",
+   "data_evidence": null,
+   "error_text": "",
+   "missing_chunks": [],
+   "cors_evidence": [],
+   "modal_evidence": null,
+   "capture_store": {
+    "present": true,
+    "file_count": 3,
+    "deep_route_dirs": [],
+    "bytes": 27
+   },
+   "lanes_summary": [
+    {
+     "lane": "proxy",
+     "url": "http://127.0.0.1:4173/__apps/workshop",
+     "loaded": false,
+     "nav_error": "navigation triggered a content-type download — the captured app document is an empty 307 + application/octet-stream response (broken capture, cannot boot on any lane)",
+     "regions": [],
+     "data_score": 0,
+     "chunk_404s": 0,
+     "api_failures": 0,
+     "cross_origin_9225": 0,
+     "cors_signals": 0,
+     "console_errors": 0,
+     "screenshot": ""
+    },
+    {
+     "lane": "origin",
+     "url": "http://localhost:9225/workspace/workshop/",
+     "loaded": false,
+     "nav_error": "navigation triggered a content-type download — the captured app document is an empty 307 + application/octet-stream response (broken capture, cannot boot on any lane)",
+     "regions": [],
+     "data_score": 0,
+     "chunk_404s": 0,
+     "api_failures": 0,
+     "cross_origin_9225": 0,
+     "cors_signals": 0,
+     "console_errors": 0,
+     "screenshot": ""
+    }
+   ],
+   "screenshot": ""
+  },
+  {
+   "slug": "module",
+   "owner": "Studio",
+   "parity_class": "reference_capture",
+   "grammar": "editor_canvas",
+   "reference_path": "http://localhost:9225/workspace/module/",
+   "candidate_surface": null,
+   "substrate_surface": null,
+   "clean_state": "needs_origin_alignment",
+   "reason": "proxy lane shows a failure (\"Page not found\"), but the capture-origin lane (http://localhost:9225) renders the app failure-free WITH data (rows 12/0 · nodes 0 · cards 9 · lines 54) — align the reference URL like pipeline #38/#39",
+   "lane_used": "origin",
+   "shell_regions": [
+    "rail",
+    "header",
+    "body"
+   ],
+   "landmarks_observed": [
+    "Home",
+    "Search…",
+    "ctrl + J",
+    "Notifications",
+    "Gift Icon",
+    "What's New",
+    "Recent",
+    "Files",
+    "Ontology",
+    "Applications",
+    "View all",
+    "Workshop",
+    "Add to favorites",
+    "AIP logo icon",
+    "AIP Assist",
+    "ctrl + shift + U",
+    "Support",
+    "Account"
+   ],
+   "matrix_landmarks_present": [],
+   "body_sample": "Skip to content\nHome\nSearch…\nctrl + J\nNotifications\nWhat's New\nRecent\nFiles\nOntology\nApplications\nAPPLICATIONS\nView all\nWorkshop\nAIP Assist\nctrl + shift + U\nSupport\nLJ\nAccount\nWorkshop\nNew module\nHelp\nWorkshop\nCreate high-quality, easy-to-maintain operational applications using native object components in a point-and-click environment.\nCreate new module\nBlank module\nInbox template\nMap template\nMetrics template\nView\nRecents\nFavorites\nMODULE\nCREATOR\nLAST EDITED BY\nLAST VIEWED\nUse AIP Logic to classify and edit objects Walkthrough\n/test-ab81f6/test4/AIP Chatbot with transcribed video context (202",
+   "data_evidence": {
+    "table_rows": 12,
+    "graph_nodes": 0,
+    "cards": 9,
+    "list_items": 0,
+    "repeated_rows": 0,
+    "body_text_chars": 5036,
+    "meaningful_lines": 54
+   },
+   "error_text": "",
+   "missing_chunks": [],
+   "cors_evidence": [],
+   "modal_evidence": {
+    "overlay_pre": false,
+    "overlay_post": false,
+    "dismissed_reveals_data": false
+   },
+   "capture_store": {
+    "present": true,
+    "file_count": 36,
+    "deep_route_dirs": [
+     "splash",
+     "view"
+    ],
+    "bytes": 14689495
+   },
+   "lanes_summary": [
+    {
+     "lane": "proxy",
+     "url": "http://127.0.0.1:4173/__apps/module",
+     "loaded": true,
+     "nav_error": "",
+     "regions": [
+      "rail",
+      "body"
+     ],
+     "data_score": 0,
+     "chunk_404s": 0,
+     "api_failures": 0,
+     "cross_origin_9225": 0,
+     "cors_signals": 0,
+     "console_errors": 0,
+     "screenshot": ".artifacts/reference-clean-sweep/module-proxy.png"
+    },
+    {
+     "lane": "origin",
+     "url": "http://localhost:9225/workspace/module/",
+     "loaded": true,
+     "nav_error": "",
+     "regions": [
+      "rail",
+      "header",
+      "body"
+     ],
+     "data_score": 7,
+     "chunk_404s": 0,
+     "api_failures": 0,
+     "cross_origin_9225": 0,
+     "cors_signals": 0,
+     "console_errors": 0,
+     "screenshot": ".artifacts/reference-clean-sweep/module-origin.png"
+    }
+   ],
+   "screenshot": ".artifacts/reference-clean-sweep/module-origin.png"
+  },
+  {
+   "slug": "monitors",
+   "owner": "Automations",
+   "parity_class": "reference_capture",
+   "grammar": "wizard",
+   "reference_path": "http://localhost:9225/workspace/object-monitoring/",
+   "candidate_surface": null,
+   "substrate_surface": null,
+   "clean_state": "needs_origin_alignment",
+   "reason": "proxy lane shows a failure (\"Failed to load favorites\") with CORS-blocked session lanes, but the capture-origin lane (http://localhost:9225) renders the app failure-free WITH data (rows 18/0 · nodes 0 · cards 17 · lines 87) — align the reference URL like pipeline #38/#39",
+   "lane_used": "origin",
+   "shell_regions": [
+    "rail",
+    "header",
+    "body"
+   ],
+   "landmarks_observed": [
+    "Home",
+    "Search…",
+    "ctrl + J",
+    "Notifications",
+    "Gift Icon",
+    "What's New",
+    "Recent",
+    "Files",
+    "Ontology",
+    "Applications",
+    "View all",
+    "Automate",
+    "Add to favorites",
+    "AIP logo icon",
+    "AIP Assist",
+    "ctrl + shift + U",
+    "Support",
+    "Account"
+   ],
+   "matrix_landmarks_present": [],
+   "body_sample": "Skip to content\nHome\nSearch…\nctrl + J\nNotifications\nWhat's New\nRecent\nFiles\nOntology\nApplications\nAPPLICATIONS\nView all\nAutomate\nAIP Assist\nctrl + shift + U\nSupport\nLJ\nAccount\nAutomate\nOverview\nAutomations\nNew automation\nHelp\nCreate and manage automations\nBuild business automation by defining conditions that trigger automatic effects.\nGetting started\nView all automations\nCreate your first automation\nGet started by creating a new automation or adding yourself to existing automations.\nNew automation\nConfigure conditions\nE.g. time, objects added to a set, metric increased, etc.\nConfigure effects\n",
+   "data_evidence": {
+    "table_rows": 18,
+    "graph_nodes": 0,
+    "cards": 17,
+    "list_items": 0,
+    "repeated_rows": 0,
+    "body_text_chars": 6240,
+    "meaningful_lines": 87
+   },
+   "error_text": "",
+   "missing_chunks": [],
+   "cors_evidence": [],
+   "modal_evidence": {
+    "overlay_pre": false,
+    "overlay_post": false,
+    "dismissed_reveals_data": false
+   },
+   "capture_store": {
+    "present": true,
+    "file_count": 3,
+    "deep_route_dirs": [],
+    "bytes": 1189282
+   },
+   "lanes_summary": [
+    {
+     "lane": "proxy",
+     "url": "http://127.0.0.1:4173/__apps/monitors",
+     "loaded": true,
+     "nav_error": "",
+     "regions": [
+      "rail",
+      "header",
+      "body"
+     ],
+     "data_score": 4,
+     "chunk_404s": 0,
+     "api_failures": 0,
+     "cross_origin_9225": 23,
+     "cors_signals": 8,
+     "console_errors": 20,
+     "screenshot": ".artifacts/reference-clean-sweep/monitors-proxy.png"
+    },
+    {
+     "lane": "origin",
+     "url": "http://localhost:9225/workspace/object-monitoring/",
+     "loaded": true,
+     "nav_error": "",
+     "regions": [
+      "rail",
+      "header",
+      "body"
+     ],
+     "data_score": 7,
+     "chunk_404s": 0,
+     "api_failures": 0,
+     "cross_origin_9225": 0,
+     "cors_signals": 0,
+     "console_errors": 0,
+     "screenshot": ".artifacts/reference-clean-sweep/monitors-origin.png"
+    }
+   ],
+   "screenshot": ".artifacts/reference-clean-sweep/monitors-origin.png"
+  },
+  {
+   "slug": "scheduler",
+   "owner": "Automations",
+   "parity_class": "reference_capture",
+   "grammar": "table_list",
+   "reference_path": "http://localhost:9225/workspace/scheduler/",
+   "candidate_surface": null,
+   "substrate_surface": null,
+   "clean_state": "shell_clean_only",
+   "reason": "shell regions [rail, header, body] render clean but the body carries no real data (rows 0/0 · nodes 0 · cards 0)",
+   "lane_used": "origin",
+   "shell_regions": [
+    "rail",
+    "header",
+    "body"
+   ],
+   "landmarks_observed": [
+    "Home",
+    "Search…",
+    "ctrl + J",
+    "Notifications",
+    "Gift Icon",
+    "What's New",
+    "Recent",
+    "Files",
+    "Ontology",
+    "Applications",
+    "View all",
+    "AIP logo icon",
+    "AIP Assist",
+    "ctrl + shift + U",
+    "Support",
+    "Account"
+   ],
+   "matrix_landmarks_present": [],
+   "body_sample": "Skip to content\nHome\nSearch…\nctrl + J\nNotifications\nWhat's New\nRecent\nFiles\nOntology\nApplications\nAPPLICATIONS\nView all\nYour favorited apps will appear here\nAIP Assist\nctrl + shift + U\nSupport\nLJ\nAccount\nBuild schedules\nCreate schedule\n0\n0\n0\n0 schedules\nResults matching\nJohn Doe\nSet search parameters\nSorted by most recently updated\nSelect schedules…\nNo schedules found. Add search criteria to find more schedules.",
+   "data_evidence": {
+    "table_rows": 0,
+    "graph_nodes": 0,
+    "cards": 0,
+    "list_items": 0,
+    "repeated_rows": 0,
+    "body_text_chars": 415,
+    "meaningful_lines": 13
+   },
+   "error_text": "",
+   "missing_chunks": [],
+   "cors_evidence": [],
+   "modal_evidence": {
+    "overlay_pre": false,
+    "overlay_post": false,
+    "dismissed_reveals_data": false
+   },
+   "capture_store": {
+    "present": true,
+    "file_count": 3,
+    "deep_route_dirs": [],
+    "bytes": 152264
+   },
+   "lanes_summary": [
+    {
+     "lane": "proxy",
+     "url": "http://127.0.0.1:4173/__apps/scheduler",
+     "loaded": true,
+     "nav_error": "",
+     "regions": [
+      "rail",
+      "header",
+      "body"
+     ],
+     "data_score": 0,
+     "chunk_404s": 0,
+     "api_failures": 0,
+     "cross_origin_9225": 0,
+     "cors_signals": 0,
+     "console_errors": 0,
+     "screenshot": ".artifacts/reference-clean-sweep/scheduler-proxy.png"
+    },
+    {
+     "lane": "origin",
+     "url": "http://localhost:9225/workspace/scheduler/",
+     "loaded": true,
+     "nav_error": "",
+     "regions": [
+      "rail",
+      "header",
+      "body"
+     ],
+     "data_score": 1,
+     "chunk_404s": 0,
+     "api_failures": 0,
+     "cross_origin_9225": 0,
+     "cors_signals": 0,
+     "console_errors": 0,
+     "screenshot": ".artifacts/reference-clean-sweep/scheduler-origin.png"
+    }
+   ],
+   "screenshot": ".artifacts/reference-clean-sweep/scheduler-origin.png"
+  },
+  {
+   "slug": "lineage",
+   "owner": "Provenance",
+   "parity_class": "substrate_bound",
+   "grammar": "graph",
+   "reference_path": "/__apps/lineage",
+   "candidate_surface": "/__ioi/lineage",
+   "substrate_surface": "/__ioi/lineage",
+   "clean_state": "shell_clean_only",
+   "reason": "shell renders a WELCOME/empty landing (cards 3 · lines 20, no row/node data) — clean chrome, no real data to port against",
+   "lane_used": "proxy",
+   "shell_regions": [
+    "rail",
+    "header",
+    "toolbar",
+    "body"
+   ],
+   "landmarks_observed": [
+    "Home",
+    "Search…",
+    "ctrl + J",
+    "Notifications",
+    "Gift Icon",
+    "What's New",
+    "Recent",
+    "Files",
+    "Ontology",
+    "Applications",
+    "View all",
+    "Training",
+    "Add to favorites",
+    "AIP logo icon",
+    "AIP Assist",
+    "ctrl + shift + U",
+    "Support",
+    "Account"
+   ],
+   "matrix_landmarks_present": [],
+   "body_sample": "Skip to content\nHome\nSearch…\nctrl + J\nNotifications\nWhat's New\nRecent\nFiles\nOntology\nApplications\nAPPLICATIONS\nView all\nTraining\nAIP Assist\nctrl + shift + U\nSupport\nLJ\nAccount\nData Lineage\nWorkflow Lineage\nMain\n0\n0\n0\nSave as\nWelcome to Data Lineage\nExplore how data flows through your resources and applications\nRead documentation\nAdd resources\nSearch for resources to add to graph\nor\nOpen graph\nFind and explore existing graphs\nTools\nLayout\nUndo/redo\nClean\nSelect\nExpand\nColor\nFind\nRemove\nAlign\nText\nFlow\nLayout by color\nGroup by color\nLegend\nNode color options\nNo resources on graph\n0 nodes selecte",
+   "data_evidence": {
+    "table_rows": 0,
+    "graph_nodes": 0,
+    "cards": 3,
+    "list_items": 0,
+    "repeated_rows": 0,
+    "body_text_chars": 664,
+    "meaningful_lines": 20
+   },
+   "error_text": "",
+   "missing_chunks": [],
+   "cors_evidence": [],
+   "modal_evidence": {
+    "overlay_pre": false,
+    "overlay_post": false,
+    "dismissed_reveals_data": false
+   },
+   "capture_store": {
+    "present": true,
+    "file_count": 3,
+    "deep_route_dirs": [],
+    "bytes": 205634
+   },
+   "lanes_summary": [
+    {
+     "lane": "proxy",
+     "url": "http://127.0.0.1:4173/__apps/lineage",
+     "loaded": true,
+     "nav_error": "",
+     "regions": [
+      "rail",
+      "header",
+      "toolbar",
+      "body"
+     ],
+     "data_score": 3,
+     "chunk_404s": 0,
+     "api_failures": 0,
+     "cross_origin_9225": 0,
+     "cors_signals": 0,
+     "console_errors": 0,
+     "screenshot": ".artifacts/reference-clean-sweep/lineage-proxy.png"
+    },
+    {
+     "lane": "origin",
+     "url": "http://localhost:9225/workspace/monocle/",
+     "loaded": true,
+     "nav_error": "",
+     "regions": [
+      "rail",
+      "header",
+      "toolbar",
+      "body"
+     ],
+     "data_score": 3,
+     "chunk_404s": 0,
+     "api_failures": 0,
+     "cross_origin_9225": 0,
+     "cors_signals": 0,
+     "console_errors": 0,
+     "screenshot": ".artifacts/reference-clean-sweep/lineage-origin.png"
+    }
+   ],
+   "screenshot": ".artifacts/reference-clean-sweep/lineage-proxy.png"
+  },
+  {
+   "slug": "ingest",
+   "owner": "Data",
+   "parity_class": "reference_capture",
+   "grammar": "wizard",
+   "reference_path": "http://localhost:9225/workspace/hyperauto/",
+   "candidate_surface": null,
+   "substrate_surface": null,
+   "clean_state": "shell_clean_only",
+   "reason": "shell regions [rail, header, body] render clean but the body carries no real data (rows 0/0 · nodes 0 · cards 2)",
+   "lane_used": "origin",
+   "shell_regions": [
+    "rail",
+    "header",
+    "body"
+   ],
+   "landmarks_observed": [
+    "Home",
+    "Search…",
+    "ctrl + J",
+    "Notifications",
+    "Gift Icon",
+    "What's New",
+    "Recent",
+    "Files",
+    "Ontology",
+    "Applications",
+    "View all",
+    "Training",
+    "Add to favorites",
+    "AIP logo icon",
+    "AIP Assist",
+    "ctrl + shift + U",
+    "Support",
+    "Account"
+   ],
+   "matrix_landmarks_present": [],
+   "body_sample": "Skip to content\nHome\nSearch…\nctrl + J\nNotifications\nWhat's New\nRecent\nFiles\nOntology\nApplications\nAPPLICATIONS\nView all\nTraining\nAIP Assist\nctrl + shift + U\nSupport\nLJ\nAccount\nHyperAuto\nHyperAuto Pipelines\nCreate pipeline\nThere is no existing HyperAuto pipelines. Please create a HyperAuto pipeline on one of your supported sources via Data Connection Application.\nGo to Data Connection Application",
+   "data_evidence": {
+    "table_rows": 0,
+    "graph_nodes": 0,
+    "cards": 2,
+    "list_items": 0,
+    "repeated_rows": 0,
+    "body_text_chars": 398,
+    "meaningful_lines": 9
+   },
+   "error_text": "",
+   "missing_chunks": [],
+   "cors_evidence": [],
+   "modal_evidence": {
+    "overlay_pre": false,
+    "overlay_post": false,
+    "dismissed_reveals_data": false
+   },
+   "capture_store": {
+    "present": true,
+    "file_count": 3,
+    "deep_route_dirs": [],
+    "bytes": 159298
+   },
+   "lanes_summary": [
+    {
+     "lane": "proxy",
+     "url": "http://127.0.0.1:4173/__apps/ingest",
+     "loaded": true,
+     "nav_error": "",
+     "regions": [
+      "rail",
+      "body"
+     ],
+     "data_score": 0,
+     "chunk_404s": 0,
+     "api_failures": 0,
+     "cross_origin_9225": 0,
+     "cors_signals": 0,
+     "console_errors": 0,
+     "screenshot": ".artifacts/reference-clean-sweep/ingest-proxy.png"
+    },
+    {
+     "lane": "origin",
+     "url": "http://localhost:9225/workspace/hyperauto/",
+     "loaded": true,
+     "nav_error": "",
+     "regions": [
+      "rail",
+      "header",
+      "body"
+     ],
+     "data_score": 0,
+     "chunk_404s": 0,
+     "api_failures": 0,
+     "cross_origin_9225": 0,
+     "cors_signals": 0,
+     "console_errors": 0,
+     "screenshot": ".artifacts/reference-clean-sweep/ingest-origin.png"
+    }
+   ],
+   "screenshot": ".artifacts/reference-clean-sweep/ingest-origin.png"
+  },
+  {
+   "slug": "sources",
+   "owner": "Data",
+   "parity_class": "reference_capture",
+   "grammar": "table_list",
+   "reference_path": "http://localhost:9225/workspace/data-ingestion-app/",
+   "candidate_surface": null,
+   "substrate_surface": null,
+   "clean_state": "needs_origin_alignment",
+   "reason": "proxy lane renders no data (score 0), but the capture-origin lane (http://localhost:9225) renders the app failure-free WITH data (rows 12/0 · nodes 0 · cards 9 · lines 60) — align the reference URL like pipeline #38/#39",
+   "lane_used": "origin",
+   "shell_regions": [
+    "rail",
+    "header",
+    "body"
+   ],
+   "landmarks_observed": [
+    "Home",
+    "Search…",
+    "ctrl + J",
+    "Notifications",
+    "Gift Icon",
+    "What's New",
+    "Recent",
+    "Files",
+    "Ontology",
+    "Applications",
+    "View all",
+    "Data Connection",
+    "Add to favorites",
+    "AIP logo icon",
+    "AIP Assist",
+    "ctrl + shift + U",
+    "Support",
+    "Account",
+    "Sources",
+    "Syncs",
+    "Agents",
+    "Listeners",
+    "External stacks",
+    "New source"
+   ],
+   "matrix_landmarks_present": [],
+   "body_sample": "Skip to content\nHome\nSearch…\nctrl + J\nNotifications\nWhat's New\nRecent\nFiles\nOntology\nApplications\nAPPLICATIONS\nView all\nData Connection\nAIP Assist\nctrl + shift + U\nSupport\nLJ\nAccount\nData Connection\nSources\nSyncs\nAgents\nListeners\nExternal stacks\nNew source\nHelp\n0\n0\n0\nData Connection\nSynchronize and manage data flows between Foundry and external systems.\nSet up new connections\nConnect to external system\nRecommended\nConfigure a live connection from Foundry to your production system.\nUpload static data\nManually upload a one-off extract from your production system.\nInput or generate data\nSynthesiz",
+   "data_evidence": {
+    "table_rows": 12,
+    "graph_nodes": 0,
+    "cards": 9,
+    "list_items": 0,
+    "repeated_rows": 0,
+    "body_text_chars": 5320,
+    "meaningful_lines": 60
+   },
+   "error_text": "",
+   "missing_chunks": [],
+   "cors_evidence": [],
+   "modal_evidence": {
+    "overlay_pre": true,
+    "overlay_post": false,
+    "dismissed_reveals_data": false
+   },
+   "capture_store": {
+    "present": true,
+    "file_count": 21,
+    "deep_route_dirs": [
+     "agents",
+     "listeners",
+     "sources",
+     "splash",
+     "syncs"
+    ],
+    "bytes": 1602522
+   },
+   "lanes_summary": [
+    {
+     "lane": "proxy",
+     "url": "http://127.0.0.1:4173/__apps/sources",
+     "loaded": true,
+     "nav_error": "",
+     "regions": [
+      "rail",
+      "body"
+     ],
+     "data_score": 0,
+     "chunk_404s": 0,
+     "api_failures": 0,
+     "cross_origin_9225": 0,
+     "cors_signals": 0,
+     "console_errors": 0,
+     "screenshot": ".artifacts/reference-clean-sweep/sources-proxy.png"
+    },
+    {
+     "lane": "origin",
+     "url": "http://localhost:9225/workspace/data-ingestion-app/",
+     "loaded": true,
+     "nav_error": "",
+     "regions": [
+      "rail",
+      "header",
+      "body"
+     ],
+     "data_score": 7,
+     "chunk_404s": 0,
+     "api_failures": 0,
+     "cross_origin_9225": 0,
+     "cors_signals": 0,
+     "console_errors": 0,
+     "screenshot": ".artifacts/reference-clean-sweep/sources-origin.png"
+    }
+   ],
+   "screenshot": ".artifacts/reference-clean-sweep/sources-origin.png"
+  },
+  {
+   "slug": "pipeline",
+   "owner": "Data",
+   "parity_class": "daemon_wired",
+   "grammar": "editor_canvas",
+   "reference_path": "http://localhost:9225/workspace/builder/ri.eddie.main.pipeline.e73d6ae7-f6fe-4ac5-82a2-320d9f188590/sandbox/a082bef2-8826-4e6c-8925-871bcdb56c44",
+   "candidate_surface": "/__ioi/pipeline",
+   "substrate_surface": null,
+   "clean_state": "data_clean",
+   "reason": "shell regions [rail, header, toolbar, body] + data evidence (rows 0/4 · nodes 18 · cards 1 · lists 0 · lines 30)",
+   "lane_used": "override",
+   "shell_regions": [
+    "rail",
+    "header",
+    "toolbar",
+    "body"
+   ],
+   "landmarks_observed": [
+    "Home",
+    "Search…",
+    "ctrl + J",
+    "Notifications",
+    "Gift Icon",
+    "What's New",
+    "Recent",
+    "Files",
+    "Ontology",
+    "Applications",
+    "View all",
+    "Pipeline Builder",
+    "Add to favorites",
+    "AIP logo icon",
+    "AIP Assist",
+    "ctrl + shift + U",
+    "Support",
+    "Account",
+    "test4"
+   ],
+   "matrix_landmarks_present": [
+    "Add data",
+    "Reusables",
+    "Transform",
+    "Legend",
+    "Pipeline outputs",
+    "Selection preview",
+    "Suggestions",
+    "Pipeline warnings",
+    "Edit output settings",
+    "Tools"
+   ],
+   "body_sample": "Skip to content\nHome\nSearch…\nctrl + J\nNotifications\nWhat's New\nRecent\nFiles\nOntology\nApplications\nAPPLICATIONS\nView all\nPipeline Builder\nAIP Assist\nctrl + shift + U\nSupport\nLJ\nAccount\ntest4\nPipeline Builder - Calculate Flight Data with Reusable Custom Functions\nFile\nSettings\nHelp\n1\nBatch\nTabs\nMain\n0\nActions\nShare\nFlights\n51 columns\nMarketplace transform…\n51 columns\nCalculate actual, sche…\n11 columns\nCalculate departure, a…\n9 columns\nRemove unnecessary …\n7 columns\n[Example] Flights (Cle…\nDeployed and built\nTools\nSelect\nRemove\nLayout\nText\nAdd data\nReusables\nTransform\nAIP\nEdit\nLegend\nInput Data\n(",
+   "data_evidence": {
+    "table_rows": 0,
+    "graph_nodes": 18,
+    "cards": 1,
+    "list_items": 0,
+    "repeated_rows": 4,
+    "body_text_chars": 1153,
+    "meaningful_lines": 30
+   },
+   "error_text": "",
+   "missing_chunks": [],
+   "cors_evidence": [],
+   "modal_evidence": {
+    "overlay_pre": true,
+    "overlay_post": false,
+    "dismissed_reveals_data": false
+   },
+   "capture_store": {
+    "present": true,
+    "file_count": 15,
+    "deep_route_dirs": [
+     "create-pipeline"
+    ],
+    "bytes": 1008862
+   },
+   "lanes_summary": [
+    {
+     "lane": "proxy",
+     "url": "http://127.0.0.1:4173/__apps/pipeline",
+     "loaded": true,
+     "nav_error": "",
+     "regions": [
+      "rail",
+      "body"
+     ],
+     "data_score": 0,
+     "chunk_404s": 0,
+     "api_failures": 0,
+     "cross_origin_9225": 0,
+     "cors_signals": 0,
+     "console_errors": 4,
+     "screenshot": ".artifacts/reference-clean-sweep/pipeline-proxy.png"
+    },
+    {
+     "lane": "origin",
+     "url": "http://localhost:9225/workspace/builder/",
+     "loaded": true,
+     "nav_error": "",
+     "regions": [
+      "rail",
+      "header",
+      "body",
+      "tray"
+     ],
+     "data_score": 1,
+     "chunk_404s": 0,
+     "api_failures": 0,
+     "cross_origin_9225": 0,
+     "cors_signals": 0,
+     "console_errors": 1,
+     "screenshot": ".artifacts/reference-clean-sweep/pipeline-origin.png"
+    },
+    {
+     "lane": "override",
+     "url": "http://localhost:9225/workspace/builder/ri.eddie.main.pipeline.e73d6ae7-f6fe-4ac5-82a2-320d9f188590/sandbox/a082bef2-8826-4e6c-8925-871bcdb56c44",
+     "loaded": true,
+     "nav_error": "",
+     "regions": [
+      "rail",
+      "header",
+      "toolbar",
+      "body"
+     ],
+     "data_score": 7,
+     "chunk_404s": 0,
+     "api_failures": 0,
+     "cross_origin_9225": 0,
+     "cors_signals": 0,
+     "console_errors": 0,
+     "screenshot": ".artifacts/reference-clean-sweep/pipeline-override.png"
+    }
+   ],
+   "screenshot": ".artifacts/reference-clean-sweep/pipeline-override.png"
+  },
+  {
+   "slug": "dataset",
+   "owner": "Data",
+   "parity_class": "reference_capture",
+   "grammar": "table_list",
+   "reference_path": "/__apps/dataset",
+   "candidate_surface": null,
+   "substrate_surface": null,
+   "clean_state": "data_failed",
+   "reason": "shell boots but the body reports a data failure (\"__apps is not a dataset\") with captured (non-404) lanes",
+   "lane_used": "proxy",
+   "shell_regions": [
+    "rail",
+    "header",
+    "body"
+   ],
+   "landmarks_observed": [
+    "Home",
+    "Search…",
+    "ctrl + J",
+    "Notifications",
+    "Gift Icon",
+    "What's New",
+    "Recent",
+    "Files",
+    "Ontology",
+    "Applications",
+    "View all",
+    "Training",
+    "Add to favorites",
+    "Walkthroughs",
+    "AIP logo icon",
+    "AIP Assist",
+    "ctrl + shift + U",
+    "Support",
+    "Account"
+   ],
+   "matrix_landmarks_present": [],
+   "body_sample": "Skip to content\nHome\nSearch…\nctrl + J\nNotifications\nWhat's New\nRecent\nFiles\nOntology\nApplications\nAPPLICATIONS\nView all\nTraining\nWalkthroughs\nAIP Assist\nctrl + shift + U\nSupport\nLJ\nAccount\n__apps\nNot a dataset\n__apps is not a dataset",
+   "data_evidence": {
+    "table_rows": 0,
+    "graph_nodes": 0,
+    "cards": 0,
+    "list_items": 0,
+    "repeated_rows": 0,
+    "body_text_chars": 233,
+    "meaningful_lines": 8
+   },
+   "error_text": "__apps is not a dataset",
+   "missing_chunks": [],
+   "cors_evidence": [],
+   "modal_evidence": {
+    "overlay_pre": false,
+    "overlay_post": false,
+    "dismissed_reveals_data": false
+   },
+   "capture_store": {
+    "present": true,
+    "file_count": 3,
+    "deep_route_dirs": [],
+    "bytes": 181382
+   },
+   "lanes_summary": [
+    {
+     "lane": "proxy",
+     "url": "http://127.0.0.1:4173/__apps/dataset",
+     "loaded": true,
+     "nav_error": "",
+     "regions": [
+      "rail",
+      "header",
+      "body"
+     ],
+     "data_score": 0,
+     "chunk_404s": 0,
+     "api_failures": 0,
+     "cross_origin_9225": 0,
+     "cors_signals": 0,
+     "console_errors": 0,
+     "screenshot": ".artifacts/reference-clean-sweep/dataset-proxy.png"
+    },
+    {
+     "lane": "origin",
+     "url": "http://localhost:9225/workspace/dataset/",
+     "loaded": true,
+     "nav_error": "",
+     "regions": [
+      "rail",
+      "body"
+     ],
+     "data_score": 0,
+     "chunk_404s": 0,
+     "api_failures": 0,
+     "cross_origin_9225": 0,
+     "cors_signals": 0,
+     "console_errors": 0,
+     "screenshot": ".artifacts/reference-clean-sweep/dataset-origin.png"
+    }
+   ],
+   "screenshot": ".artifacts/reference-clean-sweep/dataset-proxy.png"
+  },
+  {
+   "slug": "schema",
+   "owner": "Ontology",
+   "parity_class": "daemon_wired",
+   "grammar": "editor_canvas",
+   "reference_path": "/__apps/schema",
+   "candidate_surface": "/__ioi/ontology/manager",
+   "substrate_surface": null,
+   "clean_state": "data_clean",
+   "reason": "shell regions [rail, header, body] + data evidence (rows 0/6 · nodes 0 · cards 7 · lists 0 · lines 31)",
+   "lane_used": "proxy",
+   "shell_regions": [
+    "rail",
+    "header",
+    "body"
+   ],
+   "landmarks_observed": [
+    "Home",
+    "Search…",
+    "ctrl + J",
+    "Notifications",
+    "Gift Icon",
+    "What's New",
+    "Recent",
+    "Files",
+    "Ontology",
+    "Applications",
+    "View all",
+    "Ontology Manager",
+    "Add to favorites",
+    "AIP logo icon",
+    "AIP Assist",
+    "ctrl + shift + U",
+    "Support",
+    "Account",
+    "Resources",
+    "575"
+   ],
+   "matrix_landmarks_present": [
+    "Ontology Manager",
+    "Discover",
+    "Resources",
+    "Object types",
+    "Properties",
+    "Link types",
+    "Action types",
+    "Value types",
+    "Functions",
+    "Health"
+   ],
+   "body_sample": "Skip to content\nHome\nSearch…\nctrl + J\nNotifications\nWhat's New\nRecent\nFiles\nOntology\nApplications\nAPPLICATIONS\nView all\nOntology Manager\nAIP Assist\nctrl + shift + U\nSupport\nLJ\nAccount\nOntology Manager\nctrl + K\nMain\nNew\nDiscover\nProposals\nHistory\nResources\nObject types\n22\nProperties\nShared properties\n0\nLink types\n17\nAction types\n11\nGroups\n0\nInterfaces\n0\nValue types\n0\nFunctions\n575\nHealth issues\nCleanup\nOntology configuration\nObject types recently modified in test Ontology\nConfigure\n[Example jj74] [AR] PDF\n0 objects\n0 dependents\nNo description\n[Example jj74] [AR] Page\n0 objects\n0 dependents\nNo d",
+   "data_evidence": {
+    "table_rows": 0,
+    "graph_nodes": 0,
+    "cards": 7,
+    "list_items": 0,
+    "repeated_rows": 6,
+    "body_text_chars": 862,
+    "meaningful_lines": 31
+   },
+   "error_text": "",
+   "missing_chunks": [],
+   "cors_evidence": [],
+   "modal_evidence": {
+    "overlay_pre": false,
+    "overlay_post": false,
+    "dismissed_reveals_data": false
+   },
+   "capture_store": {
+    "present": true,
+    "file_count": 18,
+    "deep_route_dirs": [
+     "object-type",
+     "object-type-rid"
+    ],
+    "bytes": 7587502
+   },
+   "lanes_summary": [
+    {
+     "lane": "proxy",
+     "url": "http://127.0.0.1:4173/__apps/schema",
+     "loaded": true,
+     "nav_error": "",
+     "regions": [
+      "rail",
+      "header",
+      "body"
+     ],
+     "data_score": 6,
+     "chunk_404s": 0,
+     "api_failures": 0,
+     "cross_origin_9225": 0,
+     "cors_signals": 0,
+     "console_errors": 0,
+     "screenshot": ".artifacts/reference-clean-sweep/schema-proxy.png"
+    },
+    {
+     "lane": "origin",
+     "url": "http://localhost:9225/workspace/ontology/",
+     "loaded": true,
+     "nav_error": "",
+     "regions": [
+      "rail",
+      "header",
+      "body"
+     ],
+     "data_score": 6,
+     "chunk_404s": 0,
+     "api_failures": 0,
+     "cross_origin_9225": 0,
+     "cors_signals": 0,
+     "console_errors": 0,
+     "screenshot": ".artifacts/reference-clean-sweep/schema-origin.png"
+    }
+   ],
+   "screenshot": ".artifacts/reference-clean-sweep/schema-proxy.png"
+  },
+  {
+   "slug": "explorer",
+   "owner": "Ontology",
+   "parity_class": "reference_ported",
+   "grammar": "table_list",
+   "reference_path": "http://localhost:9225/workspace/hubble/",
+   "candidate_surface": "/__ioi/ontology/explorer",
+   "substrate_surface": null,
+   "clean_state": "needs_origin_alignment",
+   "reason": "proxy lane renders no data (score 0), but the capture-origin lane (http://localhost:9225) renders the app failure-free WITH data (rows 23/6 · nodes 0 · cards 5 · lines 55) — align the reference URL like pipeline #38/#39",
+   "lane_used": "origin",
+   "shell_regions": [
+    "rail",
+    "header",
+    "body"
+   ],
+   "landmarks_observed": [
+    "Home",
+    "Search…",
+    "ctrl + J",
+    "Notifications",
+    "Gift Icon",
+    "What's New",
+    "Recent",
+    "Files",
+    "Ontology",
+    "Applications",
+    "View all",
+    "Object Explorer",
+    "Add to favorites",
+    "AIP logo icon",
+    "AIP Assist",
+    "ctrl + shift + U",
+    "Support",
+    "Account"
+   ],
+   "matrix_landmarks_present": [],
+   "body_sample": "Skip to content\nHome\nSearch…\nctrl + J\nNotifications\nWhat's New\nRecent\nFiles\nOntology\nApplications\nAPPLICATIONS\nView all\nObject Explorer\nAIP Assist\nctrl + shift + U\nSupport\nLJ\nAccount\nNew exploration\nAll Ontologies\nObject Explorer search\nFilter by...\nShortcuts\nRecents\nFavorites\nYour object sets\n[Example rk46] Email Claims\nObject Type\n2 objects\n[Example] Airport\nObject Type\n178 objects\n[Example ep72] Tasks\nObject Type\n9 objects\n[Example tx76] Video\nObject Type\n3 objects\nObject type catalog\nTYPE GROUP\nNo type groups\n55 of 55\nRelevancy\nAll\nType group\nApplication\nOBJECT TYPE NAME\nSTATUS\nOBJECT COUN",
+   "data_evidence": {
+    "table_rows": 23,
+    "graph_nodes": 0,
+    "cards": 5,
+    "list_items": 0,
+    "repeated_rows": 6,
+    "body_text_chars": 3346,
+    "meaningful_lines": 55
+   },
+   "error_text": "",
+   "missing_chunks": [],
+   "cors_evidence": [],
+   "modal_evidence": {
+    "overlay_pre": false,
+    "overlay_post": false,
+    "dismissed_reveals_data": false
+   },
+   "capture_store": {
+    "present": true,
+    "file_count": 3,
+    "deep_route_dirs": [],
+    "bytes": 1400225
+   },
+   "lanes_summary": [
+    {
+     "lane": "proxy",
+     "url": "http://127.0.0.1:4173/__apps/explorer",
+     "loaded": true,
+     "nav_error": "",
+     "regions": [
+      "rail",
+      "body"
+     ],
+     "data_score": 0,
+     "chunk_404s": 0,
+     "api_failures": 0,
+     "cross_origin_9225": 0,
+     "cors_signals": 0,
+     "console_errors": 1,
+     "screenshot": ".artifacts/reference-clean-sweep/explorer-proxy.png"
+    },
+    {
+     "lane": "origin",
+     "url": "http://localhost:9225/workspace/hubble/",
+     "loaded": true,
+     "nav_error": "",
+     "regions": [
+      "rail",
+      "header",
+      "body"
+     ],
+     "data_score": 10,
+     "chunk_404s": 0,
+     "api_failures": 0,
+     "cross_origin_9225": 0,
+     "cors_signals": 0,
+     "console_errors": 1,
+     "screenshot": ".artifacts/reference-clean-sweep/explorer-origin.png"
+    }
+   ],
+   "screenshot": ".artifacts/reference-clean-sweep/explorer-origin.png"
+  },
+  {
+   "slug": "objectview",
+   "owner": "Ontology",
+   "parity_class": "reference_capture",
+   "grammar": "document",
+   "reference_path": "/__apps/objectview",
+   "candidate_surface": null,
+   "substrate_surface": null,
+   "clean_state": "errored_reference",
+   "reason": "navigation failed on every lane (navigation triggered a content-type download — the captured app document is an empty 307 + application/octet-stream response (broken capture, cannot boot on any lane) · navigation triggered a content-type download — the captured app document is an empty 307 + application/octet-stream response (broken capture, cannot boot on any lane))",
+   "lane_used": "proxy",
+   "shell_regions": [],
+   "landmarks_observed": [],
+   "matrix_landmarks_present": [],
+   "body_sample": "",
+   "data_evidence": null,
+   "error_text": "",
+   "missing_chunks": [],
+   "cors_evidence": [],
+   "modal_evidence": null,
+   "capture_store": {
+    "present": true,
+    "file_count": 3,
+    "deep_route_dirs": [],
+    "bytes": 27
+   },
+   "lanes_summary": [
+    {
+     "lane": "proxy",
+     "url": "http://127.0.0.1:4173/__apps/objectview",
+     "loaded": false,
+     "nav_error": "navigation triggered a content-type download — the captured app document is an empty 307 + application/octet-stream response (broken capture, cannot boot on any lane)",
+     "regions": [],
+     "data_score": 0,
+     "chunk_404s": 0,
+     "api_failures": 0,
+     "cross_origin_9225": 0,
+     "cors_signals": 0,
+     "console_errors": 0,
+     "screenshot": ""
+    },
+    {
+     "lane": "origin",
+     "url": "http://localhost:9225/workspace/object-view/",
+     "loaded": false,
+     "nav_error": "navigation triggered a content-type download — the captured app document is an empty 307 + application/octet-stream response (broken capture, cannot boot on any lane)",
+     "regions": [],
+     "data_score": 0,
+     "chunk_404s": 0,
+     "api_failures": 0,
+     "cross_origin_9225": 0,
+     "cors_signals": 0,
+     "console_errors": 0,
+     "screenshot": ""
+    }
+   ],
+   "screenshot": ""
+  },
+  {
+   "slug": "objecteditor",
+   "owner": "Ontology",
+   "parity_class": "reference_capture",
+   "grammar": "editor_canvas",
+   "reference_path": "/__apps/objecteditor",
+   "candidate_surface": null,
+   "substrate_surface": null,
+   "clean_state": "errored_reference",
+   "reason": "navigation failed on every lane (navigation triggered a content-type download — the captured app document is an empty 307 + application/octet-stream response (broken capture, cannot boot on any lane) · navigation triggered a content-type download — the captured app document is an empty 307 + application/octet-stream response (broken capture, cannot boot on any lane))",
+   "lane_used": "proxy",
+   "shell_regions": [],
+   "landmarks_observed": [],
+   "matrix_landmarks_present": [],
+   "body_sample": "",
+   "data_evidence": null,
+   "error_text": "",
+   "missing_chunks": [],
+   "cors_evidence": [],
+   "modal_evidence": null,
+   "capture_store": {
+    "present": true,
+    "file_count": 3,
+    "deep_route_dirs": [],
+    "bytes": 27
+   },
+   "lanes_summary": [
+    {
+     "lane": "proxy",
+     "url": "http://127.0.0.1:4173/__apps/objecteditor",
+     "loaded": false,
+     "nav_error": "navigation triggered a content-type download — the captured app document is an empty 307 + application/octet-stream response (broken capture, cannot boot on any lane)",
+     "regions": [],
+     "data_score": 0,
+     "chunk_404s": 0,
+     "api_failures": 0,
+     "cross_origin_9225": 0,
+     "cors_signals": 0,
+     "console_errors": 0,
+     "screenshot": ""
+    },
+    {
+     "lane": "origin",
+     "url": "http://localhost:9225/workspace/object-view-editor/",
+     "loaded": false,
+     "nav_error": "navigation triggered a content-type download — the captured app document is an empty 307 + application/octet-stream response (broken capture, cannot boot on any lane)",
+     "regions": [],
+     "data_score": 0,
+     "chunk_404s": 0,
+     "api_failures": 0,
+     "cross_origin_9225": 0,
+     "cors_signals": 0,
+     "console_errors": 0,
+     "screenshot": ""
+    }
+   ],
+   "screenshot": ""
+  },
+  {
+   "slug": "evalsuites",
+   "owner": "Evaluations",
+   "parity_class": "substrate_bound",
+   "grammar": "table_list",
+   "reference_path": "http://localhost:9225/workspace/evals/",
+   "candidate_surface": "/__ioi/evaluations",
+   "substrate_surface": "/__ioi/evaluations",
+   "clean_state": "needs_origin_alignment",
+   "reason": "proxy lane renders no data (score 0), but the capture-origin lane (http://localhost:9225) renders the app failure-free WITH data (rows 12/0 · nodes 0 · cards 2 · lines 50) — align the reference URL like pipeline #38/#39",
+   "lane_used": "origin",
+   "shell_regions": [
+    "rail",
+    "header",
+    "body"
+   ],
+   "landmarks_observed": [
+    "Home",
+    "Search…",
+    "ctrl + J",
+    "Notifications",
+    "Gift Icon",
+    "What's New",
+    "Recent",
+    "Files",
+    "Ontology",
+    "Applications",
+    "View all",
+    "AIP Evals",
+    "Add to favorites",
+    "AIP logo icon",
+    "AIP Assist",
+    "ctrl + shift + U",
+    "Support",
+    "Account"
+   ],
+   "matrix_landmarks_present": [],
+   "body_sample": "Skip to content\nHome\nSearch…\nctrl + J\nNotifications\nWhat's New\nRecent\nFiles\nOntology\nApplications\nAPPLICATIONS\nView all\nAIP Evals\nAIP Assist\nctrl + shift + U\nSupport\nLJ\nAccount\nAIP Evals\nNew evaluation suite\nHelp\nAIP Evals\nCreate evaluation suites for LLM-backed use-cases.\nView\nRecents\nFavorites\nFILES\nCREATOR\nLAST EDITED BY\nLAST VIEWED\nUse AIP Logic to classify and edit objects Walkthrough\n/test-ab81f6/test4/AIP Chatbot with transcribed video context (2026-04-26 22:22:24)/logic/Use AIP Logic to classify and edit objects (2026-06-23 20:26:32)\naip-assist\naip-assist\nJun 24, 2026\nLeverage feedback",
+   "data_evidence": {
+    "table_rows": 12,
+    "graph_nodes": 0,
+    "cards": 2,
+    "list_items": 0,
+    "repeated_rows": 0,
+    "body_text_chars": 4871,
+    "meaningful_lines": 50
+   },
+   "error_text": "",
+   "missing_chunks": [],
+   "cors_evidence": [],
+   "modal_evidence": {
+    "overlay_pre": true,
+    "overlay_post": false,
+    "dismissed_reveals_data": false
+   },
+   "capture_store": {
+    "present": true,
+    "file_count": 3,
+    "deep_route_dirs": [],
+    "bytes": 181008
+   },
+   "lanes_summary": [
+    {
+     "lane": "proxy",
+     "url": "http://127.0.0.1:4173/__apps/evalsuites",
+     "loaded": true,
+     "nav_error": "",
+     "regions": [
+      "rail",
+      "body"
+     ],
+     "data_score": 0,
+     "chunk_404s": 0,
+     "api_failures": 0,
+     "cross_origin_9225": 0,
+     "cors_signals": 0,
+     "console_errors": 0,
+     "screenshot": ".artifacts/reference-clean-sweep/evalsuites-proxy.png"
+    },
+    {
+     "lane": "origin",
+     "url": "http://localhost:9225/workspace/evals/",
+     "loaded": true,
+     "nav_error": "",
+     "regions": [
+      "rail",
+      "header",
+      "body"
+     ],
+     "data_score": 5,
+     "chunk_404s": 0,
+     "api_failures": 0,
+     "cross_origin_9225": 0,
+     "cors_signals": 0,
+     "console_errors": 0,
+     "screenshot": ".artifacts/reference-clean-sweep/evalsuites-origin.png"
+    }
+   ],
+   "screenshot": ".artifacts/reference-clean-sweep/evalsuites-origin.png"
+  },
+  {
+   "slug": "analysis",
+   "owner": "Evaluations",
+   "parity_class": "reference_capture",
+   "grammar": "editor_canvas",
+   "reference_path": "http://localhost:9225/workspace/insight/",
+   "candidate_surface": null,
+   "substrate_surface": null,
+   "clean_state": "shell_clean_only",
+   "reason": "shell renders a WELCOME/empty landing (cards 4 · lines 19, no row/node data) — clean chrome, no real data to port against (proxy lane renders no data (score 0); the origin lane is the readable one)",
+   "lane_used": "origin",
+   "shell_regions": [
+    "rail",
+    "header",
+    "body"
+   ],
+   "landmarks_observed": [
+    "Home",
+    "Search…",
+    "ctrl + J",
+    "Notifications",
+    "Gift Icon",
+    "What's New",
+    "Recent",
+    "Files",
+    "Ontology",
+    "Applications",
+    "View all",
+    "Insight",
+    "Add to favorites",
+    "AIP logo icon",
+    "AIP Assist",
+    "ctrl + shift + U",
+    "Support",
+    "Account"
+   ],
+   "matrix_landmarks_present": [],
+   "body_sample": "Skip to content\nHome\nSearch…\nctrl + J\nNotifications\nWhat's New\nRecent\nFiles\nOntology\nApplications\nAPPLICATIONS\nView all\nInsight\nAIP Assist\nctrl + shift + U\nSupport\nLJ\nAccount\nInsight\nAll namespaces\nStart analysis\nWhat's New\nHelp\nInsight\nSearch, analyze and view data in your ontology.\nView analyses\nWorkbooks\nObject sets\nRecents\nFavorites\nAll\nNAME\nCREATOR\nPATHS\nNo workbooks found\nQuick start\nObject types\nInterfaces\nAll\nChoose data\n[Example] Airport\nObject type • 0 objects\n[Example rk46] Email Claims\nObject type • 0 objects\n[Example ep72] Tasks\nObject type • 0 objects\n[Example tx76] Video\nObject ",
+   "data_evidence": {
+    "table_rows": 0,
+    "graph_nodes": 0,
+    "cards": 4,
+    "list_items": 0,
+    "repeated_rows": 4,
+    "body_text_chars": 616,
+    "meaningful_lines": 19
+   },
+   "error_text": "",
+   "missing_chunks": [],
+   "cors_evidence": [],
+   "modal_evidence": {
+    "overlay_pre": true,
+    "overlay_post": false,
+    "dismissed_reveals_data": false
+   },
+   "capture_store": {
+    "present": true,
+    "file_count": 3,
+    "deep_route_dirs": [],
+    "bytes": 1310154
+   },
+   "lanes_summary": [
+    {
+     "lane": "proxy",
+     "url": "http://127.0.0.1:4173/__apps/analysis",
+     "loaded": true,
+     "nav_error": "",
+     "regions": [
+      "rail",
+      "body"
+     ],
+     "data_score": 0,
+     "chunk_404s": 0,
+     "api_failures": 0,
+     "cross_origin_9225": 0,
+     "cors_signals": 0,
+     "console_errors": 0,
+     "screenshot": ".artifacts/reference-clean-sweep/analysis-proxy.png"
+    },
+    {
+     "lane": "origin",
+     "url": "http://localhost:9225/workspace/insight/",
+     "loaded": true,
+     "nav_error": "",
+     "regions": [
+      "rail",
+      "header",
+      "body"
+     ],
+     "data_score": 6,
+     "chunk_404s": 0,
+     "api_failures": 0,
+     "cross_origin_9225": 0,
+     "cors_signals": 0,
+     "console_errors": 0,
+     "screenshot": ".artifacts/reference-clean-sweep/analysis-origin.png"
+    }
+   ],
+   "screenshot": ".artifacts/reference-clean-sweep/analysis-origin.png"
+  },
+  {
+   "slug": "quiver",
+   "owner": "Evaluations",
+   "parity_class": "reference_capture",
+   "grammar": "editor_canvas",
+   "reference_path": "http://localhost:9225/workspace/quiver/",
+   "candidate_surface": null,
+   "substrate_surface": null,
+   "clean_state": "shell_clean_only",
+   "reason": "shell renders a WELCOME/empty landing (cards 5 · lines 23, no row/node data) — clean chrome, no real data to port against (proxy lane renders no data (score 0); the origin lane is the readable one)",
+   "lane_used": "origin",
+   "shell_regions": [
+    "rail",
+    "header",
+    "body",
+    "tray"
+   ],
+   "landmarks_observed": [
+    "Home",
+    "Search…",
+    "ctrl + J",
+    "Notifications",
+    "Gift Icon",
+    "What's New",
+    "Recent",
+    "Files",
+    "Ontology",
+    "Applications",
+    "View all",
+    "Quiver",
+    "Add to favorites",
+    "AIP logo icon",
+    "AIP Assist",
+    "ctrl + shift + U",
+    "Support",
+    "Account"
+   ],
+   "matrix_landmarks_present": [],
+   "body_sample": "Skip to content\nHome\nSearch…\nctrl + J\nNotifications\nWhat's New\nRecent\nFiles\nOntology\nApplications\nAPPLICATIONS\nView all\nQuiver\nAIP Assist\nctrl + shift + U\nSupport\nLJ\nAccount\nCreate new analysis\nGet started on analyzing your object and time series data\nName and location\nFile name\nLocation\nBrowse\nAll\nAll projects\nShow hidden\nThere are no projects.\nCreate new project\nSelect analysis type\nCompare types\nQuiver Analysis\nFlexible, ad-hoc analysis and dashboard building across any Foundry data type\nRecommended for most use-cases\nTime Series Analysis\nStreamlined interface for ad-hoc analysis on time se",
+   "data_evidence": {
+    "table_rows": 0,
+    "graph_nodes": 0,
+    "cards": 5,
+    "list_items": 2,
+    "repeated_rows": 0,
+    "body_text_chars": 816,
+    "meaningful_lines": 23
+   },
+   "error_text": "",
+   "missing_chunks": [],
+   "cors_evidence": [],
+   "modal_evidence": {
+    "overlay_pre": false,
+    "overlay_post": false,
+    "dismissed_reveals_data": false
+   },
+   "capture_store": {
+    "present": true,
+    "file_count": 6,
+    "deep_route_dirs": [
+     "splash"
+    ],
+    "bytes": 2366926
+   },
+   "lanes_summary": [
+    {
+     "lane": "proxy",
+     "url": "http://127.0.0.1:4173/__apps/quiver",
+     "loaded": true,
+     "nav_error": "",
+     "regions": [
+      "rail",
+      "body"
+     ],
+     "data_score": 0,
+     "chunk_404s": 0,
+     "api_failures": 0,
+     "cross_origin_9225": 0,
+     "cors_signals": 0,
+     "console_errors": 0,
+     "screenshot": ".artifacts/reference-clean-sweep/quiver-proxy.png"
+    },
+    {
+     "lane": "origin",
+     "url": "http://localhost:9225/workspace/quiver/",
+     "loaded": true,
+     "nav_error": "",
+     "regions": [
+      "rail",
+      "header",
+      "body",
+      "tray"
+     ],
+     "data_score": 3,
+     "chunk_404s": 0,
+     "api_failures": 0,
+     "cross_origin_9225": 0,
+     "cors_signals": 0,
+     "console_errors": 0,
+     "screenshot": ".artifacts/reference-clean-sweep/quiver-origin.png"
+    }
+   ],
+   "screenshot": ".artifacts/reference-clean-sweep/quiver-origin.png"
+  },
+  {
+   "slug": "models",
+   "owner": "Foundry",
+   "parity_class": "substrate_bound",
+   "grammar": "catalog",
+   "reference_path": "/__apps/models",
+   "candidate_surface": "/__ioi/foundry",
+   "substrate_surface": "/__ioi/foundry",
+   "clean_state": "data_clean",
+   "reason": "shell regions [rail, header, body] + data evidence (rows 0/0 · nodes 0 · cards 4 · lists 0 · lines 18)",
+   "lane_used": "proxy",
+   "shell_regions": [
+    "rail",
+    "header",
+    "body"
+   ],
+   "landmarks_observed": [
+    "Home",
+    "Search…",
+    "ctrl + J",
+    "Notifications",
+    "Gift Icon",
+    "What's New",
+    "Recent",
+    "Files",
+    "Ontology",
+    "Applications",
+    "View all",
+    "Model Catalog",
+    "Add to favorites",
+    "AIP logo icon",
+    "AIP Assist",
+    "ctrl + shift + U",
+    "Support",
+    "Account"
+   ],
+   "matrix_landmarks_present": [],
+   "body_sample": "Skip to content\nHome\nSearch…\nctrl + J\nNotifications\nWhat's New\nRecent\nFiles\nOntology\nApplications\nAPPLICATIONS\nView all\nModel Catalog\nAIP Assist\nctrl + shift + U\nSupport\nLJ\nAccount\nModel Catalog\nIOI-provided models\nRegistered models\nIOI-provided models\nBrowse large language models in Foundry\nCompare models\nFilters\nLIFECYCLE STATUS\nClear\nStable\n1\nTYPE\nClear\nText Completion\n1\nVision\n1\nMODEL CREATOR\nClear\nAdditional Models\nLocal default (env) (default)\nText Completion\nVision",
+   "data_evidence": {
+    "table_rows": 0,
+    "graph_nodes": 0,
+    "cards": 4,
+    "list_items": 0,
+    "repeated_rows": 0,
+    "body_text_chars": 476,
+    "meaningful_lines": 18
+   },
+   "error_text": "",
+   "missing_chunks": [],
+   "cors_evidence": [],
+   "modal_evidence": {
+    "overlay_pre": false,
+    "overlay_post": false,
+    "dismissed_reveals_data": false
+   },
+   "capture_store": {
+    "present": true,
+    "file_count": 3,
+    "deep_route_dirs": [],
+    "bytes": 155064
+   },
+   "lanes_summary": [
+    {
+     "lane": "proxy",
+     "url": "http://127.0.0.1:4173/__apps/models",
+     "loaded": true,
+     "nav_error": "",
+     "regions": [
+      "rail",
+      "header",
+      "body"
+     ],
+     "data_score": 3,
+     "chunk_404s": 0,
+     "api_failures": 0,
+     "cross_origin_9225": 0,
+     "cors_signals": 0,
+     "console_errors": 0,
+     "screenshot": ".artifacts/reference-clean-sweep/models-proxy.png"
+    },
+    {
+     "lane": "origin",
+     "url": "http://localhost:9225/workspace/model-catalog/",
+     "loaded": true,
+     "nav_error": "",
+     "regions": [
+      "rail",
+      "header",
+      "body"
+     ],
+     "data_score": 7,
+     "chunk_404s": 0,
+     "api_failures": 0,
+     "cross_origin_9225": 0,
+     "cors_signals": 0,
+     "console_errors": 0,
+     "screenshot": ".artifacts/reference-clean-sweep/models-origin.png"
+    }
+   ],
+   "screenshot": ".artifacts/reference-clean-sweep/models-proxy.png"
+  },
+  {
+   "slug": "modelstudio",
+   "owner": "Foundry",
+   "parity_class": "reference_capture",
+   "grammar": "editor_canvas",
+   "reference_path": "/__apps/modelstudio",
+   "candidate_surface": null,
+   "substrate_surface": null,
+   "clean_state": "data_failed",
+   "reason": "shell boots but the body reports a data failure (\"Page not found\") with captured (non-404) lanes",
+   "lane_used": "proxy",
+   "shell_regions": [
+    "rail",
+    "body"
+   ],
+   "landmarks_observed": [
+    "Home",
+    "Search…",
+    "ctrl + J",
+    "Notifications",
+    "Gift Icon",
+    "What's New",
+    "Recent",
+    "Files",
+    "Ontology",
+    "Applications",
+    "View all",
+    "Model Studio",
+    "Add to favorites",
+    "AIP logo icon",
+    "AIP Assist",
+    "ctrl + shift + U",
+    "Support",
+    "Account"
+   ],
+   "matrix_landmarks_present": [],
+   "body_sample": "Skip to content\nHome\nSearch…\nctrl + J\nNotifications\nWhat's New\nRecent\nFiles\nOntology\nApplications\nAPPLICATIONS\nView all\nModel Studio\nAIP Assist\nctrl + shift + U\nSupport\nLJ\nAccount\nPage not found",
+   "data_evidence": {
+    "table_rows": 0,
+    "graph_nodes": 0,
+    "cards": 0,
+    "list_items": 0,
+    "repeated_rows": 0,
+    "body_text_chars": 194,
+    "meaningful_lines": 7
+   },
+   "error_text": "Page not found",
+   "missing_chunks": [],
+   "cors_evidence": [],
+   "modal_evidence": {
+    "overlay_pre": false,
+    "overlay_post": false,
+    "dismissed_reveals_data": false
+   },
+   "capture_store": {
+    "present": true,
+    "file_count": 3,
+    "deep_route_dirs": [],
+    "bytes": 179560
+   },
+   "lanes_summary": [
+    {
+     "lane": "proxy",
+     "url": "http://127.0.0.1:4173/__apps/modelstudio",
+     "loaded": true,
+     "nav_error": "",
+     "regions": [
+      "rail",
+      "body"
+     ],
+     "data_score": 0,
+     "chunk_404s": 0,
+     "api_failures": 0,
+     "cross_origin_9225": 0,
+     "cors_signals": 0,
+     "console_errors": 0,
+     "screenshot": ".artifacts/reference-clean-sweep/modelstudio-proxy.png"
+    },
+    {
+     "lane": "origin",
+     "url": "http://localhost:9225/workspace/model-studio/",
+     "loaded": true,
+     "nav_error": "",
+     "regions": [],
+     "data_score": 0,
+     "chunk_404s": 0,
+     "api_failures": 0,
+     "cross_origin_9225": 0,
+     "cors_signals": 0,
+     "console_errors": 0,
+     "screenshot": ".artifacts/reference-clean-sweep/modelstudio-origin.png"
+    }
+   ],
+   "screenshot": ".artifacts/reference-clean-sweep/modelstudio-proxy.png"
+  },
+  {
+   "slug": "inference",
+   "owner": "Foundry",
+   "parity_class": "reference_capture",
+   "grammar": "wizard",
+   "reference_path": "/__apps/inference",
+   "candidate_surface": null,
+   "substrate_surface": null,
+   "clean_state": "data_failed",
+   "reason": "shell boots but the body reports a data failure (\"Failed to load current space\") with captured (non-404) lanes",
+   "lane_used": "proxy",
+   "shell_regions": [
+    "rail",
+    "header",
+    "body"
+   ],
+   "landmarks_observed": [
+    "Home",
+    "Search…",
+    "ctrl + J",
+    "Notifications",
+    "Gift Icon",
+    "What's New",
+    "Recent",
+    "Files",
+    "Ontology",
+    "Applications",
+    "View all",
+    "Sensitive Data Scanner",
+    "Add to favorites",
+    "AIP logo icon",
+    "AIP Assist",
+    "ctrl + shift + U",
+    "Support",
+    "Account"
+   ],
+   "matrix_landmarks_present": [],
+   "body_sample": "Skip to content\nHome\nSearch…\nctrl + J\nNotifications\nWhat's New\nRecent\nFiles\nOntology\nApplications\nAPPLICATIONS\nView all\nSensitive Data Scanner\nAIP Assist\nctrl + shift + U\nSupport\nLJ\nAccount\nSensitive Data Scanner\nFailed to load current space\nYou do not have access to this space\nPermission to discover a space is required to view its scans.\nFailed to load current space",
+   "data_evidence": {
+    "table_rows": 0,
+    "graph_nodes": 0,
+    "cards": 0,
+    "list_items": 0,
+    "repeated_rows": 0,
+    "body_text_chars": 369,
+    "meaningful_lines": 11
+   },
+   "error_text": "Failed to load current space",
+   "missing_chunks": [],
+   "cors_evidence": [],
+   "modal_evidence": {
+    "overlay_pre": true,
+    "overlay_post": false,
+    "dismissed_reveals_data": false
+   },
+   "capture_store": {
+    "present": true,
+    "file_count": 3,
+    "deep_route_dirs": [],
+    "bytes": 154414
+   },
+   "lanes_summary": [
+    {
+     "lane": "proxy",
+     "url": "http://127.0.0.1:4173/__apps/inference",
+     "loaded": true,
+     "nav_error": "",
+     "regions": [
+      "rail",
+      "header",
+      "body"
+     ],
+     "data_score": 1,
+     "chunk_404s": 0,
+     "api_failures": 0,
+     "cross_origin_9225": 0,
+     "cors_signals": 0,
+     "console_errors": 0,
+     "screenshot": ".artifacts/reference-clean-sweep/inference-proxy.png"
+    },
+    {
+     "lane": "origin",
+     "url": "http://localhost:9225/workspace/foundry-inference-app/",
+     "loaded": true,
+     "nav_error": "",
+     "regions": [
+      "rail",
+      "body"
+     ],
+     "data_score": 0,
+     "chunk_404s": 0,
+     "api_failures": 0,
+     "cross_origin_9225": 0,
+     "cors_signals": 0,
+     "console_errors": 0,
+     "screenshot": ".artifacts/reference-clean-sweep/inference-origin.png"
+    }
+   ],
+   "screenshot": ".artifacts/reference-clean-sweep/inference-proxy.png"
+  },
+  {
+   "slug": "listings",
+   "owner": "Marketplace",
+   "parity_class": "reference_capture",
+   "grammar": "catalog",
+   "reference_path": "/__apps/listings",
+   "candidate_surface": null,
+   "substrate_surface": null,
+   "clean_state": "data_clean",
+   "reason": "shell regions [rail, header, body] + data evidence (rows 1/0 · nodes 0 · cards 3 · lists 0 · lines 20)",
+   "lane_used": "proxy",
+   "shell_regions": [
+    "rail",
+    "header",
+    "body"
+   ],
+   "landmarks_observed": [
+    "Home",
+    "Search…",
+    "ctrl + J",
+    "Notifications",
+    "Gift Icon",
+    "What's New",
+    "Recent",
+    "Files",
+    "Ontology",
+    "Applications",
+    "View all",
+    "Marketplace",
+    "Add to favorites",
+    "AIP logo icon",
+    "AIP Assist",
+    "ctrl + shift + U",
+    "Support",
+    "Account"
+   ],
+   "matrix_landmarks_present": [],
+   "body_sample": "Skip to content\nHome\nSearch…\nctrl + J\nNotifications\nWhat's New\nRecent\nFiles\nOntology\nApplications\nAPPLICATIONS\nView all\nMarketplace\nAIP Assist\nctrl + shift + U\nSupport\nLJ\nAccount\nMarketplace\nInstallations\nHelp\nMarketplace\nDiscover and install Foundry products\nStores\nFound 1 store\nName\nProducts\nEstate Marketplace — governed listing plane\nListings drafted over real substrate. Publish is the governed path: admitted review + open release control + serving runtime, receipted.\n0 products\nInstall your first product\nA store holds a collection of products. Select a store to browse or search for a produ",
+   "data_evidence": {
+    "table_rows": 1,
+    "graph_nodes": 0,
+    "cards": 3,
+    "list_items": 0,
+    "repeated_rows": 0,
+    "body_text_chars": 888,
+    "meaningful_lines": 20
+   },
+   "error_text": "",
+   "missing_chunks": [],
+   "cors_evidence": [],
+   "modal_evidence": {
+    "overlay_pre": true,
+    "overlay_post": false,
+    "dismissed_reveals_data": false
+   },
+   "capture_store": {
+    "present": true,
+    "file_count": 6,
+    "deep_route_dirs": [
+     "installed-product"
+    ],
+    "bytes": 332257
+   },
+   "lanes_summary": [
+    {
+     "lane": "proxy",
+     "url": "http://127.0.0.1:4173/__apps/listings",
+     "loaded": true,
+     "nav_error": "",
+     "regions": [
+      "rail",
+      "header",
+      "body"
+     ],
+     "data_score": 3,
+     "chunk_404s": 0,
+     "api_failures": 0,
+     "cross_origin_9225": 0,
+     "cors_signals": 0,
+     "console_errors": 0,
+     "screenshot": ".artifacts/reference-clean-sweep/listings-proxy.png"
+    },
+    {
+     "lane": "origin",
+     "url": "http://localhost:9225/workspace/marketplace/",
+     "loaded": true,
+     "nav_error": "",
+     "regions": [
+      "rail",
+      "header",
+      "body"
+     ],
+     "data_score": 10,
+     "chunk_404s": 0,
+     "api_failures": 0,
+     "cross_origin_9225": 0,
+     "cors_signals": 0,
+     "console_errors": 0,
+     "screenshot": ".artifacts/reference-clean-sweep/listings-origin.png"
+    }
+   ],
+   "screenshot": ".artifacts/reference-clean-sweep/listings-proxy.png"
+  },
+  {
+   "slug": "registry",
+   "owner": "Marketplace",
+   "parity_class": "reference_capture",
+   "grammar": "table_list",
+   "reference_path": "http://localhost:9225/workspace/artifacts/",
+   "candidate_surface": null,
+   "substrate_surface": null,
+   "clean_state": "shell_clean_only",
+   "reason": "shell renders a WELCOME/empty landing (cards 4 · lines 18, no row/node data) — clean chrome, no real data to port against (proxy lane shows a failure (\"Invalid resource identifier\"); the origin lane is the readable one)",
+   "lane_used": "origin",
+   "shell_regions": [
+    "rail",
+    "header",
+    "body"
+   ],
+   "landmarks_observed": [
+    "Home",
+    "Search…",
+    "ctrl + J",
+    "Notifications",
+    "Gift Icon",
+    "What's New",
+    "Recent",
+    "Files",
+    "Ontology",
+    "Applications",
+    "View all",
+    "Artifacts",
+    "Add to favorites",
+    "AIP logo icon",
+    "AIP Assist",
+    "ctrl + shift + U",
+    "Support",
+    "Account"
+   ],
+   "matrix_landmarks_present": [],
+   "body_sample": "Skip to content\nHome\nSearch…\nctrl + J\nNotifications\nWhat's New\nRecent\nFiles\nOntology\nApplications\nAPPLICATIONS\nView all\nArtifacts\nAIP Assist\nctrl + shift + U\nSupport\nLJ\nAccount\nArtifacts\nCreate artifact repository\nHelp\n0\n0\n0\nExplore artifacts\nArtifact repositories enable users to publish and manage artifacts. Explore and search through all your artifact repositories in one place.\nConda\nLearn about artifacts\nGo to documentation\nCore concepts\nLearn the core concepts used by artifacts.\nPublish an artifact\nLearn the different types of artifacts, and how to publish them.\nSearch an artifact\nLearn ho",
+   "data_evidence": {
+    "table_rows": 0,
+    "graph_nodes": 0,
+    "cards": 4,
+    "list_items": 0,
+    "repeated_rows": 4,
+    "body_text_chars": 735,
+    "meaningful_lines": 18
+   },
+   "error_text": "",
+   "missing_chunks": [],
+   "cors_evidence": [],
+   "modal_evidence": {
+    "overlay_pre": false,
+    "overlay_post": false,
+    "dismissed_reveals_data": false
+   },
+   "capture_store": {
+    "present": true,
+    "file_count": 3,
+    "deep_route_dirs": [],
+    "bytes": 159678
+   },
+   "lanes_summary": [
+    {
+     "lane": "proxy",
+     "url": "http://127.0.0.1:4173/__apps/registry",
+     "loaded": true,
+     "nav_error": "",
+     "regions": [
+      "rail",
+      "header",
+      "body"
+     ],
+     "data_score": 0,
+     "chunk_404s": 0,
+     "api_failures": 1,
+     "cross_origin_9225": 0,
+     "cors_signals": 0,
+     "console_errors": 1,
+     "screenshot": ".artifacts/reference-clean-sweep/registry-proxy.png"
+    },
+    {
+     "lane": "origin",
+     "url": "http://localhost:9225/workspace/artifacts/",
+     "loaded": true,
+     "nav_error": "",
+     "regions": [
+      "rail",
+      "header",
+      "body"
+     ],
+     "data_score": 6,
+     "chunk_404s": 0,
+     "api_failures": 0,
+     "cross_origin_9225": 0,
+     "cors_signals": 0,
+     "console_errors": 0,
+     "screenshot": ".artifacts/reference-clean-sweep/registry-origin.png"
+    }
+   ],
+   "screenshot": ".artifacts/reference-clean-sweep/registry-origin.png"
+  },
+  {
+   "slug": "devconsole",
+   "owner": "Developer Console",
+   "parity_class": "reference_capture",
+   "grammar": "wizard",
+   "reference_path": "http://localhost:9225/workspace/developer-console/",
+   "candidate_surface": null,
+   "substrate_surface": null,
+   "clean_state": "shell_clean_only",
+   "reason": "shell renders a WELCOME/empty landing (cards 5 · lines 23, no row/node data) — clean chrome, no real data to port against (proxy lane renders no data (score 0); the origin lane is the readable one)",
+   "lane_used": "origin",
+   "shell_regions": [
+    "rail",
+    "header",
+    "body"
+   ],
+   "landmarks_observed": [
+    "Home",
+    "Search…",
+    "ctrl + J",
+    "Notifications",
+    "Gift Icon",
+    "What's New",
+    "Recent",
+    "Files",
+    "Ontology",
+    "Applications",
+    "View all",
+    "Developer Console",
+    "Add to favorites",
+    "AIP logo icon",
+    "AIP Assist",
+    "ctrl + shift + U",
+    "Support",
+    "Account"
+   ],
+   "matrix_landmarks_present": [],
+   "body_sample": "Skip to content\nHome\nSearch…\nctrl + J\nNotifications\nWhat's New\nRecent\nFiles\nOntology\nApplications\nAPPLICATIONS\nView all\nDeveloper Console\nAIP Assist\nctrl + shift + U\nSupport\nLJ\nAccount\nDeveloper Console\nNew application\nWelcome to Developer Console\n\nBuild applications on top of APIs generated from your Ontology.\n\nView documentation\nApplications\nStandalone OAuth clients\nLegacy\nRecents (0)\nFavorites (0)\nAll (0)\nCreated by me\nAPPLICATION\nCREATOR\nLAST EDITED BY\nLAST MODIFIED\nNo applications\nExamples and templates\nOntology SDK reference examples\nGet started with a ready-to-use Ontology and learn wha",
+   "data_evidence": {
+    "table_rows": 0,
+    "graph_nodes": 0,
+    "cards": 5,
+    "list_items": 0,
+    "repeated_rows": 5,
+    "body_text_chars": 757,
+    "meaningful_lines": 23
+   },
+   "error_text": "",
+   "missing_chunks": [],
+   "cors_evidence": [],
+   "modal_evidence": {
+    "overlay_pre": false,
+    "overlay_post": false,
+    "dismissed_reveals_data": false
+   },
+   "capture_store": {
+    "present": true,
+    "file_count": 3,
+    "deep_route_dirs": [],
+    "bytes": 167089
+   },
+   "lanes_summary": [
+    {
+     "lane": "proxy",
+     "url": "http://127.0.0.1:4173/__apps/devconsole",
+     "loaded": true,
+     "nav_error": "",
+     "regions": [],
+     "data_score": 0,
+     "chunk_404s": 0,
+     "api_failures": 0,
+     "cross_origin_9225": 1,
+     "cors_signals": 1,
+     "console_errors": 3,
+     "screenshot": ".artifacts/reference-clean-sweep/devconsole-proxy.png"
+    },
+    {
+     "lane": "origin",
+     "url": "http://localhost:9225/workspace/developer-console/",
+     "loaded": true,
+     "nav_error": "",
+     "regions": [
+      "rail",
+      "header",
+      "body"
+     ],
+     "data_score": 6,
+     "chunk_404s": 0,
+     "api_failures": 0,
+     "cross_origin_9225": 0,
+     "cors_signals": 0,
+     "console_errors": 0,
+     "screenshot": ".artifacts/reference-clean-sweep/devconsole-origin.png"
+    }
+   ],
+   "screenshot": ".artifacts/reference-clean-sweep/devconsole-origin.png"
+  },
+  {
+   "slug": "widgets",
+   "owner": "Developer Console",
+   "parity_class": "reference_capture",
+   "grammar": "editor_canvas",
+   "reference_path": "http://localhost:9225/workspace/custom-widgets/",
+   "candidate_surface": null,
+   "substrate_surface": null,
+   "clean_state": "needs_origin_alignment",
+   "reason": "proxy lane renders no data (score 0), but the capture-origin lane (http://localhost:9225) renders the app failure-free WITH data (rows 12/0 · nodes 0 · cards 0 · lines 47) — align the reference URL like pipeline #38/#39",
+   "lane_used": "origin",
+   "shell_regions": [
+    "rail",
+    "header",
+    "body"
+   ],
+   "landmarks_observed": [
+    "Home",
+    "Search…",
+    "ctrl + J",
+    "Notifications",
+    "Gift Icon",
+    "What's New",
+    "Recent",
+    "Files",
+    "Ontology",
+    "Applications",
+    "View all",
+    "Custom Widgets",
+    "Add to favorites",
+    "AIP logo icon",
+    "AIP Assist",
+    "ctrl + shift + U",
+    "Support",
+    "Account"
+   ],
+   "matrix_landmarks_present": [],
+   "body_sample": "Skip to content\nHome\nSearch…\nctrl + J\nNotifications\nWhat's New\nRecent\nFiles\nOntology\nApplications\nAPPLICATIONS\nView all\nCustom Widgets\nAIP Assist\nctrl + shift + U\nSupport\nLJ\nAccount\nCustom Widgets\nNew widget set\nHelp\nCustom Widgets\nDevelop custom frontend widgets for use within Foundry applications.\nView\nRecents\nFavorites\nFILES\nCREATOR\nLAST EDITED BY\nLAST VIEWED\nUse AIP Logic to classify and edit objects Walkthrough\n/test-ab81f6/test4/AIP Chatbot with transcribed video context (2026-04-26 22:22:24)/logic/Use AIP Logic to classify and edit objects (2026-06-23 20:26:32)\naip-assist\naip-assist\nJun",
+   "data_evidence": {
+    "table_rows": 12,
+    "graph_nodes": 0,
+    "cards": 0,
+    "list_items": 0,
+    "repeated_rows": 0,
+    "body_text_chars": 4484,
+    "meaningful_lines": 47
+   },
+   "error_text": "",
+   "missing_chunks": [],
+   "cors_evidence": [],
+   "modal_evidence": {
+    "overlay_pre": false,
+    "overlay_post": false,
+    "dismissed_reveals_data": false
+   },
+   "capture_store": {
+    "present": true,
+    "file_count": 3,
+    "deep_route_dirs": [],
+    "bytes": 159979
+   },
+   "lanes_summary": [
+    {
+     "lane": "proxy",
+     "url": "http://127.0.0.1:4173/__apps/widgets",
+     "loaded": true,
+     "nav_error": "",
+     "regions": [
+      "body"
+     ],
+     "data_score": 0,
+     "chunk_404s": 0,
+     "api_failures": 0,
+     "cross_origin_9225": 1,
+     "cors_signals": 1,
+     "console_errors": 3,
+     "screenshot": ".artifacts/reference-clean-sweep/widgets-proxy.png"
+    },
+    {
+     "lane": "origin",
+     "url": "http://localhost:9225/workspace/custom-widgets/",
+     "loaded": true,
+     "nav_error": "",
+     "regions": [
+      "rail",
+      "header",
+      "body"
+     ],
+     "data_score": 5,
+     "chunk_404s": 0,
+     "api_failures": 0,
+     "cross_origin_9225": 0,
+     "cors_signals": 0,
+     "console_errors": 0,
+     "screenshot": ".artifacts/reference-clean-sweep/widgets-origin.png"
+    }
+   ],
+   "screenshot": ".artifacts/reference-clean-sweep/widgets-origin.png"
+  },
+  {
+   "slug": "developer",
+   "owner": "Developer Console",
+   "parity_class": "reference_capture",
+   "grammar": "table_list",
+   "reference_path": "http://localhost:9225/workspace/developer/",
+   "candidate_surface": null,
+   "substrate_surface": null,
+   "clean_state": "errored_reference",
+   "reason": "reference renders an error page (\"You don't have permissions to view this page\") without a usable shell",
+   "lane_used": "origin",
+   "shell_regions": [
+    "body"
+   ],
+   "landmarks_observed": [],
+   "matrix_landmarks_present": [],
+   "body_sample": "You don't have permissions to view this page",
+   "data_evidence": {
+    "table_rows": 0,
+    "graph_nodes": 0,
+    "cards": 0,
+    "list_items": 0,
+    "repeated_rows": 0,
+    "body_text_chars": 44,
+    "meaningful_lines": 1
+   },
+   "error_text": "You don't have permissions to view this page",
+   "missing_chunks": [],
+   "cors_evidence": [],
+   "modal_evidence": {
+    "overlay_pre": false,
+    "overlay_post": false,
+    "dismissed_reveals_data": false
+   },
+   "capture_store": {
+    "present": true,
+    "file_count": 3,
+    "deep_route_dirs": [],
+    "bytes": 82667
+   },
+   "lanes_summary": [
+    {
+     "lane": "proxy",
+     "url": "http://127.0.0.1:4173/__apps/developer",
+     "loaded": true,
+     "nav_error": "",
+     "regions": [
+      "body"
+     ],
+     "data_score": 0,
+     "chunk_404s": 0,
+     "api_failures": 0,
+     "cross_origin_9225": 0,
+     "cors_signals": 0,
+     "console_errors": 0,
+     "screenshot": ".artifacts/reference-clean-sweep/developer-proxy.png"
+    },
+    {
+     "lane": "origin",
+     "url": "http://localhost:9225/workspace/developer/",
+     "loaded": true,
+     "nav_error": "",
+     "regions": [
+      "body"
+     ],
+     "data_score": 0,
+     "chunk_404s": 0,
+     "api_failures": 0,
+     "cross_origin_9225": 0,
+     "cors_signals": 0,
+     "console_errors": 0,
+     "screenshot": ".artifacts/reference-clean-sweep/developer-origin.png"
+    }
+   ],
+   "screenshot": ".artifacts/reference-clean-sweep/developer-origin.png"
+  },
+  {
+   "slug": "workspaces",
+   "owner": "Workbench",
+   "parity_class": "reference_capture",
+   "grammar": "editor_canvas",
+   "reference_path": "http://localhost:9225/workspace/code-workspaces/",
+   "candidate_surface": null,
+   "substrate_surface": null,
+   "clean_state": "needs_origin_alignment",
+   "reason": "proxy lane renders no data (score 1), but the capture-origin lane (http://localhost:9225) renders the app failure-free WITH data (rows 3/4 · nodes 0 · cards 5 · lines 26) — align the reference URL like pipeline #38/#39",
+   "lane_used": "origin",
+   "shell_regions": [
+    "rail",
+    "header",
+    "body"
+   ],
+   "landmarks_observed": [
+    "Home",
+    "Search…",
+    "ctrl + J",
+    "Notifications",
+    "Gift Icon",
+    "What's New",
+    "Recent",
+    "Files",
+    "Ontology",
+    "Applications",
+    "View all",
+    "Code Workspaces",
+    "Add to favorites",
+    "AIP logo icon",
+    "AIP Assist",
+    "ctrl + shift + U",
+    "Support",
+    "Account"
+   ],
+   "matrix_landmarks_present": [],
+   "body_sample": "Skip to content\nHome\nSearch…\nctrl + J\nNotifications\nWhat's New\nRecent\nFiles\nOntology\nApplications\nAPPLICATIONS\nView all\nCode Workspaces\nAIP Assist\nctrl + shift + U\nSupport\nLJ\nAccount\nCode Workspaces\nNew workspace\nHelp\nCode Workspaces\nLaunch code workspaces that run open-source IDEs and notebooks.\nRunning workspaces\nYou have no running workspaces. Create or open a workspace to get started.\nView\nRecents\nFavorites\nAll\nCreated by me\nVS Code\nJupyter\nRStudio\nWORKSPACES\nCREATOR\nLAST EDITED BY\nLAST EDITED\n[Template] Dash App\n/test-ab81f6/test4/AIP Chatbot with transcribed video context (2026-04-26 22:",
+   "data_evidence": {
+    "table_rows": 3,
+    "graph_nodes": 0,
+    "cards": 5,
+    "list_items": 0,
+    "repeated_rows": 4,
+    "body_text_chars": 1733,
+    "meaningful_lines": 26
+   },
+   "error_text": "",
+   "missing_chunks": [],
+   "cors_evidence": [],
+   "modal_evidence": {
+    "overlay_pre": false,
+    "overlay_post": false,
+    "dismissed_reveals_data": false
+   },
+   "capture_store": {
+    "present": true,
+    "file_count": 9,
+    "deep_route_dirs": [
+     "splash"
+    ],
+    "bytes": 593907
+   },
+   "lanes_summary": [
+    {
+     "lane": "proxy",
+     "url": "http://127.0.0.1:4173/__apps/workspaces",
+     "loaded": true,
+     "nav_error": "",
+     "regions": [
+      "rail",
+      "header",
+      "body"
+     ],
+     "data_score": 1,
+     "chunk_404s": 0,
+     "api_failures": 0,
+     "cross_origin_9225": 0,
+     "cors_signals": 0,
+     "console_errors": 1,
+     "screenshot": ".artifacts/reference-clean-sweep/workspaces-proxy.png"
+    },
+    {
+     "lane": "origin",
+     "url": "http://localhost:9225/workspace/code-workspaces/",
+     "loaded": true,
+     "nav_error": "",
+     "regions": [
+      "rail",
+      "header",
+      "body"
+     ],
+     "data_score": 10,
+     "chunk_404s": 0,
+     "api_failures": 0,
+     "cross_origin_9225": 0,
+     "cors_signals": 0,
+     "console_errors": 0,
+     "screenshot": ".artifacts/reference-clean-sweep/workspaces-origin.png"
+    }
+   ],
+   "screenshot": ".artifacts/reference-clean-sweep/workspaces-origin.png"
+  },
+  {
+   "slug": "repositories",
+   "owner": "Workbench",
+   "parity_class": "reference_capture",
+   "grammar": "table_list",
+   "reference_path": "/__apps/repositories",
+   "candidate_surface": null,
+   "substrate_surface": null,
+   "clean_state": "errored_reference",
+   "reason": "navigation failed on every lane (navigation triggered a content-type download — the captured app document is an empty 307 + application/octet-stream response (broken capture, cannot boot on any lane) · navigation triggered a content-type download — the captured app document is an empty 307 + application/octet-stream response (broken capture, cannot boot on any lane))",
+   "lane_used": "proxy",
+   "shell_regions": [],
+   "landmarks_observed": [],
+   "matrix_landmarks_present": [],
+   "body_sample": "",
+   "data_evidence": null,
+   "error_text": "",
+   "missing_chunks": [],
+   "cors_evidence": [],
+   "modal_evidence": null,
+   "capture_store": {
+    "present": true,
+    "file_count": 3,
+    "deep_route_dirs": [],
+    "bytes": 27
+   },
+   "lanes_summary": [
+    {
+     "lane": "proxy",
+     "url": "http://127.0.0.1:4173/__apps/repositories",
+     "loaded": false,
+     "nav_error": "navigation triggered a content-type download — the captured app document is an empty 307 + application/octet-stream response (broken capture, cannot boot on any lane)",
+     "regions": [],
+     "data_score": 0,
+     "chunk_404s": 0,
+     "api_failures": 0,
+     "cross_origin_9225": 0,
+     "cors_signals": 0,
+     "console_errors": 0,
+     "screenshot": ""
+    },
+    {
+     "lane": "origin",
+     "url": "http://localhost:9225/workspace/code-repositories/",
+     "loaded": false,
+     "nav_error": "navigation triggered a content-type download — the captured app document is an empty 307 + application/octet-stream response (broken capture, cannot boot on any lane)",
+     "regions": [],
+     "data_score": 0,
+     "chunk_404s": 0,
+     "api_failures": 0,
+     "cross_origin_9225": 0,
+     "cors_signals": 0,
+     "console_errors": 0,
+     "screenshot": ""
+    }
+   ],
+   "screenshot": ""
+  },
+  {
+   "slug": "notepad",
+   "owner": "Workbench",
+   "parity_class": "reference_capture",
+   "grammar": "document",
+   "reference_path": "http://localhost:9225/workspace/notepad/",
+   "candidate_surface": null,
+   "substrate_surface": null,
+   "clean_state": "needs_origin_alignment",
+   "reason": "proxy lane shows a failure (\"An error occurred\"), but the capture-origin lane (http://localhost:9225) renders the app failure-free WITH data (rows 2/0 · nodes 0 · cards 11 · lines 28) — align the reference URL like pipeline #38/#39",
+   "lane_used": "origin",
+   "shell_regions": [
+    "rail",
+    "header",
+    "body"
+   ],
+   "landmarks_observed": [
+    "Home",
+    "Search…",
+    "ctrl + J",
+    "Notifications",
+    "Gift Icon",
+    "What's New",
+    "Recent",
+    "Files",
+    "Ontology",
+    "Applications",
+    "View all",
+    "Notepad",
+    "Add to favorites",
+    "AIP logo icon",
+    "AIP Assist",
+    "ctrl + shift + U",
+    "Support",
+    "Account"
+   ],
+   "matrix_landmarks_present": [],
+   "body_sample": "Skip to content\nHome\nSearch…\nctrl + J\nNotifications\nWhat's New\nRecent\nFiles\nOntology\nApplications\nAPPLICATIONS\nView all\nNotepad\nAIP Assist\nctrl + shift + U\nSupport\nLJ\nAccount\nNotepad\nNew document\nHelp\nNotepad\nCreate, share and export object-aware documents and reports.\nCreate a new document\nBlank document\nCreate an object-aware collaborative rich-text document with widgets and other embedded content from Foundry applications\nNew from template\nCreate a document from a template to efficiently populate it with relevant data and content tailored to the specific use case\nDocument template\nCreate a ",
+   "data_evidence": {
+    "table_rows": 2,
+    "graph_nodes": 0,
+    "cards": 11,
+    "list_items": 0,
+    "repeated_rows": 0,
+    "body_text_chars": 1602,
+    "meaningful_lines": 28
+   },
+   "error_text": "",
+   "missing_chunks": [],
+   "cors_evidence": [],
+   "modal_evidence": {
+    "overlay_pre": false,
+    "overlay_post": false,
+    "dismissed_reveals_data": false
+   },
+   "capture_store": {
+    "present": true,
+    "file_count": 6,
+    "deep_route_dirs": [
+     "view-template"
+    ],
+    "bytes": 2664226
+   },
+   "lanes_summary": [
+    {
+     "lane": "proxy",
+     "url": "http://127.0.0.1:4173/__apps/notepad",
+     "loaded": true,
+     "nav_error": "",
+     "regions": [
+      "rail",
+      "body"
+     ],
+     "data_score": 0,
+     "chunk_404s": 0,
+     "api_failures": 0,
+     "cross_origin_9225": 0,
+     "cors_signals": 0,
+     "console_errors": 4,
+     "screenshot": ".artifacts/reference-clean-sweep/notepad-proxy.png"
+    },
+    {
+     "lane": "origin",
+     "url": "http://localhost:9225/workspace/notepad/",
+     "loaded": true,
+     "nav_error": "",
+     "regions": [
+      "rail",
+      "header",
+      "body"
+     ],
+     "data_score": 4,
+     "chunk_404s": 0,
+     "api_failures": 0,
+     "cross_origin_9225": 0,
+     "cors_signals": 0,
+     "console_errors": 0,
+     "screenshot": ".artifacts/reference-clean-sweep/notepad-origin.png"
+    }
+   ],
+   "screenshot": ".artifacts/reference-clean-sweep/notepad-origin.png"
+  },
+  {
+   "slug": "vertex",
+   "owner": "Provenance",
+   "parity_class": "substrate_bound",
+   "grammar": "graph",
+   "reference_path": "http://localhost:9225/workspace/vertex/",
+   "candidate_surface": "/__ioi/vertex",
+   "substrate_surface": "/__ioi/vertex",
+   "clean_state": "shell_clean_only",
+   "reason": "shell renders a WELCOME/empty landing (cards 6 · lines 21, no row/node data) — clean chrome, no real data to port against (proxy lane shows a failure (\"An error occurred\"); the origin lane is the readable one)",
+   "lane_used": "origin",
+   "shell_regions": [
+    "rail",
+    "header",
+    "body"
+   ],
+   "landmarks_observed": [
+    "Home",
+    "Search…",
+    "ctrl + J",
+    "Notifications",
+    "Gift Icon",
+    "What's New",
+    "Recent",
+    "Files",
+    "Ontology",
+    "Applications",
+    "View all",
+    "Vertex",
+    "Add to favorites",
+    "AIP logo icon",
+    "AIP Assist",
+    "ctrl + shift + U",
+    "Support",
+    "Account"
+   ],
+   "matrix_landmarks_present": [],
+   "body_sample": "Skip to content\nHome\nSearch…\nctrl + J\nNotifications\nWhat's New\nRecent\nFiles\nOntology\nApplications\nAPPLICATIONS\nView all\nVertex\nAIP Assist\nctrl + shift + U\nSupport\nLJ\nAccount\nWelcome to Vertex\nExplore your organization's digital twin\nOR\nNew exploration\nNone available\nGraphs\n\nA graph is a collection of nodes and edges with associated styling. It helps you visualize practically any aspect of your digital twin and evaluate what-if analyses visually.\n\nExplore\n2 available\nTemplates\n\nA graph template constructs a graph given inputs to its parameters. Design templates to quickly generate visualization",
+   "data_evidence": {
+    "table_rows": 0,
+    "graph_nodes": 0,
+    "cards": 6,
+    "list_items": 0,
+    "repeated_rows": 0,
+    "body_text_chars": 1362,
+    "meaningful_lines": 21
+   },
+   "error_text": "",
+   "missing_chunks": [],
+   "cors_evidence": [],
+   "modal_evidence": {
+    "overlay_pre": false,
+    "overlay_post": false,
+    "dismissed_reveals_data": false
+   },
+   "capture_store": {
+    "present": true,
+    "file_count": 3,
+    "deep_route_dirs": [],
+    "bytes": 1243753
+   },
+   "lanes_summary": [
+    {
+     "lane": "proxy",
+     "url": "http://127.0.0.1:4173/__apps/vertex",
+     "loaded": true,
+     "nav_error": "",
+     "regions": [
+      "rail",
+      "body"
+     ],
+     "data_score": 0,
+     "chunk_404s": 0,
+     "api_failures": 0,
+     "cross_origin_9225": 0,
+     "cors_signals": 0,
+     "console_errors": 4,
+     "screenshot": ".artifacts/reference-clean-sweep/vertex-proxy.png"
+    },
+    {
+     "lane": "origin",
+     "url": "http://localhost:9225/workspace/vertex/",
+     "loaded": true,
+     "nav_error": "",
+     "regions": [
+      "rail",
+      "header",
+      "body"
+     ],
+     "data_score": 4,
+     "chunk_404s": 0,
+     "api_failures": 0,
+     "cross_origin_9225": 0,
+     "cors_signals": 0,
+     "console_errors": 0,
+     "screenshot": ".artifacts/reference-clean-sweep/vertex-origin.png"
+    }
+   ],
+   "screenshot": ".artifacts/reference-clean-sweep/vertex-origin.png"
+  },
+  {
+   "slug": "map",
+   "owner": "Environments",
+   "parity_class": "reference_capture",
+   "grammar": "editor_canvas",
+   "reference_path": "http://localhost:9225/workspace/map/",
+   "candidate_surface": null,
+   "substrate_surface": null,
+   "clean_state": "shell_clean_only",
+   "reason": "shell renders a WELCOME/empty landing (cards 4 · lines 15, no row/node data) — clean chrome, no real data to port against (proxy lane renders no data (score 0); the origin lane is the readable one)",
+   "lane_used": "origin",
+   "shell_regions": [
+    "rail",
+    "header",
+    "toolbar",
+    "body"
+   ],
+   "landmarks_observed": [
+    "Home",
+    "Search…",
+    "ctrl + J",
+    "Notifications",
+    "Gift Icon",
+    "What's New",
+    "Recent",
+    "Files",
+    "Ontology",
+    "Applications",
+    "View all",
+    "Map",
+    "Add to favorites",
+    "AIP logo icon",
+    "AIP Assist",
+    "ctrl + shift + U",
+    "Support",
+    "Account"
+   ],
+   "matrix_landmarks_present": [],
+   "body_sample": "Skip to content\nHome\nSearch…\nctrl + J\nNotifications\nWhat's New\nRecent\nFiles\nOntology\nApplications\nAPPLICATIONS\nView all\nMap\nAIP Assist\nctrl + shift + U\nSupport\nLJ\nAccount\nUnsaved Map\nSave as…\n© Mapbox © OpenStreetMap Improve this map\nLayers\nLegend\nHistogram\nAdd to map\nNo layers\nAdd data to your map to get started\nMapbox Light\nTimeline\nSelect\nSearch Around\nSelection\nExplore reference examples\nLearn how to build your use case using example Map modules from Marketplace\nObfuscate sensitive data with Cipher\nLearn how to use Cipher to obfuscate sensitive data by default while still allowing authoriz",
+   "data_evidence": {
+    "table_rows": 0,
+    "graph_nodes": 0,
+    "cards": 4,
+    "list_items": 0,
+    "repeated_rows": 0,
+    "body_text_chars": 800,
+    "meaningful_lines": 15
+   },
+   "error_text": "",
+   "missing_chunks": [],
+   "cors_evidence": [],
+   "modal_evidence": {
+    "overlay_pre": true,
+    "overlay_post": true,
+    "dismissed_reveals_data": false
+   },
+   "capture_store": {
+    "present": true,
+    "file_count": 3,
+    "deep_route_dirs": [],
+    "bytes": 1234217
+   },
+   "lanes_summary": [
+    {
+     "lane": "proxy",
+     "url": "http://127.0.0.1:4173/__apps/map",
+     "loaded": true,
+     "nav_error": "",
+     "regions": [
+      "rail",
+      "body"
+     ],
+     "data_score": 0,
+     "chunk_404s": 0,
+     "api_failures": 0,
+     "cross_origin_9225": 0,
+     "cors_signals": 0,
+     "console_errors": 3,
+     "screenshot": ".artifacts/reference-clean-sweep/map-proxy.png"
+    },
+    {
+     "lane": "origin",
+     "url": "http://localhost:9225/workspace/map/",
+     "loaded": true,
+     "nav_error": "",
+     "regions": [
+      "rail",
+      "header",
+      "toolbar",
+      "body"
+     ],
+     "data_score": 3,
+     "chunk_404s": 0,
+     "api_failures": 0,
+     "cross_origin_9225": 0,
+     "cors_signals": 0,
+     "console_errors": 0,
+     "screenshot": ".artifacts/reference-clean-sweep/map-origin.png"
+    }
+   ],
+   "screenshot": ".artifacts/reference-clean-sweep/map-origin.png"
+  },
+  {
+   "slug": "slate",
+   "owner": "Domain Apps",
+   "parity_class": "reference_capture",
+   "grammar": "editor_canvas",
+   "reference_path": "http://localhost:9225/workspace/slate/",
+   "candidate_surface": null,
+   "substrate_surface": null,
+   "clean_state": "errored_reference",
+   "reason": "the app never mounts — uncaught page error (\"Workspace context path not found\")",
+   "lane_used": "origin",
+   "shell_regions": [
+    "rail",
+    "body"
+   ],
+   "landmarks_observed": [
+    "Home",
+    "Search…",
+    "ctrl + J",
+    "Notifications",
+    "Gift Icon",
+    "What's New",
+    "Recent",
+    "Files",
+    "Ontology",
+    "Applications",
+    "View all",
+    "Slate",
+    "Add to favorites",
+    "AIP logo icon",
+    "AIP Assist",
+    "ctrl + shift + U",
+    "Support",
+    "Account"
+   ],
+   "matrix_landmarks_present": [],
+   "body_sample": "Skip to content\nHome\nSearch…\nctrl + J\nNotifications\nWhat's New\nRecent\nFiles\nOntology\nApplications\nAPPLICATIONS\nView all\nSlate\nAIP Assist\nctrl + shift + U\nSupport\nLJ\nAccount",
+   "data_evidence": {
+    "table_rows": 0,
+    "graph_nodes": 0,
+    "cards": 0,
+    "list_items": 0,
+    "repeated_rows": 0,
+    "body_text_chars": 172,
+    "meaningful_lines": 5
+   },
+   "error_text": "",
+   "missing_chunks": [],
+   "cors_evidence": [],
+   "modal_evidence": {
+    "overlay_pre": false,
+    "overlay_post": false,
+    "dismissed_reveals_data": false
+   },
+   "capture_store": {
+    "present": true,
+    "file_count": 6,
+    "deep_route_dirs": [
+     "splash"
+    ],
+    "bytes": 2298976
+   },
+   "lanes_summary": [
+    {
+     "lane": "proxy",
+     "url": "http://127.0.0.1:4173/__apps/slate",
+     "loaded": true,
+     "nav_error": "",
+     "regions": [
+      "body"
+     ],
+     "data_score": 0,
+     "chunk_404s": 0,
+     "api_failures": 0,
+     "cross_origin_9225": 0,
+     "cors_signals": 0,
+     "console_errors": 0,
+     "screenshot": ".artifacts/reference-clean-sweep/slate-proxy.png"
+    },
+    {
+     "lane": "origin",
+     "url": "http://localhost:9225/workspace/slate/",
+     "loaded": true,
+     "nav_error": "",
+     "regions": [
+      "rail",
+      "body"
+     ],
+     "data_score": 0,
+     "chunk_404s": 0,
+     "api_failures": 0,
+     "cross_origin_9225": 0,
+     "cors_signals": 0,
+     "console_errors": 0,
+     "screenshot": ".artifacts/reference-clean-sweep/slate-origin.png"
+    }
+   ],
+   "screenshot": ".artifacts/reference-clean-sweep/slate-origin.png"
+  },
+  {
+   "slug": "logic",
+   "owner": "Domain Apps",
+   "parity_class": "reference_capture",
+   "grammar": "editor_canvas",
+   "reference_path": "http://localhost:9225/workspace/logic-app/",
+   "candidate_surface": null,
+   "substrate_surface": null,
+   "clean_state": "needs_origin_alignment",
+   "reason": "proxy lane renders no data (score 0), but the capture-origin lane (http://localhost:9225) renders the app failure-free WITH data (rows 12/4 · nodes 0 · cards 2 · lines 51) — align the reference URL like pipeline #38/#39",
+   "lane_used": "origin",
+   "shell_regions": [
+    "rail",
+    "header",
+    "body"
+   ],
+   "landmarks_observed": [
+    "Home",
+    "Search…",
+    "ctrl + J",
+    "Notifications",
+    "Gift Icon",
+    "What's New",
+    "Recent",
+    "Files",
+    "Ontology",
+    "Applications",
+    "View all",
+    "AIP Logic",
+    "Add to favorites",
+    "AIP logo icon",
+    "AIP Assist",
+    "ctrl + shift + U",
+    "Support",
+    "Account"
+   ],
+   "matrix_landmarks_present": [],
+   "body_sample": "Skip to content\nHome\nSearch…\nctrl + J\nNotifications\nWhat's New\nRecent\nFiles\nOntology\nApplications\nAPPLICATIONS\nView all\nAIP Logic\nAIP Assist\nctrl + shift + U\nSupport\nLJ\nAccount\nAIP Logic\nNew logic\nHelp\nBuild no-code Ontology functions\nUse Logic to build composable no-code functions that can parse, modify, and expand your Ontology.\nView functions\nRecents\nFavorites\nAll\nLOGIC FILE\nCREATOR\nLAST EDITED BY\nLAST VIEWED\nUse AIP Logic to classify and edit objects Walkthrough\n/test-ab81f6/test4/AIP Chatbot with transcribed video context (2026-04-26 22:22:24)/logic/Use AIP Logic to classify and edit obje",
+   "data_evidence": {
+    "table_rows": 12,
+    "graph_nodes": 0,
+    "cards": 2,
+    "list_items": 0,
+    "repeated_rows": 4,
+    "body_text_chars": 4980,
+    "meaningful_lines": 51
+   },
+   "error_text": "",
+   "missing_chunks": [],
+   "cors_evidence": [],
+   "modal_evidence": {
+    "overlay_pre": false,
+    "overlay_post": false,
+    "dismissed_reveals_data": false
+   },
+   "capture_store": {
+    "present": true,
+    "file_count": 9,
+    "deep_route_dirs": [
+     "create-new"
+    ],
+    "bytes": 562000
+   },
+   "lanes_summary": [
+    {
+     "lane": "proxy",
+     "url": "http://127.0.0.1:4173/__apps/logic",
+     "loaded": true,
+     "nav_error": "",
+     "regions": [
+      "rail",
+      "body"
+     ],
+     "data_score": 0,
+     "chunk_404s": 0,
+     "api_failures": 0,
+     "cross_origin_9225": 0,
+     "cors_signals": 0,
+     "console_errors": 0,
+     "screenshot": ".artifacts/reference-clean-sweep/logic-proxy.png"
+    },
+    {
+     "lane": "origin",
+     "url": "http://localhost:9225/workspace/logic-app/",
+     "loaded": true,
+     "nav_error": "",
+     "regions": [
+      "rail",
+      "header",
+      "body"
+     ],
+     "data_score": 8,
+     "chunk_404s": 0,
+     "api_failures": 0,
+     "cross_origin_9225": 0,
+     "cors_signals": 0,
+     "console_errors": 0,
+     "screenshot": ".artifacts/reference-clean-sweep/logic-origin.png"
+    }
+   ],
+   "screenshot": ".artifacts/reference-clean-sweep/logic-origin.png"
+  },
+  {
+   "slug": "contour",
+   "owner": "Domain Apps",
+   "parity_class": "reference_capture",
+   "grammar": "editor_canvas",
+   "reference_path": "http://localhost:9225/workspace/contour-app/",
+   "candidate_surface": null,
+   "substrate_surface": null,
+   "clean_state": "needs_origin_alignment",
+   "reason": "proxy lane shows a failure (\"404: Page Not Found\"), but the capture-origin lane (http://localhost:9225) renders the app failure-free WITH data (rows 12/0 · nodes 0 · cards 2 · lines 50) — align the reference URL like pipeline #38/#39",
+   "lane_used": "origin",
+   "shell_regions": [
+    "rail",
+    "header",
+    "body"
+   ],
+   "landmarks_observed": [
+    "Home",
+    "Search…",
+    "ctrl + J",
+    "Notifications",
+    "Gift Icon",
+    "What's New",
+    "Recent",
+    "Files",
+    "Ontology",
+    "Applications",
+    "View all",
+    "Contour",
+    "Add to favorites",
+    "AIP logo icon",
+    "AIP Assist",
+    "ctrl + shift + U",
+    "Support",
+    "Account"
+   ],
+   "matrix_landmarks_present": [],
+   "body_sample": "Skip to content\nHome\nSearch…\nctrl + J\nNotifications\nWhat's New\nRecent\nFiles\nOntology\nApplications\nAPPLICATIONS\nView all\nContour\nAIP Assist\nctrl + shift + U\nSupport\nLJ\nAccount\nContour\nNew analysis\nHelp\nContour\nAnalyze large datasets with filters, joins, and visualizations. Export the result to contribute back to the Foundry pipeline.\nView\nRecents\nFavorites\nFILES\nCREATOR\nLAST EDITED BY\nLAST VIEWED\nUse AIP Logic to classify and edit objects Walkthrough\n/test-ab81f6/test4/AIP Chatbot with transcribed video context (2026-04-26 22:22:24)/logic/Use AIP Logic to classify and edit objects (2026-06-23 2",
+   "data_evidence": {
+    "table_rows": 12,
+    "graph_nodes": 0,
+    "cards": 2,
+    "list_items": 0,
+    "repeated_rows": 0,
+    "body_text_chars": 4960,
+    "meaningful_lines": 50
+   },
+   "error_text": "",
+   "missing_chunks": [],
+   "cors_evidence": [],
+   "modal_evidence": {
+    "overlay_pre": false,
+    "overlay_post": false,
+    "dismissed_reveals_data": false
+   },
+   "capture_store": {
+    "present": true,
+    "file_count": 12,
+    "deep_route_dirs": [
+     "overview",
+     "splash"
+    ],
+    "bytes": 1067164
+   },
+   "lanes_summary": [
+    {
+     "lane": "proxy",
+     "url": "http://127.0.0.1:4173/__apps/contour",
+     "loaded": true,
+     "nav_error": "",
+     "regions": [
+      "rail",
+      "body"
+     ],
+     "data_score": 0,
+     "chunk_404s": 0,
+     "api_failures": 0,
+     "cross_origin_9225": 0,
+     "cors_signals": 0,
+     "console_errors": 0,
+     "screenshot": ".artifacts/reference-clean-sweep/contour-proxy.png"
+    },
+    {
+     "lane": "origin",
+     "url": "http://localhost:9225/workspace/contour-app/",
+     "loaded": true,
+     "nav_error": "",
+     "regions": [
+      "rail",
+      "header",
+      "body"
+     ],
+     "data_score": 5,
+     "chunk_404s": 0,
+     "api_failures": 0,
+     "cross_origin_9225": 0,
+     "cors_signals": 0,
+     "console_errors": 0,
+     "screenshot": ".artifacts/reference-clean-sweep/contour-origin.png"
+    }
+   ],
+   "screenshot": ".artifacts/reference-clean-sweep/contour-origin.png"
+  },
+  {
+   "slug": "fusion",
+   "owner": "Domain Apps",
+   "parity_class": "reference_capture",
+   "grammar": "editor_canvas",
+   "reference_path": "/__apps/fusion",
+   "candidate_surface": null,
+   "substrate_surface": null,
+   "clean_state": "data_failed",
+   "reason": "shell boots but the body reports a data failure (\"Not Found\") with captured (non-404) lanes",
+   "lane_used": "proxy",
+   "shell_regions": [
+    "rail",
+    "body"
+   ],
+   "landmarks_observed": [
+    "Home",
+    "Search…",
+    "ctrl + J",
+    "Notifications",
+    "Gift Icon",
+    "What's New",
+    "Recent",
+    "Files",
+    "Ontology",
+    "Applications",
+    "View all",
+    "Training",
+    "Add to favorites",
+    "AIP logo icon",
+    "AIP Assist",
+    "ctrl + shift + U",
+    "Support",
+    "Account"
+   ],
+   "matrix_landmarks_present": [],
+   "body_sample": "Skip to content\nHome\nSearch…\nctrl + J\nNotifications\nWhat's New\nRecent\nFiles\nOntology\nApplications\nAPPLICATIONS\nView all\nTraining\nAIP Assist\nctrl + shift + U\nSupport\nLJ\nAccount\nNot Found\n\nCouldn't find this path. Please check the URL for typos.\n\nReturn to files",
+   "data_evidence": {
+    "table_rows": 0,
+    "graph_nodes": 0,
+    "cards": 0,
+    "list_items": 0,
+    "repeated_rows": 0,
+    "body_text_chars": 260,
+    "meaningful_lines": 7
+   },
+   "error_text": "Not Found",
+   "missing_chunks": [],
+   "cors_evidence": [],
+   "modal_evidence": {
+    "overlay_pre": false,
+    "overlay_post": false,
+    "dismissed_reveals_data": false
+   },
+   "capture_store": {
+    "present": true,
+    "file_count": 6,
+    "deep_route_dirs": [
+     "create"
+    ],
+    "bytes": 2316799
+   },
+   "lanes_summary": [
+    {
+     "lane": "proxy",
+     "url": "http://127.0.0.1:4173/__apps/fusion",
+     "loaded": true,
+     "nav_error": "",
+     "regions": [
+      "rail",
+      "body"
+     ],
+     "data_score": 0,
+     "chunk_404s": 0,
+     "api_failures": 0,
+     "cross_origin_9225": 0,
+     "cors_signals": 0,
+     "console_errors": 0,
+     "screenshot": ".artifacts/reference-clean-sweep/fusion-proxy.png"
+    },
+    {
+     "lane": "origin",
+     "url": "http://localhost:9225/workspace/fusion/",
+     "loaded": true,
+     "nav_error": "",
+     "regions": [
+      "rail",
+      "body"
+     ],
+     "data_score": 0,
+     "chunk_404s": 0,
+     "api_failures": 0,
+     "cross_origin_9225": 0,
+     "cors_signals": 0,
+     "console_errors": 0,
+     "screenshot": ".artifacts/reference-clean-sweep/fusion-origin.png"
+    }
+   ],
+   "screenshot": ".artifacts/reference-clean-sweep/fusion-proxy.png"
+  },
+  {
+   "slug": "jobs",
+   "owner": "Missions",
+   "parity_class": "substrate_bound",
+   "grammar": "table_list",
+   "reference_path": "/__apps/jobs",
+   "candidate_surface": "/__ioi/missions",
+   "substrate_surface": "/__ioi/missions",
+   "clean_state": "shell_clean_only",
+   "reason": "shell regions [rail, header, body] render clean but the body carries no real data (rows 0/0 · nodes 0 · cards 0)",
+   "lane_used": "proxy",
+   "shell_regions": [
+    "rail",
+    "header",
+    "body"
+   ],
+   "landmarks_observed": [
+    "Home",
+    "Search…",
+    "ctrl + J",
+    "Notifications",
+    "Gift Icon",
+    "What's New",
+    "Recent",
+    "Files",
+    "Ontology",
+    "Applications",
+    "View all",
+    "Builds",
+    "Add to favorites",
+    "AIP logo icon",
+    "AIP Assist",
+    "ctrl + shift + U",
+    "Support",
+    "Account"
+   ],
+   "matrix_landmarks_present": [],
+   "body_sample": "Skip to content\nHome\nSearch…\nctrl + J\nNotifications\nWhat's New\nRecent\nFiles\nOntology\nApplications\nAPPLICATIONS\nView all\nBuilds\nAIP Assist\nctrl + shift + U\nSupport\nLJ\nAccount\nBuilds\n0\n0\n0\nSearch by…\nResource\nAll\nInclude intermediate job resources\nObject type\nFilter by…\nMy builds\nShow only my builds\nBranch\nAll branches\nOnly master branch\nAll branches excluding master\nStarted by\nlevi.josman\nYou\nJob type\nStart date\nFinish date\nClear all filters\nYour builds\nAll\nRunning\nFinished\nOutputs\nStarted by\nStart time\nDuration\nStatus\nActions\nNo visible builds",
+   "data_evidence": {
+    "table_rows": 0,
+    "graph_nodes": 0,
+    "cards": 0,
+    "list_items": 0,
+    "repeated_rows": 0,
+    "body_text_chars": 549,
+    "meaningful_lines": 12
+   },
+   "error_text": "",
+   "missing_chunks": [],
+   "cors_evidence": [],
+   "modal_evidence": {
+    "overlay_pre": false,
+    "overlay_post": false,
+    "dismissed_reveals_data": false
+   },
+   "capture_store": {
+    "present": true,
+    "file_count": 6,
+    "deep_route_dirs": [
+     "splash"
+    ],
+    "bytes": 314836
+   },
+   "lanes_summary": [
+    {
+     "lane": "proxy",
+     "url": "http://127.0.0.1:4173/__apps/jobs",
+     "loaded": true,
+     "nav_error": "",
+     "regions": [
+      "rail",
+      "header",
+      "body"
+     ],
+     "data_score": 1,
+     "chunk_404s": 0,
+     "api_failures": 0,
+     "cross_origin_9225": 0,
+     "cors_signals": 0,
+     "console_errors": 1,
+     "screenshot": ".artifacts/reference-clean-sweep/jobs-proxy.png"
+    },
+    {
+     "lane": "origin",
+     "url": "http://localhost:9225/workspace/job-tracker/",
+     "loaded": true,
+     "nav_error": "",
+     "regions": [
+      "rail",
+      "header",
+      "body"
+     ],
+     "data_score": 1,
+     "chunk_404s": 0,
+     "api_failures": 0,
+     "cross_origin_9225": 0,
+     "cors_signals": 0,
+     "console_errors": 1,
+     "screenshot": ".artifacts/reference-clean-sweep/jobs-origin.png"
+    }
+   ],
+   "screenshot": ".artifacts/reference-clean-sweep/jobs-proxy.png"
+  },
+  {
+   "slug": "incidents",
+   "owner": "Missions",
+   "parity_class": "substrate_bound",
+   "grammar": "table_list",
+   "reference_path": "/__apps/incidents",
+   "candidate_surface": "/__ioi/missions",
+   "substrate_surface": "/__ioi/missions",
+   "clean_state": "data_clean",
+   "reason": "shell regions [rail, header, body] + data evidence (rows 5/0 · nodes 0 · cards 0 · lists 0 · lines 25) — clicked the 'Closed' status lane (the default Open lane is honestly empty; the capture carries 5 real closed incidents)",
+   "lane_used": "proxy",
+   "shell_regions": [
+    "rail",
+    "header",
+    "body"
+   ],
+   "landmarks_observed": [
+    "Home",
+    "Search…",
+    "ctrl + J",
+    "Notifications",
+    "Gift Icon",
+    "What's New",
+    "Recent",
+    "Files",
+    "Ontology",
+    "Applications",
+    "View all",
+    "Issues",
+    "Add to favorites",
+    "AIP logo icon",
+    "AIP Assist",
+    "ctrl + shift + U",
+    "Support",
+    "Account"
+   ],
+   "matrix_landmarks_present": [],
+   "body_sample": "Skip to content\nHome\nSearch…\nctrl + J\nNotifications\nWhat's New\nRecent\nFiles\nOntology\nApplications\nAPPLICATIONS\nView all\nIssues\nAIP Assist\nctrl + shift + U\nSupport\nLJ\nAccount\nIssues\nNew\nOpen\n0\nClosed\n5\nAll\n5\nFILTERS\nClear filters\nPriority\nHigh\nMedium\nLow\nAssignees\ninclude\nReporters\ninclude\nMentions\ninclude\nLabels\ninclude\nSupport types\ninclude\nReported on\nReported on MM-DD-YYYY\nReported on MM-DD-YYYY\nLast updated\nLast updated MM-DD-YYYY\nLast updated MM-DD-YYYY\n5 closed issues\nfiltered by\nselect filter\nSort by\nMost recently updated\n\t\nvm_lost · env_18bceb4d757a82be\nCreated 13 days ago\n\t\t\nHigh\nPrio",
+   "data_evidence": {
+    "table_rows": 5,
+    "graph_nodes": 0,
+    "cards": 0,
+    "list_items": 0,
+    "repeated_rows": 0,
+    "body_text_chars": 898,
+    "meaningful_lines": 25
+   },
+   "error_text": "",
+   "missing_chunks": [],
+   "cors_evidence": [],
+   "modal_evidence": {
+    "overlay_pre": false,
+    "overlay_post": false,
+    "dismissed_reveals_data": false
+   },
+   "capture_store": {
+    "present": true,
+    "file_count": 3,
+    "deep_route_dirs": [],
+    "bytes": 162247
+   },
+   "lanes_summary": [
+    {
+     "lane": "proxy",
+     "url": "http://127.0.0.1:4173/__apps/incidents",
+     "loaded": true,
+     "nav_error": "",
+     "regions": [
+      "rail",
+      "header",
+      "body"
+     ],
+     "data_score": 4,
+     "chunk_404s": 0,
+     "api_failures": 0,
+     "cross_origin_9225": 0,
+     "cors_signals": 0,
+     "console_errors": 1,
+     "screenshot": ".artifacts/reference-clean-sweep/incidents-proxy.png"
+    },
+    {
+     "lane": "origin",
+     "url": "http://localhost:9225/workspace/issues-app/",
+     "loaded": true,
+     "nav_error": "",
+     "regions": [
+      "rail",
+      "header",
+      "body"
+     ],
+     "data_score": 1,
+     "chunk_404s": 0,
+     "api_failures": 0,
+     "cross_origin_9225": 0,
+     "cors_signals": 0,
+     "console_errors": 0,
+     "screenshot": ".artifacts/reference-clean-sweep/incidents-origin.png"
+    }
+   ],
+   "screenshot": ".artifacts/reference-clean-sweep/incidents-proxy.png"
+  },
+  {
+   "slug": "approvals",
+   "owner": "Governance",
+   "parity_class": "daemon_wired",
+   "grammar": "table_list",
+   "reference_path": "/__apps/approvals",
+   "candidate_surface": "/__ioi/governance/approvals",
+   "substrate_surface": null,
+   "clean_state": "data_clean",
+   "reason": "shell regions [rail, header, body] + data evidence (rows 0/9 · nodes 0 · cards 0 · lists 0 · lines 45)",
+   "lane_used": "proxy",
+   "shell_regions": [
+    "rail",
+    "header",
+    "body"
+   ],
+   "landmarks_observed": [
+    "Home",
+    "Search…",
+    "ctrl + J",
+    "Notifications",
+    "Gift Icon",
+    "What's New",
+    "Recent",
+    "Files",
+    "Ontology",
+    "Applications",
+    "View all",
+    "Approvals",
+    "Add to favorites",
+    "AIP logo icon",
+    "AIP Assist",
+    "ctrl + shift + U",
+    "Support",
+    "Account",
+    "Quick filters",
+    "Additional filters",
+    "Clear",
+    "Request type",
+    "Access requests",
+    "Status"
+   ],
+   "matrix_landmarks_present": [
+    "Approvals",
+    "Quick filters",
+    "Your inbox",
+    "Created by you",
+    "All requests",
+    "Additional filters",
+    "Request type",
+    "Status"
+   ],
+   "body_sample": "Skip to content\nHome\nSearch…\nctrl + J\nNotifications\nWhat's New\nRecent\nFiles\nOntology\nApplications\nAPPLICATIONS\nView all\nApprovals\nAIP Assist\nctrl + shift + U\nSupport\nLJ\nAccount\nApprovals\nQuick filters\nYour inbox\n9\nCreated by you\n0\nAll requests\n9\nAdditional filters\nClear\nRequest type\nAccess requests\nStatus\nApproved +3\nCreated by\nSelect user\nAssigned to you\nProject requested to\nUsers or groups in request\nSelect user or group\nGroups requested to\nSelect group\nYour inbox(9)\nSort: Recently created\nverify_rebind · verify-approvals-rebind mr9k9qeb\nCreated by an unknown user on Jul 6, 2026, 2:36 PM\nPen",
+   "data_evidence": {
+    "table_rows": 0,
+    "graph_nodes": 0,
+    "cards": 0,
+    "list_items": 0,
+    "repeated_rows": 9,
+    "body_text_chars": 1514,
+    "meaningful_lines": 45
+   },
+   "error_text": "",
+   "missing_chunks": [],
+   "cors_evidence": [],
+   "modal_evidence": {
+    "overlay_pre": false,
+    "overlay_post": false,
+    "dismissed_reveals_data": false
+   },
+   "capture_store": {
+    "present": true,
+    "file_count": 3,
+    "deep_route_dirs": [],
+    "bytes": 154980
+   },
+   "lanes_summary": [
+    {
+     "lane": "proxy",
+     "url": "http://127.0.0.1:4173/__apps/approvals",
+     "loaded": true,
+     "nav_error": "",
+     "regions": [
+      "rail",
+      "header",
+      "body"
+     ],
+     "data_score": 5,
+     "chunk_404s": 0,
+     "api_failures": 0,
+     "cross_origin_9225": 0,
+     "cors_signals": 0,
+     "console_errors": 0,
+     "screenshot": ".artifacts/reference-clean-sweep/approvals-proxy.png"
+    },
+    {
+     "lane": "origin",
+     "url": "http://localhost:9225/workspace/approvals-app/",
+     "loaded": true,
+     "nav_error": "",
+     "regions": [
+      "rail",
+      "header",
+      "body"
+     ],
+     "data_score": 1,
+     "chunk_404s": 0,
+     "api_failures": 0,
+     "cross_origin_9225": 0,
+     "cors_signals": 0,
+     "console_errors": 0,
+     "screenshot": ".artifacts/reference-clean-sweep/approvals-origin.png"
+    }
+   ],
+   "screenshot": ".artifacts/reference-clean-sweep/approvals-proxy.png"
+  },
+  {
+   "slug": "changes",
+   "owner": "Improvement",
+   "parity_class": "reference_capture",
+   "grammar": "table_list",
+   "reference_path": "http://localhost:9225/workspace/upgrade-assistant/",
+   "candidate_surface": null,
+   "substrate_surface": null,
+   "clean_state": "needs_origin_alignment",
+   "reason": "proxy lane renders no data (score 3), but the capture-origin lane (http://localhost:9225) renders the app failure-free WITH data (rows 4/4 · nodes 0 · cards 6 · lines 32) — align the reference URL like pipeline #38/#39",
+   "lane_used": "origin",
+   "shell_regions": [
+    "rail",
+    "header",
+    "body"
+   ],
+   "landmarks_observed": [
+    "Home",
+    "Search…",
+    "ctrl + J",
+    "Notifications",
+    "Gift Icon",
+    "What's New",
+    "Recent",
+    "Files",
+    "Ontology",
+    "Applications",
+    "View all",
+    "Upgrade Assistant",
+    "Add to favorites",
+    "AIP logo icon",
+    "AIP Assist",
+    "ctrl + shift + U",
+    "Support",
+    "Account",
+    "Filters",
+    "UPGRADE PROGRESS",
+    "All upgrades",
+    "Upgrades requiring my action",
+    "UPGRADE TYPE",
+    "Admin action"
+   ],
+   "matrix_landmarks_present": [],
+   "body_sample": "Skip to content\nHome\nSearch…\nctrl + J\nNotifications\nWhat's New\nRecent\nFiles\nOntology\nApplications\nAPPLICATIONS\nView all\nUpgrade Assistant\nAIP Assist\nctrl + shift + U\nSupport\nLJ\nAccount\nUpgrade Assistant\n1 organization\nAdmin view\nAssignee view\nHelp\nYou are viewing resources for which you are personally assigned actions. Enable Admin view to help manage upgrades for organizations where you are a Maintenance Operator.\nActive\nPast due\nArchived\nFilters\nUPGRADE PROGRESS\nAll upgrades\n13\nUpgrades requiring my action\n1\nUPGRADE TYPE\nAdmin action\n1\nModel migration\n0\nPlatform change\n0\nRemediation\n0\nSecuri",
+   "data_evidence": {
+    "table_rows": 4,
+    "graph_nodes": 0,
+    "cards": 6,
+    "list_items": 0,
+    "repeated_rows": 4,
+    "body_text_chars": 1213,
+    "meaningful_lines": 32
+   },
+   "error_text": "",
+   "missing_chunks": [],
+   "cors_evidence": [],
+   "modal_evidence": {
+    "overlay_pre": true,
+    "overlay_post": false,
+    "dismissed_reveals_data": false
+   },
+   "capture_store": {
+    "present": true,
+    "file_count": 3,
+    "deep_route_dirs": [],
+    "bytes": 153494
+   },
+   "lanes_summary": [
+    {
+     "lane": "proxy",
+     "url": "http://127.0.0.1:4173/__apps/changes",
+     "loaded": true,
+     "nav_error": "",
+     "regions": [
+      "rail",
+      "header",
+      "body"
+     ],
+     "data_score": 3,
+     "chunk_404s": 0,
+     "api_failures": 0,
+     "cross_origin_9225": 0,
+     "cors_signals": 0,
+     "console_errors": 0,
+     "screenshot": ".artifacts/reference-clean-sweep/changes-proxy.png"
+    },
+    {
+     "lane": "origin",
+     "url": "http://localhost:9225/workspace/upgrade-assistant/",
+     "loaded": true,
+     "nav_error": "",
+     "regions": [
+      "rail",
+      "header",
+      "body"
+     ],
+     "data_score": 10,
+     "chunk_404s": 0,
+     "api_failures": 0,
+     "cross_origin_9225": 0,
+     "cors_signals": 0,
+     "console_errors": 0,
+     "screenshot": ".artifacts/reference-clean-sweep/changes-origin.png"
+    }
+   ],
+   "screenshot": ".artifacts/reference-clean-sweep/changes-origin.png"
+  }
+ ],
+ "evidence_dir": ".artifacts/reference-clean-sweep"
+}

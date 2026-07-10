@@ -43,6 +43,9 @@
       "reference_capture": "/__apps/designer",
       "reference_workspace": "/workspace/solution-design/",
       "note": "read-only design map; owner surface stays /__ioi/agent-studio (no route rename); honest empty when an ontology has no concepts/components/resources; in-canvas authoring / save-open / drag-to-reference / load-lineage / machinery process-graph execution / workshop+module builders = named gaps",
+      "reference_clean_state": "needs_origin_alignment",
+      "reference_clean_reason": "proxy lane shows a failure (\"Failed to load favorites\") with CORS-blocked session lanes, but the capture-origin lane (http://localhost:9225) renders the app failure-free WITH data (rows 12/0 · nodes 0 · cards 64 · lines 690) — align the reference URL like pipeline #38/#39",
+      "reference_clean_artifact": "reference-clean-sweep.json",
       "substrate_surface": "/__ioi/studio/designer",
       "surface_name": "Studio",
       "binding": "the system-design canvas — a read-only typed concept/component/resource map over real ODK composition (an ontology's object/value/action/link types = concepts; connector mappings + policy views + projections = components; materialized object sets + domain-app surface descriptors = resources)",
@@ -61,6 +64,9 @@
       "reference_capture": "/__apps/machinery",
       "reference_workspace": "/workspace/machinery-app/",
       "note": "DEFINITION-ONLY, read-only surface; a new inert daemon contract with fail-closed writes; owner surface stays /__ioi/agent-studio; honest empty/incomplete when a machine is under-declared; execution / stepping a running instance / scheduling / Automations-Missions-ODK binding / in-canvas graph authoring / simulation / versioning = named gaps (a later authority-crossing cut)",
+      "reference_clean_state": "needs_origin_alignment",
+      "reference_clean_reason": "proxy lane shows a failure (\"Failed to load Machinery Marketplace examples.\"), but the capture-origin lane (http://localhost:9225) renders the app failure-free WITH data (rows 12/0 · nodes 0 · cards 3 · lines 49) — align the reference URL like pipeline #38/#39",
+      "reference_clean_artifact": "reference-clean-sweep.json",
       "substrate_surface": "/__ioi/studio/machinery",
       "surface_name": "Studio",
       "binding": "the process/state-machine definition view — a read-only rendering of the inert daemon state-machine plane (declared states initial/normal/final, transitions from→to with event + guard, declared guards, inputs/outputs, owners, health empty|incomplete|ready, and edit history)",
@@ -78,7 +84,10 @@
       "capture_state": "blocked_missing_capture",
       "reference_capture": "/__apps/workshop",
       "reference_workspace": "/workspace/workshop/",
-      "note": "application/module builder; unbound"
+      "note": "application/module builder; unbound",
+      "reference_clean_state": "errored_reference",
+      "reference_clean_reason": "navigation failed on every lane (navigation triggered a content-type download — the captured app document is an empty 307 + application/octet-stream response (broken capture, cannot boot on any lane) · navigation triggered a content-type download — the captured app document is an empty 307 + application/octet-stream response (broken capture, cannot boot on any lane))",
+      "reference_clean_artifact": "reference-clean-sweep.json"
     },
     {
       "owner": "Studio",
@@ -91,7 +100,10 @@
       "capture_state": "shell_only",
       "reference_capture": "/__apps/module",
       "reference_workspace": "/workspace/module/",
-      "note": "compute-module builder; unbound"
+      "note": "compute-module builder; unbound",
+      "reference_clean_state": "needs_origin_alignment",
+      "reference_clean_reason": "proxy lane shows a failure (\"Page not found\"), but the capture-origin lane (http://localhost:9225) renders the app failure-free WITH data (rows 12/0 · nodes 0 · cards 9 · lines 54) — align the reference URL like pipeline #38/#39",
+      "reference_clean_artifact": "reference-clean-sweep.json"
     },
     {
       "owner": "Automations",
@@ -104,7 +116,10 @@
       "capture_state": "boots_graph",
       "reference_capture": "/__apps/monitors",
       "reference_workspace": "/workspace/object-monitoring/",
-      "note": "condition→effect monitor wizard; unbound"
+      "note": "condition→effect monitor wizard; unbound",
+      "reference_clean_state": "needs_origin_alignment",
+      "reference_clean_reason": "proxy lane shows a failure (\"Failed to load favorites\") with CORS-blocked session lanes, but the capture-origin lane (http://localhost:9225) renders the app failure-free WITH data (rows 18/0 · nodes 0 · cards 17 · lines 87) — align the reference URL like pipeline #38/#39",
+      "reference_clean_artifact": "reference-clean-sweep.json"
     },
     {
       "owner": "Automations",
@@ -117,7 +132,10 @@
       "capture_state": "shell_only",
       "reference_capture": "/__apps/scheduler",
       "reference_workspace": "/workspace/scheduler/",
-      "note": "schedule table; unbound"
+      "note": "schedule table; unbound",
+      "reference_clean_state": "shell_clean_only",
+      "reference_clean_reason": "shell regions [rail, header, body] render clean but the body carries no real data (rows 0/0 · nodes 0 · cards 0)",
+      "reference_clean_artifact": "reference-clean-sweep.json"
     },
     {
       "owner": "Provenance",
@@ -131,6 +149,9 @@
       "reference_capture": "/__apps/lineage",
       "reference_workspace": "/workspace/monocle/",
       "note": "Monocle lineage grammar over real provenance; upstream ladder refs resolved to live records; no fake nodes for unmaterialized ontologies; freeform resource-search / graph-expansion / cross-tenant catalog = named gaps",
+      "reference_clean_state": "shell_clean_only",
+      "reference_clean_reason": "shell renders a WELCOME/empty landing (cards 3 · lines 20, no row/node data) — clean chrome, no real data to port against",
+      "reference_clean_artifact": "reference-clean-sweep.json",
       "substrate_surface": "/__ioi/lineage",
       "binding": "ODK materialization provenance (MaterializedObjectSet → run → session → lease → projection → mapping → datasource, resolved to live ladder refs; per-object source hashes + mapped_from; pre-output + registration receipts; Provenance proof-stream edges where available)",
       "candidate_surface": "/__ioi/lineage",
@@ -147,7 +168,10 @@
       "capture_state": "shell_only",
       "reference_capture": "/__apps/ingest",
       "reference_workspace": "/workspace/hyperauto/",
-      "note": "source-first pipeline wizard; unbound"
+      "note": "source-first pipeline wizard; unbound",
+      "reference_clean_state": "shell_clean_only",
+      "reference_clean_reason": "shell regions [rail, header, body] render clean but the body carries no real data (rows 0/0 · nodes 0 · cards 2)",
+      "reference_clean_artifact": "reference-clean-sweep.json"
     },
     {
       "owner": "Data",
@@ -160,7 +184,10 @@
       "capture_state": "shell_only",
       "reference_capture": "/__apps/sources",
       "reference_workspace": "/workspace/data-ingestion-app/",
-      "note": "Sources/Syncs/Listeners IA; unbound"
+      "note": "Sources/Syncs/Listeners IA; unbound",
+      "reference_clean_state": "needs_origin_alignment",
+      "reference_clean_reason": "proxy lane renders no data (score 0), but the capture-origin lane (http://localhost:9225) renders the app failure-free WITH data (rows 12/0 · nodes 0 · cards 9 · lines 60) — align the reference URL like pipeline #38/#39",
+      "reference_clean_artifact": "reference-clean-sweep.json"
     },
     {
       "owner": "Data",
@@ -174,6 +201,9 @@
       "reference_capture": "/__apps/pipeline",
       "reference_workspace": "/workspace/builder/",
       "note": "TRUE parity (#39) under the HARDENED gate: /__ioi/pipeline REBUILT as a faithful LIGHT Pipeline Builder (dark global rail + light header w/ build state + light tool cluster [Tools/Select/Remove/Layout/Text · Add data · Reusables · Transform/AIP/Edit] + light central graph canvas with the ODK-ladder node cards + a Legend panel + a right 'Pipeline outputs' panel w/ Output settings/Edit output settings + a bottom Selection preview / Suggestions / Pipeline warnings tray), NOT the earlier dark native shell (which #34's theme gate correctly refused); passes the hardened Playwright harness (theme light/light + landmarks 10/10 + regions 1.0) against the ORIGIN-ALIGNED data-clean reference canvas (reference_url_override localhost:9225 …/sandbox/…, the What's-new modal dismissed via a reference-only preCapture hook), whose data completeness is the precondition proven by verify-pipeline-reference-data-clean.mjs (reference_data_complete=true, #38); Build+Preview wired to the real ODK ladder; Schedule/Deploy + freeform canvas authoring (drag-connect / transform code editor / scheduling / deploy) = named gaps disabled in place; no new daemon semantics",
+      "reference_clean_state": "data_clean",
+      "reference_clean_reason": "shell regions [rail, header, toolbar, body] + data evidence (rows 0/4 · nodes 18 · cards 1 · lists 0 · lines 30)",
+      "reference_clean_artifact": "reference-clean-sweep.json",
       "port_surface": "/__ioi/pipeline",
       "surface_name": "Data",
       "reference_url_override": "http://localhost:9225/workspace/builder/ri.eddie.main.pipeline.e73d6ae7-f6fe-4ac5-82a2-320d9f188590/sandbox/a082bef2-8826-4e6c-8925-871bcdb56c44",
@@ -205,7 +235,10 @@
       "capture_state": "shell_only",
       "reference_capture": "/__apps/dataset",
       "reference_workspace": "/workspace/dataset/",
-      "note": "dataset preview/table; unbound"
+      "note": "dataset preview/table; unbound",
+      "reference_clean_state": "data_failed",
+      "reference_clean_reason": "shell boots but the body reports a data failure (\"__apps is not a dataset\") with captured (non-404) lanes",
+      "reference_clean_artifact": "reference-clean-sweep.json"
     },
     {
       "owner": "Ontology",
@@ -219,6 +252,9 @@
       "reference_capture": "/__apps/schema",
       "reference_workspace": "/workspace/ontology/",
       "note": "TRUE parity (#34) under the HARDENED gate: light two-rail reference-faithful shell (matches the reference theme + IA landmarks + card-first body), NOT a native redesign; passes the hardened Playwright harness (theme + landmarks + geometry) against the VALID /__apps/schema reference; READ-ONLY over daemon truth — authoring/create-edit + object materialization stay in the /__ioi/odk substrate (linked first-class); in-canvas schema editing / Proposals / Shared properties / Groups / Interfaces / Cleanup / action+function execution = named gaps in place; Object Explorer is the sibling #35 cut",
+      "reference_clean_state": "data_clean",
+      "reference_clean_reason": "shell regions [rail, header, body] + data evidence (rows 0/6 · nodes 0 · cards 7 · lists 0 · lines 31)",
+      "reference_clean_artifact": "reference-clean-sweep.json",
       "port_surface": "/__ioi/ontology/manager",
       "surface_name": "Ontology",
       "reference_landmarks": [
@@ -250,6 +286,9 @@
       "reference_capture": "/__apps/explorer",
       "reference_workspace": "/workspace/hubble/",
       "note": "reference_ported (#35): faithful light Object-Explorer shell (global rail + search header + Shortcuts + object-type catalog + object-set catalog), wired to real object types + materialized sets, first-class linked to /__ioi/ontology/manager; READ-ONLY; object-instance full-text search / faceted Filter-by / Recents / Favorites / sort / type-group+application tabs / Created-by-me+Shared-with-me = named gaps disabled in place; NOT daemon_wired — the local Hubble reference is blank/failed, so the hardened harness cannot certify parity",
+      "reference_clean_state": "needs_origin_alignment",
+      "reference_clean_reason": "proxy lane renders no data (score 0), but the capture-origin lane (http://localhost:9225) renders the app failure-free WITH data (rows 23/6 · nodes 0 · cards 5 · lines 55) — align the reference URL like pipeline #38/#39",
+      "reference_clean_artifact": "reference-clean-sweep.json",
       "port_surface": "/__ioi/ontology/explorer",
       "surface_name": "Ontology",
       "parity_blocked": "local /workspace/hubble reference does not cleanly boot — the /__apps/explorer proxy renders a blank body and the mirror's data lanes render 'Failed to load' (no backend); no valid reference to certify visual_parity until a re-harvest",
@@ -268,7 +307,10 @@
       "capture_state": "blocked_missing_capture",
       "reference_capture": "/__apps/objectview",
       "reference_workspace": "/workspace/object-view/",
-      "note": "object view; unbound"
+      "note": "object view; unbound",
+      "reference_clean_state": "errored_reference",
+      "reference_clean_reason": "navigation failed on every lane (navigation triggered a content-type download — the captured app document is an empty 307 + application/octet-stream response (broken capture, cannot boot on any lane) · navigation triggered a content-type download — the captured app document is an empty 307 + application/octet-stream response (broken capture, cannot boot on any lane))",
+      "reference_clean_artifact": "reference-clean-sweep.json"
     },
     {
       "owner": "Ontology",
@@ -281,7 +323,10 @@
       "capture_state": "blocked_missing_capture",
       "reference_capture": "/__apps/objecteditor",
       "reference_workspace": "/workspace/object-view-editor/",
-      "note": "object-view editor; unbound"
+      "note": "object-view editor; unbound",
+      "reference_clean_state": "errored_reference",
+      "reference_clean_reason": "navigation failed on every lane (navigation triggered a content-type download — the captured app document is an empty 307 + application/octet-stream response (broken capture, cannot boot on any lane) · navigation triggered a content-type download — the captured app document is an empty 307 + application/octet-stream response (broken capture, cannot boot on any lane))",
+      "reference_clean_artifact": "reference-clean-sweep.json"
     },
     {
       "owner": "Evaluations",
@@ -295,6 +340,9 @@
       "reference_capture": "/__apps/evalsuites",
       "reference_workspace": "/workspace/evals/",
       "note": "declaration-only owner surface; /__ioi/feedback kept as a compatibility sublane; honest empty when no suites; EvalRun execution / scoring / verdicts / judge / scorecards / auto-mining / analysis+quiver canvases / promotion = named gaps",
+      "reference_clean_state": "needs_origin_alignment",
+      "reference_clean_reason": "proxy lane renders no data (score 0), but the capture-origin lane (http://localhost:9225) renders the app failure-free WITH data (rows 12/0 · nodes 0 · cards 2 · lines 50) — align the reference URL like pipeline #38/#39",
+      "reference_clean_artifact": "reference-clean-sweep.json",
       "substrate_surface": "/__ioi/evaluations",
       "surface_name": "Evaluations",
       "binding": "the eval-suite library — the inert daemon eval-suite contract (a suite declares subject_scope + evidence/consent requirements + named candidate handoffs) over real assessment subjects (Missions runs/failures/blockers) + the consent ladder + feedback candidate source, table/list grammar over daemon truth",
@@ -312,7 +360,10 @@
       "capture_state": "shell_only",
       "reference_capture": "/__apps/analysis",
       "reference_workspace": "/workspace/insight/",
-      "note": "object-set-first analysis canvas; unbound"
+      "note": "object-set-first analysis canvas; unbound",
+      "reference_clean_state": "shell_clean_only",
+      "reference_clean_reason": "shell renders a WELCOME/empty landing (cards 4 · lines 19, no row/node data) — clean chrome, no real data to port against (proxy lane renders no data (score 0); the origin lane is the readable one)",
+      "reference_clean_artifact": "reference-clean-sweep.json"
     },
     {
       "owner": "Evaluations",
@@ -325,7 +376,10 @@
       "capture_state": "shell_only",
       "reference_capture": "/__apps/quiver",
       "reference_workspace": "/workspace/quiver/",
-      "note": "time-series analysis canvas; unbound"
+      "note": "time-series analysis canvas; unbound",
+      "reference_clean_state": "shell_clean_only",
+      "reference_clean_reason": "shell renders a WELCOME/empty landing (cards 5 · lines 23, no row/node data) — clean chrome, no real data to port against (proxy lane renders no data (score 0); the origin lane is the readable one)",
+      "reference_clean_artifact": "reference-clean-sweep.json"
     },
     {
       "owner": "Foundry",
@@ -339,6 +393,9 @@
       "reference_capture": "/__apps/models",
       "reference_workspace": "/workspace/model-catalog/",
       "note": "catalog grammar over real model-route truth; route administration lives in Agent Studio (linked); honest empty when no routes; fine-tuning / prompt playground / live inference evals / deployment automation / training runs / unbacked model cards = named gaps",
+      "reference_clean_state": "data_clean",
+      "reference_clean_reason": "shell regions [rail, header, body] + data evidence (rows 0/0 · nodes 0 · cards 4 · lists 0 · lines 18)",
+      "reference_clean_artifact": "reference-clean-sweep.json",
       "substrate_surface": "/__ioi/foundry",
       "surface_name": "Foundry",
       "binding": "the model registry — the Foundry Model Catalog over the real daemon model-route registry (per-route honest availability from probe evidence + staleness, weight custody, credential posture, admission trail, and admitted session-binding usage), plus the substrate stats and the draft Foundry specs/run-plans where they connect",
@@ -356,7 +413,10 @@
       "capture_state": "shell_only",
       "reference_capture": "/__apps/modelstudio",
       "reference_workspace": "/workspace/model-studio/",
-      "note": "model studio; unbound"
+      "note": "model studio; unbound",
+      "reference_clean_state": "data_failed",
+      "reference_clean_reason": "shell boots but the body reports a data failure (\"Page not found\") with captured (non-404) lanes",
+      "reference_clean_artifact": "reference-clean-sweep.json"
     },
     {
       "owner": "Foundry",
@@ -369,7 +429,10 @@
       "capture_state": "boots_wizard",
       "reference_capture": "/__apps/inference",
       "reference_workspace": "/workspace/foundry-inference-app/",
-      "note": "inference app; unbound"
+      "note": "inference app; unbound",
+      "reference_clean_state": "data_failed",
+      "reference_clean_reason": "shell boots but the body reports a data failure (\"Failed to load current space\") with captured (non-404) lanes",
+      "reference_clean_artifact": "reference-clean-sweep.json"
     },
     {
       "owner": "Marketplace",
@@ -382,7 +445,10 @@
       "capture_state": "boots_graph",
       "reference_capture": "/__apps/listings",
       "reference_workspace": "/workspace/marketplace/",
-      "note": "store browse + install wizard; drill-down = named gap"
+      "note": "store browse + install wizard; drill-down = named gap",
+      "reference_clean_state": "data_clean",
+      "reference_clean_reason": "shell regions [rail, header, body] + data evidence (rows 1/0 · nodes 0 · cards 3 · lists 0 · lines 20)",
+      "reference_clean_artifact": "reference-clean-sweep.json"
     },
     {
       "owner": "Marketplace",
@@ -395,7 +461,10 @@
       "capture_state": "blocked_missing_capture",
       "reference_capture": "/__apps/registry",
       "reference_workspace": "/workspace/artifacts/",
-      "note": "versioned artifact registry; unbound"
+      "note": "versioned artifact registry; unbound",
+      "reference_clean_state": "shell_clean_only",
+      "reference_clean_reason": "shell renders a WELCOME/empty landing (cards 4 · lines 18, no row/node data) — clean chrome, no real data to port against (proxy lane shows a failure (\"Invalid resource identifier\"); the origin lane is the readable one)",
+      "reference_clean_artifact": "reference-clean-sweep.json"
     },
     {
       "owner": "Developer Console",
@@ -408,7 +477,10 @@
       "capture_state": "blocked_missing_capture",
       "reference_capture": "/__apps/devconsole",
       "reference_workspace": "/workspace/developer-console/",
-      "note": "OAuth app registration + SDK on-ramps (self-bootstrapped)"
+      "note": "OAuth app registration + SDK on-ramps (self-bootstrapped)",
+      "reference_clean_state": "shell_clean_only",
+      "reference_clean_reason": "shell renders a WELCOME/empty landing (cards 5 · lines 23, no row/node data) — clean chrome, no real data to port against (proxy lane renders no data (score 0); the origin lane is the readable one)",
+      "reference_clean_artifact": "reference-clean-sweep.json"
     },
     {
       "owner": "Developer Console",
@@ -421,7 +493,10 @@
       "capture_state": "blocked_missing_capture",
       "reference_capture": "/__apps/widgets",
       "reference_workspace": "/workspace/custom-widgets/",
-      "note": "widget-set authoring (self-bootstrapped)"
+      "note": "widget-set authoring (self-bootstrapped)",
+      "reference_clean_state": "needs_origin_alignment",
+      "reference_clean_reason": "proxy lane renders no data (score 0), but the capture-origin lane (http://localhost:9225) renders the app failure-free WITH data (rows 12/0 · nodes 0 · cards 0 · lines 47) — align the reference URL like pipeline #38/#39",
+      "reference_clean_artifact": "reference-clean-sweep.json"
     },
     {
       "owner": "Developer Console",
@@ -434,7 +509,10 @@
       "capture_state": "blocked_missing_capture",
       "reference_capture": "/__apps/developer",
       "reference_workspace": "/workspace/developer/",
-      "note": "developer home; unbound"
+      "note": "developer home; unbound",
+      "reference_clean_state": "errored_reference",
+      "reference_clean_reason": "reference renders an error page (\"You don't have permissions to view this page\") without a usable shell",
+      "reference_clean_artifact": "reference-clean-sweep.json"
     },
     {
       "owner": "Workbench",
@@ -447,7 +525,10 @@
       "capture_state": "boots_landing",
       "reference_capture": "/__apps/workspaces",
       "reference_workspace": "/workspace/code-workspaces/",
-      "note": "code workspace IDE; unbound"
+      "note": "code workspace IDE; unbound",
+      "reference_clean_state": "needs_origin_alignment",
+      "reference_clean_reason": "proxy lane renders no data (score 1), but the capture-origin lane (http://localhost:9225) renders the app failure-free WITH data (rows 3/4 · nodes 0 · cards 5 · lines 26) — align the reference URL like pipeline #38/#39",
+      "reference_clean_artifact": "reference-clean-sweep.json"
     },
     {
       "owner": "Workbench",
@@ -460,7 +541,10 @@
       "capture_state": "blocked_missing_capture",
       "reference_capture": "/__apps/repositories",
       "reference_workspace": "/workspace/code-repositories/",
-      "note": "code repositories; unbound"
+      "note": "code repositories; unbound",
+      "reference_clean_state": "errored_reference",
+      "reference_clean_reason": "navigation failed on every lane (navigation triggered a content-type download — the captured app document is an empty 307 + application/octet-stream response (broken capture, cannot boot on any lane) · navigation triggered a content-type download — the captured app document is an empty 307 + application/octet-stream response (broken capture, cannot boot on any lane))",
+      "reference_clean_artifact": "reference-clean-sweep.json"
     },
     {
       "owner": "Workbench",
@@ -473,7 +557,10 @@
       "capture_state": "blocked_missing_capture",
       "reference_capture": "/__apps/notepad",
       "reference_workspace": "/workspace/notepad/",
-      "note": "notepad document; unbound"
+      "note": "notepad document; unbound",
+      "reference_clean_state": "needs_origin_alignment",
+      "reference_clean_reason": "proxy lane shows a failure (\"An error occurred\"), but the capture-origin lane (http://localhost:9225) renders the app failure-free WITH data (rows 2/0 · nodes 0 · cards 11 · lines 28) — align the reference URL like pipeline #38/#39",
+      "reference_clean_artifact": "reference-clean-sweep.json"
     },
     {
       "owner": "Provenance",
@@ -487,6 +574,9 @@
       "reference_capture": "/__apps/vertex",
       "reference_workspace": "/workspace/vertex/",
       "note": "Vertex graph grammar (nodes · relations · neighborhood) over real cross-plane materialized truth; no fake nodes for unmaterialized ontologies; freeform graph canvas / arbitrary path-finding / cross-tenant object search / saved explorations = named gaps",
+      "reference_clean_state": "shell_clean_only",
+      "reference_clean_reason": "shell renders a WELCOME/empty landing (cards 6 · lines 21, no row/node data) — clean chrome, no real data to port against (proxy lane shows a failure (\"An error occurred\"); the origin lane is the readable one)",
+      "reference_clean_artifact": "reference-clean-sweep.json",
       "substrate_surface": "/__ioi/vertex",
       "surface_name": "Provenance",
       "binding": "a Provenance graph/exploration lens over materialized object sets, projections, objects, and the threaded proof-stream odk_materialization edges (cross-plane: ODK ↔ Provenance)",
@@ -504,7 +594,10 @@
       "capture_state": "blocked_missing_capture",
       "reference_capture": "/__apps/map",
       "reference_workspace": "/workspace/map/",
-      "note": "geospatial map canvas; unbound"
+      "note": "geospatial map canvas; unbound",
+      "reference_clean_state": "shell_clean_only",
+      "reference_clean_reason": "shell renders a WELCOME/empty landing (cards 4 · lines 15, no row/node data) — clean chrome, no real data to port against (proxy lane renders no data (score 0); the origin lane is the readable one)",
+      "reference_clean_artifact": "reference-clean-sweep.json"
     },
     {
       "owner": "Domain Apps",
@@ -517,7 +610,10 @@
       "capture_state": "blocked_missing_capture",
       "reference_capture": "/__apps/slate",
       "reference_workspace": "/workspace/slate/",
-      "note": "Slate app builder; unbound"
+      "note": "Slate app builder; unbound",
+      "reference_clean_state": "errored_reference",
+      "reference_clean_reason": "the app never mounts — uncaught page error (\"Workspace context path not found\")",
+      "reference_clean_artifact": "reference-clean-sweep.json"
     },
     {
       "owner": "Domain Apps",
@@ -530,7 +626,10 @@
       "capture_state": "shell_only",
       "reference_capture": "/__apps/logic",
       "reference_workspace": "/workspace/logic-app/",
-      "note": "Logic builder; unbound"
+      "note": "Logic builder; unbound",
+      "reference_clean_state": "needs_origin_alignment",
+      "reference_clean_reason": "proxy lane renders no data (score 0), but the capture-origin lane (http://localhost:9225) renders the app failure-free WITH data (rows 12/4 · nodes 0 · cards 2 · lines 51) — align the reference URL like pipeline #38/#39",
+      "reference_clean_artifact": "reference-clean-sweep.json"
     },
     {
       "owner": "Domain Apps",
@@ -543,7 +642,10 @@
       "capture_state": "shell_only",
       "reference_capture": "/__apps/contour",
       "reference_workspace": "/workspace/contour-app/",
-      "note": "Contour analysis; unbound"
+      "note": "Contour analysis; unbound",
+      "reference_clean_state": "needs_origin_alignment",
+      "reference_clean_reason": "proxy lane shows a failure (\"404: Page Not Found\"), but the capture-origin lane (http://localhost:9225) renders the app failure-free WITH data (rows 12/0 · nodes 0 · cards 2 · lines 50) — align the reference URL like pipeline #38/#39",
+      "reference_clean_artifact": "reference-clean-sweep.json"
     },
     {
       "owner": "Domain Apps",
@@ -556,7 +658,10 @@
       "capture_state": "shell_only",
       "reference_capture": "/__apps/fusion",
       "reference_workspace": "/workspace/fusion/",
-      "note": "Fusion spreadsheet; unbound"
+      "note": "Fusion spreadsheet; unbound",
+      "reference_clean_state": "data_failed",
+      "reference_clean_reason": "shell boots but the body reports a data failure (\"Not Found\") with captured (non-404) lanes",
+      "reference_clean_artifact": "reference-clean-sweep.json"
     },
     {
       "owner": "Missions",
@@ -570,6 +675,9 @@
       "reference_capture": "/__apps/jobs",
       "reference_workspace": "/workspace/job-tracker/",
       "note": "run-queue lane of the Missions owner surface; honest empty when no runs; freeform job-definition editing / board views / arbitrary filtering = named gaps; substrate/infra scheduler health stays in Operations",
+      "reference_clean_state": "shell_clean_only",
+      "reference_clean_reason": "shell regions [rail, header, body] render clean but the body carries no real data (rows 0/0 · nodes 0 · cards 0)",
+      "reference_clean_artifact": "reference-clean-sweep.json",
       "substrate_surface": "/__ioi/missions",
       "surface_name": "Missions",
       "binding": "the Missions run/job queue — the real operations run queue (recent runs, statuses, run counts) + scheduled missions, table/list grammar over daemon truth",
@@ -588,6 +696,9 @@
       "reference_capture": "/__apps/incidents",
       "reference_workspace": "/workspace/issues-app/",
       "note": "incident lane of the Missions owner surface; honest empty when no failures/blockers; create/assign incidents / SLA / comments = named gaps; substrate/infra incidents (storage repair, provider failover) stay in Operations",
+      "reference_clean_state": "data_clean",
+      "reference_clean_reason": "shell regions [rail, header, body] + data evidence (rows 5/0 · nodes 0 · cards 0 · lists 0 · lines 25) — clicked the 'Closed' status lane (the default Open lane is honestly empty; the capture carries 5 real closed incidents)",
+      "reference_clean_artifact": "reference-clean-sweep.json",
       "substrate_surface": "/__ioi/missions",
       "surface_name": "Missions",
       "binding": "the Missions incident/remediation inbox — real run failures + GoalRun blockers, each linking to its own proof/timeline, status-lane grammar over daemon truth",
@@ -606,6 +717,9 @@
       "reference_capture": "/__apps/approvals",
       "reference_workspace": "/workspace/approvals-app/",
       "note": "TRUE parity (#36) under the HARDENED gate: light faceted-inbox reference-faithful shell (matches the reference theme + IA landmarks + faceted layout), NOT the earlier dark native shell; passes the hardened Playwright harness against the VALID data-clean /__apps/approvals reference; decisions are the existing daemon transitions (no new governance semantics); reviewer-assignment / delegation / comments / SLA / audit-export + the unwired facets = named gaps disabled in place; substrate table stays at /__ioi/governance?tab=approvals",
+      "reference_clean_state": "data_clean",
+      "reference_clean_reason": "shell regions [rail, header, body] + data evidence (rows 0/9 · nodes 0 · cards 0 · lists 0 · lines 45)",
+      "reference_clean_artifact": "reference-clean-sweep.json",
       "port_surface": "/__ioi/governance/approvals",
       "surface_name": "Governance",
       "reference_landmarks": [
@@ -634,7 +748,10 @@
       "capture_state": "boots_editor_canvas",
       "reference_capture": "/__apps/changes",
       "reference_workspace": "/workspace/upgrade-assistant/",
-      "note": "change inbox"
+      "note": "change inbox",
+      "reference_clean_state": "needs_origin_alignment",
+      "reference_clean_reason": "proxy lane renders no data (score 3), but the capture-origin lane (http://localhost:9225) renders the app failure-free WITH data (rows 4/4 · nodes 0 · cards 6 · lines 32) — align the reference URL like pipeline #38/#39",
+      "reference_clean_artifact": "reference-clean-sweep.json"
     }
   ],
   "_doc": "Generated by build-app-parity-matrix.mjs. Do not hand-edit; change the inventory / the SUBSTRATE_BOUND + REFERENCE_PORT_PENDING/REFERENCE_PORTED/DAEMON_WIRED overlays and regenerate. Run with --check to fail on staleness."

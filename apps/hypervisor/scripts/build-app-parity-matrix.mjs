@@ -182,6 +182,20 @@ const SHELL_PIXEL_CERTIFIED = {
   pipeline: "pixel-certifications/pipeline.json",
 };
 
+// ---- PR #44: the ESTATE REFERENCE CLEAN SWEEP (committed evidence written by
+// harness-reference-clean-sweep.mjs from real Playwright renders over the LOCAL
+// mirror lanes). Stamps reference_clean_state / _reason / _artifact on every
+// seed. parity_class is NEVER derived from it — cleanliness describes the
+// REFERENCE, not the port.
+const CLEAN_SWEEP_STATES = new Set([
+  "data_clean", "shell_clean_only", "blank_reference", "errored_reference",
+  "cors_origin_mismatch", "missing_chunk", "modal_blocked", "data_failed",
+  "needs_backend_reharvest", "needs_origin_alignment", "unknown_blocked",
+]);
+let CLEAN_SWEEP = null;
+try { CLEAN_SWEEP = JSON.parse(readFileSync(path.join(appRoot, "reference-clean-sweep.json"), "utf8")); } catch { /* pre-sweep generation stays valid */ }
+const cleanRowOf = (slug) => (CLEAN_SWEEP && Array.isArray(CLEAN_SWEEP.seeds) ? CLEAN_SWEEP.seeds.find((x) => x.slug === slug) : null);
+
 const rows = SEED_INVENTORY.map((e) => {
   const cls = parityClass(e.slug);
   const row = {
@@ -197,6 +211,12 @@ const rows = SEED_INVENTORY.map((e) => {
     reference_workspace: e.captureBase,
     note: e.note,
   };
+  const clean = cleanRowOf(e.slug);
+  if (clean) {
+    row.reference_clean_state = clean.clean_state;
+    row.reference_clean_reason = clean.reason;
+    row.reference_clean_artifact = "reference-clean-sweep.json";
+  }
   const overlay = OVERLAY_FOR(e.slug);
   if (overlay) {
     Object.assign(row, overlay);
@@ -212,6 +232,31 @@ const rows = SEED_INVENTORY.map((e) => {
   }
   return row;
 });
+
+// INVARIANT (PR #44): the clean sweep may only carry known states; daemon_wired
+// seeds must be data_clean CERTIFIED CONTROLS (their references are the calibration
+// standard — a daemon_wired row whose reference is not clean means either the sweep
+// heuristics or the certification is wrong, and generation must not paper over it);
+// reference_ported rows may stay blocked but must NAME the blocker. The sweep never
+// changes parity_class (cleanliness describes the reference, not the port).
+if (CLEAN_SWEEP) {
+  if (!Array.isArray(CLEAN_SWEEP.seeds) || CLEAN_SWEEP.seeds.length !== rows.length) {
+    console.error(`FATAL: reference-clean-sweep.json covers ${(CLEAN_SWEEP.seeds || []).length} seeds but the inventory has ${rows.length} — re-run the sweep (node scripts/harness-reference-clean-sweep.mjs).`);
+    process.exit(2);
+  }
+  for (const r of rows) {
+    if (!r.reference_clean_state) { console.error(`FATAL: seed '${r.slug}' missing from reference-clean-sweep.json — the sweep must cover every seed.`); process.exit(2); }
+    if (!CLEAN_SWEEP_STATES.has(r.reference_clean_state)) { console.error(`FATAL: seed '${r.slug}' carries unknown reference_clean_state '${r.reference_clean_state}'.`); process.exit(2); }
+    if (!r.reference_clean_reason) { console.error(`FATAL: seed '${r.slug}' reference_clean_state has no reference_clean_reason — every classification must be evidence-backed prose.`); process.exit(2); }
+    if (r.parity_class === "daemon_wired" && (r.reference_clean_state !== "data_clean" || !r.shell_pixel_certified)) {
+      console.error(`FATAL: daemon_wired seed '${r.slug}' must be a data_clean certified control (state=${r.reference_clean_state}, certified=${r.shell_pixel_certified}).`);
+      process.exit(2);
+    }
+    // reference_ported rows may stay clean-blocked or port-pending — the global
+    // reason check above already forces them to NAME why (explorer: the origin-
+    // alignment finding). No stronger constraint: promotion is a port PR's job.
+  }
+}
 
 // INVARIANT: shell_pixel_certified is a layer ON TOP of daemon_wired — a row may not claim it without
 // first being a certified faithful port, and its evidence file must EXIST, PARSE, and actually certify
