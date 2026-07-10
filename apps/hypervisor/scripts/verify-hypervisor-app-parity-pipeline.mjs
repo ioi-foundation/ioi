@@ -144,8 +144,8 @@ async function run() {
   //    the earlier dark native pb-shell, which #34's theme gate refused).
   const built = await page(`${SERVE}/__ioi/pipeline?ontology=${encodeURIComponent(ont.id)}`);
   const t = built.text;
-  ok("the surface is a PORTED reference builder shell (pb-shell: rail + canvas + tray), NOT automationsShell", built.status === 200 && /class="pb-shell"/.test(t) && /class="pb-rail"/.test(t) && /id="pb-canvas"/.test(t) && !/max-width:920px/.test(t) && !/class="wrap"/.test(t));
-  ok("the ported shell carries the builder regions (header title · tool cluster · right output panel · bottom tray)", /class="pb-header"/.test(t) && /class="pb-toolbar"/.test(t) && /class="pb-right"/.test(t) && /class="pb-tray"/.test(t) && /pb-title">Pipeline Builder</.test(t));
+  ok("the surface is a PORTED reference builder shell (pb-shell: rail + canvas + tray), NOT automationsShell", built.status === 200 && /class="pb-shell"/.test(t) && /class="og-grail/.test(t) && /id="pb-canvas"/.test(t) && !/max-width:920px/.test(t) && !/class="wrap"/.test(t));
+  ok("the ported shell carries the builder regions (header title · tool cluster · right output panel · bottom tray)", /class="pb-header"/.test(t) && /class="pb-toolcard"/.test(t) && /class="pb-right"/.test(t) && /class="pb-tray"/.test(t) && /og-strong">Pipeline Builder</.test(t));
   ok("the re-port is LIGHT (color-scheme:light, not the earlier dark #0c0d10 body) — the #34 theme gate", /:root\{color-scheme:light\}/.test(t) && !/background:#0c0d10/.test(t));
   ok("the port renders the reference IA landmarks (Pipeline outputs · Selection preview · Pipeline warnings · Legend · Add data · Edit output settings)", ["Pipeline outputs", "Selection preview", "Pipeline warnings", "Legend", "Add data", "Edit output settings", "Tools", "Reusables"].every((l) => t.includes(l)));
 
@@ -185,6 +185,19 @@ async function run() {
   // 7. The ODK ladder itself is intact + cross-links to the pipeline view.
   const odk = await page(`${SERVE}/__ioi/odk?ontology=${encodeURIComponent(ont.id)}`);
   ok("the ODK ladder is intact (Ontology Manager still renders) + links to the pipeline view", /Ontology Manager/.test(odk.text) && odk.text.includes("/__ioi/pipeline"));
+
+  // 8. SHELL PIXEL CERTIFICATION (#43) — shell_pixel_certified is a layer ON TOP of daemon_wired:
+  // pixel-identical SHELL (committed evidence written by the pixel harness itself), semantically-truthful
+  // BODY (the live ODK graph + preview rows everything above just proved). Matrix and cert agree; the
+  // cert is genuine measurement (non-pinned, both desktop viewports, calibrated budgets untouched).
+  {
+    let mrow = null, cert = null;
+    try { const m = JSON.parse(readFileSync(path.join(appRoot, "harvest-app-parity-matrix.json"), "utf8")); mrow = (m.seeds || []).find((x) => x.slug === "pipeline"); } catch { /* */ }
+    try { cert = JSON.parse(readFileSync(path.join(appRoot, mrow.shell_pixel_certification_artifact), "utf8")); } catch { /* */ }
+    ok("matrix: pipeline is shell_pixel_certified (pixel-identical shell, semantically-truthful body) with a committed evidence pointer, still daemon_wired", mrow && mrow.shell_pixel_certified === true && mrow.shell_pixel_certification_artifact === "pixel-certifications/pipeline.json" && mrow.parity_class === "daemon_wired");
+    ok("the committed certification is REAL: pipeline slug, certified, NON-pinned, both desktop viewports certified, mobile honestly not-supported", cert && cert.schema === "ioi.hypervisor.shell-pixel-certification.v1" && cert.slug === "pipeline" && cert.shell_pixel_certified === true && cert.viewports_pinned === false && (cert.viewports || []).length === 2 && cert.viewports.every((v) => v.certified === true) && /not_supported/.test(cert.mobile), cert ? cert.viewports.map((v) => `${v.viewport}: dilated ${v.metrics.shell_diff_dilated_pct}% raw ${v.metrics.shell_diff_raw_pct}%`).join(" · ") : "cert missing");
+    ok("the certification is MEASUREMENT, not convenience: dilated ≤ 1.25% AND raw ≤ 3.0% on every certified viewport, with real certified-shell coverage", cert && cert.viewports.every((v) => v.metrics.shell_diff_dilated_pct <= 1.25 && v.metrics.shell_diff_raw_pct <= 3.0 && v.metrics.coverage.certified_fraction >= 0.05));
+  }
 
   srv.close();
   for (const [method, p] of cleanup) await jd(method, p);

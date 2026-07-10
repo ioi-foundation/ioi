@@ -163,6 +163,23 @@ const SHELL_PIXEL_CERTIFIED = {
   // on both sides; over-mask guard clean. 1440x900 dilated 1.14% / raw 1.96%, 1920x1080 dilated 0.89% /
   // raw 1.53%, bbox 0. Body = live ApprovalRequest daemon truth (approve/reject/revoke preserved).
   approvals: "pixel-certifications/approvals.json",
+  // #43 — Pipeline Builder: the THIRD shell-pixel certification and the first CANVAS-app shell (floating
+  // cards over a live graph body, not a table/sidebar). Shell = shared rail (per-reference rv-pipe
+  // variant: badges, no View-all/star, gradient AIP, full-bleed #1c2127 active row, muted account chip) ·
+  // reference header (File/Settings/Help menus + hairline dividers + slate Batch tag; the fluid middle is
+  // the reference's captured SESSION STATE, masked on both sides, and carries the port's live
+  // Build/Preview controls; Actions|divider|Share right cluster) · segmented-button tool card (ring
+  // shadows, exact 15px cluster gaps, wrapping 3 group-rows @1440 → one row @1920 with 30/15px gaps,
+  // verbatim reference icon paths incl. the gradient AIP logo, per-icon reference fills) · Legend card
+  // (#f6f7f9 + #cbccd0 border, 14px category chips in the reference palette, 70px truncating names) ·
+  // float/zoom button stacks · right outputs panel (ring-shadow buttons, segmented Edit-output-settings,
+  // white 50px icon strip with 40px boxes + hairline group dividers) · bottom tray tabs (hairline
+  // separators, rgba(138,187,255,.4) active, live-suggestions pill region masked). Live ODK values
+  // (breadcrumb names, batch count, output card/stat, legend counts, settings values) masked as dynamic
+  // data on both sides; the canvas graph is the live body, excluded by design and verified semantically
+  // by verify-hypervisor-app-parity-pipeline.mjs. 1440x900 dilated 0.94% / raw 1.96%, 1920x1080 dilated
+  // 0.84% / raw 1.82%, bbox 0 — no threshold movement.
+  pipeline: "pixel-certifications/pipeline.json",
 };
 
 const rows = SEED_INVENTORY.map((e) => {

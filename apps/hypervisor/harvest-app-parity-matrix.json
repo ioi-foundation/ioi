@@ -191,7 +191,8 @@
       ],
       "binding": "faithful LIGHT port of the reference Pipeline Builder over the real ODK authority ladder (DataSource → Object mapping → Policy gate → Transform plan → Read projection → Lease+session → MaterializedObjectSet) as the graph node cards; a Legend panel (Input Data / Data Cleaning / Calculations / Output Dataset) + a right 'Pipeline outputs' panel (read projection + column mapping + Output settings) + a 'Selection preview' tray, all from daemon truth (live/declared/missing per stage, preview rows + output schema from the real projection + materialized set)",
       "candidate_surface": "/__ioi/pipeline",
-      "shell_pixel_certified": false
+      "shell_pixel_certified": true,
+      "shell_pixel_certification_artifact": "pixel-certifications/pipeline.json"
     },
     {
       "owner": "Data",

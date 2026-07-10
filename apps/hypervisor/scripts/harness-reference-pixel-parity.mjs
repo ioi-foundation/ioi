@@ -117,13 +117,56 @@ export const SURFACE_SHELL = {
     },
   },
   pipeline: {
+    // The builder canvas app: certified shell = rail + header + the floating CARDS (tool card, canvas
+    // float/zoom buttons, Legend) + the right outputs panel + the tray TABS row. The canvas/graph is the
+    // live body (excluded). The tool card WRAPS (3 group-rows @1440 → 1 row @1920) and the cards are
+    // right-/bottom-anchored, so the shell rects are pinned EXPLICITLY per certified viewport.
     rects: [
       { key: "rail", anchor: "left", x: 0, y: 0, w: 230, h: 0 },
-      { key: "header", anchor: "topbar", x: 230, y: 0, w: 0, h: 52 },
-      { key: "toolbar", anchor: "topbar", x: 230, y: 52, w: 0, h: 46 }, // the tool cluster row
-      { key: "right", anchor: "right", x: 0, y: 52, w: 300, h: 0 },     // Pipeline outputs panel chrome
+      { key: "header", anchor: "topbar", x: 230, y: 0, w: 0, h: 51 },
+      { key: "toolbar", x: 240, y: 61, w: 292, h: 166 },
+      { key: "floatbtns", x: 652, y: 61, w: 74, h: 32 },
+      { key: "legend", x: 733, y: 61, w: 314, h: 126 },
+      { key: "zoom", x: 240, y: 502, w: 30, h: 90 },
+      { key: "right", anchor: "rightpanel", x: 386, y: 51, w: 386, h: 0 },
+      { key: "tray", x: 230, y: 600, w: 824, h: 37 },
     ],
-    data: { ref: [], ioi: [{ selector: ".pb-crumb,.pb-outnum,.pb-outcode,.pb-outmapped,.pb-schema,.pb-setrow,.pb-col", label: "live-output-values" }] },
+    rects_by_viewport: {
+      "1920x1080": [
+        { key: "rail", anchor: "left", x: 0, y: 0, w: 230, h: 0 },
+        { key: "header", anchor: "topbar", x: 230, y: 0, w: 0, h: 51 },
+        { key: "toolbar", x: 240, y: 61, w: 872, h: 56 },
+        { key: "floatbtns", x: 1132, y: 61, w: 74, h: 32 },
+        { key: "legend", x: 1213, y: 61, w: 314, h: 126 },
+        { key: "zoom", x: 240, y: 682, w: 30, h: 90 },
+        { key: "right", anchor: "rightpanel", x: 386, y: 51, w: 386, h: 0 },
+        { key: "tray", x: 230, y: 780, w: 1304, h: 37 },
+      ],
+    },
+    // Dynamic residue masked on BOTH sides: the header's live/captured names + SESSION-STATE middle zone
+    // (reference: tabs/undo/branch/build state · port: the live Build/Preview controls), the right
+    // panel's output card + settings VALUES (captured example vs live projection), legend counts, the
+    // reference's Suggestions count pill + Batch count. Chrome (labels/tabs/icons/panels) stays compared.
+    data: {
+      ref: [
+        { rect: { x: 285, y: 2, w: 365, h: 20 }, label: "breadcrumb-names (captured example vs live ontology)" },
+        { rect: { x: 528, y: 24, w: 16, h: 18 }, label: "batch-count (captured)" },
+        { rect: { x: 698, y: 2, w: 494, h: 47 }, label: "session-state middle zone (ref: tabs/undo/branch/build · port: live Build/Preview controls)" },
+        { rect: { x: 728, y: 2, w: 483, h: 47 }, anchor: "right", label: "session-state middle overflow (wide viewports: Saved/Propose/Deploy cluster; sits inside the fixed middle mask at 1440)" },
+        { rect: { x: 380, y: 140, w: 330, h: 92 }, anchor: "right", label: "output card (captured example vs live projection)" },
+        { rect: { x: 380, y: 230, w: 330, h: 40 }, anchor: "right", label: "output stat line (live values)" },
+        { rect: { x: 250, y: 112, w: 190, h: 48 }, anchor: "bottomright", label: "output-settings VALUES (captured vs live names)" },
+        { rect: { x: 620, y: 96, w: 44, h: 62 }, anchor: "right", label: "legend counts col1 (live category counts)" },
+        { rect: { x: 456, y: 96, w: 30, h: 62 }, anchor: "right", label: "legend counts col2 (live category counts)" },
+        { rect: { x: 502, y: 296, w: 26, h: 28 }, anchor: "bottom", label: "suggestions count pill (captured session state)" },
+      ],
+      ioi: [
+        { selector: ".pb-crumb", label: "live-breadcrumb-names" },
+        { selector: ".pb-outcard,.pb-outstat", label: "live-projection-card+stat" },
+        { selector: ".pb-setv", label: "live-output-settings-values" },
+        { selector: ".pb-legrow b", label: "live-legend-counts" },
+      ],
+    },
   },
 };
 
@@ -138,6 +181,8 @@ export function resolveShellRects(templates, vw, vh) {
     else if (t.anchor === "right") { x = vw - (t.w || 300); w = t.w || 300; h = h || vh; }
     else if (t.anchor === "topbar") { w = w || (vw - (t.x || 0)); h = h || Math.round(vh * 0.06); }
     else if (t.anchor === "content") { x = t.x + contentOffset(t, vw); h = h || vh; }
+    else if (t.anchor === "bottom") { y = vh - t.y; w = w || (vw - (t.x || 0)); }
+    else if (t.anchor === "rightpanel") { x = vw - t.x; h = h || (vh - y); }
     return { key: t.key, left: x, top: y, w, h };
   });
 }
@@ -191,6 +236,13 @@ export function bboxDeltas(refBoxes, ioiBoxes) {
   for (const k of Object.keys(refBoxes || {})) {
     const a = refBoxes[k], b = (ioiBoxes || {})[k];
     if (!a || !b) continue;
+    // The delta is meaningful only when both sides detected the SAME piece of chrome — require the two
+    // boxes to overlap (≥25% of the smaller box). Non-overlapping detections are DIFFERENT elements (a
+    // hashed-class false hit on one side); their difference is measured by the pixel diff, not bbox.
+    const ix = Math.max(0, Math.min(a.left + a.w, b.left + b.w) - Math.max(a.left, b.left));
+    const iy = Math.max(0, Math.min(a.top + a.h, b.top + b.h) - Math.max(a.top, b.top));
+    const inter = ix * iy, minArea = Math.min(a.w * a.h, b.w * b.h);
+    if (!minArea || inter / minArea < 0.25) continue;
     out[k] = Math.max(Math.abs(a.left - b.left), Math.abs(a.top - b.top), Math.abs((a.left + a.w) - (b.left + b.w)), Math.abs((a.top + a.h) - (b.top + b.h)));
   }
   return out;
@@ -334,7 +386,15 @@ async function runSurface(browser, s, viewports) {
     const tag = `${vp.width}x${vp.height}`;
     const ctx = await browser.newContext({ viewport: vp });
     const refPngPath = path.join(dir, `ref-${tag}.png`), ioiPngPath = path.join(dir, `ioi-${tag}.png`);
-    const anchorRects = (entries) => (entries || []).map((m) => m.rect && m.anchor === "content" ? { ...m, rect: { ...m.rect, x: m.rect.x + contentOffset(m, vp.width) } } : m);
+    const anchorRects = (entries) => (entries || []).map((m) => {
+      if (!m.rect) return m;
+      if (m.anchor === "content") return { ...m, rect: { ...m.rect, x: m.rect.x + contentOffset(m, vp.width) } };
+      // "right"/"bottom"/"bottomright": rect.x is the distance from the RIGHT edge / rect.y from the BOTTOM.
+      if (m.anchor === "right") return { ...m, rect: { ...m.rect, x: vp.width - m.rect.x } };
+      if (m.anchor === "bottom") return { ...m, rect: { ...m.rect, y: vp.height - m.rect.y } };
+      if (m.anchor === "bottomright") return { ...m, rect: { ...m.rect, x: vp.width - m.rect.x, y: vp.height - m.rect.y } };
+      return m;
+    });
     const ref = await capture(ctx, s.reference_url, refPngPath, s.reference_landmarks, s.reference_pre_capture, anchorRects(cfg.data.ref));
     const ioi = await capture(ctx, s.ioi_url, ioiPngPath, s.reference_landmarks, null, anchorRects(cfg.data.ioi));
     await ctx.close();
@@ -342,7 +402,9 @@ async function runSurface(browser, s, viewports) {
     const evidence_ok = ref.screenshotOk && ioi.screenshotOk;
     const reference_valid = !ref.errored && ref.loaded && ref.regions.length > 0;
     const ioi_valid = !ioi.errored && ioi.loaded;
-    const shellRects = resolveShellRects(cfg.rects, vp.width, vp.height);
+    // A surface may pin EXPLICIT per-viewport shell rects (e.g. a wrapping toolbar card whose shape
+    // changes between certified viewports); falls back to the anchored template set.
+    const shellRects = resolveShellRects((cfg.rects_by_viewport && cfg.rects_by_viewport[tag]) || cfg.rects, vp.width, vp.height);
     const dataRects = [...(ref.maskRects || []), ...(ioi.maskRects || [])].map((m) => ({ left: m.left - 3, top: m.top - 3, w: m.w + 6, h: m.h + 6 }));
     const coverage = shellGuard(shellRects, dataRects, ref.landmarkRects || {}, vp.width, vp.height);
     let cmp = { dims_match: false };

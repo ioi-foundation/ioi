@@ -1,0 +1,132 @@
+{
+  "schema": "ioi.hypervisor.shell-pixel-certification.v1",
+  "slug": "pipeline",
+  "matrix_class": "daemon_wired",
+  "shell_pixel_certified": true,
+  "viewports_pinned": false,
+  "thresholds": {
+    "shell_diff_dilated_pct_max": 1.25,
+    "shell_diff_raw_pct_max": 3,
+    "shell_bbox_delta_px_max": 8,
+    "min_shell_certified_fraction": 0.05,
+    "data_mask_in_shell_fraction_max": 0.5,
+    "landmark_mask_overlap_max": 0.3,
+    "pixel_delta_threshold": 0.1,
+    "palette_delta_max": 0.05
+  },
+  "reference_url": "http://localhost:9225/workspace/builder/ri.eddie.main.pipeline.e73d6ae7-f6fe-4ac5-82a2-320d9f188590/sandbox/a082bef2-8826-4e6c-8925-871bcdb56c44",
+  "ioi_url": "http://127.0.0.1:4173/__ioi/pipeline",
+  "mobile": "mobile_not_supported (scrollWidth=390 innerWidth=390 railFrac=0.59)",
+  "note": "SHELL pixel parity — the live-data body is excluded by design and verified semantically by the surface verifier (body_semantic_truth)",
+  "viewports": [
+    {
+      "viewport": "1440x900",
+      "reference_url": "http://localhost:9225/workspace/builder/ri.eddie.main.pipeline.e73d6ae7-f6fe-4ac5-82a2-320d9f188590/sandbox/a082bef2-8826-4e6c-8925-871bcdb56c44",
+      "ioi_url": "http://127.0.0.1:4173/__ioi/pipeline",
+      "certified": true,
+      "reasons": [],
+      "gates": {
+        "evidence_ok": true,
+        "reference_errored": false,
+        "ioi_errored": false,
+        "reference_valid": true,
+        "ioi_valid": true,
+        "structural_parity": true,
+        "theme_match": true,
+        "landmark_covered": 10,
+        "landmark_applicable": 10
+      },
+      "metrics": {
+        "dims_match": true,
+        "shell_diff_raw_pct": 1.96,
+        "shell_diff_dilated_pct": 0.94,
+        "certified_px": 618702,
+        "palette": {
+          "shell": {
+            "ref_avg_rgb": [
+              176,
+              179,
+              182
+            ],
+            "ioi_avg_rgb": [
+              177,
+              180,
+              183
+            ],
+            "delta": 0
+          }
+        },
+        "bbox_deltas": {
+          "rail": 0,
+          "toolbar": 0
+        },
+        "coverage": {
+          "shell_fraction": 0.563,
+          "certified_fraction": 0.48,
+          "data_in_shell_fraction": 0.147,
+          "landmarks_masked": []
+        },
+        "cmp_error": null
+      },
+      "screens": {
+        "ref": "pipeline/ref-1440x900.png",
+        "ioi": "pipeline/ioi-1440x900.png",
+        "heatmap": "pipeline/heatmap-1440x900.png"
+      }
+    },
+    {
+      "viewport": "1920x1080",
+      "reference_url": "http://localhost:9225/workspace/builder/ri.eddie.main.pipeline.e73d6ae7-f6fe-4ac5-82a2-320d9f188590/sandbox/a082bef2-8826-4e6c-8925-871bcdb56c44",
+      "ioi_url": "http://127.0.0.1:4173/__ioi/pipeline",
+      "certified": true,
+      "reasons": [],
+      "gates": {
+        "evidence_ok": true,
+        "reference_errored": false,
+        "ioi_errored": false,
+        "reference_valid": true,
+        "ioi_valid": true,
+        "structural_parity": true,
+        "theme_match": true,
+        "landmark_covered": 10,
+        "landmark_applicable": 10
+      },
+      "metrics": {
+        "dims_match": true,
+        "shell_diff_raw_pct": 1.82,
+        "shell_diff_dilated_pct": 0.84,
+        "certified_px": 747702,
+        "palette": {
+          "shell": {
+            "ref_avg_rgb": [
+              178,
+              180,
+              183
+            ],
+            "ioi_avg_rgb": [
+              179,
+              181,
+              184
+            ],
+            "delta": 0
+          }
+        },
+        "bbox_deltas": {
+          "rail": 0
+        },
+        "coverage": {
+          "shell_fraction": 0.428,
+          "certified_fraction": 0.364,
+          "data_in_shell_fraction": 0.149,
+          "landmarks_masked": []
+        },
+        "cmp_error": null
+      },
+      "screens": {
+        "ref": "pipeline/ref-1920x1080.png",
+        "ioi": "pipeline/ioi-1920x1080.png",
+        "heatmap": "pipeline/heatmap-1920x1080.png"
+      }
+    }
+  ]
+}

@@ -26,7 +26,7 @@ import { WebSocketServer } from "ws";
 import * as adapter from "./ioi-api-adapter.mjs";
 import { getRun, listRuns, hydrateRunsFromDaemon, publishRunViaConnector } from "./ioi-agent-runs.mjs";
 import { projectRunTimeline } from "./ioi-run-timeline.mjs";
-import { bpIcon, ONTOLOGY_APP_ICON_URI, APPROVALS_APP_ICON_URI } from "./bp-icons.mjs";
+import { bpIcon, ONTOLOGY_APP_ICON_URI, APPROVALS_APP_ICON_URI, PIPELINE_APP_ICON_URI, AIP_GRADIENT_SVG_RAIL, AIP_GRADIENT_SVG_TOOLBAR } from "./bp-icons.mjs";
 import { mintApprovalGrant } from "../../../scripts/lib/mint-approval-grant.mjs";
 
 // Build the current conversation entries for a run, in the exact NDJSON shape the SPA's V1 pane
@@ -3677,58 +3677,13 @@ function renderPipelineBuilder(lists, selectedId) {
         : `<tr><td colspan="${cols.length || 1}" class="pb-empty-cell">No rows yet — Build a materializing run to populate this output (object_instances stays 0 until then).</td></tr>`}</tbody></table>`
     : `<div class="pb-empty">No read projection on this pipeline yet — add one in the Ontology Manager.</div>`;
 
-  // ---- DARK GLOBAL RAIL: platform nav + the pipeline list (the reference's dark left rail; NOT sampled
-  // for theme — the harness reads the light CONTENT half — but kept dark to faithfully mirror the reference).
+  // ---- SHARED pixel-aligned GLOBAL RAIL (#43) — Pipeline Builder active. The live pipeline PICKER
+  // (no reference counterpart in the rail) lives in the canvas body (excluded region), keeping the rail
+  // pixel-faithful while the control keeps its function.
+  const globalRail = ioiGlobalRailHtml({ label: "Pipeline Builder", href: "/__ioi/pipeline", iconUri: PIPELINE_APP_ICON_URI, railVariant: "rv-pipe", viewAll: false, star: false, badges: true, aipGradient: true, acctMuted: true });
   const railPipes = ontologies.length
     ? ontologies.map((x) => { const on = selected && x.id === selected.id; const built = builtRefs.has(x.ref); return `<a class="pb-pipe ${on ? "on" : ""}" href="/__ioi/pipeline?ontology=${enc(x.id)}">${esc(x.domain || x.id)}${built ? `<span class="pb-tag">built</span>` : ""}</a>`; }).join("")
-    : `<div class="pb-railempty">No pipelines yet. <a href="/__ioi/odk/ontologies/new">Create an ontology</a>.</div>`;
-  const rail = `<nav class="pb-rail">
-    <div class="pb-brand"><span class="pb-brandmark">▚</span> IOI</div>
-    <a class="pb-nav" href="/ai">Home</a>
-    <a class="pb-nav" href="/__ioi/ontology/explorer">Ontology</a>
-    <a class="pb-nav" href="/__ioi/apps">Applications</a>
-    <div class="pb-railhead">Pipelines</div><div class="pb-pipes">${railPipes}</div>
-    <div class="pb-railactive"><span class="pb-brandmark">▚</span> Pipeline Builder</div>
-  </nav>`;
-
-  // ---- LIGHT HEADER: brand + breadcrumb + build state + Build/Preview (wired) / Schedule+Deploy (named gaps).
-  const header = `<header class="pb-header">
-    <span class="pb-logo">▚</span>
-    <div class="pb-crumb"><span class="pb-cxt">${oname}</span> <span class="pb-cx">›</span> <b class="pb-title">Pipeline Builder</b>${selected ? ` <span class="pb-state pb-${instances > 0 ? "live" : "declared"}">${instances > 0 ? "built" : "not built"}</span> <span class="pb-cxt">· ${nodes.filter((n) => n.cls === "live").length}/${nodes.length} stages live · ${instances} object${instances === 1 ? "" : "s"}</span>` : ""}</div>
-    <div class="pb-headacts">
-      <a class="pb-btn primary" href="/__ioi/odk?ontology=${enc(oid)}">Build</a>
-      <a class="pb-btn ghost" href="#pb-preview">Preview</a>
-      <button class="pb-btn ghost" disabled title="No pipeline scheduler yet — a named gap (author + run via a materializing run).">Schedule</button>
-      <button class="pb-btn ghost" disabled title="No pipeline deploy yet — a named gap.">Deploy</button>
-      <span class="pb-tsep"></span>
-      <a class="pb-btn link" href="/__ioi/lineage?ontology=${enc(oid)}">Lineage</a>
-      <a class="pb-btn link" href="/__ioi/odk?ontology=${enc(oid)}">Ontology Manager</a>
-    </div>
-  </header>`;
-
-  // ---- LIGHT TOOL CLUSTER: the reference builder's canvas tools. Freeform authoring is a named gap
-  // (disabled in place); Add data routes to the real authoring ladder.
-  const toolbar = `<div class="pb-toolbar">
-    <div class="pb-tgroup">
-      <button class="pb-tsbtn" disabled title="Selection/canvas tools — reference affordance; freeform authoring is a named gap">Tools</button>
-      <button class="pb-tsbtn" disabled title="named gap">Select</button>
-      <button class="pb-tsbtn" disabled title="named gap">Remove</button>
-      <button class="pb-tsbtn" disabled title="named gap">Layout</button>
-      <button class="pb-tsbtn" disabled title="named gap">Text</button>
-    </div>
-    <div class="pb-tgroup">
-      <a class="pb-tsbtn strong" href="/__ioi/odk?ontology=${enc(oid)}">＋ Add data</a>
-      <button class="pb-tsbtn" disabled title="Reusable transforms library — a named gap">Reusables ▾</button>
-    </div>
-    <div class="pb-tgroup">
-      <button class="pb-tsbtn" disabled title="Transform node authoring — a named gap; author transforms via the Ontology Manager">Transform</button>
-      <button class="pb-tsbtn" disabled title="AIP assist — a named gap">AIP</button>
-      <button class="pb-tsbtn" disabled title="named gap">Edit</button>
-    </div>
-    <span class="pb-toolnote">Build authors + executes through the ODK authority ladder — freeform canvas authoring is a named gap.</span>
-  </div>`;
-
-  // ---- LIGHT CANVAS: the ODK ladder as connected node cards + a Legend panel (the reference chrome).
+    : `<div class="pb-empty">No pipelines yet. <a href="/__ioi/odk/ontologies/new">Create an ontology</a>.</div>`;
   const nodeCard = (nd) => `<div class="pb-node pb-${nd.cls}"${selected ? ` onclick="location.href='/__ioi/odk?ontology=${enc(oid)}#pane-${nd.pane}'"` : ""}>
     <div class="pb-nhead"><span class="pb-nicon">${nd.icon}</span><span class="pb-dot pb-${nd.cls}"></span></div>
     <div class="pb-nlabel">${esc(nd.label)}</div>
@@ -3736,123 +3691,257 @@ function renderPipelineBuilder(lists, selectedId) {
     <div class="pb-ndetail">${esc(nd.detail || "")}</div>
   </div>`;
   const legendGroups = [
-    ["Input Data", "#6b7280", dsources.length],
-    ["Data Cleaning", "#2f9e6b", maps.length + views.length],
-    ["Calculations", "#3a82f6", truns.length + projs.length + plans.length],
-    ["Output Dataset", "#d68a2a", osets.length],
+    ["Input Data", "#8f99a8", dsources.length],
+    ["Data Cleaning", "#238551", maps.length + views.length],
+    ["Calculations", "#d1980b", truns.length + projs.length + plans.length],
+    ["Output Dataset", "#147eb3", osets.length],
   ];
-  const legend = `<div class="pb-legend">
-    <div class="pb-legendhd">Legend</div>
-    ${legendGroups.map(([g, c, n]) => `<div class="pb-legrow"><span class="pb-legchip" style="background:${c}"></span>${esc(g)} <b>(${n})</b></div>`).join("")}
+
+  // ---- HEADER (h51, white, hairline shadow) — the reference navbar: app chip · breadcrumb title row
+  // (live names → masked as dynamic data) + File/Settings/Help menu row (named gaps) + Batch tag · a
+  // FLUID MIDDLE zone that in the reference carries captured SESSION STATE (tabs/undo/branch/build
+  // state — masked as dynamic residue) and in the port carries the LIVE Build/Preview controls · right
+  // cluster Actions ▾ / Share / panel toggle (named gaps).
+  const header = `<header class="pb-header">
+    <span class="pb-hchip"></span>
+    <div class="pb-htitles">
+      <div class="pb-crumbrow"><span class="pb-crumb">${oname} <span class="pb-cx">›</span> <b>Pipeline Builder</b>${selected ? ` <span class="pb-cxt">— ${instances > 0 ? `<span class="pb-live">built</span>` : `<span class="pb-declared">not built</span>`} · ${nodes.filter((n) => n.cls === "live").length}/${nodes.length} stages live</span>` : ""}</span><span class="pb-star">${bpIcon("star-empty")}</span></div>
+      <div class="pb-menurow">
+        <span class="pb-menu gap" title="File menu is a reference-only lane (named gap)">File ${bpIcon("caret-down", 16)}</span>
+        <span class="pb-menu gap" title="named gap">Settings ${bpIcon("caret-down", 16)}</span>
+        <span class="pb-menu gap" title="named gap">Help ${bpIcon("caret-down", 16)}</span>
+        <span class="pb-menudiv"></span>
+        <span class="pb-batch">${bpIcon("office", 16)}<span class="pb-batchn">1</span></span>
+        <span class="pb-menudiv d2"></span>
+        <span class="pb-batchtag">Batch</span>
+      </div>
+    </div>
+    <div class="pb-hmid">
+      <a class="pb-btn primary" href="/__ioi/odk?ontology=${enc(oid)}">Build</a>
+      <a class="pb-btn ghost" href="#pb-preview">Preview</a>
+      <button class="pb-btn ghost" disabled title="No pipeline scheduler yet — a named gap (author + run via a materializing run).">Schedule</button>
+      <button class="pb-btn ghost" disabled title="No pipeline deploy yet — a named gap.">Deploy</button>
+      <a class="pb-btn link" href="/__ioi/lineage?ontology=${enc(oid)}">Lineage</a>
+      <a class="pb-btn link" href="/__ioi/odk?ontology=${enc(oid)}">Ontology Manager</a>
+    </div>
+    <div class="pb-hright">
+      <span class="pb-hbtn gap" title="Actions menu is a reference-only lane (named gap)">Actions ${bpIcon("caret-down")}</span>
+      <span class="pb-hdrdiv"></span>
+      <span class="pb-hbtn gap" title="Sharing is a reference-only lane (named gap)">${bpIcon("people")} Share</span>
+      <span class="pb-hico gap" title="Panel layout toggle — named gap">${bpIcon("properties")}</span>
+    </div>
+  </header>`;
+
+  // ---- FLOATING TOOL CARD (canvas top-left) — the reference's grouped canvas tools as GROUP UNITS in a
+  // wrapping flex card: at 1440 the groups wrap to three rows exactly like the reference; at 1920 they
+  // fit one row. All named gaps except Add data (routes to the real authoring ladder).
+  const tbtn = (icon, opts = {}) => `<${opts.href ? `a href="${opts.href}"` : "button disabled"} class="pb-ticon${opts.look ? " " + opts.look : ""}${opts.tint ? " pb-i-" + opts.tint : ""}" title="${esc(opts.title || "named gap")}">${icon === "@aip-grad" ? AIP_GRADIENT_SVG_TOOLBAR : bpIcon(icon)}${opts.href ? "</a>" : "</button>"}`;
+  const seg = (...btns) => `<span class="pb-seg">${btns.join("")}</span>`;
+  const toolcard = `<div class="pb-toolcard">
+    <div class="pb-tg">
+      <div class="pb-tgrow">${seg(tbtn("move", { look: "act" }), tbtn("select"))}${seg(tbtn("selection"))}${seg(tbtn("graph-remove", { look: "dim" }))}${seg(tbtn("layout-sorted-clusters"), tbtn("grid"))}${seg(tbtn("new-text-box"))}</div>
+      <div class="pb-tghints"><span style="left:15.5px">Tools</span><span style="left:72.3px">Select</span><span class="pb-hwrap" style="left:115px">Remove</span><span style="left:175.5px">Layout</span><span style="left:242px">Text</span></div>
+    </div>
+    <div class="pb-tg pb-tg2">
+      <a class="pb-twide" href="/__ioi/odk?ontology=${enc(oid)}" title="Add data — routes to the real ODK authoring ladder">${bpIcon("import")} Add data ${bpIcon("caret-down")}</a>
+      <button class="pb-twide" disabled title="Reusable transforms library — a named gap">${bpIcon("repeat")} Reusables ${bpIcon("caret-down")}</button>
+    </div>
+    <div class="pb-tg pb-tg3">
+      <div class="pb-tgrow">${seg(tbtn("path", { look: "dim", tint: "blue" }), tbtn("join-table", { look: "dim", tint: "cyan" }), tbtn("add-row-bottom", { look: "dim", tint: "rose" }), tbtn("split-columns", { look: "dim", tint: "green" }), tbtn("model", { look: "dim", tint: "violet" }))}${seg(tbtn("@aip-grad", { look: "dim" }), tbtn("clean", { tint: "violet" }), tbtn("lightbulb", { tint: "violet" }))}${seg(tbtn("edit", { look: "dim" }))}</div>
+      <div class="pb-tghints"><span style="left:45.9px">Transform</span><span style="left:195.3px">AIP</span><span style="left:268.7px">Edit</span></div>
+    </div>
   </div>`;
-  const canvasWrap = `<div class="pb-canvaswrap">
+
+  // ---- FLOATING canvas buttons (search / fit) + ZOOM stack (bottom-left) — reference chrome, named gaps.
+  const floatbtns = `<div class="pb-floatbtns">${tbtn("search")}${tbtn("many-to-many")}</div>
+  <div class="pb-zoomstack">${tbtn("zoom-in")}${tbtn("zoom-out")}${tbtn("zoom-to-fit")}</div>`;
+
+  // ---- LEGEND card (canvas top-right, left of the outputs panel) — live category counts masked as data.
+  const legend = `<div class="pb-legend">
+    <div class="pb-legendhd">Legend <span class="pb-legcaret">${bpIcon("caret-up")}</span></div>
+    <div class="pb-leggrid">
+      ${legendGroups.map(([g, c, n]) => `<div class="pb-legrow"><span class="pb-legchip" style="background:${c}"></span><span class="pb-legname">${esc(g)}</span> <b>(${n})</b> <span class="pb-legeye">${bpIcon("eye-open", 14)}</span></div>`).join("")}
+    </div>
+    <button class="pb-addcolor" disabled title="Legend color authoring — a named gap">${bpIcon("plus")} Add color</button>
+  </div>`;
+
+  const canvasWrap = `<div class="pb-canvaszone">
+    <div class="pb-toolband" role="toolbar" aria-label="Canvas tools"></div>
+    ${toolcard}
+    ${floatbtns}
     ${legend}
     <div class="pb-canvas" id="pb-canvas">${selected
-      ? `<div class="pb-flow">${nodes.map((nd, i) => `${i ? `<div class="pb-arrow">→</div>` : ""}${nodeCard(nd)}`).join("")}</div>`
-      : `<div class="pb-empty" style="margin:40px auto">Select or create a pipeline in the rail to see its datasource → transform → output graph.</div>`}</div>
+      ? `<div class="pb-pickrow"><details class="pb-pick"><summary>Pipeline: ${oname} ▾</summary><div class="pb-picklist">${railPipes}</div></details></div><div class="pb-flow">${nodes.map((nd, i) => `${i ? `<div class="pb-arrow">→</div>` : ""}${nodeCard(nd)}`).join("")}</div>`
+      : `<div class="pb-empty" style="margin:120px auto;max-width:420px">Select or create a pipeline to see its datasource → transform → output graph. <a href="/__ioi/odk/ontologies/new">Create an ontology →</a></div>`}</div>
+    <div class="pb-tray" id="pb-preview">
+      <div class="pb-traytabs">
+        <span class="pb-tab on">${bpIcon("panel-table")} Selection preview</span>
+        <span class="pb-tab s2">${bpIcon("clean")} Suggestions<span class="pb-tabpill" title="suggestions count — reference-only lane"></span></span>
+        <span class="pb-tab warn">${bpIcon("warning-sign")} Pipeline warnings</span>
+        <span class="pb-traycollapse">${bpIcon("double-chevron-down")}</span>
+      </div>
+      <div class="pb-traybody">${previewTable}
+        <div class="pb-gapnote">Freeform canvas authoring — drag-connect nodes, transform code editor, scheduling, deploy — are <b>reference-only lanes disabled above</b>, not yet wired. Author stages in the <a href="/__ioi/odk?ontology=${enc(oid)}">Ontology Manager</a>; execute via a materializing run. Reference: <a href="/__apps/pipeline">Pipeline Builder capture ↗</a>.</div>
+      </div>
+    </div>
   </div>`;
 
-  // ---- LIGHT RIGHT PANEL "Pipeline outputs": the projection's read shape + output settings (daemon truth).
+  // ---- RIGHT "Pipeline outputs" PANEL (w386 = 336 content + 50 icon strip) — live projection values
+  // masked as data; Output settings block bottom-anchored like the reference.
   const mapped = cols.length;
+  const stripIcons = ["circle-arrow-right", "search", "split-view", "build", "settings", "calendar", "folder-open", "form", "import"];
   const rightPanel = `<aside class="pb-right">
-    <div class="pb-righthd">Pipeline outputs<span class="pb-rightadd">＋ Add</span></div>
-    <div class="pb-outstat"><div class="pb-outnum">${instances}</div><div class="pb-outlbl">object instance${instances === 1 ? "" : "s"} materialized</div></div>
-    ${proj ? `<div class="pb-outbox"><div class="pb-outcode">${esc(proj.name || proj.id)}</div><div class="pb-outmapped">✓ ${mapped}/${mapped} column${mapped === 1 ? "" : "s"} mapped</div><div class="pb-schema">${cols.length ? cols.map((c) => `<span class="pb-col">${esc(c)}</span>`).join("") : "<span class='pb-muted'>no columns declared</span>"}</div></div>` : `<div class="pb-empty">No read projection on this pipeline yet.</div>`}
-    <div class="pb-outbox pb-settings">
-      <div class="pb-outboxt">Output settings</div>
-      <div class="pb-setrow"><span class="pb-setk">Target ontology</span><span class="pb-muted">${selected ? esc(selected.domain || selected.id) : "No ontology selected"}</span></div>
-      <div class="pb-setrow"><span class="pb-setk">Output folder</span><span class="pb-muted">No location selected</span></div>
-      <a class="pb-btn ghost block" href="/__ioi/odk?ontology=${enc(oid)}">Edit output settings</a>
+    <div class="pb-rmain">
+      <div class="pb-righthd"><span class="pb-righttitle">Pipeline outputs</span><span class="pb-rhdico gap">${bpIcon("cog")}</span><span class="pb-rhdico gap">${bpIcon("panel-table")}</span><button class="pb-addbtn" disabled title="Adding outputs is authored in the ODK substrate — a named gap here">${bpIcon("plus")} Add</button></div>
+      <div class="pb-rsearch">${bpIcon("search")}<input placeholder="Search outputs…" disabled aria-label="Search outputs (reference-only, not wired)"></div>
+      ${proj ? `<div class="pb-outcard"><div class="pb-outcode">${bpIcon("panel-table")} ${esc(proj.name || proj.id)}</div><div class="pb-outsub">${esc(selected ? (selected.domain || selected.id) : "")} · read projection</div><div class="pb-outmapped">✓ ${mapped}/${mapped} column${mapped === 1 ? "" : "s"} mapped</div></div>` : `<div class="pb-empty">No read projection on this pipeline yet.</div>`}
+      <div class="pb-outstat">${instances} object instance${instances === 1 ? "" : "s"} materialized · ${nodes.filter((n) => n.cls === "missing").length ? nodes.filter((n) => n.cls === "missing").map((n) => esc(n.label) + " not built").join(" · ") : "all ladder stages present"}</div>
+      <div class="pb-settings">
+        <div class="pb-outboxt">Output settings</div>
+        <div class="pb-setrow"><span class="pb-setk">Target ontology</span><span class="pb-setv">${selected ? esc(selected.domain || selected.id) : "No ontology selected"}</span></div>
+        <div class="pb-setrow"><span class="pb-setk">Output folder</span><span class="pb-setv">No location selected</span></div>
+        <div class="pb-editrow"><a class="pb-editbtn" href="/__ioi/odk?ontology=${enc(oid)}">Edit output settings</a><span class="pb-moreico gap">${bpIcon("more")}</span></div>
+      </div>
     </div>
-    <div class="pb-outbox"><div class="pb-outboxt">Warnings</div>${nodes.filter((n) => n.cls === "missing").length ? nodes.filter((n) => n.cls === "missing").map((n) => `<div class="pb-warn">${n.icon} ${esc(n.label)} not built</div>`).join("") : `<div class="pb-muted">all ladder stages present</div>`}</div>
+    <div class="pb-rstrip">${stripIcons.map((ic, i) => `<span class="pb-stripico${i === 0 ? " on" : ""}${i && i % 3 === 0 ? " g" : ""} gap" title="Right-panel lane — named gap">${bpIcon(ic)}</span>`).join("")}</div>
   </aside>`;
 
-  // ---- LIGHT BOTTOM TRAY: Selection preview rows + Suggestions / Pipeline warnings (named gaps in place).
-  const tray = `<div class="pb-tray" id="pb-preview">
-    <div class="pb-traytabs"><span class="pb-tab on">Selection preview</span><span class="pb-tab">Suggestions</span><span class="pb-tab">Pipeline warnings</span><span class="pb-traynote">${proj ? `output dataset · declared columns · ${mset ? (mset.count || 0) : 0} rows · daemon truth` : "no output yet"}</span></div>
-    <div class="pb-traybody">${previewTable}
-      <div class="pb-gapnote">Freeform canvas authoring — drag-connect nodes, transform code editor, scheduling, deploy — are <b>reference-only lanes disabled above</b>, not yet wired. Author stages in the <a href="/__ioi/odk?ontology=${enc(oid)}">Ontology Manager</a>; execute via a materializing run. Reference: <a href="/__apps/pipeline">Pipeline Builder capture ↗</a>.</div>
-    </div>
-  </div>`;
-
-  // LIGHT application surface (dark global rail only). The harness samples content-area luminance
-  // (fx 0.5..0.94 = canvas + right panel) — those MUST be light for theme='light' → theme_match.
+  // LIGHT application surface, geometry pinned to the reference (glyph-anchored): header h51 · toolcard
+  // groups h55 wrapping at the reference's break points · Legend/right panel right-anchored · tray
+  // bottom-anchored (vh-300). The harness certifies the SHELL cards; the canvas/graph is the live body.
   const css = `:root{color-scheme:light}*{box-sizing:border-box}
-    body{margin:0;background:#f4f5f7;color:#1a1c20;font:13px/1.5 -apple-system,Segoe UI,Roboto,sans-serif}
-    a{color:#2b6cb0;text-decoration:none}
+    body{margin:0;background:#f6f7f9;color:#1c2127;font:14px/1.28581 Source-Sans-Pro,Helvetica,sans-serif}
+    a{color:#215db0;text-decoration:none}
     .pb-shell{display:flex;height:100vh;width:100vw;overflow:hidden}
-    .pb-rail{flex:0 0 228px;width:228px;height:100vh;background:#1b2027;color:#c9ccd3;border-right:1px solid #10131a;overflow-y:auto;padding:14px 0;display:flex;flex-direction:column}
-    .pb-brand{display:flex;align-items:center;gap:8px;font-weight:700;font-size:15px;color:#fff;padding:2px 16px 12px}
-    .pb-brandmark{color:#34c98b}
-    .pb-nav{display:block;padding:7px 16px;color:#c9ccd3;font-size:13px}
-    .pb-nav:hover{background:#242a33;color:#fff}
-    .pb-railhead{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:#6c7381;padding:14px 16px 6px;font-weight:600}
-    .pb-pipes{padding:0 8px}
-    .pb-pipe{display:flex;align-items:center;justify-content:space-between;padding:7px 10px;border-radius:8px;color:#c9ccd3;margin:1px 0}
-    .pb-pipe:hover{background:#242a33}.pb-pipe.on{background:#123524;color:#fff}
-    .pb-tag{font-size:10px;padding:1px 6px;border-radius:999px;background:#123524;color:#4fce93;border:1px solid #1f6b45}
-    .pb-railempty{color:#8a909c;padding:6px 16px;font-size:12px}
-    .pb-railactive{margin-top:auto;display:flex;align-items:center;gap:8px;padding:11px 16px;border-top:1px solid #10131a;color:#fff;font-weight:600;font-size:13px}
-    .pb-main{flex:1;min-width:0;display:flex;flex-direction:column;height:100vh;background:#f4f5f7}
-    .pb-header{flex:0 0 auto;height:52px;display:flex;align-items:center;gap:12px;padding:0 18px;border-bottom:1px solid #e2e4e8;background:#fff}
-    .pb-logo{color:#0e9f6e;font-weight:700;font-size:16px}
-    .pb-crumb{color:#5b6270;font-size:12.5px;display:flex;align-items:center;gap:8px;min-width:0;overflow:hidden;white-space:nowrap}
-    .pb-cxt{color:#7b8494}.pb-cx{color:#b6bcc6}.pb-title{color:#15181d;font-weight:700;font-size:14px}
-    .pb-state{padding:1px 8px;border-radius:999px;font-size:11px;border:1px solid}
-    .pb-state.pb-live{color:#0e8a53;border-color:#8fdcb6;background:#eafaf1}.pb-state.pb-declared{color:#9a6a12;border-color:#e6c78a;background:#fdf5e6}
-    .pb-headacts{margin-left:auto;display:flex;align-items:center;gap:8px}
-    .pb-btn{padding:6px 13px;border-radius:8px;border:1px solid #d3d7de;background:#fff;color:#2a2f38;font:inherit;font-size:12.5px;font-weight:600;cursor:pointer}
-    .pb-btn.primary{background:#0e9f6e;color:#fff;border-color:#0e9f6e}.pb-btn.ghost:hover{border-color:#adb3bd;background:#f7f8fa}
-    .pb-btn.link{border-color:transparent;background:transparent;color:#2b6cb0;padding:6px 6px}
-    .pb-btn.block{display:block;text-align:center;width:100%;margin-top:8px}
+    ${IOI_GRAIL_CSS}
+    .pb-main{flex:1;min-width:0;display:flex;flex-direction:column;height:100vh}
+    .pb-header{flex:0 0 51px;position:relative;height:51px;display:flex;align-items:stretch;background:#fff;box-shadow:0 1px 0 0 #dce0e5;z-index:6}
+    .pb-hchip{width:50px;height:51px;flex:0 0 50px;background:rgba(90,217,207,.1) url('${PIPELINE_APP_ICON_URI}') center no-repeat}
+    .pb-htitles{display:flex;flex-direction:column;padding:4px 0 0 15px;min-width:0}
+    .pb-crumbrow{display:flex;align-items:center;gap:8px;height:20px}
+    .pb-crumb{font-size:14px;color:#1c2127;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:350px;line-height:16px}
+    .pb-cx{color:#8b9099}.pb-cxt{color:#5f6b7c;font-size:12px}
+    .pb-star{position:absolute;left:431.4px;top:6.5px;display:inline-flex;color:#5f6b7c;width:16px}
+    .pb-menurow{display:flex;align-items:center;height:26px;gap:0;margin:-1px 0 0 -7px}
+    .pb-menu{display:inline-flex;align-items:center;gap:8px;font-size:14px;line-height:16.1px;color:#1c2127;padding:0 5px 0 7px;cursor:default}
+    .pb-menu svg{color:#5f6b7c}
+    .pb-menudiv{width:1px;height:16px;background:#d3d8de;margin-left:5px}
+    .pb-menudiv.d2{margin-left:8px}
+    .pb-batch{display:inline-flex;align-items:center;gap:3px;margin-left:11px;color:#5f6b7c;font-size:12px}
+    .pb-batch svg{color:#404854}
+    .pb-batchn{font-size:12px;color:#1c2127}
+    .pb-batchtag{margin-left:5.6px;background:#5f6b7c;color:#fff;font-size:12px;line-height:16px;border-radius:3px;padding:2px 4px}
+    .pb-hmid{position:absolute;left:468px;top:0;width:494px;height:51px;display:flex;align-items:center;gap:7px;overflow:hidden}
+    .pb-btn{display:inline-flex;align-items:center;height:28px;padding:0 10px;border-radius:4px;border:1px solid #d3d8de;background:#fff;color:#1c2127;font:inherit;font-size:13px;line-height:16px;font-weight:400;cursor:pointer}
+    .pb-btn.primary{background:#0e9f6e;color:#fff;border-color:#0e9f6e}
+    .pb-btn.link{border-color:transparent;background:transparent;color:#215db0;padding:0 5px}
     .pb-btn[disabled]{opacity:.5;cursor:not-allowed}
-    .pb-tsep{width:1px;height:22px;background:#e2e4e8;margin:0 4px}
-    .pb-toolbar{flex:0 0 auto;min-height:46px;display:flex;align-items:center;gap:14px;padding:0 16px;border-bottom:1px solid #e2e4e8;background:#fbfbfc;flex-wrap:wrap}
-    .pb-tgroup{display:flex;align-items:center;gap:6px;padding-right:14px;border-right:1px solid #e6e8ec}
-    .pb-tsbtn{padding:5px 11px;border-radius:7px;border:1px solid #d8dbe1;background:#fff;color:#3a3f49;font:inherit;font-size:12px;font-weight:600;cursor:pointer}
-    .pb-tsbtn.strong{color:#15181d;border-color:#c4c9d1}.pb-tsbtn[disabled]{opacity:.55;cursor:not-allowed}
-    .pb-toolnote{margin-left:auto;color:#8a909c;font-size:11.5px}
+    .pb-hright{margin-left:auto;display:flex;align-items:flex-start;gap:0;padding-right:20px}
+    .pb-hbtn{display:inline-flex;align-items:center;gap:8px;height:30px;margin-top:10px;padding:0 12px;border-radius:4px;font-size:14px;line-height:16px;color:#1c2127;cursor:default}
+    .pb-hdrdiv{width:1px;height:30px;background:#d3d8de;margin:10px 0 0 6.6px}
+    .pb-hdrdiv+.pb-hbtn{margin-left:5.4px}
+    .pb-hbtn svg{color:#5f6b7c}
+    .pb-hico{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;margin:10px 0 0 2px;color:#5f6b7c;cursor:default}
     .pb-work{flex:1 1 auto;display:flex;min-height:0}
-    .pb-center{flex:1 1 auto;min-width:0;display:flex;flex-direction:column}
-    .pb-canvaswrap{position:relative;flex:1 1 auto;min-height:0;overflow:auto;background:#eef0f2;background-image:radial-gradient(circle at 16px 16px,#d5d9df 1.4px,transparent 1.4px);background-size:24px 24px}
-    .pb-legend{position:absolute;top:14px;right:18px;background:#fff;border:1px solid #e2e4e8;border-radius:10px;padding:10px 12px;box-shadow:0 1px 4px rgba(20,24,30,.06);min-width:184px;z-index:2}
-    .pb-legendhd{font-weight:700;font-size:12.5px;color:#15181d;margin:0 0 7px}
-    .pb-legrow{display:flex;align-items:center;gap:7px;font-size:12px;color:#3a3f49;padding:2px 0}
-    .pb-legchip{width:11px;height:11px;border-radius:3px;flex:0 0 auto}
-    .pb-canvas{min-height:100%;padding:30px 22px;display:flex;align-items:flex-start}
-    .pb-flow{display:flex;align-items:stretch;gap:0;min-height:150px;padding-top:30px}
+    .pb-canvaszone{flex:1 1 auto;min-width:0;position:relative;background:#edeff2;overflow:hidden}
+    .pb-toolband{position:absolute;left:10px;top:10px;width:414px;height:165px;pointer-events:none}
+    @media(min-width:1600px){.pb-toolband{width:872px;height:56px}.pb-tg2{margin-left:30px}.pb-tg3{margin-left:15px}.pb-tghints span.pb-hwrap{width:auto;white-space:nowrap}}
+    .pb-toolcard{position:absolute;left:10px;top:10px;display:flex;flex-wrap:wrap;width:fit-content;max-width:calc(100% - 424px);background:#fff;border-radius:3px;box-shadow:0 1px 3px rgba(20,24,30,.12);z-index:4}
+    .pb-tg{position:relative;height:55px;padding:0}
+    .pb-tgrow{display:flex;align-items:center;height:30px;margin-top:0;gap:15px}
+    .pb-seg{display:inline-flex}
+    .pb-seg .pb-ticon+.pb-ticon{margin-left:-1px}
+    .pb-seg .pb-ticon{border-radius:0}.pb-seg .pb-ticon:first-child{border-radius:4px 0 0 4px}.pb-seg .pb-ticon:last-child{border-radius:0 4px 4px 0}.pb-seg .pb-ticon:only-child{border-radius:4px}
+    .pb-ticon{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border:0;background:#f7f8f8;color:#5f6b7c;border-radius:4px;padding:0;cursor:default;box-shadow:inset 0 0 0 1px rgba(64,72,84,.33),0 1px 2px rgba(17,20,24,.1)}
+    .pb-ticon.act{background:#dfe0e2;box-shadow:inset 0 0 0 1px rgba(64,72,84,.33),0 1px 2px rgba(17,20,24,.2)}
+    .pb-ticon.dim{background:rgba(143,153,168,.2);box-shadow:none;color:#8f99a8}
+    a.pb-ticon{cursor:pointer}
+    .pb-ticon[disabled]{opacity:1}
+    .pb-tghints{position:relative;height:19px;font-size:12px;line-height:15px;color:#5f6b7c}
+    .pb-tghints span{position:absolute;top:4px;white-space:nowrap}
+    .pb-tghints span.pb-hwrap{white-space:normal;width:46px;text-align:center;line-height:15.4297px}
+    .pb-tg2{display:flex;align-items:flex-start;gap:15px;padding:0}
+    .pb-twide{display:inline-flex;align-items:center;gap:8px;height:30px;padding:0 8px;border:0;border-radius:4px;background:#f7f8f8;color:#1c2127;font:inherit;font-size:14px;line-height:16px;box-shadow:inset 0 0 0 1px rgba(64,72,84,.33),0 1px 2px rgba(17,20,24,.1)}
+    .pb-twide svg{color:#5f6b7c}
+    .pb-twide[disabled]{cursor:not-allowed}
+    .pb-i-blue svg{color:#4c90f0}.pb-i-cyan svg{color:#3fa6da}.pb-i-rose svg{color:#db2c6f}.pb-i-green svg{color:#32a467}.pb-i-violet svg{color:#7961db}
+    .pb-floatbtns{position:absolute;right:330px;top:10px;display:flex;gap:10px;z-index:4}
+    .pb-zoomstack .pb-ticon+.pb-ticon{margin-top:-1px}
+    .pb-zoomstack .pb-ticon:first-child{border-radius:4px 4px 0 0}.pb-zoomstack .pb-ticon:nth-child(2){border-radius:0}.pb-zoomstack .pb-ticon:last-child{border-radius:0 0 4px 4px}
+    .pb-zoomstack{position:absolute;left:10px;bottom:310px;display:flex;flex-direction:column;z-index:4}
+    .pb-legend{position:absolute;right:7px;top:9px;width:314px;background:#f6f7f9;border:1px solid #cbccd0;border-radius:3px;padding:0 10px 8px;z-index:4}
+    .pb-legendhd{display:flex;align-items:center;justify-content:space-between;height:30px;font-size:14px;line-height:16px;color:#1c2127;padding:0;margin:0 0 0 -2px}
+    .pb-legcaret{display:inline-flex;color:#5f6b7c}
+    .pb-leggrid{display:grid;grid-template-columns:1fr 1fr;gap:0 8px;margin-top:2px}
+    .pb-legrow{display:flex;align-items:center;gap:5px;height:29px;font-size:12px;line-height:15.4297px;color:#1c2127}
+    .pb-legchip{width:14px;height:14px;border-radius:3px;flex:0 0 14px}
+    .pb-legname{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:70px}
+    .pb-legeye{display:inline-flex;color:#5f6b7c;margin:0 7px 0 auto}
+    .pb-addcolor{display:flex;align-items:center;justify-content:center;gap:7.5px;width:140px;height:24px;margin:4.5px 2px 0 auto;padding:0;border:1px solid rgba(33,93,176,.6);border-radius:4px;background:transparent;color:#215db0;font:inherit;font-size:12px;line-height:13.8px;cursor:not-allowed}
+    .pb-canvas{position:absolute;inset:51px 0 300px 0;overflow:auto;padding:60px 20px 20px}
+    .pb-pickrow{margin:110px 0 14px}
+    .pb-pick{position:relative;display:inline-block}
+    .pb-pick>summary{list-style:none;cursor:pointer;font-size:13px;color:#5f6b7c;background:#fff;border:1px solid #d3d8de;border-radius:4px;padding:4px 10px}
+    .pb-pick>summary::-webkit-details-marker{display:none}
+    .pb-picklist{position:absolute;top:32px;left:0;min-width:240px;background:#fff;border:1px solid #e0e3e8;border-radius:8px;box-shadow:0 8px 28px rgba(20,24,31,.14);padding:6px;z-index:20}
+    .pb-pipe{display:flex;align-items:center;justify-content:space-between;padding:6px 9px;border-radius:6px;color:#3a3f46}
+    .pb-pipe:hover{background:#f1f3f6}.pb-pipe.on{background:#eef2fb;color:#1a1d21;font-weight:600}
+    .pb-tag{font-size:10px;padding:1px 6px;border-radius:999px;background:#eafaf1;color:#0e8a53;border:1px solid #8fdcb6}
+    .pb-flow{display:flex;align-items:stretch;gap:0}
     .pb-arrow{flex:0 0 auto;color:#a9b0bb;padding:0 8px;font-size:17px;align-self:center}
-    .pb-node{flex:0 0 auto;width:156px;border:1px solid #dfe2e7;border-radius:11px;padding:11px 12px;background:#fff;cursor:pointer;box-shadow:0 1px 3px rgba(20,24,30,.05)}
+    .pb-node{flex:0 0 auto;width:156px;border:1px solid #dfe2e7;border-radius:6px;padding:11px 12px;background:#fff;cursor:pointer;box-shadow:0 1px 3px rgba(20,24,30,.05)}
     .pb-node:hover{border-color:#0e9f6e}
     .pb-node.pb-live{border-top:3px solid #2f9e6b}.pb-node.pb-declared{border-top:3px solid #d68a2a}.pb-node.pb-missing{border-top:3px solid #c2c6cd}
     .pb-nhead{display:flex;align-items:center;justify-content:space-between}.pb-nicon{font-size:18px}
     .pb-nlabel{font-weight:600;font-size:13px;margin:5px 0 6px;color:#15181d}
     .pb-dot{width:8px;height:8px;border-radius:50%;background:#b8bdc6}.pb-dot.pb-live{background:#2f9e6b}.pb-dot.pb-declared{background:#d68a2a}
-    .pb-ncount{font-size:12px;margin:0;color:#3a3f49}.pb-ndetail{font-size:10.5px;color:#8a909c;margin:3px 0 0;min-height:14px}
-    .pb-right{flex:0 0 300px;width:300px;height:100%;border-left:1px solid #e2e4e8;background:#fff;overflow-y:auto;padding:0 0 20px}
-    .pb-righthd{display:flex;align-items:center;justify-content:space-between;font-weight:700;font-size:13px;color:#15181d;padding:14px 16px 10px;border-bottom:1px solid #eef0f2}
-    .pb-rightadd{font-size:12px;color:#2b6cb0;font-weight:600}
-    .pb-outstat{padding:12px 16px 4px}.pb-outnum{font-size:30px;font-weight:700;color:#15181d}.pb-outlbl{color:#7b8494;font-size:12px}
-    .pb-outbox{margin:12px 14px;border:1px solid #e5e7eb;border-radius:10px;padding:11px 12px;background:#fbfbfc}
-    .pb-outboxt{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#7b8494;font-weight:600;margin:0 0 7px}
-    .pb-outcode{font-family:ui-monospace,monospace;font-size:11.5px;color:#2a2f38;margin:0 0 4px}
-    .pb-outmapped{font-size:12px;color:#0e8a53;margin:0 0 8px}
-    .pb-schema{display:flex;flex-wrap:wrap;gap:5px}.pb-col{font-size:11px;padding:2px 8px;border-radius:6px;border:1px solid #d8dbe1;color:#3a3f49;background:#fff}
-    .pb-settings .pb-setrow{display:flex;justify-content:space-between;gap:10px;font-size:12px;color:#3a3f49;padding:3px 0}.pb-setk{color:#5b6270}
-    .pb-warn{font-size:12px;color:#9a6a12;margin:3px 0}.pb-muted{color:#8a909c;font-size:12px}
-    .pb-tray{flex:0 0 210px;height:210px;border-top:1px solid #e2e4e8;background:#fff;display:flex;flex-direction:column}
-    .pb-traytabs{flex:0 0 auto;display:flex;align-items:center;gap:18px;padding:0 16px;height:40px;border-bottom:1px solid #eef0f2}
-    .pb-tab{font-size:12.5px;color:#7b8494;padding:11px 0;border-bottom:2px solid transparent;font-weight:600}.pb-tab.on{color:#15181d;border-bottom-color:#0e9f6e}
-    .pb-traynote{margin-left:auto;color:#8a909c;font-size:11.5px;font-weight:400}
+    .pb-ncount{font-size:12px;color:#3a3f49}.pb-ndetail{font-size:10.5px;color:#8a909c;margin:3px 0 0;min-height:14px}
+    .pb-tray{position:absolute;left:0;right:0;bottom:0;height:300px;background:#fff;display:flex;flex-direction:column;z-index:5}
+    .pb-traytabs{flex:0 0 35px;display:flex;align-items:stretch}
+    .pb-tab{display:inline-flex;align-items:center;gap:5px;padding:0 8px;font-size:14px;line-height:16px;font-weight:600;color:#1c2127;border-right:1px solid #dce0e5}
+    .pb-tab.s2 svg{color:#7961db}
+    .pb-tabpill{width:20px;height:20px;border-radius:4px;background:rgba(143,153,168,.15)}
+    .pb-tab svg{color:#5f6b7c}
+    .pb-tab.on{background:rgba(138,187,255,.4);color:#215db0}.pb-tab.on svg{color:#215db0}
+    .pb-tab.warn{color:#935610}.pb-tab.warn svg{color:#c87619}
+    .pb-traycollapse{margin-left:auto;display:inline-flex;align-items:center;padding:0 14px;color:#5f6b7c}
     .pb-traybody{flex:1;overflow:auto;padding:12px 16px}
     .pb-table{border-collapse:collapse;width:100%;font-size:12px}.pb-table th{text-align:left;color:#7b8494;font-weight:600;padding:4px 12px 4px 0;border-bottom:1px solid #e2e4e8}
     .pb-table td{padding:4px 12px 4px 0;border-bottom:1px solid #f0f1f4;color:#2a2f38}
     .pb-empty-cell{text-align:center;color:#8a909c;padding:16px 8px}
     .pb-empty{color:#7b8494;padding:14px;border:1px dashed #d8dbe1;border-radius:10px;background:#fbfbfc}
-    .pb-gapnote{margin:12px 0 0;padding:10px 12px;border:1px solid #e5e7eb;border-radius:9px;background:#f7f8fa;color:#5b6270;font-size:11.5px;line-height:1.6}`;
+    .pb-gapnote{margin:12px 0 0;padding:10px 12px;border:1px solid #e5e7eb;border-radius:9px;background:#f7f8fa;color:#5b6270;font-size:11.5px;line-height:1.6}
+    .pb-right{flex:0 0 386px;width:386px;display:flex;background:#fff;border-left:1px solid #dce0e5}
+    .pb-rmain{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;padding:0 0 9px}
+    .pb-righthd{display:flex;align-items:center;height:auto;padding:6.5px 9px 0 7px}
+    .pb-righttitle{font-size:14px;line-height:18.0013px;font-weight:600;color:#1c2127;flex:1}
+    .pb-rhdico{display:inline-flex;color:#5f6b7c;padding:0 7px;cursor:default}
+    .pb-addbtn{display:inline-flex;align-items:center;gap:8px;height:30px;margin-left:11px;padding:0 8px;border:0;border-radius:4px;background:#f7f8f8;color:#1c2127;font:inherit;font-size:14px;line-height:16px;cursor:not-allowed;box-shadow:inset 0 0 0 1px rgba(64,72,84,.33),0 1px 2px rgba(17,20,24,.1)}
+    .pb-rsearch{display:flex;align-items:center;gap:7px;height:30px;margin:15.5px 10px 0 7px;border:0;border-radius:4px;background:#fff;padding:0 8px;color:#5f6b7c;box-shadow:inset 0 0 0 1px rgba(17,20,24,.2),inset 0 1px 1px rgba(17,20,24,.3)}
+    .pb-rsearch input{flex:1;border:0;background:transparent;font:inherit;font-size:14px;line-height:16px;color:#1c2127;outline:none;padding:0}
+    .pb-rsearch input::placeholder{color:#5f6b7c}
+    .pb-outcard{margin:12px 8px 0;border:1px solid #e5e7eb;border-radius:3px;padding:9px 10px;background:#fff}
+    .pb-outcode{display:flex;align-items:center;gap:7px;font-size:14px;line-height:16px;color:#215db0;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .pb-outcode svg{color:#2d72d2;flex:0 0 16px}
+    .pb-outsub{font-size:12px;color:#5f6b7c;margin:3px 0 0 23px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .pb-outmapped{font-size:12px;color:#0e8a53;margin:6px 0 0 23px}
+    .pb-outstat{margin:10px 8px 0;font-size:12px;color:#5f6b7c}
+    .pb-settings{margin-top:auto;padding:12px 10px 0 8px;border-top:1px solid #eef0f2}
+    .pb-outboxt{font-size:14px;line-height:18.0013px;font-weight:600;color:#1c2127;margin:0 0 10px}
+    .pb-setrow{display:flex;gap:10px;font-size:12px;line-height:15.4297px;color:#1c2127;padding:0 0 8px}
+    .pb-setk{color:#5f6b7c;width:96px;flex:0 0 96px}
+    .pb-setv{font-style:italic;color:#5f6b7c;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .pb-editrow{display:flex;align-items:center;gap:0;margin-top:2px}
+    .pb-editbtn{flex:1;display:inline-flex;align-items:center;justify-content:center;height:30px;border:0;border-radius:4px 0 0 4px;background:#f7f8f8;color:#1c2127;font-size:14px;line-height:16px;box-shadow:inset 0 0 0 1px rgba(64,72,84,.33),0 1px 2px rgba(17,20,24,.1)}
+    .pb-moreico{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border:0;border-radius:0 4px 4px 0;color:#5f6b7c;background:#f7f8f8;box-shadow:inset 0 0 0 1px rgba(64,72,84,.33),0 1px 2px rgba(17,20,24,.1)}
+    .pb-rstrip{flex:0 0 50px;width:50px;background:#fff;border-left:1px solid #e2e4e8;display:flex;flex-direction:column;align-items:center;padding:5px 0;gap:5px}
+    .pb-stripico{display:inline-flex;align-items:center;justify-content:center;width:40px;height:40px;border-radius:4px;color:#5f6b7c}
+    .pb-stripico.g{margin-top:14px;position:relative}
+    .pb-stripico.g::before{content:"";position:absolute;top:-7.5px;left:0;width:40px;height:1px;background:#d8dbde}
+    .pb-stripico.on{background:#dfe0e1}`;
 
   return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Pipeline Builder</title><style>${css}</style></head>
-    <body><div class="pb-shell">${rail}<div class="pb-main">${header}${toolbar}<div class="pb-work"><div class="pb-center">${canvasWrap}${tray}</div>${rightPanel}</div></div></body></html>`;
+    <body><div class="pb-shell">${globalRail}<div class="pb-main">${header}<div class="pb-work">${canvasWrap}${rightPanel}</div></div></div></body></html>`;
 }
 
 function renderOntologyManager(ov, lists, selectedId) {
@@ -4001,28 +4090,32 @@ function renderOntologyManager(ov, lists, selectedId) {
 // row h36 with the extracted app-icon chip · bottom cluster AIP/Support/Account y794/826/858). Used by
 // every shell-pixel-certified port (schema #41, approvals #42, …) so the rail is aligned ONCE.
 function ioiGlobalRailHtml(active) {
+  // Per-reference rail variant: each certified surface reproduces ITS reference capture's rail state
+  // (badges / View-all / star / gradient AIP / account-chip style differ across captures). Defaults
+  // keep the schema/approvals-certified rail untouched.
   const gi = (icon, label, opts = {}) => {
     const kbd = opts.kbd ? `<kbd class="og-gkbd">${opts.kbd.split("+").map((k) => `<span>${k.trim()}</span>`).join("<span>+</span>")}</kbd>` : "";
-    const inner = `<span class="og-gico">${bpIcon(icon)}</span><span class="og-glabel">${CX_ESC(label)}</span>${kbd}`;
+    const ico = icon === "@aip-grad" ? AIP_GRADIENT_SVG_RAIL : bpIcon(icon);
+    const inner = `<span class="og-gico">${ico}${opts.badge ? '<span class="og-gbadge"></span>' : ""}</span><span class="og-glabel">${CX_ESC(label)}</span>${kbd}`;
     return opts.href ? `<a class="og-gitem" href="${opts.href}">${inner}</a>` : `<span class="og-gitem muted">${inner}</span>`;
   };
-  return `<aside class="og-grail">
+  return `<aside class="og-grail${active.railVariant ? " " + active.railVariant : ""}">
     <div class="og-gtop"><span class="og-gmark">◗</span><span class="og-gmenu">${bpIcon("menu-closed")}</span></div>
     ${gi("home", "Home", { href: "/ai" })}
     ${gi("search", "Search…", { kbd: "ctrl + J" })}
-    ${gi("notifications", "Notifications", {})}
-    ${gi("whatsnew-gift", "What's New", {})}
+    ${gi("notifications", "Notifications", { badge: active.badges })}
+    ${gi("whatsnew-gift", "What's New", { badge: active.badges })}
     <div class="og-gdiv"></div>
     ${gi("history", "Recent", {})}
     ${gi("folder-open", "Files", {})}
     ${gi("cubes", "Ontology", { href: "/__ioi/odk" })}
     ${gi("layout-grid", "Applications", { href: "/__ioi/home" })}
-    <div class="og-gsecrow"><span class="og-gsec">APPLICATIONS</span><a class="og-gviewall" href="/__ioi/home">View all</a></div>
-    <a class="og-gitem on" href="${active.href}"><span class="og-gappico" style="background-image:url('${active.iconUri}')"></span><span class="og-glabel og-strong">${CX_ESC(active.label)}</span><span class="og-gstar">${bpIcon("star-empty")}</span></a>
+    <div class="og-gsecrow"><span class="og-gsec">APPLICATIONS</span>${active.viewAll === false ? "" : `<a class="og-gviewall" href="/__ioi/home">View all</a>`}</div>
+    <a class="og-gitem on" href="${active.href}"><span class="og-gappico" style="background-image:url('${active.iconUri}')"></span><span class="og-glabel og-strong">${CX_ESC(active.label)}</span>${active.star === false ? "" : `<span class="og-gstar">${bpIcon("star-empty")}</span>`}</a>
     <div class="og-gspacer"></div>
-    ${gi("aip-logo", "AIP Assist", { kbd: "ctrl + shift + U" })}
+    ${gi(active.aipGradient ? "@aip-grad" : "aip-logo", "AIP Assist", { kbd: "ctrl + shift + U" })}
     ${gi("help", "Support", {})}
-    <span class="og-gitem muted og-gaccount"><span class="og-gavatar">LJ</span><span class="og-glabel">Account</span></span>
+    <span class="og-gitem muted og-gaccount"><span class="og-gavatar${active.acctMuted ? " alt" : ""}">LJ</span><span class="og-glabel">Account</span></span>
   </aside>`;
 }
 const IOI_GRAIL_CSS = `
@@ -4036,7 +4129,14 @@ const IOI_GRAIL_CSS = `
     .og-gitem{display:flex;align-items:center;gap:12px;height:32px;padding:0 8px 0 5px;border-radius:6px;color:#f6f7f9;font-size:14px;font-weight:400}
     .og-gitem:hover{background:#2f353d;color:#fff}.og-gitem.on{background:#2f353d;color:#fff;font-weight:600;height:36px}
     .og-gitem.muted{color:#f6f7f9;cursor:default}.og-gitem.muted:hover{background:transparent}
-    .og-gico{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;color:#abb3bf;flex:0 0 16px}
+    .og-gico{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;color:#abb3bf;flex:0 0 16px;position:relative}
+    .og-gbadge{position:absolute;left:9px;top:-3px;width:8px;height:8px;background:#fbb360;border:1px solid #2f343c;border-radius:50%}
+    .og-gavatar.alt{background:rgba(45,114,210,.2);color:#8abbff;border-radius:50%;margin-left:-2px;margin-right:-2px}
+    .rv-pipe .og-gitem.on{background:#1c2127;margin:0 -12px;padding:0 20px 0 17px;border-radius:0}
+    .rv-pipe .og-gkbd{gap:0;margin-right:-2px}
+    .rv-pipe .og-gkbd span:nth-child(even){display:inline-flex;justify-content:center;width:16px;margin:0}
+    .rv-pipe .og-gsecrow{padding-top:31.3px;padding-bottom:6.3px}
+    .rv-pipe .og-gsec{letter-spacing:0}
     .og-gitem.on .og-gico{color:#f6f7f9}
     .og-glabel{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1 1 auto}
     .og-gkbd{display:inline-flex;align-items:center;gap:3px;font-size:14px;color:#abb3bf;font-family:inherit;margin-right:4px}
