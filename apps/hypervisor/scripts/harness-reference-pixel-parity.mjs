@@ -84,12 +84,13 @@ export const SURFACE_SHELL = {
     data: { ref: [{ selector: '[class*="sidebar-main-navigation" i] .bp6-tag', label: "captured-resource-counts" }], ioi: [{ selector: ".og-c", label: "live-resource-counts" }] },
   },
   approvals: {
+    // The approvals reference has NO top navbar — the app title lives inside the 300px faceted sidebar,
+    // which starts at the very top next to the 230px global rail.
     rects: [
-      { key: "rail", anchor: "left", x: 0, y: 0, w: 236, h: 0 },
-      { key: "header", anchor: "topbar", x: 236, y: 0, w: 0, h: 52 },
-      { key: "apprail", anchor: "left", x: 236, y: 52, w: 260, h: 0 },  // faceted filters sidebar
+      { key: "rail", anchor: "left", x: 0, y: 0, w: 230, h: 0 },
+      { key: "apprail", anchor: "left", x: 230, y: 0, w: 300, h: 0 },   // faceted filters sidebar (title + facets)
     ],
-    data: { ref: [], ioi: [{ selector: "[class*=\"count\" i],.ap-count,.ap-badge", label: "live-facet-counts" }] },
+    data: { ref: [], ioi: [{ selector: ".ap-qfc", label: "live-quick-filter-counts" }] },
   },
   pipeline: {
     rects: [

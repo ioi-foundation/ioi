@@ -26,7 +26,7 @@ import { WebSocketServer } from "ws";
 import * as adapter from "./ioi-api-adapter.mjs";
 import { getRun, listRuns, hydrateRunsFromDaemon, publishRunViaConnector } from "./ioi-agent-runs.mjs";
 import { projectRunTimeline } from "./ioi-run-timeline.mjs";
-import { bpIcon, ONTOLOGY_APP_ICON_URI } from "./bp-icons.mjs";
+import { bpIcon, ONTOLOGY_APP_ICON_URI, APPROVALS_APP_ICON_URI } from "./bp-icons.mjs";
 import { mintApprovalGrant } from "../../../scripts/lib/mint-approval-grant.mjs";
 
 // Build the current conversation entries for a run, in the exact NDJSON shape the SPA's V1 pane
@@ -3995,6 +3995,58 @@ function renderOntologyManager(ov, lists, selectedId) {
 // Light theme + card-first IA + the reference's landmark labels — matched so the HARDENED harness
 // (theme + IA landmarks + region geometry, #34 review) can certify visual parity. Wired to the REAL
 // ODK CanonicalObjectModel; READ-ONLY (authoring + object materialization stay in /__ioi/odk).
+
+// ---- SHARED pixel-aligned GLOBAL RAIL (the reference Foundry-shell left chrome, reproduced to the
+// measured spec: 230px · rgb(37,42,49) · items y61 @32px pitch · APPLICATIONS section y369 · active app
+// row h36 with the extracted app-icon chip · bottom cluster AIP/Support/Account y794/826/858). Used by
+// every shell-pixel-certified port (schema #41, approvals #42, …) so the rail is aligned ONCE.
+function ioiGlobalRailHtml(active) {
+  const gi = (icon, label, opts = {}) => {
+    const kbd = opts.kbd ? `<kbd class="og-gkbd">${opts.kbd.split("+").map((k) => `<span>${k.trim()}</span>`).join("<span>+</span>")}</kbd>` : "";
+    const inner = `<span class="og-gico">${bpIcon(icon)}</span><span class="og-glabel">${CX_ESC(label)}</span>${kbd}`;
+    return opts.href ? `<a class="og-gitem" href="${opts.href}">${inner}</a>` : `<span class="og-gitem muted">${inner}</span>`;
+  };
+  return `<aside class="og-grail">
+    <div class="og-gtop"><span class="og-gmark">◗</span><span class="og-gmenu">${bpIcon("menu-closed")}</span></div>
+    ${gi("home", "Home", { href: "/ai" })}
+    ${gi("search", "Search…", { kbd: "ctrl + J" })}
+    ${gi("notifications", "Notifications", {})}
+    ${gi("whatsnew-gift", "What's New", {})}
+    <div class="og-gdiv"></div>
+    ${gi("history", "Recent", {})}
+    ${gi("folder-open", "Files", {})}
+    ${gi("cubes", "Ontology", { href: "/__ioi/odk" })}
+    ${gi("layout-grid", "Applications", { href: "/__ioi/home" })}
+    <div class="og-gsecrow"><span class="og-gsec">APPLICATIONS</span><a class="og-gviewall" href="/__ioi/home">View all</a></div>
+    <a class="og-gitem on" href="${active.href}"><span class="og-gappico" style="background-image:url('${active.iconUri}')"></span><span class="og-glabel og-strong">${CX_ESC(active.label)}</span><span class="og-gstar">${bpIcon("star-empty")}</span></a>
+    <div class="og-gspacer"></div>
+    ${gi("aip-logo", "AIP Assist", { kbd: "ctrl + shift + U" })}
+    ${gi("help", "Support", {})}
+    <span class="og-gitem muted og-gaccount"><span class="og-gavatar">LJ</span><span class="og-glabel">Account</span></span>
+  </aside>`;
+}
+const IOI_GRAIL_CSS = `
+    .og-grail{flex:0 0 230px;width:230px;height:100vh;background:#252a31;color:#f6f7f9;display:flex;flex-direction:column;padding:0 12px 10px;overflow:hidden;font:14px/1.28581 Source-Sans-Pro,Helvetica,sans-serif}
+    .og-gtop{height:61px;display:flex;align-items:center;justify-content:space-between;padding:0 19px 0 6px;flex:0 0 61px}
+    .og-gmark{font-size:20px;color:#f6f7f9}
+    .og-gmenu{display:inline-flex;color:#abb3bf}
+    .og-gappico{width:24px;height:24px;flex:0 0 24px;margin:-4px -4px -4px -4px;border-radius:3px;background-color:rgba(102,158,255,.1);background-position:center;background-size:16px;background-repeat:no-repeat}
+    .og-strong{font-weight:600}
+    .og-gstar{display:inline-flex;color:#abb3bf;width:16px;flex:0 0 16px}
+    .og-gitem{display:flex;align-items:center;gap:12px;height:32px;padding:0 8px 0 5px;border-radius:6px;color:#f6f7f9;font-size:14px;font-weight:400}
+    .og-gitem:hover{background:#2f353d;color:#fff}.og-gitem.on{background:#2f353d;color:#fff;font-weight:600;height:36px}
+    .og-gitem.muted{color:#f6f7f9;cursor:default}.og-gitem.muted:hover{background:transparent}
+    .og-gico{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;color:#abb3bf;flex:0 0 16px}
+    .og-gitem.on .og-gico{color:#f6f7f9}
+    .og-glabel{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1 1 auto}
+    .og-gkbd{display:inline-flex;align-items:center;gap:3px;font-size:14px;color:#abb3bf;font-family:inherit;margin-right:4px}
+    .og-gdiv{height:21px}
+    .og-gsecrow{display:flex;align-items:center;justify-content:space-between;padding:30px 8px 5px 5px}
+    .og-gsec{font-size:12px;letter-spacing:.02em;color:#abb3bf;font-weight:600}
+    .og-gviewall{font-size:14px;color:#abb3bf;font-weight:400}
+    .og-gavatar{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;margin-left:0;margin-right:-4px;border-radius:3px;background:#1e6ba1;color:#8abbff;font-size:12px;font-weight:600;flex:0 0 20px}
+    .og-gspacer{flex:1 1 auto;min-height:14px}`;
+
 function renderOntologyManagerPort(ov, lists, selectedId) {
   const enc = encodeURIComponent, esc = CX_ESC;
   const o = ov || {};
@@ -4021,32 +4073,8 @@ function renderOntologyManagerPort(ov, lists, selectedId) {
   const svg = (p) => `<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
   const CUBE = '<path d="M12 2l9 5v10l-9 5-9-5V7z"/>';
 
-  // DARK global platform rail — source-neutral IOI nav, faithful to the reference's left chrome, drawn
-  // with the reference's own Blueprint icon glyphs (bp-icons.mjs) + Source Sans Pro so the chrome zone
-  // pixel-matches (pixel wave #41). Geometry tuned to the captured reference (32px row pitch from y≈61).
-  const gitem = (icon, label, opts = {}) => {
-    const kbd = opts.kbd ? `<kbd class="og-gkbd">${opts.kbd.split("+").map((k) => `<span>${k.trim()}</span>`).join("<span>+</span>")}</kbd>` : "";
-    const inner = `<span class="og-gico">${icon}</span><span class="og-glabel">${esc(label)}</span>${kbd}`;
-    return opts.href ? `<a class="og-gitem${opts.on ? " on" : ""}" href="${opts.href}">${inner}</a>` : `<span class="og-gitem muted">${inner}</span>`;
-  };
-  const globalRail = `<aside class="og-grail">
-    <div class="og-gtop"><span class="og-gmark">◗</span><span class="og-gmenu">${bpIcon("menu-closed")}</span></div>
-    ${gitem(bpIcon("home"), "Home", { href: "/ai" })}
-    ${gitem(bpIcon("search"), "Search…", { kbd: "ctrl + J" })}
-    ${gitem(bpIcon("notifications"), "Notifications", {})}
-    ${gitem(bpIcon("whatsnew-gift"), "What's New", {})}
-    <div class="og-gdiv"></div>
-    ${gitem(bpIcon("history"), "Recent", {})}
-    ${gitem(bpIcon("folder-open"), "Files", {})}
-    ${gitem(bpIcon("cubes"), "Ontology", { href: "/__ioi/odk" })}
-    ${gitem(bpIcon("layout-grid"), "Applications", { href: "/__ioi/home" })}
-    <div class="og-gsecrow"><span class="og-gsec">APPLICATIONS</span><a class="og-gviewall" href="/__ioi/home">View all</a></div>
-    <a class="og-gitem on" href="/__ioi/ontology/manager"><span class="og-gappico"></span><span class="og-glabel og-strong">Ontology Manager</span><span class="og-gstar">${bpIcon("star-empty")}</span></a>
-    <div class="og-gspacer"></div>
-    ${gitem(bpIcon("aip-logo"), "AIP Assist", { kbd: "ctrl + shift + U" })}
-    ${gitem(bpIcon("help"), "Support", {})}
-    <span class="og-gitem muted og-gaccount"><span class="og-gavatar">LJ</span><span class="og-glabel">Account</span></span>
-  </aside>`;
+  // DARK global platform rail — the SHARED pixel-aligned reference shell (ioiGlobalRailHtml).
+  const globalRail = ioiGlobalRailHtml({ label: "Ontology Manager", href: "/__ioi/ontology/manager", iconUri: ONTOLOGY_APP_ICON_URI });
 
   // LIGHT header — the reference navbar layout: app-icon chip · title · centered Search-resources input
   // (ctrl+K) · branch selector (named gap) · New. The ONTOLOGY SWITCHER (a live control with no reference
@@ -4148,26 +4176,7 @@ function renderOntologyManagerPort(ov, lists, selectedId) {
     body{margin:0;background:#f4f5f7;color:#1c2127;font:14px/1.28581 Source-Sans-Pro,Helvetica,sans-serif}
     a{color:#2f6fd8;text-decoration:none}
     .og-shell{display:flex;height:100vh;width:100vw;overflow:hidden}
-    .og-grail{flex:0 0 230px;width:230px;height:100vh;background:#252a31;color:#f6f7f9;display:flex;flex-direction:column;padding:0 12px 10px;overflow:hidden}
-    .og-gtop{height:61px;display:flex;align-items:center;justify-content:space-between;padding:0 19px 0 6px;flex:0 0 61px}
-    .og-gmark{font-size:20px;color:#f6f7f9}
-    .og-gmenu{display:inline-flex;color:#abb3bf}
-    .og-gappico{width:24px;height:24px;flex:0 0 24px;margin:-4px -4px -4px -4px;border-radius:3px;background:rgba(102,158,255,.1) url('${ONTOLOGY_APP_ICON_URI}') center/16px no-repeat}
-    .og-strong{font-weight:600}
-    .og-gstar{display:inline-flex;color:#abb3bf;width:16px;flex:0 0 16px}
-    .og-gitem{display:flex;align-items:center;gap:12px;height:32px;padding:0 8px 0 5px;border-radius:6px;color:#f6f7f9;font-size:14px;font-weight:400}
-    .og-gitem:hover{background:#2f353d;color:#fff}.og-gitem.on{background:#2f353d;color:#fff;font-weight:600;height:36px}
-    .og-gitem.muted{color:#f6f7f9;cursor:default}.og-gitem.muted:hover{background:transparent}
-    .og-gico{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;color:#abb3bf;flex:0 0 16px}
-    .og-gitem.on .og-gico{color:#f6f7f9}
-    .og-glabel{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1 1 auto}
-    .og-gkbd{display:inline-flex;align-items:center;gap:3px;font-size:14px;color:#abb3bf;font-family:inherit;margin-right:4px}
-    .og-gdiv{height:21px}
-    .og-gsecrow{display:flex;align-items:center;justify-content:space-between;padding:30px 8px 5px 5px}
-    .og-gsec{font-size:12px;letter-spacing:.02em;color:#abb3bf;font-weight:600}
-    .og-gviewall{font-size:14px;color:#abb3bf;font-weight:400}
-    .og-gavatar{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;margin-left:0;margin-right:-4px;border-radius:3px;background:#1e6ba1;color:#8abbff;font-size:12px;font-weight:600;flex:0 0 20px}
-    .og-gspacer{flex:1 1 auto;min-height:14px}
+    ${IOI_GRAIL_CSS}
     .og-main{flex:1;min-width:0;display:flex;flex-direction:column;height:100vh}
     .og-header{flex:0 0 auto;position:relative;height:50px;display:flex;align-items:center;padding:0 15px 0 0;background:#fff;box-shadow:0 1px 0 0 #dce0e5;z-index:5}
     .og-hchip{width:50px;height:50px;flex:0 0 50px;background:rgba(102,158,255,.1) url('${ONTOLOGY_APP_ICON_URI}') center no-repeat}
@@ -4680,27 +4689,8 @@ function renderApprovalsPort(records, statusFilter, opts) {
   const CHECK = '<rect x="3" y="3" width="18" height="18" rx="4"/><path d="M8 12l3 3 5-6"/>';
   const CUBE = '<path d="M12 2l9 5v10l-9 5-9-5V7z"/>';
 
-  // DARK global platform rail — Approvals active (faithful to the reference's left chrome).
-  const gitem = (icon, label, href, on) => (href ? `<a class="og-gitem${on ? " on" : ""}" href="${href}">` : `<span class="og-gitem muted">`) + `<span class="og-gico">${icon}</span><span class="og-glabel">${esc(label)}</span>` + (href ? `</a>` : `</span>`);
-  const globalRail = `<aside class="og-grail">
-    <div class="og-brand"><span class="og-logo">${svg(CHECK)}</span></div>
-    ${gitem(svg('<path d="M3 10l9-7 9 7"/><path d="M5 9v11h14V9"/>'), "Home", "/ai")}
-    ${gitem(svg('<circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/>'), "Search", "")}
-    ${gitem(svg('<path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9"/>'), "Notifications", "")}
-    ${gitem(svg('<path d="M12 3v18M5 8h14M5 16h14"/>'), "What's New", "")}
-    <div class="og-gdiv"></div>
-    ${gitem(svg('<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/>'), "Recent", "")}
-    ${gitem(svg('<path d="M3 7h6l2 2h10v11H3z"/>'), "Files", "")}
-    ${gitem(svg(CUBE), "Ontology", "/__ioi/odk")}
-    ${gitem(svg('<rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/>'), "Applications", "/__ioi/home")}
-    <div class="og-gsec">Applications</div>
-    ${gitem(svg(CHECK), "Approvals", "/__ioi/governance/approvals", true)}
-    <div class="og-gspacer"></div>
-    ${gitem(svg('<circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 015 0c0 2-2.5 2-2.5 4M12 17h.01"/>'), "Support", "")}
-    ${gitem(svg('<circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/>'), "Account", "")}
-  </aside>`;
-
-  const header = `<header class="ap-hd"><span class="ap-happ">${svg(CHECK)}</span><span class="ap-htitle">Approvals</span><a class="ap-subst" href="/__ioi/governance?tab=approvals">Substrate table →</a></header>`;
+  // DARK global platform rail — the SHARED pixel-aligned reference shell (ioiGlobalRailHtml, #42).
+  const globalRail = ioiGlobalRailHtml({ label: "Approvals", href: "/__ioi/governance/approvals", iconUri: APPROVALS_APP_ICON_URI });
 
   // LIGHT faceted filter sidebar — Quick filters (real status shortcuts) + Additional filters (Status
   // is wired to ?status=; the rest are faithful faceted controls disabled as named gaps).
@@ -4709,7 +4699,8 @@ function renderApprovalsPort(records, statusFilter, opts) {
     : `<a class="ap-qf${on ? " on" : ""}" href="${href}"><span class="ap-qfi">${svg('<path d="M3 7h6l2 2h10v9H3z"/>')}</span>${esc(label)}<span class="ap-qfc">${count}</span></a>`;
   const statusOpt = (v, label) => `<option value="${v}"${v === view ? " selected" : ""}>${esc(label)}</option>`;
   const facets = `<aside class="ap-facets">
-    <div class="ap-fsec">Quick filters</div>
+    <div class="ap-ftitle"><span class="ap-fappico" style="background-image:url('${APPROVALS_APP_ICON_URI}')"></span><h5>Approvals</h5><a class="ap-subst" href="/__ioi/governance?tab=approvals" title="The substrate approvals table">⇱</a></div>
+    <div class="ap-fsec first">Quick filters</div>
     <div class="ap-qfbox">
       ${qf("Your inbox", byStatus.pending, "/__ioi/governance/approvals?status=pending", view === "pending")}
       ${qf("Created by you", 0, "", false, true)}
@@ -4768,35 +4759,31 @@ function renderApprovalsPort(records, statusFilter, opts) {
   </aside>` : "";
 
   const css = `html{color-scheme:light}*{box-sizing:border-box}
-    body{margin:0;background:#f4f5f7;color:#1a1d21;font:13px/1.55 -apple-system,Segoe UI,Roboto,sans-serif}
+    body{margin:0;background:#f6f7f9;color:#1c2127;font:14px/1.28581 Source-Sans-Pro,Helvetica,sans-serif}
     a{color:#2f6fd8;text-decoration:none}
     .ap-shell{display:flex;height:100vh;width:100vw;overflow:hidden}
-    .og-grail{flex:0 0 220px;width:220px;height:100vh;background:#21242b;color:#c4c8d0;display:flex;flex-direction:column;padding:10px 10px 12px;overflow-y:auto}
-    .og-brand{padding:4px 8px 10px}.og-logo{display:inline-flex;color:#7aa2ff}
-    .og-gitem{display:flex;align-items:center;gap:11px;padding:7px 9px;border-radius:7px;color:#c4c8d0;font-size:13px}
-    .og-gitem:hover{background:#2c3038;color:#fff}.og-gitem.on{background:#2f6fd8;color:#fff}
-    .og-gitem.muted{color:#8b909a;cursor:default}.og-gitem.muted:hover{background:transparent;color:#8b909a}
-    .og-gico{display:inline-flex;width:18px}.og-glabel{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .og-gdiv{height:1px;background:#33373f;margin:8px 6px}
-    .og-gsec{font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;color:#7a7f89;padding:12px 9px 5px;font-weight:600}
-    .og-gspacer{flex:1 1 auto;min-height:14px}
-    .ap-main{flex:1;min-width:0;display:flex;flex-direction:column;height:100vh}
-    .ap-hd{flex:0 0 auto;height:52px;display:flex;align-items:center;gap:11px;padding:0 20px;background:#fff;border-bottom:1px solid #e6e8ec}
-    .ap-happ{display:inline-flex;color:#2f6fd8}.ap-htitle{font-weight:700;font-size:16px}.ap-subst{margin-left:auto;font-size:12.5px}
+    ${IOI_GRAIL_CSS}
+    .ap-main{flex:1;min-width:0;display:flex;flex-direction:column;height:100vh;position:relative}
+    .ap-topbar{position:absolute;top:0;left:0;right:0;height:51px;pointer-events:none}
     .ap-work{flex:1 1 auto;display:flex;min-height:0}
-    .ap-facets{flex:0 0 300px;width:300px;background:#f4f5f7;overflow-y:auto;padding:18px 18px 24px}
-    .ap-fsec{font-size:13px;font-weight:600;color:#3a3f46;margin:14px 0 8px;display:flex;justify-content:space-between;align-items:baseline}
-    .ap-fsec:first-child{margin-top:0}.ap-clear{font-size:12px;font-weight:400}
-    .ap-qfbox{background:#fff;border:1px solid #e2e5ea;border-radius:10px;padding:6px;box-shadow:0 1px 2px rgba(20,24,31,.04)}
-    .ap-qf{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:7px;color:#3a3f46;font-size:13px}
-    .ap-qf:hover{background:#f1f3f6}.ap-qf.on{background:#eef2fb;color:#1a3d7a;font-weight:600}
-    .ap-qf.gap{color:#a2a7af;cursor:default}.ap-qfi{display:inline-flex;color:#8b9099}.ap-qf.on .ap-qfi{color:#2f6fd8}
-    .ap-qfc{margin-left:auto;font-size:12px;color:#8b9099}
-    .ap-ff{display:flex;flex-direction:column;gap:5px;background:#fff;border:1px solid #e2e5ea;border-radius:10px;padding:12px}
-    .ap-flabel{font-size:11.5px;color:#6b7178;margin-top:6px}
-    .ap-fsel{padding:7px 9px;border:1px solid #d6dae0;border-radius:7px;font:inherit;font-size:12.5px;background:#fff;color:#3a3f46}
+    .ap-facets{flex:0 0 300px;width:300px;background:#fff;border-right:1px solid #dce0e5;overflow-y:auto;padding:0 27px 24px 25px}
+    .ap-ftitle{display:flex;align-items:flex-start;height:84px;padding-top:7px}
+    .ap-fappico{width:24px;height:24px;flex:0 0 24px;margin-right:14px;border-radius:3px;background-color:rgba(102,158,255,.1);background-position:center;background-size:16px;background-repeat:no-repeat}
+    .ap-ftitle h5{margin:0;font-size:16px;font-weight:600;color:#1c2127;flex:1}
+    .ap-subst{font-size:13px;color:#8b9099}
+    .ap-fsec{font-size:14px;font-weight:600;color:#1c2127;margin:26px 0 10px 30px;display:flex;justify-content:space-between;align-items:baseline}
+    .ap-clear{font-size:14px;font-weight:400;color:#215db0}
+    .ap-fsec.first{margin-top:7px}
+    .ap-qfbox{background:#fff;border:1px solid #d3d8de;border-radius:6px;padding:6px;margin:0 0 0 0}
+    .ap-qf{display:flex;align-items:center;gap:10px;height:40px;padding:0 10px;border-radius:4px;color:#1c2127;font-size:14px}
+    .ap-qf:hover{background:#f6f7f9}.ap-qf.on{background:#f3f8ff;color:#215db0;font-weight:600}
+    .ap-qf.gap{color:#1c2127;cursor:default}.ap-qfi{display:inline-flex;color:#5f6b7c;width:16px;flex:0 0 16px}.ap-qf.on .ap-qfi{color:#215db0}
+    .ap-qfc{margin-left:auto;font-size:12px;color:#1c2127;background:#eef0f3;border-radius:4px;padding:1px 7px;line-height:18px}
+    .ap-ff{display:flex;flex-direction:column;padding:0 0 0 45px}
+    .ap-flabel{font-size:12px;color:#5f6b7c;margin:27px 0 0}
+    .ap-fsel{margin-top:8px;height:30px;padding:0 9px;border:1px solid #d3d8de;border-radius:4px;font:inherit;font-size:14px;background:#fff;color:#1c2127;width:100%}
     .ap-fsel[disabled]{background:#eef1f5;color:#3a3f46;cursor:not-allowed}
-    .ap-fcheck{display:flex;align-items:center;gap:7px;font-size:12.5px;color:#6b7178;margin-top:8px}.ap-fcheck.gap{cursor:not-allowed}
+    .ap-fcheck{display:flex;align-items:center;gap:8px;font-size:14px;color:#1c2127;margin-top:14px}.ap-fcheck.gap{cursor:not-allowed}
     .ap-list{flex:1 1 auto;overflow:auto;padding:18px 22px;background:#f4f5f7}
     .ap-listhd{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 14px}
     .ap-list h2{font-size:15px;margin:0;font-weight:600}.ap-n{color:#9aa0a8;font-weight:400}
@@ -4827,7 +4814,7 @@ function renderApprovalsPort(records, statusFilter, opts) {
     .act.primary{background:#2f6fd8;color:#fff;border-color:#2f6fd8}.act.ghost:hover{border-color:#b6bcc4}`;
 
   return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Approvals inbox</title><style>${css}</style></head>
-    <body><div class="ap-shell">${globalRail}<div class="ap-main">${header}<div class="ap-work">${facets}${list}${detail}</div></div></div></body></html>`;
+    <body><div class="ap-shell">${globalRail}<div class="ap-main"><div class="ap-topbar" aria-hidden="true"></div><div class="ap-work">${facets}${list}${detail}</div></div></div></body></html>`;
 }
 
 function govApprovalsQueue(records) {

@@ -70,8 +70,8 @@ async function run() {
   // 2. FAITHFUL FACETED SHELL — light, not the earlier dark ap-rail/ap-table shell.
   const port = await page(`${SERVE}/__ioi/governance/approvals`);
   const t = port.text;
-  ok("the ported inbox is the FACETED shell (dark og-grail + light ap-facets sidebar + light <main> ap-list)", port.status === 200 && /class="og-grail"/.test(t) && /class="ap-facets"/.test(t) && /<main class="ap-list"[^>]*role="main"/.test(t) && /class="ap-hd"/.test(t));
-  ok("it is LIGHT-themed and NOT the earlier dark native shell (no ap-rail / ap-table / ap-view; not automationsShell)", /html\{color-scheme:light\}/.test(t) && /background:#f4f5f7/.test(t) && !/color-scheme:dark/.test(t) && !/background:#0c0d10/.test(t) && !/class="ap-rail"/.test(t) && !/class="ap-table"/.test(t) && !/class="ap-view /.test(t) && !/class="wrap"/.test(t) && !/max-width:920px/.test(t));
+  ok("the ported inbox is the FACETED shell (dark og-grail + light ap-facets sidebar w/ its Approvals title + light <main> ap-list)", port.status === 200 && /class="og-grail"/.test(t) && /class="ap-facets"/.test(t) && /<main class="ap-list"[^>]*role="main"/.test(t) && /class="ap-ftitle"/.test(t));
+  ok("it is LIGHT-themed and NOT the earlier dark native shell (no ap-rail / ap-table / ap-view; not automationsShell)", /html\{color-scheme:light\}/.test(t) && /background:#f6f7f9/.test(t) && !/color-scheme:dark/.test(t) && !/background:#0c0d10/.test(t) && !/class="ap-rail"/.test(t) && !/class="ap-table"/.test(t) && !/class="ap-view /.test(t) && !/class="wrap"/.test(t) && !/max-width:920px/.test(t));
   ok("<title>Approvals inbox</title> + the reference faceted IA (Quick filters / Additional filters + inbox facets)", /<title>Approvals inbox/.test(t) && ["Quick filters", "Your inbox", "Created by you", "All requests", "Additional filters", "Request type", "Status"].every((l) => t.includes(l)));
 
   // 3. VISUAL PARITY — the hardened harness certifies against the VALID light reference.
