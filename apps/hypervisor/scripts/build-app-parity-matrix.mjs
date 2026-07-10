@@ -132,18 +132,22 @@ function parityClass(slug) {
 }
 const OVERLAY_FOR = (slug) => DAEMON_WIRED[slug] || REFERENCE_PORTED[slug] || REFERENCE_PORT_PENDING[slug] || SUBSTRATE_BOUND[slug] || null;
 
-// PIXEL CERTIFICATION (PR #40 wave) — a STRONGER evidence layer on TOP of daemon_wired, never a
-// replacement for it or for daemon truth. A slug appears here ONLY after the pixel harness
-// (harness-reference-pixel-parity.mjs) certifies it at the required viewports: visual gates (#34/#39)
-// AND full-image diff ≤ 2.5% AND chrome diff ≤ 0.75% AND region bboxΔ ≤ 8px AND zone-palette drift
-// ≤ 0.05, after DATA-ONLY masks (over-mask fails closed). Value = the COMMITTED evidence file the
-// harness itself writes on a genuine (non-pinned, full-viewport-set) certification:
-// `pixel-certifications/<slug>.json` — .artifacts/ is gitignored, so an uncommitted pointer can never
-// carry a certification claim. The invariant below PARSES the file (slug / certified / not-pinned);
-// the pixel verifier additionally deep-checks its recorded thresholds against the harness's THRESHOLDS.
-const PIXEL_CERTIFIED = {
-  // (none yet — PRs #41–#43 certify schema/approvals/pipeline; the harness landed in #40 with honest
-  // failing baselines recorded in the PR.)
+// SHELL PIXEL CERTIFICATION (PR #40 wave; re-scoped per the PR #41 finding) — a STRONGER evidence layer
+// on TOP of daemon_wired, never a replacement for it or for daemon truth. The captured references carry
+// Palantir EXAMPLE data while the IOI ports render LIVE daemon truth, so FULL-BODY pixel parity is the
+// wrong bar (it would reward faking IOI data to match a screenshot). The certified target is instead
+// "pixel-identical SHELL, semantically-truthful BODY": a slug appears here ONLY after the shell-pixel
+// harness (harness-reference-pixel-parity.mjs) certifies it at the required viewports — visual gates
+// (#34/#39) AND the certified SHELL (rail/header/app-rail/toolbar/panels) diff ≤ the shell budget AND
+// shell region bboxΔ ≤ 8px AND the certified shell covers a real fraction of the image — with the
+// live-data BODY excluded by design and its truth verified SEMANTICALLY by the per-surface verifier.
+// Value = the COMMITTED evidence file the harness writes on a genuine (non-pinned, full-viewport-set)
+// certification: `pixel-certifications/<slug>.json` (.artifacts/ is gitignored, so an uncommitted pointer
+// can never carry a claim). The invariant below PARSES the file; the pixel verifier deep-checks its
+// recorded thresholds against the harness THRESHOLDS.
+const SHELL_PIXEL_CERTIFIED = {
+  // (none yet — PRs #41–#43 shell-certify schema/approvals/pipeline; the harness landed in #40 with
+  // honest un-certified baselines recorded in the PR.)
 };
 
 const rows = SEED_INVENTORY.map((e) => {
@@ -168,32 +172,33 @@ const rows = SEED_INVENTORY.map((e) => {
     // (substrate_bound → its substrate_surface; a ported state → its port_surface). Guaranteed present
     // for every non-reference_capture row (validated below) so no port-state can escape the harness.
     row.candidate_surface = overlay.port_surface || overlay.substrate_surface || null;
-    // Pixel certification is carried on every port-state row (false unless granted above), with the
-    // certifying artifact path when true — an evidence pointer, not prose.
-    row.pixel_certified = Object.prototype.hasOwnProperty.call(PIXEL_CERTIFIED, e.slug);
-    if (row.pixel_certified) row.pixel_certification_artifact = PIXEL_CERTIFIED[e.slug];
+    // Shell pixel certification is carried on every port-state row (false unless granted above), with the
+    // certifying artifact path when true — an evidence pointer, not prose. `body_semantic_truth` is
+    // asserted independently by the per-surface verifier (this flag only asserts the SHELL was certified).
+    row.shell_pixel_certified = Object.prototype.hasOwnProperty.call(SHELL_PIXEL_CERTIFIED, e.slug);
+    if (row.shell_pixel_certified) row.shell_pixel_certification_artifact = SHELL_PIXEL_CERTIFIED[e.slug];
   }
   return row;
 });
 
-// INVARIANT: pixel_certified is a layer ON TOP of daemon_wired — a row may not claim pixel certification
-// without first being a certified faithful port, and its evidence file must EXIST, PARSE, and actually
-// certify THIS slug from a NON-pinned run. Fail generation loudly otherwise (adversarial review: presence
+// INVARIANT: shell_pixel_certified is a layer ON TOP of daemon_wired — a row may not claim it without
+// first being a certified faithful port, and its evidence file must EXIST, PARSE, and actually certify
+// THIS slug's SHELL from a NON-pinned run. Fail generation loudly otherwise (adversarial review: presence
 // of a pointer string is not evidence; the committed file is).
 for (const r of rows) {
-  if (r.pixel_certified && r.parity_class !== "daemon_wired") {
-    console.error(`FATAL: seed '${r.slug}' claims pixel_certified but is ${r.parity_class} (pixel certification strengthens daemon_wired, never substitutes for it).`);
+  if (r.shell_pixel_certified && r.parity_class !== "daemon_wired") {
+    console.error(`FATAL: seed '${r.slug}' claims shell_pixel_certified but is ${r.parity_class} (shell pixel certification strengthens daemon_wired, never substitutes for it).`);
     process.exit(2);
   }
-  if (r.pixel_certified) {
-    if (!r.pixel_certification_artifact || !/^pixel-certifications\/[a-z0-9-]+\.json$/.test(r.pixel_certification_artifact)) {
-      console.error(`FATAL: seed '${r.slug}' pixel_certification_artifact must be a committed pixel-certifications/<slug>.json path (got: ${r.pixel_certification_artifact}).`);
+  if (r.shell_pixel_certified) {
+    if (!r.shell_pixel_certification_artifact || !/^pixel-certifications\/[a-z0-9-]+\.json$/.test(r.shell_pixel_certification_artifact)) {
+      console.error(`FATAL: seed '${r.slug}' shell_pixel_certification_artifact must be a committed pixel-certifications/<slug>.json path (got: ${r.shell_pixel_certification_artifact}).`);
       process.exit(2);
     }
     let cert = null;
-    try { cert = JSON.parse(readFileSync(path.join(appRoot, r.pixel_certification_artifact), "utf8")); } catch (e) { console.error(`FATAL: seed '${r.slug}' certification file unreadable/unparsable: ${String(e.message || e).slice(0, 80)}`); process.exit(2); }
-    if (cert.schema !== "ioi.hypervisor.pixel-certification.v1" || cert.slug !== r.slug || cert.pixel_certified !== true || cert.viewports_pinned !== false) {
-      console.error(`FATAL: seed '${r.slug}' certification file does not certify this slug from a non-pinned run (schema=${cert.schema} slug=${cert.slug} certified=${cert.pixel_certified} pinned=${cert.viewports_pinned}).`);
+    try { cert = JSON.parse(readFileSync(path.join(appRoot, r.shell_pixel_certification_artifact), "utf8")); } catch (e) { console.error(`FATAL: seed '${r.slug}' certification file unreadable/unparsable: ${String(e.message || e).slice(0, 80)}`); process.exit(2); }
+    if (cert.schema !== "ioi.hypervisor.shell-pixel-certification.v1" || cert.slug !== r.slug || cert.shell_pixel_certified !== true || cert.viewports_pinned !== false) {
+      console.error(`FATAL: seed '${r.slug}' certification file does not shell-certify this slug from a non-pinned run (schema=${cert.schema} slug=${cert.slug} certified=${cert.shell_pixel_certified} pinned=${cert.viewports_pinned}).`);
       process.exit(2);
     }
   }
@@ -215,7 +220,7 @@ const matrix = {
   schema_version: "ioi.hypervisor.app-parity-matrix.v2",
   phase: "Reference UX Port",
   doctrine: "Reference UX port first (port the source-neutralized reference shell/layout) → daemon truth inside that UX (wire panels, tables, graph nodes, toolbars, drawers, empty + disabled states) → IOI-native redesign later. The dark IOI surfaces built #3–#30 are substrate, not parity.",
-  pixel_rule: "`pixel_certified` (per port-state row) is a STRONGER evidence layer on TOP of daemon_wired — the pixel harness (harness-reference-pixel-parity.mjs) must certify the surface at the required viewports (1440x900 + 1920x1080, + 390x844 only if the reference supports mobile): the #34/#39 visual gates AND full-image diff ≤ 2.5% AND chrome-only diff ≤ 0.75% AND canonical-region bboxΔ ≤ 8px, after DATA-ONLY masks (an over-mask — masking chrome/nav/toolbar/landmarks or exceeding area caps — fails closed). pixel_certified never replaces daemon_wired or daemon truth; a true row carries pixel_certification_artifact (the certifying result.json).",
+  pixel_rule: "`shell_pixel_certified` (per port-state row) is a STRONGER evidence layer on TOP of daemon_wired: PIXEL-IDENTICAL SHELL, SEMANTICALLY-TRUTHFUL BODY. Because the captured references carry Palantir EXAMPLE data while the IOI ports render LIVE daemon truth, full-body pixel parity is NOT the target (it would reward faking IOI data). The shell-pixel harness (harness-reference-pixel-parity.mjs) certifies the surface at the required viewports (1440x900 + 1920x1080, + 390x844 only if the reference supports mobile): the #34/#39 visual gates AND the certified SHELL (rail/header/app-rail/toolbar/panel chrome) diff ≤ the shell budget AND shell region bboxΔ ≤ 8px AND the certified shell covers a real fraction of the image — with the live-data BODY EXCLUDED by design and its truth verified SEMANTICALLY by the per-surface verifier (body_semantic_truth: same container placement + grammar + live count cross-checks + real-substrate existence + named gaps). Over-masking the shell fails closed. shell_pixel_certified never replaces daemon_wired, the visual gate, or daemon truth; a true row carries a committed shell_pixel_certification_artifact.",
   parity_rule: "Only `daemon_wired` counts as TRUE reference UX parity: a FAITHFUL port of the reference UX (same theme + IA + layout) wired to daemon truth that passes the HARDENED Playwright harness — `visual_parity` = region geometry + theme (light/dark) match + reproduction of the reference's IA landmarks. Region-name overlap alone is NOT parity (#34 review). `substrate_bound` = a dark IOI surface (custom automationsShell) over daemon truth — valuable substrate, NOT parity. `reference_ported` = a shell ported + wired but not certified under the hardened gate (errored reference OR a native redesign that does not reproduce the reference theme + IA). A surface must not claim parity without side-by-side screenshots + the hardened harness pass.",
   reset_note: "PR #31 presentation-layer rebase: the former `daemon_bound` class is retired; its 10 surfaces are reclassified `substrate_bound`, with all daemon planes / fail-closed contracts / truth verifiers preserved. #34 review HARDENED the parity gate (theme + IA landmarks, not just region names): #34 Ontology Manager is the first FAITHFUL light two-rail port to certify `daemon_wired`; #33 approvals was reclassified `reference_ported` (a wired but native-dark shell), then #36 RE-PORTED it as a FAITHFUL light faceted inbox and PROMOTED it back to `daemon_wired` — the second faithful port. #35 Object Explorer is `reference_ported` (blank/failed local Hubble reference). #32 pipeline was `reference_ported`; #38 RE-BASELINED its blocker (data complete, CORS/origin-blocked — origin alignment, NOT the fresh-session re-harvest #37 wrongly prescribed); #39 then PROMOTED it to `daemon_wired` — the THIRD faithful port — by RE-PORTING /__ioi/pipeline to a faithful LIGHT Pipeline Builder (the earlier dark shell was correctly refused by #34's theme gate) AND aligning the harness reference to the origin-matched data-clean canvas (reference_url_override localhost:9225 …/sandbox/…, modal dismissed); the hardened harness certifies visual_parity (light/light + landmarks 10/10 + regions 1.0).",
   estate_backstop: {
