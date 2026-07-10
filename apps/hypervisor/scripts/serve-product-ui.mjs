@@ -26,6 +26,7 @@ import { WebSocketServer } from "ws";
 import * as adapter from "./ioi-api-adapter.mjs";
 import { getRun, listRuns, hydrateRunsFromDaemon, publishRunViaConnector } from "./ioi-agent-runs.mjs";
 import { projectRunTimeline } from "./ioi-run-timeline.mjs";
+import { bpIcon } from "./bp-icons.mjs";
 import { mintApprovalGrant } from "../../../scripts/lib/mint-approval-grant.mjs";
 
 // Build the current conversation entries for a run, in the exact NDJSON shape the SPA's V1 pane
@@ -4020,25 +4021,29 @@ function renderOntologyManagerPort(ov, lists, selectedId) {
   const svg = (p) => `<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
   const CUBE = '<path d="M12 2l9 5v10l-9 5-9-5V7z"/>';
 
-  // DARK global platform rail — source-neutral IOI nav, faithful to the reference's left chrome.
-  const gitem = (icon, label, href, on) => (href ? `<a class="og-gitem${on ? " on" : ""}" href="${href}">` : `<span class="og-gitem muted">`) + `<span class="og-gico">${icon}</span><span class="og-glabel">${esc(label)}</span>` + (href ? `</a>` : `</span>`);
+  // DARK global platform rail — source-neutral IOI nav, faithful to the reference's left chrome, drawn
+  // with the reference's own Blueprint icon glyphs (bp-icons.mjs) + Source Sans Pro so the chrome zone
+  // pixel-matches (pixel wave #41). Geometry tuned to the captured reference (32px row pitch from y≈61).
+  const gitem = (icon, label, opts = {}) => {
+    const inner = `<span class="og-gico">${icon}</span><span class="og-glabel">${esc(label)}</span>${opts.kbd ? `<kbd class="og-gkbd">${opts.kbd}</kbd>` : ""}`;
+    return opts.href ? `<a class="og-gitem${opts.on ? " on" : ""}" href="${opts.href}">${inner}</a>` : `<span class="og-gitem muted">${inner}</span>`;
+  };
   const globalRail = `<aside class="og-grail">
-    <div class="og-brand"><span class="og-logo">${svg(CUBE)}</span></div>
-    ${gitem(svg('<path d="M3 10l9-7 9 7"/><path d="M5 9v11h14V9"/>'), "Home", "/ai")}
-    ${gitem(svg('<circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/>'), "Search", "")}
-    ${gitem(svg('<path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9"/>'), "Notifications", "")}
-    ${gitem(svg('<path d="M12 3v18M5 8h14M5 16h14"/>'), "What's New", "")}
+    ${gitem(bpIcon("home"), "Home", { href: "/ai" })}
+    ${gitem(bpIcon("search"), "Search…", { kbd: "ctrl&nbsp;+&nbsp;J" })}
+    ${gitem(bpIcon("notifications"), "Notifications", {})}
+    ${gitem(bpIcon("whatsnew-gift"), "What's New", {})}
     <div class="og-gdiv"></div>
-    ${gitem(svg('<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/>'), "Recent", "")}
-    ${gitem(svg('<path d="M3 7h6l2 2h10v11H3z"/>'), "Files", "")}
-    ${gitem(svg(CUBE), "Ontology", "/__ioi/odk")}
-    ${gitem(svg('<rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/>'), "Applications", "/__ioi/home")}
-    <div class="og-gsec">Applications</div>
-    ${gitem(svg('<circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/>'), "Object Explorer", "/__ioi/ontology/explorer")}
-    ${gitem(svg(CUBE), "Ontology Manager", "/__ioi/ontology/manager", true)}
+    ${gitem(bpIcon("history"), "Recent", {})}
+    ${gitem(bpIcon("folder-open"), "Files", {})}
+    ${gitem(bpIcon("cubes"), "Ontology", { href: "/__ioi/odk" })}
+    ${gitem(bpIcon("layout-grid"), "Applications", { href: "/__ioi/home" })}
+    <div class="og-gsecrow"><span class="og-gsec">Applications</span><a class="og-gviewall" href="/__ioi/home">View all</a></div>
+    ${gitem(bpIcon("cubes"), "Ontology Manager", { href: "/__ioi/ontology/manager", on: true })}
     <div class="og-gspacer"></div>
-    ${gitem(svg('<circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 015 0c0 2-2.5 2-2.5 4M12 17h.01"/>'), "Support", "")}
-    ${gitem(svg('<circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/>'), "Account", "")}
+    ${gitem(bpIcon("aip-logo"), "AIP Assist", { kbd: "ctrl+shift+U" })}
+    ${gitem(bpIcon("help"), "Support", {})}
+    <span class="og-gitem muted og-gaccount"><span class="og-gavatar">LJ</span><span class="og-glabel">Account</span></span>
   </aside>`;
 
   // LIGHT header — app title, ontology switcher (all ontologies), search, New.
@@ -4119,18 +4124,26 @@ function renderOntologyManagerPort(ov, lists, selectedId) {
     </div></section>
   ` : `<div class="og-none" style="margin:40px auto;max-width:520px">Select or create an ontology to see its schema. <a href="/__ioi/odk/ontologies/new">Create an ontology →</a></div>`}</main>`;
 
-  const css = `html{color-scheme:light}*{box-sizing:border-box}
-    body{margin:0;background:#f4f5f7;color:#1a1d21;font:13px/1.55 -apple-system,Segoe UI,Roboto,sans-serif}
+  const css = `@font-face{font-family:'Source Sans Pro';font-style:normal;font-weight:400;font-display:block;src:url(/__ioi/fonts/source-sans-pro-400.woff2) format('woff2')}
+    @font-face{font-family:'Source Sans Pro';font-style:normal;font-weight:600;font-display:block;src:url(/__ioi/fonts/source-sans-pro-600.woff2) format('woff2')}
+    @font-face{font-family:'Source Sans Pro';font-style:normal;font-weight:700;font-display:block;src:url(/__ioi/fonts/source-sans-pro-700.woff2) format('woff2')}
+    html{color-scheme:light}*{box-sizing:border-box}
+    body{margin:0;background:#f4f5f7;color:#1c2127;font:14px/1.5 'Source Sans Pro',Helvetica,sans-serif;-webkit-font-smoothing:antialiased}
     a{color:#2f6fd8;text-decoration:none}
     .og-shell{display:flex;height:100vh;width:100vw;overflow:hidden}
-    .og-grail{flex:0 0 220px;width:220px;height:100vh;background:#21242b;color:#c4c8d0;display:flex;flex-direction:column;padding:10px 10px 12px;overflow-y:auto}
-    .og-brand{padding:4px 8px 10px}.og-logo{display:inline-flex;color:#7aa2ff}
-    .og-gitem{display:flex;align-items:center;gap:11px;padding:7px 9px;border-radius:7px;color:#c4c8d0;font-size:13px}
-    .og-gitem:hover{background:#2c3038;color:#fff}.og-gitem.on{background:#2f6fd8;color:#fff}
-    .og-gitem.muted{color:#8b909a;cursor:default}.og-gitem.muted:hover{background:transparent;color:#8b909a}
-    .og-gico{display:inline-flex;width:18px}.og-glabel{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .og-gdiv{height:1px;background:#33373f;margin:8px 6px}
-    .og-gsec{font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;color:#7a7f89;padding:12px 9px 5px;font-weight:600}
+    .og-grail{flex:0 0 230px;width:230px;height:100vh;background:#252a31;color:#f6f7f9;display:flex;flex-direction:column;padding:53px 12px 12px;overflow:hidden}
+    .og-gitem{display:flex;align-items:center;gap:12px;height:32px;padding:0 8px;border-radius:6px;color:#f6f7f9;font-size:14px;font-weight:400}
+    .og-gitem:hover{background:#2f353d;color:#fff}.og-gitem.on{background:#2f353d;color:#fff;font-weight:600}
+    .og-gitem.muted{color:#f6f7f9;cursor:default}.og-gitem.muted:hover{background:transparent}
+    .og-gico{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;color:#abb3bf;flex:0 0 16px}
+    .og-gitem.on .og-gico{color:#f6f7f9}
+    .og-glabel{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1 1 auto}
+    .og-gkbd{font-size:12px;color:#abb3bf;font-family:inherit}
+    .og-gdiv{height:21px}
+    .og-gsecrow{display:flex;align-items:center;justify-content:space-between;padding:12px 8px 4px}
+    .og-gsec{font-size:12px;letter-spacing:.02em;color:#abb3bf;font-weight:600}
+    .og-gviewall{font-size:14px;color:#abb3bf;font-weight:400}
+    .og-gavatar{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;margin-left:-2px;border-radius:3px;background:#1e6ba1;color:#8abbff;font-size:12px;font-weight:600;flex:0 0 20px}
     .og-gspacer{flex:1 1 auto;min-height:14px}
     .og-main{flex:1;min-width:0;display:flex;flex-direction:column;height:100vh}
     .og-header{flex:0 0 auto;height:54px;display:flex;align-items:center;gap:12px;padding:0 16px;background:#fff;border-bottom:1px solid #e6e8ec}
@@ -6010,6 +6023,20 @@ const server = http.createServer((req, res) => {
     if (pathname === TERMINAL_CHUNK_PATH) {
       res.writeHead(200, { "Content-Type": "application/javascript; charset=utf-8", "Cache-Control": "no-cache" });
       res.end(TERMINAL_CHUNK);
+      return;
+    }
+    // ---- Vendored font assets for the IOI-owned port surfaces (pixel-certified ports render with the
+    // reference's OSS type metrics — Source Sans Pro, SIL OFL; see assets/fonts/LICENSE-NOTES.md).
+    // WHITELIST only — no path traversal, no directory serving.
+    if (pathname.startsWith("/__ioi/fonts/") && req.method === "GET") {
+      const IOI_FONT_WHITELIST = new Set(["source-sans-pro-400.woff2", "source-sans-pro-600.woff2", "source-sans-pro-700.woff2"]);
+      const fname = pathname.slice("/__ioi/fonts/".length);
+      if (!IOI_FONT_WHITELIST.has(fname)) { res.writeHead(404); res.end("not found"); return; }
+      try {
+        const buf = readFileSync(join(HERE, "..", "assets", "fonts", fname));
+        res.writeHead(200, { "Content-Type": "font/woff2", "Cache-Control": "public, max-age=86400, immutable" });
+        res.end(buf);
+      } catch { res.writeHead(404); res.end("not found"); }
       return;
     }
     // ---- Run Replay index (native primitive, first slice) — the replay LIST over every recorded
