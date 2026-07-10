@@ -17,9 +17,9 @@
   ],
   "total_seeds": 39,
   "by_parity_class": {
-    "substrate_bound": 7,
+    "substrate_bound": 6,
     "reference_capture": 27,
-    "daemon_wired": 5
+    "daemon_wired": 6
   },
   "legend": {
     "reference_capture": "the /__apps/<slug> reference baseline serves; no IOI port exists",
@@ -400,19 +400,33 @@
       "capture_base": "/workspace/model-catalog/",
       "grammar": "catalog",
       "tier": "high_value",
-      "parity_class": "substrate_bound",
+      "parity_class": "daemon_wired",
       "capture_state": "boots_table_list",
       "reference_capture": "/__apps/models",
       "reference_workspace": "/workspace/model-catalog/",
-      "note": "catalog grammar over real model-route truth; route administration lives in Agent Studio (linked); honest empty when no routes; fine-tuning / prompt playground / live inference evals / deployment automation / training runs / unbacked model cards = named gaps",
+      "note": "TRUE parity (#47) under the HARDENED gate: light Model-Catalog reference-faithful shell at /__ioi/foundry/models over the REAL daemon model-route registry — the FIRST Foundry-family certified surface; the /__apps/models reference's catalog lanes are REBOUND to the same registry (the #44 sweep classified it data_clean on those lanes); /__ioi/foundry substrate intact and linking first-class; Registered-models tab / Compare / name search / facet filtering / model detail / fine-tuning / playground / inference / deployment = named gaps disabled in place; route administration stays in Agent Studio",
       "reference_clean_state": "data_clean",
       "reference_clean_reason": "shell regions [rail, header, body] + data evidence (rows 0/0 · nodes 0 · cards 4 · lists 0 · lines 18)",
       "reference_clean_artifact": "reference-clean-sweep.json",
       "substrate_surface": "/__ioi/foundry",
+      "port_surface": "/__ioi/foundry/models",
       "surface_name": "Foundry",
-      "binding": "the model registry — the Foundry Model Catalog over the real daemon model-route registry (per-route honest availability from probe evidence + staleness, weight custody, credential posture, admission trail, and admitted session-binding usage), plus the substrate stats and the draft Foundry specs/run-plans where they connect",
-      "candidate_surface": "/__ioi/foundry",
-      "shell_pixel_certified": false
+      "reference_landmarks": [
+        "Model Catalog",
+        "IOI-provided models",
+        "Registered models",
+        "Compare models",
+        "Browse large language models in Foundry",
+        "Filters",
+        "LIFECYCLE STATUS",
+        "Clear",
+        "MODEL CREATOR",
+        "Additional"
+      ],
+      "binding": "faithful port of the reference Model Catalog over the real daemon model-route registry — dark global rail + light header (app chip · Model Catalog · IOI-provided/Registered tabs) + hero (title · Browse subtitle · Compare-models gap) + a pinned Filters card (name search + Lifecycle Status/Type/Model creator facets whose ROWS are live route truth) + the Additional-models card list (one card per real route: identity + default marker · availability state + probe evidence + staleness · weight custody · credential posture · lifecycle/admission); route administration stays in Agent Studio (linked)",
+      "candidate_surface": "/__ioi/foundry/models",
+      "shell_pixel_certified": true,
+      "shell_pixel_certification_artifact": "pixel-certifications/models.json"
     },
     {
       "owner": "Foundry",

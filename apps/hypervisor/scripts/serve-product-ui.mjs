@@ -26,7 +26,7 @@ import { WebSocketServer } from "ws";
 import * as adapter from "./ioi-api-adapter.mjs";
 import { getRun, listRuns, hydrateRunsFromDaemon, publishRunViaConnector } from "./ioi-agent-runs.mjs";
 import { projectRunTimeline } from "./ioi-run-timeline.mjs";
-import { bpIcon, ONTOLOGY_APP_ICON_URI, APPROVALS_APP_ICON_URI, PIPELINE_APP_ICON_URI, ISSUES_APP_ICON_URI, EXPLORER_APP_ICON_URI, AIP_GRADIENT_SVG_RAIL, AIP_GRADIENT_SVG_TOOLBAR } from "./bp-icons.mjs";
+import { bpIcon, ONTOLOGY_APP_ICON_URI, APPROVALS_APP_ICON_URI, PIPELINE_APP_ICON_URI, ISSUES_APP_ICON_URI, EXPLORER_APP_ICON_URI, MODELS_APP_ICON_URI, AIP_GRADIENT_SVG_RAIL, AIP_GRADIENT_SVG_TOOLBAR } from "./bp-icons.mjs";
 import { mintApprovalGrant } from "../../../scripts/lib/mint-approval-grant.mjs";
 
 // Build the current conversation entries for a run, in the exact NDJSON shape the SPA's V1 pane
@@ -2603,7 +2603,7 @@ function renderFoundryLanding(overview, specs, runPlans, modelRoutes, routeBindi
     </div>`;
   };
   const catalogGaps = omBoundaryNote(`This is the <b>real model registry</b> — every route's availability (probe evidence + staleness), weight custody, credential posture, and admission trail is daemon truth; route administration (enable/disable/probe/select-default) lives in <a href="/__ioi/agent-studio#model-routes">Agent Studio</a>. Unsupported reference lanes — <b>fine-tuning</b>, prompt playground, live inference evals, deployment automation, training runs, and model cards where not backed by route truth — are <b>named gaps</b> (no authority contract yet), not hidden. Sibling Foundry seeds stay reference-only: the <a href="/__apps/modelstudio">Model Studio</a> canvas and the <a href="/__apps/inference">inference</a> wizard. The <a href="/__apps/models">model registry reference capture ↗</a> is the familiar baseline, never a rebound surface.`);
-  const catalogSec = `<div id="foundry-model-catalog"><h2>Model Catalog <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— the registered routes with honest availability, custody, and usage; administration lives in Studio</span></h2>
+  const catalogSec = `<div id="foundry-model-catalog"><h2>Model Catalog <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— the registered routes with honest availability, custody, and usage; administration lives in Studio · <a href="/__ioi/foundry/models">Model Catalog (reference-faithful) →</a></span></h2>
     ${(modelRoutes || []).length ? (modelRoutes || []).map(routeCard).join("") : `<div class="empty">No model routes registered yet — add one in Studio to populate the catalog.</div>`}${catalogGaps}</div>`;
   const specCard = (s) => `<a class="card" href="/__ioi/foundry/specs/${enc(s.id || "")}"><div class="main"><div class="name">${CX_ESC(s.name || s.id || "spec")} <span class="pill muted">${CX_ESC(s.kind || "")}</span> <span class="pill warn">${CX_ESC(s.status || "draft")}</span></div><div class="meta"><code>${CX_ESC(s.id || "")}</code> · updated ${CX_ESC(s.updated_at || "")}</div></div><span class="act ghost">Open →</span></a>`;
   const planCard = (p) => `<a class="card" href="/__ioi/foundry/run-plans/${enc(p.id || "")}"><div class="main"><div class="name">${CX_ESC(p.name || p.id || "run plan")} <span class="pill warn">${CX_ESC(p.status || "draft")}</span></div><div class="meta">spec <code>${CX_ESC(p.spec_ref || "")}</code> · target ${CX_ESC(p.target_route_ref || p.target_provider_ref || "—")}</div></div><span class="act ghost">Open →</span></a>`;
@@ -4128,6 +4128,134 @@ function renderIncidentsPort(ops, goalRuns, lane) {
 
   return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Issues — incidents inbox</title><style>${css}</style></head>
     <body><div class="in-shell">${globalRail}<div class="in-main">${header}<div class="in-work">${sidebar}${list}</div></div></div></body></html>`;
+}
+
+// ============================ MODEL CATALOG (#47 — the Foundry models seed as a faithful
+// reference port over REAL daemon model-route truth: /v1/hypervisor/model-routes). Every card
+// and facet row derives from a live route record — identity (display name + default marker),
+// availability state + probe evidence + staleness, custody posture, credential posture,
+// lifecycle/admission — never the capture's vendor models. The reference's facet sections are
+// PINNED SHELL SLOTS (the capture's row counts differ from live truth; the section labels are
+// chrome, the rows inside are masked data). Unsupported reference lanes — Registered models,
+// Compare models, name search, facet filtering, model detail pages, fine-tuning / playground /
+// inference / deployment — are named gaps disabled in place. Route ADMINISTRATION (enable /
+// probe / select-default) lives in Agent Studio (linked); this surface is read-only truth.
+function renderModelCatalogPort(routesJson) {
+  const esc = CX_ESC;
+  const routes = (routesJson && routesJson.routes) || [];
+  const cap = (s2) => String(s2 || "").replace(/\b\w/g, (c) => c.toUpperCase());
+  // Honest facet derivation from route truth (the reference vocabulary over REAL state):
+  // lifecycle: availability available -> Stable, else Unavailable (never a faked GA).
+  const lifecycleOf = (r) => ((r.availability || {}).state === "available" ? "Stable" : "Unavailable");
+  const typesOf = (r) => {
+    const t = [];
+    for (const m of ((r.model || {}).modalities) || []) t.push(m === "text" ? "text completion" : m);
+    const caps = ((r.model || {}).capabilities) || {};
+    if (caps.tool_calling) t.push("tool calling");
+    if ((caps.reasoning || {}).supported) t.push("reasoning");
+    return t.length ? t : ["text completion"];
+  };
+  const creatorOf = (r) => { const pb = r.provider_binding || {}; return `${pb.provider_kind || "local"}${pb.transport ? " · " + pb.transport : ""}`; };
+  const tally = (vals) => { const m = new Map(); for (const v of vals) m.set(v, (m.get(v) || 0) + 1); return [...m.entries()]; };
+  const lifecycleRows = tally(routes.map(lifecycleOf));
+  const typeRows = tally(routes.flatMap(typesOf));
+  const creatorRows = tally(routes.map(creatorOf));
+  const maxN = Math.max(1, ...lifecycleRows.map(([, n]) => n), ...typeRows.map(([, n]) => n), ...creatorRows.map(([, n]) => n));
+  const facetRow = ([label, n]) => `<label class="mc-frow gap" title="Facet filtering is a reference-only lane (named gap) — the value is REAL route truth"><span class="mc-cb" role="checkbox" aria-checked="false" aria-disabled="true"></span><span class="mc-flab">${esc(cap(label))}</span><span class="mc-fn">${n}</span><span class="mc-fbar"><span class="mc-fbarfill" style="width:${Math.round(70 * n / maxN)}px"></span></span></label>`;
+  const facetSection = (slot, label, rows) => `<div class="mc-fsec ${slot}"><div class="mc-fshead"><span class="mc-fslabel">${esc(label)}</span><button class="mc-fclear gap" disabled title="No facet filters are wired — a reference-only lane (named gap)">Clear</button></div><div class="mc-frows">${rows.map(facetRow).join("")}</div></div>`;
+
+  const availPill = (r) => { const a = r.availability || {}; return a.state === "available" ? `${a.stale ? "available · stale probe" : "available"}` : (a.state || "unknown"); };
+  const card = (r) => `<div class="mc-card">
+    <div class="mc-chead">
+      <span class="mc-cico">${bpIcon("model", 20)}</span>
+      <div class="mc-ctitles"><div class="mc-ctitle">${esc(r.display_name || (r.model || {}).model_id || r.route_id)}${r.default_route ? " (default)" : ""}</div><div class="mc-csub">${esc((r.model || {}).model_id || "")} · ${esc(creatorOf(r))} · ${esc(availPill(r))}${(r.availability || {}).probe ? ` · probe ${esc(((r.availability || {}).probe || {}).kind || "")} @ ${esc((((r.availability || {}).probe || {}).checked_at || "").slice(0, 19))}` : ""}</div></div>
+    </div>
+    <div class="mc-ctags">${typesOf(r).map((t) => `<span class="mc-pill">${esc(cap(t))}</span>`).join("")}<span class="mc-pill alt" title="weight custody class — daemon truth">${esc(((r.custody || {}).weight_class || "").replace(/_/g, " ") || "custody unrecorded")}</span><span class="mc-pill alt" title="credential posture — daemon truth">${esc((r.credential_posture || "").replace(/_/g, " "))}</span><span class="mc-pill alt" title="lifecycle + admission — daemon truth">${esc(((r.lifecycle || {}).status || ""))}${(r.admission || {}).last_admission_id ? " · admitted" : ""}</span></div>
+  </div>`;
+
+  const globalRail = ioiGlobalRailHtml({ label: "Model Catalog", href: "/__ioi/foundry/models", iconUri: MODELS_APP_ICON_URI, railVariant: "rv-pipe", viewAll: false, star: false, badges: true, aipGradient: true, acctMuted: true });
+
+  const header = `<header class="mc-header">
+    <span class="mc-hchip"></span>
+    <h1 class="mc-htitle">Model Catalog</h1>
+    <span class="mc-tab on" title="The IOI-provided lane IS the live route registry below">IOI-provided models</span>
+    <span class="mc-tab gap" title="Registered (externally imported) models are a reference-only lane — no import plane (named gap)">Registered models</span>
+  </header>`;
+
+  const hero = `<section class="mc-hero">
+    <h2 class="mc-h1">IOI-provided models</h2>
+    <p class="mc-sub">Browse large language models in Foundry</p>
+    <button class="mc-compare gap" disabled title="Model comparison is a reference-only lane (named gap)">${bpIcon("split-view")}<span>Compare models</span></button>
+  </section>`;
+
+  const filters = `<aside class="mc-filters">
+    <div class="mc-fhead">Filters</div>
+    <div class="mc-search" title="Name search is a reference-only lane — the registry renders complete below (named gap)">${bpIcon("search")}<input placeholder="Search by name..." disabled aria-label="Search by name (reference-only, not wired)"></div>
+    ${facetSection("s1", "Lifecycle Status", lifecycleRows)}
+    ${facetSection("s2", "Type", typeRows)}
+    ${facetSection("s3", "Model creator", creatorRows)}
+  </aside>`;
+
+  const catalog = `<section class="mc-list">
+    <h3 class="mc-addhead">Additional models</h3>
+    <div class="mc-cards">${routes.length ? routes.map(card).join("") : `<div class="mc-empty"><b>No model routes yet</b> — register a route in <a href="/__ioi/agent-studio#model-routes">Agent Studio</a>. This catalog reads the real daemon model-route registry; nothing is fabricated.</div>`}</div>
+    <div class="mc-foot">Every card is a real daemon model route (${routes.length}) — identity, availability + probe evidence, weight custody, credential posture, lifecycle/admission. Administration (enable · probe · select default): <a href="/__ioi/agent-studio#model-routes">Agent Studio →</a> · owner surface: <a href="/__ioi/foundry">Foundry →</a> · reference: <a href="/__apps/models" target="_blank" rel="noopener">Model Catalog capture ↗</a></div>
+  </section>`;
+
+  const css = `:root{color-scheme:light}*{box-sizing:border-box}
+    body{margin:0;background:#fff;color:#1c2127;font:14px/1.28581 Source-Sans-Pro,Helvetica,sans-serif}
+    a{color:#215db0;text-decoration:none}
+    .mc-shell{display:flex;height:100vh;width:100vw;overflow:hidden}
+    ${IOI_GRAIL_CSS}
+    .mc-main{flex:1;min-width:0;display:flex;flex-direction:column;height:100vh}
+    .mc-header{flex:0 0 51px;display:flex;align-items:stretch;background:#fff;box-shadow:0 1px 0 0 #dce0e5;z-index:6}
+    .mc-hchip{width:50px;height:50px;flex:0 0 50px;background:rgba(124,110,228,.1) url('${MODELS_APP_ICON_URI}') center/24px no-repeat}
+    .mc-htitle{font-size:16px;line-height:36px;font-weight:600;color:#404854;margin:7px 0 0 12px;flex:0 0 auto}
+    .mc-tab{display:inline-flex;align-items:center;font-size:14px;line-height:30px;color:#1c2127;margin-left:20px;position:relative;cursor:default;padding:0 0 1px}
+    .mc-tab.on{color:#215db0}
+    .mc-tab.on::after{content:"";position:absolute;left:0;right:0;bottom:0;height:3px;background:#2d72d2}
+    .mc-tab:first-of-type{margin-left:34px}
+    .mc-body{flex:1 1 auto;min-width:0;overflow-y:auto;background:#fff}
+    .mc-hero{padding:0 0 0 60px;border-bottom:1px solid #dce0e5;height:163px}
+    .mc-h1{font-size:32px;line-height:41.1459px;font-weight:600;color:#1c2127;margin:30px 0 0}
+    .mc-sub{font-size:14px;line-height:18.0013px;color:#5f6b7c;margin:5px 0 0}
+    .mc-compare{display:inline-flex;align-items:center;gap:8px;height:30px;margin-top:15px;padding:0 12px 0 9px;border:1px solid rgba(35,133,81,.6);border-radius:4px;background:transparent;color:#1c6e42;font:inherit;font-size:14px;line-height:16.1px;cursor:not-allowed}
+    .mc-compare svg{color:#1c6e42}
+    .mc-work{display:flex;align-items:flex-start;padding:6.1px 0 40px 55px;gap:30px}
+    .mc-filters{flex:0 0 300px;width:300px;height:354px;position:relative;border:1px solid #dce0e5;border-radius:4px;background:#fff;overflow:hidden}
+    .mc-fhead{height:50px;padding:16.5px 0 0 19px;font-size:14px;line-height:16px;font-weight:600;color:#1c2127;border-bottom:1px solid #eef0f2}
+    .mc-search{position:absolute;left:19px;top:69px;display:flex;align-items:center;gap:5px;width:260px;height:30px;border-radius:4px;background:#fff;padding:0 7px;color:#5f6b7c;box-shadow:inset 0 0 0 1px rgba(17,20,24,.2),inset 0 1px 1px rgba(17,20,24,.3)}
+    .mc-search input{flex:1;border:0;background:transparent;font:inherit;font-size:14px;color:#1c2127;outline:none;padding:0}
+    .mc-search input::placeholder{color:#5f6b7c}
+    .mc-fsec{position:absolute;left:19px;width:260px}
+    .mc-fsec.s1{top:115px}.mc-fsec.s2{top:185px}.mc-fsec.s3{top:281px}
+    .mc-fshead{display:flex;align-items:center;height:24px}
+    .mc-fslabel{flex:1;font-size:12px;line-height:15.4297px;font-weight:600;color:#5f6b7c;text-transform:uppercase}
+    .mc-fclear{border:0;background:transparent;font:inherit;font-size:14px;line-height:16.1px;color:#2d72d2;padding:0 8px;height:24px;border-radius:4px;cursor:not-allowed}
+    .mc-frows{margin-top:6px}
+    .mc-frow{display:flex;align-items:center;height:26px;cursor:not-allowed}
+    .mc-cb{display:inline-block;width:16px;height:16px;border-radius:3px;box-shadow:inset 0 0 0 1px #738091;flex:0 0 16px;background:#fff}
+    .mc-flab{font-size:14px;line-height:18.0013px;color:#1c2127;margin-left:8px;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .mc-fn{font-size:14px;line-height:18.0013px;color:#1c2127;margin-right:8px}
+    .mc-fbar{position:relative;width:70px;height:10px;border-radius:4px;background:rgba(45,114,210,.15);flex:0 0 70px}
+    .mc-fbarfill{position:absolute;left:0;top:0;height:10px;border-radius:4px;background:#2d72d2}
+    .mc-list{flex:1;min-width:0;max-width:520px}
+    .mc-addhead{font-size:16px;line-height:19px;font-weight:600;color:#1c2127;margin:1px 0 0;text-transform:capitalize}
+    .mc-cards{margin-top:18px}
+    .mc-card{width:360px;border:1px solid #dce0e5;border-radius:4px;background:#fff;margin-bottom:14px}
+    .mc-chead{display:flex;align-items:center;padding:15px;border-bottom:1px solid #eef0f2}
+    .mc-cico{display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:4px;background:rgba(124,110,228,.15);color:#7961db;flex:0 0 32px}
+    .mc-ctitles{margin-left:11px;min-width:0}
+    .mc-ctitle{font-size:16px;line-height:20.573px;font-weight:600;color:#1c2127;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .mc-csub{font-size:11px;line-height:14px;color:#8f99a8;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .mc-ctags{display:flex;flex-wrap:wrap;gap:8px;padding:12px 15px 14px}
+    .mc-pill{display:inline-flex;align-items:center;height:20px;padding:0 8px;border-radius:10px;background:#eef0f2;font-size:12px;line-height:16px;color:#1c2127}
+    .mc-pill.alt{background:#f6f7f9;color:#5f6b7c}
+    .mc-empty{width:420px;padding:16px 18px;border:1px dashed #d3d8de;border-radius:8px;background:#fbfbfc;color:#5f6b7c}
+    .mc-foot{margin-top:16px;max-width:480px;color:#7b8494;font-size:12px;line-height:1.5}`;
+
+  return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Model Catalog</title><style>${css}</style></head>
+    <body><div class="mc-shell">${globalRail}<div class="mc-main">${header}<div class="mc-body">${hero}<main class="mc-work">${filters}${catalog}</main></div></div></div></body></html>`;
 }
 
 function renderOntologyManager(ov, lists, selectedId) {
@@ -7700,6 +7828,12 @@ const server = http.createServer((req, res) => {
     // ---- Missions — owner surface for suite/run work (jobs + incidents seeds). Reads the real
     // operations run queue + goal-runs; renders the run/job queue and the mission-level incident
     // inbox (run failures + GoalRun blockers). Operations stays substrate/infra (separate route).
+    if (pathname === "/__ioi/foundry/models" && req.method === "GET") {
+      const routesJson = await fetch(`${DAEMON}/v1/hypervisor/model-routes`).then((x) => x.json()).catch(() => ({}));
+      res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
+      res.end(renderModelCatalogPort(routesJson));
+      return;
+    }
     if (pathname === "/__ioi/missions/incidents" && req.method === "GET") {
       const [opsRes, grRes] = await Promise.all([
         fetch(`${DAEMON}/v1/hypervisor/operations`).then((x) => x.json()).catch(() => ({})),

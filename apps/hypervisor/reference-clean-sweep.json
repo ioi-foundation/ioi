@@ -1,6 +1,6 @@
 {
  "schema": "ioi.hypervisor.reference-clean-sweep.v1",
- "swept_at": "2026-07-10T18:04:49.961Z",
+ "swept_at": "2026-07-10T22:27:43.332Z",
  "serve": "http://127.0.0.1:4173",
  "mirror": "http://127.0.0.1:9225",
  "total_seeds": 39,
@@ -15,29 +15,6 @@
  "ranked_next": [
   {
    "rank": 1,
-   "slug": "models",
-   "owner": "Foundry",
-   "score": 26,
-   "why": {
-    "data_clean_reference": true,
-    "daemon_truth_bindable": "/__ioi/foundry",
-    "owner_value": "Foundry (3)",
-    "fabrication_risk": "low (catalog)",
-    "ia_landmarks": [
-     "Home",
-     "Search…",
-     "ctrl + J",
-     "Notifications",
-     "Gift Icon",
-     "What's New",
-     "Recent",
-     "Files"
-    ],
-    "live_palantir_dependency": "none (local mirror lanes only)"
-   }
-  },
-  {
-   "rank": 2,
    "slug": "listings",
    "owner": "Marketplace",
    "score": 19,
@@ -1297,7 +1274,7 @@
   {
    "slug": "explorer",
    "owner": "Ontology",
-   "parity_class": "reference_ported",
+   "parity_class": "daemon_wired",
    "grammar": "table_list",
    "reference_path": "http://localhost:9225/workspace/hubble/",
    "candidate_surface": "/__ioi/ontology/explorer",
@@ -1846,10 +1823,10 @@
   {
    "slug": "models",
    "owner": "Foundry",
-   "parity_class": "substrate_bound",
+   "parity_class": "daemon_wired",
    "grammar": "catalog",
    "reference_path": "/__apps/models",
-   "candidate_surface": "/__ioi/foundry",
+   "candidate_surface": "/__ioi/foundry/models",
    "substrate_surface": "/__ioi/foundry",
    "clean_state": "data_clean",
    "reason": "shell regions [rail, header, body] + data evidence (rows 0/0 · nodes 0 · cards 4 · lists 0 · lines 18)",
@@ -1879,7 +1856,18 @@
     "Support",
     "Account"
    ],
-   "matrix_landmarks_present": [],
+   "matrix_landmarks_present": [
+    "Model Catalog",
+    "IOI-provided models",
+    "Registered models",
+    "Compare models",
+    "Browse large language models in Foundry",
+    "Filters",
+    "LIFECYCLE STATUS",
+    "Clear",
+    "MODEL CREATOR",
+    "Additional"
+   ],
    "body_sample": "Skip to content\nHome\nSearch…\nctrl + J\nNotifications\nWhat's New\nRecent\nFiles\nOntology\nApplications\nAPPLICATIONS\nView all\nModel Catalog\nAIP Assist\nctrl + shift + U\nSupport\nLJ\nAccount\nModel Catalog\nIOI-provided models\nRegistered models\nIOI-provided models\nBrowse large language models in Foundry\nCompare models\nFilters\nLIFECYCLE STATUS\nClear\nStable\n1\nTYPE\nClear\nText Completion\n1\nVision\n1\nMODEL CREATOR\nClear\nAdditional Models\nLocal default (env) (default)\nText Completion\nVision",
    "data_evidence": {
     "table_rows": 0,

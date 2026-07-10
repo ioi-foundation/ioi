@@ -63,7 +63,6 @@ const SUBSTRATE_BOUND = {
   // inbox port over the real ApprovalRequest queue; see DAEMON_WIRED below), not substrate_bound.
   // Foundry owner-family: only models binds in this cut (modelstudio + inference stay reference_capture).
   // The Foundry landing's Model Catalog already renders the real model-route registry; this formalizes it.
-  models: { substrate_surface: "/__ioi/foundry", surface_name: "Foundry", binding: "the model registry — the Foundry Model Catalog over the real daemon model-route registry (per-route honest availability from probe evidence + staleness, weight custody, credential posture, admission trail, and admitted session-binding usage), plus the substrate stats and the draft Foundry specs/run-plans where they connect", note: "catalog grammar over real model-route truth; route administration lives in Agent Studio (linked); honest empty when no routes; fine-tuning / prompt playground / live inference evals / deployment automation / training runs / unbacked model cards = named gaps" },
 };
 // Port-progress overlays — a seed advances reference_port_pending → reference_ported → daemon_wired
 // as its reference UX shell is captured, ported, and finally wired + parity-verified against a VALID
@@ -114,6 +113,9 @@ const DAEMON_WIRED = {
   // the app's absolute fetch origin, NOT the CORS-broken 127.0.0.1 proxy) with a reference-only preCapture
   // hook dismissing the "What's new" onboarding modal for a legible contact sheet. The hardened harness
   // then certifies visual_parity (theme light/light + landmarks 10/10 + regions 1.0, both sides valid).
+  // #47 — Model Catalog (models): the SIXTH faithful port — the FIRST Foundry-family certified
+  // surface, the second port chosen by the #44 sweep ranking (models was rank #1 remaining).
+  models: { substrate_surface: "/__ioi/foundry", port_surface: "/__ioi/foundry/models", surface_name: "Foundry", reference_workspace: "/workspace/model-catalog/", reference_landmarks: ["Model Catalog", "IOI-provided models", "Registered models", "Compare models", "Browse large language models in Foundry", "Filters", "LIFECYCLE STATUS", "Clear", "MODEL CREATOR", "Additional"], binding: "faithful port of the reference Model Catalog over the real daemon model-route registry — dark global rail + light header (app chip · Model Catalog · IOI-provided/Registered tabs) + hero (title · Browse subtitle · Compare-models gap) + a pinned Filters card (name search + Lifecycle Status/Type/Model creator facets whose ROWS are live route truth) + the Additional-models card list (one card per real route: identity + default marker · availability state + probe evidence + staleness · weight custody · credential posture · lifecycle/admission); route administration stays in Agent Studio (linked)", note: "TRUE parity (#47) under the HARDENED gate: light Model-Catalog reference-faithful shell at /__ioi/foundry/models over the REAL daemon model-route registry — the FIRST Foundry-family certified surface; the /__apps/models reference's catalog lanes are REBOUND to the same registry (the #44 sweep classified it data_clean on those lanes); /__ioi/foundry substrate intact and linking first-class; Registered-models tab / Compare / name search / facet filtering / model detail / fine-tuning / playground / inference / deployment = named gaps disabled in place; route administration stays in Agent Studio" },
   // #46 — Object Explorer: the FIFTH faithful port — the CORRECTION promotion (the #44 sweep
   // proved the #35 blocker wrong; the reference was data-clean all along behind the origin/hostname
   // mismatch). Completes the Ontology pair with #34 schema.
@@ -203,6 +205,11 @@ const SHELL_PIXEL_CERTIFIED = {
   // (x290.5 @1440), which is what collapsed the diffuse text-fringe diff. 1440x900 dilated 0.73% /
   // raw 2.91%, 1920x1080 dilated 0.86% / raw 2.56%, bbox 0 — no threshold movement.
   explorer: "pixel-certifications/explorer.json",
+  // #47 — Model Catalog: the SIXTH shell-pixel certification — the first Foundry-family surface
+  // and the tightest margins of the wave (fully fixed-left layout + facet sections as PINNED
+  // SHELL SLOTS with the live-truth rows masked as data). 1440x900 dilated 0.28% / raw 1.6%,
+  // 1920x1080 dilated 0.22% / raw 1.4%, bbox 0 — no threshold movement.
+  models: "pixel-certifications/models.json",
 };
 
 // ---- PR #44: the ESTATE REFERENCE CLEAN SWEEP (committed evidence written by

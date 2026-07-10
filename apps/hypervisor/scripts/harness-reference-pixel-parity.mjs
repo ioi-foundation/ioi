@@ -116,6 +116,41 @@ export const SURFACE_SHELL = {
       ioi: [],
     },
   },
+  models: {
+    // Model Catalog (#47): certified shell = rail + header (title + tabs) + the full-width hero
+    // band + the PINNED Filters card chrome + the Additional-models heading. Facet ROWS inside
+    // the card are masked data (live route truth vs the capture's template-derived rows); the
+    // model CARD LIST is the excluded live body. Layout is fully fixed-left (identical at both
+    // viewports — only heights differ via the full-height rail).
+    rects: [
+      { key: "rail", anchor: "left", x: 0, y: 0, w: 230, h: 0 },
+      { key: "header", anchor: "topbar", x: 230, y: 0, w: 0, h: 51 },
+      { key: "hero", x: 230, y: 51, w: 1210, h: 164 },
+      { key: "filters", x: 285, y: 251, w: 300, h: 355 },
+      { key: "addhead", x: 615, y: 245, w: 250, h: 28 },
+    ],
+    rects_by_viewport: {
+      "1920x1080": [
+        { key: "rail", anchor: "left", x: 0, y: 0, w: 230, h: 0 },
+        { key: "header", anchor: "topbar", x: 230, y: 0, w: 0, h: 51 },
+        { key: "hero", x: 230, y: 51, w: 1690, h: 164 },
+        { key: "filters", x: 285, y: 251, w: 300, h: 355 },
+        { key: "addhead", x: 615, y: 245, w: 250, h: 28 },
+      ],
+    },
+    // Masked DATA: the facet ROW regions (live route-derived rows/counts/bars vs the capture's
+    // template rows — the section HEADERS + Clear buttons stay compared chrome).
+    data: {
+      ref: [
+        { rect: { x: 300, y: 392, w: 270, h: 40 }, label: "lifecycle facet rows (live route truth vs captured template rows)" },
+        { rect: { x: 300, y: 462, w: 270, h: 62 }, label: "type facet rows (live route truth vs captured template rows)" },
+        { rect: { x: 300, y: 556, w: 270, h: 44 }, label: "model-creator facet rows (live route truth vs captured template rows)" },
+      ],
+      ioi: [
+        { selector: ".mc-frows", label: "live-facet-rows" },
+      ],
+    },
+  },
   explorer: {
     // Object Explorer (#46): certified shell = rail + exploration TAB BAR + the centered search
     // hero + shortcuts band (label/lane tabs; the CARDS are live data) + the catalog heading/

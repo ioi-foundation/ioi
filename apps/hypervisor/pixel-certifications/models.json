@@ -1,0 +1,131 @@
+{
+  "schema": "ioi.hypervisor.shell-pixel-certification.v1",
+  "slug": "models",
+  "matrix_class": "substrate_bound",
+  "shell_pixel_certified": true,
+  "viewports_pinned": false,
+  "thresholds": {
+    "shell_diff_dilated_pct_max": 1.25,
+    "shell_diff_raw_pct_max": 3,
+    "shell_bbox_delta_px_max": 8,
+    "min_shell_certified_fraction": 0.05,
+    "data_mask_in_shell_fraction_max": 0.5,
+    "landmark_mask_overlap_max": 0.3,
+    "pixel_delta_threshold": 0.1,
+    "palette_delta_max": 0.05
+  },
+  "reference_url": "http://127.0.0.1:4173/__apps/models",
+  "ioi_url": "http://127.0.0.1:4173/__ioi/foundry/models",
+  "mobile": "mobile_not_supported (scrollWidth=390 innerWidth=390 railFrac=0.59)",
+  "note": "SHELL pixel parity — the live-data body is excluded by design and verified semantically by the surface verifier (body_semantic_truth)",
+  "viewports": [
+    {
+      "viewport": "1440x900",
+      "reference_url": "http://127.0.0.1:4173/__apps/models",
+      "ioi_url": "http://127.0.0.1:4173/__ioi/foundry/models",
+      "certified": true,
+      "reasons": [],
+      "gates": {
+        "evidence_ok": true,
+        "reference_errored": false,
+        "ioi_errored": false,
+        "reference_valid": true,
+        "ioi_valid": true,
+        "structural_parity": true,
+        "theme_match": true,
+        "landmark_covered": 10,
+        "landmark_applicable": 10
+      },
+      "metrics": {
+        "dims_match": true,
+        "shell_diff_raw_pct": 1.6,
+        "shell_diff_dilated_pct": 0.28,
+        "certified_px": 535386,
+        "palette": {
+          "shell": {
+            "ref_avg_rgb": [
+              168,
+              171,
+              174
+            ],
+            "ioi_avg_rgb": [
+              169,
+              171,
+              174
+            ],
+            "delta": 0
+          }
+        },
+        "bbox_deltas": {
+          "rail": 0
+        },
+        "coverage": {
+          "shell_fraction": 0.453,
+          "certified_fraction": 0.416,
+          "data_in_shell_fraction": 0.082,
+          "landmarks_masked": []
+        },
+        "cmp_error": null
+      },
+      "screens": {
+        "ref": "models/ref-1440x900.png",
+        "ioi": "models/ioi-1440x900.png",
+        "heatmap": "models/heatmap-1440x900.png"
+      }
+    },
+    {
+      "viewport": "1920x1080",
+      "reference_url": "http://127.0.0.1:4173/__apps/models",
+      "ioi_url": "http://127.0.0.1:4173/__ioi/foundry/models",
+      "certified": true,
+      "reasons": [],
+      "gates": {
+        "evidence_ok": true,
+        "reference_errored": false,
+        "ioi_errored": false,
+        "reference_valid": true,
+        "ioi_valid": true,
+        "structural_parity": true,
+        "theme_match": true,
+        "landmark_covered": 10,
+        "landmark_applicable": 10
+      },
+      "metrics": {
+        "dims_match": true,
+        "shell_diff_raw_pct": 1.4,
+        "shell_diff_dilated_pct": 0.22,
+        "certified_px": 679986,
+        "palette": {
+          "shell": {
+            "ref_avg_rgb": [
+              174,
+              176,
+              179
+            ],
+            "ioi_avg_rgb": [
+              174,
+              176,
+              179
+            ],
+            "delta": 0
+          }
+        },
+        "bbox_deltas": {
+          "rail": 0
+        },
+        "coverage": {
+          "shell_fraction": 0.353,
+          "certified_fraction": 0.33,
+          "data_in_shell_fraction": 0.066,
+          "landmarks_masked": []
+        },
+        "cmp_error": null
+      },
+      "screens": {
+        "ref": "models/ref-1920x1080.png",
+        "ioi": "models/ioi-1920x1080.png",
+        "heatmap": "models/heatmap-1920x1080.png"
+      }
+    }
+  ]
+}
