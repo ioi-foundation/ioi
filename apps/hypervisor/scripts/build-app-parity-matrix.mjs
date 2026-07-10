@@ -153,6 +153,16 @@ const SHELL_PIXEL_CERTIFIED = {
   // truth, verified semantically by verify-hypervisor-ontology-manager.mjs. Mobile: not supported by the
   // reference (fixed 230px rail ≈ 59% of a 390px viewport).
   schema: "pixel-certifications/schema.json",
+  // #42 — Approvals: the SECOND shell-pixel certification. Rail via the shared ioiGlobalRailHtml (bbox 0);
+  // faceted sidebar rebuilt to the reference (no top navbar — the title lives in the sidebar; glyph-box
+  // alignment via the baseline micro-pass: 40px section headers with centered glyphs, 35px QF rows with
+  // the reference's inbox/follower/form icons + blue selected-row border + hairline divider, exact
+  // 15.4297px label line-height stopping per-pair drift). The reference CENTERS its 1210px content block
+  // right of the rail at wide viewports — reproduced (offset 0 @1440, +240 @1920) with content-anchored
+  // shell rects + rect masks. Captured filter state (blue-active selects, counts) masked as dynamic data
+  // on both sides; over-mask guard clean. 1440x900 dilated 1.14% / raw 1.96%, 1920x1080 dilated 0.89% /
+  // raw 1.53%, bbox 0. Body = live ApprovalRequest daemon truth (approve/reject/revoke preserved).
+  approvals: "pixel-certifications/approvals.json",
 };
 
 const rows = SEED_INVENTORY.map((e) => {

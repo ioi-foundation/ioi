@@ -619,7 +619,8 @@
       ],
       "binding": "faithful port of the reference Approvals inbox over the real daemon ApprovalRequest queue — dark global rail + a light faceted sidebar (Quick filters: Your inbox / Created by you / All requests with live counts · Additional filters: Status wired to ?status=, Request type / Created by / Assigned to you / Project / Users-or-groups / Groups as faithful named-gap facets) + a light request list (kind · subject · id · created · status pill) + an on-select right detail with approve/reject/revoke; every populated cell is daemon truth",
       "candidate_surface": "/__ioi/governance/approvals",
-      "shell_pixel_certified": false
+      "shell_pixel_certified": true,
+      "shell_pixel_certification_artifact": "pixel-certifications/approvals.json"
     },
     {
       "owner": "Improvement",

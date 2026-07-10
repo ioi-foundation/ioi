@@ -118,7 +118,25 @@ async function run() {
   const gov = await page(`${SERVE}/__ioi/governance`);
   ok("the Governance surface links the ported Approvals inbox first-class", gov.status === 200 && gov.text.includes("/__ioi/governance/approvals"));
 
-  // 8. Cleanup.
+  // 8. SHELL PIXEL CERTIFICATION (#42) — shell_pixel_certified is a layer ON TOP of daemon_wired:
+  // pixel-identical SHELL (committed evidence written by the harness itself), semantically-truthful BODY
+  // (the live ApprovalRequest queue + transitions everything above just proved). Matrix and cert agree;
+  // the cert is genuine measurement (non-pinned, both desktop viewports, calibrated budgets).
+  {
+    const { readFileSync } = await import("node:fs");
+    const path = (await import("node:path")).default;
+    const { fileURLToPath } = await import("node:url");
+    const here2 = path.dirname(fileURLToPath(import.meta.url));
+    const appRoot2 = path.resolve(here2, "..");
+    let row = null, cert = null;
+    try { const m = JSON.parse(readFileSync(path.join(appRoot2, "harvest-app-parity-matrix.json"), "utf8")); row = (m.seeds || []).find((x) => x.slug === "approvals"); } catch { /* */ }
+    try { cert = JSON.parse(readFileSync(path.join(appRoot2, row.shell_pixel_certification_artifact), "utf8")); } catch { /* */ }
+    ok("matrix: approvals is shell_pixel_certified (pixel-identical shell, semantically-truthful body) with a committed evidence pointer, still daemon_wired", row && row.shell_pixel_certified === true && row.shell_pixel_certification_artifact === "pixel-certifications/approvals.json" && row.parity_class === "daemon_wired");
+    ok("the committed certification is REAL: approvals slug, certified, NON-pinned, both desktop viewports certified, mobile honestly not-supported", cert && cert.schema === "ioi.hypervisor.shell-pixel-certification.v1" && cert.slug === "approvals" && cert.shell_pixel_certified === true && cert.viewports_pinned === false && (cert.viewports || []).length === 2 && cert.viewports.every((v) => v.certified === true) && /not_supported/.test(cert.mobile), cert ? cert.viewports.map((v) => `${v.viewport}: dilated ${v.metrics.shell_diff_dilated_pct}% raw ${v.metrics.shell_diff_raw_pct}%`).join(" · ") : "cert missing");
+    ok("the certification is MEASUREMENT, not convenience: dilated ≤ 1.25% AND raw ≤ 3.0% on every certified viewport, with real certified-shell coverage", cert && cert.viewports.every((v) => v.metrics.shell_diff_dilated_pct <= 1.25 && v.metrics.shell_diff_raw_pct <= 3.0 && v.metrics.coverage.certified_fraction >= 0.05));
+  }
+
+  // 9. Cleanup.
   if (fix?.id) await jd("DELETE", `/v1/hypervisor/governance/approval-requests/${fix.id}`);
 }
 

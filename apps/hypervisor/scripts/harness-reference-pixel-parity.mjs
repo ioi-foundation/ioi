@@ -88,7 +88,7 @@ export const SURFACE_SHELL = {
     // which starts at the very top next to the 230px global rail.
     rects: [
       { key: "rail", anchor: "left", x: 0, y: 0, w: 230, h: 0 },
-      { key: "apprail", anchor: "left", x: 230, y: 0, w: 300, h: 0 },   // faceted filters sidebar (title + facets)
+      { key: "apprail", anchor: "content", x: 230, y: 0, w: 300, h: 0 }, // faceted filters sidebar (centers with the 1210px content block at wide viewports)
     ],
     // The additional-filter CONTROLS carry captured filter STATE on the reference (e.g. blue-active
     // "Access requests"/"Approved +3" selections) vs named-gap placeholders on the port — dynamic UI
@@ -107,11 +107,11 @@ export const SURFACE_SHELL = {
       // label+control block. Section headers, filter LABELS, the Quick-filters card + row labels, and the
       // title stay pixel-compared. Same rects both sides (the selects are aligned).
       ref: [
-        { rect: { x: 470, y: 130, w: 48, h: 135 }, label: "quick-filter-counts" },
-        { rect: { x: 298, y: 349, w: 214, h: 36 }, label: "request-type-value (captured selection)" },
-        { rect: { x: 298, y: 431, w: 214, h: 36 }, label: "status-value (captured selection)" },
-        { rect: { x: 298, y: 513, w: 214, h: 36 }, label: "created-by-value" },
-        { rect: { x: 285, y: 552, w: 230, h: 285 }, label: "lower named-gap facets (checkbox + 3 controls; the set diverges from the reference)" },
+        { rect: { x: 470, y: 130, w: 48, h: 135 }, anchor: "content", label: "quick-filter-counts" },
+        { rect: { x: 298, y: 349, w: 214, h: 36 }, anchor: "content", label: "request-type-value (captured selection)" },
+        { rect: { x: 298, y: 431, w: 214, h: 36 }, anchor: "content", label: "status-value (captured selection)" },
+        { rect: { x: 298, y: 513, w: 214, h: 36 }, anchor: "content", label: "created-by-value" },
+        { rect: { x: 285, y: 552, w: 230, h: 285 }, anchor: "content", label: "lower named-gap facets (checkbox + 3 controls; the set diverges from the reference)" },
       ],
       ioi: [],
     },
@@ -137,8 +137,17 @@ export function resolveShellRects(templates, vw, vh) {
     if (t.anchor === "left") { w = w || Math.round(vw * 0.16); h = h || vh; }
     else if (t.anchor === "right") { x = vw - (t.w || 300); w = t.w || 300; h = h || vh; }
     else if (t.anchor === "topbar") { w = w || (vw - (t.x || 0)); h = h || Math.round(vh * 0.06); }
+    else if (t.anchor === "content") { x = t.x + contentOffset(t, vw); h = h || vh; }
     return { key: t.key, left: x, top: y, w, h };
   });
+}
+
+// "content" anchor: the reference centers a fixed-width content BLOCK (its 1440 layout) in the area
+// right of the global rail — offset 0 at 1440, +(available-block)/2 at wider viewports (measured:
+// approvals block 1210 → +240 at 1920). Shell rects AND rect masks inside the block follow it.
+export function contentOffset(t, vw) {
+  const railW = t.railW || 230, blockW = t.blockW || 1210;
+  return Math.max(0, Math.round((vw - railW - blockW) / 2));
 }
 
 // ---- OVER-MASK / coverage guard (pure; exported). Grid occupancy at 4px. Reports: certified shell
@@ -325,8 +334,9 @@ async function runSurface(browser, s, viewports) {
     const tag = `${vp.width}x${vp.height}`;
     const ctx = await browser.newContext({ viewport: vp });
     const refPngPath = path.join(dir, `ref-${tag}.png`), ioiPngPath = path.join(dir, `ioi-${tag}.png`);
-    const ref = await capture(ctx, s.reference_url, refPngPath, s.reference_landmarks, s.reference_pre_capture, cfg.data.ref);
-    const ioi = await capture(ctx, s.ioi_url, ioiPngPath, s.reference_landmarks, null, cfg.data.ioi);
+    const anchorRects = (entries) => (entries || []).map((m) => m.rect && m.anchor === "content" ? { ...m, rect: { ...m.rect, x: m.rect.x + contentOffset(m, vp.width) } } : m);
+    const ref = await capture(ctx, s.reference_url, refPngPath, s.reference_landmarks, s.reference_pre_capture, anchorRects(cfg.data.ref));
+    const ioi = await capture(ctx, s.ioi_url, ioiPngPath, s.reference_landmarks, null, anchorRects(cfg.data.ioi));
     await ctx.close();
     const p = parityOf(ref, ioi, s.reference_landmarks);
     const evidence_ok = ref.screenshotOk && ioi.screenshotOk;

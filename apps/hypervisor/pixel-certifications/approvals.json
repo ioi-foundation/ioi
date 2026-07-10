@@ -1,0 +1,131 @@
+{
+  "schema": "ioi.hypervisor.shell-pixel-certification.v1",
+  "slug": "approvals",
+  "matrix_class": "daemon_wired",
+  "shell_pixel_certified": true,
+  "viewports_pinned": false,
+  "thresholds": {
+    "shell_diff_dilated_pct_max": 1.25,
+    "shell_diff_raw_pct_max": 3,
+    "shell_bbox_delta_px_max": 8,
+    "min_shell_certified_fraction": 0.05,
+    "data_mask_in_shell_fraction_max": 0.5,
+    "landmark_mask_overlap_max": 0.3,
+    "pixel_delta_threshold": 0.1,
+    "palette_delta_max": 0.05
+  },
+  "reference_url": "http://127.0.0.1:4173/__apps/approvals",
+  "ioi_url": "http://127.0.0.1:4173/__ioi/governance/approvals",
+  "mobile": "mobile_not_supported (scrollWidth=390 innerWidth=390 railFrac=0.59)",
+  "note": "SHELL pixel parity — the live-data body is excluded by design and verified semantically by the surface verifier (body_semantic_truth)",
+  "viewports": [
+    {
+      "viewport": "1440x900",
+      "reference_url": "http://127.0.0.1:4173/__apps/approvals",
+      "ioi_url": "http://127.0.0.1:4173/__ioi/governance/approvals",
+      "certified": true,
+      "reasons": [],
+      "gates": {
+        "evidence_ok": true,
+        "reference_errored": false,
+        "ioi_errored": false,
+        "reference_valid": true,
+        "ioi_valid": true,
+        "structural_parity": true,
+        "theme_match": true,
+        "landmark_covered": 8,
+        "landmark_applicable": 8
+      },
+      "metrics": {
+        "dims_match": true,
+        "shell_diff_raw_pct": 1.96,
+        "shell_diff_dilated_pct": 1.14,
+        "certified_px": 373650,
+        "palette": {
+          "shell": {
+            "ref_avg_rgb": [
+              131,
+              135,
+              140
+            ],
+            "ioi_avg_rgb": [
+              134,
+              138,
+              142
+            ],
+            "delta": 0.01
+          }
+        },
+        "bbox_deltas": {
+          "rail": 0
+        },
+        "coverage": {
+          "shell_fraction": 0.369,
+          "certified_fraction": 0.285,
+          "data_in_shell_fraction": 0.229,
+          "landmarks_masked": []
+        },
+        "cmp_error": null
+      },
+      "screens": {
+        "ref": "approvals/ref-1440x900.png",
+        "ioi": "approvals/ioi-1440x900.png",
+        "heatmap": "approvals/heatmap-1440x900.png"
+      }
+    },
+    {
+      "viewport": "1920x1080",
+      "reference_url": "http://127.0.0.1:4173/__apps/approvals",
+      "ioi_url": "http://127.0.0.1:4173/__ioi/governance/approvals",
+      "certified": true,
+      "reasons": [],
+      "gates": {
+        "evidence_ok": true,
+        "reference_errored": false,
+        "ioi_errored": false,
+        "reference_valid": true,
+        "ioi_valid": true,
+        "structural_parity": true,
+        "theme_match": true,
+        "landmark_covered": 8,
+        "landmark_applicable": 8
+      },
+      "metrics": {
+        "dims_match": true,
+        "shell_diff_raw_pct": 1.53,
+        "shell_diff_dilated_pct": 0.89,
+        "certified_px": 469050,
+        "palette": {
+          "shell": {
+            "ref_avg_rgb": [
+              137,
+              140,
+              145
+            ],
+            "ioi_avg_rgb": [
+              140,
+              143,
+              147
+            ],
+            "delta": 0.01
+          }
+        },
+        "bbox_deltas": {
+          "rail": 0
+        },
+        "coverage": {
+          "shell_fraction": 0.279,
+          "certified_fraction": 0.226,
+          "data_in_shell_fraction": 0.189,
+          "landmarks_masked": []
+        },
+        "cmp_error": null
+      },
+      "screens": {
+        "ref": "approvals/ref-1920x1080.png",
+        "ioi": "approvals/ioi-1920x1080.png",
+        "heatmap": "approvals/heatmap-1920x1080.png"
+      }
+    }
+  ]
+}

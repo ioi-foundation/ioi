@@ -4694,9 +4694,10 @@ function renderApprovalsPort(records, statusFilter, opts) {
 
   // LIGHT faceted filter sidebar — Quick filters (real status shortcuts) + Additional filters (Status
   // is wired to ?status=; the rest are faithful faceted controls disabled as named gaps).
+  const QF_ICON = { "Your inbox": "inbox", "Created by you": "follower", "All requests": "form" };
   const qf = (label, count, href, on, gap) => gap
-    ? `<span class="ap-qf gap" title="${esc(label)} needs a per-user creator/identity plane — named gap (no count)"><span class="ap-qfi">${svg('<circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/>')}</span>${esc(label)}<span class="ap-qfc">—</span></span>`
-    : `<a class="ap-qf${on ? " on" : ""}" href="${href}"><span class="ap-qfi">${svg('<path d="M3 7h6l2 2h10v9H3z"/>')}</span>${esc(label)}<span class="ap-qfc">${count}</span></a>`;
+    ? `<span class="ap-qf gap" title="${esc(label)} needs a per-user creator/identity plane — named gap (no count)"><span class="ap-qfi">${bpIcon(QF_ICON[label] || "form")}</span>${esc(label)}<span class="ap-qfc">—</span></span>`
+    : `<a class="ap-qf${on ? " on" : ""}" href="${href}"><span class="ap-qfi">${bpIcon(QF_ICON[label] || "form")}</span>${esc(label)}<span class="ap-qfc">${count}</span></a>`;
   const statusOpt = (v, label) => `<option value="${v}"${v === view ? " selected" : ""}>${esc(label)}</option>`;
   const facets = `<aside class="ap-facets">
     <div class="ap-ftitle"><span class="ap-fappico" style="background-image:url('${APPROVALS_APP_ICON_URI}')"></span><h5>Approvals</h5><a class="ap-subst" href="/__ioi/governance?tab=approvals" title="The substrate approvals table">⇱</a></div>
@@ -4704,6 +4705,7 @@ function renderApprovalsPort(records, statusFilter, opts) {
     <div class="ap-qfbox">
       ${qf("Your inbox", byStatus.pending, "/__ioi/governance/approvals?status=pending", view === "pending")}
       ${qf("Created by you", 0, "", false, true)}
+      <div class="ap-qfdiv"></div>
       ${qf("All requests", all.length, "/__ioi/governance/approvals?status=all", view === "all")}
     </div>
     <div class="ap-fsec">Additional filters <a class="ap-clear" href="/__ioi/governance/approvals">Clear</a></div>
@@ -4765,23 +4767,27 @@ function renderApprovalsPort(records, statusFilter, opts) {
     ${IOI_GRAIL_CSS}
     .ap-main{flex:1;min-width:0;display:flex;flex-direction:column;height:100vh;position:relative}
     .ap-topbar{position:absolute;top:0;left:0;right:0;height:51px;pointer-events:none}
-    .ap-work{flex:1 1 auto;display:flex;min-height:0}
+    .ap-work{flex:1 1 auto;display:flex;justify-content:center;min-height:0}
+    .ap-content{display:flex;flex:0 1 1210px;max-width:1210px;min-width:0}
     .ap-facets{flex:0 0 300px;width:300px;background:#fff;border-right:1px solid #dce0e5;overflow-y:auto;padding:0 27px 24px 25px}
     .ap-ftitle{display:flex;align-items:flex-start;height:84px;padding-top:7px}
-    .ap-fappico{width:24px;height:24px;flex:0 0 24px;margin-right:14px;border-radius:3px;background-color:rgba(102,158,255,.1);background-position:center;background-size:16px;background-repeat:no-repeat}
-    .ap-ftitle h5{margin:0;font-size:16px;font-weight:600;color:#1c2127;flex:1}
+    .ap-fappico{width:24px;height:24px;flex:0 0 24px;margin-right:13px;border-radius:3px;background-color:rgba(102,158,255,.1);background-position:center;background-size:16px;background-repeat:no-repeat}
+    .ap-ftitle h5{margin:0;font-size:16px;line-height:36px;font-weight:600;color:#1c2127;flex:1}
     .ap-subst{font-size:13px;color:#8b9099}
-    .ap-fsec{font-size:14px;font-weight:600;color:#1c2127;margin:9px 0 10px 30px;display:flex;justify-content:space-between;align-items:baseline}
-    .ap-clear{font-size:14px;font-weight:400;color:#215db0}
+    .ap-fsec{font-size:14px;font-weight:600;color:#1c2127;height:40px;margin:13px 0 0 30px;display:flex;justify-content:space-between;align-items:center}
+    .ap-clear{font-size:14px;font-weight:400;color:#215db0;margin-right:-4px}
     .ap-fsec.first{margin-top:7px}
-    .ap-qfbox{background:#fff;border:1px solid #d3d8de;border-radius:6px;padding:15px 6px 6px;margin:22px 0 0 30px;width:230px}
-    .ap-qf{display:flex;align-items:center;gap:10px;height:40px;padding:0 8px 0 10px;border-radius:4px;color:#1c2127;font-size:14px}
-    .ap-qf:hover{background:#f6f7f9}.ap-qf.on{background:#f3f8ff;color:#215db0;font-weight:600}
+    .ap-fsec .ap-clear{align-self:center}
+    .ap-qfbox{background:#fff;border:1px solid #d3d8de;border-radius:6px;padding:4px 6px 6px;margin:0 0 0 30px;width:230px}
+    .ap-qf{display:flex;align-items:center;gap:10px;height:35px;margin-bottom:5px;padding:0 8px 0 9px;border-radius:4px;color:#1c2127;font-size:14px}
+    .ap-qf:hover{background:#f6f7f9}.ap-qf.on{background:#f3f8ff;color:#215db0;font-weight:400;box-shadow:inset 0 0 0 1px #689df3;border-radius:3px}
     .ap-qf.gap{color:#1c2127;cursor:default}.ap-qfi{display:inline-flex;color:#5f6b7c;width:16px;flex:0 0 16px}.ap-qf.on .ap-qfi{color:#215db0}
     .ap-qfc{margin-left:auto;font-size:12px;color:#1c2127;background:#eef0f3;border-radius:4px;padding:1px 7px;line-height:18px}
-    .ap-qf:last-child{margin-top:6px}
-    .ap-ff{display:flex;flex-direction:column;padding:0 0 0 45px;margin-top:-17px}
-    .ap-flabel{display:block;font-size:12px;line-height:15px;height:15px;color:#5f6b7c;margin:32px 0 0}
+    .ap-qf:last-child{margin-bottom:0}
+    .ap-qfdiv{height:1px;background:#eef0f3;margin:0 0 5px}
+    .ap-ff{display:flex;flex-direction:column;padding:0 0 0 45px;margin-top:0}
+    .ap-ff .ap-flabel:first-child{margin-top:15px}
+    .ap-flabel{display:block;font-size:12px;line-height:15.4297px;height:15.43px;color:#5f6b7c;margin:31px 0 0}
     .ap-fsel{margin-top:5px;height:30px;padding:0 9px;border:1px solid #d3d8de;border-radius:4px;font:inherit;font-size:14px;background:#fff;color:#1c2127;width:100%}
     .ap-fsel[disabled]{background:#eef1f5;color:#3a3f46;cursor:not-allowed}
     .ap-fcheck{display:flex;align-items:center;gap:8px;font-size:14px;color:#1c2127;margin-top:20px}.ap-fcheck.gap{cursor:not-allowed}
@@ -4815,7 +4821,7 @@ function renderApprovalsPort(records, statusFilter, opts) {
     .act.primary{background:#2f6fd8;color:#fff;border-color:#2f6fd8}.act.ghost:hover{border-color:#b6bcc4}`;
 
   return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Approvals inbox</title><style>${css}</style></head>
-    <body><div class="ap-shell">${globalRail}<div class="ap-main"><div class="ap-topbar" aria-hidden="true"></div><div class="ap-work">${facets}${list}${detail}</div></div></div></body></html>`;
+    <body><div class="ap-shell">${globalRail}<div class="ap-main"><div class="ap-topbar" aria-hidden="true"></div><div class="ap-work"><div class="ap-content">${facets}${list}${detail}</div></div></div></div></body></html>`;
 }
 
 function govApprovalsQueue(records) {
