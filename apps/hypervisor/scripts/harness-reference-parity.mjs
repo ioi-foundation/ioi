@@ -66,14 +66,29 @@ const PARITY_THRESHOLD = 0.8;
 // landmarks to be reproduced in the candidate.
 const LANDMARK_THRESHOLD = 0.8;
 
-const ERROR_PAGE_RE = /an error occurred|something went wrong|failed to load|page not found|not found|forbidden|unauthori[sz]ed/i;
+export const ERROR_PAGE_RE = /an error occurred|something went wrong|failed to load|page not found|not found|forbidden|unauthori[sz]ed/i;
 
-async function capture(ctx, url, pngPath, landmarks, preCapture) {
+// capture(ctx, url, pngPath, landmarks, preCapture, maskSelectors)
+// maskSelectors (optional, pixel harness): [{selector, label}] resolved to VISIBLE bounding rects in the
+// SAME render as the screenshot (mask rects from a different load could drift vs live data).
+export async function capture(ctx, url, pngPath, landmarks, preCapture, maskSelectors) {
   const page = await ctx.newPage();
-  const VW = 1440, VH = 900;
+  const vp = page.viewportSize() || { width: 1440, height: 900 };
+  const VW = vp.width, VH = vp.height;
   let loaded = true, err = "", erroredPreHook = false;
   try {
+    // Deterministic rendering: complete animations/transitions instantly (duration ≈ 0 jumps to the fill
+    // state — NEVER `animation:none`, which freezes entrance animations at their initial opacity-0 frame),
+    // hide carets, honor reduced-motion. Strictly stabilizing for screenshots; gates are unaffected.
+    await page.emulateMedia({ reducedMotion: "reduce" }).catch(() => {});
     await page.goto(url, { waitUntil: "domcontentloaded", timeout: 25000 });
+    await page.addStyleTag({ content: "*,*::before,*::after{animation-duration:.001s !important;animation-delay:0s !important;transition-duration:.001s !important;transition-delay:0s !important;caret-color:transparent !important}" }).catch(() => {});
+    // fonts.ready is raced against a 3s timeout — a pathological never-settling font load must not hang
+    // the capture (a bare await would wait indefinitely; .catch only handles rejection, not non-settlement).
+    await page.evaluate(() => Promise.race([
+      document.fonts && document.fonts.ready ? document.fonts.ready.then(() => true).catch(() => true) : Promise.resolve(true),
+      new Promise((r) => setTimeout(() => r(true), 3000)),
+    ])).catch(() => {});
     await page.waitForTimeout(2800); // let the reference SPA hydrate
     // GUARD (adversarial review): read the ERROR signal BEFORE the preCapture hook runs, so a hook that
     // hides DOM (a modal dismisser doing display:none on overlays/portals) can NEVER mask a reference-side
@@ -84,12 +99,12 @@ async function capture(ctx, url, pngPath, landmarks, preCapture) {
     // SPA). Runs AFTER hydrate, BEFORE measurement. Self-guarded so a hook failure never fails the capture.
     if (preCapture) { try { await preCapture(page); } catch { /* hook is best-effort */ } }
   } catch (e) { loaded = false; err = String(e.message || e).slice(0, 100); }
-  let regions = [], title = "", divCount = 0, errored = false, visibleText = "", theme = "unknown", bodyLuminance = null, landmarksPresent = [];
+  let regions = [], title = "", divCount = 0, errored = false, visibleText = "", theme = "unknown", bodyLuminance = null, landmarksPresent = [], regionBoxes = {}, landmarkRects = {}, maskRects = [];
   try {
     // A region counts as PRESENT only when a visible element matching its selectors ALSO satisfies a
     // LAYOUT (bounding-box) predicate — a left-anchored tall rail, a top-anchored wide header, etc.
     // Selector-spoofing (a hidden or wrongly-placed div with class "rail") does NOT satisfy geometry.
-    const res = await page.evaluate(({ sel, VW, VH, landmarks }) => {
+    const res = await page.evaluate(({ sel, VW, VH, landmarks, maskSelectors }) => {
       const boxes = (q) => Array.from(document.querySelectorAll(q)).map((el) => {
         const r = el.getBoundingClientRect(); const s = getComputedStyle(el);
         const vis = r.width > 24 && r.height > 24 && s.visibility !== "hidden" && s.display !== "none" && s.opacity !== "0";
@@ -103,8 +118,13 @@ async function capture(ctx, url, pngPath, landmarks, preCapture) {
         right: (b) => b.right > VW * 0.8 && b.h > VH * 0.3 && b.w < VW * 0.6,
         tray: (b) => b.bottom > VH * 0.8 && b.w > VW * 0.4 && b.h < VH * 0.4,
       };
-      const present = {};
-      for (const [k, q] of Object.entries(sel)) present[k] = boxes(q).some(geom[k]);
+      const present = {}, regionBoxes = {};
+      for (const [k, q] of Object.entries(sel)) {
+        const hits = boxes(q).filter(geom[k]);
+        present[k] = hits.length > 0;
+        // The LARGEST geometry-satisfying box is the canonical region bbox (pixel harness: bbox deltas).
+        if (hits.length) { const b = hits.reduce((a, c) => (c.w * c.h > a.w * a.h ? c : a)); regionBoxes[k] = { left: Math.round(b.left), top: Math.round(b.top), w: Math.round(b.w), h: Math.round(b.h) }; }
+      }
       // THEME — sample effective background luminance across a DENSE grid spanning the CONTENT area (x ≥
       // 0.18·VW, i.e. right of the ≤0.16·VW dark left-hand global nav rail, out to 0.94·VW) and take the
       // MEDIAN. The x-range starts just past the rail (not at 0.5) so a surface cannot read "light" by
@@ -128,23 +148,48 @@ async function capture(ctx, url, pngPath, landmarks, preCapture) {
       // per text node via its Range rect), so an off-screen (left:-9999px) / hidden / 1px dump of the
       // labels does NOT count as reproducing the IA. Match on WORD/PHRASE boundaries (not raw substring),
       // so 'Health' cannot match 'HealthCheck' and 'New' cannot match 'renew' (review #34).
+      const escRe = (s) => String(s).toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const lmRegexes = (landmarks || []).map((l) => ({ l, re: new RegExp("(^|[^a-z0-9])" + escRe(l) + "([^a-z0-9]|$)") }));
       const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
-      let visSeen = ""; let tn;
+      let visSeen = ""; let tn; const landmarkRects = {};
       while ((tn = walker.nextNode())) {
         const txt = (tn.textContent || "").trim(); if (!txt) continue;
         const par = tn.parentElement; if (!par) continue;
         const cs = getComputedStyle(par); if (cs.visibility === "hidden" || cs.display === "none" || cs.opacity === "0") continue;
         const rng = document.createRange(); rng.selectNodeContents(tn); const rr = rng.getBoundingClientRect();
-        if (rr.width > 4 && rr.height > 4 && rr.right > 0 && rr.bottom > 0 && rr.left < VW && rr.top < VH) visSeen += " " + txt;
+        if (rr.width > 4 && rr.height > 4 && rr.right > 0 && rr.bottom > 0 && rr.left < VW && rr.top < VH) {
+          visSeen += " " + txt;
+          // ALL visible rects per landmark (up to 5) — the over-mask guard fails only when EVERY
+          // occurrence is covered: a landmark that also appears inside masked example DATA (e.g.
+          // "Transform" in a captured node label) is still visibly reproduced by its unmasked chrome
+          // occurrence (the graph-toolbar hint).
+          const nodeLc = " " + txt.toLowerCase().replace(/\s+/g, " ") + " ";
+          for (const { l, re } of lmRegexes) if (re.test(nodeLc)) { (landmarkRects[l] = landmarkRects[l] || []); if (landmarkRects[l].length < 5) landmarkRects[l].push({ left: Math.round(rr.left), top: Math.round(rr.top), w: Math.round(rr.width), h: Math.round(rr.height) }); }
+        }
       }
       const visLc = visSeen.toLowerCase().replace(/\s+/g, " ");
-      const escRe = (s) => String(s).toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
       const landmarksPresent = (landmarks || []).filter((l) => new RegExp("(^|[^a-z0-9])" + escRe(l) + "([^a-z0-9]|$)").test(visLc));
+      // Resolve dynamic-data MASK selectors to visible rects in THIS render (pixel harness). Bounded.
+      const maskRects = [];
+      for (const m of (maskSelectors || [])) {
+        try {
+          let n = 0;
+          for (const el of document.querySelectorAll(m.selector)) {
+            if (n >= 80) break;
+            const r = el.getBoundingClientRect(); const s = getComputedStyle(el);
+            // opacity check matches the region-visibility discipline — a port cannot plant INVISIBLE
+            // (opacity:0) elements matching its own manifest selectors to steer masks over its divergent
+            // areas (adversarial review: the cheapest mask-steering channel).
+            if (r.width > 2 && r.height > 2 && s.visibility !== "hidden" && s.display !== "none" && s.opacity !== "0" && r.right > 0 && r.bottom > 0 && r.left < VW && r.top < VH) { maskRects.push({ label: m.label, left: Math.max(0, Math.round(r.left)), top: Math.max(0, Math.round(r.top)), w: Math.round(Math.min(r.width, VW - r.left)), h: Math.round(Math.min(r.height, VH - r.top)) }); n++; }
+          }
+        } catch { /* bad selector = no rects; the pixel diff then sees the raw difference */ }
+      }
       const vt = (document.body && document.body.innerText || "").replace(/\s+/g, " ").trim();
-      return { present, title: document.title, divCount: document.querySelectorAll("div").length, visibleText: vt.slice(0, 600), theme, bodyLuminance, landmarksPresent };
-    }, { sel: REGIONS, VW, VH, landmarks: landmarks || [] });
+      return { present, regionBoxes, title: document.title, divCount: document.querySelectorAll("div").length, visibleText: vt.slice(0, 600), theme, bodyLuminance, landmarksPresent, landmarkRects, maskRects };
+    }, { sel: REGIONS, VW, VH, landmarks: landmarks || [], maskSelectors: maskSelectors || [] });
     regions = Object.keys(res.present).filter((k) => res.present[k]);
     title = res.title; divCount = res.divCount; visibleText = res.visibleText; theme = res.theme; bodyLuminance = res.bodyLuminance; landmarksPresent = res.landmarksPresent;
+    regionBoxes = res.regionBoxes || {}; landmarkRects = res.landmarkRects || {}; maskRects = res.maskRects || [];
     // A reference/candidate showing an ERROR page is NOT a valid parity surface — its shell chrome
     // (global nav rail, body) still renders, so region-matching would falsely score parity. Detect it —
     // OR'd with the PRE-HOOK reading so a modal-dismiss hook cannot hide a reference-side error.
@@ -158,12 +203,12 @@ async function capture(ctx, url, pngPath, landmarks, preCapture) {
     screenshotOk = buf && buf.length > 1000; screenshotBytes = buf ? buf.length : 0;
   } catch (e) { err = err || `screenshot failed: ${String(e.message || e).slice(0, 60)}`; }
   await page.close();
-  return { url, loaded, err, title, divCount, regions, screenshotOk, screenshotBytes, errored, visibleText, theme, bodyLuminance, landmarksPresent };
+  return { url, loaded, err, title, divCount, regions, regionBoxes, screenshotOk, screenshotBytes, errored, visibleText, theme, bodyLuminance, landmarksPresent, landmarkRects, maskRects, viewport: { width: VW, height: VH } };
 }
 
 // The parity computation. `structural_parity` = coarse region-only signal. `visual_parity` = the
 // daemon_wired gate = regions AND theme match AND reference-landmark reproduction.
-function parityOf(ref, ioi, landmarks) {
+export function parityOf(ref, ioi, landmarks) {
   const refSet = new Set(ref.regions), ioiSet = new Set(ioi.regions);
   const shared = ref.regions.filter((r) => ioiSet.has(r));
   const regionScore = ref.regions.length ? shared.length / ref.regions.length : 0;
@@ -198,7 +243,7 @@ function parityOf(ref, ioi, landmarks) {
 // The hook lets the graph fully render and dismisses the modal so the contact-sheet screenshot shows the
 // pipeline, not the overlay. (It does not move the numeric gates — theme/landmarks read the same with the
 // modal up — but a legible review surface must show the graph.)
-const REFERENCE_PRE_CAPTURE = {
+export const REFERENCE_PRE_CAPTURE = {
   pipeline: async (page) => {
     await page.waitForTimeout(3500); // the builder canvas is heavy — let the graph + panels fully render
     await page.addStyleTag({ content: '.bp6-portal,.bp6-overlay,.bp6-overlay-backdrop,[class*="whats-new-dialog"]{display:none !important}' }).catch(() => {});
@@ -207,7 +252,7 @@ const REFERENCE_PRE_CAPTURE = {
   },
 };
 
-function surfacesFromMatrix() {
+export function surfacesFromMatrix() {
   const matrix = JSON.parse(readFileSync(path.join(appRoot, "harvest-app-parity-matrix.json"), "utf8"));
   const filter = (process.env.IOI_HARNESS_SURFACES || "").split(",").map((s) => s.trim()).filter(Boolean);
   // EVERY port-state seed (any non-reference_capture) is included, keyed on the canonical
@@ -304,8 +349,12 @@ async function run() {
   return result;
 }
 
-run().then((r) => {
-  const parity = r.surfaces.filter((s) => s.visual_parity).length;
-  const errored = r.surfaces.filter((s) => s.reference_errored || s.ioi_errored).length;
-  console.log(`${r.surfaces.length} surface(s) · ${parity} at VISUAL parity · ${r.surfaces.length - parity} not-yet-parity (${errored} with an errored side)`);
-}).catch((e) => { console.error("harness crashed:", e); process.exit(1); });
+// Only run when invoked directly — the pixel harness imports capture/parityOf/surfacesFromMatrix/
+// REFERENCE_PRE_CAPTURE without executing a full visual pass.
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  run().then((r) => {
+    const parity = r.surfaces.filter((s) => s.visual_parity).length;
+    const errored = r.surfaces.filter((s) => s.reference_errored || s.ioi_errored).length;
+    console.log(`${r.surfaces.length} surface(s) · ${parity} at VISUAL parity · ${r.surfaces.length - parity} not-yet-parity (${errored} with an errored side)`);
+  }).catch((e) => { console.error("harness crashed:", e); process.exit(1); });
+}

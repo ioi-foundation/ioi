@@ -2,6 +2,7 @@
   "schema_version": "ioi.hypervisor.app-parity-matrix.v2",
   "phase": "Reference UX Port",
   "doctrine": "Reference UX port first (port the source-neutralized reference shell/layout) → daemon truth inside that UX (wire panels, tables, graph nodes, toolbars, drawers, empty + disabled states) → IOI-native redesign later. The dark IOI surfaces built #3–#30 are substrate, not parity.",
+  "pixel_rule": "`pixel_certified` (per port-state row) is a STRONGER evidence layer on TOP of daemon_wired — the pixel harness (harness-reference-pixel-parity.mjs) must certify the surface at the required viewports (1440x900 + 1920x1080, + 390x844 only if the reference supports mobile): the #34/#39 visual gates AND full-image diff ≤ 2.5% AND chrome-only diff ≤ 0.75% AND canonical-region bboxΔ ≤ 8px, after DATA-ONLY masks (an over-mask — masking chrome/nav/toolbar/landmarks or exceeding area caps — fails closed). pixel_certified never replaces daemon_wired or daemon truth; a true row carries pixel_certification_artifact (the certifying result.json).",
   "parity_rule": "Only `daemon_wired` counts as TRUE reference UX parity: a FAITHFUL port of the reference UX (same theme + IA + layout) wired to daemon truth that passes the HARDENED Playwright harness — `visual_parity` = region geometry + theme (light/dark) match + reproduction of the reference's IA landmarks. Region-name overlap alone is NOT parity (#34 review). `substrate_bound` = a dark IOI surface (custom automationsShell) over daemon truth — valuable substrate, NOT parity. `reference_ported` = a shell ported + wired but not certified under the hardened gate (errored reference OR a native redesign that does not reproduce the reference theme + IA). A surface must not claim parity without side-by-side screenshots + the hardened harness pass.",
   "reset_note": "PR #31 presentation-layer rebase: the former `daemon_bound` class is retired; its 10 surfaces are reclassified `substrate_bound`, with all daemon planes / fail-closed contracts / truth verifiers preserved. #34 review HARDENED the parity gate (theme + IA landmarks, not just region names): #34 Ontology Manager is the first FAITHFUL light two-rail port to certify `daemon_wired`; #33 approvals was reclassified `reference_ported` (a wired but native-dark shell), then #36 RE-PORTED it as a FAITHFUL light faceted inbox and PROMOTED it back to `daemon_wired` — the second faithful port. #35 Object Explorer is `reference_ported` (blank/failed local Hubble reference). #32 pipeline was `reference_ported`; #38 RE-BASELINED its blocker (data complete, CORS/origin-blocked — origin alignment, NOT the fresh-session re-harvest #37 wrongly prescribed); #39 then PROMOTED it to `daemon_wired` — the THIRD faithful port — by RE-PORTING /__ioi/pipeline to a faithful LIGHT Pipeline Builder (the earlier dark shell was correctly refused by #34's theme gate) AND aligning the harness reference to the origin-matched data-clean canvas (reference_url_override localhost:9225 …/sandbox/…, modal dismissed); the hardened harness certifies visual_parity (light/light + landmarks 10/10 + regions 1.0).",
   "estate_backstop": {
@@ -45,7 +46,8 @@
       "substrate_surface": "/__ioi/studio/designer",
       "surface_name": "Studio",
       "binding": "the system-design canvas — a read-only typed concept/component/resource map over real ODK composition (an ontology's object/value/action/link types = concepts; connector mappings + policy views + projections = components; materialized object sets + domain-app surface descriptors = resources)",
-      "candidate_surface": "/__ioi/studio/designer"
+      "candidate_surface": "/__ioi/studio/designer",
+      "pixel_certified": false
     },
     {
       "owner": "Studio",
@@ -62,7 +64,8 @@
       "substrate_surface": "/__ioi/studio/machinery",
       "surface_name": "Studio",
       "binding": "the process/state-machine definition view — a read-only rendering of the inert daemon state-machine plane (declared states initial/normal/final, transitions from→to with event + guard, declared guards, inputs/outputs, owners, health empty|incomplete|ready, and edit history)",
-      "candidate_surface": "/__ioi/studio/machinery"
+      "candidate_surface": "/__ioi/studio/machinery",
+      "pixel_certified": false
     },
     {
       "owner": "Studio",
@@ -130,7 +133,8 @@
       "note": "Monocle lineage grammar over real provenance; upstream ladder refs resolved to live records; no fake nodes for unmaterialized ontologies; freeform resource-search / graph-expansion / cross-tenant catalog = named gaps",
       "substrate_surface": "/__ioi/lineage",
       "binding": "ODK materialization provenance (MaterializedObjectSet → run → session → lease → projection → mapping → datasource, resolved to live ladder refs; per-object source hashes + mapped_from; pre-output + registration receipts; Provenance proof-stream edges where available)",
-      "candidate_surface": "/__ioi/lineage"
+      "candidate_surface": "/__ioi/lineage",
+      "pixel_certified": false
     },
     {
       "owner": "Data",
@@ -186,7 +190,8 @@
         "Tools"
       ],
       "binding": "faithful LIGHT port of the reference Pipeline Builder over the real ODK authority ladder (DataSource → Object mapping → Policy gate → Transform plan → Read projection → Lease+session → MaterializedObjectSet) as the graph node cards; a Legend panel (Input Data / Data Cleaning / Calculations / Output Dataset) + a right 'Pipeline outputs' panel (read projection + column mapping + Output settings) + a 'Selection preview' tray, all from daemon truth (live/declared/missing per stage, preview rows + output schema from the real projection + materialized set)",
-      "candidate_surface": "/__ioi/pipeline"
+      "candidate_surface": "/__ioi/pipeline",
+      "pixel_certified": false
     },
     {
       "owner": "Data",
@@ -228,7 +233,8 @@
         "Health"
       ],
       "binding": "faithful port of the reference Ontology Manager over the real ODK CanonicalObjectModel — dark global rail + light app rail (Discover/Proposals/History · Resources object/property/link/action/value types + functions · Health/Cleanup/Configuration) + light header (ontology switcher · search · New) + light card-first body (object-type cards with per-type object + dependent counts), then typed schema detail + configuration; every cell is daemon truth",
-      "candidate_surface": "/__ioi/ontology/manager"
+      "candidate_surface": "/__ioi/ontology/manager",
+      "pixel_certified": false
     },
     {
       "owner": "Ontology",
@@ -246,7 +252,8 @@
       "surface_name": "Ontology",
       "parity_blocked": "local /workspace/hubble reference does not cleanly boot — the /__apps/explorer proxy renders a blank body and the mirror's data lanes render 'Failed to load' (no backend); no valid reference to certify visual_parity until a re-harvest",
       "binding": "faithful Object Explorer shell over real ODK truth — an object-type CATALOG (name · status · objects · usage · ontology · description) across all ontologies + a working server-side type filter, an object-set CATALOG over real materialized object sets (name · ontology · object type · object count), and Shortcuts; every populated cell is daemon truth",
-      "candidate_surface": "/__ioi/ontology/explorer"
+      "candidate_surface": "/__ioi/ontology/explorer",
+      "pixel_certified": false
     },
     {
       "owner": "Ontology",
@@ -289,7 +296,8 @@
       "substrate_surface": "/__ioi/evaluations",
       "surface_name": "Evaluations",
       "binding": "the eval-suite library — the inert daemon eval-suite contract (a suite declares subject_scope + evidence/consent requirements + named candidate handoffs) over real assessment subjects (Missions runs/failures/blockers) + the consent ladder + feedback candidate source, table/list grammar over daemon truth",
-      "candidate_surface": "/__ioi/evaluations"
+      "candidate_surface": "/__ioi/evaluations",
+      "pixel_certified": false
     },
     {
       "owner": "Evaluations",
@@ -332,7 +340,8 @@
       "substrate_surface": "/__ioi/foundry",
       "surface_name": "Foundry",
       "binding": "the model registry — the Foundry Model Catalog over the real daemon model-route registry (per-route honest availability from probe evidence + staleness, weight custody, credential posture, admission trail, and admitted session-binding usage), plus the substrate stats and the draft Foundry specs/run-plans where they connect",
-      "candidate_surface": "/__ioi/foundry"
+      "candidate_surface": "/__ioi/foundry",
+      "pixel_certified": false
     },
     {
       "owner": "Foundry",
@@ -479,7 +488,8 @@
       "substrate_surface": "/__ioi/vertex",
       "surface_name": "Provenance",
       "binding": "a Provenance graph/exploration lens over materialized object sets, projections, objects, and the threaded proof-stream odk_materialization edges (cross-plane: ODK ↔ Provenance)",
-      "candidate_surface": "/__ioi/vertex"
+      "candidate_surface": "/__ioi/vertex",
+      "pixel_certified": false
     },
     {
       "owner": "Environments",
@@ -561,7 +571,8 @@
       "substrate_surface": "/__ioi/missions",
       "surface_name": "Missions",
       "binding": "the Missions run/job queue — the real operations run queue (recent runs, statuses, run counts) + scheduled missions, table/list grammar over daemon truth",
-      "candidate_surface": "/__ioi/missions"
+      "candidate_surface": "/__ioi/missions",
+      "pixel_certified": false
     },
     {
       "owner": "Missions",
@@ -578,7 +589,8 @@
       "substrate_surface": "/__ioi/missions",
       "surface_name": "Missions",
       "binding": "the Missions incident/remediation inbox — real run failures + GoalRun blockers, each linking to its own proof/timeline, status-lane grammar over daemon truth",
-      "candidate_surface": "/__ioi/missions"
+      "candidate_surface": "/__ioi/missions",
+      "pixel_certified": false
     },
     {
       "owner": "Governance",
@@ -605,7 +617,8 @@
         "Status"
       ],
       "binding": "faithful port of the reference Approvals inbox over the real daemon ApprovalRequest queue — dark global rail + a light faceted sidebar (Quick filters: Your inbox / Created by you / All requests with live counts · Additional filters: Status wired to ?status=, Request type / Created by / Assigned to you / Project / Users-or-groups / Groups as faithful named-gap facets) + a light request list (kind · subject · id · created · status pill) + an on-select right detail with approve/reject/revoke; every populated cell is daemon truth",
-      "candidate_surface": "/__ioi/governance/approvals"
+      "candidate_surface": "/__ioi/governance/approvals",
+      "pixel_certified": false
     },
     {
       "owner": "Improvement",
