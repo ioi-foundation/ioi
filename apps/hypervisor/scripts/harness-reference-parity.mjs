@@ -33,6 +33,17 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const SERVE = (process.env.IOI_HYPERVISOR_SERVE_URL || "http://127.0.0.1:4173").replace(/\/$/, "");
+const MIRROR = (process.env.IOI_HARVEST_MIRROR_URL || "http://127.0.0.1:9225").replace(/\/$/, "");
+// reference_url_override host ALLOWLIST — a per-seed reference override may ONLY point at the LOCAL mirror
+// (localhost/127.0.0.1 on the mirror port) or the SERVE proxy. This keeps the reference (the independent
+// ground truth) pinned to captured/served artifacts, so a seed can NEVER self-select an author-controlled
+// reference URL to fake parity (adversarial review). A disallowed override fails generation loudly.
+const ALLOWED_REFERENCE_HOSTS = (() => {
+  const hosts = new Set();
+  try { hosts.add(new URL(SERVE).host); } catch { /* */ }
+  try { const m = new URL(MIRROR); hosts.add(m.host); if (m.port) { hosts.add(`localhost:${m.port}`); hosts.add(`127.0.0.1:${m.port}`); } } catch { /* */ }
+  return hosts;
+})();
 const here = path.dirname(fileURLToPath(import.meta.url));
 const appRoot = path.resolve(here, "..");
 const ARTIFACT_DIR = process.env.IOI_HARNESS_ARTIFACT_DIR || path.join(appRoot, ".artifacts", "reference-parity");
@@ -55,13 +66,23 @@ const PARITY_THRESHOLD = 0.8;
 // landmarks to be reproduced in the candidate.
 const LANDMARK_THRESHOLD = 0.8;
 
-async function capture(ctx, url, pngPath, landmarks) {
+const ERROR_PAGE_RE = /an error occurred|something went wrong|failed to load|page not found|not found|forbidden|unauthori[sz]ed/i;
+
+async function capture(ctx, url, pngPath, landmarks, preCapture) {
   const page = await ctx.newPage();
   const VW = 1440, VH = 900;
-  let loaded = true, err = "";
+  let loaded = true, err = "", erroredPreHook = false;
   try {
     await page.goto(url, { waitUntil: "domcontentloaded", timeout: 25000 });
     await page.waitForTimeout(2800); // let the reference SPA hydrate
+    // GUARD (adversarial review): read the ERROR signal BEFORE the preCapture hook runs, so a hook that
+    // hides DOM (a modal dismisser doing display:none on overlays/portals) can NEVER mask a reference-side
+    // error that happens to render inside one. The final `errored` ORs this pre-hook reading with the
+    // post-hook body scan — the hook can dismiss an onboarding modal but cannot clear a real error.
+    try { const preText = await page.evaluate(() => (document.body && document.body.innerText || "")); erroredPreHook = ERROR_PAGE_RE.test(preText); } catch { /* */ }
+    // Optional per-surface pre-capture action (e.g. dismiss an onboarding modal, extra settle for a heavy
+    // SPA). Runs AFTER hydrate, BEFORE measurement. Self-guarded so a hook failure never fails the capture.
+    if (preCapture) { try { await preCapture(page); } catch { /* hook is best-effort */ } }
   } catch (e) { loaded = false; err = String(e.message || e).slice(0, 100); }
   let regions = [], title = "", divCount = 0, errored = false, visibleText = "", theme = "unknown", bodyLuminance = null, landmarksPresent = [];
   try {
@@ -84,10 +105,12 @@ async function capture(ctx, url, pngPath, landmarks) {
       };
       const present = {};
       for (const [k, q] of Object.entries(sel)) present[k] = boxes(q).some(geom[k]);
-      // THEME — sample effective background luminance across a DENSE grid in the CONTENT area (x ≥
-      // 0.5·VW, right of any dark left-hand chrome) and take the MEDIAN. Luminance is only read from a
-      // SUBSTANTIAL element (≥ 2% of the viewport) — mirroring the region path's size discipline — so a
-      // small planted light element at a known probe point cannot flip the theme (review #34).
+      // THEME — sample effective background luminance across a DENSE grid spanning the CONTENT area (x ≥
+      // 0.18·VW, i.e. right of the ≤0.16·VW dark left-hand global nav rail, out to 0.94·VW) and take the
+      // MEDIAN. The x-range starts just past the rail (not at 0.5) so a surface cannot read "light" by
+      // lighting only the harness-sampled half while leaving the rest of the content dark (adversarial
+      // review). Luminance is only read from a SUBSTANTIAL element (≥ 2% of the viewport) — mirroring the
+      // region path's size discipline — so a small planted light element cannot flip the theme (review #34).
       const lumOf = (el) => {
         const m = (el && getComputedStyle(el).backgroundColor || "").match(/rgba?\(([^)]+)\)/);
         if (!m) return null;
@@ -97,7 +120,7 @@ async function capture(ctx, url, pngPath, landmarks) {
       };
       const effLum = (x, y) => { let el = document.elementFromPoint(x, y); let n = 0; while (el && n++ < 30) { const r = el.getBoundingClientRect(); if (r.width * r.height >= VW * VH * 0.02) { const l = lumOf(el); if (l != null) return l; } el = el.parentElement; } return 1; };
       const pts = [];
-      for (const fx of [0.5, 0.62, 0.74, 0.86, 0.94]) for (const fy of [0.28, 0.46, 0.64, 0.8]) pts.push([fx, fy]);
+      for (const fx of [0.18, 0.3, 0.42, 0.5, 0.62, 0.74, 0.86, 0.94]) for (const fy of [0.2, 0.35, 0.5, 0.64, 0.8]) pts.push([fx, fy]);
       const lums = pts.map(([fx, fy]) => effLum(VW * fx, VH * fy)).sort((a, b) => a - b);
       const bodyLuminance = lums[Math.floor(lums.length / 2)]; // median resists a handful of planted outliers
       const theme = bodyLuminance >= 0.5 ? "light" : "dark";
@@ -123,8 +146,9 @@ async function capture(ctx, url, pngPath, landmarks) {
     regions = Object.keys(res.present).filter((k) => res.present[k]);
     title = res.title; divCount = res.divCount; visibleText = res.visibleText; theme = res.theme; bodyLuminance = res.bodyLuminance; landmarksPresent = res.landmarksPresent;
     // A reference/candidate showing an ERROR page is NOT a valid parity surface — its shell chrome
-    // (global nav rail, body) still renders, so region-matching would falsely score parity. Detect it.
-    errored = /an error occurred|something went wrong|failed to load|page not found|not found|forbidden|unauthori[sz]ed/i.test(visibleText);
+    // (global nav rail, body) still renders, so region-matching would falsely score parity. Detect it —
+    // OR'd with the PRE-HOOK reading so a modal-dismiss hook cannot hide a reference-side error.
+    errored = erroredPreHook || ERROR_PAGE_RE.test(visibleText);
   } catch (e) { err = err || String(e.message || e).slice(0, 100); }
   // Screenshot capture is MANDATORY evidence — a surface with no screenshot is a harness failure, not
   // best-effort. Record its byte size so it can never be a 0-byte placeholder.
@@ -168,6 +192,21 @@ function parityOf(ref, ioi, landmarks) {
   };
 }
 
+// Per-surface REFERENCE pre-capture hooks — run against the reference page ONLY (never the IOI
+// candidate), after hydrate, before measurement. Pipeline's reference is the localhost:9225 builder
+// CANVAS (a heavy SPA that also shows a "What's new in Pipeline Builder" bp6 onboarding modal on load).
+// The hook lets the graph fully render and dismisses the modal so the contact-sheet screenshot shows the
+// pipeline, not the overlay. (It does not move the numeric gates — theme/landmarks read the same with the
+// modal up — but a legible review surface must show the graph.)
+const REFERENCE_PRE_CAPTURE = {
+  pipeline: async (page) => {
+    await page.waitForTimeout(3500); // the builder canvas is heavy — let the graph + panels fully render
+    await page.addStyleTag({ content: '.bp6-portal,.bp6-overlay,.bp6-overlay-backdrop,[class*="whats-new-dialog"]{display:none !important}' }).catch(() => {});
+    await page.keyboard.press("Escape").catch(() => {});
+    await page.waitForTimeout(600);
+  },
+};
+
 function surfacesFromMatrix() {
   const matrix = JSON.parse(readFileSync(path.join(appRoot, "harvest-app-parity-matrix.json"), "utf8"));
   const filter = (process.env.IOI_HARNESS_SURFACES || "").split(",").map((s) => s.trim()).filter(Boolean);
@@ -177,9 +216,26 @@ function surfacesFromMatrix() {
   return (matrix.seeds || [])
     .filter((s) => PORT_STATES.has(s.parity_class))
     .filter((s) => !filter.length || filter.includes(s.slug))
-    .map((s) => ({ slug: s.slug, owner: s.owner, matrix_class: s.parity_class, reference_workspace: s.reference_workspace,
-      reference_landmarks: Array.isArray(s.reference_landmarks) ? s.reference_landmarks : [],
-      reference_url: `${SERVE}/__apps/${s.slug}`, ioi_url: `${SERVE}${s.candidate_surface || s.substrate_surface || ""}` }));
+    // reference_url: a per-seed override (e.g. pipeline's data-clean matching-origin canvas, which the
+    // /__apps proxy can't serve clean because the app fetches an absolute localhost:9225 origin) falls
+    // back to the standard token-injected proxy /__apps/<slug>. An override host MUST be allowlisted
+    // (local mirror / SERVE proxy) — a seed cannot point the reference at an author-controlled URL.
+    .map((s) => {
+      let reference_url = `${SERVE}/__apps/${s.slug}`;
+      if (s.reference_url_override) {
+        let oh = null; try { oh = new URL(s.reference_url_override).host; } catch { /* */ }
+        if (!oh || !ALLOWED_REFERENCE_HOSTS.has(oh)) {
+          console.error(`FATAL: seed '${s.slug}' reference_url_override host '${oh}' is not allowlisted (allowed: ${[...ALLOWED_REFERENCE_HOSTS].join(", ")}) — a reference override may only point at the local mirror or the SERVE proxy.`);
+          process.exit(2);
+        }
+        reference_url = s.reference_url_override;
+      }
+      return { slug: s.slug, owner: s.owner, matrix_class: s.parity_class, reference_workspace: s.reference_workspace,
+        reference_landmarks: Array.isArray(s.reference_landmarks) ? s.reference_landmarks : [],
+        reference_url,
+        reference_pre_capture: REFERENCE_PRE_CAPTURE[s.slug] || null,
+        ioi_url: `${SERVE}${s.candidate_surface || s.substrate_surface || ""}` };
+    });
 }
 
 function contactSheet(rows) {
@@ -212,7 +268,7 @@ async function run() {
   for (const s of surfaces) {
     const refPng = path.join(ARTIFACT_DIR, "screens", `${s.slug}-reference.png`);
     const ioiPng = path.join(ARTIFACT_DIR, "screens", `${s.slug}-ioi.png`);
-    const ref = await capture(ctx, s.reference_url, refPng, s.reference_landmarks);
+    const ref = await capture(ctx, s.reference_url, refPng, s.reference_landmarks, s.reference_pre_capture);
     const ioi = await capture(ctx, s.ioi_url, ioiPng, s.reference_landmarks);
     const p = parityOf(ref, ioi, s.reference_landmarks);
     // GUARDS: (1) BOTH screenshots are real evidence; (2) BOTH sides are VALID surfaces, not error

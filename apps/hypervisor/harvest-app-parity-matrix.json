@@ -3,7 +3,7 @@
   "phase": "Reference UX Port",
   "doctrine": "Reference UX port first (port the source-neutralized reference shell/layout) → daemon truth inside that UX (wire panels, tables, graph nodes, toolbars, drawers, empty + disabled states) → IOI-native redesign later. The dark IOI surfaces built #3–#30 are substrate, not parity.",
   "parity_rule": "Only `daemon_wired` counts as TRUE reference UX parity: a FAITHFUL port of the reference UX (same theme + IA + layout) wired to daemon truth that passes the HARDENED Playwright harness — `visual_parity` = region geometry + theme (light/dark) match + reproduction of the reference's IA landmarks. Region-name overlap alone is NOT parity (#34 review). `substrate_bound` = a dark IOI surface (custom automationsShell) over daemon truth — valuable substrate, NOT parity. `reference_ported` = a shell ported + wired but not certified under the hardened gate (errored reference OR a native redesign that does not reproduce the reference theme + IA). A surface must not claim parity without side-by-side screenshots + the hardened harness pass.",
-  "reset_note": "PR #31 presentation-layer rebase: the former `daemon_bound` class is retired; its 10 surfaces are reclassified `substrate_bound`, with all daemon planes / fail-closed contracts / truth verifiers preserved. #34 review HARDENED the parity gate (theme + IA landmarks, not just region names): #34 Ontology Manager is the first FAITHFUL light two-rail port to certify `daemon_wired`; #33 approvals was reclassified `reference_ported` (a wired but native-dark shell), then #36 RE-PORTED it as a FAITHFUL light faceted inbox and PROMOTED it back to `daemon_wired` — the second faithful port. #35 Object Explorer is `reference_ported` (blank/failed local Hubble reference). #32 pipeline stays `reference_ported`; #38 RE-BASELINED its blocker: the reference DATA is complete (the matching-origin canvas renders a clean pipeline graph, ZERO chunks missing) but the harness path is CORS/origin-blocked — the fix is origin alignment, NOT the fresh-session re-harvest #37 wrongly prescribed.",
+  "reset_note": "PR #31 presentation-layer rebase: the former `daemon_bound` class is retired; its 10 surfaces are reclassified `substrate_bound`, with all daemon planes / fail-closed contracts / truth verifiers preserved. #34 review HARDENED the parity gate (theme + IA landmarks, not just region names): #34 Ontology Manager is the first FAITHFUL light two-rail port to certify `daemon_wired`; #33 approvals was reclassified `reference_ported` (a wired but native-dark shell), then #36 RE-PORTED it as a FAITHFUL light faceted inbox and PROMOTED it back to `daemon_wired` — the second faithful port. #35 Object Explorer is `reference_ported` (blank/failed local Hubble reference). #32 pipeline was `reference_ported`; #38 RE-BASELINED its blocker (data complete, CORS/origin-blocked — origin alignment, NOT the fresh-session re-harvest #37 wrongly prescribed); #39 then PROMOTED it to `daemon_wired` — the THIRD faithful port — by RE-PORTING /__ioi/pipeline to a faithful LIGHT Pipeline Builder (the earlier dark shell was correctly refused by #34's theme gate) AND aligning the harness reference to the origin-matched data-clean canvas (reference_url_override localhost:9225 …/sandbox/…, modal dismissed); the hardened harness certifies visual_parity (light/light + landmarks 10/10 + regions 1.0).",
   "estate_backstop": {
     "executable_seeds": 39,
     "note": "The 39 executable seeds are the migration queue; the 45-app local-composition crosswalk is the estate backstop so coverage does not shrink.",
@@ -18,8 +18,8 @@
   "by_parity_class": {
     "substrate_bound": 8,
     "reference_capture": 27,
-    "reference_ported": 2,
-    "daemon_wired": 2
+    "daemon_wired": 3,
+    "reference_ported": 1
   },
   "legend": {
     "reference_capture": "the /__apps/<slug> reference baseline serves; no IOI port exists",
@@ -165,15 +165,27 @@
       "capture_base": "/workspace/builder/",
       "grammar": "editor_canvas",
       "tier": "high_value",
-      "parity_class": "reference_ported",
+      "parity_class": "daemon_wired",
       "capture_state": "blocked_missing_capture",
       "reference_capture": "/__apps/pipeline",
       "reference_workspace": "/workspace/builder/",
-      "note": "shell ported + wired (source-neutral builder shell: rail/header/toolbar/canvas/right/tray, NOT automationsShell; Build+Preview supported, Schedule+Deploy disabled in place); NOT daemon_wired — the reference DATA is complete but the harness path is CORS/origin-blocked (fix is origin alignment, not a re-harvest)",
+      "note": "TRUE parity (#39) under the HARDENED gate: /__ioi/pipeline REBUILT as a faithful LIGHT Pipeline Builder (dark global rail + light header w/ build state + light tool cluster [Tools/Select/Remove/Layout/Text · Add data · Reusables · Transform/AIP/Edit] + light central graph canvas with the ODK-ladder node cards + a Legend panel + a right 'Pipeline outputs' panel w/ Output settings/Edit output settings + a bottom Selection preview / Suggestions / Pipeline warnings tray), NOT the earlier dark native shell (which #34's theme gate correctly refused); passes the hardened Playwright harness (theme light/light + landmarks 10/10 + regions 1.0) against the ORIGIN-ALIGNED data-clean reference canvas (reference_url_override localhost:9225 …/sandbox/…, the What's-new modal dismissed via a reference-only preCapture hook), whose data completeness is the precondition proven by verify-pipeline-reference-data-clean.mjs (reference_data_complete=true, #38); Build+Preview wired to the real ODK ladder; Schedule/Deploy + freeform canvas authoring (drag-connect / transform code editor / scheduling / deploy) = named gaps disabled in place; no new daemon semantics",
       "port_surface": "/__ioi/pipeline",
       "surface_name": "Data",
-      "parity_blocked": "NOT harness-certifiable yet — but the blocker is a CORS/ORIGIN MISMATCH, NOT missing data (proven by verify-pipeline-reference-data-clean.mjs, #38 re-baseline; NOT prose). The captured data is COMPLETE: the matching-origin canvas (localhost:9225 …/sandbox/…) renders a clean pipeline graph (nodes + toolbar + panel, no error/data-fail/CORS). The app's captured fetch URLs are absolute http://localhost:9225/…, so loading the SAME content from 127.0.0.1:9225 (the harness/proxy origin) makes every eddie/session fetch cross-origin → CORS-blocked → 'Failed to initialize'; the /__apps/pipeline proxy lane errors ('An error occurred'). #37's 'missing lazy chunks (bfed3b6a…/c806694d…) → needs a FRESH-session re-harvest' was WRONG — those are genuinely-small REAL chunks; #38 signature stub detection finds ZERO missing chunks (a <400b size heuristic false-positived them). NO re-harvest and NO fresh Foundry auth are required. daemon_wired path = align the origin (serve the mirror same-origin or add CORS) + point the harness reference at the data-clean canvas, then run the hardened harness. See reharvest-pipeline-builder.mjs (now diagnosis-driven) + the data-clean gate",
-      "binding": "ported Pipeline Builder shell over the real ODK authority ladder (DataSource → ... → MaterializedObjectSet) as canvas node cards; live/declared/missing per stage from daemon truth; preview rows + output schema from the real projection + materialized set",
+      "reference_url_override": "http://localhost:9225/workspace/builder/ri.eddie.main.pipeline.e73d6ae7-f6fe-4ac5-82a2-320d9f188590/sandbox/a082bef2-8826-4e6c-8925-871bcdb56c44",
+      "reference_landmarks": [
+        "Add data",
+        "Reusables",
+        "Transform",
+        "Legend",
+        "Pipeline outputs",
+        "Selection preview",
+        "Suggestions",
+        "Pipeline warnings",
+        "Edit output settings",
+        "Tools"
+      ],
+      "binding": "faithful LIGHT port of the reference Pipeline Builder over the real ODK authority ladder (DataSource → Object mapping → Policy gate → Transform plan → Read projection → Lease+session → MaterializedObjectSet) as the graph node cards; a Legend panel (Input Data / Data Cleaning / Calculations / Output Dataset) + a right 'Pipeline outputs' panel (read projection + column mapping + Output settings) + a 'Selection preview' tray, all from daemon truth (live/declared/missing per stage, preview rows + output schema from the real projection + materialized set)",
       "candidate_surface": "/__ioi/pipeline"
     },
     {
