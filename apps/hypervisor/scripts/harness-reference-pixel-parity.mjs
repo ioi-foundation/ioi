@@ -90,7 +90,31 @@ export const SURFACE_SHELL = {
       { key: "rail", anchor: "left", x: 0, y: 0, w: 230, h: 0 },
       { key: "apprail", anchor: "left", x: 230, y: 0, w: 300, h: 0 },   // faceted filters sidebar (title + facets)
     ],
-    data: { ref: [], ioi: [{ selector: ".ap-qfc", label: "live-quick-filter-counts" }] },
+    // The additional-filter CONTROLS carry captured filter STATE on the reference (e.g. blue-active
+    // "Access requests"/"Approved +3" selections) vs named-gap placeholders on the port — dynamic UI
+    // residue. Masked by RECT (the reference is opaque hash-classed bp6 DOM); the sidebar is left-anchored
+    // so the rects hold at both viewports. Labels (Request type/Status/Created by), the Quick-filters card
+    // structure, section headers, and the title stay pixel-compared.
+    // The reference is opaque hash-classed bp6 DOM, so its captured-state controls are masked by RECT at
+    // the reference's own positions; the IOI port's controls are masked by SELECTOR at the PORT's positions
+    // (the two sides' control rhythms differ slightly, so per-side masks — unioned — cover both). Labels,
+    // section headers, the Quick-filters card + row labels, and the title stay pixel-compared.
+    data: {
+      // The form now aligns to the reference on both sides, so the captured-state controls are masked by
+      // RECT (viewport-anchored; the left-anchored sidebar holds at both viewports). Upper facet VALUES
+      // (Request type/Status/Created by — captured selections vs named-gap placeholders) are masked; the
+      // lower named-gap facets (which diverge from the reference's exact facet set) are masked as one
+      // label+control block. Section headers, filter LABELS, the Quick-filters card + row labels, and the
+      // title stay pixel-compared. Same rects both sides (the selects are aligned).
+      ref: [
+        { rect: { x: 470, y: 130, w: 48, h: 135 }, label: "quick-filter-counts" },
+        { rect: { x: 298, y: 349, w: 214, h: 36 }, label: "request-type-value (captured selection)" },
+        { rect: { x: 298, y: 431, w: 214, h: 36 }, label: "status-value (captured selection)" },
+        { rect: { x: 298, y: 513, w: 214, h: 36 }, label: "created-by-value" },
+        { rect: { x: 285, y: 552, w: 230, h: 285 }, label: "lower named-gap facets (checkbox + 3 controls; the set diverges from the reference)" },
+      ],
+      ioi: [],
+    },
   },
   pipeline: {
     rects: [

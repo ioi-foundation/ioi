@@ -169,9 +169,14 @@ export async function capture(ctx, url, pngPath, landmarks, preCapture, maskSele
       }
       const visLc = visSeen.toLowerCase().replace(/\s+/g, " ");
       const landmarksPresent = (landmarks || []).filter((l) => new RegExp("(^|[^a-z0-9])" + escRe(l) + "([^a-z0-9]|$)").test(visLc));
-      // Resolve dynamic-data MASK selectors to visible rects in THIS render (pixel harness). Bounded.
+      // Resolve dynamic-data MASK entries to rects in THIS render (pixel harness). Two forms:
+      //   { selector, label } — resolved to visible element rects (opacity-disciplined), OR
+      //   { rect: {x,y,w,h}, label } — a FIXED viewport-anchored rect, for OPAQUE / hash-classed reference
+      //     DOM where the dynamic value (e.g. a captured bp6 select's selected state) cannot be selected.
+      //     Rect masks are reviewed like code in the shell manifest and still bounded by the over-mask guard.
       const maskRects = [];
       for (const m of (maskSelectors || [])) {
+        if (m.rect) { const r = m.rect; if (r.w > 2 && r.h > 2 && r.x < VW && r.y < VH) maskRects.push({ label: m.label, left: Math.max(0, Math.round(r.x)), top: Math.max(0, Math.round(r.y)), w: Math.round(Math.min(r.w, VW - r.x)), h: Math.round(Math.min(r.h, VH - r.y)) }); continue; }
         try {
           let n = 0;
           for (const el of document.querySelectorAll(m.selector)) {
