@@ -54,7 +54,7 @@ async function run() {
   const matrix = JSON.parse(spawnSync("node", ["-e", `import(${JSON.stringify(path.join(here, "..", "harvest-app-parity-matrix.json"))}, { with: { type: "json" } }).then(m => console.log(JSON.stringify(m.default)))`], { encoding: "utf8" }).stdout || "{}");
   const bySlug = Object.fromEntries((matrix.seeds || []).map((s) => [s.slug, s]));
   ok("matrix classifies lineage as substrate_bound → /__ioi/lineage", bySlug.lineage?.parity_class === "substrate_bound" && bySlug.lineage?.substrate_surface === "/__ioi/lineage");
-  ok("matrix binds vertex as substrate_bound → /__ioi/vertex (its own cut, #24); pipeline is now reference_ported (#32 port; daemon_wired blocked on errored ref)", bySlug.vertex?.parity_class === "substrate_bound" && bySlug.vertex?.substrate_surface === "/__ioi/vertex" && bySlug.pipeline?.parity_class === "reference_ported");
+  ok("matrix binds vertex as substrate_bound → /__ioi/vertex (its own cut, #24); pipeline is now daemon_wired (#39 faithful light re-port, origin-aligned reference)", bySlug.vertex?.parity_class === "substrate_bound" && bySlug.vertex?.substrate_surface === "/__ioi/vertex" && bySlug.pipeline?.parity_class === "daemon_wired");
   ok("matrix keeps vertex a Provenance lens (canon: Work Ledger evolves into Provenance)", bySlug.vertex?.surface_name === "Provenance" && /Provenance graph\/exploration lens/.test(bySlug.vertex?.binding || ""));
 
   // 1. Reference baseline.

@@ -53,13 +53,14 @@ async function run() {
   const cleanup = [];
   const SENTINEL = "pipeline-parity-bearer";
 
-  // 0. Matrix — pipeline is reference_ported (shell ported + wired, NOT certified parity); siblings substrate_bound.
+  // 0. Matrix — pipeline is DAEMON_WIRED (#39: faithful LIGHT re-port + origin-aligned reference, certified
+  //    by the hardened harness below); schema+approvals stay daemon_wired, explorer reference_ported, siblings substrate_bound.
   const check = spawnSync("node", [path.join(here, "build-app-parity-matrix.mjs"), "--check"], { encoding: "utf8" });
   ok("parity matrix is current (regenerated == committed)", check.status === 0, (check.stderr || "").trim().slice(0, 80));
   const matrix = JSON.parse(spawnSync("node", ["-e", `import(${JSON.stringify(path.join(here, "..", "harvest-app-parity-matrix.json"))}, { with: { type: "json" } }).then(m => console.log(JSON.stringify(m.default)))`], { encoding: "utf8" }).stdout || "{}");
   const bySlug = Object.fromEntries((matrix.seeds || []).map((s) => [s.slug, s]));
-  ok("matrix classifies pipeline as reference_ported → /__ioi/pipeline (shell ported + wired) with a CORS/origin parity_blocked note that RETRACTS the missing-chunk claim", bySlug.pipeline?.parity_class === "reference_ported" && bySlug.pipeline?.port_surface === "/__ioi/pipeline" && bySlug.pipeline?.candidate_surface === "/__ioi/pipeline" && /CORS|origin/i.test(bySlug.pipeline?.parity_blocked || "") && /WRONG|ZERO|NOT missing|NO re-?harvest/i.test(bySlug.pipeline?.parity_blocked || ""));
-  ok("no false parity for pipeline: NOT daemon_wired (its CORS/origin-blocked reference is not yet harness-certifiable); lineage/vertex stay substrate_bound", bySlug.pipeline?.parity_class !== "daemon_wired" && bySlug.lineage?.parity_class === "substrate_bound" && bySlug.vertex?.parity_class === "substrate_bound");
+  ok("matrix classifies pipeline as daemon_wired → /__ioi/pipeline with reference_landmarks + reference_url_override declared (no parity_blocked)", bySlug.pipeline?.parity_class === "daemon_wired" && bySlug.pipeline?.port_surface === "/__ioi/pipeline" && bySlug.pipeline?.candidate_surface === "/__ioi/pipeline" && Array.isArray(bySlug.pipeline?.reference_landmarks) && bySlug.pipeline.reference_landmarks.length >= 5 && typeof bySlug.pipeline?.reference_url_override === "string" && /localhost:9225/.test(bySlug.pipeline.reference_url_override) && !bySlug.pipeline?.parity_blocked, `class=${bySlug.pipeline?.parity_class} landmarks=${(bySlug.pipeline?.reference_landmarks || []).length}`);
+  ok("no false parity elsewhere: schema+approvals stay daemon_wired, explorer stays reference_ported (blocked ref), lineage/vertex stay substrate_bound", bySlug.schema?.parity_class === "daemon_wired" && bySlug.approvals?.parity_class === "daemon_wired" && bySlug.explorer?.parity_class === "reference_ported" && bySlug.lineage?.parity_class === "substrate_bound" && bySlug.vertex?.parity_class === "substrate_bound");
   ok("estate honest: reference_capture still the majority; no false 'covered'", (matrix.by_parity_class?.reference_capture || 0) >= (matrix.by_parity_class?.reference_ported || 0) && !(matrix.seeds || []).some((s) => s.parity_class === "covered"));
 
   // 0b. DATA-CLEAN PREFLIGHT (#37 infra; #38 DIAGNOSIS RE-BASELINE) — the block is MACHINE-PROVEN from the
@@ -81,8 +82,8 @@ async function run() {
   let pfr = null;
   if (pf.status === 0 && existsSync(pfResultPath)) { try { pfr = JSON.parse(readFileSync(pfResultPath, "utf8")); } catch { /* */ } }
   ok("the data-clean preflight ran + emitted a result.json (proves the reference state from the live mirror)", pfr && typeof pfr.data_clean === "boolean" && Array.isArray(pfr.lanes) && pfr.lanes.length >= 3, pfr ? `data_clean=${pfr.data_clean} diagnosis=${pfr.diagnosis} lanes=${pfr.lanes.length}` : `exit ${pf.status}`);
-  ok("the harness-path reference is NOT data_clean → pipeline HONESTLY stays reference_ported (trip-wire: flips to a FAIL the day the proxy/harness reference becomes certifiable, forcing the promotion decision)", pfr && pfr.data_clean === false && bySlug.pipeline?.parity_class === "reference_ported", pfr ? `data_clean=${pfr.data_clean} class=${bySlug.pipeline?.parity_class}` : "preflight missing");
-  ok("the blocker is a CORS/ORIGIN MISMATCH, not missing data: the matching-origin canvas renders clean while the cross-origin lane is CORS-blocked → 'Failed to initialize'", pfr && pfr.diagnosis === "cors_origin_mismatch" && pfr.reference_data_complete === true && pfr.lanes.some((l) => l.corsBlocked && (l.crossOriginFetchFails || 0) > 0) && /cors|origin/i.test(pfr.blocking_reason || ""), pfr ? `diagnosis=${pfr.diagnosis} data_complete=${pfr.reference_data_complete}` : "n/a");
+  ok("PRECONDITION for daemon_wired: the reference DATA is complete (reference_data_complete=true — the matching-origin canvas renders a clean pipeline graph), which is what the hardened harness certifies against via the reference_url_override", pfr && pfr.reference_data_complete === true && bySlug.pipeline?.parity_class === "daemon_wired", pfr ? `reference_data_complete=${pfr.reference_data_complete} class=${bySlug.pipeline?.parity_class}` : "preflight missing");
+  ok("WHY the origin override is needed: the /__apps proxy LANDING lane is CORS/origin-blocked (diagnosis=cors_origin_mismatch; the matching-origin canvas is clean while the cross-origin lane CORS-fails) — so the harness points at the origin-aligned canvas, not the proxy", pfr && pfr.diagnosis === "cors_origin_mismatch" && pfr.reference_data_complete === true && pfr.lanes.some((l) => l.corsBlocked && (l.crossOriginFetchFails || 0) > 0) && /cors|origin/i.test(pfr.blocking_reason || ""), pfr ? `diagnosis=${pfr.diagnosis} data_complete=${pfr.reference_data_complete}` : "n/a");
   ok("#37's 'missing lazy chunks / needs fresh Foundry auth' diagnosis is RETRACTED: signature stub detection finds ZERO missing chunks; the gate states NO re-harvest / NO fresh auth is required", pfr && pfr.missing_chunk === false && (pfr.generated_stub_chunks || []).length === 0 && /no re-?harvest and no fresh/i.test(pfr.blocking_reason || ""), pfr ? `missing_chunk=${pfr.missing_chunk} stubs=${(pfr.generated_stub_chunks || []).length}` : "n/a");
   ok("the pipeline reference remediation planner exists (diagnosis-driven; re-harvest is only its missing-chunk branch, guarded — no live capture by default) + the data-clean gate", existsSync(path.join(here, "reharvest-pipeline-builder.mjs")) && existsSync(path.join(here, "verify-pipeline-reference-data-clean.mjs")));
 
@@ -139,21 +140,30 @@ async function run() {
   if (setId) cleanup.unshift(["DELETE", `/v1/hypervisor/odk/materialized-object-sets/${setId}`]);
   if (!ont?.id || ex.j.materializing_run?.status !== "executed") { console.error("BLOCKED: could not build the pipeline fixture"); srv.close(); process.exit(2); }
 
-  // 2. PORTED SHELL — a reference builder shell, not the dark automationsShell.
+  // 2. PORTED SHELL — a faithful LIGHT reference builder shell, not the dark automationsShell (and not
+  //    the earlier dark native pb-shell, which #34's theme gate refused).
   const built = await page(`${SERVE}/__ioi/pipeline?ontology=${encodeURIComponent(ont.id)}`);
   const t = built.text;
   ok("the surface is a PORTED reference builder shell (pb-shell: rail + canvas + tray), NOT automationsShell", built.status === 200 && /class="pb-shell"/.test(t) && /class="pb-rail"/.test(t) && /id="pb-canvas"/.test(t) && !/max-width:920px/.test(t) && !/class="wrap"/.test(t));
-  ok("the ported shell carries the builder regions (header title · graph toolbar · right output panel · bottom tray)", /class="pb-header"/.test(t) && /class="pb-toolbar"/.test(t) && /class="pb-right"/.test(t) && /class="pb-tray"/.test(t) && /Pipeline Builder<\/div>/.test(t));
+  ok("the ported shell carries the builder regions (header title · tool cluster · right output panel · bottom tray)", /class="pb-header"/.test(t) && /class="pb-toolbar"/.test(t) && /class="pb-right"/.test(t) && /class="pb-tray"/.test(t) && /pb-title">Pipeline Builder</.test(t));
+  ok("the re-port is LIGHT (color-scheme:light, not the earlier dark #0c0d10 body) — the #34 theme gate", /:root\{color-scheme:light\}/.test(t) && !/background:#0c0d10/.test(t));
+  ok("the port renders the reference IA landmarks (Pipeline outputs · Selection preview · Pipeline warnings · Legend · Add data · Edit output settings)", ["Pipeline outputs", "Selection preview", "Pipeline warnings", "Legend", "Add data", "Edit output settings", "Tools", "Reusables"].every((l) => t.includes(l)));
 
-  // 3. GUARD — the local builder reference ERRORS, so the harness must REFUSE to grant parity, and
-  //    the port itself must still render the real builder shell regions (the port is legitimate).
+  // 3. PROMOTION PROOF — the hardened harness CERTIFIES visual_parity: the port is a faithful LIGHT
+  //    reproduction of the reference (theme + IA landmarks + geometry) and the ORIGIN-ALIGNED reference
+  //    canvas is VALID + data-clean. This is what earns daemon_wired (#39) — not region-name overlap.
   const artDir = path.join(appRoot, ".artifacts", "pipeline-port-verify");
-  const h = spawnSync("node", [path.join(here, "harness-reference-parity.mjs")], { encoding: "utf8", timeout: 90000, env: { ...process.env, IOI_HARNESS_SURFACES: "pipeline", IOI_HARNESS_ARTIFACT_DIR: artDir } });
+  // Remove any STALE harness artifact first + gate the read on a fresh exit 0 (the recurring stale-child
+  // bug class) — never certify off a cached visual_parity=true.
+  try { if (existsSync(path.join(artDir, "result.json"))) rmSync(path.join(artDir, "result.json")); } catch { /* */ }
+  const h = spawnSync("node", [path.join(here, "harness-reference-parity.mjs")], { encoding: "utf8", timeout: 120000, env: { ...process.env, IOI_HARNESS_SURFACES: "pipeline", IOI_HARNESS_ARTIFACT_DIR: artDir } });
   let hp = null;
   if (h.status === 0 && existsSync(path.join(artDir, "result.json"))) hp = (JSON.parse(readFileSync(path.join(artDir, "result.json"), "utf8")).surfaces || [])[0];
   ok("harness ran + captured real screenshots for the pipeline reference vs IOI port", hp && hp.evidence_ok === true, hp ? `ref ${hp.reference_screenshot_bytes}b · ioi ${hp.ioi_screenshot_bytes}b` : "harness did not run");
-  ok("GUARD: the local builder REFERENCE errors, so the harness refuses parity (structural_parity FALSE, reference_valid FALSE)", hp && hp.reference_errored === true && hp.structural_parity === false && hp.reference_valid === false, hp ? `errored=${hp.reference_errored} valid=${hp.reference_valid} parity=${hp.structural_parity}` : "n/a");
-  ok("the PORT itself is a real, VALID builder shell (IOI non-errored, renders rail + body + more, ready for parity once a valid reference exists)", hp && hp.ioi_valid === true && hp.ioi_errored === false && ["rail", "body"].every((r) => hp.ioi_regions.includes(r)) && hp.ioi_regions.length >= 4);
+  ok("CERTIFIED: the hardened harness grants visual_parity (the daemon_wired proof — region geometry + theme + landmarks, not region-name overlap)", hp && hp.visual_parity === true && hp.structural_parity === true, hp ? `visual=${hp.visual_parity} structural=${hp.structural_parity} regions=${hp.region_score}` : "n/a");
+  ok("theme MATCH: reference LIGHT ≡ IOI port LIGHT (the #34 theme gate — the earlier dark shell would FAIL here)", hp && hp.theme_match === true && hp.reference_theme === "light" && hp.ioi_theme === "light", hp ? `ref ${hp.reference_theme} / ioi ${hp.ioi_theme}` : "n/a");
+  ok("IA landmarks reproduced: the port renders the reference's Pipeline-Builder landmarks (coverage ≥ 0.8, none missing)", hp && hp.landmark_applicable >= 5 && hp.landmark_covered >= Math.ceil(hp.landmark_applicable * 0.8) && (hp.landmarks_missing || []).length === 0, hp ? `covered ${hp.landmark_covered}/${hp.landmark_applicable}` : "n/a");
+  ok("BOTH sides VALID: the ORIGIN-ALIGNED reference canvas is data-clean (not errored) + the port is not errored — an errored side can never certify", hp && hp.reference_valid === true && hp.reference_errored === false && hp.ioi_valid === true && hp.ioi_errored === false, hp ? `ref_valid=${hp.reference_valid} ioi_valid=${hp.ioi_valid}` : "n/a");
 
   // 4. DAEMON TRUTH inside the shell.
   ok("datasource → transform → output node cards present (the ODK ladder as the canvas graph)", ["Datasource", "Object mapping", "Policy gate", "Transform plan", "Read projection", "Lease + session", "Materialized objects"].every((n) => t.includes(`>${n}<`)));
@@ -162,7 +172,7 @@ async function run() {
   ok("Preview (bottom tray) shows the first materialized rows — daemon truth, not a mock", /id="pb-preview"/.test(t) && />L-1</.test(t) && />First Loan</.test(t));
 
   // 5. Unsupported controls disabled IN PLACE (not moved to a separate page).
-  ok("Build + Preview are enabled controls in the toolbar", /pb-btn primary"[^>]*>▶ Build</.test(t) && /href="#pb-preview"/.test(t));
+  ok("Build + Preview are enabled controls in the header", /pb-btn primary"[^>]*>Build</.test(t) && /href="#pb-preview"/.test(t));
   ok("Schedule + Deploy are present but DISABLED in place (named gaps, not hidden)", /<button[^>]*disabled[^>]*>Schedule<\/button>/.test(t) && /<button[^>]*disabled[^>]*>Deploy<\/button>/.test(t));
   ok("reference capture linked as the secondary baseline; brand/reference clean", t.includes("/__apps/pipeline") && !/\bPalantir\b/.test(t) && !/\bFoundry\b/.test(t));
 
