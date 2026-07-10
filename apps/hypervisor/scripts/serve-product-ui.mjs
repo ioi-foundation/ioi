@@ -26,7 +26,7 @@ import { WebSocketServer } from "ws";
 import * as adapter from "./ioi-api-adapter.mjs";
 import { getRun, listRuns, hydrateRunsFromDaemon, publishRunViaConnector } from "./ioi-agent-runs.mjs";
 import { projectRunTimeline } from "./ioi-run-timeline.mjs";
-import { bpIcon } from "./bp-icons.mjs";
+import { bpIcon, ONTOLOGY_APP_ICON_URI } from "./bp-icons.mjs";
 import { mintApprovalGrant } from "../../../scripts/lib/mint-approval-grant.mjs";
 
 // Build the current conversation entries for a run, in the exact NDJSON shape the SPA's V1 pane
@@ -4025,12 +4025,14 @@ function renderOntologyManagerPort(ov, lists, selectedId) {
   // with the reference's own Blueprint icon glyphs (bp-icons.mjs) + Source Sans Pro so the chrome zone
   // pixel-matches (pixel wave #41). Geometry tuned to the captured reference (32px row pitch from y≈61).
   const gitem = (icon, label, opts = {}) => {
-    const inner = `<span class="og-gico">${icon}</span><span class="og-glabel">${esc(label)}</span>${opts.kbd ? `<kbd class="og-gkbd">${opts.kbd}</kbd>` : ""}`;
+    const kbd = opts.kbd ? `<kbd class="og-gkbd">${opts.kbd.split("+").map((k) => `<span>${k.trim()}</span>`).join("<span>+</span>")}</kbd>` : "";
+    const inner = `<span class="og-gico">${icon}</span><span class="og-glabel">${esc(label)}</span>${kbd}`;
     return opts.href ? `<a class="og-gitem${opts.on ? " on" : ""}" href="${opts.href}">${inner}</a>` : `<span class="og-gitem muted">${inner}</span>`;
   };
   const globalRail = `<aside class="og-grail">
+    <div class="og-gtop"><span class="og-gmark">◗</span><span class="og-gmenu">${bpIcon("menu-closed")}</span></div>
     ${gitem(bpIcon("home"), "Home", { href: "/ai" })}
-    ${gitem(bpIcon("search"), "Search…", { kbd: "ctrl&nbsp;+&nbsp;J" })}
+    ${gitem(bpIcon("search"), "Search…", { kbd: "ctrl + J" })}
     ${gitem(bpIcon("notifications"), "Notifications", {})}
     ${gitem(bpIcon("whatsnew-gift"), "What's New", {})}
     <div class="og-gdiv"></div>
@@ -4038,50 +4040,60 @@ function renderOntologyManagerPort(ov, lists, selectedId) {
     ${gitem(bpIcon("folder-open"), "Files", {})}
     ${gitem(bpIcon("cubes"), "Ontology", { href: "/__ioi/odk" })}
     ${gitem(bpIcon("layout-grid"), "Applications", { href: "/__ioi/home" })}
-    <div class="og-gsecrow"><span class="og-gsec">Applications</span><a class="og-gviewall" href="/__ioi/home">View all</a></div>
-    ${gitem(bpIcon("cubes"), "Ontology Manager", { href: "/__ioi/ontology/manager", on: true })}
+    <div class="og-gsecrow"><span class="og-gsec">APPLICATIONS</span><a class="og-gviewall" href="/__ioi/home">View all</a></div>
+    <a class="og-gitem on" href="/__ioi/ontology/manager"><span class="og-gappico"></span><span class="og-glabel og-strong">Ontology Manager</span><span class="og-gstar">${bpIcon("star-empty")}</span></a>
     <div class="og-gspacer"></div>
-    ${gitem(bpIcon("aip-logo"), "AIP Assist", { kbd: "ctrl+shift+U" })}
+    ${gitem(bpIcon("aip-logo"), "AIP Assist", { kbd: "ctrl + shift + U" })}
     ${gitem(bpIcon("help"), "Support", {})}
     <span class="og-gitem muted og-gaccount"><span class="og-gavatar">LJ</span><span class="og-glabel">Account</span></span>
   </aside>`;
 
-  // LIGHT header — app title, ontology switcher (all ontologies), search, New.
+  // LIGHT header — the reference navbar layout: app-icon chip · title · centered Search-resources input
+  // (ctrl+K) · branch selector (named gap) · New. The ONTOLOGY SWITCHER (a live control with no reference
+  // counterpart in the navbar) lives in the BODY section heading — the shell stays pixel-faithful while
+  // the live control keeps its function where the ontology name already appears.
   const header = `<header class="og-header">
-    <span class="og-happ">${svg(CUBE)}</span>
-    <span class="og-htitle">Ontology Manager</span>
-    <details class="og-ontomenu"><summary>${domainLabel}${selected ? ` <span class="og-ver">v${esc(selected.version || "0.1.0")}</span>` : ""} ▾</summary>
-      <div class="og-ontolist">${ontologies.length ? ontologies.map((x) => `<a class="og-ontoitem${selected && x.id === selected.id ? " on" : ""}" href="/__ioi/ontology/manager?ontology=${enc(x.id)}">${esc(x.domain || x.id)} <span class="og-dot og-${(x.health || {}).status === "ready" ? "ok" : (x.health || {}).status === "empty" ? "muted" : "warn"}"></span></a>`).join("") : `<div class="og-none">No ontologies yet.</div>`}</div>
-    </details>
-    <div class="og-search" title="Search + ⌘K command palette are reference-only — not wired (named gap)"><span class="og-sico">${svg('<circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/>')}</span><input placeholder="Search resources…" disabled aria-label="Search resources (reference-only, not wired)"><kbd>⌘K</kbd></div>
-    <a class="og-new" href="/__ioi/odk/ontologies/new">New</a>
+    <span class="og-hchip"></span>
+    <h5 class="og-htitle">Ontology Manager</h5>
+    <div class="og-search" title="Search + ctrl+K command palette are reference-only — not wired (named gap)"><span class="og-sico">${bpIcon("search")}</span><input placeholder="Search resources…" disabled aria-label="Search resources (reference-only, not wired)"><span class="og-skbd">ctrl + K</span></div>
+    <div class="og-headright">
+      <span class="og-branch" title="Branching is a reference-only lane — no authority contract yet (named gap).">${bpIcon("git-branch")}<span class="og-branchname">Main</span>${bpIcon("caret-down")}</span>
+      <a class="og-new" href="/__ioi/odk/ontologies/new">New ${bpIcon("caret-down")}</a>
+    </div>
   </header>`;
 
-  // LIGHT app rail — Discover / Proposals / History · Resources · Health / Cleanup / Configuration.
-  const arailItem = (label, count, href) => {
+  // LIGHT app rail — the reference nav column: icon rows at a 40px pitch, sentence-case "Resources"
+  // header, indented resource items with right-aligned COUNT PILLS (live daemon values — masked as
+  // dynamic data on the IOI side; the reference's captured counts are masked on its side), hairline
+  // group dividers, Health/Cleanup/Configuration at group level.
+  const arailItem = (icon, label, count, href, opts = {}) => {
     const c = count == null ? "" : `<span class="og-c">${count}</span>`;
+    const inner = `<span class="og-nico">${bpIcon(icon)}</span><span class="og-nlabel">${esc(label)}</span>${c}`;
+    const cls = `og-nav${opts.on ? " on" : ""}${opts.sub ? " sub" : ""}`;
     return href
-      ? `<a class="og-nav" href="${href}">${esc(label)}${c}</a>`
-      : `<span class="og-nav gap" title="${esc(label)} is a reference-only lane — no authority contract yet (named gap).">${esc(label)}${c}</span>`;
+      ? `<a class="${cls}" href="${href}">${inner}</a>`
+      : `<span class="${cls} gap" title="${esc(label)} is a reference-only lane — no authority contract yet (named gap).">${inner}</span>`;
   };
   const appRail = `<nav class="og-arail" aria-label="Ontology Manager">
-    ${arailItem("Discover", null, "#og-discover")}
-    ${arailItem("Proposals", null, null)}
-    ${arailItem("History", (selected && (selected.history || []).length) || 0, "#og-config")}
-    <div class="og-asec">Resources</div>
-    ${arailItem("Object types", ots.length, "#og-discover")}
-    ${arailItem("Properties", propCount, "#og-properties")}
-    ${arailItem("Shared properties", 0, null)}
-    ${arailItem("Link types", lts.length, "#og-link-types")}
-    ${arailItem("Action types", nonFuncActs.length, "#og-action-types")}
-    ${arailItem("Groups", 0, null)}
-    ${arailItem("Interfaces", 0, null)}
-    ${arailItem("Value types", vts.length, "#og-value-types")}
-    ${arailItem("Functions", funcs.length, "#og-functions")}
+    ${arailItem("compass", "Discover", null, "#og-discover", { on: true })}
+    ${arailItem("people", "Proposals", null, null)}
+    ${arailItem("time", "History", null, "#og-config")}
     <div class="og-adiv"></div>
-    ${arailItem("Health issues", (health.gaps || []).length, "#og-health")}
-    ${arailItem("Cleanup", null, null)}
-    ${arailItem("Ontology configuration", null, "#og-config")}
+    <div class="og-asec">Resources</div>
+    ${arailItem("cube", "Object types", ots.length, "#og-discover", { sub: true })}
+    ${arailItem("properties", "Properties", propCount, "#og-properties", { sub: true })}
+    ${arailItem("globe-network", "Shared properties", 0, null, { sub: true })}
+    ${arailItem("arrows-horizontal", "Link types", lts.length, "#og-link-types", { sub: true })}
+    ${arailItem("take-action", "Action types", nonFuncActs.length, "#og-action-types", { sub: true })}
+    ${arailItem("group-objects", "Groups", 0, null, { sub: true })}
+    ${arailItem("selection-box", "Interfaces", 0, null, { sub: true })}
+    <div class="og-agap"></div>
+    ${arailItem("intersection", "Value types", vts.length, "#og-value-types", { sub: true })}
+    ${arailItem("function", "Functions", funcs.length, "#og-functions", { sub: true })}
+    <div class="og-adiv2"></div>
+    ${arailItem("pulse", "Health issues", null, "#og-health")}
+    ${arailItem("clean", "Cleanup", null, null)}
+    ${arailItem("cog", "Ontology configuration", null, "#og-config")}
   </nav>`;
 
   // LIGHT card-first body: object-type cards ("recently modified"), then typed detail + configuration.
@@ -4102,7 +4114,12 @@ function renderOntologyManagerPort(ov, lists, selectedId) {
   const funcRows = funcs.map((a) => `<tr><td>${esc(a.name || a.id)} ${idc(a.id)}</td><td>${a.applies_to ? idc(a.applies_to) : "—"}</td></tr>`).join("");
   const body = `<main class="og-body" role="main">${selected ? `
     <section id="og-discover" class="og-discover">
-      <div class="og-sechd"><h2>Object types recently modified in ${domainLabel}</h2><a class="og-configlink" href="/__ioi/odk/ontologies/${enc(selected.id)}/edit">Configure</a></div>
+      <div class="og-sechd"><h2>Object types recently modified in</h2>
+        <details class="og-ontomenu"><summary>${domainLabel}${selected ? ` <span class="og-ver">v${esc(selected.version || "0.1.0")}</span>` : ""} ▾</summary>
+          <div class="og-ontolist">${ontologies.length ? ontologies.map((x) => `<a class="og-ontoitem${selected && x.id === selected.id ? " on" : ""}" href="/__ioi/ontology/manager?ontology=${enc(x.id)}">${esc(x.domain || x.id)} <span class="og-dot og-${(x.health || {}).status === "ready" ? "ok" : (x.health || {}).status === "empty" ? "muted" : "warn"}"></span></a>`).join("") : `<div class="og-none">No ontologies yet.</div>`}</div>
+        </details>
+        <a class="og-explorerlink" href="/__ioi/ontology/explorer" title="Object Explorer — browse object types and materialized object sets (the symmetric #35 surface)">Object Explorer →</a>
+        <a class="og-configlink" href="/__ioi/odk/ontologies/${enc(selected.id)}/edit">Configure</a></div>
       ${ots.length ? `<div class="og-cards">${ots.map(cardOf).join("")}</div>` : `<div class="og-none">No object types yet. <a href="/__ioi/odk/ontologies/${enc(selected.id)}/edit">Add typed object types →</a></div>`}
     </section>
     <section id="og-properties"><h2>Properties <span class="og-subn">${propCount}</span></h2>${tbl(["Object type", "Property", "Value type", "Required"], propRows, "No properties declared.")}</section>
@@ -4124,51 +4141,72 @@ function renderOntologyManagerPort(ov, lists, selectedId) {
     </div></section>
   ` : `<div class="og-none" style="margin:40px auto;max-width:520px">Select or create an ontology to see its schema. <a href="/__ioi/odk/ontologies/new">Create an ontology →</a></div>`}</main>`;
 
-  const css = `@font-face{font-family:'Source Sans Pro';font-style:normal;font-weight:400;font-display:block;src:url(/__ioi/fonts/source-sans-pro-400.woff2) format('woff2')}
-    @font-face{font-family:'Source Sans Pro';font-style:normal;font-weight:600;font-display:block;src:url(/__ioi/fonts/source-sans-pro-600.woff2) format('woff2')}
-    @font-face{font-family:'Source Sans Pro';font-style:normal;font-weight:700;font-display:block;src:url(/__ioi/fonts/source-sans-pro-700.woff2) format('woff2')}
+  const css = `@font-face{font-family:'Source-Sans-Pro';font-style:normal;font-weight:400;font-display:block;src:url(/__ioi/fonts/source-sans-pro-400.woff2) format('woff2')}
+    @font-face{font-family:'Source-Sans-Pro';font-style:normal;font-weight:600;font-display:block;src:url(/__ioi/fonts/source-sans-pro-600.woff2) format('woff2')}
+    @font-face{font-family:'Source-Sans-Pro';font-style:normal;font-weight:700;font-display:block;src:url(/__ioi/fonts/source-sans-pro-700.woff2) format('woff2')}
     html{color-scheme:light}*{box-sizing:border-box}
-    body{margin:0;background:#f4f5f7;color:#1c2127;font:14px/1.5 'Source Sans Pro',Helvetica,sans-serif;-webkit-font-smoothing:antialiased}
+    body{margin:0;background:#f4f5f7;color:#1c2127;font:14px/1.28581 Source-Sans-Pro,Helvetica,sans-serif}
     a{color:#2f6fd8;text-decoration:none}
     .og-shell{display:flex;height:100vh;width:100vw;overflow:hidden}
-    .og-grail{flex:0 0 230px;width:230px;height:100vh;background:#252a31;color:#f6f7f9;display:flex;flex-direction:column;padding:53px 12px 12px;overflow:hidden}
-    .og-gitem{display:flex;align-items:center;gap:12px;height:32px;padding:0 8px;border-radius:6px;color:#f6f7f9;font-size:14px;font-weight:400}
-    .og-gitem:hover{background:#2f353d;color:#fff}.og-gitem.on{background:#2f353d;color:#fff;font-weight:600}
+    .og-grail{flex:0 0 230px;width:230px;height:100vh;background:#252a31;color:#f6f7f9;display:flex;flex-direction:column;padding:0 12px 10px;overflow:hidden}
+    .og-gtop{height:61px;display:flex;align-items:center;justify-content:space-between;padding:0 19px 0 6px;flex:0 0 61px}
+    .og-gmark{font-size:20px;color:#f6f7f9}
+    .og-gmenu{display:inline-flex;color:#abb3bf}
+    .og-gappico{width:24px;height:24px;flex:0 0 24px;margin:-4px -4px -4px -4px;border-radius:3px;background:rgba(102,158,255,.1) url('${ONTOLOGY_APP_ICON_URI}') center/16px no-repeat}
+    .og-strong{font-weight:600}
+    .og-gstar{display:inline-flex;color:#abb3bf;width:16px;flex:0 0 16px}
+    .og-gitem{display:flex;align-items:center;gap:12px;height:32px;padding:0 8px 0 5px;border-radius:6px;color:#f6f7f9;font-size:14px;font-weight:400}
+    .og-gitem:hover{background:#2f353d;color:#fff}.og-gitem.on{background:#2f353d;color:#fff;font-weight:600;height:36px}
     .og-gitem.muted{color:#f6f7f9;cursor:default}.og-gitem.muted:hover{background:transparent}
     .og-gico{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;color:#abb3bf;flex:0 0 16px}
     .og-gitem.on .og-gico{color:#f6f7f9}
     .og-glabel{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1 1 auto}
-    .og-gkbd{font-size:12px;color:#abb3bf;font-family:inherit}
+    .og-gkbd{display:inline-flex;align-items:center;gap:3px;font-size:14px;color:#abb3bf;font-family:inherit;margin-right:4px}
     .og-gdiv{height:21px}
-    .og-gsecrow{display:flex;align-items:center;justify-content:space-between;padding:12px 8px 4px}
+    .og-gsecrow{display:flex;align-items:center;justify-content:space-between;padding:30px 8px 5px 5px}
     .og-gsec{font-size:12px;letter-spacing:.02em;color:#abb3bf;font-weight:600}
     .og-gviewall{font-size:14px;color:#abb3bf;font-weight:400}
-    .og-gavatar{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;margin-left:-2px;border-radius:3px;background:#1e6ba1;color:#8abbff;font-size:12px;font-weight:600;flex:0 0 20px}
+    .og-gavatar{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;margin-left:0;margin-right:-4px;border-radius:3px;background:#1e6ba1;color:#8abbff;font-size:12px;font-weight:600;flex:0 0 20px}
     .og-gspacer{flex:1 1 auto;min-height:14px}
     .og-main{flex:1;min-width:0;display:flex;flex-direction:column;height:100vh}
-    .og-header{flex:0 0 auto;height:54px;display:flex;align-items:center;gap:12px;padding:0 16px;background:#fff;border-bottom:1px solid #e6e8ec}
-    .og-happ{display:inline-flex;color:#5b6472}.og-htitle{font-weight:700;font-size:15px}
-    .og-ontomenu{position:relative}.og-ontomenu>summary{list-style:none;cursor:pointer;font-size:12.5px;color:#3a3f46;background:#f1f3f6;border:1px solid #e0e3e8;border-radius:7px;padding:4px 10px}
+    .og-header{flex:0 0 auto;position:relative;height:50px;display:flex;align-items:center;padding:0 15px 0 0;background:#fff;box-shadow:0 1px 0 0 #dce0e5;z-index:5}
+    .og-hchip{width:50px;height:50px;flex:0 0 50px;background:rgba(102,158,255,.1) url('${ONTOLOGY_APP_ICON_URI}') center no-repeat}
+    .og-htitle{margin:0 0 0 15px;font-weight:600;font-size:16px;color:#1c2127;line-height:18px}
+    .og-ontomenu{position:relative;display:inline-block}.og-ontomenu>summary{list-style:none;cursor:pointer;font-size:14px;color:#1c2127;background:#f1f3f6;border:1px solid #e0e3e8;border-radius:4px;padding:3px 10px}
     .og-ontomenu>summary::-webkit-details-marker{display:none}.og-ver{color:#8b9099}
-    .og-ontolist{position:absolute;top:34px;left:0;min-width:230px;background:#fff;border:1px solid #e0e3e8;border-radius:9px;box-shadow:0 8px 28px rgba(20,24,31,.14);padding:6px;z-index:20}
+    .og-ontolist{position:absolute;top:32px;left:0;min-width:230px;background:#fff;border:1px solid #e0e3e8;border-radius:9px;box-shadow:0 8px 28px rgba(20,24,31,.14);padding:6px;z-index:20}
     .og-ontoitem{display:flex;align-items:center;justify-content:space-between;padding:6px 9px;border-radius:6px;color:#3a3f46}
     .og-ontoitem:hover{background:#f1f3f6}.og-ontoitem.on{background:#eef2fb;color:#1a1d21;font-weight:600}
-    .og-search{margin-left:8px;flex:1 1 auto;max-width:520px;display:flex;align-items:center;gap:8px;background:#f1f3f6;border:1px solid #e0e3e8;border-radius:8px;padding:5px 10px;color:#8b9099}
-    .og-search input{flex:1;border:0;background:transparent;font:inherit;color:#3a3f46;outline:none}
-    .og-search kbd{font:inherit;font-size:11px;color:#9aa0a8;border:1px solid #e0e3e8;border-radius:4px;padding:0 5px;background:#fff}
-    .og-new{margin-left:auto;background:#2f6fd8;color:#fff;font-weight:600;font-size:12.5px;border-radius:7px;padding:6px 14px}
+    .og-search{position:absolute;left:50%;top:10px;transform:translateX(-50%);width:350px;height:30px;display:flex;align-items:center;background:#f6f7f9;border-radius:4px;padding:0 10px 0 7px}
+    .og-sico{display:inline-flex;color:#5f6b7c;flex:0 0 16px;margin-right:1px}
+    .og-search input{flex:1;border:0;background:transparent;font:inherit;font-size:14px;line-height:16px;height:16px;padding:0;color:#1c2127;outline:none}
+    .og-search input::placeholder{color:#5f6b7c}
+    .og-skbd{font-size:14px;line-height:16px;color:#5f6b7c;white-space:nowrap}
+    .og-headright{margin-left:auto;display:flex;align-items:center;gap:23px}
+    .og-branch{display:inline-flex;align-items:center;gap:8px;color:#5f6b7c;font-size:14px;line-height:16px;cursor:default}
+    .og-branchname{color:#1c2127}
+    .og-new{display:inline-flex;align-items:center;justify-content:center;gap:8px;width:70px;height:30px;padding:0;border:1px solid #d7dade;border-radius:4px;background:#fff;color:#1c2127;font-size:14px;line-height:16px;font-weight:400}
+    .og-new svg{color:#5f6b7c}
     .og-work{flex:1 1 auto;display:flex;min-height:0}
-    .og-arail{flex:0 0 292px;width:292px;background:#fff;border-right:1px solid #e6e8ec;overflow-y:auto;padding:10px 8px}
-    .og-nav{display:flex;align-items:center;justify-content:space-between;padding:7px 12px;border-radius:7px;color:#3a3f46;font-size:13px;margin:1px 0}
-    .og-nav:hover{background:#f1f3f6}.og-nav .og-c{font-size:12px;color:#8b9099}
-    .og-nav.gap{color:#a2a7af;cursor:default}.og-nav.gap:hover{background:transparent}
-    .og-asec{font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;color:#8b9099;padding:14px 12px 5px;font-weight:600}
-    .og-adiv{height:1px;background:#eceef1;margin:8px 10px}
-    .og-body{flex:1 1 auto;overflow:auto;padding:20px 24px;background:#f4f5f7}
+    .og-arail{flex:0 0 299px;width:299px;background:#fff;border-right:1px solid #dce0e5;overflow-y:auto;padding:6px 5px 6px 6px}
+    .og-nav{display:flex;align-items:center;gap:10px;height:35px;padding:0 10px;border-radius:3px;color:#1c2127;font-size:14px;margin:0 0 5px}
+    .og-nav.sub{padding-left:15px}
+    .og-nico{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;color:#5f6b7c;flex:0 0 16px}
+    .og-nlabel{flex:1 1 auto;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .og-nav:hover{background:#f6f7f9}
+    .og-nav.on{background:#f3f8ff;color:#215db0}.og-nav.on .og-nico{color:#215db0}
+    .og-nav .og-c{font-size:12px;color:#1c2127;background:#eef0f3;border-radius:4px;padding:1px 7px;line-height:18px}
+    .og-nav.gap{color:#1c2127;cursor:default}.og-nav.gap:hover{background:transparent}
+    .og-asec{font-size:14px;color:#1c2127;padding:1px 10px 9px 15px;font-weight:600}
+    .og-adiv{height:1px;background:#e5e8eb;margin:10px 10px}
+    .og-adiv2{height:1px;background:#e5e8eb;margin:5px 10px 10px}
+    .og-agap{height:14px}
+    .og-body{flex:1 1 auto;overflow:auto;padding:20px 24px;background:#f6f7f9}
     .og-body section{margin:0 0 26px}
     .og-sechd{display:flex;align-items:center;justify-content:space-between;margin:0 0 12px}
     .og-body h2{font-size:15px;margin:0 0 12px;font-weight:600}.og-subn{color:#9aa0a8;font-weight:400;font-size:13px}
     .og-configlink{font-size:13px}
+    .og-explorerlink{font-size:13px;margin-right:14px}
     .og-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px}
     .og-card{display:block;background:#fff;border:1px solid #e4e7ec;border-radius:10px;padding:14px 15px;box-shadow:0 1px 2px rgba(20,24,31,.04);color:#1a1d21}
     .og-card:hover{border-color:#c9d3e6;box-shadow:0 3px 10px rgba(20,24,31,.08)}

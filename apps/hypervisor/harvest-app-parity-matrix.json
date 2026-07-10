@@ -234,7 +234,8 @@
       ],
       "binding": "faithful port of the reference Ontology Manager over the real ODK CanonicalObjectModel — dark global rail + light app rail (Discover/Proposals/History · Resources object/property/link/action/value types + functions · Health/Cleanup/Configuration) + light header (ontology switcher · search · New) + light card-first body (object-type cards with per-type object + dependent counts), then typed schema detail + configuration; every cell is daemon truth",
       "candidate_surface": "/__ioi/ontology/manager",
-      "shell_pixel_certified": false
+      "shell_pixel_certified": true,
+      "shell_pixel_certification_artifact": "pixel-certifications/schema.json"
     },
     {
       "owner": "Ontology",

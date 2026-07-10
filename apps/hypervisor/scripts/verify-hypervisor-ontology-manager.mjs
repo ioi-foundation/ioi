@@ -126,6 +126,25 @@ async function run() {
   ok("schema + explorer captures kept secondary (linked references)", t.includes("/__apps/explorer") && t.includes("/__apps/schema"));
   ok("Data plane still rendered (data-source authority present)", /Data sources/.test(t) && t.includes("/__apps/sources"));
 
+  // SHELL PIXEL CERTIFICATION (#41) — shell_pixel_certified is a layer ON TOP of daemon_wired:
+  // pixel-identical SHELL (certified by the committed evidence file the harness itself wrote),
+  // semantically-truthful BODY (which is what everything above just proved against the LIVE daemon —
+  // typed counts, resources, health, disabled named-gap lanes). The matrix row and the committed cert
+  // must agree, and the cert must be genuine measurement (non-pinned, both desktop viewports, budgets).
+  {
+    const { readFileSync } = await import("node:fs");
+    const path = (await import("node:path")).default;
+    const { fileURLToPath } = await import("node:url");
+    const here = path.dirname(fileURLToPath(import.meta.url));
+    const appRoot = path.resolve(here, "..");
+    let row = null, cert = null;
+    try { const m = JSON.parse(readFileSync(path.join(appRoot, "harvest-app-parity-matrix.json"), "utf8")); row = (m.seeds || []).find((s) => s.slug === "schema"); } catch { /* */ }
+    try { cert = JSON.parse(readFileSync(path.join(appRoot, row.shell_pixel_certification_artifact), "utf8")); } catch { /* */ }
+    ok("matrix: schema is shell_pixel_certified (pixel-identical shell, semantically-truthful body) with a committed evidence pointer, still daemon_wired", row && row.shell_pixel_certified === true && row.shell_pixel_certification_artifact === "pixel-certifications/schema.json" && row.parity_class === "daemon_wired");
+    ok("the committed certification is REAL: schema slug, certified, NON-pinned, both desktop viewports certified, mobile honestly not-supported", cert && cert.schema === "ioi.hypervisor.shell-pixel-certification.v1" && cert.slug === "schema" && cert.shell_pixel_certified === true && cert.viewports_pinned === false && (cert.viewports || []).length === 2 && cert.viewports.every((v) => v.certified === true) && /not_supported/.test(cert.mobile), cert ? cert.viewports.map((v) => `${v.viewport}: dilated ${v.metrics.shell_diff_dilated_pct}% raw ${v.metrics.shell_diff_raw_pct}%`).join(" · ") : "cert missing");
+    ok("the certification is MEASUREMENT, not convenience: dilated ≤ 1.25% AND raw ≤ 3.0% on every certified viewport, with real certified-shell coverage (shell not masked away)", cert && cert.viewports.every((v) => v.metrics.shell_diff_dilated_pct <= 1.25 && v.metrics.shell_diff_raw_pct <= 3.0 && v.metrics.coverage.certified_fraction >= 0.05));
+  }
+
   // Cleanup.
   for (const id of made) await jd("DELETE", `/v1/hypervisor/odk/domain-ontologies/${id}`);
 }

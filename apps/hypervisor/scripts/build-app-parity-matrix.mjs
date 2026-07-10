@@ -146,8 +146,13 @@ const OVERLAY_FOR = (slug) => DAEMON_WIRED[slug] || REFERENCE_PORTED[slug] || RE
 // can never carry a claim). The invariant below PARSES the file; the pixel verifier deep-checks its
 // recorded thresholds against the harness THRESHOLDS.
 const SHELL_PIXEL_CERTIFIED = {
-  // (none yet — PRs #41–#43 shell-certify schema/approvals/pipeline; the harness landed in #40 with
-  // honest un-certified baselines recorded in the PR.)
+  // #41 — Ontology Manager: the FIRST shell-pixel certification. Deterministic alignment took the shell
+  // from 11.51% raw chrome diff to the measured floor (anchors 0,0 · container bbox 0px · identical
+  // platform fonts · zero run-to-run variance): 1440x900 dilated 1.05% / raw 1.73%, 1920x1080 dilated
+  // 0.88% / raw 1.46% — under the calibrated budgets (dilated ≤ 1.25%, raw ≤ 3.0%). Body = live ODK
+  // truth, verified semantically by verify-hypervisor-ontology-manager.mjs. Mobile: not supported by the
+  // reference (fixed 230px rail ≈ 59% of a 390px viewport).
+  schema: "pixel-certifications/schema.json",
 };
 
 const rows = SEED_INVENTORY.map((e) => {
