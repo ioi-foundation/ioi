@@ -1,25 +1,26 @@
 #!/usr/bin/env node
-// OBJECT EXPLORER REFERENCE PORT — #35 done-bar (reference_ported: faithful shell + real wiring, NOT parity).
-//
-// /__ioi/ontology/explorer is a FAITHFUL source-neutral port of the reference Object Explorer (dark
-// global rail + a light "Object Explorer search" header with the Filter/Search bar + a Shortcuts strip
-// + an Object type CATALOG table + an Object set CATALOG), wired to the REAL ODK truth (object types
-// across ontologies, materialized object sets, per-type object + usage counts, a working server-side
-// object-type filter). Paired with #34 Ontology Manager (first-class linked both ways). READ-ONLY.
-//
-// It is HONESTLY `reference_ported`, NOT `daemon_wired`: the local /workspace/hubble reference does not
-// cleanly boot — the /__apps/explorer proxy renders a BLANK body and the mirror's data lanes render
-// "Failed to load" — so the hardened harness has NO valid reference to certify visual_parity against.
-// This verifier proves: (a) the matrix says reference_ported (not daemon_wired) with a documented
-// parity_blocked; (b) the shell is the faithful light Object-Explorer IA (not automationsShell / not a
-// dark redesign); (c) real daemon truth is wired (object-type catalog + object-set catalog + counts +
-// working filter cross-check the live daemon); (d) the hardened harness REFUSES to certify parity.
-//
-// Usage: node apps/hypervisor/scripts/verify-hypervisor-app-parity-object-explorer.mjs
-// Exit 2 = BLOCKED.
-
+// ---------------------------------------------------------------------------
+// PR #46 — OBJECT EXPLORER PORT VERIFIER (the CORRECTION promotion).
+// History: #35 ported the shell blind and stayed reference_ported behind a
+// "blank/failed local Hubble reference" blocker. The #44 estate sweep PROVED
+// that blocker wrong — the capture-origin lane (localhost:9225/workspace/
+// hubble/) renders the full data-clean Object Explorer; the failure was an
+// origin/hostname mismatch (the pipeline #38 class), not a missing backend.
+// #46 origin-aligned the reference, re-ported the shell against it, certified
+// shell-pixel parity at both viewports, and promoted explorer to daemon_wired.
+// This verifier asserts all of it:
+//   1. MATRIX: daemon_wired + origin-aligned override + landmarks; the stale
+//      parity_blocked prose is GONE; the sweep records the corrected story.
+//   2. REFERENCE: the origin-aligned reference is VALID + data-clean.
+//   3. VISUAL PARITY: the hardened harness certifies against THAT reference.
+//   4. DAEMON TRUTH: object types across live DomainOntologies, counts from
+//      materialized sets, the object-set catalog, a WORKING ?q= filter that
+//      drops a guaranteed decoy — and first-class Ontology-pair backlinks.
+//   5. SHELL-PIXEL CERTIFICATION: committed non-pinned 2-viewport evidence;
+//      the catalog/set ROWS are the excluded live body (no body pixel claim).
+// ---------------------------------------------------------------------------
+import { readFileSync, existsSync, rmSync } from "node:fs";
 import { spawnSync } from "node:child_process";
-import { readFileSync, existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -30,107 +31,84 @@ const appRoot = path.resolve(here, "..");
 
 const results = [];
 const ok = (name, cond, detail) => { results.push({ name, pass: !!cond, detail: detail || "" }); };
-const jd = async (method, p, body) => { const r = await fetch(`${DAEMON}${p}`, { method, headers: { "content-type": "application/json" }, body: body ? JSON.stringify(body) : undefined }); return { status: r.status, j: await r.json().catch(() => ({})) }; };
-// Retry once: a long harness spawn can leave an idle keep-alive socket that resets on the next fetch.
-const page = async (url) => { for (let i = 0; i < 2; i++) { try { const r = await fetch(url); return { status: r.status, text: await r.text() }; } catch { if (i) return { status: 0, text: "" }; } } };
-const rx = (s) => String(s == null ? "" : s).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const page = (url) => fetch(url).then(async (r) => ({ status: r.status, text: await r.text() })).catch(() => ({ status: 0, text: "" }));
+const jd = (p) => fetch(`${DAEMON}${p}`).then((r) => r.json()).catch(() => ({}));
 
 async function run() {
-  const up = await fetch(`${DAEMON}/v1/hypervisor/odk/domain-ontologies`).then((r) => r.ok).catch(() => false);
+  const up = await fetch(`${DAEMON}/v1/hypervisor/odk/overview`).then((r) => r.ok).catch(() => false);
   if (!up) { console.error("BLOCKED: daemon ODK plane not reachable at " + DAEMON); process.exit(2); }
 
-  // 0. Matrix — explorer is reference_ported (NOT daemon_wired), with a documented parity_blocked.
+  // 1. MATRIX — the correction is complete and recorded.
   const check = spawnSync("node", [path.join(here, "build-app-parity-matrix.mjs"), "--check"], { encoding: "utf8" });
   ok("parity matrix is current (regenerated == committed)", check.status === 0, (check.stderr || "").trim().slice(0, 80));
-  const matrix = JSON.parse(spawnSync("node", ["-e", `import(${JSON.stringify(path.join(here, "..", "harvest-app-parity-matrix.json"))}, { with: { type: "json" } }).then(m => console.log(JSON.stringify(m.default)))`], { encoding: "utf8" }).stdout || "{}");
-  const bySlug = Object.fromEntries((matrix.seeds || []).map((s) => [s.slug, s]));
-  ok("matrix classifies explorer as reference_ported → /__ioi/ontology/explorer (NOT daemon_wired)", bySlug.explorer?.parity_class === "reference_ported" && bySlug.explorer?.port_surface === "/__ioi/ontology/explorer" && bySlug.explorer?.candidate_surface === "/__ioi/ontology/explorer");
-  ok("the block is documented (parity_blocked names the blank/failed local Hubble reference)", typeof bySlug.explorer?.parity_blocked === "string" && /hubble|blank|failed to load|no backend|re-?harvest/i.test(bySlug.explorer.parity_blocked));
-  ok("daemon_wired stays sacred: only FAITHFUL ports are daemon_wired (schema + approvals), explorer is NOT; reference_capture is the majority", bySlug.schema?.parity_class === "daemon_wired" && bySlug.explorer?.parity_class !== "daemon_wired" && (matrix.by_parity_class?.reference_capture || 0) > (matrix.by_parity_class?.daemon_wired || 0) && (matrix.by_parity_class?.reference_capture || 0) > (matrix.by_parity_class?.reference_ported || 0));
-  ok("explorer declares NO reference_landmarks (a blank reference has no IA to reproduce — it must not be gameable into parity)", !Array.isArray(bySlug.explorer?.reference_landmarks) || bySlug.explorer.reference_landmarks.length === 0);
+  const matrix = JSON.parse(readFileSync(path.join(appRoot, "harvest-app-parity-matrix.json"), "utf8"));
+  const row = (matrix.seeds || []).find((s) => s.slug === "explorer");
+  ok("matrix: explorer is daemon_wired at /__ioi/ontology/explorer with the ORIGIN-ALIGNED reference override + landmarks declared", row && row.parity_class === "daemon_wired" && row.port_surface === "/__ioi/ontology/explorer" && row.candidate_surface === "/__ioi/ontology/explorer" && row.reference_url_override === "http://localhost:9225/workspace/hubble/" && Array.isArray(row.reference_landmarks) && row.reference_landmarks.length >= 8, row ? `class=${row.parity_class}` : "row missing");
+  ok("the OLD BLOCKER is corrected: no stale parity_blocked prose survives; the note records the origin-mismatch correction", row && !row.parity_blocked && /origin mismatch|origin-aligned|ORIGIN-ALIGNED/i.test(row.note || ""));
+  ok("the sweep records the corrected reference story (data_clean via the origin-aligned lane)", row && row.reference_clean_state === "data_clean", row ? `${row.reference_clean_state} · ${String(row.reference_clean_reason).slice(0, 70)}` : "");
+  ok("the estate census accepts the FIFTH daemon_wired surface (schema · approvals · pipeline · incidents · explorer); reference_ported is now empty; reference_capture stays the honest majority", (matrix.by_parity_class?.daemon_wired || 0) === 5 && !(matrix.by_parity_class?.reference_ported) && (matrix.by_parity_class?.reference_capture || 0) >= 20, JSON.stringify(matrix.by_parity_class));
 
-  // Fixtures: TWO real DomainOntologies — GizmoKind (the match) + WidgetKind (a GUARANTEED non-matching
-  // sibling), so the filter drop-test always executes (not behind an incidental-daemon-state guard).
-  const DOM = `om-explorer-fixture-${process.pid}`;
-  const OTHER = `om-explorer-other-${process.pid}`;
-  const comOf = (oid, name) => ({ value_types: [{ id: "vt_n", name: "Nm", base: "string" }], object_types: [{ id: oid, name, title_property: "p_t", properties: [{ id: "p_t", name: "Tt", value_type: "vt_n", required: true }] }], link_types: [], action_types: [] });
-  const created = await jd("POST", "/v1/hypervisor/odk/domain-ontologies", { domain: DOM, version: "0.1.0", canonical_object_model: comOf("ot_gizmo", "GizmoKind") });
-  const fix = created.j.ontology;
-  const createdOther = await jd("POST", "/v1/hypervisor/odk/domain-ontologies", { domain: OTHER, version: "0.1.0", canonical_object_model: comOf("ot_widget", "WidgetKind") });
-  const other = createdOther.j.ontology;
-  ok("fixture DomainOntologies created (GizmoKind + a guaranteed non-matching WidgetKind sibling)", created.status === 201 && fix?.id && createdOther.status === 201 && other?.id, `${fix?.id} · ${other?.id}`);
+  // 2. REFERENCE VALIDITY — the origin-aligned reference renders (machine-checked, not prose).
+  const ref = await page("http://localhost:9225/workspace/hubble/");
+  ok("the origin-aligned Hubble reference BOOTS (no blank body, no error page)", ref.status === 200 && ref.text.length > 5000 && !/an error occurred|failed to load current/i.test(ref.text));
 
-  // 1. Reference is honestly not-clean (proxy renders blank/nav-only OR the mirror fails to load data).
-  const ref = await page(`${SERVE}/__apps/explorer`);
-  ok("reference /__apps/explorer boots the Object-Explorer app chrome (the local capture is data-blank — that is WHY this is reference_ported)", ref.status === 200 && /Object Explorer/i.test(ref.text));
-
-  // 2. FAITHFUL PORTED SHELL — the light Object-Explorer IA, not automationsShell / not a dark redesign.
-  const port = await page(`${SERVE}/__ioi/ontology/explorer`);
-  const t = port.text;
-  ok("the port is the two-rail og-shell with the Object-Explorer header + body (not automationsShell)", port.status === 200 && /class="og-shell"/.test(t) && /class="og-grail"/.test(t) && /class="oe-header"/.test(t) && /<main class="oe-body"[^>]*role="main"/.test(t) && !/class="wrap"/.test(t) && !/max-width:920px/.test(t) && !/class="automations/.test(t));
-  ok("the port is LIGHT-themed (matches the light reference)", /html\{color-scheme:light\}/.test(t) && /background:#f4f5f7/.test(t) && !/color-scheme:dark/.test(t));
-  ok("<title>Object Explorer</title> + the reference IA sections (Object Explorer search · Shortcuts · Object type catalog · Object set catalog)", /<title>Object Explorer/.test(t) && /Object Explorer search/.test(t) && />Shortcuts</.test(t) && /Object type catalog/.test(t) && /Object set catalog/.test(t));
-  ok("the object-type catalog table reproduces the reference columns (name · status · objects · usage · ontology · description)", ["Object type name", "Status", "Objects", "Usage", "Ontology", "Description"].every((c) => t.includes(c)));
-
-  // 3. DAEMON TRUTH WIRED — real object types + object sets + counts cross-check the live daemon.
-  // Parallel-safe: fetch the daemon totals and the rendered page in ONE settle window and require them
-  // to agree (a concurrent verifier mutating the shared ontology count can't cause a false failure).
-  let onts = [], sets = [], totalTypes = 0, tt = t;
-  for (let i = 0; i < 5; i++) {
-    onts = (await jd("GET", "/v1/hypervisor/odk/domain-ontologies")).j.ontologies || [];
-    sets = (await jd("GET", "/v1/hypervisor/odk/materialized-object-sets")).j.materialized_object_sets || [];
-    totalTypes = onts.reduce((n, oo) => n + (((oo.canonical_object_model || {}).object_types || []).length), 0);
-    tt = (await page(`${SERVE}/__ioi/ontology/explorer`)).text;
-    if (new RegExp(`Object type catalog <span class="oe-subn">${totalTypes}<`).test(tt) && new RegExp(`>All<span class="oe-c">${sets.length}</span>`).test(tt)) break;
-  }
-  ok("the fixture object type renders in the catalog (name · id · ontology domain) — real daemon truth", tt.includes("GizmoKind") && tt.includes("ot_gizmo") && tt.includes(DOM));
-  ok("CROSS-CHECK: the object-type catalog count matches the live daemon (total object types across ontologies)", new RegExp(`Object type catalog <span class="oe-subn">${totalTypes}<`).test(tt), `catalog ${(tt.match(/Object type catalog <span class="oe-subn">(\d+)/) || [])[1]} · daemon ${totalTypes}`);
-  ok("CROSS-CHECK: the object-set catalog count matches the live daemon materialized sets", new RegExp(`>All<span class="oe-c">${sets.length}</span>`).test(tt), `sets rendered vs daemon ${sets.length}`);
-  // PER-ROW cross-check: an existing materialized set's rendered Objects count EQUALS the daemon's count
-  // (proves the numbers are real daemon truth, not a fabricated/placeholder value). Honest-skip if the
-  // estate has no materialized sets yet (this verifier does not build the full projection ladder).
-  const aset = sets[0];
-  ok(aset ? "CROSS-CHECK: a real materialized set's rendered Objects count equals the daemon count (per-row, not fabricated)" : "object-set object counts are wired (no materialized set in the estate to cross-check — honest skip)", !aset || new RegExp(`${rx(aset.name || aset.id || "object set")}[\\s\\S]{0,400}?<b>${aset.count || 0}</b>`).test(tt), aset ? `set ${aset.name || aset.id} → ${aset.count || 0}` : "no sets");
-
-  // 4. The working, server-side object-type FILTER — proven with the GUARANTEED decoy: ?q=<domain> keeps
-  // GizmoKind and unconditionally DROPS WidgetKind (a no-op / ignored filter would leave it, so this
-  // half always executes — it does not depend on incidental daemon state).
-  const filtered = await page(`${SERVE}/__ioi/ontology/explorer?q=${encodeURIComponent(DOM)}`);
-  const ft = filtered.text;
-  ok("the object-type filter is REAL + server-side: ?q=<domain> keeps GizmoKind and DROPS the guaranteed WidgetKind sibling", filtered.status === 200 && ft.includes(">GizmoKind</a>") && tt.includes(">WidgetKind</a>") && !ft.includes(">WidgetKind</a>"), `q=${DOM} · unfiltered-has-widget=${tt.includes(">WidgetKind</a>")} · filtered-has-widget=${ft.includes(">WidgetKind</a>")}`);
-
-  // 5. THE HARDENED GATE REFUSES to certify — honest reference_ported. Corroborated from OBSERVED harness
-  // behaviour (not just the config): the reference actually renders NO Object-Explorer IA (blank/failed
-  // in the local mirror), so there is nothing faithful to certify against. This FAILS (forcing a promote-
-  // or-declare-landmarks decision) the day /workspace/hubble is re-harvested into a data-rich reference.
-  const artDir = path.join(appRoot, ".artifacts", "object-explorer-port-verify");
-  const h = spawnSync("node", [path.join(here, "harness-reference-parity.mjs")], { encoding: "utf8", timeout: 90000, env: { ...process.env, IOI_HARNESS_SURFACES: "explorer", IOI_HARNESS_ARTIFACT_DIR: artDir } });
+  // 3. VISUAL PARITY — hardened harness against the origin-aligned reference.
+  const artDir = path.join(appRoot, ".artifacts", "explorer-port-verify");
+  try { if (existsSync(path.join(artDir, "result.json"))) rmSync(path.join(artDir, "result.json")); } catch { /* */ }
+  const h = spawnSync("node", [path.join(here, "harness-reference-parity.mjs")], { encoding: "utf8", timeout: 180000, env: { ...process.env, IOI_HARNESS_SURFACES: "explorer", IOI_HARNESS_ARTIFACT_DIR: artDir } });
   let hp = null;
   if (h.status === 0 && existsSync(path.join(artDir, "result.json"))) hp = (JSON.parse(readFileSync(path.join(artDir, "result.json"), "utf8")).surfaces || [])[0];
-  ok("HARDENED harness REFUSES parity: visual_parity is FALSE — honest reference_ported (schema declares no landmarks over a blank reference)", hp && hp.visual_parity === false, hp ? `visual=${hp.visual_parity} structural=${hp.structural_parity} lm_declared=${hp.landmark_declared}` : "harness did not run");
-  ok("OBSERVED CORROBORATION: the reference renders NONE of its own Object-Explorer IA (data-blank in the local mirror) — the real reason for reference_ported, and this flips if it is ever re-harvested clean", hp && typeof hp.reference_visible_text === "string" && !/object type catalog|object set catalog/i.test(hp.reference_visible_text), hp ? `ref_text="${(hp.reference_visible_text || "").slice(0, 70)}…" ref_regions=[${hp.reference_regions}]` : "");
-  ok("the IOI port itself is a clean, non-errored LIGHT surface (the block is the REFERENCE, not the port)", hp && hp.ioi_valid === true && hp.ioi_errored === false && hp.ioi_theme === "light", hp ? `ioi_valid=${hp.ioi_valid} ioi_theme=${hp.ioi_theme}` : "");
+  ok("harness ran + captured real screenshots (origin-aligned reference vs the port)", hp && hp.evidence_ok === true, hp ? `ref ${hp.reference_screenshot_bytes}b · ioi ${hp.ioi_screenshot_bytes}b` : "harness did not run");
+  ok("CERTIFIED: the hardened harness grants visual_parity — the gate that REFUSED under the broken proxy reference now passes against the valid one", hp && hp.visual_parity === true && hp.structural_parity === true, hp ? `visual=${hp.visual_parity} structural=${hp.structural_parity}` : "n/a");
+  ok("theme MATCH: reference LIGHT ≡ port LIGHT", hp && hp.theme_match === true && hp.reference_theme === "light" && hp.ioi_theme === "light");
+  ok("IA landmarks reproduced (search hero + shortcuts + catalogs; coverage ≥ 0.8, none missing)", hp && hp.landmark_applicable >= 8 && hp.landmark_covered >= Math.ceil(hp.landmark_applicable * 0.8) && (hp.landmarks_missing || []).length === 0, hp ? `covered ${hp.landmark_covered}/${hp.landmark_applicable}` : "n/a");
+  ok("BOTH sides VALID: the origin-aligned reference is data-clean (not errored/blank) + the port is not errored", hp && hp.reference_valid === true && hp.reference_errored === false && hp.ioi_valid === true && hp.ioi_errored === false);
 
-  // 6. READ-ONLY + named gaps disabled in place.
-  ok("object-instance search + faceted Filter-by are named gaps disabled in place (no object-instance search plane)", /placeholder="Search for objects…" disabled/.test(t) && /class="oe-filterby" disabled/.test(t));
-  ok("Recents / Favorites / sort / type-group+application / created-by-me+shared-with-me are named-gap lanes, not hidden", ["Recents", "Favorites", "Type group", "Application", "Created by me", "Shared with me"].every((l) => new RegExp(`class="oe-snav gap"[^>]*>${l}`).test(t)));
-
-  // 7. Discoverability — first-class Manager <-> Explorer backlinks + substrate link; brand-clean.
-  ok("the Explorer links the Ontology Manager first-class (rail + header)", t.includes('href="/__ioi/ontology/manager"') && /Ontology Manager →/.test(t));
-  const mgr = await page(`${SERVE}/__ioi/ontology/manager`);
-  ok("the Ontology Manager links the Object Explorer first-class (symmetric pair)", mgr.status === 200 && mgr.text.includes('href="/__ioi/ontology/explorer"'), `status=${mgr.status} bytes=${mgr.text.length} hasExplorer=${mgr.text.includes("/__ioi/ontology/explorer")}`);
+  // 4. DAEMON TRUTH — real ODK object/type/set truth + the working filter + backlinks.
+  const [o, ms] = await Promise.all([jd("/v1/hypervisor/odk/domain-ontologies"), jd("/v1/hypervisor/odk/materialized-object-sets")]);
+  const ontologies = o.ontologies || [];
+  const msets = ms.materialized_object_sets || [];
+  const allTypes = ontologies.flatMap((oo) => (((oo.canonical_object_model || {}).object_types) || []).map((t) => ({ oo, t })));
+  const port = await page(`${SERVE}/__ioi/ontology/explorer`);
+  ok("the port renders the reference IA (Object Explorer search · Shortcuts · Object type catalog · Object set catalog · filter/sort/lane chrome)", port.status === 200 && ["Object Explorer search", "Shortcuts", "Object type catalog", "Object set catalog", "Filter for an object type", "Relevancy", "All Ontologies", "New exploration"].every((l) => port.text.includes(l)));
+  ok(`rendered object-type COUNT equals daemon truth (${allTypes.length} across ${ontologies.length} live ontologies — the "N of M" tag)`, port.text.includes(`>${allTypes.length} of ${allTypes.length}<`), `expected ${allTypes.length}`);
+  const sample = allTypes.find(({ t }) => t.name) || allTypes[0];
+  ok("at least one REAL object type row renders (name from a live DomainOntology, never the capture's example types)", sample && port.text.includes(sample.t.name || sample.t.id) && !/\[Example rk46\] Email Claims/.test(port.text), sample ? (sample.t.name || sample.t.id) : "no types in daemon");
+  const sampleSet = msets[0];
+  ok("a REAL materialized set renders with its daemon object count (the object-set catalog + shortcuts read real sets)", !msets.length || (port.text.includes(sampleSet.name || sampleSet.set_id || sampleSet.object_type_id) && new RegExp(`${sampleSet.count} object`).test(port.text)), sampleSet ? `${sampleSet.name || sampleSet.set_id} -> ${sampleSet.count}` : "no sets (honest empty)");
+  {
+    // GUARANTEED decoy: a fixture ontology whose type name can never match the query below.
+    const jdp = (method, pth, body) => fetch(`${DAEMON}${pth}`, { method, headers: { "content-type": "application/json" }, body: body ? JSON.stringify(body) : undefined }).then((r) => r.json()).catch(() => ({}));
+    const fix = await jdp("POST", "/v1/hypervisor/odk/domain-ontologies", { domain: "explorer-decoy-check", canonical_object_model: { object_types: [{ id: "zzdecoy", name: "ZZDecoyNeverMatches", title_property: "t", properties: [{ id: "t", name: "T", value_type: "string" }] }], action_types: [{ id: "x", name: "X", kind: "modify_object", applies_to: "zzdecoy" }] } });
+    const decoyId = fix.ontology?.id;
+    const q = "explorer-decoy-check"; // matches ONLY the decoy's ontology domain
+    const filtered = await page(`${SERVE}/__ioi/ontology/explorer?q=${encodeURIComponent(q)}`);
+    const m = filtered.text.match(/>(\d+) of (\d+)</);
+    ok("the ?q= filter WORKS server-side: the query keeps ONLY the matching fixture type and drops every other (decoy-guaranteed) type", m && Number(m[1]) === 1 && Number(m[2]) > 1 && filtered.text.includes("ZZDecoyNeverMatches") && (!sample || !filtered.text.includes(`>${(sample.t.name || sample.t.id)}<`) || (sample.t.name || "").toLowerCase().includes(q)), m ? `${m[1]} of ${m[2]} for q=${q}` : "no count tag");
+    if (decoyId) await jdp("DELETE", `/v1/hypervisor/odk/domain-ontologies/${encodeURIComponent(decoyId)}`);
+  }
+  ok("Ontology-pair backlinks are FIRST-CLASS: Explorer -> Ontology Manager", port.text.includes("/__ioi/ontology/manager"));
+  const om = await page(`${SERVE}/__ioi/ontology/manager`);
+  ok("Ontology Manager -> Explorer stays first-class (the #34/#46 pair, now both daemon_wired)", om.status === 200 && om.text.includes("/__ioi/ontology/explorer"));
   const odk = await page(`${SERVE}/__ioi/odk`);
-  ok("the /__ioi/odk substrate links the ported Object Explorer; the surface is brand-clean", odk.status === 200 && odk.text.includes("/__ioi/ontology/explorer") && !/\bPalantir\b|\bFoundry\b/.test(t));
+  ok("/__ioi/odk (substrate) links the Explorer first-class", odk.status === 200 && odk.text.includes("/__ioi/ontology/explorer"));
+  ok("unsupported reference lanes are DISABLED IN PLACE + named (object search · Filter-by · Recents/Favorites · sort · type-group/application · exploration tabs · ontology selector · per-user set lanes), never hidden", (port.text.match(/disabled/g) || []).length >= 5 && /named gap/.test(port.text) && /reference-only/.test(port.text));
+  ok("brand-clean: no Palantir/Foundry branding on the port", !/\bPalantir\b/.test(port.text) && !/\bFoundry\b/.test(port.text));
 
-  // 8. Cleanup — delete BOTH fixtures.
-  if (fix?.id) await jd("DELETE", `/v1/hypervisor/odk/domain-ontologies/${fix.id}`);
-  if (other?.id) await jd("DELETE", `/v1/hypervisor/odk/domain-ontologies/${other.id}`);
-}
+  // 5. SHELL-PIXEL CERTIFICATION — committed, non-pinned, both viewports; body excluded by design.
+  {
+    let cert = null;
+    try { cert = JSON.parse(readFileSync(path.join(appRoot, row.shell_pixel_certification_artifact), "utf8")); } catch { /* */ }
+    ok("matrix: explorer is shell_pixel_certified with a committed evidence pointer, still daemon_wired", row && row.shell_pixel_certified === true && row.shell_pixel_certification_artifact === "pixel-certifications/explorer.json" && row.parity_class === "daemon_wired");
+    ok("the committed certification is REAL: explorer slug, certified, NON-pinned, both desktop viewports certified, mobile honestly not-supported", cert && cert.schema === "ioi.hypervisor.shell-pixel-certification.v1" && cert.slug === "explorer" && cert.shell_pixel_certified === true && cert.viewports_pinned === false && (cert.viewports || []).length === 2 && cert.viewports.every((v) => v.certified === true) && /not_supported/.test(cert.mobile), cert ? cert.viewports.map((v) => `${v.viewport}: dilated ${v.metrics.shell_diff_dilated_pct}% raw ${v.metrics.shell_diff_raw_pct}%`).join(" | ") : "cert missing");
+    ok("the certification is MEASUREMENT, not convenience: dilated <= 1.25% AND raw <= 3.0% on every certified viewport, with real certified-shell coverage", cert && cert.viewports.every((v) => v.metrics.shell_diff_dilated_pct <= 1.25 && v.metrics.shell_diff_raw_pct <= 3.0 && v.metrics.coverage.certified_fraction >= 0.05));
+    ok("NO full-body pixel claim: the certification is explicitly SHELL-scoped (the catalog/set rows are the excluded live body, verified semantically above)", cert && /SHELL/i.test(cert.note || "") && /body/i.test(cert.note || ""));
+  }
 
-run().then(() => {
   let fail = 0;
   for (const r of results) { console.log(`  ${r.pass ? "PASS" : "FAIL"}  ${r.name}${r.detail ? `  (${r.detail})` : ""}`); if (!r.pass) fail++; }
   console.log(`\n${results.length - fail}/${results.length} passed`);
   console.log(`object-explorer-port readiness: ${fail ? "FAIL" : "OK"}`);
   process.exit(fail ? 1 : 0);
-}).catch((e) => { console.error("verifier crashed:", e); process.exit(1); });
+}
+run().catch((e) => { console.error("verifier crashed:", e); process.exit(1); });

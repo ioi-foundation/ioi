@@ -129,7 +129,7 @@ ok("the mask-rect resolver applies the OPACITY visibility discipline (no invisib
 // (ports move parity through their own port PRs + per-surface verifiers — #34/#36/#39/#45).
 // The invariant is therefore structural, not a frozen census: every certified row is
 // daemon_wired, every daemon_wired row is certified, and no other class carries a cert.
-ok("parity classes are never GRANTED by the pixel layer: certified ⊆ daemon_wired, daemon_wired ⊆ certified, no cert outside daemon_wired", (matrix.seeds || []).every((s) => (s.shell_pixel_certified === true) === (s.parity_class === "daemon_wired")) && (matrix.by_parity_class?.daemon_wired || 0) >= 3 && (matrix.by_parity_class?.reference_ported || 0) === 1, `daemon_wired=${matrix.by_parity_class?.daemon_wired} certified=${(matrix.seeds || []).filter((s) => s.shell_pixel_certified).length}`);
+ok("parity classes are never GRANTED by the pixel layer: certified ⊆ daemon_wired, daemon_wired ⊆ certified, no cert outside daemon_wired", (matrix.seeds || []).every((s) => (s.shell_pixel_certified === true) === (s.parity_class === "daemon_wired")) && (matrix.by_parity_class?.daemon_wired || 0) >= 3 && (matrix.by_parity_class?.reference_ported || 0) <= 1, `daemon_wired=${matrix.by_parity_class?.daemon_wired} certified=${(matrix.seeds || []).filter((s) => s.shell_pixel_certified).length}`);
 
 // ---- report ------------------------------------------------------------------------------------------
 let fail = 0;

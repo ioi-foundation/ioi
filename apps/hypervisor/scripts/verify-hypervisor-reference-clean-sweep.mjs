@@ -88,7 +88,10 @@ ok("control 'pipeline' evidences the ORIGIN-ALIGNMENT pattern (classified on its
 // 6. Ranked next-3: present, justified on the directive's axes, and NOT promotions.
 {
   const r = (sweep && sweep.ranked_next) || [];
-  ok("ranked next-3 present (3 candidates, ranks 1..3)", r.length === 3 && r.map((x) => x.rank).join(",") === "1,2,3");
+  // The ranked list carries EVERY qualifying candidate (data_clean + unported), capped at 3 —
+  // as ports land, the honest pool shrinks (#45 consumed incidents, #46 consumed explorer).
+  const qualifying = seeds.filter((s) => s.clean_state === "data_clean" && !["daemon_wired", "reference_ported"].includes(s.parity_class)).length;
+  ok("ranked next present: every qualifying (data_clean, unported) seed is ranked, capped at 3, ranks sequential", r.length === Math.min(3, qualifying) && r.length >= 1 && r.map((x) => x.rank).join(",") === Array.from({ length: r.length }, (_, i) => i + 1).join(","), `${r.length} ranked of ${qualifying} qualifying`);
   ok("every ranked candidate is a data_clean reference (preference #1 is a hard gate)", r.every((x) => bySlug[x.slug] && bySlug[x.slug].clean_state === "data_clean"));
   ok("no ranked candidate is already ported (daemon_wired/reference_ported are not 'next')", r.every((x) => !["daemon_wired", "reference_ported"].includes(bySlug[x.slug]?.parity_class)));
   ok("every ranked candidate is JUSTIFIED on the directive's axes (daemon-truth bindability, owner value, fabrication risk, IA landmarks, live-dependency)", r.every((x) => x.why && x.why.data_clean_reference === true && x.why.daemon_truth_bindable && x.why.owner_value && x.why.fabrication_risk && x.why.live_palantir_dependency));

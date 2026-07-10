@@ -77,16 +77,10 @@ const REFERENCE_PORT_PENDING = {};
 // ported IOI surface; `parity_blocked` names why. `reference_landmarks` (when present) is the IA
 // label set the hardened harness requires in BOTH the reference and the candidate.
 const REFERENCE_PORTED = {
-  // #35 — Object Explorer: a FAITHFUL light port of the reference Object Explorer (dark global rail +
-  // "Object Explorer search" header w/ Filter/Search bar + Shortcuts strip + Object type CATALOG table +
-  // Object set CATALOG) wired to the REAL ODK truth (object types across ontologies, materialized object
-  // sets, per-type object + usage counts, a working server-side object-type filter). Paired with #34
-  // Ontology Manager (linked first-class both ways). BLOCKED from daemon_wired by a broken REFERENCE:
-  // the local /workspace/hubble capture does NOT cleanly boot — the /__apps/explorer proxy renders a
-  // BLANK body, and the mirror rendered directly shows the IA but every data lane reads "Failed to load"
-  // (the static mirror has no backend). So the hardened harness has no valid reference to certify
-  // visual_parity against. daemon_wired awaits a re-harvest of /workspace/hubble with a working backend.
-  explorer: { port_surface: "/__ioi/ontology/explorer", surface_name: "Ontology", reference_workspace: "/workspace/hubble/", parity_blocked: "local /workspace/hubble reference does not cleanly boot — the /__apps/explorer proxy renders a blank body and the mirror's data lanes render 'Failed to load' (no backend); no valid reference to certify visual_parity until a re-harvest", binding: "faithful Object Explorer shell over real ODK truth — an object-type CATALOG (name · status · objects · usage · ontology · description) across all ontologies + a working server-side type filter, an object-set CATALOG over real materialized object sets (name · ontology · object type · object count), and Shortcuts; every populated cell is daemon truth", note: "reference_ported (#35): faithful light Object-Explorer shell (global rail + search header + Shortcuts + object-type catalog + object-set catalog), wired to real object types + materialized sets, first-class linked to /__ioi/ontology/manager; READ-ONLY; object-instance full-text search / faceted Filter-by / Recents / Favorites / sort / type-group+application tabs / Created-by-me+Shared-with-me = named gaps disabled in place; NOT daemon_wired — the local Hubble reference is blank/failed, so the hardened harness cannot certify parity" },
+  // (empty since #46 — Object Explorer was the only member. The #44 sweep proved #35's
+  // "blank/failed Hubble reference" blocker WRONG — an origin/hostname mismatch, the pipeline
+  // #38 class — and #46 origin-aligned the reference, re-ported the shell against it, certified
+  // shell-pixel parity at both viewports, and promoted explorer to daemon_wired below.)
 };
 // TRUE reference UX parity — a FAITHFUL port of the reference UX (same theme + IA + layout) wired to
 // daemon truth, that PASSES the HARDENED Playwright harness (visual_parity: region geometry + theme
@@ -120,6 +114,10 @@ const DAEMON_WIRED = {
   // the app's absolute fetch origin, NOT the CORS-broken 127.0.0.1 proxy) with a reference-only preCapture
   // hook dismissing the "What's new" onboarding modal for a legible contact sheet. The hardened harness
   // then certifies visual_parity (theme light/light + landmarks 10/10 + regions 1.0, both sides valid).
+  // #46 — Object Explorer: the FIFTH faithful port — the CORRECTION promotion (the #44 sweep
+  // proved the #35 blocker wrong; the reference was data-clean all along behind the origin/hostname
+  // mismatch). Completes the Ontology pair with #34 schema.
+  explorer: { port_surface: "/__ioi/ontology/explorer", surface_name: "Ontology", reference_workspace: "/workspace/hubble/", reference_url_override: "http://localhost:9225/workspace/hubble/", reference_landmarks: ["Object Explorer search", "Filter by...", "Shortcuts", "Recents", "Favorites", "Your object sets", "Object type catalog", "Relevancy", "Object set catalog", "New exploration"], binding: "faithful port of the reference Object Explorer over real ODK truth — dark global rail (Ontology context) + exploration tab bar + centered 'Object Explorer search' hero (Filter-by/object-search as named gaps) + Shortcuts (the real top materialized sets) + the object-type CATALOG (name · status · object count from materialized sets · link usage · description=ontology) across ALL live DomainOntologies with a WORKING server-side ?q= filter + the object-set CATALOG over real materialized sets; every populated cell is daemon truth", note: "TRUE parity (#46) under the HARDENED gate: light Object-Explorer reference-faithful shell against the ORIGIN-ALIGNED data-clean Hubble reference (reference_url_override localhost:9225/workspace/hubble/ — the #44 sweep finding; #35's 'blank reference' blocker was an origin mismatch, CORRECTED, not a missing backend); REAL daemon rows only (never the capture's 55 example types); completes the Ontology pair with #34 schema — first-class linked with /__ioi/ontology/manager both ways + from /__ioi/odk; object-instance search / Filter-by facets / Recents / Favorites / Relevancy sort / type-group+application lanes / exploration tabs / ontology selector / per-user set lanes = named gaps disabled in place" },
   // #45 — Incidents: the FOURTH faithful port and the FIRST chosen by the #44 clean-sweep
   // ranking (rank #1: data_clean reference + existing Missions daemon substrate + low-risk
   // table/inbox grammar). The issues-app reference's data sits one status-lane click deep
@@ -197,6 +195,14 @@ const SHELL_PIXEL_CERTIFIED = {
   // threshold movement. Body = REAL daemon incidents (blockers/failures), verified
   // semantically by verify-hypervisor-app-parity-incidents.mjs.
   incidents: "pixel-certifications/incidents.json",
+  // #46 — Object Explorer: the FIFTH shell-pixel certification — the correction promotion, against
+  // the origin-aligned Hubble reference. Tab-bar header · centered search hero (grouped outer-ring
+  // + shared drop shadow) · shortcuts band · catalog heading/filter/sort band + table header ·
+  // object-set band; catalog/set ROWS = excluded live body. Content rule: max-width 1400,
+  // width calc(100% − 121px) — the ODD width reproduces the reference's half-pixel layout origin
+  // (x290.5 @1440), which is what collapsed the diffuse text-fringe diff. 1440x900 dilated 0.73% /
+  // raw 2.91%, 1920x1080 dilated 0.86% / raw 2.56%, bbox 0 — no threshold movement.
+  explorer: "pixel-certifications/explorer.json",
 };
 
 // ---- PR #44: the ESTATE REFERENCE CLEAN SWEEP (committed evidence written by

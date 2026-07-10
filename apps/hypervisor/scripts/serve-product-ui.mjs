@@ -26,7 +26,7 @@ import { WebSocketServer } from "ws";
 import * as adapter from "./ioi-api-adapter.mjs";
 import { getRun, listRuns, hydrateRunsFromDaemon, publishRunViaConnector } from "./ioi-agent-runs.mjs";
 import { projectRunTimeline } from "./ioi-run-timeline.mjs";
-import { bpIcon, ONTOLOGY_APP_ICON_URI, APPROVALS_APP_ICON_URI, PIPELINE_APP_ICON_URI, ISSUES_APP_ICON_URI, AIP_GRADIENT_SVG_RAIL, AIP_GRADIENT_SVG_TOOLBAR } from "./bp-icons.mjs";
+import { bpIcon, ONTOLOGY_APP_ICON_URI, APPROVALS_APP_ICON_URI, PIPELINE_APP_ICON_URI, ISSUES_APP_ICON_URI, EXPLORER_APP_ICON_URI, AIP_GRADIENT_SVG_RAIL, AIP_GRADIENT_SVG_TOOLBAR } from "./bp-icons.mjs";
 import { mintApprovalGrant } from "../../../scripts/lib/mint-approval-grant.mjs";
 
 // Build the current conversation entries for a run, in the exact NDJSON shape the SPA's V1 pane
@@ -4283,7 +4283,7 @@ function ioiGlobalRailHtml(active) {
     const kbd = opts.kbd ? `<kbd class="og-gkbd">${opts.kbd.split("+").map((k) => `<span>${k.trim()}</span>`).join("<span>+</span>")}</kbd>` : "";
     const ico = icon === "@aip-grad" ? AIP_GRADIENT_SVG_RAIL : bpIcon(icon);
     const inner = `<span class="og-gico">${ico}${opts.badge ? '<span class="og-gbadge"></span>' : ""}</span><span class="og-glabel">${CX_ESC(label)}</span>${kbd}`;
-    return opts.href ? `<a class="og-gitem" href="${opts.href}">${inner}</a>` : `<span class="og-gitem muted">${inner}</span>`;
+    return opts.href ? `<a class="og-gitem${opts.ctx ? " ctx" : ""}" href="${opts.href}">${inner}</a>` : `<span class="og-gitem muted">${inner}</span>`;
   };
   return `<aside class="og-grail${active.railVariant ? " " + active.railVariant : ""}">
     <div class="og-gtop"><span class="og-gmark">◗</span><span class="og-gmenu">${bpIcon("menu-closed")}</span></div>
@@ -4294,7 +4294,7 @@ function ioiGlobalRailHtml(active) {
     <div class="og-gdiv"></div>
     ${gi("history", "Recent", {})}
     ${gi("folder-open", "Files", {})}
-    ${gi("cubes", "Ontology", { href: "/__ioi/odk" })}
+    ${gi("cubes", "Ontology", { href: "/__ioi/odk", ctx: active.hiliteNav === "Ontology" })}
     ${gi("layout-grid", "Applications", { href: "/__ioi/home" })}
     <div class="og-gsecrow"><span class="og-gsec">APPLICATIONS</span>${active.viewAll === false ? "" : `<a class="og-gviewall" href="/__ioi/home">View all</a>`}</div>
     <a class="og-gitem on" href="${active.href}"><span class="og-gappico" style="background-image:url('${active.iconUri}')"></span><span class="og-glabel og-strong">${CX_ESC(active.label)}</span>${active.star === false ? "" : `<span class="og-gstar">${bpIcon("star-empty")}</span>`}</a>
@@ -4318,6 +4318,7 @@ const IOI_GRAIL_CSS = `
     .og-gico{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;color:#abb3bf;flex:0 0 16px;position:relative}
     .og-gbadge{position:absolute;left:9px;top:-3px;width:8px;height:8px;background:#fbb360;border:1px solid #2f343c;border-radius:50%}
     .og-gavatar.alt{background:rgba(45,114,210,.2);color:#8abbff;border-radius:50%;margin-left:-2px;margin-right:-2px}
+    .og-gitem.ctx{background:#2f353d;color:#fff;font-weight:600}.og-gitem.ctx .og-gico{color:#f6f7f9}
     .rv-pipe .og-gitem.on{background:#1c2127;margin:0 -12px;padding:0 20px 0 17px;border-radius:0}
     .rv-pipe .og-gkbd{gap:0;margin-right:-2px}
     .rv-pipe .og-gkbd span:nth-child(even){display:inline-flex;justify-content:center;width:16px;margin:0}
@@ -4540,177 +4541,203 @@ function renderOntologyManagerPort(ov, lists, selectedId) {
 // /workspace/hubble reference does not cleanly boot (the proxy renders a blank body; the mirror's data
 // lanes render "Failed to load"), so the hardened harness has no valid reference to certify
 // visual_parity against — honest `reference_ported`, promotable on a clean re-harvest.
+// ============================ OBJECT EXPLORER (#46 — the origin-aligned promotion. #44 proved the
+// old "blank/failed Hubble reference" blocker WRONG: the capture-origin lane localhost:9225/workspace/
+// hubble/ renders the full Object Explorer with data. This port is the faithful shell of THAT
+// reference over real IOI ODK truth: object types across live DomainOntologies, object counts from
+// materialized sets, the object-set catalog from real materialized sets, and a WORKING ?q= type
+// filter. Reference-only lanes (object-instance search, Filter-by facets, Recents/Favorites, sort,
+// type-group/application lanes, exploration tabs, ontology selector) are named gaps disabled in
+// place. The catalog/set ROWS are the live body (excluded from shell-pixel certification, verified
+// semantically); the chrome is glyph-anchored to the reference: tab bar h40 · centered search hero ·
+// shortcuts row + cards · catalog heading/filter/sort band · table header · object-set band. The
+// content block is the reference's responsive rule: max-width 1400, width calc(100% − 120px),
+// centered (margins 60 @1440 → 145 @1920).
 function renderObjectExplorerPort(ov, lists, opts) {
   const enc = encodeURIComponent, esc = CX_ESC;
-  const o = ov || {};
   const q = (opts && opts.q ? String(opts.q) : "").trim();
   const ontologies = Array.isArray(lists.ontologies) ? lists.ontologies : [];
   const msets = Array.isArray(lists.materialized_sets) ? lists.materialized_sets : [];
   const projs = Array.isArray(lists.projections) ? lists.projections : [];
-  const svg = (p) => `<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
-  const CUBE = '<path d="M12 2l9 5v10l-9 5-9-5V7z"/>';
-  const idc = (x) => `<code class="om-code">${esc(x || "")}</code>`;
   const arr = (oo, k) => { const com = (oo && oo.canonical_object_model) || {}; return Array.isArray(com[k]) ? com[k] : []; };
 
-  // Flat object-type catalog across ALL ontologies, from real daemon truth.
+  // REAL daemon truth: the flat object-type catalog + per-type materialized counts + link usage.
   const allTypes = ontologies.flatMap((oo) => arr(oo, "object_types").map((t) => ({ oo, t })));
   const objectsOf = (oo, t) => msets.filter((m) => m.ontology_ref === oo.ref && m.object_type_id === t.id).reduce((a, m) => a + (m.count || 0), 0);
   const usageOf = (oo, t) => arr(oo, "link_types").filter((l) => l.from === t.id || l.to === t.id).length;
   const catalog = q ? allTypes.filter(({ oo, t }) => `${t.name || ""} ${t.id || ""} ${oo.domain || ""}`.toLowerCase().includes(q.toLowerCase())) : allTypes;
-  const totalObjects = msets.reduce((a, m) => a + (m.count || 0), 0);
+  const fmtN = (n) => (n >= 1000 ? `${Math.round(n / 100) / 10}K` : String(n));
+  // Shortcuts = the real top materialized sets by object count (live data — masked in the pixel gate).
+  const shortcuts = msets.slice().sort((a, b) => (b.count || 0) - (a.count || 0)).slice(0, 3);
+  const CHIP_COLORS = ["#bd6bbd", "#13c9ba", "#4c90f0"];
 
-  // Dark global platform rail — Object Explorer active; Ontology Manager linked first-class (sibling).
-  const gitem = (icon, label, href, on) => (href ? `<a class="og-gitem${on ? " on" : ""}" href="${href}">` : `<span class="og-gitem muted">`) + `<span class="og-gico">${icon}</span><span class="og-glabel">${esc(label)}</span>` + (href ? `</a>` : `</span>`);
-  const globalRail = `<aside class="og-grail">
-    <div class="og-brand"><span class="og-logo">${svg(CUBE)}</span></div>
-    ${gitem(svg('<path d="M3 10l9-7 9 7"/><path d="M5 9v11h14V9"/>'), "Home", "/ai")}
-    ${gitem(svg('<circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/>'), "Search", "")}
-    ${gitem(svg('<path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9"/>'), "Notifications", "")}
-    ${gitem(svg('<path d="M12 3v18M5 8h14M5 16h14"/>'), "What's New", "")}
-    <div class="og-gdiv"></div>
-    ${gitem(svg('<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/>'), "Recent", "")}
-    ${gitem(svg('<path d="M3 7h6l2 2h10v11H3z"/>'), "Files", "")}
-    ${gitem(svg(CUBE), "Ontology", "/__ioi/odk")}
-    ${gitem(svg('<rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/>'), "Applications", "/__ioi/home")}
-    <div class="og-gsec">Applications</div>
-    ${gitem(svg('<circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/>'), "Object Explorer", "/__ioi/ontology/explorer", true)}
-    ${gitem(svg(CUBE), "Ontology Manager", "/__ioi/ontology/manager")}
-    <div class="og-gspacer"></div>
-    ${gitem(svg('<circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 015 0c0 2-2.5 2-2.5 4M12 17h.01"/>'), "Support", "")}
-    ${gitem(svg('<circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/>'), "Account", "")}
-  </aside>`;
+  const typeRow = ({ oo, t }) => {
+    const n = objectsOf(oo, t);
+    return `<tr class="oe-trow" onclick="location.href='/__ioi/ontology/manager?ontology=${enc(oo.id)}'">
+      <td class="oe-tname"><span class="oe-tchip" style="color:${CHIP_COLORS[(t.id || "").length % 3]}">${bpIcon("cube", 14)}</span>${esc(t.name || t.id)}</td>
+      <td class="oe-tstatus">${bpIcon("manual", 14)}</td>
+      <td>${esc(fmtN(n))}</td>
+      <td>${usageOf(oo, t)} link${usageOf(oo, t) === 1 ? "" : "s"}</td>
+      <td class="oe-tgroups"></td>
+      <td class="oe-tdesc">${esc(oo.domain || oo.id)}</td>
+    </tr>`;
+  };
+  const setRow = (m) => `<tr class="oe-trow" onclick="location.href='/__ioi/odk?ontology=${enc((ontologies.find((oo) => oo.ref === m.ontology_ref) || {}).id || "")}'">
+    <td class="oe-tname"><span class="oe-tchip" style="color:#13c9ba">${bpIcon("layout-grid", 14)}</span>${esc(m.name || m.set_id || m.object_type_id)}</td>
+    <td>${esc(fmtN(m.count || 0))} object${(m.count || 0) === 1 ? "" : "s"}</td>
+    <td class="oe-tdesc">${esc((ontologies.find((oo) => oo.ref === m.ontology_ref) || {}).domain || m.ontology_ref || "")}</td>
+    <td class="oe-tdesc"><a href="/__ioi/ontology/manager">Ontology Manager →</a></td>
+  </tr>`;
 
-  // Light "Object Explorer search" header — the Filter/Search bar (object-instance search is a named
-  // gap: no object-instance search plane; the object-TYPE filter below is the real, wired affordance).
-  const header = `<header class="oe-header">
-    <div class="oe-htitle">Object Explorer search</div>
+  const globalRail = ioiGlobalRailHtml({ label: "Object Explorer", href: "/__ioi/ontology/explorer", iconUri: EXPLORER_APP_ICON_URI, railVariant: "rv-pipe", viewAll: false, star: false, badges: true, aipGradient: true, acctMuted: true, hiliteNav: "Ontology" });
+
+  const tabbar = `<div class="oe-tabbar oe-topbar">
+    <span class="oe-sqbtn gap" aria-disabled="true" title="Active exploration — a reference-only session lane (named gap)"><span class="oe-sqico"></span></span>
+    <span class="oe-tab" title="Explorations are a reference-only session lane — this tab is the honest default state">${bpIcon("search")}<span class="oe-tabt">New exploration</span></span>
+    <span class="oe-plus gap" aria-disabled="true" title="Opening more exploration tabs is a reference-only lane (named gap)">${bpIcon("plus")}</span>
+    <span class="oe-ontsel gap" aria-disabled="true" title="Ontology scoping is a reference-only lane — the catalog below spans ALL live ontologies honestly">All Ontologies ${bpIcon("caret-down")}</span>
+  </div>`;
+
+  const hero = `<div class="oe-hero">
+    <h2 class="oe-htitle">Object Explorer search</h2>
     <div class="oe-searchrow">
-      <button class="oe-filterby" disabled title="Faceted object filters are a named gap — no object-instance search plane">${svg('<path d="M3 5h18M6 12h12M10 19h4"/>')} Filter by… <span class="oe-caret">▾</span></button>
-      <div class="oe-objsearch" title="Full-text object search is a named gap — objects exist only as materialized sets (see the catalog below)"><span class="oe-sico">${svg('<circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/>')}</span><input placeholder="Search for objects…" disabled aria-label="Search for objects (reference-only, not wired)"><button class="oe-go" disabled>${svg('<path d="M5 12h14M13 6l6 6-6 6"/>')}</button></div>
+      <div class="oe-herogrp">
+        <span class="oe-filterby gap" aria-disabled="true" title="Faceted object filters are a reference-only lane — no object-instance search plane (named gap)">${bpIcon("filter-funnel")}<span class="oe-fbt">Filter by...</span>${bpIcon("caret-down")}</span>
+        <div class="oe-objsearch" title="Full-text object search is a reference-only lane — objects exist as materialized sets (the catalog below is real)">${bpIcon("search")}<input placeholder="Search for objects..." disabled aria-label="Search for objects (reference-only, not wired)"><span class="oe-send gap" aria-disabled="true">${bpIcon("send-to")}</span></div>
+      </div>
     </div>
-    <a class="oe-managerlink" href="/__ioi/ontology/manager">Ontology Manager →</a>
-  </header>`;
+  </div>`;
 
-  const railN = (label, count, href, gap) => href
-    ? `<a class="oe-snav" href="${href}">${esc(label)}${count == null ? "" : `<span class="oe-c">${count}</span>`}</a>`
-    : `<span class="oe-snav gap" title="${esc(label)} is a reference-only lane — no authority contract yet (named gap)">${esc(label)}${count == null ? "" : `<span class="oe-c">${count}</span>`}</span>`;
+  const cards = shortcuts.map((m, i) => `<a class="oe-card" href="/__ioi/odk?ontology=${enc((ontologies.find((oo) => oo.ref === m.ontology_ref) || {}).id || "")}">
+    <span class="oe-cchip" style="background:${CHIP_COLORS[i]}1a;color:${CHIP_COLORS[i]}">${bpIcon("layout-grid", 14)}</span>
+    <span class="oe-cbody"><span class="oe-ctitle">${esc(m.name || m.set_id || m.object_type_id)}</span><span class="oe-csub">Object Type&nbsp;&nbsp;•&nbsp;&nbsp;${esc(fmtN(m.count || 0))} object${(m.count || 0) === 1 ? "" : "s"}</span></span>
+  </a>`).join("");
+  const shortcutsBand = `<div class="oe-shrow">
+    <span class="oe-shlabel">Shortcuts</span>
+    <span class="oe-lanes">
+      <span class="oe-lane on gap" aria-disabled="true" title="Recents are a reference-only per-user lane (named gap) — the cards below are the real top materialized sets">Recents</span>
+      <span class="oe-lane gap" aria-disabled="true" title="Favorites are a reference-only per-user lane (named gap)">Favorites</span>
+      <span class="oe-lane gap" aria-disabled="true" title="Your object sets — the real materialized sets render in the catalog below">Your object sets</span>
+      <span class="oe-shchev gap" aria-disabled="true">${bpIcon("chevron-right")}</span>
+    </span>
+  </div>
+  <div class="oe-cards">${cards || `<div class="oe-cardempty">No materialized sets yet — run a materializing run to populate shortcuts. This row reads real daemon sets; nothing is fabricated.</div>`}</div>`;
 
-  const catalogRows = catalog.length
-    ? catalog.map(({ oo, t }) => {
-        const st = (oo.health || {}).status || "empty";
-        const stpill = `<span class="om-pill ${st === "ready" ? "ok" : st === "empty" ? "muted" : "warn"}">${esc(st)}</span>`;
-        const desc = (t.description || "").trim();
-        return `<tr><td><a class="oe-typelink" href="/__ioi/ontology/manager?ontology=${enc(oo.id)}#ot-${enc(t.id)}"><span class="oe-tico">${svg(CUBE)}</span>${esc(t.name || t.id)}</a> ${idc(t.id)}</td><td>${stpill}</td><td><b>${objectsOf(oo, t)}</b></td><td>${usageOf(oo, t)}</td><td><span class="om-pill muted">${esc(oo.domain || oo.id)}</span></td><td class="oe-desc">${desc ? esc(desc) : "—"}</td></tr>`;
-      }).join("")
-    : `<tr><td colspan="6" class="oe-none">${q ? `No object types match “${esc(q)}”.` : "No object types yet — create one in the Ontology Manager."}</td></tr>`;
+  const catalogBand = `<h3 class="oe-cathead"><span class="oe-cathd">Object type catalog</span></h3>
+  <div class="oe-filterrow">
+    <form class="oe-filterform" method="GET" action="/__ioi/ontology/explorer">${bpIcon("filter-funnel")}<input name="q" value="${esc(q)}" placeholder="Filter for an object type..." aria-label="Filter for an object type (live)"><span class="oe-count">${catalog.length} of ${allTypes.length}</span></form>
+    <span class="oe-sortlanes">
+      <span class="oe-sort gap" aria-disabled="true" title="Relevancy sorting is a reference-only lane — rows are ordered by ontology then name (named gap)">${bpIcon("sort-desc")}<span class="oe-sortt">Relevancy</span>${bpIcon("caret-down")}</span>
+      <span class="oe-lane on gap" aria-disabled="true" title="named gap">All</span>
+      <span class="oe-lane gap" aria-disabled="true" title="Type groups are a reference-only lane — the daemon records none (named gap)">Type group</span>
+      <span class="oe-lane gap" aria-disabled="true" title="Application scoping is a reference-only lane (named gap)">Application</span>
+    </span>
+  </div>
+  <div class="oe-tablebox">
+    <table class="oe-table">
+      <thead><tr><th class="oe-thname">Object type name</th><th class="oe-thstatus">Status</th><th class="oe-thcount">Object count</th><th class="oe-thusage">Usage</th><th class="oe-thgroups">Type groups</th><th>Description</th></tr></thead>
+      <tbody>${catalog.length ? catalog.map(typeRow).join("") : `<tr><td colspan="6" class="oe-none">${q ? `No object types match “${esc(q)}”.` : "No object types yet — create an ontology in the Ontology Manager."} <a href="/__ioi/ontology/manager">Ontology Manager →</a></td></tr>`}</tbody>
+    </table>
+  </div>`;
 
-  const setRows = msets.length
-    ? msets.map((m) => {
-        const oo = ontologies.find((x) => x.ref === m.ontology_ref);
-        return `<tr><td><a class="oe-typelink" href="/__ioi/ontology/manager?ontology=${oo ? enc(oo.id) : ""}">${svg('<rect x="3" y="4" width="18" height="4"/><rect x="3" y="10" width="18" height="4"/><rect x="3" y="16" width="18" height="4"/>')} ${esc(m.name || m.id || "object set")}</a></td><td><span class="om-pill muted">${esc(oo ? (oo.domain || oo.id) : (m.ontology_ref || "—"))}</span></td><td>${idc(m.object_type_id || "")}</td><td><b>${m.count || 0}</b></td></tr>`;
-      }).join("")
-    : `<tr><td colspan="4" class="oe-none">No object sets yet — a materialized set appears once an OntologyProjection reads a source.</td></tr>`;
+  const setBand = `<div class="oe-setrow">
+    <span class="oe-setlabel">Object set catalog <span class="oe-setsub">(explorations and lists)</span></span>
+    <span class="oe-setlanes">
+      <input class="oe-setsearch" placeholder="Search explorations..." disabled aria-label="Search explorations (reference-only, not wired)" title="Exploration search is a reference-only lane (named gap)">
+      <span class="oe-slane on gap" aria-disabled="true" title="named gap">All</span>
+      <span class="oe-slane gap" aria-disabled="true" title="Per-user set lanes are reference-only (named gap)">Created by me</span>
+      <span class="oe-slane gap" aria-disabled="true" title="named gap">Shared with me</span>
+      <span class="oe-slane gap" aria-disabled="true" title="named gap">Favorites</span>
+    </span>
+  </div>
+  <div class="oe-setbox">
+    <table class="oe-table oe-settable">
+      <tbody>${msets.length ? msets.slice(0, 20).map(setRow).join("") : `<tr><td class="oe-none">No object sets yet — a materialized set appears once an OntologyProjection reads a source (${projs.length} projection${projs.length === 1 ? "" : "s"} declared). <a href="/__ioi/odk">ODK substrate →</a></td></tr>`}</tbody>
+    </table>
+    <div class="oe-foot">Every row is daemon truth: ${allTypes.length} object type${allTypes.length === 1 ? "" : "s"} across ${ontologies.length} live ontolog${ontologies.length === 1 ? "y" : "ies"} · ${msets.length} materialized set${msets.length === 1 ? "" : "s"}. Schema authoring: <a href="/__ioi/ontology/manager">Ontology Manager →</a> · substrate: <a href="/__ioi/odk">ODK</a> · reference: <a href="/__apps/explorer" target="_blank" rel="noopener">Object Explorer capture ↗</a></div>
+  </div>`;
 
-  const body = `<main class="oe-body" role="main">
-    <section class="oe-shortcuts">
-      <div class="oe-sechd"><h2>Shortcuts</h2><div class="oe-tabs">${railN("Recents", null, null, true)}${railN("Favorites", null, null, true)}${railN("Your object sets", msets.length, "#oe-sets")}</div></div>
-      <div class="oe-panel oe-muted">Recents &amp; favorites are a reference-only lane (no per-user activity plane). Your object sets are the real materialized sets below.</div>
-    </section>
-    <section id="oe-catalog" class="oe-catalog">
-      <div class="oe-sechd"><h2>Object type catalog <span class="oe-subn">${catalog.length}${q ? ` of ${allTypes.length}` : ""}</span></h2>
-        <form class="oe-filterform" method="GET" action="/__ioi/ontology/explorer"><span class="oe-fico">${svg('<path d="M3 5h18M6 12h12M10 19h4"/>')}</span><input name="q" value="${esc(q)}" placeholder="Filter for an object type…" aria-label="Filter for an object type">${q ? `<a class="oe-clear" href="/__ioi/ontology/explorer">clear</a>` : ""}<button class="oe-fbtn" type="submit">Filter</button></form>
-      </div>
-      <div class="oe-tabs oe-catmeta"><span class="oe-relev" title="Sort is a named gap">Relevancy ▾</span> ${railN("All", null, "#oe-catalog")}${railN("Type group", null, null, true)}${railN("Application", null, null, true)}</div>
-      <table class="oe-table"><thead><tr><th>Object type name</th><th>Status</th><th>Objects</th><th>Usage</th><th>Ontology</th><th>Description</th></tr></thead><tbody>${catalogRows}</tbody></table>
-    </section>
-    <section id="oe-sets" class="oe-sets">
-      <div class="oe-sechd"><h2>Object set catalog <span class="oe-subn2">(explorations and lists)</span></h2>
-        <div class="oe-tabs">${railN("All", msets.length, "#oe-sets")}${railN("Created by me", null, null, true)}${railN("Shared with me", null, null, true)}${railN("Favorites", null, null, true)}</div>
-      </div>
-      <table class="oe-table"><thead><tr><th>Object set</th><th>Ontology</th><th>Object type</th><th>Objects</th></tr></thead><tbody>${setRows}</tbody></table>
-      <div class="oe-foot">Objects come from real OntologyProjection materialized sets · ${projs.length} projection${projs.length === 1 ? "" : "s"} · ${totalObjects} object${totalObjects === 1 ? "" : "s"} total. Schema authoring: <a href="/__ioi/ontology/manager">Ontology Manager →</a> · substrate: <a href="/__ioi/odk">ODK</a>. Reference (blank/failed data in the local mirror): <a href="/__apps/explorer" target="_blank" rel="noopener">Object Explorer ↗</a>.</div>
-    </section>
-  </main>`;
-
-  const css = `html{color-scheme:light}*{box-sizing:border-box}
-    body{margin:0;background:#f4f5f7;color:#1a1d21;font:13px/1.55 -apple-system,Segoe UI,Roboto,sans-serif}
-    a{color:#2f6fd8;text-decoration:none}
-    .og-shell{display:flex;height:100vh;width:100vw;overflow:hidden}
-    .og-grail{flex:0 0 220px;width:220px;height:100vh;background:#21242b;color:#c4c8d0;display:flex;flex-direction:column;padding:10px 10px 12px;overflow-y:auto}
-    .og-brand{padding:4px 8px 10px}.og-logo{display:inline-flex;color:#7aa2ff}
-    .og-gitem{display:flex;align-items:center;gap:11px;padding:7px 9px;border-radius:7px;color:#c4c8d0;font-size:13px}
-    .og-gitem:hover{background:#2c3038;color:#fff}.og-gitem.on{background:#2f6fd8;color:#fff}
-    .og-gitem.muted{color:#8b909a;cursor:default}.og-gitem.muted:hover{background:transparent;color:#8b909a}
-    .og-gico{display:inline-flex;width:18px}.og-glabel{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .og-gdiv{height:1px;background:#33373f;margin:8px 6px}
-    .og-gsec{font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;color:#7a7f89;padding:12px 9px 5px;font-weight:600}
-    .og-gspacer{flex:1 1 auto;min-height:14px}
-    .og-main{flex:1;min-width:0;display:flex;flex-direction:column;height:100vh}
-    .oe-header{flex:0 0 auto;display:flex;flex-direction:column;align-items:center;gap:10px;padding:14px 20px 12px;background:#fff;border-bottom:1px solid #e6e8ec;position:relative}
-    .oe-htitle{font-weight:700;font-size:15px}
-    .oe-searchrow{display:flex;gap:10px;width:100%;max-width:900px;align-items:stretch}
-    .oe-filterby{display:flex;align-items:center;gap:7px;background:#f1f3f6;border:1px solid #e0e3e8;border-radius:9px;padding:8px 14px;font:inherit;font-size:12.5px;color:#5b6472;cursor:not-allowed}
-    .oe-caret{color:#9aa0a8}
-    .oe-objsearch{flex:1;display:flex;align-items:center;gap:8px;background:#fff;border:1px solid #d6dae0;border-radius:9px;padding:6px 8px 6px 12px;color:#8b9099}
-    .oe-objsearch input{flex:1;border:0;background:transparent;font:inherit;color:#3a3f46;outline:none}
-    .oe-go{border:0;background:#2f6fd8;color:#fff;border-radius:7px;width:34px;height:30px;display:inline-flex;align-items:center;justify-content:center;cursor:not-allowed}
-    .oe-managerlink{position:absolute;right:20px;top:16px;font-size:12.5px}
-    .og-main .oe-body{flex:1 1 auto;overflow:auto;padding:18px 26px;background:#f4f5f7}
-    .oe-body section{margin:0 0 22px}
-    .oe-sechd{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 10px;flex-wrap:wrap}
-    .oe-body h2{font-size:14px;margin:0;font-weight:600}.oe-subn{color:#9aa0a8;font-weight:400}.oe-subn2{color:#9aa0a8;font-weight:400;font-size:12px}
-    .oe-tabs{display:flex;align-items:center;gap:4px;flex-wrap:wrap}
-    .oe-snav{padding:4px 11px;border-radius:7px;color:#3a3f46;font-size:12.5px;background:#eef1f5}
-    .oe-snav:hover{background:#e3e8ef}.oe-snav .oe-c{color:#8b9099;margin-left:5px}
-    .oe-snav.gap{color:#a2a7af;background:transparent;border:1px solid #eceef1;cursor:default}
-    .oe-relev{font-size:12px;color:#8b9099;padding:4px 8px;border:1px solid #e6e8ec;border-radius:7px;background:#fff}
-    .oe-catmeta{margin:0 0 8px}
-    .oe-panel{background:#fff;border:1px solid #e6e8ec;border-radius:10px;padding:12px 14px}.oe-muted{color:#8b9099;font-size:12px}
-    .oe-filterform{display:flex;align-items:center;gap:6px;background:#fff;border:1px solid #d6dae0;border-radius:9px;padding:4px 6px 4px 10px;min-width:320px}
-    .oe-fico{display:inline-flex;color:#9aa0a8}.oe-filterform input{flex:1;border:0;outline:none;font:inherit;background:transparent}
-    .oe-fbtn{border:0;background:#2f6fd8;color:#fff;border-radius:6px;padding:5px 12px;font:inherit;font-size:12px;font-weight:600;cursor:pointer}
-    .oe-clear{font-size:12px;color:#8b9099;margin:0 4px}
-    .oe-table{border-collapse:collapse;width:100%;font-size:12.5px;background:#fff;border:1px solid #e6e8ec;border-radius:8px;overflow:hidden}
-    .oe-table th{text-align:left;color:#8b9099;font-weight:600;text-transform:uppercase;font-size:10.5px;letter-spacing:.04em;padding:9px 14px;border-bottom:1px solid #eceef1;background:#fafbfc}
-    .oe-table td{padding:9px 14px;border-bottom:1px solid #f0f1f4;vertical-align:middle}
-    .oe-typelink{display:inline-flex;align-items:center;gap:7px;font-weight:600;color:#1a1d21}.oe-typelink:hover{color:#2f6fd8}
-    .oe-tico{display:inline-flex;color:#5b6472}.oe-desc{color:#8b9099}
-    .oe-none{color:#8b9099;text-align:center;padding:22px}
-    .oe-foot{color:#8b9099;font-size:12px;margin-top:10px}
-    .om-code{font-family:ui-monospace,monospace;font-size:11px;color:#6b7178;background:#f1f3f6;padding:1px 5px;border-radius:4px}
-    .om-pill{display:inline-block;padding:1px 8px;border-radius:999px;font-size:11px;border:1px solid;white-space:nowrap}
-    .om-pill.ok{color:#1a7f43;border-color:#bfe4cd;background:#eafaf0}
-    .om-pill.warn{color:#a2730c;border-color:#efd9a6;background:#fdf6e6}
-    .om-pill.muted{color:#6b7178;border-color:#e0e3e8;background:#f3f4f6}`;
+  const css = `:root{color-scheme:light}*{box-sizing:border-box}
+    body{margin:0;background:#fff;color:#1c2127;font:14px/1.28581 Source-Sans-Pro,Helvetica,sans-serif}
+    a{color:#215db0;text-decoration:none}
+    .oe-shell{display:flex;height:100vh;width:100vw;overflow:hidden}
+    ${IOI_GRAIL_CSS}
+    .oe-main{flex:1;min-width:0;display:flex;flex-direction:column;height:100vh}
+    .oe-tabbar{flex:0 0 40px;display:flex;align-items:stretch;background:#edeff2;box-shadow:inset 0 -1px 0 0 rgba(17,20,24,.15)}
+    .oe-sqbtn{width:41px;display:flex;align-items:center;justify-content:center;background:rgba(189,173,255,.1)}
+    .oe-sqico{width:24px;height:24px;border-radius:4px;background:rgba(167,182,194,.1) url('${EXPLORER_APP_ICON_URI}') center/20px no-repeat}
+    .oe-tab{display:flex;align-items:center;gap:5px;width:180px;padding:0 0 0 15px;background:#fff;box-shadow:inset 0 -1px 0 0 rgba(17,20,24,.15)}
+    .oe-tab svg{color:#5f6b7c}
+    .oe-tabt{font-size:14px;line-height:18.0013px;color:#1c2127}
+    .oe-plus{display:flex;align-items:center;justify-content:center;width:30px;color:#5f6b7c}
+    .oe-ontsel{margin-left:auto;display:inline-flex;align-items:center;gap:8px;height:30px;margin-top:5px;margin-right:10px;padding:0 8px;border-radius:4px;font-size:14px;line-height:16.1px;color:#1c2127;cursor:default;background:#fff;box-shadow:inset 0 0 0 1px rgba(64,72,84,.33),0 1px 2px rgba(17,20,24,.1)}
+    .oe-ontsel svg{color:#5f6b7c}
+    .oe-body{flex:1 1 auto;min-width:0;overflow-y:auto;overflow-x:hidden;background:#fff}
+    .oe-content{max-width:1400px;width:calc(100% - 121px);margin:0 auto;position:relative}
+    .oe-hero{text-align:center}
+    .oe-htitle{font-size:16px;line-height:19px;font-weight:600;color:#1c2127;margin:21px 0 0;position:relative;top:-1px}
+    .oe-searchrow{display:flex;justify-content:center;margin-top:16px}
+    .oe-herogrp{display:flex;border-radius:4px;box-shadow:0 0 0 1px rgba(17,20,24,.17),0 2px 8px rgba(17,20,24,.22);margin-left:2px}
+    .oe-filterby{display:inline-flex;align-items:center;width:250px;height:40px;padding:0 12px;background:#f6f7f9;border-right:1px solid rgba(17,20,24,.15);border-radius:4px 0 0 4px;cursor:default}
+    .oe-filterby svg{color:#5f6b7c}
+    .oe-fbt{flex:1;font-size:14px;line-height:18.0013px;color:#5f6b7c;margin-left:4px;text-align:left}
+    .oe-objsearch{display:flex;align-items:center;width:450px;height:40px;padding:0 5px 0 8px;background:#fff;border-radius:0 4px 4px 0}
+    .oe-objsearch svg{color:#5f6b7c}
+    .oe-objsearch input{flex:1;border:0;background:transparent;font:inherit;font-size:14px;line-height:18.0013px;color:#1c2127;outline:none;padding:0;margin-left:4px}
+    .oe-objsearch input::placeholder{color:#5f6b7c}
+    .oe-send{display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:50%;background:#2d72d2}
+    .oe-send svg{color:#fff}
+    .oe-shrow{display:flex;align-items:center;margin-top:19px}
+    .oe-shlabel{font-size:14px;line-height:16px;font-weight:600;color:#1c2127}
+    .oe-lanes{margin-left:auto;display:inline-flex;align-items:center}
+    .oe-lane{display:inline-flex;align-items:center;height:30px;padding:0 8px;border-radius:4px;font-size:14px;line-height:16.1px;color:#5f6b7c;cursor:default;margin-left:2px}
+    .oe-lane.on{background:#fff;color:#1c2127;box-shadow:inset 0 0 0 1px rgba(64,72,84,.33),0 1px 2px rgba(17,20,24,.1)}
+    .oe-shchev{display:inline-flex;color:#5f6b7c;margin:0 7.5px 0 26px}
+    .oe-cards{display:flex;gap:14px;margin-top:11px}
+    .oe-card{flex:1;display:flex;align-items:center;height:57px;padding:0 14px;border-radius:4px;box-shadow:inset 0 0 0 1px rgba(17,20,24,.15)}
+    .oe-cchip{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:4px;flex:0 0 24px}
+    .oe-cbody{display:flex;flex-direction:column;margin-left:14px;min-width:0}
+    .oe-ctitle{font-size:14px;line-height:18.0013px;color:#1c2127;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .oe-csub{font-size:14px;line-height:18.0013px;color:#5f6b7c}
+    .oe-cardempty{flex:1;display:flex;align-items:center;height:57px;padding:0 14px;border-radius:4px;border:1px dashed #d3d8de;color:#5f6b7c;font-size:12.5px}
+    .oe-cathead{margin:63px 0 0;font-size:14px;line-height:16px;font-weight:600;color:#1c2127}
+    .oe-cathd{border-bottom:1px dotted #8f99a8;line-height:15px;display:inline-block}
+    .oe-filterrow{display:flex;align-items:center;margin-top:12px}
+    .oe-filterform{display:flex;align-items:center;width:450px;height:30px;padding:0 5px 0 7px;background:#fff;box-shadow:inset 0 0 0 1px rgba(17,20,24,.2),inset 0 1px 1px rgba(17,20,24,.3);border-radius:4px}
+    .oe-filterform svg{color:#5f6b7c}
+    .oe-filterform input{flex:1;border:0;background:transparent;font:inherit;font-size:14px;color:#1c2127;outline:none;padding:0;margin-left:7px}
+    .oe-filterform input::placeholder{color:#5f6b7c}
+    .oe-count{display:inline-flex;align-items:center;height:20px;padding:0 6px;border-radius:4px;background:rgba(143,153,168,.15);font-size:12px;line-height:16px;color:#1c2127;white-space:nowrap}
+    .oe-sortlanes{margin-left:auto;display:inline-flex;align-items:center}
+    .oe-sort{display:inline-flex;align-items:center;gap:8px;height:30px;padding:0 8px;font-size:14px;line-height:16.1px;color:#1c2127;cursor:default;margin-right:12px}
+    .oe-sort svg{color:#5f6b7c}
+    .oe-table{border-collapse:collapse;width:100%;font-size:14px;table-layout:fixed}
+    .oe-tablebox{margin-top:8px;height:430px;overflow-y:auto;border-radius:4px;box-shadow:0 0 0 1px rgba(17,20,24,.15)}
+    .oe-table thead th{position:sticky;top:0;background:#f6f7f9;text-align:left;font-size:12px;line-height:15.4297px;font-weight:400;color:#5f6b7c;text-transform:uppercase;padding:7.3px 10px 8px;border-bottom:1px solid #e5e8eb;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .oe-thname{width:284.8px;padding-left:20px !important}
+    .oe-thstatus{width:79.2px}.oe-thcount{width:90.8px}.oe-thusage{width:181.5px}.oe-thgroups{width:181.5px}
+    .oe-trow{cursor:pointer}
+    .oe-trow:hover{background:#f6f7f9}
+    .oe-trow td{padding:11px 10px;border-bottom:1px solid #eef0f2;color:#1c2127;line-height:18.0013px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:280px}
+    .oe-tname{padding-left:20px !important}
+    .oe-tchip{display:inline-flex;vertical-align:-2px;margin-right:12px}
+    .oe-tstatus svg{color:#935610}
+    .oe-tdesc{color:#5f6b7c !important}
+    .oe-none{padding:18px 20px;color:#5f6b7c}
+    .oe-setrow{display:flex;align-items:center;margin-top:24px}
+    .oe-setlabel{font-size:14px;line-height:16px;font-weight:600;color:#1c2127}
+    .oe-setsub{font-weight:400;color:#5f6b7c}
+    .oe-setlanes{margin-left:auto;display:inline-flex;align-items:center;gap:8px}
+    .oe-setsearch{width:219px;height:30px;border:0;border-radius:30px;background:#fff;box-shadow:inset 0 0 0 1px rgba(17,20,24,.2);font:inherit;font-size:14px;color:#1c2127;outline:none;padding:0 12px 0 30px}
+    .oe-slane{display:inline-flex;align-items:center;height:30px;padding:0 10px;border-radius:30px;font-size:14px;line-height:18.0013px;color:#1c2127;cursor:default}
+    .oe-slane.on{background:#c0d4f1;color:#184a90;font-weight:600}
+    .oe-setbox{margin:10px 0 30px}
+    .oe-foot{margin-top:14px;color:#7b8494;font-size:12px;line-height:1.5}`;
 
   return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Object Explorer</title><style>${css}</style></head>
-    <body><div class="og-shell">${globalRail}<div class="og-main">${header}${body}</div></div></body></html>`;
+    <body><div class="oe-shell">${globalRail}<div class="oe-main">${tabbar}<div class="oe-body"><main class="oe-content" role="main">${hero}${shortcutsBand}${catalogBand}${setBand}</main></div></div></div></body></html>`;
 }
 
-// Family dispatch config: api path segment, single response key, form + detail + payload.
-const ODK_UI = {
-  "ontologies": { api: "domain-ontologies", key: "ontology", label: "Domain Ontology", payload: odkOntologyPayload, form: (ex) => renderOdkOntologyForm(ex), detail: (rec, lists) => renderOdkOntologyDetail(rec, lists) },
-  "data-recipes": { api: "data-recipes", key: "data_recipe", label: "Data Recipe", payload: odkRecipePayload, form: (ex, pk, ov) => renderOdkRecipeForm(ex, pk, ov.recipe_output_kinds || []), detail: (rec, lists) => renderOdkRecipeDetail(rec, lists) },
-  "surface-descriptors": { api: "surface-descriptors", key: "surface_descriptor", label: "Surface Descriptor", payload: odkDescriptorPayload, form: (ex, pk, ov) => renderOdkDescriptorForm(ex, pk, ov.composition_patterns || []), detail: (rec, lists) => renderOdkDescriptorDetail(rec, lists) },
-  "manifests": { api: "manifests", key: "manifest", label: "ODK Manifest", payload: odkManifestPayload, form: (ex, pk) => renderOdkManifestForm(ex, pk), detail: (rec) => renderOdkManifestDetail(rec) },
-};
-
-// ---- Domain Apps — a CONTROLLED BUILDER over the daemon Domain Apps object plane (estate #6).
-// Serve-owned UI over /v1/hypervisor/domain-apps: author draft DomainApp candidates over an ODK
-// domain_app surface descriptor. Hard boundary rendered plainly: draft candidate only — NO generated/
-// mounted runtime, no app iframe/route mounting, no widget execution, no domain-action execution, no
-// marketplace publish, no authority crossing. runtime_posture is shown read-only as mounted:false.
-const DOMAIN_APP_VIS = ["private", "org", "marketplace_candidate"];
-async function domainAppPickers(descriptorRefForManifestFilter) {
-  const J = (p) => fetch(`${DAEMON}${p}`).then((r) => r.json()).catch(() => ({}));
-  const [sd, man] = await Promise.all([J("/v1/hypervisor/odk/surface-descriptors"), J("/v1/hypervisor/odk/manifests")]);
-  const descriptors = (sd.surface_descriptors || [])
-    .filter((d) => d.composition_pattern === "domain_app")
-    .map((d) => ({ v: d.ref, l: d.name || d.id }));
-  let manifests = man.manifests || [];
-  if (descriptorRefForManifestFilter) manifests = manifests.filter((m) => (m.surface_descriptor_refs || []).includes(descriptorRefForManifestFilter));
-  return { descriptors, manifests: manifests.map((m) => ({ v: m.ref, l: m.name || m.id })) };
-}
 function domainAppPayload(p) {
   const csv = (k) => (p.get(k) || "").split(",").map((s) => s.trim()).filter(Boolean);
   const payload = {

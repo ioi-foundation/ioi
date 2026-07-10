@@ -116,6 +116,42 @@ export const SURFACE_SHELL = {
       ioi: [],
     },
   },
+  explorer: {
+    // Object Explorer (#46): certified shell = rail + exploration TAB BAR + the centered search
+    // hero + shortcuts band (label/lane tabs; the CARDS are live data) + the catalog heading/
+    // filter/sort band + the table HEADER + the object-set band. The catalog/set ROWS are the
+    // live body (excluded). CONTENT RULE: max-width 1400 centered with 60px min margins —
+    // margins 60 @1440 / 145 @1920, so content-zone rects are pinned per viewport.
+    rects: [
+      { key: "rail", anchor: "left", x: 0, y: 0, w: 230, h: 0 },
+      { key: "tabbar", anchor: "topbar", x: 230, y: 0, w: 0, h: 40 },
+      { key: "hero", x: 480, y: 40, w: 710, h: 100 },
+      { key: "shortcuts", x: 285, y: 148, w: 1100, h: 44 },
+      { key: "catalogband", x: 285, y: 300, w: 1100, h: 105 },
+      { key: "setband", x: 285, y: 828, w: 1100, h: 44 },
+    ],
+    rects_by_viewport: {
+      "1920x1080": [
+        { key: "rail", anchor: "left", x: 0, y: 0, w: 230, h: 0 },
+        { key: "tabbar", anchor: "topbar", x: 230, y: 0, w: 0, h: 40 },
+        { key: "hero", x: 720, y: 40, w: 710, h: 100 },
+        { key: "shortcuts", x: 370, y: 148, w: 1410, h: 44 },
+        { key: "catalogband", x: 370, y: 300, w: 1410, h: 105 },
+        { key: "setband", x: 370, y: 820, w: 1410, h: 44 },
+      ],
+    },
+    // Masked DATA: the live "N of M" catalog count tag (real type counts vs the capture's
+    // 55 of 55). Everything else in the certified rects is chrome; rows/cards live OUTSIDE
+    // the rects (excluded body).
+    data: {
+      ref: [
+        { rect: { x: 676, y: 346, w: 70, h: 26 }, label: "catalog count tag (live N of M vs captured 55 of 55)" },
+      ],
+      ioi: [
+        { selector: ".oe-count", label: "live-catalog-count" },
+      ],
+    },
+  },
   incidents: {
     // The issues-inbox app (#45): certified shell = rail + header + the FIXED-LEFT status/
     // filter sidebar + the list-HEADER band. The incident ROW LIST is the live body
