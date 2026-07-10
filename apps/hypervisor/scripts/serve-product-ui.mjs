@@ -27,6 +27,7 @@ import * as adapter from "./ioi-api-adapter.mjs";
 import { getRun, listRuns, hydrateRunsFromDaemon, publishRunViaConnector } from "./ioi-agent-runs.mjs";
 import { projectRunTimeline } from "./ioi-run-timeline.mjs";
 import { bpIcon, ONTOLOGY_APP_ICON_URI, APPROVALS_APP_ICON_URI, PIPELINE_APP_ICON_URI, ISSUES_APP_ICON_URI, EXPLORER_APP_ICON_URI, MODELS_APP_ICON_URI, AIP_GRADIENT_SVG_RAIL, AIP_GRADIENT_SVG_TOOLBAR } from "./bp-icons.mjs";
+import { MARKETPLACE_APP_ICON_URI, MK_GLOBE_URI, MK_HERO_URI, MK_STORE_ICON_URI, MK_PACKAGE_URI, MK_WIZ1_URI, MK_ARROW_URI, MK_WIZ2_URI, MK_WIZ3_URI } from "./marketplace-assets.mjs";
 import { mintApprovalGrant } from "../../../scripts/lib/mint-approval-grant.mjs";
 
 // Build the current conversation entries for a run, in the exact NDJSON shape the SPA's V1 pane
@@ -4258,6 +4259,127 @@ function renderModelCatalogPort(routesJson) {
     <body><div class="mc-shell">${globalRail}<div class="mc-main">${header}<div class="mc-body">${hero}<main class="mc-work">${filters}${catalog}</main></div></div></div></body></html>`;
 }
 
+// ============================ MARKETPLACE BROWSE (#48 — the listings seed as a faithful
+// reference port over the REAL daemon marketplace substrate: /v1/hypervisor/marketplace).
+// The reference's Stores lane is REBOUND to the same substrate (the estate's governed
+// listing plane + its live product count), so both sides render the same daemon truth.
+// The Stores ROW REGION is masked data; the store card chrome, hero, and the install-wizard
+// band are compared shell. Publish/install/hire/settle/runtime semantics do NOT exist here —
+// the install wizard is reference chrome (named gap); drafting/publish/admission stay on the
+// /__ioi/marketplace substrate (linked first-class). No fake marketplace products, ever.
+function renderMarketplaceBrowsePort(listingsJson) {
+  const esc = CX_ESC;
+  const listings = (listingsJson && listingsJson.listings) || [];
+  // The store's product count = PUBLISHED (installable) listings — the same wire semantics
+  // as the reference's rebound Stores lane (drafts and in-review listings do not count).
+  const published = listings.filter((l) => l.public_state === "published");
+  const products = published.length;
+
+  const globalRail = ioiGlobalRailHtml({ label: "Marketplace", href: "/__ioi/marketplace/listings", iconUri: MARKETPLACE_APP_ICON_URI, railVariant: "rv-pipe", viewAll: false, star: false, badges: true, aipGradient: true, acctMuted: true });
+
+  const header = `<header class="mk-header">
+    <span class="mk-hchip"></span>
+    <h1 class="mk-htitle">Marketplace</h1>
+    <div class="mk-hright">
+      <div class="mk-search" title="Product search is a reference-only lane — the store table below is the real registry (named gap)">${bpIcon("search")}<input placeholder="Search products..." disabled aria-label="Search products (reference-only, not wired)"></div>
+      <span class="mk-hbtn gap" aria-disabled="true" title="Installations are a reference-only lane — nothing installs from this surface (named gap)"><img src="${MK_GLOBE_URI}" width="16" height="16" alt="">Installations</span>
+      <span class="mk-hbtn ring gap" aria-disabled="true" title="Reference help lane (named gap)">Help ${bpIcon("help")}</span>
+    </div>
+  </header>`;
+
+  const hero = `<section class="mk-hero">
+    <img class="mk-heroimg" src="${MK_HERO_URI}" alt="" aria-hidden="true">
+    <h2 class="mk-h1">Marketplace</h2>
+    <p class="mk-sub">Discover and install Foundry products</p>
+  </section>`;
+
+  const stores = `<div class="mk-content">
+    <div class="mk-storeshead"><h3 class="mk-storest">Stores</h3><div class="mk-search mk-storesearch" title="Store search is a reference-only lane (named gap)">${bpIcon("search")}<input placeholder="Search stores..." disabled aria-label="Search stores (reference-only, not wired)"></div></div>
+    <div class="mk-card mk-storecard">
+      <div class="mk-thead"><span class="mk-thname">Name</span><span class="mk-thprod">Products<span class="mk-sortico gap" title="Store sorting is a reference-only lane (named gap)">${bpIcon("sort-desc")}</span></span></div>
+      <div class="mk-rows">
+        <a class="mk-row" href="/__ioi/marketplace" title="The estate's governed listing plane — draft listings, publish candidates, admission reviews (the real substrate)">
+          <span class="mk-rowico" style="background-image:url('${MK_STORE_ICON_URI}')"></span>
+          <span class="mk-rowmain"><span class="mk-rowname">Estate Marketplace — governed listing plane</span><span class="mk-rowsub">Listings drafted over real substrate. Publish is the governed path: admitted review + open release control + serving runtime, never a hidden lane.</span></span>
+          <span class="mk-rowright"><span class="mk-rowcount"><img src="${MK_PACKAGE_URI}" width="16" height="16" alt="">${products} product${products === 1 ? "" : "s"}</span><span class="mk-rowshare gap" title="Store sharing is a reference-only lane (named gap)">${bpIcon("share")}</span></span>
+        </a>
+      </div>
+    </div>
+    <div class="mk-card mk-wizcard">
+      <div class="mk-wizcopy">
+        <h4 class="mk-wizt">Install your first product</h4>
+        <p class="mk-wizsub">A store holds a collection of products. Select a store to browse or search for a product to install.</p>
+        <p class="mk-wizsub2">Installing from this surface is a reference-only lane (named gap) — products enter the estate through the governed path on the <a href="/__ioi/marketplace">Marketplace substrate</a>: draft → admitted review → open release.</p>
+      </div>
+      <div class="mk-wizsteps">
+        <img class="w1" src="${MK_WIZ1_URI}" width="80" height="78" alt="">
+        <img class="wa1" src="${MK_ARROW_URI}" width="34" height="16" alt="">
+        <img class="w2" src="${MK_WIZ2_URI}" width="160" height="80" alt="">
+        <img class="wa2" src="${MK_ARROW_URI}" width="34" height="16" alt="">
+        <img class="w3" src="${MK_WIZ3_URI}" width="125" height="98" alt="">
+        <span class="wc1">Choose a product to install</span><span class="wc2">Configure product inputs</span><span class="wc3">Install and explore</span>
+      </div>
+    </div>
+    <div class="mk-foot">The store row is daemon truth: ${listings.length} listing${listings.length === 1 ? "" : "s"} on the governed plane (${published.length} published). Draft/publish/admission: <a href="/__ioi/marketplace">Marketplace substrate →</a> · reference: <a href="/__apps/listings" target="_blank" rel="noopener">Marketplace capture ↗</a></div>
+  </div>`;
+
+  const css = `:root{color-scheme:light}*{box-sizing:border-box}
+    body{margin:0;background:#fff;color:#1c2127;font:14px/1.28581 Source-Sans-Pro,Helvetica,sans-serif}
+    a{color:#215db0;text-decoration:none}
+    .mk-shell{display:flex;height:100vh;width:100vw;overflow:hidden}
+    ${IOI_GRAIL_CSS}
+    .mk-main{flex:1;min-width:0;display:flex;flex-direction:column;height:100vh}
+    .mk-header{flex:0 0 51px;display:flex;align-items:center;background:#fff;box-shadow:0 1px 0 0 #dce0e5;z-index:6}
+    .mk-hchip{width:50px;height:50px;flex:0 0 50px;background:rgba(215,84,68,.08) url('${MARKETPLACE_APP_ICON_URI}') center/26px no-repeat}
+    .mk-htitle{font-size:16px;line-height:36px;font-weight:600;color:#404854;margin:0 0 0 10px;flex:0 0 auto}
+    .mk-hright{margin-left:auto;align-self:stretch;display:flex;align-items:flex-start;padding-right:16px}
+    .mk-hright>*{margin-top:8.5px}
+    .mk-search{display:flex;align-items:center;gap:4px;width:315px;height:30px;border-radius:4px;background:#fff;padding:0 8px;color:#5f6b7c;box-shadow:inset 0 0 0 1px rgba(17,20,24,.2),inset 0 1px 1px rgba(17,20,24,.3)}
+    .mk-search input{flex:1;border:0;background:transparent;font:inherit;font-size:14px;color:#1c2127;outline:none;padding:0}
+    .mk-search input::placeholder{color:#5f6b7c}
+    .mk-hbtn{display:inline-flex;align-items:center;gap:5px;height:30px;margin-left:17px;padding:0 8px;border-radius:4px;font-size:14px;line-height:16.1px;color:#1c2127;cursor:default}
+    .mk-hbtn.ring{margin-left:8px;padding:0 8px 0 9px;background:#fff;box-shadow:inset 0 0 0 1px rgba(64,72,84,.33),0 1px 2px rgba(17,20,24,.1)}
+    .mk-hbtn.ring svg{color:#5f6b7c;margin-left:-1px}
+    .mk-body{flex:1 1 auto;min-width:0;overflow-y:auto;background:#f6f7f9}
+    .mk-hero{position:relative;background:#fff;height:105px;border-bottom:1px solid #dce0e5;overflow:hidden}
+    .mk-heroimg{position:absolute;right:0;top:-3px;width:385px;height:106px}
+    .mk-h1{position:relative;font-size:28px;line-height:32px;font-weight:600;color:#1c2127;margin:0;padding:24px 0 0}
+    .mk-sub{position:relative;font-size:14px;line-height:18.0013px;color:#5f6b7c;margin:2px 0 0}
+    .mk-hero .mk-h1,.mk-hero .mk-sub{max-width:1210px;margin-left:auto;margin-right:auto;padding-left:45px;padding-right:45px}
+    .mk-content{max-width:1210px;margin:0 auto;padding:0 45px}
+    .mk-storeshead{display:flex;align-items:center;margin-top:27px}
+    .mk-storest{font-size:22px;line-height:25px;font-weight:600;color:#1c2127;margin:0;flex:1}
+    .mk-storesearch{width:315px}
+    .mk-card{background:#fff;border-radius:4px;box-shadow:0 0 0 1px rgba(17,20,24,.15)}
+    .mk-storecard{margin-top:17px;height:495px;overflow:hidden}
+    .mk-thead{display:flex;align-items:flex-start;height:40px;padding-top:7.5px;background:#f6f7f9;border-bottom:1px solid #dce0e5;border-radius:4px 4px 0 0}
+    .mk-thname{flex:1;font-size:12px;line-height:15.4297px;color:#5f6b7c;padding-left:20px}
+    .mk-thprod{width:405px;display:flex;justify-content:space-between;padding:0 11px 0 18.3px;border-left:1px solid #dce0e5;margin-top:-7.5px;padding-top:7.5px;height:40px;font-size:12px;line-height:15.4297px;color:#5f6b7c}
+    .mk-sortico{display:inline-flex;color:#5f6b7c;margin-top:-2px}
+    .mk-row{display:flex;align-items:flex-start;padding:14px 0 12px;border-bottom:1px solid #eef0f2;color:#1c2127}
+    .mk-rowico{width:16px;height:16px;background-size:16px;background-repeat:no-repeat;margin:2px 0 0 20px;flex:0 0 16px}
+    .mk-rowmain{flex:1;min-width:0;margin-left:8px}
+    .mk-rowname{display:block;font-size:14px;line-height:18.0013px;color:#1c2127}
+    .mk-rowsub{display:block;font-size:12px;line-height:15.4297px;color:#8f99a8;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:640px}
+    .mk-rowright{width:405px;display:flex;justify-content:space-between;align-items:flex-start;padding:0 14px 0 18.3px;font-size:14px;line-height:18.0013px;color:#1c2127;margin-top:5px}
+    .mk-rowcount{display:inline-flex;align-items:center;gap:8px}
+    .mk-rowshare{display:inline-flex;color:#5f6b7c;margin-top:2px}
+    .mk-wizcard{margin-top:20px;height:215px;display:flex;align-items:flex-start;overflow:hidden;position:relative}
+    .mk-wizcopy{flex:0 0 360px;padding:93.5px 0 0 20px}
+    .mk-wizt{font-size:16px;line-height:19px;font-weight:600;color:#1c2127;margin:0}
+    .mk-wizsub{font-size:14px;line-height:18.0013px;color:#5f6b7c;margin:6px 0 0}
+    .mk-wizsub2{font-size:11px;line-height:14px;color:#8f99a8;margin:6px 0 0}
+    .mk-wizsteps{position:absolute;inset:0}
+    .mk-wizsteps img,.mk-wizsteps span{position:absolute}
+    .mk-wizsteps .w1{left:492px;top:55px}.mk-wizsteps .wa1{left:632px;top:86px}.mk-wizsteps .w2{left:686px;top:54px}.mk-wizsteps .wa2{left:866px;top:86px}.mk-wizsteps .w3{left:937.5px;top:45px}
+    .mk-wizsteps .wc1{left:469px;top:145px}.mk-wizsteps .wc2{left:689.7px;top:145px}.mk-wizsteps .wc3{left:943.2px;top:145px}
+    .mk-wizsteps span{font-size:14px;line-height:18.0013px;color:#1c2127}
+    .mk-foot{margin:16px 0 30px;color:#7b8494;font-size:12px;line-height:1.5}`;
+
+  return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Marketplace</title><style>${css}</style></head>
+    <body><div class="mk-shell">${globalRail}<div class="mk-main">${header}<div class="mk-body">${hero}<main>${stores}</main></div></div></div></body></html>`;
+}
+
 function renderOntologyManager(ov, lists, selectedId) {
   const o = ov || {};
   const ontologies = Array.isArray(lists.ontologies) ? lists.ontologies : [];
@@ -7828,6 +7950,12 @@ const server = http.createServer((req, res) => {
     // ---- Missions — owner surface for suite/run work (jobs + incidents seeds). Reads the real
     // operations run queue + goal-runs; renders the run/job queue and the mission-level incident
     // inbox (run failures + GoalRun blockers). Operations stays substrate/infra (separate route).
+    if (pathname === "/__ioi/marketplace/listings" && req.method === "GET") {
+      const listingsJson = await fetch(`${DAEMON}/v1/hypervisor/marketplace/listings`).then((x) => x.json()).catch(() => ({}));
+      res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
+      res.end(renderMarketplaceBrowsePort(listingsJson));
+      return;
+    }
     if (pathname === "/__ioi/foundry/models" && req.method === "GET") {
       const routesJson = await fetch(`${DAEMON}/v1/hypervisor/model-routes`).then((x) => x.json()).catch(() => ({}));
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });

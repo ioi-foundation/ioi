@@ -249,6 +249,12 @@ export function parityOf(ref, ioi, landmarks) {
 // pipeline, not the overlay. (It does not move the numeric gates — theme/landmarks read the same with the
 // modal up — but a legible review surface must show the graph.)
 export const REFERENCE_PRE_CAPTURE = {
+  // Listings (#48): the capture opens on a "What's new in Marketplace" modal — the hook
+  // dismisses it via its own Close control (UI only; the error signal is read BEFORE any hook).
+  listings: async (page) => {
+    await page.getByText("Close", { exact: true }).first().click({ timeout: 4000 });
+    await page.waitForTimeout(900);
+  },
   // Incidents (#45): the capture's DATA lives one status-lane click deep — the default
   // Open lane is honestly empty and the 5 real closed incidents sit behind the Closed
   // lane (#44 sweep finding). The hook clicks STATUS UI ONLY (no auth/origin change, no

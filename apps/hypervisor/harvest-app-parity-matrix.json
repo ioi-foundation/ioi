@@ -18,8 +18,8 @@
   "total_seeds": 39,
   "by_parity_class": {
     "substrate_bound": 6,
-    "reference_capture": 27,
-    "daemon_wired": 6
+    "reference_capture": 26,
+    "daemon_wired": 7
   },
   "legend": {
     "reference_capture": "the /__apps/<slug> reference baseline serves; no IOI port exists",
@@ -467,14 +467,33 @@
       "capture_base": "/workspace/marketplace/",
       "grammar": "catalog",
       "tier": "high_value",
-      "parity_class": "reference_capture",
+      "parity_class": "daemon_wired",
       "capture_state": "boots_graph",
       "reference_capture": "/__apps/listings",
       "reference_workspace": "/workspace/marketplace/",
-      "note": "store browse + install wizard; drill-down = named gap",
+      "note": "TRUE parity (#48) under the HARDENED gate: light Marketplace-browse reference-faithful shell at /__ioi/marketplace/listings over the real listing plane — the LAST data_clean candidate from the #44 ranking, completing the clean-reference pool (the wave pivots to origin-alignment seeds next); the reference's Stores lane is REBOUND to the same substrate; /__ioi/marketplace substrate intact and linking first-class; product search / store search / Installations / Help / install wizard / store sharing / sorting = named gaps disabled in place; NO publish/install/hire/settle/runtime semantics — products enter only through draft → admitted review → open release on the substrate",
       "reference_clean_state": "data_clean",
       "reference_clean_reason": "shell regions [rail, header, body] + data evidence (rows 1/0 · nodes 0 · cards 3 · lists 0 · lines 20)",
-      "reference_clean_artifact": "reference-clean-sweep.json"
+      "reference_clean_artifact": "reference-clean-sweep.json",
+      "substrate_surface": "/__ioi/marketplace",
+      "port_surface": "/__ioi/marketplace/listings",
+      "surface_name": "Marketplace",
+      "reference_landmarks": [
+        "Marketplace",
+        "Discover and install Foundry products",
+        "Stores",
+        "Name",
+        "Products",
+        "Install your first product",
+        "Choose a product to install",
+        "Configure product inputs",
+        "Install and explore",
+        "Installations"
+      ],
+      "binding": "faithful port of the reference Marketplace browse over the real daemon marketplace substrate — dark global rail + light header (app chip · Marketplace · product search · Installations · Help as named gaps) + hero (title · Discover subtitle · reference illustration) + the Stores table whose single row IS the estate's governed listing plane with its live product count + the install-first-product wizard band as reference chrome (installing is a named gap — products enter through draft → admitted review → open release on the substrate)",
+      "candidate_surface": "/__ioi/marketplace/listings",
+      "shell_pixel_certified": true,
+      "shell_pixel_certification_artifact": "pixel-certifications/listings.json"
     },
     {
       "owner": "Marketplace",

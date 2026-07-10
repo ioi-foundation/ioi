@@ -1,0 +1,132 @@
+{
+  "schema": "ioi.hypervisor.shell-pixel-certification.v1",
+  "slug": "listings",
+  "matrix_class": "daemon_wired",
+  "shell_pixel_certified": true,
+  "viewports_pinned": false,
+  "thresholds": {
+    "shell_diff_dilated_pct_max": 1.25,
+    "shell_diff_raw_pct_max": 3,
+    "shell_bbox_delta_px_max": 8,
+    "min_shell_certified_fraction": 0.05,
+    "data_mask_in_shell_fraction_max": 0.5,
+    "landmark_mask_overlap_max": 0.3,
+    "pixel_delta_threshold": 0.1,
+    "palette_delta_max": 0.05
+  },
+  "reference_url": "http://127.0.0.1:4173/__apps/listings",
+  "ioi_url": "http://127.0.0.1:4173/__ioi/marketplace/listings",
+  "mobile": "mobile_not_supported (scrollWidth=390 innerWidth=390 railFrac=0.59)",
+  "note": "SHELL pixel parity — the live-data body is excluded by design and verified semantically by the surface verifier (body_semantic_truth)",
+  "viewports": [
+    {
+      "viewport": "1440x900",
+      "reference_url": "http://127.0.0.1:4173/__apps/listings",
+      "ioi_url": "http://127.0.0.1:4173/__ioi/marketplace/listings",
+      "certified": true,
+      "reasons": [],
+      "gates": {
+        "evidence_ok": true,
+        "reference_errored": false,
+        "ioi_errored": false,
+        "reference_valid": true,
+        "ioi_valid": true,
+        "structural_parity": true,
+        "theme_match": true,
+        "landmark_covered": 10,
+        "landmark_applicable": 10
+      },
+      "metrics": {
+        "dims_match": true,
+        "shell_diff_raw_pct": 1.52,
+        "shell_diff_dilated_pct": 1.17,
+        "certified_px": 1094754,
+        "palette": {
+          "shell": {
+            "ref_avg_rgb": [
+              211,
+              212,
+              214
+            ],
+            "ioi_avg_rgb": [
+              211,
+              213,
+              215
+            ],
+            "delta": 0
+          }
+        },
+        "bbox_deltas": {
+          "rail": 0
+        },
+        "coverage": {
+          "shell_fraction": 0.921,
+          "certified_fraction": 0.851,
+          "data_in_shell_fraction": 0.075,
+          "landmarks_masked": []
+        },
+        "cmp_error": null
+      },
+      "screens": {
+        "ref": "listings/ref-1440x900.png",
+        "ioi": "listings/ioi-1440x900.png",
+        "heatmap": "listings/heatmap-1440x900.png"
+      }
+    },
+    {
+      "viewport": "1920x1080",
+      "reference_url": "http://127.0.0.1:4173/__apps/listings",
+      "ioi_url": "http://127.0.0.1:4173/__ioi/marketplace/listings",
+      "certified": true,
+      "reasons": [],
+      "gates": {
+        "evidence_ok": true,
+        "reference_errored": false,
+        "ioi_errored": false,
+        "reference_valid": true,
+        "ioi_valid": true,
+        "structural_parity": true,
+        "theme_match": true,
+        "landmark_covered": 10,
+        "landmark_applicable": 10
+      },
+      "metrics": {
+        "dims_match": true,
+        "shell_diff_raw_pct": 1.45,
+        "shell_diff_dilated_pct": 1.11,
+        "certified_px": 1211514,
+        "palette": {
+          "shell": {
+            "ref_avg_rgb": [
+              207,
+              209,
+              211
+            ],
+            "ioi_avg_rgb": [
+              208,
+              209,
+              211
+            ],
+            "delta": 0
+          }
+        },
+        "bbox_deltas": {
+          "rail": 0,
+          "header": 3
+        },
+        "coverage": {
+          "shell_fraction": 0.635,
+          "certified_fraction": 0.592,
+          "data_in_shell_fraction": 0.068,
+          "landmarks_masked": []
+        },
+        "cmp_error": null
+      },
+      "screens": {
+        "ref": "listings/ref-1920x1080.png",
+        "ioi": "listings/ioi-1920x1080.png",
+        "heatmap": "listings/heatmap-1920x1080.png"
+      }
+    }
+  ]
+}

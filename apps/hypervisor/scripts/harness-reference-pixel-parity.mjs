@@ -116,6 +116,32 @@ export const SURFACE_SHELL = {
       ioi: [],
     },
   },
+  listings: {
+    // Marketplace browse (#48): certified shell = rail + header + hero band (title/subtitle +
+    // the verbatim reference illustration) + the Stores head band + the store-card CHROME
+    // (header row + card box) + the install-wizard band. The store ROW is masked data (the
+    // estate's live listing plane + product count on BOTH sides — the reference's Stores lane
+    // is rebound to the same substrate). Content = the approvals rule: a 1210px block centered
+    // right of the rail (offset 0 @1440, +240 @1920) → content-anchored rects/masks.
+    rects: [
+      { key: "rail", anchor: "left", x: 0, y: 0, w: 230, h: 0 },
+      { key: "header", anchor: "topbar", x: 230, y: 0, w: 0, h: 51 },
+      { key: "hero", anchor: "topbar", x: 230, y: 51, w: 0, h: 106 },
+      { key: "storeshead", anchor: "content", x: 275, y: 172, w: 1120, h: 46 },
+      { key: "storecard", anchor: "content", x: 275, y: 230, w: 1120, h: 496 },
+      { key: "wizcard", anchor: "content", x: 275, y: 745, w: 1120, h: 155 },
+    ],
+    // Masked DATA: the store ROW region (live plane name/copy/count on both sides — identical
+    // daemon truth, masked on principle) — the card chrome + empty region below stay compared.
+    data: {
+      ref: [
+        { rect: { x: 280, y: 265, w: 1110, h: 68 }, anchor: "content", label: "store row (the rebound estate listing plane + live product count)" },
+      ],
+      ioi: [
+        { selector: ".mk-rows", label: "live-store-rows" },
+      ],
+    },
+  },
   models: {
     // Model Catalog (#47): certified shell = rail + header (title + tabs) + the full-width hero
     // band + the PINNED Filters card chrome + the Additional-models heading. Facet ROWS inside

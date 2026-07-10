@@ -1,6 +1,6 @@
 {
  "schema": "ioi.hypervisor.reference-clean-sweep.v1",
- "swept_at": "2026-07-10T22:27:43.332Z",
+ "swept_at": "2026-07-10T23:29:08.198Z",
  "serve": "http://127.0.0.1:4173",
  "mirror": "http://127.0.0.1:9225",
  "total_seeds": 39,
@@ -12,31 +12,7 @@
   "data_failed": 4
  },
  "doctrine": "reference cleanliness only — no ports, no promotions, parity_class untouched; local mirror lanes only (no live dependency); screenshots corroborate, DOM/text/network classify",
- "ranked_next": [
-  {
-   "rank": 1,
-   "slug": "listings",
-   "owner": "Marketplace",
-   "score": 19,
-   "why": {
-    "data_clean_reference": true,
-    "daemon_truth_bindable": "no existing surface — new binding work",
-    "owner_value": "Marketplace (2)",
-    "fabrication_risk": "low (catalog)",
-    "ia_landmarks": [
-     "Home",
-     "Search…",
-     "ctrl + J",
-     "Notifications",
-     "Gift Icon",
-     "What's New",
-     "Recent",
-     "Files"
-    ],
-    "live_palantir_dependency": "none (local mirror lanes only)"
-   }
-  }
- ],
+ "ranked_next": [],
  "seeds": [
   {
    "slug": "designer",
@@ -2130,11 +2106,11 @@
   {
    "slug": "listings",
    "owner": "Marketplace",
-   "parity_class": "reference_capture",
+   "parity_class": "daemon_wired",
    "grammar": "catalog",
    "reference_path": "/__apps/listings",
-   "candidate_surface": null,
-   "substrate_surface": null,
+   "candidate_surface": "/__ioi/marketplace/listings",
+   "substrate_surface": "/__ioi/marketplace",
    "clean_state": "data_clean",
    "reason": "shell regions [rail, header, body] + data evidence (rows 1/0 · nodes 0 · cards 3 · lists 0 · lines 20)",
    "lane_used": "proxy",
@@ -2163,7 +2139,18 @@
     "Support",
     "Account"
    ],
-   "matrix_landmarks_present": [],
+   "matrix_landmarks_present": [
+    "Marketplace",
+    "Discover and install Foundry products",
+    "Stores",
+    "Name",
+    "Products",
+    "Install your first product",
+    "Choose a product to install",
+    "Configure product inputs",
+    "Install and explore",
+    "Installations"
+   ],
    "body_sample": "Skip to content\nHome\nSearch…\nctrl + J\nNotifications\nWhat's New\nRecent\nFiles\nOntology\nApplications\nAPPLICATIONS\nView all\nMarketplace\nAIP Assist\nctrl + shift + U\nSupport\nLJ\nAccount\nMarketplace\nInstallations\nHelp\nMarketplace\nDiscover and install Foundry products\nStores\nFound 1 store\nName\nProducts\nEstate Marketplace — governed listing plane\nListings drafted over real substrate. Publish is the governed path: admitted review + open release control + serving runtime, receipted.\n0 products\nInstall your first product\nA store holds a collection of products. Select a store to browse or search for a produ",
    "data_evidence": {
     "table_rows": 1,
@@ -2179,7 +2166,7 @@
    "cors_evidence": [],
    "modal_evidence": {
     "overlay_pre": true,
-    "overlay_post": false,
+    "overlay_post": true,
     "dismissed_reveals_data": false
    },
    "capture_store": {

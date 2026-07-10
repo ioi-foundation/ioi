@@ -113,6 +113,10 @@ const DAEMON_WIRED = {
   // the app's absolute fetch origin, NOT the CORS-broken 127.0.0.1 proxy) with a reference-only preCapture
   // hook dismissing the "What's new" onboarding modal for a legible contact sheet. The hardened harness
   // then certifies visual_parity (theme light/light + landmarks 10/10 + regions 1.0, both sides valid).
+  // #48 — Marketplace browse (listings): the SEVENTH faithful port — the LAST data_clean
+  // candidate; the clean-reference pool is now EMPTY and the wave pivots to origin alignment.
+  listings: { substrate_surface: "/__ioi/marketplace", port_surface: "/__ioi/marketplace/listings", surface_name: "Marketplace", reference_workspace: "/workspace/marketplace/", reference_landmarks: ["Marketplace", "Discover and install Foundry products", "Stores", "Name", "Products", "Install your first product", "Choose a product to install", "Configure product inputs", "Install and explore", "Installations"], binding: "faithful port of the reference Marketplace browse over the real daemon marketplace substrate — dark global rail + light header (app chip · Marketplace · product search · Installations · Help as named gaps) + hero (title · Discover subtitle · reference illustration) + the Stores table whose single row IS the estate's governed listing plane with its live product count + the install-first-product wizard band as reference chrome (installing is a named gap — products enter through draft → admitted review → open release on the substrate)", note: "TRUE parity (#48) under the HARDENED gate: light Marketplace-browse reference-faithful shell at /__ioi/marketplace/listings over the real listing plane — the LAST data_clean candidate from the #44 ranking, completing the clean-reference pool (the wave pivots to origin-alignment seeds next); the reference's Stores lane is REBOUND to the same substrate; /__ioi/marketplace substrate intact and linking first-class; product search / store search / Installations / Help / install wizard / store sharing / sorting = named gaps disabled in place; NO publish/install/hire/settle/runtime semantics — products enter only through draft → admitted review → open release on the substrate" },
+
   // #47 — Model Catalog (models): the SIXTH faithful port — the FIRST Foundry-family certified
   // surface, the second port chosen by the #44 sweep ranking (models was rank #1 remaining).
   models: { substrate_surface: "/__ioi/foundry", port_surface: "/__ioi/foundry/models", surface_name: "Foundry", reference_workspace: "/workspace/model-catalog/", reference_landmarks: ["Model Catalog", "IOI-provided models", "Registered models", "Compare models", "Browse large language models in Foundry", "Filters", "LIFECYCLE STATUS", "Clear", "MODEL CREATOR", "Additional"], binding: "faithful port of the reference Model Catalog over the real daemon model-route registry — dark global rail + light header (app chip · Model Catalog · IOI-provided/Registered tabs) + hero (title · Browse subtitle · Compare-models gap) + a pinned Filters card (name search + Lifecycle Status/Type/Model creator facets whose ROWS are live route truth) + the Additional-models card list (one card per real route: identity + default marker · availability state + probe evidence + staleness · weight custody · credential posture · lifecycle/admission); route administration stays in Agent Studio (linked)", note: "TRUE parity (#47) under the HARDENED gate: light Model-Catalog reference-faithful shell at /__ioi/foundry/models over the REAL daemon model-route registry — the FIRST Foundry-family certified surface; the /__apps/models reference's catalog lanes are REBOUND to the same registry (the #44 sweep classified it data_clean on those lanes); /__ioi/foundry substrate intact and linking first-class; Registered-models tab / Compare / name search / facet filtering / model detail / fine-tuning / playground / inference / deployment = named gaps disabled in place; route administration stays in Agent Studio" },
@@ -210,6 +214,13 @@ const SHELL_PIXEL_CERTIFIED = {
   // SHELL SLOTS with the live-truth rows masked as data). 1440x900 dilated 0.28% / raw 1.6%,
   // 1920x1080 dilated 0.22% / raw 1.4%, bbox 0 — no threshold movement.
   models: "pixel-certifications/models.json",
+  // #48 — Marketplace browse: the SEVENTH shell-pixel certification — closes the data_clean
+  // pool. Hero band with the verbatim reference illustration · rebound Stores table (row =
+  // masked live data, chrome compared incl. the x990 column divider) · install-wizard band
+  // with absolutely-pinned reference illustrations. Content = the approvals rule (1210px
+  // centered block). 1440x900 dilated 1.17% / raw 1.52%, 1920x1080 dilated 1.11% / raw 1.45%,
+  // bbox <= 3 — no threshold movement.
+  listings: "pixel-certifications/listings.json",
 };
 
 // ---- PR #44: the ESTATE REFERENCE CLEAN SWEEP (committed evidence written by
