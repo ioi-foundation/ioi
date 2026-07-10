@@ -100,9 +100,23 @@ ok("control 'pipeline' evidences the ORIGIN-ALIGNMENT pattern (classified on its
   ok("matrix rows carry reference_clean_state/_reason/_artifact for all 39 seeds", rows.length === 39 && rows.every((m) => CLEAN_STATES.has(m.reference_clean_state) && m.reference_clean_reason && m.reference_clean_artifact === "reference-clean-sweep.json"));
   const mismatch = rows.filter((m) => bySlug[m.slug] && (m.reference_clean_state !== bySlug[m.slug].clean_state || m.reference_clean_reason !== bySlug[m.slug].reason));
   ok("matrix stamping AGREES with the sweep evidence (state + reason verbatim)", mismatch.length === 0, mismatch.map((m) => m.slug).join(", ") || "all agree");
+  // THE CERTIFIED-PROMOTION CONTRACT: the sweep itself never promotes (that was #44's
+  // hard bar), but a LATER port PR may move a seed's parity ONLY with committed shell-pixel
+  // certification evidence over a data_clean reference (#45 incidents is the first). Any
+  // other drift vs the sweep-time snapshot is an unsanctioned promotion and fails here.
   const parityDrift = rows.filter((m) => bySlug[m.slug] && m.parity_class !== bySlug[m.slug].parity_class);
-  ok("NO PROMOTIONS: every parity_class is exactly what the sweep observed (cleanliness describes the reference, not the port)", parityDrift.length === 0, parityDrift.map((m) => `${m.slug}: ${bySlug[m.slug].parity_class}→${m.parity_class}`).join(", ") || "untouched");
-  ok("parity distribution unchanged (daemon_wired 3 · reference_ported 1 · substrate_bound 8 · reference_capture 27)", JSON.stringify(matrix && matrix.by_parity_class) === JSON.stringify({ substrate_bound: 8, reference_capture: 27, daemon_wired: 3, reference_ported: 1 }), JSON.stringify(matrix && matrix.by_parity_class));
+  const unsanctioned = parityDrift.filter((m) => {
+    if (m.parity_class !== "daemon_wired") return true;                         // only certified-port promotions are sanctioned
+    if (m.reference_clean_state !== "data_clean" || m.shell_pixel_certified !== true) return true;
+    let cert = null;
+    try { cert = JSON.parse(readFileSync(path.join(appRoot, m.shell_pixel_certification_artifact), "utf8")); } catch { return true; }
+    return !(cert && cert.slug === m.slug && cert.shell_pixel_certified === true && cert.viewports_pinned === false);
+  });
+  ok("NO UNSANCTIONED PROMOTIONS: any parity drift vs the sweep snapshot is a CERTIFIED port over a data_clean reference (committed non-pinned evidence), nothing else", unsanctioned.length === 0, parityDrift.length ? parityDrift.map((m) => `${m.slug}: ${bySlug[m.slug].parity_class}→${m.parity_class}${unsanctioned.includes(m) ? " (UNSANCTIONED)" : " (certified)"}`).join(", ") : "no drift");
+  const dist = matrix && matrix.by_parity_class;
+  const counts = { substrate_bound: 0, reference_capture: 0, daemon_wired: 0, reference_ported: 0 };
+  for (const m of rows) counts[m.parity_class] = (counts[m.parity_class] || 0) + 1;
+  ok("parity distribution is internally consistent (header matches rows; certified promotions accounted)", JSON.stringify(dist) === JSON.stringify(Object.fromEntries(Object.entries(counts).filter(([, v]) => v > 0))) || JSON.stringify(dist) === JSON.stringify(counts), JSON.stringify(dist));
   ok("daemon_wired seeds are clean CERTIFIED controls in the matrix (data_clean + shell_pixel_certified)", rows.filter((m) => m.parity_class === "daemon_wired").every((m) => m.reference_clean_state === "data_clean" && m.shell_pixel_certified === true));
   ok("reference_ported (explorer) names its blocker in the matrix", rows.filter((m) => m.parity_class === "reference_ported").every((m) => m.reference_clean_reason && m.reference_clean_reason.length > 24));
 }

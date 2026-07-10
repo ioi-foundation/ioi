@@ -125,7 +125,11 @@ ok("every shell_pixel_certified=true row has a committed cert file with threshol
   } catch { return false; }
 }));
 ok("the mask-rect resolver applies the OPACITY visibility discipline (no invisible planted mask-steering elements)", /s\.opacity !== "0"[\s\S]{0,400}maskRects\.push|maskRects\.push[\s\S]{0,600}s\.opacity !== "0"/.test(readFileSync(path.join(here, "harness-reference-parity.mjs"), "utf8")));
-ok("parity classes are UNTOUCHED by the pixel layer (daemon_wired 3 · reference_ported 1 · substrate_bound 8)", (matrix.by_parity_class?.daemon_wired || 0) === 3 && (matrix.by_parity_class?.reference_ported || 0) === 1 && (matrix.by_parity_class?.substrate_bound || 0) === 8);
+// The pixel layer NEVER GRANTS parity: certification is evidence ON TOP of daemon_wired
+// (ports move parity through their own port PRs + per-surface verifiers — #34/#36/#39/#45).
+// The invariant is therefore structural, not a frozen census: every certified row is
+// daemon_wired, every daemon_wired row is certified, and no other class carries a cert.
+ok("parity classes are never GRANTED by the pixel layer: certified ⊆ daemon_wired, daemon_wired ⊆ certified, no cert outside daemon_wired", (matrix.seeds || []).every((s) => (s.shell_pixel_certified === true) === (s.parity_class === "daemon_wired")) && (matrix.by_parity_class?.daemon_wired || 0) >= 3 && (matrix.by_parity_class?.reference_ported || 0) === 1, `daemon_wired=${matrix.by_parity_class?.daemon_wired} certified=${(matrix.seeds || []).filter((s) => s.shell_pixel_certified).length}`);
 
 // ---- report ------------------------------------------------------------------------------------------
 let fail = 0;

@@ -17,9 +17,9 @@
   ],
   "total_seeds": 39,
   "by_parity_class": {
-    "substrate_bound": 8,
+    "substrate_bound": 7,
     "reference_capture": 27,
-    "daemon_wired": 3,
+    "daemon_wired": 4,
     "reference_ported": 1
   },
   "legend": {
@@ -691,19 +691,34 @@
       "capture_base": "/workspace/issues-app/",
       "grammar": "table_list",
       "tier": "high_value",
-      "parity_class": "substrate_bound",
+      "parity_class": "daemon_wired",
       "capture_state": "boots_table_list",
       "reference_capture": "/__apps/incidents",
       "reference_workspace": "/workspace/issues-app/",
-      "note": "incident lane of the Missions owner surface; honest empty when no failures/blockers; create/assign incidents / SLA / comments = named gaps; substrate/infra incidents (storage repair, provider failover) stay in Operations",
+      "note": "TRUE parity (#45) under the HARDENED gate: light status-lane issues-inbox reference-faithful shell at /__ioi/missions/incidents, over REAL daemon incidents (never the capture's example rows); honest empty lanes; creating/assigning incidents, priorities, SLA, comments, saved filters, facet filtering, bulk selection = named gaps disabled in place; the /__ioi/missions substrate overview stays intact and links the inbox first-class; substrate/infra incidents (storage repair, provider failover) stay in Operations",
       "reference_clean_state": "data_clean",
       "reference_clean_reason": "shell regions [rail, header, body] + data evidence (rows 5/0 · nodes 0 · cards 0 · lists 0 · lines 25) — clicked the 'Closed' status lane (the default Open lane is honestly empty; the capture carries 5 real closed incidents)",
       "reference_clean_artifact": "reference-clean-sweep.json",
       "substrate_surface": "/__ioi/missions",
+      "port_surface": "/__ioi/missions/incidents",
+      "ioi_url_override": "/__ioi/missions/incidents?lane=closed",
       "surface_name": "Missions",
-      "binding": "the Missions incident/remediation inbox — real run failures + GoalRun blockers, each linking to its own proof/timeline, status-lane grammar over daemon truth",
-      "candidate_surface": "/__ioi/missions",
-      "shell_pixel_certified": false
+      "reference_landmarks": [
+        "Open",
+        "Closed",
+        "All",
+        "Filters",
+        "Priority",
+        "Assignees",
+        "Reporters",
+        "Mentions",
+        "Labels",
+        "Support types"
+      ],
+      "binding": "faithful port of the reference Issues inbox over the real Missions incident truth — dark global rail + light header (app chip · Issues · search · New · settings) + a light status/filter sidebar (Open/Closed/All lanes with live counts · Priority/Assignees/Reporters/Mentions/Labels/Support-types/date facets as faithful named-gap filters) + the incident list (real GoalRun blockers + run failures: reason code · subject id · created age · kind pill · proof link into the run timeline); open = blockers on non-terminal runs + failed runs, closed = blockers recorded on terminal runs — every row is daemon truth",
+      "candidate_surface": "/__ioi/missions/incidents",
+      "shell_pixel_certified": true,
+      "shell_pixel_certification_artifact": "pixel-certifications/incidents.json"
     },
     {
       "owner": "Governance",

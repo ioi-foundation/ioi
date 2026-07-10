@@ -116,6 +116,42 @@ export const SURFACE_SHELL = {
       ioi: [],
     },
   },
+  incidents: {
+    // The issues-inbox app (#45): certified shell = rail + header + the FIXED-LEFT status/
+    // filter sidebar + the list-HEADER band. The incident ROW LIST is the live body
+    // (excluded by design — real blockers/failures vs the capture's 5 closed examples).
+    // Layout is fixed-left (sidebar/list x identical at both viewports; only the header's
+    // search/New/cog cluster and the Sort control right-anchor), so only heights differ.
+    rects: [
+      { key: "rail", anchor: "left", x: 0, y: 0, w: 230, h: 0 },
+      { key: "header", anchor: "topbar", x: 230, y: 0, w: 0, h: 51 },
+      { key: "sidebar", x: 230, y: 51, w: 250, h: 849 },
+      { key: "listhead", x: 480, y: 51, w: 960, h: 41 },
+    ],
+    rects_by_viewport: {
+      "1920x1080": [
+        { key: "rail", anchor: "left", x: 0, y: 0, w: 230, h: 0 },
+        { key: "header", anchor: "topbar", x: 230, y: 0, w: 0, h: 51 },
+        { key: "sidebar", x: 230, y: 51, w: 250, h: 1029 },
+        { key: "listhead", x: 480, y: 51, w: 1440, h: 41 },
+      ],
+    },
+    // Dynamic DATA masked on both sides: the three status-lane count tags (live daemon
+    // counts vs the capture's 0/5/5) and the list-header count text ("38 closed issues"
+    // vs "5 closed issues"). Chrome (lanes, filters, list-header words, sort) is COMPARED
+    // — the port pins "filtered by select filter" at the reference x so the count's width
+    // cannot displace it.
+    data: {
+      ref: [
+        { rect: { x: 438, y: 54, w: 42, h: 104 }, label: "status-lane count tags (live daemon counts vs captured 0/5/5)" },
+        { rect: { x: 525, y: 54, w: 110, h: 26 }, label: "list-header count text (live count + noun vs captured '5 closed issues')" },
+      ],
+      ioi: [
+        { selector: ".in-lcount", label: "live-lane-counts" },
+        { selector: ".in-lcounttxt", label: "live-list-count" },
+      ],
+    },
+  },
   pipeline: {
     // The builder canvas app: certified shell = rail + header + the floating CARDS (tool card, canvas
     // float/zoom buttons, Legend) + the right outputs panel + the tray TABS row. The canvas/graph is the

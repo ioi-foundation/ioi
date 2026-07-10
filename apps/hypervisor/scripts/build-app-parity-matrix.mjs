@@ -49,7 +49,7 @@ const SUBSTRATE_BOUND = {
   // Missions owner-family: jobs + incidents seeds bound to /__ioi/missions (the owner surface for
   // suite/run work). Operations stays substrate/infra. Both are the SAME owner surface, two lanes.
   jobs: { substrate_surface: "/__ioi/missions", surface_name: "Missions", binding: "the Missions run/job queue — the real operations run queue (recent runs, statuses, run counts) + scheduled missions, table/list grammar over daemon truth", note: "run-queue lane of the Missions owner surface; honest empty when no runs; freeform job-definition editing / board views / arbitrary filtering = named gaps; substrate/infra scheduler health stays in Operations" },
-  incidents: { substrate_surface: "/__ioi/missions", surface_name: "Missions", binding: "the Missions incident/remediation inbox — real run failures + GoalRun blockers, each linking to its own proof/timeline, status-lane grammar over daemon truth", note: "incident lane of the Missions owner surface; honest empty when no failures/blockers; create/assign incidents / SLA / comments = named gaps; substrate/infra incidents (storage repair, provider failover) stay in Operations" },
+
   // Evaluations owner-family: only evalsuites binds in this cut (analysis + quiver stay reference_capture).
   // The eval-suite library renders the INERT daemon eval-suite contract (a declaration; no scoring).
   evalsuites: { substrate_surface: "/__ioi/evaluations", surface_name: "Evaluations", binding: "the eval-suite library — the inert daemon eval-suite contract (a suite declares subject_scope + evidence/consent requirements + named candidate handoffs) over real assessment subjects (Missions runs/failures/blockers) + the consent ladder + feedback candidate source, table/list grammar over daemon truth", note: "declaration-only owner surface; /__ioi/feedback kept as a compatibility sublane; honest empty when no suites; EvalRun execution / scoring / verdicts / judge / scorecards / auto-mining / analysis+quiver canvases / promotion = named gaps" },
@@ -120,6 +120,13 @@ const DAEMON_WIRED = {
   // the app's absolute fetch origin, NOT the CORS-broken 127.0.0.1 proxy) with a reference-only preCapture
   // hook dismissing the "What's new" onboarding modal for a legible contact sheet. The hardened harness
   // then certifies visual_parity (theme light/light + landmarks 10/10 + regions 1.0, both sides valid).
+  // #45 — Incidents: the FOURTH faithful port and the FIRST chosen by the #44 clean-sweep
+  // ranking (rank #1: data_clean reference + existing Missions daemon substrate + low-risk
+  // table/inbox grammar). The issues-app reference's data sits one status-lane click deep
+  // (the #44 finding) — REFERENCE_PRE_CAPTURE.incidents clicks the Closed lane (status UI
+  // only; error text is read BEFORE the hook) and ioi_url_override deep-links ?lane=closed
+  // so both sides render the same lane state.
+  incidents: { substrate_surface: "/__ioi/missions", port_surface: "/__ioi/missions/incidents", ioi_url_override: "/__ioi/missions/incidents?lane=closed", surface_name: "Missions", reference_workspace: "/workspace/issues-app/", reference_landmarks: ["Open", "Closed", "All", "Filters", "Priority", "Assignees", "Reporters", "Mentions", "Labels", "Support types"], binding: "faithful port of the reference Issues inbox over the real Missions incident truth — dark global rail + light header (app chip · Issues · search · New · settings) + a light status/filter sidebar (Open/Closed/All lanes with live counts · Priority/Assignees/Reporters/Mentions/Labels/Support-types/date facets as faithful named-gap filters) + the incident list (real GoalRun blockers + run failures: reason code · subject id · created age · kind pill · proof link into the run timeline); open = blockers on non-terminal runs + failed runs, closed = blockers recorded on terminal runs — every row is daemon truth", note: "TRUE parity (#45) under the HARDENED gate: light status-lane issues-inbox reference-faithful shell at /__ioi/missions/incidents, over REAL daemon incidents (never the capture's example rows); honest empty lanes; creating/assigning incidents, priorities, SLA, comments, saved filters, facet filtering, bulk selection = named gaps disabled in place; the /__ioi/missions substrate overview stays intact and links the inbox first-class; substrate/infra incidents (storage repair, provider failover) stay in Operations" },
   pipeline: { port_surface: "/__ioi/pipeline", surface_name: "Data", reference_workspace: "/workspace/builder/", reference_url_override: "http://localhost:9225/workspace/builder/ri.eddie.main.pipeline.e73d6ae7-f6fe-4ac5-82a2-320d9f188590/sandbox/a082bef2-8826-4e6c-8925-871bcdb56c44", reference_landmarks: ["Add data", "Reusables", "Transform", "Legend", "Pipeline outputs", "Selection preview", "Suggestions", "Pipeline warnings", "Edit output settings", "Tools"], binding: "faithful LIGHT port of the reference Pipeline Builder over the real ODK authority ladder (DataSource → Object mapping → Policy gate → Transform plan → Read projection → Lease+session → MaterializedObjectSet) as the graph node cards; a Legend panel (Input Data / Data Cleaning / Calculations / Output Dataset) + a right 'Pipeline outputs' panel (read projection + column mapping + Output settings) + a 'Selection preview' tray, all from daemon truth (live/declared/missing per stage, preview rows + output schema from the real projection + materialized set)", note: "TRUE parity (#39) under the HARDENED gate: /__ioi/pipeline REBUILT as a faithful LIGHT Pipeline Builder (dark global rail + light header w/ build state + light tool cluster [Tools/Select/Remove/Layout/Text · Add data · Reusables · Transform/AIP/Edit] + light central graph canvas with the ODK-ladder node cards + a Legend panel + a right 'Pipeline outputs' panel w/ Output settings/Edit output settings + a bottom Selection preview / Suggestions / Pipeline warnings tray), NOT the earlier dark native shell (which #34's theme gate correctly refused); passes the hardened Playwright harness (theme light/light + landmarks 10/10 + regions 1.0) against the ORIGIN-ALIGNED data-clean reference canvas (reference_url_override localhost:9225 …/sandbox/…, the What's-new modal dismissed via a reference-only preCapture hook), whose data completeness is the precondition proven by verify-pipeline-reference-data-clean.mjs (reference_data_complete=true, #38); Build+Preview wired to the real ODK ladder; Schedule/Deploy + freeform canvas authoring (drag-connect / transform code editor / scheduling / deploy) = named gaps disabled in place; no new daemon semantics" },
 };
 
@@ -180,6 +187,16 @@ const SHELL_PIXEL_CERTIFIED = {
   // by verify-hypervisor-app-parity-pipeline.mjs. 1440x900 dilated 0.94% / raw 1.96%, 1920x1080 dilated
   // 0.84% / raw 1.82%, bbox 0 — no threshold movement.
   pipeline: "pixel-certifications/pipeline.json",
+  // #45 — Incidents: the FOURTH shell-pixel certification, the first driven by the #44
+  // sweep ranking. Fixed-left issues-inbox shell (sidebar/list x identical across
+  // viewports); glyph-anchored status lanes + filter facets (boxed name inputs whose ink
+  // sits at x259, Blueprint 16px checkbox indicators, italic filtered-by cluster, exact
+  // 83.4px row pitch left as the excluded live body). Certified on the Closed-lane state
+  // both sides (reference pre-capture clicks status UI only; port deep-links ?lane=closed).
+  // 1440x900 dilated 1.09% / raw 2.29%, 1920x1080 dilated 0.87% / raw 1.98%, bbox 0 — no
+  // threshold movement. Body = REAL daemon incidents (blockers/failures), verified
+  // semantically by verify-hypervisor-app-parity-incidents.mjs.
+  incidents: "pixel-certifications/incidents.json",
 };
 
 // ---- PR #44: the ESTATE REFERENCE CLEAN SWEEP (committed evidence written by
@@ -224,6 +241,7 @@ const rows = SEED_INVENTORY.map((e) => {
     // (substrate_bound → its substrate_surface; a ported state → its port_surface). Guaranteed present
     // for every non-reference_capture row (validated below) so no port-state can escape the harness.
     row.candidate_surface = overlay.port_surface || overlay.substrate_surface || null;
+    if (overlay.ioi_url_override) row.ioi_url_override = overlay.ioi_url_override;
     // Shell pixel certification is carried on every port-state row (false unless granted above), with the
     // certifying artifact path when true — an evidence pointer, not prose. `body_semantic_truth` is
     // asserted independently by the per-surface verifier (this flag only asserts the SHELL was certified).

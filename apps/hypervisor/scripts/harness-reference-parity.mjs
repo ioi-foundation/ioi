@@ -249,6 +249,14 @@ export function parityOf(ref, ioi, landmarks) {
 // pipeline, not the overlay. (It does not move the numeric gates — theme/landmarks read the same with the
 // modal up — but a legible review surface must show the graph.)
 export const REFERENCE_PRE_CAPTURE = {
+  // Incidents (#45): the capture's DATA lives one status-lane click deep — the default
+  // Open lane is honestly empty and the 5 real closed incidents sit behind the Closed
+  // lane (#44 sweep finding). The hook clicks STATUS UI ONLY (no auth/origin change, no
+  // error hiding — capture() reads the error signal BEFORE any hook runs).
+  incidents: async (page) => {
+    await page.getByText("Closed", { exact: true }).first().click({ timeout: 4000 });
+    await page.waitForTimeout(1000);
+  },
   pipeline: async (page) => {
     await page.waitForTimeout(3500); // the builder canvas is heavy — let the graph + panels fully render
     await page.addStyleTag({ content: '.bp6-portal,.bp6-overlay,.bp6-overlay-backdrop,[class*="whats-new-dialog"]{display:none !important}' }).catch(() => {});
@@ -280,11 +288,22 @@ export function surfacesFromMatrix() {
         }
         reference_url = s.reference_url_override;
       }
+      // ioi_url_override: a per-seed PATH override on the SERVE origin (e.g. incidents'
+      // ?lane=closed deep-link, matching the reference pre-capture's status-lane state).
+      // Path-only by construction — it can never point off the estate server.
+      let ioiPath = s.candidate_surface || s.substrate_surface || "";
+      if (s.ioi_url_override) {
+        if (!String(s.ioi_url_override).startsWith("/__ioi/")) {
+          console.error(`FATAL: seed '${s.slug}' ioi_url_override must be an /__ioi/ path (got: ${s.ioi_url_override}).`);
+          process.exit(2);
+        }
+        ioiPath = s.ioi_url_override;
+      }
       return { slug: s.slug, owner: s.owner, matrix_class: s.parity_class, reference_workspace: s.reference_workspace,
         reference_landmarks: Array.isArray(s.reference_landmarks) ? s.reference_landmarks : [],
         reference_url,
         reference_pre_capture: REFERENCE_PRE_CAPTURE[s.slug] || null,
-        ioi_url: `${SERVE}${s.candidate_surface || s.substrate_surface || ""}` };
+        ioi_url: `${SERVE}${ioiPath}` };
     });
 }
 

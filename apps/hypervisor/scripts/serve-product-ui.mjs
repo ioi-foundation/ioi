@@ -26,7 +26,7 @@ import { WebSocketServer } from "ws";
 import * as adapter from "./ioi-api-adapter.mjs";
 import { getRun, listRuns, hydrateRunsFromDaemon, publishRunViaConnector } from "./ioi-agent-runs.mjs";
 import { projectRunTimeline } from "./ioi-run-timeline.mjs";
-import { bpIcon, ONTOLOGY_APP_ICON_URI, APPROVALS_APP_ICON_URI, PIPELINE_APP_ICON_URI, AIP_GRADIENT_SVG_RAIL, AIP_GRADIENT_SVG_TOOLBAR } from "./bp-icons.mjs";
+import { bpIcon, ONTOLOGY_APP_ICON_URI, APPROVALS_APP_ICON_URI, PIPELINE_APP_ICON_URI, ISSUES_APP_ICON_URI, AIP_GRADIENT_SVG_RAIL, AIP_GRADIENT_SVG_TOOLBAR } from "./bp-icons.mjs";
 import { mintApprovalGrant } from "../../../scripts/lib/mint-approval-grant.mjs";
 
 // Build the current conversation entries for a run, in the exact NDJSON shape the SPA's V1 pane
@@ -3250,7 +3250,7 @@ function renderMissions(ops, goalRuns) {
   const blockerRows = blocked.slice(0, BLOCKER_CAP).map((r) => { const b = (r.blockers && r.blockers[0]) || {}; return `<tr><td><span class="pill warn" style="margin:0">blocker</span></td><td>${CX_ESC(r.normalized_goal || r.goal_ref || r.goal_run_id || "—")}</td><td><code style="font-size:10.5px">${CX_ESC(b.reason_code || "—")}${b.role_key ? ` · ${CX_ESC(b.role_key)}` : ""}</code></td><td class="sub" style="margin:0">${CX_ESC(r.updated_at || r.created_at || "")}</td><td>${r.goal_run_id ? `<a href="/__ioi/run-timeline/goal-run/${enc(r.goal_run_id)}" target="_blank" rel="noopener">proof ↗</a>` : "—"}</td></tr>`; }).join("");
   const shown = failures.length + Math.min(blocked.length, BLOCKER_CAP);
   const capNote = shown < incidentCount ? ` (showing first ${shown})` : "";
-  const incidents = `<h2 id="missions-incidents">Incidents &amp; blockers ${sub(`— run failures + mission blockers needing remediation (${incidentCount})${capNote}`)}</h2>`
+  const incidents = `<h2 id="missions-incidents">Incidents &amp; blockers ${sub(`— run failures + mission blockers needing remediation (${incidentCount})${capNote} · <a href="/__ioi/missions/incidents">Incidents inbox (reference-faithful) →</a>`)}</h2>`
     + (incidentCount ? `<table><thead><tr><th>Kind</th><th>Subject</th><th>Reason</th><th>When</th><th>Remediation</th></tr></thead><tbody>${failRows}${blockerRows}</tbody></table>`
       : omBoundaryNote(`<b>No incidents</b> — no failed mission runs and no blocked mission runs right now. This lane reads real run failures + GoalRun blockers; it never fabricates incidents or remediation actions.`));
 
@@ -3942,6 +3942,192 @@ function renderPipelineBuilder(lists, selectedId) {
 
   return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Pipeline Builder</title><style>${css}</style></head>
     <body><div class="pb-shell">${globalRail}<div class="pb-main">${header}<div class="pb-work">${canvasWrap}${rightPanel}</div></div></div></body></html>`;
+}
+
+// ============================ INCIDENTS (#45 — the Missions incident inbox as a faithful
+// reference port of the issues-app capture, over REAL daemon truth: run failures + GoalRun
+// blockers). Status-lane grammar: open = blockers on non-terminal mission runs + failed runs
+// (needing remediation) · closed = blockers recorded on runs that reached a terminal state
+// (the blocker no longer blocks) · all = both. Every row is a real goal-run/run: id, reason
+// code, timestamps, and a proof link into its own run timeline. Nothing is fabricated — no
+// priorities/assignees/SLA are invented (those reference lanes are named gaps disabled in
+// place); empty lanes render an honest empty state. Shell geometry is glyph-anchored to the
+// reference capture (/__apps/incidents, Closed lane); the row LIST is the live body (excluded
+// from shell-pixel certification, verified semantically by the incidents verifier).
+function renderIncidentsPort(ops, goalRuns, lane) {
+  const enc = encodeURIComponent, esc = CX_ESC;
+  const runs = (ops && ops.runs) || {};
+  const failures = Array.isArray(runs.failures) ? runs.failures : [];
+  const gr = Array.isArray(goalRuns) ? goalRuns : [];
+  const TERMINAL = new Set(["complete", "completed", "done", "succeeded", "failed", "cancelled", "canceled"]);
+  const DAY = 86400000;
+  const ago = (t) => {
+    const ms = Date.parse(t || ""); if (!Number.isFinite(ms)) return "";
+    const d = Math.max(0, Math.floor((Date.now() - ms) / DAY));
+    return d === 0 ? "today" : d === 1 ? "1 day ago" : `${d} days ago`;
+  };
+  // REAL incidents, in the reference's row shape: title = "<reason> · <subject id>".
+  const blockerIncident = (r) => {
+    const b = (Array.isArray(r.blockers) && r.blockers[0]) || {};
+    return {
+      kind: "Blocker", id: r.goal_run_id || "", title: `${b.reason_code || "blocked"} · ${r.goal_run_id || r.goal_ref || "goal-run"}`,
+      created: r.created_at || "", updated: r.updated_at || r.created_at || "",
+      closed: TERMINAL.has(String(r.status || "").toLowerCase()),
+      proof: r.goal_run_id ? `/__ioi/run-timeline/goal-run/${enc(r.goal_run_id)}` : "",
+      detail: b.role_key ? `role ${b.role_key}` : (r.status || ""),
+    };
+  };
+  const failureIncident = (r) => ({
+    kind: "Run failure", id: r.execution_id || "", title: `${r.status || "failed"} · ${r.name || r.execution_id || "run"}`,
+    created: r.started_at || "", updated: r.finished_at || r.started_at || "",
+    closed: false, proof: r.timeline_ref || "/__ioi/work-ledger", detail: r.project_id || "",
+  });
+  const incidents = gr.filter((r) => Array.isArray(r.blockers) && r.blockers.length).map(blockerIncident)
+    .concat(failures.map(failureIncident));
+  const open = incidents.filter((i) => !i.closed), closed = incidents.filter((i) => i.closed);
+  const rowsAll = { open, closed, all: incidents }[lane] || open;
+  const rows = rowsAll.slice().sort((a, b) => String(b.updated).localeCompare(String(a.updated)));
+  const CAP = 50;
+  const shown = rows.slice(0, CAP);
+
+  const laneRow = (key, label, n, slot) => `<a class="in-lane ${slot}${lane === key ? " on" : ""}${key === "all" ? " alt" : ""}" href="/__ioi/missions/incidents?lane=${key}"><span class="in-lname">${label}</span><span class="in-lcount">${n}</span></a>`;
+  const facet = (label, kind, slot) => {
+    const input = kind === "underline"
+      ? `<input class="in-fuline" placeholder="Type a name…" disabled aria-label="${esc(label)} filter (reference-only, not wired)">`
+      : kind === "box"
+        ? `<input class="in-fbox" placeholder="${label === "Labels" ? "Type a label name…" : "Type a support type name..."}" disabled aria-label="${esc(label)} filter (reference-only, not wired)">`
+        : `<span class="in-dates"><input class="in-fdate" placeholder="Start date" disabled aria-label="${esc(label)} start (reference-only)"><input class="in-fdate" placeholder="End date" disabled aria-label="${esc(label)} end (reference-only)"></span>`;
+    const inc = kind === "dates" ? "" : `<span class="in-finc gap" title="include/exclude toggle — a reference-only lane (named gap)">include ${bpIcon("caret-down")}</span>`;
+    return `<div class="in-facet ${slot}"><div class="in-frow"><span class="in-flabel">${esc(label)}</span>${inc}</div>${input}</div>`;
+  };
+  const prio = (label, color, slot) => `<label class="in-prio ${slot} gap" title="Priority filtering is a reference-only lane — the daemon records no incident priorities (named gap)"><span class="in-cb" role="checkbox" aria-checked="false" aria-disabled="true"></span><span class="in-ppill" style="background:${color}33"><span class="in-pdot" style="color:${color}">${bpIcon("issue-dot")}</span>${label}</span></label>`;
+
+  const rowHtml = (i) => `<div class="in-row">
+    <span class="in-cb fill" role="checkbox" aria-checked="false" aria-disabled="true" title="Bulk incident actions are a reference-only lane (named gap)"></span>
+    <span class="in-rico">${bpIcon(i.closed ? "issue-closed" : "warning-sign")}</span>
+    <div class="in-rmain"><a class="in-rtitle" href="${esc(i.proof)}">${esc(i.title)}</a><div class="in-rsub">Created&nbsp;&nbsp;${esc(ago(i.created) || "—")} · <a href="${esc(i.proof)}">proof ↗</a>${i.detail ? ` · ${esc(i.detail)}` : ""}</div></div>
+    <div class="in-rright"><span class="in-rpill${i.kind === "Blocker" ? "" : " fail"}"><span class="in-pdot">${bpIcon("issue-dot")}</span>${esc(i.kind)}</span><div class="in-rkind">Kind</div></div>
+  </div>`;
+  const emptyLane = `<div class="in-empty"><b>No ${lane === "all" ? "" : lane + " "}incidents</b> — ${lane === "closed" ? "no mission blocker has been resolved by a terminal run yet" : "no failed mission runs and no blocked mission runs right now"}. This inbox reads real run failures + GoalRun blockers from the daemon; it never fabricates incidents. <a href="/__ioi/missions">Missions overview →</a></div>`;
+
+  const header = `<header class="in-header">
+    <span class="in-hchip"></span>
+    <h1 class="in-htitle">Issues</h1>
+    <div class="in-hright">
+      <div class="in-search" title="Issue search is a reference-only lane (named gap)">${bpIcon("search")}<input placeholder="Search issues…" disabled aria-label="Search issues (reference-only, not wired)"></div>
+      <button class="in-new gap" disabled title="Creating incidents is a reference-only lane — incidents are DERIVED from real run failures + blockers, never authored here (named gap)">${bpIcon("plus")} New</button>
+      <span class="in-cog gap" title="Issue settings — a reference-only lane (named gap)">${bpIcon("cog")}</span>
+    </div>
+  </header>`;
+
+  const sidebar = `<aside class="in-side">
+    ${laneRow("open", "Open", open.length, "l1")}
+    ${laneRow("closed", "Closed", closed.length, "l2")}
+    ${laneRow("all", "All", incidents.length, "l3")}
+    <div class="in-fhead"><span class="in-ftitle">Filters</span><span class="in-fclear gap" title="No filters are wired yet — reference-only lanes (named gap)">Clear filters</span></div>
+    <div class="in-flabel in-fprio">Priority</div>
+    ${prio("High", "#ff9980", "p1")}
+    ${prio("Medium", "#f0b726", "p2")}
+    ${prio("Low", "#8abbff", "p3")}
+    ${facet("Assignees", "underline", "f1")}
+    ${facet("Reporters", "underline", "f2")}
+    ${facet("Mentions", "underline", "f3")}
+    ${facet("Labels", "box", "f4")}
+    ${facet("Support types", "box", "f5")}
+    ${facet("Reported on", "dates", "f6")}
+    ${facet("Last updated", "dates", "f7")}
+  </aside>`;
+
+  const list = `<main class="in-list">
+    <div class="in-lhead">
+      <span class="in-cb hd" role="checkbox" aria-checked="false" aria-disabled="true" title="Bulk selection — a reference-only lane (named gap)"></span>
+      <span class="in-lcounttxt">${shown.length < rows.length ? `${shown.length} of ${rows.length}` : rows.length} ${lane === "all" ? "" : lane + " "}issue${rows.length === 1 ? "" : "s"}</span>
+      <span class="in-lmut">filtered by</span>
+      <span class="in-lsel gap" title="Saved filters are a reference-only lane (named gap)">select filter ${bpIcon("caret-down")}</span>
+      <span class="in-lsort"><span class="in-lmut">Sort by</span> <span class="in-lsortv gap" title="Sort options are a reference-only lane — rows are honestly ordered by most recent update">Most recently updated ${bpIcon("caret-down")}</span></span>
+    </div>
+    <div class="in-rows" id="incident-rows">${shown.length ? shown.map(rowHtml).join("") : emptyLane}</div>
+  </main>`;
+
+  const globalRail = ioiGlobalRailHtml({ label: "Issues", href: "/__ioi/missions/incidents", iconUri: ISSUES_APP_ICON_URI, railVariant: "rv-pipe", viewAll: false, star: false, badges: true, aipGradient: true, acctMuted: true });
+
+  const css = `:root{color-scheme:light}*{box-sizing:border-box}
+    body{margin:0;background:#fff;color:#1c2127;font:14px/1.28581 Source-Sans-Pro,Helvetica,sans-serif}
+    a{color:#215db0;text-decoration:none}
+    .in-shell{display:flex;height:100vh;width:100vw;overflow:hidden}
+    ${IOI_GRAIL_CSS}
+    .in-main{flex:1;min-width:0;display:flex;flex-direction:column;height:100vh}
+    .in-header{flex:0 0 51px;display:flex;align-items:center;background:#fff;box-shadow:0 1px 0 0 #dce0e5;z-index:6}
+    .in-hchip{width:50px;height:50px;flex:0 0 50px;background:rgba(167,182,194,.1) url('${ISSUES_APP_ICON_URI}') center no-repeat;background-size:24px}
+    .in-htitle{font-size:16px;line-height:36px;font-weight:600;color:#404854;margin:0 0 0 12px;flex:0 0 auto}
+    .in-hright{margin-left:auto;align-self:stretch;display:flex;align-items:flex-start;padding-right:20px}
+    .in-hright>*{margin-top:10px}
+    .in-search{display:flex;align-items:center;gap:7px;width:400px;height:30px;border-radius:4px;background:#fff;padding:0 7px;color:#5f6b7c;box-shadow:inset 0 0 0 1px rgba(17,20,24,.2),inset 0 1px 1px rgba(17,20,24,.3)}
+    .in-search input{flex:1;border:0;background:transparent;font:inherit;font-size:14px;color:#1c2127;outline:none;padding:0}
+    .in-search input::placeholder{color:#5f6b7c}
+    .in-new{display:inline-flex;align-items:center;gap:8px;height:30px;margin-left:15px;padding:0 15px 0 8px;border:0;border-radius:4px;background:#2d72d2;color:#fff;font:inherit;font-size:14px;line-height:16.1px;cursor:not-allowed}
+    .in-new svg{color:#fff}
+    .in-cog{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;margin-left:5px;border-radius:4px;color:#5f6b7c;cursor:default}
+    .in-work{flex:1 1 auto;display:flex;min-height:0}
+    .in-side{flex:0 0 250px;width:250px;background:#f6f7f9;border-right:1px solid rgba(16,22,26,.15);position:relative;overflow:hidden}
+    .in-lane{position:absolute;left:0;right:0;display:flex;align-items:center;height:30px;padding:0 16px 0 15px;color:#1c2127;font-size:14px;line-height:18.0013px}
+    .in-lane.l1{top:5px}.in-lane.l2{top:40px}.in-lane.l3{top:75px}
+    .in-lane.alt{background:#edeff2}
+    .in-lane.on{background:#2d72d2;color:#fff}
+    .in-lname{flex:1}
+    .in-lcount{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 4px;border-radius:4px;background:rgba(143,153,168,.15);color:#1c2127;font-size:12px;line-height:16px}
+    .in-lane.on .in-lcount{background:#fff;color:#2d72d2}
+    .in-fhead{position:absolute;top:138px;left:15px;right:15px;display:flex;align-items:center}
+    .in-ftitle{flex:1;font-size:12px;line-height:15.4297px;font-weight:600;color:#5f6b7c;text-transform:uppercase}
+    .in-fclear{font-size:12px;line-height:15.4297px;color:#215db0;cursor:default}
+    .in-flabel{font-size:12px;line-height:15.4297px;color:#1c2127}
+    .in-fprio{position:absolute;top:168.4px;left:15px}
+    .in-prio{position:absolute;left:15px;display:flex;align-items:flex-start;height:20px;gap:6px;cursor:not-allowed}
+    .in-prio.p1{top:188.8px}.in-prio.p2{top:216.8px}.in-prio.p3{top:244.8px}
+    
+    .in-ppill{display:inline-flex;align-items:center;gap:4px;height:20px;padding:0 8px;border-radius:4px;font-size:12px;line-height:16px;color:#1c2127}
+    .in-pdot{display:inline-flex}
+    .in-facet{position:absolute;left:15px;right:16px}
+    .in-facet.f1{top:285.8px}.in-facet.f2{top:358.3px}.in-facet.f3{top:430.7px}.in-facet.f4{top:503.1px}.in-facet.f5{top:575.5px}.in-facet.f6{top:647px}.in-facet.f7{top:717.4px}
+    .in-frow{display:flex;align-items:center}
+    .in-frow .in-flabel{flex:1}
+    .in-finc{display:inline-flex;align-items:center;gap:2px;font-size:12px;line-height:15.4297px;color:#2d72d2;cursor:default}
+    .in-finc svg{color:#2d72d2}
+    .in-fuline{width:219px;height:30px;margin:5px 0 0;border:0;border-radius:4px;background:#fff;box-shadow:inset 0 0 0 1px rgba(17,20,24,.2),inset 0 1px 1px rgba(17,20,24,.3);font:inherit;font-size:14px;color:#1c2127;outline:none;padding:0 10px}
+    .in-fbox{width:219px;height:30px;margin:6px 0 0;border:0;border-radius:4px;background:#fff;box-shadow:inset 0 0 0 1px rgba(17,20,24,.2),inset 0 1px 1px rgba(17,20,24,.3);font:inherit;font-size:14px;color:#1c2127;outline:none;padding:0 8px}
+    .in-dates{display:flex;gap:2px;margin-top:5px}
+    .in-fdate{width:109.5px;height:30px;border:0;border-radius:4px;background:#fff;box-shadow:inset 0 0 0 1px rgba(17,20,24,.2),inset 0 1px 1px rgba(17,20,24,.3);font:inherit;font-size:14px;color:#1c2127;outline:none;padding:0 8px}
+    .in-fuline::placeholder,.in-fbox::placeholder,.in-fdate::placeholder,.in-prio input{color:#5f6b7c}
+    .in-list{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;background:#fff}
+    .in-lhead{flex:0 0 41px;position:relative;border-bottom:1px solid #e5e8eb}
+    .in-lhead>*{position:absolute}
+    
+    .in-cb{display:inline-block;width:16px;height:16px;border-radius:3px;box-shadow:inset 0 0 0 1px #738091;flex:0 0 16px;cursor:not-allowed}
+    .in-cb.hd{position:absolute;left:15px;top:12px;background:#fff}
+    .in-cb.fill{background:#eef0f2;box-shadow:none}
+    .in-lcounttxt{left:49px;top:5px;font-size:14px;line-height:30px;font-weight:600;color:#1c2127;white-space:nowrap;max-width:100px;overflow:hidden}
+    .in-lmut{left:156.5px;top:5px;font-size:14px;line-height:30px;color:#8f99a8;font-style:italic}
+    .in-lsort .in-lmut{font-style:normal}
+    .in-lsel{left:225.2px;top:5px;display:inline-flex;align-items:center;gap:5px;font-size:14px;line-height:30px;color:#5f6b7c;cursor:default;font-style:italic}
+    .in-lsel svg,.in-lsortv svg{color:#1c2127}
+    .in-lsort{right:15px;top:5px;display:inline-flex;align-items:center}
+    .in-lsort .in-lmut{position:static}
+    .in-lsortv{display:inline-flex;align-items:center;gap:0;font-size:14px;line-height:30px;color:#1c2127;margin-left:5px;cursor:default}
+    .in-rows{flex:1;overflow-y:auto}
+    .in-row{display:flex;align-items:flex-start;padding:11px 15px 0;height:83.4px;border-bottom:1px solid #e5e8eb}
+    .in-rico{display:inline-flex;color:#8f99a8;margin:1px 0 0 21px}
+    .in-rmain{flex:1;min-width:0;margin-left:10px}
+    .in-rtitle{display:block;font-size:14px;line-height:18.0013px;color:#111418;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .in-rsub{font-size:12px;line-height:15.4297px;color:#8f99a8;margin-top:1px}
+    .in-rright{flex:0 0 auto;width:224px;margin-left:15px}
+    .in-rpill{display:inline-flex;align-items:center;gap:4px;height:20px;padding:0 8px 0 4px;border-radius:4px;background:rgba(255,153,128,.2);font-size:12px;line-height:16px;color:#1c2127}
+    .in-rpill .in-pdot{color:#ff9980}
+    .in-rpill.fail{background:rgba(205,66,70,.18)}.in-rpill.fail .in-pdot{color:#cd4246}
+    .in-rkind{font-size:12px;line-height:15.4297px;color:#8f99a8;margin-top:4px}
+    .in-empty{margin:24px;padding:16px 18px;border:1px dashed #d3d8de;border-radius:8px;background:#fbfbfc;color:#5f6b7c;max-width:640px}`;
+
+  return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Issues — incidents inbox</title><style>${css}</style></head>
+    <body><div class="in-shell">${globalRail}<div class="in-main">${header}<div class="in-work">${sidebar}${list}</div></div></div></body></html>`;
 }
 
 function renderOntologyManager(ov, lists, selectedId) {
@@ -7487,6 +7673,17 @@ const server = http.createServer((req, res) => {
     // ---- Missions — owner surface for suite/run work (jobs + incidents seeds). Reads the real
     // operations run queue + goal-runs; renders the run/job queue and the mission-level incident
     // inbox (run failures + GoalRun blockers). Operations stays substrate/infra (separate route).
+    if (pathname === "/__ioi/missions/incidents" && req.method === "GET") {
+      const [opsRes, grRes] = await Promise.all([
+        fetch(`${DAEMON}/v1/hypervisor/operations`).then((x) => x.json()).catch(() => ({})),
+        fetch(`${DAEMON}/v1/hypervisor/goal-runs`).then((x) => x.json()).catch(() => ({})),
+      ]);
+      const qp = new URL(req.url, "http://x").searchParams;
+      const lane = ["open", "closed", "all"].includes(qp.get("lane")) ? qp.get("lane") : "open";
+      res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
+      res.end(renderIncidentsPort(opsRes, grRes.goal_runs || [], lane));
+      return;
+    }
     if (pathname === "/__ioi/missions" && req.method === "GET") {
       const [opsRes, grRes] = await Promise.all([
         fetch(`${DAEMON}/v1/hypervisor/operations`).then((x) => x.json()).catch(() => ({})),
