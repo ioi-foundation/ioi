@@ -169,7 +169,10 @@ async function run() {
   ok("datasource → transform → output node cards present (the ODK ladder as the canvas graph)", ["Datasource", "Object mapping", "Policy gate", "Transform plan", "Read projection", "Lease + session", "Materialized objects"].every((n) => t.includes(`>${n}<`)));
   ok("a built pipeline shows 7/7 stages live + the built state (daemon truth)", /7\/7 stages live/.test(t) && /pb-live">built/.test(t));
   ok("the output carries the real object-instance count (3)", /3 object instances materialized/.test(t) || />3<\/div>/.test(t));
-  ok("Preview (bottom tray) shows the first materialized rows — daemon truth, not a mock", /id="pb-preview"/.test(t) && />L-1</.test(t) && />First Loan</.test(t));
+  // #66: the bare tray renders the reference-truthful selection empty state; the rows live on the
+  // Preview tab (and in the materialized node's Fields pane — same DOM, tab-toggled client-side).
+  const tPrev = (await fetch(`${SERVE}/__ioi/pipeline?ontology=${encodeURIComponent(ont.id)}&node=materialized&tab=preview`).then((r) => r.text()).catch(() => ""));
+  ok("Preview (bottom tray tab) shows the first materialized rows — daemon truth, not a mock", /id="pb-preview"/.test(tPrev) && />L-1</.test(tPrev) && />First Loan</.test(tPrev));
 
   // 4b. INTERACTION — node selection + real inspectors (functional-runtime wave #57, THE acceptance
   // test): click a node → it selects, the URL carries the selection (and keeps the ontology), the
@@ -220,7 +223,7 @@ async function run() {
       ok("NO SECRETS: the sealed connector credential never renders in any node state", secretsClean, secretsClean ? "sentinel absent from all 7 inspector states" : "SENTINEL LEAKED");
       ok("endpoint PATH stays redacted in every node state (origin-only rendering)", endpointPathClean);
       // Command discipline unchanged: named gaps stay visibly disabled on node views too.
-      ok("Schedule + Deploy stay disabled named gaps on node views; freeform authoring note intact", await pg.locator('button.pb-btn[disabled]:has-text("Schedule")').count() === 1 && await pg.locator('button.pb-btn[disabled]:has-text("Deploy")').count() === 1 && await pg.locator(".pb-gapnote").count() === 1);
+      ok("Schedule + Deploy stay disabled named gaps on node views; per-node authoring strip disabled with reasons (#66)", await pg.locator('button.pb-btn[disabled]:has-text("Schedule")').count() === 1 && await pg.locator('button.pb-btn[disabled]:has-text("Deploy")').count() === 1 && await pg.locator(".pb-qbtn[disabled][data-ioi-disabled-reason]").count() >= 8);
     } finally {
       await b.close();
     }
@@ -259,10 +262,10 @@ async function run() {
       await pg.waitForLoadState("domcontentloaded");
       const pu = new URL(pg.url());
       ok("Preview click: URL selects the materialized node, preserves the ontology, lands on the tray", pu.searchParams.get("node") === "materialized" && pu.searchParams.get("ontology") === ont.id && pu.hash === "#pb-preview", pu.search + pu.hash);
-      const trayText = ((await pg.locator("#pb-tray-node").textContent().catch(() => "")) || "");
+      const trayText = ((await pg.locator(".pb-traybody").textContent().catch(() => "")) || "");
       const daemonSet = ((await jd("GET", "/v1/hypervisor/odk/materialized-object-sets")).j.materialized_object_sets || []).find((s) => s.id === setId);
-      ok("Preview shows THE daemon materialized set's rows (every key value present, count matches)", !!daemonSet && (daemonSet.objects || []).length > 0 && daemonSet.objects.every((o) => trayText.includes(String((o.properties || {}).loan_id))) && ((await pg.locator("#pb-inspector").textContent()) || "").includes(String(daemonSet.count)), daemonSet ? `${daemonSet.count} objects cross-checked` : "set missing");
-      ok("Preview result cites provenance (materializing run ref in the inspector)", (((await pg.locator("#pb-inspector").textContent()) || "")).includes("materializing-run://"));
+      ok("Preview shows THE daemon materialized set's rows (every key value present, count matches)", !!daemonSet && (daemonSet.objects || []).length > 0 && daemonSet.objects.every((o) => trayText.includes(String((o.properties || {}).loan_id))) && trayText.includes(`count ${daemonSet.count}`), daemonSet ? `${daemonSet.count} objects cross-checked` : "set missing");
+      ok("Preview result cites provenance (materializing run ref in the tray's provenance line)", trayText.includes("materializing-run://"));
       const htmlBuilt = await pg.content();
       // Preview on the UNBUILT pipeline.
       await pg.goto(`${SERVE}/__ioi/pipeline?ontology=${encodeURIComponent(fresh)}`, { waitUntil: "networkidle" });

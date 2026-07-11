@@ -52,8 +52,11 @@ export async function load(ctx) {
 }
 
 export function render(model, ctx) {
-  const sel = parseSelection(ctx.url, ["ontology", "node"]);
-  return renderPipelineBuilder(model, sel.ontology || "", sel.node || "", ctx.embed);
+  // The URL is the single source of interaction truth (#66): selection (ontology/node/output),
+  // tray tab, right-panel choice, and persisted view state (tray/legend collapse, hidden legend
+  // categories) all parse here and fail CLOSED to defaults on unknown values.
+  const sel = parseSelection(ctx.url, ["ontology", "node", "tab", "panel", "output", "hide", "tray", "legend"]);
+  return renderPipelineBuilder(model, sel, ctx.embed);
 }
 
 // The Pipeline command table (command-discipline contract): every command is either an ENABLED
@@ -64,7 +67,7 @@ export function render(model, ctx) {
 // call; a POST that pretended otherwise would cross an authority line this surface doesn't own.
 // The header renders FROM this table, so the UI cannot drift from the declared command model.
 export const actions = [
-  { key: "preview", label: "Preview", enabled: true, kind: "read_navigation", route: "/__ioi/pipeline?node=materialized", proof: "the materialized set's real rows + provenance refs render in the tray (read-only — no authority crossed)" },
+  { key: "preview", label: "Preview", enabled: true, kind: "read_navigation", route: "/__ioi/pipeline?node=materialized&tab=preview", proof: "the materialized set's real rows + provenance refs render in the tray (read-only — no authority crossed)" },
   { key: "build", label: "Build", enabled: false, authority: null, reason: "no single-call build authority exists — materialization is the governed ODK ladder: MaterializingRun (citing a CapabilityLeasePlan) → wallet-approved lease → sealed ConnectorSession → execute; run the ladder from the Ontology Manager" },
   { key: "schedule", label: "Schedule", enabled: false, authority: null, reason: "no pipeline scheduler exists yet — a named gap (author + run via a materializing run)" },
   { key: "deploy", label: "Deploy", enabled: false, authority: null, reason: "no pipeline deploy exists yet — a named gap" },
@@ -91,7 +94,8 @@ function pipeStatusPill(cls, label) {
 // cell is REAL daemon truth. This is `reference_ported`, NOT `daemon_wired`: the local /workspace/
 // builder/* reference currently ERRORS, so parity cannot yet be certified by the Playwright harness —
 // daemon_wired awaits a valid (non-errored) builder reference to compare against.
-function renderPipelineBuilder(lists, selectedId, nodeParam, embed) {
+function renderPipelineBuilder(lists, sel, embed) {
+  const selectedId = sel.ontology || "", nodeParam = sel.node || "";
   const ontologies = Array.isArray(lists.ontologies) ? lists.ontologies : [];
   const sets = Array.isArray(lists.materialized_sets) ? lists.materialized_sets : [];
   const builtRefs = new Set(sets.map((s) => s.ontology_ref));
@@ -109,6 +113,10 @@ function renderPipelineBuilder(lists, selectedId, nodeParam, embed) {
   const dsources = (lists.data_sources || []).filter((d) => dsIds.has(d.source_id));
   const instances = osets.reduce((a, s) => a + (s.count || 0), 0);
   const anyReady = (arr, pred) => arr.filter(pred).length;
+  // First-record picks — shared by the typed-edge derivation AND the node detail panels.
+  const d0 = dsources[0], m0 = maps[0], v0 = views[0], r0 = truns[0], pl0 = plans[0], st0 = osets[0];
+  const mr0 = mruns.find((x) => ["lease_obtained", "executed"].includes(x.status)) || mruns[0];
+  const ssn0 = sessions.find((x) => x.status === "session_obtained") || sessions[0];
 
   // The pipeline nodes, in ODK-ladder order. Each node: real daemon state → live / declared / missing.
   // key = the node's URL identity (?node=<key>) for the selection lane.
@@ -134,6 +142,33 @@ function renderPipelineBuilder(lists, selectedId, nodeParam, embed) {
   const invalidNode = !!(nodeParam && !nodeValid);
   const nodeHref = (key) => selectionQuery("/__ioi/pipeline", { ontology: oid, node: key });
   const missingRungs = nodes.filter((n) => n.cls === "missing").map((n) => n.label);
+  // ---- Interaction state (#66) — every dimension fails CLOSED with a visible note, never a crash.
+  const TRAY_TABS = ["selection", "preview", "suggestions", "warnings"];
+  const PANELS = ["outputs", "search", "tree"];
+  const outputSel = sel.output && projs.some((p) => p.id === sel.output) ? sel.output : "";
+  const invalidOutput = !!(sel.output && !outputSel);
+  const hasSelection = inspectorMode || !!outputSel;
+  let trayTabKey = TRAY_TABS.includes(sel.tab) ? sel.tab : "selection";
+  const invalidTab = !!(sel.tab && !TRAY_TABS.includes(sel.tab));
+  const previewWithoutSel = trayTabKey === "preview" && !hasSelection;
+  if (previewWithoutSel) trayTabKey = "selection"; // the Preview tab exists only on selection (reference behavior)
+  const panelKey = PANELS.includes(sel.panel) ? sel.panel : "outputs";
+  const invalidPanel = !!(sel.panel && !PANELS.includes(sel.panel));
+  const CATEGORY_KEYS = ["input", "clean", "calc", "output"];
+  const hiddenCats = (sel.hide || "").split(",").map((x) => x.trim()).filter((x) => CATEGORY_KEYS.includes(x));
+  const trayCollapsed = sel.tray === "0";
+  const legendCollapsed = sel.legend === "0";
+  // Canonical current-state href builder — links preserve every non-default dimension, so tab
+  // switches keep the selection, panel swaps keep the tab, and refresh reproduces the view.
+  const state = { ontology: oid };
+  if (inspectorMode) state.node = selNodeKey;
+  if (outputSel) state.output = outputSel;
+  if (trayTabKey !== "selection") state.tab = trayTabKey;
+  if (panelKey !== "outputs") state.panel = panelKey;
+  if (hiddenCats.length) state.hide = hiddenCats.join(",");
+  if (trayCollapsed) state.tray = "0";
+  if (legendCollapsed) state.legend = "0";
+  const stateHref = (over) => selectionQuery("/__ioi/pipeline", { ...state, ...over });
   const enc = encodeURIComponent, esc = CX_ESC;
   const oname = selected ? esc(selected.domain || selected.id) : "no pipeline";
 
@@ -160,9 +195,7 @@ function renderPipelineBuilder(lists, selectedId, nodeParam, embed) {
   const emptyStage = (label) => ihint(`No ${esc(label)} record exists on this pipeline yet — an honest missing contract, not an error. Author the stage in the <a href="${managerLink({ ontology: oid })}">Ontology Manager</a> (<a href="/__ioi/odk?ontology=${enc(oid)}">ODK substrate</a>).`);
   const trayTable = (heads, rowsArr) => `<table class="pb-table"><thead><tr>${heads.map((h) => `<th>${esc(h)}</th>`).join("")}</tr></thead><tbody>${rowsArr.length ? rowsArr.map((row) => `<tr>${row.map((c) => `<td>${c}</td>`).join("")}</tr>`).join("") : `<tr><td colspan="${heads.length}" class="pb-empty-cell">No records for this stage yet.</td></tr>`}</tbody></table>`;
   function nodeInspector(key) {
-    const d = dsources[0], m = maps[0], v = views[0], r = truns[0], pl = plans[0], st = osets[0];
-    const mr = mruns.find((x) => ["lease_obtained", "executed"].includes(x.status)) || mruns[0];
-    const ssn = sessions.find((x) => x.status === "session_obtained") || sessions[0];
+    const d = d0, m = m0, v = v0, r = r0, pl = pl0, st = st0, mr = mr0, ssn = ssn0;
     switch (key) {
       case "datasource": return {
         title: "Datasource", sub: d ? (d.source_ref || d.source_id || "") : "no record",
@@ -316,11 +349,69 @@ function renderPipelineBuilder(lists, selectedId, nodeParam, embed) {
     <div class="pb-ndetail">${esc(nd.detail || "")}</div>
   </a>`;
   const legendGroups = [
-    ["Input Data", "#8f99a8", dsources.length],
-    ["Data Cleaning", "#238551", maps.length + views.length],
-    ["Calculations", "#d1980b", truns.length + projs.length + plans.length],
-    ["Output Dataset", "#147eb3", osets.length],
+    ["Input Data", "#8f99a8", dsources.length, "input"],
+    ["Data Cleaning", "#238551", maps.length + views.length, "clean"],
+    ["Calculations", "#d1980b", truns.length + projs.length + plans.length, "calc"],
+    ["Output Dataset", "#147eb3", osets.length, "output"],
   ];
+  const CAT_COLOR = { input: "#8f99a8", clean: "#238551", calc: "#d1980b", output: "#147eb3" };
+  const NODE_CATEGORY = { datasource: "input", mapping: "clean", policy: "clean", transform: "calc", projection: "calc", lease: "calc", materialized: "output" };
+
+  // ---- REFERENCE-DENSITY GRAPH (#66) — the reference renders nodes as SVG groups (200x60 rects,
+  // category-colored title bars, Bezier edges with arrowheads); this graph renders the SAME
+  // grammar over the REAL ladder. Every node is a selection anchor (URL-state, keyboard-focusable)
+  // and every edge is TYPED PROOF: drawn only when the downstream record actually carries the
+  // upstream ref, with the justifying field named in its tooltip. Nothing is fabricated: a missing
+  // rung renders as a dashed missing node with NO invented edges.
+  const NODE_POS = { datasource: [40, 120], mapping: [300, 120], policy: [560, 120], transform: [820, 120], projection: [1080, 120], lease: [1300, 280], materialized: [1600, 120] };
+  const nodeRef = (key) => ({ datasource: d0 && (d0.source_ref || d0.source_id), mapping: m0 && (m0.ref || m0.id), policy: v0 && (v0.ref || v0.id), transform: r0 && (r0.ref || r0.id), projection: proj && (proj.ref || proj.id), lease: pl0 && (pl0.ref || pl0.id), materialized: st0 && (st0.ref || st0.id) })[key] || "";
+  const edges = [];
+  const pushEdge = (from, to, ref, field) => { if (ref) edges.push({ from, to, ref: String(ref), field }); };
+  pushEdge("datasource", "mapping", d0 && m0 && (m0.data_source_ref || m0.data_source_id), "mapping.data_source_ref");
+  pushEdge("mapping", "policy", m0 && v0 && (v0.connector_mapping_ref || v0.connector_mapping_id), "policy.connector_mapping_ref");
+  pushEdge("policy", "transform", v0 && r0 && (r0.policy_view_ref || r0.policy_view_id), "transform.policy_view_ref");
+  pushEdge("mapping", "transform", m0 && r0 && r0.connector_mapping_ref, "transform.connector_mapping_ref");
+  pushEdge("mapping", "projection", m0 && proj && proj.connector_mapping_ref, "projection.connector_mapping_ref");
+  pushEdge("policy", "projection", v0 && proj && proj.policy_view_ref, "projection.policy_view_ref");
+  pushEdge("transform", "lease", r0 && pl0 && pl0.transformation_run_ref, "lease-plan.transformation_run_ref");
+  pushEdge("projection", "lease", proj && pl0 && pl0.ontology_projection_ref, "lease-plan.ontology_projection_ref");
+  pushEdge("lease", "materialized", pl0 && st0 && st0.capability_lease_plan_ref, "set.capability_lease_plan_ref");
+  pushEdge("projection", "materialized", proj && st0 && st0.ontology_projection_id, "set.ontology_projection_id");
+  const NW = 200, NH = 60;
+  const edgePath = (e) => {
+    const [fx, fy] = NODE_POS[e.from], [tx, ty] = NODE_POS[e.to];
+    const x1 = fx + NW, y1 = fy + NH / 2, x2 = tx - 8, y2 = ty + NH / 2;
+    return `M ${x1} ${y1} C ${x1 + 55} ${y1}, ${x2 - 55} ${y2}, ${x2} ${y2}`;
+  };
+  const clip = (t, n) => { const v = String(t || ""); return v.length > n ? v.slice(0, n - 1) + "\u2026" : v; };
+  const svgNode = (nd) => {
+    const [x, y] = NODE_POS[nd.key];
+    const cat = NODE_CATEGORY[nd.key];
+    const on = nd.key === selNodeKey; // default = datasource (the #57 selection contract; canvas = excluded body
+    const unit = nd.kind === "output" ? "objects" : nd.kind === "input" ? "source" + (nd.count === 1 ? "" : "s") : "record" + (nd.count === 1 ? "" : "s");
+    return `<a class="pb-node pb-${nd.cls}${on ? " pb-nsel" : ""}" data-node="${nd.key}" data-category="${cat}"${hiddenCats.includes(cat) ? ' style="display:none"' : ""} href="${selected ? stateHref({ node: nd.key, output: "" }) : "#"}"${on ? ' aria-current="true"' : ""} aria-label="${esc(nd.label)}">
+      <g class="pb-gnode" transform="translate(${x},${y})">
+        <rect class="pb-nbody" width="${NW}" height="${NH}" rx="2"/>
+        <rect class="pb-ntitle" width="${NW}" height="26" fill="${nd.cls === "missing" ? "#c2c6cd" : CAT_COLOR[cat]}"/>
+        <rect class="pb-nchip" width="26" height="26" fill="#edeff2"/>
+        <text class="pb-nchipico" x="13" y="18" text-anchor="middle" font-size="13">${nd.icon}</text>
+        <text class="pb-ntext" x="33" y="17.5">${esc(clip(nd.label, 24))}</text>
+        <line x1="0" y1="26" x2="${NW}" y2="26" stroke="#abb3bf" stroke-width="0.5"/>
+        <text class="pb-nsub" x="8" y="42">${esc(String(nd.count))} ${unit}</text>
+        <text class="pb-ndeet" x="8" y="55">${esc(clip(nd.detail, 36))}</text>
+        <circle class="pb-gdot" cx="188" cy="40" r="4" fill="${nd.cls === "live" ? "#2f9e6b" : nd.cls === "declared" ? "#d68a2a" : "#b8bdc6"}"/>
+        <rect class="pb-nstroke" width="${NW}" height="${NH}" rx="2"/>
+      </g>
+    </a>`;
+  };
+  const graphSvg = `<svg id="pb-graph" viewBox="0 70 1860 320" preserveAspectRatio="xMidYMid meet" role="group" aria-label="Pipeline graph" tabindex="0">
+    <defs><marker id="pb-arrow" viewBox="0 -4 8 8" refX="7" refY="0" markerWidth="8" markerHeight="8" orient="auto"><path d="M0,-4L8,0L0,4" fill="#abb3bf"/></marker></defs>
+    <g class="pb-graphlayer" id="pb-graphlayer">
+      ${edges.map((e) => `<path class="pb-edge" data-edge="${e.from}:${e.to}" d="${edgePath(e)}" marker-end="url(#pb-arrow)"><title>typed edge — ${esc(e.field)} = ${esc(e.ref)}</title></path>`).join("\n      ")}
+      ${nodes.map(svgNode).join("\n      ")}
+    </g>
+  </svg>`;
+  const graphData = JSON.stringify(nodes.map((nd) => ({ key: nd.key, label: nd.label, category: NODE_CATEGORY[nd.key], ref: nodeRef(nd.key), href: selected ? stateHref({ node: nd.key, output: "" }) : "#", pos: NODE_POS[nd.key] }))).replace(/</g, "\\u003c");
 
   // ---- Command state (command-discipline): the header renders from the module's declared
   // command table. Preview is a real read-navigation — it selects the materialized node (URL
@@ -330,7 +421,7 @@ function renderPipelineBuilder(lists, selectedId, nodeParam, embed) {
   // never move certified shell pixels). The old Build→ODK jump lives on as the explicit
   // "Ontology Manager" link — a labeled navigation, not a command pretending to build.
   const cmd = Object.fromEntries(actions.map((a) => [a.key, a]));
-  const previewHref = `${nodeHref("materialized")}#pb-preview`;
+  const previewHref = `${stateHref({ node: "materialized", tab: "preview" })}#pb-preview`;
 
   // ---- HEADER (h51, white, hairline shadow) — the reference navbar: app chip · breadcrumb title row
   // (live names → masked as dynamic data) + File/Settings/Help menu row (named gaps) + Batch tag · a
@@ -370,11 +461,20 @@ function renderPipelineBuilder(lists, selectedId, nodeParam, embed) {
   // ---- FLOATING TOOL CARD (canvas top-left) — the reference's grouped canvas tools as GROUP UNITS in a
   // wrapping flex card: at 1440 the groups wrap to three rows exactly like the reference; at 1920 they
   // fit one row. All named gaps except Add data (routes to the real authoring ladder).
-  const tbtn = (icon, opts = {}) => `<${opts.href ? `a href="${opts.href}"` : "button disabled"} class="pb-ticon${opts.look ? " " + opts.look : ""}${opts.tint ? " pb-i-" + opts.tint : ""}" title="${esc(opts.title || "named gap")}">${icon === "@aip-grad" ? AIP_GRADIENT_SVG_TOOLBAR : bpIcon(icon)}${opts.href ? "</a>" : "</button>"}`;
+  // tbtn: href → live link · live → enabled client control (id) · else disabled with the reason
+  // named in BOTH title and data-ioi-disabled-reason (the every-control-accounted sweep's hook).
+  const tbtn = (icon, opts = {}) => {
+    const cls = `pb-ticon${opts.look ? " " + opts.look : ""}${opts.tint ? " pb-i-" + opts.tint : ""}`;
+    const body = icon === "@aip-grad" ? AIP_GRADIENT_SVG_TOOLBAR : bpIcon(icon);
+    if (opts.href) return `<a href="${opts.href}" class="${cls}" title="${esc(opts.title || "")}">${body}</a>`;
+    if (opts.live) return `<button type="button" id="${opts.live}" class="${cls} live" title="${esc(opts.title || "")}">${body}</button>`;
+    const reason = opts.title || "named gap";
+    return `<button disabled class="${cls}" title="${esc(reason)}" data-ioi-disabled-reason="${esc(reason)}">${body}</button>`;
+  };
   const seg = (...btns) => `<span class="pb-seg">${btns.join("")}</span>`;
   const toolcard = `<div class="pb-toolcard">
     <div class="pb-tg">
-      <div class="pb-tgrow">${seg(tbtn("move", { look: "act" }), tbtn("select"))}${seg(tbtn("selection"))}${seg(tbtn("graph-remove", { look: "dim" }))}${seg(tbtn("layout-sorted-clusters"), tbtn("grid"))}${seg(tbtn("new-text-box"))}</div>
+      <div class="pb-tgrow">${seg(tbtn("move", { look: "act", live: "pb-tool-pan", title: "Panning mode — drag pans the canvas (live)" }), tbtn("select", { title: "multi-select has no consumer — selection is single-node URL state (?node=); a marquee would select nothing actionable (named gap)" }))}${seg(tbtn("selection", { title: "multi-select has no consumer (named gap)" }))}${seg(tbtn("graph-remove", { look: "dim", title: "graph authoring is a named gap — ladder records are authored in the Ontology Manager" }))}${seg(tbtn("layout-sorted-clusters", { title: "the ladder layout is fixed by the ODK contract order — freeform layout is a named gap" }), tbtn("grid", { title: "no freeform node placement, so nothing snaps (named gap)" }))}${seg(tbtn("new-text-box", { title: "canvas annotations have no persistence plane (named gap)" }))}</div>
       <div class="pb-tghints"><span style="left:15.5px">Tools</span><span style="left:72.3px">Select</span><span class="pb-hwrap" style="left:115px">Remove</span><span style="left:175.5px">Layout</span><span style="left:242px">Text</span></div>
     </div>
     <div class="pb-tg pb-tg2">
@@ -382,80 +482,212 @@ function renderPipelineBuilder(lists, selectedId, nodeParam, embed) {
       <button class="pb-twide" disabled title="Reusable transforms library — a named gap">${bpIcon("repeat")} Reusables ${bpIcon("caret-down")}</button>
     </div>
     <div class="pb-tg pb-tg3">
-      <div class="pb-tgrow">${seg(tbtn("path", { look: "dim", tint: "blue" }), tbtn("join-table", { look: "dim", tint: "cyan" }), tbtn("add-row-bottom", { look: "dim", tint: "rose" }), tbtn("split-columns", { look: "dim", tint: "green" }), tbtn("model", { look: "dim", tint: "violet" }))}${seg(tbtn("@aip-grad", { look: "dim" }), tbtn("clean", { tint: "violet" }), tbtn("lightbulb", { tint: "violet" }))}${seg(tbtn("edit", { look: "dim" }))}</div>
+      <div class="pb-tgrow">${seg(tbtn("path", { look: "dim", tint: "blue", title: "transform authoring requires a TransformationRun authoring authority — a named gap; the declared plan is inspectable on the Transform plan node" }), tbtn("join-table", { look: "dim", tint: "cyan", title: "join authoring — named gap (no authoring authority)" }), tbtn("add-row-bottom", { look: "dim", tint: "rose", title: "union authoring — named gap" }), tbtn("split-columns", { look: "dim", tint: "green", title: "split authoring — named gap" }), tbtn("model", { look: "dim", tint: "violet", title: "model application — named gap (model routes live in the Model Catalog)" }))}${seg(tbtn("@aip-grad", { look: "dim", title: "AIP transform lanes are reference-only (named gap)" }), tbtn("clean", { tint: "violet", title: "AIP generation is a reference-only lane (named gap)" }), tbtn("lightbulb", { tint: "violet", title: "AIP explanation is a reference-only lane (named gap)" }))}${seg(tbtn("edit", { look: "dim", title: "transform editing — named gap (no authoring authority)" }))}</div>
       <div class="pb-tghints"><span style="left:45.9px">Transform</span><span style="left:195.3px">AIP</span><span style="left:268.7px">Edit</span></div>
     </div>
   </div>`;
 
   // ---- FLOATING canvas buttons (search / fit) + ZOOM stack (bottom-left) — reference chrome, named gaps.
-  const floatbtns = `<div class="pb-floatbtns">${tbtn("search")}${tbtn("many-to-many")}</div>
-  <div class="pb-zoomstack">${tbtn("zoom-in")}${tbtn("zoom-out")}${tbtn("zoom-to-fit")}</div>`;
+  const floatbtns = `<div class="pb-floatbtns">${tbtn("search", { href: stateHref({ panel: "search" }), title: "Search pipeline — the right panel becomes the real record search" })}${tbtn("many-to-many", { title: "color grouping is a reference-only lane (named gap)" })}</div>
+  <div class="pb-zoomstack">${tbtn("zoom-in", { live: "pb-zin", title: "Zoom in" })}${tbtn("zoom-out", { live: "pb-zout", title: "Zoom out" })}${tbtn("zoom-to-fit", { live: "pb-zfit", title: "Zoom to fit" })}</div>`;
 
   // ---- LEGEND card (canvas top-right, left of the outputs panel) — live category counts masked as data.
-  const legend = `<div class="pb-legend">
-    <div class="pb-legendhd">Legend <span class="pb-legcaret">${bpIcon("caret-up")}</span></div>
+  const legend = `<div class="pb-legend${legendCollapsed ? " pb-lcollapsed" : ""}" id="pb-legend">
+    <div class="pb-legendhd">Legend <button type="button" class="pb-legcaret" id="pb-legend-toggle" title="Toggle legend" aria-expanded="${!legendCollapsed}">${bpIcon(legendCollapsed ? "caret-down" : "caret-up")}</button></div>
     <div class="pb-leggrid">
-      ${legendGroups.map(([g, c, n]) => `<div class="pb-legrow"><span class="pb-legchip" style="background:${c}"></span><span class="pb-legname">${esc(g)}</span> <b>(${n})</b> <span class="pb-legeye">${bpIcon("eye-open", 14)}</span></div>`).join("")}
+      ${legendGroups.map(([g, c, n, catKey]) => `<div class="pb-legrow${hiddenCats.includes(catKey) ? " off" : ""}" data-cat="${catKey}"><span class="pb-legchip" style="background:${c}"></span><span class="pb-legname">${esc(g)}</span> <b>(${n})</b> <button type="button" class="pb-legeye" data-cat="${catKey}" title="${hiddenCats.includes(catKey) ? "Show this color" : "Hide this color"}">${bpIcon("eye-open", 14)}</button></div>`).join("")}
     </div>
-    <button class="pb-addcolor" disabled title="Legend color authoring — a named gap">${bpIcon("plus")} Add color</button>
+    <button class="pb-addcolor" disabled title="Legend color authoring — a named gap" data-ioi-disabled-reason="Legend color authoring — a named gap">${bpIcon("plus")} Add color</button>
   </div>`;
 
-  const canvasWrap = `<div class="pb-canvaszone">
+  // ---- TRAY CONTENT (#66) — one body per tab, all real truth or honest named gaps.
+  // Warnings are REAL: missing rungs, unhealthy records, blocked reasons, missing contracts and
+  // missing authority across the ladder — each with its Go-to-node link (the reference grammar).
+  const redactUrls = (t) => String(t || "").replace(/(https?:\/\/[^/\s"']+)[^\s"']*/g, "$1/\u2026");
+  const warnings = [];
+  for (const nd of nodes) if (nd.cls === "missing") warnings.push({ node: nd.key, label: nd.label, kind: "missing rung", detail: `no ${nd.label} record exists on this pipeline yet` });
+  const warnRec = (key, label, rec) => {
+    if (!rec) return;
+    const h = rec.health || {};
+    if (h.status && h.status !== "ready") warnings.push({ node: key, label, kind: `health ${h.status}`, detail: redactUrls(h.note) });
+    for (const c of h.missing_contracts || []) warnings.push({ node: key, label, kind: "missing contract", detail: c });
+    for (const b of rec.blocked_reasons || []) warnings.push({ node: key, label, kind: "blocked", detail: b });
+    const ma = rec.missing_authority;
+    for (const a of Array.isArray(ma) ? ma : ma ? [ma] : []) warnings.push({ node: key, label, kind: "missing authority", detail: a });
+  };
+  warnRec("mapping", "Object mapping", m0); warnRec("policy", "Policy gate", v0); warnRec("transform", "Transform plan", r0);
+  warnRec("projection", "Read projection", proj); warnRec("lease", "Lease + session", pl0); warnRec("lease", "Lease + session", mr0);
+  const warningsPanel = warnings.length
+    ? `<div class="ioi-tray-hd">Pipeline warnings — real ladder truth (${warnings.length})</div><table class="pb-table"><thead><tr><th>node</th><th>warning</th><th>detail</th><th></th></tr></thead><tbody>${warnings.slice(0, 30).map((w) => `<tr><td>${esc(w.label)}</td><td>${icode(w.kind)}</td><td>${esc(redactUrls(w.detail).slice(0, 300))}</td><td><a href="${stateHref({ node: w.node, tab: "", output: "" })}">Go to node</a></td></tr>`).join("")}</tbody></table>`
+    : `<div class="pb-trayempty">No pipeline warnings — every declared rung is healthy, nothing is blocked, and no contract or authority is missing.</div>`;
+  const suggestionsPanel = `<div class="pb-sugbanner">Compute profile — native-acceleration and compute-profile suggestions are a reference-only lane (no suggestion authority; named gap).</div>
+    <div class="pb-ihint">AIP Assist suggestions have no daemon plane on this surface — a named gap, not a hidden lane. Improvement proposals over real outcomes live in <a href="/__ioi/agent-studio#improvement-proposals">Agent Studio</a>.</div>`;
+  const previewProvenance = mset ? `<div class="pb-ihint">Rows above are the REAL materialized set ${icode(mset.ref || mset.id)} (count ${esc(String(mset.count ?? 0))}, rows fetched ${esc(String(mset.rows_fetched ?? "—"))}) — provenance ${[mset.materializing_run_ref, mset.connector_session_ref].filter(Boolean).map(icode).join(" ")}.</div>` : "";
+  const previewPanel = (st0 ? "" : ihint(missingRungs.length
+    ? `Nothing is materialized on this pipeline yet — missing rung${missingRungs.length === 1 ? "" : "s"}: ${missingRungs.map((l) => `<b>${esc(l)}</b>`).join(" · ")}. Build runs the governed ladder from the <a href="/__ioi/odk?ontology=${enc(oid)}">Ontology Manager</a>; nothing is fabricated here.`
+    : `Every ladder rung is declared but the materializing run has not executed yet — nothing is materialized, and nothing is fabricated here.`)) + previewTable + previewProvenance;
+  // Receipt chains per node — the record's real history[] mirrored by receipt_refs (the third
+  // sub-tab; the reference's "Schedules" slot has no plane here, so IOI shows PROOF instead).
+  const historyRowsOf = (key) => {
+    const recs = { datasource: [d0], mapping: [m0], policy: [v0], transform: [r0], projection: [proj], lease: [pl0, mr0, ssn0], materialized: [st0] }[key] || [];
+    const rows = [];
+    for (const rec of recs.filter(Boolean)) {
+      for (const h of rec.history || []) rows.push([esc(h.at || ""), icode(h.op || ""), esc(redactUrls(h.summary)), icode(h.receipt_ref || "")]);
+      if (!(rec.history || []).length) for (const rr of rec.receipt_refs || []) rows.push(["", icode("receipt"), esc(rec.name || rec.id || ""), icode(rr)]);
+      if (rec.pre_output_receipt_ref) rows.push(["", icode("pre_output_receipt"), "persisted BEFORE output registration", icode(rec.pre_output_receipt_ref)]);
+    }
+    return rows;
+  };
+  const subtab = (key, label, on, gapReason) => gapReason
+    ? `<button type="button" class="pb-subtab" disabled title="${esc(gapReason)}" data-ioi-disabled-reason="${esc(gapReason)}">${esc(label)}</button>`
+    : `<button type="button" class="pb-subtab${on ? " on" : ""}" data-sub="${key}">${esc(label)}</button>`;
+  const nodeDetailPanel = insp ? trayShell({
+    id: "pb-tray-node",
+    title: insp.trayTitle,
+    body: (invalidNode ? `<div class="pb-ihint pb-warnhint">Unknown node <code>${esc(nodeParam)}</code> — failed closed to the default selection (Datasource).</div>` : "")
+      + semanticBreadcrumb([{ label: selected ? (selected.domain || selected.id) : "ontology", href: managerLink({ ontology: oid }) }, { label: insp.title }])
+      + `<div class="pb-subtabs">${subtab("about", "About", true)}${subtab("fields", "Fields", false)}${subtab("receipts", "Receipts", false)}${subtab("", "Schedules", false, "no pipeline scheduler exists yet — a named gap")}</div>`
+      + `<div class="pb-subpane" data-sub="about">${inspectorShell({ id: "pb-inspector", title: insp.title, subtitle: insp.sub, body: insp.body })}</div>`
+      + `<div class="pb-subpane" data-sub="fields" hidden>${insp.tray}</div>`
+      + `<div class="pb-subpane" data-sub="receipts" hidden>${trayTable(["at", "op", "summary", "receipt"], historyRowsOf(selNodeKey))}</div>`,
+  }) : "";
+  const outProj = outputSel ? projs.find((p) => p.id === outputSel) : null;
+  const outputDetailPanel = outProj ? trayShell({
+    id: "pb-tray-output",
+    title: `Output — ${esc(outProj.name || outProj.id)}`,
+    body: semanticBreadcrumb([{ label: selected ? (selected.domain || selected.id) : "ontology", href: managerLink({ ontology: oid }) }, { label: outProj.name || outProj.id }])
+      + irow("projection", icode(outProj.ref || outProj.id))
+      + irow("status", icode(outProj.status || "—"))
+      + irow("layout · key", `${esc(outProj.layout || "—")} · key ${icode(outProj.key_field || "—")}`)
+      + irow("columns", (outProj.visible_properties || []).map(icode).join(" ") || "—")
+      + (outProj.materialized ? irow("materialized", `${esc(String(outProj.materialized.count ?? ""))} via ${icode(outProj.materialized.materializing_run_ref || "")}`) : "")
+      + irow("open in", `<a href="${managerResourceLink(oid, "ontology-projection", outProj.id)}">Manager resource</a>${mset ? ` · <a href="${objectSetLink(oid, mset.id)}">Explorer set</a>` : ""} · <a href="${stateHref({ node: "projection", output: "" })}">projection node</a>`),
+  }) : "";
+  const selectionEmpty = `<div class="pb-trayempty">${bpIcon("panel-table", 20)} Select a single node to preview its record — click a node on the graph (or focus it with ← → and press Enter).</div>`
+    + (invalidOutput ? `<div class="pb-ihint pb-warnhint">Unknown output <code>${esc(sel.output)}</code> — no projection with that id on this pipeline (failed closed).</div>` : "")
+    + (invalidTab ? `<div class="pb-ihint pb-warnhint">Unknown tray tab <code>${esc(sel.tab)}</code> — failed closed to Selection preview.</div>` : "")
+    + (previewWithoutSel ? `<div class="pb-ihint pb-warnhint">The Preview tab exists only with a selection (reference behavior) — failed closed to Selection preview. Select a node first.</div>` : "")
+    + (invalidPanel ? `<div class="pb-ihint pb-warnhint">Unknown panel <code>${esc(sel.panel)}</code> — failed closed to Pipeline outputs.</div>` : "");
+  const trayBody = trayTabKey === "warnings" ? warningsPanel
+    : trayTabKey === "suggestions" ? suggestionsPanel
+    : trayTabKey === "preview" ? previewPanel
+    : inspectorMode ? nodeDetailPanel
+    : outputSel ? outputDetailPanel
+    : selectionEmpty;
+  const gapnote = `<div class="pb-gapnote">Freeform canvas authoring — drag-connect nodes, transform code editor, scheduling, deploy — are <b>reference-only lanes disabled above</b>, not yet wired. Author stages in the <a href="${managerLink({ ontology: oid })}">Ontology Manager</a> (<a href="/__ioi/odk?ontology=${enc(oid)}">ODK substrate</a>); execute via a materializing run. Reference: <a href="/__apps/pipeline">Pipeline Builder capture ↗</a>.</div>`;
+  const trayTabLink = (key, icon2, label, extraCls) => `<a class="pb-tab${extraCls ? " " + extraCls : ""}${trayTabKey === key ? " on" : ""}" data-traytab="${key}" href="${stateHref({ tab: key === "selection" ? "" : key })}">${bpIcon(icon2)} ${label}${key === "suggestions" ? `<span class="pb-tabpill" title="suggestions count — reference-only lane"></span>` : ""}</a>`;
+
+  // Node quick-action strip + header card (reference on-selection chrome) — rendered in the
+  // excluded canvas body, positioned by the client beside the selected node; every action is
+  // authoring, so every button is disabled IN PLACE with its reason.
+  const qbtn = (icon2, tint, label, reason) => `<button disabled class="pb-qbtn${tint ? " pb-i-" + tint : ""}" title="${esc(reason)}" data-ioi-disabled-reason="${esc(reason)}" aria-label="${esc(label)}">${icon2 === "@aip-grad" ? AIP_GRADIENT_SVG_TOOLBAR : bpIcon(icon2)}</button>`;
+  const selNode = inspectorMode ? nodes.find((n) => n.key === selNodeKey) : null;
+  const nodeFloat = selNode ? `<div class="pb-nodefloat" id="pb-nodefloat" hidden>
+    <div class="pb-nfcol">
+    <div class="pb-nfcard"><span class="pb-nficon">${selNode.icon}</span><div><div class="pb-nfname">${esc(selNode.label)}</div><div class="pb-nfsub">${esc(String(selNode.count))} record${selNode.count === 1 ? "" : "s"}</div></div></div>
+    <button class="pb-snappill" disabled title="sampling strategies have no daemon plane — preview rows are the set's real bounded objects (named gap)" data-ioi-disabled-reason="sampling strategies have no daemon plane — preview rows are the set's real bounded objects (named gap)">Snapshot ${bpIcon("caret-down", 12)}</button>
+    </div>
+    <div class="pb-quickstrip">${qbtn("path", "green", "Transform", "transform authoring requires a TransformationRun authoring authority — a named gap")}${qbtn("split-columns", "green", "Split", "split authoring — named gap")}${qbtn("join-table", "cyan", "Join", "join authoring — named gap (no authoring authority)")}${qbtn("add-row-bottom", "rose", "Union", "union authoring — named gap")}${qbtn("@aip-grad", "", "Use LLM", "AIP transform lanes are reference-only (named gap)")}${qbtn("clean", "violet", "Generate", "AIP generation is a reference-only lane (named gap)")}${qbtn("lightbulb", "violet", "Explain", "AIP explanation is a reference-only lane (named gap)")}${qbtn("add", "gold", "Add", "adding downstream nodes is authoring — a named gap")}</div>
+  </div>` : "";
+  const ctxMenu = `<div class="pb-ctxmenu" id="pb-ctxmenu" hidden>
+    <button type="button" id="pb-ctx-open">Open</button>
+    <button type="button" id="pb-ctx-copy">Copy record ref</button>
+    ${["Rename", "Duplicate", "Remove node", "Color nodes", "Hide nodes"].map((l) => `<button disabled title="node authoring is a named gap — ladder records are authored in the Ontology Manager" data-ioi-disabled-reason="node authoring is a named gap — ladder records are authored in the Ontology Manager">${l}</button>`).join("")}
+  </div>`;
+
+  const canvasWrap = `<div class="pb-canvaszone${trayCollapsed ? " pb-traymin" : ""}" id="pb-canvaszone">
     <div class="pb-toolband" role="toolbar" aria-label="Canvas tools"></div>
     ${toolcard}
     ${floatbtns}
     ${legend}
     <div class="pb-canvas" id="pb-canvas">${selected
-      ? `<div class="pb-pickrow"><details class="pb-pick"><summary>Pipeline: ${oname} ▾</summary><div class="pb-picklist">${railPipes}</div></details></div><div class="pb-flow">${nodes.map((nd, i) => `${i ? `<div class="pb-arrow">→</div>` : ""}${nodeCard(nd)}`).join("")}</div>`
+      ? `<div class="pb-pickrow"><details class="pb-pick"><summary>Pipeline: ${oname} ▾</summary><div class="pb-picklist">${railPipes}</div></details></div><div class="pb-graphwrap">${graphSvg}</div>`
       : `<div class="pb-empty" style="margin:120px auto;max-width:420px">Select or create a pipeline to see its datasource → transform → output graph. <a href="/__ioi/odk/ontologies/new">Create an ontology →</a></div>`}</div>
-    <div class="pb-tray" id="pb-preview">
+    ${nodeFloat}
+    ${ctxMenu}
+    <div class="pb-tray${trayCollapsed ? " pb-collapsed" : ""}" id="pb-preview">
       <div class="pb-traytabs">
-        <span class="pb-tab on">${bpIcon("panel-table")} Selection preview</span>
-        <span class="pb-tab s2">${bpIcon("clean")} Suggestions<span class="pb-tabpill" title="suggestions count — reference-only lane"></span></span>
-        <span class="pb-tab warn">${bpIcon("warning-sign")} Pipeline warnings</span>
-        <span class="pb-traycollapse">${bpIcon("double-chevron-down")}</span>
+        ${trayTabLink("selection", "panel-table", "Selection preview")}
+        ${hasSelection ? trayTabLink("preview", "eye-open", "Preview") : ""}
+        ${trayTabLink("suggestions", "clean", "Suggestions", "s2")}
+        ${trayTabLink("warnings", "warning-sign", "Pipeline warnings", "warn")}
+        <button type="button" class="pb-traycollapse" id="pb-tray-toggle" title="Toggle bottom bar" aria-expanded="${!trayCollapsed}">${bpIcon("double-chevron-down")}</button>
       </div>
-      <div class="pb-traybody">${inspectorMode ? trayShell({ id: "pb-tray-node", title: insp.trayTitle, body: insp.tray }) : previewTable}
-        <div class="pb-gapnote">Freeform canvas authoring — drag-connect nodes, transform code editor, scheduling, deploy — are <b>reference-only lanes disabled above</b>, not yet wired. Author stages in the <a href="${managerLink({ ontology: oid })}">Ontology Manager</a> (<a href="/__ioi/odk?ontology=${enc(oid)}">ODK substrate</a>); execute via a materializing run. Reference: <a href="/__apps/pipeline">Pipeline Builder capture ↗</a>.</div>
+      <div class="pb-traybody">${trayBody}
+        ${trayTabKey === "selection" && !hasSelection ? gapnote : ""}
       </div>
     </div>
   </div>`;
 
-  // ---- RIGHT "Pipeline outputs" PANEL (w386 = 336 content + 50 icon strip) — live projection values
-  // masked as data; Output settings block bottom-anchored like the reference.
+  // ---- RIGHT PANEL (#66) — the outputs panel is STABLE: node selection never replaces it (node
+  // truth lives in the tray now, like the reference). The far-right icon strip is the reference's
+  // panel-toggle rail: outputs / search / file-tree are real view swaps (?panel=), the other six
+  // lanes are disabled in place with their missing plane named. Geometry (386px = 336 + 50 strip)
+  // is certified chrome and never moves.
   const mapped = cols.length;
-  const stripIcons = ["circle-arrow-right", "search", "split-view", "build", "settings", "calendar", "folder-open", "form", "import"];
-  const rstrip = `<div class="pb-rstrip">${stripIcons.map((ic, i) => `<span class="pb-stripico${i === 0 ? " on" : ""}${i && i % 3 === 0 ? " g" : ""} gap" title="Right-panel lane — named gap">${bpIcon(ic)}</span>`).join("")}</div>`;
-  // When a node is explicitly selected (?node=), the panel becomes that node's inspector — same
-  // aside geometry (386px + icon strip), inspector content in place of the outputs main. The bare
-  // route (the pixel gate's capture) always renders the certified default panel below.
-  const inspectorPanel = insp ? `<aside class="pb-right">
-    <div class="pb-rmain pb-rinspect">${inspectorShell({
-      id: "pb-inspector",
-      title: insp.title,
-      subtitle: insp.sub,
-      body: (invalidNode ? `<div class="pb-ihint pb-warnhint">Unknown node <code>${esc(nodeParam)}</code> — failed closed to the default selection (Datasource).</div>` : "")
-        + `<a class="pb-iback" href="${selectionQuery("/__ioi/pipeline", { ontology: oid })}">← Pipeline outputs</a>`
-        + semanticBreadcrumb([{ label: selected ? (selected.domain || selected.id) : "ontology", href: managerLink({ ontology: oid }) }, { label: insp.title }])
-        + insp.body,
-    })}</div>
-    ${rstrip}
-  </aside>` : "";
-  const rightPanel = insp ? inspectorPanel : `<aside class="pb-right">
-    <div class="pb-rmain">
-      <div class="pb-righthd"><span class="pb-righttitle">Pipeline outputs</span><span class="pb-rhdico gap">${bpIcon("cog")}</span><span class="pb-rhdico gap">${bpIcon("panel-table")}</span><button class="pb-addbtn" disabled title="Adding outputs is authored in the ODK substrate — a named gap here">${bpIcon("plus")} Add</button></div>
-      <div class="pb-rsearch">${bpIcon("search")}<input placeholder="Search outputs…" disabled aria-label="Search outputs (reference-only, not wired)"></div>
-      ${proj ? `<div class="pb-outcard"><div class="pb-outcode">${bpIcon("panel-table")} ${esc(proj.name || proj.id)}</div><div class="pb-outsub">${esc(selected ? (selected.domain || selected.id) : "")} · read projection</div><div class="pb-outmapped">✓ ${mapped}/${mapped} column${mapped === 1 ? "" : "s"} mapped</div></div>` : `<div class="pb-empty">No read projection on this pipeline yet.</div>`}
+  const stripDef = [
+    { icon: "circle-arrow-right", key: "outputs", title: "Pipeline outputs" },
+    { icon: "search", key: "search", title: "Search pipeline — real record search" },
+    { icon: "split-view", gap: "no branching plane — nothing diffs (named gap)" },
+    { icon: "build", gap: "no pipeline deploy exists yet — a named gap" },
+    { icon: "settings", gap: "no build-settings plane — Build is the governed ODK ladder (named gap)" },
+    { icon: "calendar", gap: "no pipeline scheduler exists yet — a named gap" },
+    { icon: "folder-open", key: "tree", title: "Pipeline file tree — the real ladder-record tree" },
+    { icon: "form", gap: "pipeline unit tests have no daemon plane — evaluation suites live in Evaluations (named gap)" },
+    { icon: "import", gap: "source catalog is the Data Connection surface (owner: /__ioi/data/sources) — duplicate lane disabled (named gap)" },
+  ];
+  const rstrip = `<div class="pb-rstrip">${stripDef.map((it, i) => {
+    const grp = i && i % 3 === 0 ? " g" : "";
+    if (it.key) return `<a class="pb-stripico${panelKey === it.key ? " on" : ""}${grp}" data-panel="${it.key}" href="${stateHref({ panel: it.key === "outputs" ? "" : it.key })}" title="${esc(it.title)}">${bpIcon(it.icon)}</a>`;
+    return `<span class="pb-stripico${grp} gap" title="${esc(it.gap)}" data-ioi-disabled-reason="${esc(it.gap)}">${bpIcon(it.icon)}</span>`;
+  }).join("")}</div>`;
+  // Output cards — ALL projections on this pipeline, each a real selection anchor (?output=).
+  const outCards = projs.length ? projs.map((p2) => {
+    const on = outputSel === p2.id;
+    const nCols = (p2.visible_properties || []).length;
+    return `<a class="pb-outcard${on ? " pb-outsel" : ""}" data-output="${esc(p2.id)}"${on ? ' aria-current="true"' : ""} href="${stateHref({ output: on ? "" : p2.id, node: "", tab: "" })}"><div class="pb-outcode">${bpIcon("panel-table")} ${esc(p2.name || p2.id)}</div><div class="pb-outsub">${esc(selected ? (selected.domain || selected.id) : "")} · read projection · ${icode(p2.status || "—")}</div><div class="pb-outmapped">✓ ${nCols}/${nCols} column${nCols === 1 ? "" : "s"} mapped</div></a>`;
+  }).join("") : `<div class="pb-empty">No read projection on this pipeline yet.</div>`;
+  const outputsMain = `<div class="pb-rmain">
+      <div class="pb-righthd"><span class="pb-righttitle">Pipeline outputs</span><span class="pb-rhdico gap" title="output settings lanes are authored in the ODK substrate — named gap here" data-ioi-disabled-reason="output settings lanes are authored in the ODK substrate — named gap here">${bpIcon("cog")}</span><span class="pb-rhdico gap" title="layout toggle — named gap" data-ioi-disabled-reason="layout toggle — named gap">${bpIcon("panel-table")}</span><button class="pb-addbtn" disabled title="Adding outputs is authored in the ODK substrate — a named gap here" data-ioi-disabled-reason="Adding outputs is authored in the ODK substrate — a named gap here">${bpIcon("plus")} Add</button></div>
+      <div class="pb-rsearch">${bpIcon("search")}<input id="pb-outsearch" placeholder="Search outputs…" aria-label="Search outputs (client-side filter)"></div>
+      ${outCards}
       <div class="pb-outstat">${instances} object instance${instances === 1 ? "" : "s"} materialized · ${nodes.filter((n) => n.cls === "missing").length ? nodes.filter((n) => n.cls === "missing").map((n) => esc(n.label) + " not built").join(" · ") : "all ladder stages present"}</div>
       <div class="pb-settings">
         <div class="pb-outboxt">Output settings</div>
         <div class="pb-setrow"><span class="pb-setk">Target ontology</span><span class="pb-setv">${selected ? esc(selected.domain || selected.id) : "No ontology selected"}</span></div>
         <div class="pb-setrow"><span class="pb-setk">Output folder</span><span class="pb-setv">No location selected</span></div>
-        <div class="pb-editrow"><a class="pb-editbtn" href="/__ioi/odk?ontology=${enc(oid)}">Edit output settings</a><span class="pb-moreico gap">${bpIcon("more")}</span></div>
+        <div class="pb-editrow"><a class="pb-editbtn" href="/__ioi/odk?ontology=${enc(oid)}">Edit output settings</a><span class="pb-moreico gap" title="reset is a daemon authority (named gap; deletion lanes are the governed-build PR)" data-ioi-disabled-reason="reset is a daemon authority (named gap; deletion lanes are the governed-build PR)">${bpIcon("more")}</span></div>
       </div>
-    </div>
-    <div class="pb-rstrip">${stripIcons.map((ic, i) => `<span class="pb-stripico${i === 0 ? " on" : ""}${i && i % 3 === 0 ? " g" : ""} gap" title="Right-panel lane — named gap">${bpIcon(ic)}</span>`).join("")}</div>
-  </aside>`;
+    </div>`;
+  // Search panel — the REAL pipeline-record census, filtered as-you-type (client), every row a
+  // node-selection link. Nothing fabricated: rows are the already-loaded ladder records.
+  const census = [
+    ...dsources.map((x) => ({ name: x.name || x.source_id, id: x.source_id, kind: "data source", node: "datasource" })),
+    ...maps.map((x) => ({ name: x.name || x.id, id: x.id, kind: "connector mapping", node: "mapping" })),
+    ...views.map((x) => ({ name: x.name || x.id, id: x.id, kind: "policy view", node: "policy" })),
+    ...truns.map((x) => ({ name: x.name || x.id, id: x.id, kind: "transformation run", node: "transform" })),
+    ...projs.map((x) => ({ name: x.name || x.id, id: x.id, kind: "read projection", node: "projection" })),
+    ...plans.map((x) => ({ name: x.name || x.id, id: x.id, kind: "capability lease plan", node: "lease" })),
+    ...mruns.map((x) => ({ name: x.name || x.id, id: x.id, kind: "materializing run", node: "lease" })),
+    ...sessions.map((x) => ({ name: x.name || x.id, id: x.id, kind: "connector session", node: "lease" })),
+    ...osets.map((x) => ({ name: x.name || x.id, id: x.id, kind: "materialized set", node: "materialized" })),
+  ];
+  const censusRow = (c) => `<a class="pb-srow" data-search="${esc(`${c.name} ${c.id} ${c.kind}`.toLowerCase())}" href="${stateHref({ node: c.node, tab: "", output: "" })}"><b>${esc(c.name)}</b> <code class="pb-icode">${esc(c.id)}</code> <span class="pb-srkind">${esc(c.kind)}</span></a>`;
+  const searchMain = `<div class="pb-rmain">
+      <div class="pb-righthd"><span class="pb-righttitle">Search pipeline</span></div>
+      <div class="pb-rsearch">${bpIcon("search")}<input id="pb-psearch" placeholder="Search term…" aria-label="Search pipeline records"></div>
+      <div class="pb-srcount" id="pb-srcount">${census.length} record${census.length === 1 ? "" : "s"} on this pipeline</div>
+      <div class="pb-srlist">${census.map(censusRow).join("") || `<div class="pb-empty">No records on this pipeline yet.</div>`}</div>
+    </div>`;
+  const RUNG_LABEL = { datasource: "Datasource", mapping: "Object mapping", policy: "Policy gate", transform: "Transform plan", projection: "Read projection", lease: "Lease + session", materialized: "Materialized objects" };
+  const treeMain = `<div class="pb-rmain">
+      <div class="pb-righthd"><span class="pb-righttitle">Pipeline file tree</span></div>
+      <div class="pb-srlist">${Object.keys(RUNG_LABEL).map((k) => {
+        const rows = census.filter((c) => c.node === k);
+        return `<div class="pb-treegrp">${esc(RUNG_LABEL[k])} (${rows.length})</div>${rows.map((c) => `<a class="pb-trow" href="${stateHref({ node: c.node, tab: "", output: "" })}">${esc(c.name)} <code class="pb-icode">${esc(c.id)}</code></a>`).join("") || `<div class="pb-treeempty">no record — missing rung</div>`}`;
+      }).join("")}</div>
+    </div>`;
+  const rightPanel = `<aside class="pb-right">${panelKey === "search" ? searchMain : panelKey === "tree" ? treeMain : outputsMain}${rstrip}</aside>`;
 
   // LIGHT application surface, geometry pinned to the reference (glyph-anchored): header h51 · toolcard
   // groups h55 wrapping at the reference's break points · Legend/right panel right-anchored · tray
@@ -529,7 +761,9 @@ function renderPipelineBuilder(lists, selectedId, nodeParam, embed) {
     .pb-legname{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:70px}
     .pb-legeye{display:inline-flex;color:#5f6b7c;margin:0 7px 0 auto}
     .pb-addcolor{display:flex;align-items:center;justify-content:center;gap:7.5px;width:140px;height:24px;margin:4.5px 2px 0 auto;padding:0;border:1px solid rgba(33,93,176,.6);border-radius:4px;background:transparent;color:#215db0;font:inherit;font-size:12px;line-height:13.8px;cursor:not-allowed}
-    .pb-canvas{position:absolute;inset:51px 0 300px 0;overflow:auto;padding:60px 20px 20px}
+    .pb-canvas{position:absolute;inset:51px 0 300px 0;overflow:auto;padding:60px 20px 20px;display:flex;flex-direction:column}
+    .pb-canvaszone.pb-traymin .pb-canvas{inset:51px 0 35px 0}
+    .pb-canvaszone.pb-traymin .pb-zoomstack{bottom:45px}
     .pb-pickrow{margin:110px 0 14px}
     .pb-pick{position:relative;display:inline-block}
     .pb-pick>summary{list-style:none;cursor:pointer;font-size:13px;color:#5f6b7c;background:#fff;border:1px solid #d3d8de;border-radius:4px;padding:4px 10px}
@@ -538,15 +772,20 @@ function renderPipelineBuilder(lists, selectedId, nodeParam, embed) {
     .pb-pipe{display:flex;align-items:center;justify-content:space-between;padding:6px 9px;border-radius:6px;color:#3a3f46}
     .pb-pipe:hover{background:#f1f3f6}.pb-pipe.on{background:#eef2fb;color:#1a1d21;font-weight:600}
     .pb-tag{font-size:10px;padding:1px 6px;border-radius:999px;background:#eafaf1;color:#0e8a53;border:1px solid #8fdcb6}
-    .pb-flow{display:flex;align-items:stretch;gap:0}
-    .pb-arrow{flex:0 0 auto;color:#a9b0bb;padding:0 8px;font-size:17px;align-self:center}
-    .pb-node{flex:0 0 auto;width:156px;border:1px solid #dfe2e7;border-radius:6px;padding:11px 12px;background:#fff;cursor:pointer;box-shadow:0 1px 3px rgba(20,24,30,.05)}
-    .pb-node:hover{border-color:#0e9f6e}
-    .pb-node.pb-live{border-top:3px solid #2f9e6b}.pb-node.pb-declared{border-top:3px solid #d68a2a}.pb-node.pb-missing{border-top:3px solid #c2c6cd}
-    .pb-nhead{display:flex;align-items:center;justify-content:space-between}.pb-nicon{font-size:18px}
-    .pb-nlabel{font-weight:600;font-size:13px;margin:5px 0 6px;color:#15181d}
-    .pb-dot{width:8px;height:8px;border-radius:50%;background:#b8bdc6}.pb-dot.pb-live{background:#2f9e6b}.pb-dot.pb-declared{background:#d68a2a}
-    .pb-ncount{font-size:12px;color:#3a3f49}.pb-ndetail{font-size:10.5px;color:#8a909c;margin:3px 0 0;min-height:14px}
+    .pb-graphwrap{flex:1 1 auto;min-height:220px;overflow:hidden}
+    #pb-graph{width:100%;height:100%;display:block;cursor:grab;outline:none}
+    #pb-graph.panning{cursor:grabbing}
+    .pb-gnode .pb-nbody{fill:#fff}
+    .pb-gnode .pb-nstroke{fill:none;stroke:#c5cbd3;stroke-width:3}
+    a.pb-node{cursor:pointer}
+    a.pb-node:focus{outline:none}
+    a.pb-node:focus .pb-nstroke{stroke:#2d72d2;stroke-width:4}
+    a.pb-node.pb-nsel .pb-nstroke{stroke:#738191;stroke-width:6}
+    .pb-node.pb-missing .pb-nstroke{stroke-dasharray:6 4}
+    .pb-gnode .pb-ntext{fill:#fff;font-size:12.5px;font-weight:600}
+    .pb-gnode .pb-nsub{fill:#5f6b7c;font-size:11px}
+    .pb-gnode .pb-ndeet{fill:#8a909c;font-size:9.5px}
+    .pb-edge{stroke:#abb3bf;stroke-width:2;fill:none}
     .pb-tray{position:absolute;left:0;right:0;bottom:0;height:300px;background:#fff;display:flex;flex-direction:column;z-index:5}
     .pb-traytabs{flex:0 0 35px;display:flex;align-items:stretch}
     .pb-tab{display:inline-flex;align-items:center;gap:5px;padding:0 8px;font-size:14px;line-height:16px;font-weight:600;color:#1c2127;border-right:1px solid #dce0e5}
@@ -555,6 +794,7 @@ function renderPipelineBuilder(lists, selectedId, nodeParam, embed) {
     .pb-tab svg{color:#5f6b7c}
     .pb-tab.on{background:rgba(138,187,255,.4);color:#215db0}.pb-tab.on svg{color:#215db0}
     .pb-tab.warn{color:#935610}.pb-tab.warn svg{color:#c87619}
+    .pb-tab.warn.on{background:rgba(200,118,25,.28);color:#935610}.pb-tab.warn.on svg{color:#c87619}
     .pb-traycollapse{margin-left:auto;display:inline-flex;align-items:center;padding:0 14px;color:#5f6b7c}
     .pb-traybody{flex:1;overflow:auto;padding:12px 16px}
     .pb-table{border-collapse:collapse;width:100%;font-size:12px}.pb-table th{text-align:left;color:#7b8494;font-weight:600;padding:4px 12px 4px 0;border-bottom:1px solid #e2e4e8}
@@ -590,8 +830,7 @@ function renderPipelineBuilder(lists, selectedId, nodeParam, embed) {
     .pb-stripico.g{margin-top:14px;position:relative}
     .pb-stripico.g::before{content:"";position:absolute;top:-7.5px;left:0;width:40px;height:1px;background:#d8dbde}
     .pb-stripico.on{background:#dfe0e1}
-    a.pb-node{color:inherit}
-    .pb-node.pb-nsel{border-color:#2d72d2;box-shadow:0 0 0 2px rgba(45,114,210,.35),0 1px 3px rgba(20,24,30,.05)}
+
     .pb-rinspect{overflow:auto}
     .pb-right .ioi-inspector{display:flex;flex-direction:column;min-height:100%}
     .pb-right .ioi-inspector-hd{display:flex;flex-direction:column;gap:2px;padding:8.5px 10px 8px 9px;border-bottom:1px solid #eef0f2}
@@ -608,8 +847,66 @@ function renderPipelineBuilder(lists, selectedId, nodeParam, embed) {
     .pb-warnhint{border-color:#e8c48d;background:#fdf7ec;color:#935610}
     .pb-traybody .ioi-tray-hd{font-size:12px;font-weight:600;color:#1c2127;margin:0 0 8px}
     .ioi-cmd-disabled{display:inline-flex;align-items:center;height:24px;padding:0 8px;border:1px solid #d3d8de;border-radius:4px;background:#f7f8f8;color:#8f99a8;font:inherit;font-size:12px;cursor:not-allowed}
-    .ioi-proof-link{font-size:12px}`;
+    .ioi-proof-link{font-size:12px}
+    /* #66 interaction chrome — everything below renders in excluded body regions or under
+       explicit params; certified-island geometry above is untouched. */
+    a.pb-tab{cursor:pointer}
+    button.pb-traycollapse{background:none;border:0;cursor:pointer;font:inherit;margin-left:auto;display:inline-flex;align-items:center;padding:0 14px;color:#5f6b7c}
+    .pb-tray.pb-collapsed{height:35px}.pb-tray.pb-collapsed .pb-traybody{display:none}
+    button.pb-legcaret{background:none;border:0;padding:0;cursor:pointer;color:#5f6b7c;display:inline-flex}
+    .pb-legend.pb-lcollapsed .pb-leggrid,.pb-legend.pb-lcollapsed .pb-addcolor{display:none}
+    button.pb-legeye{background:none;border:0;padding:0;cursor:pointer;display:inline-flex;color:#5f6b7c;margin:0 7px 0 auto}
+    .pb-legrow.off{opacity:.45}
+    .pb-ticon.live{cursor:pointer}
+    a.pb-stripico{cursor:pointer}
+    .pb-subtabs{display:flex;gap:2px;margin:8px 0 10px}
+    .pb-subtab{border:0;background:#f1f3f6;border-radius:4px 4px 0 0;padding:5px 12px;font:inherit;font-size:12px;color:#5f6b7c;cursor:pointer}
+    .pb-subtab.on{background:rgba(138,187,255,.35);color:#215db0;font-weight:600}
+    .pb-subtab[disabled]{color:#a5adba;cursor:not-allowed}
+    .pb-trayempty{display:flex;align-items:center;gap:10px;color:#5f6b7c;padding:26px 8px;justify-content:center}
+    .pb-sugbanner{padding:10px 12px;border:1px solid #d0e0f5;background:#f0f6ff;border-radius:6px;color:#215db0;font-size:12px;margin:0 0 10px}
+    /* hit-transparent: every strip action is a disabled named gap, so the overlay must never
+       swallow clicks meant for the node beneath it (reasons stay machine-readable). */
+    .pb-nodefloat{position:absolute;z-index:4;display:flex;flex-direction:row;gap:8px;align-items:flex-start;pointer-events:none}
+    .pb-nfcol{display:flex;flex-direction:column;gap:6px;align-items:flex-start}
+    .pb-traybody .ioi-inspector-hd{display:flex;flex-direction:column;gap:2px;margin:0 0 8px}
+    .pb-traybody .ioi-inspector-title{font-size:13px;font-weight:600;color:#1c2127}
+    .pb-traybody .ioi-inspector-sub{font-size:11px;color:#5f6b7c;font-family:ui-monospace,SFMono-Regular,monospace;word-break:break-all}
+    .pb-nfcard{display:flex;gap:8px;background:#fff;border:1px solid #dfe2e7;border-radius:6px;padding:8px 12px;box-shadow:0 2px 8px rgba(20,24,30,.12);align-items:center}
+    .pb-nficon{font-size:18px}.pb-nfname{font-weight:600;font-size:13px}.pb-nfsub{font-size:11px;color:#5f6b7c}
+    .pb-snappill{border:0;background:#fff;border-radius:4px;box-shadow:inset 0 0 0 1px rgba(64,72,84,.2);font:inherit;font-size:11px;color:#5f6b7c;padding:3px 8px;cursor:not-allowed;display:inline-flex;align-items:center;gap:4px}
+    .pb-quickstrip{display:flex;flex-direction:column;gap:2px;background:#fff;border:1px solid #dfe2e7;border-radius:6px;padding:4px;width:38px;box-shadow:0 2px 8px rgba(20,24,30,.12)}
+    .pb-qbtn{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border:0;border-radius:4px;background:#fff;color:#5f6b7c;cursor:not-allowed}
+    .pb-ctxmenu{position:fixed;z-index:40;background:#fff;border:1px solid #d8dbe1;border-radius:6px;box-shadow:0 8px 28px rgba(20,24,31,.2);padding:5px;min-width:190px}
+    .pb-ctxmenu button{display:block;width:100%;text-align:left;border:0;background:none;font:inherit;font-size:12.5px;padding:6px 10px;border-radius:4px;cursor:pointer;color:#1c2127}
+    .pb-ctxmenu button:hover{background:#f1f3f6}
+    .pb-ctxmenu button[disabled]{color:#a5adba;cursor:not-allowed}
+    .pb-srcount{margin:10px 10px 4px 8px;font-size:11px;color:#7b8494}
+    .pb-srlist{overflow:auto;padding:0 8px 8px;min-height:0}
+    .pb-srow{display:block;padding:6px 9px;border-radius:6px;font-size:12px;color:#1c2127}
+    .pb-srow:hover{background:#f1f3f6}
+    .pb-srkind{color:#7b8494;font-size:11px}
+    .pb-treegrp{font-size:11px;font-weight:600;color:#7b8494;text-transform:uppercase;letter-spacing:.03em;margin:12px 2px 4px}
+    .pb-trow{display:block;padding:4px 9px;border-radius:4px;font-size:12px;color:#1c2127}
+    .pb-trow:hover{background:#f1f3f6}
+    .pb-treeempty{font-size:11px;color:#a5adba;padding:2px 9px;font-style:italic}
+    .pb-outcard.pb-outsel{border-color:#2d72d2;box-shadow:0 0 0 2px rgba(45,114,210,.35)}
+    a.pb-outcard{display:block}
+    /* 1140px embedded-header fix (#66): the command cluster is an absolute 494px box flex never
+       sees, so below 1440 it collides with the right cluster. Bare captures are exactly 1440/1920
+       wide, so a max-width:1439 rule is capture-invisible; it clamps the box at the right cluster
+       and lets the two owner links shrink with ellipsis instead of painting over Actions. */
+    @media(max-width:1439px){
+      .pb-hmid{width:auto;right:250px;max-width:494px}
+      .pb-hmid .pb-btn.link{flex:0 1 auto;min-width:0;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;line-height:26px}
+    }`;
 
+  // Client behavior (#66) — ONE inline script, view-only: pan/zoom/fit on the SVG viewBox,
+  // keyboard node navigation, tray/legend collapse + legend eyes persisted via replaceState
+  // (embed=1 already rides the URL, so view state never drops embedded mode), sub-tab toggles,
+  // client-side filters, and a node context menu whose Open uses the node's PRE-RENDERED href
+  // (embed threaded server-side). It mutates nothing authoritative.
+  const clientJs = "(function () {\n  var svg = document.getElementById(\"pb-graph\");\n  var initVB = svg ? svg.getAttribute(\"viewBox\") : null;\n  function vb() { return svg.getAttribute(\"viewBox\").split(/\\s+/).map(Number); }\n  function setVB(a) { svg.setAttribute(\"viewBox\", a.join(\" \")); positionFloat(); }\n  function zoom(f) { if (!svg) return; var v = vb(); var cx = v[0] + v[2] / 2, cy = v[1] + v[3] / 2; var w = v[2] * f, h = v[3] * f; setVB([cx - w / 2, cy - h / 2, w, h]); }\n  var zin = document.getElementById(\"pb-zin\"); if (zin) zin.addEventListener(\"click\", function () { zoom(0.8); });\n  var zout = document.getElementById(\"pb-zout\"); if (zout) zout.addEventListener(\"click\", function () { zoom(1.25); });\n  var zfit = document.getElementById(\"pb-zfit\"); if (zfit) zfit.addEventListener(\"click\", function () { if (svg && initVB) { svg.setAttribute(\"viewBox\", initVB); positionFloat(); } });\n  var panning = null;\n  if (svg) {\n    svg.addEventListener(\"pointerdown\", function (e) {\n      if (e.button !== 0 || (e.target.closest && e.target.closest(\"a\"))) return;\n      var v = vb(); panning = { x: e.clientX, y: e.clientY, v: v, k: v[2] / svg.getBoundingClientRect().width };\n      svg.classList.add(\"panning\"); try { svg.setPointerCapture(e.pointerId); } catch (x) {}\n    });\n    svg.addEventListener(\"pointermove\", function (e) {\n      if (!panning) return;\n      setVB([panning.v[0] - (e.clientX - panning.x) * panning.k, panning.v[1] - (e.clientY - panning.y) * panning.k, panning.v[2], panning.v[3]]);\n    });\n    svg.addEventListener(\"pointerup\", function () { panning = null; svg.classList.remove(\"panning\"); });\n    svg.addEventListener(\"wheel\", function (e) { if (!e.ctrlKey) return; e.preventDefault(); zoom(e.deltaY > 0 ? 1.12 : 0.89); }, { passive: false });\n    svg.addEventListener(\"keydown\", function (e) {\n      var anchors = Array.prototype.slice.call(svg.querySelectorAll(\"a.pb-node\"));\n      if (!anchors.length) return;\n      var idx = anchors.indexOf(document.activeElement);\n      var next = null;\n      if (e.key === \"ArrowRight\") next = anchors[Math.min(anchors.length - 1, idx + 1)];\n      else if (e.key === \"ArrowLeft\") next = anchors[idx < 0 ? 0 : Math.max(0, idx - 1)];\n      else if (e.key === \"Home\") next = anchors[0];\n      else if (e.key === \"End\") next = anchors[anchors.length - 1];\n      if (next) { e.preventDefault(); next.focus(); }\n      if (e.key === \"Enter\" && document.activeElement && document.activeElement.classList && document.activeElement.classList.contains(\"pb-node\")) {\n        e.preventDefault(); location.href = document.activeElement.getAttribute(\"href\");\n      }\n    });\n  }\n  function setParam(k, v) { try { var u = new URL(location.href); if (v) u.searchParams.set(k, v); else u.searchParams.delete(k); history.replaceState(null, \"\", u.pathname + u.search + u.hash); } catch (e) {} }\n  var trayT = document.getElementById(\"pb-tray-toggle\");\n  if (trayT) trayT.addEventListener(\"click\", function () {\n    var tray = document.getElementById(\"pb-preview\"), zone = document.getElementById(\"pb-canvaszone\");\n    var min = tray.classList.toggle(\"pb-collapsed\");\n    if (zone) zone.classList.toggle(\"pb-traymin\", min);\n    trayT.setAttribute(\"aria-expanded\", String(!min));\n    setParam(\"tray\", min ? \"0\" : \"\");\n  });\n  var legT = document.getElementById(\"pb-legend-toggle\");\n  if (legT) legT.addEventListener(\"click\", function () {\n    var lg = document.getElementById(\"pb-legend\");\n    var min = lg.classList.toggle(\"pb-lcollapsed\");\n    legT.setAttribute(\"aria-expanded\", String(!min));\n    setParam(\"legend\", min ? \"0\" : \"\");\n  });\n  Array.prototype.forEach.call(document.querySelectorAll(\".pb-legeye\"), function (b) {\n    b.addEventListener(\"click\", function () {\n      var cat = b.getAttribute(\"data-cat\");\n      var row = b.closest(\".pb-legrow\");\n      var off = row.classList.toggle(\"off\");\n      Array.prototype.forEach.call(document.querySelectorAll('a.pb-node[data-category=\"' + cat + '\"]'), function (n) { n.style.display = off ? \"none\" : \"\"; });\n      var hid = Array.prototype.map.call(document.querySelectorAll(\".pb-legrow.off\"), function (r) { return r.getAttribute(\"data-cat\"); }).join(\",\");\n      setParam(\"hide\", hid);\n      b.setAttribute(\"title\", off ? \"Show this color\" : \"Hide this color\");\n    });\n  });\n  Array.prototype.forEach.call(document.querySelectorAll(\".pb-subtab[data-sub]\"), function (b) {\n    b.addEventListener(\"click\", function () {\n      Array.prototype.forEach.call(document.querySelectorAll(\".pb-subtab[data-sub]\"), function (x) { x.classList.toggle(\"on\", x === b); });\n      Array.prototype.forEach.call(document.querySelectorAll(\".pb-subpane\"), function (pn) { pn.hidden = pn.getAttribute(\"data-sub\") !== b.getAttribute(\"data-sub\"); });\n    });\n  });\n  function wireFilter(inputId, rowSel, countId) {\n    var inp = document.getElementById(inputId); if (!inp) return;\n    inp.addEventListener(\"input\", function () {\n      var q = inp.value.toLowerCase(); var n = 0;\n      Array.prototype.forEach.call(document.querySelectorAll(rowSel), function (r) {\n        var hay = (r.getAttribute(\"data-search\") || r.textContent || \"\").toLowerCase();\n        var hit = !q || hay.indexOf(q) >= 0; r.style.display = hit ? \"\" : \"none\"; if (hit) n++;\n      });\n      var c = countId ? document.getElementById(countId) : null; if (c) c.textContent = n + \" match\" + (n === 1 ? \"\" : \"es\");\n    });\n  }\n  wireFilter(\"pb-outsearch\", \".pb-outcard\", null);\n  wireFilter(\"pb-psearch\", \".pb-srow\", \"pb-srcount\");\n  var graphCache = null;\n  function graph() { if (graphCache) return graphCache; var el = document.getElementById(\"pb-graph-data\"); try { graphCache = el ? JSON.parse(el.textContent) : []; } catch (e) { graphCache = []; } return graphCache; }\n  var ctx = document.getElementById(\"pb-ctxmenu\"), ctxNode = null;\n  if (ctx) {\n    document.addEventListener(\"contextmenu\", function (e) {\n      var a = e.target.closest && e.target.closest(\"a.pb-node\");\n      if (!a) { ctx.hidden = true; return; }\n      e.preventDefault(); ctxNode = a;\n      ctx.hidden = false; ctx.style.left = e.clientX + \"px\"; ctx.style.top = e.clientY + \"px\";\n    });\n    document.addEventListener(\"click\", function () { ctx.hidden = true; });\n    document.getElementById(\"pb-ctx-open\").addEventListener(\"click\", function () { if (ctxNode) location.href = ctxNode.getAttribute(\"href\"); });\n    document.getElementById(\"pb-ctx-copy\").addEventListener(\"click\", function () {\n      if (!ctxNode) return;\n      var data = graph(), k = ctxNode.getAttribute(\"data-node\"), rec = null;\n      for (var i = 0; i < data.length; i++) if (data[i].key === k) rec = data[i];\n      if (rec && rec.ref && navigator.clipboard) navigator.clipboard.writeText(rec.ref);\n    });\n  }\n  function positionFloat() {\n    var f = document.getElementById(\"pb-nodefloat\"); if (!f || !svg) return;\n    var g = svg.querySelector(\"a.pb-nsel .pb-gnode\"); if (!g) { f.hidden = true; return; }\n    var r = g.getBoundingClientRect(), zone = document.getElementById(\"pb-canvaszone\");\n    var z = zone.getBoundingClientRect();\n    f.hidden = false;\n    var fh = f.getBoundingClientRect().height || 180;\n    var trayEl = document.getElementById(\"pb-preview\");\n    var limit = (trayEl ? trayEl.getBoundingClientRect().top - z.top : z.height) - fh - 8;\n    f.style.left = Math.min(z.width - 260, r.right - z.left + 10) + \"px\";\n    f.style.top = Math.max(8, Math.min(limit, r.top - z.top - 8)) + \"px\";\n  }\n  positionFloat();\n  window.addEventListener(\"resize\", positionFloat);\n})();";
   return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Pipeline Builder</title><style>${css}</style></head>
-    <body><div class="pb-shell">${globalRail}<div class="pb-main">${header}<div class="pb-work">${canvasWrap}${rightPanel}</div></div></div></body></html>`;
+    <body><div class="pb-shell">${globalRail}<div class="pb-main">${header}<div class="pb-work">${canvasWrap}${rightPanel}</div></div></div><script id="pb-graph-data" type="application/json">${graphData}</script><script>${clientJs}</script></body></html>`;
 }
