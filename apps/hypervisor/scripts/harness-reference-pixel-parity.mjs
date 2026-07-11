@@ -213,6 +213,49 @@ export const SURFACE_SHELL = {
       ],
     },
   },
+  machinery: {
+    // Machinery landing (#50 — the second origin-alignment-queue port): certified shell = rail +
+    // header (machinery tile · Recent-installations store dropdown · New graph · Help) + the
+    // full-width 106px hero band (title/description + the VERBATIM reference illustration under
+    // the reference's own 1040px white-gradient content overlay — the #49 find, same component) +
+    // the View row (Recents/Favorites pills; NO Open-Diagram on this splash) + the table ring +
+    // header row + the "Explore reference examples" band (heading/sub + the VERBATIM capture strip
+    // of the two marketplace example cards — vendor chrome, not estate data). The machine ROWS are
+    // the excluded live body (real state-machine DEFINITIONS vs captured tutorials); the table
+    // container height follows the reference's viewport rule max(360px, 100vh − 624px), so the
+    // examples band is pinned per viewport. Content = the approvals rule (1000px block centered
+    // right of the rail; offset 0 @1440, +240 @1920).
+    rects: [
+      { key: "rail", anchor: "left", x: 0, y: 0, w: 230, h: 0 },
+      { key: "header", anchor: "topbar", x: 230, y: 0, w: 0, h: 51 },
+      { key: "hero", anchor: "topbar", x: 230, y: 51, w: 0, h: 108 },
+      { key: "viewrow", anchor: "content", x: 335, y: 195, w: 1000, h: 34 },
+      { key: "tablehead", anchor: "content", x: 330, y: 232, w: 1010, h: 38 },
+      { key: "examples", anchor: "content", x: 330, y: 590, w: 1010, h: 310 },
+    ],
+    rects_by_viewport: {
+      "1920x1080": [
+        { key: "rail", anchor: "left", x: 0, y: 0, w: 230, h: 0 },
+        { key: "header", anchor: "topbar", x: 230, y: 0, w: 0, h: 51 },
+        { key: "hero", anchor: "topbar", x: 230, y: 51, w: 0, h: 108 },
+        { key: "viewrow", anchor: "content", x: 335, y: 195, w: 1000, h: 34 },
+        { key: "tablehead", anchor: "content", x: 330, y: 232, w: 1010, h: 38 },
+        { key: "examples", anchor: "content", x: 330, y: 694, w: 1010, h: 366 },
+      ],
+    },
+    // Masked DATA: the machine-row region below the table header (captured tutorial rows on the
+    // reference vs the estate's live definition rows) — the table ring/header chrome stays
+    // compared; the container's viewport-ruled tail (extra reference rows @1920) sits OUTSIDE the
+    // shell rects (excluded body).
+    data: {
+      ref: [
+        { rect: { x: 336, y: 267, w: 998, h: 330 }, anchor: "content", label: "machine rows (captured tutorial resources vs live state-machine definitions)" },
+      ],
+      ioi: [
+        { selector: ".mch-rows", label: "live-definition-rows" },
+      ],
+    },
+  },
   designer: {
     // Solution Designer landing (#49 — the first origin-alignment-queue port): certified shell =
     // rail + header + the full-width hero band (title/description + the VERBATIM reference

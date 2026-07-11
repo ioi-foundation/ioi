@@ -63,7 +63,9 @@ async function run() {
   const row = bySlug.designer;
   ok("matrix: designer is daemon_wired at /__ioi/studio/designer (Studio) with Designer-IA landmarks", row && row.parity_class === "daemon_wired" && row.candidate_surface === "/__ioi/studio/designer" && row.surface_name === "Studio" && Array.isArray(row.reference_landmarks) && row.reference_landmarks.length >= 8, row ? `class=${row.parity_class}` : "row missing");
   ok("matrix: the reference is ORIGIN-ALIGNED (reference_url_override → localhost:9225/workspace/solution-design/)", row && row.reference_url_override === "http://localhost:9225/workspace/solution-design/");
-  ok("matrix keeps workshop + module reference_capture and machinery substrate_bound (siblings NOT over-claimed)", ["workshop", "module"].every((k) => bySlug[k]?.parity_class === "reference_capture") && bySlug.machinery?.parity_class === "substrate_bound");
+  // machinery legally advanced substrate_bound → daemon_wired in #50 (its own certified port PR);
+  // a class SET, not a frozen pin — the recurring frozen-pin lesson.
+  ok("matrix keeps workshop + module reference_capture and machinery bound (substrate_bound|daemon_wired) — siblings NOT over-claimed", ["workshop", "module"].every((k) => bySlug[k]?.parity_class === "reference_capture") && ["substrate_bound", "daemon_wired"].includes(bySlug.machinery?.parity_class));
   ok("the estate census accepts designer among the certified daemon_wired surfaces (>= 8 since #49); reference_capture stays the honest majority", (matrix.by_parity_class?.daemon_wired || 0) >= 8 && (matrix.by_parity_class?.reference_capture || 0) >= 20, JSON.stringify(matrix.by_parity_class));
 
   // 0b. Shell-pixel certification is REAL, committed, non-pinned, SHELL-scoped.

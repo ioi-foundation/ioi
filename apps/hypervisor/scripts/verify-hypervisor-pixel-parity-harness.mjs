@@ -9,9 +9,11 @@
 //      SHELL is what is diffed while the BODY is excluded by design.
 //   B. END-TO-END against the LIVE estate: the harness runs, emits real artifacts (shell heatmap + shell
 //      manifest + result.json), reports the HONEST baseline (schema shell is NOT yet certified in #40 —
-//      the wave certifies it per surface in #41+), and REFUSES an errored-reference surface (machinery
-//      — its proxy reference fails with the favorites-load error; designer, the previous example,
-//      was origin-aligned + certified by #49, so it can no longer prove fail-closed refusal).
+//      the wave certifies it per surface in #41+), and REFUSES an UNPORTED surface live (evalsuites
+//      — no declared shell geometry, data-empty reference: the #34 gates + the coverage floor all
+//      refuse). The ERRORED-REFERENCE branch is SOURCE-PINNED below: designer (#49) and machinery
+//      (#50) were its live examples until their origin alignment removed the last port-state seed
+//      with an erroring reference — the branch stays pinned in source so it cannot be dropped.
 //   C. MATRIX: every port-state row carries a boolean shell_pixel_certified; none is true in #40; a true
 //      row would require daemon_wired + a committed, parsed shell-certification file (generation invariant).
 //
@@ -105,11 +107,17 @@ ok("E2E: a pinned-viewport run records viewports_pinned + cannot certify (no che
 const artDir2 = path.join(appRoot, ".artifacts", "pixel-parity-verify-err");
 const resPath2 = path.join(artDir2, "result.json");
 try { if (existsSync(resPath2)) rmSync(resPath2); } catch { /* */ }
-const run2 = spawnSync("node", [path.join(here, "harness-reference-pixel-parity.mjs")], { encoding: "utf8", timeout: 180000, env: { ...process.env, IOI_PIXEL_SURFACES: "machinery", IOI_PIXEL_VIEWPORTS: "1440x900", IOI_PIXEL_ARTIFACT_DIR: artDir2 } });
+const run2 = spawnSync("node", [path.join(here, "harness-reference-pixel-parity.mjs")], { encoding: "utf8", timeout: 180000, env: { ...process.env, IOI_PIXEL_SURFACES: "evalsuites", IOI_PIXEL_VIEWPORTS: "1440x900", IOI_PIXEL_ARTIFACT_DIR: artDir2 } });
 let r2 = null;
 if (run2.status === 0 && existsSync(resPath2)) { try { r2 = JSON.parse(readFileSync(resPath2, "utf8")); } catch { /* */ } }
-const dVp = r2 && ((r2.surfaces || []).find((s) => s.slug === "machinery") || {}).viewports?.[0];
-ok("E2E: an ERRORED-REFERENCE surface (machinery) is REFUSED with the reference-error reason (live fail-closed proof)", dVp && dVp.certified === false && dVp.reasons.some((r) => /reference is an ERROR/i.test(r)), dVp ? dVp.reasons[0] : `exit ${run2.status}`);
+const dVp = r2 && ((r2.surfaces || []).find((s) => s.slug === "evalsuites") || {}).viewports?.[0];
+ok("E2E: an UNPORTED surface (evalsuites — no declared shell geometry, data-empty reference) is REFUSED live: the #34 gates + the coverage floor fail closed", dVp && dVp.certified === false && dVp.reasons.some((r) => /shell cannot be masked away/i.test(r)) && dVp.reasons.some((r) => /#34 gate/i.test(r)), dVp ? dVp.reasons.slice(0, 2).join(" | ") : `exit ${run2.status}`);
+// The ERRORED-REFERENCE refusal branch, SOURCE-PINNED: after #49/#50 origin-aligned designer and
+// machinery (the branch's live examples through the wave), no port-state seed retains an erroring
+// reference to prove it live — pin the branch in source so it cannot be quietly dropped.
+const pixSrc = readFileSync(path.join(here, "harness-reference-pixel-parity.mjs"), "utf8");
+const parSrc = readFileSync(path.join(here, "harness-reference-parity.mjs"), "utf8");
+ok("SOURCE-PIN: the errored-reference refusal branch survives (ERROR_PAGE_RE gate + the 'reference is an ERROR' refusal reason)", /reference is an ERROR/i.test(pixSrc) && /reference_errored/.test(pixSrc) && /ERROR_PAGE_RE\s*=/.test(parSrc) && /failed to load|an error occurred/.test(String((parSrc.match(/ERROR_PAGE_RE\s*=\s*\/(.*?)\//) || [""])[0])));
 
 // ---- C. MATRIX contract ------------------------------------------------------------------------------
 const check = spawnSync("node", [path.join(here, "build-app-parity-matrix.mjs"), "--check"], { encoding: "utf8" });

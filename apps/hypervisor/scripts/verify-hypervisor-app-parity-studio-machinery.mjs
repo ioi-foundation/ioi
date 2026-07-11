@@ -1,29 +1,31 @@
 #!/usr/bin/env node
-// SUBSTRATE-TRUTH verifier (reclassified substrate_bound by the #31 Reference-UX-Port reset — checks DAEMON TRUTH, NOT reference UX parity) — Studio · Machinery done-bar (machinery seed only).
+// PIXEL-CERTIFIED PARITY verifier — Studio · Machinery done-bar (#50, machinery seed only).
 //
-// The parity phase's tenth surface, and a deliberate INERT-CONTRACT cut (definition-only). The
-// reference capture (/__apps/machinery) is the familiar process/state-machine graph builder; the
-// IOI-owned /__ioi/studio/machinery renders the SAME grammar as a READ-ONLY view over a NEW inert
-// daemon state-machine DEFINITION plane — declared states (initial/normal/final), transitions
-// (from→to, event, guard), guards, declared inputs/outputs, owners, health (empty|incomplete|ready),
-// and edit history. Nothing runs: no run/step/execute, no current-state, no scheduling, no binding to
-// Automations/Missions/ODK — that is a later authority-crossing cut.
+// The NINTH faithful port and the SECOND from the origin-alignment queue. The #44 sweep proved the
+// machinery reference data-bearing on the capture-origin lane (localhost:9225/workspace/machinery-app/)
+// while the /__apps/machinery proxy lane fails its Marketplace-examples fetch; #50 stamps
+// reference_url_override onto the honest lane, REBUILDS /__ioi/studio/machinery in place as the
+// faithful light Machinery landing shell, and certifies shell-pixel parity against it.
 //
-// SCOPE (tight, by direction): only `machinery` binds; `workshop` + `module` stay reference_capture.
-//
-// Guard: exercise the daemon contract's fail-closed write lanes with malformed fixtures, prove there
-// is NO execution surface, and cross-check the read-only Studio surface against a real definition.
+// THE SEMANTIC BOUNDARY IS THE POINT OF THIS VERIFIER: the certified shell is a LANDING over the
+// #30 INERT state-machine DEFINITION plane — definitions, never execution. Every pre-port guard is
+// KEPT: the 16 fail-closed write lanes, health honesty (empty|incomplete|ready incl. self-loop +
+// reachability), the no-run/step-endpoint proof, and honest empty/incomplete rendering. On top,
+// the pixel-wave contract: origin-aligned valid reference, proxy blocker documented, REAL committed
+// NON-pinned certification, landmarks, census floor (>= 9), and NO body pixel claim.
 //
 // Usage: node apps/hypervisor/scripts/verify-hypervisor-app-parity-studio-machinery.mjs
 // Exit 2 = BLOCKED.
 
 import { spawnSync } from "node:child_process";
+import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const SERVE = (process.env.IOI_HYPERVISOR_SERVE_URL || "http://127.0.0.1:4173").replace(/\/$/, "");
 const DAEMON = (process.env.IOI_HYPERVISOR_DAEMON_URL || "http://127.0.0.1:8765").replace(/\/$/, "");
 const here = path.dirname(fileURLToPath(import.meta.url));
+const appRoot = path.resolve(here, "..");
 
 const results = [];
 const ok = (name, cond, detail) => { results.push({ name, pass: !!cond, detail: detail || "" }); };
@@ -39,18 +41,37 @@ async function run() {
   const cleanup = [];
   const track = (id) => { if (id) cleanup.push(id); };
 
-  // 0. Matrix current + honest.
+  // 0. Matrix current + honest: daemon_wired, origin-aligned, landmark-pinned, census floor.
   const check = spawnSync("node", [path.join(here, "build-app-parity-matrix.mjs"), "--check"], { encoding: "utf8" });
   ok("parity matrix is current (regenerated == committed)", check.status === 0, (check.stderr || "").trim().slice(0, 80));
-  const matrix = JSON.parse(spawnSync("node", ["-e", `import(${JSON.stringify(path.join(here, "..", "harvest-app-parity-matrix.json"))}, { with: { type: "json" } }).then(m => console.log(JSON.stringify(m.default)))`], { encoding: "utf8" }).stdout || "{}");
+  const matrix = JSON.parse(readFileSync(path.join(appRoot, "harvest-app-parity-matrix.json"), "utf8"));
   const bySlug = Object.fromEntries((matrix.seeds || []).map((s) => [s.slug, s]));
-  ok("matrix binds machinery as substrate_bound → /__ioi/studio/machinery (Studio)", bySlug.machinery?.parity_class === "substrate_bound" && bySlug.machinery?.substrate_surface === "/__ioi/studio/machinery" && bySlug.machinery?.surface_name === "Studio");
+  const row = bySlug.machinery;
+  ok("matrix: machinery is daemon_wired at /__ioi/studio/machinery (Studio) with Machinery-IA landmarks", row && row.parity_class === "daemon_wired" && row.candidate_surface === "/__ioi/studio/machinery" && row.surface_name === "Studio" && Array.isArray(row.reference_landmarks) && row.reference_landmarks.length >= 8, row ? `class=${row.parity_class}` : "row missing");
+  ok("matrix: the reference is ORIGIN-ALIGNED (reference_url_override → localhost:9225/workspace/machinery-app/)", row && row.reference_url_override === "http://localhost:9225/workspace/machinery-app/");
   ok("matrix keeps workshop + module reference_capture (NOT over-claimed in this cut)", bySlug.workshop?.parity_class === "reference_capture" && bySlug.module?.parity_class === "reference_capture");
-  ok("no 'covered' anywhere; prior reclassified surfaces still bound (substrate_bound|daemon_wired) (9)", !(matrix.seeds || []).some((s) => s.parity_class === "covered") && ["pipeline", "lineage", "vertex", "jobs", "incidents", "evalsuites", "designer", "approvals", "models"].every((k) => ["substrate_bound", "daemon_wired", "reference_ported", "reference_port_pending"].includes(bySlug[k]?.parity_class)));
+  ok("the estate census accepts machinery among the certified daemon_wired surfaces (>= 9 since #50); reference_capture stays the honest majority", (matrix.by_parity_class?.daemon_wired || 0) >= 9 && (matrix.by_parity_class?.reference_capture || 0) >= 20, JSON.stringify(matrix.by_parity_class));
 
-  // 1. Reference baseline.
+  // 0b. Shell-pixel certification is REAL, committed, non-pinned, SHELL-scoped.
+  let cert = null;
+  try { cert = JSON.parse(readFileSync(path.join(appRoot, row.shell_pixel_certification_artifact), "utf8")); } catch { /* */ }
+  ok("matrix: machinery is shell_pixel_certified with a committed evidence pointer, still daemon_wired", row && row.shell_pixel_certified === true && row.shell_pixel_certification_artifact === "pixel-certifications/machinery.json" && row.parity_class === "daemon_wired");
+  ok("the committed certification is REAL: machinery slug, certified, NON-pinned, both desktop viewports certified, mobile honestly not-supported", cert && cert.schema === "ioi.hypervisor.shell-pixel-certification.v1" && cert.slug === "machinery" && cert.shell_pixel_certified === true && cert.viewports_pinned === false && (cert.viewports || []).length === 2 && cert.viewports.every((v) => v.certified === true) && /not_supported/.test(cert.mobile), cert ? cert.viewports.map((v) => `${v.viewport}: dilated ${v.metrics.shell_diff_dilated_pct}% raw ${v.metrics.shell_diff_raw_pct}%`).join(" | ") : "cert missing");
+  ok("the certification passed the visual gates on BOTH viewports (theme + structure + landmarks 10/10, both sides valid, against the ORIGIN reference)", cert && cert.reference_url === "http://localhost:9225/workspace/machinery-app/" && cert.viewports.every((v) => v.gates && v.gates.theme_match && v.gates.structural_parity && !v.gates.reference_errored && !v.gates.ioi_errored && v.gates.landmark_covered === v.gates.landmark_applicable));
+  ok("NO full-body pixel claim: the certification is explicitly SHELL-scoped (machine rows are the masked live data, verified semantically below)", cert && /SHELL/i.test(cert.note || "") && /body/i.test(cert.note || ""));
+
+  // 0c. Sweep contract: data_clean on the aligned lane; the proxy blocker stays documented.
+  let sweep = null;
+  try { sweep = JSON.parse(readFileSync(path.join(appRoot, "reference-clean-sweep.json"), "utf8")); } catch { /* */ }
+  const sw = sweep && (sweep.seeds || []).find((s) => s.slug === "machinery");
+  ok("clean sweep: machinery classifies data_clean on the aligned (origin/override) lane, with real data evidence", sw && sw.clean_state === "data_clean" && ["origin", "override"].includes(sw.lane_used) && (sw.data_evidence?.table_rows > 0 || sw.data_evidence?.cards > 0), sw ? `${sw.clean_state} via ${sw.lane_used}` : "sweep row missing");
+  ok("clean sweep: the proxy lane stays recorded (the Marketplace-examples failure lane is evidence, not hidden)", sw && (sw.lanes_summary || []).some((l) => l.lane === "proxy"), sw ? JSON.stringify((sw.lanes_summary || []).map((l) => l.lane)) : "");
+
+  // 1. Reference lanes: the ORIGIN lane renders the data-bearing landing; the proxy lane still serves.
+  const origin = await page("http://localhost:9225/workspace/machinery-app/");
+  ok("origin-aligned reference renders the Machinery landing (valid, data-bearing)", origin.status === 200 && /Machinery/.test(origin.text));
   const ref = await page(`${SERVE}/__apps/machinery`);
-  ok("reference baseline /__apps/machinery boots the process/state-machine grammar", ref.status === 200 && /machinery|state machine|process|workflow/i.test(ref.text));
+  ok("the /__apps/machinery proxy lane still serves (kept as the familiar baseline; documented insufficient — never silently removed)", ref.status === 200 && /machinery|state machine|process|workflow/i.test(ref.text));
 
   // 2. INERT CONTRACT — fail-closed write lanes (each malformed definition rejected with a typed code).
   const C = (body) => jd("POST", "/v1/hypervisor/state-machines", body);
@@ -108,27 +129,35 @@ async function run() {
   const stepAttempt = await jd("POST", `/v1/hypervisor/state-machines/${ready?.id}/step`, {});
   ok("there is NO run/step endpoint (a definition never executes here)", runAttempt.status >= 400 && stepAttempt.status >= 400, `run ${runAttempt.status} · step ${stepAttempt.status}`);
 
-  // 5. IOI surface = read-only definition view over real truth (cross-checked).
+  // 5. The PORT = the faithful landing shell over real definition truth (cross-checked).
   const mp = await page(`${SERVE}/__ioi/studio/machinery?machine=${encodeURIComponent(ready?.id)}`);
   const t = mp.text;
-  ok("IOI /__ioi/studio/machinery renders the definition grammar (title + states + transitions panes)", mp.status === 200 && /<h1[^>]*>Machinery/.test(t) && /id="machinery-states"/.test(t) && /id="machinery-transitions"/.test(t));
-  ok("the real machine renders its states with kinds (initial/final), transitions (from→to), guard, and ready health", t.includes("parity-ready") && t.includes(">new<") && />initial</.test(t) && />final</.test(t) && t.includes(">go<") && t.includes("Guard One") && />ready</.test(t));
-  ok("the surface is READ-ONLY with NO run affordance (no run/step form, explicit 'no run affordance')", /no run affordance/.test(t) && !/action="[^"]*\/(run|step|execute)"/.test(t) && !/current[_ ]state/i.test(t));
+  ok("the port renders the faithful Machinery landing shell (header + hero + View row + table + examples band + truth band)", mp.status === 200 && /class="mch-htitle">Machinery</.test(t) && /Build, manage and monitor your business processes/.test(t) && /class="mch-viewrow"/.test(t) && /class="mch-thead"/.test(t) && /Explore reference examples/.test(t) && /id="machinery-truth"/.test(t) && /id="machinery-states"/.test(t) && /id="machinery-transitions"/.test(t));
+  ok("all matrix reference landmarks render on the port", (row.reference_landmarks || []).every((l) => t.toLowerCase().includes(String(l).toLowerCase())), (row.reference_landmarks || []).filter((l) => !t.toLowerCase().includes(String(l).toLowerCase())).join(" · ") || "10/10");
+  ok("the fixture machine renders as a live FILE ROW (name + ref + declared census + health/status in the row path)", /class="mch-row"/.test(t) && t.includes("parity-ready") && t.includes(ready.ref) && /states · \d+ transitions · \d+ guards · ready · draft/.test(t));
+  ok("live cross-check: rendered machine rows equal the daemon records (count + a real ref renders)", (() => { const rows = (t.match(/class="mch-row"/g) || []).length; return rows > 0 && t.includes(ready.ref); })(), `${(t.match(/class="mch-row"/g) || []).length} rows rendered`);
+  ok("CREATOR renders the DECLARED owner_refs[0] honestly (a declaration, not an execution principal); edit/view principals stay em-dashes naming the gap", t.includes("agent://ops") && /No edit principal is recorded on the definition history \(named gap\)/.test(t) && /View tracking is not recorded on the state-machine plane \(named gap\)/.test(t));
+  ok("the real machine renders its states with kinds (initial/final), transitions (from→to + event + guard), guards, I/O and owners from real records", t.includes(">new<") && />initial</.test(t) && />final</.test(t) && t.includes(">go<") && t.includes("new → mid") && t.includes("Guard One") && t.includes("in1") && t.includes("out1") && /health ready/.test(t));
+  ok("the daemon's own authority_note renders VERBATIM (inert definition — no run/step/execution, no scheduling, no automation binding)", /inert definition — no run\/step\/execution, no scheduling, no automation binding/.test(t));
 
-  // 6. Honest empty/incomplete — no fabrication.
+  // 6. THE HARD BOUNDARY — definitions only, no execution semantics anywhere on the surface.
+  ok("the surface is READ-ONLY with NO execution affordance (no run/step/execute form, no current-state value, definitions-not-processes named)", !/action="[^"]*\/(run|step|execute)"/.test(t) && /definitions, not running processes/.test(t) && !/current_state/.test(t));
+  ok("named gaps: run/step/execute · scheduling · Automations/Missions/ODK binding · simulation · versioning · graph authoring", /run\/step\/execute/.test(t) && /scheduling/.test(t) && /Automations\/Missions\/ODK binding/.test(t) && /simulation/.test(t) && /versioning/.test(t) && /Graph authoring is a reference-only lane/.test(t));
+  ok("unsupported controls are DISABLED IN PLACE with named-gap titles (store dropdown · New graph · Help · Favorites · example-card overlays)", (t.match(/aria-disabled="true"/g) || []).length >= 6 && /Recent installations — marketplace install lanes/.test(t) && /Graph authoring is a reference-only lane/.test(t) && /Favorites are not recorded on the state-machine plane/.test(t) && /Marketplace example installs are a reference-only lane/.test(t), `${(t.match(/aria-disabled="true"/g) || []).length} disabled controls`);
+  ok("the examples band is declared verbatim capture chrome (vendor examples, never estate process truth)", /verbatim capture chrome/.test(t) && /not estate process truth/.test(t));
+
+  // 7. Honest empty/incomplete — no fabrication.
   const et = (await page(`${SERVE}/__ioi/studio/machinery?machine=${encodeURIComponent(empty?.id)}`)).text;
-  ok("honest empty: a machine with no states renders 'no states' (health empty), not invented states", />empty</.test(et) && /no states/i.test(et));
+  ok("honest empty: a machine with no states renders 'no states' (health empty), not invented states", /health empty/.test(et) && /no states/i.test(et));
   const it = (await page(`${SERVE}/__ioi/studio/machinery?machine=${encodeURIComponent(incomplete?.id)}`)).text;
-  ok("honest incomplete: an initial-only machine shows incomplete + no transitions (no fabrication)", />incomplete</.test(it) && /No transitions declared yet/.test(it));
+  ok("honest incomplete: an initial-only machine shows incomplete + no transitions (no fabrication)", /health incomplete/.test(it) && /No transitions declared yet/.test(it));
 
-  // 7. Named gaps + siblings reference-only + brand-clean.
-  ok("named gaps: execution / stepping / scheduling / Automations-Missions-ODK binding / canvas / simulation", /execution \/ stepping/.test(t) && /scheduling/.test(t) && /Automations \/ Missions \/ ODK/.test(t) && /graph authoring/.test(t) && /simulation/.test(t));
-  ok("sibling Studio seeds named reference-only (workshop + module builders)", t.includes("/__apps/workshop") && t.includes("/__apps/module"));
-  ok("reference capture linked as secondary; IOI surface brand-clean (no Palantir)", t.includes("/__apps/machinery") && !/\bPalantir\b/.test(t));
-
-  // 8. Owner discoverability — Agent Studio links Machinery, and Machinery links back.
+  // 8. Discoverability + brand.
+  ok("sibling Studio seeds named reference-only (workshop + module builders) + Designer linked first-class", t.includes("/__apps/workshop") && t.includes("/__apps/module") && t.includes("/__ioi/studio/designer"));
   const asPage = await page(`${SERVE}/__ioi/agent-studio`);
   ok("owner discoverability: Agent Studio links /__ioi/studio/machinery, and Machinery links back to the owner", asPage.status === 200 && asPage.text.includes("/__ioi/studio/machinery") && t.includes("/__ioi/agent-studio"));
+  ok("the origin-aligned reference + the insufficient proxy lane are BOTH linked and explained on the surface", t.includes("http://localhost:9225/workspace/machinery-app/") && t.includes("/__apps/machinery") && /Marketplace-examples fetch fails/.test(t));
+  ok("IOI surface brand-clean (no Palantir)", !/\bPalantir\b/.test(t));
 
   // 9. Cleanup.
   for (const id of cleanup) await jd("DELETE", `/v1/hypervisor/state-machines/${id}`);
@@ -138,6 +167,6 @@ run().then(() => {
   let fail = 0;
   for (const r of results) { console.log(`  ${r.pass ? "PASS" : "FAIL"}  ${r.name}${r.detail ? `  (${r.detail})` : ""}`); if (!r.pass) fail++; }
   console.log(`\n${results.length - fail}/${results.length} passed`);
-  console.log(`substrate-truth-studio-machinery readiness: ${fail ? "FAIL" : "OK"}`);
+  console.log(`app-parity-studio-machinery readiness: ${fail ? "FAIL" : "OK"}`);
   process.exit(fail ? 1 : 0);
 }).catch((e) => { console.error("verifier crashed:", e); process.exit(1); });

@@ -29,6 +29,7 @@ import { projectRunTimeline } from "./ioi-run-timeline.mjs";
 import { bpIcon, ONTOLOGY_APP_ICON_URI, APPROVALS_APP_ICON_URI, PIPELINE_APP_ICON_URI, ISSUES_APP_ICON_URI, EXPLORER_APP_ICON_URI, MODELS_APP_ICON_URI, AIP_GRADIENT_SVG_RAIL, AIP_GRADIENT_SVG_TOOLBAR } from "./bp-icons.mjs";
 import { MARKETPLACE_APP_ICON_URI, MK_GLOBE_URI, MK_HERO_URI, MK_STORE_ICON_URI, MK_PACKAGE_URI, MK_WIZ1_URI, MK_ARROW_URI, MK_WIZ2_URI, MK_WIZ3_URI } from "./marketplace-assets.mjs";
 import { DSG_APP_TILE_URI, DSG_ROW_DOC_URI, DSG_HERO_URI, DSG_AIP_ICON_URI, DSG_GALLERY_STRIP_URI } from "./designer-assets.mjs";
+import { MCH_APP_TILE_URI, MCH_STORE_ICON_URI, MCH_HERO_URI, MCH_EXAMPLES_STRIP_URI } from "./machinery-assets.mjs";
 import { mintApprovalGrant } from "../../../scripts/lib/mint-approval-grant.mjs";
 
 // Build the current conversation entries for a run, in the exact NDJSON shape the SPA's V1 pane
@@ -3581,34 +3582,65 @@ function renderDesignerPort(lists, selectedId) {
     <body><div class="dsg-shell">${globalRail}<div class="dsg-main">${header}<div class="dsg-body">${hero}<main class="dsg-content">${aipCard}${gallery}${viewRow}${table}${truth}</main></div></div></div></body></html>`;
 }
 
-// ============================ STUDIO · MACHINERY (process/state-machine DEFINITIONS, read-only)
-// The Reference UX Port program (post-#31 reset), substrate for the Studio `machinery` seed. The reference
-// capture (/__apps/machinery, /workspace/machinery-app/) is the familiar process/state-machine graph
-// builder; this IOI-owned surface renders the SAME grammar as a READ-ONLY view over REAL daemon
-// state-machine DEFINITIONS — declared states (initial/normal/final), transitions (from→to, event,
-// guard), guards, declared inputs/outputs, owners, health (empty|incomplete|ready), and the edit
-// history. Nothing runs: there is no run/step/execute affordance, no current-state, no scheduling —
-// a running instance + automation/mission/ODK binding is a later authority-crossing cut. Owner:
-// Studio (/__ioi/agent-studio); dedicated /__ioi/studio/machinery surface (no route rename).
-function renderStudioMachinery(machines, selectedId) {
+// ============================ STUDIO · MACHINERY (process/state-machine DEFINITIONS — landing port, #50)
+// The Reference UX Port program — the SECOND origin-alignment-queue port (after #49 designer).
+// The reference is the origin-aligned Machinery landing capture
+// (http://localhost:9225/workspace/machinery-app/ — the /__apps/machinery proxy lane fails with
+// "Failed to load Machinery Marketplace examples.", documented by the #44 sweep). This IOI-owned
+// surface reproduces the visible landing shell PIXEL-FAITHFULLY — dark global rail, app header
+// (machinery tile · Recent-installations store dropdown · New graph · Help as named gaps), hero
+// band + verbatim illustration under the reference's own 1040px white-gradient content overlay,
+// the View row, the viewport-height-ruled Recents table, and the "Explore reference examples"
+// band (a VERBATIM capture strip: the reference's own marketplace example cards — vendor chrome,
+// NOT estate data and NOT an execution claim) — while the DATA region (table rows) renders REAL
+// daemon state-machine DEFINITIONS: one row per machine (name · ref · created/updated dates ·
+// declared states/transitions/guards census · health/status), owner_refs rendered honestly when
+// present and em-dashes where the plane records no principal/view tracking. Below the fold the
+// full DEFINITION truth renders with real records (states initial/normal/final · transitions
+// from→to/event/guard · guards · declared inputs/outputs · owners · history · health).
+// THE SEMANTIC BOUNDARY IS HARD: definitions, NEVER execution — no run/step/execute, no
+// current_state, no scheduling, no Automations/Missions/ODK binding; the daemon's own
+// authority_note renders verbatim. Owner: Studio (/__ioi/agent-studio); no route rename.
+function renderMachineryPort(machines, selectedId) {
+  const esc = CX_ESC;
   const enc = (s) => encodeURIComponent(String(s || ""));
   const list = Array.isArray(machines) ? machines : [];
-  const sub = (txt) => `<span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">${txt}</span>`;
-  const healthPill = (h) => `<span class="pill ${h === "ready" ? "ok" : h === "incomplete" ? "warn" : "muted"}" style="margin:0">${CX_ESC(h || "empty")}</span>`;
   const selected = list.find((m) => m.id === selectedId) || list[0] || null;
 
-  const head = `<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap"><div><h1 style="margin:0">Machinery</h1><p class="sub" style="margin:4px 0 0">Process &amp; state-machine definitions — declared states, transitions, and guards as a read-only grammar over IOI daemon truth. These are <b>definitions, not running processes</b>: nothing here executes, steps, or schedules. Reference grammar: <a href="/__apps/machinery">Machinery ↗</a> (secondary capture). Owner: <a href="/__ioi/agent-studio">Agent Studio</a>.</p></div><div class="row" style="gap:8px"><a class="act ghost" href="/__ioi/studio/designer">Designer</a></div></div>`;
+  const fdate = (iso) => {
+    const d = new Date(iso || 0);
+    return isNaN(d) ? "—" : d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  };
+  const censusOf = (m) => ({
+    states: Array.isArray(m.states) ? m.states.length : 0,
+    transitions: Array.isArray(m.transitions) ? m.transitions.length : 0,
+    guards: Array.isArray(m.guards) ? m.guards.length : 0,
+  });
 
-  if (!list.length) {
-    return automationsShell("Machinery", head + omBoundaryNote(`<b>No state machines defined yet.</b> This plane holds inert process/state-machine <b>definitions</b> (states · transitions · guards · declared inputs/outputs · owners) — never a running instance. Definitions are created against the daemon state-machine plane; this surface renders them read-only. Nothing is fabricated.`));
-  }
+  // Recents = real state-machine DEFINITIONS, newest-updated first. CREATOR renders the declared
+  // owner_refs[0] when the record carries one — otherwise an honest em-dash; LAST EDITED BY /
+  // LAST VIEWED are em-dashes (the plane records no principal on history and no view tracking).
+  const recent = [...list].sort((a, b) => String(b.updated_at || "").localeCompare(String(a.updated_at || "")));
+  const gapDash = (why) => `<span class="mch-dash" title="${esc(why)}">—</span>`;
+  const rowsHtml = recent.length ? recent.map((m) => {
+    const c = censusOf(m);
+    const owner = (Array.isArray(m.owner_refs) && m.owner_refs[0]) || "";
+    return `<a class="mch-row" href="/__ioi/studio/machinery?machine=${enc(m.id)}" title="Select this definition — its states/transitions/guards render below (definitions only, nothing executes)">
+      <span class="mch-cell name">
+        <span class="mch-rowico" aria-hidden="true"></span>
+        <span class="mch-rowdata">
+          <span class="mch-rowname">${esc(m.name || m.id)}${m.id === (selected && selected.id) ? `<span class="mch-selpill">selected</span>` : ""}</span>
+          <span class="mch-rowpath">${esc(m.ref)} · created ${fdate(m.created_at)} · updated ${fdate(m.updated_at)} · ${c.states} state${c.states === 1 ? "" : "s"} · ${c.transitions} transition${c.transitions === 1 ? "" : "s"} · ${c.guards} guard${c.guards === 1 ? "" : "s"} · ${esc(m.health || "empty")} · ${esc(m.status || "draft")}</span>
+        </span>
+      </span>
+      <span class="mch-cell">${owner ? `<span title="declared owner_refs[0] — a declaration on the definition, not an execution principal">${esc(owner)}</span>` : gapDash("No principal is recorded on the state-machine plane (named gap)")}</span>
+      <span class="mch-cell">${gapDash("No edit principal is recorded on the definition history (named gap)")}</span>
+      <span class="mch-cell">${gapDash("View tracking is not recorded on the state-machine plane (named gap)")}</span>
+    </a>`;
+  }).join("") : `<div class="mch-empty">No state machines defined yet — this plane holds inert process/state-machine <b>definitions</b> (states · transitions · guards · declared inputs/outputs · owners), never a running instance. Definitions are created against the daemon state-machine plane; nothing is fabricated here.</div>`;
 
-  const switcher = `<div class="chips" style="margin:0 0 14px">${list.map((m) => {
-    const on = selected && m.id === selected.id;
-    return `<a href="/__ioi/studio/machinery?machine=${enc(m.id)}" class="pill ${on ? "ok" : "muted"}" style="text-decoration:none;margin:0">${CX_ESC(m.name || m.id)} ${healthPill(m.health)}</a>`;
-  }).join(" ")}</div>`;
-
-  const m = selected;
+  // ---- Below-the-fold: the full DEFINITION truth for the selected machine (real records only).
+  const m = selected || {};
   const states = Array.isArray(m.states) ? m.states : [];
   const transitions = Array.isArray(m.transitions) ? m.transitions : [];
   const guards = Array.isArray(m.guards) ? m.guards : [];
@@ -3617,37 +3649,158 @@ function renderStudioMachinery(machines, selectedId) {
   const owners = Array.isArray(m.owner_refs) ? m.owner_refs : [];
   const history = Array.isArray(m.history) ? m.history : [];
   const guardName = (id) => { const g = guards.find((x) => x.id === id); return g ? (g.name || g.id) : id; };
+  const kindPill = (k) => `<span class="mch-kpill${k === "initial" ? " ini" : k === "final" ? " fin" : ""}">${esc(k || "normal")}</span>`;
 
-  const banner = `<div class="chips" style="margin:0 0 12px"><span class="pill muted">${CX_ESC(m.status || "draft")}</span> ${healthPill(m.health)} <span class="sub" style="margin:0"><code style="font-size:10.5px">${CX_ESC(m.ref || "")}</code> · ${states.length} state${states.length === 1 ? "" : "s"} · ${transitions.length} transition${transitions.length === 1 ? "" : "s"} · ${guards.length} guard${guards.length === 1 ? "" : "s"}</span></div>`;
+  const switcher = list.length > 1 ? `<div class="mch-switch">${list.map((x) => `<a class="mch-schip${selected && x.id === selected.id ? " on" : ""}" href="/__ioi/studio/machinery?machine=${enc(x.id)}">${esc(x.name || x.id)} · ${esc(x.health || "empty")}</a>`).join("")}</div>` : "";
 
-  const kindPill = (k) => k === "initial" ? `<span class="pill ok" style="margin:0">initial</span>` : k === "final" ? `<span class="pill muted" style="margin:0">final</span>` : `<span class="pill muted" style="margin:0">normal</span>`;
-  const statesPane = `<h2 id="machinery-states">States ${sub(`— ${states.length}`)}</h2>`
-    + (states.length
-      ? `<table><thead><tr><th>State</th><th>Kind</th></tr></thead><tbody>${states.map((s) => `<tr><td><b>${CX_ESC(s.name || s.id)}</b> <code style="font-size:10px;opacity:.7">${CX_ESC(s.id)}</code></td><td>${kindPill(s.kind)}</td></tr>`).join("")}</tbody></table>`
-      : omBoundaryNote(`This machine declares <b>no states</b> yet (health <code>empty</code>) — nothing is invented.`));
+  const truth = selected ? `<section class="mch-truth" id="machinery-truth">
+    <h2 class="mch-trutht">Definition truth — <b>${esc(m.name || m.id)}</b> <span class="mch-truthsub">${esc(m.status || "draft")} · health ${esc(m.health || "empty")} · <code class="mch-ref-inline">${esc(m.ref || "")}</code> · ${states.length} state${states.length === 1 ? "" : "s"} · ${transitions.length} transition${transitions.length === 1 ? "" : "s"} · ${guards.length} guard${guards.length === 1 ? "" : "s"} — real records from the daemon state-machine plane, nothing invented</span></h2>
+    <p class="mch-authnote">${esc(m.authority_note || "inert definition — no run/step/execution, no scheduling, no automation binding")}</p>
+    ${switcher}
+    <div class="mch-truthcols">
+      <div class="mch-truthcol" id="machinery-states"><h3>States <span class="mch-meta">(${states.length})</span></h3>
+        ${states.length ? `<ul>${states.map((s) => `<li class="mch-truthitem"><b>${esc(s.name || s.id)}</b> ${kindPill(s.kind)}<code class="mch-refc">${esc(s.id)}</code></li>`).join("")}</ul>`
+          : `<p class="mch-gapnote">This machine declares <b>no states</b> yet (health <code>empty</code>) — nothing is invented.</p>`}
+      </div>
+      <div class="mch-truthcol" id="machinery-transitions"><h3>Transitions <span class="mch-meta">(${transitions.length})</span></h3>
+        ${transitions.length ? `<ul>${transitions.map((tr) => `<li class="mch-truthitem"><b>${esc(tr.from)} → ${esc(tr.to)}</b> <span class="mch-meta">${tr.event ? `event ${esc(tr.event)}` : "no event"}${tr.guard_ref ? ` · guard ${esc(guardName(tr.guard_ref))}` : ""}</span><code class="mch-refc">${esc(tr.id)}</code></li>`).join("")}</ul>`
+          : `<p class="mch-gapnote">No transitions declared yet — an under-declared definition stays honestly incomplete.</p>`}
+      </div>
+      <div class="mch-truthcol" id="machinery-guards"><h3>Guards · I/O · Owners <span class="mch-meta">(${guards.length} guard · ${inputs.length} in · ${outputs.length} out · ${owners.length} owner)</span></h3>
+        ${guards.length || inputs.length || outputs.length || owners.length
+          ? `<ul>${guards.map((g) => `<li class="mch-truthitem"><b>${esc(g.name || g.id)}</b> <span class="mch-meta">guard${g.expression ? ` · ${esc(g.expression)}` : ""}</span><code class="mch-refc">${esc(g.id)}</code></li>`).join("")}${inputs.map((i) => `<li class="mch-truthitem"><b>${esc(i.name || i.id || String(i))}</b> <span class="mch-meta">declared input</span></li>`).join("")}${outputs.map((o) => `<li class="mch-truthitem"><b>${esc(o.name || o.id || String(o))}</b> <span class="mch-meta">declared output</span></li>`).join("")}${owners.map((o) => `<li class="mch-truthitem"><b>${esc(o)}</b> <span class="mch-meta">declared owner ref</span></li>`).join("")}</ul>`
+          : `<p class="mch-gapnote">No guards, declared inputs/outputs, or owner refs on this definition — honest empty, nothing fabricated.</p>`}
+        ${history.length ? `<p class="mch-histnote">History: ${history.length} edit record${history.length === 1 ? "" : "s"} on the definition${history[0] && (history[0].at || history[0].note) ? ` (latest: ${esc(history[0].note || history[0].at || "")})` : ""}.</p>` : ""}
+      </div>
+    </div>
+    <p class="mch-foot">These are <b>definitions, not running processes</b> — nothing here executes, steps, schedules, or carries a current state; run/step/execute, scheduling, Automations/Missions/ODK binding, simulation, and versioning are <b>named gaps</b> (a later authority-crossing cut), and the marketplace example band above is the reference's own example content (verbatim capture chrome), not estate process truth. Unsupported reference lanes — graph authoring (New graph), the Recent-installations store menu, favorites, marketplace example installs — are disabled in place, never hidden. Owner: <a href="/__ioi/agent-studio">Agent Studio</a> · siblings: <a href="/__ioi/studio/designer">Solution Designer</a> · reference-only: <a href="/__apps/workshop">workshop</a> and <a href="/__apps/module">module</a> builders. Reference: the origin-aligned <a href="http://localhost:9225/workspace/machinery-app/" rel="noopener">Machinery capture</a> — the <a href="/__apps/machinery">/__apps/machinery proxy lane ↗</a> is documented insufficient (its Marketplace-examples fetch fails on the proxy origin; #44 sweep evidence).</p>
+  </section>` : `<section class="mch-truth" id="machinery-truth"><p class="mch-gapnote">No state machines defined yet — the plane holds inert <b>definitions</b> only; nothing executes and nothing is fabricated. Owner: <a href="/__ioi/agent-studio">Agent Studio</a> · sibling: <a href="/__ioi/studio/designer">Solution Designer</a> · reference: <a href="/__apps/machinery">/__apps/machinery ↗</a>.</p></section>`;
 
-  const transRows = transitions.map((tr) => `<tr><td><code style="font-size:10.5px">${CX_ESC(tr.id)}</code></td><td><code>${CX_ESC(tr.from)}</code> <span style="color:#5f626b">→</span> <code>${CX_ESC(tr.to)}</code></td><td>${tr.event ? CX_ESC(tr.event) : "<span class='sub' style='margin:0'>—</span>"}</td><td>${tr.guard_ref ? `<span class="pill muted" style="margin:0">${CX_ESC(guardName(tr.guard_ref))}</span>` : "<span class='sub' style='margin:0'>—</span>"}</td></tr>`).join("");
-  const transPane = `<h2 id="machinery-transitions">Transitions ${sub(`— ${transitions.length}`)}</h2>`
-    + (transitions.length
-      ? `<table><thead><tr><th>Id</th><th>From → To</th><th>Event</th><th>Guard</th></tr></thead><tbody>${transRows}</tbody></table>`
-      : omBoundaryNote(`No transitions declared yet — a machine with an initial state but no transition (and no final state) stays <code>incomplete</code>.`));
+  const globalRail = ioiGlobalRailHtml({ label: "Machinery", href: "/__ioi/studio/machinery", iconUri: MCH_APP_TILE_URI, railVariant: "rv-pipe rv-dsg", viewAll: true, star: false, badges: true, aipGradient: true, acctMuted: true });
 
-  const chipsPane = (label, arr, ic) => `<div class="chips" style="margin:0 0 6px"><span class="chiplabel">${CX_ESC(label)}</span>${arr.length ? arr.map((x) => `<span class="pill muted" style="margin:0">${ic} ${CX_ESC(typeof x === "string" ? x : (x.name || x.id))}</span>`).join(" ") : `<span class="sub" style="margin:0">none</span>`}</div>`;
-  const auxPane = `<h2 id="machinery-interface">Interface &amp; ownership</h2>`
-    + chipsPane("Guards", guards, "🛡")
-    + chipsPane("Inputs", inputs, "▸")
-    + chipsPane("Outputs", outputs, "▪")
-    + chipsPane("Owners", owners, "◎");
+  const header = `<header class="mch-header">
+    <span class="mch-hchip" aria-hidden="true"></span>
+    <h1 class="mch-htitle">Machinery</h1>
+    <div class="mch-hright">
+      <span class="mch-hbtn store gap" aria-disabled="true" title="Recent installations — marketplace install lanes are not bound to this surface (named gap)"><span class="mch-storeico" aria-hidden="true"></span>${bpIcon("caret-down")}</span>
+      <span class="mch-hbtn success gap" aria-disabled="true" title="Graph authoring is a reference-only lane — no process graph is authored, saved, or executed on this surface (named gap)">${bpIcon("plus")}<span>New graph</span></span>
+      <span class="mch-hbtn outlined gap" aria-disabled="true" title="Reference help lane (named gap)"><span>Help</span>${bpIcon("help")}</span>
+    </div>
+  </header>`;
 
-  const historyPane = history.length
-    ? `<h2 id="machinery-history">History ${sub(`— the definition's edit acts (${history.length})`)}</h2><dl class="grid">${history.slice().reverse().slice(0, 8).map((h) => `<dt>${CX_ESC(h.op || "")}</dt><dd>${CX_ESC(h.summary || "")}<br><span class="sub" style="margin:0">${CX_ESC(h.at || "")}</span></dd>`).join("")}</dl>`
-    : "";
+  const hero = `<section class="mch-hero">
+    <img class="mch-heroimg" src="${MCH_HERO_URI}" alt="" aria-hidden="true">
+    <div class="mch-heroct">
+      <h3 class="mch-h1">Machinery</h3>
+      <p class="mch-desc">Build, manage and monitor your business processes with precision. Streamline operations and drive efficiency through strategic automations.</p>
+    </div>
+  </section>`;
 
-  const gaps = omBoundaryNote(`This is a <b>read-only definition view</b> over real daemon state machines. There is deliberately <b>no run affordance</b>: execution / stepping a running instance, scheduling, and binding a machine to Automations / Missions / ODK are <b>named gaps</b> (a later authority-crossing cut), not hidden. In-canvas graph authoring (drag states/transitions), simulation, and versioning are also named gaps. Sibling Studio seeds stay reference-only: the <a href="/__apps/workshop">workshop</a> and <a href="/__apps/module">module</a> builders. The <a href="/__apps/machinery">Machinery reference capture ↗</a> is the familiar baseline, never a rebound surface.`);
+  const viewRow = `<div class="mch-viewrow">
+    <span class="mch-viewlbl">View</span>
+    <span class="mch-pill on">Recents</span>
+    <span class="mch-pill gap" aria-disabled="true" title="Favorites are not recorded on the state-machine plane (named gap)">Favorites</span>
+  </div>`;
 
-  return automationsShell("Machinery", head + switcher + banner + statesPane + transPane + auxPane + historyPane + gaps);
+  const table = `<div class="mch-table">
+    <div class="mch-thead"><span class="mch-th name">Files</span><span class="mch-th">Creator</span><span class="mch-th">Last edited by</span><span class="mch-th">Last viewed</span></div>
+    <div class="mch-rows">${rowsHtml}</div>
+  </div>`;
+
+  // The examples band is the reference's own marketplace example content — embedded VERBATIM from
+  // the capture (like the #49 template gallery). The card faces get transparent DISABLED controls:
+  // installing/opening marketplace examples is a named gap, and the cards are never estate data.
+  const examples = `<div class="mch-examples">
+    <h5 class="mch-exh">Explore reference examples</h5>
+    <div class="mch-exsub">Learn how to build industrial solutions using example workflows with Marketplace.</div>
+    <div class="mch-exstripwrap">
+      <img class="mch-exstrip" src="${MCH_EXAMPLES_STRIP_URI}" width="562" height="272" alt="Reference marketplace example-resource cards (verbatim capture chrome — vendor examples, not estate process truth)">
+      <span class="mch-excard c1 gap" aria-disabled="true" title="Marketplace example installs are a reference-only lane (named gap)"></span>
+      <span class="mch-excard c2 gap" aria-disabled="true" title="Marketplace example installs are a reference-only lane (named gap)"></span>
+    </div>
+  </div>`;
+
+  const css = `:root{color-scheme:light}*{box-sizing:border-box}
+    body{margin:0;background:#fff;color:#1c2127;font:14px/1.28581 Source-Sans-Pro,Helvetica,sans-serif}
+    a{color:#215db0;text-decoration:none}
+    .mch-shell{display:flex;height:100vh;width:100vw;overflow:hidden}
+    ${IOI_GRAIL_CSS}
+    .rv-dsg .og-gappico{background-color:rgba(45,114,210,.1)}
+    .rv-dsg .og-gsecrow{padding:30px 7px 5px 5px}
+    .rv-dsg .og-gitem.on{margin-right:-11px}
+    .mch-main{flex:1;min-width:0;display:flex;flex-direction:column;height:100vh}
+    .mch-header{flex:0 0 51px;display:flex;align-items:center;background:#fff;box-shadow:0 1px 0 0 #d3d8de;z-index:6}
+    .mch-hchip{width:50px;height:50px;flex:0 0 50px;background:rgba(20,126,179,.1) url('${MCH_APP_TILE_URI}') center/24px no-repeat;box-shadow:inset -1px 0 0 0 rgba(20,126,179,.25)}
+    .mch-htitle{font-size:16px;line-height:36px;font-weight:600;color:#404854;margin:0 0 0 12px;flex:0 0 auto}
+    .mch-hright{margin-left:auto;display:flex;align-items:flex-start;gap:10px;padding-right:20px}
+    .mch-hbtn{display:inline-flex;align-items:center;gap:8px;height:30px;margin-top:10px;padding:0 8px;border-radius:4px;font-size:14px;line-height:18px;cursor:default}
+    .mch-hbtn.store{gap:4px;padding:0 7px;background:#f7f8f8;box-shadow:inset 0 0 0 1px rgba(64,72,84,.33),0 1px 2px rgba(17,20,24,.1)}
+    .mch-hbtn.store svg{color:#5f6b7c}
+    .mch-storeico{width:16px;height:16px;flex:0 0 16px;background:url('${MCH_STORE_ICON_URI}') center/16px no-repeat}
+    .mch-hbtn.success{background:#238551;color:#fff;box-shadow:inset 0 0 0 1px rgba(17,20,24,.2),0 1px 2px rgba(17,20,24,.1)}
+    .mch-hbtn.success svg{color:#fff}
+    .mch-hbtn.outlined{border:1px solid rgba(95,107,124,.25);padding:0 8px;color:#1c2127}
+    .mch-hbtn.outlined span{line-height:16.1px}
+    .mch-hbtn.outlined svg{color:#5f6b7c}
+    .mch-body{flex:1 1 auto;min-width:0;overflow-y:auto;background:#f6f7f9}
+    .mch-content{max-width:1090px;margin:0 auto;padding:0 45px}
+    .mch-hero{position:relative;background:#fff;height:106px;box-shadow:0 1px 0 0 rgba(17,20,24,.15)}
+    .mch-heroct{position:relative;max-width:1040px;height:100%;margin:0 auto;padding:0 20px;background:linear-gradient(90deg,#fff 575px,rgba(255,255,255,0) 100%)}
+    .mch-heroimg{position:absolute;right:0;top:0;width:387.5px;height:106px}
+    .mch-h1{position:relative;font-size:22px;line-height:25px;font-weight:600;color:#1c2127;margin:0;padding-top:20px}
+    .mch-desc{position:relative;width:625px;font-size:14px;line-height:18.0013px;color:#5f6b7c;margin:6px 0 0}
+    .mch-viewrow{display:flex;align-items:center;margin-top:40px;height:30px}
+    .mch-viewlbl{font-size:14px;line-height:18px;color:#1c2127}
+    .mch-pill{display:inline-flex;align-items:center;height:30px;margin-left:10px;padding:6px 10px;border-radius:30px;font-size:14px;line-height:18px;cursor:default}
+    .mch-pill.on{background:rgba(45,114,210,.3);color:#184a90;font-weight:600}
+    .mch-pill.gap{background:rgba(143,153,168,.15);color:#1c2127}
+    .mch-table{margin-top:10px;height:max(360px,calc(100vh - 624px));overflow-y:auto;background:#fff;border-radius:4px;box-shadow:0 0 0 1px rgba(17,20,24,.15)}
+    .mch-thead{display:flex;height:30px;box-shadow:inset 0 -1px 0 #dcdcdd}
+    .mch-th{width:16.667%;padding:8px 0 0 11px;font-size:12px;line-height:15.43px;color:#5f6b7c;text-transform:uppercase}
+    .mch-th.name{width:50%;padding-left:20px}
+    .mch-row{display:flex;height:57px;box-shadow:inset 0 -1px 0 #dcdcdd;color:#1c2127}
+    .mch-cell{width:16.667%;padding:19.5px 0 0 11px;font-size:14px;line-height:18px}
+    .mch-cell.name{width:50%;padding:11px 0 0 20px;display:flex;align-items:flex-start}
+    .mch-rowico{width:16px;height:16px;flex:0 0 16px;margin-top:2px;background:url('${DSG_ROW_DOC_URI}') center/16px no-repeat}
+    .mch-rowdata{margin-left:7px;min-width:0;flex:1;padding-right:16px}
+    .mch-rowname{display:block;font-size:14px;line-height:18px;color:#1c2127;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .mch-selpill{display:inline-block;margin-left:8px;padding:0 6px;border-radius:9px;background:rgba(45,114,210,.15);color:#215db0;font-size:11px;line-height:16px;vertical-align:1px}
+    .mch-rowpath{display:block;font-size:12px;line-height:15.43px;color:#5f6b7c;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .mch-dash{color:#5f6b7c}
+    .mch-empty{padding:24px 20px;font-size:14px;color:#5f6b7c}
+    .mch-examples{margin-top:30px}
+    .mch-exh{font-size:16px;line-height:19px;font-weight:600;color:#1c2127;margin:0}
+    .mch-exsub{font-size:14px;line-height:18px;color:#1c2127;margin-top:12px}
+    .mch-exstripwrap{position:relative;margin-top:7px;width:562px}
+    .mch-exstrip{display:block;margin-left:-1px}
+    .mch-excard{position:absolute;top:1px;width:270px;height:270px;cursor:default}
+    .mch-excard.c1{left:0}.mch-excard.c2{left:290px}
+    .mch-truth{margin-top:26px;padding-bottom:40px}
+    .mch-trutht{font-size:18px;font-weight:600;color:#1c2127;margin:0 0 6px}
+    .mch-truthsub{font-size:13px;font-weight:400;color:#5f6b7c;margin-left:8px}
+    .mch-ref-inline{font-size:11px;color:#5f6b7c}
+    .mch-authnote{font-size:12px;color:#7b8494;margin:0 0 10px;font-style:italic}
+    .mch-switch{margin:0 0 12px;display:flex;gap:8px;flex-wrap:wrap}
+    .mch-schip{display:inline-flex;padding:3px 10px;border-radius:12px;background:rgba(143,153,168,.15);color:#1c2127;font-size:12px}
+    .mch-schip.on{background:rgba(45,114,210,.2);color:#184a90;font-weight:600}
+    .mch-truthcols{display:flex;gap:16px;align-items:flex-start}
+    .mch-truthcol{flex:1;min-width:0;background:#fff;border-radius:4px;box-shadow:0 0 0 1px rgba(17,20,24,.15);padding:14px 16px}
+    .mch-truthcol h3{font-size:14px;font-weight:600;margin:0 0 8px;color:#1c2127}
+    .mch-truthcol ul{list-style:none;margin:0;padding:0}
+    .mch-truthitem{padding:5px 0;border-bottom:1px solid #eef0f2;font-size:13px}
+    .mch-truthitem:last-child{border-bottom:0}
+    .mch-kpill{display:inline-block;margin-left:6px;padding:0 6px;border-radius:9px;background:rgba(143,153,168,.15);color:#1c2127;font-size:11px;line-height:16px}
+    .mch-kpill.ini{background:rgba(35,133,81,.15);color:#1c6e42}
+    .mch-kpill.fin{background:rgba(45,114,210,.15);color:#215db0}
+    .mch-meta{color:#5f6b7c;font-weight:400;font-size:12px}
+    .mch-refc{display:block;font-size:11px;color:#5f6b7c;margin-top:1px;word-break:break-all}
+    .mch-gapnote{font-size:13px;color:#5f6b7c;margin:4px 0}
+    .mch-histnote{font-size:12px;color:#7b8494;margin:8px 0 0}
+    .mch-foot{font-size:12px;line-height:1.6;color:#7b8494;margin-top:18px}`;
+
+  return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Machinery</title><style>${css}</style></head>
+    <body><div class="mch-shell">${globalRail}<div class="mch-main">${header}<div class="mch-body">${hero}<main class="mch-content">${viewRow}${table}${examples}${truth}</main></div></div></div></body></html>`;
 }
-
 function renderDataLineage(lists, selectedId) {
   const ontologies = Array.isArray(lists.ontologies) ? lists.ontologies : [];
   const allSets = Array.isArray(lists.materialized_sets) ? lists.materialized_sets : [];
@@ -8931,7 +9084,7 @@ const server = http.createServer((req, res) => {
       const r = await fetch(`${DAEMON}/v1/hypervisor/state-machines`).then((x) => x.json()).catch(() => ({}));
       const selectedMachine = new URL(req.url, "http://x").searchParams.get("machine") || "";
       res.writeHead(200, HTMLH);
-      res.end(renderStudioMachinery(r.state_machines || [], selectedMachine));
+      res.end(renderMachineryPort(r.state_machines || [], selectedMachine));
       return;
     }
     if (pathname === "/__ioi/vertex" && req.method === "GET") {

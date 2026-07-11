@@ -57,7 +57,8 @@ const SUBSTRATE_BOUND = {
   // port — see DAEMON_WIRED below). machinery/workshop/module stay reference_capture.
   // Studio machinery: the process/state-machine DEFINITION plane (a new inert daemon contract).
   // Definition-only — no run/step/scheduling/binding. workshop + module stay reference_capture.
-  machinery: { substrate_surface: "/__ioi/studio/machinery", surface_name: "Studio", binding: "the process/state-machine definition view — a read-only rendering of the inert daemon state-machine plane (declared states initial/normal/final, transitions from→to with event + guard, declared guards, inputs/outputs, owners, health empty|incomplete|ready, and edit history)", note: "DEFINITION-ONLY, read-only surface; a new inert daemon contract with fail-closed writes; owner surface stays /__ioi/agent-studio; honest empty/incomplete when a machine is under-declared; execution / stepping a running instance / scheduling / Automations-Missions-ODK binding / in-canvas graph authoring / simulation / versioning = named gaps (a later authority-crossing cut)" },
+  // Studio machinery: PROMOTED to daemon_wired by #50 (the second origin-alignment port — see
+  // DAEMON_WIRED below). workshop + module stay reference_capture.
   // NOTE: Governance/approvals is NOT here — #36 PROMOTED it to `daemon_wired` (a FAITHFUL light faceted-
   // inbox port over the real ApprovalRequest queue; see DAEMON_WIRED below), not substrate_bound.
   // Foundry owner-family: only models binds in this cut (modelstudio + inference stay reference_capture).
@@ -116,6 +117,12 @@ const DAEMON_WIRED = {
   // candidate; the clean-reference pool is now EMPTY and the wave pivots to origin alignment.
   listings: { substrate_surface: "/__ioi/marketplace", port_surface: "/__ioi/marketplace/listings", surface_name: "Marketplace", reference_workspace: "/workspace/marketplace/", reference_landmarks: ["Marketplace", "Discover and install Foundry products", "Stores", "Name", "Products", "Install your first product", "Choose a product to install", "Configure product inputs", "Install and explore", "Installations"], binding: "faithful port of the reference Marketplace browse over the real daemon marketplace substrate — dark global rail + light header (app chip · Marketplace · product search · Installations · Help as named gaps) + hero (title · Discover subtitle · reference illustration) + the Stores table whose single row IS the estate's governed listing plane with its live product count + the install-first-product wizard band as reference chrome (installing is a named gap — products enter through draft → admitted review → open release on the substrate)", note: "TRUE parity (#48) under the HARDENED gate: light Marketplace-browse reference-faithful shell at /__ioi/marketplace/listings over the real listing plane — the LAST data_clean candidate from the #44 ranking, completing the clean-reference pool (the wave pivots to origin-alignment seeds next); the reference's Stores lane is REBOUND to the same substrate; /__ioi/marketplace substrate intact and linking first-class; product search / store search / Installations / Help / install wizard / store sharing / sorting = named gaps disabled in place; NO publish/install/hire/settle/runtime semantics — products enter only through draft → admitted review → open release on the substrate" },
 
+  // #50 — Machinery (machinery): the NINTH faithful port — the SECOND from the origin-alignment
+  // queue. The #44 sweep proved the reference data-bearing on the capture-origin lane while the
+  // proxy lane fails its Marketplace-examples fetch; reference_url_override stamps the honest lane
+  // and the shell certifies pixel parity against it. THE SEMANTIC BOUNDARY IS THE POINT: the
+  // certified shell is a LANDING over inert definitions — no execution surface was created.
+machinery: { substrate_surface: "/__ioi/studio/machinery", surface_name: "Studio", reference_url_override: "http://localhost:9225/workspace/machinery-app/", reference_landmarks: ["Machinery", "New graph", "Build, manage and monitor your business processes with precision. Streamline operations and drive efficiency through strategic automations.", "Recents", "Favorites", "FILES", "CREATOR", "LAST EDITED BY", "LAST VIEWED", "Explore reference examples"], binding: "faithful port of the reference Machinery landing over the inert daemon state-machine plane — dark global rail + light app header (machinery tile · Recent-installations store dropdown · New graph · Help as named gaps) + hero band (title · description · verbatim reference illustration under the reference's own white-gradient content overlay) + the View row (Recents active · Favorites gap) + the viewport-height-ruled Recents table whose rows are the REAL state-machine DEFINITIONS (name · ref · created/updated dates · declared states/transitions/guards census · health/status; declared owner_refs rendered honestly, em-dashes where the plane records no principal/view tracking) + the Explore-reference-examples band (the reference's own marketplace example cards, verbatim capture chrome) + below-the-fold full DEFINITION truth (states initial/normal/final · transitions from→to/event/guard · guards · declared inputs/outputs · owners · history · the daemon's own authority_note)", note: "TRUE parity (#50) under the HARDENED gate: light Machinery landing reference-faithful shell at /__ioi/studio/machinery against the ORIGIN-ALIGNED data-clean reference (reference_url_override localhost:9225/workspace/machinery-app/ — the #44 needs_origin_alignment finding; the /__apps/machinery proxy lane stays documented-insufficient: its Marketplace-examples fetch fails on the proxy origin); the SECOND origin-alignment-queue port — the old dark definition view is REBUILT in place as the faithful light landing shell over the SAME inert #30 state-machine plane (states/transitions/guards/inputs/outputs/owners/history/health preserved below the fold with real records + the daemon's own authority_note verbatim); the hero illustration + marketplace-examples strip are verbatim capture chrome (the reference's own example content, never estate data and never an execution claim); DEFINITION-ONLY IS THE HARD BOUNDARY — no run/step/execute, no current_state, no scheduling, no Automations/Missions/ODK binding, no fake process-graph execution; graph authoring (New graph) / Recent-installations store menu / favorites / marketplace example installs / simulation / versioning = named gaps disabled in place (a later authority-crossing cut)" },
   // #49 — Solution Designer (designer): the EIGHTH faithful port — the FIRST from the
   // origin-alignment queue (post-#48 pivot). The #44 sweep proved the reference data-bearing on the
   // capture-origin lane while the proxy lane manufactures CORS noise + a favorites-load failure;
@@ -205,6 +212,20 @@ const SHELL_PIXEL_CERTIFIED = {
   // threshold movement. Body = REAL daemon incidents (blockers/failures), verified
   // semantically by verify-hypervisor-app-parity-incidents.mjs.
   incidents: "pixel-certifications/incidents.json",
+  // #50 — Machinery: the NINTH shell-pixel certification — the second origin-alignment-queue
+  // port. Landing shell: shared rail (rv-pipe + rv-dsg) · app header (machinery tile
+  // rgba(20,126,179,.1) + inset hairline, Recent-installations store dropdown + success New-graph
+  // + outlined Help as named gaps) · 106px hero band with the VERBATIM reference illustration under
+  // the reference's own 1040px white-gradient content overlay (the #49 find, same splash component)
+  // · View row (bp6 round tags, no Open-Diagram on this splash) · table ring + header row with the
+  // reference's viewport height rule max(360px, 100vh − 624px) · the Explore-reference-examples
+  // band with the VERBATIM capture strip (562x272 crop of the two marketplace example cards —
+  // vendor chrome, not estate data, not an execution claim; 1px ring-row alignment was the one
+  // measured fix: raw 3.49% → 1.67%). Machine ROWS = excluded live body (real state-machine
+  // DEFINITIONS vs captured tutorials). 1440x900 dilated 0.70% / raw 1.67%, 1920x1080 dilated
+  // 0.57% / raw 1.45%, bbox 0 — no threshold movement. Body = inert definition truth, verified
+  // semantically by verify-hypervisor-app-parity-studio-machinery.mjs (definitions, never execution).
+  machinery: "pixel-certifications/machinery.json",
   // #49 — Solution Designer: the EIGHTH shell-pixel certification — the first origin-alignment-queue
   // port. Landing-page shell: shared rail (rv-pipe + rv-dsg variant: View-all present, 30/5px secrow
   // rhythm, rgba(45,114,210,.1) app tile) · app header (50px designer tile + inset hairline, success

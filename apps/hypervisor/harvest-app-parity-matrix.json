@@ -17,9 +17,9 @@
   ],
   "total_seeds": 39,
   "by_parity_class": {
-    "daemon_wired": 8,
-    "substrate_bound": 5,
-    "reference_capture": 26
+    "daemon_wired": 9,
+    "reference_capture": 26,
+    "substrate_bound": 4
   },
   "legend": {
     "reference_capture": "the /__apps/<slug> reference baseline serves; no IOI port exists",
@@ -72,19 +72,33 @@
       "capture_base": "/workspace/machinery-app/",
       "grammar": "graph",
       "tier": "high_value",
-      "parity_class": "substrate_bound",
+      "parity_class": "daemon_wired",
       "capture_state": "boots_graph",
       "reference_capture": "/__apps/machinery",
       "reference_workspace": "/workspace/machinery-app/",
-      "note": "DEFINITION-ONLY, read-only surface; a new inert daemon contract with fail-closed writes; owner surface stays /__ioi/agent-studio; honest empty/incomplete when a machine is under-declared; execution / stepping a running instance / scheduling / Automations-Missions-ODK binding / in-canvas graph authoring / simulation / versioning = named gaps (a later authority-crossing cut)",
-      "reference_clean_state": "needs_origin_alignment",
-      "reference_clean_reason": "proxy lane shows a failure (\"Failed to load Machinery Marketplace examples.\"), but the capture-origin lane (http://localhost:9225) renders the app failure-free WITH data (rows 12/0 · nodes 0 · cards 3 · lines 49) — align the reference URL like pipeline #38/#39",
+      "note": "TRUE parity (#50) under the HARDENED gate: light Machinery landing reference-faithful shell at /__ioi/studio/machinery against the ORIGIN-ALIGNED data-clean reference (reference_url_override localhost:9225/workspace/machinery-app/ — the #44 needs_origin_alignment finding; the /__apps/machinery proxy lane stays documented-insufficient: its Marketplace-examples fetch fails on the proxy origin); the SECOND origin-alignment-queue port — the old dark definition view is REBUILT in place as the faithful light landing shell over the SAME inert #30 state-machine plane (states/transitions/guards/inputs/outputs/owners/history/health preserved below the fold with real records + the daemon's own authority_note verbatim); the hero illustration + marketplace-examples strip are verbatim capture chrome (the reference's own example content, never estate data and never an execution claim); DEFINITION-ONLY IS THE HARD BOUNDARY — no run/step/execute, no current_state, no scheduling, no Automations/Missions/ODK binding, no fake process-graph execution; graph authoring (New graph) / Recent-installations store menu / favorites / marketplace example installs / simulation / versioning = named gaps disabled in place (a later authority-crossing cut)",
+      "reference_clean_state": "data_clean",
+      "reference_clean_reason": "shell regions [rail, header, body] + data evidence (rows 12/0 · nodes 0 · cards 3 · lists 0 · lines 49)",
       "reference_clean_artifact": "reference-clean-sweep.json",
       "substrate_surface": "/__ioi/studio/machinery",
       "surface_name": "Studio",
-      "binding": "the process/state-machine definition view — a read-only rendering of the inert daemon state-machine plane (declared states initial/normal/final, transitions from→to with event + guard, declared guards, inputs/outputs, owners, health empty|incomplete|ready, and edit history)",
+      "reference_url_override": "http://localhost:9225/workspace/machinery-app/",
+      "reference_landmarks": [
+        "Machinery",
+        "New graph",
+        "Build, manage and monitor your business processes with precision. Streamline operations and drive efficiency through strategic automations.",
+        "Recents",
+        "Favorites",
+        "FILES",
+        "CREATOR",
+        "LAST EDITED BY",
+        "LAST VIEWED",
+        "Explore reference examples"
+      ],
+      "binding": "faithful port of the reference Machinery landing over the inert daemon state-machine plane — dark global rail + light app header (machinery tile · Recent-installations store dropdown · New graph · Help as named gaps) + hero band (title · description · verbatim reference illustration under the reference's own white-gradient content overlay) + the View row (Recents active · Favorites gap) + the viewport-height-ruled Recents table whose rows are the REAL state-machine DEFINITIONS (name · ref · created/updated dates · declared states/transitions/guards census · health/status; declared owner_refs rendered honestly, em-dashes where the plane records no principal/view tracking) + the Explore-reference-examples band (the reference's own marketplace example cards, verbatim capture chrome) + below-the-fold full DEFINITION truth (states initial/normal/final · transitions from→to/event/guard · guards · declared inputs/outputs · owners · history · the daemon's own authority_note)",
       "candidate_surface": "/__ioi/studio/machinery",
-      "shell_pixel_certified": false
+      "shell_pixel_certified": true,
+      "shell_pixel_certification_artifact": "pixel-certifications/machinery.json"
     },
     {
       "owner": "Studio",
