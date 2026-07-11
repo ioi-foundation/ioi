@@ -76,8 +76,8 @@ const REFERENCE_PORT_PENDING = {};
 // ported IOI surface; `parity_blocked` names why. `reference_landmarks` (when present) is the IA
 // label set the hardened harness requires in BOTH the reference and the candidate.
 const REFERENCE_PORTED = {
-  // (empty again — explorer #46, monitors #51, sources #52 each passed through this stage on
-  // their way to certification + daemon_wired promotion. The stage exists for ports-in-flight.)
+  // (explorer #46, monitors #51, sources #52, changes #53 each passed through this stage on their
+  // way to certification + daemon_wired promotion. The stage exists for ports-in-flight.)
 };
 // TRUE reference UX parity — a FAITHFUL port of the reference UX (same theme + IA + layout) wired to
 // daemon truth, that PASSES the HARDENED Playwright harness (visual_parity: region geometry + theme
@@ -115,6 +115,12 @@ const DAEMON_WIRED = {
   // candidate; the clean-reference pool is now EMPTY and the wave pivots to origin alignment.
   listings: { substrate_surface: "/__ioi/marketplace", port_surface: "/__ioi/marketplace/listings", surface_name: "Marketplace", reference_workspace: "/workspace/marketplace/", reference_landmarks: ["Marketplace", "Discover and install Foundry products", "Stores", "Name", "Products", "Install your first product", "Choose a product to install", "Configure product inputs", "Install and explore", "Installations"], binding: "faithful port of the reference Marketplace browse over the real daemon marketplace substrate — dark global rail + light header (app chip · Marketplace · product search · Installations · Help as named gaps) + hero (title · Discover subtitle · reference illustration) + the Stores table whose single row IS the estate's governed listing plane with its live product count + the install-first-product wizard band as reference chrome (installing is a named gap — products enter through draft → admitted review → open release on the substrate)", note: "TRUE parity (#48) under the HARDENED gate: light Marketplace-browse reference-faithful shell at /__ioi/marketplace/listings over the real listing plane — the LAST data_clean candidate from the #44 ranking, completing the clean-reference pool (the wave pivots to origin-alignment seeds next); the reference's Stores lane is REBOUND to the same substrate; /__ioi/marketplace substrate intact and linking first-class; product search / store search / Installations / Help / install wizard / store sharing / sorting = named gaps disabled in place; NO publish/install/hire/settle/runtime semantics — products enter only through draft → admitted review → open release on the substrate" },
 
+  // #53 — Changes (changes): the TWELFTH faithful port — the FIFTH from the origin-alignment
+  // queue and the FIRST Improvement-family certified surface. The #44 sweep proved the Upgrade
+  // Assistant data-bearing on the capture-origin lane (13 upgrades) while the proxy renders thin
+  // data; reference_url_override stamps the honest lane. A PROJECTION port: the inbox renders the
+  // EXISTING improvement-proposal plane (no mutation/apply/deploy/release execution semantics).
+changes: { port_surface: "/__ioi/improvement/changes", surface_name: "Improvement", reference_url_override: "http://localhost:9225/workspace/upgrade-assistant/", reference_landmarks: ["Upgrade Assistant", "Admin view", "Assignee view", "Active", "Past due", "Archived", "Filters", "UPGRADE PROGRESS", "UPGRADE TYPE", "SORT"], binding: "faithful port of the reference Upgrade Assistant inbox over the real improvement-proposal plane — dark global rail + app header (upgrade tile · 1-organization group / Admin view / Assignee view / Help as named gaps) + the slate info banner + Active/Past-due/Archived tab lanes (LIVE ?lane= links: active = non-rejected · archived = rejected · past-due honestly empty, no due-date concept) + the Filters sidebar (UPGRADE PROGRESS radios WIRED to ?filter= — requiring-my-action = pending review; the reference's UPGRADE-TYPE taxonomy + due-date SORT as named-gap facets; counts are live data, masked) + the grouped list (Pre-published = pending/approved not-yet-applied · Published = applied) whose rows are REAL proposals (signal · proposal_ref · target_ref · kind pill · state + gate posture · approval/release/simulation refs as the proof trail)", note: "TRUE parity (#53) under the HARDENED gate: light Upgrade-Assistant inbox reference-faithful shell at /__ioi/improvement/changes against the ORIGIN-ALIGNED data-clean reference (reference_url_override localhost:9225/workspace/upgrade-assistant/ — the #44 needs_origin_alignment finding; the What's-new modal dismissed by a reference-only pre-capture hook; the /__apps/changes proxy lane stays documented-insufficient: renders thin data); the FIFTH origin-alignment-queue port and the FIRST Improvement-family certified surface — a NEW dedicated port route over the EXISTING improvement-proposal plane; a READ-ONLY improvement projection — NO mutation/apply/deploy/release execution semantics; proposing/simulating/approving/applying/release-gate control stay on /__ioi/agent-studio#improvement-proposals (linked first-class both ways); organization scoping / principal assignment / due dates / name search / upgrade-type taxonomy / due-date sorting = named gaps disabled in place" },
   // #52 — Sources (sources): the ELEVENTH faithful port — the FOURTH from the origin-alignment
   // queue, the Data-family landing. The #44 sweep proved the Data Connection landing data-bearing
   // on the capture-origin lane while the proxy lane renders no data; reference_url_override stamps
@@ -222,6 +228,18 @@ const SHELL_PIXEL_CERTIFIED = {
   // threshold movement. Body = REAL daemon incidents (blockers/failures), verified
   // semantically by verify-hypervisor-app-parity-incidents.mjs.
   incidents: "pixel-certifications/incidents.json",
+  // #53 — Changes: the TWELFTH shell-pixel certification — the fifth origin-alignment-queue port,
+  // the first Improvement-family surface. Fixed-left inbox shell: shared rail (rv-pipe + rv-dsg) ·
+  // app header (upgrade tile · bare org-group / Admin-view / Assignee-view / Help — the tile
+  // TOP-aligned in the 51px header, the 0.5px centering shift was a real fix) · slate info banner
+  // (flex-start + fixed padding so the text holds position at both viewports while the ? icon
+  // lands right) · Active/Past-due/Archived tab bar · Filters sidebar (search + section headers +
+  // radio/checkbox controls; the facet COUNT column is masked live data) · the list card chrome
+  // (heading/sub + column band + the card's white lower frame certified as container chrome, the
+  // grouped rows masked as data inside it). 1440x900 dilated 1.18% / raw 1.55%, 1920x1080 dilated
+  // 0.86% / raw 1.08%, bbox 0 — no threshold movement. Body = real improvement-proposal plane,
+  // verified semantically by verify-hypervisor-app-parity-changes.mjs (projection, never execution).
+  changes: "pixel-certifications/changes.json",
   // #52 — Sources: the ELEVENTH shell-pixel certification — the fourth origin-alignment-queue
   // port. Landing shell: shared rail (rv-pipe + rv-dsg) · 48px tabbed header (Data Connection ·
   // five tabs · store dropdown / New source / Help; the sync-counter cluster = MASKED data bound

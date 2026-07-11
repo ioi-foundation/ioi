@@ -32,6 +32,7 @@ import { DSG_APP_TILE_URI, DSG_ROW_DOC_URI, DSG_HERO_URI, DSG_AIP_ICON_URI, DSG_
 import { MCH_APP_TILE_URI, MCH_STORE_ICON_URI, MCH_HERO_URI, MCH_EXAMPLES_STRIP_URI } from "./machinery-assets.mjs";
 import { MON_APP_TILE_URI, MON_WIZ_STRIP_URI, MON_CARDS_STRIP_URI } from "./monitors-assets.mjs";
 import { SRC_APP_TILE_URI, SRC_HERO_URI, SRC_SETUP_STRIP_URI } from "./sources-assets.mjs";
+import { CHG_APP_TILE_URI } from "./changes-assets.mjs";
 import { mintApprovalGrant } from "../../../scripts/lib/mint-approval-grant.mjs";
 
 // Build the current conversation entries for a run, in the exact NDJSON shape the SPA's V1 pane
@@ -2227,7 +2228,7 @@ function renderImprovementProposals(mining, improvements) {
       ${govRow}
       </div><div>${acts}</div></div>`;
   }).join("");
-  return `<h2 id="improvement-proposals" style="margin-top:28px">Improvement proposals <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— deterministic outcome mining; high-impact changes gate on fresh simulation + approval + release · <a href="/__apps/changes">change-inbox seed (adopting) →</a></span></h2>
+  return `<h2 id="improvement-proposals" style="margin-top:28px">Improvement proposals <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— deterministic outcome mining; high-impact changes gate on fresh simulation + approval + release · <a href="/__ioi/improvement/changes">Upgrade Assistant inbox →</a> (the #53 certified projection over this plane) · <a href="/__apps/changes">change-inbox capture ↗</a></span></h2>
     ${improvements.length ? props : `<div class="empty">No improvement proposals yet.</div>`}
     <h3 style="margin:16px 0 6px;font-size:12px;color:#878a93">Mined candidates (derived, not yet proposed)</h3>
     ${mining.length ? mined : `<div class="empty">No deterministic candidates mined from recent outcomes.</div>`}`;
@@ -3582,6 +3583,217 @@ function renderDesignerPort(lists, selectedId) {
 
   return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Solution Designer</title><style>${css}</style></head>
     <body><div class="dsg-shell">${globalRail}<div class="dsg-main">${header}<div class="dsg-body">${hero}<main class="dsg-content">${aipCard}${gallery}${viewRow}${table}${truth}</main></div></div></div></body></html>`;
+}
+
+// ============================ IMPROVEMENT · CHANGES (Upgrade Assistant — inbox port, #53)
+// The Reference UX Port program — the FIFTH origin-alignment-queue port. The reference is the
+// origin-aligned Upgrade Assistant capture (http://localhost:9225/workspace/upgrade-assistant/ —
+// the /__apps/changes proxy lane renders thin data, documented by the #44 sweep; the What's-new
+// modal is dismissed by a reference-only pre-capture hook). This IOI-owned surface reproduces the
+// visible inbox shell PIXEL-FAITHFULLY — dark global rail, app header (upgrade tile · 1-organization
+// group / Admin view / Assignee view / Help as named gaps), the slate info banner, the
+// Active/Past-due/Archived tab lanes (LIVE ?lane= links), the Filters sidebar (search as a named
+// gap · UPGRADE PROGRESS radios WIRED to ?filter= · the reference's UPGRADE-TYPE taxonomy as
+// named-gap facets · SORT as named gaps; facet COUNTS are live data, masked) and the grouped list —
+// while the DATA region renders REAL Improvement-plane truth: one row per improvement proposal
+// (signal · proposal_ref · target_ref · kind pill · state + gate posture · approval/release/
+// simulation refs as the proof trail), grouped Pre-published (pending/approved — not yet applied)
+// vs Published (applied), with rejected proposals in the Archived lane and Past-due an HONESTLY
+// EMPTY lane (no due-date concept on the plane). READ-ONLY: no apply, no approve/reject, no
+// deploy, no release-gate mutation — those lanes live on the owner surface
+// (/__ioi/agent-studio#improvement-proposals, linked first-class both ways).
+function renderChangesPort(proposals, lane, filter) {
+  const esc = CX_ESC;
+  const all = Array.isArray(proposals) ? proposals : [];
+  const fdate = (iso) => { const d = new Date(iso || 0); return isNaN(d) ? "—" : d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }); };
+
+  // Lane + facet semantics over REAL plane truth (the reference's lanes, honestly mapped):
+  //   Active   = non-rejected proposals (pending · approved · applied)
+  //   Past due = HONESTLY EMPTY (the improvement plane records no due dates — a named gap)
+  //   Archived = rejected proposals
+  //   filter=action (the reference's default radio) = pending review · filter=all = everything
+  const active = all.filter((p) => p.state !== "rejected");
+  const archived = all.filter((p) => p.state === "rejected");
+  const pendingReview = all.filter((p) => p.state === "pending");
+  const laneSet = lane === "archived" ? archived : lane === "pastdue" ? [] : active;
+  // The "requiring my action" facet (pending review) scopes the ACTIVE lane only — Archived is
+  // terminal (rejected proposals, never pending) and shows its full set regardless of the facet.
+  const shown = (lane === "active" && filter !== "all") ? laneSet.filter((p) => p.state === "pending") : laneSet;
+  const prePub = shown.filter((p) => p.state !== "applied");
+  const published = shown.filter((p) => p.state === "applied");
+  const kinds = {};
+  for (const p of all) kinds[p.proposal_kind || "?"] = (kinds[p.proposal_kind || "?"] || 0) + 1;
+
+  const rowHtml = (p) => `<div class="chg-row" title="A read-only improvement projection — review/apply/release lanes live on the owner surface (Agent Studio)">
+      <span class="chg-cname">
+        <span class="chg-rowico" aria-hidden="true"></span>
+        <span class="chg-rowdata">
+          <span class="chg-rowname">${esc(p.signal || p.proposal_kind || p.improvement_id)}</span>
+          <span class="chg-rowsub">${esc(p.proposal_ref)} · target ${esc(p.target_ref || "—")} · created ${fdate(p.created_at)}${p.latest_simulation_high_impact ? " · high-impact simulation" : ""}</span>
+        </span>
+      </span>
+      <span class="chg-ctype"><span class="chg-kindpill">${esc(p.proposal_kind || "?")}</span></span>
+      <span class="chg-cdue"><span class="chg-dash" title="No due-date concept on the improvement plane (named gap)">—</span></span>
+      <span class="chg-cact">
+        <span class="chg-statepill s-${esc(p.state || "pending")}">${esc(p.state || "pending")}</span>
+        <span class="chg-proof" title="the proof trail: gate posture + approval/release/simulation refs (real records)">${esc((p.gate || {}).posture || "")}${p.approval_request_ref ? " · appr" : ""}${p.release_control_ref ? " · rel" : ""}${p.latest_simulation_ref ? " · sim" : ""}</span>
+      </span>
+    </div>`;
+  const group = (label, items, mapNote) => `<div class="chg-group">
+      <div class="chg-grouphead"><h6 class="chg-grouptitle" title="${esc(mapNote)}">${label}</h6><span class="chg-grouptag">${items.length}</span><span class="chg-groupchev" aria-hidden="true">${bpIcon("caret-down")}</span></div>
+      ${items.length ? items.map(rowHtml).join("") : `<div class="chg-emptyrow">No ${label.toLowerCase()} ${lane === "archived" ? "archived proposals" : "upgrades requiring action"}</div>`}
+    </div>`;
+
+  const laneTitles = { active: ["Active upgrades", "Current upgrades. Resources are actively updated."], pastdue: ["Past due upgrades", "No due-date concept exists on the improvement plane — this lane is honestly empty (named gap)."], archived: ["Archived upgrades", "Rejected improvement proposals — terminal, never applied."] };
+  const [listTitle, listSub] = laneTitles[lane] || laneTitles.active;
+
+  const listBody = lane === "pastdue"
+    ? `<div class="chg-emptylane">The improvement plane records no due dates — nothing can be past due. This is a <b>named gap</b>, not an empty query.</div>`
+    : `${group("Pre-published", prePub, "pending/approved proposals — real records whose change has NOT yet been applied (the honest mapping of the reference's pre-published group)")}
+       <div class="chg-groupdiv"></div>
+       ${group("Published", published, "applied proposals — real records whose change IS live in the estate policy plane (the honest mapping of the reference's published group)")}`;
+
+  const truth = `<div class="chg-truth" id="changes-truth">
+      <h6 class="chg-trutht">Improvement-plane truth <span class="chg-truthsub">${all.length} proposal${all.length === 1 ? "" : "s"} · ${pendingReview.length} pending review · ${all.filter((p) => p.state === "approved").length} approved · ${all.filter((p) => p.state === "applied").length} applied · ${archived.length} rejected — real records, nothing invented</span></h6>
+      <p class="chg-truthp">Kinds: ${Object.entries(kinds).map(([k, n]) => `${esc(k)} (${n})`).join(" · ")}. Every row carries its real proof trail — gate posture, approval-request ref, release-control ref, simulation ref/hash. This surface is a <b>read-only projection</b>: proposing, simulating, approving/rejecting, applying and release-gate control all live on the <a href="/__ioi/agent-studio#improvement-proposals">owner surface (Agent Studio) →</a>; nothing here mutates, applies, deploys or releases. Reference: the origin-aligned <a href="http://localhost:9225/workspace/upgrade-assistant/" rel="noopener">Upgrade Assistant capture</a> — the <a href="/__apps/changes">/__apps/changes proxy lane ↗</a> is documented insufficient (renders thin data; #44 sweep evidence). Sort is a named gap (no due dates); rows order by update recency.</p>
+    </div>`;
+
+  const globalRail = ioiGlobalRailHtml({ label: "Upgrade Assistant", href: "/__ioi/improvement/changes", iconUri: CHG_APP_TILE_URI, railVariant: "rv-pipe rv-dsg", viewAll: true, star: false, badges: true, aipGradient: true, acctMuted: true });
+
+  const header = `<header class="chg-header">
+    <span class="chg-hchip" aria-hidden="true"></span>
+    <h1 class="chg-htitle">Upgrade Assistant</h1>
+    <div class="chg-hright">
+      <span class="chg-orgbtn gap" aria-disabled="true" title="Organization scoping is a named gap — the estate is a single deployment; the list below is its full improvement truth">${bpIcon("office")}<span>1 organization</span>${bpIcon("caret-down")}</span>
+      <span class="chg-adminview gap" aria-disabled="true" title="Admin/assignee principal scoping is a named gap — no assignment concept on the improvement plane">Admin view</span>
+      <span class="chg-hbtn outlined gap" aria-disabled="true" title="Reference view toggle (named gap) — the list renders the estate's full improvement truth">Assignee view</span>
+      <span class="chg-hbtn outlined helpbtn gap" aria-disabled="true" title="Reference help lane (named gap)">${bpIcon("help")}<span>Help</span>${bpIcon("caret-down")}</span>
+    </div>
+  </header>`;
+
+  const banner = `<div class="chg-banner"><div class="chg-bannerin"><span class="chg-bannertxt" title="Reference copy (the view-toggle chrome) — principal assignment is a named gap; this surface renders the estate's full improvement truth, verified against the daemon plane">You are viewing resources for which you are personally assigned actions. Enable Admin view to help manage upgrades for organizations where you are a Maintenance Operator.</span><span class="chg-bannerq" aria-hidden="true">${bpIcon("help")}</span></div></div>`;
+
+  const tabs = `<nav class="chg-tabs">
+    <a class="chg-tab${lane === "active" ? " on" : ""}" href="/__ioi/improvement/changes?lane=active${filter === "all" ? "&filter=all" : ""}">Active</a>
+    <a class="chg-tab${lane === "pastdue" ? " on" : ""}" href="/__ioi/improvement/changes?lane=pastdue${filter === "all" ? "&filter=all" : ""}" title="Honestly empty — no due-date concept on the improvement plane (named gap)">Past due</a>
+    <a class="chg-tab${lane === "archived" ? " on" : ""}" href="/__ioi/improvement/changes?lane=archived${filter === "all" ? "&filter=all" : ""}">Archived</a>
+  </nav>`;
+
+  const qs = (f) => `/__ioi/improvement/changes?lane=${lane}${f === "all" ? "&filter=all" : ""}`;
+  const sidebar = `<aside class="chg-sidebar">
+    <div class="chg-fhead"><h6>Filters</h6><span class="chg-fcollapse gap" aria-disabled="true" title="Sidebar collapse is a reference-only lane (named gap)">${bpIcon("menu-closed")}</span></div>
+    <div class="chg-search gap" title="Name search is a reference-only lane (named gap)">${bpIcon("search")}<input placeholder="Search by upgrade name…" disabled aria-label="Search by upgrade name (reference-only, not wired)"></div>
+    <div class="chg-fdiv"></div>
+    <h6 class="chg-fsec">Upgrade progress</h6>
+    <a class="chg-radio${filter !== "all" ? "" : " sel"}" href="${qs("all")}"><span class="chg-rdot${filter === "all" ? " on" : ""}"></span><span class="chg-rlabel">All upgrades</span><span class="chg-rcount">${laneSet.length}</span></a>
+    <a class="chg-radio${filter !== "all" ? " sel" : ""}" href="${qs("action")}" title="pending-review proposals — the honest mapping of the reference's requiring-my-action facet (no principal assignment on the plane)"><span class="chg-rdot${filter !== "all" ? " on" : ""}"></span><span class="chg-rlabel">Upgrades requiring my action</span><span class="chg-rcount">${laneSet.filter((p) => p.state === "pending").length}</span></a>
+    <div class="chg-fdiv"></div>
+    <h6 class="chg-fsec">Upgrade type</h6>
+    ${["Admin action", "Model migration", "Platform change", "Remediation", "Security", "Version update"].map((t) => `<span class="chg-check gap" aria-disabled="true" title="The reference's upgrade-type taxonomy is a named gap — the estate's real proposal kinds are ${esc(Object.entries(kinds).map(([k, n]) => `${k} (${n})`).join(" · "))}"><span class="chg-cbox"></span><span class="chg-rlabel">${t}</span><span class="chg-rcount">0</span></span>`).join("")}
+    <div class="chg-fdiv"></div>
+    <h6 class="chg-fsec">Sort</h6>
+    ${["Soonest due date", "Latest due date", "Least remaining actions", "Most remaining actions"].map((t, i) => `<span class="chg-radio gap" aria-disabled="true" title="Due-date sorting is a named gap (no due dates on the plane) — rows order by update recency"><span class="chg-rdot${i === 0 ? " on" : ""}"></span><span class="chg-rlabel">${t}</span></span>`).join("")}
+  </aside>`;
+
+  const list = `<section class="chg-list">
+    <div class="chg-listhead"><h6 class="chg-listtitle">${esc(listTitle)}</h6><div class="chg-listsub">${esc(listSub)}</div></div>
+    <div class="chg-cols"><span class="chg-col name">Name</span><span class="chg-col type">Type</span><span class="chg-col due">Due date<span class="chg-sorticon gap" title="Due-date sorting is a named gap (named in the sidebar)">${bpIcon("sort-desc")}</span></span><span class="chg-col act">My actions</span></div>
+    <div class="chg-rows">${listBody}${truth}</div>
+  </section>`;
+
+  const css = `@font-face{font-family:'Source-Sans-Pro';font-style:normal;font-weight:400;font-display:block;src:url(/__ioi/fonts/source-sans-pro-400.woff2) format('woff2')}
+    @font-face{font-family:'Source-Sans-Pro';font-style:normal;font-weight:600;font-display:block;src:url(/__ioi/fonts/source-sans-pro-600.woff2) format('woff2')}
+    @font-face{font-family:'Source-Sans-Pro';font-style:normal;font-weight:700;font-display:block;src:url(/__ioi/fonts/source-sans-pro-700.woff2) format('woff2')}
+    :root{color-scheme:light}*{box-sizing:border-box}
+    body{margin:0;background:#fff;color:#1c2127;font:14px/1.28581 Source-Sans-Pro,Helvetica,sans-serif}
+    a{color:#215db0;text-decoration:none}
+    .chg-shell{display:flex;height:100vh;width:100vw;overflow:hidden}
+    ${IOI_GRAIL_CSS}
+    .rv-dsg .og-gappico{background-color:rgba(45,114,210,.1)}
+    .rv-dsg .og-gsecrow{padding:30px 7px 5px 5px}
+    .rv-dsg .og-gitem.on{margin-right:-11px}
+    .chg-main{flex:1;min-width:0;display:flex;flex-direction:column;height:100vh}
+    .chg-header{flex:0 0 51px;height:51px;display:flex;align-items:flex-start;background:#fff;z-index:6}
+    .chg-hchip{width:50px;height:50px;flex:0 0 50px;background:rgba(167,182,194,.1) url('${CHG_APP_TILE_URI}') center/24px no-repeat;box-shadow:inset -1px 0 0 0 rgba(167,182,194,.25)}
+    .chg-htitle{font-size:16px;line-height:36px;font-weight:600;color:#404854;margin:7px 0 0 12px;flex:0 0 auto}
+    .chg-hright{margin-left:auto;align-self:stretch;display:flex;align-items:flex-start;padding-right:20px}
+    .chg-orgbtn{display:inline-flex;align-items:center;gap:8px;height:30px;margin-top:10px;padding:0 8px;font-size:12px;line-height:16px;color:#1c2127;cursor:default}
+    .chg-orgbtn svg{color:#5f6b7c}
+    .chg-adminview{margin-left:2px;margin-top:17px;font-size:14px;line-height:16.1px;color:#5f6b7c;cursor:default}
+    .chg-hbtn{display:inline-flex;align-items:center;gap:8px;height:30px;margin:10px 0 0 17px;padding:0 8px;border-radius:4px;font-size:14px;line-height:16.1px;cursor:default}
+    .chg-hbtn.helpbtn{margin-left:2px;gap:8px;padding:0 9px}
+    .chg-hbtn.helpbtn svg:last-child{color:#5f6b7c;margin-left:-1px}
+    .chg-hbtn.outlined{border:1px solid rgba(95,107,124,.25);background:#fff;color:#1c2127}
+    .chg-hbtn.outlined svg{color:#5f6b7c}
+    .chg-banner{flex:0 0 30px;display:flex;background:#5f6b7c}
+    .chg-bannerin{flex:1;max-width:1210px;margin:0 auto;display:flex;align-items:center;justify-content:flex-start;gap:17px;padding-left:36.4px;height:30px}
+    .chg-bannertxt{font-size:14px;line-height:18px;color:#fff}
+    .chg-bannerq{display:inline-flex;color:rgba(255,255,255,.75)}
+    .chg-tabs{flex:0 0 41px;display:flex;gap:20px;align-items:stretch;background:#fff;padding-left:20px;box-shadow:inset 0 -1px 0 #d3d8de}
+    .chg-tab{display:inline-flex;align-items:center;height:40px;align-self:flex-start;font-size:16px;line-height:40px;color:#1c2127;position:relative}
+    .chg-tab.on{color:#215db0}
+    .chg-tab.on::after{content:"";position:absolute;left:0;right:0;bottom:0;height:3px;background:#215db0}
+    .chg-body{flex:1 1 auto;min-height:0;display:flex}
+    .chg-sidebar{flex:0 0 260px;background:#f6f7f9;padding:15px 20px 0;overflow-y:auto}
+    .chg-fhead{display:flex;align-items:center;margin-bottom:36px}
+    .chg-fhead h6{font-size:14px;line-height:16px;font-weight:600;color:#1c2127;margin:0 0 0 -4px;flex:1}
+    .chg-fcollapse{display:inline-flex;color:#5f6b7c;cursor:default}
+    .chg-search{display:flex;align-items:center;gap:6px;width:219px;height:30px;background:#fff;border-radius:4px;padding:0 8px;color:#5f6b7c;box-shadow:inset 0 0 0 1px rgba(17,20,24,.2),inset 0 1px 1px rgba(17,20,24,.3)}
+    .chg-search input{flex:1;border:0;background:transparent;font:inherit;font-size:14px;color:#1c2127;outline:none;padding:0;min-width:0}
+    .chg-search input::placeholder{color:#5f6b7c}
+    .chg-fdiv{height:1px;background:#d8dce2;margin:20px -20px 0}
+    .chg-fsec{font-size:14px;line-height:16px;font-weight:600;color:#5f6b7c;margin:20px 0 12px;text-transform:uppercase;letter-spacing:0}
+    .chg-radio,.chg-check{display:flex;align-items:center;height:18px;margin-bottom:8px;font-size:14px;line-height:18px;color:#1c2127;cursor:default;position:relative}
+    a.chg-radio{cursor:pointer;color:#1c2127}
+    .chg-rdot{width:16px;height:16px;flex:0 0 16px;border-radius:50%;box-shadow:inset 0 0 0 1px #738091;background:#fff;margin-right:8px}
+    .chg-rdot.on{box-shadow:none;background:#2d72d2;position:relative}
+    .chg-rdot.on::after{content:"";position:absolute;left:5px;top:5px;width:6px;height:6px;border-radius:50%;background:#fff}
+    .chg-cbox{width:16px;height:16px;flex:0 0 16px;border-radius:3px;box-shadow:inset 0 0 0 1px #738091;background:#fff;margin-right:8px}
+    .chg-rlabel{flex:1;min-width:0;white-space:nowrap}
+    .chg-rcount{position:absolute;right:0;top:1px;font-size:12px;line-height:16px;color:#5f6b7c}
+    .chg-list{flex:1;min-width:0;background:#fff;box-shadow:0 0 0 1px rgba(0,0,0,.15),0 0 5px rgba(0,0,0,.02);overflow-y:auto}
+    .chg-listhead{padding:8.3px 20px 0}
+    .chg-listtitle{font-size:14px;line-height:16px;font-weight:600;color:#1c2127;margin:0}
+    .chg-listsub{font-size:12px;line-height:15.43px;color:#5f6b7c;margin-top:2.6px}
+    .chg-cols{display:flex;height:35px;margin-top:9.3px;background:#f6f7f9;padding:9.3px 0 0}
+    .chg-col{font-size:12px;line-height:15.43px;color:#5f6b7c;text-transform:uppercase}
+    .chg-col.name{flex:1;padding-left:20px}
+    .chg-col.type{width:140px}
+    .chg-col.due{width:140px;display:inline-flex;gap:6px}
+    .chg-col.act{width:160px}
+    .chg-sorticon{display:inline-flex;color:#5f6b7c;margin-top:-2px}
+    .chg-rows{min-height:200px}
+    .chg-grouphead{display:flex;align-items:center;padding:16px 20px 12px}
+    .chg-grouptitle{font-size:14px;line-height:16px;font-weight:600;color:#1c2127;margin:0;border-bottom:1px dotted #1c2127;cursor:default}
+    .chg-grouptag{margin-left:8px;font-size:12px;line-height:16px;padding:2px 6px;border-radius:2px;background:rgba(143,153,168,.15);color:#5f6b7c}
+    .chg-groupchev{margin-left:auto;display:inline-flex;color:#5f6b7c}
+    .chg-groupdiv{height:1px;background:#e5e8eb;margin:10px 0}
+    .chg-emptyrow{padding:14px 20px 20px;font-size:14px;font-style:italic;color:#5f6b7c}
+    .chg-emptylane{padding:24px 20px;font-size:14px;color:#5f6b7c}
+    .chg-row{display:flex;align-items:flex-start;padding:12px 0;border-top:1px solid #eef0f2}
+    .chg-cname{flex:1;min-width:0;display:flex;align-items:flex-start;padding-left:20px}
+    .chg-rowico{width:16px;height:16px;flex:0 0 16px;margin-top:2px;background:url('${CHG_APP_TILE_URI}') center/16px no-repeat}
+    .chg-rowdata{margin-left:10px;min-width:0;flex:1;padding-right:16px}
+    .chg-rowname{display:block;font-size:14px;line-height:18px;font-weight:600;color:#1c2127;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .chg-rowsub{display:block;font-size:12px;line-height:15.43px;color:#5f6b7c;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .chg-ctype{width:140px}
+    .chg-kindpill{display:inline-block;padding:2px 8px;border-radius:2px;background:rgba(143,153,168,.15);color:#1c2127;font-size:12px;line-height:16px}
+    .chg-cdue{width:140px;font-size:14px}
+    .chg-dash{color:#5f6b7c}
+    .chg-cact{width:160px;padding-right:14px}
+    .chg-statepill{display:inline-block;padding:2px 8px;border-radius:2px;font-size:12px;line-height:16px;background:rgba(143,153,168,.15);color:#1c2127}
+    .chg-statepill.s-applied{background:rgba(35,133,81,.15);color:#1c6e42}
+    .chg-statepill.s-pending{background:rgba(200,118,25,.15);color:#935610}
+    .chg-statepill.s-approved{background:rgba(45,114,210,.15);color:#215db0}
+    .chg-statepill.s-rejected{background:rgba(205,66,70,.12);color:#ac2f33}
+    .chg-proof{display:block;font-size:11px;color:#5f6b7c;margin-top:3px}
+    .chg-truth{padding:18px 20px 30px;border-top:1px solid #e5e8eb;margin-top:16px}
+    .chg-trutht{font-size:13px;font-weight:600;color:#1c2127;margin:0 0 6px}
+    .chg-truthsub{font-weight:400;color:#5f6b7c;margin-left:6px}
+    .chg-truthp{font-size:12px;line-height:1.6;color:#7b8494;margin:0}`;
+
+  return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Upgrade Assistant</title><style>${css}</style></head>
+    <body><div class="chg-shell">${globalRail}<div class="chg-main">${header}${banner}${tabs}<main class="chg-body">${sidebar}${list}</main></div></div></body></html>`;
 }
 
 // ============================ DATA · SOURCES (Data Connection landing — declared-catalog port, #52)
@@ -8452,6 +8664,17 @@ const server = http.createServer((req, res) => {
       }
       res.writeHead(302, { Location: `/__ioi/automations/${encodeURIComponent(newId)}`, "Cache-Control": "no-cache" });
       res.end();
+      return;
+    }
+    // ---- Improvement · Changes — the Upgrade Assistant inbox port (#53). A read-only projection
+    // over the real improvement-proposal plane; apply/approve/release lanes stay on Agent Studio.
+    if (pathname === "/__ioi/improvement/changes" && req.method === "GET") {
+      const pj = await fetch(`${DAEMON}/v1/hypervisor/intelligence/improvement-proposals`).then((r) => r.json()).catch(() => ({}));
+      const qp = new URL(req.url, "http://x").searchParams;
+      const lane = ["active", "pastdue", "archived"].includes(qp.get("lane")) ? qp.get("lane") : "active";
+      const filter = qp.get("filter") === "all" ? "all" : "action";
+      res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
+      res.end(renderChangesPort((pj.proposals || []).sort((a, b) => String(b.updated_at || "").localeCompare(String(a.updated_at || ""))), lane, filter));
       return;
     }
     // ---- Data · Sources — the Data Connection landing port (#52). A DECLARED source catalog over

@@ -213,6 +213,37 @@ export const SURFACE_SHELL = {
       ],
     },
   },
+  changes: {
+    // Upgrade Assistant inbox (#53 — the fifth origin-alignment-queue port): certified shell =
+    // rail + header (upgrade tile · title · org group / Admin view / Assignee view / Help) + the
+    // slate info banner + the Active/Past-due/Archived tab bar + the Filters sidebar (search box,
+    // section headers, radio/checkbox controls — the COUNT column is masked live data) + the list
+    // card's chrome (ring + heading/sub + the column band). The grouped ROWS region is masked data
+    // (the capture's single upgrade + group counts vs the estate's live proposals). Fixed-left
+    // inbox: identical x at both viewports; the list card bleeds to the right/bottom edges, so the
+    // right-anchored column labels are inside the compared band.
+    rects: [
+      { key: "rail", anchor: "left", x: 0, y: 0, w: 230, h: 0 },
+      { key: "header", anchor: "topbar", x: 230, y: 0, w: 0, h: 51 },
+      { key: "banner", anchor: "topbar", x: 230, y: 51, w: 0, h: 30 },
+      { key: "tabbar", anchor: "topbar", x: 230, y: 81, w: 0, h: 41 },
+      { key: "sidebar", anchor: "left", x: 230, y: 122, w: 260, h: 0 },
+      { key: "listchrome", anchor: "topbar", x: 489, y: 122, w: 0, h: 86 },
+      // The list card's empty white lower frame is the card container's own chrome (the grouped
+      // rows above are the masked data INSIDE it) — matching white on both sides at both viewports
+      // (below the last live row at y737@1920), certified. Clamps to each viewport's height.
+      { key: "listtail", x: 489, y: 760, w: 1431, h: 320 },
+    ],
+    // Masked DATA: the grouped-rows region below the column band (the capture's example upgrade vs
+    // live improvement proposals) + the sidebar's live facet-count column.
+    data: {
+      ref: [
+        { rect: { x: 492, y: 209, w: 1428, h: 551 }, label: "grouped upgrade rows (captured example vs live improvement proposals; the white card tail below ~y760 is matching chrome, left compared)" },
+        { rect: { x: 448, y: 283, w: 26, h: 262 }, label: "facet counts (live proposal counts vs captured values)" },
+      ],
+      ioi: [],
+    },
+  },
   sources: {
     // Data Connection landing (#52 — the fourth origin-alignment-queue port): certified shell =
     // rail + tabbed 48px header (title · divider · five tabs · store dropdown / New source / Help;

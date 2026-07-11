@@ -261,6 +261,12 @@ export const REFERENCE_PRE_CAPTURE = {
     await page.getByText("Close", { exact: true }).first().click({ timeout: 4000 });
     await page.waitForTimeout(900);
   },
+  // Changes (#53): the capture opens on a "What's new" modal — dismissed via its own Close
+  // control (UI only; the error signal is read BEFORE any hook).
+  changes: async (page) => {
+    await page.getByText("Close", { exact: true }).first().click({ timeout: 4000 });
+    await page.waitForTimeout(900);
+  },
   // Incidents (#45): the capture's DATA lives one status-lane click deep — the default
   // Open lane is honestly empty and the 5 real closed incidents sit behind the Closed
   // lane (#44 sweep finding). The hook clicks STATUS UI ONLY (no auth/origin change, no

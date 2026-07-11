@@ -1,0 +1,133 @@
+{
+  "schema": "ioi.hypervisor.shell-pixel-certification.v1",
+  "slug": "changes",
+  "matrix_class": "daemon_wired",
+  "shell_pixel_certified": true,
+  "viewports_pinned": false,
+  "thresholds": {
+    "shell_diff_dilated_pct_max": 1.25,
+    "shell_diff_raw_pct_max": 3,
+    "shell_bbox_delta_px_max": 8,
+    "min_shell_certified_fraction": 0.05,
+    "data_mask_in_shell_fraction_max": 0.5,
+    "landmark_mask_overlap_max": 0.3,
+    "pixel_delta_threshold": 0.1,
+    "palette_delta_max": 0.05
+  },
+  "reference_url": "http://localhost:9225/workspace/upgrade-assistant/",
+  "ioi_url": "http://127.0.0.1:4173/__ioi/improvement/changes",
+  "mobile": "mobile_not_supported (scrollWidth=390 innerWidth=390 railFrac=0.59)",
+  "note": "SHELL pixel parity — the live-data body is excluded by design and verified semantically by the surface verifier (body_semantic_truth)",
+  "viewports": [
+    {
+      "viewport": "1440x900",
+      "reference_url": "http://localhost:9225/workspace/upgrade-assistant/",
+      "ioi_url": "http://127.0.0.1:4173/__ioi/improvement/changes",
+      "certified": true,
+      "reasons": [],
+      "gates": {
+        "evidence_ok": true,
+        "reference_errored": false,
+        "ioi_errored": false,
+        "reference_valid": true,
+        "ioi_valid": true,
+        "structural_parity": true,
+        "theme_match": true,
+        "landmark_covered": 10,
+        "landmark_applicable": 10
+      },
+      "metrics": {
+        "dims_match": true,
+        "shell_diff_raw_pct": 1.55,
+        "shell_diff_dilated_pct": 1.18,
+        "certified_px": 757717,
+        "palette": {
+          "shell": {
+            "ref_avg_rgb": [
+              184,
+              186,
+              189
+            ],
+            "ioi_avg_rgb": [
+              184,
+              186,
+              190
+            ],
+            "delta": 0
+          }
+        },
+        "bbox_deltas": {
+          "rail": 0,
+          "header": 0
+        },
+        "coverage": {
+          "shell_fraction": 0.599,
+          "certified_fraction": 0.581,
+          "data_in_shell_fraction": 0.03,
+          "landmarks_masked": []
+        },
+        "cmp_error": null
+      },
+      "screens": {
+        "ref": "changes/ref-1440x900.png",
+        "ioi": "changes/ioi-1440x900.png",
+        "heatmap": "changes/heatmap-1440x900.png"
+      }
+    },
+    {
+      "viewport": "1920x1080",
+      "reference_url": "http://localhost:9225/workspace/upgrade-assistant/",
+      "ioi_url": "http://127.0.0.1:4173/__ioi/improvement/changes",
+      "certified": true,
+      "reasons": [],
+      "gates": {
+        "evidence_ok": true,
+        "reference_errored": false,
+        "ioi_errored": false,
+        "reference_valid": true,
+        "ioi_valid": true,
+        "structural_parity": true,
+        "theme_match": true,
+        "landmark_covered": 10,
+        "landmark_applicable": 10
+      },
+      "metrics": {
+        "dims_match": true,
+        "shell_diff_raw_pct": 1.08,
+        "shell_diff_dilated_pct": 0.86,
+        "certified_px": 1267957,
+        "palette": {
+          "shell": {
+            "ref_avg_rgb": [
+              203,
+              205,
+              207
+            ],
+            "ioi_avg_rgb": [
+              203,
+              205,
+              207
+            ],
+            "delta": 0
+          }
+        },
+        "bbox_deltas": {
+          "rail": 0,
+          "header": 0
+        },
+        "coverage": {
+          "shell_fraction": 0.623,
+          "certified_fraction": 0.609,
+          "data_in_shell_fraction": 0.023,
+          "landmarks_masked": []
+        },
+        "cmp_error": null
+      },
+      "screens": {
+        "ref": "changes/ref-1920x1080.png",
+        "ioi": "changes/ioi-1920x1080.png",
+        "heatmap": "changes/heatmap-1920x1080.png"
+      }
+    }
+  ]
+}
