@@ -55,9 +55,19 @@ export function render(model, ctx) {
   return renderPipelineBuilder(model, sel.ontology || "", sel.node || "");
 }
 
-// No commands are wired yet: Build/Preview/Schedule/Deploy stay exactly as the certified shell
-// renders them (the command-discipline PR gives them the authority-or-disabled contract).
-export const actions = [];
+// The Pipeline command table (command-discipline contract): every command is either an ENABLED
+// action carrying its route + expected proof, or DISABLED with a reason naming exactly what is
+// missing — never a blank href, never a silent no-op. Build stays DISABLED: materialization is
+// the governed ODK ladder (MaterializingRun citing a CapabilityLeasePlan → wallet-approved lease
+// → sealed ConnectorSession → execute) — a multi-step, wallet-gated authority, not a single safe
+// call; a POST that pretended otherwise would cross an authority line this surface doesn't own.
+// The header renders FROM this table, so the UI cannot drift from the declared command model.
+export const actions = [
+  { key: "preview", label: "Preview", enabled: true, kind: "read_navigation", route: "/__ioi/pipeline?node=materialized", proof: "the materialized set's real rows + provenance refs render in the tray (read-only — no authority crossed)" },
+  { key: "build", label: "Build", enabled: false, authority: null, reason: "no single-call build authority exists — materialization is the governed ODK ladder: MaterializingRun (citing a CapabilityLeasePlan) → wallet-approved lease → sealed ConnectorSession → execute; run the ladder from the Ontology Manager" },
+  { key: "schedule", label: "Schedule", enabled: false, authority: null, reason: "no pipeline scheduler exists yet — a named gap (author + run via a materializing run)" },
+  { key: "deploy", label: "Deploy", enabled: false, authority: null, reason: "no pipeline deploy exists yet — a named gap" },
+];
 
 // ============================ PIPELINE BUILDER (reference-UX parity over the ODK ladder) =========
 // The Reference UX Port program (post-#31 reset), substrate for the Data Pipeline Builder. The reference
@@ -122,6 +132,7 @@ function renderPipelineBuilder(lists, selectedId, nodeParam) {
   const inspectorMode = !!(selected && nodeParam);
   const invalidNode = !!(nodeParam && !nodeValid);
   const nodeHref = (key) => selectionQuery("/__ioi/pipeline", { ontology: oid, node: key });
+  const missingRungs = nodes.filter((n) => n.cls === "missing").map((n) => n.label);
   const enc = encodeURIComponent, esc = CX_ESC;
   const oname = selected ? esc(selected.domain || selected.id) : "no pipeline";
 
@@ -271,7 +282,9 @@ function renderPipelineBuilder(lists, selectedId, nodeParam) {
           irow("reset", disabledCommand({ label: "Delete object set", reason: "deletion is a daemon authority (DELETE …/materialized-object-sets/:id) — command wiring is the command-discipline PR, a named gap here" })),
         ].join("") : emptyStage("Materialized object set"),
         trayTitle: "Materialized objects — preview rows",
-        tray: previewTable,
+        tray: (st ? "" : ihint(missingRungs.length
+          ? `Nothing is materialized on this pipeline yet — missing rung${missingRungs.length === 1 ? "" : "s"}: ${missingRungs.map((l) => `<b>${esc(l)}</b>`).join(" · ")}. Build runs the governed ladder from the <a href="/__ioi/odk?ontology=${enc(oid)}">Ontology Manager</a>; nothing is fabricated here.`
+          : `Every ladder rung is declared but the materializing run has not executed yet — nothing is materialized, and nothing is fabricated here. Execute the run from the <a href="/__ioi/odk?ontology=${enc(oid)}">Ontology Manager</a>.`)) + previewTable,
       };
       default: return { title: "Pipeline", sub: "", body: emptyStage("node"), trayTitle: "Selection", tray: previewTable };
     }
@@ -301,6 +314,16 @@ function renderPipelineBuilder(lists, selectedId, nodeParam) {
     ["Output Dataset", "#147eb3", osets.length],
   ];
 
+  // ---- Command state (command-discipline): the header renders from the module's declared
+  // command table. Preview is a real read-navigation — it selects the materialized node (URL
+  // state, ontology preserved) and lands on the tray, where real rows or the honest missing-rung
+  // state render. Build/Schedule/Deploy are visibly disabled with their named reasons (the whole
+  // cluster sits inside the harness's both-sides session-state mask, so command-state changes
+  // never move certified shell pixels). The old Build→ODK jump lives on as the explicit
+  // "Ontology Manager" link — a labeled navigation, not a command pretending to build.
+  const cmd = Object.fromEntries(actions.map((a) => [a.key, a]));
+  const previewHref = `${nodeHref("materialized")}#pb-preview`;
+
   // ---- HEADER (h51, white, hairline shadow) — the reference navbar: app chip · breadcrumb title row
   // (live names → masked as dynamic data) + File/Settings/Help menu row (named gaps) + Batch tag · a
   // FLUID MIDDLE zone that in the reference carries captured SESSION STATE (tabs/undo/branch/build
@@ -321,10 +344,10 @@ function renderPipelineBuilder(lists, selectedId, nodeParam) {
       </div>
     </div>
     <div class="pb-hmid">
-      <a class="pb-btn primary" href="/__ioi/odk?ontology=${enc(oid)}">Build</a>
-      <a class="pb-btn ghost" href="#pb-preview">Preview</a>
-      <button class="pb-btn ghost" disabled title="No pipeline scheduler yet — a named gap (author + run via a materializing run).">Schedule</button>
-      <button class="pb-btn ghost" disabled title="No pipeline deploy yet — a named gap.">Deploy</button>
+      <button class="pb-btn primary" disabled title="${esc(cmd.build.reason)}" data-ioi-disabled-reason="${esc(cmd.build.reason)}">Build</button>
+      <a class="pb-btn ghost" data-cmd="preview" href="${previewHref}">Preview</a>
+      <button class="pb-btn ghost" disabled title="${esc(cmd.schedule.reason)}" data-ioi-disabled-reason="${esc(cmd.schedule.reason)}">Schedule</button>
+      <button class="pb-btn ghost" disabled title="${esc(cmd.deploy.reason)}" data-ioi-disabled-reason="${esc(cmd.deploy.reason)}">Deploy</button>
       <a class="pb-btn link" href="/__ioi/lineage?ontology=${enc(oid)}">Lineage</a>
       <a class="pb-btn link" href="/__ioi/odk?ontology=${enc(oid)}">Ontology Manager</a>
     </div>

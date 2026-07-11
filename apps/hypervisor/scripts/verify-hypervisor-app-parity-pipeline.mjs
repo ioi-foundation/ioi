@@ -226,9 +226,11 @@ async function run() {
     }
   }
 
-  // 5. Unsupported controls disabled IN PLACE (not moved to a separate page).
-  ok("Build + Preview are enabled controls in the header", /pb-btn primary"[^>]*>Build</.test(t) && /href="#pb-preview"/.test(t));
-  ok("Schedule + Deploy are present but DISABLED in place (named gaps, not hidden)", /<button[^>]*disabled[^>]*>Schedule<\/button>/.test(t) && /<button[^>]*disabled[^>]*>Deploy<\/button>/.test(t));
+  // 5. COMMAND DISCIPLINE (static) — every header command is a real action or a visible disabled
+  // control naming its reason; nothing is a blank-href/fragment no-op.
+  ok("Preview is a REAL command: a state URL selecting the materialized node with the ontology preserved (not a fragment no-op)", (() => { const m = t.match(/data-cmd="preview" href="([^"]*)"/); return !!m && m[1].includes("node=materialized") && m[1].includes(`ontology=${ont.id}`) && m[1].endsWith("#pb-preview"); })());
+  ok("Build is DISABLED in place naming the exact governed-ladder requirement (no POST pretends to build)", /<button class="pb-btn primary" disabled[^>]*>Build<\/button>/.test(t) && t.includes('data-ioi-disabled-reason="no single-call build authority exists') && t.includes("wallet-approved lease → sealed ConnectorSession → execute"));
+  ok("Schedule + Deploy are present but DISABLED in place with named reasons (named gaps, not hidden)", /<button[^>]*disabled[^>]*>Schedule<\/button>/.test(t) && /<button[^>]*disabled[^>]*>Deploy<\/button>/.test(t) && (t.match(/data-ioi-disabled-reason="/g) || []).length >= 3);
   ok("reference capture linked as the secondary baseline; brand/reference clean", t.includes("/__apps/pipeline") && !/\bPalantir\b/.test(t) && !/\bFoundry\b/.test(t));
 
   // 6. Conditionally honest — a fresh ontology's pipeline is "not built".
@@ -236,6 +238,50 @@ async function run() {
   track("domain-ontologies", fresh);
   const freshPage = await page(`${SERVE}/__ioi/pipeline?ontology=${encodeURIComponent(fresh)}`);
   ok("a fresh ontology's pipeline is honestly 'not built' (0/7 stages live)", /pb-declared">not built/.test(freshPage.text) && /0\/7 stages live/.test(freshPage.text));
+
+  // 6b. COMMAND DISCIPLINE (interactive, #58) — Preview clicked on a BUILT pipeline lands on the
+  // real materialized preview; clicked on an UNBUILT one lands on the honest missing-rung state;
+  // a disabled Build cannot mutate daemon truth; the module's command table IS the contract.
+  {
+    const { chromium } = await import("playwright");
+    const b = await chromium.launch();
+    try {
+      const pg = await b.newPage({ viewport: { width: 1440, height: 900 } });
+      await pg.goto(`${SERVE}/__ioi/pipeline?ontology=${encodeURIComponent(ont.id)}`, { waitUntil: "networkidle" });
+      ok("Build renders visibly disabled with the ladder requirement named (in the reference shell location)", await pg.locator('button.pb-btn.primary[disabled][data-ioi-disabled-reason*="MaterializingRun"]').count() === 1);
+      const setsBefore = ((await jd("GET", "/v1/hypervisor/odk/materialized-object-sets")).j.materialized_object_sets || []).length;
+      await pg.locator("button.pb-btn.primary[disabled]").dispatchEvent("click");
+      await pg.waitForTimeout(400);
+      const setsAfter = ((await jd("GET", "/v1/hypervisor/odk/materialized-object-sets")).j.materialized_object_sets || []).length;
+      ok("a disabled Build cannot mutate daemon truth (forced click → no new materialized set, no navigation)", setsBefore === setsAfter && new URL(pg.url()).pathname === "/__ioi/pipeline", `${setsBefore} sets before and after`);
+      // Preview on the BUILT pipeline.
+      await pg.click('a[data-cmd="preview"]');
+      await pg.waitForLoadState("domcontentloaded");
+      const pu = new URL(pg.url());
+      ok("Preview click: URL selects the materialized node, preserves the ontology, lands on the tray", pu.searchParams.get("node") === "materialized" && pu.searchParams.get("ontology") === ont.id && pu.hash === "#pb-preview", pu.search + pu.hash);
+      const trayText = ((await pg.locator("#pb-tray-node").textContent().catch(() => "")) || "");
+      const daemonSet = ((await jd("GET", "/v1/hypervisor/odk/materialized-object-sets")).j.materialized_object_sets || []).find((s) => s.id === setId);
+      ok("Preview shows THE daemon materialized set's rows (every key value present, count matches)", !!daemonSet && (daemonSet.objects || []).length > 0 && daemonSet.objects.every((o) => trayText.includes(String((o.properties || {}).loan_id))) && ((await pg.locator("#pb-inspector").textContent()) || "").includes(String(daemonSet.count)), daemonSet ? `${daemonSet.count} objects cross-checked` : "set missing");
+      ok("Preview result cites provenance (materializing run ref in the inspector)", (((await pg.locator("#pb-inspector").textContent()) || "")).includes("materializing-run://"));
+      const htmlBuilt = await pg.content();
+      // Preview on the UNBUILT pipeline.
+      await pg.goto(`${SERVE}/__ioi/pipeline?ontology=${encodeURIComponent(fresh)}`, { waitUntil: "networkidle" });
+      await pg.click('a[data-cmd="preview"]');
+      await pg.waitForLoadState("domcontentloaded");
+      const freshTray = ((await pg.locator(".pb-traybody").textContent().catch(() => "")) || "");
+      ok("Preview on an unbuilt pipeline names the missing rungs honestly (no fabricated rows)", freshTray.includes("Nothing is materialized") && freshTray.includes("missing rung") && freshTray.includes("Object mapping") && !freshTray.includes("L-1"));
+      const htmlFresh = await pg.content();
+      // No silent no-ops: every header command is a real (non-fragment) href XOR disabled+reason.
+      const cmds = await pg.evaluate(() => [...document.querySelectorAll(".pb-hmid .pb-btn")].map((el) => ({ tag: el.tagName, href: el.getAttribute("href") || "", disabled: el.hasAttribute("disabled"), reason: el.getAttribute("data-ioi-disabled-reason") || "", text: (el.textContent || "").trim() })));
+      ok("no command is a silent no-op: real state/route href XOR disabled-with-named-reason", cmds.length >= 6 && cmds.every((c) => (c.tag === "A" && c.href && !c.href.startsWith("#")) || (c.disabled && c.reason.length > 20)), cmds.map((c) => `${c.text}:${c.disabled ? "disabled" : c.href.slice(0, 30)}`).join(" · "));
+      // The module's declared command table is the contract the DOM rendered from.
+      const mod = await import(path.join(appRoot, "surfaces", "pipeline", "index.mjs"));
+      ok("module command table: enabled ⇒ route+proof · disabled ⇒ named reason (Build/Schedule/Deploy disabled, Preview read-navigation)", mod.actions.length === 4 && mod.actions.every((a) => a.key && a.label && (a.enabled ? (a.route && a.proof) : (a.reason && a.reason.length > 20))) && !mod.actions.find((a) => a.key === "build").enabled && mod.actions.find((a) => a.key === "preview").enabled);
+      ok("no-secrets sweep across command result pages (built + unbuilt)", !htmlBuilt.includes(SENTINEL) && !htmlFresh.includes(SENTINEL) && !htmlBuilt.includes(`:${port}/rows`) && !htmlFresh.includes(`:${port}/rows`));
+    } finally {
+      await b.close();
+    }
+  }
 
   // 7. The ODK ladder itself is intact + cross-links to the pipeline view.
   const odk = await page(`${SERVE}/__ioi/odk?ontology=${encodeURIComponent(ont.id)}`);

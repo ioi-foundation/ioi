@@ -35,7 +35,8 @@ async function run() {
   const matrix = JSON.parse(readFileSync(join(APP, "harvest-app-parity-matrix.json"), "utf8"));
   const seed = (matrix.seeds || []).find((s) => s.slug === "pipeline");
   ok("module meta agrees with the parity-matrix seed", !!seed && seed.candidate_surface.split("?")[0] === pipeline.meta.route && seed.shell_pixel_certification_artifact === pipeline.meta.certification && seed.shell_pixel_certified === true);
-  ok("no wired actions yet (command discipline is a later PR)", pipeline.actions.length === 0);
+  ok("command table honors the discipline contract: enabled ⇒ route+proof, disabled ⇒ named reason", pipeline.actions.length === 4 && pipeline.actions.every((a) => a.key && a.label && (a.enabled ? (typeof a.route === "string" && typeof a.proof === "string") : (typeof a.reason === "string" && a.reason.length > 20))));
+  ok("Build/Schedule/Deploy stay disabled (no authority crossed); Preview is the one enabled read-navigation", pipeline.actions.filter((a) => a.enabled).map((a) => a.key).join(",") === "preview" && pipeline.actions.find((a) => a.key === "build").authority === null);
 
   // 2. Registry mounts the module itself; offline render keeps the certified shell landmarks.
   const hit = boundSurface("/__ioi/pipeline", "GET");
