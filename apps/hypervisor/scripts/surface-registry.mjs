@@ -30,27 +30,37 @@ import * as approvalsModule from "../surfaces/approvals/index.mjs";
 // only when a PR lands the behavior with its verifier — parity fields stay untouched beside them.
 export const CAPABILITIES = ["browse", "filter", "select", "inspect", "create", "update", "transition", "execute", "proof"];
 export const OPERATIONAL_STATES = ["shell", "browse", "inspect", "act", "workflow_complete", "read_only_by_contract"];
+// Native container contract (#65): `embedded_shell_state` declares how the surface renders inside
+// the Open Application slot. "native_single_rail" = embed=1 removes the ported global rail
+// STRUCTURALLY and the native IOI rail is the one platform rail; "ported_rail_only" = the surface
+// still ships its reference rail when embedded (NOT admissible for an operational application —
+// the invariant below fails the boot).
+export const EMBEDDED_SHELL_STATES = ["ported_rail_only", "native_single_rail"];
 
 export const SURFACES = [
-  { slug: "pipeline", owner: "Data", title: "Pipeline Builder", icon: PIPELINE_APP_ICON_URI, route: "/__ioi/pipeline", verifier: "scripts/verify-hypervisor-app-parity-pipeline.mjs", certification: "pixel-certifications/pipeline.json", capabilities: ["browse", "select", "inspect", "proof"], operational_state: "inspect" },
-  { slug: "sources", owner: "Data", title: "Data Connection", icon: SRC_APP_TILE_URI, route: "/__ioi/data/sources", verifier: "scripts/verify-hypervisor-app-parity-sources.mjs", certification: "pixel-certifications/sources.json", capabilities: ["browse", "select"], operational_state: "browse" },
-  { slug: "schema", owner: "Ontology", title: "Ontology Manager", icon: ONTOLOGY_APP_ICON_URI, route: "/__ioi/ontology/manager", verifier: "scripts/verify-hypervisor-app-parity-ontology-manager.mjs", certification: "pixel-certifications/schema.json", capabilities: ["browse", "filter", "select", "inspect", "create", "update", "proof"], operational_state: "act" },
-  { slug: "explorer", owner: "Ontology", title: "Object Explorer", icon: EXPLORER_APP_ICON_URI, route: "/__ioi/ontology/explorer", verifier: "scripts/verify-hypervisor-app-parity-object-explorer.mjs", certification: "pixel-certifications/explorer.json", capabilities: ["browse", "filter", "select", "inspect", "proof"], operational_state: "inspect" },
-  { slug: "approvals", owner: "Governance", title: "Approvals", icon: APPROVALS_APP_ICON_URI, route: "/__ioi/governance/approvals", verifier: "scripts/verify-hypervisor-app-parity-approvals.mjs", certification: "pixel-certifications/approvals.json", capabilities: ["browse", "filter", "select", "inspect", "transition"], operational_state: "act" },
-  { slug: "incidents", owner: "Missions", title: "Issues", icon: ISSUES_APP_ICON_URI, route: "/__ioi/missions/incidents", verifier: "scripts/verify-hypervisor-app-parity-incidents.mjs", certification: "pixel-certifications/incidents.json", capabilities: ["browse", "filter", "proof"], operational_state: "browse" },
-  { slug: "models", owner: "Foundry", title: "Model Catalog", icon: MODELS_APP_ICON_URI, route: "/__ioi/foundry/models", verifier: "scripts/verify-hypervisor-app-parity-foundry-models.mjs", certification: "pixel-certifications/models.json", capabilities: ["browse"], operational_state: "browse" },
-  { slug: "listings", owner: "Marketplace", title: "Marketplace", icon: MARKETPLACE_APP_ICON_URI, route: "/__ioi/marketplace/listings", verifier: "scripts/verify-hypervisor-app-parity-listings.mjs", certification: "pixel-certifications/listings.json", capabilities: ["browse"], operational_state: "browse" },
-  { slug: "designer", owner: "Studio", title: "Solution Designer", icon: DSG_APP_TILE_URI, route: "/__ioi/studio/designer", verifier: "scripts/verify-hypervisor-app-parity-studio-designer.mjs", certification: "pixel-certifications/designer.json", capabilities: ["browse"], operational_state: "browse" },
-  { slug: "machinery", owner: "Studio", title: "Machinery", icon: MCH_APP_TILE_URI, route: "/__ioi/studio/machinery", verifier: "scripts/verify-hypervisor-app-parity-studio-machinery.mjs", certification: "pixel-certifications/machinery.json", capabilities: ["browse"], operational_state: "browse" },
-  { slug: "monitors", owner: "Automations", title: "Automate", icon: MON_APP_TILE_URI, route: "/__ioi/automations/monitors", verifier: "scripts/verify-hypervisor-app-parity-monitors.mjs", certification: "pixel-certifications/monitors.json", capabilities: ["browse"], operational_state: "browse" },
-  { slug: "changes", owner: "Improvement", title: "Upgrade Assistant", icon: CHG_APP_TILE_URI, route: "/__ioi/improvement/changes", verifier: "scripts/verify-hypervisor-app-parity-changes.mjs", certification: "pixel-certifications/changes.json", capabilities: ["browse"], operational_state: "browse" },
-  { slug: "evalsuites", owner: "Evaluations", title: "AIP Evals", icon: EVL_APP_TILE_URI, route: "/__ioi/evaluations/evalsuites", verifier: "scripts/verify-hypervisor-app-parity-evalsuites.mjs", certification: "pixel-certifications/evalsuites.json", capabilities: ["browse"], operational_state: "browse" },
+  { slug: "pipeline", owner: "Data", title: "Pipeline Builder", icon: PIPELINE_APP_ICON_URI, route: "/__ioi/pipeline", verifier: "scripts/verify-hypervisor-app-parity-pipeline.mjs", certification: "pixel-certifications/pipeline.json", capabilities: ["browse", "select", "inspect", "proof"], operational_state: "inspect", embedded_shell_state: "native_single_rail" },
+  { slug: "sources", owner: "Data", title: "Data Connection", icon: SRC_APP_TILE_URI, route: "/__ioi/data/sources", verifier: "scripts/verify-hypervisor-app-parity-sources.mjs", certification: "pixel-certifications/sources.json", capabilities: ["browse", "select"], operational_state: "browse", embedded_shell_state: "native_single_rail" },
+  { slug: "schema", owner: "Ontology", title: "Ontology Manager", icon: ONTOLOGY_APP_ICON_URI, route: "/__ioi/ontology/manager", verifier: "scripts/verify-hypervisor-app-parity-ontology-manager.mjs", certification: "pixel-certifications/schema.json", capabilities: ["browse", "filter", "select", "inspect", "create", "update", "proof"], operational_state: "act", embedded_shell_state: "native_single_rail" },
+  { slug: "explorer", owner: "Ontology", title: "Object Explorer", icon: EXPLORER_APP_ICON_URI, route: "/__ioi/ontology/explorer", verifier: "scripts/verify-hypervisor-app-parity-object-explorer.mjs", certification: "pixel-certifications/explorer.json", capabilities: ["browse", "filter", "select", "inspect", "proof"], operational_state: "inspect", embedded_shell_state: "native_single_rail" },
+  { slug: "approvals", owner: "Governance", title: "Approvals", icon: APPROVALS_APP_ICON_URI, route: "/__ioi/governance/approvals", verifier: "scripts/verify-hypervisor-app-parity-approvals.mjs", certification: "pixel-certifications/approvals.json", capabilities: ["browse", "filter", "select", "inspect", "transition"], operational_state: "act", embedded_shell_state: "native_single_rail" },
+  { slug: "incidents", owner: "Missions", title: "Issues", icon: ISSUES_APP_ICON_URI, route: "/__ioi/missions/incidents", verifier: "scripts/verify-hypervisor-app-parity-incidents.mjs", certification: "pixel-certifications/incidents.json", capabilities: ["browse", "filter", "proof"], operational_state: "browse", embedded_shell_state: "native_single_rail" },
+  { slug: "models", owner: "Foundry", title: "Model Catalog", icon: MODELS_APP_ICON_URI, route: "/__ioi/foundry/models", verifier: "scripts/verify-hypervisor-app-parity-foundry-models.mjs", certification: "pixel-certifications/models.json", capabilities: ["browse"], operational_state: "browse", embedded_shell_state: "native_single_rail" },
+  { slug: "listings", owner: "Marketplace", title: "Marketplace", icon: MARKETPLACE_APP_ICON_URI, route: "/__ioi/marketplace/listings", verifier: "scripts/verify-hypervisor-app-parity-listings.mjs", certification: "pixel-certifications/listings.json", capabilities: ["browse"], operational_state: "browse", embedded_shell_state: "native_single_rail" },
+  { slug: "designer", owner: "Studio", title: "Solution Designer", icon: DSG_APP_TILE_URI, route: "/__ioi/studio/designer", verifier: "scripts/verify-hypervisor-app-parity-studio-designer.mjs", certification: "pixel-certifications/designer.json", capabilities: ["browse"], operational_state: "browse", embedded_shell_state: "native_single_rail" },
+  { slug: "machinery", owner: "Studio", title: "Machinery", icon: MCH_APP_TILE_URI, route: "/__ioi/studio/machinery", verifier: "scripts/verify-hypervisor-app-parity-studio-machinery.mjs", certification: "pixel-certifications/machinery.json", capabilities: ["browse"], operational_state: "browse", embedded_shell_state: "native_single_rail" },
+  { slug: "monitors", owner: "Automations", title: "Automate", icon: MON_APP_TILE_URI, route: "/__ioi/automations/monitors", verifier: "scripts/verify-hypervisor-app-parity-monitors.mjs", certification: "pixel-certifications/monitors.json", capabilities: ["browse"], operational_state: "browse", embedded_shell_state: "native_single_rail" },
+  { slug: "changes", owner: "Improvement", title: "Upgrade Assistant", icon: CHG_APP_TILE_URI, route: "/__ioi/improvement/changes", verifier: "scripts/verify-hypervisor-app-parity-changes.mjs", certification: "pixel-certifications/changes.json", capabilities: ["browse"], operational_state: "browse", embedded_shell_state: "native_single_rail" },
+  { slug: "evalsuites", owner: "Evaluations", title: "AIP Evals", icon: EVL_APP_TILE_URI, route: "/__ioi/evaluations/evalsuites", verifier: "scripts/verify-hypervisor-app-parity-evalsuites.mjs", certification: "pixel-certifications/evalsuites.json", capabilities: ["browse"], operational_state: "browse", embedded_shell_state: "native_single_rail" },
 ];
 
 // Fail-fast registry invariants: a typo'd capability or state is a boot error, not a silent lie.
 for (const s of SURFACES) {
   if (!Array.isArray(s.capabilities) || s.capabilities.length === 0 || !s.capabilities.every((c) => CAPABILITIES.includes(c))) throw new Error(`surface-registry: '${s.slug}' has an invalid capabilities declaration`);
   if (!OPERATIONAL_STATES.includes(s.operational_state)) throw new Error(`surface-registry: '${s.slug}' has an invalid operational_state`);
+  if (!EMBEDDED_SHELL_STATES.includes(s.embedded_shell_state)) throw new Error(`surface-registry: '${s.slug}' has an invalid embedded_shell_state`);
+  // An application may be called operational inside Hypervisor only when the native rail is the
+  // single platform rail in embedded mode (double-rail shells never advance past "shell").
+  if (s.operational_state !== "shell" && s.embedded_shell_state !== "native_single_rail") throw new Error(`surface-registry: '${s.slug}' is ${s.operational_state} but not native_single_rail when embedded`);
 }
 
 export function surfaceBySlug(slug) {
@@ -76,10 +86,15 @@ export function boundSurface(pathname, method) {
   return null;
 }
 
-// Routes that support the embedded render mode (`embed=1`) — exactly the module-bound surfaces:
-// the embed rewrite threads the flag only through links that land on another embeddable route.
+// Routes that support the embedded render mode (`embed=1`) — EVERY registry surface (native
+// container contract #65: flat handlers render embedded through the serve choke point, modules
+// through ctx.embed) plus the native semantic-plane surfaces the cross-application journey
+// traverses (they ship no ported rail; threading embed through them keeps a chain that re-enters
+// a registry surface embedded). The embed rewrite threads the flag only through links that land
+// on one of these routes.
+export const EMBED_THREAD_ROUTES = ["/__ioi/lineage", "/__ioi/vertex", "/__ioi/work-ledger"];
 export function embeddableRoutes() {
-  return new Set(SURFACES.filter((s) => bound.has(s.slug)).map((s) => s.route));
+  return new Set([...SURFACES.map((s) => s.route), ...EMBED_THREAD_ROUTES]);
 }
 
 // ---- Action routes (operational wave #62) — a module's DECLARED mutations, matched beneath its
@@ -118,7 +133,7 @@ bindSurface("approvals", approvalsModule);
 // verifier a module whose action THROWS (route isolation proof) and one that claims success
 // WITHOUT a receipt (fail-closed proof). Carries no daemon authority and mutates nothing.
 if (process.env.IOI_APP_RUNTIME_TEST_ROUTE === "1") {
-  SURFACES.push({ slug: "__test_action", owner: "Test", title: "Action Runtime Test", icon: "data:,x", route: "/__ioi/__test/action-surface", verifier: "n/a", certification: "n/a", capabilities: ["browse"], operational_state: "browse" });
+  SURFACES.push({ slug: "__test_action", owner: "Test", title: "Action Runtime Test", icon: "data:,x", route: "/__ioi/__test/action-surface", verifier: "n/a", certification: "n/a", capabilities: ["browse"], operational_state: "browse", embedded_shell_state: "native_single_rail" });
   bindSurface("__test_action", {
     meta: { slug: "__test_action", route: "/__ioi/__test/action-surface" },
     load: async () => ({}),

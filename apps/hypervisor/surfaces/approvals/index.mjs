@@ -52,7 +52,7 @@ export async function load(ctx) {
 export function render(model, ctx) {
   const sp = ctx.url.searchParams;
   return renderApprovalsPort(model.records, sp.get("status") || "", {
-    selected: sp.get("req") || "",
+    selected: sp.get("req") || "", embed: ctx.embed,
     banner: {
       acted: sp.get("acted") || "",
       receipt: sp.get("receipt") || "",
@@ -114,7 +114,8 @@ function renderApprovalsPort(records, statusFilter, opts) {
   const CUBE = '<path d="M12 2l9 5v10l-9 5-9-5V7z"/>';
 
   // DARK global platform rail — the SHARED pixel-aligned reference shell (ioiGlobalRailHtml, #42).
-  const globalRail = ioiGlobalRailHtml({ label: "Approvals", href: "/__ioi/governance/approvals", iconUri: APPROVALS_APP_ICON_URI });
+  // Embedded (native container contract #65): the native rail owns platform nav — emit no global rail.
+  const globalRail = opts.embed ? "" : ioiGlobalRailHtml({ label: "Approvals", href: "/__ioi/governance/approvals", iconUri: APPROVALS_APP_ICON_URI });
 
   // LIGHT faceted filter sidebar — Quick filters (real status shortcuts) + Additional filters (Status
   // is wired to ?status=; the rest are faithful faceted controls disabled as named gaps).

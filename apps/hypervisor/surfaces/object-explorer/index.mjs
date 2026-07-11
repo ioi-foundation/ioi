@@ -21,7 +21,7 @@ export async function load(ctx) {
 }
 
 export function render(model, ctx) {
-  return renderObjectExplorerPort(model.overview, model.lists, { q: ctx.url.searchParams.get("q") || "", sel: parseOntologyContext(ctx.url) });
+  return renderObjectExplorerPort(model.overview, model.lists, { q: ctx.url.searchParams.get("q") || "", sel: parseOntologyContext(ctx.url), embed: ctx.embed });
 }
 
 // Selection is read-navigation through the shared ontology context (never a command); no
@@ -106,7 +106,8 @@ function renderObjectExplorerPort(ov, lists, opts) {
   </tr>`;
   };
 
-  const globalRail = ioiGlobalRailHtml({ label: "Object Explorer", href: "/__ioi/ontology/explorer", iconUri: EXPLORER_APP_ICON_URI, railVariant: "rv-pipe", viewAll: false, star: false, badges: true, aipGradient: true, acctMuted: true, hiliteNav: "Ontology" });
+  // Embedded (native container contract #65): the native rail owns platform nav — emit no global rail.
+  const globalRail = opts.embed ? "" : ioiGlobalRailHtml({ label: "Object Explorer", href: "/__ioi/ontology/explorer", iconUri: EXPLORER_APP_ICON_URI, railVariant: "rv-pipe", viewAll: false, star: false, badges: true, aipGradient: true, acctMuted: true, hiliteNav: "Ontology" });
 
   const tabbar = `<div class="oe-tabbar oe-topbar">
     <span class="oe-sqbtn gap" aria-disabled="true" title="Active exploration — a reference-only session lane (named gap)"><span class="oe-sqico"></span></span>

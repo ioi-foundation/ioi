@@ -6907,12 +6907,14 @@ function surfaceErrorBoundary(req, res, err) {
   } catch { /* client socket already gone */ }
 }
 
-// ---- Embedded render mode (operational wave) — used ONLY by the Open Application slot. The
-// native IOI rail outside the iframe owns platform navigation, so the app's duplicated reference
-// GLOBAL rail is hidden (CSS only — the standalone/certified render is byte-untouched), and
-// embed=1 is threaded through every link, row onclick, and GET form that lands on another
-// embeddable module route, so selection/filter/refresh stay embedded. App-local rails, headers,
-// sidebars, tools, inspectors and trays are never touched.
+// ---- Embedded render mode (native container contract #65) — used ONLY by the Open Application
+// slot. The native IOI rail outside the iframe is the ONE platform rail, so the app's duplicated
+// reference GLOBAL rail is removed STRUCTURALLY (never merely CSS-hidden — no hidden duplicate
+// navigation tree survives in the iframe; the standalone/certified render is byte-untouched
+// because bare routes never pass through here), and embed=1 is threaded through every link, row
+// onclick, and GET form that lands on another embeddable route, so selection/filter/refresh and
+// cross-application semantic links stay embedded. App-local rails, headers, sidebars, tools,
+// inspectors and trays are never touched.
 function embedSurfaceHtml(html) {
   const routes = embeddableRoutes();
   const addEmbed = (path, qs, hash) => {
@@ -6929,7 +6931,10 @@ function embedSurfaceHtml(html) {
   });
   const embeddablePath = (path) => routes.has(path) || [...routes].some((r) => path.startsWith(r + "/"));
   html = html.replace(/(<form\b[^>]*\baction="(\/__ioi\/[^"?#]*)"[^>]*>)/g, (m, tag, path) => (embeddablePath(path) ? `${tag}<input type="hidden" name="embed" value="1">` : m));
-  return html.replace("</head>", '<style>.og-grail{display:none!important}</style></head>');
+  // Structural rail removal: extracted modules already emit no rail under ctx.embed; flat-handler
+  // surfaces have theirs stripped here. The rail aside nests no other <aside>, so the non-greedy
+  // match ends at its own closing tag (inspector asides render AFTER the rail and are untouched).
+  return html.replace(/<aside class="og-grail[\s\S]*?<\/aside>/, "");
 }
 
 // ---- Governed action runtime (operational wave #62) ------------------------------------------
@@ -7002,6 +7007,19 @@ async function handleEstateRequest(req, res, body) {
     if (!req.headers["x-forwarded-host"]) {
       const host = (req.headers.host || "").split(":")[0];
       if (host && host !== "127.0.0.1" && host !== "localhost" && host !== "::1") req.headers["x-forwarded-host"] = req.headers.host;
+    }
+    // ---- Native container contract (#65): ONE choke point renders the embedded mode for EVERY
+    // estate surface — flat handlers and bound modules alike. Any /__ioi/* GET carrying embed=1
+    // has its final whole-document HTML rewritten (structural global-rail removal + embed
+    // threading, embedSurfaceHtml); only chunks that are a complete text/html document are
+    // touched — JSON, assets, streams, and partial writes pass through byte-untouched.
+    if (req.method === "GET" && pathname.startsWith("/__ioi/")) {
+      let embedReq = false;
+      try { embedReq = new URL(req.url || "", "http://x").searchParams.get("embed") === "1"; } catch { /* malformed URL → standalone render */ }
+      if (embedReq) {
+        const endRaw = res.end.bind(res);
+        res.end = (chunk, ...rest) => endRaw(typeof chunk === "string" && /^<!doctype html>/i.test(chunk) ? embedSurfaceHtml(chunk) : chunk, ...rest);
+      }
     }
     if (pathname === TERMINAL_CHUNK_PATH) {
       res.writeHead(200, { "Content-Type": "application/javascript; charset=utf-8", "Cache-Control": "no-cache" });
@@ -9292,7 +9310,9 @@ async function handleEstateRequest(req, res, body) {
         const ctx = { url, daemon: DAEMON, embed: url.searchParams.get("embed") === "1" };
         const model = hit.impl.load ? await hit.impl.load(ctx) : null;
         res.writeHead(200, HTMLH);
-        res.end(ctx.embed ? embedSurfaceHtml(hit.impl.render(model, ctx)) : hit.impl.render(model, ctx));
+        // ctx.embed gates the module's own rail emission; the estate-wide embed choke point
+        // (handleEstateRequest head) owns link threading — applying it here too would double it.
+        res.end(hit.impl.render(model, ctx));
         return;
       }
     }

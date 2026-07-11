@@ -35,7 +35,7 @@ export async function load(ctx) {
 export function render(model, ctx) {
   const sel = parseOntologyContext(ctx.url);
   return renderOntologyManagerPort(model.overview, model.lists, sel.ontology || "", {
-    sel, vocab: model.vocab,
+    sel, vocab: model.vocab, embed: ctx.embed,
     q: ctx.url.searchParams.get("q") || "",
     banner: {
       acted: ctx.url.searchParams.get("acted") || "", receipt: ctx.url.searchParams.get("receipt") || "",
@@ -207,7 +207,9 @@ function renderOntologyManagerPort(ov, lists, selectedId, opts) {
   const CUBE = '<path d="M12 2l9 5v10l-9 5-9-5V7z"/>';
 
   // DARK global platform rail — the SHARED pixel-aligned reference shell (ioiGlobalRailHtml).
-  const globalRail = ioiGlobalRailHtml({ label: "Ontology Manager", href: "/__ioi/ontology/manager", iconUri: ONTOLOGY_APP_ICON_URI });
+  // Embedded (native container contract #65): the native rail owns platform nav — emit no global
+  // rail; the LIGHT app-local rail (Discover/Resources/Health) stays.
+  const globalRail = opts.embed ? "" : ioiGlobalRailHtml({ label: "Ontology Manager", href: "/__ioi/ontology/manager", iconUri: ONTOLOGY_APP_ICON_URI });
 
   // LIGHT header — the reference navbar layout: app-icon chip · title · centered Search-resources input
   // (ctrl+K) · branch selector (named gap) · New. The ONTOLOGY SWITCHER (a live control with no reference

@@ -66,18 +66,19 @@
     if (el) el.style.display = "none";
     updateOpenAppRail();
   }
+  // Native container contract (#65): everything opened in the Open Application slot renders in
+  // EMBEDDED mode — the native rail outside the iframe is the ONE platform rail, so every estate
+  // route is normalized through URL and carries embed=1 (query params and hash preserved).
   function embeddedAppSrc(href) {
-    // Stack correction (#61 amendment): the Open Application slot always renders /__ioi/
-    // applications EMBEDDED (embed=1; query/hash preserved) — the native rail outside the
-    // iframe is the one platform rail. Non-/__ioi/ hrefs pass through untouched.
     try {
-      if (!String(href).startsWith("/__ioi/")) return href;
       const u = new URL(href, location.origin);
+      if (u.origin !== location.origin || !u.pathname.startsWith("/__ioi/")) return href;
       u.searchParams.set("embed", "1");
       return u.pathname + u.search + u.hash;
-    } catch (e) { return href; }
+    } catch { return href; }
   }
   function openApplication(href, title) {
+    href = embeddedAppSrc(href);
     let el = document.getElementById("ioi-open-app");
     if (!el) {
       el = document.createElement("div");

@@ -145,7 +145,7 @@ async function run() {
     const em = await act("upsert-value-type", { ontology: nid, def_id: "emok", name: "Em", base: "string", embed: "1" });
     ok("embedded mode survives an action redirect (embed=1 on Location)", /embed=1/.test(em.location));
     const emPage = await page(`${B}?ontology=${nid}&section=value-types&embed=1`);
-    ok("embedded Manager hides the duplicate global rail, keeps the app rail + authoring", emPage.text.includes(".og-grail{display:none") && emPage.text.includes("og-arail"));
+    ok("embedded Manager removes the duplicate global rail STRUCTURALLY (#65), keeps the app rail + authoring", !emPage.text.includes('<aside class="og-grail') && emPage.text.includes("og-arail"));
 
     // (12) Standalone bare route: NO inspector aside (certified capture unchanged).
     const bare = await page(B);

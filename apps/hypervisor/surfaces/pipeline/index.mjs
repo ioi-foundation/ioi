@@ -53,7 +53,7 @@ export async function load(ctx) {
 
 export function render(model, ctx) {
   const sel = parseSelection(ctx.url, ["ontology", "node"]);
-  return renderPipelineBuilder(model, sel.ontology || "", sel.node || "");
+  return renderPipelineBuilder(model, sel.ontology || "", sel.node || "", ctx.embed);
 }
 
 // The Pipeline command table (command-discipline contract): every command is either an ENABLED
@@ -91,7 +91,7 @@ function pipeStatusPill(cls, label) {
 // cell is REAL daemon truth. This is `reference_ported`, NOT `daemon_wired`: the local /workspace/
 // builder/* reference currently ERRORS, so parity cannot yet be certified by the Playwright harness —
 // daemon_wired awaits a valid (non-errored) builder reference to compare against.
-function renderPipelineBuilder(lists, selectedId, nodeParam) {
+function renderPipelineBuilder(lists, selectedId, nodeParam, embed) {
   const ontologies = Array.isArray(lists.ontologies) ? lists.ontologies : [];
   const sets = Array.isArray(lists.materialized_sets) ? lists.materialized_sets : [];
   const builtRefs = new Set(sets.map((s) => s.ontology_ref));
@@ -300,7 +300,9 @@ function renderPipelineBuilder(lists, selectedId, nodeParam) {
   // ---- SHARED pixel-aligned GLOBAL RAIL (#43) — Pipeline Builder active. The live pipeline PICKER
   // (no reference counterpart in the rail) lives in the canvas body (excluded region), keeping the rail
   // pixel-faithful while the control keeps its function.
-  const globalRail = ioiGlobalRailHtml({ label: "Pipeline Builder", href: "/__ioi/pipeline", iconUri: PIPELINE_APP_ICON_URI, railVariant: "rv-pipe", viewAll: false, star: false, badges: true, aipGradient: true, acctMuted: true });
+  // Embedded (native container contract #65): the native IOI rail outside the iframe owns platform
+  // navigation — the module emits NO global rail at all (structural, not hidden).
+  const globalRail = embed ? "" : ioiGlobalRailHtml({ label: "Pipeline Builder", href: "/__ioi/pipeline", iconUri: PIPELINE_APP_ICON_URI, railVariant: "rv-pipe", viewAll: false, star: false, badges: true, aipGradient: true, acctMuted: true });
   const railPipes = ontologies.length
     ? ontologies.map((x) => { const on = selected && x.id === selected.id; const built = builtRefs.has(x.ref); return `<a class="pb-pipe ${on ? "on" : ""}" href="/__ioi/pipeline?ontology=${enc(x.id)}">${esc(x.domain || x.id)}${built ? `<span class="pb-tag">built</span>` : ""}</a>`; }).join("")
     : `<div class="pb-empty">No pipelines yet. <a href="/__ioi/odk/ontologies/new">Create an ontology</a>.</div>`;
