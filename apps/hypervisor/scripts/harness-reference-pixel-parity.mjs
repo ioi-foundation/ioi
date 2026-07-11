@@ -213,6 +213,49 @@ export const SURFACE_SHELL = {
       ],
     },
   },
+  sources: {
+    // Data Connection landing (#52 — the fourth origin-alignment-queue port): certified shell =
+    // rail + tabbed 48px header (title · divider · five tabs · store dropdown / New source / Help;
+    // the sync-counter cluster is MASKED data — live materializing-run counts vs the capture's
+    // zeros) + the 143px hero band (verbatim illustration under the reference's own 1040px
+    // white-gradient overlay) + the content column: Set-up-new-connections card (VERBATIM
+    // option-card strip — vendor onboarding chrome), View row, table ring + header row, and the
+    // marketplace-examples band (VERBATIM strip reused from #50). The source ROWS are masked data
+    // (captured tutorial rows vs the estate's live declared sources). Content = the 1000px splash
+    // block (offset 0 @1440, +240 @1920).
+    rects: [
+      { key: "rail", anchor: "left", x: 0, y: 0, w: 230, h: 0 },
+      { key: "header", anchor: "topbar", x: 230, y: 0, w: 0, h: 48 },
+      { key: "hero", anchor: "topbar", x: 230, y: 48, w: 0, h: 144 },
+      { key: "setupcard", anchor: "content", x: 330, y: 131, w: 1010, h: 299 },
+      { key: "viewrow", anchor: "content", x: 335, y: 462, w: 1000, h: 34 },
+      { key: "tablehead", anchor: "content", x: 330, y: 499, w: 1010, h: 38 },
+      { key: "examples", anchor: "content", x: 330, y: 869, w: 1010, h: 31 },
+    ],
+    rects_by_viewport: {
+      "1920x1080": [
+        { key: "rail", anchor: "left", x: 0, y: 0, w: 230, h: 0 },
+        { key: "header", anchor: "topbar", x: 230, y: 0, w: 0, h: 48 },
+        { key: "hero", anchor: "topbar", x: 230, y: 48, w: 0, h: 144 },
+        { key: "setupcard", anchor: "content", x: 330, y: 131, w: 1010, h: 299 },
+        { key: "viewrow", anchor: "content", x: 335, y: 462, w: 1000, h: 34 },
+        { key: "tablehead", anchor: "content", x: 330, y: 499, w: 1010, h: 38 },
+        { key: "examples", anchor: "content", x: 330, y: 940, w: 1010, h: 140 },
+      ],
+    },
+    // Masked DATA: the source-row region (captured tutorials vs live declared sources) + the
+    // header sync-counter cluster (live materializing-run counts vs the capture's zeros).
+    data: {
+      ref: [
+        { rect: { x: 336, y: 535, w: 998, h: 328 }, anchor: "content", label: "source rows (captured tutorial resources vs live declared data sources)" },
+        { rect: { x: 145, y: 11, w: 138, h: 25 }, anchor: "right", label: "sync-counter cluster (live materializing-run counts vs captured zeros)" },
+      ],
+      // NO ioi-side selector masks: .src-rows would resolve its FULL scroll-content bbox (684px of
+      // rows inside the 360px clipped container) and spill over the examples band — the ref-side
+      // rects above are applied to BOTH images and bound the masked region correctly.
+      ioi: [],
+    },
+  },
   monitors: {
     // Automate overview (#51 — the third origin-alignment-queue port): certified shell = rail +
     // tabbed header (Automate title · Overview/Automations tabs + 3px active underline · store

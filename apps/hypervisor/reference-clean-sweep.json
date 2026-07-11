@@ -1,13 +1,13 @@
 {
  "schema": "ioi.hypervisor.reference-clean-sweep.v1",
- "swept_at": "2026-07-11T05:32:02.627Z",
+ "swept_at": "2026-07-11T06:05:39.334Z",
  "serve": "http://127.0.0.1:4173",
  "mirror": "http://127.0.0.1:9225",
  "total_seeds": 39,
  "by_state": {
-  "data_clean": 10,
+  "data_clean": 11,
   "errored_reference": 6,
-  "needs_origin_alignment": 9,
+  "needs_origin_alignment": 8,
   "shell_clean_only": 10,
   "data_failed": 4
  },
@@ -439,7 +439,7 @@
   {
    "slug": "monitors",
    "owner": "Automations",
-   "parity_class": "reference_ported",
+   "parity_class": "daemon_wired",
    "grammar": "wizard",
    "reference_path": "http://localhost:9225/workspace/object-monitoring/",
    "candidate_surface": "/__ioi/automations/monitors",
@@ -872,14 +872,14 @@
   {
    "slug": "sources",
    "owner": "Data",
-   "parity_class": "reference_capture",
+   "parity_class": "reference_ported",
    "grammar": "table_list",
    "reference_path": "http://localhost:9225/workspace/data-ingestion-app/",
-   "candidate_surface": null,
+   "candidate_surface": "/__ioi/data/sources",
    "substrate_surface": null,
-   "clean_state": "needs_origin_alignment",
-   "reason": "proxy lane renders no data (score 0), but the capture-origin lane (http://localhost:9225) renders the app failure-free WITH data (rows 12/0 · nodes 0 · cards 9 · lines 60) — align the reference URL like pipeline #38/#39",
-   "lane_used": "origin",
+   "clean_state": "data_clean",
+   "reason": "shell regions [rail, header, body] + data evidence (rows 12/0 · nodes 0 · cards 9 · lists 0 · lines 60)",
+   "lane_used": "override",
    "shell_regions": [
     "rail",
     "header",
@@ -911,7 +911,18 @@
     "External stacks",
     "New source"
    ],
-   "matrix_landmarks_present": [],
+   "matrix_landmarks_present": [
+    "Data Connection",
+    "Sources",
+    "Syncs",
+    "Agents",
+    "Listeners",
+    "External stacks",
+    "New source",
+    "Synchronize and manage data flows between Foundry and external systems.",
+    "Set up new connections",
+    "Explore reference examples"
+   ],
    "body_sample": "Skip to content\nHome\nSearch…\nctrl + J\nNotifications\nWhat's New\nRecent\nFiles\nOntology\nApplications\nAPPLICATIONS\nView all\nData Connection\nAIP Assist\nctrl + shift + U\nSupport\nLJ\nAccount\nData Connection\nSources\nSyncs\nAgents\nListeners\nExternal stacks\nNew source\nHelp\n0\n0\n0\nData Connection\nSynchronize and manage data flows between Foundry and external systems.\nSet up new connections\nConnect to external system\nRecommended\nConfigure a live connection from Foundry to your production system.\nUpload static data\nManually upload a one-off extract from your production system.\nInput or generate data\nSynthesiz",
    "data_evidence": {
     "table_rows": 12,
@@ -927,7 +938,7 @@
    "cors_evidence": [],
    "modal_evidence": {
     "overlay_pre": true,
-    "overlay_post": false,
+    "overlay_post": true,
     "dismissed_reveals_data": false
    },
    "capture_store": {
@@ -977,9 +988,27 @@
      "cors_signals": 0,
      "console_errors": 0,
      "screenshot": ".artifacts/reference-clean-sweep/sources-origin.png"
+    },
+    {
+     "lane": "override",
+     "url": "http://localhost:9225/workspace/data-ingestion-app/",
+     "loaded": true,
+     "nav_error": "",
+     "regions": [
+      "rail",
+      "header",
+      "body"
+     ],
+     "data_score": 7,
+     "chunk_404s": 0,
+     "api_failures": 0,
+     "cross_origin_9225": 0,
+     "cors_signals": 0,
+     "console_errors": 0,
+     "screenshot": ".artifacts/reference-clean-sweep/sources-override.png"
     }
    ],
-   "screenshot": ".artifacts/reference-clean-sweep/sources-origin.png"
+   "screenshot": ".artifacts/reference-clean-sweep/sources-override.png"
   },
   {
    "slug": "pipeline",

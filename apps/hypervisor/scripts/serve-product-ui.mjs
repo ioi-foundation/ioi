@@ -31,6 +31,7 @@ import { MARKETPLACE_APP_ICON_URI, MK_GLOBE_URI, MK_HERO_URI, MK_STORE_ICON_URI,
 import { DSG_APP_TILE_URI, DSG_ROW_DOC_URI, DSG_HERO_URI, DSG_AIP_ICON_URI, DSG_GALLERY_STRIP_URI } from "./designer-assets.mjs";
 import { MCH_APP_TILE_URI, MCH_STORE_ICON_URI, MCH_HERO_URI, MCH_EXAMPLES_STRIP_URI } from "./machinery-assets.mjs";
 import { MON_APP_TILE_URI, MON_WIZ_STRIP_URI, MON_CARDS_STRIP_URI } from "./monitors-assets.mjs";
+import { SRC_APP_TILE_URI, SRC_HERO_URI, SRC_SETUP_STRIP_URI } from "./sources-assets.mjs";
 import { mintApprovalGrant } from "../../../scripts/lib/mint-approval-grant.mjs";
 
 // Build the current conversation entries for a run, in the exact NDJSON shape the SPA's V1 pane
@@ -3035,7 +3036,7 @@ function renderDataSourcesSection(dataSources) {
   const table = dataSources.length
     ? `<table><thead><tr><th>Source</th><th>Kind</th><th>Endpoint</th><th>Credential</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table>`
     : `<div class="empty">No data sources declared yet. Register one against the daemon <code>POST /v1/hypervisor/data-sources</code> — a validated, receipted declaration (credentials by posture only; ingestion is a named gap, never faked here).</div>`;
-  return `<h2 id="data-sources">Data sources <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— the daemon data-source registry (${dataSources.length}) · authority</span></h2>` +
+  return `<h2 id="data-sources">Data sources <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— the daemon data-source registry (${dataSources.length}) · authority · <a href="/__ioi/data/sources">Data Connection catalog →</a> (the #52 certified landing over this registry)</span></h2>` +
     `<p class="sub" style="margin:-4px 0 10px">Declared external sources are <b>daemon truth</b> — a fail-closed, receipted registry (credentials by posture only). Ingestion is <b>not wired</b> (a named gap requiring a future authority crossing), never faked. The <a href="/__apps/sources">Data Connection capture ↗</a> and <a href="/__apps/ingest">pipeline capture ↗</a> are secondary reference grammars, not rebound surfaces.</p>` +
     table;
 }
@@ -3581,6 +3582,227 @@ function renderDesignerPort(lists, selectedId) {
 
   return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Solution Designer</title><style>${css}</style></head>
     <body><div class="dsg-shell">${globalRail}<div class="dsg-main">${header}<div class="dsg-body">${hero}<main class="dsg-content">${aipCard}${gallery}${viewRow}${table}${truth}</main></div></div></div></body></html>`;
+}
+
+// ============================ DATA · SOURCES (Data Connection landing — declared-catalog port, #52)
+// The Reference UX Port program — the FOURTH origin-alignment-queue port (after #49/#50/#51). The
+// reference is the origin-aligned Data Connection landing capture
+// (http://localhost:9225/workspace/data-ingestion-app/ — the /__apps/sources proxy lane renders no
+// data, documented by the #44 sweep; the What's-new modal is dismissed by a reference-only
+// pre-capture hook). This IOI-owned surface reproduces the visible landing shell PIXEL-FAITHFULLY —
+// dark global rail, tabbed app header (Data Connection · Sources/Syncs/Agents/Listeners/External
+// stacks · store dropdown / New source / Help as named gaps · the sync-counter cluster bound to
+// REAL materializing-run statuses), hero band + verbatim illustration under the reference's own
+// 1040px white-gradient content overlay, the Set-up-new-connections card (VERBATIM option-card
+// strip: vendor onboarding chrome, NOT an extraction affordance), the View row, the Recents table,
+// and the marketplace-examples band — while the DATA regions render REAL DataSource-registry truth:
+// one row per declared source (name · source_ref · kind · credential_posture · lifecycle · created
+// date · the wired:false flag), endpoints rendered SAFELY (scheme+host+path only — userinfo/query/
+// fragment stripped), and below the fold the full declared-catalog census + the daemon's own
+// ingestion note VERBATIM ("declaration only — extraction requires a future authority crossing").
+// THE AUTHORITY BOUNDARY IS THE POINT: a DECLARED source catalog — no extraction, no connection
+// test, no live connector read, no materialization semantics on this surface.
+// Owner family: Data (/__ioi/pipeline ladder · /__ioi/odk builder, linked first-class).
+function renderSourcesPort(sourcesJson, mruns) {
+  const esc = CX_ESC;
+  const list = Array.isArray(sourcesJson && sourcesJson.data_sources) ? sourcesJson.data_sources : [];
+  const runs = Array.isArray(mruns && mruns.materializing_runs) ? mruns.materializing_runs : [];
+  const fdate = (iso) => { const d = new Date(iso || 0); return isNaN(d) ? "—" : d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }); };
+  // SAFE endpoint rendering: scheme + host + path ONLY — userinfo, query and fragment are stripped
+  // (never render a credential-bearing URL part; the registry itself must never hold secrets).
+  const safeEndpoint = (ep) => {
+    if (!ep) return "";
+    try { const u = new URL(ep); return `${u.protocol}//${u.host}${u.pathname}`; } catch { return String(ep).split(/[?#@]/)[0]; }
+  };
+
+  // Sync-counter cluster semantics over REAL plane truth: the estate's source→set executions are
+  // ODK materializing runs — in-flight (not yet executed/failed) · executed · failed.
+  const cInflight = runs.filter((r) => !["executed", "failed"].includes(r.status)).length;
+  const cDone = runs.filter((r) => r.status === "executed").length;
+  const cFailed = runs.filter((r) => r.status === "failed").length;
+
+  const recent = [...list].sort((a, b) => String(b.created_at || "").localeCompare(String(a.created_at || ""))).slice(0, 12);
+  const gapDash = (why) => `<span class="src-dash" title="${esc(why)}">—</span>`;
+  const rowsHtml = recent.length ? recent.map((s) => `<div class="src-row" title="A DECLARED source — a registry record, not a connection; extraction requires a future authority crossing (the daemon's own boundary)">
+      <span class="src-cell name">
+        <span class="src-rowico" aria-hidden="true"></span>
+        <span class="src-rowdata">
+          <span class="src-rowname">${esc(s.name || s.source_id)}${s.ingestion && s.ingestion.wired === false ? `<span class="src-wired" title="${esc((s.ingestion || {}).note || "declaration only")}">not wired</span>` : ""}</span>
+          <span class="src-rowpath">${esc(s.source_ref || s.source_id)} · ${esc(s.kind || "?")} · ${esc(s.credential_posture || "no posture")} · ${esc((s.lifecycle || {}).status || "declared")} · created ${fdate(s.created_at)}${s.endpoint ? ` · ${esc(safeEndpoint(s.endpoint))}` : ""}</span>
+        </span>
+      </span>
+      <span class="src-cell">${gapDash("No principal is recorded on the data-source registry (named gap)")}</span>
+      <span class="src-cell">${gapDash("No edit principal is recorded on the data-source registry (named gap)")}</span>
+      <span class="src-cell">${gapDash("View tracking is not recorded on the data-source registry (named gap)")}</span>
+    </div>`).join("") : `<div class="src-empty">No data sources declared yet — this table renders the real DataSource registry and never fabricates rows. Sources are declared against the daemon registry (see the <a href="/__ioi/pipeline">Data ladder</a>).</div>`;
+
+  // Declared-catalog census (below the fold): kinds + credential postures + the wired:false boundary.
+  const byKind = {}; const byPosture = {};
+  let wiredFalse = 0;
+  for (const s of list) {
+    byKind[s.kind || "?"] = (byKind[s.kind || "?"] || 0) + 1;
+    byPosture[s.credential_posture || "none"] = (byPosture[s.credential_posture || "none"] || 0) + 1;
+    if (s.ingestion && s.ingestion.wired === false) wiredFalse++;
+  }
+  const ingestionNote = (list[0] && list[0].ingestion && list[0].ingestion.note) || "declaration only — extraction requires a future authority crossing (named gap)";
+  const chips = (obj) => Object.entries(obj).sort((a, b) => b[1] - a[1]).map(([k, n]) => `<span class="src-chip">${esc(k)} <b>${n}</b></span>`).join("");
+
+  const truth = `<section class="src-truth" id="sources-catalog">
+    <h2 class="src-trutht">Declared source catalog <span class="src-count">${list.length}</span> <span class="src-truthsub">the real DataSource registry — newest 12 shown above; every record is daemon truth, nothing invented</span></h2>
+    <p class="src-boundary"><b>The authority boundary:</b> ${wiredFalse} of ${list.length} source${list.length === 1 ? "" : "s"} carry <code>ingestion.wired:false</code> — the daemon's own note, verbatim: <i>“${esc(ingestionNote)}”</i>. This surface is a DECLARED catalog: no extraction, no connection test, no live connector read, no materialization happens here — the governed path runs through the <a href="/__ioi/pipeline">ODK ladder</a> (mapping → policy gate → projection → lease → sealed session → materialized set).</p>
+    <div class="src-truthcols">
+      <div class="src-truthcol"><h3>By kind</h3><div class="src-chips">${chips(byKind)}</div></div>
+      <div class="src-truthcol"><h3>By credential posture</h3><div class="src-chips">${chips(byPosture)}</div><p class="src-gapnote">Credential postures are declared postures — credential VALUES never appear on this surface, in the registry records, or in receipts.</p></div>
+      <div class="src-truthcol"><h3>Sync activity (real)</h3><p class="src-gapnote">The header counters are the estate's REAL source→set executions (ODK materializing runs): ${cInflight} in-flight · ${cDone} executed · ${cFailed} failed. Endpoints render scheme+host+path only (userinfo/query/fragment stripped).</p></div>
+    </div>
+    <p class="src-foot">Unsupported reference lanes — New source here, live-connection setup, static upload, data synthesis, the store menu, Syncs/Agents/Listeners/External-stacks tabs, marketplace example installs — are <b>named gaps disabled in place</b>, never hidden (the set-up cards and example cards are the reference's own onboarding chrome, embedded verbatim, not extraction affordances). Owner family: <a href="/__ioi/pipeline">Data ladder (Pipeline Builder)</a> · <a href="/__ioi/odk">ODK builder</a> — sources are declared there; this catalog renders them. Reference: the origin-aligned <a href="http://localhost:9225/workspace/data-ingestion-app/" rel="noopener">Data Connection capture</a> — the <a href="/__apps/sources">/__apps/sources proxy lane ↗</a> is documented insufficient (renders no data; #44 sweep evidence).</p>
+  </section>`;
+
+  const globalRail = ioiGlobalRailHtml({ label: "Data Connection", href: "/__ioi/data/sources", iconUri: SRC_APP_TILE_URI, railVariant: "rv-pipe rv-dsg", viewAll: true, star: false, badges: true, aipGradient: true, acctMuted: true });
+
+  const header = `<header class="src-header">
+    <span class="src-hchip" aria-hidden="true"></span>
+    <h1 class="src-htitle">Data Connection</h1>
+    <span class="src-hdiv" aria-hidden="true"></span>
+    <nav class="src-tabs">
+      <a class="src-tab" href="/__ioi/data/sources" aria-current="page">Sources</a>
+      <span class="src-tab gap" aria-disabled="true" title="Sync scheduling is not a bound lane — the estate's real source→set executions are ODK materializing runs (named gap)">Syncs</span>
+      <span class="src-tab gap" aria-disabled="true" title="Connection agents are a reference-only lane (named gap)">Agents</span>
+      <span class="src-tab gap" aria-disabled="true" title="Listeners are a reference-only lane (named gap)">Listeners</span>
+      <span class="src-tab gap" aria-disabled="true" title="External stacks are a reference-only lane (named gap)">External stacks</span>
+    </nav>
+    <div class="src-hright">
+      <span class="src-hbtn store gap" aria-disabled="true" title="Recent installations — marketplace install lanes are not bound to this surface (named gap)"><span class="src-storeico" aria-hidden="true"></span>${bpIcon("caret-down")}</span>
+      <span class="src-hbtn success gap" aria-disabled="true" title="Source declaration from this surface is a reference-only lane — sources are declared against the daemon registry via the ODK ladder (named gap)">${bpIcon("plus")}<span>New source</span></span>
+      <span class="src-hbtn outlined gap" aria-disabled="true" title="Reference help lane (named gap)">${bpIcon("help")}<span>Help</span></span>
+      <span class="src-counters gap" aria-disabled="true" title="REAL sync activity — the estate's ODK materializing runs: in-flight · executed · failed (live daemon truth, not the capture's zeros)">
+        <span class="src-ctag">${bpIcon("refresh", 14)}<span>${cInflight}</span></span>
+        <span class="src-ctag">${bpIcon("tick", 14)}<span>${cDone}</span></span>
+        <span class="src-ctag">${bpIcon("cross", 14)}<span>${cFailed}</span></span>
+      </span>
+    </div>
+  </header>`;
+
+  const hero = `<section class="src-hero">
+    <img class="src-heroimg" src="${SRC_HERO_URI}" alt="" aria-hidden="true">
+    <div class="src-heroct">
+      <h3 class="src-h1">Data Connection</h3>
+      <p class="src-desc">Synchronize and manage data flows between Foundry and external systems.</p>
+    </div>
+  </section>`;
+
+  const setup = `<div class="src-setupcard">
+    <h4 class="src-setuph">Set up new connections</h4>
+    <img class="src-setupstrip" src="${SRC_SETUP_STRIP_URI}" width="962" height="222" alt="Reference set-up option cards (verbatim capture chrome — vendor onboarding, not an extraction affordance)">
+    <span class="src-opt c1 gap" aria-disabled="true" title="Live-connection setup is not a bound lane — sources are DECLARED records; extraction requires a future authority crossing (named gap)"></span>
+    <span class="src-opt c2 gap" aria-disabled="true" title="Static upload is a reference-only lane (named gap)"></span>
+    <span class="src-opt c3 gap" aria-disabled="true" title="Data synthesis is a reference-only lane (named gap)"></span>
+  </div>`;
+
+  const viewRow = `<div class="src-viewrow">
+    <span class="src-viewlbl">View</span>
+    <span class="src-pill on">Recents</span>
+    <span class="src-pill gap" aria-disabled="true" title="Favorites are not recorded on the data-source registry (named gap)">Favorites</span>
+    <a class="src-viewall" href="#sources-catalog" title="The full declared-catalog census below"><span>View all</span>${bpIcon("arrow-right")}</a>
+  </div>`;
+
+  const table = `<div class="src-table">
+    <div class="src-thead"><span class="src-th name">Files</span><span class="src-th">Creator</span><span class="src-th">Last edited by</span><span class="src-th">Last viewed</span></div>
+    <div class="src-rows">${rowsHtml}</div>
+  </div>`;
+
+  const examples = `<div class="src-examples">
+    <h5 class="src-exh">Explore reference examples</h5>
+    <div class="src-exsub">New to Data Connection? Learn what to do with Data Connection using an example data source.</div>
+    <div class="src-exstripwrap">
+      <img class="src-exstrip" src="${MCH_EXAMPLES_STRIP_URI}" width="562" height="272" alt="Reference marketplace example cards (verbatim capture chrome)">
+      <span class="src-excard c1 gap" aria-disabled="true" title="Marketplace example installs are a reference-only lane (named gap)"></span>
+      <span class="src-excard c2 gap" aria-disabled="true" title="Marketplace example installs are a reference-only lane (named gap)"></span>
+    </div>
+  </div>`;
+
+  const css = `:root{color-scheme:light}*{box-sizing:border-box}
+    body{margin:0;background:#fff;color:#1c2127;font:14px/1.28581 Source-Sans-Pro,Helvetica,sans-serif}
+    a{color:#215db0;text-decoration:none}
+    .src-shell{display:flex;height:100vh;width:100vw;overflow:hidden}
+    ${IOI_GRAIL_CSS}
+    .rv-dsg .og-gappico{background-color:rgba(45,114,210,.1)}
+    .rv-dsg .og-gsecrow{padding:30px 7px 5px 5px}
+    .rv-dsg .og-gitem.on{margin-right:-11px}
+    .src-main{flex:1;min-width:0;display:flex;flex-direction:column;height:100vh}
+    .src-header{flex:0 0 48px;height:48px;display:flex;align-items:center;background:#fff;border-bottom:1px solid #d3d8de;z-index:6}
+    .src-hchip{width:48px;height:48px;flex:0 0 48px;background:rgba(255,178,102,.1) url('${SRC_APP_TILE_URI}') center/24px no-repeat}
+    .src-htitle{font-size:16px;line-height:20.6px;font-weight:600;color:#404854;margin:0 0 0 12px;flex:0 0 auto}
+    .src-hdiv{width:1px;height:20px;background:#d3d8de;margin:0 16px}
+    .src-tabs{display:flex;align-self:stretch;gap:20px}
+    .src-tab{display:inline-flex;align-items:center;font-size:16px;line-height:48px;color:#1c2127;cursor:default}
+    a.src-tab{cursor:pointer;color:#1c2127}
+    .src-hright{margin-left:auto;display:flex;align-items:flex-start;gap:8px;padding-right:8px}
+    .src-hbtn{display:inline-flex;align-items:center;gap:8px;height:30px;margin-top:8.5px;padding:0 8px;border-radius:4px;font-size:14px;line-height:16.1px;cursor:default}
+    .src-hbtn.success{background:#238551;color:#fff;box-shadow:inset 0 0 0 1px rgba(17,20,24,.2),0 1px 2px rgba(17,20,24,.1)}
+    .src-hbtn.success svg{color:#fff}
+    .src-hbtn.outlined{border:1px solid rgba(95,107,124,.25);padding:0 8px;color:#1c2127}
+    .src-hbtn.outlined svg{color:#5f6b7c}
+    .src-hbtn.store{gap:4px;padding:0 7px;background:#f7f8f8;box-shadow:inset 0 0 0 1px rgba(64,72,84,.33),0 1px 2px rgba(17,20,24,.1)}
+    .src-storeico{width:16px;height:16px;flex:0 0 16px;background:url('${MCH_STORE_ICON_URI}') center/16px no-repeat}
+    .src-counters{display:inline-flex;align-items:center;gap:3px;height:30px;margin-top:8.5px;padding:0 10px;opacity:1;cursor:default}
+    .src-ctag{display:inline-flex;align-items:center;gap:2px;height:20px;padding:2px 6px;border-radius:2px;background:rgba(143,153,168,.15);color:#5f6b7c;font-size:12px;line-height:16px}
+    .src-ctag svg{color:#5f6b7c}
+    .src-body{flex:1 1 auto;min-width:0;overflow-y:auto;background:#f6f7f9}
+    .src-content{max-width:1090px;margin:0 auto;padding:0 45px}
+    .src-hero{position:relative;background:#fff;height:143px;box-shadow:0 1px 0 0 rgba(17,20,24,.15)}
+    .src-heroct{position:relative;max-width:1040px;height:100%;margin:0 auto;padding:0 20px;background:linear-gradient(90deg,#fff 575px,rgba(255,255,255,0) 100%)}
+    .src-heroimg{position:absolute;right:0;top:0;width:519.4px;height:143px}
+    .src-h1{position:relative;font-size:22px;line-height:25px;font-weight:600;color:#1c2127;margin:0;padding-top:20px}
+    .src-desc{position:relative;width:625px;font-size:14px;line-height:18.0013px;color:#5f6b7c;margin:6px 0 0}
+    .src-setupcard{position:relative;z-index:2;margin-top:-55px;height:288.4px;background:#fff;border-radius:4px;box-shadow:0 0 0 1px rgba(17,20,24,.15),0 0 5px rgba(0,0,0,.02)}
+    .src-setuph{font-size:16px;line-height:19px;font-weight:600;color:#1c2127;margin:0;padding:20px 20px 0}
+    .src-setupstrip{position:absolute;left:19px;top:53px}
+    .src-opt{position:absolute;top:54px;width:310px;height:215px;cursor:default}
+    .src-opt.c1{left:20px}.src-opt.c2{left:345.3px}.src-opt.c3{left:670.7px}
+    .src-viewrow{display:flex;align-items:center;margin-top:40px;height:30px}
+    .src-viewlbl{font-size:14px;line-height:18px;color:#1c2127}
+    .src-pill{display:inline-flex;align-items:center;height:30px;margin-left:10px;padding:6px 10px;border-radius:30px;font-size:14px;line-height:18px;cursor:default}
+    .src-pill.on{background:rgba(45,114,210,.3);color:#184a90;font-weight:600}
+    .src-pill.gap{background:rgba(143,153,168,.15);color:#1c2127}
+    .src-viewall{margin-left:auto;display:inline-flex;align-items:center;gap:9px;font-size:14px;line-height:18px;color:#215db0}
+    .src-viewall svg{color:#215db0}
+    .src-table{margin-top:10px;height:max(360px,calc(100vh - 648px));overflow-y:auto;background:#fff;border-radius:4px;box-shadow:0 0 0 1px rgba(17,20,24,.15)}
+    .src-thead{display:flex;height:30px;box-shadow:inset 0 -1px 0 #dcdcdd}
+    .src-th{width:16.667%;padding:8px 0 0 11px;font-size:12px;line-height:15.43px;color:#5f6b7c;text-transform:uppercase}
+    .src-th.name{width:50%;padding-left:20px}
+    .src-row{display:flex;height:57px;box-shadow:inset 0 -1px 0 #dcdcdd;color:#1c2127}
+    .src-cell{width:16.667%;padding:19.5px 0 0 11px;font-size:14px;line-height:18px}
+    .src-cell.name{width:50%;padding:11px 0 0 20px;display:flex;align-items:flex-start}
+    .src-rowico{width:16px;height:16px;flex:0 0 16px;margin-top:2px;background:url('${DSG_ROW_DOC_URI}') center/16px no-repeat}
+    .src-rowdata{margin-left:7px;min-width:0;flex:1;padding-right:16px}
+    .src-rowname{display:block;font-size:14px;line-height:18px;color:#1c2127;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .src-wired{display:inline-block;margin-left:8px;padding:0 6px;border-radius:9px;background:rgba(200,118,25,.15);color:#935610;font-size:11px;line-height:16px;vertical-align:1px}
+    .src-rowpath{display:block;font-size:12px;line-height:15.43px;color:#5f6b7c;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .src-dash{color:#5f6b7c}
+    .src-empty{padding:24px 20px;font-size:14px;color:#5f6b7c}
+    .src-examples{margin-top:28px}
+    .src-exh{font-size:16px;line-height:19px;font-weight:600;color:#1c2127;margin:0}
+    .src-exsub{font-size:14px;line-height:18px;color:#1c2127;margin-top:12px}
+    .src-exstripwrap{position:relative;margin-top:7px;width:562px;margin-left:-1px}
+    .src-exstrip{display:block}
+    .src-excard{position:absolute;top:1px;width:270px;height:270px;cursor:default}
+    .src-excard.c1{left:1px}.src-excard.c2{left:291px}
+    .src-truth{margin-top:30px;padding-bottom:40px}
+    .src-trutht{font-size:18px;font-weight:600;color:#1c2127;margin:0 0 8px}
+    .src-count{margin-left:8px;font-size:14px;font-weight:400;color:#5f6b7c;background:rgba(143,153,168,.15);border-radius:9px;padding:1px 8px}
+    .src-truthsub{font-size:13px;font-weight:400;color:#5f6b7c;margin-left:8px}
+    .src-boundary{font-size:13px;line-height:1.55;color:#1c2127;background:#fff;border-radius:4px;box-shadow:0 0 0 1px rgba(200,118,25,.4);padding:12px 14px;margin:0 0 14px}
+    .src-truthcols{display:flex;gap:16px;align-items:flex-start}
+    .src-truthcol{flex:1;min-width:0;background:#fff;border-radius:4px;box-shadow:0 0 0 1px rgba(17,20,24,.15);padding:14px 16px}
+    .src-truthcol h3{font-size:14px;font-weight:600;margin:0 0 8px;color:#1c2127}
+    .src-chips{display:flex;gap:6px;flex-wrap:wrap}
+    .src-chip{display:inline-flex;gap:5px;padding:3px 10px;border-radius:12px;background:rgba(143,153,168,.15);color:#1c2127;font-size:12px}
+    .src-gapnote{font-size:12px;color:#5f6b7c;margin:8px 0 0;line-height:1.5}
+    .src-foot{font-size:12px;line-height:1.6;color:#7b8494;margin-top:18px}`;
+
+  return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Data Connection</title><style>${css}</style></head>
+    <body><div class="src-shell">${globalRail}<div class="src-main">${header}<div class="src-body">${hero}<main class="src-content">${setup}${viewRow}${table}${examples}${truth}</main></div></div></div></body></html>`;
 }
 
 // ============================ AUTOMATIONS · MONITORS (Automate overview — landing port, #51)
@@ -8230,6 +8452,17 @@ const server = http.createServer((req, res) => {
       }
       res.writeHead(302, { Location: `/__ioi/automations/${encodeURIComponent(newId)}`, "Cache-Control": "no-cache" });
       res.end();
+      return;
+    }
+    // ---- Data · Sources — the Data Connection landing port (#52). A DECLARED source catalog over
+    // the real DataSource registry: no extraction, no connection test, no live connector read.
+    if (pathname === "/__ioi/data/sources" && req.method === "GET") {
+      const [ds, mr] = await Promise.all([
+        fetch(`${DAEMON}/v1/hypervisor/data-sources`).then((r) => r.json()).catch(() => ({})),
+        fetch(`${DAEMON}/v1/hypervisor/odk/materializing-runs`).then((r) => r.json()).catch(() => ({})),
+      ]);
+      res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
+      res.end(renderSourcesPort(ds, mr));
       return;
     }
     // ---- Automations · Monitors — the Automate-overview port (#51). A read-only PROJECTION over

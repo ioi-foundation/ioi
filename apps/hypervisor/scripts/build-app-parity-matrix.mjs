@@ -76,8 +76,8 @@ const REFERENCE_PORT_PENDING = {};
 // ported IOI surface; `parity_blocked` names why. `reference_landmarks` (when present) is the IA
 // label set the hardened harness requires in BOTH the reference and the candidate.
 const REFERENCE_PORTED = {
-  // (empty again — #46 explorer, then #51 monitors each passed through this stage on their way to
-  // certification + daemon_wired promotion. The stage exists for ports-in-flight.)
+  // (empty again — explorer #46, monitors #51, sources #52 each passed through this stage on
+  // their way to certification + daemon_wired promotion. The stage exists for ports-in-flight.)
 };
 // TRUE reference UX parity — a FAITHFUL port of the reference UX (same theme + IA + layout) wired to
 // daemon truth, that PASSES the HARDENED Playwright harness (visual_parity: region geometry + theme
@@ -115,6 +115,12 @@ const DAEMON_WIRED = {
   // candidate; the clean-reference pool is now EMPTY and the wave pivots to origin alignment.
   listings: { substrate_surface: "/__ioi/marketplace", port_surface: "/__ioi/marketplace/listings", surface_name: "Marketplace", reference_workspace: "/workspace/marketplace/", reference_landmarks: ["Marketplace", "Discover and install Foundry products", "Stores", "Name", "Products", "Install your first product", "Choose a product to install", "Configure product inputs", "Install and explore", "Installations"], binding: "faithful port of the reference Marketplace browse over the real daemon marketplace substrate — dark global rail + light header (app chip · Marketplace · product search · Installations · Help as named gaps) + hero (title · Discover subtitle · reference illustration) + the Stores table whose single row IS the estate's governed listing plane with its live product count + the install-first-product wizard band as reference chrome (installing is a named gap — products enter through draft → admitted review → open release on the substrate)", note: "TRUE parity (#48) under the HARDENED gate: light Marketplace-browse reference-faithful shell at /__ioi/marketplace/listings over the real listing plane — the LAST data_clean candidate from the #44 ranking, completing the clean-reference pool (the wave pivots to origin-alignment seeds next); the reference's Stores lane is REBOUND to the same substrate; /__ioi/marketplace substrate intact and linking first-class; product search / store search / Installations / Help / install wizard / store sharing / sorting = named gaps disabled in place; NO publish/install/hire/settle/runtime semantics — products enter only through draft → admitted review → open release on the substrate" },
 
+  // #52 — Sources (sources): the ELEVENTH faithful port — the FOURTH from the origin-alignment
+  // queue, the Data-family landing. The #44 sweep proved the Data Connection landing data-bearing
+  // on the capture-origin lane while the proxy lane renders no data; reference_url_override stamps
+  // the honest lane. THE AUTHORITY BOUNDARY IS THE POINT: a DECLARED source catalog over the real
+  // registry — no extraction, no connection test, no live connector read, no materialization here.
+sources: { port_surface: "/__ioi/data/sources", surface_name: "Data", reference_url_override: "http://localhost:9225/workspace/data-ingestion-app/", reference_landmarks: ["Data Connection", "Sources", "Syncs", "Agents", "Listeners", "External stacks", "New source", "Synchronize and manage data flows between Foundry and external systems.", "Set up new connections", "Explore reference examples"], binding: "faithful port of the reference Data Connection landing over the real DataSource registry — dark global rail + tabbed app header (Data Connection · Sources live · Syncs/Agents/Listeners/External-stacks as named gaps · store dropdown / New source / Help as named gaps · the sync-counter cluster bound to REAL ODK materializing-run statuses) + hero band (title · description · verbatim illustration under the reference's own white-gradient content overlay) + the Set-up-new-connections card (verbatim option-card strip: vendor onboarding chrome, NOT an extraction affordance) + the View row + the Recents table whose rows are the REAL declared sources (name · source_ref · kind · credential_posture · lifecycle · created date · the wired:false flag; endpoints rendered scheme+host+path ONLY) + the marketplace-examples band + below-the-fold the declared-catalog census with the daemon's own ingestion note VERBATIM", note: "TRUE parity (#52) under the HARDENED gate: light Data-Connection landing reference-faithful shell at /__ioi/data/sources against the ORIGIN-ALIGNED data-clean reference (reference_url_override localhost:9225/workspace/data-ingestion-app/ — the #44 needs_origin_alignment finding; the What's-new modal dismissed by a reference-only pre-capture hook; the /__apps/sources proxy lane stays documented-insufficient: renders no data); the FOURTH origin-alignment-queue port and the FIRST Data-family LANDING surface (pipeline is the Data ladder) — a NEW dedicated port route over the EXISTING DataSource registry; THE AUTHORITY BOUNDARY IS THE HARD LINE: declared sources only, no extraction, no connection test, no live connector read, no materialization semantics on this surface (the governed path stays the ODK ladder); credential VALUES never render (postures only; endpoints stripped of userinfo/query/fragment); New-source here / live-connection setup / upload / synthesis / Syncs-Agents-Listeners-External-stacks / store menu / example installs = named gaps disabled in place" },
   // #51 — Monitors (monitors): the TENTH faithful port — the THIRD from the origin-alignment
   // queue and the FIRST Automations-family certified surface. The #44 sweep proved the Automate
   // overview data-bearing on the capture-origin lane while the proxy lane fails with the
@@ -216,6 +222,20 @@ const SHELL_PIXEL_CERTIFIED = {
   // threshold movement. Body = REAL daemon incidents (blockers/failures), verified
   // semantically by verify-hypervisor-app-parity-incidents.mjs.
   incidents: "pixel-certifications/incidents.json",
+  // #52 — Sources: the ELEVENTH shell-pixel certification — the fourth origin-alignment-queue
+  // port. Landing shell: shared rail (rv-pipe + rv-dsg) · 48px tabbed header (Data Connection ·
+  // five tabs · store dropdown / New source / Help; the sync-counter cluster = MASKED data bound
+  // to REAL materializing-run statuses) · 143px hero with the VERBATIM illustration under the
+  // reference's own 1040px white-gradient overlay · Set-up-new-connections card with the VERBATIM
+  // option-card strip (962x222 — vendor onboarding chrome, NOT an extraction affordance) · View
+  // row · table ring + header with the measured viewport rule max(360px, 100vh − 648px) · the
+  // examples band (strip reused from #50). Source ROWS = masked data (captured tutorials vs live
+  // declared sources; endpoints render scheme+host+path only). Two measured fixes: the header's
+  // 1px height overflow (flex-basis + border → explicit height:48px) and the table viewport rule.
+  // 1440x900 dilated 0.67% / raw 1.24%, 1920x1080 dilated 0.76% / raw 1.21%, bbox 0 — no
+  // threshold movement. Body = the real DataSource registry, verified semantically by
+  // verify-hypervisor-app-parity-sources.mjs (declared catalog, never extraction).
+  sources: "pixel-certifications/sources.json",
   // #51 — Monitors: the TENTH shell-pixel certification — the third origin-alignment-queue port,
   // certified on the FIRST measured run (zero fix rounds — the playbook converged): the Automate
   // overview's in-viewport content is ENTIRELY vendor chrome (tabbed header + 940px white-gradient

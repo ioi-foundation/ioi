@@ -17,8 +17,8 @@
   ],
   "total_seeds": 39,
   "by_parity_class": {
-    "daemon_wired": 10,
-    "reference_capture": 25,
+    "daemon_wired": 11,
+    "reference_capture": 24,
     "substrate_bound": 4
   },
   "legend": {
@@ -226,14 +226,33 @@
       "capture_base": "/workspace/data-ingestion-app/",
       "grammar": "table_list",
       "tier": "high_value",
-      "parity_class": "reference_capture",
+      "parity_class": "daemon_wired",
       "capture_state": "shell_only",
       "reference_capture": "/__apps/sources",
       "reference_workspace": "/workspace/data-ingestion-app/",
-      "note": "Sources/Syncs/Listeners IA; unbound",
-      "reference_clean_state": "needs_origin_alignment",
-      "reference_clean_reason": "proxy lane renders no data (score 0), but the capture-origin lane (http://localhost:9225) renders the app failure-free WITH data (rows 12/0 · nodes 0 · cards 9 · lines 60) — align the reference URL like pipeline #38/#39",
-      "reference_clean_artifact": "reference-clean-sweep.json"
+      "note": "TRUE parity (#52) under the HARDENED gate: light Data-Connection landing reference-faithful shell at /__ioi/data/sources against the ORIGIN-ALIGNED data-clean reference (reference_url_override localhost:9225/workspace/data-ingestion-app/ — the #44 needs_origin_alignment finding; the What's-new modal dismissed by a reference-only pre-capture hook; the /__apps/sources proxy lane stays documented-insufficient: renders no data); the FOURTH origin-alignment-queue port and the FIRST Data-family LANDING surface (pipeline is the Data ladder) — a NEW dedicated port route over the EXISTING DataSource registry; THE AUTHORITY BOUNDARY IS THE HARD LINE: declared sources only, no extraction, no connection test, no live connector read, no materialization semantics on this surface (the governed path stays the ODK ladder); credential VALUES never render (postures only; endpoints stripped of userinfo/query/fragment); New-source here / live-connection setup / upload / synthesis / Syncs-Agents-Listeners-External-stacks / store menu / example installs = named gaps disabled in place",
+      "reference_clean_state": "data_clean",
+      "reference_clean_reason": "shell regions [rail, header, body] + data evidence (rows 12/0 · nodes 0 · cards 9 · lists 0 · lines 60)",
+      "reference_clean_artifact": "reference-clean-sweep.json",
+      "port_surface": "/__ioi/data/sources",
+      "surface_name": "Data",
+      "reference_url_override": "http://localhost:9225/workspace/data-ingestion-app/",
+      "reference_landmarks": [
+        "Data Connection",
+        "Sources",
+        "Syncs",
+        "Agents",
+        "Listeners",
+        "External stacks",
+        "New source",
+        "Synchronize and manage data flows between Foundry and external systems.",
+        "Set up new connections",
+        "Explore reference examples"
+      ],
+      "binding": "faithful port of the reference Data Connection landing over the real DataSource registry — dark global rail + tabbed app header (Data Connection · Sources live · Syncs/Agents/Listeners/External-stacks as named gaps · store dropdown / New source / Help as named gaps · the sync-counter cluster bound to REAL ODK materializing-run statuses) + hero band (title · description · verbatim illustration under the reference's own white-gradient content overlay) + the Set-up-new-connections card (verbatim option-card strip: vendor onboarding chrome, NOT an extraction affordance) + the View row + the Recents table whose rows are the REAL declared sources (name · source_ref · kind · credential_posture · lifecycle · created date · the wired:false flag; endpoints rendered scheme+host+path ONLY) + the marketplace-examples band + below-the-fold the declared-catalog census with the daemon's own ingestion note VERBATIM",
+      "candidate_surface": "/__ioi/data/sources",
+      "shell_pixel_certified": true,
+      "shell_pixel_certification_artifact": "pixel-certifications/sources.json"
     },
     {
       "owner": "Data",
