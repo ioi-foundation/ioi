@@ -5,7 +5,7 @@
 import { bpIcon, ONTOLOGY_APP_ICON_URI } from "../../scripts/bp-icons.mjs";
 import { ioiGlobalRailHtml, IOI_GRAIL_CSS } from "../chrome.mjs";
 import { escHtml } from "../kit.mjs";
-import { loadOntologyModel } from "../ontology-context.mjs";
+import { loadOntologyModel, parseOntologyContext, ontologyContextQuery, explorerLink, objectTypeLink, objectSetLink, semanticBreadcrumb, disabledSemanticAction, formatRef } from "../ontology-context.mjs";
 
 const CX_ESC = escHtml; // local alias so the moved block stays byte-identical to its serve original
 
@@ -16,17 +16,133 @@ export const meta = {
   certification: "pixel-certifications/schema.json",
 };
 
+// Operational load (#63): the shared ontology model + the resource projections the inspectors
+// need (connector mappings + policy-bound views + the daemon's edit vocabulary). A dead daemon
+// projection yields null (an honest "unavailable" inspector state), never a fabricated array.
 export async function load(ctx) {
-  return loadOntologyModel(ctx.daemon);
+  const base = await loadOntologyModel(ctx.daemon);
+  const J = (p) => fetch(`${ctx.daemon}${p}`).then((r) => r.json()).catch(() => null);
+  const [cm, pv] = await Promise.all([
+    J("/v1/hypervisor/odk/connector-mappings"),
+    J("/v1/hypervisor/odk/policy-bound-data-views"),
+  ]);
+  base.lists.connector_mappings = cm && Array.isArray(cm.connector_mappings) ? cm.connector_mappings : (cm === null ? null : []);
+  base.lists.policy_views = pv && Array.isArray(pv.policy_bound_data_views) ? pv.policy_bound_data_views : (pv === null ? null : []);
+  base.vocab = (base.overview && base.overview.odk_vocabulary) || { base_value_types: ["string", "integer", "double", "boolean", "timestamp", "enum"], link_cardinalities: ["one_to_one", "one_to_many", "many_to_many"], action_kinds: ["create_object", "modify_object", "delete_object", "function"] };
+  return base;
 }
 
 export function render(model, ctx) {
-  return renderOntologyManagerPort(model.overview, model.lists, ctx.url.searchParams.get("ontology") || "");
+  const sel = parseOntologyContext(ctx.url);
+  return renderOntologyManagerPort(model.overview, model.lists, sel.ontology || "", {
+    sel, vocab: model.vocab,
+    q: ctx.url.searchParams.get("q") || "",
+    banner: {
+      acted: ctx.url.searchParams.get("acted") || "", receipt: ctx.url.searchParams.get("receipt") || "",
+      refused: ctx.url.searchParams.get("refused") || "", reason: ctx.url.searchParams.get("reason") || "",
+      created: ctx.url.searchParams.get("created") || "",
+    },
+  });
 }
 
-// Inspection-first: authoring stays in the ODK substrate; interactive selection arrives with the
-// Manager-interaction PR under the command-discipline contract.
-export const actions = [];
+// Structured typed-model authoring through the EXISTING ODK DomainOntology create/patch authority.
+// Every definition action clones the current COM server-side, applies ONE bounded structured edit,
+// and submits the complete replacement with expected_revision (optimistic concurrency) — the
+// browser NEVER sends a canonical_object_model. IDs are immutable after creation. Deletion,
+// object-instance editing, and action/function execution stay disabled named gaps.
+const ONT_AUTHORITY = { plane: "odk.domain-ontology", operation: "POST|PATCH /v1/hypervisor/odk/domain-ontologies" };
+const ONT_RECEIPT = "ioi.hypervisor.odk.ontology-receipt.v1";
+const mkAction = (id, fields, extra) => ({ id, method: "POST", route: "/actions/" + id, fields, context: ["ontology"], authority: ONT_AUTHORITY, receipt: ONT_RECEIPT, confirm: false, success: "return-to-surface", refusal: "typed-banner", ...(extra || {}) });
+export const actions = [
+  mkAction("create-ontology", ["domain", "version", "description"], { context: [] }),
+  mkAction("update-metadata", ["domain", "version", "description"]),
+  mkAction("upsert-value-type", ["def_id", "name", "base", "enum_values"]),
+  mkAction("upsert-object-type", ["def_id", "name", "description", "title_property"]),
+  mkAction("upsert-property", ["object_type_id", "def_id", "name", "value_type", "required"]),
+  mkAction("upsert-link-type", ["def_id", "name", "from", "to", "cardinality"]),
+  mkAction("upsert-action-type", ["def_id", "name", "kind", "applies_to"]),
+];
+
+const bounded = (v, max) => (typeof v === "string" ? v.slice(0, max) : "");
+// Clone the current COM and upsert one entry into one collection by id (immutable id, merged fields).
+function comUpsert(com, collection, entry) {
+  const next = JSON.parse(JSON.stringify(com || {}));
+  if (!Array.isArray(next[collection])) next[collection] = [];
+  const i = next[collection].findIndex((e) => e && e.id === entry.id);
+  if (i >= 0) next[collection][i] = { ...next[collection][i], ...entry };
+  else next[collection].push(entry);
+  return next;
+}
+
+// One typed result per action (#62 contract): success carries the durable ontology receipt;
+// refusal carries the daemon's typed code (revision conflict, validation, not-found) with state
+// untouched; failure claims nothing. All authoring goes through create/patch — never a raw COM.
+export async function handleAction({ action, fields, daemon, url }) {
+  const D = (p, method, bodyObj) => fetch(`${daemon}${p}`, { method, headers: { "content-type": "application/json" }, body: JSON.stringify(bodyObj) }).then((x) => x.json()).catch(() => null);
+  if (action.id === "create-ontology") {
+    const domain = bounded(fields.domain, 120).trim();
+    if (!domain) return { kind: "refusal", http: 400, code: "odk_domain_required", message: "a new ontology needs a domain" };
+    const r = await D("/v1/hypervisor/odk/domain-ontologies", "POST", { domain, version: bounded(fields.version, 60) || undefined, description: bounded(fields.description, 2000) });
+    if (!r) return { kind: "failure", http: 502, code: "daemon_unavailable", message: "the daemon did not answer — nothing was created" };
+    if (r.ok !== true) return { kind: "refusal", http: 400, code: (r.error && r.error.code) || "odk_create_refused", message: (r.error && r.error.message) || "create refused" };
+    if (!r.ontology_receipt || r.ontology_receipt.schema_version !== ONT_RECEIPT) return { kind: "failure", http: 502, code: "receipt_missing", message: "create returned no declared receipt — failing closed" };
+    return { kind: "success", createdOntology: r.ontology.id, receipt_ref: r.ontology_receipt.receipt_ref, redirect: ontologyContextQuery("/__ioi/ontology/manager", { ontology: r.ontology.id, section: "configuration" }) };
+  }
+  // Every other action edits an existing ontology under optimistic concurrency.
+  const ontId = url.searchParams.get("ontology") || fields.ontology || "";
+  const cur = await D(`/v1/hypervisor/odk/domain-ontologies/${encodeURIComponent(ontId)}`, "GET");
+  if (!cur || cur.ok === false || !cur.ontology) return { kind: "refusal", http: 404, code: "odk_ontology_not_found", message: "select an existing ontology first" };
+  const ont = cur.ontology;
+  const patch = { expected_revision: ont.revision };
+  let redirectCtx = { ontology: ontId, section: "configuration" };
+  if (action.id === "update-metadata") {
+    if (fields.domain !== undefined) patch.domain = bounded(fields.domain, 120);
+    if (fields.version !== undefined) patch.version = bounded(fields.version, 60);
+    if (fields.description !== undefined) patch.description = bounded(fields.description, 2000);
+  } else {
+    const com = ont.canonical_object_model || {};
+    const id = bounded(fields.def_id || fields.object_type_id, 64).trim();
+    if (!/^[a-z][a-z0-9_]*$/.test(action.id === "upsert-property" ? bounded(fields.def_id, 64).trim() : id)) return { kind: "refusal", http: 400, code: "ontology_type_id_invalid", message: "id must match ^[a-z][a-z0-9_]*$" };
+    if (action.id === "upsert-value-type") {
+      const e = { id, name: bounded(fields.name, 200), base: bounded(fields.base, 32) || "string" };
+      if (e.base === "enum") e.enum_values = bounded(fields.enum_values, 2000).split(",").map((s) => s.trim()).filter(Boolean);
+      patch.canonical_object_model = comUpsert(com, "value_types", e);
+      redirectCtx = { ontology: ontId, section: "value-types", definitionKind: "value-type", definitionId: id };
+    } else if (action.id === "upsert-object-type") {
+      const prevOt = (com.object_types || []).find((t) => t.id === id) || {};
+      const e = { ...prevOt, id, name: bounded(fields.name, 200), description: bounded(fields.description, 2000) };
+      if (fields.title_property) e.title_property = bounded(fields.title_property, 64);
+      patch.canonical_object_model = comUpsert(com, "object_types", e);
+      redirectCtx = { ontology: ontId, section: "object-types", definitionKind: "object-type", definitionId: id };
+    } else if (action.id === "upsert-property") {
+      const otId = bounded(fields.object_type_id, 64).trim();
+      const next = JSON.parse(JSON.stringify(com || {}));
+      const ot = (next.object_types || []).find((t) => t.id === otId);
+      if (!ot) return { kind: "refusal", http: 400, code: "ontology_ref_unresolved", message: `object type '${otId}' not found` };
+      if (!Array.isArray(ot.properties)) ot.properties = [];
+      const pe = { id, name: bounded(fields.name, 200), value_type: bounded(fields.value_type, 64), required: fields.required === "1" || fields.required === "on" };
+      const pi = ot.properties.findIndex((p) => p && p.id === id);
+      if (pi >= 0) ot.properties[pi] = { ...ot.properties[pi], ...pe }; else ot.properties.push(pe);
+      patch.canonical_object_model = next;
+      redirectCtx = { ontology: ontId, section: "object-types", definitionKind: "object-type", definitionId: otId };
+    } else if (action.id === "upsert-link-type") {
+      const e = { id, name: bounded(fields.name, 200), from: bounded(fields.from, 64), to: bounded(fields.to, 64), cardinality: bounded(fields.cardinality, 32) };
+      patch.canonical_object_model = comUpsert(com, "link_types", e);
+      redirectCtx = { ontology: ontId, section: "link-types", definitionKind: "link-type", definitionId: id };
+    } else if (action.id === "upsert-action-type") {
+      const e = { id, name: bounded(fields.name, 200), kind: bounded(fields.kind, 32) };
+      if (fields.applies_to) e.applies_to = bounded(fields.applies_to, 64);
+      patch.canonical_object_model = comUpsert(com, "action_types", e);
+      const isFn = e.kind === "function";
+      redirectCtx = { ontology: ontId, section: isFn ? "functions" : "action-types", definitionKind: isFn ? "function" : "action-type", definitionId: id };
+    }
+  }
+  const r = await D(`/v1/hypervisor/odk/domain-ontologies/${encodeURIComponent(ontId)}`, "PATCH", patch);
+  if (!r) return { kind: "failure", http: 502, code: "daemon_unavailable", message: "the daemon did not answer — nothing was changed" };
+  if (r.ok !== true) return { kind: "refusal", http: (r.error && r.error.code === "odk_revision_conflict") ? 409 : 400, code: (r.error && r.error.code) || "odk_patch_refused", message: (r.error && r.error.message) || "patch refused" };
+  if (!r.ontology_receipt || r.ontology_receipt.schema_version !== ONT_RECEIPT) return { kind: "failure", http: 502, code: "receipt_missing", message: "patch returned no declared receipt — failing closed" };
+  return { kind: "success", status: `rev ${r.ontology.revision}`, receipt_ref: r.ontology_receipt.receipt_ref, redirect: ontologyContextQuery("/__ioi/ontology/manager", redirectCtx) };
+}
 
 // ============================ ONTOLOGY MANAGER — reference UX PORT (#34, daemon_wired).
 // A FAITHFUL source-neutral port of the reference Ontology Manager UX (NOT a dark native redesign):
@@ -41,9 +157,21 @@ export const actions = [];
 // ODK CanonicalObjectModel; READ-ONLY (authoring + object materialization stay in /__ioi/odk).
 
 
-function renderOntologyManagerPort(ov, lists, selectedId) {
+function renderOntologyManagerPort(ov, lists, selectedId, opts) {
   const enc = encodeURIComponent, esc = CX_ESC;
   const o = ov || {};
+  const O = opts || {};
+  const sel = O.sel || {};
+  const vocab = O.vocab || { base_value_types: ["string", "integer", "double", "boolean", "timestamp", "enum"], link_cardinalities: ["one_to_one", "one_to_many", "many_to_many"], action_kinds: ["create_object", "modify_object", "delete_object", "function"] };
+  const q = (O.q || "").trim();
+  // Manager context (#63): the URL carries section + definitionKind/definitionId (shared ontology
+  // context). The bare route — no section, no definition, no create, no q — renders exactly the
+  // certified shell (the inspector aside + authoring appear ONLY under explicit context, in the
+  // excluded body region). An unknown section fails closed to discover with a visible note.
+  const KNOWN_SECTIONS = ["discover", "object-types", "properties", "value-types", "link-types", "action-types", "functions", "health", "resources", "configuration", "create"];
+  const rawSection = sel.section || "";
+  const section = rawSection && KNOWN_SECTIONS.includes(rawSection) ? rawSection : (rawSection ? "discover" : "");
+  const badSection = !!(rawSection && !KNOWN_SECTIONS.includes(rawSection));
   const ontologies = Array.isArray(lists.ontologies) ? lists.ontologies : [];
   const selected = ontologies.find((x) => x.id === selectedId) || ontologies.find((x) => (x.health || {}).status === "ready") || ontologies[0] || null;
   const com = (selected && selected.canonical_object_model) || {};
@@ -61,6 +189,17 @@ function renderOntologyManagerPort(ov, lists, selectedId) {
   const hpill = `<span class="om-pill ${hstate === "ready" ? "ok" : hstate === "empty" ? "muted" : "warn"}">${esc(hstate)}</span>`;
 
   const oid = selected ? selected.id : "";
+  // Definition selection anchors (#63): cards/rows retarget to MANAGER selection through the shared
+  // ontology context (definitionKind/definitionId in the URL), opening the semantic inspector; the
+  // inspector keeps an explicit "Open substrate record" link. Selection is body (excluded region).
+  // Declared BEFORE the header/rail (which use mHref/sHref) to avoid a temporal-dead-zone crash.
+  const mHref = (ctx) => ontologyContextQuery("/__ioi/ontology/manager", { ontology: oid, ...ctx, ...(sel.embed ? { embed: sel.embed } : {}) });
+  const defHref = (kind, id, extra) => mHref({ section: extra && extra.section, definitionKind: kind, definitionId: id });
+  const selD = { kind: sel.definitionKind || "", id: sel.definitionId || "" };
+  const isSel = (kind, id) => selD.kind === kind && selD.id === id;
+  // Real search filter over typed definitions (kept certified: the header input stays the named
+  // gap; this is a body filter form). A hidden selection stays selected with a "filtered" notice.
+  const matchQ = (name, id) => !q || `${name || ""} ${id || ""}`.toLowerCase().includes(q.toLowerCase());
   const domainLabel = selected ? esc(selected.domain || selected.id) : "no ontology";
   const objsOf = (t) => msets.filter((m) => m.object_type_id === t.id).reduce((a, m) => a + (m.count || 0), 0);
   const depsOf = (t) => lts.filter((l) => l.from === t.id || l.to === t.id).length;
@@ -80,7 +219,7 @@ function renderOntologyManagerPort(ov, lists, selectedId) {
     <div class="og-search" title="Search + ctrl+K command palette are reference-only — not wired (named gap)"><span class="og-sico">${bpIcon("search")}</span><input placeholder="Search resources…" disabled aria-label="Search resources (reference-only, not wired)"><span class="og-skbd">ctrl + K</span></div>
     <div class="og-headright">
       <span class="og-branch" title="Branching is a reference-only lane — no authority contract yet (named gap).">${bpIcon("git-branch")}<span class="og-branchname">Main</span>${bpIcon("caret-down")}</span>
-      <a class="og-new" href="/__ioi/odk/ontologies/new">New ${bpIcon("caret-down")}</a>
+      <a class="og-new" href="${ontologyContextQuery("/__ioi/ontology/manager", { ontology: oid, section: "create", ...(sel.embed ? { embed: sel.embed } : {}) })}">New ${bpIcon("caret-down")}</a>
     </div>
   </header>`;
 
@@ -96,32 +235,35 @@ function renderOntologyManagerPort(ov, lists, selectedId) {
       ? `<a class="${cls}" href="${href}">${inner}</a>`
       : `<span class="${cls} gap" title="${esc(label)} is a reference-only lane — no authority contract yet (named gap).">${inner}</span>`;
   };
+  // Rail section links carry the Manager section (real navigation) while keeping the certified
+  // markup (href-only change — pixels unaffected). Named-gap lanes stay disabled in place.
+  const sHref = (s) => mHref({ section: s });
   const appRail = `<nav class="og-arail" aria-label="Ontology Manager">
-    ${arailItem("compass", "Discover", null, "#og-discover", { on: true })}
+    ${arailItem("compass", "Discover", null, sHref("discover"), { on: true })}
     ${arailItem("people", "Proposals", null, null)}
-    ${arailItem("time", "History", null, "#og-config")}
+    ${arailItem("time", "History", null, sHref("configuration"))}
     <div class="og-adiv"></div>
     <div class="og-asec">Resources</div>
-    ${arailItem("cube", "Object types", ots.length, "#og-discover", { sub: true })}
-    ${arailItem("properties", "Properties", propCount, "#og-properties", { sub: true })}
+    ${arailItem("cube", "Object types", ots.length, sHref("object-types"), { sub: true })}
+    ${arailItem("properties", "Properties", propCount, sHref("properties"), { sub: true })}
     ${arailItem("globe-network", "Shared properties", 0, null, { sub: true })}
-    ${arailItem("arrows-horizontal", "Link types", lts.length, "#og-link-types", { sub: true })}
-    ${arailItem("take-action", "Action types", nonFuncActs.length, "#og-action-types", { sub: true })}
+    ${arailItem("arrows-horizontal", "Link types", lts.length, sHref("link-types"), { sub: true })}
+    ${arailItem("take-action", "Action types", nonFuncActs.length, sHref("action-types"), { sub: true })}
     ${arailItem("group-objects", "Groups", 0, null, { sub: true })}
     ${arailItem("selection-box", "Interfaces", 0, null, { sub: true })}
     <div class="og-agap"></div>
-    ${arailItem("intersection", "Value types", vts.length, "#og-value-types", { sub: true })}
-    ${arailItem("function", "Functions", funcs.length, "#og-functions", { sub: true })}
+    ${arailItem("intersection", "Value types", vts.length, sHref("value-types"), { sub: true })}
+    ${arailItem("function", "Functions", funcs.length, sHref("functions"), { sub: true })}
     <div class="og-adiv2"></div>
-    ${arailItem("pulse", "Health issues", null, "#og-health")}
+    ${arailItem("pulse", "Health issues", null, sHref("health"))}
     ${arailItem("clean", "Cleanup", null, null)}
-    ${arailItem("cog", "Ontology configuration", null, "#og-config")}
+    ${arailItem("cog", "Ontology configuration", null, sHref("configuration"))}
   </nav>`;
 
   // LIGHT card-first body: object-type cards ("recently modified"), then typed detail + configuration.
   const cardOf = (t) => {
     const desc = (t.description || "").trim();
-    return `<a class="og-card" href="/__ioi/odk/ontologies/${selected ? enc(selected.id) : "new"}#ot-${enc(t.id)}" title="${esc(t.name || t.id)} — open in the substrate ontology detail">
+    return `<a class="og-card${isSel("object-type", t.id) ? " og-selcard" : ""}" data-objecttype="${esc(t.id)}" href="${defHref("object-type", t.id, { section: "object-types" })}" title="${esc(t.name || t.id)} — inspect this object type">
       <div class="og-cardtop"><span class="og-cardico">${svg(CUBE)}</span><span class="og-cardname">${esc(t.name || t.id)}</span><span class="og-cardbook">${svg('<path d="M4 5a2 2 0 012-2h12v18H6a2 2 0 01-2-2z"/><path d="M8 3v18"/>')}</span></div>
       <div class="og-cardobj"><b>${objsOf(t)}</b> object${objsOf(t) === 1 ? "" : "s"}</div>
       <div class="og-carddep">${depsOf(t)} dependent${depsOf(t) === 1 ? "" : "s"}</div>
@@ -129,12 +271,132 @@ function renderOntologyManagerPort(ov, lists, selectedId) {
     </a>`;
   };
   const tbl = (head, rows, empty) => rows ? `<table class="og-table"><thead><tr>${head.map((h) => `<th>${h}</th>`).join("")}</tr></thead><tbody>${rows}</tbody></table>` : `<div class="og-none">${empty}</div>`;
-  const propRows = ots.flatMap((t) => (Array.isArray(t.properties) ? t.properties : []).map((p) => `<tr><td>${esc(t.name || t.id)}</td><td>${esc(p.name || p.id)} ${idc(p.id)}</td><td>${idc(p.value_type || "")}</td><td>${p.required ? "yes" : "—"}${t.title_property === p.id ? ` <span class="om-pill ok">title</span>` : ""}</td></tr>`)).join("");
-  const valRows = vts.map((v) => `<tr><td>${esc(v.name || v.id)} ${idc(v.id)}</td><td><span class="om-pill muted">${esc(v.base || "string")}</span></td><td>${(v.enum_values && v.enum_values.length) ? v.enum_values.map((e) => `<span class="om-pill muted">${esc(e)}</span>`).join(" ") : "—"}</td></tr>`).join("");
-  const linkRows = lts.map((l) => `<tr><td>${esc(l.name || l.id)} ${idc(l.id)}</td><td>${idc(l.from || "")} → ${idc(l.to || "")}</td><td><span class="om-pill muted">${esc(l.cardinality || "")}</span></td></tr>`).join("");
-  const actRows = nonFuncActs.map((a) => `<tr><td>${esc(a.name || a.id)} ${idc(a.id)}</td><td><span class="om-pill muted">${esc(a.kind || "")}</span></td><td>${a.applies_to ? idc(a.applies_to) : "—"}</td></tr>`).join("");
-  const funcRows = funcs.map((a) => `<tr><td>${esc(a.name || a.id)} ${idc(a.id)}</td><td>${a.applies_to ? idc(a.applies_to) : "—"}</td></tr>`).join("");
-  const body = `<main class="og-body" role="main">${selected ? `
+  // Rows are selection anchors (definitionKind/definitionId in the URL). The whole row navigates;
+  // the name cell is a keyboard-reachable link. The selected row highlights.
+  const drow = (kind, id, section, cells) => `<tr class="og-drow${isSel(kind, id) ? " og-selrow" : ""}" data-def="${esc(kind)}:${esc(id)}"${isSel(kind, id) ? ' aria-current="true"' : ""} onclick="location.href='${defHref(kind, id, { section })}'">${cells}</tr>`;
+  const dname = (kind, id, label) => `<a class="og-dlink" href="${defHref(kind, id, { section: kind === "value-type" ? "value-types" : kind === "link-type" ? "link-types" : kind === "action-type" ? "action-types" : kind === "function" ? "functions" : "properties" })}">${label}</a>`;
+  const propRows = ots.flatMap((t) => (Array.isArray(t.properties) ? t.properties : []).filter((p) => matchQ(p.name, p.id)).map((p) => drow("property", `${t.id}.${p.id}`, "properties", `<td>${esc(t.name || t.id)}</td><td>${dname("property", `${t.id}.${p.id}`, esc(p.name || p.id))} ${idc(p.id)}</td><td>${idc(p.value_type || "")}</td><td>${p.required ? "yes" : "—"}${t.title_property === p.id ? ` <span class="om-pill ok">title</span>` : ""}</td>`))).join("");
+  const valRows = vts.filter((v) => matchQ(v.name, v.id)).map((v) => drow("value-type", v.id, "value-types", `<td>${dname("value-type", v.id, esc(v.name || v.id))} ${idc(v.id)}</td><td><span class="om-pill muted">${esc(v.base || "string")}</span></td><td>${(v.enum_values && v.enum_values.length) ? v.enum_values.map((e) => `<span class="om-pill muted">${esc(e)}</span>`).join(" ") : "—"}</td>`)).join("");
+  const linkRows = lts.filter((l) => matchQ(l.name, l.id)).map((l) => drow("link-type", l.id, "link-types", `<td>${dname("link-type", l.id, esc(l.name || l.id))} ${idc(l.id)}</td><td>${idc(l.from || "")} → ${idc(l.to || "")}</td><td><span class="om-pill muted">${esc(l.cardinality || "")}</span></td>`)).join("");
+  const actRows = nonFuncActs.filter((a) => matchQ(a.name, a.id)).map((a) => drow("action-type", a.id, "action-types", `<td>${dname("action-type", a.id, esc(a.name || a.id))} ${idc(a.id)}</td><td><span class="om-pill muted">${esc(a.kind || "")}</span></td><td>${a.applies_to ? idc(a.applies_to) : "—"}</td>`)).join("");
+  const funcRows = funcs.filter((a) => matchQ(a.name, a.id)).map((a) => drow("function", a.id, "functions", `<td>${dname("function", a.id, esc(a.name || a.id))} ${idc(a.id)}</td><td>${a.applies_to ? idc(a.applies_to) : "—"}</td>`)).join("");
+  // ---- Semantic inspectors + structured authoring (#63). Every value is daemon truth; forms are
+  // selects/checkboxes/bounded inputs only (no JSON editor); IDs are immutable after create.
+  const irow = (k, v) => `<div class="og-irow"><span class="og-ik">${esc(k)}</span><span class="og-iv">${v}</span></div>`;
+  const ihint = (h, warn) => `<div class="og-ihint${warn ? " og-warnhint" : ""}">${h}</div>`;
+  const opt = (list, cur) => list.map((v) => `<option value="${esc(v)}"${v === cur ? " selected" : ""}>${esc(v)}</option>`).join("");
+  const RET = `<input type="hidden" name="ontology" value="${esc(oid)}">${sel.embed ? `<input type="hidden" name="embed" value="1">` : ""}`;
+  const aForm = (id, inner) => `<form class="og-form" method="post" action="/__ioi/ontology/manager/actions/${id}">${RET}${inner}<button class="og-save" type="submit">Save</button></form>`;
+  const otOptions = ots.map((t) => t.id);
+  const findOt = (id) => ots.find((t) => t.id === id);
+  // Resolve the selected definition to a real record (or null → honest fail-closed inspector).
+  function resolveDef() {
+    if (!selD.kind) return null;
+    if (selD.kind === "object-type") return findOt(selD.id) ? { ot: findOt(selD.id) } : { missing: true };
+    if (selD.kind === "property") { const [otId, pId] = selD.id.split("."); const ot = findOt(otId); const p = ot && (ot.properties || []).find((x) => x.id === pId); return p ? { ot, p } : { missing: true }; }
+    if (selD.kind === "value-type") { const v = vts.find((x) => x.id === selD.id); return v ? { v } : { missing: true }; }
+    if (selD.kind === "link-type") { const l = lts.find((x) => x.id === selD.id); return l ? { l } : { missing: true }; }
+    if (selD.kind === "action-type" || selD.kind === "function") { const a = ats.find((x) => x.id === selD.id); return a ? { a } : { missing: true }; }
+    if (selD.kind === "health-gap") return { gap: selD.id };
+    if (selD.kind === "resource") return { resourceId: selD.id };
+    return { missing: true };
+  }
+  const def = selected ? resolveDef() : null;
+  const openSubstrate = selected ? `<a class="og-sublink" href="/__ioi/odk/ontologies/${enc(selected.id)}/edit">Open substrate record →</a>` : "";
+  function inspectorFor() {
+    if (!def) return "";
+    const crumb = semanticBreadcrumb([{ label: selected.domain || selected.id, href: mHref({ section: "discover" }) }, { label: selD.kind }, { label: selD.id }]);
+    if (def.missing) return `<div class="og-inspector" data-testid="og-inspector"><div class="og-ihd"><b>Not found</b></div><div class="og-ibody">${crumb}${ihint(`No ${esc(selD.kind)} <code>${esc(selD.id)}</code> in this ontology — failed closed. <a href="${mHref({ section: "discover" })}">Back to discover</a>.`, true)}</div></div>`;
+    let title = selD.id, bodyHtml = "";
+    if (def.ot) {
+      const t = def.ot; title = t.name || t.id;
+      const props = Array.isArray(t.properties) ? t.properties : [];
+      const tsets = msets.filter((m) => m.object_type_id === t.id);
+      bodyHtml = [
+        irow("id · name", `${formatRef(t.id)} · ${esc(t.name || "—")}`),
+        irow("description", esc(t.description || "—")),
+        irow("title property", t.title_property ? formatRef(t.title_property) : "— none"),
+        irow("objects", `<b>${objsOf(t)}</b> across ${tsets.length} set${tsets.length === 1 ? "" : "s"}`),
+        props.length ? `<table class="og-itable"><thead><tr><th>property</th><th>value type</th><th></th></tr></thead><tbody>${props.map((p) => `<tr><td><a href="${defHref("property", `${t.id}.${p.id}`, { section: "properties" })}">${esc(p.name || p.id)}</a></td><td>${formatRef(p.value_type || "")}</td><td>${p.id === t.title_property ? "title" : p.required ? "required" : ""}</td></tr>`).join("")}</tbody></table>` : ihint("No properties yet."),
+        irow("links", lts.filter((l) => l.from === t.id || l.to === t.id).map((l) => `<a href="${defHref("link-type", l.id, { section: "link-types" })}">${esc(l.name || l.id)}</a>`).join(", ") || "none"),
+        irow("actions", ats.filter((a) => a.applies_to === t.id).map((a) => `<a href="${defHref(a.kind === "function" ? "function" : "action-type", a.id)}">${esc(a.name || a.id)}</a>`).join(", ") || "none"),
+        irow("open in", `<a href="${objectTypeLink(oid, t.id)}">Explorer</a> · <a href="/__ioi/pipeline?ontology=${enc(oid)}">Pipeline</a>`),
+        `<h4 class="og-fhd">Edit object type</h4>`,
+        aForm("upsert-object-type", `<input type="hidden" name="def_id" value="${esc(t.id)}"><label class="og-fl">Name<input name="name" maxlength="200" value="${esc(t.name || "")}" required></label><label class="og-fl">Description<input name="description" maxlength="2000" value="${esc(t.description || "")}"></label><label class="og-fl">Title property<select name="title_property"><option value="">— none —</option>${opt(props.map((p) => p.id), t.title_property || "")}</select></label>`),
+        `<h4 class="og-fhd">Add / edit a property</h4>`,
+        aForm("upsert-property", `<input type="hidden" name="object_type_id" value="${esc(t.id)}"><label class="og-fl">Property id<input name="def_id" maxlength="64" pattern="[a-z][a-z0-9_]*" placeholder="lower_snake" required></label><label class="og-fl">Name<input name="name" maxlength="200" required></label><label class="og-fl">Value type<select name="value_type" required>${opt([...vocab.base_value_types, ...vts.map((v) => v.id)], "")}</select></label><label class="og-fc"><input type="checkbox" name="required" value="1"> required</label>`),
+      ].join("");
+    } else if (def.p) {
+      const { ot, p } = def; title = p.name || p.id;
+      bodyHtml = [
+        irow("owning object type", `<a href="${defHref("object-type", ot.id, { section: "object-types" })}">${esc(ot.name || ot.id)}</a>`),
+        irow("id · name", `${formatRef(p.id)} · ${esc(p.name || "—")}`),
+        irow("value type", formatRef(p.value_type || "")),
+        irow("posture", `${p.required ? "required" : "optional"}${ot.title_property === p.id ? " · title property" : ""}`),
+        irow("mapping usage", (lists.connector_mappings === null) ? "unavailable — daemon did not answer" : (lists.connector_mappings || []).filter((m) => m.ontology_ref === selected.ref && (m.field_mappings || []).some((f) => f.property_id === p.id) || (m.key_mapping && m.key_mapping.property_id === p.id)).length + " mapping(s)"),
+      ].join("");
+    } else if (def.v) {
+      const v = def.v; title = v.name || v.id;
+      bodyHtml = [
+        irow("id · name", `${formatRef(v.id)} · ${esc(v.name || "—")}`),
+        irow("base", `<span class="om-pill muted">${esc(v.base || "string")}</span>`),
+        irow("enum values", (v.enum_values || []).length ? v.enum_values.map((e) => `<span class="om-pill muted">${esc(e)}</span>`).join(" ") : "—"),
+        irow("used by", ots.flatMap((t) => (t.properties || []).filter((p) => p.value_type === v.id).map((p) => `${esc(t.id)}.${esc(p.id)}`)).join(", ") || "no properties"),
+        `<h4 class="og-fhd">Edit value type</h4>`,
+        aForm("upsert-value-type", `<input type="hidden" name="def_id" value="${esc(v.id)}"><label class="og-fl">Name<input name="name" maxlength="200" value="${esc(v.name || "")}" required></label><label class="og-fl">Base<select name="base">${opt(vocab.base_value_types, v.base || "string")}</select></label><label class="og-fl">Enum values (comma-separated, if base=enum)<input name="enum_values" maxlength="2000" value="${esc((v.enum_values || []).join(", "))}"></label>`),
+      ].join("");
+    } else if (def.l) {
+      const l = def.l; title = l.name || l.id;
+      bodyHtml = [
+        irow("id · name", `${formatRef(l.id)} · ${esc(l.name || "—")}`),
+        irow("from → to", `<a href="${objectTypeLink(oid, l.from)}">${esc(l.from)}</a> → <a href="${objectTypeLink(oid, l.to)}">${esc(l.to)}</a>`),
+        irow("cardinality", `<span class="om-pill muted">${esc(l.cardinality || "")}</span>`),
+        ihint("Relationship browsing (walking instances across this link) is a disabled named gap — no object-instance graph plane is bound."),
+        `<h4 class="og-fhd">Edit link type</h4>`,
+        aForm("upsert-link-type", `<input type="hidden" name="def_id" value="${esc(l.id)}"><label class="og-fl">Name<input name="name" maxlength="200" value="${esc(l.name || "")}" required></label><label class="og-fl">From<select name="from" required>${opt(otOptions, l.from || "")}</select></label><label class="og-fl">To<select name="to" required>${opt(otOptions, l.to || "")}</select></label><label class="og-fl">Cardinality<select name="cardinality" required>${opt(vocab.link_cardinalities, l.cardinality || "")}</select></label>`),
+      ].join("");
+    } else if (def.a) {
+      const a = def.a; title = a.name || a.id; const isFn = a.kind === "function";
+      bodyHtml = [
+        irow("id · name", `${formatRef(a.id)} · ${esc(a.name || "—")}`),
+        irow("kind", `<span class="om-pill muted">${esc(a.kind || "")}</span>`),
+        irow("applies to", a.applies_to ? `<a href="${defHref("object-type", a.applies_to, { section: "object-types" })}">${esc(a.applies_to)}</a>` : "—"),
+        irow("status", "declaration only"),
+        ihint(`${isFn ? "Function evaluation" : "Action execution"} is a disabled named gap — a declaration is not execution authority (no execution plane is bound).`),
+        `<div class="og-iacts">${disabledSemanticAction({ label: isFn ? "Evaluate function" : "Execute action", reason: "declarations carry no execution authority — no execution plane exists on this surface" })}</div>`,
+        `<h4 class="og-fhd">Edit ${isFn ? "function" : "action type"}</h4>`,
+        aForm("upsert-action-type", `<input type="hidden" name="def_id" value="${esc(a.id)}"><label class="og-fl">Name<input name="name" maxlength="200" value="${esc(a.name || "")}" required></label><label class="og-fl">Kind<select name="kind">${opt(vocab.action_kinds, a.kind || "")}</select></label><label class="og-fl">Applies to<select name="applies_to"><option value="">— none —</option>${opt(otOptions, a.applies_to || "")}</select></label>`),
+      ].join("");
+    } else if (def.gap) {
+      title = "Health gap";
+      bodyHtml = [irow("readiness", hpill), irow("gap", esc(def.gap)), irow("revision", `rev ${esc(String(selected.revision || 1))}`), irow("remediate", `<a href="${mHref({ section: "object-types" })}">object types</a> · <a href="${mHref({ section: "properties" })}">properties</a>`)].join("");
+    } else if (def.resourceId) {
+      title = "Resource";
+      const m = (lists.connector_mappings === null ? [] : (lists.connector_mappings || [])).find((x) => x.id === def.resourceId);
+      const pv = (lists.policy_views === null ? [] : (lists.policy_views || [])).find((x) => x.id === def.resourceId);
+      const pr = projs.find((x) => x.id === def.resourceId);
+      const st = msets.find((x) => x.id === def.resourceId);
+      if (m) bodyHtml = [irow("connector mapping", formatRef(m.ref || m.id)), irow("object type", formatRef(m.object_type_id || "")), irow("health", esc((m.health || {}).status || "—"))].join("");
+      else if (pv) bodyHtml = [irow("policy-bound view", formatRef(pv.ref || pv.id)), irow("operations", (pv.allowed_operations || []).map(formatRef).join(" "))].join("");
+      else if (pr) bodyHtml = [irow("projection", formatRef(pr.ref || pr.id)), irow("open in", `<a href="/__ioi/pipeline?ontology=${enc(oid)}">Pipeline</a>`)].join("");
+      else if (st) bodyHtml = [irow("materialized set", formatRef(st.ref || st.id)), irow("objects", `<b>${st.count ?? 0}</b>`), irow("open in", `<a href="${objectSetLink(oid, st.id)}">Explorer</a> · <a href="/__ioi/pipeline?node=materialized&ontology=${enc(oid)}">Pipeline</a> · <a href="/__ioi/lineage?ontology=${enc(oid)}">Lineage</a>`)].join("");
+      else bodyHtml = ihint(`No resource <code>${esc(def.resourceId)}</code> for this ontology.`, true);
+    }
+    return `<div class="og-inspector" data-testid="og-inspector"><div class="og-ihd"><b>${esc(title)}</b><span class="og-ikind">${esc(selD.kind)}</span></div><div class="og-ibody">${crumb}${bodyHtml}${openSubstrate}</div></div>`;
+  }
+  // Create-ontology form (section=create) — the one authoring lane without a selected ontology.
+  const createPane = section === "create" ? `<div class="og-inspector" data-testid="og-inspector"><div class="og-ihd"><b>Create ontology</b></div><div class="og-ibody">${ihint("A new DomainOntology draft (revision 1) with a create receipt. Add typed definitions after it exists.")}<form class="og-form" method="post" action="/__ioi/ontology/manager/actions/create-ontology">${sel.embed ? `<input type="hidden" name="embed" value="1">` : ""}<label class="og-fl">Domain<input name="domain" maxlength="120" placeholder="e.g. lending" required></label><label class="og-fl">Version<input name="version" maxlength="60" placeholder="0.1.0"></label><label class="og-fl">Description<input name="description" maxlength="2000"></label><button class="og-save" type="submit">Create</button></form></div></div>` : "";
+  const aside = createPane || (def ? inspectorFor() : "");
+
+  // Result banner (#ap-result — the runtime's redirect anchor). Renders only after an action.
+  const bn = O.banner || {};
+  const banner = bn.acted && bn.receipt
+    ? `<div id="ap-result" class="og-banner og-ok" tabindex="-1"><b>${esc(bn.acted)}</b> recorded${bn.result ? ` — <b>${esc(bn.result)}</b>` : ""} · receipt <code>${esc(bn.receipt)}</code> · <a href="/__ioi/work-ledger">proof stream</a></div>`
+    : bn.refused ? `<div id="ap-result" class="og-banner og-no" tabindex="-1">refused: <code>${esc(bn.refused)}</code>${bn.reason ? ` — ${esc(bn.reason)}` : ""} · <b>state unchanged</b></div>` : "";
+  const filterNote = q && def && !def.missing ? ihint(`Filtered by “${esc(q)}”. <a href="${defHref(selD.kind, selD.id)}">Clear filter</a> to see the full list.`) : "";
+  const searchForm = section ? `<form class="og-searchbody" method="GET" action="/__ioi/ontology/manager">${RET}${section ? `<input type="hidden" name="section" value="${esc(section)}">` : ""}${selD.kind ? `<input type="hidden" name="definitionKind" value="${esc(selD.kind)}"><input type="hidden" name="definitionId" value="${esc(selD.id)}">` : ""}<input name="q" value="${esc(q)}" placeholder="Search resources…" aria-label="Search typed definitions (live)"><button type="submit">Filter</button></form>` : "";
+
+  const body = `<main class="og-body" role="main">${banner}${badSection ? ihint(`Unknown section — showing Discover.`, true) : ""}${searchForm}${filterNote}${selected ? `
     <section id="og-discover" class="og-discover">
       <div class="og-sechd"><h2>Object types recently modified in</h2>
         <details class="og-ontomenu"><summary>${domainLabel}${selected ? ` <span class="og-ver">v${esc(selected.version || "0.1.0")}</span>` : ""} ▾</summary>
@@ -235,7 +497,38 @@ function renderOntologyManagerPort(ov, lists, selectedId) {
     .om-pill.warn{color:#a2730c;border-color:#efd9a6;background:#fdf6e6}
     .om-pill.muted{color:#6b7178;border-color:#e0e3e8;background:#f3f4f6}`;
 
-  return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Ontology Manager</title><style>${css}</style></head>
-    <body><div class="og-shell">${globalRail}<div class="og-main">${header}<div class="og-work">${appRail}${body}</div></div></body></html>`;
+  const asideCss = `
+    .og-searchbody{display:flex;gap:6px;margin:0 0 14px;max-width:460px}
+    .og-searchbody input{flex:1;border:1px solid #d3d8de;border-radius:4px;padding:6px 9px;font:inherit;font-size:13px}
+    .og-searchbody button{border:1px solid #d3d8de;border-radius:4px;background:#f7f8f8;font:inherit;font-size:13px;padding:0 12px;cursor:pointer}
+    .og-banner{margin:0 0 14px;padding:9px 12px;border-radius:6px;font-size:12.5px;line-height:1.5;outline:none}
+    .og-banner code{font-size:10.5px;word-break:break-all}
+    .og-banner.og-ok{border:1px solid #8fdcb6;background:#eafaf1;color:#0e6b41}
+    .og-banner.og-no{border:1px solid #e8c48d;background:#fdf7ec;color:#935610}
+    .og-selcard{border-color:#2d72d2!important;box-shadow:0 0 0 2px rgba(45,114,210,.3)!important}
+    .og-drow{cursor:pointer}.og-drow:hover{background:#f6f7f9}.og-drow.og-selrow{background:#f3f8ff;box-shadow:inset 2px 0 0 #2d72d2}
+    .og-dlink{color:inherit}
+    .og-inspectorwrap{flex:0 0 360px;width:360px;border-left:1px solid #dce0e5;background:#fff;overflow-y:auto}
+    .og-inspector{display:flex;flex-direction:column}
+    .og-ihd{display:flex;align-items:center;gap:8px;padding:12px 14px 10px;border-bottom:1px solid #eef0f2}
+    .og-ihd b{font-size:14px;color:#1c2127}.og-ikind{font-size:11px;color:#5f6b7c;text-transform:uppercase;letter-spacing:.4px}
+    .og-ibody{padding:12px 14px;font-size:12px}
+    .ioi-sem-breadcrumb{font-size:12px;color:#5f6b7c;margin:0 0 12px}span.ioi-sem-crumb{color:#1c2127}
+    .og-irow{display:flex;gap:10px;font-size:12px;line-height:15.4297px;padding:0 0 8px}
+    .og-ik{color:#5f6b7c;width:118px;flex:0 0 118px}.og-iv{color:#1c2127;min-width:0;word-break:break-word}
+    .ioi-ref{font-family:ui-monospace,monospace;font-size:10.5px;background:#f1f3f6;border-radius:3px;padding:1px 4px;word-break:break-all}
+    .og-ihint{margin:6px 0 10px;padding:8px 10px;border:1px solid #e5e7eb;border-radius:6px;background:#f7f8fa;color:#5b6270;font-size:11.5px;line-height:1.55}
+    .og-warnhint{border-color:#e8c48d;background:#fdf7ec;color:#935610}
+    .og-itable{border-collapse:collapse;width:100%;font-size:11.5px;margin:0 0 10px}.og-itable th{text-align:left;color:#7b8494;font-weight:600;padding:3px 8px 3px 0;border-bottom:1px solid #e2e4e8}.og-itable td{padding:3px 8px 3px 0;border-bottom:1px solid #f0f1f4}
+    .og-fhd{font-size:12px;margin:14px 0 8px;color:#1c2127}
+    .og-form{display:flex;flex-direction:column;gap:8px;border:1px solid #e5e7eb;border-radius:8px;padding:10px;background:#fbfcfd;margin:0 0 10px}
+    .og-fl{display:flex;flex-direction:column;gap:3px;font-size:11px;color:#5f6b7c}
+    .og-fl input,.og-fl select{border:1px solid #d3d8de;border-radius:4px;padding:5px 8px;font:inherit;font-size:12.5px;color:#1c2127}
+    .og-fc{display:flex;align-items:center;gap:6px;font-size:12px;color:#5f6b7c}
+    .og-save{align-self:flex-start;border:1px solid #2f6fd8;background:#2f6fd8;color:#fff;border-radius:4px;font:inherit;font-size:12.5px;font-weight:600;padding:6px 14px;cursor:pointer}
+    .og-iacts{margin:8px 0}.ioi-cmd-disabled{display:inline-flex;align-items:center;height:24px;padding:0 8px;border:1px solid #d3d8de;border-radius:4px;background:#f7f8f8;color:#8f99a8;font:inherit;font-size:12px;cursor:not-allowed}
+    .og-sublink{display:inline-block;margin-top:10px;font-size:12px}`;
+  return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Ontology Manager</title><style>${css}${aside ? asideCss : ""}</style></head>
+    <body><div class="og-shell">${globalRail}<div class="og-main">${header}<div class="og-work">${appRail}${body}${aside ? `<aside class="og-inspectorwrap">${aside}</aside>` : ""}</div></div></body></html>`;
 }
 

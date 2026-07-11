@@ -10,7 +10,12 @@
 // always produces the same URL.
 import { escHtml, parseSelection, selectionQuery, inspectorShell, disabledCommand } from "./kit.mjs";
 
-export const ONTOLOGY_CONTEXT_KEYS = ["ontology", "objectType", "objectSet", "objectId", "pane", "section"];
+export const ONTOLOGY_CONTEXT_KEYS = ["ontology", "objectType", "objectSet", "objectId", "pane", "section", "definitionKind", "definitionId"];
+
+// The Manager's section vocabulary (operational wave #63) — an unknown section fails closed to
+// the discover default with a visible explanation (the module enforces; this is the allowlist).
+export const MANAGER_SECTIONS = ["discover", "object-types", "properties", "value-types", "link-types", "action-types", "functions", "health", "resources", "configuration", "create"];
+export const DEFINITION_KINDS = ["object-type", "property", "value-type", "link-type", "action-type", "function", "health-gap", "resource"];
 
 // Read the ontology context carried by a URL: only known keys, only non-empty values.
 export function parseOntologyContext(url) {

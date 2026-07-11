@@ -40,7 +40,7 @@ const page = (url) => fetch(url).then(async (r) => ({ status: r.status, text: aw
 async function run() {
   // 6 (static first). Capability model invariants.
   ok("every surface declares capabilities + operational_state from the allowed vocabularies", SURFACES.every((s) => Array.isArray(s.capabilities) && s.capabilities.length > 0 && s.capabilities.every((c) => CAPABILITIES.includes(c)) && OPERATIONAL_STATES.includes(s.operational_state)), `${SURFACES.length} surfaces`);
-  ok("extracted interactive modules declare their earned state (pipeline/explorer=inspect, schema=browse)", SURFACES.find((s) => s.slug === "pipeline").operational_state === "inspect" && SURFACES.find((s) => s.slug === "explorer").operational_state === "inspect" && SURFACES.find((s) => s.slug === "schema").operational_state === "browse");
+  ok("extracted interactive modules declare their earned state (pipeline/explorer=inspect, schema=act since #63)", SURFACES.find((s) => s.slug === "pipeline").operational_state === "inspect" && SURFACES.find((s) => s.slug === "explorer").operational_state === "inspect" && SURFACES.find((s) => s.slug === "schema").operational_state === "act");
   ok("operational state is not inferred from parity: certified non-extracted surfaces stay browse/act, never inspect+", SURFACES.filter((s) => !boundSurface(s.route, "GET")).every((s) => ["shell", "browse", "act"].includes(s.operational_state)));
 
   // 4. Standalone routes keep the complete certified shell.
@@ -99,10 +99,11 @@ async function run() {
       await pg.waitForSelector("#ioi-open-app iframe", { timeout: 15000 });
       ok("Ontology launches FROM THE CATALOG into the singular Open Application slot (embedded Manager — the funnel forced embed=1)", await pg.locator("#ioi-open-app").count() === 1 && ((await pg.locator("#ioi-open-app iframe").getAttribute("src")) || "").includes("/__ioi/ontology/manager?embed=1"));
       ok("the native rail stays visible while the app is open", await rail.isVisible());
-      // Poll for the manager frame (iframe navigation race — never a fixed sleep).
+      // Poll for the manager iframe to commit + render its app rail (the module makes several
+      // daemon round-trips, so frames()/DOM aren't ready the instant the iframe element appears).
       let frame = null;
       for (let i = 0; i < 40 && !frame; i++) {
-        await pg.waitForTimeout(400);
+        await pg.waitForTimeout(500);
         const f = pg.frames().find((x) => x.url().includes("/__ioi/ontology/manager"));
         if (f && await f.locator(".og-arail").count().catch(() => 0)) frame = f;
       }

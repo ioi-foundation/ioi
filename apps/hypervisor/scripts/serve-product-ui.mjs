@@ -6876,22 +6876,32 @@ async function runSurfaceAction(hit, res, body) {
       res.writeHead(303, { Location: url, "Cache-Control": "no-cache" });
       res.end();
     };
-    const refuse = (code, message) => go(new URLSearchParams({ refused: code, reason: String(message || "").slice(0, 200), record: hit.recordId }));
+    const refuse = (code, message, target) => {
+      const back2 = safeReturnPath(target, back);
+      const url = `${back2}${back2.includes("?") ? "&" : "?"}${new URLSearchParams({ refused: code, reason: String(message || "").slice(0, 200), record: hit.recordId }).toString()}${embed ? "&embed=1" : ""}#ap-result`;
+      res.writeHead(303, { Location: url, "Cache-Control": "no-cache" }); res.end();
+    };
+    // Action selection: transition-discriminated when multiple actions share a route (Approvals),
+    // else the single route-matched action (Manager's per-action routes).
     const transition = (p.get("transition") || "").trim();
-    const action = hit.actions.find((a) => a.transition === transition);
-    if (!action) return refuse("action_unknown", `unknown transition '${transition.slice(0, 40)}' — declared: ${hit.actions.map((a) => a.transition).join("|")}`);
+    const action = hit.actions.length === 1 && !hit.actions[0].transition ? hit.actions[0] : hit.actions.find((a) => a.transition === transition);
+    if (!action) return refuse("action_unknown", `unknown transition '${transition.slice(0, 40)}' — declared: ${hit.actions.map((a) => a.transition || a.id).join("|")}`);
     if (action.confirm && p.get("confirm") !== "1") return refuse("confirmation_required", `${action.id} requires explicit confirmation (${action.from} -> ${action.to}) — re-submit with the confirmation checked`);
     const fields = {};
-    for (const f of action.fields || []) { const v = p.get(f); if (v !== null && v !== "") fields[f] = String(v).slice(0, 500); }
-    const result = await hit.impl.handleAction({ action, id: hit.recordId, fields, daemon: DAEMON });
+    for (const f of action.fields || []) { const v = p.get(f); if (v !== null && v !== "") fields[f] = String(v).slice(0, 2000); }
+    const result = await hit.impl.handleAction({ action, id: hit.recordId, fields, daemon: DAEMON, url: new URL(hit.surface.route + (p.get("ontology") ? `?ontology=${encodeURIComponent(p.get("ontology"))}` : ""), "http://x") });
     if (!result || typeof result !== "object" || !["success", "refusal", "failure"].includes(result.kind)) {
       return refuse("action_result_invalid", "the module returned no typed result — failing closed");
     }
+    // A module may name its success/refusal return route (declared success policy); it is always
+    // re-validated as a same-origin bounded path — the module never controls the raw redirect.
     if (result.kind === "success") {
-      if (!result.receipt_ref) return refuse("receipt_missing", "success without the declared receipt — failing closed");
-      return go(new URLSearchParams({ acted: action.id, receipt: result.receipt_ref, record: hit.recordId, result: result.status || "" }));
+      if (!result.receipt_ref) return refuse("receipt_missing", "success without the declared receipt — failing closed", result.redirect);
+      const back2 = safeReturnPath(result.redirect, back);
+      const url = `${back2}${back2.includes("?") ? "&" : "?"}${new URLSearchParams({ acted: action.id, receipt: result.receipt_ref, record: result.createdOntology || hit.recordId, result: result.status || "" }).toString()}${embed ? "&embed=1" : ""}#ap-result`;
+      res.writeHead(303, { Location: url, "Cache-Control": "no-cache" }); return res.end();
     }
-    return refuse(result.code || (result.kind === "failure" ? "action_failed" : "action_refused"), result.message);
+    return refuse(result.code || (result.kind === "failure" ? "action_failed" : "action_refused"), result.message, result.redirect);
   } catch (err) {
     surfaceErrorBoundary({ method: "POST", url: "surface-action" }, res, err);
   }

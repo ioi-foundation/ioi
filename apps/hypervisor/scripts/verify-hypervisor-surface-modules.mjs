@@ -66,7 +66,7 @@ async function run() {
     { mod: objectExplorer, slug: "explorer", route: "/__ioi/ontology/explorer", title: "<title>Object Explorer</title>", marks: ["Object type", "og-grail"] },
   ];
   for (const { mod, slug, route, title, marks } of ONTOLOGY_MODULES) {
-    ok(`${slug}: module exports the surface contract`, typeof mod.load === "function" && typeof mod.render === "function" && Array.isArray(mod.actions) && mod.actions.length === 0 && mod.meta && mod.meta.slug === slug);
+    ok(`${slug}: module exports the surface contract`, typeof mod.load === "function" && typeof mod.render === "function" && Array.isArray(mod.actions) && mod.meta && mod.meta.slug === slug);
     const reg2 = surfaceBySlug(slug);
     ok(`${slug}: module meta agrees with the registry entry`, !!reg2 && mod.meta.route === reg2.route && mod.meta.verifier === reg2.verifier && mod.meta.certification === reg2.certification);
     const seed2 = (matrix.seeds || []).find((s) => s.slug === slug);
@@ -84,7 +84,7 @@ async function run() {
   // 6. ONTOLOGY CONTEXT KIT — the semantic-layer primitives (unwired; PR60-62 wire them).
   const cu = new URL("http://x/r?ontology=ont-1&objectType=loan&objectSet=&pane=types&noise=z");
   const octx = parseOntologyContext(cu);
-  ok("parseOntologyContext reads only known, non-empty keys", octx.ontology === "ont-1" && octx.objectType === "loan" && octx.pane === "types" && !("objectSet" in octx) && !("noise" in octx) && ONTOLOGY_CONTEXT_KEYS.length === 6);
+  ok("parseOntologyContext reads only known, non-empty keys", octx.ontology === "ont-1" && octx.objectType === "loan" && octx.pane === "types" && !("objectSet" in octx) && !("noise" in octx) && ONTOLOGY_CONTEXT_KEYS.length === 8 && ONTOLOGY_CONTEXT_KEYS.includes("definitionKind") && ONTOLOGY_CONTEXT_KEYS.includes("definitionId"));
   const rt = ontologyContextQuery("/r", octx);
   ok("ontologyContextQuery is canonical (sorted keys, empties dropped) and roundtrips", rt === "/r?objectType=loan&ontology=ont-1&pane=types" && JSON.stringify(parseOntologyContext(new URL(`http://x${rt}`))) === JSON.stringify(octx));
   ok("ontologyContextQuery ignores unknown keys", ontologyContextQuery("/r", { ontology: "a", rogue: "x" }) === "/r?ontology=a");
