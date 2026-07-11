@@ -19,7 +19,10 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { SURFACES, boundSurface, surfaceBySlug } from "./surface-registry.mjs";
 import * as pipeline from "../surfaces/pipeline/index.mjs";
+import * as ontologyManager from "../surfaces/ontology-manager/index.mjs";
+import * as objectExplorer from "../surfaces/object-explorer/index.mjs";
 import { escHtml, parseSelection, selectionQuery, inspectorShell, trayShell, disabledCommand, proofLink, semanticMask } from "../surfaces/kit.mjs";
+import { ONTOLOGY_CONTEXT_KEYS, parseOntologyContext, ontologyContextQuery, managerLink, explorerLink, objectTypeLink, objectSetLink, semanticBreadcrumb, semanticInspectorShell, disabledSemanticAction, formatRef } from "../surfaces/ontology-context.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const APP = join(HERE, "..");
@@ -57,6 +60,42 @@ async function run() {
   ok("registry lists pipeline exactly once", SURFACES.filter((s) => s.slug === "pipeline").length === 1);
 
   // 4. Interaction kit units.
+  // 5. ONTOLOGY MODULES (the #59 extraction) — same contract, same hygiene, both certified ports.
+  const ONTOLOGY_MODULES = [
+    { mod: ontologyManager, slug: "schema", route: "/__ioi/ontology/manager", title: "<title>Ontology Manager</title>", marks: ["Discover", "Object types", "og-grail"] },
+    { mod: objectExplorer, slug: "explorer", route: "/__ioi/ontology/explorer", title: "<title>Object Explorer</title>", marks: ["Object type", "og-grail"] },
+  ];
+  for (const { mod, slug, route, title, marks } of ONTOLOGY_MODULES) {
+    ok(`${slug}: module exports the surface contract`, typeof mod.load === "function" && typeof mod.render === "function" && Array.isArray(mod.actions) && mod.actions.length === 0 && mod.meta && mod.meta.slug === slug);
+    const reg2 = surfaceBySlug(slug);
+    ok(`${slug}: module meta agrees with the registry entry`, !!reg2 && mod.meta.route === reg2.route && mod.meta.verifier === reg2.verifier && mod.meta.certification === reg2.certification);
+    const seed2 = (matrix.seeds || []).find((s) => s.slug === slug);
+    ok(`${slug}: module meta agrees with the parity-matrix seed`, !!seed2 && seed2.candidate_surface.split("?")[0] === mod.meta.route && seed2.shell_pixel_certification_artifact === mod.meta.certification && seed2.shell_pixel_certified === true);
+    const hit2 = boundSurface(route, "GET");
+    ok(`${slug}: registry binds the module (identity, not a copy)`, !!hit2 && hit2.impl.render === mod.render && hit2.impl.load === mod.load);
+    const ctx2 = { url: new URL(`http://x${route}`), daemon: "http://127.0.0.1:1" };
+    const model2 = await mod.load(ctx2);
+    const html2 = mod.render(model2, ctx2);
+    ok(`${slug}: offline dead-daemon render keeps the certified shell landmarks`, [title, ...marks].every((m) => html2.includes(m)));
+  }
+  ok("serve no longer defines the ontology port renderers", !serveSrc.includes("function renderOntologyManagerPort") && !serveSrc.includes("function renderObjectExplorerPort"));
+  ok("the odk substrate's own manager renderer STAYS in serve (not the certified port)", serveSrc.includes("function renderOntologyManager("));
+
+  // 6. ONTOLOGY CONTEXT KIT — the semantic-layer primitives (unwired; PR60-62 wire them).
+  const cu = new URL("http://x/r?ontology=ont-1&objectType=loan&objectSet=&pane=types&noise=z");
+  const octx = parseOntologyContext(cu);
+  ok("parseOntologyContext reads only known, non-empty keys", octx.ontology === "ont-1" && octx.objectType === "loan" && octx.pane === "types" && !("objectSet" in octx) && !("noise" in octx) && ONTOLOGY_CONTEXT_KEYS.length === 6);
+  const rt = ontologyContextQuery("/r", octx);
+  ok("ontologyContextQuery is canonical (sorted keys, empties dropped) and roundtrips", rt === "/r?objectType=loan&ontology=ont-1&pane=types" && JSON.stringify(parseOntologyContext(new URL(`http://x${rt}`))) === JSON.stringify(octx));
+  ok("ontologyContextQuery ignores unknown keys", ontologyContextQuery("/r", { ontology: "a", rogue: "x" }) === "/r?ontology=a");
+  ok("surface link helpers target the owning routes", managerLink({ ontology: "a" }) === "/__ioi/ontology/manager?ontology=a" && explorerLink({ ontology: "a" }) === "/__ioi/ontology/explorer?ontology=a" && objectTypeLink("a", "loan") === "/__ioi/ontology/explorer?objectType=loan&ontology=a" && objectSetLink("a", "set-1") === "/__ioi/ontology/explorer?objectSet=set-1&ontology=a");
+  const crumb = semanticBreadcrumb([{ label: "ont<1", href: "/__ioi/ontology/manager?ontology=a" }, { label: "Loan" }]);
+  ok("semanticBreadcrumb links owned segments, escapes labels, carries the testid", crumb.includes('data-testid="ioi-sem-breadcrumb"') && crumb.includes("ont&lt;1") && crumb.includes('href="/__ioi/ontology/manager?ontology=a"') && crumb.includes('<span class="ioi-sem-crumb">Loan</span>') && crumb.includes(" → "));
+  ok("semanticInspectorShell is the kit inspector with the semantic marker", semanticInspectorShell({ id: "x", title: "T", body: "b" }).includes("ioi-sem-inspector") && semanticInspectorShell({ id: "x", title: "T", body: "b" }).includes('data-testid="ioi-inspector"'));
+  ok("disabledSemanticAction names its reason", disabledSemanticAction({ label: "Edit type", reason: "no ODK patch authority wired on this surface yet" }).includes("data-ioi-disabled-reason=") && disabledSemanticAction({ label: "E", reason: "r" }).includes("ioi-sem-action"));
+  ok("formatRef escapes and marks refs", formatRef('ref<"&>') === '<code class="ioi-ref">ref&lt;&quot;&amp;&gt;</code>' && formatRef(null) === '<code class="ioi-ref"></code>');
+
+  // 7. Interaction kit units.
   ok("escHtml escapes the four metacharacters", escHtml('&<>"') === "&amp;&lt;&gt;&quot;" && escHtml(null) === "" && escHtml(0) === "0");
   const u = new URL("http://x/r?node=mapping&ontology=ont-1&empty=&noise=z");
   const sel = parseSelection(u, ["node", "ontology", "empty", "absent"]);

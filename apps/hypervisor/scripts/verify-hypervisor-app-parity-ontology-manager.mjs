@@ -96,12 +96,12 @@ async function run() {
   const t = portFix.text;
   ok("the fixture ontology renders (domain · ref) — real daemon truth", fix && t.includes(DOM) && t.includes(fix.ref));
   ok("the typed CanonicalObjectModel renders (object-type card · property · value type · link · action · function)", ["GadgetKind", "TitleProp", "LabelText", "RelatedGadget", "MakeGadget", "ScoreGadget"].every((s) => t.includes(s)), ["GadgetKind", "TitleProp", "LabelText", "RelatedGadget", "MakeGadget", "ScoreGadget"].filter((s) => !t.includes(s)).join(",") || "all present");
-  ok("CROSS-CHECK: the app-rail 'Object types' count matches the fixture COM (1)", /Object types<span class="og-c">1<\/span>/.test(t), (t.match(/Object types<span class="og-c">\d+<\/span>/) || [])[0] || "");
+  ok("CROSS-CHECK: the app-rail 'Object types' count matches the fixture COM (1)", /og-nlabel">Object types<\/span><span class="og-c">1<\/span>/.test(t), (t.match(/og-nlabel">Object types<\/span><span class="og-c">\d+<\/span>/) || [])[0] || "no count pill found");
   ok("CROSS-CHECK: the ontology switcher lists every ontology in the live daemon", (t.match(/class="og-ontoitem/g) || []).length === onts.length && onts.length > 0, `menu ${(t.match(/class="og-ontoitem/g) || []).length} · daemon ${onts.length}`);
   ok("the fixture object-type card renders its real object + dependent counts", /class="og-card"/.test(t) && /object/.test(t) && /dependent/.test(t));
 
   // 5. READ-ONLY + NAMED GAPS disabled in place; authoring routes to the substrate.
-  ok("named-gap lanes are DISABLED in place (Proposals · Shared properties · Groups · Interfaces · Cleanup), not hidden", ["Proposals", "Shared properties", "Groups", "Interfaces", "Cleanup"].every((l) => new RegExp(`<span class="og-nav gap"[^>]*>${l}`).test(t)));
+  ok("named-gap lanes are DISABLED in place (Proposals · Shared properties · Groups · Interfaces · Cleanup), not hidden", ["Proposals", "Shared properties", "Groups", "Interfaces", "Cleanup"].every((l) => new RegExp(`<span class="og-nav[^"]*gap" title="${l} is a reference-only lane`).test(t)), "gap spans carry the named-gap title on the current certified rail markup");
   ok("action + function EXECUTION are named gaps (declarations only)", /Action <b>declarations<\/b> only/.test(t) && /Function <b>declarations<\/b> only/.test(t) && /in-canvas schema editing/.test(t));
   ok("the authoring lane routes to the /__ioi/odk substrate (Configure model)", /Configure model in substrate/.test(t) && new RegExp(`/__ioi/odk/ontologies/${fix.id}/edit`).test(t));
 

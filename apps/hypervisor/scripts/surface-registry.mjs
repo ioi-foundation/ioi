@@ -19,6 +19,8 @@ import { SRC_APP_TILE_URI } from "./sources-assets.mjs";
 import { CHG_APP_TILE_URI } from "./changes-assets.mjs";
 import { EVL_APP_TILE_URI } from "./evalsuites-assets.mjs";
 import * as pipelineModule from "../surfaces/pipeline/index.mjs";
+import * as ontologyManagerModule from "../surfaces/ontology-manager/index.mjs";
+import * as objectExplorerModule from "../surfaces/object-explorer/index.mjs";
 
 export const SURFACES = [
   { slug: "pipeline", owner: "Data", title: "Pipeline Builder", icon: PIPELINE_APP_ICON_URI, route: "/__ioi/pipeline", verifier: "scripts/verify-hypervisor-app-parity-pipeline.mjs", certification: "pixel-certifications/pipeline.json" },
@@ -61,3 +63,5 @@ export function boundSurface(pathname, method) {
 
 // ---- Extracted surface modules — imported and bound here (the registry IS the mount point).
 bindSurface("pipeline", pipelineModule);
+bindSurface("schema", ontologyManagerModule);
+bindSurface("explorer", objectExplorerModule);
