@@ -213,6 +213,33 @@ export const SURFACE_SHELL = {
       ],
     },
   },
+  monitors: {
+    // Automate overview (#51 — the third origin-alignment-queue port): certified shell = rail +
+    // tabbed header (Automate title · Overview/Automations tabs + 3px active underline · store
+    // dropdown / New-automation / Help) + the 88px hero band under the reference's own 940px
+    // white-gradient content overlay (no illustration on this splash) + the WHOLE content column
+    // to the fold — Getting-started band, wizard card (VERBATIM 3-step strip), template-card
+    // gallery (VERBATIM strip), marketplace-examples band (VERBATIM strip, reused from #50) —
+    // ALL vendor chrome: the live-data regions (Active-automations stats · Recently-viewed table ·
+    // Recently-triggered feed) sit BELOW the fold at both viewports, so this shell carries NO
+    // in-viewport data masks. Content = a 900px block centered right of the rail (offset 0 @1440,
+    // +240 @1920).
+    rects: [
+      { key: "rail", anchor: "left", x: 0, y: 0, w: 230, h: 0 },
+      { key: "header", anchor: "topbar", x: 230, y: 0, w: 0, h: 50 },
+      { key: "hero", anchor: "topbar", x: 230, y: 50, w: 0, h: 89 },
+      { key: "content", anchor: "content", x: 330, y: 160, w: 1010, h: 740 },
+    ],
+    rects_by_viewport: {
+      "1920x1080": [
+        { key: "rail", anchor: "left", x: 0, y: 0, w: 230, h: 0 },
+        { key: "header", anchor: "topbar", x: 230, y: 0, w: 0, h: 50 },
+        { key: "hero", anchor: "topbar", x: 230, y: 50, w: 0, h: 89 },
+        { key: "content", anchor: "content", x: 330, y: 160, w: 1010, h: 920 },
+      ],
+    },
+    data: { ref: [], ioi: [] },
+  },
   machinery: {
     // Machinery landing (#50 — the second origin-alignment-queue port): certified shell = rail +
     // header (machinery tile · Recent-installations store dropdown · New graph · Help) + the

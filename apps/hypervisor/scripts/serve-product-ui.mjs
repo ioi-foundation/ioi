@@ -30,6 +30,7 @@ import { bpIcon, ONTOLOGY_APP_ICON_URI, APPROVALS_APP_ICON_URI, PIPELINE_APP_ICO
 import { MARKETPLACE_APP_ICON_URI, MK_GLOBE_URI, MK_HERO_URI, MK_STORE_ICON_URI, MK_PACKAGE_URI, MK_WIZ1_URI, MK_ARROW_URI, MK_WIZ2_URI, MK_WIZ3_URI } from "./marketplace-assets.mjs";
 import { DSG_APP_TILE_URI, DSG_ROW_DOC_URI, DSG_HERO_URI, DSG_AIP_ICON_URI, DSG_GALLERY_STRIP_URI } from "./designer-assets.mjs";
 import { MCH_APP_TILE_URI, MCH_STORE_ICON_URI, MCH_HERO_URI, MCH_EXAMPLES_STRIP_URI } from "./machinery-assets.mjs";
+import { MON_APP_TILE_URI, MON_WIZ_STRIP_URI, MON_CARDS_STRIP_URI } from "./monitors-assets.mjs";
 import { mintApprovalGrant } from "../../../scripts/lib/mint-approval-grant.mjs";
 
 // Build the current conversation entries for a run, in the exact NDJSON shape the SPA's V1 pane
@@ -545,7 +546,7 @@ function renderAutomationsList(automations, projectId, projectsById) {
   // captured object-monitoring wizard is a SECONDARY reference grammar (a linked walkthrough for the
   // condition→effect authoring UX), explicitly NOT daemon truth — no captured row is presented here.
   const head = `<h1 id="automations-owner">Automations</h1>
-    <p class="sub">Durable orchestration — each automation is a daemon-owned spec that hangs off a project, runs over a real environment, and records a tamper-evident transcript. The <b>${automations.length}</b> record${automations.length === 1 ? "" : "s"} below ${projectId ? `(filtered to <b>${CX_ESC(filtName)}</b> · <a href="/__ioi/automations">show all</a>)` : "across all projects"} are daemon truth. <span class="sub">The <a href="/__apps/monitors">monitor-wizard capture ↗</a> is a secondary reference grammar for authoring condition→effect monitors — a linked walkthrough, not a rebound surface; its example rows are never shown here as daemon automations.</span></p>
+    <p class="sub">Durable orchestration — each automation is a daemon-owned spec that hangs off a project, runs over a real environment, and records a tamper-evident transcript. The <b>${automations.length}</b> record${automations.length === 1 ? "" : "s"} below ${projectId ? `(filtered to <b>${CX_ESC(filtName)}</b> · <a href="/__ioi/automations">show all</a>)` : "across all projects"} are daemon truth. <span class="sub">The <a href="/__ioi/automations/monitors">Automate overview →</a> is the certified reference-faithful landing over this same plane (#51). The <a href="/__apps/monitors">monitor-wizard capture ↗</a> is a secondary reference grammar for authoring condition→effect monitors — a linked walkthrough, not a rebound surface; its example rows are never shown here as daemon automations.</span></p>
     <div class="row"><a class="act" href="${newHref}">+ New automation</a><a class="act ghost" href="/__apps/monitors">Monitor-wizard capture (reference) →</a></div>`;
   if (!automations.length) {
     return automationsShell("Automations", head + `<div class="empty">No daemon automations yet${projectId ? " for this project" : ""} — create one to get started. (The monitor-wizard capture stays a reference; it never fabricates automations here.)</div>`);
@@ -3580,6 +3581,234 @@ function renderDesignerPort(lists, selectedId) {
 
   return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Solution Designer</title><style>${css}</style></head>
     <body><div class="dsg-shell">${globalRail}<div class="dsg-main">${header}<div class="dsg-body">${hero}<main class="dsg-content">${aipCard}${gallery}${viewRow}${table}${truth}</main></div></div></div></body></html>`;
+}
+
+// ============================ AUTOMATIONS · MONITORS (Automate overview — landing port, #51)
+// The Reference UX Port program — the THIRD origin-alignment-queue port (after #49/#50). The
+// reference is the origin-aligned Automate overview capture
+// (http://localhost:9225/workspace/object-monitoring/ — the /__apps/monitors proxy lane fails with
+// a favorites-load error + CORS-blocked session lanes, documented by the #44 sweep). This IOI-owned
+// surface reproduces the visible overview shell PIXEL-FAITHFULLY — dark global rail, tabbed app
+// header (Automate · Overview active · Automations → the real owner substrate · store dropdown /
+// New automation / Help as named gaps), hero band under the reference's own 940px white-gradient
+// content overlay, the Getting-started band (View-all → the real substrate) with the wizard card
+// (VERBATIM 3-step illustration strip), the template-card gallery and marketplace-examples band
+// (VERBATIM capture strips — vendor chrome, never estate data) — while the DATA regions (below the
+// fold) render REAL Automations-plane truth: the Active-automations stat band (live counts:
+// user-executed · notification lane = honest named gap · paused via enabled=false), the
+// Recently-viewed table (one row per real automation: name · id · project · trigger · steps census
+// · created date; CREATOR = the real executor_identity.ref; em-dashes where the plane records no
+// edit principal/view tracking), and the Recently-triggered feed (real executions: status ·
+// started_at · execution/environment refs as proof). NO new scheduler/execution semantics — this
+// is a PROJECTION over the existing automation plane; authoring stays on /__ioi/automations.
+// Owner: Automations (/__ioi/automations, linked first-class both ways).
+function renderMonitorsPort(automations, runsById) {
+  const esc = CX_ESC;
+  const list = Array.isArray(automations) ? automations : [];
+  const fdate = (iso) => { const d = new Date(iso || 0); return isNaN(d) ? "—" : d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }); };
+  const ftime = (iso) => { const d = new Date(iso || 0); return isNaN(d) ? "—" : d.toLocaleString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit", second: "2-digit" }); };
+
+  // Live stat semantics over the REAL plane: paused = enabled === false (the PATCH pause lane's own
+  // field); user-executed = executor_identity.kind === "user"; the notification lane has no
+  // substrate concept — an HONEST 0 with the gap named in place.
+  const paused = list.filter((a) => a.enabled === false);
+  const active = list.filter((a) => a.enabled !== false);
+  const userExec = list.filter((a) => (a.executor_identity || {}).kind === "user");
+
+  const recent = [...list].sort((a, b) => String(b.created_at || "").localeCompare(String(a.created_at || ""))).slice(0, 12);
+  const gapDash = (why) => `<span class="mon-dash" title="${esc(why)}">—</span>`;
+  const rowsHtml = recent.length ? recent.map((a) => {
+    const steps = Array.isArray(a.steps) ? a.steps.length : 0;
+    const trig = (a.trigger || {}).kind || "manual";
+    return `<a class="mon-row" href="/__ioi/automations?project=${encodeURIComponent(a.project_id || "")}" title="Open this automation's project lane on the Automations substrate (the real owner surface)">
+      <span class="mon-cell name">
+        <span class="mon-rowico" aria-hidden="true"></span>
+        <span class="mon-rowdata">
+          <span class="mon-rowname">${esc(a.name || a.automation_id)}</span>
+          <span class="mon-rowpath">${esc(a.automation_id)} · project ${esc(a.project_id || "—")} · trigger ${esc(trig)} · ${steps} step${steps === 1 ? "" : "s"} · created ${fdate(a.created_at)}${a.enabled === false ? " · paused" : ""}</span>
+        </span>
+      </span>
+      <span class="mon-cell">${(a.executor_identity || {}).ref ? `<span title="the automation's declared executor_identity (real daemon truth)">${esc(a.executor_identity.ref)}</span>` : gapDash("No executor identity is recorded on this automation (named gap)")}</span>
+      <span class="mon-cell">${gapDash("No edit principal is recorded on the automation plane (named gap)")}</span>
+      <span class="mon-cell">${gapDash("View tracking is not recorded on the automation plane (named gap)")}</span>
+    </a>`;
+  }).join("") : `<div class="mon-empty">No automations yet — this table renders the real automation plane and never fabricates rows. Create one on the <a href="/__ioi/automations">Automations substrate</a>.</div>`;
+
+  // Recently triggered — REAL executions (newest first), status verbatim, execution/environment
+  // refs as the proof trail. Honest empty when nothing has run.
+  const events = [];
+  for (const a of list) {
+    for (const r of (runsById[a.automation_id] || [])) {
+      events.push({ name: a.name || a.automation_id, started: r.started_at, status: r.status || "unknown", exec: r.execution_id, env: r.environment_id });
+    }
+  }
+  events.sort((x, y) => String(y.started || "").localeCompare(String(x.started || "")));
+  const feed = events.slice(0, 10).map((e) => `<div class="mon-evt">
+      <span class="mon-evtdot ${e.status === "done" ? "ok" : "warn"}" aria-hidden="true"></span>
+      <span class="mon-evtmain"><b>${esc(e.name)}</b><span class="mon-evtwhen">${esc(ftime(e.started))}</span><span class="mon-evtstat">${e.status === "done" ? "Execution completed" : `Execution status: ${esc(e.status)}`}</span></span>
+      <code class="mon-evtref" title="execution + environment refs — the real proof trail">${esc(e.exec || "")}${e.env ? ` · ${esc(e.env)}` : ""}</code>
+    </div>`).join("");
+
+  const globalRail = ioiGlobalRailHtml({ label: "Automate", href: "/__ioi/automations/monitors", iconUri: MON_APP_TILE_URI, railVariant: "rv-pipe rv-dsg", viewAll: true, star: false, badges: true, aipGradient: true, acctMuted: true });
+
+  const header = `<header class="mon-header">
+    <span class="mon-hchip" aria-hidden="true"></span>
+    <h1 class="mon-htitle">Automate</h1>
+    <nav class="mon-tabs">
+      <span class="mon-tab on" aria-current="page">Overview</span>
+      <a class="mon-tab" href="/__ioi/automations" title="The full automation plane — the real owner substrate (specs · runs · pause/resume · projects)">Automations</a>
+    </nav>
+    <div class="mon-hright">
+      <span class="mon-hbtn outlined store gap" aria-disabled="true" title="Recent installations — marketplace install lanes are not bound to this surface (named gap)"><span class="mon-storeico" aria-hidden="true"></span>${bpIcon("caret-down")}</span>
+      <span class="mon-hbtn success gap" aria-disabled="true" title="Automation authoring from this surface is a reference-only lane — automations are created on the Automations substrate (named gap)">${bpIcon("add")}<span>New automation</span></span>
+      <span class="mon-hbtn outlined gap" aria-disabled="true" title="Reference help lane (named gap)">${bpIcon("help")}<span>Help</span></span>
+    </div>
+  </header>`;
+
+  const hero = `<section class="mon-hero">
+    <div class="mon-heroct">
+      <h3 class="mon-h1">Create and manage automations</h3>
+      <p class="mon-desc">Build business automation by defining conditions that trigger automatic effects.</p>
+    </div>
+  </section>`;
+
+  // The wizard's 3-step illustration strip + the template-card gallery + the marketplace example
+  // cards are the reference's own static content — embedded VERBATIM from the capture (the
+  // #48/#49/#50 doctrine). Their interactive faces get transparent DISABLED controls.
+  const gettingStarted = `<div class="mon-gsband"><h2 class="mon-gsh">Getting started</h2><a class="mon-viewall" href="/__ioi/automations" title="The full automation plane — the real owner substrate"><span>View all automations</span>${bpIcon("arrow-right")}</a></div>
+  <div class="mon-wizcard">
+    <div class="mon-wizcopy">
+      <h4 class="mon-wizt">Create your first automation</h4>
+      <p class="mon-wizsub">Get started by creating a new automation or adding yourself to existing automations.</p>
+      <span class="mon-wizbtn gap" aria-disabled="true" title="Automation authoring from this surface is a reference-only lane — automations are created on the Automations substrate (named gap)">${bpIcon("plus")}<span>New automation</span></span>
+    </div>
+    <img class="mon-wizstrip" src="${MON_WIZ_STRIP_URI}" width="584" height="222" alt="Reference 3-step wizard illustrations (verbatim capture chrome)">
+  </div>
+  <div class="mon-cardswrap">
+    <img class="mon-cardsstrip" src="${MON_CARDS_STRIP_URI}" width="902" height="319" alt="Reference automation template cards (verbatim capture chrome — vendor templates, not estate data)">
+    <span class="mon-tplcard c1 gap" aria-disabled="true" title="Template docs are a reference-only lane (named gap)"></span>
+    <span class="mon-tplcard c2 gap" aria-disabled="true" title="Template docs are a reference-only lane (named gap)"></span>
+    <span class="mon-tplcard c3 gap" aria-disabled="true" title="Template docs are a reference-only lane (named gap)"></span>
+  </div>
+  <div class="mon-examples">
+    <h5 class="mon-exh">Explore reference examples</h5>
+    <div class="mon-exsub">Learn how to build automated use cases using example Automations from Marketplace</div>
+    <div class="mon-exstripwrap">
+      <img class="mon-exstrip" src="${MCH_EXAMPLES_STRIP_URI}" width="562" height="272" alt="Reference marketplace example cards (verbatim capture chrome)">
+      <span class="mon-excard c1 gap" aria-disabled="true" title="Marketplace example installs are a reference-only lane (named gap)"></span>
+      <span class="mon-excard c2 gap" aria-disabled="true" title="Marketplace example installs are a reference-only lane (named gap)"></span>
+    </div>
+  </div>`;
+
+  const stats = `<div class="mon-statsband"><h2 class="mon-gsh">Active automations<span class="mon-statcount">${active.length}</span></h2><a class="mon-viewallbtn" href="/__ioi/automations">View all</a></div>
+  <div class="mon-tiles">
+    <div class="mon-tile"><span class="mon-tileico" aria-hidden="true">${bpIcon("people")}</span><span class="mon-tiletxt"><span class="mon-tilet">Owned by you</span><span class="mon-tilesub">Executed on your behalf</span></span><span class="mon-tilen" title="automations whose declared executor_identity.kind is 'user' (real daemon truth)">${userExec.length}</span></div>
+    <div class="mon-tile"><span class="mon-tileico" aria-hidden="true">${bpIcon("notifications")}</span><span class="mon-tiletxt"><span class="mon-tilet">For you</span><span class="mon-tilesub">You receive notifications</span></span><span class="mon-tilen" title="No notification-subscription lane exists on the automation plane — an honest 0, not a hidden count (named gap)">0</span></div>
+    <div class="mon-tile"><span class="mon-tileico" aria-hidden="true">${bpIcon("time")}</span><span class="mon-tiletxt"><span class="mon-tilet">Paused</span><span class="mon-tilesub">Automation is not evaluated</span></span><span class="mon-tilen" title="automations with enabled=false (the plane's own pause lane)">${paused.length}</span></div>
+  </div>`;
+
+  const recents = `<h2 class="mon-gsh mon-rvh" title="Ordered by creation recency — the plane records no view tracking (named gap)">Recently viewed</h2>
+  <div class="mon-table">
+    <div class="mon-thead"><span class="mon-th name">Files</span><span class="mon-th">Creator</span><span class="mon-th">Last edited by</span><span class="mon-th">Last viewed</span></div>
+    <div class="mon-rows">${rowsHtml}</div>
+  </div>`;
+
+  const triggered = `<h2 class="mon-gsh mon-rth">Recently triggered</h2>
+  <div class="mon-feed">${feed || `<div class="mon-empty">No executions recorded yet — this feed renders real automation executions (status · time · execution/environment refs) and never fabricates events.</div>`}</div>
+  <p class="mon-foot">This overview is a <b>read-only projection over the real automation plane</b> — ${list.length} automation${list.length === 1 ? "" : "s"} (${active.length} active · ${paused.length} paused) and their real executions; no scheduler or execution semantics were added by this surface. Authoring, pause/resume, and run history live on the <a href="/__ioi/automations">Automations substrate</a> (the owner surface, linked first-class). Unsupported reference lanes — New automation here, the Recent-installations store menu, template docs, marketplace example installs — are disabled in place, never hidden. The wizard illustrations, template cards, and example cards are the reference's own static content (verbatim capture chrome, never estate data). Reference: the origin-aligned <a href="http://localhost:9225/workspace/object-monitoring/" rel="noopener">Automate capture</a> — the <a href="/__apps/monitors">/__apps/monitors proxy lane ↗</a> is documented insufficient (a favorites-load failure + CORS-blocked session lanes; #44 sweep evidence).</p>`;
+
+  const css = `:root{color-scheme:light}*{box-sizing:border-box}
+    body{margin:0;background:#fff;color:#1c2127;font:14px/1.28581 Source-Sans-Pro,Helvetica,sans-serif}
+    a{color:#215db0;text-decoration:none}
+    .mon-shell{display:flex;height:100vh;width:100vw;overflow:hidden}
+    ${IOI_GRAIL_CSS}
+    .rv-dsg .og-gappico{background-color:rgba(45,114,210,.1)}
+    .rv-dsg .og-gsecrow{padding:30px 7px 5px 5px}
+    .rv-dsg .og-gitem.on{margin-right:-11px}
+    .mon-main{flex:1;min-width:0;display:flex;flex-direction:column;height:100vh}
+    .mon-header{flex:0 0 50px;display:flex;align-items:center;background:#fff;box-shadow:0 1px 0 #d1d1d1,0 3px 4px rgba(0,0,0,.04);z-index:6}
+    .mon-hchip{width:50px;height:50px;flex:0 0 50px;background:rgba(209,152,11,.1) url('${MON_APP_TILE_URI}') center/24px no-repeat;box-shadow:inset -1px 0 0 0 rgba(209,152,11,.25)}
+    .mon-htitle{font-size:16px;line-height:36px;font-weight:600;color:#404854;margin:0 0 0 12px;flex:0 0 auto}
+    .mon-tabs{display:flex;align-self:stretch;margin-left:22px}
+    .mon-tab{display:inline-flex;align-items:center;padding:0;margin-right:20px;font-size:16px;line-height:50px;color:#1c2127;position:relative;cursor:default}
+    .mon-tab.on{color:#215db0}
+    .mon-tab.on::after{content:"";position:absolute;left:0;right:0;bottom:0;height:3px;background:#215db0}
+    a.mon-tab{cursor:pointer}
+    .mon-hright{margin-left:auto;display:flex;align-items:flex-start;gap:10px;padding-right:16px}
+    .mon-hbtn{display:inline-flex;align-items:center;gap:8px;height:30px;margin-top:10px;padding:0 8px;border-radius:4px;font-size:14px;line-height:16.1px;cursor:default}
+    .mon-hbtn.success{background:#238551;color:#fff;box-shadow:inset 0 0 0 1px rgba(17,20,24,.2),0 1px 2px rgba(17,20,24,.1)}
+    .mon-hbtn.success svg{color:#fff}
+    .mon-hbtn.outlined{border:1px solid rgba(95,107,124,.25);padding:0 8px;color:#1c2127}
+    .mon-hbtn.outlined svg{color:#5f6b7c}
+    .mon-hbtn.store{gap:4px;padding:0 7px}
+    .mon-storeico{width:16px;height:16px;flex:0 0 16px;background:url('${MCH_STORE_ICON_URI}') center/16px no-repeat}
+    .mon-body{flex:1 1 auto;min-width:0;overflow-y:auto;background:#f6f7f9}
+    .mon-content{max-width:990px;margin:0 auto;padding:0 45px}
+    .mon-hero{position:relative;background:#fff;height:88px;box-shadow:0 1px 0 0 rgba(17,20,24,.15)}
+    .mon-heroct{position:relative;max-width:940px;height:100%;margin:0 auto;padding:0 20px;background:linear-gradient(90deg,#fff 575px,rgba(255,255,255,0) 100%)}
+    .mon-h1{position:relative;font-size:22px;line-height:25px;font-weight:600;color:#1c2127;margin:0;padding-top:20px}
+    .mon-desc{position:relative;width:625px;font-size:14px;line-height:18.0013px;color:#5f6b7c;margin:0;padding-top:5px}
+    .mon-gsband{display:flex;align-items:center;margin-top:32.5px}
+    .mon-gsh{flex:0 0 auto;font-size:16px;line-height:25px;font-weight:600;color:#1c2127;margin:0}
+    .mon-viewall{margin-left:auto;display:inline-flex;align-items:center;gap:9px;font-size:14px;line-height:18px;color:#215db0}
+    .mon-viewall svg{color:#215db0}
+    .mon-wizcard{position:relative;margin-top:12.5px;height:224px;background:#fff;border-radius:4px;box-shadow:0 0 0 1px rgba(17,20,24,.15),0 0 5px rgba(0,0,0,.02);display:flex}
+    .mon-wizcopy{flex:0 0 315px;padding:30px 0 0 30px}
+    .mon-wizt{font-size:16px;line-height:19px;font-weight:600;color:#1c2127;margin:0}
+    .mon-wizsub{width:263.4px;font-size:14px;line-height:18.0013px;color:#5f6b7c;margin:10px 0 0}
+    .mon-wizbtn{display:inline-flex;align-items:center;gap:8px;height:30px;margin-top:39px;padding:0 8px;border-radius:4px;border:1px solid rgba(28,110,66,.6);color:#1c6e42;font-size:14px;line-height:16.1px;cursor:default}
+    .mon-wizbtn svg{color:#1c6e42}
+    .mon-wizstrip{position:absolute;left:315px;top:1px}
+    .mon-cardswrap{position:relative;margin-top:19px;width:902px;margin-left:-1px}
+    .mon-cardsstrip{display:block}
+    .mon-tplcard{position:absolute;top:1px;width:290px;height:316px;cursor:default}
+    .mon-tplcard.c1{left:1px}.mon-tplcard.c2{left:306px}.mon-tplcard.c3{left:611px}
+    .mon-examples{margin-top:29px}
+    .mon-exh{font-size:16px;line-height:19px;font-weight:600;color:#1c2127;margin:0}
+    .mon-exsub{font-size:14px;line-height:18px;color:#1c2127;margin-top:12px}
+    .mon-exstripwrap{position:relative;margin-top:7px;width:562px;margin-left:-1px}
+    .mon-exstrip{display:block}
+    .mon-excard{position:absolute;top:1px;width:270px;height:270px;cursor:default}
+    .mon-excard.c1{left:1px}.mon-excard.c2{left:291px}
+    .mon-statsband{display:flex;align-items:center;margin-top:36px}
+    .mon-statcount{margin-left:10px;font-size:14px;font-weight:400;color:#5f6b7c;background:rgba(143,153,168,.15);border-radius:9px;padding:1px 8px}
+    .mon-viewallbtn{margin-left:auto;display:inline-flex;align-items:center;height:30px;padding:0 10px;border-radius:4px;border:1px solid rgba(95,107,124,.25);color:#1c2127;font-size:14px}
+    .mon-tiles{display:flex;gap:20px;margin-top:14px}
+    .mon-tile{flex:1;display:flex;align-items:center;height:72px;background:#fff;border-radius:4px;box-shadow:0 0 0 1px rgba(17,20,24,.15);padding:0 20px}
+    .mon-tileico{display:inline-flex;color:#5f6b7c;margin-right:14px}
+    .mon-tiletxt{flex:1;min-width:0}
+    .mon-tilet{display:block;font-size:14px;line-height:18px;color:#1c2127}
+    .mon-tilesub{display:block;font-size:12px;line-height:15.43px;color:#5f6b7c}
+    .mon-tilen{font-size:18px;font-weight:600;color:#1c2127}
+    .mon-rvh{margin-top:36px}
+    .mon-table{margin-top:14px;background:#fff;border-radius:4px;box-shadow:0 0 0 1px rgba(17,20,24,.15)}
+    .mon-thead{display:flex;height:30px;box-shadow:inset 0 -1px 0 #dcdcdd}
+    .mon-th{width:150px;padding:8px 0 0 11px;font-size:12px;line-height:15.43px;color:#5f6b7c;text-transform:uppercase}
+    .mon-th.name{width:450px;padding-left:20px}
+    .mon-row{display:flex;height:57px;box-shadow:inset 0 -1px 0 #dcdcdd;color:#1c2127}
+    .mon-cell{width:150px;padding:19.5px 0 0 11px;font-size:14px;line-height:18px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .mon-cell.name{width:450px;padding:11px 0 0 20px;display:flex;align-items:flex-start}
+    .mon-rowico{width:16px;height:16px;flex:0 0 16px;margin-top:2px;background:url('${DSG_ROW_DOC_URI}') center/16px no-repeat}
+    .mon-rowdata{margin-left:7px;min-width:0;flex:1;padding-right:16px}
+    .mon-rowname{display:block;font-size:14px;line-height:18px;color:#1c2127;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .mon-rowpath{display:block;font-size:12px;line-height:15.43px;color:#5f6b7c;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .mon-dash{color:#5f6b7c}
+    .mon-empty{padding:24px 20px;font-size:14px;color:#5f6b7c}
+    .mon-rth{margin-top:36px}
+    .mon-feed{margin-top:14px;background:#fff;border-radius:4px;box-shadow:0 0 0 1px rgba(17,20,24,.15);padding:6px 0}
+    .mon-evt{display:flex;align-items:flex-start;padding:10px 20px;border-bottom:1px solid #eef0f2}
+    .mon-evt:last-child{border-bottom:0}
+    .mon-evtdot{width:10px;height:10px;border-radius:50%;margin:4px 12px 0 0;flex:0 0 10px}
+    .mon-evtdot.ok{background:#238551}.mon-evtdot.warn{background:#c87619}
+    .mon-evtmain{flex:1;min-width:0}
+    .mon-evtmain b{display:block;font-size:14px;line-height:18px}
+    .mon-evtwhen{display:block;font-size:12px;color:#5f6b7c}
+    .mon-evtstat{display:block;font-size:12px;color:#1c2127;margin-top:1px}
+    .mon-evtref{font-size:11px;color:#5f6b7c;margin-left:12px;max-width:340px;word-break:break-all}
+    .mon-foot{font-size:12px;line-height:1.6;color:#7b8494;margin:24px 0 40px}`;
+
+  return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Automate</title><style>${css}</style></head>
+    <body><div class="mon-shell">${globalRail}<div class="mon-main">${header}<div class="mon-body">${hero}<main class="mon-content">${gettingStarted}${stats}${recents}${triggered}</main></div></div></div></body></html>`;
 }
 
 // ============================ STUDIO · MACHINERY (process/state-machine DEFINITIONS — landing port, #50)
@@ -8001,6 +8230,17 @@ const server = http.createServer((req, res) => {
       }
       res.writeHead(302, { Location: `/__ioi/automations/${encodeURIComponent(newId)}`, "Cache-Control": "no-cache" });
       res.end();
+      return;
+    }
+    // ---- Automations · Monitors — the Automate-overview port (#51). A read-only PROJECTION over
+    // the real automation plane (specs + executions); authoring stays on /__ioi/automations.
+    if (pathname === "/__ioi/automations/monitors" && req.method === "GET") {
+      const aRes = await fetch(`${DAEMON}/v1/hypervisor/automations`).then((r) => r.json()).catch(() => ({}));
+      const autos = aRes.automations || [];
+      const runsEntries = await Promise.all(autos.map((a) =>
+        fetch(`${DAEMON}/v1/hypervisor/automations/${encodeURIComponent(a.automation_id)}/runs`).then((r) => r.json()).then((j) => [a.automation_id, j.runs || []]).catch(() => [a.automation_id, []])));
+      res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
+      res.end(renderMonitorsPort(autos, Object.fromEntries(runsEntries)));
       return;
     }
     if (pathname.startsWith("/__ioi/automations/")) {

@@ -17,8 +17,8 @@
   ],
   "total_seeds": 39,
   "by_parity_class": {
-    "daemon_wired": 9,
-    "reference_capture": 26,
+    "daemon_wired": 10,
+    "reference_capture": 25,
     "substrate_bound": 4
   },
   "legend": {
@@ -139,14 +139,33 @@
       "capture_base": "/workspace/object-monitoring/",
       "grammar": "wizard",
       "tier": "high_value",
-      "parity_class": "reference_capture",
+      "parity_class": "daemon_wired",
       "capture_state": "boots_graph",
       "reference_capture": "/__apps/monitors",
       "reference_workspace": "/workspace/object-monitoring/",
-      "note": "condition→effect monitor wizard; unbound",
-      "reference_clean_state": "needs_origin_alignment",
-      "reference_clean_reason": "proxy lane shows a failure (\"Failed to load favorites\") with CORS-blocked session lanes, but the capture-origin lane (http://localhost:9225) renders the app failure-free WITH data (rows 18/0 · nodes 0 · cards 17 · lines 87) — align the reference URL like pipeline #38/#39",
-      "reference_clean_artifact": "reference-clean-sweep.json"
+      "note": "TRUE parity (#51) under the HARDENED gate: light Automate-overview reference-faithful shell at /__ioi/automations/monitors against the ORIGIN-ALIGNED data-clean reference (reference_url_override localhost:9225/workspace/object-monitoring/ — the #44 needs_origin_alignment finding; the /__apps/monitors proxy lane stays documented-insufficient: a favorites-load failure + CORS-blocked session lanes); the THIRD origin-alignment-queue port and the FIRST Automations-family certified surface — a NEW dedicated port route (monitors had no prior IOI surface), built as a read-only projection over the EXISTING automation plane (authoring/pause/resume/run history stay on /__ioi/automations, linked first-class both ways); the wizard/template/example strips are verbatim capture chrome (vendor content, never estate data); NO new scheduler or execution semantics; New-automation here / store menu / template docs / marketplace example installs / notification subscriptions = named gaps disabled in place",
+      "reference_clean_state": "data_clean",
+      "reference_clean_reason": "shell regions [rail, header, body] + data evidence (rows 18/0 · nodes 0 · cards 17 · lists 0 · lines 87)",
+      "reference_clean_artifact": "reference-clean-sweep.json",
+      "port_surface": "/__ioi/automations/monitors",
+      "surface_name": "Automations",
+      "reference_url_override": "http://localhost:9225/workspace/object-monitoring/",
+      "reference_landmarks": [
+        "Automate",
+        "Overview",
+        "Automations",
+        "New automation",
+        "Create and manage automations",
+        "Getting started",
+        "View all automations",
+        "Create your first automation",
+        "Get started by creating a new automation",
+        "Explore reference examples"
+      ],
+      "binding": "faithful port of the reference Automate overview over the real automation plane — dark global rail + tabbed app header (Automate · Overview active · Automations → the real owner substrate · store dropdown / New automation / Help as named gaps) + hero band under the reference's own white-gradient content overlay + Getting-started band (View-all → the substrate) with the wizard card (verbatim 3-step illustration strip) + the template-card gallery + marketplace-examples band (verbatim capture strips, vendor chrome) + below-the-fold REAL truth: Active-automations stat band (live counts: user-executed · notifications = honest named-gap 0 · paused via enabled=false), the Recently-viewed table (one row per real automation: id · project · trigger · steps census · created date; CREATOR = the real executor_identity.ref) and the Recently-triggered feed (real executions: status · time · execution/environment refs as proof)",
+      "candidate_surface": "/__ioi/automations/monitors",
+      "shell_pixel_certified": true,
+      "shell_pixel_certification_artifact": "pixel-certifications/monitors.json"
     },
     {
       "owner": "Automations",

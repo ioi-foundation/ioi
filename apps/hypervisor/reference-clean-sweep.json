@@ -1,13 +1,13 @@
 {
  "schema": "ioi.hypervisor.reference-clean-sweep.v1",
- "swept_at": "2026-07-11T01:33:09.422Z",
+ "swept_at": "2026-07-11T05:32:02.627Z",
  "serve": "http://127.0.0.1:4173",
  "mirror": "http://127.0.0.1:9225",
  "total_seeds": 39,
  "by_state": {
-  "data_clean": 9,
+  "data_clean": 10,
   "errored_reference": 6,
-  "needs_origin_alignment": 10,
+  "needs_origin_alignment": 9,
   "shell_clean_only": 10,
   "data_failed": 4
  },
@@ -439,14 +439,14 @@
   {
    "slug": "monitors",
    "owner": "Automations",
-   "parity_class": "reference_capture",
+   "parity_class": "reference_ported",
    "grammar": "wizard",
    "reference_path": "http://localhost:9225/workspace/object-monitoring/",
-   "candidate_surface": null,
+   "candidate_surface": "/__ioi/automations/monitors",
    "substrate_surface": null,
-   "clean_state": "needs_origin_alignment",
-   "reason": "proxy lane shows a failure (\"Failed to load favorites\") with CORS-blocked session lanes, but the capture-origin lane (http://localhost:9225) renders the app failure-free WITH data (rows 18/0 · nodes 0 · cards 17 · lines 87) — align the reference URL like pipeline #38/#39",
-   "lane_used": "origin",
+   "clean_state": "data_clean",
+   "reason": "shell regions [rail, header, body] + data evidence (rows 18/0 · nodes 0 · cards 17 · lists 0 · lines 87)",
+   "lane_used": "override",
    "shell_regions": [
     "rail",
     "header",
@@ -472,7 +472,18 @@
     "Support",
     "Account"
    ],
-   "matrix_landmarks_present": [],
+   "matrix_landmarks_present": [
+    "Automate",
+    "Overview",
+    "Automations",
+    "New automation",
+    "Create and manage automations",
+    "Getting started",
+    "View all automations",
+    "Create your first automation",
+    "Get started by creating a new automation",
+    "Explore reference examples"
+   ],
    "body_sample": "Skip to content\nHome\nSearch…\nctrl + J\nNotifications\nWhat's New\nRecent\nFiles\nOntology\nApplications\nAPPLICATIONS\nView all\nAutomate\nAIP Assist\nctrl + shift + U\nSupport\nLJ\nAccount\nAutomate\nOverview\nAutomations\nNew automation\nHelp\nCreate and manage automations\nBuild business automation by defining conditions that trigger automatic effects.\nGetting started\nView all automations\nCreate your first automation\nGet started by creating a new automation or adding yourself to existing automations.\nNew automation\nConfigure conditions\nE.g. time, objects added to a set, metric increased, etc.\nConfigure effects\n",
    "data_evidence": {
     "table_rows": 18,
@@ -533,9 +544,27 @@
      "cors_signals": 0,
      "console_errors": 0,
      "screenshot": ".artifacts/reference-clean-sweep/monitors-origin.png"
+    },
+    {
+     "lane": "override",
+     "url": "http://localhost:9225/workspace/object-monitoring/",
+     "loaded": true,
+     "nav_error": "",
+     "regions": [
+      "rail",
+      "header",
+      "body"
+     ],
+     "data_score": 7,
+     "chunk_404s": 0,
+     "api_failures": 0,
+     "cross_origin_9225": 0,
+     "cors_signals": 0,
+     "console_errors": 0,
+     "screenshot": ".artifacts/reference-clean-sweep/monitors-override.png"
     }
    ],
-   "screenshot": ".artifacts/reference-clean-sweep/monitors-origin.png"
+   "screenshot": ".artifacts/reference-clean-sweep/monitors-override.png"
   },
   {
    "slug": "scheduler",

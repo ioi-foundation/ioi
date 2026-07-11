@@ -76,10 +76,8 @@ const REFERENCE_PORT_PENDING = {};
 // ported IOI surface; `parity_blocked` names why. `reference_landmarks` (when present) is the IA
 // label set the hardened harness requires in BOTH the reference and the candidate.
 const REFERENCE_PORTED = {
-  // (empty since #46 — Object Explorer was the only member. The #44 sweep proved #35's
-  // "blank/failed Hubble reference" blocker WRONG — an origin/hostname mismatch, the pipeline
-  // #38 class — and #46 origin-aligned the reference, re-ported the shell against it, certified
-  // shell-pixel parity at both viewports, and promoted explorer to daemon_wired below.)
+  // (empty again — #46 explorer, then #51 monitors each passed through this stage on their way to
+  // certification + daemon_wired promotion. The stage exists for ports-in-flight.)
 };
 // TRUE reference UX parity — a FAITHFUL port of the reference UX (same theme + IA + layout) wired to
 // daemon truth, that PASSES the HARDENED Playwright harness (visual_parity: region geometry + theme
@@ -117,6 +115,12 @@ const DAEMON_WIRED = {
   // candidate; the clean-reference pool is now EMPTY and the wave pivots to origin alignment.
   listings: { substrate_surface: "/__ioi/marketplace", port_surface: "/__ioi/marketplace/listings", surface_name: "Marketplace", reference_workspace: "/workspace/marketplace/", reference_landmarks: ["Marketplace", "Discover and install Foundry products", "Stores", "Name", "Products", "Install your first product", "Choose a product to install", "Configure product inputs", "Install and explore", "Installations"], binding: "faithful port of the reference Marketplace browse over the real daemon marketplace substrate — dark global rail + light header (app chip · Marketplace · product search · Installations · Help as named gaps) + hero (title · Discover subtitle · reference illustration) + the Stores table whose single row IS the estate's governed listing plane with its live product count + the install-first-product wizard band as reference chrome (installing is a named gap — products enter through draft → admitted review → open release on the substrate)", note: "TRUE parity (#48) under the HARDENED gate: light Marketplace-browse reference-faithful shell at /__ioi/marketplace/listings over the real listing plane — the LAST data_clean candidate from the #44 ranking, completing the clean-reference pool (the wave pivots to origin-alignment seeds next); the reference's Stores lane is REBOUND to the same substrate; /__ioi/marketplace substrate intact and linking first-class; product search / store search / Installations / Help / install wizard / store sharing / sorting = named gaps disabled in place; NO publish/install/hire/settle/runtime semantics — products enter only through draft → admitted review → open release on the substrate" },
 
+  // #51 — Monitors (monitors): the TENTH faithful port — the THIRD from the origin-alignment
+  // queue and the FIRST Automations-family certified surface. The #44 sweep proved the Automate
+  // overview data-bearing on the capture-origin lane while the proxy lane fails with the
+  // favorites-load error; reference_url_override stamps the honest lane. A PROJECTION port: the
+  // overview renders the EXISTING automation plane (no new scheduler/execution semantics).
+monitors: { port_surface: "/__ioi/automations/monitors", surface_name: "Automations", reference_url_override: "http://localhost:9225/workspace/object-monitoring/", reference_landmarks: ["Automate", "Overview", "Automations", "New automation", "Create and manage automations", "Getting started", "View all automations", "Create your first automation", "Get started by creating a new automation", "Explore reference examples"], binding: "faithful port of the reference Automate overview over the real automation plane — dark global rail + tabbed app header (Automate · Overview active · Automations → the real owner substrate · store dropdown / New automation / Help as named gaps) + hero band under the reference's own white-gradient content overlay + Getting-started band (View-all → the substrate) with the wizard card (verbatim 3-step illustration strip) + the template-card gallery + marketplace-examples band (verbatim capture strips, vendor chrome) + below-the-fold REAL truth: Active-automations stat band (live counts: user-executed · notifications = honest named-gap 0 · paused via enabled=false), the Recently-viewed table (one row per real automation: id · project · trigger · steps census · created date; CREATOR = the real executor_identity.ref) and the Recently-triggered feed (real executions: status · time · execution/environment refs as proof)", note: "TRUE parity (#51) under the HARDENED gate: light Automate-overview reference-faithful shell at /__ioi/automations/monitors against the ORIGIN-ALIGNED data-clean reference (reference_url_override localhost:9225/workspace/object-monitoring/ — the #44 needs_origin_alignment finding; the /__apps/monitors proxy lane stays documented-insufficient: a favorites-load failure + CORS-blocked session lanes); the THIRD origin-alignment-queue port and the FIRST Automations-family certified surface — a NEW dedicated port route (monitors had no prior IOI surface), built as a read-only projection over the EXISTING automation plane (authoring/pause/resume/run history stay on /__ioi/automations, linked first-class both ways); the wizard/template/example strips are verbatim capture chrome (vendor content, never estate data); NO new scheduler or execution semantics; New-automation here / store menu / template docs / marketplace example installs / notification subscriptions = named gaps disabled in place" },
   // #50 — Machinery (machinery): the NINTH faithful port — the SECOND from the origin-alignment
   // queue. The #44 sweep proved the reference data-bearing on the capture-origin lane while the
   // proxy lane fails its Marketplace-examples fetch; reference_url_override stamps the honest lane
@@ -212,6 +216,16 @@ const SHELL_PIXEL_CERTIFIED = {
   // threshold movement. Body = REAL daemon incidents (blockers/failures), verified
   // semantically by verify-hypervisor-app-parity-incidents.mjs.
   incidents: "pixel-certifications/incidents.json",
+  // #51 — Monitors: the TENTH shell-pixel certification — the third origin-alignment-queue port,
+  // certified on the FIRST measured run (zero fix rounds — the playbook converged): the Automate
+  // overview's in-viewport content is ENTIRELY vendor chrome (tabbed header + 940px white-gradient
+  // hero overlay + wizard/template/example VERBATIM strips), so the shell carries NO in-viewport
+  // data masks and the largest certified fraction of the wave (0.872 @1440). The live-data regions
+  // (Active-automations stats · Recently-viewed table · Recently-triggered feed) sit below the fold
+  // at both viewports — real automation-plane truth, verified semantically. 1440x900 dilated 0.73%
+  // / raw 1.47%, 1920x1080 dilated 0.58% / raw 1.90%, bbox 0 — no threshold movement. Body =
+  // real automation plane, verified by verify-hypervisor-app-parity-monitors.mjs.
+  monitors: "pixel-certifications/monitors.json",
   // #50 — Machinery: the NINTH shell-pixel certification — the second origin-alignment-queue
   // port. Landing shell: shared rail (rv-pipe + rv-dsg) · app header (machinery tile
   // rgba(20,126,179,.1) + inset hairline, Recent-installations store dropdown + success New-graph
