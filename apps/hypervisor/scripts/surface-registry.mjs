@@ -4,12 +4,12 @@
 // (presentation truth — app-catalog.mjs reads it from here), canonical route, and the paths of
 // its verifier + certification artifact.
 //
-// Implementations bind at runtime: serve-product-ui.mjs calls bindSurface(slug, { loaders,
-// render, actions }) for surfaces whose code still lives in the serve file, and the serve's
-// registry dispatch mounts whatever is bound. As apps extract into their own modules (next PRs),
-// the module itself becomes the binding — the table stays the single mount point either way.
-// An entry with no binding is metadata-only: it lists in the catalog but keeps its flat-branch
-// handler until it is deliberately migrated. Registration is additive and behavior-preserving.
+// Implementations bind under the surface-module contract { meta, load(ctx), render(model, ctx),
+// actions } — extracted modules (surfaces/<slug>/index.mjs) are imported and bound HERE, so the
+// registry is the single mount point; a surface whose code still lives in the serve file may
+// bind at serve startup the same way. An entry with no binding is metadata-only: it lists in
+// the catalog but keeps its flat-branch handler until it is deliberately migrated. Registration
+// is additive and behavior-preserving.
 import { ONTOLOGY_APP_ICON_URI, APPROVALS_APP_ICON_URI, PIPELINE_APP_ICON_URI, ISSUES_APP_ICON_URI, EXPLORER_APP_ICON_URI, MODELS_APP_ICON_URI } from "./bp-icons.mjs";
 import { MARKETPLACE_APP_ICON_URI } from "./marketplace-assets.mjs";
 import { DSG_APP_TILE_URI } from "./designer-assets.mjs";
@@ -18,6 +18,7 @@ import { MON_APP_TILE_URI } from "./monitors-assets.mjs";
 import { SRC_APP_TILE_URI } from "./sources-assets.mjs";
 import { CHG_APP_TILE_URI } from "./changes-assets.mjs";
 import { EVL_APP_TILE_URI } from "./evalsuites-assets.mjs";
+import * as pipelineModule from "../surfaces/pipeline/index.mjs";
 
 export const SURFACES = [
   { slug: "pipeline", owner: "Data", title: "Pipeline Builder", icon: PIPELINE_APP_ICON_URI, route: "/__ioi/pipeline", verifier: "scripts/verify-hypervisor-app-parity-pipeline.mjs", certification: "pixel-certifications/pipeline.json" },
@@ -57,3 +58,6 @@ export function boundSurface(pathname, method) {
   }
   return null;
 }
+
+// ---- Extracted surface modules — imported and bound here (the registry IS the mount point).
+bindSurface("pipeline", pipelineModule);
