@@ -95,6 +95,88 @@ async function run() {
   ok("unsupported reference lanes are DISABLED IN PLACE + named (object search · Filter-by · Recents/Favorites · sort · type-group/application · exploration tabs · ontology selector · per-user set lanes), never hidden", (port.text.match(/disabled/g) || []).length >= 5 && /named gap/.test(port.text) && /reference-only/.test(port.text));
   ok("brand-clean: no Palantir/Foundry branding on the port", !/\bPalantir\b/.test(port.text) && !/\bFoundry\b/.test(port.text));
 
+  // 4b. SEMANTIC SELECTION + INSPECTORS (Ontology wave #60, THE acceptance test): click a type/
+  // shortcut/set → the URL carries the ontology context, the row selects, the semantic inspector
+  // renders REAL COM/set truth, and refresh preserves the context. Explorer can select and
+  // inspect semantic truth; it can NOT edit objects or execute actions (standing boundary).
+  {
+    const jdp = (method, pth, body) => fetch(`${DAEMON}${pth}`, { method, headers: { "content-type": "application/json" }, body: body ? JSON.stringify(body) : undefined }).then((r) => r.json()).catch(() => ({}));
+    // Fixture: two object types (one a guaranteed never-matches decoy), a link between them, an
+    // action declaration on the first — the inspector must cite exactly THIS COM.
+    const fixDomain = `explorer-inter-${process.pid}`;
+    const fx = await jdp("POST", "/v1/hypervisor/odk/domain-ontologies", { domain: fixDomain, canonical_object_model: {
+      object_types: [
+        { id: "alphaw", name: "AlphaWidgetKind", title_property: "t", properties: [{ id: "t", name: "T", value_type: "string", required: true }, { id: "x", name: "X", value_type: "string" }] },
+        { id: "zzdecoy2", name: "ZZDecoyNeverMatchesTwo", title_property: "d", properties: [{ id: "d", name: "D", value_type: "string" }] },
+      ],
+      link_types: [{ id: "l1", name: "alpha-owns-decoy", from: "alphaw", to: "zzdecoy2", cardinality: "one_to_many" }],
+      action_types: [{ id: "actp", name: "PromoteAlpha", kind: "modify_object", applies_to: "alphaw" }] } });
+    const fixId = fx.ontology?.id;
+    const { chromium } = await import("playwright");
+    const b = await chromium.launch();
+    try {
+      const pg = await b.newPage({ viewport: { width: 1440, height: 900 } });
+      await pg.goto(`${SERVE}/__ioi/ontology/explorer`, { waitUntil: "networkidle" });
+      ok("bare route renders NO inspector (the pixel gate's capture state)", await pg.locator('[data-testid="oe-inspector"]').count() === 0 && await pg.locator("tr.oe-trow").count() > 0);
+      // Type selection.
+      await pg.click('tr.oe-trow[data-objecttype="alphaw"] a.oe-tlink');
+      await pg.waitForLoadState("domcontentloaded");
+      const u1 = new URL(pg.url());
+      ok("type click: URL carries ontology + objectType", u1.searchParams.get("objectType") === "alphaw" && u1.searchParams.get("ontology") === fixId, u1.search);
+      ok("type click: the row selects (exactly one)", await pg.locator('tr.oe-trow.oe-sel[data-objecttype="alphaw"]').count() === 1 && await pg.locator("tr.oe-trow.oe-sel").count() === 1);
+      const ti = ((await pg.locator("#oe-sem-inspector").textContent().catch(() => "")) || "");
+      ok("type inspector cites THE fixture COM (ontology · title property · both properties · link · action declaration)", [fixDomain, "AlphaWidgetKind", "alphaw", "t", "x", "alpha-owns-decoy", "PromoteAlpha", "declarations"].every((m) => ti.includes(m)), [fixDomain, "AlphaWidgetKind", "alpha-owns-decoy", "PromoteAlpha"].filter((m) => !ti.includes(m)).join(",") || "all cited");
+      ok("type inspector shows the honest object count (0 — nothing materialized for the fixture)", />0<\/b>|<b>0<\/b>/.test(await pg.locator("#oe-sem-inspector").innerHTML()) || ti.includes("0 across 0"));
+      ok("semantic breadcrumb renders with the manager backlink", await pg.locator('#oe-sem-inspector [data-testid="ioi-sem-breadcrumb"] a[href*="/__ioi/ontology/manager"]').count() >= 1);
+      ok("action execution is a DISABLED named gap; no editor, no enabled action", await pg.locator("#oe-sem-inspector button.ioi-cmd-disabled[data-ioi-disabled-reason]").count() === 2 && await pg.locator("#oe-sem-inspector button:not([disabled])").count() === 0 && await pg.locator("#oe-sem-inspector form").count() === 0);
+      // Refresh preserves the semantic context.
+      await pg.reload({ waitUntil: "domcontentloaded" });
+      ok("refresh preserves the selected type (URL-persisted context)", await pg.locator('tr.oe-trow.oe-sel[data-objecttype="alphaw"]').count() === 1 && ((await pg.locator("#oe-sem-inspector").textContent()) || "").includes("AlphaWidgetKind"));
+      // Filter interplay: a filter that hides the selection keeps it and EXPLAINS.
+      await pg.goto(`${SERVE}/__ioi/ontology/explorer?objectType=alphaw&ontology=${encodeURIComponent(fixId)}&q=ZZDecoyNeverMatchesTwo`, { waitUntil: "domcontentloaded" });
+      const ft = ((await pg.locator("#oe-sem-inspector").textContent().catch(() => "")) || "");
+      ok("filter hiding the selection keeps it and explains (clear-filter link offered)", ft.includes("AlphaWidgetKind") && ft.includes("hidden by the current filter") && await pg.locator('#oe-sem-inspector a[href*="objectType=alphaw"]').count() >= 1);
+      ok("filter form preserves the selection (hidden context inputs)", await pg.locator('form.oe-filterform input[type="hidden"][name="objectType"][value="alphaw"]').count() === 1);
+      // Invalid selections fail CLOSED.
+      await pg.goto(`${SERVE}/__ioi/ontology/explorer?objectType=nope&ontology=${encodeURIComponent(fixId)}`, { waitUntil: "domcontentloaded" });
+      ok("invalid objectType fails closed with an honest note", (((await pg.locator("#oe-sem-inspector").textContent().catch(() => "")) || "")).includes("fail-closed") && await pg.locator("tr.oe-trow.oe-sel").count() === 0);
+      await pg.goto(`${SERVE}/__ioi/ontology/explorer?objectSet=bogus-set`, { waitUntil: "domcontentloaded" });
+      ok("invalid objectSet fails closed with an honest note", (((await pg.locator("#oe-sem-inspector").textContent().catch(() => "")) || "")).includes("fail-closed"));
+      // Object-set selection over a REAL materialized set (conditional — reuse, never fabricate).
+      if (msets.length) {
+        const m0 = msets[0];
+        await pg.goto(`${SERVE}/__ioi/ontology/explorer`, { waitUntil: "domcontentloaded" });
+        await pg.click(`tr.oe-trow[data-objectset="${m0.id}"] a.oe-tlink`);
+        await pg.waitForLoadState("domcontentloaded");
+        const u2 = new URL(pg.url());
+        ok("set click: URL carries ontology + objectSet", u2.searchParams.get("objectSet") === m0.id, u2.search);
+        ok("set click: the row selects", await pg.locator(`tr.oe-trow.oe-sel[data-objectset="${m0.id}"]`).count() === 1);
+        const si = ((await pg.locator("#oe-sem-inspector").textContent().catch(() => "")) || "");
+        ok("set inspector count + provenance MATCH the daemon set", si.includes(String(m0.count)) && si.includes(m0.materializing_run_ref || "") && (!m0.pre_output_receipt_ref || si.includes(m0.pre_output_receipt_ref)), `count ${m0.count}`);
+        const firstObj = (m0.objects || [])[0];
+        ok("preview rows are REAL daemon objects (first row value present; nothing fabricated)", !firstObj || si.includes(String(Object.values(firstObj.properties || {})[0] ?? "")), firstObj ? "first row cross-checked" : "empty set (honest)");
+        const html3 = await pg.content();
+        ok("set source contact is origin-redacted (full endpoint never renders)", !m0.source_contact || !m0.source_contact.endpoint || (!html3.includes(m0.source_contact.endpoint) && html3.includes("path redacted")));
+        for (const [label, sel2] of [["Pipeline", 'a[href*="/__ioi/pipeline"]'], ["Lineage", 'a[href*="/__ioi/lineage"]'], ["Vertex", 'a[href*="/__ioi/vertex"]'], ["Manager", 'a[href*="/__ioi/ontology/manager"]']]) {
+          const href = await pg.locator(`#oe-sem-inspector ${sel2}`).first().getAttribute("href").catch(() => null);
+          const r2 = href ? await fetch(`${SERVE}${href}`).then((r) => r.status).catch(() => 0) : 0;
+          ok(`set inspector deep-link to ${label} resolves (200)`, r2 === 200, `${href} -> ${r2}`);
+        }
+      } else {
+        ok("set-selection lane skipped honestly (no materialized sets in the daemon)", true);
+      }
+      // Shortcut cards select the represented object type (real sets back them).
+      if (msets.length) {
+        await pg.goto(`${SERVE}/__ioi/ontology/explorer`, { waitUntil: "domcontentloaded" });
+        const shHref = await pg.locator("a.oe-card").first().getAttribute("href");
+        ok("shortcut card targets the represented object type through the ontology context", !!shHref && shHref.includes("objectType=") && shHref.includes("ontology="), shHref || "no cards");
+      }
+    } finally {
+      await b.close();
+      if (fixId) await jdp("DELETE", `/v1/hypervisor/odk/domain-ontologies/${encodeURIComponent(fixId)}`);
+    }
+  }
+
   // 5. SHELL-PIXEL CERTIFICATION — committed, non-pinned, both viewports; body excluded by design.
   {
     let cert = null;
