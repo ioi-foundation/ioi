@@ -21,6 +21,7 @@ import { EVL_APP_TILE_URI } from "./evalsuites-assets.mjs";
 import * as pipelineModule from "../surfaces/pipeline/index.mjs";
 import * as ontologyManagerModule from "../surfaces/ontology-manager/index.mjs";
 import * as objectExplorerModule from "../surfaces/object-explorer/index.mjs";
+import * as approvalsModule from "../surfaces/approvals/index.mjs";
 
 // Capability model (operational wave): `capabilities` is the AUTHORITY-derived set of acts the
 // surface genuinely supports today (never inferred from pixel certification or daemon_wired);
@@ -81,7 +82,66 @@ export function embeddableRoutes() {
   return new Set(SURFACES.filter((s) => bound.has(s.slug)).map((s) => s.route));
 }
 
+// ---- Action routes (operational wave #62) — a module's DECLARED mutations, matched beneath its
+// own surface route (e.g. actions with route "/:id/transition" own POST <route>/<id>/transition).
+// Several descriptors may share one route (discriminated by the posted transition vocabulary);
+// the runtime picks among the returned candidates. Anything undeclared fails closed upstream.
+function actionRouteMatch(pattern, tail) {
+  const ps = pattern.split("/").filter(Boolean);
+  const ts = tail.split("/").filter(Boolean);
+  if (ps.length !== ts.length) return false;
+  return ps.every((seg, i) => (seg.startsWith(":") ? ts[i].length > 0 : seg === ts[i]));
+}
+export function boundActionRoute(pathname, method) {
+  for (const s of SURFACES) {
+    const impl = bound.get(s.slug);
+    if (!impl || typeof impl.handleAction !== "function" || !Array.isArray(impl.actions) || !impl.actions.length) continue;
+    if (!pathname.startsWith(s.route + "/")) continue;
+    const tail = pathname.slice(s.route.length);
+    const candidates = impl.actions.filter((a) => a.method === method && a.route && actionRouteMatch(a.route, tail));
+    if (candidates.length) {
+      let recordId = tail.split("/").filter(Boolean)[0] || "";
+      try { recordId = decodeURIComponent(recordId); } catch { /* keep raw — the daemon lookup fails closed */ }
+      return { surface: s, impl, actions: candidates, recordId };
+    }
+  }
+  return null;
+}
+
 // ---- Extracted surface modules — imported and bound here (the registry IS the mount point).
 bindSurface("pipeline", pipelineModule);
 bindSurface("schema", ontologyManagerModule);
 bindSurface("explorer", objectExplorerModule);
+bindSurface("approvals", approvalsModule);
+
+// Test-only fault surface (NEVER without the runtime-test flag): gives the action-runtime
+// verifier a module whose action THROWS (route isolation proof) and one that claims success
+// WITHOUT a receipt (fail-closed proof). Carries no daemon authority and mutates nothing.
+if (process.env.IOI_APP_RUNTIME_TEST_ROUTE === "1") {
+  SURFACES.push({ slug: "__test_action", owner: "Test", title: "Action Runtime Test", icon: "data:,x", route: "/__ioi/__test/action-surface", verifier: "n/a", certification: "n/a", capabilities: ["browse"], operational_state: "browse" });
+  bindSurface("__test_action", {
+    meta: { slug: "__test_action", route: "/__ioi/__test/action-surface" },
+    load: async () => ({}),
+    render: () => "<!doctype html><title>action test</title>ok",
+    actions: [
+      { id: "boom", method: "POST", route: "/:id/transition", transition: "boom", fields: [], context: ["id"], authority: { plane: "test", operation: "none" }, receipt: "test.v1", confirm: false, success: "return-to-surface", refusal: "typed-banner" },
+      { id: "no-receipt", method: "POST", route: "/:id/transition", transition: "no-receipt", fields: [], context: ["id"], authority: { plane: "test", operation: "none" }, receipt: "test.v1", confirm: false, success: "return-to-surface", refusal: "typed-banner" },
+    ],
+    handleAction: async ({ action }) => {
+      if (action.transition === "boom") throw new Error("intentional action fault (action-runtime verifier)");
+      return { kind: "success", status: "done" }; // deliberately NO receipt_ref — must fail closed
+    },
+  });
+}
+
+// Operational invariants (#62): `act` is EARNED by a bound module with declared receipted
+// mutations — never by raw POST routes outside a module, and never by pixel certification.
+for (const s of SURFACES) {
+  const impl = bound.get(s.slug);
+  const mutations = impl && Array.isArray(impl.actions) ? impl.actions.filter((a) => a.method && a.method !== "GET") : [];
+  if (s.operational_state === "act") {
+    if (!impl || typeof impl.handleAction !== "function" || mutations.length === 0) throw new Error(`surface-registry: '${s.slug}' claims operational_state 'act' without a bound module declaring receipted actions`);
+    if (!mutations.every((a) => a.id && a.authority && a.authority.operation && a.receipt)) throw new Error(`surface-registry: '${s.slug}' declares an action without authority + receipt metadata`);
+  }
+  if (s.operational_state === "read_only_by_contract" && mutations.length > 0) throw new Error(`surface-registry: '${s.slug}' is read_only_by_contract but registers mutation actions`);
+}

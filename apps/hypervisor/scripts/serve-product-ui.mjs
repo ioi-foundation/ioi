@@ -35,7 +35,7 @@ import { SRC_APP_TILE_URI, SRC_HERO_URI, SRC_SETUP_STRIP_URI } from "./sources-a
 import { CHG_APP_TILE_URI } from "./changes-assets.mjs";
 import { EVL_APP_TILE_URI, EVL_HERO_URI } from "./evalsuites-assets.mjs";
 import { appCatalog } from "./app-catalog.mjs";
-import { bindSurface, boundSurface, embeddableRoutes } from "./surface-registry.mjs";
+import { bindSurface, boundSurface, boundActionRoute, embeddableRoutes } from "./surface-registry.mjs";
 import { escHtml } from "../surfaces/kit.mjs";
 import { ioiGlobalRailHtml, IOI_GRAIL_CSS } from "../surfaces/chrome.mjs";
 import { mintApprovalGrant } from "../../../scripts/lib/mint-approval-grant.mjs";
@@ -5594,163 +5594,8 @@ function govAge(iso) {
   if (h < 48) return `${h}h ${m % 60}m`;
   return `${Math.floor(h / 24)}d`;
 }
-// ============================ APPROVALS INBOX — reference UX PORT (#36, daemon_wired TRUE parity).
-// A FAITHFUL LIGHT port of the reference "Approvals inbox" (dark global RAIL · light HEADER · a light
-// faceted SIDEBAR: Quick filters [Your inbox / Created by you / All requests] + Additional filters
-// [Status wired to ?status=, plus faithful named-gap facets] · a light request LIST with status pills ·
-// an on-select right DETAIL with approve/reject/revoke), over the REAL daemon ApprovalRequest queue —
-// the same records + the same transitions the substrate ?tab=approvals view uses (no new governance
-// semantics). #33 shipped this as a dark native shell; #34's hardened gate correctly refused it; #36
-// REBUILT it faithfully so it passes the hardened harness (theme + IA landmarks) → PROMOTED to
-// `daemon_wired`, closing the #34 reclassification loop. Actions post a same-origin `return` to land here.
-function renderApprovalsPort(records, statusFilter, opts) {
-  const enc = encodeURIComponent, esc = CX_ESC;
-  const all = Array.isArray(records) ? records : [];
-  const STATUSES = [["pending", "Pending approval"], ["approved", "Approved"], ["rejected", "Rejected"], ["revoked", "Revoked"]];
-  const byStatus = { pending: 0, approved: 0, rejected: 0, revoked: 0 };
-  for (const a of all) if (byStatus[a.status] != null) byStatus[a.status]++;
-  const view = ["pending", "approved", "rejected", "revoked", "all"].includes(statusFilter) ? statusFilter : "pending";
-  const rows = view === "all" ? all : all.filter((a) => a.status === view);
-  const selected = (opts && opts.selected) ? all.find((a) => a.id === opts.selected) : null;
-  const svg = (p) => `<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
-  const CHECK = '<rect x="3" y="3" width="18" height="18" rx="4"/><path d="M8 12l3 3 5-6"/>';
-  const CUBE = '<path d="M12 2l9 5v10l-9 5-9-5V7z"/>';
-
-  // DARK global platform rail — the SHARED pixel-aligned reference shell (ioiGlobalRailHtml, #42).
-  const globalRail = ioiGlobalRailHtml({ label: "Approvals", href: "/__ioi/governance/approvals", iconUri: APPROVALS_APP_ICON_URI });
-
-  // LIGHT faceted filter sidebar — Quick filters (real status shortcuts) + Additional filters (Status
-  // is wired to ?status=; the rest are faithful faceted controls disabled as named gaps).
-  const QF_ICON = { "Your inbox": "inbox", "Created by you": "follower", "All requests": "form" };
-  const qf = (label, count, href, on, gap) => gap
-    ? `<span class="ap-qf gap" title="${esc(label)} needs a per-user creator/identity plane — named gap (no count)"><span class="ap-qfi">${bpIcon(QF_ICON[label] || "form")}</span>${esc(label)}<span class="ap-qfc">—</span></span>`
-    : `<a class="ap-qf${on ? " on" : ""}" href="${href}"><span class="ap-qfi">${bpIcon(QF_ICON[label] || "form")}</span>${esc(label)}<span class="ap-qfc">${count}</span></a>`;
-  const statusOpt = (v, label) => `<option value="${v}"${v === view ? " selected" : ""}>${esc(label)}</option>`;
-  const facets = `<aside class="ap-facets">
-    <div class="ap-ftitle"><span class="ap-fappico" style="background-image:url('${APPROVALS_APP_ICON_URI}')"></span><h5>Approvals</h5><a class="ap-subst" href="/__ioi/governance?tab=approvals" title="The substrate approvals table">⇱</a></div>
-    <div class="ap-fsec first">Quick filters</div>
-    <div class="ap-qfbox">
-      ${qf("Your inbox", byStatus.pending, "/__ioi/governance/approvals?status=pending", view === "pending")}
-      ${qf("Created by you", 0, "", false, true)}
-      <div class="ap-qfdiv"></div>
-      ${qf("All requests", all.length, "/__ioi/governance/approvals?status=all", view === "all")}
-    </div>
-    <div class="ap-fsec">Additional filters <a class="ap-clear" href="/__ioi/governance/approvals">Clear</a></div>
-    <form class="ap-ff" method="GET" action="/__ioi/governance/approvals">
-      <label class="ap-flabel">Request type</label>
-      <select class="ap-fsel" disabled title="Request-type facet is a named gap"><option>Access requests</option></select>
-      <label class="ap-flabel">Status</label>
-      <select class="ap-fsel" name="status" onchange="this.form.submit()">${statusOpt("all", "All requests")}${STATUSES.map(([v, l]) => statusOpt(v, l)).join("")}</select>
-      <label class="ap-flabel">Created by</label>
-      <select class="ap-fsel" disabled title="named gap"><option>Select user</option></select>
-      <label class="ap-fcheck gap" title="named gap"><input type="checkbox" disabled> Assigned to you</label>
-      <label class="ap-flabel">Project requested to</label>
-      <select class="ap-fsel" disabled title="named gap"><option>Select project</option></select>
-      <label class="ap-flabel">Users or groups in request</label>
-      <select class="ap-fsel" disabled title="named gap"><option>Select user or group</option></select>
-      <label class="ap-flabel">Groups requested to</label>
-      <select class="ap-fsel" disabled title="named gap"><option>Select group</option></select>
-    </form>
-  </aside>`;
-
-  const statusPill = (s) => `<span class="ap-pill ${s === "approved" ? "ok" : s === "pending" ? "warn" : "muted"}">${esc(s === "pending" ? "Pending approval" : ((s || "").charAt(0).toUpperCase() + (s || "").slice(1)))}</span>`;
-  const subjShort = (r) => { const s = String(r || ""); return esc(s.length > 46 ? s.slice(0, 46) + "…" : s); };
-  const rowHref = (a) => `/__ioi/governance/approvals?${view ? `status=${view}&` : ""}req=${enc(a.id)}`;
-  const listHeading = view === "pending" ? "Your inbox" : view === "all" ? "All requests" : (STATUSES.find(([v]) => v === view) || [, "Requests"])[1];
-  const list = `<main class="ap-list" role="main">
-    <div class="ap-listhd"><h2>${esc(listHeading)} <span class="ap-n">(${rows.length})</span></h2>
-      <div class="ap-listtools"><span class="ap-search" title="Full-text request search is a named gap">${svg('<circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/>')} Search for requests…</span><span class="ap-sort" title="Sort is a named gap">Sort: Recently created ▾</span></div>
-    </div>
-    ${rows.length ? `<div class="ap-rows">${rows.map((a) => `<a class="ap-row${selected && selected.id === a.id ? " on" : ""}" href="${rowHref(a)}">
-      <span class="ap-rowic">${svg('<rect x="4" y="3" width="14" height="18" rx="2"/><path d="M8 8h6M8 12h6M8 16h3"/>')}</span>
-      <span class="ap-rowmain"><span class="ap-rowtitle">${esc(a.request_kind || "approval")} · ${subjShort(a.subject_ref)} <code class="ap-code">${esc(a.id || "")}</code></span><span class="ap-rowsub">Created ${esc(govAge(a.created_at))}${a.reason ? ` · ${esc(String(a.reason).slice(0, 60))}` : ""}</span></span>
-      <span class="ap-rowst">${statusPill(a.status)}</span></a>`).join("")}</div>`
-      : `<div class="ap-empty">Nothing in <b>${esc(listHeading)}</b> — pick another filter.</div>`}
-  </main>`;
-
-  // Right detail panel — ONLY when a request is selected (faithful: the reference default has no detail).
-  // The approve/reject/revoke forms are the REAL daemon transitions (preserved wiring), return-aware.
-  const RET = `<input type="hidden" name="return" value="${esc(rowHref(selected || { id: "" }))}">`;
-  const blast = (a) => { const wc = (a.would_call || []).length, ar = (a.required_authority_refs || []).length; return (!wc && !ar) ? "none declared" : `${wc ? `${wc} call${wc > 1 ? "s" : ""}` : ""}${wc && ar ? " · " : ""}${ar ? `${ar} authorit${ar > 1 ? "ies" : "y"}` : ""}`; };
-  const decide = (a) => a.status === "pending"
-    ? govTform("approvals", a.id, "approve", "Approve", "primary", `<input name="reviewer_ref" placeholder="reviewer" class="ap-inp">` + RET) + govTform("approvals", a.id, "reject", "Reject", "ghost", RET)
-    : a.status === "approved" ? govTform("approvals", a.id, "revoke", "Revoke", "ghost", RET) : `<span class="ap-muted">terminal — no further transition</span>`;
-  const detail = selected ? `<aside class="ap-detail">
-    <div class="ap-dhd"><b>${esc(selected.request_kind || "approval")}</b> ${statusPill(selected.status)}</div>
-    <div class="ap-drow"><span>Subject</span>${govSubjectLink(selected.subject_ref)}</div>
-    <div class="ap-drow"><span>Request id</span><code class="ap-code">${esc(selected.id || "")}</code></div>
-    <div class="ap-drow"><span>Reason</span>${esc(selected.reason || "—")}</div>
-    <div class="ap-drow"><span>Blast radius</span>${blast(selected)}</div>
-    <div class="ap-drow"><span>Created</span>${esc(selected.created_at || "")}</div>
-    <div class="ap-dactions">${decide(selected)}</div>
-    <a class="ap-dclose" href="/__ioi/governance/approvals${view ? `?status=${view}` : ""}">Close</a>
-    <div class="ap-dgaps">Named gaps: reviewer assignment · delegation · threaded comments · SLA/escalation · audit exports — reference-only lanes.</div>
-  </aside>` : "";
-
-  const css = `html{color-scheme:light}*{box-sizing:border-box}
-    body{margin:0;background:#f6f7f9;color:#1c2127;font:14px/1.28581 Source-Sans-Pro,Helvetica,sans-serif}
-    a{color:#2f6fd8;text-decoration:none}
-    .ap-shell{display:flex;height:100vh;width:100vw;overflow:hidden}
-    ${IOI_GRAIL_CSS}
-    .ap-main{flex:1;min-width:0;display:flex;flex-direction:column;height:100vh;position:relative}
-    .ap-topbar{position:absolute;top:0;left:0;right:0;height:51px;pointer-events:none}
-    .ap-work{flex:1 1 auto;display:flex;justify-content:center;min-height:0}
-    .ap-content{display:flex;flex:0 1 1210px;max-width:1210px;min-width:0}
-    .ap-facets{flex:0 0 300px;width:300px;background:#fff;border-right:1px solid #dce0e5;overflow-y:auto;padding:0 27px 24px 25px}
-    .ap-ftitle{display:flex;align-items:flex-start;height:84px;padding-top:7px}
-    .ap-fappico{width:24px;height:24px;flex:0 0 24px;margin-right:13px;border-radius:3px;background-color:rgba(102,158,255,.1);background-position:center;background-size:16px;background-repeat:no-repeat}
-    .ap-ftitle h5{margin:0;font-size:16px;line-height:36px;font-weight:600;color:#1c2127;flex:1}
-    .ap-subst{font-size:13px;color:#8b9099}
-    .ap-fsec{font-size:14px;font-weight:600;color:#1c2127;height:40px;margin:13px 0 0 30px;display:flex;justify-content:space-between;align-items:center}
-    .ap-clear{font-size:14px;font-weight:400;color:#215db0;margin-right:-4px}
-    .ap-fsec.first{margin-top:7px}
-    .ap-fsec .ap-clear{align-self:center}
-    .ap-qfbox{background:#fff;border:1px solid #d3d8de;border-radius:6px;padding:4px 6px 6px;margin:0 0 0 30px;width:230px}
-    .ap-qf{display:flex;align-items:center;gap:10px;height:35px;margin-bottom:5px;padding:0 8px 0 9px;border-radius:4px;color:#1c2127;font-size:14px}
-    .ap-qf:hover{background:#f6f7f9}.ap-qf.on{background:#f3f8ff;color:#215db0;font-weight:400;box-shadow:inset 0 0 0 1px #689df3;border-radius:3px}
-    .ap-qf.gap{color:#1c2127;cursor:default}.ap-qfi{display:inline-flex;color:#5f6b7c;width:16px;flex:0 0 16px}.ap-qf.on .ap-qfi{color:#215db0}
-    .ap-qfc{margin-left:auto;font-size:12px;color:#1c2127;background:#eef0f3;border-radius:4px;padding:1px 7px;line-height:18px}
-    .ap-qf:last-child{margin-bottom:0}
-    .ap-qfdiv{height:1px;background:#eef0f3;margin:0 0 5px}
-    .ap-ff{display:flex;flex-direction:column;padding:0 0 0 45px;margin-top:0}
-    .ap-ff .ap-flabel:first-child{margin-top:15px}
-    .ap-flabel{display:block;font-size:12px;line-height:15.4297px;height:15.43px;color:#5f6b7c;margin:31px 0 0}
-    .ap-fsel{margin-top:5px;height:30px;padding:0 9px;border:1px solid #d3d8de;border-radius:4px;font:inherit;font-size:14px;background:#fff;color:#1c2127;width:100%}
-    .ap-fsel[disabled]{background:#eef1f5;color:#3a3f46;cursor:not-allowed}
-    .ap-fcheck{display:flex;align-items:center;gap:8px;font-size:14px;color:#1c2127;margin-top:20px}.ap-fcheck.gap{cursor:not-allowed}
-    .ap-list{flex:1 1 auto;overflow:auto;padding:18px 22px;background:#f4f5f7}
-    .ap-listhd{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 14px}
-    .ap-list h2{font-size:15px;margin:0;font-weight:600}.ap-n{color:#9aa0a8;font-weight:400}
-    .ap-listtools{display:flex;align-items:center;gap:12px}
-    .ap-search{display:inline-flex;align-items:center;gap:7px;background:#fff;border:1px solid #d6dae0;border-radius:8px;padding:6px 12px;color:#9aa0a8;font-size:12.5px;cursor:not-allowed}
-    .ap-sort{color:#6b7178;font-size:12.5px;cursor:not-allowed}
-    .ap-rows{background:#fff;border:1px solid #e6e8ec;border-radius:10px;overflow:hidden}
-    .ap-row{display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid #f0f1f4;color:#1a1d21}
-    .ap-row:last-child{border-bottom:0}.ap-row:hover{background:#f7f9fc}.ap-row.on{background:#eef2fb}
-    .ap-rowic{display:inline-flex;color:#8b9099}
-    .ap-rowmain{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
-    .ap-rowtitle{font-weight:600;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-    .ap-rowsub{font-size:12px;color:#8b9099}.ap-rowst{flex:0 0 auto}
-    .ap-detail{flex:0 0 320px;width:320px;background:#fff;border-left:1px solid #e6e8ec;overflow-y:auto;padding:18px}
-    .ap-dhd{display:flex;align-items:center;gap:9px;font-size:14px;margin:0 0 12px}
-    .ap-drow{display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-bottom:1px solid #f0f1f4;font-size:12.5px}.ap-drow>span:first-child{color:#8b9099}
-    .ap-dactions{margin:14px 0 8px;display:flex;gap:6px;align-items:center;flex-wrap:wrap}
-    .ap-dclose{font-size:12.5px}.ap-dgaps{color:#8b9099;font-size:11.5px;margin-top:12px;line-height:1.6}
-    .ap-pill{display:inline-block;padding:2px 10px;border-radius:999px;font-size:11.5px;border:1px solid;white-space:nowrap;font-weight:500}
-    .ap-pill.ok{color:#1a7f43;border-color:#bfe4cd;background:#eafaf0}
-    .ap-pill.warn{color:#2f6fd8;border-color:#c5d8f5;background:#eef4fe}
-    .ap-pill.muted{color:#6b7178;border-color:#e0e3e8;background:#f3f4f6}
-    .ap-muted{color:#8b9099}.ap-code{font-family:ui-monospace,monospace;font-size:11px;color:#6b7178;background:#f1f3f6;padding:1px 5px;border-radius:4px}
-    .ap-empty{color:#8b9099;padding:24px;border:1px dashed #d8dbe0;border-radius:12px;background:#fff}
-    .ap-inp{width:96px;padding:6px 9px;border-radius:7px;border:1px solid #d6dae0;background:#fff;color:#1a1d21;font:inherit;font-size:12px;margin-right:4px}
-    form.inline{display:inline}
-    .act{padding:6px 13px;border-radius:7px;border:1px solid #d6dae0;background:#fff;color:#3a3f46;font:inherit;font-size:12.5px;font-weight:600;cursor:pointer;margin-right:4px}
-    .act.primary{background:#2f6fd8;color:#fff;border-color:#2f6fd8}.act.ghost:hover{border-color:#b6bcc4}`;
-
-  return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Approvals inbox</title><style>${css}</style></head>
-    <body><div class="ap-shell">${globalRail}<div class="ap-main"><div class="ap-topbar" aria-hidden="true"></div><div class="ap-work"><div class="ap-content">${facets}${list}${detail}</div></div></div></div></body></html>`;
-}
-
+// ============================ APPROVALS INBOX: EXTRACTED to surfaces/approvals/index.mjs =======
+// (operational wave PR62 — the governed-action-runtime pilot; the registry mounts GET + actions).
 function govApprovalsQueue(records) {
   const enc = encodeURIComponent;
   const byStatus = { pending: 0, approved: 0, rejected: 0, revoked: 0 };
@@ -7003,8 +6848,53 @@ function embedSurfaceHtml(html) {
     const u = addEmbed(path, qs, hash);
     return u ? `location.href='${u}'` : m;
   });
-  html = html.replace(/(<form\b[^>]*\baction="(\/__ioi\/[^"?#]*)"[^>]*>)/g, (m, tag, path) => (routes.has(path) ? `${tag}<input type="hidden" name="embed" value="1">` : m));
+  const embeddablePath = (path) => routes.has(path) || [...routes].some((r) => path.startsWith(r + "/"));
+  html = html.replace(/(<form\b[^>]*\baction="(\/__ioi\/[^"?#]*)"[^>]*>)/g, (m, tag, path) => (embeddablePath(path) ? `${tag}<input type="hidden" name="embed" value="1">` : m));
   return html.replace("</head>", '<style>.og-grail{display:none!important}</style></head>');
+}
+
+// ---- Governed action runtime (operational wave #62) ------------------------------------------
+// ONE runtime for every module action: bounded form parsing, action lookup by declared transition
+// vocabulary, input allowlisting (undeclared fields are NEVER forwarded), same-origin return
+// validation, confirmation enforcement, embed preservation, typed success/refusal results as
+// PRG redirects (duplicate-submit protection), and route-local error containment. Modules never
+// see the raw request/response.
+function safeReturnPath(raw, fallback) {
+  if (!raw || typeof raw !== "string" || raw.length > 512) return fallback;
+  if (!raw.startsWith("/__ioi/") || raw.startsWith("//")) return fallback;
+  if (/[\\"'<>#\r\n\u0000]/.test(raw)) return fallback;
+  try { decodeURIComponent(raw); } catch { return fallback; }
+  return raw;
+}
+async function runSurfaceAction(hit, res, body) {
+  try {
+    const p = new URLSearchParams(body.toString("utf8").slice(0, 16384)); // bounded parse
+    const embed = p.get("embed") === "1";
+    const back = safeReturnPath(p.get("return"), hit.surface.route);
+    const go = (params) => {
+      const url = `${back}${back.includes("?") ? "&" : "?"}${params.toString()}${embed ? "&embed=1" : ""}#ap-result`;
+      res.writeHead(303, { Location: url, "Cache-Control": "no-cache" });
+      res.end();
+    };
+    const refuse = (code, message) => go(new URLSearchParams({ refused: code, reason: String(message || "").slice(0, 200), record: hit.recordId }));
+    const transition = (p.get("transition") || "").trim();
+    const action = hit.actions.find((a) => a.transition === transition);
+    if (!action) return refuse("action_unknown", `unknown transition '${transition.slice(0, 40)}' — declared: ${hit.actions.map((a) => a.transition).join("|")}`);
+    if (action.confirm && p.get("confirm") !== "1") return refuse("confirmation_required", `${action.id} requires explicit confirmation (${action.from} -> ${action.to}) — re-submit with the confirmation checked`);
+    const fields = {};
+    for (const f of action.fields || []) { const v = p.get(f); if (v !== null && v !== "") fields[f] = String(v).slice(0, 500); }
+    const result = await hit.impl.handleAction({ action, id: hit.recordId, fields, daemon: DAEMON });
+    if (!result || typeof result !== "object" || !["success", "refusal", "failure"].includes(result.kind)) {
+      return refuse("action_result_invalid", "the module returned no typed result — failing closed");
+    }
+    if (result.kind === "success") {
+      if (!result.receipt_ref) return refuse("receipt_missing", "success without the declared receipt — failing closed");
+      return go(new URLSearchParams({ acted: action.id, receipt: result.receipt_ref, record: hit.recordId, result: result.status || "" }));
+    }
+    return refuse(result.code || (result.kind === "failure" ? "action_failed" : "action_refused"), result.message);
+  } catch (err) {
+    surfaceErrorBoundary({ method: "POST", url: "surface-action" }, res, err);
+  }
 }
 
 async function handleEstateRequest(req, res, body) {
@@ -9315,6 +9205,16 @@ async function handleEstateRequest(req, res, body) {
         return;
       }
     }
+    // ---- Surface ACTION dispatch (operational wave #62) — the registry-owned action runtime.
+    // Matches POST action routes DECLARED by bound modules (e.g. /__ioi/governance/approvals/
+    // :id/transition) BEFORE any legacy family handler, so a module owns its own mutations.
+    {
+      const hit = boundActionRoute(pathname, req.method);
+      if (hit) {
+        await runSurfaceAction(hit, res, body);
+        return;
+      }
+    }
     // Ontology Manager — reference UX PORT (#34, daemon_wired). Ported schema-workbench shell over the
     // real ODK CanonicalObjectModel; the /__ioi/odk substrate/authoring surface stays as-is.
     if (pathname === "/__ioi/odk" && req.method === "GET") {
@@ -9551,15 +9451,6 @@ async function handleEstateRequest(req, res, body) {
     // Approvals inbox — reference UX PORT (#36, daemon_wired). FAITHFUL light faceted inbox (dark global
     // rail + Quick/Additional filter sidebar + request list + on-select detail) over the real
     // ApprovalRequest queue; substrate table stays at /__ioi/governance?tab=approvals.
-    if (pathname === "/__ioi/governance/approvals" && req.method === "GET") {
-      const sp = new URL(req.url, "http://x").searchParams;
-      const status = sp.get("status") || "";
-      const selected = sp.get("req") || "";
-      const ap = await fetch(`${DAEMON}/v1/hypervisor/governance/approval-requests`).then((x) => x.json()).catch(() => ({}));
-      res.writeHead(200, HTMLH);
-      res.end(renderApprovalsPort(ap.approval_requests || [], status, { selected }));
-      return;
-    }
     // Governance control-object mutations (record-only; the daemon executes no enforcement).
     if (pathname.startsWith("/__ioi/governance/")) {
       const segs = pathname.slice("/__ioi/governance/".length).split("/");

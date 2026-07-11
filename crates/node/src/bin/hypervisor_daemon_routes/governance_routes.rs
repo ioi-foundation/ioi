@@ -309,6 +309,7 @@ pub(crate) async fn handle_governance_overview(State(st): State<Arc<DaemonState>
 // naming what a later authority-gated crossing WOULD do, but this plane executes none of it.
 
 const KIND_APPROVAL: &str = "governance-approval-requests";
+const KIND_APPROVAL_RECEIPT: &str = "governance-approval-transition-receipts";
 const KIND_RELEASE: &str = "governance-release-controls";
 const KIND_KILL: &str = "governance-kill-switches";
 const KIND_GATE: &str = "governance-improvement-gates";
@@ -483,21 +484,104 @@ pub(crate) async fn handle_approval_create(State(st): State<Arc<DaemonState>>, J
 pub(crate) async fn handle_approval_get(State(st): State<Arc<DaemonState>>, AxumPath(id): AxumPath<String>) -> Json<Value> {
     g_get(&st.data_dir, KIND_APPROVAL, "approval_request", &id)
 }
+/// Apply an approval transition to `prev`, producing (updated record, transition receipt).
+/// PURE (no I/O): validation happens BEFORE any mutation and a rejected transition returns Err
+/// touching nothing. Legacy records without revision/history/receipt_refs migrate lazily here
+/// (implicit revision 1, empty history) and stay readable. The receipt carries ONLY record-derived
+/// fields + the transition — never request headers, cookies, tokens, or arbitrary form data.
+fn apply_approval_transition(
+    prev: &Value,
+    transition: &str,
+    reviewer_ref: Option<&Value>,
+    now: &str,
+    receipt_id: &str,
+) -> Result<(Value, Value), (String, String)> {
+    let cur = prev.get("status").and_then(|v| v.as_str()).unwrap_or("pending");
+    let next = next_approval_status(cur, transition)
+        .map_err(|e| ("governance_transition_invalid".to_string(), e))?;
+    let prev_revision = prev.get("revision").and_then(Value::as_u64).unwrap_or(1);
+    let revision = prev_revision + 1;
+    let receipt_ref = format!("agentgres://governance-approval-transition-receipt/{receipt_id}");
+    let receipt = json!({
+        "schema_version": "ioi.hypervisor.governance.approval-transition-receipt.v1",
+        "object": "ioi.hypervisor.governance.approval_transition_receipt",
+        "receipt_id": receipt_id,
+        "receipt_ref": receipt_ref.clone(),
+        "approval_request_id": prev.get("id").cloned().unwrap_or(Value::Null),
+        "approval_request_ref": prev.get("ref").cloned().unwrap_or(Value::Null),
+        "subject_ref": prev.get("subject_ref").cloned().unwrap_or(Value::Null),
+        "transition": transition,
+        "previous_status": cur,
+        "resulting_status": next,
+        "reviewer_ref": reviewer_ref.cloned().unwrap_or(Value::Null),
+        "required_authority_refs": prev.get("required_authority_refs").cloned().unwrap_or_else(|| json!([])),
+        "outcome": "ok",
+        "at": now,
+    });
+    let mut a = prev.clone();
+    a["status"] = json!(next);
+    a["decided_at"] = json!(now);
+    if let Some(rv) = reviewer_ref {
+        a["reviewer_ref"] = rv.clone();
+    }
+    a["revision"] = json!(revision);
+    let mut hist = a.get("history").and_then(|v| v.as_array()).cloned().unwrap_or_default();
+    hist.push(json!({ "revision": revision, "op": transition, "at": now, "summary": format!("{cur} -> {next}"), "receipt_ref": receipt_ref.clone() }));
+    if hist.len() > 50 {
+        // Bounded history: keep the newest 50 entries (receipts stay durable on disk regardless).
+        let cut = hist.len() - 50;
+        hist.drain(0..cut);
+    }
+    a["history"] = Value::Array(hist);
+    let mut refs = a.get("receipt_refs").and_then(|v| v.as_array()).cloned().unwrap_or_default();
+    refs.push(json!(receipt_ref));
+    a["receipt_refs"] = Value::Array(refs);
+    a["updated_at"] = json!(now);
+    Ok((a, receipt))
+}
+
+/// Atomic-with-restore finalization. The RECORD persists first (a receipt must never describe a
+/// transition that did not persist); the receipt follows; if the receipt write fails, the prior
+/// record state is RESTORED with a checked write so a persisted transition never lacks its
+/// receipt. Every failure reports — no success claim survives a partial write.
+fn finalize_approval_transition(
+    data_dir: &str,
+    id: &str,
+    prev: &Value,
+    updated: &Value,
+    receipt_id: &str,
+    receipt: &Value,
+) -> Result<(), String> {
+    persist_record(data_dir, KIND_APPROVAL, id, updated)
+        .map_err(|e| format!("approval record persist failed ({e}) — nothing changed"))?;
+    match persist_record(data_dir, KIND_APPROVAL_RECEIPT, receipt_id, receipt) {
+        Ok(()) => Ok(()),
+        Err(e) => match persist_record(data_dir, KIND_APPROVAL, id, prev) {
+            Ok(()) => Err(format!("transition receipt persist failed ({e}); the prior record state was restored — nothing changed")),
+            Err(e2) => Err(format!("transition receipt persist failed ({e}) AND the record restore failed ({e2}) — manual repair required for approval '{id}'")),
+        },
+    }
+}
+
 pub(crate) async fn handle_approval_patch(State(st): State<Arc<DaemonState>>, AxumPath(id): AxumPath<String>, Json(body): Json<Value>) -> Json<Value> {
     let Some(mut a) = load(&st.data_dir, KIND_APPROVAL, &id) else {
-        return Json(json!({ "ok": false, "reason": "approval_request not found" }));
+        return Json(json!({ "ok": false, "reason": "approval_request not found", "error": { "code": "approval_not_found", "message": "approval_request not found" } }));
     };
+    // TRANSITION lane (receipted): validate → build record+receipt → finalize atomically-with-
+    // restore. A transition request patches NOTHING else in the same call, so the receipt is the
+    // whole truth of what changed. A refused transition alters no status/revision/history/refs.
     if let Some(t) = body.get("transition").and_then(|v| v.as_str()) {
-        let cur = a.get("status").and_then(|v| v.as_str()).unwrap_or("pending");
-        match next_approval_status(cur, t) {
-            Ok(next) => {
-                a["status"] = json!(next);
-                a["decided_at"] = json!(iso_now());
-                if let Some(rv) = body.get("reviewer_ref") { a["reviewer_ref"] = rv.clone(); }
-            }
-            Err(e) => return Json(json!({ "ok": false, "error": { "code": "governance_transition_invalid", "message": e } })),
-        }
+        let now = iso_now();
+        let receipt_id = format!("atr_{:x}", nanos());
+        return match apply_approval_transition(&a, t, body.get("reviewer_ref"), &now, &receipt_id) {
+            Ok((updated, receipt)) => match finalize_approval_transition(&st.data_dir, &id, &a, &updated, &receipt_id, &receipt) {
+                Ok(()) => Json(json!({ "ok": true, "approval_request": updated, "transition_receipt": receipt })),
+                Err(m) => Json(json!({ "ok": false, "error": { "code": "governance_transition_persist_failed", "message": m } })),
+            },
+            Err((code, message)) => Json(json!({ "ok": false, "error": { "code": code, "message": message } })),
+        };
     }
+    // Non-transition metadata patch (legacy lane, semantics unchanged: no receipt, no revision bump).
     for key in ["request_kind", "reason", "reviewer_ref", "enforcement_preview", "would_call", "required_authority_refs"] {
         if let Some(v) = body.get(key) { a[key] = v.clone(); }
     }
@@ -901,6 +985,101 @@ mod governance_tests {
         assert!(next_approval_status("approved", "approve").is_err());
         assert!(next_approval_status("rejected", "revoke").is_err());
         assert!(next_approval_status("pending", "publish").is_err());
+    }
+
+    fn legacy_pending() -> Value {
+        // A pre-#62 record: no revision / history / receipt_refs fields (lazy-migration input).
+        json!({
+            "id": "appr_t1", "ref": "approval-request://appr_t1",
+            "subject_ref": "automation://a1", "request_kind": "test", "reason": "r",
+            "status": "pending", "reviewer_ref": Value::Null, "decided_at": Value::Null,
+            "required_authority_refs": ["authority://x"],
+            "created_at": "2026-01-01T00:00:00Z", "updated_at": "2026-01-01T00:00:00Z"
+        })
+    }
+
+    #[test]
+    fn approval_transition_accepted_builds_record_and_receipt() {
+        let prev = legacy_pending();
+        let (a, r) = apply_approval_transition(&prev, "approve", Some(&json!("agent://rev")), "2026-02-01T00:00:00Z", "atr_test1").unwrap();
+        // Record: status, decided, reviewer, revision bumped EXACTLY once (legacy 1 -> 2),
+        // one history entry, one receipt ref — all pointing at the same receipt.
+        assert_eq!(a["status"], json!("approved"));
+        assert_eq!(a["revision"], json!(2));
+        assert_eq!(a["reviewer_ref"], json!("agent://rev"));
+        let hist = a["history"].as_array().unwrap();
+        assert_eq!(hist.len(), 1);
+        assert_eq!(hist[0]["op"], json!("approve"));
+        assert_eq!(hist[0]["revision"], json!(2));
+        let refs = a["receipt_refs"].as_array().unwrap();
+        assert_eq!(refs.len(), 1);
+        assert_eq!(refs[0], r["receipt_ref"]);
+        assert_eq!(hist[0]["receipt_ref"], r["receipt_ref"]);
+        // Receipt: full transition truth, nothing else.
+        assert_eq!(r["approval_request_id"], json!("appr_t1"));
+        assert_eq!(r["subject_ref"], json!("automation://a1"));
+        assert_eq!(r["transition"], json!("approve"));
+        assert_eq!(r["previous_status"], json!("pending"));
+        assert_eq!(r["resulting_status"], json!("approved"));
+        assert_eq!(r["outcome"], json!("ok"));
+        // EXACT key set — request headers/cookies/tokens/arbitrary form data can never leak in.
+        let mut keys: Vec<&str> = r.as_object().unwrap().keys().map(|k| k.as_str()).collect();
+        keys.sort_unstable();
+        assert_eq!(keys, vec!["approval_request_id", "approval_request_ref", "at", "object", "outcome", "previous_status", "receipt_id", "receipt_ref", "required_authority_refs", "resulting_status", "reviewer_ref", "schema_version", "subject_ref", "transition"]);
+    }
+
+    #[test]
+    fn approval_transition_refused_touches_nothing_and_duplicates_refuse() {
+        let prev = legacy_pending();
+        let (approved, _r1) = apply_approval_transition(&prev, "approve", None, "2026-02-01T00:00:00Z", "atr_a").unwrap();
+        // Duplicate approve on the already-approved record: typed refusal, zero mutation.
+        let err = apply_approval_transition(&approved, "approve", None, "2026-02-02T00:00:00Z", "atr_b").unwrap_err();
+        assert_eq!(err.0, "governance_transition_invalid");
+        // Pure fn: the input record is untouched by a refusal (revision/history/refs intact).
+        assert_eq!(approved["revision"], json!(2));
+        assert_eq!(approved["history"].as_array().unwrap().len(), 1);
+        assert_eq!(approved["receipt_refs"].as_array().unwrap().len(), 1);
+        // Unknown vocabulary refuses too.
+        assert!(apply_approval_transition(&prev, "escalate", None, "t", "atr_c").is_err());
+    }
+
+    #[test]
+    fn approval_history_is_bounded() {
+        let mut rec = legacy_pending();
+        let mut hist = Vec::new();
+        for i in 0..60 {
+            hist.push(json!({ "revision": i, "op": "seed", "at": "t", "summary": "s", "receipt_ref": format!("agentgres://x/{i}") }));
+        }
+        rec["history"] = Value::Array(hist);
+        let (a, _r) = apply_approval_transition(&rec, "approve", None, "t2", "atr_bound").unwrap();
+        let h = a["history"].as_array().unwrap();
+        assert_eq!(h.len(), 50, "history is bounded to the newest 50 entries");
+        assert_eq!(h.last().unwrap()["op"], json!("approve"), "the newest entry is the accepted transition");
+    }
+
+    #[test]
+    fn approval_finalize_restores_prior_state_when_receipt_persist_fails() {
+        // Real tempdir; the receipt KIND path is pre-created as a FILE so create_dir_all fails —
+        // the injected persistence failure. The record must be RESTORED to its prior bytes.
+        let dir = std::env::temp_dir().join(format!("ioi-appr-final-{:x}", nanos()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let data_dir = dir.to_str().unwrap();
+        let prev = legacy_pending();
+        persist_record(data_dir, KIND_APPROVAL, "appr_t1", &prev).unwrap();
+        let (updated, receipt) = apply_approval_transition(&prev, "approve", None, "t", "atr_fail").unwrap();
+        // Block the receipts dir: a plain file where the directory must go.
+        std::fs::write(dir.join(KIND_APPROVAL_RECEIPT), b"blocker").unwrap();
+        let err = finalize_approval_transition(data_dir, "appr_t1", &prev, &updated, "atr_fail", &receipt).unwrap_err();
+        assert!(err.contains("restored"), "failure names the restore: {err}");
+        let on_disk = load(data_dir, KIND_APPROVAL, "appr_t1").unwrap();
+        assert_eq!(on_disk["status"], json!("pending"), "the transition did not survive the receipt failure");
+        assert!(on_disk.get("revision").is_none(), "no revision bump survived");
+        // And the happy path works once the blocker is gone: record + receipt both persist.
+        std::fs::remove_file(dir.join(KIND_APPROVAL_RECEIPT)).unwrap();
+        finalize_approval_transition(data_dir, "appr_t1", &prev, &updated, "atr_fail", &receipt).unwrap();
+        assert_eq!(load(data_dir, KIND_APPROVAL, "appr_t1").unwrap()["status"], json!("approved"));
+        assert_eq!(load(data_dir, KIND_APPROVAL_RECEIPT, "atr_fail").unwrap()["transition"], json!("approve"));
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]
