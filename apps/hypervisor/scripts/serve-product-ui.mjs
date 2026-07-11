@@ -35,7 +35,7 @@ import { SRC_APP_TILE_URI, SRC_HERO_URI, SRC_SETUP_STRIP_URI } from "./sources-a
 import { CHG_APP_TILE_URI } from "./changes-assets.mjs";
 import { EVL_APP_TILE_URI, EVL_HERO_URI } from "./evalsuites-assets.mjs";
 import { appCatalog } from "./app-catalog.mjs";
-import { bindSurface, boundSurface } from "./surface-registry.mjs";
+import { bindSurface, boundSurface, embeddableRoutes } from "./surface-registry.mjs";
 import { escHtml } from "../surfaces/kit.mjs";
 import { ioiGlobalRailHtml, IOI_GRAIL_CSS } from "../surfaces/chrome.mjs";
 import { mintApprovalGrant } from "../../../scripts/lib/mint-approval-grant.mjs";
@@ -1095,7 +1095,7 @@ function renderApplications() {
   const SUITE = [
     { icon: "🎨", name: "Studio", desc: "Compose systems & agents — agent lens live (inventory, model routes, runner adapters); system canvas adopting.", href: "/__ioi/agent-studio" },
     { icon: "⚡", name: "Automations", desc: "Durable triggers, schedules, monitors, services — condition → governed effect.", href: "/__ioi/automations" },
-    { icon: "🧬", name: "Ontology", desc: "The semantic world-model — object/link/action types, functions, value types, saved object sets.", href: "/__ioi/odk" },
+    { icon: "🧬", name: "Ontology", desc: "The semantic world-model — Ontology Manager over the typed COM; Object Explorer + ODK substrate linked within.", href: "/__ioi/ontology/manager" },
     { icon: "🌐", name: "Data", desc: "Supply the world-model — sources, syncs, data recipes, datasets, media sets, consent posture.", href: "/__ioi/odk#data-planes" },
     { icon: "🛡", name: "Governance", desc: "Authority — approvals, identity, leases, revocation, release gates, kill switches, budgets, gaps.", href: "/__ioi/governance" },
     { icon: "🚀", name: "Missions", desc: "Fleet of running systems — the mission run queue + incident/blocker inbox over daemon truth.", href: "/__ioi/missions" },
@@ -6983,6 +6983,30 @@ function surfaceErrorBoundary(req, res, err) {
   } catch { /* client socket already gone */ }
 }
 
+// ---- Embedded render mode (operational wave) — used ONLY by the Open Application slot. The
+// native IOI rail outside the iframe owns platform navigation, so the app's duplicated reference
+// GLOBAL rail is hidden (CSS only — the standalone/certified render is byte-untouched), and
+// embed=1 is threaded through every link, row onclick, and GET form that lands on another
+// embeddable module route, so selection/filter/refresh stay embedded. App-local rails, headers,
+// sidebars, tools, inspectors and trays are never touched.
+function embedSurfaceHtml(html) {
+  const routes = embeddableRoutes();
+  const addEmbed = (path, qs, hash) => {
+    if (!routes.has(path) || /(\?|&)embed=1/.test(qs || "")) return null;
+    return `${path}${qs ? `${qs}&embed=1` : "?embed=1"}${hash || ""}`;
+  };
+  html = html.replace(/href="(\/__ioi\/[^"?#]*)(\?[^"#]*)?(#[^"]*)?"/g, (m, path, qs, hash) => {
+    const u = addEmbed(path, qs, hash);
+    return u ? `href="${u}"` : m;
+  });
+  html = html.replace(/location\.href='(\/__ioi\/[^'?#]*)(\?[^'#]*)?(#[^']*)?'/g, (m, path, qs, hash) => {
+    const u = addEmbed(path, qs, hash);
+    return u ? `location.href='${u}'` : m;
+  });
+  html = html.replace(/(<form\b[^>]*\baction="(\/__ioi\/[^"?#]*)"[^>]*>)/g, (m, tag, path) => (routes.has(path) ? `${tag}<input type="hidden" name="embed" value="1">` : m));
+  return html.replace("</head>", '<style>.og-grail{display:none!important}</style></head>');
+}
+
 async function handleEstateRequest(req, res, body) {
     let pathname = (req.url || "").split("?")[0];
     // Wire bridge: the served SPA's RPC package name is baked into its (immutable) protobuf
@@ -9283,10 +9307,11 @@ async function handleEstateRequest(req, res, body) {
     {
       const hit = boundSurface(pathname, req.method);
       if (hit) {
-        const ctx = { url: new URL(req.url, "http://x"), daemon: DAEMON };
+        const url = new URL(req.url, "http://x");
+        const ctx = { url, daemon: DAEMON, embed: url.searchParams.get("embed") === "1" };
         const model = hit.impl.load ? await hit.impl.load(ctx) : null;
         res.writeHead(200, HTMLH);
-        res.end(hit.impl.render(model, ctx));
+        res.end(ctx.embed ? embedSurfaceHtml(hit.impl.render(model, ctx)) : hit.impl.render(model, ctx));
         return;
       }
     }

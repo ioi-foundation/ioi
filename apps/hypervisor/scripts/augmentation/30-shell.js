@@ -5,7 +5,7 @@
   const IOI_APPS = [
     { icon: "🎨", name: "Studio", desc: "Compose systems & agents — agent lens live (inventory, model routes, adapters); system canvas adopting.", href: "/__ioi/agent-studio", status: "live", lane: "suite" },
     { icon: "⚡", name: "Automations", desc: "Durable triggers, schedules, monitors, services — condition → governed effect.", href: "/__ioi/automations", status: "live", lane: "suite" },
-    { icon: "🧬", name: "Ontology", desc: "The semantic world-model — types, links, actions, functions, value types, object sets.", href: "/__ioi/odk", status: "live", lane: "suite" },
+    { icon: "🧬", name: "Ontology", desc: "The semantic world-model — Ontology Manager over the typed COM; Explorer + ODK substrate linked within.", href: "/__ioi/ontology/manager", status: "live", lane: "suite" },
     { icon: "🌐", name: "Data", desc: "Supply the world-model — sources, syncs, recipes, datasets, media sets, consent.", href: "/__ioi/odk#data-planes", status: "live", lane: "suite" },
     { icon: "🛡", name: "Governance", desc: "Authority — approvals, leases, release gates, kill switches, budgets, gaps.", href: "/__ioi/governance", status: "live", lane: "suite" },
     { icon: "🚀", name: "Missions", desc: "Fleet of running systems — sessions root live; dedicated fleet console adopting.", href: "/__ioi/sessions", status: "live", lane: "suite" },
