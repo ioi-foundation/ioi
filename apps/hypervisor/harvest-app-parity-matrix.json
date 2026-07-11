@@ -17,9 +17,9 @@
   ],
   "total_seeds": 39,
   "by_parity_class": {
-    "substrate_bound": 6,
-    "reference_capture": 26,
-    "daemon_wired": 7
+    "daemon_wired": 8,
+    "substrate_bound": 5,
+    "reference_capture": 26
   },
   "legend": {
     "reference_capture": "the /__apps/<slug> reference baseline serves; no IOI port exists",
@@ -37,19 +37,33 @@
       "capture_base": "/workspace/solution-design/",
       "grammar": "editor_canvas",
       "tier": "high_value",
-      "parity_class": "substrate_bound",
+      "parity_class": "daemon_wired",
       "capture_state": "boots_graph",
       "reference_capture": "/__apps/designer",
       "reference_workspace": "/workspace/solution-design/",
-      "note": "read-only design map; owner surface stays /__ioi/agent-studio (no route rename); honest empty when an ontology has no concepts/components/resources; in-canvas authoring / save-open / drag-to-reference / load-lineage / machinery process-graph execution / workshop+module builders = named gaps",
-      "reference_clean_state": "needs_origin_alignment",
-      "reference_clean_reason": "proxy lane shows a failure (\"Failed to load favorites\") with CORS-blocked session lanes, but the capture-origin lane (http://localhost:9225) renders the app failure-free WITH data (rows 12/0 · nodes 0 · cards 64 · lines 690) — align the reference URL like pipeline #38/#39",
+      "note": "TRUE parity (#49) under the HARDENED gate: light Solution-Designer landing reference-faithful shell at /__ioi/studio/designer against the ORIGIN-ALIGNED data-clean reference (reference_url_override localhost:9225/workspace/solution-design/ — the #44 needs_origin_alignment finding; the /__apps/designer proxy lane stays documented-insufficient: cross-origin :9225 chunk fetches manufacture CORS noise + a favorites-load failure); the FIRST origin-alignment-queue port after the #48 clean-pool close — the old dark substrate canvas is REBUILT in place as the faithful light landing shell over the SAME composition truth (concepts/components/resources preserved below the fold with real refs); the hero illustration + template-gallery strip are verbatim capture chrome (the reference's own static template library, never estate data); rows are REAL domain ontologies with honest em-dashes where the ODK plane records no principal/view tracking; in-canvas authoring / New-Open Diagram / save-open / drag-to-reference / AIP Architect planning / favorites / template Browse-all / machinery process-graph execution / workshop+module builders = named gaps disabled in place",
+      "reference_clean_state": "data_clean",
+      "reference_clean_reason": "shell regions [rail, header, body] + data evidence (rows 12/0 · nodes 0 · cards 64 · lists 0 · lines 690)",
       "reference_clean_artifact": "reference-clean-sweep.json",
       "substrate_surface": "/__ioi/studio/designer",
       "surface_name": "Studio",
-      "binding": "the system-design canvas — a read-only typed concept/component/resource map over real ODK composition (an ontology's object/value/action/link types = concepts; connector mappings + policy views + projections = components; materialized object sets + domain-app surface descriptors = resources)",
+      "reference_url_override": "http://localhost:9225/workspace/solution-design/",
+      "reference_landmarks": [
+        "Solution Designer",
+        "New Diagram",
+        "Have a workflow in mind? Use AIP Architect to help you plan it.",
+        "Start planning",
+        "Explore our library of reference solution architecture diagrams",
+        "Browse all",
+        "Recents",
+        "Favorites",
+        "Open Diagram",
+        "LAST VIEWED"
+      ],
+      "binding": "faithful port of the reference Solution Designer landing over real ODK composition truth — dark global rail + light app header (app chip · Solution Designer · New Diagram/Help as named gaps) + hero band (title · description · verbatim reference illustration) + the AIP-architect banner card (Start planning as a named gap) + the template-gallery card (the reference's own static template-library strip, verbatim capture chrome) + the View row (Recents active · Favorites gap · Open Diagram gap) + the Recents table whose rows are the REAL domain ontologies (the estate's solution designs: ref + created/updated dates + concept/component/resource census; honest em-dashes where the ODK plane records no principal/view tracking) + below-the-fold full composition truth (COM concepts · mapping/policy-view/projection components · materialized-set/domain-app resources, real refs)",
       "candidate_surface": "/__ioi/studio/designer",
-      "shell_pixel_certified": false
+      "shell_pixel_certified": true,
+      "shell_pixel_certification_artifact": "pixel-certifications/designer.json"
     },
     {
       "owner": "Studio",

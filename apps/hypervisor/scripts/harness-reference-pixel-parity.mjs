@@ -213,6 +213,37 @@ export const SURFACE_SHELL = {
       ],
     },
   },
+  designer: {
+    // Solution Designer landing (#49 — the first origin-alignment-queue port): certified shell =
+    // rail + header + the full-width hero band (title/description + the VERBATIM reference
+    // illustration) + the AIP-architect banner card (all chrome incl. the named-gap Start-planning
+    // control) + the template-gallery card (heading + Browse-all + the VERBATIM capture strip —
+    // the reference's own static template-library previews, vendor chrome not estate data) + the
+    // View row (Recents/Favorites pills + Open Diagram) + the table ring + header row. The diagram
+    // ROWS are masked data (captured tutorial resources vs live ontology compositions). Content =
+    // the approvals rule: a 1000px block centered right of the rail (offset 0 @1440, +240 @1920)
+    // → content-anchored rects/masks.
+    rects: [
+      { key: "rail", anchor: "left", x: 0, y: 0, w: 230, h: 0 },
+      { key: "header", anchor: "topbar", x: 230, y: 0, w: 0, h: 51 },
+      { key: "hero", anchor: "topbar", x: 230, y: 51, w: 0, h: 181 },
+      { key: "aipcard", anchor: "content", x: 330, y: 170, w: 1010, h: 102 },
+      { key: "gallery", anchor: "content", x: 330, y: 292, w: 1010, h: 289 },
+      { key: "viewrow", anchor: "content", x: 335, y: 614, w: 1000, h: 34 },
+      { key: "tablehead", anchor: "content", x: 330, y: 651, w: 1010, h: 40 },
+    ],
+    // Masked DATA: the diagram-row region below the table header (captured tutorial rows on the
+    // reference vs the estate's live ontology-composition rows) — the table ring/header chrome
+    // stays compared; the region runs to the fold at both viewports (clamped by the canvas).
+    data: {
+      ref: [
+        { rect: { x: 336, y: 687, w: 998, h: 900 }, anchor: "content", label: "diagram rows (captured tutorial resources vs live ontology compositions)" },
+      ],
+      ioi: [
+        { selector: ".dsg-rows", label: "live-solution-design-rows" },
+      ],
+    },
+  },
   incidents: {
     // The issues-inbox app (#45): certified shell = rail + header + the FIXED-LEFT status/
     // filter sidebar + the list-HEADER band. The incident ROW LIST is the live body

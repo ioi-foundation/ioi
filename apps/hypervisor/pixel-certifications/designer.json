@@ -1,0 +1,133 @@
+{
+  "schema": "ioi.hypervisor.shell-pixel-certification.v1",
+  "slug": "designer",
+  "matrix_class": "daemon_wired",
+  "shell_pixel_certified": true,
+  "viewports_pinned": false,
+  "thresholds": {
+    "shell_diff_dilated_pct_max": 1.25,
+    "shell_diff_raw_pct_max": 3,
+    "shell_bbox_delta_px_max": 8,
+    "min_shell_certified_fraction": 0.05,
+    "data_mask_in_shell_fraction_max": 0.5,
+    "landmark_mask_overlap_max": 0.3,
+    "pixel_delta_threshold": 0.1,
+    "palette_delta_max": 0.05
+  },
+  "reference_url": "http://localhost:9225/workspace/solution-design/",
+  "ioi_url": "http://127.0.0.1:4173/__ioi/studio/designer",
+  "mobile": "mobile_not_supported (scrollWidth=390 innerWidth=390 railFrac=0.59)",
+  "note": "SHELL pixel parity — the live-data body is excluded by design and verified semantically by the surface verifier (body_semantic_truth)",
+  "viewports": [
+    {
+      "viewport": "1440x900",
+      "reference_url": "http://localhost:9225/workspace/solution-design/",
+      "ioi_url": "http://127.0.0.1:4173/__ioi/studio/designer",
+      "certified": true,
+      "reasons": [],
+      "gates": {
+        "evidence_ok": true,
+        "reference_errored": false,
+        "ioi_errored": false,
+        "reference_valid": true,
+        "ioi_valid": true,
+        "structural_parity": true,
+        "theme_match": true,
+        "landmark_covered": 10,
+        "landmark_applicable": 10
+      },
+      "metrics": {
+        "dims_match": true,
+        "shell_diff_raw_pct": 1.21,
+        "shell_diff_dilated_pct": 0.66,
+        "certified_px": 886362,
+        "palette": {
+          "shell": {
+            "ref_avg_rgb": [
+              197,
+              199,
+              202
+            ],
+            "ioi_avg_rgb": [
+              197,
+              199,
+              202
+            ],
+            "delta": 0
+          }
+        },
+        "bbox_deltas": {
+          "rail": 0,
+          "header": 0
+        },
+        "coverage": {
+          "shell_fraction": 0.704,
+          "certified_fraction": 0.694,
+          "data_in_shell_fraction": 0.013,
+          "landmarks_masked": []
+        },
+        "cmp_error": null
+      },
+      "screens": {
+        "ref": "designer/ref-1440x900.png",
+        "ioi": "designer/ioi-1440x900.png",
+        "heatmap": "designer/heatmap-1440x900.png"
+      }
+    },
+    {
+      "viewport": "1920x1080",
+      "reference_url": "http://localhost:9225/workspace/solution-design/",
+      "ioi_url": "http://127.0.0.1:4173/__ioi/studio/designer",
+      "certified": true,
+      "reasons": [],
+      "gates": {
+        "evidence_ok": true,
+        "reference_errored": false,
+        "ioi_errored": false,
+        "reference_valid": true,
+        "ioi_valid": true,
+        "structural_parity": true,
+        "theme_match": true,
+        "landmark_covered": 10,
+        "landmark_applicable": 10
+      },
+      "metrics": {
+        "dims_match": true,
+        "shell_diff_raw_pct": 1.12,
+        "shell_diff_dilated_pct": 0.56,
+        "certified_px": 1039122,
+        "palette": {
+          "shell": {
+            "ref_avg_rgb": [
+              197,
+              198,
+              201
+            ],
+            "ioi_avg_rgb": [
+              197,
+              198,
+              201
+            ],
+            "delta": 0
+          }
+        },
+        "bbox_deltas": {
+          "rail": 0,
+          "header": 0
+        },
+        "coverage": {
+          "shell_fraction": 0.515,
+          "certified_fraction": 0.509,
+          "data_in_shell_fraction": 0.011,
+          "landmarks_masked": []
+        },
+        "cmp_error": null
+      },
+      "screens": {
+        "ref": "designer/ref-1920x1080.png",
+        "ioi": "designer/ioi-1920x1080.png",
+        "heatmap": "designer/heatmap-1920x1080.png"
+      }
+    }
+  ]
+}

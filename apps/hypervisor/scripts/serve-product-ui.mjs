@@ -28,6 +28,7 @@ import { getRun, listRuns, hydrateRunsFromDaemon, publishRunViaConnector } from 
 import { projectRunTimeline } from "./ioi-run-timeline.mjs";
 import { bpIcon, ONTOLOGY_APP_ICON_URI, APPROVALS_APP_ICON_URI, PIPELINE_APP_ICON_URI, ISSUES_APP_ICON_URI, EXPLORER_APP_ICON_URI, MODELS_APP_ICON_URI, AIP_GRADIENT_SVG_RAIL, AIP_GRADIENT_SVG_TOOLBAR } from "./bp-icons.mjs";
 import { MARKETPLACE_APP_ICON_URI, MK_GLOBE_URI, MK_HERO_URI, MK_STORE_ICON_URI, MK_PACKAGE_URI, MK_WIZ1_URI, MK_ARROW_URI, MK_WIZ2_URI, MK_WIZ3_URI } from "./marketplace-assets.mjs";
+import { DSG_APP_TILE_URI, DSG_ROW_DOC_URI, DSG_HERO_URI, DSG_AIP_ICON_URI, DSG_GALLERY_STRIP_URI } from "./designer-assets.mjs";
 import { mintApprovalGrant } from "../../../scripts/lib/mint-approval-grant.mjs";
 
 // Build the current conversation entries for a run, in the exact NDJSON shape the SPA's V1 pane
@@ -3342,17 +3343,23 @@ function renderVertex(lists, selectedId) {
   return automationsShell("Vertex", head + switcher + banner + catalog + inv + neighborhood + crossPlane + gaps);
 }
 
-// ============================ STUDIO · DESIGNER (system/solution-design canvas over real composition)
-// The Reference UX Port program (post-#31 reset), substrate for the Studio `designer` seed. The reference
-// capture (/__apps/designer, /workspace/solution-design/) is the familiar typed concept/component/
-// resource DESIGN canvas; this IOI-owned surface renders the SAME grammar as a READ-ONLY typed map
-// over REAL daemon composition truth: an ontology's canonical object model (object/value/action/link
-// types = CONCEPTS), the composition that shapes it (connector mappings · policy views · projections
-// = COMPONENTS), and what that composition generates (materialized object sets · domain-app surface
-// descriptors = RESOURCES). Nothing is authored/saved here — canvas authoring, save/open/reference/
-// load-lineage, process-graph execution (machinery), and the workshop/module builders are NAMED GAPS.
-// Owner: Studio (/__ioi/agent-studio); this is a dedicated daemon-bound surface, no route rename.
-function renderStudioDesigner(lists, selectedId) {
+// ============================ STUDIO · DESIGNER (solution-design landing over real composition, #49)
+// The Reference UX Port program — the FIRST origin-alignment-queue port (post-#48 clean-pool close).
+// The reference is the origin-aligned Solution Designer landing capture
+// (http://localhost:9225/workspace/solution-design/ — the /__apps/designer proxy lane manufactures
+// CORS noise + a "Failed to load favorites" failure, documented by the #44 sweep). This IOI-owned
+// surface reproduces the visible landing shell PIXEL-FAITHFULLY — dark global rail, app header,
+// hero band + verbatim illustration, AIP-architect banner card, template-gallery card (verbatim
+// capture strip: the reference's own static template-library previews, vendor chrome NOT estate
+// data), the View row, and the Recents table — while the DATA region (table rows) renders REAL
+// daemon composition truth: one row per domain ontology (the estate's solution designs), each
+// carrying its ref, created/updated dates and its concept/component/resource census. Below the fold
+// the full composition truth renders with real refs (COM concepts · mapping/policy-view/projection
+// components · materialized-set/domain-app resources). Nothing authors/saves here: New Diagram,
+// Open Diagram, Browse all, AIP Architect planning, favorites are NAMED GAPS (disabled in place).
+// Owner: Studio (/__ioi/agent-studio); dedicated daemon-bound surface, no route rename.
+function renderDesignerPort(lists, selectedId) {
+  const esc = CX_ESC;
   const enc = (s) => encodeURIComponent(String(s || ""));
   const ontologies = Array.isArray(lists.ontologies) ? lists.ontologies : [];
   const mappings = Array.isArray(lists.connector_mappings) ? lists.connector_mappings : [];
@@ -3360,78 +3367,218 @@ function renderStudioDesigner(lists, selectedId) {
   const projections = Array.isArray(lists.projections) ? lists.projections : [];
   const sets = Array.isArray(lists.materialized_sets) ? lists.materialized_sets : [];
   const domainApps = Array.isArray(lists.domain_apps) ? lists.domain_apps : [];
-  const sub = (txt) => `<span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">${txt}</span>`;
+
   const composed = new Set(mappings.map((m) => m.ontology_ref));
   const selected = ontologies.find((x) => x.id === selectedId) || ontologies.find((x) => composed.has(x.ref)) || ontologies[0] || null;
   const oref = selected ? selected.ref : "__none__";
   const oid = selected ? selected.id : "";
 
-  const switcher = ontologies.length
-    ? `<div class="chips" style="margin:0 0 14px">${ontologies.map((x) => {
-        const on = selected && x.id === selected.id;
-        return `<a href="/__ioi/studio/designer?ontology=${enc(x.id)}" class="pill ${on ? "ok" : "muted"}" style="text-decoration:none;margin:0">${CX_ESC(x.domain || x.id)}${composed.has(x.ref) ? ` <span class="pill ok" style="margin-left:4px">composed</span>` : ""}</a>`;
-      }).join(" ")}</div>`
-    : `<div class="empty">No ontologies yet.</div>`;
+  const censusOf = (o) => {
+    const com = o.canonical_object_model || {};
+    const n = (k) => (Array.isArray(com[k]) ? com[k].length : 0);
+    const concepts = n("object_types") + n("value_types") + n("action_types") + n("link_types");
+    const components = mappings.filter((m) => m.ontology_ref === o.ref).length
+      + policyViews.filter((v) => v.ontology_ref === o.ref).length
+      + projections.filter((p) => p.ontology_ref === o.ref).length;
+    const resources = sets.filter((s) => s.ontology_ref === o.ref).length
+      + domainApps.filter((a) => Array.isArray(a.ontology_refs) && a.ontology_refs.includes(o.ref)).length;
+    return { concepts, components, resources };
+  };
+  const fdate = (iso) => {
+    const d = new Date(iso || 0);
+    return isNaN(d) ? "—" : d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  };
 
-  const head = `<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap"><div><h1 style="margin:0">Designer</h1><p class="sub" style="margin:4px 0 0">The system-design canvas — an ontology's concepts, the components that compose them, and the resources they generate, as a typed read-only map over IOI daemon truth. Reference grammar: <a href="/__apps/designer">Designer ↗</a> (secondary capture). Owner: <a href="/__ioi/agent-studio">Agent Studio</a>.</p></div><div class="row" style="gap:8px"><a class="act ghost" href="/__ioi/odk?ontology=${enc(oid)}">Ontology Manager</a><a class="act ghost" href="/__ioi/pipeline?ontology=${enc(oid)}">Build pipeline</a></div></div>`;
+  // Recents = real domain ontologies (the estate's solution designs), newest-updated first. The
+  // CREATOR / LAST EDITED BY / LAST VIEWED cells are honest em-dashes: the ODK object plane records
+  // no principal and no view tracking — named gaps, never invented values.
+  const recent = [...ontologies].sort((a, b) => String(b.updated_at || "").localeCompare(String(a.updated_at || "")));
+  const gapDash = (why) => `<span class="dsg-dash" title="${esc(why)}">—</span>`;
+  const rowsHtml = recent.length ? recent.map((o) => {
+    const c = censusOf(o);
+    return `<a class="dsg-row" href="/__ioi/studio/designer?ontology=${enc(o.id)}" title="Select this design — its composition truth renders below">
+      <span class="dsg-cell name">
+        <span class="dsg-rowico" aria-hidden="true"></span>
+        <span class="dsg-rowdata">
+          <span class="dsg-rowname">${esc(o.domain || o.id)}${o.id === oid ? `<span class="dsg-selpill">selected</span>` : ""}<span class="dsg-rowstar gap" aria-disabled="true" title="Favorites are not recorded on the ODK object plane (named gap)">${bpIcon("star-empty")}</span></span>
+          <span class="dsg-rowpath">${esc(o.ref)} · created ${fdate(o.created_at)} · updated ${fdate(o.updated_at)} · ${c.concepts} concept${c.concepts === 1 ? "" : "s"} · ${c.components} component${c.components === 1 ? "" : "s"} · ${c.resources} resource${c.resources === 1 ? "" : "s"}</span>
+        </span>
+      </span>
+      <span class="dsg-cell">${gapDash("No principal is recorded on the ODK object plane (named gap)")}</span>
+      <span class="dsg-cell">${gapDash("No principal is recorded on the ODK object plane (named gap)")}</span>
+      <span class="dsg-cell">${gapDash("View tracking is not recorded on the ODK object plane (named gap)")}</span>
+    </a>`;
+  }).join("") : `<div class="dsg-empty">No ontologies yet — there are no solution designs to list. Create one in the <a href="/__ioi/odk">Ontology Manager</a>; this table renders real composition truth and never fabricates rows.</div>`;
 
-  if (!selected) {
-    return automationsShell("Designer", head + switcher + omBoundaryNote(`No ontologies to design over yet — create one in the <a href="/__ioi/odk">Ontology Manager</a>. This canvas renders real composition truth; it never fabricates concepts.`));
-  }
-
-  const model = selected.canonical_object_model || {};
-  const objectTypes = Array.isArray(model.object_types) ? model.object_types : [];
-  const valueTypes = Array.isArray(model.value_types) ? model.value_types : [];
-  const actionTypes = Array.isArray(model.action_types) ? model.action_types : [];
-  const linkTypes = Array.isArray(model.link_types) ? model.link_types : [];
+  // ---- Below-the-fold: full composition truth for the selected ontology (real refs, no invention).
+  const com = (selected && selected.canonical_object_model) || {};
+  const arr = (k) => (Array.isArray(com[k]) ? com[k] : []);
+  const ots = arr("object_types"), vts = arr("value_types"), ats = arr("action_types"), lts = arr("link_types");
   const myMappings = mappings.filter((m) => m.ontology_ref === oref);
   const myViews = policyViews.filter((v) => v.ontology_ref === oref);
   const myProjections = projections.filter((p) => p.ontology_ref === oref);
   const mySets = sets.filter((s) => s.ontology_ref === oref);
-  // DomainApps carry ontology_refs (an ARRAY, derived from the surface descriptor) — not a singular
-  // ontology_ref; filter on membership, and read domain_app_ref/domain_app_id (the real field names).
+  // DomainApps carry ontology_refs (an ARRAY, derived from the surface descriptor) — filter on membership.
   const myApps = domainApps.filter((a) => Array.isArray(a.ontology_refs) && a.ontology_refs.includes(oref));
-  const conceptCount = objectTypes.length + valueTypes.length + actionTypes.length + linkTypes.length;
+  const conceptCount = ots.length + vts.length + ats.length + lts.length;
   const componentCount = myMappings.length + myViews.length + myProjections.length;
   const resourceCount = mySets.length + myApps.length;
+  const actionsFor = (otId) => ats.filter((a) => a.applies_to === otId);
+  const refChip = (label, ref, meta) => `<li class="dsg-truthitem"><b>${esc(label)}</b>${meta ? ` <span class="dsg-meta">${esc(meta)}</span>` : ""}<code class="dsg-ref">${esc(ref || "")}</code></li>`;
 
-  const banner = `<div class="row" style="gap:10px;align-items:stretch;margin:12px 0 14px;flex-wrap:wrap">${[
-    ["Concepts", conceptCount, "🧩"], ["Components", componentCount, "🧱"], ["Resources", resourceCount, "📦"],
-  ].map(([l, n, ic]) => `<div style="flex:1;min-width:120px;padding:11px 13px;border:1px solid #24262d;border-radius:10px;background:#15171c"><div style="font-size:20px;font-weight:700;color:#fff">${ic} ${n}</div><div style="color:#878a93;font-size:12px;margin-top:2px">${CX_ESC(l)}</div></div>`).join("")}</div>`;
+  const switcher = ontologies.length > 1 ? `<div class="dsg-switch">${ontologies.map((x) => `<a class="dsg-schip${selected && x.id === selected.id ? " on" : ""}" href="/__ioi/studio/designer?ontology=${enc(x.id)}">${esc(x.domain || x.id)}${composed.has(x.ref) ? " · composed" : ""}</a>`).join("")}</div>` : "";
 
-  // CONCEPTS — the ontology's canonical object model (typed nodes; no authoring).
-  const actionsFor = (otId) => actionTypes.filter((a) => a.applies_to === otId);
-  const conceptRows = objectTypes.map((ot) => `<tr>
-    <td>🧩 <b>${CX_ESC(ot.name || ot.id)}</b> <code style="font-size:10px;opacity:.7">${CX_ESC(ot.id)}</code></td>
-    <td>${(ot.properties || []).length} <span class="sub" style="margin:0">props</span>${ot.title_property ? ` · title <code style="font-size:10px">${CX_ESC(ot.title_property)}</code>` : ""}</td>
-    <td>${actionsFor(ot.id).map((a) => `<span class="pill muted" style="margin:0 3px 3px 0">${CX_ESC(a.name || a.id)}</span>`).join("") || "<span class='sub' style='margin:0'>—</span>"}</td>
-  </tr>`).join("");
-  const conceptsPane = objectTypes.length
-    ? `<h2 id="designer-concepts">Concepts ${sub(`— object types + their properties/actions (${objectTypes.length} object · ${valueTypes.length} value · ${actionTypes.length} action · ${linkTypes.length} link types)`)}</h2>`
-      + `<table><thead><tr><th>Object type</th><th>Shape</th><th>Actions</th></tr></thead><tbody>${conceptRows}</tbody></table>`
-      + (valueTypes.length || linkTypes.length ? `<div class="chips" style="margin:8px 0 0">${valueTypes.map((v) => `<span class="pill muted" style="margin:0">◇ ${CX_ESC(v.name || v.id)}</span>`).join(" ")}${linkTypes.map((l) => `<span class="pill muted" style="margin:0">↔ ${CX_ESC(l.name || l.id)}</span>`).join(" ")}</div>` : "")
-    : `<h2 id="designer-concepts">Concepts</h2>` + omBoundaryNote(`This ontology declares <b>no object types</b> yet — there are no concepts to map. Define them in the <a href="/__ioi/odk?ontology=${enc(oid)}">Ontology Manager</a>; nothing is invented here.`);
+  const truth = selected ? `<section class="dsg-truth" id="designer-truth">
+    <h2 class="dsg-trutht">Composition truth — <b>${esc(selected.domain || selected.id)}</b> <span class="dsg-truthsub">${conceptCount} concept${conceptCount === 1 ? "" : "s"} · ${componentCount} component${componentCount === 1 ? "" : "s"} · ${resourceCount} resource${resourceCount === 1 ? "" : "s"} · real refs from the daemon ODK plane, nothing invented</span></h2>
+    ${switcher}
+    <div class="dsg-truthcols">
+      <div class="dsg-truthcol" id="designer-concepts"><h3>Concepts <span class="dsg-meta">(${ots.length} object · ${vts.length} value · ${ats.length} action · ${lts.length} link types)</span></h3>
+        ${ots.length ? `<ul>${ots.map((ot) => refChip(ot.name || ot.id, ot.id, `${(ot.properties || []).length} props${actionsFor(ot.id).length ? ` · actions: ${actionsFor(ot.id).map((a) => a.name || a.id).join(", ")}` : ""}`)).join("")}${vts.map((v) => refChip(v.name || v.id, v.id, "value type")).join("")}${lts.map((l) => refChip(l.name || l.id, l.id, "link type")).join("")}</ul>`
+          : `<p class="dsg-gapnote">This ontology declares <b>no object types</b> yet — there are no concepts to map. Define them in the <a href="/__ioi/odk?ontology=${enc(oid)}">Ontology Manager</a>; nothing is invented here.</p>`}
+      </div>
+      <div class="dsg-truthcol" id="designer-components"><h3>Components <span class="dsg-meta">(${myMappings.length} mapping · ${myViews.length} policy view · ${myProjections.length} projection)</span></h3>
+        ${componentCount ? `<ul>${myMappings.map((m) => refChip(m.name || m.id, m.ref, `mapping → ${m.object_type_id || ""}`)).join("")}${myViews.map((v) => refChip(v.name || v.id, v.ref, `policy view · ${(v.allowed_operations || []).join("/") || "no ops"}`)).join("")}${myProjections.map((p) => refChip(p.name || p.id, p.ref, `projection · ${(p.visible_properties || []).length} props`)).join("")}</ul>`
+          : `<p class="dsg-gapnote">No components compose this ontology yet — add a connector mapping + projection in the <a href="/__ioi/pipeline?ontology=${enc(oid)}">Pipeline Builder</a>.</p>`}
+      </div>
+      <div class="dsg-truthcol" id="designer-resources"><h3>Resources <span class="dsg-meta">(${mySets.length} object set · ${myApps.length} surface descriptor)</span></h3>
+        ${resourceCount ? `<ul>${mySets.map((s) => refChip(`${s.count || 0} obj`, s.ref, s.object_type_id)).join("")}${myApps.map((a) => refChip(a.name || a.domain_app_id, a.domain_app_ref, a.surface_descriptor_ref || "")).join("")}</ul>`
+          : `<p class="dsg-gapnote">This composition has generated <b>no resources</b> yet — materialize a set from the <a href="/__ioi/pipeline?ontology=${enc(oid)}">pipeline</a>. Surface descriptors appear once a domain app is composed${myApps.length ? "" : " — no domain-app surfaces generated yet (named gap)"}.</p>`}
+        ${resourceCount && !myApps.length ? `<p class="dsg-gapnote">Surface descriptors: none — no domain-app surfaces generated yet (named gap).</p>` : ""}
+      </div>
+    </div>
+    <p class="dsg-foot">This is a <b>read-only design map</b> over real composition truth. Unsupported Designer lanes — in-canvas authoring, New Diagram / Open Diagram, save/open, drag-to-reference, AIP Architect planning, favorites, template Browse all — are <b>named gaps</b> (disabled in place above), not silently hidden. Sibling Studio seeds stay reference-only: the <a href="/__apps/machinery">machinery</a> process/state-machine graph (data lanes unbound), the <a href="/__apps/workshop">workshop</a> and module builders. Owner: <a href="/__ioi/agent-studio">Agent Studio</a> · siblings: <a href="/__ioi/studio/machinery">Machinery</a> · <a href="/__ioi/odk?ontology=${enc(oid)}">Ontology Manager</a> · <a href="/__ioi/pipeline?ontology=${enc(oid)}">Pipeline Builder</a>. Reference: the origin-aligned <a href="http://localhost:9225/workspace/solution-design/" rel="noopener">Solution Designer capture</a> — the <a href="/__apps/designer">/__apps/designer proxy lane ↗</a> is documented insufficient (cross-origin :9225 chunk fetches manufacture CORS noise + a favorites-load failure; #44 sweep evidence).</p>
+  </section>` : `<section class="dsg-truth" id="designer-truth"><p class="dsg-gapnote">No ontologies to design over yet — create one in the <a href="/__ioi/odk">Ontology Manager</a>. This canvas renders real composition truth; it never fabricates concepts. Owner: <a href="/__ioi/agent-studio">Agent Studio</a>.</p></section>`;
 
-  // COMPONENTS — the composition that shapes concepts (real refs).
-  const compChip = (ic, label, ref, meta) => `<span class="pill muted" style="margin:0 4px 4px 0" title="${CX_ESC(ref || "")}">${ic} ${CX_ESC(label)}${meta ? ` <span style="opacity:.6">${CX_ESC(meta)}</span>` : ""}</span>`;
-  const componentsPane = `<h2 id="designer-components">Components ${sub(`— the composition that shapes these concepts (${componentCount})`)}</h2>`
-    + (componentCount
-      ? `<div class="chips" style="margin:0 0 6px"><span class="chiplabel">Mappings</span>${myMappings.map((m) => compChip("🔌", m.name || m.id, m.ref, `→ ${m.object_type_id || ""}`)).join("") || "<span class='sub' style='margin:0'>—</span>"}</div>`
-        + `<div class="chips" style="margin:0 0 6px"><span class="chiplabel">Policy views</span>${myViews.map((v) => compChip("🛡", v.name || v.id, v.ref, (v.allowed_operations || []).join("/"))).join("") || "<span class='sub' style='margin:0'>—</span>"}</div>`
-        + `<div class="chips" style="margin:0 0 6px"><span class="chiplabel">Projections</span>${myProjections.map((p) => compChip("🔭", p.name || p.id, p.ref, `${(p.visible_properties || []).length} props`)).join("") || "<span class='sub' style='margin:0'>—</span>"}</div>`
-      : omBoundaryNote(`No components compose this ontology yet — add a connector mapping + projection in the <a href="/__ioi/pipeline?ontology=${enc(oid)}">Pipeline Builder</a>. Components appear only once real composition exists.`));
+  const globalRail = ioiGlobalRailHtml({ label: "Solution Designer", href: "/__ioi/studio/designer", iconUri: DSG_APP_TILE_URI, railVariant: "rv-pipe rv-dsg", viewAll: true, star: false, badges: true, aipGradient: true, acctMuted: true });
 
-  // RESOURCES — what the composition generates (materialized sets + surface descriptors).
-  const resourcesPane = `<h2 id="designer-resources">Resources ${sub(`— what this composition generates (${resourceCount})`)}</h2>`
-    + (resourceCount
-      ? `<div class="chips" style="margin:0 0 6px"><span class="chiplabel">Object sets</span>${mySets.map((s) => compChip("📦", `${s.count || 0} obj`, s.ref, s.object_type_id)).join("") || "<span class='sub' style='margin:0'>none</span>"}</div>`
-        + `<div class="chips" style="margin:0 0 6px"><span class="chiplabel">Surface descriptors</span>${myApps.length ? myApps.map((a) => compChip("🖥", a.name || a.domain_app_id, a.domain_app_ref, a.surface_descriptor_ref || "")).join("") : "<span class='sub' style='margin:0'>none — no domain-app surfaces generated yet (named gap)</span>"}</div>`
-      : omBoundaryNote(`This composition has generated <b>no resources</b> yet — materialize a set from the <a href="/__ioi/pipeline?ontology=${enc(oid)}">pipeline</a> to see it here. Surface descriptors (domain-app surfaces) appear once a domain app is composed.`));
+  const header = `<header class="dsg-header">
+    <span class="dsg-hchip" aria-hidden="true"></span>
+    <h1 class="dsg-htitle">Solution Designer</h1>
+    <div class="dsg-hright">
+      <span class="dsg-hbtn success gap" aria-disabled="true" title="Diagram authoring is a reference-only lane — nothing is authored or saved on this surface (named gap)">${bpIcon("plus")}<span>New Diagram</span></span>
+      <span class="dsg-hbtn outlined gap" aria-disabled="true" title="Reference help lane (named gap)"><span>Help</span>${bpIcon("help")}</span>
+    </div>
+  </header>`;
 
-  const gaps = omBoundaryNote(`This is a <b>read-only design map</b> over real composition truth. Unsupported Designer lanes — in-canvas authoring, save/open, drag-to-reference, load-lineage into the canvas — are <b>named gaps</b> (no authority contract yet), not silently hidden. Sibling Studio seeds stay reference-only too: the <a href="/__apps/machinery">machinery</a> process/state-machine graph (data lanes unbound), the <a href="/__apps/workshop">workshop</a> and module builders. The <a href="/__apps/designer">Designer reference capture ↗</a> is the familiar baseline, never a rebound surface.`);
+  const hero = `<section class="dsg-hero">
+    <img class="dsg-heroimg" src="${DSG_HERO_URI}" alt="" aria-hidden="true">
+    <div class="dsg-heroct">
+      <h3 class="dsg-h1">Solution Designer</h3>
+      <p class="dsg-desc">Solution Designer helps you to transform business problems into Foundry solutions using a graph-based interface, with examples, editing tools, and resource links for collaborative and iterative design.</p>
+    </div>
+  </section>`;
 
-  const summary = `<div class="chips" style="margin:10px 0 12px"><span class="pill ok">design map</span> <span class="sub" style="margin:0">${conceptCount} concept${conceptCount === 1 ? "" : "s"} · ${componentCount} component${componentCount === 1 ? "" : "s"} · ${resourceCount} resource${resourceCount === 1 ? "" : "s"} for <b>${CX_ESC(selected.domain || selected.id)}</b></span></div>`;
-  return automationsShell("Designer", head + switcher + summary + banner + conceptsPane + componentsPane + resourcesPane + gaps);
+  const aipCard = `<div class="dsg-aipcard">
+    <img class="dsg-aipico" src="${DSG_AIP_ICON_URI}" width="60" height="52" alt="" aria-hidden="true">
+    <div class="dsg-aipcopy">
+      <h4 class="dsg-aipt">Have a workflow in mind? Use AIP Architect to help you plan it.</h4>
+      <div class="dsg-aipsub">Answer a few questions to get AIP suggestions on how to implement your workflow in Foundry.</div>
+    </div>
+    <span class="dsg-planbtn gap" aria-disabled="true" title="AIP Architect planning is a reference-only lane — no planning assistant is bound to this surface (named gap)"><span>Start planning</span>${bpIcon("arrow-right")}</span>
+  </div>`;
+
+  // The template gallery is the reference's own static template-library strip (vendor chrome, not
+  // estate data) — embedded VERBATIM from the capture, like the #48 marketplace hero. The next-arrow
+  // is a real (disabled) control overlaid transparently on its verbatim pixels.
+  const gallery = `<div class="dsg-gallery">
+    <div class="dsg-galhead"><span class="dsg-galt">Explore our library of reference solution architecture diagrams</span><span class="dsg-browse gap" aria-disabled="true" title="Template browsing is a reference-only lane (named gap)">${bpIcon("manual")}<span>Browse all</span></span></div>
+    <img class="dsg-strip" src="${DSG_GALLERY_STRIP_URI}" width="961" height="202" alt="Reference solution-architecture template previews (verbatim capture chrome)">
+    <span class="dsg-galarrow gap" aria-disabled="true" title="Template pagination is a reference-only lane (named gap)"></span>
+  </div>`;
+
+  const viewRow = `<div class="dsg-viewrow">
+    <span class="dsg-viewlbl">View</span>
+    <span class="dsg-pill on">Recents</span>
+    <span class="dsg-pill gap" aria-disabled="true" title="Favorites are not recorded on the ODK object plane (named gap)">Favorites</span>
+    <span class="dsg-open gap" aria-disabled="true" title="Diagram open is a reference-only lane — rows below select a composition instead (named gap)">${bpIcon("folder-open")}<span>Open Diagram</span></span>
+  </div>`;
+
+  const table = `<div class="dsg-table">
+    <div class="dsg-thead"><span class="dsg-th name">Diagram</span><span class="dsg-th">Creator</span><span class="dsg-th">Last edited by</span><span class="dsg-th">Last viewed</span></div>
+    <div class="dsg-rows">${rowsHtml}</div>
+  </div>`;
+
+  const css = `:root{color-scheme:light}*{box-sizing:border-box}
+    body{margin:0;background:#fff;color:#1c2127;font:14px/1.28581 Source-Sans-Pro,Helvetica,sans-serif}
+    a{color:#215db0;text-decoration:none}
+    .dsg-shell{display:flex;height:100vh;width:100vw;overflow:hidden}
+    ${IOI_GRAIL_CSS}
+    .rv-dsg .og-gappico{background-color:rgba(45,114,210,.1)}
+    .rv-dsg .og-gsecrow{padding:30px 7px 5px 5px}
+    .rv-dsg .og-gitem.on{margin-right:-11px}
+    .dsg-main{flex:1;min-width:0;display:flex;flex-direction:column;height:100vh}
+    .dsg-header{flex:0 0 51px;display:flex;align-items:center;background:#fff;box-shadow:0 1px 0 0 #d3d8de;z-index:6}
+    .dsg-hchip{width:50px;height:50px;flex:0 0 50px;background:rgba(63,166,218,.1) url('${DSG_APP_TILE_URI}') center/24px no-repeat;box-shadow:inset -1px 0 0 0 rgba(63,166,218,.25)}
+    .dsg-htitle{font-size:16px;line-height:36px;font-weight:600;color:#404854;margin:0 0 0 12px;flex:0 0 auto}
+    .dsg-hright{margin-left:auto;display:flex;align-items:flex-start;gap:10px;padding-right:20px}
+    .dsg-hbtn{display:inline-flex;align-items:center;gap:8px;height:30px;margin-top:10px;padding:0 8px;border-radius:4px;font-size:14px;line-height:18px;cursor:default}
+    .dsg-hbtn.success{background:#238551;color:#fff;box-shadow:inset 0 0 0 1px rgba(17,20,24,.2),0 1px 2px rgba(17,20,24,.1)}
+    .dsg-hbtn.success svg{color:#fff}
+    .dsg-hbtn.outlined{border:1px solid rgba(95,107,124,.25);padding:0 8px;color:#1c2127}
+    .dsg-hbtn.outlined span{line-height:16.1px}
+    .dsg-hbtn.outlined svg{color:#5f6b7c}
+    .dsg-body{flex:1 1 auto;min-width:0;overflow-y:auto;background:#f6f7f9}
+    .dsg-content{max-width:1090px;margin:0 auto;padding:0 45px}
+    .dsg-hero{position:relative;background:#fff;height:179px;box-shadow:0 1px 0 0 rgba(17,20,24,.15)}
+    .dsg-heroct{position:relative;max-width:1040px;height:100%;margin:0 auto;padding:0 20px;background:linear-gradient(90deg,#fff 575px,rgba(255,255,255,0) 100%)}
+    .dsg-heroimg{position:absolute;right:0;top:0;width:650px;height:179px}
+    .dsg-h1{position:relative;font-size:22px;line-height:25px;font-weight:600;color:#1c2127;margin:0;padding-top:20px}
+    .dsg-desc{position:relative;width:625px;font-size:14px;line-height:18.0013px;color:#5f6b7c;margin:0;padding-top:5px}
+    .dsg-aipcard{position:relative;z-index:2;margin-top:-55px;height:92px;background:#fff;border-radius:4px;box-shadow:0 0 0 1px #7961db;display:flex;align-items:flex-start}
+    .dsg-aipico{margin:20px 0 0 20px;flex:0 0 60px}
+    .dsg-aipcopy{margin-left:15px;min-width:0;flex:1}
+    .dsg-aipt{font-size:18px;line-height:21px;font-weight:600;color:#1c2127;margin:24px 0 0}
+    .dsg-aipsub{font-size:14px;line-height:18px;color:#1c2127;margin-top:5px}
+    .dsg-planbtn{display:inline-flex;align-items:center;gap:9px;height:40px;margin:26px 20px 0 0;padding:0 14px 0 16px;border-radius:4px;background:#7961db;color:#fff;font-size:16px;line-height:20.6px;cursor:default;box-shadow:inset 0 0 0 1px rgba(17,20,24,.2),0 1px 2px rgba(17,20,24,.1);flex:0 0 auto}
+    .dsg-planbtn svg{color:#fff}
+    .dsg-gallery{position:relative;margin-top:30px;height:279px;background:#fff;border-radius:4px;box-shadow:0 0 0 1px rgba(0,0,0,.15),0 1px 2px rgba(0,0,0,.02)}
+    .dsg-galhead{display:flex;align-items:flex-start;padding:20px 20px 0}
+    .dsg-galt{flex:1;font-size:16px;line-height:19px;font-weight:600;color:#1c2127;margin-top:2.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .dsg-browse{display:inline-flex;align-items:center;gap:8px;height:24px;padding:0 8px;border-radius:4px;color:#215db0;font-size:14px;line-height:16.1px;cursor:default}
+    .dsg-browse svg{color:#215db0}
+    .dsg-strip{position:absolute;left:20px;top:58px;width:961px;height:202px}
+    .dsg-galarrow{position:absolute;left:940px;top:144px;width:30px;height:30px;border-radius:50%;cursor:default}
+    .dsg-viewrow{display:flex;align-items:center;margin-top:40px;height:30px}
+    .dsg-viewlbl{font-size:14px;line-height:18px;color:#1c2127}
+    .dsg-pill{display:inline-flex;align-items:center;height:30px;margin-left:10px;padding:6px 10px;border-radius:30px;font-size:14px;line-height:18px;cursor:default}
+    .dsg-pill.on{background:rgba(45,114,210,.3);color:#184a90;font-weight:600}
+    .dsg-pill.gap{background:rgba(143,153,168,.15);color:#1c2127}
+    .dsg-open{display:inline-flex;align-items:center;gap:8px;height:30px;margin-left:auto;padding:0 8px;border-radius:4px;color:#1c2127;font-size:14px;line-height:16.1px;cursor:default}
+    .dsg-open svg{color:#5f6b7c}
+    .dsg-table{margin-top:10px;min-height:714px;background:#fff;border-radius:4px;box-shadow:0 0 0 1px rgba(17,20,24,.15)}
+    .dsg-thead{display:flex;height:30px;box-shadow:inset 0 -1px 0 #dcdcdd}
+    .dsg-th{width:16.667%;padding:8px 0 0 11px;font-size:12px;line-height:15.43px;color:#5f6b7c;text-transform:uppercase}
+    .dsg-th.name{width:50%;padding-left:20px}
+    .dsg-row{display:flex;height:57px;box-shadow:inset 0 -1px 0 #dcdcdd;color:#1c2127}
+    .dsg-cell{width:16.667%;padding:19.5px 0 0 11px;font-size:14px;line-height:18px}
+    .dsg-cell.name{width:50%;padding:11px 0 0 20px;display:flex;align-items:flex-start}
+    .dsg-rowico{width:16px;height:16px;flex:0 0 16px;margin-top:2px;background:url('${DSG_ROW_DOC_URI}') center/16px no-repeat}
+    .dsg-rowdata{margin-left:7px;min-width:0;flex:1;padding-right:16px}
+    .dsg-rowname{display:block;font-size:14px;line-height:18px;color:#1c2127;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .dsg-rowstar{display:none}
+    .dsg-selpill{display:inline-block;margin-left:8px;padding:0 6px;border-radius:9px;background:rgba(45,114,210,.15);color:#215db0;font-size:11px;line-height:16px;vertical-align:1px}
+    .dsg-rowpath{display:block;font-size:12px;line-height:15.43px;color:#5f6b7c;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .dsg-dash{color:#5f6b7c}
+    .dsg-empty{padding:24px 20px;font-size:14px;color:#5f6b7c}
+    .dsg-truth{margin-top:26px;padding-bottom:40px}
+    .dsg-trutht{font-size:18px;font-weight:600;color:#1c2127;margin:0 0 10px}
+    .dsg-truthsub{font-size:13px;font-weight:400;color:#5f6b7c;margin-left:8px}
+    .dsg-switch{margin:0 0 12px;display:flex;gap:8px;flex-wrap:wrap}
+    .dsg-schip{display:inline-flex;padding:3px 10px;border-radius:12px;background:rgba(143,153,168,.15);color:#1c2127;font-size:12px}
+    .dsg-schip.on{background:rgba(45,114,210,.2);color:#184a90;font-weight:600}
+    .dsg-truthcols{display:flex;gap:16px;align-items:flex-start}
+    .dsg-truthcol{flex:1;min-width:0;background:#fff;border-radius:4px;box-shadow:0 0 0 1px rgba(17,20,24,.15);padding:14px 16px}
+    .dsg-truthcol h3{font-size:14px;font-weight:600;margin:0 0 8px;color:#1c2127}
+    .dsg-truthcol ul{list-style:none;margin:0;padding:0}
+    .dsg-truthitem{padding:5px 0;border-bottom:1px solid #eef0f2;font-size:13px}
+    .dsg-truthitem:last-child{border-bottom:0}
+    .dsg-meta{color:#5f6b7c;font-weight:400;font-size:12px}
+    .dsg-ref{display:block;font-size:11px;color:#5f6b7c;margin-top:1px;word-break:break-all}
+    .dsg-gapnote{font-size:13px;color:#5f6b7c;margin:4px 0}
+    .dsg-foot{font-size:12px;line-height:1.6;color:#7b8494;margin-top:18px}`;
+
+  return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Solution Designer</title><style>${css}</style></head>
+    <body><div class="dsg-shell">${globalRail}<div class="dsg-main">${header}<div class="dsg-body">${hero}<main class="dsg-content">${aipCard}${gallery}${viewRow}${table}${truth}</main></div></div></div></body></html>`;
 }
 
 // ============================ STUDIO · MACHINERY (process/state-machine DEFINITIONS, read-only)
@@ -8769,7 +8916,7 @@ const server = http.createServer((req, res) => {
       ]);
       const selectedOntology = new URL(req.url, "http://x").searchParams.get("ontology") || "";
       res.writeHead(200, HTMLH);
-      res.end(renderStudioDesigner({
+      res.end(renderDesignerPort({
         ontologies: o.ontologies || [],
         connector_mappings: cm.connector_mappings || [],
         policy_views: pv.policy_bound_data_views || [],

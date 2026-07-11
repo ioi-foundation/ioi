@@ -1,14 +1,14 @@
 {
  "schema": "ioi.hypervisor.reference-clean-sweep.v1",
- "swept_at": "2026-07-10T23:29:08.198Z",
+ "swept_at": "2026-07-11T00:51:51.301Z",
  "serve": "http://127.0.0.1:4173",
  "mirror": "http://127.0.0.1:9225",
  "total_seeds": 39,
  "by_state": {
-  "needs_origin_alignment": 12,
+  "data_clean": 8,
+  "needs_origin_alignment": 11,
   "errored_reference": 6,
   "shell_clean_only": 10,
-  "data_clean": 7,
   "data_failed": 4
  },
  "doctrine": "reference cleanliness only — no ports, no promotions, parity_class untouched; local mirror lanes only (no live dependency); screenshots corroborate, DOM/text/network classify",
@@ -17,14 +17,14 @@
   {
    "slug": "designer",
    "owner": "Studio",
-   "parity_class": "substrate_bound",
+   "parity_class": "daemon_wired",
    "grammar": "editor_canvas",
    "reference_path": "http://localhost:9225/workspace/solution-design/",
    "candidate_surface": "/__ioi/studio/designer",
    "substrate_surface": "/__ioi/studio/designer",
-   "clean_state": "needs_origin_alignment",
-   "reason": "proxy lane shows a failure (\"Failed to load favorites\") with CORS-blocked session lanes, but the capture-origin lane (http://localhost:9225) renders the app failure-free WITH data (rows 12/0 · nodes 0 · cards 64 · lines 690) — align the reference URL like pipeline #38/#39",
-   "lane_used": "origin",
+   "clean_state": "data_clean",
+   "reason": "shell regions [rail, header, body] + data evidence (rows 12/0 · nodes 0 · cards 64 · lists 0 · lines 690)",
+   "lane_used": "override",
    "shell_regions": [
     "rail",
     "header",
@@ -50,7 +50,18 @@
     "Support",
     "Account"
    ],
-   "matrix_landmarks_present": [],
+   "matrix_landmarks_present": [
+    "Solution Designer",
+    "New Diagram",
+    "Have a workflow in mind? Use AIP Architect to help you plan it.",
+    "Start planning",
+    "Explore our library of reference solution architecture diagrams",
+    "Browse all",
+    "Recents",
+    "Favorites",
+    "Open Diagram",
+    "LAST VIEWED"
+   ],
    "body_sample": "Skip to content\nHome\nSearch…\nctrl + J\nNotifications\nWhat's New\nRecent\nFiles\nOntology\nApplications\nAPPLICATIONS\nView all\nTraining\nAIP Assist\nctrl + shift + U\nSupport\nLJ\nAccount\nSolution Designer\nNew Diagram\nHelp\nSolution Designer\nSolution Designer helps you to transform business problems into Foundry solutions using a graph-based interface, with examples, editing tools, and resource links for collaborative and iterative design.\nHave a workflow in mind? Use AIP Architect to help you plan it.\nAnswer a few questions to get AIP suggestions on how to implement your workflow in Foundry.\nStart plannin",
    "data_evidence": {
     "table_rows": 12,
@@ -112,9 +123,27 @@
      "cors_signals": 0,
      "console_errors": 1,
      "screenshot": ".artifacts/reference-clean-sweep/designer-origin.png"
+    },
+    {
+     "lane": "override",
+     "url": "http://localhost:9225/workspace/solution-design/",
+     "loaded": true,
+     "nav_error": "",
+     "regions": [
+      "rail",
+      "header",
+      "body"
+     ],
+     "data_score": 7,
+     "chunk_404s": 0,
+     "api_failures": 0,
+     "cross_origin_9225": 0,
+     "cors_signals": 0,
+     "console_errors": 1,
+     "screenshot": ".artifacts/reference-clean-sweep/designer-override.png"
     }
    ],
-   "screenshot": ".artifacts/reference-clean-sweep/designer-origin.png"
+   "screenshot": ".artifacts/reference-clean-sweep/designer-override.png"
   },
   {
    "slug": "machinery",

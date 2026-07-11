@@ -119,7 +119,10 @@ ok("control 'pipeline' evidences the ORIGIN-ALIGNMENT pattern (classified on its
   const dist = matrix && matrix.by_parity_class;
   const counts = { substrate_bound: 0, reference_capture: 0, daemon_wired: 0, reference_ported: 0 };
   for (const m of rows) counts[m.parity_class] = (counts[m.parity_class] || 0) + 1;
-  ok("parity distribution is internally consistent (header matches rows; certified promotions accounted)", JSON.stringify(dist) === JSON.stringify(Object.fromEntries(Object.entries(counts).filter(([, v]) => v > 0))) || JSON.stringify(dist) === JSON.stringify(counts), JSON.stringify(dist));
+  // Order-independent compare: by_parity_class key order follows generator insertion order and
+  // legally shifts as seeds promote (the #49 promotion reordered it) — the COUNTS are the contract.
+  const normDist = (o) => JSON.stringify(Object.fromEntries(Object.entries(o || {}).filter(([, v]) => v > 0).sort((a, b) => a[0].localeCompare(b[0]))));
+  ok("parity distribution is internally consistent (header matches rows; certified promotions accounted)", normDist(dist) === normDist(counts), JSON.stringify(dist));
   ok("daemon_wired seeds are clean CERTIFIED controls in the matrix (data_clean + shell_pixel_certified)", rows.filter((m) => m.parity_class === "daemon_wired").every((m) => m.reference_clean_state === "data_clean" && m.shell_pixel_certified === true));
   ok("reference_ported (explorer) names its blocker in the matrix", rows.filter((m) => m.parity_class === "reference_ported").every((m) => m.reference_clean_reason && m.reference_clean_reason.length > 24));
 }

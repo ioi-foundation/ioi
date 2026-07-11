@@ -1,28 +1,35 @@
 #!/usr/bin/env node
-// SUBSTRATE-TRUTH verifier (reclassified substrate_bound by the #31 Reference-UX-Port reset — checks DAEMON TRUTH, NOT reference UX parity) — Studio · Designer done-bar (designer seed only).
+// PIXEL-CERTIFIED PARITY verifier — Studio · Solution Designer done-bar (#49, designer seed only).
 //
-// The parity phase's seventh surface, and the first of the Studio canvas family. The reference
-// capture (/__apps/designer = the solution-design canvas) is the familiar typed concept/component/
-// resource DESIGN canvas; the IOI-owned /__ioi/studio/designer renders the SAME grammar as a
-// READ-ONLY typed map over REAL daemon composition truth:
-//   * CONCEPTS   — an ontology's canonical object model (object / value / action / link types);
-//   * COMPONENTS — the composition that shapes them (connector mappings · policy views · projections);
-//   * RESOURCES  — what that composition generates (materialized object sets · domain-app descriptors).
-// Nothing is authored/saved here.
-//
-// SCOPE (tight, by direction): only `designer` binds. `machinery`, `workshop`, `module` stay
-// reference_capture. Owner surface stays /__ioi/agent-studio (no route rename); the designer gets a
-// dedicated /__ioi/studio/designer surface the owner links to.
-//
-// Because the map is a read-only projection over real ODK composition, the guard is a CROSS-CHECK:
-// build a real ontology + its full ladder (mapping → view → projection → materialized set), then
-// assert the map renders those exact concepts/components/resources — and an unbound ontology shows
-// honest-empty component/resource lanes (no fabrication).
+// The EIGHTH faithful port and the FIRST from the origin-alignment queue (post-#48 clean-pool
+// close). The #44 sweep proved the designer reference data-bearing on the capture-origin lane
+// (localhost:9225/workspace/solution-design/) while the /__apps/designer proxy lane manufactures
+// CORS noise + a favorites-load failure; #49 stamps reference_url_override onto the honest lane,
+// REBUILDS /__ioi/studio/designer in place as the faithful light Solution-Designer landing shell,
+// and certifies shell-pixel parity against it. What this asserts:
+//   1. MATRIX: designer is daemon_wired at /__ioi/studio/designer, origin-aligned
+//      (reference_url_override), landmark-pinned, shell_pixel_certified with a REAL committed
+//      NON-pinned certification; the census FLOOR accepts the eighth certified surface.
+//   2. REFERENCE: the origin lane renders the data-bearing landing (valid, failure-free); the
+//      proxy lane stays served AND documented-insufficient (the sweep reason names why).
+//   3. SUBSTRATE TRUTH (the same cross-check ladder as the pre-port verifier): a real ontology +
+//      full ODK ladder (mapping → policy view → projection → materialized set) + a real DomainApp
+//      surface descriptor, then the port must render:
+//        * the fixture ontology as a live diagram ROW (name + ref + composition census);
+//        * CONCEPTS (Loan object · Money value · Approve action) from the real COM;
+//        * COMPONENTS (mapping/view/projection) by their REAL refs;
+//        * RESOURCES (materialized set ref + "N obj" count · DomainApp + surface-descriptor refs);
+//        * honest em-dashes for creator/edited-by/viewed (no principal/view tracking on the plane);
+//        * a fresh ontology stays honest-empty (no fabricated components/resources).
+//   4. FAITHFUL SHELL: reference landmarks render; unsupported authoring/planning/browse lanes are
+//      DISABLED IN PLACE (named gaps), never silently hidden; read-only; brand-clean.
+//   5. NO body pixel claim: the certification is SHELL-scoped; diagram rows are masked live data.
 //
 // Usage: node apps/hypervisor/scripts/verify-hypervisor-app-parity-studio-designer.mjs
 // Exit 2 = BLOCKED.
 
 import http from "node:http";
+import { readFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -31,6 +38,7 @@ import { mintApprovalGrant } from "../../../scripts/lib/mint-approval-grant.mjs"
 const SERVE = (process.env.IOI_HYPERVISOR_SERVE_URL || "http://127.0.0.1:4173").replace(/\/$/, "");
 const DAEMON = (process.env.IOI_HYPERVISOR_DAEMON_URL || "http://127.0.0.1:8765").replace(/\/$/, "");
 const here = path.dirname(fileURLToPath(import.meta.url));
+const appRoot = path.resolve(here, "..");
 
 const results = [];
 const ok = (name, cond, detail) => { results.push({ name, pass: !!cond, detail: detail || "" }); };
@@ -47,20 +55,40 @@ async function run() {
   const cleanup = [];
   const SENTINEL = "designer-parity-bearer";
 
-  // 0. Matrix current + honest.
+  // 0. Matrix current + honest: daemon_wired, origin-aligned, landmark-pinned, census floor.
   const check = spawnSync("node", [path.join(here, "build-app-parity-matrix.mjs"), "--check"], { encoding: "utf8" });
   ok("parity matrix is current (regenerated == committed)", check.status === 0, (check.stderr || "").trim().slice(0, 80));
-  const matrix = JSON.parse(spawnSync("node", ["-e", `import(${JSON.stringify(path.join(here, "..", "harvest-app-parity-matrix.json"))}, { with: { type: "json" } }).then(m => console.log(JSON.stringify(m.default)))`], { encoding: "utf8" }).stdout || "{}");
+  const matrix = JSON.parse(readFileSync(path.join(appRoot, "harvest-app-parity-matrix.json"), "utf8"));
   const bySlug = Object.fromEntries((matrix.seeds || []).map((s) => [s.slug, s]));
-  ok("matrix binds designer as substrate_bound → /__ioi/studio/designer (Studio)", bySlug.designer?.parity_class === "substrate_bound" && bySlug.designer?.substrate_surface === "/__ioi/studio/designer" && bySlug.designer?.surface_name === "Studio");
-  ok("matrix keeps workshop + module reference_capture (designer's siblings NOT over-claimed)", ["workshop", "module"].every((k) => bySlug[k]?.parity_class === "reference_capture"));
-  ok("no 'covered' anywhere; prior reclassified surfaces still bound (substrate_bound|daemon_wired) (pipeline/lineage/vertex/jobs/incidents/evalsuites)", !(matrix.seeds || []).some((s) => s.parity_class === "covered") && ["pipeline", "lineage", "vertex", "jobs", "incidents", "evalsuites"].every((k) => ["substrate_bound", "daemon_wired", "reference_ported", "reference_port_pending"].includes(bySlug[k]?.parity_class)));
+  const row = bySlug.designer;
+  ok("matrix: designer is daemon_wired at /__ioi/studio/designer (Studio) with Designer-IA landmarks", row && row.parity_class === "daemon_wired" && row.candidate_surface === "/__ioi/studio/designer" && row.surface_name === "Studio" && Array.isArray(row.reference_landmarks) && row.reference_landmarks.length >= 8, row ? `class=${row.parity_class}` : "row missing");
+  ok("matrix: the reference is ORIGIN-ALIGNED (reference_url_override → localhost:9225/workspace/solution-design/)", row && row.reference_url_override === "http://localhost:9225/workspace/solution-design/");
+  ok("matrix keeps workshop + module reference_capture and machinery substrate_bound (siblings NOT over-claimed)", ["workshop", "module"].every((k) => bySlug[k]?.parity_class === "reference_capture") && bySlug.machinery?.parity_class === "substrate_bound");
+  ok("the estate census accepts designer among the certified daemon_wired surfaces (>= 8 since #49); reference_capture stays the honest majority", (matrix.by_parity_class?.daemon_wired || 0) >= 8 && (matrix.by_parity_class?.reference_capture || 0) >= 20, JSON.stringify(matrix.by_parity_class));
 
-  // 1. Reference baseline.
+  // 0b. Shell-pixel certification is REAL, committed, non-pinned, SHELL-scoped.
+  let cert = null;
+  try { cert = JSON.parse(readFileSync(path.join(appRoot, row.shell_pixel_certification_artifact), "utf8")); } catch { /* */ }
+  ok("matrix: designer is shell_pixel_certified with a committed evidence pointer, still daemon_wired", row && row.shell_pixel_certified === true && row.shell_pixel_certification_artifact === "pixel-certifications/designer.json" && row.parity_class === "daemon_wired");
+  ok("the committed certification is REAL: designer slug, certified, NON-pinned, both desktop viewports certified, mobile honestly not-supported", cert && cert.schema === "ioi.hypervisor.shell-pixel-certification.v1" && cert.slug === "designer" && cert.shell_pixel_certified === true && cert.viewports_pinned === false && (cert.viewports || []).length === 2 && cert.viewports.every((v) => v.certified === true) && /not_supported/.test(cert.mobile), cert ? cert.viewports.map((v) => `${v.viewport}: dilated ${v.metrics.shell_diff_dilated_pct}% raw ${v.metrics.shell_diff_raw_pct}%`).join(" | ") : "cert missing");
+  ok("the certification passed the visual gates on BOTH viewports (theme + structure + landmarks 10/10, both sides valid, against the ORIGIN reference)", cert && cert.reference_url === "http://localhost:9225/workspace/solution-design/" && cert.viewports.every((v) => v.gates && v.gates.theme_match && v.gates.structural_parity && !v.gates.reference_errored && !v.gates.ioi_errored && v.gates.landmark_covered === v.gates.landmark_applicable));
+  ok("NO full-body pixel claim: the certification is explicitly SHELL-scoped (diagram rows are the masked live data, verified semantically below)", cert && /SHELL/i.test(cert.note || "") && /body/i.test(cert.note || ""));
+
+  // 0c. Sweep contract: designer's reference is data_clean on the aligned lane; the proxy lane's
+  // insufficiency stays DOCUMENTED (the reason names the CORS/failure evidence).
+  let sweep = null;
+  try { sweep = JSON.parse(readFileSync(path.join(appRoot, "reference-clean-sweep.json"), "utf8")); } catch { /* */ }
+  const sd0 = sweep && (sweep.seeds || []).find((s) => s.slug === "designer");
+  ok("clean sweep: designer classifies data_clean on the aligned (origin/override) lane, with real data evidence", sd0 && sd0.clean_state === "data_clean" && ["origin", "override"].includes(sd0.lane_used) && (sd0.data_evidence?.table_rows > 0 || sd0.data_evidence?.cards > 0), sd0 ? `${sd0.clean_state} via ${sd0.lane_used}` : "sweep row missing");
+  ok("clean sweep: the proxy-lane insufficiency stays documented (CORS/failure evidence in the recorded lanes)", sd0 && (sd0.lanes_summary || []).some((l) => l.lane === "proxy" && (l.cors_signals > 0 || l.api_failures > 0 || l.console_errors > 0)), sd0 ? JSON.stringify((sd0.lanes_summary || []).map((l) => `${l.lane}:cors${l.cors_signals}`)) : "");
+
+  // 1. Reference lanes: the ORIGIN lane renders the data-bearing landing; the proxy lane still serves.
+  const origin = await page("http://localhost:9225/workspace/solution-design/");
+  ok("origin-aligned reference renders the Solution Designer landing (valid, data-bearing)", origin.status === 200 && /Solution Designer/.test(origin.text));
   const ref = await page(`${SERVE}/__apps/designer`);
-  ok("reference baseline /__apps/designer boots the design-canvas grammar", ref.status === 200 && /<title>[^<]*(Design|Solution)/i.test(ref.text));
+  ok("the /__apps/designer proxy lane still serves (kept as the familiar baseline; documented insufficient — never silently removed)", ref.status === 200 && /<title>[^<]*(Design|Solution)/i.test(ref.text));
 
-  // 2. Build a real ontology + full ladder → the composition the map reflects.
+  // 2. Build a real ontology + full ladder → the composition the port must reflect.
   const rows = [{ id: "D-1", disp: "First Loan", amt: 1250.5 }, { id: "D-2", disp: "Second Loan", amt: 90000 }];
   const srv = http.createServer((req, res) => {
     if (req.headers.authorization !== `Bearer ${SENTINEL}`) { res.writeHead(401); return res.end(); }
@@ -113,27 +141,34 @@ async function run() {
 
   // A real DomainApp RESOURCE: a domain_app surface descriptor carrying this ontology_ref → a DomainApp
   // whose ontology_refs (an ARRAY, DERIVED from the descriptor) includes it. This is the resource the
-  // Resources lane must render — the regression the review caught (filter was on the singular field).
+  // Resources lane must render — the regression the earlier review caught (filter was on the singular field).
   const sd = (await jd("POST", "/v1/hypervisor/odk/surface-descriptors", { name: "dsg-parity-sd", composition_pattern: "domain_app", ontology_ref: ont.ref, recipe_refs: [] })).j.surface_descriptor;
   const dapp = (await jd("POST", "/v1/hypervisor/domain-apps", { name: "Dsg Parity App", description: "draft", surface_descriptor_ref: sd?.ref, visibility: "private" })).j.domain_app;
   if (dapp?.domain_app_id) cleanup.unshift(["DELETE", `/v1/hypervisor/domain-apps/${dapp.domain_app_id}`]);
   if (sd?.id) cleanup.unshift(["DELETE", `/v1/hypervisor/odk/surface-descriptors/${sd.id}`]);
   ok("fixture sanity: the DomainApp derived ontology_refs (array) includes this ontology", Array.isArray(dapp?.ontology_refs) && dapp.ontology_refs.includes(ont.ref), JSON.stringify(dapp?.ontology_refs || null));
 
-  // 3. IOI surface = the design-map grammar over real composition.
+  // 3. The PORT = the faithful landing shell over real composition.
   const dsg = await page(`${SERVE}/__ioi/studio/designer?ontology=${encodeURIComponent(ont.id)}`);
   const t = dsg.text;
-  ok("IOI /__ioi/studio/designer renders the design-map grammar (title + concepts/components/resources lanes)", dsg.status === 200 && /<h1[^>]*>Designer/.test(t) && /id="designer-concepts"/.test(t) && /id="designer-components"/.test(t) && /id="designer-resources"/.test(t));
+  ok("the port renders the faithful Solution-Designer landing shell (header + hero + AIP card + gallery + View row + table + truth band)", dsg.status === 200 && /class="dsg-htitle">Solution Designer</.test(t) && /Have a workflow in mind\? Use AIP Architect/.test(t) && /Explore our library of reference solution architecture diagrams/.test(t) && /class="dsg-viewrow"/.test(t) && /class="dsg-thead"/.test(t) && /id="designer-truth"/.test(t));
+  ok("all matrix reference landmarks render on the port", (row.reference_landmarks || []).every((l) => t.toLowerCase().includes(String(l).toLowerCase())), (row.reference_landmarks || []).filter((l) => !t.toLowerCase().includes(String(l).toLowerCase())).join(" · ") || "10/10");
+  // Diagram ROWS = real ontologies (the estate's solution designs).
+  ok("the fixture ontology renders as a live diagram ROW (name + ref + composition census in the row path)", /class="dsg-row"/.test(t) && t.includes("dsg-parity") && t.includes(ont.ref) && /concepts · \d+ components · \d+ resources/.test(t));
+  ok("creator / last-edited-by / last-viewed cells are HONEST em-dashes naming the gap (no principal/view tracking on the ODK plane)", /dsg-dash/.test(t) && /No principal is recorded on the ODK object plane \(named gap\)/.test(t) && /View tracking is not recorded on the ODK object plane \(named gap\)/.test(t));
   // CONCEPTS = the real object model.
-  ok("CONCEPTS render the real object model (object type Loan + Money value type + Approve action)", t.includes("Loan") && t.includes("Money") && t.includes("Approve") && /🧩 3/.test(t), "1 object + 1 value + 1 action + 0 link = 3 concepts");
+  ok("CONCEPTS render the real object model (Loan object · Money value · Approve action) with the census", t.includes("Loan") && t.includes("Money") && t.includes("Approve") && /1 object · 1 value · 1 action · 0 link types/.test(t));
   // COMPONENTS = the real composition refs.
   ok("COMPONENTS render the real mapping · policy view · projection refs (not fabricated labels)", mapRec?.ref && viewRec?.ref && projRec?.ref && t.includes(mapRec.ref) && t.includes(viewRec.ref) && t.includes(projRec.ref));
   // RESOURCES = the real generated set + the real DomainApp surface descriptor.
   ok("RESOURCES render the real materialized object set (ref + object count)", setRec?.ref && t.includes(setRec.ref) && new RegExp(`${setRec.count || 2} obj`).test(t));
   ok("RESOURCES render the real DomainApp surface descriptor (domain-app ref + surface-descriptor ref)", dapp?.domain_app_ref && t.includes(dapp.domain_app_ref) && sd?.ref && t.includes(sd.ref), dapp?.domain_app_ref || "no domain app");
 
-  // 4. NO AUTHORING — the map is read-only (no create/save form posting to the surface).
+  // 4. NO AUTHORING — read-only; unsupported lanes DISABLED IN PLACE (named gaps), never hidden.
   ok("the surface is READ-ONLY (no authoring form posts to /__ioi/studio/designer)", !/action="\/__ioi\/studio\/designer/.test(t));
+  const gapControls = ["New Diagram", "Help", "Start planning", "Browse all", "Favorites", "Open Diagram"];
+  ok("unsupported controls are DISABLED IN PLACE with named-gap titles (New Diagram · Help · Start planning · Browse all · Favorites · Open Diagram · gallery arrow)", gapControls.every((c) => new RegExp(`aria-disabled="true"[^>]*title="[^"]*named gap[^"]*"[^>]*>(?:<[^>]+>)*(?:<span>)?${c}|${c}(?:</span>)?(?:<svg[\\s\\S]{0,600}?)?</span>`).test(t)) && (t.match(/aria-disabled="true"/g) || []).length >= 7 && /dsg-galarrow gap/.test(t), `${(t.match(/aria-disabled="true"/g) || []).length} disabled controls`);
+  ok("named gaps prose: in-canvas authoring / New-Open Diagram / save-open / drag-to-reference / AIP planning / favorites / Browse all", /in-canvas authoring/.test(t) && /save\/open/.test(t) && /drag-to-reference/.test(t) && /AIP Architect planning/.test(t));
 
   // 5. Honest empty — a fresh ontology has concepts but NO components/resources (no fabrication).
   const fresh = (await jd("POST", "/v1/hypervisor/odk/domain-ontologies", { domain: "dsg-parity-fresh", canonical_object_model: { object_types: [{ id: "a", name: "Alpha", title_property: "t", properties: [{ id: "t", name: "T", value_type: "string" }] }], action_types: [{ id: "x", name: "X", kind: "modify_object", applies_to: "a" }] } })).j.ontology?.id;
@@ -141,11 +176,12 @@ async function run() {
   const ft = (await page(`${SERVE}/__ioi/studio/designer?ontology=${encodeURIComponent(fresh)}`)).text;
   ok("fresh ontology: CONCEPTS render but COMPONENTS + RESOURCES are honest-empty (no fabrication)", /Alpha/.test(ft) && /No components compose this ontology yet/.test(ft) && /generated <b>no resources<\/b> yet/.test(ft));
 
-  // 6. Named gaps + owner discoverability + brand-clean.
-  ok("named gaps: in-canvas authoring / save-open / drag-to-reference / load-lineage", /in-canvas authoring/.test(t) && /save\/open/.test(t) && /load-lineage/.test(t));
-  ok("sibling Studio seeds named reference-only (machinery process graph, workshop/module builders)", t.includes("/__apps/machinery") && t.includes("/__apps/workshop") && /workshop<\/a> and module builders/.test(t));
+  // 6. Discoverability + brand + verbatim-chrome honesty.
+  ok("sibling Studio seeds named reference-only (machinery process graph, workshop/module builders) + machinery substrate linked", t.includes("/__apps/machinery") && t.includes("/__apps/workshop") && t.includes("/__ioi/studio/machinery"));
   ok("owner discoverability: Designer links back to /__ioi/agent-studio, and the owner links to the designer", t.includes("/__ioi/agent-studio") && (await page(`${SERVE}/__ioi/agent-studio`)).text.includes("/__ioi/studio/designer"));
-  ok("reference capture linked as secondary; IOI surface brand-clean (no Palantir)", t.includes("/__apps/designer") && !/\bPalantir\b/.test(t));
+  ok("the origin-aligned reference + the insufficient proxy lane are BOTH linked and explained on the surface", t.includes("http://localhost:9225/workspace/solution-design/") && t.includes("/__apps/designer") && /CORS noise/.test(t));
+  ok("IOI surface brand-clean (no Palantir)", !/\bPalantir\b/.test(t));
+  ok("the template gallery is declared verbatim capture chrome (vendor template library, never estate data)", /verbatim capture chrome/i.test(t) || /Reference solution-architecture template previews \(verbatim capture chrome\)/.test(t));
 
   srv.close();
   for (const [method, p] of cleanup) await jd(method, p);
@@ -157,6 +193,6 @@ run().then(() => {
   let fail = 0;
   for (const r of results) { console.log(`  ${r.pass ? "PASS" : "FAIL"}  ${r.name}${r.detail ? `  (${r.detail})` : ""}`); if (!r.pass) fail++; }
   console.log(`\n${results.length - fail}/${results.length} passed`);
-  console.log(`substrate-truth-studio-designer readiness: ${fail ? "FAIL" : "OK"}`);
+  console.log(`app-parity-studio-designer readiness: ${fail ? "FAIL" : "OK"}`);
   process.exit(fail ? 1 : 0);
 }).catch((e) => { console.error("verifier crashed:", e); process.exit(1); });
