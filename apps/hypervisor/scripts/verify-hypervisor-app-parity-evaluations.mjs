@@ -59,7 +59,9 @@ async function run() {
   ok("parity matrix is current (regenerated == committed)", check.status === 0, (check.stderr || "").trim().slice(0, 80));
   const matrix = JSON.parse(spawnSync("node", ["-e", `import(${JSON.stringify(path.join(here, "..", "harvest-app-parity-matrix.json"))}, { with: { type: "json" } }).then(m => console.log(JSON.stringify(m.default)))`], { encoding: "utf8" }).stdout || "{}");
   const bySlug = Object.fromEntries((matrix.seeds || []).map((s) => [s.slug, s]));
-  ok("matrix binds evalsuites as substrate_bound → /__ioi/evaluations (Evaluations)", bySlug.evalsuites?.parity_class === "substrate_bound" && bySlug.evalsuites?.substrate_surface === "/__ioi/evaluations" && bySlug.evalsuites?.surface_name === "Evaluations");
+  // #54 PROMOTED evalsuites to daemon_wired (certified port at /__ioi/evaluations/evalsuites) —
+  // the substrate surface stays bound; the class pin became a set (the recurring frozen-pin lesson).
+  ok("matrix binds evalsuites (substrate_bound|daemon_wired) with the intact /__ioi/evaluations substrate (Evaluations)", ["substrate_bound", "daemon_wired"].includes(bySlug.evalsuites?.parity_class) && bySlug.evalsuites?.substrate_surface === "/__ioi/evaluations" && bySlug.evalsuites?.surface_name === "Evaluations");
   ok("matrix keeps analysis + quiver reference_capture (NOT over-claimed in this cut)", bySlug.analysis?.parity_class === "reference_capture" && bySlug.quiver?.parity_class === "reference_capture");
   ok("no 'covered' anywhere; prior reclassified surfaces still bound (substrate_bound|daemon_wired) (pipeline/lineage/vertex/jobs/incidents)", !(matrix.seeds || []).some((s) => s.parity_class === "covered") && ["pipeline", "lineage", "vertex", "jobs", "incidents"].every((k) => ["substrate_bound", "daemon_wired", "reference_ported", "reference_port_pending"].includes(bySlug[k]?.parity_class)));
 

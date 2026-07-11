@@ -1,13 +1,13 @@
 {
  "schema": "ioi.hypervisor.reference-clean-sweep.v1",
- "swept_at": "2026-07-11T08:48:34.687Z",
+ "swept_at": "2026-07-11T12:08:55.146Z",
  "serve": "http://127.0.0.1:4173",
  "mirror": "http://127.0.0.1:9225",
  "total_seeds": 39,
  "by_state": {
-  "data_clean": 12,
+  "data_clean": 13,
   "errored_reference": 6,
-  "needs_origin_alignment": 7,
+  "needs_origin_alignment": 6,
   "shell_clean_only": 10,
   "data_failed": 4
  },
@@ -1611,14 +1611,14 @@
   {
    "slug": "evalsuites",
    "owner": "Evaluations",
-   "parity_class": "substrate_bound",
+   "parity_class": "daemon_wired",
    "grammar": "table_list",
    "reference_path": "http://localhost:9225/workspace/evals/",
-   "candidate_surface": "/__ioi/evaluations",
+   "candidate_surface": "/__ioi/evaluations/evalsuites",
    "substrate_surface": "/__ioi/evaluations",
-   "clean_state": "needs_origin_alignment",
-   "reason": "proxy lane renders no data (score 0), but the capture-origin lane (http://localhost:9225) renders the app failure-free WITH data (rows 12/0 · nodes 0 · cards 2 · lines 50) — align the reference URL like pipeline #38/#39",
-   "lane_used": "origin",
+   "clean_state": "data_clean",
+   "reason": "shell regions [rail, header, body] + data evidence (rows 12/0 · nodes 0 · cards 2 · lists 0 · lines 50)",
+   "lane_used": "override",
    "shell_regions": [
     "rail",
     "header",
@@ -1644,7 +1644,18 @@
     "Support",
     "Account"
    ],
-   "matrix_landmarks_present": [],
+   "matrix_landmarks_present": [
+    "AIP Evals",
+    "New evaluation suite",
+    "Create evaluation suites for LLM-backed use-cases.",
+    "Recents",
+    "Favorites",
+    "FILES",
+    "CREATOR",
+    "LAST EDITED BY",
+    "LAST VIEWED",
+    "Explore reference examples"
+   ],
    "body_sample": "Skip to content\nHome\nSearch…\nctrl + J\nNotifications\nWhat's New\nRecent\nFiles\nOntology\nApplications\nAPPLICATIONS\nView all\nAIP Evals\nAIP Assist\nctrl + shift + U\nSupport\nLJ\nAccount\nAIP Evals\nNew evaluation suite\nHelp\nAIP Evals\nCreate evaluation suites for LLM-backed use-cases.\nView\nRecents\nFavorites\nFILES\nCREATOR\nLAST EDITED BY\nLAST VIEWED\nUse AIP Logic to classify and edit objects Walkthrough\n/test-ab81f6/test4/AIP Chatbot with transcribed video context (2026-04-26 22:22:24)/logic/Use AIP Logic to classify and edit objects (2026-06-23 20:26:32)\naip-assist\naip-assist\nJun 24, 2026\nLeverage feedback",
    "data_evidence": {
     "table_rows": 12,
@@ -1660,7 +1671,7 @@
    "cors_evidence": [],
    "modal_evidence": {
     "overlay_pre": true,
-    "overlay_post": false,
+    "overlay_post": true,
     "dismissed_reveals_data": false
    },
    "capture_store": {
@@ -1704,9 +1715,27 @@
      "cors_signals": 0,
      "console_errors": 0,
      "screenshot": ".artifacts/reference-clean-sweep/evalsuites-origin.png"
+    },
+    {
+     "lane": "override",
+     "url": "http://localhost:9225/workspace/evals/",
+     "loaded": true,
+     "nav_error": "",
+     "regions": [
+      "rail",
+      "header",
+      "body"
+     ],
+     "data_score": 5,
+     "chunk_404s": 0,
+     "api_failures": 0,
+     "cross_origin_9225": 0,
+     "cors_signals": 0,
+     "console_errors": 0,
+     "screenshot": ".artifacts/reference-clean-sweep/evalsuites-override.png"
     }
    ],
-   "screenshot": ".artifacts/reference-clean-sweep/evalsuites-origin.png"
+   "screenshot": ".artifacts/reference-clean-sweep/evalsuites-override.png"
   },
   {
    "slug": "analysis",
@@ -3725,7 +3754,7 @@
     "Labels",
     "Support types"
    ],
-   "body_sample": "Skip to content\nHome\nSearch…\nctrl + J\nNotifications\nWhat's New\nRecent\nFiles\nOntology\nApplications\nAPPLICATIONS\nView all\nIssues\nAIP Assist\nctrl + shift + U\nSupport\nLJ\nAccount\nIssues\nNew\nOpen\n0\nClosed\n5\nAll\n5\nFILTERS\nClear filters\nPriority\nHigh\nMedium\nLow\nAssignees\ninclude\nReporters\ninclude\nMentions\ninclude\nLabels\ninclude\nSupport types\ninclude\nReported on\nReported on MM-DD-YYYY\nReported on MM-DD-YYYY\nLast updated\nLast updated MM-DD-YYYY\nLast updated MM-DD-YYYY\n5 closed issues\nfiltered by\nselect filter\nSort by\nMost recently updated\n\t\nvm_lost · env_18bceb4d757a82be\nCreated 13 days ago\n\t\t\nHigh\nPrio",
+   "body_sample": "Skip to content\nHome\nSearch…\nctrl + J\nNotifications\nWhat's New\nRecent\nFiles\nOntology\nApplications\nAPPLICATIONS\nView all\nIssues\nAIP Assist\nctrl + shift + U\nSupport\nLJ\nAccount\nIssues\nNew\nOpen\n0\nClosed\n5\nAll\n5\nFILTERS\nClear filters\nPriority\nHigh\nMedium\nLow\nAssignees\ninclude\nReporters\ninclude\nMentions\ninclude\nLabels\ninclude\nSupport types\ninclude\nReported on\nReported on MM-DD-YYYY\nReported on MM-DD-YYYY\nLast updated\nLast updated MM-DD-YYYY\nLast updated MM-DD-YYYY\n5 closed issues\nfiltered by\nselect filter\nSort by\nMost recently updated\n\t\nvm_lost · env_18bceb4d757a82be\nCreated 14 days ago\n\t\t\nHigh\nPrio",
    "data_evidence": {
     "table_rows": 5,
     "graph_nodes": 0,
@@ -3908,7 +3937,7 @@
   {
    "slug": "changes",
    "owner": "Improvement",
-   "parity_class": "reference_ported",
+   "parity_class": "daemon_wired",
    "grammar": "table_list",
    "reference_path": "http://localhost:9225/workspace/upgrade-assistant/",
    "candidate_surface": "/__ioi/improvement/changes",

@@ -17,9 +17,9 @@
   ],
   "total_seeds": 39,
   "by_parity_class": {
-    "daemon_wired": 12,
+    "daemon_wired": 13,
     "reference_capture": 23,
-    "substrate_bound": 4
+    "substrate_bound": 3
   },
   "legend": {
     "reference_capture": "the /__apps/<slug> reference baseline serves; no IOI port exists",
@@ -413,19 +413,34 @@
       "capture_base": "/workspace/evals/",
       "grammar": "table_list",
       "tier": "high_value",
-      "parity_class": "substrate_bound",
+      "parity_class": "daemon_wired",
       "capture_state": "boots_editor_canvas",
       "reference_capture": "/__apps/evalsuites",
       "reference_workspace": "/workspace/evals/",
-      "note": "declaration-only owner surface; /__ioi/feedback kept as a compatibility sublane; honest empty when no suites; EvalRun execution / scoring / verdicts / judge / scorecards / auto-mining / analysis+quiver canvases / promotion = named gaps",
-      "reference_clean_state": "needs_origin_alignment",
-      "reference_clean_reason": "proxy lane renders no data (score 0), but the capture-origin lane (http://localhost:9225) renders the app failure-free WITH data (rows 12/0 · nodes 0 · cards 2 · lines 50) — align the reference URL like pipeline #38/#39",
+      "note": "TRUE parity (#54) under the HARDENED gate: light AIP-Evals landing reference-faithful shell at /__ioi/evaluations/evalsuites against the ORIGIN-ALIGNED data-clean reference (reference_url_override localhost:9225/workspace/evals/ — the #44 needs_origin_alignment finding; the What's-new modal dismissed by a reference-only pre-capture hook; the /__apps/evalsuites proxy lane stays documented-insufficient: renders no data); the SIXTH origin-alignment-queue port and the FIRST Evaluations-family certified surface — a NEW dedicated port route over the SAME inert eval-suite plane; a DECLARATION LIBRARY — THE ASSESSMENT BOUNDARY IS THE HARD LINE: health = declared-completeness NEVER a score; no EvalRun execution, no scoring, no verdicts, no judge runs, no scorecards, no auto-mining, no promotion; candidate refs stay LOCAL allowlisted schemes (the plane rejects external URLs fail-closed); suite authoring here / favorites / example installs = named gaps disabled in place; the /__ioi/evaluations owner surface + /__ioi/feedback sublane stay intact, linked first-class both ways",
+      "reference_clean_state": "data_clean",
+      "reference_clean_reason": "shell regions [rail, header, body] + data evidence (rows 12/0 · nodes 0 · cards 2 · lists 0 · lines 50)",
       "reference_clean_artifact": "reference-clean-sweep.json",
       "substrate_surface": "/__ioi/evaluations",
+      "port_surface": "/__ioi/evaluations/evalsuites",
       "surface_name": "Evaluations",
-      "binding": "the eval-suite library — the inert daemon eval-suite contract (a suite declares subject_scope + evidence/consent requirements + named candidate handoffs) over real assessment subjects (Missions runs/failures/blockers) + the consent ladder + feedback candidate source, table/list grammar over daemon truth",
-      "candidate_surface": "/__ioi/evaluations",
-      "shell_pixel_certified": false
+      "reference_url_override": "http://localhost:9225/workspace/evals/",
+      "reference_landmarks": [
+        "AIP Evals",
+        "New evaluation suite",
+        "Create evaluation suites for LLM-backed use-cases.",
+        "Recents",
+        "Favorites",
+        "FILES",
+        "CREATOR",
+        "LAST EDITED BY",
+        "LAST VIEWED",
+        "Explore reference examples"
+      ],
+      "binding": "faithful port of the reference AIP Evals landing over the inert daemon eval-suite plane — dark global rail + light app header (teal evals tile · AIP Evals · New-evaluation-suite / Help as named gaps) + hero band (title · one-line description · verbatim illustration under the reference's own white-gradient content overlay) + the View row (Recents active · Favorites gap) + the viewport-height-ruled Recents table whose rows are the REAL declared suites (name · ref · subject scopes · declared/complete health · status · created date; em-dashes where the plane records no principal/view tracking) + the marketplace-examples band (verbatim capture chrome) + below-the-fold full suite-library truth (subject scopes · rubric refs · evidence requirements · consent requirements · candidate refs, verbatim daemon records)",
+      "candidate_surface": "/__ioi/evaluations/evalsuites",
+      "shell_pixel_certified": true,
+      "shell_pixel_certification_artifact": "pixel-certifications/evalsuites.json"
     },
     {
       "owner": "Evaluations",

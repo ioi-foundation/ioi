@@ -213,6 +213,40 @@ export const SURFACE_SHELL = {
       ],
     },
   },
+  evalsuites: {
+    // AIP Evals landing (#54 — the sixth origin-alignment-queue port): certified shell = rail +
+    // header (teal evals tile · title · New-evaluation-suite / Help) + the 88px hero band (verbatim
+    // illustration under the reference's own 1040px white-gradient overlay) + the View row + the
+    // table ring + header row (viewport rule max(360px, 100vh − 604px)) + the marketplace-examples
+    // band (VERBATIM strip reused from #50). The suite ROWS are masked data (captured tutorials vs
+    // live declared suites). Content = the 1000px splash block (offset 0 @1440, +240 @1920).
+    rects: [
+      { key: "rail", anchor: "left", x: 0, y: 0, w: 230, h: 0 },
+      { key: "header", anchor: "topbar", x: 230, y: 0, w: 0, h: 51 },
+      { key: "hero", anchor: "topbar", x: 230, y: 51, w: 0, h: 89 },
+      { key: "viewrow", anchor: "content", x: 335, y: 177, w: 1000, h: 34 },
+      { key: "tablehead", anchor: "content", x: 330, y: 214, w: 1010, h: 38 },
+      { key: "examples", anchor: "content", x: 330, y: 605, w: 1010, h: 295 },
+    ],
+    rects_by_viewport: {
+      "1920x1080": [
+        { key: "rail", anchor: "left", x: 0, y: 0, w: 230, h: 0 },
+        { key: "header", anchor: "topbar", x: 230, y: 0, w: 0, h: 51 },
+        { key: "hero", anchor: "topbar", x: 230, y: 51, w: 0, h: 89 },
+        { key: "viewrow", anchor: "content", x: 335, y: 177, w: 1000, h: 34 },
+        { key: "tablehead", anchor: "content", x: 330, y: 214, w: 1010, h: 38 },
+        { key: "examples", anchor: "content", x: 330, y: 721, w: 1010, h: 359 },
+      ],
+    },
+    // Masked DATA: the suite-row region below the table header (captured tutorial rows vs the
+    // estate's live declared suites); the container's viewport-ruled tail sits outside the shell.
+    data: {
+      ref: [
+        { rect: { x: 336, y: 250, w: 998, h: 330 }, anchor: "content", label: "suite rows (captured tutorial resources vs live declared eval suites)" },
+      ],
+      ioi: [],
+    },
+  },
   changes: {
     // Upgrade Assistant inbox (#53 — the fifth origin-alignment-queue port): certified shell =
     // rail + header (upgrade tile · title · org group / Admin view / Assignee view / Help) + the

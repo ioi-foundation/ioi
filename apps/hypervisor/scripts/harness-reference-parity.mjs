@@ -261,6 +261,12 @@ export const REFERENCE_PRE_CAPTURE = {
     await page.getByText("Close", { exact: true }).first().click({ timeout: 4000 });
     await page.waitForTimeout(900);
   },
+  // Evalsuites (#54): the capture opens on a "What's new" modal — dismissed via its own Close
+  // control (UI only; the error signal is read BEFORE any hook).
+  evalsuites: async (page) => {
+    await page.getByText("Close", { exact: true }).first().click({ timeout: 4000 });
+    await page.waitForTimeout(900);
+  },
   // Changes (#53): the capture opens on a "What's new" modal — dismissed via its own Close
   // control (UI only; the error signal is read BEFORE any hook).
   changes: async (page) => {

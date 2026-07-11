@@ -52,7 +52,8 @@ const SUBSTRATE_BOUND = {
 
   // Evaluations owner-family: only evalsuites binds in this cut (analysis + quiver stay reference_capture).
   // The eval-suite library renders the INERT daemon eval-suite contract (a declaration; no scoring).
-  evalsuites: { substrate_surface: "/__ioi/evaluations", surface_name: "Evaluations", binding: "the eval-suite library — the inert daemon eval-suite contract (a suite declares subject_scope + evidence/consent requirements + named candidate handoffs) over real assessment subjects (Missions runs/failures/blockers) + the consent ladder + feedback candidate source, table/list grammar over daemon truth", note: "declaration-only owner surface; /__ioi/feedback kept as a compatibility sublane; honest empty when no suites; EvalRun execution / scoring / verdicts / judge / scorecards / auto-mining / analysis+quiver canvases / promotion = named gaps" },
+  // Evaluations owner-family: evalsuites was PROMOTED to daemon_wired by #54 (the sixth
+  // origin-alignment port — see DAEMON_WIRED below). analysis + quiver stay reference_capture.
   // Studio owner-family: designer was PROMOTED to daemon_wired by #49 (the first origin-alignment
   // port — see DAEMON_WIRED below). machinery/workshop/module stay reference_capture.
   // Studio machinery: the process/state-machine DEFINITION plane (a new inert daemon contract).
@@ -115,6 +116,12 @@ const DAEMON_WIRED = {
   // candidate; the clean-reference pool is now EMPTY and the wave pivots to origin alignment.
   listings: { substrate_surface: "/__ioi/marketplace", port_surface: "/__ioi/marketplace/listings", surface_name: "Marketplace", reference_workspace: "/workspace/marketplace/", reference_landmarks: ["Marketplace", "Discover and install Foundry products", "Stores", "Name", "Products", "Install your first product", "Choose a product to install", "Configure product inputs", "Install and explore", "Installations"], binding: "faithful port of the reference Marketplace browse over the real daemon marketplace substrate — dark global rail + light header (app chip · Marketplace · product search · Installations · Help as named gaps) + hero (title · Discover subtitle · reference illustration) + the Stores table whose single row IS the estate's governed listing plane with its live product count + the install-first-product wizard band as reference chrome (installing is a named gap — products enter through draft → admitted review → open release on the substrate)", note: "TRUE parity (#48) under the HARDENED gate: light Marketplace-browse reference-faithful shell at /__ioi/marketplace/listings over the real listing plane — the LAST data_clean candidate from the #44 ranking, completing the clean-reference pool (the wave pivots to origin-alignment seeds next); the reference's Stores lane is REBOUND to the same substrate; /__ioi/marketplace substrate intact and linking first-class; product search / store search / Installations / Help / install wizard / store sharing / sorting = named gaps disabled in place; NO publish/install/hire/settle/runtime semantics — products enter only through draft → admitted review → open release on the substrate" },
 
+  // #54 — Evalsuites (evalsuites): the THIRTEENTH faithful port — the SIXTH from the
+  // origin-alignment queue and the FIRST Evaluations-family certified surface. The #44 sweep
+  // proved the AIP Evals landing data-bearing on the capture-origin lane while the proxy renders
+  // no data; reference_url_override stamps the honest lane. A DECLARATION LIBRARY: suites declare
+  // WHAT they would assess under WHAT admissibility — nothing scores or executes.
+evalsuites: { substrate_surface: "/__ioi/evaluations", port_surface: "/__ioi/evaluations/evalsuites", surface_name: "Evaluations", reference_url_override: "http://localhost:9225/workspace/evals/", reference_landmarks: ["AIP Evals", "New evaluation suite", "Create evaluation suites for LLM-backed use-cases.", "Recents", "Favorites", "FILES", "CREATOR", "LAST EDITED BY", "LAST VIEWED", "Explore reference examples"], binding: "faithful port of the reference AIP Evals landing over the inert daemon eval-suite plane — dark global rail + light app header (teal evals tile · AIP Evals · New-evaluation-suite / Help as named gaps) + hero band (title · one-line description · verbatim illustration under the reference's own white-gradient content overlay) + the View row (Recents active · Favorites gap) + the viewport-height-ruled Recents table whose rows are the REAL declared suites (name · ref · subject scopes · declared/complete health · status · created date; em-dashes where the plane records no principal/view tracking) + the marketplace-examples band (verbatim capture chrome) + below-the-fold full suite-library truth (subject scopes · rubric refs · evidence requirements · consent requirements · candidate refs, verbatim daemon records)", note: "TRUE parity (#54) under the HARDENED gate: light AIP-Evals landing reference-faithful shell at /__ioi/evaluations/evalsuites against the ORIGIN-ALIGNED data-clean reference (reference_url_override localhost:9225/workspace/evals/ — the #44 needs_origin_alignment finding; the What's-new modal dismissed by a reference-only pre-capture hook; the /__apps/evalsuites proxy lane stays documented-insufficient: renders no data); the SIXTH origin-alignment-queue port and the FIRST Evaluations-family certified surface — a NEW dedicated port route over the SAME inert eval-suite plane; a DECLARATION LIBRARY — THE ASSESSMENT BOUNDARY IS THE HARD LINE: health = declared-completeness NEVER a score; no EvalRun execution, no scoring, no verdicts, no judge runs, no scorecards, no auto-mining, no promotion; candidate refs stay LOCAL allowlisted schemes (the plane rejects external URLs fail-closed); suite authoring here / favorites / example installs = named gaps disabled in place; the /__ioi/evaluations owner surface + /__ioi/feedback sublane stay intact, linked first-class both ways" },
   // #53 — Changes (changes): the TWELFTH faithful port — the FIFTH from the origin-alignment
   // queue and the FIRST Improvement-family certified surface. The #44 sweep proved the Upgrade
   // Assistant data-bearing on the capture-origin lane (13 upgrades) while the proxy renders thin
@@ -228,6 +235,18 @@ const SHELL_PIXEL_CERTIFIED = {
   // threshold movement. Body = REAL daemon incidents (blockers/failures), verified
   // semantically by verify-hypervisor-app-parity-incidents.mjs.
   incidents: "pixel-certifications/incidents.json",
+  // #54 — Evalsuites: the THIRTEENTH shell-pixel certification — the sixth origin-alignment-queue
+  // port, certified on the FIRST measured run (the second zero-fix certification: the splash kit
+  // is converged). Splash shell: shared rail (rv-pipe + rv-dsg) · header (teal tile
+  // rgba(0,112,103,.1) + inset hairline, success New-evaluation-suite + outlined Help as named
+  // gaps) · 88px hero with the VERBATIM illustration under the reference's own 1040px
+  // white-gradient overlay · View row · table ring + header with the measured viewport rule
+  // max(360px, 100vh − 604px) · the examples band (strip reused from #50). Suite ROWS = masked
+  // data (captured tutorials vs live declared suites). 1440x900 dilated 0.76% / raw 1.46%,
+  // 1920x1080 dilated 0.62% / raw 1.29%, bbox 0 — no threshold movement. Body = the real inert
+  // eval-suite plane, verified semantically by verify-hypervisor-app-parity-evalsuites.mjs
+  // (declarations, never assessment).
+  evalsuites: "pixel-certifications/evalsuites.json",
   // #53 — Changes: the TWELFTH shell-pixel certification — the fifth origin-alignment-queue port,
   // the first Improvement-family surface. Fixed-left inbox shell: shared rail (rv-pipe + rv-dsg) ·
   // app header (upgrade tile · bare org-group / Admin-view / Assignee-view / Help — the tile

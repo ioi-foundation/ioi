@@ -33,6 +33,7 @@ import { MCH_APP_TILE_URI, MCH_STORE_ICON_URI, MCH_HERO_URI, MCH_EXAMPLES_STRIP_
 import { MON_APP_TILE_URI, MON_WIZ_STRIP_URI, MON_CARDS_STRIP_URI } from "./monitors-assets.mjs";
 import { SRC_APP_TILE_URI, SRC_HERO_URI, SRC_SETUP_STRIP_URI } from "./sources-assets.mjs";
 import { CHG_APP_TILE_URI } from "./changes-assets.mjs";
+import { EVL_APP_TILE_URI, EVL_HERO_URI } from "./evalsuites-assets.mjs";
 import { mintApprovalGrant } from "../../../scripts/lib/mint-approval-grant.mjs";
 
 // Build the current conversation entries for a run, in the exact NDJSON shape the SPA's V1 pane
@@ -947,7 +948,7 @@ function renderEvaluations(suites, suiteOv, subjects, foundryEvalSpecs, feedback
   const sub = (txt) => `<span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">${txt}</span>`;
   const flashHtml = flash ? `<div class="card" style="display:block;border-color:#5c4a23"><b style="color:#d6a13a">Refused:</b> <span class="sub" style="margin:0;text-transform:none;letter-spacing:0">${CX_ESC(flash)}</span></div>` : "";
 
-  const head = `<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap"><div><h1 style="margin:0">Evaluations</h1><p class="sub" style="margin:4px 0 0">The eval-suite library — declared assessment suites over real subjects, evidence, and consent, as a table/list over IOI daemon truth. A suite declares WHAT it would assess and under WHAT admissibility; <b>nothing scores or executes here</b>. Reference grammar: <a href="/__apps/evalsuites">Eval-suite library ↗</a> (secondary capture).</p></div><div class="row" style="gap:8px"><a class="act ghost" href="/__ioi/feedback">Feedback &amp; annotations</a><a class="act ghost" href="/__ioi/work-ledger">Proof stream</a></div></div>`;
+  const head = `<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap"><div><h1 style="margin:0">Evaluations</h1><p class="sub" style="margin:4px 0 0">The eval-suite library — declared assessment suites over real subjects, evidence, and consent, as a table/list over IOI daemon truth. A suite declares WHAT it would assess and under WHAT admissibility; <b>nothing scores or executes here</b>. The <a href="/__ioi/evaluations/evalsuites">AIP Evals landing →</a> is the certified reference-faithful shell over this same plane (#54). Reference grammar: <a href="/__apps/evalsuites">Eval-suite library ↗</a> (secondary capture).</p></div><div class="row" style="gap:8px"><a class="act ghost" href="/__ioi/feedback">Feedback &amp; annotations</a><a class="act ghost" href="/__ioi/work-ledger">Proof stream</a></div></div>`;
 
   const banner = `<div class="row" style="gap:10px;align-items:stretch;margin:12px 0 14px;flex-wrap:wrap">${[
     ["Suites", list.length, false], ["Declared", byHealth.declared || list.filter((s) => s.health === "declared").length, false], ["Empty", byHealth.empty || list.filter((s) => s.health === "empty").length, false], ["Subjects in scope", missionRuns.length + failedRuns.length + blockers.length, false],
@@ -3583,6 +3584,173 @@ function renderDesignerPort(lists, selectedId) {
 
   return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Solution Designer</title><style>${css}</style></head>
     <body><div class="dsg-shell">${globalRail}<div class="dsg-main">${header}<div class="dsg-body">${hero}<main class="dsg-content">${aipCard}${gallery}${viewRow}${table}${truth}</main></div></div></div></body></html>`;
+}
+
+// ============================ EVALUATIONS · EVALSUITES (AIP Evals landing — suite-library port, #54)
+// The Reference UX Port program — the SIXTH origin-alignment-queue port. The reference is the
+// origin-aligned AIP Evals landing capture (http://localhost:9225/workspace/evals/ — the
+// /__apps/evalsuites proxy lane renders no data, documented by the #44 sweep; the What's-new modal
+// is dismissed by a reference-only pre-capture hook). This IOI-owned surface reproduces the visible
+// splash shell PIXEL-FAITHFULLY — dark global rail, app header (teal evals tile · AIP Evals ·
+// New-evaluation-suite / Help as named gaps), the 88px hero band (title · one-line description ·
+// verbatim illustration under the reference's own 1040px white-gradient overlay), the View row,
+// the viewport-height-ruled Recents table, and the marketplace-examples band (verbatim capture
+// strip, reused from #50) — while the DATA region renders REAL eval-suite plane truth: one row per
+// declared suite (name · ref · subject scopes · declared/complete health · status · created date),
+// and below the fold the full suite-library truth (subject scopes · rubric refs · evidence
+// requirements · consent requirements · candidate refs — all verbatim daemon records).
+// THE SEMANTIC BOUNDARY IS HARD: a DECLARATION LIBRARY, never assessment — no EvalRun execution,
+// no scoring, no verdicts, no judge runs, no scorecards, no auto-mining, no promotion; health is
+// DECLARED-COMPLETENESS, never a score. Owner: Evaluations (/__ioi/evaluations, linked both ways).
+function renderEvalsuitesPort(suitesJson) {
+  const esc = CX_ESC;
+  const list = Array.isArray(suitesJson && suitesJson.eval_suites) ? suitesJson.eval_suites : [];
+  const fdate = (iso) => { const d = new Date(iso || 0); return isNaN(d) ? "—" : d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }); };
+
+  const recent = [...list].sort((a, b) => String(b.created_at || "").localeCompare(String(a.created_at || ""))).slice(0, 12);
+  const gapDash = (why) => `<span class="evl-dash" title="${esc(why)}">—</span>`;
+  const rowsHtml = recent.length ? recent.map((s) => `<div class="evl-row" title="A DECLARED evaluation suite — a library record; nothing scores or executes here">
+      <span class="evl-cell name">
+        <span class="evl-rowico" aria-hidden="true"></span>
+        <span class="evl-rowdata">
+          <span class="evl-rowname">${esc(s.name || s.id)}</span>
+          <span class="evl-rowpath">${esc(s.ref || s.id)} · subjects ${esc((s.subject_scope || []).join("/") || "—")} · ${esc(s.health || "declared")} · ${esc(s.status || "draft")} · created ${fdate(s.created_at)}</span>
+        </span>
+      </span>
+      <span class="evl-cell">${gapDash("No principal is recorded on the eval-suite plane (named gap)")}</span>
+      <span class="evl-cell">${gapDash("No edit principal is recorded on the eval-suite plane (named gap)")}</span>
+      <span class="evl-cell">${gapDash("View tracking is not recorded on the eval-suite plane (named gap)")}</span>
+    </div>`).join("") : `<div class="evl-empty">No evaluation suites declared yet — this table renders the real eval-suite plane and never fabricates rows. Suites are declared on the <a href="/__ioi/evaluations">Evaluations substrate</a> (the inert contract: subject scope + consent + evidence requirements + named candidate handoffs).</div>`;
+
+  const byHealth = {}; const byStatus = {};
+  for (const s of list) { byHealth[s.health || "declared"] = (byHealth[s.health || "declared"] || 0) + 1; byStatus[s.status || "draft"] = (byStatus[s.status || "draft"] || 0) + 1; }
+  const chips = (o) => Object.entries(o).map(([k, n]) => `<span class="evl-chip">${esc(k)} <b>${n}</b></span>`).join("") || '<span class="evl-chip">none</span>';
+  const suiteDetail = (s) => `<li class="evl-truthitem"><b>${esc(s.name || s.id)}</b> <span class="evl-meta">${esc(s.health || "declared")} · ${esc(s.status || "draft")}</span>
+      <code class="evl-refc">${esc(s.ref || "")}</code>
+      <span class="evl-meta">subjects: ${esc((s.subject_scope || []).join(", ") || "—")} · rubrics: ${esc((s.rubric_refs || []).join(", ") || "—")} · evidence: ${esc((s.evidence_requirements || []).join(", ") || "—")} · consent: ${esc((s.consent_requirements || []).join(", ") || "—")} · candidates: ${esc((s.candidate_refs || []).join(", ") || "—")}</span>
+    </li>`;
+
+  const truth = `<section class="evl-truth" id="evalsuites-truth">
+    <h2 class="evl-trutht">Suite library truth <span class="evl-count">${list.length}</span> <span class="evl-truthsub">the real eval-suite plane — every record is a DECLARATION (subject scope · rubric refs · evidence requirements · consent requirements · named candidate handoffs), nothing invented</span></h2>
+    <p class="evl-boundary"><b>The assessment boundary:</b> a suite's <code>health</code> is DECLARED-COMPLETENESS (declared/complete), <b>never a score</b>. Nothing on this surface runs, scores, or judges: EvalRun execution, scoring, verdicts, judge runs, scorecards, auto-mining and promotion are <b>named gaps</b> (a later authority-crossing cut). Candidate refs are LOCAL allowlisted schemes only — the plane rejects external URLs fail-closed.</p>
+    <div class="evl-truthcols">
+      <div class="evl-truthcol"><h3>By health <span class="evl-meta">(declared-completeness)</span></h3><div class="evl-chips">${chips(byHealth)}</div><h3 style="margin-top:12px">By status</h3><div class="evl-chips">${chips(byStatus)}</div></div>
+      <div class="evl-truthcol"><h3>Declared suites <span class="evl-meta">(${list.length}, full records)</span></h3>${list.length ? `<ul>${list.slice(0, 8).map(suiteDetail).join("")}</ul>${list.length > 8 ? `<p class="evl-gapnote">…and ${list.length - 8} more on the substrate.</p>` : ""}` : `<p class="evl-gapnote">No suites declared — honest empty, nothing fabricated.</p>`}</div>
+    </div>
+    <p class="evl-foot">Unsupported reference lanes — New evaluation suite here, favorites, marketplace example installs — are <b>named gaps disabled in place</b>, never hidden. Suites are declared/edited on the <a href="/__ioi/evaluations">Evaluations owner surface →</a> (with the consent ladder + feedback candidate source at <a href="/__ioi/feedback">Feedback &amp; Annotations</a>); assessment subjects come from real Missions runs/failures/blockers. Reference: the origin-aligned <a href="http://localhost:9225/workspace/evals/" rel="noopener">AIP Evals capture</a> — the <a href="/__apps/evalsuites">/__apps/evalsuites proxy lane ↗</a> is documented insufficient (renders no data; #44 sweep evidence).</p>
+  </section>`;
+
+  const globalRail = ioiGlobalRailHtml({ label: "AIP Evals", href: "/__ioi/evaluations/evalsuites", iconUri: EVL_APP_TILE_URI, railVariant: "rv-pipe rv-dsg", viewAll: true, star: false, badges: true, aipGradient: true, acctMuted: true });
+
+  const header = `<header class="evl-header">
+    <span class="evl-hchip" aria-hidden="true"></span>
+    <h1 class="evl-htitle">AIP Evals</h1>
+    <div class="evl-hright">
+      <span class="evl-hbtn success gap" aria-disabled="true" title="Suite authoring from this surface is a reference-only lane — suites are declared on the Evaluations substrate (named gap)">${bpIcon("plus")}<span>New evaluation suite</span></span>
+      <span class="evl-hbtn outlined gap" aria-disabled="true" title="Reference help lane (named gap)"><span>Help</span>${bpIcon("help")}</span>
+    </div>
+  </header>`;
+
+  const hero = `<section class="evl-hero">
+    <img class="evl-heroimg" src="${EVL_HERO_URI}" alt="" aria-hidden="true">
+    <div class="evl-heroct">
+      <h3 class="evl-h1">AIP Evals</h3>
+      <p class="evl-desc">Create evaluation suites for LLM-backed use-cases.</p>
+    </div>
+  </section>`;
+
+  const viewRow = `<div class="evl-viewrow">
+    <span class="evl-viewlbl">View</span>
+    <span class="evl-pill on">Recents</span>
+    <span class="evl-pill gap" aria-disabled="true" title="Favorites are not recorded on the eval-suite plane (named gap)">Favorites</span>
+  </div>`;
+
+  const table = `<div class="evl-table">
+    <div class="evl-thead"><span class="evl-th name">Files</span><span class="evl-th">Creator</span><span class="evl-th">Last edited by</span><span class="evl-th">Last viewed</span></div>
+    <div class="evl-rows">${rowsHtml}</div>
+  </div>`;
+
+  const examples = `<div class="evl-examples">
+    <h5 class="evl-exh">Explore reference examples</h5>
+    <div class="evl-exsub">See how AIP Evals can be used to evaluate any AI system.</div>
+    <div class="evl-exstripwrap">
+      <img class="evl-exstrip" src="${MCH_EXAMPLES_STRIP_URI}" width="562" height="272" alt="Reference marketplace example cards (verbatim capture chrome)">
+      <span class="evl-excard c1 gap" aria-disabled="true" title="Marketplace example installs are a reference-only lane (named gap)"></span>
+      <span class="evl-excard c2 gap" aria-disabled="true" title="Marketplace example installs are a reference-only lane (named gap)"></span>
+    </div>
+  </div>`;
+
+  const css = `:root{color-scheme:light}*{box-sizing:border-box}
+    body{margin:0;background:#fff;color:#1c2127;font:14px/1.28581 Source-Sans-Pro,Helvetica,sans-serif}
+    a{color:#215db0;text-decoration:none}
+    .evl-shell{display:flex;height:100vh;width:100vw;overflow:hidden}
+    ${IOI_GRAIL_CSS}
+    .rv-dsg .og-gappico{background-color:rgba(45,114,210,.1)}
+    .rv-dsg .og-gsecrow{padding:30px 7px 5px 5px}
+    .rv-dsg .og-gitem.on{margin-right:-11px}
+    .evl-main{flex:1;min-width:0;display:flex;flex-direction:column;height:100vh}
+    .evl-header{flex:0 0 51px;display:flex;align-items:center;background:#fff;box-shadow:0 1px 0 0 #d3d8de;z-index:6}
+    .evl-hchip{width:50px;height:50px;flex:0 0 50px;background:rgba(0,112,103,.1) url('${EVL_APP_TILE_URI}') center/24px no-repeat;box-shadow:inset -1px 0 0 0 rgba(0,112,103,.25)}
+    .evl-htitle{font-size:16px;line-height:36px;font-weight:600;color:#404854;margin:0 0 0 12px;flex:0 0 auto}
+    .evl-hright{margin-left:auto;display:flex;align-items:flex-start;gap:10px;padding-right:20px}
+    .evl-hbtn{display:inline-flex;align-items:center;gap:8px;height:30px;margin-top:10px;padding:0 8px;border-radius:4px;font-size:14px;line-height:18px;cursor:default}
+    .evl-hbtn.success{background:#238551;color:#fff;box-shadow:inset 0 0 0 1px rgba(17,20,24,.2),0 1px 2px rgba(17,20,24,.1)}
+    .evl-hbtn.success svg{color:#fff}
+    .evl-hbtn.outlined{border:1px solid rgba(95,107,124,.25);padding:0 8px;color:#1c2127}
+    .evl-hbtn.outlined span{line-height:16.1px}
+    .evl-hbtn.outlined svg{color:#5f6b7c}
+    .evl-body{flex:1 1 auto;min-width:0;overflow-y:auto;background:#f6f7f9}
+    .evl-content{max-width:1090px;margin:0 auto;padding:0 45px}
+    .evl-hero{position:relative;background:#fff;height:88px;box-shadow:0 1px 0 0 rgba(17,20,24,.15)}
+    .evl-heroct{position:relative;max-width:1040px;height:100%;margin:0 auto;padding:0 20px;background:linear-gradient(90deg,#fff 575px,rgba(255,255,255,0) 100%)}
+    .evl-heroimg{position:absolute;right:0;top:0;width:316.6px;height:88px}
+    .evl-h1{position:relative;font-size:22px;line-height:25px;font-weight:600;color:#1c2127;margin:0;padding-top:20px}
+    .evl-desc{position:relative;width:625px;font-size:14px;line-height:18.0013px;color:#5f6b7c;margin:6px 0 0}
+    .evl-viewrow{display:flex;align-items:center;margin-top:40px;height:30px}
+    .evl-viewlbl{font-size:14px;line-height:18px;color:#1c2127}
+    .evl-pill{display:inline-flex;align-items:center;height:30px;margin-left:10px;padding:6px 10px;border-radius:30px;font-size:14px;line-height:18px;cursor:default}
+    .evl-pill.on{background:rgba(45,114,210,.3);color:#184a90;font-weight:600}
+    .evl-pill.gap{background:rgba(143,153,168,.15);color:#1c2127}
+    .evl-table{margin-top:10px;height:max(360px,calc(100vh - 604px));overflow-y:auto;background:#fff;border-radius:4px;box-shadow:0 0 0 1px rgba(17,20,24,.15)}
+    .evl-thead{display:flex;height:30px;box-shadow:inset 0 -1px 0 #dcdcdd}
+    .evl-th{width:16.667%;padding:8px 0 0 11px;font-size:12px;line-height:15.43px;color:#5f6b7c;text-transform:uppercase}
+    .evl-th.name{width:50%;padding-left:20px}
+    .evl-row{display:flex;height:57px;box-shadow:inset 0 -1px 0 #dcdcdd;color:#1c2127}
+    .evl-cell{width:16.667%;padding:19.5px 0 0 11px;font-size:14px;line-height:18px}
+    .evl-cell.name{width:50%;padding:11px 0 0 20px;display:flex;align-items:flex-start}
+    .evl-rowico{width:16px;height:16px;flex:0 0 16px;margin-top:2px;background:url('${DSG_ROW_DOC_URI}') center/16px no-repeat}
+    .evl-rowdata{margin-left:7px;min-width:0;flex:1;padding-right:16px}
+    .evl-rowname{display:block;font-size:14px;line-height:18px;color:#1c2127;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .evl-rowpath{display:block;font-size:12px;line-height:15.43px;color:#5f6b7c;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .evl-dash{color:#5f6b7c}
+    .evl-empty{padding:24px 20px;font-size:14px;color:#5f6b7c}
+    .evl-examples{margin-top:28px}
+    .evl-exh{font-size:16px;line-height:19px;font-weight:600;color:#1c2127;margin:0}
+    .evl-exsub{font-size:14px;line-height:18px;color:#1c2127;margin-top:12px}
+    .evl-exstripwrap{position:relative;margin-top:7px;width:562px;margin-left:-1px}
+    .evl-exstrip{display:block}
+    .evl-excard{position:absolute;top:1px;width:270px;height:270px;cursor:default}
+    .evl-excard.c1{left:1px}.evl-excard.c2{left:291px}
+    .evl-truth{margin-top:30px;padding-bottom:40px}
+    .evl-trutht{font-size:18px;font-weight:600;color:#1c2127;margin:0 0 8px}
+    .evl-count{margin-left:8px;font-size:14px;font-weight:400;color:#5f6b7c;background:rgba(143,153,168,.15);border-radius:9px;padding:1px 8px}
+    .evl-truthsub{font-size:13px;font-weight:400;color:#5f6b7c;margin-left:8px}
+    .evl-boundary{font-size:13px;line-height:1.55;color:#1c2127;background:#fff;border-radius:4px;box-shadow:0 0 0 1px rgba(200,118,25,.4);padding:12px 14px;margin:0 0 14px}
+    .evl-truthcols{display:flex;gap:16px;align-items:flex-start}
+    .evl-truthcol{flex:1;min-width:0;background:#fff;border-radius:4px;box-shadow:0 0 0 1px rgba(17,20,24,.15);padding:14px 16px}
+    .evl-truthcol h3{font-size:14px;font-weight:600;margin:0 0 8px;color:#1c2127}
+    .evl-truthcol ul{list-style:none;margin:0;padding:0}
+    .evl-truthitem{padding:6px 0;border-bottom:1px solid #eef0f2;font-size:13px}
+    .evl-truthitem:last-child{border-bottom:0}
+    .evl-chips{display:flex;gap:6px;flex-wrap:wrap}
+    .evl-chip{display:inline-flex;gap:5px;padding:3px 10px;border-radius:12px;background:rgba(143,153,168,.15);color:#1c2127;font-size:12px}
+    .evl-meta{color:#5f6b7c;font-weight:400;font-size:12px}
+    .evl-refc{display:block;font-size:11px;color:#5f6b7c;margin-top:1px;word-break:break-all}
+    .evl-gapnote{font-size:12px;color:#5f6b7c;margin:8px 0 0;line-height:1.5}
+    .evl-foot{font-size:12px;line-height:1.6;color:#7b8494;margin-top:18px}`;
+
+  return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>AIP Evals</title><style>${css}</style></head>
+    <body><div class="evl-shell">${globalRail}<div class="evl-main">${header}<div class="evl-body">${hero}<main class="evl-content">${viewRow}${table}${examples}${truth}</main></div></div></div></body></html>`;
 }
 
 // ============================ IMPROVEMENT · CHANGES (Upgrade Assistant — inbox port, #53)
@@ -8664,6 +8832,14 @@ const server = http.createServer((req, res) => {
       }
       res.writeHead(302, { Location: `/__ioi/automations/${encodeURIComponent(newId)}`, "Cache-Control": "no-cache" });
       res.end();
+      return;
+    }
+    // ---- Evaluations · Evalsuites — the AIP Evals landing port (#54). A DECLARATION LIBRARY over
+    // the real eval-suite plane: no EvalRun execution, no scoring/verdicts/judging on this surface.
+    if (pathname === "/__ioi/evaluations/evalsuites" && req.method === "GET") {
+      const sj = await fetch(`${DAEMON}/v1/hypervisor/eval-suites`).then((r) => r.json()).catch(() => ({}));
+      res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
+      res.end(renderEvalsuitesPort(sj));
       return;
     }
     // ---- Improvement · Changes — the Upgrade Assistant inbox port (#53). A read-only projection
