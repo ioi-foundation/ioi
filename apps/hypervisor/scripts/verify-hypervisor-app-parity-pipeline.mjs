@@ -171,6 +171,61 @@ async function run() {
   ok("the output carries the real object-instance count (3)", /3 object instances materialized/.test(t) || />3<\/div>/.test(t));
   ok("Preview (bottom tray) shows the first materialized rows — daemon truth, not a mock", /id="pb-preview"/.test(t) && />L-1</.test(t) && />First Loan</.test(t));
 
+  // 4b. INTERACTION — node selection + real inspectors (functional-runtime wave #57, THE acceptance
+  // test): click a node → it selects, the URL carries the selection (and keeps the ontology), the
+  // right panel becomes that node's inspector over the REAL fixture records built above, the tray
+  // shows that node's proof/preview, and a reload preserves the selection. An unknown ?node= fails
+  // closed. NO SECRETS: the fixture's real connector credential (SENTINEL, held sealed by the
+  // daemon) and the datasource endpoint PATH must never appear in any rendered state.
+  {
+    const { chromium } = await import("playwright");
+    const b = await chromium.launch();
+    try {
+      const pg = await b.newPage({ viewport: { width: 1440, height: 900 } });
+      const base = `${SERVE}/__ioi/pipeline?ontology=${encodeURIComponent(ont.id)}`;
+      await pg.goto(base, { waitUntil: "networkidle" });
+      ok("all 7 ladder nodes are selection anchors (keyboard-reachable links)", await pg.locator("a.pb-node[data-node]").count() === 7);
+      ok("default state: datasource selected, certified outputs panel, NO inspector (the pixel gate's capture state)", await pg.locator('a.pb-node.pb-nsel[data-node="datasource"]').count() === 1 && await pg.locator("#pb-inspector").count() === 0 && ((await pg.locator(".pb-righttitle").textContent()) || "").trim() === "Pipeline outputs");
+      // Every inspector must cite ITS OWN fixture record (the ids created above) + a field marker.
+      const NODE_EXPECT = [
+        ["datasource", [ds, "wallet_credential_lease", "path redacted", "Ingestion boundary"], "declaration boundary"],
+        ["mapping", [map, "loan_id", "amt", "amount"], "field table"],
+        ["policy", [view, "read", "agent://m", "loan_id"], "scope and operations"],
+        ["transform", [trun, "source_contacted", "transformation-run-receipt"], "receipt chain"],
+        ["projection", [proj, "loan_id", "amount", "object instances"], "columns and facets"],
+        ["lease", [plan, "capability-lease", "never held or rendered"], "no secrets"],
+        ["materialized", [setId, "materializing-run://", "pre-output receipt"], "preview rows"],
+      ];
+      let secretsClean = true, endpointPathClean = true;
+      for (const [key, marks, trayMark] of NODE_EXPECT) {
+        await pg.click(`a.pb-node[data-node="${key}"]`);
+        await pg.waitForLoadState("domcontentloaded");
+        const u = new URL(pg.url());
+        ok(`select ${key}: URL carries the selection and preserves the ontology`, u.searchParams.get("node") === key && u.searchParams.get("ontology") === ont.id, u.search);
+        ok(`select ${key}: the selected visual state moves (exactly one selected card)`, await pg.locator(`a.pb-node.pb-nsel[data-node="${key}"]`).count() === 1 && await pg.locator("a.pb-node.pb-nsel").count() === 1);
+        const ins = ((await pg.locator("#pb-inspector").textContent().catch(() => "")) || "");
+        ok(`select ${key}: inspector renders THAT node's real daemon record`, marks.every((m) => ins.includes(m)), marks.filter((m) => !ins.includes(m)).map((m) => `missing "${m}"`).join(", ") || "all refs cited");
+        const tray = ((await pg.locator("#pb-tray-node").textContent().catch(() => "")) || "");
+        ok(`select ${key}: tray shows the node's proof/preview`, tray.includes(trayMark), tray.includes(trayMark) ? "" : `tray lacks "${trayMark}"`);
+        const html = await pg.content();
+        if (html.includes(SENTINEL)) secretsClean = false;
+        if (html.includes(`:${port}/rows`)) endpointPathClean = false;
+      }
+      // Refresh preserves the selection (the URL is the source of truth).
+      await pg.reload({ waitUntil: "domcontentloaded" });
+      ok("reload preserves the selected node (URL-persisted selection)", await pg.locator('a.pb-node.pb-nsel[data-node="materialized"]').count() === 1 && ((await pg.locator("#pb-inspector").textContent().catch(() => "")) || "").includes(setId));
+      // Invalid selection fails CLOSED to the default with an honest note.
+      await pg.goto(`${base}&node=bogus`, { waitUntil: "domcontentloaded" });
+      ok("invalid ?node= fails closed to datasource with an honest note (no crash)", await pg.locator('a.pb-node.pb-nsel[data-node="datasource"]').count() === 1 && ((await pg.locator(".pb-warnhint").textContent().catch(() => "")) || "").includes("Unknown node"));
+      ok("NO SECRETS: the sealed connector credential never renders in any node state", secretsClean, secretsClean ? "sentinel absent from all 7 inspector states" : "SENTINEL LEAKED");
+      ok("endpoint PATH stays redacted in every node state (origin-only rendering)", endpointPathClean);
+      // Command discipline unchanged: named gaps stay visibly disabled on node views too.
+      ok("Schedule + Deploy stay disabled named gaps on node views; freeform authoring note intact", await pg.locator('button.pb-btn[disabled]:has-text("Schedule")').count() === 1 && await pg.locator('button.pb-btn[disabled]:has-text("Deploy")').count() === 1 && await pg.locator(".pb-gapnote").count() === 1);
+    } finally {
+      await b.close();
+    }
+  }
+
   // 5. Unsupported controls disabled IN PLACE (not moved to a separate page).
   ok("Build + Preview are enabled controls in the header", /pb-btn primary"[^>]*>Build</.test(t) && /href="#pb-preview"/.test(t));
   ok("Schedule + Deploy are present but DISABLED in place (named gaps, not hidden)", /<button[^>]*disabled[^>]*>Schedule<\/button>/.test(t) && /<button[^>]*disabled[^>]*>Deploy<\/button>/.test(t));
@@ -197,6 +252,7 @@ async function run() {
     ok("matrix: pipeline is shell_pixel_certified (pixel-identical shell, semantically-truthful body) with a committed evidence pointer, still daemon_wired", mrow && mrow.shell_pixel_certified === true && mrow.shell_pixel_certification_artifact === "pixel-certifications/pipeline.json" && mrow.parity_class === "daemon_wired");
     ok("the committed certification is REAL: pipeline slug, certified, NON-pinned, both desktop viewports certified, mobile honestly not-supported", cert && cert.schema === "ioi.hypervisor.shell-pixel-certification.v1" && cert.slug === "pipeline" && cert.shell_pixel_certified === true && cert.viewports_pinned === false && (cert.viewports || []).length === 2 && cert.viewports.every((v) => v.certified === true) && /not_supported/.test(cert.mobile), cert ? cert.viewports.map((v) => `${v.viewport}: dilated ${v.metrics.shell_diff_dilated_pct}% raw ${v.metrics.shell_diff_raw_pct}%`).join(" · ") : "cert missing");
     ok("the certification is MEASUREMENT, not convenience: dilated ≤ 1.25% AND raw ≤ 3.0% on every certified viewport, with real certified-shell coverage", cert && cert.viewports.every((v) => v.metrics.shell_diff_dilated_pct <= 1.25 && v.metrics.shell_diff_raw_pct <= 3.0 && v.metrics.coverage.certified_fraction >= 0.05));
+    ok("the cert claims the SHELL only — no body pixel claim is made (the canvas/inspector body is semantic truth, verified above, never pixel-diffed)", cert && cert.viewports.every((v) => Object.keys(v.metrics).every((k) => !/body/i.test(k))) && /shell/i.test(JSON.stringify(cert.thresholds || {})));
   }
 
   srv.close();

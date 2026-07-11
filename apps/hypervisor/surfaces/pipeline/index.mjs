@@ -9,7 +9,7 @@
 // pixels are frozen by the harness gate, so edits here must re-certify.
 import { bpIcon, PIPELINE_APP_ICON_URI, AIP_GRADIENT_SVG_TOOLBAR } from "../../scripts/bp-icons.mjs";
 import { ioiGlobalRailHtml, IOI_GRAIL_CSS } from "../chrome.mjs";
-import { escHtml } from "../kit.mjs";
+import { escHtml, parseSelection, selectionQuery, inspectorShell, trayShell, disabledCommand, proofLink } from "../kit.mjs";
 
 const CX_ESC = escHtml; // local alias so the moved block stays byte-identical to its serve original
 
@@ -51,7 +51,8 @@ export async function load(ctx) {
 }
 
 export function render(model, ctx) {
-  return renderPipelineBuilder(model, ctx.url.searchParams.get("ontology") || "");
+  const sel = parseSelection(ctx.url, ["ontology", "node"]);
+  return renderPipelineBuilder(model, sel.ontology || "", sel.node || "");
 }
 
 // No commands are wired yet: Build/Preview/Schedule/Deploy stay exactly as the certified shell
@@ -79,7 +80,7 @@ function pipeStatusPill(cls, label) {
 // cell is REAL daemon truth. This is `reference_ported`, NOT `daemon_wired`: the local /workspace/
 // builder/* reference currently ERRORS, so parity cannot yet be certified by the Playwright harness —
 // daemon_wired awaits a valid (non-errored) builder reference to compare against.
-function renderPipelineBuilder(lists, selectedId) {
+function renderPipelineBuilder(lists, selectedId, nodeParam) {
   const ontologies = Array.isArray(lists.ontologies) ? lists.ontologies : [];
   const sets = Array.isArray(lists.materialized_sets) ? lists.materialized_sets : [];
   const builtRefs = new Set(sets.map((s) => s.ontology_ref));
@@ -99,16 +100,28 @@ function renderPipelineBuilder(lists, selectedId) {
   const anyReady = (arr, pred) => arr.filter(pred).length;
 
   // The pipeline nodes, in ODK-ladder order. Each node: real daemon state → live / declared / missing.
-  const mk = (icon, label, kind, n, live, declared, count, detail, pane) => ({ icon, label, kind, n, cls: n === 0 ? "missing" : live ? "live" : declared ? "declared" : "declared", count, detail, pane });
+  // key = the node's URL identity (?node=<key>) for the selection lane.
+  const mk = (key, icon, label, kind, n, live, declared, count, detail, pane) => ({ key, icon, label, kind, n, cls: n === 0 ? "missing" : live ? "live" : declared ? "declared" : "declared", count, detail, pane });
   const nodes = [
-    mk("🌐", "Datasource", "input", dsources.length, dsources.length > 0, true, dsources.length, dsources.map((d) => d.name || d.source_id).slice(0, 2).join(", "), "data"),
-    mk("🔗", "Object mapping", "transform", maps.length, anyReady(maps, (m) => (m.health || {}).status === "ready") > 0, true, maps.length, "source fields → typed properties", "resources"),
-    mk("🛡", "Policy gate", "transform", views.length, anyReady(views, (v) => (v.health || {}).status === "ready") > 0, true, views.length, "capability envelope", "resources"),
-    mk("📋", "Transform plan", "transform", truns.length, anyReady(truns, (r) => r.status === "dry_run_ready") > 0, true, truns.length, "dry-run validated", "resources"),
-    mk("🔭", "Read projection", "transform", projs.length, anyReady(projs, (p) => p.status === "ready") > 0, true, projs.length, "explorer/search shape", "resources"),
-    mk("🎟", "Lease + session", "authority", plans.length, anyReady(mruns, (r) => ["lease_obtained", "executed"].includes(r.status)) > 0 && anyReady(sessions, (c) => c.status === "session_obtained") > 0, plans.length > 0, plans.length, `${anyReady(mruns, (r) => ["lease_obtained", "executed"].includes(r.status))} lease · ${anyReady(sessions, (c) => c.status === "session_obtained")} session`, "resources"),
-    mk("📦", "Materialized objects", "output", osets.length, instances > 0, osets.length > 0, instances, `${instances} object instance${instances === 1 ? "" : "s"}`, "explorer"),
+    mk("datasource", "🌐", "Datasource", "input", dsources.length, dsources.length > 0, true, dsources.length, dsources.map((d) => d.name || d.source_id).slice(0, 2).join(", "), "data"),
+    mk("mapping", "🔗", "Object mapping", "transform", maps.length, anyReady(maps, (m) => (m.health || {}).status === "ready") > 0, true, maps.length, "source fields → typed properties", "resources"),
+    mk("policy", "🛡", "Policy gate", "transform", views.length, anyReady(views, (v) => (v.health || {}).status === "ready") > 0, true, views.length, "capability envelope", "resources"),
+    mk("transform", "📋", "Transform plan", "transform", truns.length, anyReady(truns, (r) => r.status === "dry_run_ready") > 0, true, truns.length, "dry-run validated", "resources"),
+    mk("projection", "🔭", "Read projection", "transform", projs.length, anyReady(projs, (p) => p.status === "ready") > 0, true, projs.length, "explorer/search shape", "resources"),
+    mk("lease", "🎟", "Lease + session", "authority", plans.length, anyReady(mruns, (r) => ["lease_obtained", "executed"].includes(r.status)) > 0 && anyReady(sessions, (c) => c.status === "session_obtained") > 0, plans.length > 0, plans.length, `${anyReady(mruns, (r) => ["lease_obtained", "executed"].includes(r.status))} lease · ${anyReady(sessions, (c) => c.status === "session_obtained")} session`, "resources"),
+    mk("materialized", "📦", "Materialized objects", "output", osets.length, instances > 0, osets.length > 0, instances, `${instances} object instance${instances === 1 ? "" : "s"}`, "explorer"),
   ];
+  // ---- Node selection (functional-runtime wave): the URL is the selection's single source of
+  // truth (kit parseSelection/selectionQuery). Default = datasource, the first ladder stage; an
+  // explicit ?node= ALSO swaps the right panel to that node's inspector and the tray to its
+  // proof. An unknown ?node= fails CLOSED to the default with an honest note — never a crash.
+  // The pixel gate captures the bare route (no ?node=), whose certified chrome stays byte-stable:
+  // the selected-card highlight lives in the canvas, the excluded live body.
+  const nodeValid = nodes.some((n) => n.key === nodeParam);
+  const selNodeKey = selected ? (nodeValid ? nodeParam : "datasource") : "";
+  const inspectorMode = !!(selected && nodeParam);
+  const invalidNode = !!(nodeParam && !nodeValid);
+  const nodeHref = (key) => selectionQuery("/__ioi/pipeline", { ontology: oid, node: key });
   const enc = encodeURIComponent, esc = CX_ESC;
   const oname = selected ? esc(selected.domain || selected.id) : "no pipeline";
 
@@ -122,6 +135,149 @@ function renderPipelineBuilder(lists, selectedId) {
         : `<tr><td colspan="${cols.length || 1}" class="pb-empty-cell">No rows yet — Build a materializing run to populate this output (object_instances stays 0 until then).</td></tr>`}</tbody></table>`
     : `<div class="pb-empty">No read projection on this pipeline yet — add one in the Ontology Manager.</div>`;
 
+  // ---- Node inspectors (functional-runtime wave) — every value below is an already-loaded
+  // daemon record; nothing is fetched twice and nothing is fabricated. Credential material NEVER
+  // renders: the datasource endpoint is reduced to its ORIGIN, and the lease/session inspector
+  // renders status booleans + refs only (the plan's own lease.credential_material=false is the
+  // boundary, shown as such). Empty stages render the honest missing-contract state.
+  const irow = (k, v) => `<div class="pb-irow"><span class="pb-ik">${esc(k)}</span><span class="pb-iv">${v}</span></div>`;
+  const icode = (v) => `<code class="pb-icode">${esc(v)}</code>`;
+  const ihint = (h) => `<div class="pb-ihint">${h}</div>`;
+  const irefs = (refs) => (refs || []).length ? refs.slice(0, 4).map(icode).join(" ") : "—";
+  const safeOrigin = (e) => { try { const u = new URL(e); return `${esc(u.protocol)}//${esc(u.host)}/… <span class="pb-redact">(path redacted)</span>`; } catch { return "(endpoint redacted)"; } };
+  const emptyStage = (label) => ihint(`No ${esc(label)} record exists on this pipeline yet — an honest missing contract, not an error. Author the stage in the <a href="/__ioi/odk?ontology=${enc(oid)}">Ontology Manager</a>.`);
+  const trayTable = (heads, rowsArr) => `<table class="pb-table"><thead><tr>${heads.map((h) => `<th>${esc(h)}</th>`).join("")}</tr></thead><tbody>${rowsArr.length ? rowsArr.map((row) => `<tr>${row.map((c) => `<td>${c}</td>`).join("")}</tr>`).join("") : `<tr><td colspan="${heads.length}" class="pb-empty-cell">No records for this stage yet.</td></tr>`}</tbody></table>`;
+  function nodeInspector(key) {
+    const d = dsources[0], m = maps[0], v = views[0], r = truns[0], pl = plans[0], st = osets[0];
+    const mr = mruns.find((x) => ["lease_obtained", "executed"].includes(x.status)) || mruns[0];
+    const ssn = sessions.find((x) => x.status === "session_obtained") || sessions[0];
+    switch (key) {
+      case "datasource": return {
+        title: "Datasource", sub: d ? (d.source_ref || d.source_id || "") : "no record",
+        body: d ? [
+          irow("records", `${dsources.length} source${dsources.length === 1 ? "" : "s"} mapped into this pipeline${dsources.length > 1 ? " · showing first" : ""}`),
+          irow("name", esc(d.name || "—")),
+          irow("kind", esc(d.kind || "—")),
+          irow("endpoint", safeOrigin(d.endpoint || "")),
+          irow("credential posture", icode(d.credential_posture || "—")),
+          irow("lifecycle", esc((d.lifecycle || {}).status || "—")),
+          irow("receipts", irefs(d.receipt_refs)),
+          ihint(`Ingestion boundary — wired: <b>${(d.ingestion || {}).wired === true}</b>. ${esc((d.ingestion || {}).note || "")}`),
+          irow("proof", proofLink({ href: "/__ioi/work-ledger", label: "work ledger" })),
+        ].join("") : emptyStage("Datasource"),
+        trayTitle: "Datasource — declaration boundary",
+        tray: trayTable(["source", "kind", "endpoint (origin)", "credential posture", "lifecycle"],
+          dsources.slice(0, 8).map((x) => [esc(x.name || x.source_id), esc(x.kind || ""), safeOrigin(x.endpoint || ""), icode(x.credential_posture || ""), esc((x.lifecycle || {}).status || "")])),
+      };
+      case "mapping": return {
+        title: "Object mapping", sub: m ? (m.ref || `connector-mapping://${m.id}`) : "no record",
+        body: m ? [
+          irow("records", `${maps.length} mapping${maps.length === 1 ? "" : "s"}${maps.length > 1 ? " · showing first" : ""}`),
+          irow("name", esc(m.name || "—")),
+          irow("object type", icode(m.object_type_id || "—")),
+          irow("key mapping", m.key_mapping ? `${icode(m.key_mapping.property_id)} ← ${icode(m.key_mapping.source_field)} <span class="pb-redact">(${esc(m.key_mapping.source_type || "")})</span>` : "—"),
+          irow("title mapping", m.title_mapping ? `${icode(m.title_mapping.property_id)} ← ${icode(m.title_mapping.source_field)}` : "—"),
+          irow("mapped properties", `${(m.health || {}).mapped_properties ?? (m.field_mappings || []).length} of ${(m.health || {}).total_properties ?? "—"}`),
+          irow("field mappings", (m.field_mappings || []).length ? m.field_mappings.map((f) => `${icode(f.property_id)} ← ${icode(f.source_field)}`).join(" · ") : "—"),
+          irow("health", `${esc((m.health || {}).status || "—")}${((m.health || {}).missing_contracts || []).length ? " · missing: " + (m.health.missing_contracts || []).map(icode).join(" ") : ""}`),
+          irow("receipts", irefs(m.receipt_refs)),
+          ihint(esc((m.health || {}).note || (m.ingestion || {}).note || "")),
+        ].join("") : emptyStage("Object mapping"),
+        trayTitle: "Object mapping — field table",
+        tray: m ? trayTable(["role", "property", "source field", "source type"], [
+          ...(m.key_mapping ? [["key", icode(m.key_mapping.property_id), icode(m.key_mapping.source_field), esc(m.key_mapping.source_type || "")]] : []),
+          ...(m.title_mapping ? [["title", icode(m.title_mapping.property_id), icode(m.title_mapping.source_field), esc(m.title_mapping.source_type || "")]] : []),
+          ...(m.field_mappings || []).map((f) => ["field", icode(f.property_id), icode(f.source_field), esc(f.source_type || "")]),
+        ]) : trayTable(["role", "property", "source field", "source type"], []),
+      };
+      case "policy": return {
+        title: "Policy gate", sub: v ? (v.ref || `policy-bound-data-view://${v.id}`) : "no record",
+        body: v ? [
+          irow("records", `${views.length} gate${views.length === 1 ? "" : "s"}${views.length > 1 ? " · showing first" : ""}`),
+          irow("name", esc(v.name || "—")),
+          irow("allowed operations", (v.allowed_operations || []).map(icode).join(" ") || "—"),
+          irow("subjects", (v.authority_subjects || []).map(icode).join(" ") || "—"),
+          ...(v.purpose ? [irow("purpose", esc(v.purpose))] : []),
+          irow("property scope", (v.property_scope || []).map(icode).join(" ") || "—"),
+          irow("postures (obligations)", `evaluation ${icode(v.evaluation_posture || "—")} · export ${icode(v.export_posture || "—")}${v.publish_route_posture ? ` · publish ${icode(v.publish_route_posture)}` : ""}${v.retention_posture ? ` · retention ${icode(v.retention_posture)}` : ""}`),
+          irow("health", `${esc((v.health || {}).status || "—")}${((v.health || {}).missing_contracts || []).length ? " · missing: " + (v.health.missing_contracts || []).map(icode).join(" ") : ""}`),
+          ihint(esc((v.health || {}).note || (v.authority || {}).note || "")),
+        ].join("") : emptyStage("Policy gate"),
+        trayTitle: "Policy gate — scope and operations",
+        tray: v ? trayTable(["allowed operation", "subjects", "property scope"],
+          (v.allowed_operations || ["—"]).map((op) => [icode(op), (v.authority_subjects || []).map(icode).join(" "), (v.property_scope || []).map(icode).join(" ")])) : trayTable(["allowed operation", "subjects", "property scope"], []),
+      };
+      case "transform": return {
+        title: "Transform plan", sub: r ? (r.ref || `transformation-run://${r.id}`) : "no record",
+        body: r ? [
+          irow("records", `${truns.length} plan${truns.length === 1 ? "" : "s"}${truns.length > 1 ? " · showing first" : ""}`),
+          irow("name", esc(r.name || "—")),
+          irow("status", icode(r.status || "—")),
+          irow("blocked reasons", (r.blocked_reasons || []).length ? r.blocked_reasons.map(esc).join(" · ") : "none"),
+          irow("missing contracts", (r.missing_contracts || []).length ? r.missing_contracts.map(icode).join(" ") : "none"),
+          irow("receipt chain", `${(r.history || []).length} receipt${(r.history || []).length === 1 ? "" : "s"} (full chain in the tray)`),
+          irow("latest receipt", (r.history || []).length ? icode(r.history[r.history.length - 1].receipt_ref || "—") : "—"),
+          ihint(`Execution boundary — source_contacted: <b>${(r.execution || {}).source_contacted === true}</b> · data_moved: <b>${(r.execution || {}).data_moved === true}</b> · object_instances: <b>${(r.execution || {}).object_instances ?? 0}</b>. ${esc((r.execution || {}).note || "")}`),
+        ].join("") : emptyStage("Transform plan"),
+        trayTitle: "Transform plan — receipt chain / dry-run plan",
+        tray: r ? trayTable(["at", "op", "summary", "receipt"],
+          (r.history || []).slice(0, 10).map((h) => [esc(h.at || ""), icode(h.op || ""), esc(h.summary || ""), icode(h.receipt_ref || "")])) : trayTable(["at", "op", "summary", "receipt"], []),
+      };
+      case "projection": return {
+        title: "Read projection", sub: proj ? (proj.ref || `ontology-projection://${proj.id}`) : "no record",
+        body: proj ? [
+          irow("records", `${projs.length} projection${projs.length === 1 ? "" : "s"}${projs.length > 1 ? " · showing active" : ""}`),
+          irow("name", esc(proj.name || "—")),
+          irow("status", icode(proj.status || "—")),
+          irow("layout · key", `${esc(proj.layout || "—")} · key ${icode(proj.key_field || "—")}`),
+          irow("visible properties", (proj.visible_properties || []).map(icode).join(" ") || "—"),
+          irow("facets", (proj.facet_properties || []).length ? proj.facet_properties.map(icode).join(" ") : "none declared"),
+          irow("affordance gates", `export ${proj.export_affordance_enabled ? "enabled" : "disabled"} · ${(proj.action_affordances || []).length} action affordance${(proj.action_affordances || []).length === 1 ? "" : "s"}`),
+          irow("object instances", `<b>${(proj.health || {}).object_instances ?? 0}</b>`),
+          ...(proj.materialized ? [irow("materialized", `${esc(String(proj.materialized.count ?? ""))} at ${esc(proj.materialized.at || "")} via ${icode(proj.materialized.materializing_run_ref || "")}`)] : []),
+          ihint(esc((proj.health || {}).note || "")),
+        ].join("") : emptyStage("Read projection"),
+        trayTitle: "Read projection — columns and facets",
+        tray: proj ? trayTable(["column", "facet?", "notes"],
+          (proj.visible_properties || []).map((c) => [icode(c), (proj.facet_properties || []).includes(c) ? "facet" : "—", c === proj.key_field ? "key field" : ""])) : trayTable(["column", "facet?", "notes"], []),
+      };
+      case "lease": return {
+        title: "Lease + session", sub: pl ? (pl.ref || `capability-lease-plan://${pl.id}`) : "no record",
+        body: pl ? [
+          irow("plan", icode(pl.ref || pl.id)),
+          irow("credential posture", icode(pl.credential_posture || "—")),
+          irow("gateway", `${icode((pl.gateway || {}).route || "—")} · ${icode((pl.gateway || {}).primitive || "—")}`),
+          irow("TTL", `${esc(String(pl.ttl_seconds ?? (mr ? mr.ttl_seconds : "—")))}s`),
+          ...(mr ? [irow("materializing run", `${icode(mr.ref || mr.id)} · status ${icode(mr.status || "—")} · subject ${icode(mr.subject || "—")}${mr.purpose ? ` · purpose ${esc(mr.purpose)}` : ""}`)] : [irow("materializing run", "none yet — the lease is a plan only")]),
+          ...(ssn ? [irow("sealed session", `${icode(ssn.ref || ssn.id)} · status ${icode(ssn.status || "—")} · ${(ssn.operations || []).length} op${(ssn.operations || []).length === 1 ? "" : "s"} · ${(ssn.properties || []).length} propert${(ssn.properties || []).length === 1 ? "y" : "ies"}`)] : [irow("sealed session", "none yet")]),
+          ihint(`Credential material is <b>never held or rendered here</b> — the plan records credential_material: <b>${(pl.lease || {}).credential_material === true}</b>, minted: <b>${(pl.lease || {}).minted === true}</b>. ${esc((pl.lease || {}).note || "")}`),
+        ].join("") : emptyStage("Capability lease plan"),
+        trayTitle: "Lease + session — gateway and proof refs (no secrets)",
+        tray: trayTable(["record", "ref", "receipts"], [
+          ...(pl ? [["lease plan", icode(pl.ref || pl.id), irefs(pl.receipt_refs)]] : []),
+          ...(mr ? [["materializing run", icode(mr.ref || mr.id), irefs(mr.receipt_refs)]] : []),
+          ...(ssn ? [["connector session", icode(ssn.ref || ssn.id), irefs(ssn.receipt_refs)]] : []),
+        ]),
+      };
+      case "materialized": return {
+        title: "Materialized objects", sub: st ? (st.ref || st.id || "") : "no record",
+        body: st ? [
+          irow("object set", icode(st.ref || st.id)),
+          irow("object count", `<b>${esc(String(st.count ?? 0))}</b> (rows fetched ${esc(String(st.rows_fetched ?? "—"))}${st.truncated_to_limit ? " · truncated to limit" : ""})`),
+          irow("registered", esc(st.registered_at || "—")),
+          irow("provenance", [st.materializing_run_ref, st.connector_session_ref, st.capability_lease_plan_ref].filter(Boolean).map(icode).join(" ") || "—"),
+          irow("pre-output receipt", st.pre_output_receipt_ref ? icode(st.pre_output_receipt_ref) : "—"),
+          ...(st.source_contact ? [irow("source contact", `${safeOrigin(st.source_contact.endpoint || "")} · http ${esc(String(st.source_contact.http_status ?? "—"))} · ${esc(String(st.source_contact.elapsed_ms ?? "—"))}ms${st.source_contact.at ? ` · ${esc(st.source_contact.at)}` : ""}`)] : []),
+          irow("reset", disabledCommand({ label: "Delete object set", reason: "deletion is a daemon authority (DELETE …/materialized-object-sets/:id) — command wiring is the command-discipline PR, a named gap here" })),
+        ].join("") : emptyStage("Materialized object set"),
+        trayTitle: "Materialized objects — preview rows",
+        tray: previewTable,
+      };
+      default: return { title: "Pipeline", sub: "", body: emptyStage("node"), trayTitle: "Selection", tray: previewTable };
+    }
+  }
+  const insp = inspectorMode ? nodeInspector(selNodeKey) : null;
+
   // ---- SHARED pixel-aligned GLOBAL RAIL (#43) — Pipeline Builder active. The live pipeline PICKER
   // (no reference counterpart in the rail) lives in the canvas body (excluded region), keeping the rail
   // pixel-faithful while the control keeps its function.
@@ -129,12 +285,15 @@ function renderPipelineBuilder(lists, selectedId) {
   const railPipes = ontologies.length
     ? ontologies.map((x) => { const on = selected && x.id === selected.id; const built = builtRefs.has(x.ref); return `<a class="pb-pipe ${on ? "on" : ""}" href="/__ioi/pipeline?ontology=${enc(x.id)}">${esc(x.domain || x.id)}${built ? `<span class="pb-tag">built</span>` : ""}</a>`; }).join("")
     : `<div class="pb-empty">No pipelines yet. <a href="/__ioi/odk/ontologies/new">Create an ontology</a>.</div>`;
-  const nodeCard = (nd) => `<div class="pb-node pb-${nd.cls}"${selected ? ` onclick="location.href='/__ioi/odk?ontology=${enc(oid)}#pane-${nd.pane}'"` : ""}>
+  // Node cards are selection anchors (progressive enhancement: plain link navigation, so the URL
+  // carries the state and refresh/deep-links Just Work; tab order + Enter give keyboard selection).
+  // The old jump-to-ODK click moved into each inspector's Ontology-Manager link.
+  const nodeCard = (nd) => `<a class="pb-node pb-${nd.cls}${nd.key === selNodeKey ? " pb-nsel" : ""}" data-node="${nd.key}" href="${selected ? nodeHref(nd.key) : "#"}"${nd.key === selNodeKey ? ' aria-current="true"' : ""}>
     <div class="pb-nhead"><span class="pb-nicon">${nd.icon}</span><span class="pb-dot pb-${nd.cls}"></span></div>
     <div class="pb-nlabel">${esc(nd.label)}</div>
     <div class="pb-ncount"><b>${esc(String(nd.count))}</b> ${nd.kind === "output" ? "objects" : nd.kind === "input" ? "source" + (nd.count === 1 ? "" : "s") : "record" + (nd.count === 1 ? "" : "s")}</div>
     <div class="pb-ndetail">${esc(nd.detail || "")}</div>
-  </div>`;
+  </a>`;
   const legendGroups = [
     ["Input Data", "#8f99a8", dsources.length],
     ["Data Cleaning", "#238551", maps.length + views.length],
@@ -225,7 +384,7 @@ function renderPipelineBuilder(lists, selectedId) {
         <span class="pb-tab warn">${bpIcon("warning-sign")} Pipeline warnings</span>
         <span class="pb-traycollapse">${bpIcon("double-chevron-down")}</span>
       </div>
-      <div class="pb-traybody">${previewTable}
+      <div class="pb-traybody">${inspectorMode ? trayShell({ id: "pb-tray-node", title: insp.trayTitle, body: insp.tray }) : previewTable}
         <div class="pb-gapnote">Freeform canvas authoring — drag-connect nodes, transform code editor, scheduling, deploy — are <b>reference-only lanes disabled above</b>, not yet wired. Author stages in the <a href="/__ioi/odk?ontology=${enc(oid)}">Ontology Manager</a>; execute via a materializing run. Reference: <a href="/__apps/pipeline">Pipeline Builder capture ↗</a>.</div>
       </div>
     </div>
@@ -235,7 +394,22 @@ function renderPipelineBuilder(lists, selectedId) {
   // masked as data; Output settings block bottom-anchored like the reference.
   const mapped = cols.length;
   const stripIcons = ["circle-arrow-right", "search", "split-view", "build", "settings", "calendar", "folder-open", "form", "import"];
-  const rightPanel = `<aside class="pb-right">
+  const rstrip = `<div class="pb-rstrip">${stripIcons.map((ic, i) => `<span class="pb-stripico${i === 0 ? " on" : ""}${i && i % 3 === 0 ? " g" : ""} gap" title="Right-panel lane — named gap">${bpIcon(ic)}</span>`).join("")}</div>`;
+  // When a node is explicitly selected (?node=), the panel becomes that node's inspector — same
+  // aside geometry (386px + icon strip), inspector content in place of the outputs main. The bare
+  // route (the pixel gate's capture) always renders the certified default panel below.
+  const inspectorPanel = insp ? `<aside class="pb-right">
+    <div class="pb-rmain pb-rinspect">${inspectorShell({
+      id: "pb-inspector",
+      title: insp.title,
+      subtitle: insp.sub,
+      body: (invalidNode ? `<div class="pb-ihint pb-warnhint">Unknown node <code>${esc(nodeParam)}</code> — failed closed to the default selection (Datasource).</div>` : "")
+        + `<a class="pb-iback" href="${selectionQuery("/__ioi/pipeline", { ontology: oid })}">← Pipeline outputs</a>`
+        + insp.body,
+    })}</div>
+    ${rstrip}
+  </aside>` : "";
+  const rightPanel = insp ? inspectorPanel : `<aside class="pb-right">
     <div class="pb-rmain">
       <div class="pb-righthd"><span class="pb-righttitle">Pipeline outputs</span><span class="pb-rhdico gap">${bpIcon("cog")}</span><span class="pb-rhdico gap">${bpIcon("panel-table")}</span><button class="pb-addbtn" disabled title="Adding outputs is authored in the ODK substrate — a named gap here">${bpIcon("plus")} Add</button></div>
       <div class="pb-rsearch">${bpIcon("search")}<input placeholder="Search outputs…" disabled aria-label="Search outputs (reference-only, not wired)"></div>
@@ -383,7 +557,26 @@ function renderPipelineBuilder(lists, selectedId) {
     .pb-stripico{display:inline-flex;align-items:center;justify-content:center;width:40px;height:40px;border-radius:4px;color:#5f6b7c}
     .pb-stripico.g{margin-top:14px;position:relative}
     .pb-stripico.g::before{content:"";position:absolute;top:-7.5px;left:0;width:40px;height:1px;background:#d8dbde}
-    .pb-stripico.on{background:#dfe0e1}`;
+    .pb-stripico.on{background:#dfe0e1}
+    a.pb-node{color:inherit}
+    .pb-node.pb-nsel{border-color:#2d72d2;box-shadow:0 0 0 2px rgba(45,114,210,.35),0 1px 3px rgba(20,24,30,.05)}
+    .pb-rinspect{overflow:auto}
+    .pb-right .ioi-inspector{display:flex;flex-direction:column;min-height:100%}
+    .pb-right .ioi-inspector-hd{display:flex;flex-direction:column;gap:2px;padding:8.5px 10px 8px 9px;border-bottom:1px solid #eef0f2}
+    .pb-right .ioi-inspector-title{font-size:14px;line-height:18.0013px;font-weight:600;color:#1c2127}
+    .pb-right .ioi-inspector-sub{font-size:11px;color:#5f6b7c;font-family:ui-monospace,SFMono-Regular,monospace;word-break:break-all}
+    .pb-right .ioi-inspector-body{padding:10px 10px 9px 9px}
+    .pb-iback{display:inline-block;font-size:12px;color:#215db0;margin:0 0 10px}
+    .pb-irow{display:flex;gap:10px;font-size:12px;line-height:15.4297px;padding:0 0 8px}
+    .pb-ik{color:#5f6b7c;width:118px;flex:0 0 118px}
+    .pb-iv{color:#1c2127;min-width:0;word-break:break-word}
+    .pb-icode{font-family:ui-monospace,SFMono-Regular,monospace;font-size:10.5px;background:#f1f3f6;border-radius:3px;padding:1px 4px;word-break:break-all}
+    .pb-redact{color:#8f99a8;font-size:11px}
+    .pb-ihint{margin:6px 0 10px;padding:8px 10px;border:1px solid #e5e7eb;border-radius:6px;background:#f7f8fa;color:#5b6270;font-size:11.5px;line-height:1.55}
+    .pb-warnhint{border-color:#e8c48d;background:#fdf7ec;color:#935610}
+    .pb-traybody .ioi-tray-hd{font-size:12px;font-weight:600;color:#1c2127;margin:0 0 8px}
+    .ioi-cmd-disabled{display:inline-flex;align-items:center;height:24px;padding:0 8px;border:1px solid #d3d8de;border-radius:4px;background:#f7f8f8;color:#8f99a8;font:inherit;font-size:12px;cursor:not-allowed}
+    .ioi-proof-link{font-size:12px}`;
 
   return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Pipeline Builder</title><style>${css}</style></head>
     <body><div class="pb-shell">${globalRail}<div class="pb-main">${header}<div class="pb-work">${canvasWrap}${rightPanel}</div></div></div></body></html>`;
