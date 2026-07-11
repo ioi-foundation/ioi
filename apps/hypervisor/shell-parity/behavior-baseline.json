@@ -3053,6 +3053,7 @@
     "CSSTransition::DIV.relative.h-full:200:1:2kf"
    ],
    "network": [
+    "GET /__ioi/api/applications",
     "GET /ai",
     "GET /changelog/latest",
     "GET /ioi-augmentation.js",
@@ -7959,6 +7960,7 @@
     "CSSTransition::DIV.relative.h-full:200:1:2kf"
    ],
    "network": [
+    "GET /__ioi/api/applications",
     "GET /changelog/latest",
     "GET /ioi-augmentation.js",
     "GET /projects",
@@ -14178,6 +14180,7 @@
     "CSSTransition::DIV.relative.h-full:200:1:2kf"
    ],
    "network": [
+    "GET /__ioi/api/applications",
     "GET /automations",
     "GET /changelog/latest",
     "GET /ioi-augmentation.js",
@@ -16273,6 +16276,7 @@
     "CSSTransition::DIV.relative.h-full:200:1:2kf"
    ],
    "network": [
+    "GET /__ioi/api/applications",
     "GET /ioi-augmentation.js",
     "GET /segment/v1/projects/g5Dgcf8kFxV7EPvOp7gGcJhH0FAwE1GW/settings",
     "GET /settings",

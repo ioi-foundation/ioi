@@ -34,6 +34,8 @@ import { MON_APP_TILE_URI, MON_WIZ_STRIP_URI, MON_CARDS_STRIP_URI } from "./moni
 import { SRC_APP_TILE_URI, SRC_HERO_URI, SRC_SETUP_STRIP_URI } from "./sources-assets.mjs";
 import { CHG_APP_TILE_URI } from "./changes-assets.mjs";
 import { EVL_APP_TILE_URI, EVL_HERO_URI } from "./evalsuites-assets.mjs";
+import { appCatalog } from "./app-catalog.mjs";
+import { bindSurface, boundSurface } from "./surface-registry.mjs";
 import { mintApprovalGrant } from "../../../scripts/lib/mint-approval-grant.mjs";
 
 // Build the current conversation entries for a run, in the exact NDJSON shape the SPA's V1 pane
@@ -1111,9 +1113,17 @@ function renderApplications() {
     const inner = `<div class="main"><div class="name">${s.icon} ${CX_ESC(s.name)}<span class="pill ok">open</span></div><div class="meta">${CX_ESC(s.desc)}</div></div>`;
     return `<a class="card" href="${s.href}">${inner}<span class="act ghost">Open →</span></a>`;
   };
+  // Ported application surfaces — rendered from the app catalog (parity-matrix membership), the
+  // same projection the shell launcher fetches at /__ioi/api/applications; never a hand list.
+  const portedCard = (a) => {
+    const ico = a.icon ? `<img src="${a.icon}" alt="" style="width:18px;height:18px;vertical-align:-4px;border-radius:4px"> ` : "◳ ";
+    return `<a class="card" href="${a.route}"><div class="main"><div class="name">${ico}${CX_ESC(a.title)}<span class="pill ok">open</span></div><div class="meta">${CX_ESC(a.family)} · ${CX_ESC(a.route)}</div></div><span class="act ghost">Open →</span></a>`;
+  };
+  const ported = appCatalog().apps;
   return automationsShell(
     "Applications",
     `<h1>Applications</h1><p class="sub">The autonomous-systems suite — compose, ground, govern, run, prove, evaluate, improve, package, distribute, operate. Generated apps land here as launchable entries. Home's governed-work band expands into the <a href="/__ioi/home">full readout</a>.</p>${SUITE.map(card).join("")}
+    ${ported.length ? `<h2 style="margin-top:26px">Ported apps</h2><p class="sub">Faithful ports of reference application surfaces inside the suite families — pixel-parity shell over daemon truth.</p>${ported.map(portedCard).join("")}` : ""}
     <h2 style="margin-top:26px">Substrate</h2><p class="sub">The type 1 + 2 hypervisor face — the foundation the suite runs on, kept distinct from it.</p>${SUBSTRATE.map(card).join("")}
     <h2 style="margin-top:26px">Horizon</h2><div class="card"><div class="main"><div class="name">🤖 HypervisorOS<span class="pill muted">horizon</span></div><div class="meta">Embodied systems lane over the same governed substrate — named only; no surfaces yet.</div></div></div>`,
   );
@@ -6136,6 +6146,29 @@ function domainAppPayload(p) {
   const or = (p.get("owner_ref") || "").trim(); if (or) payload.owner_ref = or;
   return payload;
 }
+// Restored verbatim: #46's serve reshuffle dropped these while live call sites still reference
+// them — DOMAIN_APP_VIS/domainAppPickers (domain-apps landing chips + new/edit form pickers,
+// crashed GET /__ioi/domain-apps) and ODK_UI (the /__ioi/odk/<family> deep-route dispatch table;
+// every ODK family form/detail route threw at request time). All referenced helpers survived the
+// reshuffle; the no-undef gate (eslint.config.mjs) now pins this class at commit time.
+// Family dispatch config: api path segment, single response key, form + detail + payload.
+const ODK_UI = {
+  "ontologies": { api: "domain-ontologies", key: "ontology", label: "Domain Ontology", payload: odkOntologyPayload, form: (ex) => renderOdkOntologyForm(ex), detail: (rec, lists) => renderOdkOntologyDetail(rec, lists) },
+  "data-recipes": { api: "data-recipes", key: "data_recipe", label: "Data Recipe", payload: odkRecipePayload, form: (ex, pk, ov) => renderOdkRecipeForm(ex, pk, ov.recipe_output_kinds || []), detail: (rec, lists) => renderOdkRecipeDetail(rec, lists) },
+  "surface-descriptors": { api: "surface-descriptors", key: "surface_descriptor", label: "Surface Descriptor", payload: odkDescriptorPayload, form: (ex, pk, ov) => renderOdkDescriptorForm(ex, pk, ov.composition_patterns || []), detail: (rec, lists) => renderOdkDescriptorDetail(rec, lists) },
+  "manifests": { api: "manifests", key: "manifest", label: "ODK Manifest", payload: odkManifestPayload, form: (ex, pk) => renderOdkManifestForm(ex, pk), detail: (rec) => renderOdkManifestDetail(rec) },
+};
+const DOMAIN_APP_VIS = ["private", "org", "marketplace_candidate"];
+async function domainAppPickers(descriptorRefForManifestFilter) {
+  const J = (p) => fetch(`${DAEMON}${p}`).then((r) => r.json()).catch(() => ({}));
+  const [sd, man] = await Promise.all([J("/v1/hypervisor/odk/surface-descriptors"), J("/v1/hypervisor/odk/manifests")]);
+  const descriptors = (sd.surface_descriptors || [])
+    .filter((d) => d.composition_pattern === "domain_app")
+    .map((d) => ({ v: d.ref, l: d.name || d.id }));
+  let manifests = man.manifests || [];
+  if (descriptorRefForManifestFilter) manifests = manifests.filter((m) => (m.surface_descriptor_refs || []).includes(descriptorRefForManifestFilter));
+  return { descriptors, manifests: manifests.map((m) => ({ v: m.ref, l: m.name || m.id })) };
+}
 function renderDomainAppForm(existing, pk) {
   const ex = existing || {}; const isEdit = !!existing;
   const action = isEdit ? `/__ioi/domain-apps/${encodeURIComponent(ex.domain_app_id)}/patch` : `/__ioi/domain-apps`;
@@ -7401,6 +7434,11 @@ const productUi = spawn("node", [REF_SERVER], {
 productUi.on("exit", (code) => process.exit(code ?? 0));
 process.on("SIGINT", () => productUi.kill("SIGINT"));
 process.on("SIGTERM", () => productUi.kill("SIGTERM"));
+// Process-level backstops behind the per-request boundary (surfaceErrorBoundary): WS handlers,
+// timers and child-process callbacks aren't covered by it, and one surface's bug must not take
+// down the ~100-surface estate process. Log loudly, keep serving; request state is not shared.
+process.on("unhandledRejection", (e) => console.error("[hypervisor] unhandled rejection (estate kept alive):", e));
+process.on("uncaughtException", (e) => console.error("[hypervisor] uncaught exception (estate kept alive):", e));
 
 // IOI product identity overrides applied to proxied HTML/JSON (the reference ships a demo
 // identity; we substitute ours). Applied in the committed serve layer so it survives productUi
@@ -7725,11 +7763,62 @@ ${error ? `<div class="err">${error}</div>` : ""}
 }
 
 // 2) Front server: IOI /api adapter first, proxy everything else to the productUi.
+// ---- Surface bindings — registry-mounted implementations whose code still lives in this file
+// (each moves into its own module as the wave extracts it; the registry stays the mount point).
+// Pipeline is the pilot: loaders/render identical to the flat branch it replaces.
+bindSurface("pipeline", {
+  loaders: async () => {
+    const J = (p) => fetch(`${DAEMON}${p}`).then((r) => r.json()).catch(() => ({}));
+    const [o, ds, cm, pv, tr, op, lp, mr, cs, ms] = await Promise.all([
+      J("/v1/hypervisor/odk/domain-ontologies"),
+      J("/v1/hypervisor/data-sources"),
+      J("/v1/hypervisor/odk/connector-mappings"),
+      J("/v1/hypervisor/odk/policy-bound-data-views"),
+      J("/v1/hypervisor/odk/transformation-runs"),
+      J("/v1/hypervisor/odk/ontology-projections"),
+      J("/v1/hypervisor/odk/capability-lease-plans"),
+      J("/v1/hypervisor/odk/materializing-runs"),
+      J("/v1/hypervisor/odk/connector-sessions"),
+      J("/v1/hypervisor/odk/materialized-object-sets"),
+    ]);
+    return {
+      ontologies: o.ontologies || [],
+      data_sources: ds.data_sources || [],
+      connector_mappings: cm.connector_mappings || [],
+      policy_views: pv.policy_bound_data_views || [],
+      transformation_runs: tr.transformation_runs || [],
+      ontology_projections: op.ontology_projections || [],
+      capability_lease_plans: lp.capability_lease_plans || [],
+      materializing_runs: mr.materializing_runs || [],
+      connector_sessions: cs.connector_sessions || [],
+      materialized_sets: ms.materialized_object_sets || [],
+    };
+  },
+  render: (data, url) => renderPipelineBuilder(data, url.searchParams.get("ontology") || ""),
+  actions: [], // Build/Preview command discipline arrives later in the wave
+});
+
 const server = http.createServer((req, res) => {
   const chunks = [];
   req.on("data", (c) => chunks.push(c));
-  req.on("end", async () => {
-    const body = Buffer.concat(chunks);
+  req.on("end", () => handleEstateRequest(req, res, Buffer.concat(chunks)).catch((err) => surfaceErrorBoundary(req, res, err)));
+});
+
+// ---- App-runtime error boundary (functional-runtime wave) ----
+// One surface's renderer exception must fail THAT request (500 + logged), never the estate
+// process. Motivating incident (#46): DOMAIN_APP_VIS was deleted with call sites left behind —
+// GET /__ioi/domain-apps threw, the async handler's rejection was unhandled, and the whole
+// ~100-surface serve died. If headers already streamed, the response just ends; the error page
+// is written only when nothing was sent.
+function surfaceErrorBoundary(req, res, err) {
+  console.error(`[hypervisor] surface error ${req.method} ${req.url}:`, err);
+  try {
+    if (!res.headersSent) res.writeHead(500, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
+    if (!res.writableEnded) res.end("<!doctype html><title>Surface error</title><h1>Surface error</h1><p>This surface failed to render; the rest of the estate is still serving. The serve log carries the stack.</p>");
+  } catch { /* client socket already gone */ }
+}
+
+async function handleEstateRequest(req, res, body) {
     let pathname = (req.url || "").split("?")[0];
     // Wire bridge: the served SPA's RPC package name is baked into its (immutable) protobuf
     // descriptors, so on the wire it still calls the upstream namespace. Canonicalize any
@@ -7764,6 +7853,11 @@ const server = http.createServer((req, res) => {
         res.end(buf);
       } catch { res.writeHead(404); res.end("not found"); }
       return;
+    }
+    // Test-only fault route (mounted ONLY when the runtime-safety verifier spawns the serve with
+    // this flag): proves the error boundary isolates a throwing surface to a 500 on that route.
+    if (process.env.IOI_APP_RUNTIME_TEST_ROUTE === "1" && pathname === "/__ioi/__test/boom" && req.method === "GET") {
+      throw new Error("intentional test-route failure (app-runtime-safety verifier)");
     }
     // ---- Run Replay index (native primitive, first slice) — the replay LIST over every recorded
     // run: live session runs (serve registry), durable operation/execution transcripts (daemon),
@@ -8957,6 +9051,13 @@ const server = http.createServer((req, res) => {
       }
     }
 
+    // ---- App catalog — the registry of ported application surfaces (membership = parity-matrix
+    // truth via app-catalog.mjs; every launcher lane renders from this one projection).
+    if (pathname === "/__ioi/api/applications" && req.method === "GET") {
+      res.writeHead(200, { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-cache" });
+      res.end(JSON.stringify(appCatalog()));
+      return;
+    }
     // ---- Applications estate — the owned breadth launcher (Connections re-homed as Developer & Integrations).
     if (pathname === "/__ioi/applications" && req.method === "GET") {
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
@@ -10008,35 +10109,21 @@ const server = http.createServer((req, res) => {
       }, selectedOntology));
       return;
     }
-    if (pathname === "/__ioi/pipeline" && req.method === "GET") {
-      const J = (p) => fetch(`${DAEMON}${p}`).then((r) => r.json()).catch(() => ({}));
-      const [o, ds, cm, pv, tr, op, lp, mr, cs, ms] = await Promise.all([
-        J("/v1/hypervisor/odk/domain-ontologies"),
-        J("/v1/hypervisor/data-sources"),
-        J("/v1/hypervisor/odk/connector-mappings"),
-        J("/v1/hypervisor/odk/policy-bound-data-views"),
-        J("/v1/hypervisor/odk/transformation-runs"),
-        J("/v1/hypervisor/odk/ontology-projections"),
-        J("/v1/hypervisor/odk/capability-lease-plans"),
-        J("/v1/hypervisor/odk/materializing-runs"),
-        J("/v1/hypervisor/odk/connector-sessions"),
-        J("/v1/hypervisor/odk/materialized-object-sets"),
-      ]);
-      const selectedOntology = new URL(req.url, "http://x").searchParams.get("ontology") || "";
-      res.writeHead(200, HTMLH);
-      res.end(renderPipelineBuilder({
-        ontologies: o.ontologies || [],
-        data_sources: ds.data_sources || [],
-        connector_mappings: cm.connector_mappings || [],
-        policy_views: pv.policy_bound_data_views || [],
-        transformation_runs: tr.transformation_runs || [],
-        ontology_projections: op.ontology_projections || [],
-        capability_lease_plans: lp.capability_lease_plans || [],
-        materializing_runs: mr.materializing_runs || [],
-        connector_sessions: cs.connector_sessions || [],
-        materialized_sets: ms.materialized_object_sets || [],
-      }, selectedOntology));
-      return;
+    // ---- Surface registry dispatch — ported application surfaces mount through the explicit
+    // table (surface-registry.mjs), not the flat branch chain. This sits exactly where the
+    // pipeline branch lived so registry surfaces keep the chain position (after auth/posture
+    // gates) the flat branches had. Renderers are BOUND at startup (bindSurface below) until
+    // each app's code is extracted into its own module; an unbound surface isn't matched here,
+    // so registration is additive and behavior-preserving.
+    {
+      const hit = boundSurface(pathname, req.method);
+      if (hit) {
+        const url = new URL(req.url, "http://x");
+        const data = hit.impl.loaders ? await hit.impl.loaders(url) : null;
+        res.writeHead(200, HTMLH);
+        res.end(hit.impl.render(data, url));
+        return;
+      }
     }
     // Ontology Manager — reference UX PORT (#34, daemon_wired). Ported schema-workbench shell over the
     // real ODK CanonicalObjectModel; the /__ioi/odk substrate/authoring surface stays as-is.
@@ -10763,8 +10850,7 @@ const server = http.createServer((req, res) => {
       }
     }
     proxyToProductUi(req, res, body);
-  });
-});
+}
 
 // ---- Cut A — env-ops streaming transport: JSON-RPC 2.0 over WebSocket ----------------------------
 // The SPA opens ws(s)://<host>/supervisor.v1.EnvironmentOpsService/ (env path dropped by design) and

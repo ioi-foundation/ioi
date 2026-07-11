@@ -24,6 +24,13 @@
         if (t.closest('a[href="#applications"], [data-hypervisor-applications-launcher], a[href="/__ioi/applications"]')) {
           e.preventDefault(); e.stopPropagation(); appsModal(); return;
         }
+        // Catalog app tiles (data-ioi-app carries the display title) → the Open Application slot.
+        const catLink = t.closest("a[data-ioi-app]");
+        if (catLink) {
+          e.preventDefault(); e.stopPropagation();
+          openApplication(catLink.getAttribute("href"), catLink.getAttribute("data-ioi-app"));
+          return;
+        }
         // Live application links → open IN-SHELL in the Open Application slot (left rail stays).
         const appLink = t.closest('a[href^="/__ioi/connections"], a[href^="/__ioi/work-ledger"], a[href^="/__ioi/operations"], a[href^="/__ioi/environments"], a[href^="/__ioi/workbench"], a[href^="/__ioi/agent-studio"], a[href^="/__ioi/foundry"], a[href^="/__ioi/feedback"], a[href^="/__ioi/sessions"], a[href^="/__ioi/domain-apps"], a[href^="/__ioi/domain-app-runtime"], a[href^="/__ioi/governance"], a[href^="/__ioi/marketplace"], a[href^="/__ioi/odk"], a[href^="/__ioi/home"]');
         if (appLink) {

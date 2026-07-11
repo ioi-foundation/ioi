@@ -3,6 +3,7 @@
     if (/\/details\//.test(p)) mountTimelineInWorkbench(); // workbench timeline only on /details/*
     mountProjectAutomations(); // self-guards /projects/:id + self-removes its panel off-route
     if (/\/settings\//.test(p)) { mountGitAppButton(); wireIntegrationConnect(); } // settings only
+    fetchAppCatalog(); // ported-app registry for the launcher lanes (self-guarded, one fetch)
     applyAiViews(); // /ai view router: explorer Home (no hash) vs New Session composer (#new-session)
     updateOpenAppRail(); // reflect the Open Application slot state in the rail
   }

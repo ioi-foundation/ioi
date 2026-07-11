@@ -130,6 +130,13 @@
       '<span aria-hidden="true" style="font-size:17px">' + a.icon + "</span>" +
       '<span class="flex min-w-0 flex-col"><span class="truncate text-sm font-medium text-content-primary">' + esc(a.name) + "</span>" +
       '<span class="truncate text-xs text-content-tertiary">' + esc(a.desc) + "</span></span></a>").join("");
+    // Ported application surfaces (app-catalog projection) render ahead of the family tiles;
+    // data-ioi-app carries the display title for the Open-Application interceptor.
+    const portedApps = catalogApps().map((a) =>
+      '<a href="' + a.route + '" data-ioi-app="' + esc(a.title) + '" class="flex items-center gap-3 rounded-xl border border-border-base bg-surface-secondary px-4 py-3 transition-colors hover:bg-surface-hover" style="text-decoration:none">' +
+      '<span aria-hidden="true" class="shrink-0">' + catalogIcon(a, 20) + "</span>" +
+      '<span class="flex min-w-0 flex-col"><span class="truncate text-sm font-medium text-content-primary">' + esc(a.title) + "</span>" +
+      '<span class="truncate text-xs text-content-tertiary">' + esc(a.family) + "</span></span></a>").join("");
     root.innerHTML = '<div style="max-width:66rem;margin:0 auto;padding:40px 28px 64px">' +
       '<h1 class="text-2xl font-semibold text-content-primary" style="letter-spacing:-.2px">Welcome back' + (name ? ", " + esc(name) : "") + "</h1>" +
       '<div class="text-sm text-content-tertiary" style="margin-top:4px">' + (summary || "&nbsp;") + "</div>" +
@@ -142,6 +149,10 @@
       hbSection("Recent", '<span class="flex items-center gap-2">' + tabChip("sessions", "Sessions") + tabChip("projects", "Projects") + tabChip("runs", "Runs") + "</span>") +
       '<div id="ioi-hb-recent">' + hbRecentBody() + "</div>" +
       hbSection("Applications", '<a href="#applications" class="text-xs text-content-secondary hover:text-content-primary" style="text-decoration:none">View all →</a>') +
+      (portedApps
+        ? '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px">' + portedApps + "</div>" +
+          '<div class="px-1 text-xs text-content-tertiary" style="margin:14px 0 8px">Suite</div>'
+        : "") +
       '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px">' + apps + "</div>" +
       "</div>";
   }

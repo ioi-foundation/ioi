@@ -38,6 +38,7 @@
   #ioi-apps-modal .ioi-mname{font-weight:600;color:#fff;}
   #ioi-apps-modal .ioi-mdesc{color:#878a93;font-size:12px;}
   #ioi-apps-modal .ioi-mpill{margin-left:auto;font-size:11px;border:1px solid #2a2c33;border-radius:999px;padding:1px 9px;color:#9a9da6;white-space:nowrap;}
+  #ioi-apps-modal .ioi-mgrp{padding:12px 18px 4px;font-size:11px;letter-spacing:.4px;text-transform:uppercase;color:#6d707a;}
   /* Active "Open Application" rail row (one only; no pinned region). */
   .ioi-openapp-rail{display:flex;align-items:center;gap:8px;margin:2px 8px;padding:6px 10px;border-radius:8px;background:#15315c;border:1px solid #3a82f6;color:#fff;text-decoration:none;font:600 12px system-ui,sans-serif;cursor:pointer;}
   .ioi-openapp-rail .ioi-oar-ico{flex:0 0 auto;font-size:14px;}

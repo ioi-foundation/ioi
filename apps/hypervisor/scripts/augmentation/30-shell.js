@@ -29,7 +29,8 @@
     if (el && el.style.display !== "none") el.style.left = railRight() + "px";
   }
   function appIconFor(name) {
-    const a = IOI_APPS.find((x) => x.name === name);
+    const c = catalogAppByTitle(name); // ported app → its family's emoji for the rail row
+    const a = IOI_APPS.find((x) => x.name === (c ? c.family : name));
     return a ? a.icon : "◳";
   }
   function findAppsNavItem() {
@@ -83,24 +84,37 @@
     positionOpenApp();
     updateOpenAppRail();
   }
+  function appsModalRows() {
+    // Ported apps (catalog projection, arrives async) first, then the suite family surfaces.
+    const ported = catalogApps().map((a) =>
+      '<div class="ioi-mrow" data-href="' + a.route + '" data-name="' + esc(a.title) + '"><span>' + catalogIcon(a, 20) +
+      '</span><span><div class="ioi-mname">' + esc(a.title) + '</div><div class="ioi-mdesc">' + esc(a.family) + " · " + esc(a.route) +
+      '</div></span><span class="ioi-mpill">open</span></div>').join("");
+    const families = IOI_APPS.map((a) => {
+      const pill = a.status === "live" ? "open" : a.status === "contextual" ? "in a session" : "planned";
+      const live = a.status === "live";
+      return '<div class="ioi-mrow' + (live ? "" : " disabled") + '"' + (live ? ' data-href="' + a.href + '" data-name="' + esc(a.name) + '"' : "") +
+        '><span>' + a.icon + '</span><span><div class="ioi-mname">' + esc(a.name) + '</div><div class="ioi-mdesc">' + esc(a.desc) + '</div></span><span class="ioi-mpill">' + pill + "</span></div>";
+    }).join("");
+    return (ported ? '<div class="ioi-mgrp">Apps</div>' + ported + '<div class="ioi-mgrp">Suite</div>' : "") + families;
+  }
   function appsModal() {
     let el = document.getElementById("ioi-apps-modal");
     if (!el) {
       el = document.createElement("div");
       el.id = "ioi-apps-modal";
-      const rows = IOI_APPS.map((a) => {
-        const pill = a.status === "live" ? "open" : a.status === "contextual" ? "in a session" : "planned";
-        const live = a.status === "live";
-        return '<div class="ioi-mrow' + (live ? "" : " disabled") + '"' + (live ? ' data-href="' + a.href + '" data-name="' + esc(a.name) + '"' : "") +
-          '><span>' + a.icon + '</span><span><div class="ioi-mname">' + esc(a.name) + '</div><div class="ioi-mdesc">' + esc(a.desc) + '</div></span><span class="ioi-mpill">' + pill + "</span></div>";
-      }).join("");
-      el.innerHTML = '<div class="ioi-modal"><div class="ioi-mh"><span>Applications</span><button title="Close">✕</button></div>' + rows + "</div>";
       document.body.appendChild(el);
       el.addEventListener("click", (e) => {
         if (e.target === el || e.target.closest(".ioi-mh button")) { el.classList.remove("open"); return; } // backdrop / ✕
         const row = e.target.closest(".ioi-mrow[data-href]");
         if (row) { el.classList.remove("open"); openApplication(row.getAttribute("data-href"), row.getAttribute("data-name")); }
       });
+    }
+    // Rebuild when the catalog projection lands (data-catalog stamps the rendered app count).
+    const stamp = String(catalogApps().length);
+    if (el.getAttribute("data-catalog") !== stamp) {
+      el.setAttribute("data-catalog", stamp);
+      el.innerHTML = '<div class="ioi-modal"><div class="ioi-mh"><span>Applications</span><button title="Close">✕</button></div>' + appsModalRows() + "</div>";
     }
     el.classList.add("open");
   }
