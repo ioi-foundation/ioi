@@ -22,7 +22,7 @@ import * as pipeline from "../surfaces/pipeline/index.mjs";
 import * as ontologyManager from "../surfaces/ontology-manager/index.mjs";
 import * as objectExplorer from "../surfaces/object-explorer/index.mjs";
 import { escHtml, parseSelection, selectionQuery, inspectorShell, trayShell, disabledCommand, proofLink, semanticMask } from "../surfaces/kit.mjs";
-import { ONTOLOGY_CONTEXT_KEYS, parseOntologyContext, ontologyContextQuery, managerLink, explorerLink, objectTypeLink, objectSetLink, semanticBreadcrumb, semanticInspectorShell, disabledSemanticAction, formatRef } from "../surfaces/ontology-context.mjs";
+import { ONTOLOGY_CONTEXT_KEYS, parseOntologyContext, ontologyContextQuery, managerLink, explorerLink, objectTypeLink, objectSetLink, managerResourceLink, sourcesLink, provenanceReceiptLink, semanticBreadcrumb, semanticInspectorShell, disabledSemanticAction, formatRef } from "../surfaces/ontology-context.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const APP = join(HERE, "..");
@@ -84,7 +84,12 @@ async function run() {
   // 6. ONTOLOGY CONTEXT KIT — the semantic-layer primitives (unwired; PR60-62 wire them).
   const cu = new URL("http://x/r?ontology=ont-1&objectType=loan&objectSet=&pane=types&noise=z");
   const octx = parseOntologyContext(cu);
-  ok("parseOntologyContext reads only known, non-empty keys", octx.ontology === "ont-1" && octx.objectType === "loan" && octx.pane === "types" && !("objectSet" in octx) && !("noise" in octx) && ONTOLOGY_CONTEXT_KEYS.length === 8 && ONTOLOGY_CONTEXT_KEYS.includes("definitionKind") && ONTOLOGY_CONTEXT_KEYS.includes("definitionId"));
+  ok("parseOntologyContext reads only known, non-empty keys", octx.ontology === "ont-1" && octx.objectType === "loan" && octx.pane === "types" && !("objectSet" in octx) && !("noise" in octx) && ONTOLOGY_CONTEXT_KEYS.length === 14 && ["definitionKind", "definitionId", "dataSource", "connectorMapping", "policyView", "ontologyProjection", "materializingRun", "receipt"].every((k) => ONTOLOGY_CONTEXT_KEYS.includes(k)));
+  // #64 cross-plane keys: roundtrip-stable, unknown keys dropped, oversized values dropped.
+  const xctx = parseOntologyContext(new URL("http://x/r?dataSource=ds_1&connectorMapping=cm_1&receipt=agentgres%3A%2F%2Fx%2Fr1&rogue=z"));
+  ok("cross-plane context roundtrips (known keys only, canonical order)", xctx.dataSource === "ds_1" && xctx.connectorMapping === "cm_1" && xctx.receipt === "agentgres://x/r1" && !("rogue" in xctx) && ontologyContextQuery("/r", xctx) === "/r?connectorMapping=cm_1&dataSource=ds_1&receipt=agentgres%3A%2F%2Fx%2Fr1");
+  ok("oversized context values are DROPPED (never truncated into a different identity)", !("ontology" in parseOntologyContext(new URL(`http://x/r?ontology=${"a".repeat(300)}`))));
+  ok("link builders fail closed on missing owning ids", managerResourceLink("", "connector-mapping", "x") === null && managerResourceLink("o", "bogus-kind", "x") === null && sourcesLink("") === null && provenanceReceiptLink("") === null);
   const rt = ontologyContextQuery("/r", octx);
   ok("ontologyContextQuery is canonical (sorted keys, empties dropped) and roundtrips", rt === "/r?objectType=loan&ontology=ont-1&pane=types" && JSON.stringify(parseOntologyContext(new URL(`http://x${rt}`))) === JSON.stringify(octx));
   ok("ontologyContextQuery ignores unknown keys", ontologyContextQuery("/r", { ontology: "a", rogue: "x" }) === "/r?ontology=a");

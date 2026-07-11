@@ -37,6 +37,7 @@ import { EVL_APP_TILE_URI, EVL_HERO_URI } from "./evalsuites-assets.mjs";
 import { appCatalog } from "./app-catalog.mjs";
 import { bindSurface, boundSurface, boundActionRoute, embeddableRoutes } from "./surface-registry.mjs";
 import { escHtml } from "../surfaces/kit.mjs";
+import { managerLink, managerResourceLink, objectSetLink, sourcesLink, pipelineNodeLink, lineageLink as semLineageLink, vertexLink as semVertexLink, provenanceReceiptLink, provenanceSetLink, semanticBreadcrumb } from "../surfaces/ontology-context.mjs";
 import { ioiGlobalRailHtml, IOI_GRAIL_CSS } from "../surfaces/chrome.mjs";
 import { mintApprovalGrant } from "../../../scripts/lib/mint-approval-grant.mjs";
 
@@ -1187,7 +1188,27 @@ function renderProvenanceLineage(entries) {
     `<ul class="wlbl" style="max-width:820px">${edgeList || '<li class="sub" style="margin:0">this node carries no outbound edges</li>'}</ul>`;
 }
 
-function renderWorkLedger(entries, scopedProject) {
+function renderWorkLedger(entries, scopedProject, selCtx) {
+  // #64 §14: the proof stream is a read-time projection — the DISPLAY copy (rows, drawer, and
+  // the embedded #wl-data JSON) redacts source-contact endpoints to their ORIGIN; the durable
+  // receipts on disk are untouched, and repeated reads mint nothing.
+  const wlRedact = (e) => {
+    if (!e || !e.source_contact || !e.source_contact.endpoint) return e;
+    const c = { ...e, source_contact: { ...e.source_contact } };
+    try { const u = new URL(c.source_contact.endpoint); c.source_contact.endpoint = `${u.protocol}//${u.host}/…`; } catch { c.source_contact.endpoint = "(endpoint redacted)"; }
+    return c;
+  };
+  entries = (entries || []).map(wlRedact);
+  // #64 §9: odk_materialization entries are ADDRESSABLE — by receipt ref (?receipt=) or by the
+  // exact object set (?objectSet=); an unmatched selection renders an honest note, never a
+  // substituted entry.
+  const wlCtx = selCtx || {};
+  const wlSelIdx = (wlCtx.receipt || wlCtx.objectSet)
+    ? entries.findIndex((e) => e.kind === "odk_materialization" && ((wlCtx.receipt && e.receipt_ref === wlCtx.receipt) || (wlCtx.objectSet && (String(e.materialized_set_ref || "").endsWith(wlCtx.objectSet) || e.id === wlCtx.objectSet))))
+    : -1;
+  const wlSelNote = (wlCtx.receipt || wlCtx.objectSet) && wlSelIdx < 0
+    ? `<div class="empty">No materialization entry matches the requested ${wlCtx.receipt ? `receipt <code>${CX_ESC(wlCtx.receipt)}</code>` : `object set <code>${CX_ESC(wlCtx.objectSet)}</code>`} — nothing substituted (fail-closed).</div>`
+    : "";
   // Same surface, optionally scoped to one project (light copy only — NOT a forked per-project UI).
   const scope = scopedProject
     ? `<p class="sub" style="margin:-10px 0 16px"><span class="pill ok">project: ${CX_ESC(scopedProject)}</span> · <a href="/__ioi/work-ledger">view all projects →</a></p>`
@@ -1295,7 +1316,7 @@ function renderWorkLedger(entries, scopedProject) {
       if(e.listing_id){links+=bl('Listing',e.listing_id,'/__ioi/marketplace');}
       if(e.kind==='provider_crossing'){links+=bl('Provider health',e.account_ref||'provider accounts','/__ioi/operations')+bl('Provider accounts',e.account_ref||'environments','/__ioi/environments');if(e.exposure_ref){links+=bl('Spend reconciliation',e.exposure_ref,e.spend_reconciliation_ref||'/__ioi/operations');}}
       if(e.kind==='storage_custody'){links+=bl('Storage backend health',e.backend_ref||'storage backends',e.storage_health_ref||'/__ioi/operations')+bl('Archive custody',e.archive_ref||'environments','/__ioi/environments');}
-      if(e.kind==='odk_materialization'){var oid=String(e.ontology_ref||'').replace('ontology://','');var q=oid?('?ontology='+oid):'';links+=bl('Lineage graph',e.materialized_set_ref,'/__ioi/lineage'+q)+bl('Vertex graph',e.materialized_set_ref,'/__ioi/vertex'+q)+bl('Pipeline',e.ontology_ref,'/__ioi/pipeline'+q)+bl('Object set',e.materialized_set_ref,'/__ioi/odk'+q+'#pane-explorer')+bl('Materializing run',e.materializing_run_ref,'/__ioi/odk'+q+'#pane-resources')+bl('Sealed session',e.connector_session_ref,'/__ioi/odk'+q+'#pane-resources')+bl('Lease plan',e.capability_lease_plan_ref,'/__ioi/odk'+q+'#pane-resources');}
+      if(e.kind==='odk_materialization'){var oid=String(e.ontology_ref||'').replace('ontology://','');var q=oid?('?ontology='+oid):'';var sid=String(e.materialized_set_ref||'').replace('materialized-object-set://','');links+=bl('Ontology Manager',e.ontology_ref,'/__ioi/ontology/manager'+q)+(e.object_type_id&&oid?bl('Object type',e.object_type_id,'/__ioi/ontology/manager?definitionId='+encodeURIComponent(e.object_type_id)+'&definitionKind=object-type&ontology='+oid+'&section=object-types'):'')+(sid&&oid?bl('Object set (Explorer)',e.materialized_set_ref,'/__ioi/ontology/explorer?objectSet='+encodeURIComponent(sid)+'&ontology='+oid):'')+(oid?bl('Pipeline materialized node',e.ontology_ref,'/__ioi/pipeline?node=materialized&ontology='+oid):'')+(sid&&oid?bl('Lineage path',e.materialized_set_ref,'/__ioi/lineage?objectSet='+encodeURIComponent(sid)+'&ontology='+oid):'')+(sid&&oid?bl('Vertex neighborhood',e.materialized_set_ref,'/__ioi/vertex?objectSet='+encodeURIComponent(sid)+'&ontology='+oid):'')+bl('ODK substrate',e.materializing_run_ref,'/__ioi/odk'+q+'#pane-resources');}
       if(e.release_control_ref){links+=bl('Release control',e.release_control_ref,'/__ioi/governance');}
       if(e.approval_request_ref){links+=bl('Approval request',e.approval_request_ref,'/__ioi/governance');}
       if(e.kill_switch_ref){links+=bl('Kill switch',e.kill_switch_ref,'/__ioi/governance');}
@@ -1311,7 +1332,8 @@ function renderWorkLedger(entries, scopedProject) {
       document.querySelectorAll('.wlrow').forEach(function(r){r.classList.toggle('selrow',r.dataset.i==String(i));});
     }
   </script>`;
-  return automationsShell("Provenance", head + renderProvenanceLineage(entries) + filters + proofExp + `<div class="wlwrap"><div>${table}</div>${drawer}</div>` + dataTag + script);
+  const wlSelScript = wlSelIdx >= 0 ? `<script>wlOpen(${wlSelIdx})</script>` : "";
+  return automationsShell("Provenance", head + wlSelNote + renderProvenanceLineage(entries) + filters + proofExp + `<div class="wlwrap"><div>${table}</div>${drawer}</div>` + dataTag + script + wlSelScript);
 }
 
 // ---- Operations — the first real Operations estate card: execution health over the automation
@@ -3291,11 +3313,17 @@ const VERTEX_NODE_KINDS = [
   ["set", "📦", "Object set"], ["projection", "🔭", "Projection"], ["run", "⚙", "Materializing run"],
   ["object", "▪", "Object"], ["proof", "🧾", "Proof-stream edge"],
 ];
-function renderVertex(lists, selectedId) {
+function renderVertex(lists, selectedId, vSel) {
   const ontologies = Array.isArray(lists.ontologies) ? lists.ontologies : [];
   const allSets = Array.isArray(lists.materialized_sets) ? lists.materialized_sets : [];
   const has = new Set(allSets.map((s) => s.ontology_ref));
-  const selected = ontologies.find((x) => x.id === selectedId) || ontologies.find((x) => has.has(x.ref)) || ontologies[0] || null;
+  // #64: ?objectSet= selects THAT set's neighborhood (its ontology becomes the context) and
+  // ?objectId= highlights the object within it; an unresolvable set fails closed honestly.
+  const vs = vSel || {};
+  const vSetSel = vs.objectSet ? allSets.find((s) => s.id === vs.objectSet || String(s.ref || "").endsWith(vs.objectSet)) || null : null;
+  const vSetMissing = !!(vs.objectSet && !vSetSel);
+  const selected = (vSetSel ? ontologies.find((x) => x.ref === vSetSel.ontology_ref) : null)
+    || ontologies.find((x) => x.id === selectedId) || ontologies.find((x) => has.has(x.ref)) || ontologies[0] || null;
   const oref = selected ? selected.ref : "__none__";
   const oid = selected ? selected.id : "";
   const sets = allSets.filter((s) => s.ontology_ref === oref);
@@ -3315,43 +3343,51 @@ function renderVertex(lists, selectedId) {
 
   const head = `<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap"><div><h1 style="margin:0">Vertex</h1><p class="sub" style="margin:4px 0 0">Explore the materialized object graph — object sets, projections, objects, and the cross-plane Provenance proof-stream edges as a navigable node/relation graph, over IOI daemon truth. Reference grammar: <a href="/__apps/vertex">Vertex ↗</a> (secondary capture).</p></div><div class="row" style="gap:8px"><a class="act ghost" href="/__ioi/lineage?ontology=${encodeURIComponent(oid)}">Lineage path</a><a class="act ghost" href="/__ioi/pipeline?ontology=${encodeURIComponent(oid)}">Pipeline</a></div></div>`;
 
+  if (vSetMissing) {
+    return automationsShell("Vertex", head + switcher + `<div class="empty">No materialized set matches <code>${CX_ESC(vs.objectSet)}</code> — nothing substituted (fail-closed). Pick a set from the <a href="/__ioi/ontology/explorer">Object Explorer</a>.</div>`);
+  }
   // HONEST EMPTY — no materialized objects ⇒ no graph. Never fabricate nodes.
   if (!sets.length) {
     const note = omBoundaryNote(`This ontology has materialized <b>no objects</b>, so there is <b>no graph to explore</b> — Vertex renders the real materialized object graph (sets · projections · objects · proof-stream edges), which appears only once a pipeline is built. Build one from the <a href="/__ioi/pipeline?ontology=${encodeURIComponent(oid)}">Pipeline Builder</a>. The <a href="/__apps/vertex">Vertex reference capture ↗</a> is the familiar baseline, never a rebound surface.`);
     return automationsShell("Vertex", head + switcher + `<div class="chips" style="margin:10px 0 12px"><span class="pill muted">empty graph</span> <span class="sub" style="margin:0">${selected ? `No materialized objects for <b>${CX_ESC(selected.domain || selected.id)}</b>.` : "Select or create an ontology."}</span></div>` + note);
   }
 
+  // The primary (selected) set — chosen BEFORE the node inventory so the set chips can mark it.
+  const primary = vSetSel || sets.slice().sort((a, b) => String(b.registered_at || "").localeCompare(String(a.registered_at || "")))[0];
   // Graph catalog — node-type counts (the exploration summary).
   const counts = { set: sets.length, projection: projs.length, run: runs.length, object: objectCount, proof: proofEdges.length };
   const catalog = `<div class="row" style="gap:10px;align-items:stretch;margin:0 0 14px;flex-wrap:wrap">${VERTEX_NODE_KINDS.map(([k, ic, l]) => `<div style="flex:1;min-width:118px;padding:11px 13px;border:1px solid #24262d;border-radius:10px;background:#15171c"><div style="font-size:20px;font-weight:700;color:#fff">${ic} ${counts[k]}</div><div style="color:#878a93;font-size:12px;margin-top:2px">${CX_ESC(l)}${k === "proof" ? " <span class=\"pill ok\" style=\"margin:0\">cross-plane</span>" : ""}</div></div>`).join("")}</div>`;
 
   // Node inventory (grouped) — the graph's nodes, real refs.
-  const nodeChip = (ic, label, ref) => `<span class="pill muted" style="margin:0" title="${CX_ESC(ref || "")}">${ic} ${CX_ESC(label)}</span>`;
+  // #64: graph nodes are real links into their owning surfaces; set chips select the
+  // neighborhood HERE (URL-persistent) and the selected set visibly identifies itself.
+  const nodeChip = (ic, label, ref, href, on) => href
+    ? `<a class="pill ${on ? "ok" : "muted"}" style="margin:0;text-decoration:none" title="${CX_ESC(ref || "")}"${on ? ' aria-current="true" data-vertex-selected="1"' : ""}>${ic} ${CX_ESC(label)}</a>`.replace("<a ", `<a href="${href}" `)
+    : `<span class="pill muted" style="margin:0" title="${CX_ESC(ref || "")}">${ic} ${CX_ESC(label)}</span>`;
   const inv = `<h2 id="vertex-nodes">Nodes <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">(${counts.set + counts.projection + counts.run + counts.object + counts.proof})</span></h2>`
-    + `<div class="chips" style="margin:0 0 6px"><span class="chiplabel">Object sets</span>${sets.map((s) => nodeChip("📦", `${s.count || 0} obj`, s.ref)).join(" ")}</div>`
-    + `<div class="chips" style="margin:0 0 6px"><span class="chiplabel">Projections</span>${projs.map((p) => nodeChip("🔭", p.name || p.id, p.ref)).join(" ")}</div>`
-    + `<div class="chips" style="margin:0 0 6px"><span class="chiplabel">Runs</span>${runs.filter((r) => r.status === "executed").map((r) => nodeChip("⚙", r.name || r.id, r.ref)).join(" ") || `<span class="sub" style="margin:0">—</span>`}</div>`
-    + `<div class="chips" style="margin:0 0 6px"><span class="chiplabel">Proof edges</span>${proofEdges.length ? proofEdges.map((e) => nodeChip("🧾", e.kind, e.receipt_ref)).join(" ") : `<span class="sub" style="margin:0">none</span>`}</div>`;
+    + `<div class="chips" style="margin:0 0 6px"><span class="chiplabel">Object sets</span>${sets.map((s) => nodeChip("📦", `${s.count || 0} obj`, s.ref, semVertexLink(oid, s.id), primary && s.id === primary.id)).join(" ")}</div>`
+    + `<div class="chips" style="margin:0 0 6px"><span class="chiplabel">Projections</span>${projs.map((p) => nodeChip("🔭", p.name || p.id, p.ref, managerResourceLink(oid, "ontology-projection", p.id))).join(" ")}</div>`
+    + `<div class="chips" style="margin:0 0 6px"><span class="chiplabel">Runs</span>${runs.filter((r) => r.status === "executed").map((r) => nodeChip("⚙", r.name || r.id, r.ref, pipelineNodeLink(oid, "materialized"))).join(" ") || `<span class="sub" style="margin:0">—</span>`}</div>`
+    + `<div class="chips" style="margin:0 0 6px"><span class="chiplabel">Proof edges</span>${proofEdges.length ? proofEdges.map((e) => nodeChip("🧾", e.kind, e.receipt_ref, provenanceReceiptLink(e.receipt_ref))).join(" ") : `<span class="sub" style="margin:0">none</span>`}</div>`;
 
   // Neighborhood — expand the primary set: its projection, run, cross-plane proof edge, and objects.
-  const primary = sets.slice().sort((a, b) => String(b.registered_at || "").localeCompare(String(a.registered_at || "")))[0];
   const projById = new Map(projs.map((p) => [p.id, p]));
   const proj = projById.get(primary.ontology_projection_id) || null;
   const proofEdge = proofEdges.find((e) => e.materialized_set_ref === primary.ref) || null;
-  const rel = (from, type, to, toRef) => `<tr><td><code style="font-size:10.5px">${CX_ESC(from)}</code></td><td><span class="pill muted" style="margin:0">${CX_ESC(type)}</span></td><td>${CX_ESC(to)}${toRef ? ` <code style="font-size:10px;opacity:.7">${CX_ESC(String(toRef).slice(0, 26))}…</code>` : ""}</td></tr>`;
+  const rel = (from, type, to, toRef, href, on) => `<tr${on ? ' style="outline:1px solid #2d72d2" data-vertex-object-selected="1"' : ""}><td><code style="font-size:10.5px">${CX_ESC(from)}</code></td><td><span class="pill muted" style="margin:0">${CX_ESC(type)}</span></td><td>${href ? `<a href="${href}">${CX_ESC(to)} ↗</a>` : CX_ESC(to)}${toRef ? ` <code style="font-size:10px;opacity:.7">${CX_ESC(String(toRef).slice(0, 26))}…</code>` : ""}</td></tr>`;
   const objs = (primary.objects || []).slice(0, 6);
   const relRows = [
-    proj ? rel(primary.ref, "projected_by", "Projection", proj.ref) : "",
-    primary.materializing_run_ref ? rel(primary.ref, "produced_by", "Materializing run", primary.materializing_run_ref) : "",
-    proofEdge ? rel(primary.ref, "proven_by", "Proof-stream edge (Provenance)", proofEdge.receipt_ref) : "",
-    ...objs.map((o) => rel(primary.ref, "contains", `Object ${o.object_key || ""}`, o.source_hash)),
+    proj ? rel(primary.ref, "projected_by", "Projection", proj.ref, managerResourceLink(oid, "ontology-projection", proj.id)) : "",
+    primary.materializing_run_ref ? rel(primary.ref, "produced_by", "Materializing run", primary.materializing_run_ref, pipelineNodeLink(oid, "materialized")) : "",
+    proofEdge ? rel(primary.ref, "proven_by", "Proof-stream edge (Provenance)", proofEdge.receipt_ref, provenanceReceiptLink(proofEdge.receipt_ref)) : "",
+    ...objs.map((o) => rel(primary.ref, "contains", `Object ${o.object_key || ""}`, o.source_hash, objectSetLink(oid, primary.id, o.object_key ? { objectId: o.object_key } : undefined), vs.objectId && o.object_key === vs.objectId)),
   ].filter(Boolean).join("");
   const neighborhood = `<h2 id="vertex-neighborhood">Neighborhood <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— expand <code>${CX_ESC(primary.ref || "")}</code> (${primary.count || 0} objects)</span></h2>`
     + `<table><thead><tr><th>From</th><th>Relation</th><th>To</th></tr></thead><tbody>${relRows}</tbody></table>`;
 
   // Cross-plane highlight — the proof-stream edge is what makes this a cross-plane graph.
   const crossPlane = proofEdge
-    ? omBoundaryNote(`<b>Cross-plane:</b> this object set is connected to the <a href="/__ioi/work-ledger">Provenance proof stream</a> by a threaded <code>odk_materialization</code> edge (proof <code>${CX_ESC(String(proofEdge.receipt_ref || "").slice(0, 40))}…</code>) — the materialized objects and their receipt are reachable as one graph, not isolated ODK records.`)
+    ? omBoundaryNote(`<b>Cross-plane:</b> this object set is connected to the <a href="${provenanceReceiptLink(proofEdge.receipt_ref)}">Provenance proof stream</a> by a threaded <code>odk_materialization</code> edge (proof <code>${CX_ESC(String(proofEdge.receipt_ref || "").slice(0, 40))}…</code>) — the materialized objects and their receipt are reachable as one graph, not isolated ODK records.`)
     : omBoundaryNote(`This set has no threaded Provenance proof-stream edge yet — the graph is ODK-local until the materialization receipt is threaded.`);
 
   const gaps = omBoundaryNote(`This is <b>real cross-plane graph truth</b> in the Vertex grammar. Unsupported Vertex lanes — freeform graph canvas, arbitrary path-finding, cross-tenant object search, saved explorations — are <b>reference-only</b>, not bound. The <a href="/__apps/vertex">Vertex reference capture ↗</a> is the familiar baseline, never a rebound surface.`);
@@ -3441,7 +3477,9 @@ function renderDesignerPort(lists, selectedId) {
   const componentCount = myMappings.length + myViews.length + myProjections.length;
   const resourceCount = mySets.length + myApps.length;
   const actionsFor = (otId) => ats.filter((a) => a.applies_to === otId);
-  const refChip = (label, ref, meta) => `<li class="dsg-truthitem"><b>${esc(label)}</b>${meta ? ` <span class="dsg-meta">${esc(meta)}</span>` : ""}<code class="dsg-ref">${esc(ref || "")}</code></li>`;
+  // #64: composition records LINK to their owning surfaces (Manager definitions/typed resources,
+  // Explorer sets, domain-app owner routes) — real refs, never fabricated links.
+  const refChip = (label, ref, meta, href) => `<li class="dsg-truthitem"><b>${href ? `<a href="${href}">${esc(label)}</a>` : esc(label)}</b>${meta ? ` <span class="dsg-meta">${esc(meta)}</span>` : ""}<code class="dsg-ref">${esc(ref || "")}</code></li>`;
 
   const switcher = ontologies.length > 1 ? `<div class="dsg-switch">${ontologies.map((x) => `<a class="dsg-schip${selected && x.id === selected.id ? " on" : ""}" href="/__ioi/studio/designer?ontology=${enc(x.id)}">${esc(x.domain || x.id)}${composed.has(x.ref) ? " · composed" : ""}</a>`).join("")}</div>` : "";
 
@@ -3450,21 +3488,21 @@ function renderDesignerPort(lists, selectedId) {
     ${switcher}
     <div class="dsg-truthcols">
       <div class="dsg-truthcol" id="designer-concepts"><h3>Concepts <span class="dsg-meta">(${ots.length} object · ${vts.length} value · ${ats.length} action · ${lts.length} link types)</span></h3>
-        ${ots.length ? `<ul>${ots.map((ot) => refChip(ot.name || ot.id, ot.id, `${(ot.properties || []).length} props${actionsFor(ot.id).length ? ` · actions: ${actionsFor(ot.id).map((a) => a.name || a.id).join(", ")}` : ""}`)).join("")}${vts.map((v) => refChip(v.name || v.id, v.id, "value type")).join("")}${lts.map((l) => refChip(l.name || l.id, l.id, "link type")).join("")}</ul>`
-          : `<p class="dsg-gapnote">This ontology declares <b>no object types</b> yet — there are no concepts to map. Define them in the <a href="/__ioi/odk?ontology=${enc(oid)}">Ontology Manager</a>; nothing is invented here.</p>`}
+        ${ots.length ? `<ul>${ots.map((ot) => refChip(ot.name || ot.id, ot.id, `${(ot.properties || []).length} props${actionsFor(ot.id).length ? ` · actions: ${actionsFor(ot.id).map((a) => a.name || a.id).join(", ")}` : ""}`, managerLink({ ontology: oid, section: "object-types", definitionKind: "object-type", definitionId: ot.id }))).join("")}${vts.map((v) => refChip(v.name || v.id, v.id, "value type", managerLink({ ontology: oid, section: "value-types", definitionKind: "value-type", definitionId: v.id }))).join("")}${lts.map((l) => refChip(l.name || l.id, l.id, "link type", managerLink({ ontology: oid, section: "link-types", definitionKind: "link-type", definitionId: l.id }))).join("")}</ul>`
+          : `<p class="dsg-gapnote">This ontology declares <b>no object types</b> yet — there are no concepts to map. Define them in the <a href="${managerLink({ ontology: oid })}">Ontology Manager</a>; nothing is invented here.</p>`}
       </div>
       <div class="dsg-truthcol" id="designer-components"><h3>Components <span class="dsg-meta">(${myMappings.length} mapping · ${myViews.length} policy view · ${myProjections.length} projection)</span></h3>
-        ${componentCount ? `<ul>${myMappings.map((m) => refChip(m.name || m.id, m.ref, `mapping → ${m.object_type_id || ""}`)).join("")}${myViews.map((v) => refChip(v.name || v.id, v.ref, `policy view · ${(v.allowed_operations || []).join("/") || "no ops"}`)).join("")}${myProjections.map((p) => refChip(p.name || p.id, p.ref, `projection · ${(p.visible_properties || []).length} props`)).join("")}</ul>`
+        ${componentCount ? `<ul>${myMappings.map((m) => refChip(m.name || m.id, m.ref, `mapping → ${m.object_type_id || ""}`, managerResourceLink(oid, "connector-mapping", m.id))).join("")}${myViews.map((v) => refChip(v.name || v.id, v.ref, `policy view · ${(v.allowed_operations || []).join("/") || "no ops"}`, managerResourceLink(oid, "policy-view", v.id))).join("")}${myProjections.map((p) => refChip(p.name || p.id, p.ref, `projection · ${(p.visible_properties || []).length} props`, managerResourceLink(oid, "ontology-projection", p.id))).join("")}</ul>`
           : `<p class="dsg-gapnote">No components compose this ontology yet — add a connector mapping + projection in the <a href="/__ioi/pipeline?ontology=${enc(oid)}">Pipeline Builder</a>.</p>`}
       </div>
       <div class="dsg-truthcol" id="designer-resources"><h3>Resources <span class="dsg-meta">(${mySets.length} object set · ${myApps.length} surface descriptor)</span></h3>
-        ${resourceCount ? `<ul>${mySets.map((s) => refChip(`${s.count || 0} obj`, s.ref, s.object_type_id)).join("")}${myApps.map((a) => refChip(a.name || a.domain_app_id, a.domain_app_ref, a.surface_descriptor_ref || "")).join("")}</ul>`
+        ${resourceCount ? `<ul>${mySets.map((s) => refChip(`${s.count || 0} obj`, s.ref, s.object_type_id, objectSetLink(oid, s.id))).join("")}${myApps.map((a) => refChip(a.name || a.domain_app_id, a.domain_app_ref, a.surface_descriptor_ref || "", `/__ioi/domain-apps/${enc(a.domain_app_id)}`)).join("")}</ul>`
           : `<p class="dsg-gapnote">This composition has generated <b>no resources</b> yet — materialize a set from the <a href="/__ioi/pipeline?ontology=${enc(oid)}">pipeline</a>. Surface descriptors appear once a domain app is composed${myApps.length ? "" : " — no domain-app surfaces generated yet (named gap)"}.</p>`}
         ${resourceCount && !myApps.length ? `<p class="dsg-gapnote">Surface descriptors: none — no domain-app surfaces generated yet (named gap).</p>` : ""}
       </div>
     </div>
-    <p class="dsg-foot">This is a <b>read-only design map</b> over real composition truth. Unsupported Designer lanes — in-canvas authoring, New Diagram / Open Diagram, save/open, drag-to-reference, AIP Architect planning, favorites, template Browse all — are <b>named gaps</b> (disabled in place above), not silently hidden. Sibling Studio seeds stay reference-only: the <a href="/__apps/machinery">machinery</a> process/state-machine graph (data lanes unbound), the <a href="/__apps/workshop">workshop</a> and module builders. Owner: <a href="/__ioi/agent-studio">Agent Studio</a> · siblings: <a href="/__ioi/studio/machinery">Machinery</a> · <a href="/__ioi/odk?ontology=${enc(oid)}">Ontology Manager</a> · <a href="/__ioi/pipeline?ontology=${enc(oid)}">Pipeline Builder</a>. Reference: the origin-aligned <a href="http://localhost:9225/workspace/solution-design/" rel="noopener">Solution Designer capture</a> — the <a href="/__apps/designer">/__apps/designer proxy lane ↗</a> is documented insufficient (cross-origin :9225 chunk fetches manufacture CORS noise + a favorites-load failure; #44 sweep evidence).</p>
-  </section>` : `<section class="dsg-truth" id="designer-truth"><p class="dsg-gapnote">No ontologies to design over yet — create one in the <a href="/__ioi/odk">Ontology Manager</a>. This canvas renders real composition truth; it never fabricates concepts. Owner: <a href="/__ioi/agent-studio">Agent Studio</a>.</p></section>`;
+    <p class="dsg-foot">This is a <b>read-only design map</b> over real composition truth. Unsupported Designer lanes — in-canvas authoring, New Diagram / Open Diagram, save/open, drag-to-reference, AIP Architect planning, favorites, template Browse all — are <b>named gaps</b> (disabled in place above), not silently hidden. Sibling Studio seeds stay reference-only: the <a href="/__apps/machinery">machinery</a> process/state-machine graph (data lanes unbound), the <a href="/__apps/workshop">workshop</a> and module builders. Owner: <a href="/__ioi/agent-studio">Agent Studio</a> · siblings: <a href="/__ioi/studio/machinery">Machinery</a> · <a href="${managerLink({ ontology: oid })}">Ontology Manager</a> (<a href="/__ioi/odk?ontology=${enc(oid)}">ODK substrate</a>) · <a href="/__ioi/pipeline?ontology=${enc(oid)}">Pipeline Builder</a>. Reference: the origin-aligned <a href="http://localhost:9225/workspace/solution-design/" rel="noopener">Solution Designer capture</a> — the <a href="/__apps/designer">/__apps/designer proxy lane ↗</a> is documented insufficient (cross-origin :9225 chunk fetches manufacture CORS noise + a favorites-load failure; #44 sweep evidence).</p>
+  </section>` : `<section class="dsg-truth" id="designer-truth"><p class="dsg-gapnote">No ontologies to design over yet — create one in the <a href="/__ioi/ontology/manager?section=create">Ontology Manager</a>. This canvas renders real composition truth; it never fabricates concepts. Owner: <a href="/__ioi/agent-studio">Agent Studio</a>.</p></section>`;
 
   const globalRail = ioiGlobalRailHtml({ label: "Solution Designer", href: "/__ioi/studio/designer", iconUri: DSG_APP_TILE_URI, railVariant: "rv-pipe rv-dsg", viewAll: true, star: false, badges: true, aipGradient: true, acctMuted: true });
 
@@ -3995,7 +4033,12 @@ function renderChangesPort(proposals, lane, filter) {
 // THE AUTHORITY BOUNDARY IS THE POINT: a DECLARED source catalog — no extraction, no connection
 // test, no live connector read, no materialization semantics on this surface.
 // Owner family: Data (/__ioi/pipeline ladder · /__ioi/odk builder, linked first-class).
-function renderSourcesPort(sourcesJson, mruns) {
+function renderSourcesPort(sourcesJson, mruns, cmJson, dataSourceSel) {
+  // #64: mappings resolve per source (data_source_id join) — the semantic layer over declared
+  // sources. ?dataSource= is URL-addressable selection (earned `select` capability only); no
+  // authoring, no credential lanes, endpoints stay scheme+host+path.
+  const srcMappings = (cmJson && Array.isArray(cmJson.connector_mappings)) ? cmJson.connector_mappings : [];
+  const mapsOf = (sid) => srcMappings.filter((mm) => mm.data_source_id === sid);
   const esc = CX_ESC;
   const list = Array.isArray(sourcesJson && sourcesJson.data_sources) ? sourcesJson.data_sources : [];
   const runs = Array.isArray(mruns && mruns.materializing_runs) ? mruns.materializing_runs : [];
@@ -4015,12 +4058,12 @@ function renderSourcesPort(sourcesJson, mruns) {
 
   const recent = [...list].sort((a, b) => String(b.created_at || "").localeCompare(String(a.created_at || ""))).slice(0, 12);
   const gapDash = (why) => `<span class="src-dash" title="${esc(why)}">—</span>`;
-  const rowsHtml = recent.length ? recent.map((s) => `<div class="src-row" title="A DECLARED source — a registry record, not a connection; extraction requires a future authority crossing (the daemon's own boundary)">
+  const rowsHtml = recent.length ? recent.map((s) => `<div class="src-row${dataSourceSel && s.source_id === dataSourceSel ? " src-sel" : ""}"${dataSourceSel && s.source_id === dataSourceSel ? ' aria-current="true"' : ""} title="A DECLARED source — a registry record, not a connection; extraction requires a future authority crossing (the daemon's own boundary)">
       <span class="src-cell name">
         <span class="src-rowico" aria-hidden="true"></span>
         <span class="src-rowdata">
           <span class="src-rowname">${esc(s.name || s.source_id)}${s.ingestion && s.ingestion.wired === false ? `<span class="src-wired" title="${esc((s.ingestion || {}).note || "declaration only")}">not wired</span>` : ""}</span>
-          <span class="src-rowpath">${esc(s.source_ref || s.source_id)} · ${esc(s.kind || "?")} · ${esc(s.credential_posture || "no posture")} · ${esc((s.lifecycle || {}).status || "declared")} · created ${fdate(s.created_at)}${s.endpoint ? ` · ${esc(safeEndpoint(s.endpoint))}` : ""}</span>
+          <span class="src-rowpath">${esc(s.source_ref || s.source_id)} · ${esc(s.kind || "?")} · ${esc(s.credential_posture || "no posture")} · ${esc((s.lifecycle || {}).status || "declared")} · created ${fdate(s.created_at)}${s.endpoint ? ` · ${esc(safeEndpoint(s.endpoint))}` : ""} · ${mapsOf(s.source_id).length ? `<a href="/__ioi/data/sources?dataSource=${encodeURIComponent(s.source_id)}">${mapsOf(s.source_id).length} semantic mapping${mapsOf(s.source_id).length === 1 ? "" : "s"} →</a>` : `<span class="src-dash" title="No connector mapping declares this source — nothing is invented">no semantic mapping declared</span>`}</span>
         </span>
       </span>
       <span class="src-cell">${gapDash("No principal is recorded on the data-source registry (named gap)")}</span>
@@ -4039,7 +4082,21 @@ function renderSourcesPort(sourcesJson, mruns) {
   const ingestionNote = (list[0] && list[0].ingestion && list[0].ingestion.note) || "declaration only — extraction requires a future authority crossing (named gap)";
   const chips = (obj) => Object.entries(obj).sort((a, b) => b[1] - a[1]).map(([k, n]) => `<span class="src-chip">${esc(k)} <b>${n}</b></span>`).join("");
 
-  const truth = `<section class="src-truth" id="sources-catalog">
+  // #64: the selected source's semantic panel — its real mappings with owner links (Manager
+  // typed resource · object-type definition · ontology · Pipeline mapping node). Fail-closed on
+  // an unknown id; "no semantic mapping declared" is stated, never invented.
+  const selSrc = dataSourceSel ? list.find((s) => s.source_id === dataSourceSel) || null : null;
+  const selPanel = !dataSourceSel ? "" : `<section class="src-truth" id="source-selected">${selSrc ? (() => {
+    const sm = mapsOf(selSrc.source_id);
+    const smRows = sm.map((mm) => {
+      const ontId = String(mm.ontology_ref || "").replace("ontology://", "");
+      return `<li class="src-mapline"><b>${esc(mm.name || mm.id)}</b> <code>${esc(mm.ref || mm.id)}</code> — <a href="${managerResourceLink(ontId, "connector-mapping", mm.id)}">Manager resource</a> · <a href="${managerLink({ ontology: ontId, section: "object-types", definitionKind: "object-type", definitionId: mm.object_type_id })}">object type ${esc(mm.object_type_id || "")}</a> · <a href="${managerLink({ ontology: ontId })}">ontology</a> · <a href="${pipelineNodeLink(ontId, "mapping")}">Pipeline</a></li>`;
+    }).join("");
+    return `<h2 class="src-trutht">Selected source — ${esc(selSrc.name || selSrc.source_id)} <span class="src-truthsub">${esc(selSrc.source_ref || "")} · ${esc(selSrc.kind || "")} · ${esc(selSrc.credential_posture || "")}</span></h2>
+    ${sm.length ? `<ul class="src-maplist">${smRows}</ul>` : `<p class="src-gapnote">No semantic mapping declared for this source — nothing is invented. Declare one through the <a href="/__ioi/pipeline">ODK ladder</a>.</p>`}`;
+  })() : `<p class="src-gapnote">No declared source matches <code>${esc(dataSourceSel)}</code> — nothing selected (fail-closed).</p>`}</section>`;
+
+  const truth = `${selPanel}<section class="src-truth" id="sources-catalog">
     <h2 class="src-trutht">Declared source catalog <span class="src-count">${list.length}</span> <span class="src-truthsub">the real DataSource registry — newest 12 shown above; every record is daemon truth, nothing invented</span></h2>
     <p class="src-boundary"><b>The authority boundary:</b> ${wiredFalse} of ${list.length} source${list.length === 1 ? "" : "s"} carry <code>ingestion.wired:false</code> — the daemon's own note, verbatim: <i>“${esc(ingestionNote)}”</i>. This surface is a DECLARED catalog: no extraction, no connection test, no live connector read, no materialization happens here — the governed path runs through the <a href="/__ioi/pipeline">ODK ladder</a> (mapping → policy gate → projection → lease → sealed session → materialized set).</p>
     <div class="src-truthcols">
@@ -4164,6 +4221,8 @@ function renderSourcesPort(sourcesJson, mruns) {
     .src-th{width:16.667%;padding:8px 0 0 11px;font-size:12px;line-height:15.43px;color:#5f6b7c;text-transform:uppercase}
     .src-th.name{width:50%;padding-left:20px}
     .src-row{display:flex;height:57px;box-shadow:inset 0 -1px 0 #dcdcdd;color:#1c2127}
+    .src-row.src-sel{outline:2px solid rgba(45,114,210,.45);outline-offset:-2px;border-radius:4px}
+    .src-maplist{margin:6px 0;padding-left:18px}.src-mapline{margin:0 0 6px;font-size:12.5px}
     .src-cell{width:16.667%;padding:19.5px 0 0 11px;font-size:14px;line-height:18px}
     .src-cell.name{width:50%;padding:11px 0 0 20px;display:flex;align-items:flex-start}
     .src-rowico{width:16px;height:16px;flex:0 0 16px;margin-top:2px;background:url('${DSG_ROW_DOC_URI}') center/16px no-repeat}
@@ -4644,11 +4703,16 @@ function renderMachineryPort(machines, selectedId) {
   return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Machinery</title><style>${css}</style></head>
     <body><div class="mch-shell">${globalRail}<div class="mch-main">${header}<div class="mch-body">${hero}<main class="mch-content">${viewRow}${table}${examples}${truth}</main></div></div></div></body></html>`;
 }
-function renderDataLineage(lists, selectedId) {
+function renderDataLineage(lists, selectedId, objectSetSel) {
   const ontologies = Array.isArray(lists.ontologies) ? lists.ontologies : [];
   const allSets = Array.isArray(lists.materialized_sets) ? lists.materialized_sets : [];
   const withLineage = new Set(allSets.map((s) => s.ontology_ref));
-  const selected = ontologies.find((x) => x.id === selectedId)
+  // #64: an explicit ?objectSet= traces THAT exact set (its ontology becomes the context) —
+  // never silently substituted; an unresolvable set renders an honest note and stops.
+  const setSel = objectSetSel ? allSets.find((s) => s.id === objectSetSel || String(s.ref || "").endsWith(objectSetSel)) || null : null;
+  const setSelMissing = !!(objectSetSel && !setSel);
+  const selected = (setSel ? ontologies.find((x) => x.ref === setSel.ontology_ref) : null)
+    || ontologies.find((x) => x.id === selectedId)
     || ontologies.find((x) => withLineage.has(x.ref)) || ontologies[0] || null;
   const oref = selected ? selected.ref : "__none__";
   const oid = selected ? selected.id : "";
@@ -4673,6 +4737,9 @@ function renderDataLineage(lists, selectedId) {
 
   const head = `<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap"><div><h1 style="margin:0">Data lineage</h1><p class="sub" style="margin:4px 0 0">Where materialized objects came from — the ODK provenance graph as a Monocle-familiar lineage of typed nodes + edges, over IOI daemon truth. Reference grammar: <a href="/__apps/lineage">Monocle lineage ↗</a> (secondary capture).</p></div><div class="row" style="gap:8px"><a class="act ghost" href="/__ioi/vertex?ontology=${encodeURIComponent(oid)}">Explore graph</a><a class="act ghost" href="/__ioi/pipeline?ontology=${encodeURIComponent(oid)}">Open pipeline</a></div></div>`;
 
+  if (setSelMissing) {
+    return automationsShell("Data lineage", head + switcher + `<div class="empty">No materialized set matches <code>${CX_ESC(objectSetSel)}</code> for this estate — nothing substituted (fail-closed). Pick a set from the <a href="/__ioi/ontology/explorer">Object Explorer</a>.</div>`);
+  }
   // HONEST EMPTY — no materialized objects ⇒ no lineage. Never fabricate nodes.
   if (!sets.length) {
     const note = omBoundaryNote(`This ontology has materialized <b>no objects</b>, so there is <b>no lineage to show</b> — a lineage graph appears only once a pipeline is built (a materializing run registers a receipted object set). Build one from the <a href="/__ioi/pipeline?ontology=${encodeURIComponent(oid)}">Pipeline Builder</a>. The <a href="/__apps/lineage">Monocle reference capture ↗</a> is the familiar baseline, never a rebound surface.`);
@@ -4683,7 +4750,7 @@ function renderDataLineage(lists, selectedId) {
   // stage to its ACTUAL daemon ref (the set carries run/session/plan/projection/receipt; projection
   // → mapping → source resolves the rest). A ref that no longer resolves shows the ref the set does
   // carry, or "—" — never a fabricated label.
-  const primary = sets.slice().sort((a, b) => String(b.registered_at || "").localeCompare(String(a.registered_at || "")))[0];
+  const primary = setSel || sets.slice().sort((a, b) => String(b.registered_at || "").localeCompare(String(a.registered_at || "")))[0];
   const run = runs.find((r) => r.ref === primary.materializing_run_ref) || null;
   const projection = projById.get(primary.ontology_projection_id) || null;
   const mapping = projection ? mapById.get(projection.connector_mapping_id) : null;
@@ -4691,29 +4758,41 @@ function renderDataLineage(lists, selectedId) {
   const source = mapping ? srcById.get(mapping.data_source_id) : null;
   const plan = planByRef.get(primary.capability_lease_plan_ref) || null;
   const contact = primary.source_contact || {};
-  const node = (kind, ic, label, ref, detail) => `<div style="flex:0 0 auto;min-width:120px;max-width:158px;border:1px solid #235c3b;border-radius:11px;padding:9px 11px;background:#15171c">
+  // #64: every resolved lineage node is a LINK into its owning surface; an unresolved record
+  // keeps its carried ref as plain text (honest, never a fabricated link).
+  const node = (kind, ic, label, ref, detail, href) => `<div style="flex:0 0 auto;min-width:120px;max-width:158px;border:1px solid #235c3b;border-radius:11px;padding:9px 11px;background:#15171c">
     <div style="font-size:15px">${ic} <span style="font-weight:600;font-size:12px">${CX_ESC(label)}</span></div>
-    ${ref ? `<div class="sub" style="margin:4px 0 0;font-size:10px"><code>${CX_ESC(String(ref).length > 32 ? String(ref).slice(0, 32) + "…" : ref)}</code></div>` : `<div class="sub" style="margin:4px 0 0;font-size:10px;color:#6f7280">—</div>`}
+    ${ref ? `<div class="sub" style="margin:4px 0 0;font-size:10px">${href ? `<a href="${href}" style="text-decoration:none">` : ""}<code>${CX_ESC(String(ref).length > 32 ? String(ref).slice(0, 32) + "…" : ref)}</code>${href ? " ↗</a>" : ""}</div>` : `<div class="sub" style="margin:4px 0 0;font-size:10px;color:#6f7280">—</div>`}
     ${detail ? `<div class="sub" style="margin:3px 0 0;font-size:10.5px;color:#6f7280">${CX_ESC(detail)}</div>` : ""}
   </div>`;
   const edge = (label) => `<div style="flex:0 0 auto;color:#5f626b;padding:0 5px;font-size:10px;text-align:center">${CX_ESC(label)}<br>→</div>`;
+  // Origin-only source contact (#64 §14 — the same redaction discipline as Pipeline/Explorer).
+  const contactOrigin = (() => { try { return contact.endpoint ? `${new URL(contact.endpoint).protocol}//${new URL(contact.endpoint).host}/…` : ""; } catch { return "(endpoint redacted)"; } })();
+  // History summaries can embed full source URLs (e.g. "GET http://host:port/rows") — redact any
+  // embedded URL to its origin before display (#64 §14); receipts on disk stay untouched.
+  const redactUrls = (s) => String(s == null ? "" : s).replace(/(https?:\/\/[^\/\s"'<>]+)[^\s"'<>]*/g, "$1/…");
   const path = `<div style="display:flex;align-items:center;gap:0;overflow-x:auto;padding:4px 2px 12px">`
-    + node("datasource", "🌐", "Datasource", source ? source.source_ref : "", contact.endpoint ? `${contact.endpoint} · http ${contact.http_status || "—"}` : (source ? source.kind : ""))
+    + node("datasource", "🌐", "Datasource", source ? source.source_ref : "", contactOrigin ? `${contactOrigin} · http ${contact.http_status || "—"}` : (source ? source.kind : ""), source ? sourcesLink(source.source_id) : null)
     + edge("mapped_by")
-    + node("mapping", "🔗", "Mapping", mapping ? mapping.ref : "", mapping ? `${primary.object_type_id || ""} · fields → properties` : "mapping retired")
+    + node("mapping", "🔗", "Mapping", mapping ? mapping.ref : "", mapping ? `${primary.object_type_id || ""} · fields → properties` : "mapping retired", mapping ? managerResourceLink(oid, "connector-mapping", mapping.id) : null)
     + edge("gated_by")
-    + node("policy", "🛡", "Policy view", view ? view.ref : "", view ? "capability envelope" : "view retired")
+    + node("policy", "🛡", "Policy view", view ? view.ref : "", view ? "capability envelope" : "view retired", view ? managerResourceLink(oid, "policy-view", view.id) : null)
     + edge("projected_as")
-    + node("projection", "🔭", "Projection", projection ? projection.ref : (primary.ontology_projection_id || ""), "read shape")
+    + node("projection", "🔭", "Projection", projection ? projection.ref : (primary.ontology_projection_id || ""), "read shape", projection ? managerResourceLink(oid, "ontology-projection", projection.id) : null)
     + edge("leased_by")
-    + node("lease", "🎟", "Lease + session", plan ? plan.ref : (primary.capability_lease_plan_ref || ""), primary.connector_session_ref ? `session ${String(primary.connector_session_ref).replace("connector-session://", "").slice(0, 10)}…` : "sealed session")
+    + node("lease", "🎟", "Lease + session", plan ? plan.ref : (primary.capability_lease_plan_ref || ""), primary.connector_session_ref ? `session ${String(primary.connector_session_ref).replace("connector-session://", "").slice(0, 10)}…` : "sealed session", `/__ioi/odk?ontology=${encodeURIComponent(oid)}#pane-resources`)
     + edge("produced_by")
-    + node("run", "⚙", "Materializing run", primary.materializing_run_ref || "", `${primary.count || 0} objects`)
+    + node("run", "⚙", "Materializing run", primary.materializing_run_ref || "", `${primary.count || 0} objects`, pipelineNodeLink(oid, "materialized"))
     + edge("receipted_by")
-    + node("receipt", "🧾", "Pre-output receipt", primary.pre_output_receipt_ref || "", "before output")
+    + node("receipt", "🧾", "Pre-output receipt", primary.pre_output_receipt_ref || "", "before output", provenanceReceiptLink(primary.pre_output_receipt_ref))
     + edge("contains")
-    + node("set", "📦", "Object set", primary.ref || "", `${primary.count || 0} objects`)
+    + node("set", "📦", "Object set", primary.ref || "", `${primary.count || 0} objects`, objectSetLink(oid, primary.id))
     + `</div>`;
+  const lineageCrumb = semanticBreadcrumb([
+    { label: selected.domain || oid, href: managerLink({ ontology: oid }) },
+    ...(primary.object_type_id ? [{ label: primary.object_type_id, href: managerLink({ ontology: oid, section: "object-types", definitionKind: "object-type", definitionId: primary.object_type_id }) }] : []),
+    { label: `set ${primary.id || ""}` },
+  ]);
   const resolvedRefs = [source && source.source_ref, mapping && mapping.ref, view && view.ref, projection && projection.ref, plan && plan.ref].filter(Boolean).length;
 
   // OBJECT-LEVEL PROVENANCE — the new lineage truth: each object's source hash + mapped_from edges.
@@ -4731,7 +4810,7 @@ function renderDataLineage(lists, selectedId) {
   // Receipt chain — auditable, from the run's own receipt stream.
   const receiptRefs = run ? (run.receipt_refs || []) : [];
   const receiptPane = `<h2 id="lineage-receipts">Receipt chain <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— the run's auditable acts (${receiptRefs.length})</span></h2>`
-    + (run ? `<dl class="grid">${(run.history || []).slice().reverse().slice(0, 8).map((h) => `<dt>${CX_ESC(h.op || "")}</dt><dd>${CX_ESC(h.summary || "")}<br><span class="sub" style="margin:0"><code>${CX_ESC(h.receipt_ref || "")}</code></span></dd>`).join("")}</dl>` : `<div class="empty">The materializing run for this set is no longer resolvable.</div>`);
+    + (run ? `<dl class="grid">${(run.history || []).slice().reverse().slice(0, 8).map((h) => `<dt>${CX_ESC(h.op || "")}</dt><dd>${CX_ESC(redactUrls(h.summary))}<br><span class="sub" style="margin:0"><code>${CX_ESC(h.receipt_ref || "")}</code></span></dd>`).join("")}</dl>` : `<div class="empty">The materializing run for this set is no longer resolvable.</div>`);
 
   // Provenance proof-stream edges — the ODK materialization receipts are THREADED into the Provenance
   // proof stream (daemon-side, by reference — no receipt re-minted); each entry that references this
@@ -4752,7 +4831,7 @@ function renderDataLineage(lists, selectedId) {
   const gaps = omBoundaryNote(`This is <b>real provenance</b> in the Monocle lineage grammar. Freeform Monocle lanes — resource search, arbitrary graph expansion, cross-tenant catalog search — are <b>reference-only</b>, not bound. The <a href="/__apps/lineage">Monocle reference capture ↗</a> is the familiar baseline, never a rebound surface.`);
 
   const banner = `<div class="chips" style="margin:10px 0 12px"><span class="pill ok">lineage</span> <span class="sub" style="margin:0">${sets.length} materialized set${sets.length === 1 ? "" : "s"} · ${sets.reduce((a, s) => a + (s.count || 0), 0)} object instance${sets.reduce((a, s) => a + (s.count || 0), 0) === 1 ? "" : "s"} for <b>${CX_ESC(selected.domain || selected.id)}</b> · newest traced below</span></div>`;
-  return automationsShell("Data lineage", head + switcher + banner + lineageLegend()
+  return automationsShell("Data lineage", head + switcher + lineageCrumb + banner + lineageLegend()
     + `<h2 id="lineage-graph">Lineage <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— provenance path for <code>${CX_ESC(primary.ref || "")}</code> · ${resolvedRefs}/5 upstream ladder refs resolved to live records</span></h2>` + path
     + objPane + receiptPane + ledgerPane + gaps);
 }
@@ -8039,12 +8118,13 @@ async function handleEstateRequest(req, res, body) {
     // ---- Data · Sources — the Data Connection landing port (#52). A DECLARED source catalog over
     // the real DataSource registry: no extraction, no connection test, no live connector read.
     if (pathname === "/__ioi/data/sources" && req.method === "GET") {
-      const [ds, mr] = await Promise.all([
+      const [ds, mr, cmj] = await Promise.all([
         fetch(`${DAEMON}/v1/hypervisor/data-sources`).then((r) => r.json()).catch(() => ({})),
         fetch(`${DAEMON}/v1/hypervisor/odk/materializing-runs`).then((r) => r.json()).catch(() => ({})),
+        fetch(`${DAEMON}/v1/hypervisor/odk/connector-mappings`).then((r) => r.json()).catch(() => ({})),
       ]);
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
-      res.end(renderSourcesPort(ds, mr));
+      res.end(renderSourcesPort(ds, mr, cmj, new URL(req.url, "http://x").searchParams.get("dataSource") || ""));
       return;
     }
     // ---- Automations · Monitors — the Automate-overview port (#51). A read-only PROJECTION over
@@ -8305,7 +8385,8 @@ async function handleEstateRequest(req, res, body) {
       const projectId = new URL(req.url, "http://x").searchParams.get("project") || "";
       const r = await fetch(`${DAEMON}/v1/hypervisor/work-ledger${projectId ? "?project=" + encodeURIComponent(projectId) : ""}`).then((x) => x.json()).catch(() => ({}));
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
-      res.end(renderWorkLedger(r.entries || [], projectId));
+      const wlSel = new URL(req.url, "http://x").searchParams;
+      res.end(renderWorkLedger(r.entries || [], projectId, { receipt: wlSel.get("receipt") || "", objectSet: wlSel.get("objectSet") || "" }));
       return;
     }
     // ---- Operations — execution health over the automation substrate (estate surface #9).
@@ -9166,7 +9247,7 @@ async function handleEstateRequest(req, res, body) {
         ontology_projections: op.ontology_projections || [],
         materializing_runs: mr.materializing_runs || [],
         provenance_stream: Array.isArray(wl) ? wl : (wl.entries || wl.work_ledger || []),
-      }, selectedOntology));
+      }, selectedOntology, { objectSet: new URL(req.url, "http://x").searchParams.get("objectSet") || "", objectId: new URL(req.url, "http://x").searchParams.get("objectId") || "" }));
       return;
     }
     if (pathname === "/__ioi/lineage" && req.method === "GET") {
@@ -9195,7 +9276,7 @@ async function handleEstateRequest(req, res, body) {
         ontology_projections: op.ontology_projections || [],
         capability_lease_plans: lp.capability_lease_plans || [],
         data_sources: dsr.data_sources || [],
-      }, selectedOntology));
+      }, selectedOntology, new URL(req.url, "http://x").searchParams.get("objectSet") || ""));
       return;
     }
     // ---- Surface registry dispatch — ported application surfaces mount through the explicit

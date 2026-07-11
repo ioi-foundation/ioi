@@ -5,7 +5,7 @@
 import { bpIcon, EXPLORER_APP_ICON_URI } from "../../scripts/bp-icons.mjs";
 import { ioiGlobalRailHtml, IOI_GRAIL_CSS } from "../chrome.mjs";
 import { escHtml } from "../kit.mjs";
-import { loadOntologyModel, parseOntologyContext, managerLink, objectTypeLink, objectSetLink, semanticBreadcrumb, semanticInspectorShell, disabledSemanticAction, formatRef } from "../ontology-context.mjs";
+import { loadOntologyModel, parseOntologyContext, managerLink, managerResourceLink, objectTypeLink, objectSetLink, pipelineNodeLink, lineageLink, vertexLink, provenanceSetLink, semanticBreadcrumb, semanticInspectorShell, disabledSemanticAction, formatRef } from "../ontology-context.mjs";
 
 const CX_ESC = escHtml; // local alias so the moved block stays byte-identical to its serve original
 
@@ -209,7 +209,7 @@ function renderObjectExplorerPort(ov, lists, opts) {
         irow("action declarations", acts.length ? acts.map((a) => `${esc(a.name || a.id)} ${formatRef(a.kind || "")}`).join("<br>") : "none declared"),
         acts.length ? ihint("Action <b>declarations</b> only — no action authority exists on this surface; execution stays a named gap (standing boundary).") : "",
         irow("projections", relProjs.length ? relProjs.map((p) => esc(p.name || p.id)).join(", ") : "none"),
-        irow("open in", `<a href="${managerLink({ ontology: oo.id })}">Ontology Manager</a> · <a href="/__ioi/pipeline?ontology=${enc(oo.id)}">Pipeline</a>`),
+        irow("open in", `<a href="${managerLink({ ontology: oo.id, section: "object-types", definitionKind: "object-type", definitionId: t.id })}">Manager definition</a> · <a href="${pipelineNodeLink(oo.id, "mapping")}">Pipeline</a>`),
         `<div class="oe-iacts">${disabledSemanticAction({ label: "Execute action", reason: "action declarations carry no execution authority — no action plane exists on this surface (standing boundary)" })}${disabledSemanticAction({ label: "Search instances", reason: "object-instance search is a reference-only lane — objects exist as materialized sets (browse the set catalog)" })}</div>`,
       ].join(""),
     };
@@ -236,7 +236,7 @@ function renderObjectExplorerPort(ov, lists, opts) {
         prows.length
           ? `<table class="oe-itable"><thead><tr>${pcols.map((c) => `<th>${esc(c)}</th>`).join("")}</tr></thead><tbody>${prows.map((o2) => `<tr>${pcols.map((c) => `<td>${esc(String((o2.properties || {})[c] ?? ""))}</td>`).join("")}</tr>`).join("")}</tbody></table>`
           : ihint("This set holds no rows — honest empty; nothing is fabricated."),
-        irow("open in", `<a href="/__ioi/pipeline?node=materialized&ontology=${enc(so.id || "")}">Pipeline</a> · <a href="/__ioi/lineage?ontology=${enc(so.id || "")}">Lineage</a> · <a href="/__ioi/vertex?ontology=${enc(so.id || "")}">Vertex</a> · <a href="${managerLink({ ontology: so.id || "" })}">Ontology Manager</a>`),
+        irow("open in", `<a href="${pipelineNodeLink(so.id || "", "materialized")}">Pipeline</a> · <a href="${lineageLink(so.id || "", m.id)}">Lineage</a> · <a href="${vertexLink(so.id || "", m.id)}">Vertex</a> · <a href="${provenanceSetLink(m.id)}">Provenance</a> · ${m.object_type_id ? `<a href="${managerLink({ ontology: so.id || "", section: "object-types", definitionKind: "object-type", definitionId: m.object_type_id })}">Manager definition</a>` : `<a href="${managerLink({ ontology: so.id || "" })}">Ontology Manager</a>`}`),
       ].join(""),
     };
   }

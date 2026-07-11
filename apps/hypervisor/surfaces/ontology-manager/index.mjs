@@ -5,7 +5,7 @@
 import { bpIcon, ONTOLOGY_APP_ICON_URI } from "../../scripts/bp-icons.mjs";
 import { ioiGlobalRailHtml, IOI_GRAIL_CSS } from "../chrome.mjs";
 import { escHtml } from "../kit.mjs";
-import { loadOntologyModel, parseOntologyContext, ontologyContextQuery, explorerLink, objectTypeLink, objectSetLink, semanticBreadcrumb, disabledSemanticAction, formatRef } from "../ontology-context.mjs";
+import { loadOntologyModel, parseOntologyContext, ontologyContextQuery, explorerLink, objectTypeLink, objectSetLink, semanticBreadcrumb, disabledSemanticAction, formatRef, sourcesLink, managerResourceLink, pipelineNodeLink, lineageLink, vertexLink, provenanceSetLink } from "../ontology-context.mjs";
 
 const CX_ESC = escHtml; // local alias so the moved block stays byte-identical to its serve original
 
@@ -298,7 +298,22 @@ function renderOntologyManagerPort(ov, lists, selectedId, opts) {
     if (selD.kind === "link-type") { const l = lts.find((x) => x.id === selD.id); return l ? { l } : { missing: true }; }
     if (selD.kind === "action-type" || selD.kind === "function") { const a = ats.find((x) => x.id === selD.id); return a ? { a } : { missing: true }; }
     if (selD.kind === "health-gap") return { gap: selD.id };
-    if (selD.kind === "resource") return { resourceId: selD.id };
+    // Typed resource kinds (#64): resolve the EXACT requested family before id lookup — identical
+    // ids across families can never select the wrong record. The old generic "resource" kind
+    // stays readable as a compatibility fallback (fixed family order) but is never emitted.
+    const cmList = (lists.connector_mappings === null ? [] : (lists.connector_mappings || [])).filter((x) => x.ontology_ref === selected.ref);
+    const pvList = (lists.policy_views === null ? [] : (lists.policy_views || [])).filter((x) => x.ontology_ref === selected.ref);
+    if (selD.kind === "connector-mapping") { const m = cmList.find((x) => x.id === selD.id); return m ? { cm: m } : { missing: true }; }
+    if (selD.kind === "policy-view") { const v2 = pvList.find((x) => x.id === selD.id); return v2 ? { pv2: v2 } : { missing: true }; }
+    if (selD.kind === "ontology-projection") { const p2 = projs.find((x) => x.id === selD.id); return p2 ? { pj: p2 } : { missing: true }; }
+    if (selD.kind === "materialized-set") { const s2 = msets.find((x) => x.id === selD.id); return s2 ? { ms2: s2 } : { missing: true }; }
+    if (selD.kind === "resource") {
+      const m = cmList.find((x) => x.id === selD.id); if (m) return { cm: m };
+      const v2 = pvList.find((x) => x.id === selD.id); if (v2) return { pv2: v2 };
+      const p2 = projs.find((x) => x.id === selD.id); if (p2) return { pj: p2 };
+      const s2 = msets.find((x) => x.id === selD.id); if (s2) return { ms2: s2 };
+      return { missing: true };
+    }
     return { missing: true };
   }
   const def = selected ? resolveDef() : null;
@@ -320,7 +335,7 @@ function renderOntologyManagerPort(ov, lists, selectedId, opts) {
         props.length ? `<table class="og-itable"><thead><tr><th>property</th><th>value type</th><th></th></tr></thead><tbody>${props.map((p) => `<tr><td><a href="${defHref("property", `${t.id}.${p.id}`, { section: "properties" })}">${esc(p.name || p.id)}</a></td><td>${formatRef(p.value_type || "")}</td><td>${p.id === t.title_property ? "title" : p.required ? "required" : ""}</td></tr>`).join("")}</tbody></table>` : ihint("No properties yet."),
         irow("links", lts.filter((l) => l.from === t.id || l.to === t.id).map((l) => `<a href="${defHref("link-type", l.id, { section: "link-types" })}">${esc(l.name || l.id)}</a>`).join(", ") || "none"),
         irow("actions", ats.filter((a) => a.applies_to === t.id).map((a) => `<a href="${defHref(a.kind === "function" ? "function" : "action-type", a.id)}">${esc(a.name || a.id)}</a>`).join(", ") || "none"),
-        irow("open in", `<a href="${objectTypeLink(oid, t.id)}">Explorer</a> · <a href="/__ioi/pipeline?ontology=${enc(oid)}">Pipeline</a>`),
+        irow("open in", `<a href="${objectTypeLink(oid, t.id)}">Explorer</a> · <a href="${pipelineNodeLink(oid, "mapping")}">Pipeline</a>`),
         `<h4 class="og-fhd">Edit object type</h4>`,
         aForm("upsert-object-type", `<input type="hidden" name="def_id" value="${esc(t.id)}"><label class="og-fl">Name<input name="name" maxlength="200" value="${esc(t.name || "")}" required></label><label class="og-fl">Description<input name="description" maxlength="2000" value="${esc(t.description || "")}"></label><label class="og-fl">Title property<select name="title_property"><option value="">— none —</option>${opt(props.map((p) => p.id), t.title_property || "")}</select></label>`),
         `<h4 class="og-fhd">Add / edit a property</h4>`,
@@ -370,17 +385,37 @@ function renderOntologyManagerPort(ov, lists, selectedId, opts) {
     } else if (def.gap) {
       title = "Health gap";
       bodyHtml = [irow("readiness", hpill), irow("gap", esc(def.gap)), irow("revision", `rev ${esc(String(selected.revision || 1))}`), irow("remediate", `<a href="${mHref({ section: "object-types" })}">object types</a> · <a href="${mHref({ section: "properties" })}">properties</a>`)].join("");
-    } else if (def.resourceId) {
-      title = "Resource";
-      const m = (lists.connector_mappings === null ? [] : (lists.connector_mappings || [])).find((x) => x.id === def.resourceId);
-      const pv = (lists.policy_views === null ? [] : (lists.policy_views || [])).find((x) => x.id === def.resourceId);
-      const pr = projs.find((x) => x.id === def.resourceId);
-      const st = msets.find((x) => x.id === def.resourceId);
-      if (m) bodyHtml = [irow("connector mapping", formatRef(m.ref || m.id)), irow("object type", formatRef(m.object_type_id || "")), irow("health", esc((m.health || {}).status || "—"))].join("");
-      else if (pv) bodyHtml = [irow("policy-bound view", formatRef(pv.ref || pv.id)), irow("operations", (pv.allowed_operations || []).map(formatRef).join(" "))].join("");
-      else if (pr) bodyHtml = [irow("projection", formatRef(pr.ref || pr.id)), irow("open in", `<a href="/__ioi/pipeline?ontology=${enc(oid)}">Pipeline</a>`)].join("");
-      else if (st) bodyHtml = [irow("materialized set", formatRef(st.ref || st.id)), irow("objects", `<b>${st.count ?? 0}</b>`), irow("open in", `<a href="${objectSetLink(oid, st.id)}">Explorer</a> · <a href="/__ioi/pipeline?node=materialized&ontology=${enc(oid)}">Pipeline</a> · <a href="/__ioi/lineage?ontology=${enc(oid)}">Lineage</a>`)].join("");
-      else bodyHtml = ihint(`No resource <code>${esc(def.resourceId)}</code> for this ontology.`, true);
+    } else if (def.cm) {
+      const cm2 = def.cm; title = cm2.name || cm2.id;
+      bodyHtml = [
+        irow("connector mapping", formatRef(cm2.ref || cm2.id)),
+        irow("object type", cm2.object_type_id ? `<a href="${defHref("object-type", cm2.object_type_id, { section: "object-types" })}">${esc(cm2.object_type_id)}</a>` : "—"),
+        irow("mapped properties", `${(cm2.health || {}).mapped_properties ?? (cm2.field_mappings || []).length} of ${(cm2.health || {}).total_properties ?? "—"}`),
+        irow("health", esc((cm2.health || {}).status || "—")),
+        irow("open in", `${sourcesLink(cm2.data_source_id) ? `<a href="${sourcesLink(cm2.data_source_id)}">Data Connection</a> · ` : ""}<a href="${pipelineNodeLink(oid, "mapping")}">Pipeline</a>`),
+      ].join("");
+    } else if (def.pv2) {
+      const v3 = def.pv2; title = v3.name || v3.id;
+      bodyHtml = [
+        irow("policy-bound view", formatRef(v3.ref || v3.id)),
+        irow("operations", (v3.allowed_operations || []).map(formatRef).join(" ") || "—"),
+        irow("subjects", (v3.authority_subjects || []).map(formatRef).join(" ") || "—"),
+        irow("open in", `${v3.connector_mapping_id ? `<a href="${managerResourceLink(oid, "connector-mapping", v3.connector_mapping_id)}">mapping</a> · ` : ""}<a href="${pipelineNodeLink(oid, "policy")}">Pipeline</a>`),
+      ].join("");
+    } else if (def.pj) {
+      const p3 = def.pj; title = p3.name || p3.id;
+      bodyHtml = [
+        irow("projection", formatRef(p3.ref || p3.id)),
+        irow("visible properties", (p3.visible_properties || []).map(formatRef).join(" ") || "—"),
+        irow("open in", `<a href="${explorerLink({ ontology: oid })}">Explorer</a> · <a href="${pipelineNodeLink(oid, "projection")}">Pipeline</a>`),
+      ].join("");
+    } else if (def.ms2) {
+      const s3 = def.ms2; title = s3.object_type_id || s3.id;
+      bodyHtml = [
+        irow("materialized set", formatRef(s3.ref || s3.id)),
+        irow("objects", `<b>${s3.count ?? 0}</b>`),
+        irow("open in", `<a href="${objectSetLink(oid, s3.id)}">Explorer</a> · <a href="${lineageLink(oid, s3.id)}">Lineage</a> · <a href="${vertexLink(oid, s3.id)}">Vertex</a> · <a href="${provenanceSetLink(s3.id)}">Provenance</a> · <a href="${pipelineNodeLink(oid, "materialized")}">Pipeline</a>`),
+      ].join("");
     }
     return `<div class="og-inspector" data-testid="og-inspector"><div class="og-ihd"><b>${esc(title)}</b><span class="og-ikind">${esc(selD.kind)}</span></div><div class="og-ibody">${crumb}${bodyHtml}${openSubstrate}</div></div>`;
   }

@@ -10,6 +10,7 @@
 import { bpIcon, PIPELINE_APP_ICON_URI, AIP_GRADIENT_SVG_TOOLBAR } from "../../scripts/bp-icons.mjs";
 import { ioiGlobalRailHtml, IOI_GRAIL_CSS } from "../chrome.mjs";
 import { escHtml, parseSelection, selectionQuery, inspectorShell, trayShell, disabledCommand, proofLink } from "../kit.mjs";
+import { managerLink, managerResourceLink, objectTypeLink, objectSetLink, sourcesLink, lineageLink, vertexLink, provenanceSetLink, semanticBreadcrumb } from "../ontology-context.mjs";
 
 const CX_ESC = escHtml; // local alias so the moved block stays byte-identical to its serve original
 
@@ -156,7 +157,7 @@ function renderPipelineBuilder(lists, selectedId, nodeParam) {
   const ihint = (h) => `<div class="pb-ihint">${h}</div>`;
   const irefs = (refs) => (refs || []).length ? refs.slice(0, 4).map(icode).join(" ") : "—";
   const safeOrigin = (e) => { try { const u = new URL(e); return `${esc(u.protocol)}//${esc(u.host)}/… <span class="pb-redact">(path redacted)</span>`; } catch { return "(endpoint redacted)"; } };
-  const emptyStage = (label) => ihint(`No ${esc(label)} record exists on this pipeline yet — an honest missing contract, not an error. Author the stage in the <a href="/__ioi/odk?ontology=${enc(oid)}">Ontology Manager</a>.`);
+  const emptyStage = (label) => ihint(`No ${esc(label)} record exists on this pipeline yet — an honest missing contract, not an error. Author the stage in the <a href="${managerLink({ ontology: oid })}">Ontology Manager</a> (<a href="/__ioi/odk?ontology=${enc(oid)}">ODK substrate</a>).`);
   const trayTable = (heads, rowsArr) => `<table class="pb-table"><thead><tr>${heads.map((h) => `<th>${esc(h)}</th>`).join("")}</tr></thead><tbody>${rowsArr.length ? rowsArr.map((row) => `<tr>${row.map((c) => `<td>${c}</td>`).join("")}</tr>`).join("") : `<tr><td colspan="${heads.length}" class="pb-empty-cell">No records for this stage yet.</td></tr>`}</tbody></table>`;
   function nodeInspector(key) {
     const d = dsources[0], m = maps[0], v = views[0], r = truns[0], pl = plans[0], st = osets[0];
@@ -175,6 +176,7 @@ function renderPipelineBuilder(lists, selectedId, nodeParam) {
           irow("receipts", irefs(d.receipt_refs)),
           ihint(`Ingestion boundary — wired: <b>${(d.ingestion || {}).wired === true}</b>. ${esc((d.ingestion || {}).note || "")}`),
           irow("proof", proofLink({ href: "/__ioi/work-ledger", label: "work ledger" })),
+          irow("open in", `${sourcesLink(d.source_id) ? `<a href="${sourcesLink(d.source_id)}">Data Connection</a>` : "—"}${maps.filter((x) => x.data_source_id === d.source_id).slice(0, 3).map((x) => ` · <a href="${managerResourceLink(oid, "connector-mapping", x.id)}">mapping ${esc(x.id)}</a>`).join("")}`),
         ].join("") : emptyStage("Datasource"),
         trayTitle: "Datasource — declaration boundary",
         tray: trayTable(["source", "kind", "endpoint (origin)", "credential posture", "lifecycle"],
@@ -193,6 +195,7 @@ function renderPipelineBuilder(lists, selectedId, nodeParam) {
           irow("health", `${esc((m.health || {}).status || "—")}${((m.health || {}).missing_contracts || []).length ? " · missing: " + (m.health.missing_contracts || []).map(icode).join(" ") : ""}`),
           irow("receipts", irefs(m.receipt_refs)),
           ihint(esc((m.health || {}).note || (m.ingestion || {}).note || "")),
+          irow("open in", `${sourcesLink(m.data_source_id) ? `<a href="${sourcesLink(m.data_source_id)}">source</a> · ` : ""}<a href="${managerResourceLink(oid, "connector-mapping", m.id)}">Manager resource</a> · <a href="${managerLink({ ontology: oid, section: "object-types", definitionKind: "object-type", definitionId: m.object_type_id })}">object type</a>`),
         ].join("") : emptyStage("Object mapping"),
         trayTitle: "Object mapping — field table",
         tray: m ? trayTable(["role", "property", "source field", "source type"], [
@@ -213,6 +216,7 @@ function renderPipelineBuilder(lists, selectedId, nodeParam) {
           irow("postures (obligations)", `evaluation ${icode(v.evaluation_posture || "—")} · export ${icode(v.export_posture || "—")}${v.publish_route_posture ? ` · publish ${icode(v.publish_route_posture)}` : ""}${v.retention_posture ? ` · retention ${icode(v.retention_posture)}` : ""}`),
           irow("health", `${esc((v.health || {}).status || "—")}${((v.health || {}).missing_contracts || []).length ? " · missing: " + (v.health.missing_contracts || []).map(icode).join(" ") : ""}`),
           ihint(esc((v.health || {}).note || (v.authority || {}).note || "")),
+          irow("open in", `<a href="${managerResourceLink(oid, "connector-mapping", v.connector_mapping_id)}">mapping</a> · <a href="${managerResourceLink(oid, "policy-view", v.id)}">Manager resource</a>`),
         ].join("") : emptyStage("Policy gate"),
         trayTitle: "Policy gate — scope and operations",
         tray: v ? trayTable(["allowed operation", "subjects", "property scope"],
@@ -247,6 +251,7 @@ function renderPipelineBuilder(lists, selectedId, nodeParam) {
           irow("object instances", `<b>${(proj.health || {}).object_instances ?? 0}</b>`),
           ...(proj.materialized ? [irow("materialized", `${esc(String(proj.materialized.count ?? ""))} at ${esc(proj.materialized.at || "")} via ${icode(proj.materialized.materializing_run_ref || "")}`)] : []),
           ihint(esc((proj.health || {}).note || "")),
+          irow("open in", `<a href="${managerResourceLink(oid, "ontology-projection", proj.id)}">Manager resource</a>${mset ? ` · <a href="${objectSetLink(oid, mset.id)}">Explorer set</a>` : ""}${proj.object_type_id ? ` · <a href="${objectTypeLink(oid, proj.object_type_id)}">Explorer type</a>` : ""}`),
         ].join("") : emptyStage("Read projection"),
         trayTitle: "Read projection — columns and facets",
         tray: proj ? trayTable(["column", "facet?", "notes"],
@@ -280,6 +285,7 @@ function renderPipelineBuilder(lists, selectedId, nodeParam) {
           irow("pre-output receipt", st.pre_output_receipt_ref ? icode(st.pre_output_receipt_ref) : "—"),
           ...(st.source_contact ? [irow("source contact", `${safeOrigin(st.source_contact.endpoint || "")} · http ${esc(String(st.source_contact.http_status ?? "—"))} · ${esc(String(st.source_contact.elapsed_ms ?? "—"))}ms${st.source_contact.at ? ` · ${esc(st.source_contact.at)}` : ""}`)] : []),
           irow("reset", disabledCommand({ label: "Delete object set", reason: "deletion is a daemon authority (DELETE …/materialized-object-sets/:id) — command wiring is the command-discipline PR, a named gap here" })),
+          irow("open in", `<a href="${objectSetLink(oid, st.id)}">Explorer set</a> · <a href="${lineageLink(oid, st.id)}">Lineage</a> · <a href="${vertexLink(oid, st.id)}">Vertex</a> · <a href="${provenanceSetLink(st.id)}">Provenance</a>${st.object_type_id ? ` · <a href="${managerLink({ ontology: oid, section: "object-types", definitionKind: "object-type", definitionId: st.object_type_id })}">object type</a>` : ""}`),
         ].join("") : emptyStage("Materialized object set"),
         trayTitle: "Materialized objects — preview rows",
         tray: (st ? "" : ihint(missingRungs.length
@@ -349,7 +355,7 @@ function renderPipelineBuilder(lists, selectedId, nodeParam) {
       <button class="pb-btn ghost" disabled title="${esc(cmd.schedule.reason)}" data-ioi-disabled-reason="${esc(cmd.schedule.reason)}">Schedule</button>
       <button class="pb-btn ghost" disabled title="${esc(cmd.deploy.reason)}" data-ioi-disabled-reason="${esc(cmd.deploy.reason)}">Deploy</button>
       <a class="pb-btn link" href="/__ioi/lineage?ontology=${enc(oid)}">Lineage</a>
-      <a class="pb-btn link" href="/__ioi/odk?ontology=${enc(oid)}">Ontology Manager</a>
+      <a class="pb-btn link" href="${managerLink({ ontology: oid })}">Ontology Manager</a>
     </div>
     <div class="pb-hright">
       <span class="pb-hbtn gap" title="Actions menu is a reference-only lane (named gap)">Actions ${bpIcon("caret-down")}</span>
@@ -408,7 +414,7 @@ function renderPipelineBuilder(lists, selectedId, nodeParam) {
         <span class="pb-traycollapse">${bpIcon("double-chevron-down")}</span>
       </div>
       <div class="pb-traybody">${inspectorMode ? trayShell({ id: "pb-tray-node", title: insp.trayTitle, body: insp.tray }) : previewTable}
-        <div class="pb-gapnote">Freeform canvas authoring — drag-connect nodes, transform code editor, scheduling, deploy — are <b>reference-only lanes disabled above</b>, not yet wired. Author stages in the <a href="/__ioi/odk?ontology=${enc(oid)}">Ontology Manager</a>; execute via a materializing run. Reference: <a href="/__apps/pipeline">Pipeline Builder capture ↗</a>.</div>
+        <div class="pb-gapnote">Freeform canvas authoring — drag-connect nodes, transform code editor, scheduling, deploy — are <b>reference-only lanes disabled above</b>, not yet wired. Author stages in the <a href="${managerLink({ ontology: oid })}">Ontology Manager</a> (<a href="/__ioi/odk?ontology=${enc(oid)}">ODK substrate</a>); execute via a materializing run. Reference: <a href="/__apps/pipeline">Pipeline Builder capture ↗</a>.</div>
       </div>
     </div>
   </div>`;
@@ -428,6 +434,7 @@ function renderPipelineBuilder(lists, selectedId, nodeParam) {
       subtitle: insp.sub,
       body: (invalidNode ? `<div class="pb-ihint pb-warnhint">Unknown node <code>${esc(nodeParam)}</code> — failed closed to the default selection (Datasource).</div>` : "")
         + `<a class="pb-iback" href="${selectionQuery("/__ioi/pipeline", { ontology: oid })}">← Pipeline outputs</a>`
+        + semanticBreadcrumb([{ label: selected ? (selected.domain || selected.id) : "ontology", href: managerLink({ ontology: oid }) }, { label: insp.title }])
         + insp.body,
     })}</div>
     ${rstrip}
