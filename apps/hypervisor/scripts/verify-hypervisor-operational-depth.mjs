@@ -23,8 +23,15 @@
 //      schema+approvals=act, and the NEGATIVE CONTROL — a browse-only surface promoted to a
 //      higher state makes the registry invariant THROW (the gate refuses an inflated status).
 //   6. SINGLE RAIL — all 13 stay native_single_rail; certs unaffected (audit-only PR).
-//   7. QUEUE — the ranking is present, scored on all five factors, and produces an ordered
-//      10-surface queue with the #69 head named.
+//   7. SEQUENCE SUPERSESSION (#70 canon convergence) — the atlas is immutable AUDIT EVIDENCE:
+//      the 5-factor scoring evidence is intact, but NO active PR-numbered surface queue exists
+//      (no `queue`, no `pr` assignments, no `estate-closure`); the ranking declares
+//      implementation_sequence_status=superseded_by_canon pointing at
+//      docs/architecture/_meta/canon-to-code-delta.md; every unfinished surface appears exactly
+//      once in that file's deferred UX backlog; the contract-first build sequence remains
+//      canonical in execution-horizons.md; and the exact false claims the #70 review caught
+//      (a verdict plane behind `Finding`, precedent substrates classified `partial`,
+//      held-stack work described as landed/shipped) are guarded against returning.
 //
 // Usage: node apps/hypervisor/scripts/verify-hypervisor-operational-depth.mjs
 import { readFileSync } from "node:fs";
@@ -132,14 +139,33 @@ async function run() {
   ok("every atlas capability is a member of the registry capability vocabulary", Object.values(rows).every((r) => (r.current.capabilities || []).every((c) => CAPABILITIES.includes(c))));
   ok("every atlas operational_state is a member of the registry state vocabulary", Object.values(rows).every((r) => OPERATIONAL_STATES.includes(r.current.operational_state)));
 
-  // 7. QUEUE — the ranking scores the 10 unfinished surfaces on all 5 factors and orders them.
+  // 7. SEQUENCE SUPERSESSION — audit evidence intact; the active queue is retired; the canon
+  // (canon-to-code-delta.md) owns what happens next.
   const FACTORS = ["existing_authority_available", "user_workflow_value", "cross_application_leverage", "missing_contract_cost", "authority_security_risk"];
-  // Operational = act / workflow_complete only; inspect (Explorer) is read-navigation, so it is
-  // one of the 10 unfinished surfaces in the queue.
   const unfinished = SURFACES.filter((s) => !["workflow_complete", "act"].includes(s.operational_state)).map((s) => s.slug);
-  ok("the ranking scores every unfinished surface on all 5 factors", Array.isArray(rank.scored) && rank.scored.length >= 10 && rank.scored.every((e) => FACTORS.every((f) => Number.isInteger(e.ranking_inputs && e.ranking_inputs[f]))));
-  ok("the ranking produces an ordered queue with a named #69 head and a stated rationale", Array.isArray(rank.queue) && rank.queue.length >= 10 && rank.queue[0] && rank.queue[0].pr === 69 && typeof rank.queue[0].rationale === "string" && rank.queue[0].rationale.length > 20, rank.queue && rank.queue[0] ? `#69 = ${rank.queue[0].slug}` : "no queue");
-  ok("every unfinished registry surface appears exactly once in the queue", (() => { const q = (rank.queue || []).map((e) => e.slug).filter((x) => x !== "estate-closure"); return unfinished.every((u) => q.filter((x) => x === u).length === 1); })());
+  ok("scoring EVIDENCE preserved: every audited surface scored on all 5 factors", Array.isArray(rank.scored) && rank.scored.length >= 10 && rank.scored.every((e) => FACTORS.every((f) => Number.isInteger(e.ranking_inputs && e.ranking_inputs[f]))));
+  ok("NO ACTIVE SURFACE QUEUE exists: no `queue` field, no PR-number assignments, no estate-closure terminal entry", !("queue" in rank) && !JSON.stringify(rank).includes("estate-closure") && (rank.evidence_order || []).every((e) => !("pr" in e)) && (rank.scored || []).every((e) => !("pr" in e)), `${(rank.evidence_order || []).length} evidence-ranked surfaces`);
+  ok("the atlas DECLARES its implementation sequence superseded by the canon", rank.implementation_sequence_status === "superseded_by_canon" && String(rank.superseded_by || "").includes("docs/architecture/_meta/canon-to-code-delta.md") && /audit evidence/i.test(rank.sequence_note || ""));
+  ok("evidence-ranked order retained for every unfinished surface (evidence, not a queue)", Array.isArray(rank.evidence_order) && unfinished.every((u) => rank.evidence_order.filter((e) => e.slug === u).length === 1));
+
+  // The superseding canon: every unfinished surface appears EXACTLY ONCE in the deferred
+  // application-UX backlog, and the contract-first build sequence remains canonical.
+  const deltaDoc = readFileSync(join(APP, "..", "..", "docs", "architecture", "_meta", "canon-to-code-delta.md"), "utf8");
+  const backlog = deltaDoc.split("## Deferred application-UX backlog")[1] || "";
+  const BACKLOG_ROW = { changes: "| Changes", monitors: "| Monitors", models: "| Models", designer: "| Designer", incidents: "| Incidents", machinery: "| Machinery", evalsuites: "| Evalsuites", explorer: "| Explorer", listings: "| Marketplace" };
+  ok("every unfinished registry surface appears exactly once in the canon's deferred UX backlog", unfinished.every((u) => BACKLOG_ROW[u] && backlog.split(`\n${BACKLOG_ROW[u]} `).length === 2), unfinished.filter((u) => !(BACKLOG_ROW[u] && backlog.split(`\n${BACKLOG_ROW[u]} `).length === 2)).join(",") || `${unfinished.length} surfaces`);
+  ok("backlog rows resume only when PULLED by an implemented contract (no PR-number sequence)", /resumes? (only )?when pulled by an implemented contract/i.test(backlog) && !/\| Changes[^\n]*#7\d/.test(backlog));
+  const horizons = readFileSync(join(APP, "..", "..", "docs", "architecture", "_meta", "execution-horizons.md"), "utf8");
+  ok("the contract-first build sequence remains canonical (8 ordered steps; closure = working proof, no PR numbers)", horizons.includes("## The build sequence (contract-first)") && /8\. Two-sovereign-node conformance proof/.test(horizons) && /Completion is not forced into an arbitrary PR\s+number|not forced into an arbitrary PR number/.test(horizons.replace(/\n/g, " ")) && deltaDoc.includes("execution-horizons.md#the-build-sequence-contract-first"));
+
+  // FALSE-CLAIM GUARDS (#70 review): the exact overstatements caught in review must not return.
+  const row = (name) => (deltaDoc.split("\n").find((l) => l.startsWith(`| \`${name}\` |`)) || "");
+  ok("`Finding` row: eval-suite plane is DECLARATION-ONLY precedent (no verdict plane) and the row is not started", row("Finding").includes("not started") && !row("Finding").includes("evaluation verdict records") && /no run\/execute endpoint, no scoring, no verdict|DECLARATION-ONLY/.test(row("Finding")));
+  for (const obj of ["Attempt", "OntologyVersion", "SemanticMappingDecision", "ProvenanceAssertion"]) {
+    ok(`\`${obj}\` row: not started with an explicitly LABELED implementation precedent (a precedent is never partial)`, row(obj).includes("not started") && !/\| partial/.test(row(obj)) && /implementation precedent/i.test(row(obj)));
+  }
+  ok("no held-stack work is described as landed/shipped (delta doc + atlas)", !/already-landed/i.test(deltaDoc) && !/shipped state/.test(deltaDoc) && /held stack/.test(deltaDoc) && /not yet\s+merged to master/i.test(deltaDoc.replace(/\n/g, " ")) && !JSON.stringify(atlas).includes("LANDED"));
+
   ok("the atlas records the audit invariant: daemon_wired + shell-pixel certification do NOT imply operational completeness", typeof atlas.doctrine === "string" && /certification.*(not|never).*operational|operational.*not.*implied/i.test(atlas.doctrine));
 }
 

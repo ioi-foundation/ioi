@@ -3,8 +3,24 @@
 // atlas rows. NOT a runtime dependency — a one-shot builder; the committed JSON is the artifact.
 // - Reads the raw rows (journal-recovered), normalizes `current` to the LIVE registry (the atlas
 //   can never overstate a surface's classification), derives implemented_control_census from each
-//   control's own `implemented` flag (a subset of the census by construction), and computes the
-//   5-factor ranking → the ordered 10-surface queue with the #69 head.
+//   control's own `implemented` flag (a subset of the census by construction), and records the
+//   5-factor ranking as AUDIT EVIDENCE.
+//
+// SEQUENCE RETIREMENT (#70 canon convergence): the atlas is IMMUTABLE AUDIT EVIDENCE, not an
+// active implementation queue. The former PR-numbered #69..#79 queue (and its `estate-closure`
+// terminal entry) is retired: the ranking keeps its full 5-factor scoring evidence and the
+// evidence-ranked order, but carries `implementation_sequence_status: "superseded_by_canon"` and
+// points at docs/architecture/_meta/canon-to-code-delta.md — surface work resumes only when
+// pulled by an implemented contract (the deferred UX backlog there).
+//
+// Modes:
+//   default            — full rebuild from .artifacts/opdepth/rows.json (re-audit runs only).
+//   --evolve-sequence  — load the COMMITTED atlas and rewrite ONLY the ranking block to the
+//                        superseded shape (plus the held-stack wording normalization below);
+//                        every surface row, control census, screenshot ref, scoring input, and
+//                        security finding is preserved byte-for-byte. This is how the committed
+//                        artifact is regenerated without a stale rows.json overwriting later
+//                        row-level updates (e.g. the #69 Sources promotion narrative).
 import { readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -13,6 +29,43 @@ import { SURFACES } from "./surface-registry.mjs";
 const HERE = dirname(fileURLToPath(import.meta.url));
 const APP = join(HERE, "..");
 const RAW = join(APP, ".artifacts", "opdepth", "rows.json");
+const ATLAS_PATH = join(APP, "application-operational-depth.json");
+
+// The retired-queue → superseded-evidence transform, shared by both modes: strip PR-number
+// assignments, drop the `estate-closure` terminal entry, keep the scoring evidence whole.
+function supersededRanking(method, scored, evidenceOrder) {
+  return {
+    method,
+    scored,
+    evidence_order: evidenceOrder,
+    implementation_sequence_status: "superseded_by_canon",
+    superseded_by: "docs/architecture/_meta/canon-to-code-delta.md",
+    sequence_note: "This ranking is immutable audit evidence, NOT an active implementation queue. The former PR-numbered surface queue is retired; application-UX work on the unfinished surfaces resumes only when pulled by an implemented contract — see the deferred application-UX backlog and the contract-first build sequence in the superseding canon file.",
+  };
+}
+
+if (process.argv.includes("--evolve-sequence")) {
+  const atlas = JSON.parse(readFileSync(ATLAS_PATH, "utf8"));
+  const oldQueue = (atlas.ranking && atlas.ranking.queue) || [];
+  const evidenceOrder = oldQueue
+    .filter((q) => q.slug !== "estate-closure")
+    .map(({ pr, ...rest }) => rest); // strip the PR-number assignment; keep the scoring rationale as evidence
+  atlas.ranking = supersededRanking(atlas.ranking.method, atlas.ranking.scored, evidenceOrder);
+  // Held-stack honesty normalization (#70 review): nothing unmerged is described as LANDED.
+  const sources = atlas.surfaces && atlas.surfaces.sources;
+  if (sources) {
+    sources.landing_vs_workflow_note = String(sources.landing_vs_workflow_note || "").replace(
+      "RESOLVED (#69): the declare half is LANDED —",
+      "RESOLVED in the held stack (#69, open + held for review; not yet merged to master): the declare half is implemented —",
+    );
+    for (const c of sources.reference_control_census || []) {
+      if (typeof c.reason === "string") c.reason = c.reason.replace(/^LANDED \(#69\): /, "IMPLEMENTED IN THE HELD STACK (#69, not yet merged): ");
+    }
+  }
+  writeFileSync(ATLAS_PATH, JSON.stringify(atlas, null, 2) + "\n");
+  console.log(`atlas ranking evolved — sequence superseded_by_canon; ${evidenceOrder.length} evidence-ranked surfaces retained; PR-number queue + estate-closure removed`);
+  process.exit(0);
+}
 
 const raw = JSON.parse(readFileSync(RAW, "utf8"));
 const reg = Object.fromEntries(SURFACES.map((s) => [s.slug, s]));
@@ -101,12 +154,13 @@ scored.sort((a, b) => b.composite - a.composite
   || a.ranking_inputs.authority_security_risk - b.ranking_inputs.authority_security_risk
   || a.slug.localeCompare(b.slug));
 
-const queue = scored.map((e, i) => ({
-  pr: 69 + i, slug: e.slug, title: e.title, composite: e.composite,
+// Evidence-ranked order only — no PR-number assignments, no estate-closure terminal entry
+// (the implementation sequence is owned by the canon; see supersededRanking above).
+const evidenceOrder = scored.map((e) => ({
+  slug: e.slug, title: e.title, composite: e.composite,
   recommended_next_pr: surfaces[e.slug].recommended_next_pr.title,
   rationale: `composite ${e.composite} = (existing_authority ${e.ranking_inputs.existing_authority_available} + workflow_value ${e.ranking_inputs.user_workflow_value} + cross_app_leverage ${e.ranking_inputs.cross_application_leverage}) − (missing_contract_cost ${e.ranking_inputs.missing_contract_cost} + security_risk ${e.ranking_inputs.authority_security_risk}); ${surfaces[e.slug].recommended_next_pr.scope.slice(0, 220)}`,
 }));
-queue.push({ pr: 69 + queue.length, slug: "estate-closure", title: "Estate workflow closure", rationale: "after the 10 surface cuts land: a whole-estate operational-completeness sweep — every surface at its earned operational_state, cross-application workflows closed end-to-end, and the operational-depth atlas re-audited to confirm no surface regressed to a landing-only shell." });
 
 const atlas = {
   schema_version: "ioi.hypervisor.operational-depth-atlas.v1",
@@ -122,13 +176,12 @@ const atlas = {
     reference_data_only: "the reference's verbatim capture chrome / example content, display-only",
   },
   surfaces,
-  ranking: {
-    method: "composite = 5·existing_authority_available + 4·user_workflow_value + 3·cross_application_leverage − 2·missing_contract_cost − 1·authority_security_risk (factor weights follow the directive's stated priority order); descending, tiebreak on cross_application_leverage then lower security_risk then slug",
+  ranking: supersededRanking(
+    "composite = 5·existing_authority_available + 4·user_workflow_value + 3·cross_application_leverage − 2·missing_contract_cost − 1·authority_security_risk (factor weights follow the directive's stated priority order); descending, tiebreak on cross_application_leverage then lower security_risk then slug",
     scored,
-    queue,
-  },
+    evidenceOrder,
+  ),
 };
 
-writeFileSync(join(APP, "application-operational-depth.json"), JSON.stringify(atlas, null, 2) + "\n");
-console.log(`atlas written — ${Object.keys(surfaces).length} surfaces, queue head #69 = ${queue[0].slug} (${queue[0].title})`);
-console.log("queue:", queue.filter((q) => q.slug !== "estate-closure").map((q) => `#${q.pr} ${q.slug}(${q.composite})`).join(" · "));
+writeFileSync(ATLAS_PATH, JSON.stringify(atlas, null, 2) + "\n");
+console.log(`atlas written — ${Object.keys(surfaces).length} surfaces; sequence superseded_by_canon; evidence order: ${evidenceOrder.map((q) => `${q.slug}(${q.composite})`).join(" · ")}`);

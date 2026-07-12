@@ -982,7 +982,7 @@
         "Recents row click -> walkthrough detail overlay (1 overlay opened)",
         "Recent-installations store dropdown (marketplace installs)"
       ],
-      "landing_vs_workflow_note": "The certified IOI surface is the LANDING shell (operational_state=browse) rendered pixel-faithfully over the real 523-record DataSource registry, with IOI-added semantic selection (?dataSource=) and a truth catalog census. The reference's real intent-to-result WORKFLOW, however, is New source -> select source type -> configure connection -> DECLARE a source (a durable record). IOI leaves the workflow's entry control ('New source', and the recommended 'Connect to external system' card) DISABLED even though its backing authority — fail-closed POST /v1/hypervisor/data-sources returning a dsr_ receipt — ALREADY EXISTS in the daemon. That gap between the certified landing and an operational surface is the finding, and it is a cheap cut: the declare half needs zero new daemon contract (only the extraction/edit/delete halves are genuinely missing and stay out of scope). This surface has the strongest existing-authority-to-cost ratio audited so far for a browse-classified landing. RESOLVED (#69): the declare half is LANDED — sources is a bound module (surfaces/sources) declaring ONE receipted mutation; New source and Connect-to-external-system open the governed declare pane; the daemon POST is atomic (record-first/receipt-second with checked rollback, typed 5xx lanes) and returns the dsr_ receipt explicitly; operational_state promoted browse -> act with capability create. Edit/delete/extraction remain the genuinely missing halves, disabled with their exact absent contracts.",
+      "landing_vs_workflow_note": "The certified IOI surface is the LANDING shell (operational_state=browse) rendered pixel-faithfully over the real 523-record DataSource registry, with IOI-added semantic selection (?dataSource=) and a truth catalog census. The reference's real intent-to-result WORKFLOW, however, is New source -> select source type -> configure connection -> DECLARE a source (a durable record). IOI leaves the workflow's entry control ('New source', and the recommended 'Connect to external system' card) DISABLED even though its backing authority — fail-closed POST /v1/hypervisor/data-sources returning a dsr_ receipt — ALREADY EXISTS in the daemon. That gap between the certified landing and an operational surface is the finding, and it is a cheap cut: the declare half needs zero new daemon contract (only the extraction/edit/delete halves are genuinely missing and stay out of scope). This surface has the strongest existing-authority-to-cost ratio audited so far for a browse-classified landing. RESOLVED in the held stack (#69, open + held for review; not yet merged to master): the declare half is implemented — sources is a bound module (surfaces/sources) declaring ONE receipted mutation; New source and Connect-to-external-system open the governed declare pane; the daemon POST is atomic (record-first/receipt-second with checked rollback, typed 5xx lanes) and returns the dsr_ receipt explicitly; operational_state promoted browse -> act with capability create. Edit/delete/extraction remain the genuinely missing halves, disabled with their exact absent contracts.",
       "current": {
         "capabilities": [
           "browse",
@@ -1072,7 +1072,7 @@
           "label": "New source (primary action button, green)",
           "reference": "PRIMARY WORKFLOW -> /sources/new Select-source-type gallery -> configure connection -> declare a source",
           "outcome": "governed_receipted_action",
-          "reason": "LANDED (#69): the chip is an ENABLED entry into the governed declare pane (?declare=1) — a bounded form whose kind picker and endpoint requirement derive from the daemon overview projection (source_kinds), submitting through the surface module's ONE declared mutation (handleAction -> POST /v1/hypervisor/data-sources) with server-enforced confirmation; success returns the explicit dsr_ receipt and selects the created record; every daemon fail-closed rejection renders as a typed in-place refusal. The extraction/live-connection half past declaration stays a named gap (wired:false boundary).",
+          "reason": "IMPLEMENTED IN THE HELD STACK (#69, not yet merged): the chip is an ENABLED entry into the governed declare pane (?declare=1) — a bounded form whose kind picker and endpoint requirement derive from the daemon overview projection (source_kinds), submitting through the surface module's ONE declared mutation (handleAction -> POST /v1/hypervisor/data-sources) with server-enforced confirmation; success returns the explicit dsr_ receipt and selects the created record; every daemon fail-closed rejection renders as a typed in-place refusal. The extraction/live-connection half past declaration stays a named gap (wired:false boundary).",
           "binding": "POST /v1/hypervisor/data-sources -> data-source-receipt (dsr_*)",
           "implemented": true
         },
@@ -1110,7 +1110,7 @@
           "label": "Connect to external system (Recommended)",
           "reference": "-> /sources/new declare flow (configure a live connection)",
           "outcome": "governed_receipted_action",
-          "reason": "LANDED (#69): the set-up card is an ENABLED overlay into the SAME governed declare pane as New source (both confirmed to funnel to the declare flow in the reference). Declaration is receipted (dsr_); the live-connection/extraction half stays a named gap.",
+          "reason": "IMPLEMENTED IN THE HELD STACK (#69, not yet merged): the set-up card is an ENABLED overlay into the SAME governed declare pane as New source (both confirmed to funnel to the declare flow in the reference). Declaration is receipted (dsr_); the live-connection/extraction half stays a named gap.",
           "binding": "POST /v1/hypervisor/data-sources -> dsr_ receipt",
           "implemented": true
         },
@@ -6968,9 +6968,8 @@
         "composite": 31
       }
     ],
-    "queue": [
+    "evidence_order": [
       {
-        "pr": 69,
         "slug": "sources",
         "title": "Data Connection",
         "composite": 50,
@@ -6978,7 +6977,6 @@
         "rationale": "composite 50 = (existing_authority 5 + workflow_value 4 + cross_app_leverage 5) − (missing_contract_cost 2 + security_risk 2); Wire the currently-disabled 'New source' primary action (and the 'Connect to external system' set-up card, which flows to the same /sources/new declare journey) into a governed_receipted_action using the EXISTING POST /v"
       },
       {
-        "pr": 70,
         "slug": "changes",
         "title": "Upgrade Assistant",
         "composite": 48,
@@ -6986,7 +6984,6 @@
         "rationale": "composite 48 = (existing_authority 5 + workflow_value 4 + cross_app_leverage 4) − (missing_contract_cost 1 + security_risk 3); Advance the changes surface from browse→act by exposing the reference's per-row 'pending action' workflow through the daemon authority that ALREADY exists, reusing the Approvals module's action-descriptor + handleAction "
       },
       {
-        "pr": 71,
         "slug": "monitors",
         "title": "Automate",
         "composite": 46,
@@ -6994,7 +6991,6 @@
         "rationale": "composite 46 = (existing_authority 5 + workflow_value 4 + cross_app_leverage 4) − (missing_contract_cost 2 + security_risk 3); Turn the read-only Recently-viewed rows into governed action rows using authority that already exists and is already wired on /__ioi/automations. Add a per-row action affordance: Run-now → POST /v1/hypervisor/automations"
       },
       {
-        "pr": 72,
         "slug": "models",
         "title": "Model Catalog",
         "composite": 45,
@@ -7002,7 +6998,6 @@
         "rationale": "composite 45 = (existing_authority 5 + workflow_value 3 + cross_app_leverage 4) − (missing_contract_cost 1 + security_risk 2); Extract /__ioi/foundry/models into a bound surface module (surfaces/foundry-models/index.mjs) registered in surface-registry.mjs with a handleAction + declared actions, exactly like approvals/pipeline. (1) INSPECT: card "
       },
       {
-        "pr": 73,
         "slug": "designer",
         "title": "Solution Designer",
         "composite": 44,
@@ -7010,7 +7005,6 @@
         "rationale": "composite 44 = (existing_authority 5 + workflow_value 3 + cross_app_leverage 4) − (missing_contract_cost 2 + security_risk 1); Promote the certified Solution Designer landing from pure-read (browse) to a single governed create action by wiring the primary 'New Diagram' header button (and the View-row 'Open Diagram' affordance re-labelled to a Ne"
       },
       {
-        "pr": 74,
         "slug": "incidents",
         "title": "Issues",
         "composite": 41,
@@ -7018,7 +7012,6 @@
         "rationale": "composite 41 = (existing_authority 4 + workflow_value 4 + cross_app_leverage 4) − (missing_contract_cost 2 + security_risk 3); Promote /__ioi/missions/incidents from browse to a single governed-action surface WITHOUT any new daemon contract. For each Blocker row (derived from a goal-run), wire ONE governed action through the existing #62 action "
       },
       {
-        "pr": 75,
         "slug": "machinery",
         "title": "Machinery",
         "composite": 41,
@@ -7026,7 +7019,6 @@
         "rationale": "composite 41 = (existing_authority 5 + workflow_value 3 + cross_app_leverage 3) − (missing_contract_cost 2 + security_risk 1); Extract machinery into a bound surface module (surfaces/machinery/index.mjs) under the #62 action-runtime contract, then wire the header 'New graph' and per-row Edit/Delete to the ALREADY-EXISTING POST/PATCH/DELETE /v1/h"
       },
       {
-        "pr": 76,
         "slug": "evalsuites",
         "title": "AIP Evals",
         "composite": 39,
@@ -7034,7 +7026,6 @@
         "rationale": "composite 39 = (existing_authority 4 + workflow_value 4 + cross_app_leverage 3) − (missing_contract_cost 2 + security_risk 2); Extract evalsuites into a bound surface module (approvals pattern) and turn the disabled 'New evaluation suite' button into a REAL create workflow backed by the daemon authority that already exists. New-suite opens a gov"
       },
       {
-        "pr": 77,
         "slug": "explorer",
         "title": "Object Explorer",
         "composite": 37,
@@ -7042,19 +7033,15 @@
         "rationale": "composite 37 = (existing_authority 4 + workflow_value 4 + cross_app_leverage 4) − (missing_contract_cost 4 + security_risk 3); Add ONE governed action to the object-type inspector — 'Materialize object set' — that, for the selected object type + its declared OntologyProjection, drives the EXISTING MaterializingRun ladder (POST /odk/materializing"
       },
       {
-        "pr": 78,
         "slug": "listings",
         "title": "Marketplace",
         "composite": 31,
         "recommended_next_pr": "Marketplace listings: published-product browse over daemon truth (read-depth beyond the storefront)",
         "rationale": "composite 31 = (existing_authority 4 + workflow_value 2 + cross_app_leverage 3) − (missing_contract_cost 2 + security_risk 2); Turn the single-aggregate-store storefront into a real product catalog rendered from EXISTING daemon authority, without adding any new daemon contract. Replace the lone 'N products' count with a product-row/card list of "
-      },
-      {
-        "pr": 79,
-        "slug": "estate-closure",
-        "title": "Estate workflow closure",
-        "rationale": "after the 10 surface cuts land: a whole-estate operational-completeness sweep — every surface at its earned operational_state, cross-application workflows closed end-to-end, and the operational-depth atlas re-audited to confirm no surface regressed to a landing-only shell."
       }
-    ]
+    ],
+    "implementation_sequence_status": "superseded_by_canon",
+    "superseded_by": "docs/architecture/_meta/canon-to-code-delta.md",
+    "sequence_note": "This ranking is immutable audit evidence, NOT an active implementation queue. The former PR-numbered surface queue is retired; application-UX work on the unfinished surfaces resumes only when pulled by an implemented contract — see the deferred application-UX backlog and the contract-first build sequence in the superseding canon file."
   }
 }
