@@ -92,6 +92,8 @@ mod marketplace_routes;
 mod microvm;
 #[path = "hypervisor_daemon_routes/data_source_routes.rs"]
 mod data_source_routes;
+#[path = "hypervisor_daemon_routes/work_result_routes.rs"]
+mod work_result_routes;
 #[path = "hypervisor_daemon_routes/connector_mapping_routes.rs"]
 mod connector_mapping_routes;
 #[path = "hypervisor_daemon_routes/policy_bound_data_view_routes.rs"]
@@ -1885,6 +1887,28 @@ async fn async_main() -> anyhow::Result<()> {
         .route(
             "/v1/hypervisor/data-sources/:id",
             get(data_source_routes::handle_data_source_get),
+        )
+        .route(
+            "/v1/hypervisor/work-results",
+            get(work_result_routes::handle_work_results_list)
+                .post(work_result_routes::handle_work_result_create),
+        )
+        .route(
+            "/v1/hypervisor/work-results/overview",
+            get(work_result_routes::handle_work_results_overview),
+        )
+        .route(
+            "/v1/hypervisor/work-results/:id",
+            get(work_result_routes::handle_work_result_get),
+        )
+        .route(
+            "/v1/hypervisor/outcome-deltas",
+            get(work_result_routes::handle_outcome_deltas_list)
+                .post(work_result_routes::handle_outcome_delta_create),
+        )
+        .route(
+            "/v1/hypervisor/outcome-deltas/:id",
+            get(work_result_routes::handle_outcome_delta_get),
         )
         .route(
             "/v1/hypervisor/placement/resolve",
