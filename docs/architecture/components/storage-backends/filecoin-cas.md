@@ -188,7 +188,8 @@ probes, wallet-gated archive export/restore over daemon-custody snapshot
 material, sealed bytes (Argon2id KDF + AEAD under the wallet-secret
 passphrase) before every backend write, commitment records
 (address/CID/hash/size/media type) as availability evidence, storage receipts
-in the Work Ledger (`storage_custody`), `ArtifactAvailabilityIncident` +
+in the Work Ledger record family (`storage_custody`; protocol terminology —
+rendered by the Provenance application), `ArtifactAvailabilityIncident` +
 `ArtifactRepairReceipt` semantics exactly as above, and storage candidates on
 the decentralized.cloud candidate plane (`storage.archive` / `storage.cas`)
 that state availability-is-not-restore-truth. Restore admits ONLY after

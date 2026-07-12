@@ -1468,7 +1468,7 @@ Agentgres execution branch
 
 Execution branches are useful for multi-harness comparison, self-correction,
 review-before-commit, recoverable long-horizon runs, Foundry training evidence,
-Work Ledger proof, and user-visible rollback. They must not allow an agent to
+Provenance proof (the Work Ledger record family), and user-visible rollback. They must not allow an agent to
 write canonical truth by naming a branch. Canonical heads advance only through
 expected-head merge/admission with the required policy, authority, and receipts.
 

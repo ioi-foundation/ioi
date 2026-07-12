@@ -99,8 +99,10 @@ refs an ApprovalRequest / ReleaseControl may target.
 ## Receipts
 
 Apply mints `receipt://hypervisor/improvement/*` citing `simulation_ref`, `report_hash`,
-`approval_request_ref`, and `release_control_ref`; the Work Ledger `improvement_applied`
-entry carries and backlinks the full chain.
+`approval_request_ref`, and `release_control_ref`; the Work Ledger record
+family (protocol terminology — the Provenance application renders these
+views) indexes an `improvement_applied` entry carrying and backlinking the
+full chain.
 
 ## Canary release + rollback (learned-policy rollouts)
 

@@ -266,7 +266,7 @@ and replayable evidence.
 
 Executable Evals are a Foundry workflow/facet, not a new top-level application
 surface. They are built and scored in Foundry, run on Hypervisor Environments,
-observed in Operations, proven in Work Ledger, and admitted into release or
+observed in Missions and Operations, proven in Provenance, and admitted into release or
 certification posture through Governance and Ecosystem Assurance.
 
 Canonical flow:
@@ -366,7 +366,7 @@ interactive world or simulator adapter
 ```
 
 Foundry owns the build/eval/training objects. Environments runs the world
-instances and keeps provider/runtime placement honest. Work Ledger records
+instances and keeps provider/runtime placement honest. Provenance records
 trajectories, replay, proof, and scorecards. Operations tracks long-running
 world jobs and capacity. Governance admits transfer, rollout, recall, and
 certification posture. ODK may generate scenario contracts and world schemas
@@ -426,7 +426,8 @@ governed work happens
 
 Foundry may train or distill a conductor advisor from eligible synthetic,
 redacted, full-private opt-in, or org-policy evidence. The eligibility decision
-is local product governance first: Hypervisor, Foundry, ODK, Domain Apps, and
+is local product governance first: Hypervisor, Foundry, Ontology, Data,
+generated domain apps, and
 Governance may propose it; Agentgres admits the
 resulting record and receipts. wallet.network supplies authority refs when that
 eligibility needs decryption, connector access, model-provider keys, GPU spend,

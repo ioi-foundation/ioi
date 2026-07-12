@@ -149,7 +149,7 @@ tasks, events, logs, health, alerts, and lifecycle status
 permissions, policy, audit, and node integrity receipts
 ```
 
-These controls feed Environments, Operations, Governance, Work Ledger, and
+These controls feed Environments, Operations, Governance, Provenance, and
 HypervisorOS node detail views. They should not become a separate clone of a
 legacy virtualization product, but they must be visible enough that
 infrastructure users recognize HypervisorOS as a real substrate-control surface.

@@ -325,8 +325,10 @@ an audit/dispute surface, not a novelty.
 ## Product Presentation
 
 Agentgres is an owner term, not default product copy. Product surfaces should
-usually speak in terms of **Work Ledger**, **run history**, **evidence**,
-**receipts**, **state history**, **archives**, and **replay**. The Agentgres
+usually speak in terms of **Provenance**, **run history**, **evidence**,
+**receipts**, **state history**, **archives**, and **replay** (the legacy
+Work Ledger name survives only in admin/protocol language and route
+compatibility). The Agentgres
 name belongs in builder, protocol, audit, export, and implementation contexts
 where the user needs to understand the state substrate, Postgres bridge,
 operation log, state roots, archive/restore validity, or projection mechanics.

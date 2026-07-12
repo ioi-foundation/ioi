@@ -1075,7 +1075,7 @@ Sessions
 Governance
   physical scopes, e-stop authority, supervision policy, liability policy
 
-Work Ledger
+Provenance
   physical replay bundles, sensor evidence, actuator receipts, incidents
 ```
 

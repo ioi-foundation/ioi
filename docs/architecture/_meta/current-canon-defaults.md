@@ -117,8 +117,8 @@ synchronized.
 - Hypervisor must expose real substrate-control grammar, not only agent
   orchestration. Substrate, inventory, create/import, console, operations,
   governance, and ledger expectations should resolve through Operations,
-  Environments, Workbench, Sessions, Work Ledger, Governance, Developer &
-  Integrations, Hypervisor Desktop / Workstation, and HypervisorOS/provider
+  Environments, Workbench, Sessions, Provenance, Governance, Developer
+  Console, Hypervisor Desktop / Workstation, and HypervisorOS/provider
   detail views without expanding the permanent rail by default;
 - Hypervisor manages sessions, environments, providers, and cross-session
   infrastructure posture directly through the Applications catalog, the
@@ -260,10 +260,15 @@ synchronized.
   rollback, recall, and proof envelopes. Bounded recursive improvement is
   proposal-mediated improvement, not direct self-mutation or
   self-escalation;
-- Hypervisor Workbench, Environments, Agent Studio, Foundry, ODK, Domain Apps,
-  Developer & Integrations, Governance, Operations, Work Ledger, Marketplace,
-  and roadmap Robot Fleets / Embodied are application surfaces over Hypervisor
-  Core, not runtime-truth owners. Automations is a shell-blessed durable work
+- The Hypervisor application suite — Studio, Automations, Ontology, Data,
+  Governance, Missions, Provenance, Evaluations, Improvement, Foundry,
+  Marketplace, Workbench, and Developer Console — plus the Environments and
+  Operations substrate lane and roadmap Robot Fleets / Embodied are
+  application surfaces over Hypervisor Core, not runtime-truth owners. Agent
+  Studio is Studio's agent lens, not a separate application; ODK is the
+  developer kit whose artifacts surface through Ontology, Data, and Developer
+  Console; Work Ledger is the legacy family name whose views converge in
+  Provenance; generated domain apps launch from the Applications catalog. Automations is a shell-blessed durable work
   container over the same Core. Favorites, recommended apps, promoted apps,
   pinned apps, and organization shortcuts are catalog, Home, project/session,
   or user preference affordances, not canonical shell categories;
@@ -294,13 +299,15 @@ applicable;
   recall, kill-switch, remote-config, release-target, gate, and cohort
   coordination across reusable capability; local surfaces still own their local
   evidence and work state. Environments owns environment runtime lifecycle,
-  Operations owns execution queue/run/remediation and capacity/queue/spend
-  posture, Foundry owns build/eval/training and promotion candidates,
-  Automations owns trigger/workflow/service lifecycle, Marketplace and Work
-  Ledger own install/publish/package evidence and artifact/contribution
-  handoffs, Governance and Operations own human approval, policy, remediation,
-  and incident gates, ODK and Work Ledger own dependency, provenance, and
-  impact views, and Work Ledger owns trace/proof inspection;
+  Missions owns running systems, execution queues, remediation, and incident
+  workstreams, Operations owns capacity/queue/spend posture and provider
+  infrastructure, Foundry owns build/eval/training and promotion candidates,
+  Automations owns trigger/workflow/service lifecycle, Marketplace and
+  Provenance own install/publish/package evidence and artifact/contribution
+  handoffs, Governance owns human approval, policy, and incident gates,
+  Ontology and Provenance own dependency, provenance, and impact views, and
+  Provenance owns trace/proof inspection (the legacy Work Ledger views
+  converge there);
 - agent-ready development environments are stateful, interactive, and
   potentially adversarial. For untrusted or cross-tenant autonomous work,
   Hypervisor should use VM, microVM, HypervisorOS, customer-boundary, TEE, or
@@ -326,16 +333,16 @@ applicable;
   ontology packs, eval packs, and package templates into governed sessions,
   automations, Foundry jobs, domain apps, receipts, replay, promotion
   proposals, and marketplace paths. It appears through Home, Applications,
-  Marketplace, Foundry, ODK, Domain Apps, and onboarding rather than as a
-  separate final product app;
+  Marketplace, Foundry, Ontology, Data, generated domain apps, and onboarding
+  rather than as a separate final product app;
 - Agents are configurable, buildable product objects over Hypervisor Core;
   Workers remain the accountable protocol package/manifest boundary.
   Product controls such as Agent, Mode, Model, Reasoning, Speed, Harness,
-  Tools / Integrations, Memory, Authority, Budget, Evals, and Work Ledger
+  Tools / Integrations, Memory, Authority, Budget, Evals, and Provenance
   posture compile into daemon records, wallet authority, model routing,
   HarnessProfile selection, Agentgres operations, and receipts;
-- Model is the product-facing control label inside New Session, Agent Studio,
-  Foundry, and related surfaces; ModelRoute remains the implementation/runtime
+- Model is the product-facing control label inside New Session, Studio's
+  agent lens, Foundry, and related surfaces; ModelRoute remains the implementation/runtime
   object for provider, custody, fallback, spend, privacy, eligibility, and
   invocation policy;
 - Hypervisor's Agent Operating Plane is daemon-owned: configured agent
@@ -385,12 +392,15 @@ applicable;
   typed IO, pre/postconditions, invariants, capability/runtime binding, risk,
   authority, dry-run, idempotency, retry, ambiguous-effect reconciliation,
   compensation, verification, evidence, receipts, and physical-safety posture;
-- ODK is the first-party Hypervisor surface over the semantic world plane;
-  Foundry consumes ODK-governed ontology/data artifacts for training,
+- Ontology and Data are the first-party Hypervisor applications over the
+  semantic world plane; ODK is the developer kit beneath them (CLI, templates,
+  scaffolds, generated SDKs, conformance), not an application. Foundry
+  consumes ontology/data artifacts governed through that plane for training,
   evaluation, simulation, worker/package generation, and capability
   improvement, but does not own semantic truth. `Data / Knowledge`,
-  `Ontology`, `Data Studio`, `Ontology Studio`, `Workshop`, and
-  `Domain Blueprints` are aliases or facets, not separate final product apps;
+  `Data Studio`, `Ontology Studio`, `Workshop`, and `Domain Blueprints` are
+  legacy aliases that resolve to the Ontology and Data applications, not
+  separate final product apps;
 - the Ontology Development Kit is the source-neutral builder kit over Domain
   Ontologies, Canonical Object Models, Data Recipes, Connector Mappings,
   PolicyBoundDataViews, OntologyProjections, evals, and workflow schemas. It may

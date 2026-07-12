@@ -266,13 +266,15 @@ semantic state rather than exceptions hidden in narrative text.
 
 ## Product and Domain Roles
 
-Hypervisor should expose **ODK** as the first-party Applications catalog entry,
-Open Application view, or contextual project/session panel over this semantic
-data plane. `Data / Knowledge`, `Ontology`, `Data Studio`, `Ontology Studio`,
-`Workshop`, and `Domain Blueprints` remain architectural family aliases or ODK
-facets, not separate final product apps.
+Hypervisor exposes **Ontology** and **Data** as the first-party Applications
+catalog entries, Open Application views, or contextual project/session panels
+over this semantic data plane; **ODK** is the developer kit beneath them
+(CLI, templates, scaffolds, generated SDKs, conformance), not the catalog
+entry. `Data / Knowledge`, `Data Studio`, `Ontology Studio`, `Workshop`, and
+`Domain Blueprints` remain architectural family aliases that resolve to the
+Ontology and Data applications, not separate final product apps.
 
-The ODK data facet owns product-level views for:
+The Data application owns product-level views for:
 
 ```text
 source inventory

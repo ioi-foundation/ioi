@@ -44,11 +44,13 @@ Hypervisor Core is the shared product/runtime substrate over this daemon-owned
 execution boundary. Hypervisor App, Hypervisor Web, CLI/headless, SDK, ADK,
 benchmarks, and extension hosts are first-class clients, builder frameworks, or
 projections; they do not become private runtimes. A TUI is an optional
-presentation of CLI/headless controls. Hypervisor Workbench, Automations,
-Environments, Agent Studio, Foundry, ODK, Domain Apps, Developer &
-Integrations, Governance, Operations, Work Ledger, Marketplace, Privacy / cTEE,
-Change Plane views, and Patterns / Examples / Training facets are projections
-over the same Core, not separate runtime truth paths.
+presentation of CLI/headless controls. The Hypervisor application
+suite (Studio, Automations, Ontology, Data, Governance, Missions, Provenance, Evaluations, Improvement, Foundry, Marketplace, Workbench, Developer Console), the Environments and Operations substrate lane,
+generated domain apps, Privacy / cTEE, Change Plane views, and Patterns /
+Examples / Training facets are projections over the same Core, not separate
+runtime truth paths. Agent Studio is Studio's agent lens; ODK is the
+developer kit beneath Ontology and Data; the former Work Ledger views
+converge in Provenance.
 
 Hypervisor Workbench is the live code/systems surface. VS Code, Cursor,
 Windsurf, JetBrains, browser IDEs, terminals, VMs, local OS surfaces, and

@@ -81,7 +81,7 @@ Applications Catalog / Open Application / Contextual Views
   -> Environments
   -> Operations
   -> Governance
-  -> Work Ledger
+  -> Provenance
   -> Workbench
   -> Foundry
 ```
@@ -1267,18 +1267,20 @@ Foundry
 Automations
   trigger, workflow, service, API, schedule, and run lifecycle
 
-Marketplace / Work Ledger
+Marketplace / Provenance
   package install/publish/recall evidence, artifact refs, contribution refs,
   and settlement handoffs
 
-Governance / Operations
-  human approval, policy review, remediation, incident, and support gates
+Governance / Missions
+  human approval and policy review gates (Governance); remediation, incident,
+  and support workstreams (Missions)
 
-Work Ledger / ODK
+Provenance / Ontology
   dependency, provenance, and impact graph
 
-Work Ledger
-  trace, receipt, proof, settlement, and replay inspection
+Provenance
+  trace, receipt, proof, settlement, and replay inspection (the legacy Work
+  Ledger views converge here)
 ```
 
 Those surfaces feed Change Plane gates and blocked reasons, but they do not

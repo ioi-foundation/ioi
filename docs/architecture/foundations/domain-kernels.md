@@ -90,8 +90,8 @@ Client surfaces
   submit, inspect, scaffold, and control work through stable domain/runtime contracts
 
 Hypervisor application surfaces
-  Workbench, Environments, Agent Studio, Foundry, ODK, Domain Apps,
-  Developer & Integrations, Governance, Operations, Work Ledger, Marketplace,
+  Studio, Automations, Ontology, Data, Governance, Missions, Provenance, Evaluations, Improvement, Foundry, Marketplace, Workbench, Developer Console,
+  plus the Environments and Operations substrate lane, generated domain apps,
   Robot Fleets / Embodied
   organize the same Core by job-to-be-done without owning runtime truth
 ```

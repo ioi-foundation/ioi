@@ -28,7 +28,7 @@ Default presentation map:
 | Owner Term | Default Product Term |
 | --- | --- |
 | wallet.network | SSO, permissions, connected access, authority, recovery |
-| Agentgres | Work Ledger, evidence, run history, receipts |
+| Agentgres | Provenance (legacy family name: Work Ledger), evidence, run history, receipts |
 | Hypervisor Daemon | secure runtime, execution environment, worker runtime |
 | IOI L1 / mainnet | proof network, settlement, public commitment |
 | aiagent.xyz | agent marketplace, worker marketplace, agent supply |
@@ -786,9 +786,12 @@ product pitch or routine onboarding flow.
   clients. Clients request, inspect, steer, approve, and render; they do not
   own runtime truth.
 - `HypervisorApp`: the native desktop client over Hypervisor Core. It may host
-  Workbench, Automations, Environments, Agent Studio, Foundry, ODK,
-  Domain Apps, Developer & Integrations, Governance, Operations, Work Ledger,
-  Marketplace, Robot Fleets / Embodied, and other application surfaces.
+  the application suite — Studio (whose agent lens absorbs the former Agent
+  Studio), Automations, Ontology, Data, Governance, Missions, Provenance
+  (the former Work Ledger card), Evaluations, Improvement, Foundry,
+  Marketplace, Workbench, Developer Console — plus the Environments and
+  Operations substrate lane, generated domain apps, roadmap Robot Fleets /
+  Embodied, and other application surfaces.
 - `HypervisorWeb`: the browser/team/remote client over Hypervisor Core. It may
   host web/operator/team versions of the same application surfaces while using
   the same daemon, authority, Agentgres, session, receipt, and adapter
@@ -814,25 +817,29 @@ product pitch or routine onboarding flow.
   or other domain objects, but they are not separate runtimes, authority
   owners, or Agentgres truth sources.
 - `HypervisorApplicationSurface`: a major product surface over Hypervisor Core,
-  such as Workbench, Environments, Agent Studio, Foundry, ODK, Domain Apps,
-  Developer & Integrations, Governance, Operations, Work Ledger, Marketplace,
-  or roadmap Robot Fleets / Embodied. Provider/environment posture may appear
+  such as Studio, Automations, Ontology, Data, Governance, Missions,
+  Provenance, Evaluations, Improvement, Foundry, Marketplace, Workbench,
+  Developer Console, the Environments and Operations substrate lane, or
+  roadmap Robot Fleets / Embodied. Provider/environment posture may appear
   through the Applications catalog, Open Application, session, project,
   provider, org/admin, or operator-console views, not through a standalone
   provider-management product. Application surfaces are not separate apps with
   separate runtime truth.
 - `HypervisorSurfaceAlias`: a legacy or architectural-family label that maps to
   a preferred product surface name. `Providers / Environments` maps to
-  Environments; `Data / Knowledge`, `Ontology`, `Data Studio`,
-  `Ontology Studio`, `Workshop`, and `Domain Blueprints` map to ODK;
-  `Analyst` maps to Domain Apps; `Connections`, `Connectors / Tools / MCP`,
-  and `Developer Console` map to Developer & Integrations;
+  Environments; `Data / Knowledge`, `Data Studio`, `Ontology Studio`,
+  `Workshop`, and `Domain Blueprints` map to the Ontology and Data
+  applications (ODK remains the developer kit beneath them, not a surface
+  name); `Agent Studio` maps to Studio's agent lens; `Analyst` maps to
+  generated domain apps; `Connections`, `Connectors / Tools / MCP`, and
+  `Developer & Integrations` map to Developer Console;
   `Authority / Govern`, `Governance Center`, `Change Plane`, and
   `Release Controls` map to Governance; `Operate / Monitoring`,
   `Operations Center`, and `Resource Management` map to Operations;
-  `Receipts / Replay` and `Proof Explorer` map to Work Ledger;
+  `Receipts / Replay`, `Proof Explorer`, and `Work Ledger` map to Provenance;
   `Patterns / Examples / Training` and `Learning Center` map to enablement
-  facets in Home, Applications, Marketplace, Foundry, ODK, and onboarding;
+  facets in Home, Applications, Marketplace, Foundry, Ontology, Data, and
+  onboarding;
   `Outcome Services / Delivery` maps to the Marketplace declared outcome
   service facet. Aliases are not separate final product apps.
 - `HypervisorPatternsExamplesTraining`: the role-guided recipe and enablement

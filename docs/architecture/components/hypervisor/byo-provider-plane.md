@@ -52,7 +52,7 @@ Those choices map to economics and risk:
 Run local
   this machine, local sandbox, local KVM, or HypervisorOS node
   Hypervisor may charge for the control plane, collaboration, governance,
-  receipts, memory, Work Ledger, and support
+  receipts, memory, Provenance, and support
   no percentage fee on provider spend because there is no external provider
 
 Use my infrastructure

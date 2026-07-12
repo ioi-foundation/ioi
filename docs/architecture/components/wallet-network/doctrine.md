@@ -31,8 +31,9 @@ authority, and revocation events.
 
 wallet.network must not become the owner of every product permission in the
 system, and it does not need to be a visible destination for every permission
-flow. Hypervisor application surfaces, Foundry, ODK/data/ontology surfaces,
-Automations, Domain Apps, and Agentgres may own local governance state,
+flow. Hypervisor application surfaces, Foundry, the Ontology and Data applications
+(with the ODK developer kit beneath them), Automations, generated domain
+apps, and Agentgres may own local governance state,
 project/org policy, eligibility records, workflow permissions, and admission
 decisions. wallet.network becomes the authority substrate when that local
 decision requires portable, revocable, secret-bearing, spend-bearing,

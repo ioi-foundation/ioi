@@ -125,10 +125,13 @@ Hypervisor is one operating fabric with three complementary postures:
 - Type 3: the autonomy plane for sessions, workers, goals, authority, receipts,
   replay, outcomes, and governed improvement.
 
-Hypervisor App, Hypervisor Web, CLI/headless, optional TUI, SDK, ADK,
-Workbench, Automations, Agent Studio, Foundry, ODK, Domain Apps, Governance,
-Operations, Work Ledger, Environments, and Robot Fleets are clients, builder
-surfaces, or projections over the same Core. They do not create private runtime
+Hypervisor App, Hypervisor Web, CLI/headless, optional TUI, SDK, ADK, the
+application suite (Studio with its agent lens, Automations, Ontology, Data,
+Governance, Missions, Provenance, Evaluations, Improvement, Foundry,
+Marketplace, Workbench, Developer Console), the Environments and Operations
+substrate lane, generated domain apps, and Robot Fleets are clients, builder
+surfaces, or projections over the same Core. ODK is the developer kit beneath
+Ontology and Data; the former Work Ledger card converges in Provenance. They do not create private runtime
 truth beside the daemon.
 
 ### Federated Ontology And Action

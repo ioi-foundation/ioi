@@ -194,7 +194,7 @@ The graph is the moat because it improves:
 
 | Layer | Economic role | Boundary |
 | --- | --- | --- |
-| Hypervisor | Main product shell, managed runtime, application surfaces, Foundry, Workbench, Automations, Environments, ODK, Governance, Operations, Work Ledger, Developer & Integrations, and related managed compute | Monetizes subscriptions, managed execution, enterprise/private deployment, and Work Credit usage. Foundry is a Hypervisor surface and usage lane, not a separate top-level business by default. |
+| Hypervisor | Main product shell, managed runtime, the application suite (Studio, Automations, Ontology, Data, Governance, Missions, Provenance, Evaluations, Improvement, Foundry, Marketplace, Workbench, Developer Console), the Environments and Operations substrate lane, and related managed compute | Monetizes subscriptions, managed execution, enterprise/private deployment, and Work Credit usage. Foundry is a Hypervisor surface and usage lane, not a separate top-level business by default. |
 | ioi.ai | Intent-to-outcome conductor over Hypervisor, marketplace workers, connectors, sessions, and verifier lanes | Monetizes subscription and conductor usage. It spends Work Credits through Hypervisor and markets rather than owning a separate runtime pricing model. |
 | aiagent.xyz | Capability marketplace for benchmarked, installable, attributable workers and managed worker instances | Monetizes admission, benchmarks, certification, managed instances, invocation, distribution, licensing, procurement, and take-rate only where it supplies real demand, trust, hosting, or settlement. |
 | sas.xyz | Outcome marketplace for delivered autonomous services and Worker Training as Service-as-Software | Monetizes escrow, orders, milestones, SLAs, disputes, procurement, delivery acceptance, and take-rate where it provides commercial trust and demand. |
@@ -575,7 +575,7 @@ Optimized placement
 
 Do not charge because "a VM exists." Charge because Hypervisor provides the
 governed operating environment around that VM: policy, identity, memory,
-Work Ledger, release controls, rollback, restore, audit, routing evidence,
+Provenance receipts, release controls, rollback, restore, audit, routing evidence,
 team collaboration, private custody, and the Verified Work Graph.
 
 Canonical fee doctrine:
