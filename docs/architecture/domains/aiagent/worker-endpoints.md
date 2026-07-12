@@ -4,7 +4,7 @@ Status: canonical low-level reference.
 Canonical owner: this file for aiagent.xyz worker endpoint shapes and inter-agent endpoint contracts.
 Supersedes: overlapping worker endpoint examples in plans/specs when endpoint fields conflict.
 Superseded by: none.
-Last alignment pass: 2026-06-23.
+Last alignment pass: 2026-07-11.
 Doctrine status: reference
 Implementation status: planned (endpoint spec; draft plane implements a small subset)
 Last implementation audit: 2026-07-05
@@ -440,7 +440,7 @@ revision and, when required, a change plan.
   "from_config_revision_ref": "config_revision://runtime-auditor/heath/default/7",
   "to_config_revision_ref": "config_revision://runtime-auditor/heath/default/8",
   "change_kinds": ["connector_binding", "schedule", "model_route"],
-  "risk_class": "moderate",
+  "risk_class": "policy_widening",
   "required_gates": ["authority_provider", "dry_run"],
   "status": "waiting_for_authority",
   "dry_run_endpoint": "/v1/worker/change-plans/change_plan_8/dry-run",

@@ -6,7 +6,7 @@ Implementation status: mixed (each invariant lists where it is enforced today)
 Canonical owner: this file for the canonical one-sentence wording of cross-cutting invariants; subject owners apply them.
 Supersedes: repeated restatements of these invariants across foundations, components, and domains docs when wordings drift.
 Superseded by: none.
-Last alignment pass: 2026-07-05.
+Last alignment pass: 2026-07-11.
 
 ## Purpose
 
@@ -68,10 +68,13 @@ daemon-admitted sha256 state roots).
 Owner application: [`../components/hypervisor/byo-provider-plane.md`](../components/hypervisor/byo-provider-plane.md),
 [`../components/storage-backends/doctrine.md`](../components/storage-backends/doctrine.md).
 
-**INV-9 — Receipts prove; events observe; analytics improves.** Consequential
-effects mint receipts bound to request/policy hashes; event streams are
-observability; analytics are improvement signals. Neither events nor analytics
-substitute for receipts.
+**INV-9 — Receipts bind boundary facts; assurance is progressive.**
+Consequential effects mint receipts bound to declared request, policy, actor,
+and effect facts; event streams are observability and analytics are improvement
+signals. A receipt proves only the fact it binds. Evidence, verification,
+acceptance, adjudication, and settlement are separate, progressively stronger
+states; neither events, analytics, self-report, nor a receipt alone may
+substitute for the state actually claimed.
 Owner application: [`../components/daemon-runtime/events-receipts-delivery-bundles.md`](../components/daemon-runtime/events-receipts-delivery-bundles.md).
 
 **INV-10 — The quadrant.** wallet.network owns authority; Agentgres owns
@@ -105,6 +108,47 @@ readiness blocks with a named reason, simulators label themselves, and missing
 authority/credentials/budget refuse loudly and are receipted.
 Owner application: [`../components/hypervisor/byo-provider-plane.md`](../components/hypervisor/byo-provider-plane.md),
 [`security-privacy-policy-invariants.md`](./security-privacy-policy-invariants.md).
+
+**INV-15 — No implicit global collaboration truth.** Every OutcomeRoom names
+one hosted admission domain or a versioned federated admission policy with
+ordering, merge, conflict, adjudication, and failover semantics. Each domain
+retains local truth; boards, chat, inboxes, leaderboards, and shared projections
+are never a universal mutable database by implication.
+Owner application: [`common-objects-and-envelopes.md`](./common-objects-and-envelopes.md),
+[`../components/agentgres/doctrine.md`](../components/agentgres/doctrine.md),
+[`aiip.md`](./aiip.md).
+
+**INV-16 — Participation never widens privacy or authority.** Contributor
+scope, room visibility, network discovery, and cross-domain membership cannot
+declassify data, broaden a context view, grant a capability, weaken custody, or
+change retention. Every participant and route must satisfy the intersection of
+room policy, local/domain policy, and its own authority/privacy posture.
+Owner application: [`security-privacy-policy-invariants.md`](./security-privacy-policy-invariants.md),
+[`common-objects-and-envelopes.md`](./common-objects-and-envelopes.md).
+
+**INV-17 — Participant input is untrusted until admitted.** Messages,
+artifacts, patches, claims, ontology mappings, evaluator changes, and executable
+results from participants remain tainted proposals until policy, isolation,
+verification, and the declared room/domain admission path accept them. Shared
+agreement is evidence, never authority or truth by itself.
+Owner application: [`common-objects-and-envelopes.md`](./common-objects-and-envelopes.md),
+[`../components/daemon-runtime/events-receipts-delivery-bundles.md`](../components/daemon-runtime/events-receipts-delivery-bundles.md).
+
+**INV-18 — Multiplicity is not independence.** Several models, workers,
+runtime nodes, providers, clouds, or keys controlled by one principal remain
+one party when that principal controls authority, revocation, truth,
+verification, risk, or settlement. Multi-party claims require disclosed and
+separate accountable principals and affiliations.
+Owner application: [`mixture-of-workers.md`](./mixture-of-workers.md),
+[`common-objects-and-envelopes.md`](./common-objects-and-envelopes.md).
+
+**INV-19 — Complexity collapses when boundaries do.** One user, one process,
+one local authority context, one minimal semantic contract, and no public
+settlement remain first-class. OutcomeRoom, federation, marketplace,
+multi-worker, ontology breadth, and L1 machinery appear only when the work's
+actual trust, coordination, or economic boundary requires them.
+Owner application: [`governed-autonomous-systems.md`](./governed-autonomous-systems.md),
+[`../components/hypervisor/core-clients-surfaces.md`](../components/hypervisor/core-clients-surfaces.md).
 
 ## Citation Rule
 

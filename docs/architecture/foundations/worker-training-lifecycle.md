@@ -4,7 +4,7 @@ Status: canonical architecture authority.
 Canonical owner: this file for Worker Training lifecycle, training-vs-mutation doctrine, training receipts, training profile semantics, and training lineage semantics.
 Supersedes: product, marketplace, or model docs when they reduce Worker Training to fine-tuning alone or crown one model architecture as the IOI default.
 Superseded by: none.
-Last alignment pass: 2026-06-22.
+Last alignment pass: 2026-07-11.
 Doctrine status: canonical
 Implementation status: partial (Foundry draft object plane exists and is deliberately inert; no real training pipeline)
 Last implementation audit: 2026-07-05
@@ -159,6 +159,25 @@ Agent Wiki memory, route preference, verifier rule, or workflow patch may be
 admitted directly through governance. Model training, distillation, dataset
 curation, benchmark publication, or worker-package promotion should route
 through Foundry.
+
+Inference rights and training/distillation rights are separate. Paying for a
+model invocation, provider API, aggregator route, enterprise workspace seat, or
+managed endpoint does not by itself authorize IOI to train a competing model,
+retain prompts/outputs as reusable data, publish a distilled worker, or transfer
+teacher material across customers. Every teacher/model/provider route used by
+Foundry must bind the applicable model/output license, data-retention and
+training-use policy, customer consent, commercial downstream rights, and
+distillation restriction. Open weights/open data or an expressly licensed
+teacher agreement are the default reusable supply; ambiguous rights fail
+closed.
+
+OutcomeRoom attempts, findings, discussion, verifier challenges, and
+contribution records are candidate evidence, not accepted training signal.
+Positive, negative, inconclusive, invalid, and exploit-finding attempts may
+become useful datasets only after source/participant affiliation, policy-bound
+view, privacy, license/export, provenance, assurance, contradiction,
+eligibility, and revocation-impact gates admit them. Participant consensus or a
+leaderboard score is never training-data consent.
 
 Do not collapse all learning into model training. The architecture distinguishes:
 
@@ -383,7 +402,9 @@ Training improves capability. Policy grants power.
 
 A trained worker remains inert until wallet.network or an equivalent authority
 layer grants bounded execution authority. Training lineage can prove how a
-worker was produced, but it cannot expand tool access, data access, spending
+worker was produced only to the extent of the bound source, transformation,
+version, and receipt facts; it does not prove capability quality and cannot
+expand tool access, data access, spending
 authority, publishing rights, or external effect permissions.
 
 ## Training vs Self-Mutation

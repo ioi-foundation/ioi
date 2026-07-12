@@ -1,10 +1,12 @@
 # Hypervisor Daemon Runtime API
 
 Status: canonical low-level reference.
-Canonical owner: this file for public daemon/runtime API endpoints, event streaming, run lifecycle, structured errors, and client-vs-runtime ownership.
+Canonical owner: this file for public daemon/runtime API endpoints, event
+streaming, run lifecycle, OutcomeRoom/GoalRun execution APIs, structured errors,
+and client-vs-runtime ownership.
 Supersedes: older daemon/SDK/CLI endpoint lists when endpoint shape conflicts.
 Superseded by: none.
-Last alignment pass: 2026-05-30.
+Last alignment pass: 2026-07-11.
 Doctrine status: reference
 Implementation status: partial (many route families live; source of truth is the daemon route registry)
 Implementation refs:
@@ -26,7 +28,8 @@ for canonical Web4 autonomous work. The IOI CLI/headless client, optional TUI
 presentation, `@ioi/agent-sdk`, future IOI ADK, future IOI ODK, Hypervisor App,
 Hypervisor Web, Workbench/Foundry surfaces, other application surfaces,
 Environments views, Workflow Compositor, harness profiles,
-benchmarks, editor extension-host code, and IOI
+benchmarks, OutcomeRoom/CollaborativeWorkGraph clients, editor extension-host
+code, and IOI
 Authority Gateway adapters are clients, builder frameworks, or projections over
 this public runtime API. They must not own separate execution semantics. Local
 Hypervisor-managed daemons, hosted providers, DePIN nodes, TEE nodes, and
@@ -53,8 +56,10 @@ the trust/audit substrate that binds those guests to accountable work.
 IOI Authority Gateway adapters use this API to submit proposed actions from
 existing IDEs, CLI agents, hosted agents, MCP tools, shell/Git surfaces, browser
 actions, API gateways, credential brokers, and CI/CD gates. Adapters project and
-mediate; the daemon owns policy decisions, authority, effects, receipts, replay,
-and durable state.
+mediate. Local/domain policy and the applicable authority provider authorize;
+the daemon admits and enforces work, mediates or executes effects, emits
+receipts, and orchestrates replay; Agentgres owns admitted durable operational
+state.
 
 ## Runtime Identity and Health
 
@@ -1966,7 +1971,7 @@ Action request shape:
     "target_refs": ["workspace://repo"],
     "external_action": false
   },
-  "risk_class": "package_install",
+  "risk_class": "system_destructive",
   "primitive_capabilities_required": ["prim:sys.exec", "prim:net.request"],
   "authority_scopes_required": ["scope:repo.write"],
   "policy_decision": {
@@ -2002,11 +2007,23 @@ Effectful tools must be called through a run, not ad hoc, unless operator mode e
 ```http
 GET  /v1/models
 GET  /v1/models/routes
+GET  /v1/models/route-contracts
+POST /v1/models/route-contracts
+POST /v1/models/quote
 POST /v1/models/mount
 POST /v1/models/unmount
 POST /v1/models/invoke
 GET  /v1/models/invocations/{id}
 ```
+
+The current session binding shim executes only active/available Ollama routes;
+sealed BYOK and multi-transport execution remain unimplemented. Target model
+calls resolve versioned commercial-rights/privacy contracts and `Auto`,
+`Pinned`, or `Compare` policy before invocation. An aggregator such as
+OpenRouter remains a replaceable adapter; fallback that changes provider/model
+or posture is a semantic substitution with model-route/invocation receipt and
+re-verification obligations. MoW `RoutingDecisionReceipt` remains reserved for
+accountable worker routing.
 
 ## Connector API
 
@@ -2081,6 +2098,12 @@ Subagents are delegated work items under the same runtime substrate. They must
 inherit thread/run authority posture, budget limits, output contracts,
 cancellation behavior, and receipt requirements.
 
+When a subagent participates in an OutcomeRoom, the spawn additionally carries
+`outcome_room_ref`, `room_participant_lease_ref`, and usually
+`work_claim_lease_ref`. The room owns join/sleep/wake/retire/quarantine and
+frontier state; the subagent's GoalRun owns one bounded pursuit. A spawned
+process is not automatically an independent participant or party.
+
 ```http
 GET  /v1/threads/{thread_id}/subagents
 POST /v1/threads/{thread_id}/subagents
@@ -2093,11 +2116,24 @@ POST /v1/threads/{thread_id}/subagents/{subagent_id}/assign
 POST /v1/threads/{thread_id}/subagents/cancel
 ```
 
+Subagent list/result projections should expose current claim, lease expiry,
+heartbeat or wake condition, spend, last contribution, blockers, evidence,
+verification, and cancellation/quarantine posture. Clients must not reduce
+background work to an opaque process count or token stream.
+
 ## Jobs, Usage, and Context Budget API
 
 Jobs are daemon-visible long-running work units. Usage and context-budget
 endpoints allow clients to render cost, token, context-pressure, and compaction
 state without creating private accounting.
+
+Usage projections may normalize managed work into Work Credits, but must retain
+supplier/model/endpoint/price-schedule versions, billed usage classes, every
+attempt/fallback/escalation, supplier-billed status, runtime/tool/storage cost,
+external worker/verifier/service cost, fee basis, adjustment, and receipt refs.
+The current flat OCU-per-model-receipt implementation is not supplier-invoice
+reconciliation and must not be used to promise a fixed paid multi-model
+allowance.
 
 ```http
 GET  /v1/jobs
@@ -2223,8 +2259,9 @@ POST   /v1/hypervisor/api-tokens
 DELETE /v1/hypervisor/api-tokens/{id}
 ```
 
-Metering & cost (OCU consumption derived from receipts; wallet-backed budget +
-auto-funding):
+Metering & cost (current OCU projections are derived from receipts; target Work
+Credit billing requires invoice-grade route-attempt reconciliation plus
+wallet-backed budget/explicit top-up or overage consent):
 
 ```http
 GET    /v1/hypervisor/usage/consumption
@@ -2233,71 +2270,176 @@ PUT    /v1/hypervisor/budget
 POST   /v1/hypervisor/budget/reconcile
 ```
 
-## GoalRun and Harness Broker APIs
+## OutcomeRoom, GoalRun, And Harness Broker APIs
 
 Goal-shaped work should not be coordinated by copying prompts between harnesses.
-The daemon exposes a GoalRun / Harness Broker plane that turns user intent into
-typed ContextHandoffs, ContextLeases, HarnessInvocations, normalized adapter
-events, ImplementationResult payloads, VerifierPaths, and receipts.
+Two API scales compose:
+
+```text
+OutcomeRoom / CollaborativeWorkGraph
+  dynamic participants, shared frontier, claim/resource leases, attempts,
+  findings, verifier challenges, admission, contribution lineage, and replay
+
+GoalRun / Harness Broker
+  one bounded grounding, execution, verification, repair, course-correction,
+  and completion loop for a goal or claimed frontier item
+```
+
+The currently audited live slice exposes only GoalRun create/list/get,
+`start`, `reconcile`, and event projection. It admits
+`parallel_implement_reconcile` with one deterministic conductor, at most two
+implementers, and software-shaped `ImplementationResultPayload` results. The
+room, dynamic-participation, generic-result, and remaining fine-grained routes
+below are target contract; their presence here is not a live-route claim.
+
+Live audited GoalRun routes:
 
 ```http
 POST /v1/hypervisor/goal-runs
 GET  /v1/hypervisor/goal-runs
 GET  /v1/hypervisor/goal-runs/{goal_ref}
-PATCH /v1/hypervisor/goal-runs/{goal_ref}
+POST /v1/hypervisor/goal-runs/{goal_ref}/start
+POST /v1/hypervisor/goal-runs/{goal_ref}/reconcile
+GET  /v1/hypervisor/goal-runs/{goal_ref}/events
+```
 
+Target OutcomeRoom / CollaborativeWorkGraph routes:
+
+```http
+POST  /v1/hypervisor/outcome-rooms
+GET   /v1/hypervisor/outcome-rooms
+GET   /v1/hypervisor/outcome-rooms/{room_ref}
+PATCH /v1/hypervisor/outcome-rooms/{room_ref}
+
+POST /v1/hypervisor/outcome-rooms/{room_ref}/discovery
+POST /v1/hypervisor/outcome-rooms/{room_ref}/discovery/pause
+POST /v1/hypervisor/outcome-rooms/{room_ref}/discovery/withdraw
+GET  /v1/hypervisor/outcome-room-discoveries
+GET  /v1/hypervisor/outcome-room-discoveries/{discovery_ref}
+POST /v1/hypervisor/outcome-room-discoveries/{discovery_ref}/participation-requests
+GET  /v1/hypervisor/outcome-rooms/{room_ref}/participation-requests
+POST /v1/hypervisor/outcome-rooms/{room_ref}/participation-requests/{request_ref}/decide
+
+POST /v1/hypervisor/outcome-rooms/{room_ref}/participants/join
+GET  /v1/hypervisor/outcome-rooms/{room_ref}/participants
+POST /v1/hypervisor/outcome-rooms/{room_ref}/participants/{participant_ref}/heartbeat
+POST /v1/hypervisor/outcome-rooms/{room_ref}/participants/{participant_ref}/sleep
+POST /v1/hypervisor/outcome-rooms/{room_ref}/participants/{participant_ref}/retire
+POST /v1/hypervisor/outcome-rooms/{room_ref}/participants/{participant_ref}/quarantine
+POST /v1/hypervisor/outcome-rooms/{room_ref}/participants/{participant_ref}/state-exports
+GET  /v1/hypervisor/outcome-rooms/{room_ref}/participants/{participant_ref}/state-exports/{state_ref}
+POST /v1/hypervisor/outcome-rooms/{room_ref}/participants/{participant_ref}/state-exports/{state_ref}/acknowledge
+POST /v1/hypervisor/outcome-rooms/{room_ref}/participants/{participant_ref}/state-exports/{state_ref}/revoke
+
+POST /v1/hypervisor/outcome-rooms/{room_ref}/network-goal-budget
+GET  /v1/hypervisor/outcome-rooms/{room_ref}/network-goal-budget
+POST /v1/hypervisor/outcome-rooms/{room_ref}/network-goal-budget/quote
+POST /v1/hypervisor/outcome-rooms/{room_ref}/network-goal-budget/reserve
+POST /v1/hypervisor/outcome-rooms/{room_ref}/network-goal-budget/adjust
+POST /v1/hypervisor/outcome-rooms/{room_ref}/network-goal-budget/reconcile
+
+POST /v1/hypervisor/outcome-rooms/{room_ref}/offers
+GET  /v1/hypervisor/outcome-rooms/{room_ref}/offers
+GET  /v1/hypervisor/outcome-rooms/{room_ref}/offers/{offer_ref}
+POST /v1/hypervisor/outcome-rooms/{room_ref}/offers/{offer_ref}/allocate
+POST /v1/hypervisor/outcome-rooms/{room_ref}/offers/{offer_ref}/withdraw
+GET  /v1/hypervisor/outcome-rooms/{room_ref}/frontier
+POST /v1/hypervisor/outcome-rooms/{room_ref}/frontier
+POST /v1/hypervisor/outcome-rooms/{room_ref}/claims
+POST /v1/hypervisor/outcome-rooms/{room_ref}/claims/{claim_ref}/renew
+POST /v1/hypervisor/outcome-rooms/{room_ref}/claims/{claim_ref}/release
+POST /v1/hypervisor/outcome-rooms/{room_ref}/claims/{claim_ref}/reassign
+
+POST /v1/hypervisor/outcome-rooms/{room_ref}/attempts
+POST /v1/hypervisor/outcome-rooms/{room_ref}/findings
+POST /v1/hypervisor/outcome-rooms/{room_ref}/verifier-challenges
+POST /v1/hypervisor/outcome-rooms/{room_ref}/admit
+GET  /v1/hypervisor/outcome-rooms/{room_ref}/replay
+```
+
+Discovery list/query accepts policy-qualified filters such as
+`category_ref`, `semantic_profile_ref`, `capability_ref`,
+`eligibility_profile_ref`, `affiliation_posture`, `privacy_posture`, `region`,
+`max_quote`, `verifier_profile_ref`, `settlement_posture`, and an opaque
+`cursor`. It returns signed, versioned `OutcomeRoomDiscoveryEnvelope` objects
+plus the next cursor. Eligibility filtering is advisory until the typed
+participation admission decision; no query response grants access or authority.
+
+Every room declares `hosted_admission` or `federated_admission` shared-state admission. Room APIs
+carry refs and policy-bound projections; they do not imply a global mutable
+Agentgres graph. Cross-domain participation binds
+`MultiPartyCollaborationEnvelope` and AIIP sequencing while each participant
+retains home-domain truth and private context.
+
+Discovery routes expose only a versioned, policy-bound
+`OutcomeRoomDiscoveryEnvelope`; they do not return private room state or grant
+membership. Participation requests require a typed admission decision before a
+lease exists. Retire/revoke releases or reassigns live claims, terminates future
+access, and emits a policy-filtered `ParticipantStateBundleEnvelope` plus export
+receipt. That bundle must remain usable without continued access to the hosted
+room database.
+
+`POST .../participants/join` is only a host-local or invitation convenience. It
+must create or adopt a typed `RoomParticipationRequestEnvelope`, run the same
+admission decision, and return the resulting lease/receipt refs; it may never
+mint a participant lease as a bypass.
+
+The Network/Open budget routes create or bind a separate
+`NetworkGoalBudgetEnvelope`, price/quote eligible external work, reserve against
+the declared cap, and reconcile allocation, contribution, dispute, refund, and
+settlement refs. They may delegate procurement or settlement to marketplace or
+service-order owners, but they may never draw silently from ordinary Goal Space
+Work Credits.
+
+Offer allocation composes the existing resource scheduler, quote/budget, queue,
+preemption, fairness, custody/locality, and receipt paths. It admits a typed
+`ResourceAllocationDecision`; the room route is not a second scheduler or an
+unreceipted first-party allocation shortcut.
+
+Target fine-grained GoalRun / broker routes:
+
+```http
+PATCH /v1/hypervisor/goal-runs/{goal_ref}
 POST /v1/hypervisor/goal-runs/{goal_ref}/grounding-loop
 POST /v1/hypervisor/goal-runs/{goal_ref}/context-cells
 POST /v1/hypervisor/goal-runs/{goal_ref}/context-leases
 POST /v1/hypervisor/goal-runs/{goal_ref}/handoffs
-
 POST /v1/hypervisor/goal-runs/{goal_ref}/harness-invocations
 GET  /v1/hypervisor/goal-runs/{goal_ref}/harness-invocations
 GET  /v1/hypervisor/harness-invocations/{harness_invocation_id}
 GET  /v1/hypervisor/harness-invocations/{harness_invocation_id}/events
-
 POST /v1/hypervisor/goal-runs/{goal_ref}/verify
-POST /v1/hypervisor/goal-runs/{goal_ref}/reconcile
 POST /v1/hypervisor/goal-runs/{goal_ref}/continue
 POST /v1/hypervisor/goal-runs/{goal_ref}/close
 ```
 
-Route responsibilities:
+An OutcomeRoom claim creates or binds a GoalRun with optional room,
+participant, claim, attempt, and admission-policy refs. Context handoffs carry
+`task_brief`, generic `work_result` / `outcome_delta`, `blocker`,
+`decision_request`, `verification_result`, or `continuation_summary` packets.
+`ImplementationResultPayload` is the software profile of `WorkResult`; files,
+patches, diffs, and tests are not universal result fields.
 
-```text
-/goal-runs
-  creates durable GoalRun state from user intent or API intent.
+The broker adapts a `TaskBriefPayload` to a selected HarnessProfile or Agent
+Harness Adapter, records normalized HarnessAdapterEvents, returns a
+`WorkResult` / `OutcomeDelta`, and applies a VerifierPath. Reconciliation uses
+the normalized result, receipts, evidence, domain-profile fields, uncertainty,
+and handoffs to choose repair, escalation, memory proposal, room-frontier
+update, continuation, or completion.
 
-/grounding-loop
-  advances GoalGroundingLoop phase and records grounding/state-inspection refs.
+Hard rules:
 
-/context-cells
-  opens role contexts for conductor, implementer, reviewer, verifier, operator,
-  or specialist work.
-
-/context-leases
-  issues scoped context, tool, memory, authority, runtime, budget, and receipt
-  views to a context cell or harness invocation.
-
-/handoffs
-  records task_brief, implementation_result, blocker, decision_request,
-  verification_result, or continuation_summary packets between context cells.
-
-/harness-invocations
-  adapts a TaskBriefPayload to the selected HarnessProfile or Agent Harness
-  Adapter and records HarnessAdapterEvents plus ImplementationResultPayload.
-
-/verify
-  runs or records the selected VerifierPath.
-
-/reconcile
-  consumes normalized result, receipts, tests, diffs, and handoffs to decide
-  repair, escalation, memory update, continuation, or completion.
-```
-
-Hard rule: harness adapters may render prompts, commands, terminal scripts, or
-provider-specific session input internally, but raw chat text is not the durable
-cross-harness contract.
+- harness adapters may render prompts, commands, terminal scripts, or
+  provider-specific session input internally, but raw chat text is not the
+  durable cross-harness contract;
+- room participants cannot write shared frontier state directly; the declared
+  hosted/federated admission policy orders and admits updates;
+- participant/claim membership never widens context, authority, privacy,
+  resource, or budget leases;
+- participant messages, artifacts, mappings, findings, and evaluator changes
+  remain untrusted until admitted;
+- background workers expose participant/claim leases, heartbeat or wake
+  condition, spend, blockers, evidence, verification, and control state.
 
 ## Structured Error Shape
 
@@ -2370,7 +2512,20 @@ POST /v1/runtime/assignments/{assignment_id}/reject
     subagent message routing, and conversation streaming are runtime contracts
     that must bind back to admitted work, state roots, and receipts.
 16. Cross-harness goal work must flow through GoalRun, ContextHandoff,
-    ContextLease, HarnessInvocation, HarnessAdapterEvent,
-    ImplementationResultPayload, VerifierPath, and receipt contracts. Raw chat
-    text may be adapter evidence, but it is not the durable
-    conductor/implementer interface.
+    ContextLease, HarnessInvocation, HarnessAdapterEvent, generic
+    WorkResult/OutcomeDelta, VerifierPath, and receipt contracts.
+    `ImplementationResultPayload` is the software profile. Raw chat text may be
+    adapter evidence, but it is not the durable conductor/worker interface.
+17. OutcomeRoom/CollaborativeWorkGraph is the dynamic shared-frontier layer
+    above bounded GoalRuns. It must not become a peer runtime or an implicitly
+    global Agentgres graph.
+18. Every room declares hosted or federated ordering/admission, and every
+    cross-domain room binds MultiPartyCollaborationEnvelope plus AIIP refs.
+19. Participant and work-claim leases bound context, authority, resources,
+    budget, heartbeat, wake, release, reassignment, quarantine, and revocation;
+    room membership never grants ambient power.
+20. Background work must be observable through participant/claim state, spend,
+    evidence, verification, blockers, replay, and controls.
+21. Work Credit projections must reconcile to route attempts and supplier cost
+    before paid allowance claims; flat OCU-per-receipt metering is not
+    invoice-grade reconciliation.

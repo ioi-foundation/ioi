@@ -4,9 +4,9 @@ Status: canonical low-level reference.
 Canonical owner: this file for shared envelope names, ID namespaces, primitive capability tiers, authority grants, and receipt/run/event envelope fields.
 Supersedes: older flattened capability-tier examples in plans/specs.
 Superseded by: none.
-Last alignment pass: 2026-06-23.
+Last alignment pass: 2026-07-11.
 Doctrine status: canonical
-Implementation status: mixed (core envelopes/IDs built or partial in the daemon; embodied/cTEE/prediction namespaces speculative)
+Implementation status: mixed (core runtime envelopes/IDs built or partial in the daemon; AIIP transport and collaborative-pursuit, federated ontology/action, NetworkGoalBudget, physical-segment, embodied, cTEE, and prediction families planned or speculative)
 Last implementation audit: 2026-07-05
 
 ## Purpose
@@ -50,6 +50,7 @@ AccessPointBindingEnvelope
 StepUpChallengeEnvelope
 TaskEnvelope
 RunEnvelope
+ResourceAllocationDecisionEnvelope
 WorkerInstanceEnvelope
 RuntimeSubscriptionEnvelope
 RuntimeAssignmentEnvelope
@@ -72,10 +73,14 @@ SealedStateArchiveEnvelope
 DeliveryEnvelope
 SettlementEnvelope
 ContributionEnvelope
+NetworkGoalBudgetEnvelope
 QualityEnvelope
 DisputeEnvelope
 AgentWikiEnvelope
 DomainOntologyEnvelope
+OntologyAssertionEnvelope
+OntologyMappingEnvelope
+OntologyActionContractEnvelope
 CanonicalObjectModelEnvelope
 DataRecipeEnvelope
 ConnectorMappingEnvelope
@@ -101,6 +106,8 @@ EmbodiedCapabilitySpecEnvelope
 EmbodiedTrainingDataContractEnvelope
 EmbodiedCapabilityPackageEnvelope
 FoundryEmbodiedRuntimeCandidateEnvelope
+PhysicalMissionControlEnvelope
+LocalControlSegmentEnvelope
 TrainingBatchPlanEnvelope
 GenerationBatchEnvelope
 TeacherSessionEnvelope
@@ -122,6 +129,20 @@ CapabilityRegressionRecordEnvelope
 OrchestrationConstraintEnvelope
 OrchestrationPlanEnvelope
 OrchestrationPolicyEnvelope
+OutcomeRoomEnvelope
+OutcomeRoomDiscoveryEnvelope
+RoomParticipationRequestEnvelope
+RoomParticipantLeaseEnvelope
+ParticipantStateBundleEnvelope
+ResourceOfferEnvelope
+CapabilityOfferEnvelope
+WorkFrontierItemEnvelope
+WorkClaimLeaseEnvelope
+AttemptEnvelope
+FindingEnvelope
+VerifierChallengeEnvelope
+WorkResultEnvelope
+OutcomeDeltaEnvelope
 GoalRunEnvelope
 GoalGroundingLoopEnvelope
 RoleTopologyEnvelope
@@ -133,7 +154,6 @@ HarnessInvocationEnvelope
 HarnessAdapterEventEnvelope
 ImplementationResultPayloadEnvelope
 VerifierPathEnvelope
-OrchestrationDecisionReceiptEnvelope
 BenchmarkEnvelope
 RoutingDecisionEnvelope
 ```
@@ -145,14 +165,58 @@ ai://...                global intelligence/app/worker/service namespace
 system://...            Autonomous System Package namespace
 domain://...            bounded execution domain, application domain, or sovereign domain namespace
 org://...               organization, enterprise, DAO, regulator, auditor, provider, or institutional party identity
+user://...              human user, operator, sponsor, or accountable individual identity
+project://...           governed project or workspace-project identity
+policy://...            versioned policy, admission rule, obligation set, or governance profile identity
+schema://...            versioned data, event, payload, receipt-profile, or interface schema identity
+event://...             durable or referenced event identity
+intent://...            declared user, service, autonomous-work, or physical-action intent identity
 node://...              Hypervisor Node or runtime node namespace
 module://...            governed service-module namespace
 invocation://...        module invocation namespace
 proposal://...          upgrade, policy, module, workflow, or settlement proposal namespace
 transition://...        accepted local state-transition namespace
+state://...             referenced operational, environment, world, or domain state identity
+agentgres://...         Agentgres domain, operation, object, projection, or state-root ref
+provenance://...        source, derivation, observation, attribution, or lineage record identity
+prompt://...            policy-governed prompt/template artifact identity; never raw secret transport
+surface://...           registered product, application, operator, or generated surface identity
+route://...             generic non-model route, path, or routing-candidate identity
+verifier://...          verifier identity when a Worker, organization, or gate ref is not the subject
+decision://...          policy, admission, acceptance, routing, merge, or adjudication decision identity
+acceptance://...        explicit delivery, result, service, or outcome acceptance identity
+dispute://...           challenge and dispute lifecycle identity
+effect://...            declared external, business, digital, or physical effect identity
 aiip://channel/...      AIIP channel namespace
 packet://...            AIIP packet namespace
 collaboration://...     multi-party collaboration context, shared-proof, or party-view identity
+outcome-room://...      shared collaborative-pursuit room identity
+participant-lease://... room participant lifecycle and bounded participation lease
+frontier://...          claimable collaborative work-frontier item
+work-claim://...        leased claim over one bounded frontier item
+attempt://...           durable positive, negative, inconclusive, or invalid attempt
+finding://...           provenance-bearing claim, hypothesis, or finding
+verifier-challenge://... challenge to evidence, evaluation, eligibility, or verifier rules
+work-result://...       generic result returned by bounded work
+outcome-delta://...     proposed change to outcome, frontier, knowledge, or domain state
+room-discovery://...    policy-bound public/permissioned OutcomeRoom discovery projection identity
+participation-request://... typed request by an external party to join a discoverable OutcomeRoom
+participant-state://... policy-bound portable state bundle issued for an active or exiting room participant
+resource-offer://...    room-scoped offer of compute, capacity, data access, or another allocatable resource
+capability-offer://...  room-scoped offer of a worker, service, tool, verifier, or other capability
+capability://...        reusable declared capability descriptor identity
+resource://...          allocatable compute, data, storage, tool, or service resource identity
+capacity://...          availability and quantity profile for an allocatable resource identity
+region://...            provider, data-residency, execution, or physical locality identity
+custody://...           declared data, key, model, artifact, or execution custody posture identity
+context-profile://...   versioned context eligibility, projection, and disclosure profile identity
+goal-budget://...       separately funded Network/Open goal budget for independent labor, verification, services, challenge, and settlement
+work-credit://...       non-transferable managed-work credit or included/top-up allowance unit
+ontology-assertion://... provenance-bearing semantic assertion or relationship
+ontology-mapping://... explicit cross-ontology mapping and compatibility decision
+ontology-action://...  executable semantic action contract
+control-segment://...  bounded certified local real-time control interval
+physical_mission_envelope://... bounded slow-plane embodied mission authority envelope
 settlement-intent://... AIIP settlement intent namespace
 delivery://...          service delivery, delivery update, or cross-domain outcome delivery identity
 evidence://...          evidence bundle, proof bundle, or admitted evidence identity
@@ -169,6 +233,14 @@ order://...             sas.xyz service order or cross-domain outcome order
 run://...               runtime run identity
 task://...              task identity
 goal://...              ioi.ai or coordinator goal identity
+outcome-plan://...      ioi.ai Goal Space outcome and orchestration plan identity
+attempt-summary://...   product projection summarizing one admitted or proposed attempt
+outcome-graph://...     cross-session Goal Space outcome graph projection identity
+connector-escalation://... typed connector connection, scope, or approval escalation identity
+mission://...           Hypervisor Mission or durable collaborative mission identity
+automation://...        Hypervisor Automation specification or run identity
+capability-request://... request for bounded executable capability or authority evaluation
+approval-request://...  typed request for human, policy, wallet, or governance approval
 goal_loop://...         goal grounding loop identity for conductor orientation and continuation
 role_topology://...     selected role topology for a goal, session, automation, or managed instance
 context_cell://...      independent role context for conductor, implementer, reviewer, verifier, operator, or specialist work
@@ -191,6 +263,7 @@ receipt://...           receipt identity
 benchmark://...         benchmark profile or benchmark run identity
 rubric://...            evaluation rubric identity
 ontology://...          domain ontology identity
+semantic-profile://... versioned negotiated semantic compatibility profile identity
 object-model://...      canonical object model identity
 recipe://...            data recipe identity
 mapping://...           connector mapping identity
@@ -225,7 +298,17 @@ gate://...              quality gate report or promotion gate identity
 ledger://...            usage, token, cost, or contribution ledger identity
 resource_pool://...     capacity pool, provider pool, quota pool, or runtime capacity identity
 allocation://...        resource allocation request or decision identity
-budget://...            spend, quota, token, runtime, GPU, or rate-limit budget identity
+resource-lease://...    bounded lease over compute, data, capacity, or another allocated resource
+budget://...            managed-work, spend, quota, token, runtime, GPU, or rate-limit budget identity
+spend://...             reserved, admitted, reconciled, refunded, or settled spend record identity
+quote://...             bounded provider, worker, service, or resource quote identity
+rate-card://...         versioned pricing and charging rule identity
+escrow://...            escrow account, reservation, or conditional release identity
+price-schedule://...    versioned route, provider, service, or resource price schedule identity
+terms://...             versioned provider, model, service, license, or commercial terms identity
+cost://...              attributable estimated, reserved, admitted, reconciled, or settled cost identity
+fee://...               explicit platform, coordination, marketplace, service, or settlement fee identity
+fee-basis://...         versioned rule and evidence basis used to calculate a fee
 quota://...             provider, project, org, connector, or model quota identity
 rate_limit://...        rate-limit policy or observed throttle identity
 schedule://...          schedule, trigger, or catch-up policy identity
@@ -254,6 +337,11 @@ embodied_candidate://... Foundry embodied runtime candidate identity
 regression://...        capability regression, canary regression, or post-promotion regression record identity
 model://...             model artifact, registered model, or model-family identity
 model_route://...       model routing profile, endpoint candidate, or serving policy identity
+model-route-contract://... versioned rights, privacy, pricing, availability, and fallback contract for a model route
+route-attempt://...     one admitted attempt through a provider/model/runtime route
+route-chain://...       ordered primary, cascade, fallback, or hedged route plan identity
+routing-decision://...  neutral routing decision over a committed candidate and affiliation set
+routing-prior://...     versioned routing prior or learned routing-policy signal identity
 interactive_world://... Foundry interactive game, simulator, browser, domain-app, robotics-sim, or synthetic world identity
 gameplay://...          normalized gameplay or interactive-world trajectory dataset identity
 scenario_curriculum://... scenario curriculum, perturbation set, difficulty ladder, and holdout identity
@@ -265,6 +353,8 @@ embodied_domain://...   physical-domain runtime identity for a site, facility, f
 robot_fleet://...       fleet identity for robots, drones, humanoids, devices, or facility systems
 robot://...             robot, drone, device, or embodied unit identity
 controller://...        controller identity for robot, facility, actuator, or bridge control
+controller-binding://... versioned binding between an embodied domain/unit and its admitted local controller
+heartbeat://...         participant, worker, controller, lease, or runtime liveness observation identity
 sensor://...            physical sensor identity
 actuator://...          physical actuator identity
 embodiment://...        robot embodiment, body, kinematic family, or actuator/sensor form identity
@@ -353,12 +443,25 @@ leakage://...           declared leakage profile for Private Workspace/private w
 deterrence://...        cTEE deterrence/detection profile identity
 commitment://...        private output, state, or witness commitment
 capability_exit://...   bounded external action exit from protected work
+license://...           artifact, dataset, model, worker, contribution, or output license identity
+method://...            declared research, implementation, verification, or execution method identity
+state-delta://...       typed proposed or admitted state change payload identity
+tool-lease://...        bounded lease over a tool or connector capability
 prim:*                  primitive execution capability ref
 scope:*                 wallet.network authority scope ref
 grant://...             authority grant or lease ref
 ```
 
-All IDs must be globally unique within their declared namespace. IDs that become public must be stable. Runtime-local IDs may be temporary but must map to stable Agentgres IDs when settled.
+The table above is exhaustive for URI schemes that this shared-object canon
+owns and promotes across components. A component may still own opaque local
+refs and show them in component-local examples, but those refs remain governed
+by their named component owner and do not become protocol-global merely by
+appearing in a schema. Promoting a local ref into this shared canon requires
+registering its scheme here first.
+
+All IDs must be globally unique within their declared namespace. IDs that
+become public must be stable. Runtime-local IDs may be temporary but must map to
+stable Agentgres IDs when settled.
 
 ## Capability and Authority Tiers
 
@@ -696,6 +799,12 @@ external autonomous-system handoffs. Transports and settlement depth may vary,
 but consequential work packets must compile into typed envelopes with policy,
 authority, receipt, and settlement semantics.
 
+This file owns the canonical field-level `AIIPChannelEnvelope` and
+`AIIPEnvelope` schemas because they are shared boundary objects. The AIIP owner,
+[`aiip.md`](./aiip.md), owns packet semantics, processing rules, protocol
+profiles, conformance, and evolution. Other documents reference these schemas;
+they must not publish a competing reduced envelope.
+
 ```yaml
 BoundedExecutionDomainEnvelope:
   domain_id: domain://...
@@ -757,7 +866,7 @@ AIIPChannelEnvelope:
   channel_id: aiip://channel/...
   system_id_from: system://... | domain://...
   system_id_to: system://... | domain://...
-  profile: local | installed_worker | marketplace_worker | outcome_service | autonomous_system | enterprise
+  profile: local | installed_worker | marketplace_worker | outcome_service | autonomous_system | collaborative_pursuit | enterprise
   transport: in_process | daemon_ipc | unix_socket | local_http | grpc | json_rpc | nats | https | queue | chain_relay
   schema_version: semver_or_hash
   relay_policy_ref: optional
@@ -771,18 +880,44 @@ AIIPChannelEnvelope:
 ```yaml
 AIIPEnvelope:
   packet_id: packet://...
-  message_type: capability_discovery | task_offer | task_acceptance | handoff | authority_query | authority_grant | receipt_commitment | delivery_update | acceptance_decision | settlement_intent | dispute | dispute_resolution | reputation_query
+  message_type: capability_discovery | task_offer | task_acceptance | handoff |
+    semantic_profile_negotiation | room_discovery | room_participation |
+    frontier_update |
+    work_claim | attempt_finding | verifier_challenge | room_admission |
+    authority_query | authority_grant | receipt_commitment | delivery_update |
+    acceptance_decision | settlement_intent | dispute | dispute_resolution |
+    reputation_query
   system_id_from: system://... | domain://...
   system_id_to: system://... | domain://...
   channel_id: aiip://channel/...
   sequence_or_nonce: string
+  idempotency_key: string
+  causation_ref: packet://... | event://... | receipt://... | null
+  correlation_ref:
+    goal://... | task://... | outcome-room://... | collaboration://... | null
   timestamp_or_slot: string
-  profile: local | installed_worker | marketplace_worker | outcome_service | autonomous_system | enterprise
+  profile: local | installed_worker | marketplace_worker | outcome_service |
+    autonomous_system | collaborative_pursuit | enterprise
   policy_hash: hash
   authority_ref: optional grant://...
+  collaboration_envelope_ref: collaboration://... | null
+  outcome_room_ref: outcome-room://... | null
+  ontology_profile_refs:
+    - ontology://... | semantic-profile://... | ontology-mapping://...
+  action_schema_profile_refs:
+    - ontology-action://... | action_schema://... | schema://...
+  restricted_view_refs:
+    - restricted_view://... | view://...
+  verifier_challenge_refs:
+    - verifier-challenge://...
   payload_hash: hash
   payload_ref: optional artifact://... | cid://... | encrypted_ref
   receipt_obligations: []
+  verifier_and_acceptor_refs: []
+  assurance_stage: optional attested | evidenced | verified | accepted |
+    adjudicated | settled
+  effect_recovery_class: optional replayable | checkpointable | compensatable |
+    reconciliation_required | non_retryable
   settlement_terms:
     mode: local_only | optional_anchor | mainnet_required | dispute_only | reputation_only
     settlement_account_ref: optional
@@ -941,11 +1076,22 @@ reputation, or disputes.
 MultiPartyCollaborationEnvelope:
   collaboration_id: collaboration://...
   goal_ref: goal://... | task://... | order://... | service://...
+  outcome_room_ref: outcome-room://... | null
   coordinator_ref: domain://... | system://... | agent://... | org://...
+  coordination_topology:
+    hosted_admission | federated_admission
+  coordination_and_ordering_policy_ref: policy://...
+  shared_state_admission_owner_ref: domain://... | policy://...
+  conflict_failover_and_adjudication_policy_refs:
+    - policy://...
   party_refs:
     - party_ref: org://... | wallet://... | domain://... | service://... | provider://...
       role: data_owner | worker_provider | compute_provider | coordinator | customer | auditor | regulator | insurer | verifier | settlement_counterparty
       domain_ref: domain://... | system://... | agentgres://domain/... | null
+      operator_and_affiliation_refs:
+        - org://... | provider://... | wallet://...
+      model_runtime_and_infrastructure_dependency_refs:
+        - model_route://... | runtime://... | node://... | provider://...
       authority_provider_refs:
         - authority://... | wallet://... | policy://...
       revocation_ref: revocation://... | null
@@ -1001,6 +1147,15 @@ authority, or privacy boundaries. It is not a shared raw chat context and not a
 new global database. It is an admitted context over refs, views, authorities,
 AIIP handoffs, delivery state, contribution state, export profiles, and
 immutable proof.
+
+Multiplicity is not sufficient for this boundary. Several model routes,
+workers, runtime nodes, clouds, or keys controlled by one operator remain one
+party when one principal controls authority, revocation, operational truth,
+risk, verification, and settlement. A model or cloud provider is normally a
+disclosed dependency or subprocessor, not a room party, unless its owning
+principal accepts room-level rights, obligations, challenge, evidence, or
+settlement roles. `party_refs` and affiliation/dependency refs must make those
+relationships visible.
 
 Collaboration history is not rewritten when a party is removed. Revocation
 stops future access, rotates or tombstones live views when policy requires it,
@@ -1306,7 +1461,10 @@ StepUpChallengeEnvelope:
   owner_ref: wallet://...
   request_hash: sha256:...
   policy_hash: sha256:...
-  risk_class: read | draft | local_write | external_message | commerce | funds | secret_export
+  risk_class: read | draft | local_write | write_reversible |
+    external_message | commerce | funds | credential_access |
+    policy_widening | secret_export | identity_change |
+    system_destructive | physical_action
   action_summary: string
   challenge_url_ref: optional
   single_use: true
@@ -1326,15 +1484,20 @@ durable secret.
 TaskEnvelope:
   task_id: task_...
   requester_id: wallet://... | agent://... | service://...
+  outcome_room_ref: outcome-room://... | null
+  frontier_item_ref: frontier://... | null
+  work_claim_ref: work-claim://... | null
   objective: string
   task_class: coding | research | workflow | commerce | render | connector | service_delivery | managed_agent | other
-  privacy_class: public | internal | confidential | regulated
+  privacy_class: public | internal | confidential | restricted | regulated | safety_critical
   execution_profile: local | hosted | provider | depin_mutual_blind | tee_enterprise | customer_vpc
   input_refs:
     - artifact://...
     - agentgres://object/...
   output_contract:
-    type: report | patch | artifact | delivery_bundle | service_result | worker_result
+    type:
+      report | patch | artifact | work_result | outcome_delta | finding |
+      delivery_bundle | service_result | worker_result
     required_receipts:
       - execution
       - validation
@@ -1364,12 +1527,16 @@ TaskEnvelope:
 RunEnvelope:
   run_id: run_...
   task_id: task_...
+  goal_ref: goal://... | null
+  outcome_room_ref: outcome-room://... | null
+  participant_lease_ref: participant-lease://... | null
+  attempt_ref: attempt://... | null
   runtime_id: runtime://...
   worker_id: optional
   worker_instance_id: optional
   service_id: optional
   subscription_ref: optional
-  state: queued | assigned | starting | running | throttled | degraded | preempted | awaiting_approval | paused | completed | failed | cancelled
+  state: queued | assigned | starting | running | sleeping | waiting | throttled | degraded | preempted | awaiting_approval | paused | quarantined | completed | failed | cancelled
   assignment:
     node_id: node://...
     placement_reason: string
@@ -1397,15 +1564,21 @@ ResourceAllocationDecisionEnvelope:
   allocation_request_ref: allocation://...
   workload_kind:
     session | work_run | automation | scheduled_job | training_pipeline |
-    eval | managed_worker | model_route | release_job | connector_job
+    eval | managed_worker | model_route | outcome_room | frontier_claim |
+    verification | replication | release_job | connector_job
   workload_refs:
-    - session://... | work_run://... | trainpipe://... | worker://...
+    - session://... | work_run://... | trainpipe://... | worker://... |
+      outcome-room://... | frontier://... | work-claim://... | attempt://...
+  resource_offer_refs:
+    - resource-offer://... | capability-offer://...
   resource_pool_refs:
     - resource_pool://...
   budget_refs:
     - budget://...
   quota_refs:
     - quota://...
+  fairness_and_backpressure_policy_refs:
+    - policy://...
   priority_class:
     safety_critical | user_blocking | deadline | interactive |
     production | standard | background | speculative
@@ -1417,7 +1590,8 @@ ResourceAllocationDecisionEnvelope:
     budget_exhausted | quota_exhausted | rate_limited |
     deadline_priority | safety_priority | policy_denied |
     privacy_or_residency_block | provider_unhealthy |
-    verified_work_low_value | duplicate_catchup
+    verified_work_low_value | duplicate_catchup | unfair_share |
+    verification_bottleneck | marginal_value_stop
   affected_workload_refs:
     - work_run://... | trainpipe://... | worker://...
   preempted_workload_refs:
@@ -1451,7 +1625,7 @@ RuntimeEventEnvelope:
   kind: session.started | model.requested | model.completed | tool.proposed | policy.decided | approval.requested | tool.started | tool.completed | artifact.created | ontology.bound | data_recipe.run_started | data_recipe.run_completed | transformation.receipt_emitted | distilled_dataset.bound | evaluation_dataset.bound | ontology_projection.updated | environment.failure_detected | environment.recovery_planned | environment.recovery_started | environment.recovery_completed | environment.recovery_failed | workrun.recovery_reconciled | resource.allocation_requested | resource.allocation_decided | resource.budget_warning | resource.budget_exhausted | resource.preemption_decided | resource.degradation_applied | scheduler.catchup_planned | scheduler.catchup_executed | assurance.policy_pack.applied | assurance.policy_pack.blocked | assurance.audit_export.requested | assurance.audit_export.generated | assurance.audit_export.delivered | assurance.audit_export.revoked | collaboration.context_created | collaboration.party_joined | collaboration.party_removed | collaboration.view_granted | collaboration.view_revoked | collaboration.proof_bundle_generated | orchestration.decision_recorded | training.foundry_spec_admitted | training.dataset_snapshot_materialized | training.run_plan_admitted | training.evidence_eligibility_recorded | training.dataset_factory_started | training.dataset_factory_completed | training.batch_planned | training.generation_batch_archived | training.teacher_session_started | training.teacher_session_completed | training.candidate_data_quarantined | training.on_policy_correction_recorded | training.quality_gates_reported | training.cost_ledger_updated | training.pipeline_started | training.pipeline_stage_advanced | training.pipeline_suspended | training.pipeline_resumed | training.pipeline_completed | training.pipeline_failed | training.trial_started | training.trial_pruned | training.trial_completed | training.checkpoint_created | training.experiment_trial_started | training.experiment_trial_completed | training.experiment_trial_accepted | training.experiment_trial_rejected | training.artifact_conversion_started | training.artifact_conversion_validated | training.model_artifact_frozen | training.package_artifact_validated | training.model_registered | training.registry_version_created | training.route_binding_proposed | training.route_binding_activated | training.promotion_bundle_frozen | training.conductor_advisor_candidate_created | training.conductor_advisor_shadow_started | training.conductor_advisor_promoted | capability.regression_detected | capability.regression_adjudicated | authority_client.* | mcp_gateway.* | revocation.* | embodied.* | sim_to_real.* | assurance.* | capability.* | job.* | receipt.emitted | run.completed | run.failed
   timestamp: timestamp
   actor_id: agent://... | runtime://... | wallet://...
-  privacy_class: public | internal | private | secret
+  privacy_class: public | internal | confidential | restricted | regulated | safety_critical
   redaction_status: full | redacted | hash_only
   payload: object
   receipt_ref: optional
@@ -1459,12 +1633,22 @@ RuntimeEventEnvelope:
   terminal: boolean
 ```
 
+The `kind` line above is a compatibility sample, not the exhaustive event
+registry. `outcome_room.*` covers room lifecycle, participant, frontier,
+claim, resource, attempt, finding, verifier-challenge, re-verification,
+OutcomeDelta, and course-correction events. The exhaustive names and receipt
+bindings are owned by
+[`events-receipts-delivery-bundles.md`](../components/daemon-runtime/events-receipts-delivery-bundles.md).
+
 ## ReceiptEnvelope
 
 ```yaml
 ReceiptEnvelope:
-  receipt_id: receipt_...
-  receipt_type: policy | approval | model_invocation | tool_execution | module_invocation | artifact | validation | delivery | settlement | local_settlement | aiip_packet | aiip_delivery_update | aiip_acceptance_decision | aiip_dispute_resolution | aiip_settlement_intent | cross_domain_delivery_bundle | multi_party_collaboration | contribution | quality | data_recipe_run | transformation | dataset_distillation | ontology_projection | environment_failure | environment_recovery | workrun_recovery | resource_allocation | budget_exhaustion | preemption | scheduler_catchup | jurisdiction_policy_decision | assurance_evidence_bundle | compliance_audit_export_bundle | commercial_assurance_export | orchestration_decision | training_evidence_eligibility | upgrade_proposal | upgrade_decision | foundry_spec | dataset_snapshot | foundry_run_plan | dataset_factory_run | training_pipeline_run | training_batch_plan | generation_batch | teacher_session | candidate_training_signal | on_policy_correction | quality_gate_report | training_cost_ledger | training_trace | training_trial | training_checkpoint | dataset_curation | experiment_optimization_cycle | artifact_conversion | model_artifact | package_artifact | model_registration | registry_version | route_binding | foundry_promotion_bundle | conductor_advisor_candidate | context_mutation | post_training_cycle | promotion_decision | capability_regression | benchmark_run | evaluation_verdict | routing_decision | authority_client_registration | authority_client_use | authority_client_denial | authority_client_revocation | authority_client_rotation | authority_client_quarantine | mcp_gateway_profile_quarantine | blast_radius_report | physical_action_preflight | sensor_evidence | actuator_command | emergency_stop | physical_action_execution | physical_action_incident | physical_action_remediation | physical_command_queue | physical_command | physical_telemetry | physical_replay | controller_binding | heartbeat | failsafe | sim_to_real_promotion | operator_handoff | embodied_incident | embodied_recovery | liability_claim_route | quarantine_advisory
+  receipt_id: receipt://...
+  receipt_type: registered receipt type
+  receipt_profile_ref: schema://...
+  attested_boundary_fact_refs: []
+  claim_scope_ref: schema://... | policy://... | null
   run_id: optional
   task_id: optional
   actor_id: string
@@ -1475,10 +1659,22 @@ ReceiptEnvelope:
   primitive_capabilities: []
   authority_scopes: []
   artifact_refs: []
+  evidence_bundle_refs: []
+  verification_ref: verifier_path://... | null
+  acceptance_ref: acceptance://... | null
+  adjudication_ref: decision://... | dispute://... | null
+  settlement_ref: settlement://... | null
   timestamp: timestamp
   signature: optional
   l1_commitment: optional
 ```
+
+The exhaustive `receipt_type` registry and cross-component field-level schemas
+live in the events/receipts owner. This file owns only the portable base
+envelope shared by every registered profile. A receipt proves only
+its declared bound facts;
+the evidence, verification, acceptance, adjudication, and settlement refs above
+must not be inferred merely because a receipt exists.
 
 ## ArtifactEnvelope
 
@@ -1489,7 +1685,7 @@ ArtifactEnvelope:
   sha256: hash
   size_bytes: integer
   media_type: string
-  privacy_class: public | internal | private | encrypted
+  privacy_class: public | internal | confidential | restricted | regulated | safety_critical
   encryption:
     mode: none | envelope | threshold | tee_sealed
     key_ref: optional
@@ -1552,15 +1748,39 @@ SettlementEnvelope:
 ```yaml
 ContributionEnvelope:
   contribution_id: contrib_...
-  contributor_id: worker://... | service://... | publisher://... | tool://... | model://...
+  contributor_ref:
+    worker://... | service://... | publisher://... | tool://... |
+    org://... | domain://...
+  contributor_role:
+    worker | service | publisher | tool | verifier | reviewer |
+    resource_provider | semantic_mapper | organization
+  operator_ref: user://... | wallet://... | org://... | domain://... | null
+  affiliation_refs: []
   consumer_id: wallet://... | service://... | agent://...
-  task_id: task_...
-  contribution_type: worker_invocation | service_delivery | tool_use | model_use | dataset_use | workflow_use | verification | training_data | distilled_training_data | training_service | benchmark_submission | routing_selection | verifier_signal
+  task_ref: task://... | null
+  run_ref: run://... | null
+  outcome_room_ref: outcome-room://... | null
+  attempt_finding_and_result_refs:
+    - attempt://... | finding://... | work-result://... | outcome-delta://...
+  contribution_kind:
+    planning | execution | generation | worker_invocation | service_delivery |
+    tool_use | model_use | dataset_use | workflow_use | resource_provision |
+    debugging | review | verification | replication | negative_result |
+    integrity_report | semantic_mapping | verifier_hardening | curation |
+    synthesis | training_data | distilled_training_data | training_service |
+    benchmark_submission | routing_selection | verifier_signal
   usage_hash: hash
   sparse_worker_category: optional
   benchmark_profile_ref: optional
   routing_decision_ref: optional
+  attributed_model_and_route_refs:
+    - model://... | model_route://... | registry_version://...
   downstream_outcome_ref: optional
+  derivation_refs:
+    - contrib_... | attempt://... | artifact://... | finding://...
+  assurance_stage:
+    attested | evidenced | verified | accepted |
+    adjudicated | settled
   dispute_status: none | pending | upheld | rejected | no_fault
   quality_delta: optional
   reward_claim: optional
@@ -1568,14 +1788,49 @@ ContributionEnvelope:
   receipt_ref: receipt://...
 ```
 
+A model or model route may be attributed as a cognition dependency and
+`model_use` contribution kind, but it is not the accountable protocol or
+economic actor by itself. `contributor_ref` therefore names the Worker,
+service, publisher, tool, organization, or domain boundary that accepted the
+contribution obligations; model and route identity remains in
+`attributed_model_and_route_refs`.
+
 ## DomainOntologyEnvelope
+
+The ontology object family uses one wire/storage base with explicit profiles;
+the first-class semantic names are not parallel schemas:
+
+| Semantic object | Canonical envelope profile |
+| --- | --- |
+| `DomainOntology` | Aggregate lineage addressed by `ontology_family_ref`. |
+| `OntologyVersion` | `DomainOntologyEnvelope` with `ontology_record_profile: ontology_version`; every version is immutable after admission. |
+| `OntologyOverlay` | `DomainOntologyEnvelope` with `ontology_record_profile: ontology_overlay` and explicit base-version refs. |
+| `ProvenanceAssertion` | `OntologyAssertionEnvelope` with `assertion_profile: provenance_assertion`. |
+| `OntologyCrosswalk` | `OntologyMappingEnvelope` with `mapping_record_profile: ontology_crosswalk`. |
+| `SemanticMappingDecision` | `OntologyMappingEnvelope` with `mapping_record_profile: semantic_mapping_decision`, an applied crosswalk/adapter target, and a decision receipt. |
+
+Agentgres registers the semantic object/profile names while persisting the
+corresponding base envelope. Implementations must not create separate,
+incompatible `OntologyVersion`, `OntologyOverlay`, `OntologyCrosswalk`,
+`SemanticMappingDecision`, or `ProvenanceAssertion` schemas.
 
 ```yaml
 DomainOntologyEnvelope:
   ontology_id: ontology://...
+  ontology_family_ref: ontology://...
+  ontology_record_profile: ontology_version | ontology_overlay
+  namespace: uri_or_domain_scoped_name
   name: string
   domain_ref: agentgres://domain/... | service://... | org://...
   version: semver_or_hash
+  predecessor_version_ref: ontology://... | null
+  base_ontology_version_refs:
+    - ontology://...
+  local_canonicality_scope_ref: domain://... | org://... | project://...
+  extension_and_overlay_refs:
+    - ontology://... | policy://...
+  compatibility_profile_ref: compatibility://... | null
+  deprecation_policy_ref: policy://... | null
   entity_types: []
   relationship_types: []
   event_types: []
@@ -1585,6 +1840,116 @@ DomainOntologyEnvelope:
   owner_id: wallet://... | org://... | service://...
   policy_hash: hash
   status: draft | active | deprecated | revoked
+```
+
+No Domain Ontology is presumed globally canonical. A domain may make one
+version locally canonical while other domains retain independent definitions,
+extensions, overlays, and policy-bound views. Cross-domain work must negotiate
+versioned profiles and explicit mappings rather than silently flattening them
+into one enterprise or network graph.
+
+## OntologyAssertionEnvelope
+
+Operational truth and semantic belief are distinct. Agentgres may canonically
+record that a domain admitted an assertion or decision; that admission does not
+make the proposition universally true. Ontology-bound properties and
+relationships therefore carry time, source, uncertainty, evidence,
+applicability, supersession, and dispute state.
+
+```yaml
+OntologyAssertionEnvelope:
+  assertion_id: ontology-assertion://...
+  assertion_profile: provenance_assertion
+  ontology_ref: ontology://...
+  subject_ref: object://... | ontology-assertion://...
+  predicate_ref: ontology://...#property_or_relationship
+  object_or_value_ref: object://... | scalar | artifact://...
+  valid_time: interval | null
+  transaction_time: timestamp
+  source_and_observation_context_refs:
+    - source://... | observation://... | attempt://... | domain://...
+  confidence_or_uncertainty: number | null
+  supporting_evidence_refs:
+    - evidence://... | receipt://... | artifact://...
+  contradicting_assertion_refs:
+    - ontology-assertion://... | finding://...
+  applicability_scope_ref: policy://... | domain://... | null
+  causal_or_counterfactual_context_ref: artifact://... | finding://... | null
+  supersedes_ref: ontology-assertion://... | null
+  dispute_ref: dispute://... | null
+  admission_receipt_ref: receipt://... | null
+  status: proposed | admitted | contradicted | superseded | disputed | rejected
+```
+
+## OntologyMappingEnvelope
+
+```yaml
+OntologyMappingEnvelope:
+  ontology_mapping_id: ontology-mapping://...
+  mapping_record_profile: ontology_crosswalk | semantic_mapping_decision
+  source_ontology_ref: ontology://...
+  target_ontology_ref: ontology://...
+  source_and_target_version_refs:
+    - ontology://...
+  mapping_profile_ref: artifact://... | mapping://...
+  applied_crosswalk_ref: ontology-mapping://... | null
+  application_target_refs:
+    - packet://... | handoff://... | object://... | query://... |
+      ontology-action://... | artifact://...
+  mapped_object_relationship_event_and_action_refs:
+    - object-model://... | ontology-action://... | schema://...
+  compatibility_result:
+    exact | compatible | lossy | requires_adapter | incompatible
+  policy_bound_view_refs:
+    - view://... | restricted_view://...
+  validation_and_challenge_refs:
+    - test://... | verifier-challenge://... | evidence://...
+  decided_by_ref: worker://... | org://... | domain://... | policy://... | null
+  decision_timestamp: timestamp | null
+  mapping_decision_receipt_ref: receipt://... | null
+  deprecation_and_migration_policy_ref: policy://... | null
+  status: proposed | validated | active | challenged | deprecated | revoked
+```
+
+## OntologyActionContractEnvelope
+
+An ontology action becomes executable only through a contract that binds
+semantic meaning to capability, runtime, authority, effects, compensation,
+evidence, and verification. An action name or connector method alone is not an
+execution contract.
+
+```yaml
+OntologyActionContractEnvelope:
+  ontology_action_id: ontology-action://...
+  ontology_ref: ontology://...
+  action_type_ref: ontology://...#action
+  target_object_model_refs:
+    - object-model://...
+  typed_input_schema_ref: schema://... | artifact://...
+  typed_output_schema_ref: schema://... | artifact://...
+  precondition_refs:
+    - policy://... | invariant://... | state://...
+  postcondition_and_invariant_refs:
+    - policy://... | invariant://... | state://...
+  expected_state_transition_ref: transition://... | state-delta://...
+  capability_runtime_tool_and_automation_refs:
+    - prim:... | runtime://... | tool://... | automation://...
+  risk_class: read | draft | local_write | write_reversible |
+    external_message | commerce | funds | credential_access |
+    policy_widening | secret_export | identity_change |
+    system_destructive | physical_action
+  local_policy_and_authority_scope_refs:
+    - policy://... | scope:... | grant://...
+  approval_and_revocation_refs:
+    - approval-policy://... | revocation://...
+  preview_and_dry_run_profile_ref: policy://... | null
+  idempotency_and_retry_profile_ref: policy://...
+  ambiguous_effect_and_reconciliation_profile_ref: policy://...
+  compensation_profile_ref: policy://... | null
+  verifier_and_evidence_refs:
+    - verifier_path://... | evidence://... | schema://...
+  physical_safety_profile_ref: safety://... | null
+  status: draft | validating | active | deprecated | revoked
 ```
 
 ## CanonicalObjectModelEnvelope
@@ -1599,7 +1964,7 @@ CanonicalObjectModelEnvelope:
   lifecycle_states: []
   constraints:
     - constraint://...
-  privacy_class: public | internal | confidential | regulated
+  privacy_class: public | internal | confidential | restricted | regulated | safety_critical
   authority_scopes_required: []
   projection_hints: []
   status: draft | active | deprecated
@@ -1684,7 +2049,7 @@ PolicyBoundDataViewEnvelope:
   authority_grant_refs:
     - grant://...
   retention_policy_ref: optional
-  privacy_class: public | internal | confidential | regulated
+  privacy_class: public | internal | confidential | restricted | regulated | safety_critical
   policy_hash: hash
   expires_at: optional
 ```
@@ -1963,7 +2328,7 @@ OntologySurfaceDescriptorEnvelope:
   mcp_contract_refs:
     - mcp-profile://...
   authority_requirement_refs:
-    - scope://... | policy://... | grant://...
+    - scope:* | policy://... | grant://...
   receipt_obligations:
     - receipt://...
   conformance_profile_refs:
@@ -2015,11 +2380,11 @@ ModelDeploymentProfileEnvelope:
   model_artifact_refs:
     - cid://... | artifact://... | file://...
   endpoint_refs:
-    - model_endpoint://...
+    - endpoint://...
   provider_refs: []
   authority_scope_requirements:
     - scope:model.invoke.external
-  privacy_class: local | external_api | tenant_private | tee_private | regulated
+  execution_privacy_posture: local | external_api | tenant_private | tee_private | regulated
   run_to_idle_policy_ref: optional
   receipt_mode: hash_only | full_redacted | full_private
   status: draft | active | unavailable | revoked
@@ -2260,6 +2625,29 @@ FoundryRouteBindingEnvelope:
     - gate://... | artifact://... | receipt://...
   status: proposed | active | paused | rolled_back | recalled | superseded
 ```
+
+## Physical Mission Segment Envelopes
+
+`PhysicalMissionControlEnvelope` registers the slow-plane mission envelope that
+binds fleet/units, allowed actions, zones/limits, validity, authority,
+safety/e-stop, controller versions, evidence, exceptions, and revocation.
+`LocalControlSegmentEnvelope` registers the embodied-runtime record for one
+bounded interval of certified local controller execution at
+`control-segment://...`. The corresponding
+`PhysicalActionSegmentCommitmentReceipt` binds that interval to mission intent,
+controller/version, policy, safety envelope, command and sensor roots, state
+refs, exception/e-stop receipts, and the declared result. It is a receipt type,
+not a second common envelope. Mission and local-segment records are owned by
+[`embodied-runtime.md`](../components/daemon-runtime/embodied-runtime.md),
+physical-action obligations are owned by
+[`physical-action-safety.md`](./physical-action-safety.md), and the sole receipt
+schema is owned by
+[`events-receipts-delivery-bundles.md`](../components/daemon-runtime/events-receipts-delivery-bundles.md).
+
+These objects implement the two-speed boundary: Goal Kernel and remote
+governance operate at mission/checkpoint/exception/course-correction
+timescales, while the certified local controller owns the high-frequency loop,
+local e-stop, and fail-safe behavior inside a bounded mission envelope.
 
 ## EmbodiedCapabilitySpecEnvelope
 
@@ -3204,8 +3592,17 @@ OrchestrationPolicyEnvelope:
     - multi_model_answer
     - multi_harness_attempt
     - cross_session_branch_and_merge
+    - collaborative_frontier
+    - independent_replication
+    - dynamic_specialist_mesh
+    - open_challenge
     - marketplace_worker_delegation
     - foundry_job
+  goal_execution_policy: auto | pinned | compare
+  selection_source: user | org_policy | conductor_policy | fallback_policy
+  topology_policy:
+    fixed | conductor_mutable | frontier_driven | participant_proposed |
+    market_allocated | governed_federation
   routing_signal_refs:
     - benchmark://... | receipt://... | ledger://... | gate://...
   conductor_advisor_refs:
@@ -3215,6 +3612,9 @@ OrchestrationPolicyEnvelope:
   fallback_policy:
     ask_user | local_default | safest_private_route | cheapest_route |
     fail_closed
+  collaboration_policy_refs:
+    - policy://...
+  marginal_value_stop_policy_ref: policy://... | null
   update_mode:
     static | operator_managed | bandit_assisted | foundry_promoted
   status: draft | active | shadow | deprecated | revoked
@@ -3234,7 +3634,11 @@ OrchestrationPlanEnvelope:
   materialization:
     single_path | verifier_backed_single_path | multi_model_answer |
     multi_harness_attempt | cross_session_branch_and_merge |
+    collaborative_frontier | independent_replication |
+    dynamic_specialist_mesh | open_challenge |
     marketplace_worker_delegation | foundry_job
+  goal_execution_policy: auto | pinned | compare
+  selection_source: user | org_policy | conductor_policy | fallback_policy
   proposed_model_route_refs:
     - model_route://...
   proposed_harness_refs:
@@ -3245,12 +3649,699 @@ OrchestrationPlanEnvelope:
     - verifier_path://...
   proposed_session_topology:
     single_session | isolated_parallel_sessions | branch_and_merge |
-    handoff_only | no_execution
+    collaborative_frontier | federated_room | handoff_only | no_execution
+  outcome_room_ref: outcome-room://... | null
+  proposed_coordination_topology:
+    none | hosted_admission | federated_admission
   expected_cost_ref: budget://... | null
   expected_latency_class: interactive | batch | background | deadline_bound
   evidence_basis_refs:
     - benchmark://... | receipt://... | ledger://... | gate://...
   status: candidate | selected | rejected | superseded | admitted
+```
+
+## NetworkGoalBudgetEnvelope
+
+`NetworkGoalBudgetEnvelope` is the explicit spend boundary for independent
+Network/Open workers, verifiers, services, resource providers, challenges, and
+settlement. It is separately funded and visible; it is not the ordinary Goal
+Space Work Credit allowance, a pooled provider seat, a transferable credit, or
+permission to spend without the declared authority and admission path. A
+`ServiceOrder` may carry its own equivalent budget contract, but an OutcomeRoom
+must reference which contract governs external spend.
+
+```yaml
+NetworkGoalBudgetEnvelope:
+  network_goal_budget_id: goal-budget://...
+  goal_ref: goal://... | task://...
+  outcome_room_ref: outcome-room://... | null
+  sponsor_ref: user://... | org://... | project://... | service://...
+  funding_mode: prepaid_cap | bounty | procurement_cap | service_order
+  funding_source_ref:
+    wallet://... | escrow://... | procurement://... | order://...
+  denomination: string
+  authorized_amount: decimal
+  reserved_amount: decimal
+  admitted_spend_amount: decimal
+  remaining_amount: decimal
+  quote_rate_card_and_cap_refs:
+    - quote://... | rate-card://... | policy://...
+  eligible_contributor_and_work_refs:
+    - worker://... | service://... | participant-lease://... |
+      frontier://... | verifier_path://... | resource-offer://...
+  spend_authority_ref: grant://...
+  allocation_and_reservation_refs:
+    - allocation://... | receipt://... | ledger://...
+  contribution_delivery_and_settlement_refs:
+    - contrib_... | delivery://... | settlement-intent://... | receipt://...
+  adjustment_refund_and_dispute_policy_refs:
+    - policy://... | dispute://...
+  ordinary_work_credit_substitution: prohibited
+  expires_at: timestamp | null
+  status:
+    draft | funded | active | exhausted | paused | disputed |
+    settling | settled | refunded | expired | revoked
+```
+
+## OutcomeRoomDiscoveryEnvelope and RoomParticipationRequestEnvelope
+
+Cross-domain and Network/Open participation begins with a policy-bound
+discovery projection, not access to the room database. An independently
+operated Worker can discover the public objective/category and declared
+requirements, then submit a typed participation request through AIIP. Neither
+object carries raw room context, private memory, secrets, protected connector
+payloads, or non-public operational state.
+
+The contract is topology-neutral. Under `hosted_admission`,
+`admission_owner_ref` names the host domain. Under `federated_admission`, it
+names the versioned federation policy/adjudicator path. The same request,
+eligibility, visibility, privacy, quote, verifier, settlement, receipt, and
+lease semantics apply in both cases; only ordering/admission ownership differs.
+
+```yaml
+OutcomeRoomDiscoveryEnvelope:
+  room_discovery_id: room-discovery://...
+  outcome_room_ref: outcome-room://...
+  publication_version: semver_or_hash
+  published_by_ref: domain://... | org://... | service://...
+  public_goal_ref: goal://... | task://... | service://...
+  public_objective: string
+  public_category_refs:
+    - ontology://... | benchmark://... | capability://... | service://...
+  coordination_topology: hosted_admission | federated_admission
+  admission_owner_ref: domain://... | policy://...
+  participation_channel_ref: aiip://channel/...
+  semantic_and_action_profile_refs:
+    - ontology://... | semantic-profile://... | ontology-mapping://... |
+      ontology-action://... | action_schema://...
+  required_capability_and_worker_profile_refs:
+    - capability://... | worker://... | package://... | verifier_path://...
+  eligibility_and_affiliation_policy_refs:
+    - policy://... | conformance_profile://... | certification_claim://...
+  visibility_and_privacy_policy_refs:
+    - policy://... | privacy_posture://... | restricted_view://...
+  public_frontier_and_context_projection_refs:
+    - projection://... | frontier://... | restricted_view://... |
+      redacted_summary://...
+  budget_quote_and_capacity_refs:
+    - goal-budget://... | order://... | quote://... | resource-offer://...
+  verifier_and_acceptance_posture_refs:
+    - verifier_path://... | rubric://... | gate://... | policy://...
+  settlement_dispute_and_contribution_policy_refs:
+    - policy://... | settlement-intent://... | dispute://...
+  license_retention_and_export_policy_refs:
+    - license://... | policy://...
+  excluded_context_classes:
+    - raw_secret
+    - protected_plaintext
+    - unauthorized_connector_payload
+    - unrelated_private_memory
+    - private_room_database_state
+    - non_opted_in_training_trace
+  private_context_included: false
+  published_at: timestamp
+  updated_at: timestamp | null
+  valid_until: timestamp | null
+  discovery_state_root: hash
+  signature: required
+  status: draft | discoverable | paused | filled | expired | withdrawn | revoked
+```
+
+```yaml
+RoomParticipationRequestEnvelope:
+  participation_request_id: participation-request://...
+  room_discovery_ref: room-discovery://...
+  outcome_room_ref: outcome-room://...
+  requested_by_ref: worker://... | service://... | org://... | domain://...
+  operator_and_home_domain_refs:
+    - user://... | wallet://... | org://... | domain://... | system://...
+  worker_composition_and_dependency_refs:
+    - package://... | worker://... | model_route://... |
+      harness_profile:... | runtime://... | provider://...
+  capability_offer_refs:
+    - capability-offer://... | ai://... | package://...
+  affiliation_and_independent_operation_evidence_refs:
+    - evidence://... | receipt://... | org://... | certification_claim://...
+  supported_semantic_and_action_profile_refs:
+    - ontology://... | semantic-profile://... | ontology-mapping://... |
+      ontology-action://... | action_schema://...
+  eligibility_evidence_refs:
+    - evidence://... | receipt://... | benchmark://... |
+      conformance_profile://... | certification_claim://...
+  requested_role_frontier_and_visibility_refs:
+    - frontier://... | policy://... | restricted_view://...
+  privacy_custody_and_context_policy_refs:
+    - privacy_posture://... | custody://... | policy://...
+  proposed_quote_and_budget_refs:
+    - quote://... | goal-budget://... | order://...
+  accepted_verifier_settlement_dispute_and_contribution_policy_refs:
+    - verifier_path://... | policy://... | settlement-intent://... |
+      dispute://...
+  requested_participant_state_export_policy_ref: policy://...
+  coordination_topology: hosted_admission | federated_admission
+  admission_owner_ref: domain://... | policy://...
+  private_context_included: false
+  request_hash: hash
+  signature: required
+  admission_decision_ref: decision://... | receipt://... | null
+  participant_lease_ref: participant-lease://... | null
+  status: draft | submitted | evaluating | admitted | rejected | withdrawn | expired
+```
+
+## OutcomeRoomEnvelope
+
+`OutcomeRoomEnvelope` is the shared collaborative-pursuit profile above one or
+more GoalRuns. It binds a durable objective to a work frontier, participants,
+attempts, findings, verification, contribution lineage, budget, and replay. It
+does not create a second runtime, authority system, marketplace, or globally
+mutable Agentgres graph.
+
+The same room may appear as a Goal Space in ioi.ai and Mission detail in
+Hypervisor. A direct question, one-shot run, ordinary automation, or single
+session does not require an OutcomeRoom. The room is used only when persistent
+collective pursuit creates enough value to justify participation and admission
+machinery.
+
+Every room declares who orders and admits its shared state:
+
+- `hosted_admission`: one named governed domain orders and admits room-level
+  frontier, attempt, finding, evaluation, and decision updates;
+- `federated_admission`: a versioned policy names participating domains,
+  ordering/merge rules, quorum or adjudicator requirements, conflict behavior,
+  failover, and dispute handling.
+
+Each party retains its local operational truth and private context in either
+topology. AIIP carries signed, sequenced, idempotent permitted updates and refs;
+`MultiPartyCollaborationEnvelope` remains the cross-party policy and proof
+context. A room board, chat, inbox, digest, leaderboard, and replay are
+projections over admitted objects, never operational truth by themselves.
+
+```yaml
+OutcomeRoomEnvelope:
+  outcome_room_id: outcome-room://...
+  owner_or_sponsor_ref:
+    user://... | org://... | project://... | domain://... | service://...
+  objective_ref: goal://... | task://... | service://...
+  objective: string
+  constraint_refs:
+    - constraint://... | policy://... | budget://...
+  acceptance_criteria_refs:
+    - rubric://... | gate://... | policy://...
+  stop_policy_ref: policy://...
+  room_mode:
+    private_goal | permissioned_team | cross_org | open_challenge
+  visibility_policy_ref: policy://...
+  participation_policy_ref: policy://...
+  privacy_policy_ref: policy://...
+  contribution_policy_ref: policy://...
+  discovery_and_external_admission_policy_refs:
+    - policy://... | room-discovery://... | aiip://channel/...
+  artifact_license_rights_retention_and_export_policy_refs:
+    - policy://... | license://...
+  coordination_topology:
+    hosted_admission | federated_admission
+  coordination_policy_ref: policy://...
+  host_domain_ref: domain://... | null
+  ordering_and_merge_policy_ref: policy://...
+  conflict_and_failover_policy_ref: policy://...
+  multi_party_collaboration_ref: collaboration://... | null
+  ontology_profile_refs:
+    - ontology://... | semantic-profile://... | ontology-mapping://...
+  scorecard_and_guardrail_refs:
+    - benchmark://... | rubric://... | gate://... | policy://...
+  verifier_path_refs:
+    - verifier_path://...
+  resource_and_budget_refs:
+    - resource_pool://... | budget://... | goal-budget://... | order://...
+  settlement_policy_ref: policy://... | null
+  participant_lease_refs:
+    - participant-lease://...
+  participation_request_refs:
+    - participation-request://...
+  frontier_item_refs:
+    - frontier://...
+  attempt_refs:
+    - attempt://...
+  finding_refs:
+    - finding://...
+  verifier_challenge_refs:
+    - verifier-challenge://...
+  discussion_projection_refs:
+    - projection://... | message://...
+  admission_and_replay_refs:
+    - receipt://... | replay://... | agentgres://...
+  contribution_refs:
+    - contrib_... | receipt://...
+  participant_state_bundle_refs:
+    - participant-state://...
+  status:
+    proposed | open | active | paused | blocked | verifying |
+    accepted | disputed | settled | closed | revoked | archived
+```
+
+## RoomParticipantLeaseEnvelope
+
+Room participation is a lease, not ambient membership. It composes existing
+identity, context, authority, runtime, resource, and budget leases rather than
+creating a second credential system.
+
+```yaml
+RoomParticipantLeaseEnvelope:
+  participant_lease_id: participant-lease://...
+  outcome_room_ref: outcome-room://...
+  participant_ref:
+    agent://... | worker://... | service://... | org://... | domain://...
+  admitted_role:
+    conductor | implementer | reviewer | verifier | operator |
+    researcher | specialist | synthesizer | resource_provider |
+    integrity_challenger | memory_curator
+  operator_ref: user://... | org://... | wallet://... | domain://...
+  home_domain_ref: domain://... | system://... | agentgres://domain/...
+  worker_and_runtime_refs:
+    - worker://... | harness_profile:... | agent_harness_adapter:... |
+      model_route://... | runtime://... | node://...
+  capability_advertisement_refs:
+    - capability-offer://... | ai://... | package://...
+  tool_connector_and_capability_dependency_refs:
+    - tool://... | connector://... | capability://... | prim:*
+  join_request_ref: participation-request://... | proposal://... | null
+  identity_and_eligibility_evidence_refs:
+    - evidence://... | receipt://... | certification_claim://...
+  admission_decision_ref: receipt://... | decision://...
+  visibility_scope_ref: policy://... | restricted_view://...
+  context_and_authority_lease_refs:
+    - context_lease://... | grant://... | authority://...
+  runtime_resource_and_budget_lease_refs:
+    - lease://... | resource-lease://... | budget://...
+  current_claim_ref: work-claim://... | null
+  heartbeat_ref: receipt://... | heartbeat://... | null
+  next_wake_condition_ref: policy://... | event://... | null
+  quiet_hours_or_backoff_ref: policy://... | null
+  last_contribution_ref: contrib_... | receipt://... | null
+  exit_and_claim_release_refs:
+    - decision://... | work-claim://... | receipt://...
+  portable_participant_state_bundle_ref: participant-state://... | null
+  future_access_revocation_refs:
+    - revocation://... | receipt://...
+  ttl_seconds: integer | null
+  status:
+    invited | joining | active | sleeping | waiting | suspended |
+    quarantined | retiring | retired | revoked
+```
+
+## ParticipantStateBundleEnvelope
+
+Retirement or revocation ends future participation and releases or reassigns
+live claims; it does not erase permitted contribution lineage, receipts,
+acceptance, settlement, or dispute evidence. The participant's home domain may
+retain a signed, policy-bound portable bundle and continue without room-database
+access. A hosted room cannot make portability depend on continued trust in or
+access to its database; a federated room applies the same export contract at the
+declared federation watermark.
+
+Bundle revocation is append-only. It may end future room access, revoke keys or
+live restricted views, or supersede an erroneous export. It cannot erase
+already permitted contribution, receipt, acceptance, settlement, or dispute
+lineage; historical proof cannot depend on later host availability.
+
+```yaml
+ParticipantStateBundleEnvelope:
+  participant_state_bundle_id: participant-state://...
+  outcome_room_ref: outcome-room://...
+  participant_lease_ref: participant-lease://...
+  participant_and_home_domain_refs:
+    - worker://... | service://... | org://... | domain://... | system://...
+  coordination_topology: hosted_admission | federated_admission
+  bundle_reason: checkpoint | voluntary_retirement | lease_expiry | revocation | quarantine | room_close
+  source_admission_watermark_ref: receipt://... | agentgres://... | hash
+  released_or_reassigned_claim_refs:
+    - work-claim://... | decision://... | receipt://...
+  preserved_contribution_attempt_finding_and_result_refs:
+    - contrib_... | attempt://... | finding://... | work-result://... |
+      outcome-delta://...
+  preserved_receipt_acceptance_settlement_and_dispute_refs:
+    - receipt://... | acceptance://... | settlement-intent://... |
+      dispute://... | decision://...
+  portable_artifact_and_view_refs:
+    - artifact://... | restricted_view://... | redacted_summary://... |
+      evidence://... | replay://...
+  lineage_and_supersession_refs:
+    - contrib_... | attempt://... | finding://... | work-result://...
+  export_license_retention_and_recall_policy_refs:
+    - policy://... | license://... | revocation://...
+  excluded_context_classes:
+    - raw_secret
+    - protected_plaintext
+    - unauthorized_connector_payload
+    - unrelated_private_memory
+    - private_room_database_state
+    - revoked_restricted_view
+    - non_opted_in_training_trace
+  released_future_access_refs:
+    - revocation://... | context_lease://... | grant://... | receipt://...
+  revocation_or_supersession_refs:
+    - revocation://... | participant-state://... | decision://... | receipt://...
+  revocation_effect:
+    none | future_access_only | restricted_view_keys_revoked |
+    erroneous_export_superseded
+  bundle_artifact_ref: artifact://... | cid://... | encrypted_ref
+  bundle_root: hash
+  room_database_access_required: false
+  issued_at: timestamp
+  signature: required
+  status: prepared | exported | acknowledged | superseded | revoked
+```
+
+## ResourceOfferEnvelope and CapabilityOfferEnvelope
+
+Participants may offer compute, runtime capacity, data access, verification,
+specialist work, tools, or other capabilities to a room. Offers are typed
+profiles over existing provider inventory, worker manifests, capability
+discovery, and resource-allocation objects; they are not a second marketplace.
+
+```yaml
+ResourceOfferEnvelope:
+  resource_offer_id: resource-offer://...
+  outcome_room_ref: outcome-room://...
+  provider_or_participant_ref:
+    participant-lease://... | provider://... | org://... | domain://...
+  resource_profile_ref: resource://... | runtime://... | node://...
+  capacity_and_availability_ref: capacity://... | schedule://...
+  locality_and_custody_refs:
+    - region://... | custody://... | privacy_posture://...
+  trust_and_assurance_refs:
+    - evidence://... | certification_claim://... | receipt://...
+  cost_ref: quote://... | budget://... | null
+  eligible_work_classes:
+    - string
+  policy_constraint_refs:
+    - policy://...
+  allocation_policy_ref: policy://...
+  queue_preemption_and_fairness_policy_ref: policy://...
+  expires_at: timestamp | null
+  allocation_decision_refs:
+    - allocation://... | receipt://...
+  spend_and_contribution_refs:
+    - spend://... | contrib_... | receipt://...
+  usage_and_consumption_refs:
+    - ledger://... | receipt://... | work-credit://...
+  status: offered | queued | allocated | exhausted | withdrawn | expired | revoked
+```
+
+```yaml
+CapabilityOfferEnvelope:
+  capability_offer_id: capability-offer://...
+  outcome_room_ref: outcome-room://...
+  participant_ref: participant-lease://... | worker://... | service://...
+  capability_descriptor_refs:
+    - ai://... | package://... | capability://...
+  eligible_frontier_classes:
+    - string
+  model_harness_tool_and_connector_refs:
+    - model_route://... | harness_profile:... | tool://... | connector://...
+  authority_and_context_requirements:
+    - scope:* | policy://... | context-profile://...
+  privacy_cost_quality_and_latency_refs:
+    - privacy_posture://... | quote://... | benchmark://... | sla://...
+  availability_ref: schedule://... | null
+  status: offered | eligible | allocated | suspended | withdrawn | revoked
+```
+
+## WorkFrontierItemEnvelope
+
+The work frontier is the room's claimable graph of questions, problems,
+hypotheses, tasks, reviews, verification needs, and resource needs. It supports
+conductor assignment, pull-based claims, independent replication, and dynamic
+taskforces under one contract.
+
+```yaml
+WorkFrontierItemEnvelope:
+  frontier_item_id: frontier://...
+  outcome_room_ref: outcome-room://...
+  item_kind:
+    question | problem | hypothesis | task | review_need |
+    verification_need | resource_need | synthesis_need
+  objective: string
+  dependency_refs:
+    - frontier://... | attempt://... | finding://...
+  related_attempt_and_finding_refs:
+    - attempt://... | finding://...
+  required_capability_refs:
+    - capability://... | worker://... | tool://...
+  required_context_resource_authority_and_evidence_refs:
+    - context-profile://... | resource://... | scope:* | evidence://...
+  expected_value: number | null
+  uncertainty: number | null
+  priority: number | null
+  duplication_policy:
+    exclusive | allowed | encouraged | independent_replication_required
+  claimability:
+    open | invited_only | assigned | paused | closed
+  max_concurrency: integer | null
+  expires_at: timestamp | null
+  stop_condition_ref: policy://... | null
+  status:
+    open | claimed | blocked | replicating | verifying |
+    accepted | rejected | superseded | closed
+```
+
+## WorkClaimLeaseEnvelope
+
+```yaml
+WorkClaimLeaseEnvelope:
+  work_claim_id: work-claim://...
+  outcome_room_ref: outcome-room://...
+  frontier_item_ref: frontier://...
+  claimant_ref: participant-lease://... | worker://... | agent://... | org://...
+  bounded_scope_ref: task://... | task_brief://... | policy://...
+  context_lease_refs:
+    - context_lease://...
+  authority_resource_compute_data_budget_and_tool_lease_refs:
+    - grant://... | resource-lease://... | compute://... | view://... |
+      budget://... | tool-lease://...
+  duplicate_work_policy:
+    exclusive | allowed | independent_replication | adversarial_replication
+  issued_at: timestamp
+  expires_at: timestamp
+  heartbeat_ref: heartbeat://... | receipt://... | null
+  renewal_count: integer
+  release_or_reassignment_reason: string | null
+  status:
+    proposed | active | waiting | released | expired | reassigned |
+    completed | quarantined | revoked
+```
+
+## AttemptEnvelope
+
+Attempts preserve positive, negative, inconclusive, invalid, exploit-finding,
+and superseded work. A non-winning attempt remains durable when it contributes
+information, reproduction evidence, debugging, integrity findings, resources,
+review, or synthesis.
+
+```yaml
+AttemptEnvelope:
+  attempt_id: attempt://...
+  outcome_room_ref: outcome-room://... | null
+  goal_run_ref: goal://...
+  frontier_item_ref: frontier://... | null
+  work_claim_ref: work-claim://... | null
+  participant_ref: participant-lease://... | worker://... | agent://...
+  declared_method_and_hypothesis_refs:
+    - method://... | finding://... | artifact://...
+  parent_and_derivation_refs:
+    - attempt://... | artifact://... | finding://...
+  input_state_and_environment_refs:
+    - state://... | environment://... | worktree://... | dataset://...
+  worker_model_harness_tool_and_runtime_versions:
+    - worker://... | model_route://... | harness_profile:... |
+      tool://... | runtime://...
+  authority_and_policy_refs:
+    - grant://... | policy://...
+  resource_and_cost_refs:
+    - resource-lease://... | spend://... | ledger://...
+  outcome_class:
+    positive | negative | inconclusive | invalid | exploit_found | superseded
+  work_result_ref: work-result://... | implementation_result://... | null
+  outcome_delta_refs:
+    - outcome-delta://...
+  artifact_evidence_and_receipt_refs:
+    - artifact://... | evidence://... | receipt://... | ledger://...
+  verifier_refs:
+    - verifier_path://... | verifier-challenge://...
+  reproduction_state:
+    unreviewed | reproducible | not_reproduced | contradicted | invalidated
+  artifact_license_ip_retention_and_export_refs:
+    - license://... | policy://...
+  contribution_refs:
+    - contrib_... | receipt://...
+  status: draft | running | submitted | admitted | challenged | accepted | rejected | superseded
+```
+
+## FindingEnvelope
+
+Operational admission of a finding proves that the domain admitted a
+provenance-bearing assertion; it does not make the proposition universally
+true. Findings therefore preserve uncertainty, applicability, contradiction,
+time, and dispute state.
+
+```yaml
+FindingEnvelope:
+  finding_id: finding://...
+  outcome_room_ref: outcome-room://... | null
+  proposition: string
+  finding_kind:
+    hypothesis | observation | claim | negative_result | integrity_incident |
+    mapping_claim | causal_claim | counterexample | synthesis
+  confidence_or_uncertainty: number | null
+  valid_time: interval | null
+  transaction_time: timestamp
+  source_and_observation_context_refs:
+    - attempt://... | observation://... | participant-lease://... | domain://...
+  supporting_evidence_refs:
+    - evidence://... | artifact://... | receipt://...
+  contradicting_evidence_refs:
+    - evidence://... | artifact://... | finding://...
+  applicability_and_counterexample_refs:
+    - policy://... | finding://... | ontology://...
+  provenance_ontology_and_mapping_refs:
+    - provenance://... | ontology://... | ontology-mapping://...
+  proposed_effect_refs:
+    - frontier://... | routing-prior://... | policy://... | capability://...
+  supersedes_ref: finding://... | null
+  dispute_ref: dispute://... | null
+  status:
+    branch_local | proposed | admitted | contradicted | superseded |
+    disputed | rejected | archived
+```
+
+## VerifierChallengeEnvelope
+
+```yaml
+VerifierChallengeEnvelope:
+  verifier_challenge_id: verifier-challenge://...
+  outcome_room_ref: outcome-room://... | null
+  challenger_ref: participant-lease://... | worker://... | org://... | user://...
+  challenged_ref:
+    attempt://... | finding://... | verifier_path://... | benchmark://... |
+    rubric://... | evidence://... | eligibility://... | decision://...
+  challenge_kind:
+    metric | rule | verifier | evidence | eligibility | result |
+    exploit | independence | collusion | mapping
+  challenge_evidence_refs:
+    - evidence://... | artifact://... | receipt://...
+  adjudicator_policy_ref: policy://...
+  prior_rule_version_ref: rubric://... | verifier_path://... | null
+  proposed_rule_version_ref: rubric://... | verifier_path://... | null
+  affected_attempt_refs:
+    - attempt://...
+  reverification_required: boolean
+  adjudication_ref: decision://... | dispute://... | null
+  status:
+    proposed | admitted | investigating | upheld | rejected |
+    rule_changed | reverifying | resolved | withdrawn
+```
+
+## WorkResultEnvelope and OutcomeDeltaEnvelope
+
+`WorkResultEnvelope` is the generic bounded result seam returned by a GoalRun,
+claim, worker, harness, service, research attempt, ontology operation, incident
+response, or embodied mission. `ImplementationResultPayloadEnvelope` is its
+software-specific profile; it no longer defines the general pursuit model.
+
+Profile-specific fields remain behind `result_profile_ref` and
+`result_payload_ref`; research, ontology, incident, service, physical-mission,
+review, and evaluation results are not forced through software file/diff/test
+fields. The cross-domain invariants below are optional when irrelevant, but a
+profile must preserve the applicable identities, method/lineage, claims and
+uncertainty, evidence, cost/authority/verifier posture, rights, reproduction,
+acceptance, challenge, and supersession state whenever the result crosses a
+run, room, domain, contribution, dispute, or replay boundary.
+
+```yaml
+WorkResultEnvelope:
+  work_result_id: work-result://...
+  goal_ref: goal://...
+  goal_run_ref: goal://... | null
+  outcome_room_ref: outcome-room://... | null
+  work_claim_ref: work-claim://... | null
+  attempt_ref: attempt://... | null
+  invocation_or_run_ref:
+    harness_invocation://... | run://... | service://... | mission://... | null
+  result_profile:
+    software_implementation | research | ontology_mutation |
+    incident_resolution | service_delivery | physical_mission |
+    review | evaluation | custom
+  result_profile_ref: schema://... | profile://... | null
+  result_payload_ref: artifact://... | cid://... | encrypted_ref | null
+  worker_harness_model_runtime_version_refs:
+    - worker://... | harness_profile:... | agent_harness_adapter:... |
+      model://... | model_route://... | runtime://... | registry_version://...
+  declared_method_and_lineage_refs:
+    - method://... | attempt://... | finding://... | work-result://... |
+      artifact://... | trace://...
+  outcome_class:
+    positive | negative | inconclusive | invalid | exploit_found | superseded
+  status: completed | failed | blocked | partial | challenged | superseded
+  outcome_delta_refs:
+    - outcome-delta://...
+  finding_refs:
+    - finding://...
+  claim_refs:
+    - finding://... | ontology-assertion://... | evidence://...
+  uncertainty: number | string | object | null
+  supporting_evidence_refs:
+    - artifact://... | evidence://... | receipt://... | ledger://...
+  contradicting_evidence_refs:
+    - finding://... | ontology-assertion://... | evidence://... | artifact://...
+  artifact_receipt_and_trace_refs:
+    - artifact://... | receipt://... | ledger://... | trace://...
+  resource_and_cost_refs:
+    - resource-lease://... | cost://... | quote://... | budget://... |
+      ledger://... | receipt://...
+  authority_and_policy_refs:
+    - grant://... | scope:* | policy://... | receipt://...
+  blocker_and_decision_request_refs:
+    - blocker://... | handoff://... | proposal://...
+  verifier_refs:
+    - verifier_path://... | worker://... | gate://... | receipt://...
+  license_disclosure_retention_and_export_refs:
+    - license://... | policy://... | restricted_view://... | receipt://...
+  reproduction_state:
+    unreviewed | reproducible | not_reproduced | contradicted | invalidated | null
+  reproduction_refs:
+    - attempt://... | work-result://... | evidence://... | receipt://...
+  acceptance_ref: acceptance://... | decision://... | receipt://... | null
+  challenge_refs:
+    - verifier-challenge://... | dispute://... | evidence://...
+  supersedes_work_result_ref: work-result://... | null
+  superseded_by_ref: work-result://... | outcome-delta://... | null
+  summary_ref: message://... | artifact://... | null
+  next_action:
+    none | repair | review | verify | replicate | synthesize |
+    ask_user | escalate | update_frontier
+```
+
+```yaml
+OutcomeDeltaEnvelope:
+  outcome_delta_id: outcome-delta://...
+  goal_ref: goal://...
+  outcome_room_ref: outcome-room://... | null
+  proposed_by_ref:
+    work-result://... | attempt://... | finding://... | participant-lease://...
+  target_ref:
+    frontier://... | finding://... | ontology://... | state://... |
+    capability://... | policy://... | routing-prior://... | service://...
+  delta_kind:
+    create | update | supersede | reject | merge | promote |
+    rollback | course_correct | close
+  payload_ref: artifact://... | patch://... | mapping://... | state-delta://...
+  precondition_and_invariant_refs:
+    - policy://... | gate://... | state://...
+  expected_effect_ref: effect://... | null
+  verifier_and_acceptance_refs:
+    - verifier_path://... | rubric://... | gate://...
+  admission_receipt_ref: receipt://... | null
+  status: proposed | evaluating | admitted | rejected | superseded | rolled_back
 ```
 
 ## GoalRunEnvelope
@@ -3261,9 +4352,11 @@ primitive when intent must survive compaction, delegation, verification, or
 long-session continuation.
 
 The GoalRun is not a chat transcript and not a harness-specific memory file. It
-is the coordination record for the goal kernel: intent, constraints, selected
-role topology, context cells, context leases, handoffs, verifier path, receipts,
-and continuation state.
+is the bounded coordination record for one participant or subteam's Goal Kernel
+loop: intent, constraints, role topology, context cells, leases, handoffs,
+attempts, generic results, verifier path, receipts, and continuation state. A
+GoalRun may stand alone or participate in an `OutcomeRoomEnvelope`; it does not
+own the shared room frontier or cross-party admission policy.
 
 ```yaml
 GoalRunEnvelope:
@@ -3274,16 +4367,23 @@ GoalRunEnvelope:
     automation | marketplace_instance | api
   user_intent_ref: intent://... | prompt://...
   normalized_goal: string
+  outcome_room_ref: outcome-room://... | null
+  room_participant_lease_ref: participant-lease://... | null
+  frontier_item_refs:
+    - frontier://...
+  work_claim_refs:
+    - work-claim://...
   constraint_refs:
     - constraint://... | policy://... | budget://...
   role_topology_ref: role_topology://...
   grounding_loop_ref: goal_loop://... | null
   active_loop_phase:
     receive_intent | classify_goal | gather_grounding | inspect_state |
-    derive_constraints | select_topology | lease_context |
-    open_context_cells | delegate_or_execute | monitor_progress |
-    verify | repair_or_escalate | reconcile | persist_memory |
-    continue_or_close | null
+    derive_constraints | observe_frontier | form_hypotheses |
+    select_or_adapt_topology | claim_allocate_or_delegate | lease_context |
+    open_context_cells | execute_attempt | monitor_progress |
+    publish_result | verify_compare_or_challenge | repair_or_escalate |
+    reconcile | update_frontier_and_memory | continue_or_close | null
   context_cell_refs:
     - context_cell://...
   context_lease_refs:
@@ -3291,22 +4391,33 @@ GoalRunEnvelope:
   orchestration_plan_refs:
     - orchestration_plan://...
   selected_plan_ref: orchestration_plan://... | null
+  topology_revision_refs:
+    - role_topology://... | decision://...
+  attempt_refs:
+    - attempt://...
+  work_result_refs:
+    - work-result://... | implementation_result://...
+  finding_refs:
+    - finding://...
   verifier_path_ref: verifier_path://... | null
+  verifier_challenge_refs:
+    - verifier-challenge://...
   receipt_refs:
     - receipt://... | ledger://...
   continuation_state:
-    open | waiting_on_user | delegated | verifying | complete |
-    blocked | superseded
+    open | waiting_on_user | waiting_on_frontier | sleeping | delegated |
+    verifying | course_correcting | complete | blocked | superseded
   status: draft | active | paused | complete | superseded | revoked
 ```
 
 ## GoalGroundingLoopEnvelope
 
-Low-level conductor-orientation loop for goal-shaped work. This is the concrete
-loop behind the Goal Kernel: it prevents "goal mode" from becoming an unbounded
-chat, and prevents multi-harness orchestration from becoming token-maxing. The
-loop may run in one harness or across multiple Context Cells, but every phase
-has an explicit purpose and exit condition.
+Low-level orientation and course-correction loop for bounded goal-shaped work.
+This is the concrete loop behind the Goal Kernel: it prevents "goal mode" from
+becoming unbounded chat, and prevents multi-worker orchestration from becoming
+token-maxing. The loop may run in one harness, across multiple Context Cells,
+or as one participant in an OutcomeRoom, but every phase has a purpose, an
+admission boundary, and an exit condition.
 
 ```yaml
 GoalGroundingLoopEnvelope:
@@ -3316,10 +4427,14 @@ GoalGroundingLoopEnvelope:
   loop_iteration: integer
   phase:
     receive_intent | classify_goal | gather_grounding | inspect_state |
-    derive_constraints | select_topology | lease_context |
-    open_context_cells | delegate_or_execute | monitor_progress |
-    verify | repair_or_escalate | reconcile | persist_memory |
-    continue_or_close
+    derive_constraints | observe_frontier | form_hypotheses |
+    select_or_adapt_topology | claim_allocate_or_delegate | lease_context |
+    open_context_cells | execute_attempt | monitor_progress |
+    publish_result | verify_compare_or_challenge | repair_or_escalate |
+    reconcile | update_frontier_and_memory | continue_or_close
+  outcome_room_ref: outcome-room://... | null
+  frontier_and_claim_refs:
+    - frontier://... | work-claim://...
   grounding_source_refs:
     - canon://... | doc://... | route://... | runtime://... |
       project://... | receipt://... | ledger://... | memory_projection://...
@@ -3327,23 +4442,32 @@ GoalGroundingLoopEnvelope:
     - environment://... | session://... | run://... | artifact://... |
       worktree://... | surface://... | endpoint://...
   decision_refs:
-    - orchestration_decision://... | routing_decision://... |
+    - orchestration_decision://... | routing-decision://... |
       approval-request://... | release-control://...
   context_cell_refs:
     - context_cell://...
   handoff_refs:
     - handoff://...
+  attempt_result_and_finding_refs:
+    - attempt://... | work-result://... | implementation_result://... |
+      finding://... | outcome-delta://...
   verifier_path_ref: verifier_path://... | null
   evidence_refs:
     - receipt://... | test://... | artifact://... | screenshot://... |
       ledger://...
   productivity_budget_ref: budget://... | null
+  topology_participant_and_verifier_change_refs:
+    - role_topology://... | participant-lease://... |
+      verifier_path://... | decision://...
+  marginal_value_stop_policy_ref: policy://... | null
   escalation_state:
     none | ask_user | open_implementer_cell | open_reviewer_cell |
     require_independent_verifier | require_governance_control |
     stop_blocked
   exit_condition:
-    continue | delegated | verified_complete | blocked | superseded |
+    continue | delegated | waiting_on_frontier | verified_complete |
+    accepted | risk_stop | budget_stop | deadline_stop |
+    marginal_value_stop | blocked | superseded |
     user_input_required | governance_required
   status: active | waiting | satisfied | blocked | superseded | revoked
 ```
@@ -3356,38 +4480,55 @@ receive intent
   -> gather canon, project, runtime, memory, and surface grounding
   -> inspect current state instead of relying on prose
   -> derive constraints, acceptance, and verification path
-  -> select role topology and context-cell split only if useful
-  -> lease context/tools/memory/authority
-  -> delegate bounded work or execute directly
-  -> monitor progress through receipts and handoffs
-  -> verify with deterministic evidence by default
-  -> repair or escalate when evidence fails
-  -> reconcile receipts, memory, skills, and continuation state
-  -> close or continue
+  -> observe uncertainty, opportunity, and any shared work frontier
+  -> form hypotheses, candidate plans, or frontier items
+  -> select or adapt topology; claim, allocate, or delegate bounded work
+  -> lease context, tools, memory, resources, budget, and authority
+  -> execute isolated or cooperative attempts
+  -> publish positive, negative, inconclusive, and integrity results
+  -> evaluate, falsify, reproduce, compare, merge, reject, or challenge
+  -> reconcile receipts, findings, contribution lineage, and memory
+  -> update the shared frontier and routing priors when admitted
+  -> adapt topology, participants, budget, and verifier paths
+  -> continue until acceptance, risk, budget, deadline, or marginal-value stop
 ```
 
 The conductor may be the verifier for ordinary work. Independent verifier cells
-are policy-triggered escalation paths, not the default.
+are policy-triggered escalation paths, not the default. A "sea of agents" is a
+participation and allocation policy over this loop and the OutcomeRoom frontier,
+not a separate runtime or hard-coded topology.
 
 ## RoleTopologyEnvelope
 
 Selected role shape for a GoalRun. The topology is provider-neutral: a role may
-be resolved by Codex, Claude Code, OpenCode, a local model, a worker package, a
-browser agent, a CI agent, or a future harness. The durable contract is the role,
-handoff shape, verifier path, and authority posture, not the vendor.
+be resolved by any eligible harness, model route, worker package, browser
+agent, CI agent, service, human, or future runtime. The durable contract is the
+role, handoff shape, verifier path, and authority posture, not the vendor. A
+topology may be fixed for a small run or revised under policy as the frontier,
+participants, evidence, risk, or resource bottlenecks change.
 
 ```yaml
 RoleTopologyEnvelope:
   topology_id: role_topology://...
   applies_to: goal://... | automation://... | managed_instance://...
+  outcome_room_ref: outcome-room://... | null
+  topology_version: integer | semver_or_hash
   topology_kind:
     direct | goal_conductor | delegated_build | governed_release |
-    multi_context_review | specialist_mesh
+    multi_context_review | specialist_mesh | leaderless_blackboard |
+    market_allocated | independent_replication | federated_pursuit
+  mutation_policy:
+    fixed | conductor_mutable | participant_proposed |
+    frontier_driven | governance_required
   conductor_ref: harness_profile:... | agent://... | worker://...
   implementer_refs:
     - harness_profile:... | agent://... | worker://...
   reviewer_refs:
     - harness_profile:... | worker://... | org://...
+  participant_lease_refs:
+    - participant-lease://...
+  resource_offer_refs:
+    - resource-offer://... | capability-offer://...
   verifier_path_ref: verifier_path://... | null
   conductor_verifies_by_default: boolean
   escalation_triggers:
@@ -3395,7 +4536,9 @@ RoleTopologyEnvelope:
       secret_access | unsafe_plaintext | marketplace_admission |
       release_control | production_mutation | physical_action |
       compliance_review
-  status: draft | active | satisfied | superseded | revoked
+  predecessor_topology_ref: role_topology://... | null
+  mutation_decision_ref: decision://... | receipt://... | null
+  status: draft | active | adapting | satisfied | superseded | revoked
 ```
 
 ## ContextCellEnvelope
@@ -3410,9 +4553,12 @@ typed handoff between cells.
 ContextCellEnvelope:
   context_cell_id: context_cell://...
   goal_ref: goal://...
+  outcome_room_ref: outcome-room://... | null
+  participant_lease_ref: participant-lease://... | null
   role:
     conductor | implementer | reviewer | verifier | operator |
-    specialist | memory_curator
+    researcher | specialist | synthesizer | resource_provider |
+    integrity_challenger | memory_curator
   harness_ref: harness_profile:... | agent_harness_adapter:... | null
   model_route_ref: model_route://... | null
   memory_projection_refs:
@@ -3422,7 +4568,11 @@ ContextCellEnvelope:
   authority_scope_refs:
     - authority://... | policy://...
   compression_policy_ref: policy://... | null
-  status: open | waiting | handed_off | summarized | closed | revoked
+  current_claim_ref: work-claim://... | null
+  next_wake_condition_ref: policy://... | event://... | null
+  status:
+    open | active | sleeping | waiting | handed_off | summarized |
+    quarantined | closed | revoked
 ```
 
 ## ContextLeaseEnvelope
@@ -3473,10 +4623,13 @@ ContextHandoffEnvelope:
   handoff_kind:
     task_brief | implementation_result | blocker | diff_summary |
     test_result | review_request | verification_result |
-    decision_request | continuation_summary
+    attempt_result | finding | resource_request | capability_offer |
+    frontier_update | verifier_challenge | decision_request |
+    continuation_summary
   payload_ref:
     task_brief://... | implementation_result://... | artifact://... |
-    message://... | null
+    work-result://... | finding://... | resource-offer://... |
+    capability-offer://... | verifier-challenge://... | message://... | null
   context_lease_refs:
     - context_lease://...
   acceptance_refs:
@@ -3488,9 +4641,11 @@ ContextHandoffEnvelope:
 
 ## TaskBriefPayloadEnvelope
 
-Normalized payload for bounded implementation, review, repair, specialist, or
-verification work. The conductor may render this as a prompt for a specific
-harness, but the durable contract is this task brief, not the rendered prompt.
+Normalized payload for bounded implementation, research, review, repair,
+specialist, resource, synthesis, or verification work. The conductor may
+render this as a prompt for a specific harness, but the durable contract is
+this task brief, not the rendered prompt. Software-specific fields are one
+output profile rather than the generic result contract.
 
 ```yaml
 TaskBriefPayloadEnvelope:
@@ -3500,7 +4655,9 @@ TaskBriefPayloadEnvelope:
   objective: string
   objective_class:
     implement | repair | review | verify | inspect | research |
-    refactor | ui_check | release_check | custom
+    reproduce | synthesize | curate | challenge | provide_resource |
+    ontology_change | incident_response | service_delivery |
+    physical_mission | refactor | ui_check | release_check | custom
   scope_refs:
     - project://... | file://... | route://... | surface://... |
       artifact://... | receipt://...
@@ -3517,6 +4674,13 @@ TaskBriefPayloadEnvelope:
   context_lease_refs:
     - context_lease://...
   output_contract:
+    result_profile:
+      software_implementation | research | ontology_mutation |
+      incident_resolution | service_delivery | physical_mission |
+      review | evaluation | custom
+    work_result_required: boolean
+    outcome_delta_required: boolean
+    finding_refs_required: boolean
     changed_files_required: boolean
     diff_summary_required: boolean
     tests_required: boolean
@@ -3548,7 +4712,7 @@ HarnessInvocationEnvelope:
   adapter_rendering_ref: artifact://... | null
   event_refs:
     - harness_event://...
-  result_ref: implementation_result://... | null
+  result_ref: work-result://... | implementation_result://... | null
   receipt_refs:
     - receipt://... | ledger://...
   status:
@@ -3572,7 +4736,10 @@ HarnessAdapterEventEnvelope:
     started | stdout | stderr | thought_summary | tool_proposed |
     tool_started | tool_completed | file_changed | patch_created |
     test_started | test_completed | blocker | decision_request |
-    artifact_created | receipt_emitted | completed | failed
+    artifact_created | attempt_updated | finding_proposed |
+    outcome_delta_proposed | verifier_challenge_proposed |
+    resource_requested | frontier_update_proposed |
+    receipt_emitted | completed | failed
   payload_ref: artifact://... | message://... | null
   normalized_observation_ref: observation://... | null
   receipt_refs:
@@ -3583,9 +4750,12 @@ HarnessAdapterEventEnvelope:
 
 ## ImplementationResultPayloadEnvelope
 
-Normalized result returned from a HarnessInvocation. The conductor consumes this
-object, not a copied chat response. It is intentionally bounded: enough evidence
-to verify, repair, continue, or close; not the implementer's full context.
+Software-implementation profile of `WorkResultEnvelope` returned from a
+HarnessInvocation. The conductor consumes this object, not a copied chat
+response. It is intentionally bounded: enough evidence to verify, repair,
+continue, or close; not the implementer's full context. Research, ontology,
+incident, service, physical-mission, review, and evaluation results use the
+generic WorkResult/OutcomeDelta seam rather than overloading changed files.
 
 ```yaml
 ImplementationResultPayloadEnvelope:
@@ -3593,6 +4763,8 @@ ImplementationResultPayloadEnvelope:
   goal_ref: goal://...
   harness_invocation_ref: harness_invocation://...
   handoff_ref: handoff://...
+  work_result_ref: work-result://... | null
+  attempt_ref: attempt://... | null
   status: completed | failed | blocked | partial | superseded
   changed_file_refs:
     - file://... | artifact://...
@@ -3630,7 +4802,9 @@ VerifierPathEnvelope:
   owner_ref: org://... | system://... | domain://... | null
   applies_to:
     - goal://... | run://... | worker://... | model_route://... |
-      package://... | orchestration_plan://...
+      package://... | orchestration_plan://... | outcome-room://... |
+      attempt://... | finding://...
+  verifier_rule_version_ref: rubric://... | policy://... | gate://...
   verification_kind:
     deterministic | test | static_analysis | browser_evidence |
     model_judge | verifier_worker | human_review | benchmark |
@@ -3644,50 +4818,25 @@ VerifierPathEnvelope:
     none | different_model | different_harness | different_worker |
     human | regulated_party
   replay_required: boolean
-  status: draft | active | satisfied | failed | superseded | revoked
+  challenge_refs:
+    - verifier-challenge://...
+  status:
+    draft | active | challenged | reverifying | satisfied |
+    failed | superseded | revoked
 ```
 
-## OrchestrationDecisionReceiptEnvelope
+## Orchestration Decision Receipt Registration
 
-Records why a coordinator chose a plan shape. It is distinct from
-`RoutingDecisionEnvelope`, which records worker or domain selection under MoW.
-It proves the plan was selected under declared constraints and policy; it does
-not prove the plan is globally optimal or correct.
-
-```yaml
-OrchestrationDecisionReceiptEnvelope:
-  receipt_id: receipt://...
-  receipt_type: orchestration_decision
-  goal_ref: goal://... | task://...
-  conductor_ref: system://... | agent://... | worker://...
-  orchestration_policy_ref: orchestration_policy://...
-  constraint_envelope_ref: constraint://...
-  candidate_plan_refs:
-    - orchestration_plan://...
-  selected_plan_ref: orchestration_plan://...
-  selected_materialization:
-    single_path | verifier_backed_single_path | multi_model_answer |
-    multi_harness_attempt | cross_session_branch_and_merge |
-    marketplace_worker_delegation | foundry_job
-  selected_model_route_refs:
-    - model_route://...
-  selected_harness_refs:
-    - harness_profile:... | agent_harness_adapter:...
-  selected_worker_refs:
-    - worker://... | agent://...
-  selected_verifier_path_refs:
-    - verifier_path://...
-  expected_cost_ref: budget://... | null
-  expected_latency_class: interactive | batch | background | deadline_bound
-  evidence_basis_refs:
-    - benchmark://... | receipt://... | ledger://... | gate://...
-  fallback_policy_ref: policy://... | null
-  reason_codes:
-    - quality | cost | privacy | latency | locality | installed_status |
-      benchmark_result | authority_fit | user_preference | safety
-  receipt_root: hash
-  signature: optional
-```
+The shared object canon owns `OrchestrationConstraintEnvelope`,
+`OrchestrationPolicyEnvelope`, and `OrchestrationPlanEnvelope`. The canonical
+`OrchestrationDecisionReceipt` field schema and receipt-type registration are
+owned solely by
+[`events-receipts-delivery-bundles.md`](../components/daemon-runtime/events-receipts-delivery-bundles.md).
+That receipt records why a coordinator selected a plan under declared
+constraints, policy, candidates, evidence, fallback, and verifier posture. It
+is distinct from `RoutingDecisionEnvelope`, which records Worker/domain/route
+selection, and it does not prove that either decision was globally optimal or
+correct.
 
 ## BenchmarkEnvelope
 
@@ -3714,20 +4863,53 @@ BenchmarkEnvelope:
 
 ## RoutingDecisionEnvelope
 
+`RoutingDecisionEnvelope` is the neutral, replayable selection record. It
+commits not only to the candidate set but also to affiliations, first-party or
+subsidized seed supply, the selected Worker composition and its mounted
+dependencies, every admitted route attempt, fallback/escalation, and verifier
+posture. A selection receipt can attest this decision boundary; it cannot prove
+that the chosen route was globally optimal or independent without the declared
+evidence.
+
 ```yaml
 RoutingDecisionEnvelope:
-  routing_decision_id: route_...
+  routing_decision_id: routing-decision://...
   task_id: task://...
+  goal_and_room_refs:
+    - goal://... | outcome-room://...
   router_id: worker://... | runtime://... | system://... | domain://...
   intent_hash: hash
   candidate_set_commitment: hash
+  candidate_affiliation_commitment: hash
+  candidate_affiliation_and_ownership_evidence_refs:
+    - evidence://... | receipt://... | org://... | provider://...
   routing_policy_hash: hash
   selected_domain_or_worker: system://... | domain://... | worker://... | service://... | runtime://...
+  selected_worker_composition_ref: package://... | ai://... | worker://... | null
+  selected_model_provider_runtime_refs:
+    - model://... | model_route://... | provider://... | runtime://... |
+      node://... | model-route-contract://...
+  attempted_route_refs:
+    - route-attempt://... | route-chain://...
+  actual_attempt_refs:
+    - route-attempt://... | attempt://... | work-result://... | receipt://...
   authority_scope: []
-  cost_bound: optional
-  reason_code: string
-  fallback_policy: optional
-  contribution_policy_ref: optional
+  cost_bound_ref: cost://... | budget://... | quote://... | null
+  reason_codes:
+    - quality | cost | privacy | latency | locality | installed_status |
+      benchmark_result | authority_fit | user_preference | safety |
+      independence | affiliation | seed_supply | fallback_availability
+  fallback_policy_ref: policy://... | null
+  fallback_or_escalation_refs:
+    - route-chain://... | route-attempt://... | decision://... | receipt://...
+  verifier_escalation_refs:
+    - verifier_path://... | verifier-challenge://... | worker://... |
+      decision://... | receipt://...
+  contributor_scope: my_workers | organization | network_open
+  contribution_policy_ref: policy://...
+  seed_supply_and_independence_evidence_refs:
+    - evidence://... | receipt://... | benchmark://... | certification_claim://...
   receipt_obligations: []
+  routing_decision_receipt_ref: receipt://... | null
   signature: optional
 ```

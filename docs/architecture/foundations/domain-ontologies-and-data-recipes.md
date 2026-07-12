@@ -1,24 +1,26 @@
 # Domain Ontologies and Data Recipes
 
 Status: canonical architecture authority.
-Canonical owner: this file for Domain Ontologies, Data Recipes, canonical object models, connector mappings, policy-bound data views, distilled ontology datasets, evaluation datasets, ontology-aware projections, the Ontology Development Kit, ontology-aware surface descriptors, and ontology-to-worker generation.
+Canonical owner: this file for federated Domain Ontologies, semantic assertions and mappings, executable ontology actions, Data Recipes, canonical object models, connector mappings, policy-bound data views, distilled ontology datasets, evaluation datasets, ontology-aware projections, the Ontology Development Kit, ontology-aware surface descriptors, and ontology-to-worker generation.
 Supersedes: product, training, connector, or storage docs when they treat raw files, connector payloads, or ad hoc schemas as sufficient domain truth for Worker Training.
 Superseded by: none.
-Last alignment pass: 2026-06-20.
+Last alignment pass: 2026-07-11.
 Doctrine status: canonical
-Implementation status: partial (ODK draft object plane exists; semantic data plane otherwise planned)
+Implementation status: partial (ODK draft object plane exists; federated semantic negotiation, provenance-bearing assertions, executable ontology actions, and most of the semantic data plane are planned)
 Last implementation audit: 2026-07-05
 
 ## Canonical Definition
 
-**Domain Ontologies and Data Recipes are the semantic data plane for IOI.**
+**Federated Domain Ontologies and Data Recipes are IOI's semantic world plane:
+they make independently governed domains legible to workers without requiring
+one global ontology or one global database.**
 
 They turn source systems, documents, traces, connector outputs, workflow schemas,
 policies, examples, and evaluations into trainable, queryable, receipted domain
 truth.
 
 ```text
-Ontology = what the domain means.
+Ontology = what one governed domain means under a namespaced, versioned contract.
 Data Recipe = how raw sources become ontology-bound runtime, training, and evaluation data.
 Distilled Ontology Dataset = compact, high-signal training/evaluation data derived from ontology-bound source truth.
 Ontology Development Kit = how semantic contracts become repeatable builders, generated surfaces, domain apps, evals, workers, and packages.
@@ -48,6 +50,13 @@ raw sources
 → DistilledOntologyDataset / EvaluationDataset / WorkerTraining / OntologyProjection
 → WorkerManifest, MoW routing, service outcomes
 ```
+
+Local canonicality is the default. An organization or autonomous-system domain
+may canonically define its own objects, actions, assertions, and policies.
+Cross-domain work uses namespaced versions, explicit compatibility ranges,
+crosswalks, mapping decisions, and policy-bound projections. AIIP negotiates
+semantic profiles and carries permitted refs; it does not create a universal
+schema authority or move raw source data by default.
 
 Agentgres stores ontology state, recipe definitions, transformation runs,
 object heads, projection definitions, distilled dataset refs, evaluation
@@ -91,14 +100,20 @@ This layer is not:
 
 | Concept | Role |
 |---|---|
-| `DomainOntology` | Defines domain entities, relationships, events, actions, states, roles, and invariants. |
+| `DomainOntology` | Defines namespaced domain entities, relationships, events, actions, states, roles, invariants, and compatibility policy. |
+| `OntologyVersion` | Immutable version and compatibility/deprecation contract for one ontology namespace or overlay. |
+| `OntologyOverlay` | Local extension or policy-specific view that preserves its base ontology and namespace lineage. |
+| `OntologyCrosswalk` | Explicit mapping between ontology/object/action versions, including loss, ambiguity, scope, and verifier requirements. |
+| `SemanticMappingDecision` | Challengeable, receipted application of a crosswalk or adapter to a concrete handoff, query, object, or action. |
 | `CanonicalObjectModel` | Typed object definitions: IDs, schemas, lifecycle states, constraints, privacy class, authority needs, and projection hints. |
+| `ProvenanceAssertion` | Time-, source-, confidence-, scope-, evidence-, supersession-, and dispute-bearing claim about an ontology-bound property or relationship; admission records the assertion without making it universally true. |
+| `OntologyActionContract` | Executable semantic action binding a target object and typed IO to state pre/postconditions, capabilities, authority, risk, idempotency, compensation, verifier, evidence, receipt, and physical-safety obligations. |
 | `DataRecipe` | Repeatable pipeline from source data, traces, work analytics, tool analytics, feedback, or connector payloads to normalized ontology-bound objects, training datasets, evaluation datasets, or projections. |
 | `ConnectorMapping` | Maps provider fields, events, files, and actions into canonical domain objects and authority scopes. |
 | `WorkflowSchema` | Typed workflow contract: inputs, outputs, node IO, state transitions, evidence requirements, and domain object refs. |
 | `PolicyBoundDataView` | Governed data lens defining who or what may read, train, evaluate, export, publish, or route over a subset of data. |
 | `TransformationRun` | Execution record for extraction, normalization, redaction, dedupe, validation, and mapping. |
-| `TransformationReceipt` | Proof of what transformed, from which source, under which policy, into which object, dataset, or projection. |
+| `TransformationReceipt` | Attestation binding what transformed, from which source, under which policy, into which object, dataset, or projection. |
 | `DistilledOntologyDataset` | Compact high-signal training/evaluation corpus distilled from ontology-bound data, traces, corrections, verifier judgments, and examples while preserving provenance. |
 | `EvaluationDataset` | Golden cases, holdouts, adversarial examples, regressions, rubric bindings, benchmark refs, and provenance commitments. |
 | `OntologyProjection` | Agentgres projection generated from ontology relationships, canonical object models, recipes, and policy-bound views. |
@@ -106,85 +121,148 @@ This layer is not:
 | `OntologyDevelopmentKitManifest` | Builder-kit manifest that packages ontology refs, object models, recipes, connector mappings, policy-bound views, surface descriptors, workflow schemas, eval refs, and conformance expectations for repeatable surface/domain-app/worker construction. |
 | `OntologySurfaceDescriptor` | Object-aware surface descriptor for generated or builder-authored views, editors, graphs, forms, review queues, consoles, dashboards, and domain apps over the ontology. |
 
+These names use three canonical envelope/storage families rather than six
+parallel schemas:
+
+| First-class semantic object | Canonical envelope and Agentgres registration |
+| --- | --- |
+| `DomainOntology` | Aggregate lineage for the `DomainOntologyEnvelope` family. |
+| `OntologyVersion` | Immutable `DomainOntologyEnvelope` with `ontology_record_profile: ontology_version`. |
+| `OntologyOverlay` | `DomainOntologyEnvelope` with `ontology_record_profile: ontology_overlay` and explicit base-version refs. |
+| `ProvenanceAssertion` | `OntologyAssertionEnvelope` / `OntologyAssertion` with `assertion_profile: provenance_assertion`. |
+| `OntologyCrosswalk` | `OntologyMappingEnvelope` / `OntologyMapping` with `mapping_record_profile: ontology_crosswalk`. |
+| `SemanticMappingDecision` | Applied `OntologyMappingEnvelope` / `OntologyMapping` with `mapping_record_profile: semantic_mapping_decision`, target refs, challenge refs, and a decision receipt. |
+
+The shared envelope fields are owned by
+[`common-objects-and-envelopes.md`](./common-objects-and-envelopes.md#domainontologyenvelope).
+Agentgres registers each semantic profile, but it does not persist a second
+profile-specific schema beside the mapped base envelope.
+
 ## Lifecycle
 
-1. **Declare Domain Ontology**
-   A builder, domain owner, service provider, or organization defines the
-   domain entities, relationships, events, roles, states, and invariants.
+1. **Declare A Namespaced Domain Ontology**
+   A builder, domain owner, service provider, or organization defines entities,
+   relationships, events, roles, states, invariants, namespace ownership,
+   version, compatibility range, deprecation policy, and permitted overlays.
 
-2. **Bind Canonical Object Models**
-   The ontology is grounded in typed object models with IDs, schemas,
-   constraints, lifecycle states, privacy classes, authority requirements, and
-   projection hints.
+2. **Bind Canonical Object Models And Assertions**
+   Typed object models declare IDs, schemas, constraints, lifecycle states,
+   privacy classes, authority requirements, and projection hints. Claims about
+   their properties and relationships use provenance-bearing assertions with
+   valid time, transaction time, source and observation context, confidence or
+   uncertainty, supporting and contradicting evidence, applicability, causal or
+   counterfactual context when relevant, supersession, and dispute state.
 
-3. **Map Connectors**
-   ConnectorMappings bind external fields, files, events, and actions to
-   canonical objects. A Gmail thread, CRM opportunity, GitHub issue, PDF plan,
-   spreadsheet row, or CAD export should not become domain truth until it maps
-   through an explicit connector mapping.
+3. **Bind Executable Action Contracts**
+   Consequential ontology actions compile into `OntologyActionContract`
+   definitions. The action contract binds target objects and typed inputs/
+   outputs to preconditions, postconditions, invariants, expected transitions,
+   runtime/tool/automation capabilities, risk, local policy, `prim:*` and
+   `scope:*` requirements, approvals, revocation, dry-run, idempotency, retry,
+   effect recovery class (`replayable`, `checkpointable`, `compensatable`,
+   `reconciliation_required`, or `non_retryable`), ambiguous-effect
+   reconciliation, compensation, verification, evidence, receipts, and
+   physical-safety profiles where applicable.
 
-4. **Authorize Policy-Bound Views**
-   Hypervisor, ODK, Domain Apps, org governance, or
-   Agentgres-backed project policy define the PolicyBoundDataView that
-   specifies which data may be read, transformed, used for training, used for
-   distillation, used for evaluation, exported, published, or retained.
-   wallet.network supplies authority refs only when the view requires
-   delegated power such as decryption, connector access, external provider
-   credentials, model-provider keys, spend, provider-trust acceptance,
-   publication, export, or cross-domain reuse.
-   Sensitive traces, connector outputs, documents, or feedback must then bind a
-   `TrainingEvidenceEligibility` record before Foundry may use them as
-   training, distillation, evaluation, benchmark, simulation, or conductor
-   material. A policy-bound view is necessary but not sufficient for training
-   use; eligibility records admit or exclude the evidence for the stated
-   purpose.
+4. **Map Sources And Connectors**
+   `ConnectorMapping` binds external fields, files, events, and actions to
+   canonical objects. A mail thread, CRM opportunity, GitHub issue, PDF plan,
+   spreadsheet row, CAD export, or provider event remains source material until
+   an explicit mapping and DataRecipe admit its semantic projection.
 
-5. **Run Data Recipe**
-   A DataRecipe extracts, redacts, normalizes, dedupes, validates, links, and
-   maps raw sources into ontology-bound objects, datasets, or projections.
+5. **Declare Crosswalks And Negotiate Semantic Profiles**
+   Cross-domain handoffs declare input/output ontology and action-schema
+   profiles. Explicit crosswalks or semantic adapters resolve compatible
+   versions, local overlays, unmapped fields, lossy conversions, ambiguity, and
+   verifier obligations. Each applied mapping emits a challengeable mapping
+   decision; silent field equivalence is forbidden.
 
-6. **Record Transformation Receipts**
-   Each TransformationRun emits receipts that bind inputs, outputs, recipe
-   version, ontology refs, policy hash, authority grants, source refs, and
-   artifact refs.
+6. **Authorize Policy-Bound Views**
+   Hypervisor, ODK, Domain Apps, organization governance, or Agentgres-backed
+   project policy define which data may be read, transformed, queried across a
+   federation, trained on, distilled, evaluated, exported, published, or
+   retained. wallet.network supplies authority refs when delegated decryption,
+   connector/provider credentials, external accounts, spend, provider-trust
+   acceptance, publication, export, or cross-domain reuse is required.
+   Sensitive evidence also needs `TrainingEvidenceEligibility` before Foundry
+   may use it for training, distillation, evaluation, benchmarking, simulation,
+   or conductor material; a permitted view alone is not training consent.
 
-7. **Distill Ontology-Bound Signal**
-   Data recipes, verifier workers, teacher workers, deterministic gates, and
-   human reviewers may distill ontology-bound source truth into compact
-   high-signal datasets for training and evaluation. Distillation may compress
-   raw source volume, but it must not erase provenance: distilled datasets bind
-   source commitments, recipe versions, policy-bound data view refs,
-   transformation receipts, teacher/verifier refs when used, and rubric or
-   benchmark bindings.
+7. **Run Data Recipes**
+   A recipe extracts, redacts, normalizes, deduplicates, validates, links, and
+   maps raw sources into ontology-bound objects, assertions, datasets, or
+   projections. Progressive adoption is canonical: a domain may start with the
+   minimal object/action contracts around consequential boundaries and infer
+   candidate schema from real work rather than model its entire world first.
 
-8. **Build Evaluation Datasets**
-   Golden cases, holdouts, adversarial cases, failure regressions, and rubric
-   bindings are generated or curated from ontology-bound data. Evaluation
-   datasets are not just folders of examples; they are receipted benchmark
-   inputs with domain meaning.
+8. **Record Transformation And Mapping Receipts**
+   Each transformation binds inputs, outputs, recipe and ontology versions,
+   policy hash, authority grants, source refs, artifact refs, and any semantic
+   mapping decision. A receipt attests those boundary facts; it does not by
+   itself make the transformed assertion universally correct.
 
-9. **Generate Ontology Projections**
-   Agentgres projections can be generated from ontology relationships and
-   canonical object models. Query and UI surfaces should read from these
-   projections with visible freshness, policy, and source watermarks.
+9. **Distill Ontology-Bound Signal**
+   Recipes, verifier workers, teacher workers, deterministic gates, and human
+   reviewers may produce compact examples, counterexamples, verifier
+   assertions, tool traces, object transitions, rubric judgments, and failure
+   regressions. Compression must preserve source commitments, recipe versions,
+   policy-bound views, transformation receipts, teacher/verifier refs, and
+   rubric or benchmark bindings.
 
-10. **Compile ODK Surface And Package Descriptors**
-    The Ontology Development Kit compiles ontology refs, object models, data
-    recipes, connector mappings, policy-bound data views, projections, workflow
-    schemas, authority requirements, receipt obligations, and conformance checks
-    into reusable descriptors. These descriptors may scaffold object views,
-    editors, graphs, forms, dashboards, operator consoles, domain apps, eval
-    packs, worker/package manifests, or marketplace-ready ontology packs.
+10. **Build Evaluation Datasets**
+    Golden cases, holdouts, adversarial cases, failure regressions, and rubric
+    bindings become receipted benchmark inputs with domain meaning rather than
+    ungoverned folders of examples.
 
-11. **Create Ontology-to-Worker Plan**
-   The ontology, data recipes, workflow schemas, policy-bound data views,
-   distilled datasets, tools, evals, benchmarks, and routing category combine
-   into a plan for Worker Training or worker/package generation.
+11. **Generate Ontology Projections**
+    Agentgres projections are derived from ontology relationships, assertions,
+    object models, crosswalks, recipes, and policy-bound views. Query and UI
+    surfaces expose freshness, ontology/recipe version, policy, source
+    watermark, mapping posture, and unresolved disagreement.
 
-12. **Train, Benchmark, Publish, and Route**
-    Hypervisor Foundry, daemon jobs, or sas.xyz training engagements use the
-    plan to produce a WorkerManifest, policy envelope, lineage refs,
-    evaluation receipts, benchmark receipts, and MoW routing metadata.
+12. **Compile ODK Surface And Package Descriptors**
+    ODK compiles semantic refs, object/action models, recipes, connector
+    mappings, policy-bound views, projections, workflow schemas, authority and
+    receipt obligations, and conformance checks into reusable object views,
+    editors, graphs, forms, review queues, dashboards, consoles, domain apps,
+    eval packs, worker/package manifests, and marketplace-ready ontology packs.
+
+13. **Propose And Govern Evolution**
+    Observed gaps and candidate schemas become versioned proposals. Compatibility
+    tests, replay, affected-view analysis, policy review, and mapping challenges
+    precede promotion. Changes never silently rewrite historical semantics.
+
+14. **Create Ontology-To-Worker Plans**
+    Ontologies, action contracts, recipes, workflow schemas, policy-bound views,
+    distilled datasets, tools, evals, benchmarks, and routing categories combine
+    into a plan for Worker Training or worker/package generation.
+
+15. **Train, Benchmark, Publish, And Route**
+    Hypervisor Foundry, daemon jobs, or sas.xyz training engagements produce a
+    `WorkerManifest`, policy envelope, lineage refs, evaluation and benchmark
+    receipts, and MoW routing metadata. Publication and routing still require
+    their owning admission, authority, marketplace, and settlement paths.
+
+## Federated Semantic World Plane
+
+Federation means sovereign definitions with explicit interoperation, not one
+network-owned knowledge graph. Each domain keeps canonical local objects,
+assertions, action contracts, and private context. Other domains receive only
+authorized projections, proofs, summaries, derived objects, or query results.
+
+An ontology-bound `OutcomeRoom` may use a shared collaboration schema for
+objectives, frontier items, claim leases, hypotheses, attempts, findings,
+artifacts, evaluations, verifier challenges, resource leases, contribution
+claims, and decisions. The room schema remains namespaced and versioned. The
+declared hosted or federated admission policy decides which room updates become
+shared-room state; no room turns local Agentgres domains into one mutable graph.
+
+Operational truth and semantic belief remain distinct. Agentgres can
+canonically record that a domain admitted an assertion, observation, mapping,
+or decision. That records who asserted what, when, under which evidence and
+policy; it does not make the proposition universally true. Contradiction,
+uncertainty, applicability, supersession, and dispute are therefore first-class
+semantic state rather than exceptions hidden in narrative text.
 
 ## Product and Domain Roles
 
@@ -215,6 +293,9 @@ domain ontologies
 canonical object models
 objects, actions, events, states, roles, and invariants
 ontology projections
+ontology namespaces, versions, overlays, crosswalks, and mapping challenges
+provenance assertions, uncertainty, contradictions, supersession, and disputes
+ontology action contracts, previews, state transitions, compensation, and verifier bindings
 schema health
 used-by relationships across workers, automations, connectors, and apps
 ```
@@ -276,6 +357,13 @@ ioi.ai may coordinate cross-device restore, publishing, remote-runtime
 entitlement, and archive references for ontology packs and recipe outputs, but
 it should not become the canonical data warehouse.
 
+ioi.ai Goal Spaces and Hypervisor Missions may project an ontology-bound
+OutcomeRoom over this layer. They may render frontier objects, findings,
+evidence, mappings, and action previews, but shared-room admission remains with
+the declared governed host or federation policy; execution remains with the
+daemon; authority remains with local/domain governance and portable authority
+providers; operational truth remains with each Agentgres domain.
+
 ## Example: Construction Estimating
 
 A construction estimating worker should not train on "PDFs and quotes" as
@@ -308,8 +396,14 @@ status, and policy-bound visibility.
 Agentgres owns the canonical state of:
 
 ```text
-DomainOntology
+DomainOntology aggregate and envelope family
+OntologyVersion profile of DomainOntology
+OntologyOverlay profile of DomainOntology
+OntologyCrosswalk profile of OntologyMapping
+SemanticMappingDecision profile of OntologyMapping
 CanonicalObjectModel
+ProvenanceAssertion profile of OntologyAssertion
+OntologyActionContract
 DataRecipe
 ConnectorMapping
 PolicyBoundDataView
@@ -334,6 +428,22 @@ Policy-bound data access is mandatory.
 Training, evaluation, export, publication, connector mapping, and recipe
 execution must bind to authority grants when they touch private, customer,
 regulated, licensed, or organization-owned data.
+
+Policy composition must be deterministic and inspectable: precedence,
+intersection, conflicts, exceptions, continuous obligations, and the selected
+decision path remain receipted. Revoking source or training eligibility must
+propagate through an impact graph covering derived views, distilled/evaluation
+datasets, caches, models, workers, packages, releases, and exports. The owning
+policy then blocks future use, rotates access, recalls affected artifacts, or
+requires re-evaluation; a prior transformation receipt is not perpetual
+permission.
+
+Ontology semantics never grant execution power. An `OntologyActionContract`
+describes a typed action and its requirements; the daemon still performs
+admission, local/domain governance still applies, and wallet.network supplies
+portable delegated or high-risk authority where required. An action contract
+that can affect the physical world must bind the Physical Action Safety profile
+before any actuator command is eligible.
 
 ```text
 training improves capability
@@ -380,9 +490,27 @@ trained on, published, or challenged.
    authority requirements, daemon/API dependencies, receipt obligations, and
    conformance expectations before it becomes durable product inventory.
 11. The semantic data plane connects Worker Training to the IOI stack; it does
-   not replace compute markets, Agentgres, wallet.network, storage backends,
-   MoW, service composition, settlement, or disputes.
+    not replace compute markets, Agentgres, wallet.network, storage backends,
+    MoW, service composition, settlement, or disputes.
+12. No network-wide ontology, crosswalk, or room schema may silently override a
+    domain's canonical local ontology. Namespace, version, compatibility, and
+    mapping posture must remain explicit.
+13. No admitted assertion may be presented as universal truth merely because it
+    is canonical operational state in one domain. Provenance, time,
+    uncertainty, contradiction, applicability, supersession, and dispute must
+    survive projection.
+14. No consequential ontology action may remain an untyped action-name array.
+    It must bind typed IO, state-transition semantics, capability, authority,
+    risk, idempotency, ambiguous-effect and compensation behavior, verification,
+    evidence, and receipt obligations.
+15. No ontology program may require exhaustive enterprise modeling before
+    useful work begins. Minimal consequential object/action contracts and
+    governed evolution from observed work are first-class.
 
 ## One-Line Doctrine
 
-> **Domain Ontologies say what the work means; Data Recipes prove how source data became trainable, evaluable, queryable worker truth; the Ontology Development Kit turns those contracts into repeatable surfaces, domain apps, evals, workers, and packages without owning truth.**
+> **Federated Domain Ontologies say what work and action mean locally and how
+> meanings map across sovereign domains; Data Recipes attest how source data
+> became ontology-bound runtime, training, evaluation, and query material; ODK
+> turns those contracts into repeatable surfaces, domain apps, evals, workers,
+> and packages without owning truth, authority, or execution.**

@@ -3,7 +3,7 @@
 Status: implementation master guide.
 Canonical intent: resolve the current Hypervisor daemon and Rust/WASM kernel/workload split brain without introducing a new runtime beside the daemon.
 Primary owner candidate: architecture meta until promoted into component canon.
-Last alignment pass: 2026-06-16.
+Last alignment pass: 2026-07-11.
 Doctrine status: canonical
 Implementation status: partial (migration in flight; route-family state in the migration matrix)
 Implementation refs:
@@ -74,11 +74,13 @@ Rewrite Hypervisor from scratch in Rust.
 It is:
 
 ```text
-Keep the Hypervisor Daemon as the product/control authority boundary.
+Keep the Hypervisor Daemon as the product/control admission, enforcement, and
+effect-execution boundary under applicable policy and authority.
 Route consequential daemon steps through the existing Rust/WASM
 kernel/workload substrate as the authoritative step/module execution backend.
 Record admitted truth in Agentgres.
-Authorize through wallet.network.
+Authorize through local/domain governance and the applicable authority provider;
+use wallet.network for portable delegation and designated high-risk effects.
 Project the same graph into Hypervisor Workbench, App/Web clients, and
 CLI/headless projections; TUI remains an optional presentation over the
 CLI/headless client.
@@ -94,8 +96,9 @@ Workflow Compositor shapes directed work.
 Selected HarnessProfiles resolve scoped steps.
 Default Harness Profile is reference/fallback.
 Rust/WASM workload/kernel executes admitted step modules.
-Agentgres admits and proves operational truth.
-wallet.network authorizes.
+Agentgres records admitted domain operational truth and state roots.
+Applicable local/domain policy and authority providers authorize;
+wallet.network is mandatory for portable delegation and designated high-risk effects.
 Hypervisor Core coordinates clients, application surfaces, sessions, and adapters.
 Hypervisor Workbench composes and inspects the same graph.
 ```
@@ -106,7 +109,7 @@ target. It should prevent two common mistakes:
 1. Treating the existing Rust/WASM substrate as irrelevant because the live
    product daemon is Node/JS.
 2. Treating the Rust/WASM substrate as a peer runtime that replaces daemon
-   authority instead of sitting underneath it.
+   admission, enforcement, and execution instead of sitting underneath them.
 
 ### End state in one diagram
 
@@ -116,7 +119,7 @@ Hypervisor App / Hypervisor Web / CLI / SDK
         |
         v
 Hypervisor Daemon
-  execution owner, authority/effect boundary
+  admission, enforcement, and effect-execution boundary under applicable authority
         |
         v
 Workflow Compositor
@@ -140,14 +143,14 @@ StepModuleRouter
         |
         v
 Agentgres + receipts + artifact refs + state roots
-  admitted operational truth and replay/restore authority
+  admitted domain operational truth and replay/restore record ownership
 ```
 
 ### Five invariants
 
 | Invariant | Meaning |
 | --- | --- |
-| One execution owner | Hypervisor Daemon owns execution semantics and effect boundaries. |
+| One execution owner | Hypervisor Daemon owns admission, enforcement, and execution semantics after applicable authorization. |
 | One directed-work surface | Workflow Compositor owns high-level workflow/service graph shape and step contracts. |
 | One step-resolution contract | HarnessProfiles resolve scoped steps under daemon gates; Default Harness Profile is the reference/fallback. |
 | One step/module contract | Every serious step is represented as a `StepModuleInvocation` and result. |
@@ -159,7 +162,7 @@ Agentgres + receipts + artifact refs + state roots
 | Layer | User sees | Implementer builds | Canon boundary |
 | --- | --- | --- | --- |
 | Product surface | Workbench/App/Web/CLI/SDK workflow | workflow graph, approvals, replay, package UX | product requests and inspection only |
-| Daemon authority | a run that can act safely | gates, leases, StepModuleRouter, cTEE checks | execution semantics live here |
+| Daemon admission and execution | a run that can act safely | gates, leases, StepModuleRouter, cTEE checks | applicable policy/authority authorizes; execution semantics live here |
 | Workflow Compositor | directed workflow/service graph | step contracts, dependencies, review points, selection hints | high-level graph shape, not execution truth |
 | Harness profile | scoped autonomous step | ActionProposal -> GateResult -> module execution -> observation | selected HarnessProfile resolves a step; DHP is reference/fallback |
 | Execution backend | tool/model/worker/service progress | Rust/WASM service modules, workload jobs, model mounts, verifiers | backend executes admitted steps |
@@ -3320,7 +3323,8 @@ Hypervisor App / Hypervisor Web / CLI / SDK
   compose, inspect, approve, replay, package, and govern work
 
 Hypervisor Daemon
-  execution owner, authority/effect boundary, local product control plane;
+  admission, enforcement, and effect-execution owner under applicable authority;
+  local product control plane;
   implementation may begin as Node/JS facade, but mature daemon core should
   consolidate in Rust once the ABI and workload bridge prove parity
 
@@ -3362,7 +3366,7 @@ IOI L1 / compatible app chains
 | Responsibility | Authoritative owner | Notes |
 | --- | --- | --- |
 | User/operator UX | Hypervisor App / Web / CLI / SDK and Workbench surfaces | Requests, displays, composes, steers, inspects. Does not own execution semantics. |
-| Execution semantics | Hypervisor Daemon | The daemon decides what can cross an effect boundary. |
+| Execution semantics | Hypervisor Daemon | The daemon admits or rejects proposed effect transitions under active policy and valid wallet.network grants; it does not originate authority. |
 | Directed-work surface | Workflow Compositor | Shapes high-level workflow/service graphs, dependencies, review points, and step contracts. |
 | Step-resolution profile | Selected HarnessProfile | Resolves scoped steps under daemon ownership; Default Harness Profile is reference/fallback. |
 | Step/module execution backend | Rust/WASM workload/kernel substrate | Authoritative backend for admitted module execution after migration. |
@@ -3394,8 +3398,9 @@ Rust/WASM runtime
 Both independently decide authority and state truth
 ```
 
-The daemon owns the authority/effect boundary. The Rust/WASM substrate executes
-admitted module work and returns receipt-bound results.
+The applicable policy and authority provider authorize effects. The daemon owns
+the admission, enforcement, and execution boundary; the Rust/WASM substrate
+executes admitted module work and returns receipt-bound results.
 
 ### Rust core end state
 

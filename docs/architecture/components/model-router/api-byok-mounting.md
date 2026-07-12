@@ -1,17 +1,24 @@
 # Model Router API, BYOK, and Mounting
 
 Status: canonical low-level reference.
-Canonical owner: this file for model provider, endpoint, route, invocation, BYOK, and run-to-idle API shapes.
+Canonical owner: this file for model provider, endpoint, route-rights contract,
+invocation, BYOK/BYOA, and run-to-idle API shapes.
 Supersedes: overlapping model-router API examples in plans/specs when route or invocation fields conflict.
 Superseded by: none.
-Last alignment pass: 2026-05-24.
+Last alignment pass: 2026-07-11.
 Doctrine status: reference
-Implementation status: partial (route/mount APIs live)
+Implementation status: partial (route registry and local Ollama mount/binding
+live; sealed BYOK and multi-transport session execution unimplemented; only
+active/available Ollama routes currently bind for execution)
 Last implementation audit: 2026-07-05
 
 ## Purpose
 
-The model router lets workflows, workers, and agents call models through primitive runtime capabilities, wallet authority scopes, and policy, not hardcoded providers. It supports foundational APIs, BYOK, local model mounting, run-to-idle serving, and future resource marketplaces.
+The model router lets workflows, workers, and agents call models through
+primitive runtime capabilities, wallet authority scopes, versioned route-rights
+contracts, and policy, not hardcoded providers. It supports foundation APIs,
+dedicated endpoints, BYOK/BYOA, replaceable aggregators, local model mounting,
+run-to-idle serving, and future resource marketplaces.
 
 The router and invocation contract are part of the runtime/node API. Model
 weights and model servers are deployment-profile resources. A node profile may
@@ -21,6 +28,11 @@ assume model weights are embedded in the node binary unless that is explicitly
 declared.
 
 ## API Surface
+
+This is the committed target contract. The live implementation currently
+provides route registry/probe plus local Ollama binding; route-contract, quote,
+sealed-BYOK, aggregator, direct-provider, and multi-transport execution paths
+remain planned unless the daemon route registry reports them live.
 
 ```http
 GET  /v1/models/providers
@@ -32,6 +44,9 @@ DELETE /v1/models/endpoints/{endpoint_id}
 POST /v1/models/endpoints/{endpoint_id}/healthcheck
 GET  /v1/models/routes
 POST /v1/models/routes
+GET  /v1/models/route-contracts
+POST /v1/models/route-contracts
+POST /v1/models/quote
 POST /v1/models/invoke
 GET  /v1/models/invocations/{invocation_id}
 GET  /v1/models/receipts/{receipt_id}
@@ -42,13 +57,13 @@ GET  /v1/models/receipts/{receipt_id}
 ```json
 {
   "endpoint_id": "model_endpoint_local_qwen",
-  "provider": "lmstudio | ollama | openai | anthropic | gemini | vllm | custom_http | depin_pool",
-  "mount_mode": "bundled_weights | local_file | local_server | external_api | hosted_pool | tee_session | depin_session | customer_vpc",
+  "provider": "lmstudio | ollama | openai | anthropic | gemini | openrouter | vllm | custom_http | depin_pool",
+  "mount_mode": "bundled_weights | local_file | local_server | external_api | aggregator_api | dedicated_endpoint | hosted_pool | tee_session | depin_session | customer_vpc",
   "deployment_profile_ref": "profile://local-private-qwen",
   "model_artifact_ref": "optional cid://... | artifact://... | file://...",
   "base_url": "http://localhost:1234/v1",
   "api_format": "openai_compatible | anthropic | custom",
-  "auth_mode": "none | byok | wallet_brokered | service_account",
+  "auth_mode": "none | byok | byoa | wallet_brokered | service_account",
   "key_ref": "wallet://secret/openai_optional",
   "models": [
     {
@@ -68,7 +83,9 @@ GET  /v1/models/receipts/{receipt_id}
       "structured_output": true
     }
   ],
-  "privacy_class": "local | external_api | tenant_private | tee_private",
+  "execution_privacy_posture": "local | external_api | tenant_private | tee_private | regulated",
+  "commercial_posture": "direct | aggregator | customer_byok | customer_byoa | self_hosted",
+  "route_contract_ref": "model-route-contract://...",
   "run_to_idle": {
     "enabled": true,
     "idle_timeout_seconds": 300,
@@ -84,14 +101,55 @@ GET  /v1/models/receipts/{receipt_id}
   "route_id": "planner_high",
   "role": "planner | executor | verifier | summarizer | code | vision | embedding",
   "selection_policy": {
+    "goal_execution_policy": "auto | pinned | compare",
     "preferred_profiles": ["reasoning_high", "local_private"],
     "allowed_architecture_profiles": ["dense_transformer", "hybrid_attention_state"],
     "required_context_mutability": "none | external_context_only | adapter_promoted | package_revision | any",
     "max_cost_usd": 2,
     "privacy_constraints": ["no_external_api_for_private_data"],
-    "fallback_allowed": true
+    "fallback_allowed": true,
+    "provider_allowlist": ["provider://..."],
+    "data_collection": "allow | deny",
+    "zdr_required": false,
+    "max_price_ref": "price-schedule://...",
+    "required_parameters": ["tools", "structured_output"]
   },
-  "candidates": ["model_endpoint_openai", "model_endpoint_local_qwen"]
+  "candidates": ["model_endpoint_openai", "model_endpoint_local_qwen"],
+  "route_contract_refs": ["model-route-contract://..."]
+}
+```
+
+Every candidate referenced by a route resolves a contract such as:
+
+```json
+{
+  "contract_id": "model-route-contract://...",
+  "contract_version": "semver-or-hash",
+  "contract_hash": "sha256:...",
+  "admitted_policy_hash": "sha256:...",
+  "valid_from": "timestamp",
+  "valid_until": "timestamp | null",
+  "commercial_posture": "direct | aggregator | customer_byok | customer_byoa | self_hosted",
+  "access_mode": "named_human_seat | api | dedicated_endpoint | self_hosted",
+  "customer_facing_allowed": true,
+  "reseller_oem_authorized": "true | false | not_required",
+  "automation_right": "interactive_only | unattended_allowed | negotiated",
+  "downstream_right": "internal_only | customer_application | reseller_oem",
+  "credential_principal": "named_human | service_account | customer_owned",
+  "provider_terms_version_ref": "terms://...",
+  "model_terms_version_ref": "terms://...",
+  "endpoint_ref": "endpoint://...",
+  "model_version_ref": "model://...",
+  "provider_allowlist": ["provider://..."],
+  "data_collection": "allow | deny",
+  "zdr_required": false,
+  "retention_policy_ref": "policy://...",
+  "region_ref": "region://...",
+  "fallback_classes": ["same_model_same_posture"],
+  "max_price_ref": "price-schedule://...",
+  "required_parameters": ["tools"],
+  "output_training_right": "prohibited | noncompeting_only | expressly_licensed | open_license",
+  "status": "active | quarantined | expired | superseded | revoked"
 }
 ```
 
@@ -107,6 +165,7 @@ point to one or more `ModelRoute` objects, but it is not itself the router.
   "reasoning_effort": "low | medium | high | extra_high",
   "service_tier": "standard | fast",
   "route_policy_ref": "model-route-policy://...",
+  "goal_execution_policy": "auto | pinned | compare",
   "primary_route_id": "planner_high",
   "fallback_route_ids": ["planner_medium"],
   "custody_profile_ref": "model_weight_custody://...",
@@ -125,18 +184,25 @@ receipt refs.
 ```json
 {
   "route_id": "planner_high",
+  "goal_execution_policy": "auto | pinned | compare",
+  "route_contract_ref": "model-route-contract://...",
   "input": {
     "messages": []
   },
   "task_context": {
     "task_id": "task_123",
     "privacy_class": "internal",
-    "risk_class": "low"
+    "risk_class": "external_message"
   },
   "authority_grant_id": "grant_model_123",
   "primitive_capability": "prim:model.invoke",
   "authority_scope": "scope:model.invoke.external",
-  "receipt_mode": "hash_only | full_redacted | full_private"
+  "receipt_mode": "hash_only | full_redacted | full_private",
+  "budget": {
+    "max_work_credits": 10,
+    "max_supplier_cost": 2,
+    "fallback_requires_requote": true
+  }
 }
 ```
 
@@ -144,11 +210,25 @@ Response:
 
 ```json
 {
-  "invocation_id": "modelinv_123",
-  "selected_endpoint": "model_endpoint_openai",
-  "selected_model": "gpt-x",
+  "invocation_id": "invocation://model-123",
+  "selected_endpoint": "endpoint://openai",
+  "selected_model": "model://gpt-x",
+  "selected_route_contract_ref": "model-route-contract://...",
+  "selected_or_compared_route_refs": ["model_route://planner_high"],
   "output": {},
-  "receipt_id": "receipt_model_123",
+  "comparison_or_synthesis_ref": "verifier_path://... | artifact://... | null",
+  "verifier_refs": ["verifier_path://..."],
+  "receipt_id": "receipt://model_123",
+  "attempts": [
+    {
+      "endpoint_ref": "endpoint://openai",
+      "model_ref": "model://...",
+      "status": "succeeded | failed | rejected | escalated",
+      "supplier_billed": true,
+      "cost_ref": "cost://...",
+      "receipt_ref": "receipt://..."
+    }
+  ],
   "routing_explanation": {
     "selected_reason": "reasoning profile required; privacy allowed external BYOK",
     "rejected_candidates": []
@@ -166,6 +246,13 @@ cold → warming → ready → busy → draining → idle → sleeping
 
 BYOK keys are stored in wallet.network. Runtimes receive brokered authority grants or short-lived operation-scoped tokens, never raw long-lived provider keys by default.
 
+BYOA named-user credentials remain user-scoped, interactive-only unless the
+provider contract says otherwise, and never enter IOI managed-worker inventory.
+Direct, aggregator, dedicated, customer, and self-hosted routes all retain their
+own commercial-rights and data-policy contracts. An aggregator such as
+OpenRouter is a replaceable procurement/routing adapter, not the sole inference
+authority or a reason to erase upstream provider/model terms.
+
 ## Non-Negotiables
 
 1. Workflow/model nodes call model routes, not hardcoded providers.
@@ -177,3 +264,14 @@ BYOK keys are stored in wallet.network. Runtimes receive brokered authority gran
    default.
 7. Node binaries own router and invocation contracts, not implicit model
    possession.
+8. Named-user chat/workspace subscriptions must not be pooled, shared,
+   browser-automated, or resold as managed machine capacity.
+9. Unattended and customer-facing calls fail closed unless route contracts
+   permit their access, automation, downstream, data, region, and commercial
+   posture.
+10. `Auto`, `Pinned`, and `Compare` preserve candidate, attempt, verifier,
+    fallback, provider/model, supplier-billed, and cost lineage.
+11. Provider/model fallback is a semantic substitution and must remain inside
+    the admitted route contract and applicable verification path.
+12. Strict `Private` routes do not treat aggregator ZDR alone as
+    no-provider-trust execution.

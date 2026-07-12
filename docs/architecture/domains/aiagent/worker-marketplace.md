@@ -4,7 +4,7 @@ Status: canonical architecture authority.
 Canonical owner: this file for aiagent.xyz marketplace doctrine; low-level worker endpoints live in [`aiagent-xyz-worker-and-inter-agent-endpoints.md`](./worker-endpoints.md).
 Supersedes: overlapping worker-marketplace plan prose when marketplace boundaries conflict.
 Superseded by: none.
-Last alignment pass: 2026-06-29.
+Last alignment pass: 2026-07-11.
 Doctrine status: canonical
 Implementation status: partial (draft object plane only: listings/candidates/reviews/offers; NO payments, hire/install runtime, or settlement)
 Implementation refs:
@@ -44,9 +44,11 @@ managed-instance market for workers: users may run a worker directly, route a
 task through MoW, initialize a persistent web-accessible instance, call a worker
 by API, install it locally, or compose it into workflows. MoW is IOI's
 receipt-backed labor-routing architecture, not an `ioi.ai` private router.
-`ioi.ai` may coordinate account, entitlement, restore, and runtime discovery
-for a marketplace invocation, but aiagent.xyz owns the worker-market records and
-runtime nodes execute the work.
+`ioi.ai` may conduct a Goal Space, select marketplace participation under MoW,
+coordinate account/entitlement and the user-visible outcome, and summarize
+contributions, but aiagent.xyz owns worker-market records, Hypervisor runtime
+nodes execute, authority providers authorize, and Agentgres domains record
+admitted work.
 
 For persistent background agents, aiagent.xyz is also the managed-worker
 cockpit: it owns install state, subscription/entitlement state, web console
@@ -807,6 +809,23 @@ Required rules:
 7. Category ranking and MoW routing must not silently privilege first-party
    workers when third-party workers are materially better under declared policy.
 
+IOI may operate a first-party seed fleet to solve cold start, provide baseline
+quality, last-resort capacity, conformance fixtures, and initial Goal Space
+liquidity. Those planner/researcher, builder, verifier, critic, synthesizer, and
+benchmark compositions must be ordinary named/versioned Worker packages under
+the same authority, isolation, benchmark, receipt, contribution, and routing
+contracts as external workers. The fleet must disclose IOI ownership, subsidy,
+model/harness/runtime/provider dependencies, and actual cost; receive no hidden
+ranking preference; and remain replaceable or outperformable without changing
+the pursuit contract.
+
+The seed fleet is one party when IOI controls its authority, truth, verifier,
+risk, and settlement, even if it uses many models, accounts, nodes, providers,
+or clouds. It must not be presented as independent multi-party verification or
+as evidence that an open network exists. IOI must not simultaneously be the
+hidden coordinator, preferred paid worker, sole verifier, ranking authority,
+and final settlement judge for one outcome.
+
 ioi.ai, Hypervisor Automations, Foundry, Workbench, and custom coordinators may
 route to aiagent.xyz workers when a marketplace worker is materially useful. The
 worker's package, managed instance, routing basis, license, and contribution
@@ -845,6 +864,8 @@ the service-outcome marketplace
 a required dependency for every service package
 a place to silently absorb private worker internals
 a ranking surface that can privilege first-party workers by fiat
+a first-party seed fleet presented as independent network supply or verification
+a pool of shared/browser-automated/resold foundation-model workspace seats
 a place that owns cTEE or receives protected plaintext because a user rented a GPU node
 a model zoo that ranks raw checkpoints as autonomous workers without harness,
 runtime, policy, authority, receipt, and benchmark context

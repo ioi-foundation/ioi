@@ -6,7 +6,7 @@ Supersedes: hosted/DePIN privacy wording that implies a rented GPU node can
 safely receive plaintext secrets merely because it runs a daemon, container,
 VM, benchmarked image, or boot-measured image.
 Superseded by: none.
-Last alignment pass: 2026-06-01.
+Last alignment pass: 2026-07-11.
 Doctrine status: canonical
 Implementation status: speculative (cTEE/CLPD design; no cTEE implementation)
 Last implementation audit: 2026-07-05
@@ -1080,7 +1080,8 @@ normal-speed remote inference over public/generic context
 normal file/folder UX in the user's authority view
 private workspace persistence through encrypted refs
 private agency through CLPD, AlphaSeal, guardian, wallet policy, or private ops
-receipts proving the node received no protected plaintext classes
+receipts and custody attestations binding the claim that no protected plaintext
+classes were admitted to the node
 ```
 
 What it does not give:

@@ -1,17 +1,20 @@
 # Marketplace Neutrality and Contribution Accounting Specification
 
 Status: canonical architecture authority.
-Canonical owner: this file for marketplace neutrality, contribution accounting, and anti-cannibalization doctrine.
+Canonical owner: this file for marketplace neutrality, first-party seed-supply neutrality, contribution and derivation accounting, assurance-state attribution, and anti-cannibalization doctrine.
 Supersedes: overlapping plan prose when marketplace neutrality or attribution conflicts.
 Superseded by: none.
-Last alignment pass: 2026-05-30.
+Last alignment pass: 2026-07-11.
 Doctrine status: canonical
-Implementation status: planned (neutrality covenant; contribution receipts not implemented)
+Implementation status: planned (neutrality covenant; routing, affiliation, contribution, assurance, challenge, and settlement receipts not implemented)
 Last implementation audit: 2026-07-05
 
 ## Canonical Definition
 
-**Marketplace neutrality, MoW router neutrality, and contribution accounting are the economic layer that prevents the Default Harness Profile or first-party marketplace from cannibalizing worker, training, benchmark, and service markets.**
+**Marketplace neutrality, MoW router neutrality, and assurance-aware
+contribution accounting prevent the Default Harness Profile, ioi.ai conductor,
+IOI seed fleet, or first-party marketplaces from appropriating worker,
+training, benchmark, verifier, and service markets.**
 
 This is the missing incentive facet required for a real Internet of Intelligence economy.
 
@@ -60,9 +63,19 @@ Routing must be explainable:
 - worker reputation;
 - local ability;
 - service guarantee;
-- user preference.
+- user preference;
+- worker publisher and operator affiliation;
+- model, provider, runtime, verifier, and coordinator dependencies;
+- attempted routes, fallback/escalation, and assurance requirements.
 
 The user should retain the right to run locally/default unless the task requires licensed data, external authority, hosted service, or third-party authority.
+
+`Auto` / `1-of-N`, `Pinned`, and `Compare` / `N-of-N` remain neutral routing
+policies over the same candidate market. Auto may use a cheap-first verified
+cascade; Pinned honors a user-selected eligible route; Compare accounts for all
+declared attempts and verifier/synthesis work. First-party defaults may win only
+on the same declared cost, privacy, locality, evidence, availability, and user-
+preference criteria as third-party supply.
 
 ## MoW Router Neutrality
 
@@ -72,24 +85,12 @@ default worker when another worker is materially better under the declared
 routing policy.
 
 A routing decision that affects payment, reputation, trust, settlement, or
-dispute posture should emit a RoutingDecisionReceipt with:
-
-```yaml
-RoutingDecisionReceipt:
-  routing_decision_id: route_...
-  task_id: task://...
-  router_id: worker://... | runtime://... | system://... | domain://...
-  intent_hash: hash
-  candidate_set_commitment: hash
-  routing_policy_hash: hash
-  selected_domain_or_worker: system://... | domain://... | worker://... | service://... | runtime://...
-  authority_scope: []
-  cost_bound: optional
-  reason_code: string
-  fallback_policy: optional
-  contribution_policy_ref: optional
-  receipt_obligations: []
-```
+dispute posture must emit the canonical
+[`RoutingDecisionReceipt`](../components/daemon-runtime/events-receipts-delivery-bundles.md#routing-decision-receipts)
+over the shared `RoutingDecisionEnvelope`. The decision and receipt must bind
+the candidate set and affiliations, policy, selected domain/Worker composition,
+model/provider/runtime dependencies, authority and cost bounds, actual attempts,
+fallbacks/escalations, verifier path, contribution policy, and reason code.
 
 Routing preference must be based on declared policy, benchmark performance,
 receipt completeness, cost, privacy, trust posture, installed status, runtime
@@ -100,6 +101,14 @@ Paid listing, admission, certification, managed hosting, or promotion fees may
 exist only when they fund distribution, benchmark/eval compute, trust and safety,
 procurement, hosting, or commercial operations. They must not silently alter
 routing eligibility, reputation, benchmark claims, or first-party preference.
+
+An IOI-operated planner, builder, verifier, critic, synthesizer, benchmark, or
+challenge fleet may seed cold-start liquidity, but every composition must be
+named, versioned, costed, affiliation-disclosed, and routed through the same
+contracts. Ten IOI-owned workers across ten nodes and several model vendors
+remain one party. IOI may not market that fleet as independent federation or
+let it circularly act as coordinator, paid worker, sole verifier, ranking
+authority, and settlement judge for one consequential outcome.
 
 ## Anti-Cannibalization Rules
 
@@ -112,6 +121,18 @@ routing eligibility, reputation, benchmark claims, or first-party preference.
 7. Paid promotion cannot buy RoutingDecisionReceipt preference.
 8. Unverified listings must not be presented as benchmarked or production-ready
    workers.
+9. First-party seed workers must disclose affiliation, subsidy, model/provider/
+   runtime dependencies, and actual cost class and remain replaceable without a
+   pursuit-contract change.
+10. A first-party coordinator, worker, verifier, ranking authority, and
+    settlement judge must not collapse into one undisclosed conflict of
+    interest for consequential work.
+11. Participant messages, artifacts, findings, semantic mappings, and verifier
+    suggestions remain tainted inputs until the owning admission and assurance
+    path accepts them; routing popularity is never automatic promotion.
+12. Sybil clusters, shared ownership, correlated model/provider dependencies,
+    reciprocal review, and collusion signals must remain visible to routing,
+    verifier-independence, reputation, and settlement policy.
 
 ## Contribution Objects
 
@@ -122,9 +143,14 @@ MarketplaceRoutingDecision
 MoWRoutingDecision
 WorkerInvocation
 ContributionReceipt
+ContributionClaim
 UsageReceipt
 AttributionGraph
+DerivationGraph
 QualityDelta
+VerificationDecision
+AcceptanceDecision
+VerifierChallenge
 RewardClaim
 ReputationUpdate
 ServiceHandoff
@@ -133,32 +159,50 @@ WorkerTrainingRecord
 BenchmarkSubmission
 ```
 
+In an `OutcomeRoom` / CollaborativeWorkGraph, these records follow the
+frontier, claim, attempt, finding, verifier-challenge, WorkResult, and admitted
+OutcomeDelta lineage across independently governed domains. The room or ioi.ai
+conductor may synthesize a user-facing result, but it cannot erase the Worker,
+resource provider, verifier, semantic mapper, reviewer, or service contribution
+that made the accepted outcome possible.
+
 ## ContributionReceipt
 
-A contribution receipt should record:
+The field-level schema is the canonical
+[`ContributionReceipt`](../components/daemon-runtime/events-receipts-delivery-bundles.md#contribution-receipts).
+It binds the accountable contributor and operator/affiliations; Worker and
+package version; model/provider/runtime attribution without turning a model
+endpoint into an actor; Goal/room/task/run/attempt/result/delta lineage;
+contribution type; routing/category/benchmark refs; evidence, verifier rule,
+acceptance, adjudication, assurance, dispute, inputs/outputs, uncertainty,
+applicability, license, reward basis, settlement, and receipt hash.
 
-```yaml
-ContributionReceipt:
-  contributor_id: ai://workers.runtime-auditor
-  contributor_type: worker
-  version: 1.0.3
-  task_id: task_123
-  run_id: run_456
-  contribution_type: verification | generation | planning | data | tool | service
-  routing_decision_ref: optional
-  sparse_worker_category: optional
-  benchmark_profile_ref: optional
-  downstream_outcome_ref: optional
-  dispute_status: none | pending | upheld | rejected | no_fault
-  input_refs:
-    - artifact_a
-  output_refs:
-    - artifact_b
-  quality_delta: +0.18
-  license_terms: usage_metered
-  reward_basis: service_order_789
-  receipt_hash: ...
+`ContributionReceipt` attributes a claim; it does not automatically establish
+correctness, causality, value, reputation, or payout. Marketplace projections
+must preserve the assurance ladder:
+
+```text
+receipt / attestation
+-> evidence bundle
+-> verification under named rule/version
+-> customer or domain acceptance
+-> challenge / adjudication when invoked
+-> settlement
 ```
+
+Positive execution is not the only valuable work. Review, debugging,
+independent replication, a durable negative or inconclusive result, an exploit
+or integrity report, resource provision, derivation, curation, verifier
+hardening, and synthesis may eliminate false paths or make another outcome
+possible. Attribution and reward policy should recognize accepted marginal
+information and derivation without inventing precise quality value before the
+verifier and acceptor can support it.
+
+Independent verification means independent enough for the declared risk, not
+merely a differently named process. Policy should consider publisher/operator
+affiliation, shared model/provider/runtime dependencies, common training or
+memory, reciprocal review, and economic conflicts. High-risk work may require
+separation of execution, verification, acceptance, and adjudication duties.
 
 ## Worker/Service Router
 
@@ -179,8 +223,12 @@ The router should evaluate:
 It should output an explainable decision and user options.
 
 Subscription credits, outcome escrows, royalties, and benchmark rewards should
-be distributed by verified ContributionReceipts. They must not be popularity,
-attention, or raw-token pools.
+be distributed only from contribution records that reached the required
+verification, acceptance, and dispute state. They must not be popularity,
+attention, message-count, self-report, or raw-token pools. Work Credits are
+non-transferable product budget units; worker payouts use the approved
+marketplace or settlement rail and must not silently turn unused seat credits
+into cash claims.
 
 ## Relationship to IOI L1
 
@@ -193,7 +241,11 @@ IOI L1 may store:
 - payout settlement;
 - disputes.
 
-Agentgres stores detailed contribution accounting.
+Agentgres domains store detailed contribution, attempt, assurance, challenge,
+and routing accounting. IOI L1 receives sparse roots only when portable rights,
+reputation, bonds, dispute finality, or economic settlement adds value. There is
+no chain, token transfer, or public commitment required per worker, GoalRun,
+attempt, ContributionReceipt, or OutcomeRoom update.
 
 ## Why This Completes the IoI Economy
 
@@ -219,7 +271,26 @@ The Internet of Intelligence needs incentives for intelligence sharing. This lay
    evidence.
 8. No generic fee on a local or self-hosted run that does not use marketplace
    matching, managed hosting, settlement, or network routing.
+9. No reputation, payout, or routing-weight update from a bare
+   `ContributionReceipt`; the declared evidence, verification, acceptance,
+   adjudication, and settlement state must be satisfied.
+10. No winning-run-only attribution where accepted derivation, review,
+    debugging, replication, negative information, integrity reporting, resource
+    provision, verifier hardening, or synthesis materially contributed.
+11. No first-party seed fleet presented as independent parties, and no hidden
+    first-party conflict across coordination, paid execution, sole verification,
+    ranking, and settlement judgment.
+12. No automatic promotion of participant input into durable memory, ontology,
+    routing policy, authority, marketplace rank, production capability, or
+    settlement merely because it is signed, repeated, or popular.
+13. No quality or independence claim that hides common publisher/operator,
+    model/provider/runtime, memory/training, reciprocal-review, or economic
+    dependencies.
+14. No L1 transaction or standalone blockchain per worker, GoalRun, attempt,
+    receipt, or room update by default.
 
 ## One-Line Doctrine
 
-> **The platform must route intelligence, not absorb it.**
+> **The platform must route intelligence without absorbing it: affiliation,
+> derivation, negative and verifying work, assurance state, challenge, and
+> sparse settlement remain attributable to the actual contributors.**

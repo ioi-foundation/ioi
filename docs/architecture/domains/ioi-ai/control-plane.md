@@ -1,17 +1,25 @@
 # ioi.ai Control Plane Specification
 
 Status: canonical architecture authority.
-Canonical owner: this file for ioi.ai account, device, restore, publishing, entitlement, console Environments views, and remote-runtime coordination boundaries.
+Canonical owner: this file for ioi.ai account, Goal Space subscription and
+entitlement projections, device, restore, publishing, console Environments
+views, and remote-runtime coordination boundaries.
 Supersedes: product prose that implies ioi.ai owns raw secrets, full traces, user workspaces, always-on execution, or marketplace operational truth.
 Superseded by: none.
-Last alignment pass: 2026-07-05.
+Last alignment pass: 2026-07-11.
 Doctrine status: canonical
-Implementation status: planned (thin account/device/restore control plane design)
+Implementation status: mixed (bounded GoalRun, Mission, and Hypervisor substrate partial; ioi.ai Goal Space product, collaboration plane, and thin account/device/restore control plane planned)
 Last implementation audit: 2026-07-05
 
 ## Canonical Definition
 
-**ioi.ai is the lightweight user/control-plane application domain for IOI accounts, devices, runtime discovery, restore routing, publishing flows, training metadata pointers, sync metadata, billing/entitlements, console/org administration, Hypervisor Environments web views, and remote-runtime coordination.**
+**ioi.ai is IOI's persistent Goal Space product.** Its own application-domain
+backend remains a lightweight account/control plane: it presents goal conduction
+and collaborative outcome coordination while owning only the account,
+subscribed Goal Space, device, runtime-discovery, restore-routing,
+publishing-flow, training-metadata, sync, billing/entitlement, console/org,
+Hypervisor Environments web-view, and remote-runtime coordination records
+assigned here.
 
 It is not the heavy agent runtime, credential vault, marketplace database, or canonical state store for all user work.
 
@@ -38,7 +46,8 @@ docs preserve the exact `decentralized.*` source names.
 Product boundary doctrine:
 
 ```text
-ioi.ai Goal Chat is where users ask.
+ioi.ai Goal Chat is where users ask; Goal Space is where a persistent outcome
+is conducted and understood.
 Hypervisor is where autonomous work runs.
 Hypervisor Automations is where durable workflows and services are built.
 Hypervisor Foundry is where models, workers, evals, datasets, endpoints,
@@ -55,13 +64,42 @@ high-risk external effects; Agentgres records; Foundry builds/evaluates;
 aiagent.xyz supplies and attributes workers.
 ```
 
-## ioi.ai Goal Chat Boundary
+The product is one Goal Space subscription, not separate single-node and
+network-node products. A subscription may include a bounded monthly grant of
+non-transferable Hypervisor Work Credits for ordinary managed work.
+Same-domain multi-worker execution uses that governed work budget. Opening a
+goal to independent `Network / Open` workers, verifiers, or services binds a
+separate visible goal budget, bounty, procurement limit, or service order.
+Enterprise plans add committed managed-work spend, private/customer-boundary
+runtime, reserved capacity, administration, audit, SLA, and support.
+
+ioi.ai owns the account, plan, entitlement, quote, and user-facing budget
+projection. Hypervisor owns execution and meterable managed-work truth;
+provider/model routes preserve supplier cost and rights; aiagent.xyz and
+sas.xyz preserve worker and service commercial records. One product view must
+not collapse those owner records.
+
+## ioi.ai Goal Chat And Goal Space Boundary
 
 **ioi.ai Goal Chat** is an intent, discovery, and coordination surface.
+**Goal Space** is its persistent outcome container. Most simple requests remain
+direct and do not need a room-shaped experience. When collective pursuit is
+useful, Goal Space projects an `OutcomeRoom`/`CollaborativeWorkGraph` whose
+bounded claims execute as Hypervisor GoalRuns.
+
+The same OutcomeRoom is rendered as Goal Space in ioi.ai and Mission detail in
+Hypervisor. These are projections over one governed object composition, not two
+stores or two products. No permanent Swarm application is canonical.
 
 It may:
 
 - collect a user's goal, constraints, preferences, and account context;
+- let the user select `Standard` or `Private` execution/custody, `My workers`,
+  `Organization`, or `Network / Open` contributor scope, and an eligible
+  placement posture without conflating those axes;
+- show included/top-up Work Credit budget, separately funded Network/Open goal
+  budget, pre-run estimates/caps, and admitted spend projections without
+  becoming metering truth;
 - invoke an existing Hypervisor automation, worker, service, or session;
 - start an ad hoc Hypervisor run through daemon/Core contracts;
 - inspect and summarize receipts, run state, restore state, and provider
@@ -77,6 +115,16 @@ It may:
 - maintain cross-session outcome graph projections over authorized
   Hypervisor sessions, WorkRuns, attempts, receipts, artifacts, connector
   status, and authority refs;
+- for persistent collective goals, show the work frontier, participants,
+  claims, attempts, findings, verifier challenges, resource/spend posture,
+  authority blockers, contribution lineage, and replay rather than only a chat
+  stream or background-agent count;
+- browse signed policy-bound Network/Open room discovery projections, submit
+  typed participation requests, and show admission/rejection without exposing
+  private room state or treating discovery as authority;
+- let participants retire or be revoked with claims released and a portable,
+  policy-filtered participant-state bundle whose permitted historical lineage
+  remains usable without continued access to an IOI-hosted room;
 - route the user to Hypervisor App, Hypervisor Web, wallet.network, aiagent.xyz,
   sas.xyz, or console views when the job belongs there.
 
@@ -96,6 +144,11 @@ It must not:
   promotion truth, or raw training traces;
 - own aiagent.xyz marketplace truth, MoW routing truth, worker listings, or
   contribution accounting;
+- treat multi-model, multi-worker, or multi-node IOI-operated execution as
+  independent multi-party collaboration;
+- own Work Credit consumption truth, supplier invoices, route commercial
+  rights, worker payouts, service settlement, or Network/Open procurement
+  records;
 - run a custom privileged headless Hypervisor instance or private operator loop;
 - silently convert an ad hoc chat into a durable automation or service.
 
@@ -126,20 +179,34 @@ Harness, model, and worker choice is a routing decision over the same substrate,
 not a separate connector plane.
 
 ```text
-ioi.ai Auto / MoW conductor
-  or user-selected harness, model route, worker, or managed agent
+ioi.ai Auto, Pinned, or Compare policy plus MoW worker routing
+  or an eligible user-selected harness, model route, worker, or managed agent
   -> Hypervisor brokered tool/MCP capability manifest
   -> daemon/Core admission
   -> authority provider, local/domain governance, and wallet.network gates
   -> Agentgres receipts, traces, artifacts, and replay refs
 ```
 
-ioi.ai may expose a simple default path that lets the platform choose an
-appropriate worker, model route, harness, verifier path, and connector strategy.
-It may also expose an advanced path where the user selects a specific
-agent/harness, model route, marketplace worker, or managed agent. Both paths must
-consume Hypervisor's brokered connector/tool/MCP registry and must not give the
-selected harness raw provider credentials, ambient connector access, or a private
+ioi.ai exposes three execution policies over the same substrate:
+
+```text
+Auto / 1-of-N
+  select the cheapest eligible route expected to satisfy declared quality,
+  privacy, authority, latency, context, and route-rights constraints; a
+  verified cascade may escalate when acceptance fails
+
+Pinned
+  use the selected eligible worker/model/provider route; fail closed on
+  ineligibility or unavailability unless a qualified fallback was authorized
+
+Compare / N-of-N
+  run several declared routes and retain all attempt, verifier, synthesis,
+  evidence, and cost lineage
+```
+
+These are execution policies, not subscription tiers. All paths consume
+Hypervisor's brokered connector/tool/MCP registry and must not give the selected
+harness raw provider credentials, ambient connector access, or a private
 ioi.ai execution channel.
 
 ## Hypervisor Dogfood Boundary
@@ -180,6 +247,14 @@ truth substrate.
 ioi.ai may own:
 
 - account profile and login state;
+- Goal Space subscription, seat, plan, support, and account entitlement
+  records;
+- included Work Credit grant, top-up/overage consent, committed-spend, and
+  Network/Open goal-budget pointers while Hypervisor and market/service owners
+  retain usage and settlement truth;
+- Goal Space list/detail projections, including objective, status,
+  contributor-scope, execution/custody, placement preference, OutcomeRoom ref,
+  budget projection, and authorized replay/evidence refs;
 - private profile metadata refs and policy pointers, when the profile payload
   itself is encrypted and governed through Agentgres refs;
 - device registrations;
@@ -378,7 +453,10 @@ ioi.ai should keep only lightweight records hot:
 - restore permissions;
 - retention policy;
 - billing/subscription entitlement;
-- publish/sync metadata.
+- Goal Space, included-credit-grant, overage-consent, committed-spend, and
+  separately funded Network/Open budget refs;
+- selected `Auto`, `Pinned`, or `Compare` preference and route-policy ref;
+- publish/sync metadata;
 - training/publishing status metadata.
 
 ## Cold State Boundary
@@ -420,6 +498,7 @@ When ioi.ai starts or resumes work on remote compute, it coordinates a runtime a
 
 ```text
 ioi.ai control plane
+→ Goal Space plan, entitlement, and budget-policy projection
 → domain kernel/runtime router
 → ComputeSession
 → Hypervisor Daemon runtime-node profile, including Private Workspace cTEE when selected
@@ -504,6 +583,9 @@ selected Hypervisor Daemon runtime-node profile.
 - aiagent.xyz and MoW own worker supply, routing eligibility, contribution
   receipts, and marketplace attribution.
 - Agentgres owns operational truth and archive refs.
+- Hypervisor owns Work Credit consumption, managed-work metering, route-attempt
+  evidence, and runtime-cost truth; ioi.ai owns account plan and budget
+  projections.
 - Private Workspace backed by cTEE owns cTEE semantics for persistent rented GPU
   nodes.
 - IOI L1 anchors settlement, rights, registry commitments, bonds, and disputes.
@@ -528,7 +610,21 @@ selected Hypervisor Daemon runtime-node profile.
    Foundry and approved data-use gates; they are not hidden ioi.ai authority.
 10. Marketplace workers that contribute to ioi.ai outcomes must preserve
     explainable routing and ContributionReceipt refs.
+11. The Goal Space subscription must not be implemented by pooling, sharing,
+    browser-automating, or reselling named-user foundation-model seats as
+    machine capacity.
+12. Included Work Credits and a Network/Open goal budget are distinct. Opening
+    contributor scope must not silently spend the ordinary seat allowance or
+    declassify data.
+13. Multi-model, multi-worker, multi-node, and multi-party are distinct
+    disclosures. Only separate principals that retain authority, truth, risk,
+    challenge, and settlement control count as independent parties.
+14. Goal Space background work must be graph-visible through participants,
+    claims, leases, spend, evidence, blockers, and replay; chat or token streams
+    alone are not sufficient operational UX.
 
 ## One-Line Doctrine
 
-> **ioi.ai coordinates access to a user's IOI world; it does not become that world.**
+> **ioi.ai gives the user one subscribed Goal Space for conducting outcomes;
+> it coordinates access to the IOI world without becoming its runtime, truth,
+> authority, or labor market.**

@@ -3,12 +3,13 @@
 Status: canonical architecture authority.
 Canonical owner: this file for Hypervisor Core product taxonomy, first-class
 client boundaries, application-surface boundaries, session boundaries, and
-adapter-target doctrine.
+adapter-target doctrine, including Hypervisor's Mission projection of ioi.ai
+Goal Spaces and OutcomeRooms.
 Supersedes: live product prose that treats one editor shell as the parent
 Hypervisor product, treats Electron/VS Code hosting as the product identity, or
 treats editor integrations as runtime ownership.
 Superseded by: none.
-Last alignment pass: 2026-06-23.
+Last alignment pass: 2026-07-11.
 Doctrine status: canonical
 Implementation status: broad (2026-07-06 — priority ladder P0/P1/P2 complete, P3 two rounds in: Home explorer + New Session composer identities, approvals inbox, unified jobs, run lineage/replay, model catalog, sessions root, evals lane, developer console, authority clients, recipe handoff chain, pipeline view, blueprint candidates, code repositories, search, work/tool analytics facets, release lifecycle matrix, proof citations — each verifier-gated; shell served from the OWNED vendored tree under the shell-parity oracle. Remaining: marketplace deepening, feedback/annotations native (needs substrate), governance-card tail, settings folds).
 
@@ -61,15 +62,41 @@ Hypervisor Core governs the runtime/control boundary underneath.
 Product boundary doctrine:
 
 ```text
-ioi.ai asks and coordinates goals.
+ioi.ai asks and conducts subscribed Goal Spaces.
 Hypervisor runs governed autonomous work.
 Automations make durable workflows and services.
-ioi.ai coordinates multi-model and multi-path pursuit when a goal calls for it.
+ioi.ai coordinates single-path work or an OutcomeRoom/CollaborativeWorkGraph
+when persistent multi-participant pursuit calls for it.
 Foundry builds models, workers, evals, datasets, ontology-bound packages,
 and deployment candidates.
 Workbench develops, debugs, and operates systems.
 Canvas visually edits automations; it is not runtime truth.
 ```
+
+The same persistent collective outcome appears as a **Goal Space** in ioi.ai
+and as **Mission detail** in Hypervisor. It is not duplicated state and it does
+not justify a permanent Swarm application. A simple question, direct run,
+ordinary automation, or single-session task remains direct.
+
+Product-budget boundary:
+
+```text
+ioi.ai Goal Space subscription
+  conductor, persistence, collaboration, memory, receipts, replay, and a
+  bounded monthly grant of non-transferable Hypervisor Work Credits
+
+same-domain managed execution
+  consumes included/top-up/committed Work Credits under Auto, Pinned, or
+  Compare policy
+
+independent Network / Open participation
+  uses a separately visible goal budget, bounty, service order, or procurement
+  limit and preserves actual party/worker/service commercial records
+```
+
+Hypervisor owns execution and managed-work usage truth, not the ioi.ai account
+subscription. The product must not imply that named-user foundation-model seats
+are pooled machine capacity.
 
 Product direction doctrine:
 
@@ -212,6 +239,9 @@ Term map for product surfaces:
 | IOI L1 / mainnet | proof network, settlement, public commitment |
 | aiagent.xyz | agent marketplace, worker marketplace, agent supply |
 | ContributionReceipt | contribution record, payout evidence, attribution |
+| OutcomeRoom / CollaborativeWorkGraph | Goal Space in ioi.ai; Mission detail in Hypervisor |
+| RoomParticipantLease / WorkClaimLease | participant status/current work with advanced lease details |
+| Work Credits | managed-work allowance and usage budget |
 
 Users should not be bounced between domains to grant ordinary access. Hypervisor
 and aiagent.xyz should embed the permission and connector flows; wallet.network
@@ -489,7 +519,9 @@ The suite
   Data              (supply the world-model: sources, syncs, data recipes, datasets,
                      media sets, consent posture — Data/Knowledge family)
   Governance        (authority, approvals, leases, release gates, kill switches, budgets)
-  Missions          (fleet of running systems: runs, incidents, spend per system)
+  Missions          (fleet of running systems and persistent outcome rooms:
+                     frontier, participants, claims, attempts, incidents, spend,
+                     authority, evidence, and replay)
   Provenance        (receipts, lineage, replay, state roots — Work Ledger family)
   Evaluations       (eval suites, scorecards, feedback with consent ladders, quality dashboards)
   Improvement       (proposals, what-if simulations, canaries, rollbacks, remediation)
@@ -792,8 +824,10 @@ Hypervisor Governance
   retention/marking policy, justification checkpoints
 
 Hypervisor Missions
-  fleet console for running systems: missions, run queues, incidents and
-  remediation lanes, spend per system, health rollups — systems, not
+  fleet console for running systems and persistent collective outcomes:
+  missions, OutcomeRoom work-frontier graphs, participant/claim state, run
+  queues, attempts/findings/verifier challenges, incidents and remediation,
+  spend, authority blockers, contribution lineage, and replay — systems, not
   infrastructure (infrastructure is substrate Operations)
 
 Hypervisor Provenance
@@ -860,6 +894,7 @@ Model      product-facing model choice
 Reasoning  Low | Medium | High | Extra high
 Speed      Standard | Fast
 Harness    advanced execution topology, hidden unless relevant
+Execution  Auto | Pinned | Compare, shown when route plurality matters
 ```
 
 `Agent` is the buildable product object. `Worker` remains the durable protocol
@@ -868,6 +903,12 @@ remains the internal runtime object for provider, custody, fallback, spend,
 privacy, eligibility, and invocation policy. `Harness` is the visible
 power-user label for selected `HarnessProfile` or adapter topology; it should
 not be exposed as "execution profile" in ordinary composer controls.
+
+`Auto` means one eligible route or a declared verified escalation cascade;
+`Pinned` means one selected eligible route with fail-closed fallback policy;
+`Compare` means N-of-N attempts with visible verifier/synthesis and cost
+lineage. These controls do not redefine Worker, ModelRoute, runtime node, or
+party identity.
 
 Application surfaces are not separate apps with separate runtime truth. They
 are governed projections and control surfaces over Hypervisor Core, the
@@ -888,8 +929,12 @@ A New Session request should bind:
 intent
 project or application context
 work execution mode: foreground session | one-off background handoff |
-                     durable automation | background mission
+                     durable automation | background mission |
+                     persistent Goal Space / OutcomeRoom handoff
 worker/model/tool route
+execution policy: Auto | Pinned | Compare
+contributor scope: My workers | Organization | Network / Open
+managed-work budget ref and separate Network/Open goal-budget ref when used
 provider and environment profile
 authority scope
 privacy posture
@@ -899,12 +944,18 @@ handoff destination
 review and delivery contract
 ```
 
+Execution/custody (`Standard` or `Private`), contributor scope, and placement
+are orthogonal. Choosing Network/Open must not widen privacy, authority, data,
+retention, or export policy. `Auto`, `Pinned`, and `Compare` are execution
+policies over eligible routes, not subscription tiers.
+
 Hypervisor Core admits the request through daemon, wallet.network, Agentgres,
 privacy, provider, and receipt boundaries before consequential work begins.
 
 A New Session may atomically bind project/environment recipe, selected agent,
 initial input, mode, model configuration, reasoning effort, speed/service tier,
 harness selection, tools/connectors, memory policy, authority, budget, eval,
+execution policy, contributor scope, Network/Open goal budget when applicable,
 and receipt posture. That bundle is a daemon-admitted launch recipe, not a
 client-local chat setting.
 
@@ -1407,6 +1458,14 @@ many models, harnesses, workers, sessions, branches, connectors, or verifier
 lanes. The ioi.ai coordination pattern is owned by
 [`../../domains/ioi-ai/collaborative-outcome-pattern.md`](../../domains/ioi-ai/collaborative-outcome-pattern.md).
 
+The durable handoff binds an OutcomeRoom/CollaborativeWorkGraph and one or more
+`HypervisorMission` objects. Automations owns reusable triggers, schedules,
+services, and workflow graph shape; it does not own room participation,
+shared-frontier admission, local participant truth, or generic attempt/finding
+semantics. Each claimed work item resolves through a bounded GoalRun. Dynamic
+join/sleep/wake/retire/quarantine and claim/resource leases remain room-level
+contracts rather than hidden automation state.
+
 One-off agent handoffs and durable automations are different products over the
 same execution substrate:
 
@@ -1447,11 +1506,14 @@ Canvas may display:
 - approval and policy checkpoints;
 - cTEE/privacy posture;
 - receipt and replay projections;
-- harness, model, worker, service, verifier, and provider selection hints.
+- harness, model, worker, service, verifier, and provider selection hints;
+- OutcomeRoom frontier, participant, claim, attempt, finding, verifier-
+  challenge, authority, budget, and contribution-lineage projections when
+  opened from Missions or a Goal Space handoff.
 
 Canvas does not own execution, authority, state truth, receipts, or workflow
 semantics. It edits or visualizes objects owned by Automations, the Workflow
-Compositor, Foundry, or other product surfaces.
+Compositor, Foundry, Missions, or other product surfaces.
 
 Use this product phrasing:
 
@@ -1525,6 +1587,13 @@ It does not own:
 - Foundry training or distillation;
 - the selected harness's internal loop.
 
+The Workflow Compositor and CollaborativeWorkGraph are complementary, not
+aliases. The compositor owns a declared directed workflow/service recipe. The
+collaborative graph owns a live, potentially changing frontier of questions,
+hypotheses, claims, attempts, findings, resources, and verifier challenges.
+Room admission may materialize frontier work as GoalRuns or durable Automation
+steps, but a sea-of-agents topology is not hard-coded into either substrate.
+
 For each executable step, the compositor selects or recommends a path such as:
 
 ```text
@@ -1573,6 +1642,8 @@ A session binds:
 - policy and approval state;
 - runtime assignment;
 - context cell / task refs where applicable;
+- GoalRun plus optional OutcomeRoom, participant, claim, and attempt refs when
+  the session performs collaborative frontier work;
 - cTEE custody posture where applicable;
 - Agentgres refs and receipt obligations;
 - adapter targets;
@@ -1600,6 +1671,12 @@ conversation history, live stream, transcript, support/log refs, used
 environments, comments sent back to the run, review state, and delivery refs.
 This makes long-running work observable without tying the product to one agent
 implementation.
+
+For OutcomeRoom work, a session is one participant/claim/attempt drilldown, not
+the room itself. Mission detail owns the graph-first shared view; Sessions own
+the bounded execution view. A background participant must expose claim, lease,
+heartbeat/wake, spend, evidence, verification, blocker, and cancellation or
+quarantine projections rather than only transcript tokens.
 
 ## Receipts, Replay, And Improvement
 
@@ -2049,13 +2126,37 @@ HypervisorSession
 
 HypervisorMission
   background/manual/scheduled/webhook/event-triggered autonomous work that may
-  run without an interactive editor or terminal attached
+  run without an interactive editor or terminal attached; for persistent
+  collective outcomes, it projects the same OutcomeRoom shown as a Goal Space
+  in ioi.ai
 ```
 
 Missions are how Hypervisor represents background automations and long-running
 outcome work. A mission may create sessions and runs, but it is not merely an
 editor tab. It has trigger policy, review contract, authority requirements,
 output contract, and receipt obligations.
+
+For a persistent collective outcome, Mission detail is graph-first:
+
+```text
+objective, acceptance, constraints, deadline, visibility, stop policy
+work frontier: open, claimed, blocked, replicating, verifying, accepted,
+  rejected, superseded
+participants: active, sleeping, waiting, failed, quarantined, completed,
+  retired; affiliation and worker/model/runtime dependencies remain visible
+current claim, participant/claim leases, heartbeat or wake condition, spend,
+  last contribution, blockers
+attempts, findings, negative results, contradictions, artifacts, evidence
+evaluation, guardrails, Pareto frontier, verifier versions and challenges
+approvals, authority/privacy incidents, pause, kill, quarantine
+contribution and derivation lineage
+replay explaining topology, budget, verifier, and course corrections
+```
+
+A live feed or chat is a social projection over this graph. It is not the
+mission truth. The product must not add a permanent Swarm application: direct
+tasks remain direct, and collective detail appears only when an OutcomeRoom is
+materialized.
 
 ## Access, Ports, Browser, Logs, And Support
 
@@ -2130,6 +2231,7 @@ HypervisorClient:
     - sessions
     - applications
     - automations
+    - missions
     - workbench
     - foundry
     - agents
@@ -2144,7 +2246,7 @@ HypervisorSurface:
   surface_id: hypervisor_surface:...
   surface_kind:
     home | projects | automations | applications | sessions | workbench |
-    foundry | canvas | agents | services | models | ctee_privacy |
+    missions | foundry | canvas | agents | services | models | ctee_privacy |
     receipts_audit | connectors
   client_ref: hypervisor_client:...
   session_refs:
@@ -2215,6 +2317,11 @@ HypervisorSession:
     environment_management
   daemon_ref: daemon://...
   runtime_assignment_ref: runtime_assignment:... | null
+  goal_run_ref: goal://... | null
+  outcome_room_ref: outcome-room://... | null
+  room_participant_lease_ref: participant-lease://... | null
+  work_claim_lease_ref: work-claim://... | null
+  attempt_ref: attempt://... | null
   authority_refs:
     - grant://...
     - lease://...
@@ -2538,7 +2645,27 @@ HypervisorMission:
   project_ref: project:...
   workflow_ref: workflow:...
   automation_ref: automation:... | null
-  outcome_room_ref: outcome_room:... | null
+  outcome_room_ref: outcome-room://... | null
+  managed_execution_mode: standard | private
+  goal_execution_policy: auto | pinned | compare
+  contributor_scope: my_workers | organization | network_open
+  placement_policy_ref: policy://... | null
+  coordination_admission_policy_ref: policy://... | null
+  multi_party_collaboration_ref: collaboration://... | null
+  work_credit_budget_ref: budget://... | null
+  network_goal_budget_ref: goal-budget://... | order://... | null
+  participant_lease_refs:
+    - participant-lease://...
+  frontier_item_refs:
+    - frontier://...
+  claim_lease_refs:
+    - work-claim://...
+  attempt_refs:
+    - attempt://...
+  finding_refs:
+    - finding://...
+  verifier_challenge_refs:
+    - verifier-challenge://...
   default_harness_profile_ref: dhp:...
   runtime_assignment_ref: runtime_assignment:... | null
   trigger_policy_ref: policy://...
@@ -2552,6 +2679,21 @@ HypervisorMission:
   status:
     enabled | disabled | running | waiting_for_review |
     completed | failed | archived
+
+HypervisorOutcomeRoomProjection:
+  projection_id: hypervisor_outcome_room_projection:...
+  mission_ref: mission:...
+  outcome_room_ref: outcome-room://...
+  objective_and_acceptance_ref: outcome-room://...
+  work_frontier_projection_ref: projection://...
+  participant_projection_ref: projection://...
+  attempts_findings_projection_ref: projection://...
+  evaluation_challenge_projection_ref: projection://...
+  authority_privacy_projection_ref: projection://...
+  budget_spend_projection_ref: projection://...
+  contribution_lineage_projection_ref: projection://...
+  replay_ref: replay://...
+  read_model_only: true
 
 SessionAccessToken:
   token_id: session_access_token:...
@@ -2692,6 +2834,34 @@ not mutate host state directly.
 - Background missions must be modeled as `HypervisorMission` objects with
   trigger policy, review contract, authority requirements, output contract, and
   receipts; they must not be hidden interactive sessions.
+- A persistent collective outcome must be one underlying OutcomeRoom projected
+  as ioi.ai Goal Space and Hypervisor Mission detail, not duplicated product
+  state.
+- Mission/Goal Space UI must be graph-first and expose frontier, participants,
+  participant/claim leases, attempts, findings, verifier challenges, spend,
+  authority/privacy blockers, contribution lineage, and replay. Chat and live
+  feeds remain projections.
+- Network/Open discovery UI must query signed, versioned
+  `OutcomeRoomDiscoveryEnvelope` projections by category, semantic profile,
+  capability, eligibility/affiliation, privacy/locality, budget/quote,
+  verifier, and settlement posture. Joining creates a typed participation
+  request and shows the admission decision; it never silently mints membership.
+- Mission/Goal Space participant controls must expose claim release,
+  retirement/revocation, portable participant-state export, acknowledgement,
+  supersession, and future-access revocation while preserving historical
+  contribution, receipt, acceptance, and dispute lineage.
+- Direct questions, sessions, one-off handoffs, and ordinary automations must
+  remain direct; no OutcomeRoom or permanent Swarm surface is required by
+  default.
+- Same-domain multi-model, multi-worker, or multi-node execution must not be
+  labeled multi-party. Independent party status requires separate principals
+  retaining authority, truth, risk, challenge, and settlement control.
+- `Auto`, `Pinned`, and `Compare` must show the selected policy, material
+  fallback/escalation, actual attempt/verifier lineage, and budget posture;
+  hidden multi-route burn is non-conforming.
+- Work Credit allowance and separately funded Network/Open participation must
+  remain distinguishable in budget projections even when ioi.ai presents one
+  user-facing quote.
 - ioi.ai collaborative outcome handoffs and Collaborative Missions must use the
   Automations, session, daemon, wallet.network, Agentgres, and Foundry/eval
   paths defined in
@@ -2740,6 +2910,14 @@ background automation = hidden editor session
 automation spec = chat transcript
 ioi.ai collaborative outcome = group chat
 ioi.ai collaborative outcome = unbounded swarm
+OutcomeRoom = permanent Swarm application
+OutcomeRoom = duplicated Goal Space and Mission truth
+background agent = invisible process or token stream
+same-owner seed fleet = independent multi-party network
+Goal Space subscription = pooled provider chat seats
+Network / Open spend = hidden ordinary seat burn
+Auto = hidden multi-route execution
+Pinned = silent fallback
 Hypervisor Operator Plane = ambient host administrator
 child session harness = host platform administrator
 Git branch = canonical attribution/truth layer
@@ -2769,6 +2947,10 @@ Application composition = reusable UX primitives over shared Core contracts
 Canvas = visual editor/projection
 ioi.ai = intent-to-outcome coordination, including multi-model/multi-path
 goal pursuit when useful
+Goal Space = ioi.ai outcome product projection
+Mission detail = Hypervisor projection of the same persistent OutcomeRoom
+OutcomeRoom = graph-first shared frontier above bounded GoalRuns
+background participants = visible claims, leases, spend, evidence, and controls
 Hypervisor Operator Plane = governed control-plane harness over declared
 application-surface contracts
 code WorkRun = isolated child environment + materialized Git branch/worktree +
@@ -2791,6 +2973,7 @@ Agentgres = admitted truth
 - [`providers-and-environments.md`](./providers-and-environments.md)
 - [`identity-access-and-metering.md`](./identity-access-and-metering.md)
 - [`../../domains/ioi-ai/collaborative-outcome-pattern.md`](../../domains/ioi-ai/collaborative-outcome-pattern.md)
+- [`../../foundations/economic-flywheel-and-pricing-boundaries.md`](../../foundations/economic-flywheel-and-pricing-boundaries.md)
 - [`foundry.md`](./foundry.md)
 - [`../wallet-network/doctrine.md`](../wallet-network/doctrine.md)
 - [`../agentgres/doctrine.md`](../agentgres/doctrine.md)

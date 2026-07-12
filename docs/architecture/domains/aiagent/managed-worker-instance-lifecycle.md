@@ -4,7 +4,7 @@ Status: canonical architecture authority.
 Canonical owner: this file for persistent aiagent managed worker instance lifecycle, payment lapse, archive, restore, export, migration, and deletion semantics.
 Supersedes: plan prose and endpoint examples when lifecycle state conflicts.
 Superseded by: none.
-Last alignment pass: 2026-06-29.
+Last alignment pass: 2026-07-11.
 Doctrine status: canonical
 Implementation status: planned (lifecycle design; no managed-instance instantiation)
 Last implementation audit: 2026-07-05
@@ -246,7 +246,9 @@ ManagedWorkerInstanceChangePlan:
       standing_order | model_route | harness_profile | package_version |
       runtime_assignment | memory_policy | authority_scope
   risk_class:
-    low | moderate | high | regulated | physical_action
+    read | draft | local_write | write_reversible | external_message |
+    commerce | funds | credential_access | policy_widening | secret_export |
+    identity_change | system_destructive | physical_action
   required_gates:
     - local_governance | authority_provider | wallet_network |
       dry_run | canary | benchmark_refresh | human_approval

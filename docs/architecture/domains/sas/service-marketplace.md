@@ -4,7 +4,7 @@ Status: canonical architecture authority.
 Canonical owner: this file for sas.xyz service marketplace doctrine; low-level service endpoints live in [`sas-xyz-service-endpoints.md`](./service-endpoints.md).
 Supersedes: overlapping service-marketplace plan prose when outcome/service boundaries conflict.
 Superseded by: none.
-Last alignment pass: 2026-06-01.
+Last alignment pass: 2026-07-11.
 Doctrine status: canonical
 Implementation status: planned (outcome marketplace design; order/escrow/delivery/dispute loop is specification)
 Last implementation audit: 2026-07-05
@@ -216,9 +216,9 @@ should be receipt-backed when they affect cost, quality, settlement,
 reputation, or disputes.
 
 For worker-powered services, the delivery bundle should include contribution
-refs that let payouts, royalties, and reputation updates flow by verified
-contribution instead of raw token usage, attention, popularity, or hidden
-platform preference.
+refs that let payouts, royalties, and reputation updates flow by accepted or
+adjudicated contribution under the declared assurance state instead of raw
+token usage, attention, popularity, self-report, or hidden platform preference.
 
 Composed services should emit a `ServiceCompositionReceiptBundle` when a
 delivery depends on nested workers, service modules, provider jobs, private
@@ -242,16 +242,24 @@ storage backend. The bundle is evidence for the delivery; Agentgres remains the
 operational truth substrate, wallet.network remains the authority layer, and
 storage backends hold payload bytes.
 
-When a service outcome spans multiple organizations or sovereign domains, the
-service order should reference a `MultiPartyCollaborationContext`. The context
-names the buyer/customer, data owner, worker provider, compute provider,
-auditor/regulator/verifier, and settlement counterparty roles as needed; binds
-per-party authority refs and revocation refs; names allowed shared refs,
-restricted views, redacted summaries, evidence bundles, contribution refs, and
-settlement intents; and preserves historical receipts even when a party is
-removed. It is the collaboration policy/proof wrapper around the service
-delivery, not a replacement for delivery bundles, AIIP packets, Agentgres truth,
-or audience-specific audit exports.
+When a service outcome needs persistent collective pursuit, the service order
+may bind an `OutcomeRoom` whose CollaborativeWorkGraph carries frontier items,
+participant and claim leases, resource offers, positive and negative attempts,
+findings, verifier challenges, generic results/deltas, contribution lineage,
+and replay. When independently governed organizations or sovereign domains are
+admitted, that room must also bind a `MultiPartyCollaborationEnvelope` naming
+the buyer/customer, data owner, worker provider, compute provider,
+auditor/regulator/verifier, and settlement counterparty roles as needed;
+per-party authority and revocation; allowed shared refs; restricted views;
+evidence; contribution; settlement; ordering; and admission topology.
+
+The service order remains the commercial owner for its separately funded
+budget, escrow, SLA, delivery, acceptance, dispute, and payout. It must not
+silently consume a user's ordinary ioi.ai seat allowance for independent
+network labor. The OutcomeRoom is the work-coordination profile and the
+MultiPartyCollaborationEnvelope is the cross-party policy/proof context; neither
+replaces service orders, delivery bundles, AIIP packets, per-domain Agentgres
+truth, or audience-specific audit exports.
 
 ## Delivery Bundle
 
@@ -284,7 +292,7 @@ the only place service packages can exist
 a mandatory wrapper around aiagent.xyz workers
 a raw software-tool marketplace
 a model-checkpoint storefront
-a replacement for daemon authority, Agentgres truth, or wallet.network approvals
+a replacement for daemon admission/execution, Agentgres truth, or authority-provider approvals
 a privacy authority layer for rented GPU nodes
 a contribution oracle based on token usage or hidden platform preference
 a dispute process based on provider logs instead of receipt/evidence refs

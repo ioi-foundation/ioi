@@ -8,7 +8,7 @@ integration doctrine.
 Supersedes: prior live canon that split provider and environment posture into a
 standalone provider-management product or peer control plane.
 Superseded by: none.
-Last alignment pass: 2026-06-23.
+Last alignment pass: 2026-07-11.
 Doctrine status: canonical
 Implementation status: partial (env lifecycle, providers, readiness, warm pools, and placement built; DePIN/storage posture families vary)
 Implementation refs:
@@ -910,6 +910,29 @@ route unavailability, corrupt snapshot material, missing logs or terminal
 streams, runner split-brain, capacity eviction, credential revocation, and cTEE
 posture regression.
 
+Environment recovery and outcome recovery are different. Recreating a VM,
+restoring a workspace, or reconnecting a provider does not establish whether a
+remote API, payment, message, deployment, robot, or other external system
+committed an effect before a timeout. Every consequential WorkRun/step must
+declare one recovery class:
+
+```text
+replayable
+  safe to execute again under fresh policy and authority
+
+checkpointable
+  resume from a named admitted checkpoint without repeating prior effects
+
+compensatable
+  retry or replacement requires an explicit compensating action and receipt
+
+reconciliation_required
+  query the external system and admit the observed outcome before deciding
+
+non_retryable
+  fail closed and require operator/domain decision; no automatic replay
+```
+
 The recovery sequence is:
 
 ```text
@@ -934,6 +957,9 @@ HypervisorProviderFailureIncident
   environment_ref
   provider_ref
   work_run_refs
+  effect_recovery_classes_by_work_run:
+    replayable | checkpointable | compensatable |
+    reconciliation_required | non_retryable
   detected_at
   detected_by_ref
   failure_kind:
@@ -964,6 +990,7 @@ HypervisorEnvironmentRecoveryCandidate
   recovery_mode:
     restore_snapshot | restore_backup | restore_archive |
     failover_provider | rebuild_from_recipe | retry_workrun |
+    reconcile_external_effect | compensate_effect |
     abandon_fail_closed
   target_provider_ref?
   target_environment_class_ref?
@@ -974,6 +1001,7 @@ HypervisorEnvironmentRecoveryCandidate
   cost_estimate_ref?
   risk_labels
   validation_requirements
+  effect_reconciliation_and_compensation_refs
 ```
 
 `HypervisorEnvironmentRecoveryAttempt` is the effectful recovery object. It
@@ -1000,9 +1028,14 @@ HypervisorEnvironmentRecoveryAttempt
     lost_material_refs
     retry_work_item_refs
     abandoned_work_item_refs
+    ambiguous_effect_refs
+    external_reconciliation_refs
+    compensation_refs
   daemon_operation_refs
   provider_operation_refs
   receipt_refs
+  effect_reconciliation_receipt_refs
+  compensation_receipt_refs
   outcome: recovered | partially_recovered | failed_closed | abandoned | escalated
   state_root_after_ref?
 ```
@@ -1011,6 +1044,9 @@ Recovery attempts do not make provider or storage state authoritative. A
 successful recovery means the daemon executed the selected path, Agentgres
 admitted the resulting operation refs/state roots/restore validity, and receipts
 explain what was preserved, lost, retried, invalidated, or failed closed.
+It does not imply that an ambiguous external effect was recovered; that claim
+requires the declared reconciliation or compensation path and its own admitted
+receipts.
 
 User-facing recovery UX must expose:
 
@@ -1023,6 +1059,8 @@ authority and spend requirements
 restore material and validation refs
 WorkRun branch/worktree and Agentgres patch-branch reconciliation
 lost/preserved/retried material
+effect recovery class and ambiguous external-effect posture
+reconciliation/compensation decisions and receipts
 receipts, replay, and proof refs
 ```
 
@@ -1621,6 +1659,10 @@ restore/import receipt chain.
   preview, effectful recovery attempt, WorkRun reconciliation, Agentgres
   operation refs, state roots, and receipts. A failed provider session must not
   disappear or silently restart without lost/preserved/retried state.
+- Every consequential WorkRun must declare its effect recovery class;
+  environment restore must never be presented as outcome restore when an
+  external effect is ambiguous. Reconciliation-required and non-retryable work
+  must fail closed instead of replaying automatically.
 - Snapshot, backup, and archive semantics must remain distinct. Snapshots are
   forkable point-in-time material, backups are durability material, and archives
   are policy-bound restore chains with Agentgres refs and receipts.
@@ -1672,6 +1714,8 @@ cloud provider catalog = compute provider
 provider lifecycle state = restore truth
 encrypted blob = restore truth
 provider recovery = invisible restart
+environment restore = proof that an external outcome committed or did not commit
+automatic retry of reconciliation-required or non-retryable effects
 shared-kernel container = sufficient boundary for untrusted autonomous agents
 raw git worktree = isolated agent environment
 Kubernetes or provider scheduler = Hypervisor truth

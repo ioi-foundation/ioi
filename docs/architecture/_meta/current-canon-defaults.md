@@ -7,7 +7,7 @@ files named in [source-of-truth-map.md](./source-of-truth-map.md).
 Supersedes: the inline "Current canonical defaults" digest formerly embedded in
 [source-of-truth-map.md](./source-of-truth-map.md).
 Superseded by: none.
-Last alignment pass: 2026-06-23.
+Last alignment pass: 2026-07-11.
 Doctrine status: canonical
 Implementation status: mixed (cross-owner digest)
 Last implementation audit: 2026-07-05
@@ -32,6 +32,8 @@ synchronized.
 
 ## Current Defaults
 
+### Capability, authority, and runtime ownership
+
 - `prim:*` means primitive execution capability;
 - `scope:*` means wallet/provider authority scope;
 - daemon/public runtime APIs own execution semantics;
@@ -47,28 +49,51 @@ synchronized.
   HarnessProfile for loop-native scoped step resolution; it is not a peer
   runtime, not the only admissible harness, not a meta-harness, and not the
   owner of high-level workflow composition;
+### Goal Kernel and collective pursuit
+
 - ioi.ai and Hypervisor Sessions use the Goal Kernel / Goal Microharness shape
-  for goal-shaped work: durable GoalRun state, RoleTopology selection,
-  independent Context Cells, scoped Context Leases, typed Context Handoffs,
-  selected HarnessProfiles, and VerifierPath evidence. Harness orchestration is
-  primarily context orchestration, not agent chatter for its own sake;
-- the GoalGroundingLoop is the low-level conductor orientation loop: receive
-  intent, classify risk, gather grounding, inspect current state, derive
-  constraints and acceptance, select topology, lease context, open Context Cells
-  only when useful, delegate or execute, monitor, verify, repair or escalate,
-  reconcile receipts/memory/skills, and continue or close. It should optimize
-  useful progress per token, not maximize model calls;
-- cross-harness coordination must use typed ContextHandoffs, ContextLeases,
-  TaskBriefPayloads, HarnessInvocations, HarnessAdapterEvents,
-  ImplementationResultPayloads, VerifierPaths, and receipts. Harness adapters
-  may render prompts or commands internally, but raw chat text is not the
-  durable conductor/implementer contract;
-- for ordinary goal work, the conductor may satisfy the VerifierPath through
-  deterministic checks, receipts, diffs, tests, browser/runtime evidence, and
-  acceptance reconciliation. Independent verifier harnesses are policy-triggered
-  escalation paths for publish, mount, external connector actions, spend,
-  secrets, unsafe plaintext, marketplace admission, release control, production
-  mutation, physical action, or compliance review;
+  for one bounded goal or claimed subgoal: durable GoalRun state,
+  GoalGroundingLoop, RoleTopology, independent Context Cells, scoped Context
+  Leases, typed Context Handoffs, selected HarnessProfiles, generic
+  `WorkResult` / `OutcomeDelta`, VerifierPath evidence, and continuation state;
+- the GoalGroundingLoop receives intent, classifies risk, gathers grounding,
+  inspects current state, derives constraints and acceptance, selects or adapts
+  topology, leases context/resources/authority, executes or delegates, monitors,
+  verifies, repairs or escalates, reconciles receipts/memory/skills, and
+  continues or closes. It optimizes useful progress per token, not model calls;
+- persistent collective pursuit uses an `OutcomeRoom` /
+  `CollaborativeWorkGraph` above one or more GoalRuns. The room owns the shared
+  objective, participant leases, work frontier, claim leases, resource and
+  capability offers, attempts, findings, verifier challenges, contribution
+  lineage, admission policy, discussion projections, and replay. It is not a
+  peer runtime or a globally mutable Agentgres graph;
+- the minimum Internet-of-Intelligence network proof is an independently
+  operated external Worker discovering eligible work through a versioned,
+  policy-bound `OutcomeRoomDiscovery`, negotiating semantic/action profiles,
+  submitting a typed `RoomParticipationRequest`, receiving bounded leases,
+  returning a verifiable contribution, preserving credit/dispute lineage, and
+  exiting with a portable `ParticipantStateBundle`. It must not require one
+  runtime, operational database, administrator, or continued IOI-host trust;
+- `WorkResult` / `OutcomeDelta` is the general cross-harness result seam.
+  `ImplementationResultPayload` remains the software profile with file, patch,
+  diff, and test fields; research, ontology, incident, service, review,
+  evaluation, and physical-mission results do not inherit software fields;
+- cross-harness coordination uses typed ContextHandoffs, ContextLeases,
+  TaskBriefPayloads, HarnessInvocations, HarnessAdapterEvents, generic results,
+  VerifierPaths, and receipts. Adapter-private prompts or commands and raw chat
+  are not the durable contract;
+- ordinary direct work collapses to one GoalRun, worker, model route,
+  automation, service, or session. OutcomeRoom machinery appears only when a
+  durable shared frontier, multiple attempts, dynamic participants, independent
+  verification, or cross-domain contribution justifies its cost;
+- ordinary verification may use deterministic checks, receipts, diffs, tests,
+  browser/runtime evidence, and acceptance reconciliation. Independent verifier
+  harnesses are policy-triggered for publish, mount, external connectors, spend,
+  secrets, unsafe plaintext, marketplace admission, production mutation,
+  physical action, compliance, challenge, or cross-party acceptance;
+
+### Persistent intelligence
+
 - persistent workspace intelligence such as skills, Agent Wiki /
   `ioi-memory`, wiki facts, learned tool affordances, and durable
   behavior-affecting context is workspace/project/domain state that should
@@ -76,6 +101,9 @@ synchronized.
   provenance, policy, and authority allow;
 - the Hypervisor Daemon is the deterministic execution substrate for
   portable, verifiable autonomous systems;
+
+### Hypervisor substrate and product structure
+
 - Hypervisor includes Type 1, Type 2, and Type 3 substrate modes as deployment
   and control postures of one product. Type 1 is HypervisorOS / appliance /
   cluster control where the Hypervisor Daemon is node root. Type 2 is Hypervisor
@@ -133,6 +161,13 @@ synchronized.
   specialized platform and vertical surfaces should resolve through the
   Applications catalog, Open Application, or contextual views unless product
   testing proves a new top-level category is needed;
+- IOI is one open, edge-sovereign operating fabric for governed autonomous
+  systems. Federated ontologies make a domain legible; GoalRuns and collective
+  pursuit create purposeful work; Hypervisor is the reference execution and
+  control environment; local/domain governance and authority providers authorize;
+  Agentgres admits each domain's operational truth; AIIP connects domains; IOI
+  L1 settles selected commitments. The semantic world plane and Hypervisor are
+  complementary halves of one architecture, not peer product theses;
 - Hypervisor is the governed autonomy substrate where work becomes reusable
   capability. Work is live governed activity such as a session, run,
   connector action, code change, research path, training job, workflow step,
@@ -158,35 +193,66 @@ synchronized.
   mined; Foundry proposes or builds reusable capability; aiagent.xyz/MoW
   attributes external supply when marketplace workers contribute; future
   work routes better under policy, authority, receipts, and replay;
-- IOI's economic flywheel should monetize product surfaces rather than
-  substrate primitives. The economic posture is open substrate, paid network:
-  your model, your cloud, your tools, your authority. The primary moat is the
-  Verified Work Graph: receipt-backed evidence of who did what, under which
-  authority, with which worker/harness/model/tool stack, at what cost, with what
-  eval result, and whether that evidence can improve routing, reputation,
-  settlement, promotion, or disputes. Work Credits are the broad product usage
-  and budget abstraction across Hypervisor, ioi.ai, aiagent.xyz, sas.xyz,
-  Foundry jobs, managed runtime, model/connector/GPU use, marketplace
-  invocation, service delivery, verifier work, and audit/replay costs. Agentgres
-  is bundled operational truth infrastructure, ordinary wallet.network authority
-  is bundled safety infrastructure, wallet.network revenue capture concentrates
-  on swaps/trades/payments/exchange/value movement, and IOI L1/token/BME
-  economics should attach to public coordination only after verified work demand
-  and marketplace liquidity exist;
-- The user-facing managed execution selector has only two modes: `Standard` and
-  `Private`. `Standard` is private-native at the IOI-managed operating substrate
-  layer by default, with cTEE / Plaintext-Free Runtime Mounting, scoped
-  authority, connector vaulting, and receipts, while provider-trust model routes
-  may still be allowed with disclosure. `Private` adds no-provider-trust model
-  routing for protected data through open-weight or user-controlled models in
-  local, BYO private node, customer-boundary/customer-cloud, cTEE, TEE, or
-  another custody-proven route. Private ioi.ai, Hypervisor private sessions, and
-  marketplace/private worker placements may be paid managed execution postures
-  when IOI provisions or brokers stricter private runtime, protected connector
-  processing, encrypted storage, attestation/custody proof, audit/replay, or
-  persistent background private work. Connecting an app, granting ordinary
-  connector authority, or running local/BYOM/BYOA without IOI-managed private
-  compute is not by itself a connector tax;
+### Goal Space product and economics
+
+- ioi.ai presents one Goal Space subscription, not separate single-node and
+  network-node products. The subscription covers conductor/account experience,
+  persistent goal state, portable memory, policy, receipts, replay,
+  collaboration, ordinary support, and a bounded monthly grant of
+  non-transferable Work Credits. Additional managed work uses opt-in top-ups,
+  overage, or committed spend; independent Network/Open workers, verifiers, and
+  services use a separately bounded goal budget, bounty, procurement limit, or
+  service order;
+- IOI reproduces the simplicity of a foundation-model seat without pooling,
+  sharing, browser-automating, or reselling named-user chat/workspace limits as
+  production worker capacity. Managed supply uses open/self-hosted weights,
+  provider APIs, managed/dedicated endpoints, negotiated inference capacity,
+  customer BYOK/BYOA, and explicitly authorized OEM/reseller paths. Aggregators
+  are replaceable procurement/routing adapters, not the product moat or sole
+  inference authority;
+- every provider/model candidate resolves a versioned route contract covering
+  commercial posture, access mode, customer-facing and automation/downstream
+  rights, credential principal, provider/model terms, endpoint/model versions,
+  provider allowlists, data collection/ZDR, region, fallback, price,
+  parameters, and training/distillation rights. Missing rights fail closed;
+  inference rights never imply training rights; model/provider fallback is a
+  semantic substitution that emits route evidence and re-runs applicable
+  verification/acceptance;
+- `Auto` / 1-of-N, `Pinned`, and `Compare` / N-of-N are routing policies, not
+  subscription tiers. Auto may use a verified cheap-first cascade; Pinned fails
+  closed unless fallback was authorized; Compare accounts for every admitted
+  attempt, verifier, and synthesis step;
+- execution/custody (`Standard` or `Private`), contributor scope (`My workers`,
+  `Organization`, or `Network / Open`), and placement (local, customer
+  infrastructure, selected cloud, or Hypervisor-selected) are orthogonal.
+  Contributor scope never declassifies data or widens authority. Multi-model,
+  multi-worker, and multi-node work does not become multi-party unless separate
+  principals control authority, truth, challenge, risk, and settlement;
+- `Standard` permits disclosed, policy-qualified provider-trust model routes
+  over the private-native substrate. `Private` adds no-provider-trust model
+  routing through local, BYO, customer-boundary, cTEE, TEE, or another
+  custody-proven route. Managed private compute/proof may consume Work Credits
+  or require enterprise capacity; merely connecting an app or using local/BYO
+  execution is not a connector tax;
+- IOI's economic posture is open substrate, paid network. The Verified Work
+  Graph is receipt-backed economic memory across accountable worker, harness,
+  model, tool, provider, authority, cost, evaluation, acceptance, contribution,
+  and dispute state. Work Credits normalize managed product costs but remain
+  non-transferable product credits, not cash, a speculative token, or a labor
+  payout rail. Direct BYOK removes the provider-cost component and retains only
+  explicit conductor/runtime/governance/support charges;
+- the sellable allowance is planned, not built. Current flat OCU receipt
+  metering is not supplier-invoice reconciliation. Commercial activation
+  requires route-attempt and billed-token/compute telemetry, supplier/broker
+  cost, IOI fee basis, adjustments, caps, explicit overage consent, positive
+  cohort margin, bounded p95 COGS, and accepted outcomes per dollar;
+- Agentgres remains bundled operational truth infrastructure; ordinary
+  wallet.network authority remains bundled safety infrastructure; marketplace
+  and service owners retain their fees; IOI L1/token/BME economics attach only
+  after verified work demand and liquidity justify public coordination;
+
+### Governed autonomous systems and sparse settlement
+
 - Intelligent blockchains are self-driving bounded actors: stateful
   autonomous-system domains that can monitor state, route work, request
   authority, recover, improve future behavior, and settle what matters only
@@ -288,12 +354,13 @@ applicable;
   API/service, approval-flow, queue, and background-mission surface over the
   Workflow Compositor; it is not a peer runtime and does not own
   wallet.network authority or Agentgres truth;
-- ioi.ai is the intent-to-outcome surface and may coordinate multiple models,
-  harnesses, workers, connectors, sessions, verifier paths, and attempt
-  strategies over Hypervisor when a goal calls for it. Its durable
-  coordination projection is a cross-session outcome graph over authorized
-  Hypervisor sessions, WorkRuns, attempts, receipts, artifacts, connector
-  status, authority refs, and contribution refs;
+- ioi.ai is the outcome conductor and Goal Space product. It may coordinate
+  multiple models, harnesses, workers, connectors, sessions, verifier paths,
+  attempt strategies, and independent contributors over Hypervisor when a goal
+  calls for it. Its durable projection is a cross-session outcome graph and,
+  for persistent collective goals, an OutcomeRoom workstream graph over
+  authorized participants, claims, attempts, findings, receipts, artifacts,
+  spend, authority blockers, challenges, replay, and contribution refs;
 - ioi.ai dogfoods Hypervisor as a first-party coordinator. Similar
   coordinators should be buildable from Hypervisor application surfaces,
   operator-plane contracts, WorkRuns, Automations, Foundry, wallet.network,
@@ -307,7 +374,18 @@ applicable;
   conductor-advisor candidates, certification-run candidates, transfer gates,
   or promotion proposals. ioi.ai may draft or consume Foundry refs, but Foundry
   owns training/eval lineage;
-- ODK is the first-party Hypervisor surface over the semantic data plane;
+- federated Domain Ontologies and Data Recipes are IOI's semantic world plane.
+  Domains retain namespaced local canonicality and interoperate through versions,
+  overlays, crosswalks, challengeable semantic mapping decisions, and policy-
+  bound projections rather than one global ontology or database. Admitted
+  assertions preserve provenance, valid/transaction time, uncertainty,
+  supporting and contradicting evidence, applicability, supersession, and
+  dispute; admission does not make a proposition universally true;
+- `OntologyActionContract` is the semantic/action bridge: target object and
+  typed IO, pre/postconditions, invariants, capability/runtime binding, risk,
+  authority, dry-run, idempotency, retry, ambiguous-effect reconciliation,
+  compensation, verification, evidence, receipts, and physical-safety posture;
+- ODK is the first-party Hypervisor surface over the semantic world plane;
   Foundry consumes ODK-governed ontology/data artifacts for training,
   evaluation, simulation, worker/package generation, and capability
   improvement, but does not own semantic truth. `Data / Knowledge`,
@@ -443,15 +521,16 @@ applicable;
 - IOI kernel is the L0 substrate;
 - IOI L1 is the public settlement, registry, dispute, and governance root;
 - autonomous systems can execute anywhere; IOI settles what matters;
-- AIIP moves delegated autonomous work, authority leases, receipts,
-  settlement intents, disputes, reputation queries, and handoffs across
-  bounded execution domains;
+- AIIP moves delegated autonomous work, collaborative-pursuit updates,
+  negotiated semantic profiles, authority leases, receipts, settlement intents,
+  disputes, reputation queries, and handoffs across bounded execution domains;
 - AIIP uses the same semantic protocol for local Hypervisor microharness
   routing and external autonomous-system handoffs, while transport and
   settlement mode vary by profile;
 - governed autonomous-system chains are system-local execution chains with
   policy, modules, proposals, receipts, state roots, and governed upgrades;
-- a Hypervisor Node is a local settlement, orchestration, authority, state,
+- a Hypervisor Node is a local settlement, orchestration, authority-integration
+  and enforcement, state,
   replay, routing, and interop domain for many governed autonomous-system
   chains;
 - Hypervisor App, Hypervisor Web, CLI/headless, Workbench, Automations,
@@ -482,12 +561,17 @@ applicable;
   models, maps, zones, calibration, environment state, physical command
   queues, telemetry streams, physical replay, sim-to-real gates, incidents,
   recovery, operator handoff, and fleet-level policy for live physical
-  domains;
+  domains. Embodied execution is explicitly two-speed: the slow governance
+  plane authorizes bounded mission/action envelopes; a certified local
+  control-and-safety plane executes high-frequency control, retains local
+  emergency stop, and emits segment commitments plus exception receipts;
 - workers, models, tools, connectors, browsers, shells, and computer-use
-  providers are guest workloads/capabilities leased through daemon
-  authority;
+  providers are guest workloads/capabilities executed through daemon
+  enforcement under local/domain policy and applicable authority grants;
 - policy, receipts, replay, approvals, authority scopes, and settlement hooks
-  are the shared trust/audit substrate;
+  are the shared trust/audit substrate. A receipt binds only its declared
+  boundary fact; evidence, verification, acceptance, adjudication, and
+  settlement are distinct assurance stages;
 - clients are projections or operators, not private runtime truth;
 - Environments views in Hypervisor App, Hypervisor Web,
   CLI/headless projections, and console.ioi.ai are projections and control
@@ -500,8 +584,10 @@ applicable;
   kit over semantic data-plane contracts;
 - IDE/CLI/browser/hosted-agent adapters mediate through available control
   points only and must not claim total interception of opaque tools;
-- models and agents may reason or propose; the daemon authorizes anything
-  that crosses the deterministic execution boundary;
+- models and agents may reason or propose; local/domain policy and the
+  applicable authority provider authorize consequential power, while the daemon
+  admits, enforces, executes, receipts, and fails closed at the deterministic
+  execution boundary;
 - Hypervisor's primary build artifact is an Autonomous System Package;
 - Autonomous System Package lifecycle is compose -> bind -> simulate ->
   authorize -> run -> verify -> inspect receipts -> package -> deploy ->
@@ -517,4 +603,18 @@ applicable;
   in Hypervisor through ODK facets, Domain Apps, or contextual views;
 - DistilledOntologyDataset is the compact high-signal data substrate for
   efficient specialist training and evaluation when useful;
-- adaptive work graph is execution strategy only.
+- participant messages, artifacts, findings, semantic mappings, and verifier
+  suggestions remain hostile/untrusted input until admitted. They cannot
+  automatically promote into durable memory, ontology, routing, authority, or
+  production capability; risk may require independent verification,
+  separation of duty, affiliation disclosure, anti-Sybil/collusion controls,
+  quarantine, and reversible promotion;
+- external-effect work declares `replayable`, `checkpointable`,
+  `compensatable`, `reconciliation_required`, or `non_retryable` posture.
+  Environment restoration never establishes outcome restoration;
+- governed autonomous-system chains are system-local state machines, not a
+  mandatory public chain per agent, GoalRun, tool call, or receipt. Public
+  consensus remains sparse and trust-driven;
+- `adaptive_work_graph` is a local execution strategy only;
+  `CollaborativeWorkGraph` is the shared-frontier collaboration profile above
+  GoalRuns. Neither is a peer runtime.

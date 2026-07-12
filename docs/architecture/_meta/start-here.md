@@ -4,493 +4,350 @@ Status: canonical reader entry point.
 Canonical owner: this file for first-read architecture orientation and role-based reading paths.
 Supersedes: ad hoc onboarding paths across architecture docs.
 Superseded by: none.
-Last alignment pass: 2026-06-23.
+Last alignment pass: 2026-07-11.
 Doctrine status: canonical
-Implementation status: mixed (reader entry point over all maturity levels)
-Last implementation audit: 2026-07-05
+Implementation status: mixed (reader entry point over built, partial, planned, and speculative subjects)
+Last implementation audit: 2026-07-11
 
 ## Five-Minute Mental Model
 
-IOI is an edge-in Web4 architecture for verifiable autonomous labor. Work
-starts near the user, data, tools, and authority boundary. It becomes
-operational truth in domain-local state. Only selected commitments settle
-publicly.
+IOI is a unified operating fabric for governed autonomous systems and the
+Internet of Intelligence. It combines two complementary directions:
 
-Read the stack like this:
+1. a Hypervisor substrate that mounts models, workers, tools, services,
+   runtimes, infrastructure, memory, and embodied systems behind one governed
+   effect boundary; and
+2. a federated semantic and collaboration fabric in which people,
+   organizations, workers, services, and autonomous-system domains can pursue
+   shared outcomes without surrendering local truth or authority to one global
+   database.
 
-```text
-ioi.ai Goal Chat
-  asks, discovers, coordinates, and drafts handoffs; durable automations and
-  execution live in Hypervisor
-
-Hypervisor clients
-  request, inspect, steer, and approve work through the same Core
-  Hypervisor App, Hypervisor Web, CLI/headless, SDK, ADK, Authority Gateway adapters
-  TUI is an optional CLI presentation, not a separate first-class client
-
-Hypervisor product shell
-  New Session launches governed work; Home starts/resumes work; Projects
-  organize persistent software/system work; Automations own durable
-  workflows/services; Applications expose specialized surfaces; Sessions show
-  live and historical execution; Open Application is the singular active-surface slot
-
-Hypervisor application surfaces
-  organize the same Core by job-to-be-done
-  Workbench, Environments, Agent Studio, Foundry, ODK, Domain Apps,
-  Developer & Integrations, Governance, Operations, Work Ledger, Marketplace,
-  Robot Fleets / Embodied
-
-ioi.ai collaborative outcome pattern
-  chat.ioi.ai's goal-appropriate multi-model/multi-path pursuit over Hypervisor,
-  with evidence, receipts, verifier state, and final ownership synthesis
-
-Hypervisor Foundry
-  model, worker, eval, dataset, registry, endpoint, training, and
-  ontology-aware package-building surface over Hypervisor Core
-
-Hypervisor sessions/providers/environments
-  default cross-session views over managed workspaces, provider integrations,
-  services, tasks, ports, logs, archive refs, restore refs, costs, and health
-
-Hypervisor Core
-  shared runtime/control substrate whose execution owner is the daemon; it
-  coordinates authority gateways but does not replace wallet.network
-
-Agent harness adapters
-  mediate external agent harnesses such as Codex, Claude Code, Grok Build,
-  OpenHands, Aider, shell/tmux agents, CI agents, and hosted coding agents
-
-Hypervisor Daemon
-  executes work and owns effect semantics
-
-HypervisorOS
-  bare-metal node profile where the daemon is the node root
-
-Workflow Compositor
-  shapes high-level directed workflows, services, dependencies, step contracts,
-  review points, and delivery contracts over Hypervisor Core
-
-Harness Profiles
-  resolve scoped steps through selected model/tool/worker/service/harness paths;
-  the Default Harness Profile is the reference scaffold/fallback profile, not a
-  meta-harness and not the only admissible harness
-
-Persistent workspace intelligence
-  skills, Agent Wiki / ioi-memory, wiki facts, learned tool affordances, and
-  durable behavior-affecting context persist at workspace/project/domain level
-  across model or harness swaps when compatibility, provenance, policy, and
-  authority allow
-
-wallet.network
-  authorizes identity, secrets, approvals, payments, exchanges, scopes,
-  decryption, revocation, and protection actions; route sources produce
-  exchange candidates, but wallet.network owns authority while products may
-  present it as Wallet, SSO, permissions, approval review, or connected access
-
-decentralized.exchange / decentralized.trade / decentralized.cloud
-  Wallet/Hypervisor-consumed route, venue, and resource-intelligence engines
-  for asset conversion, exposure management, and infrastructure capacity; they
-  propose candidates without becoming authority, required UIs, or trust roots
-
-Hypervisor provider integrations
-  direct integrations for cloud compute, storage, GPUs, confidential compute,
-  DePIN, local machines, customer cloud, enterprise clusters, decentralized
-  storage networks, and user-specified providers
-
-Agentgres
-  admits and proves operational truth for app, user, agent, and run state
-
-Agent Wiki / ioi-memory
-  governs semantic memory, recall, wiki surfaces, and retrieval
-
-Agentgres artifact refs
-  define what payload bytes mean and how they bind to receipts, policy,
-  authority, and state roots
-
-Storage backends
-  hold bytes: local disk, S3, Filecoin, CAS/IPFS, object stores, provider blobs;
-  private payloads are encrypted before storage
-
-Private Workspace backed by cTEE
-  lets users open a normal private workspace on persistent rented GPU
-  Hypervisor Nodes without exposing protected plaintext to the node by default;
-  Plaintext-Free Runtime Mounting is the daemon boundary for tools and models,
-  Candidate-Lattice Private Decoding is the default protected-agency strategy, and
-  Counterfactual Lattice Execution can spend extra public token volume to reduce
-  online private-choice leakage; cTEE preserves ordinary GPU kernels for public
-  work but does not promise same-token-budget arbitrary private inference;
-  Candidate Coverage Profile estimates when redundancy makes this trade cheap
-  and when exponential redundancy decay should route the work away from CLPD/CLE;
-  the Cryptographic Operator Plane routes protected scoring/retrieval/policy
-  checks to FHE/MPC/local/threshold paths behind the same user-facing workspace;
-  third-party model APIs over sensitive plaintext are provider-trust, while
-  public/redacted/declassified API calls can remain cTEE-compatible;
-  deterrence/detection receipts support canaries, watermarks, and disputes
-
-AIIP
-  moves bounded autonomous work across local, marketplace, enterprise, and
-  third-party domains
-
-Ecosystem Assurance
-  makes profiles, certifications, compliance packs, liability routes, abuse
-  advisories, and commercial exports legible from existing receipts and policy
-  without becoming execution, authority, truth, marketplace, or settlement
-
-IOI L1 / compatible L1s
-  settle selected public, economic, rights, dispute, registry, and cross-domain
-  commitments
-```
-
-Private user/app state follows the same split as private agent state:
+The first direction makes intelligence executable and governable. The second
+makes independently owned intelligence composable. Neither replaces the other.
 
 ```text
-wallet.network
-  authenticates, authorizes, and controls viewing/decryption leases
+Goal Space (ioi.ai)
+  durable goals, subscriptions, budgets, collaboration, replay, outcome UX
+  -> OutcomeRoom / CollaborativeWorkGraph when shared pursuit is useful
+     -> one or more bounded GoalRuns
+        -> GoalGroundingLoop and RoleTopology
+           -> ContextCells, claims, leases, typed handoffs, attempts
+              -> Workers composed from models, harnesses, tools, and services
 
-Agentgres
-  records canonical meaning, refs, policy, receipts, and state roots
+Hypervisor
+  one control plane across Type 1 bare-metal, Type 2 workstation, and
+  Type 3 governed-autonomy postures
+  -> Hypervisor Daemon admits and mediates effects
+  -> Agentgres records admitted operational truth
+  -> artifact/storage planes hold governed payloads
+  -> wallet.network and local/domain policy supply authority
 
-storage backends
-  hold encrypted private profile, workspace, app, service, and metadata bytes
+Federated semantic world plane
+  local Domain Ontologies, assertions, overlays, and action contracts
+  <-> explicit crosswalks and challengeable mapping decisions
+  <-> AIIP signed handoffs between bounded execution domains
 
-IOI L1
-  receives only selected public/economic/cross-domain commitments
+Sparse public coordination
+  local work stays local by default
+  -> IOI L1 only for selected rights, registry, economic, dispute,
+     governance, or cross-domain commitments
 ```
 
-The short version:
+This is not a choice between a “hypervisor app” and a decentralized enterprise
+ontology. Hypervisor is the execution and operating substrate; Goal Space and
+the semantic/collaboration planes are how many intelligences and domains use
+that substrate to converge on open or private outcomes.
+
+## The Core Product Shape
+
+### Goal Space
+
+ioi.ai should sell one coherent Goal Space subscription rather than a bundle of
+pooled model seats. The subscription includes persistent conductor state,
+portable memory, private and organization goals, governance, collaboration,
+receipts, replay, and a bounded grant of non-transferable Work Credits.
+
+Managed model and runtime supply is a portfolio:
+
+- direct provider APIs, dedicated capacity, and negotiated inference;
+- replaceable aggregators such as OpenRouter for breadth and discovery;
+- customer BYOK or provider-approved user-scoped BYOA;
+- open-weight, local, customer-boundary, and self-hosted routes.
+
+Every route resolves a versioned commercial and technical rights contract.
+Named-human ChatGPT, Claude, or similar subscriptions are not pooled production
+worker capacity. Missing automation, downstream, OEM/reseller, data, region,
+credential-principal, or output-training rights fail closed.
+
+The user controls independent axes:
+
+- execution/custody: `Standard` or `Private`;
+- goal routing: `Auto`, `Pinned`, or `Compare`;
+- contributors: `My workers`, `Organization`, or `Network / Open`;
+- placement: local, customer infrastructure, selected cloud, or Hypervisor
+  choice.
+
+Network/Open contribution uses a separate funded goal budget, bounty,
+procurement cap, or sas.xyz service order. It must not silently burn an
+ordinary seat allowance.
+
+### OutcomeRoom And GoalRun
+
+An `OutcomeRoom` is the durable shared-pursuit container. Its
+`CollaborativeWorkGraph` records admitted participants, offers, frontier items,
+leased claims, attempts, findings, verifier challenges, contribution lineage,
+discussion projections, and replay. Goal Space workstreams and Hypervisor
+Mission detail are projections over this same graph.
+
+A `GoalRun` is a bounded execution unit below an optional OutcomeRoom. Its
+generic loop is:
 
 ```text
-Surfaces request.
-Hypervisor Core coordinates clients, surfaces, sessions, and adapters.
-Hypervisor Daemon executes.
-HypervisorOS roots serious nodes.
-Hypervisor manages sessions, providers, and environments directly.
-Workflow Compositor shapes directed work.
-HarnessProfiles resolve scoped steps.
-Default Harness Profile is the reference scaffold/fallback.
-authority providers/local governance authorize as required.
-wallet.network risk-labels, approves/denies, revokes, protects, receipts, and
-supplies portable delegated or high-risk authority.
-decentralized.exchange/trade/cloud expose route/venue/resource intelligence for liquidity, exposure, event markets, and infrastructure capacity.
-Hypervisor provider integrations remain direct execution routes.
-Agentgres admits truth.
-Agent Wiki remembers.
-Artifact refs define payload meaning.
-Storage holds encrypted bytes.
-Private Workspace keeps protected plaintext off rented nodes.
-CLPD lets rented GPUs generate candidates while private heads select.
-AIIP moves work.
-Ecosystem Assurance explains trust posture from profiles and evidence.
-L1 settles selected public/economic commitments.
+orient -> plan -> implement/act -> observe -> verify -> course-correct
+       -> continue, escalate, hand off, reconcile, or close
 ```
 
-## Core Boundary Diagram
+The kernel should be generic and loop-native. It should not be a global swarm,
+a hard-coded coding loop, or a chat transcript. Simple work collapses to one
+direct path. Hard or uncertain work may fan out across models, workers,
+verifiers, sessions, or parties when expected value justifies the added cost.
+
+`WorkResult` and `OutcomeDelta` are the generic result seam.
+`ImplementationResultPayload` is only the software-implementation profile.
+
+### Hypervisor
+
+Hypervisor is one operating fabric with three complementary postures:
+
+- Type 1: HypervisorOS bare-metal, appliance, and cluster substrate;
+- Type 2: desktop/workstation hosting of local environments, models, tools,
+  VMs, containers, microVMs, and sandboxes;
+- Type 3: the autonomy plane for sessions, workers, goals, authority, receipts,
+  replay, outcomes, and governed improvement.
+
+Hypervisor App, Hypervisor Web, CLI/headless, optional TUI, SDK, ADK,
+Workbench, Automations, Agent Studio, Foundry, ODK, Domain Apps, Governance,
+Operations, Work Ledger, Environments, and Robot Fleets are clients, builder
+surfaces, or projections over the same Core. They do not create private runtime
+truth beside the daemon.
+
+### Federated Ontology And Action
+
+There is no universal enterprise graph. Each domain owns local ontology
+versions, overlays, assertions, valid time, transaction time, provenance,
+uncertainty, contradictions, supersession, and disputes. Cross-domain work uses
+explicit `OntologyCrosswalk` and `SemanticMappingDecision` objects.
+
+Semantic meaning never grants power. A consequential ontology action becomes
+executable only through an `OntologyActionContract` binding typed IO,
+preconditions, postconditions, state transition, capability, runtime, policy,
+authority, risk, idempotency, ambiguous-effect recovery, compensation,
+verification, evidence, receipts, and physical safety where applicable.
+
+### Internet Of Intelligence
+
+IOI facilitates an Internet of Intelligence when it preserves all four forms
+of plurality instead of conflating them:
+
+| Plurality | What changes | What it does not prove |
+| --- | --- | --- |
+| Multi-model | cognition routes | independent workers or parties |
+| Multi-worker | accountable labor actors | independent infrastructure or governance |
+| Multi-node | placement, custody, and failure domains | independent contributors |
+| Multi-party | ownership, policy, authority, attribution, dispute, economics | automatically trustworthy results |
+
+Hugging Face-style open agent experiments are a useful product pattern:
+shared frontier, public attempts, negative results, verifier challenges,
+resource offers, relays, credit, and replay. IOI generalizes that pattern into a
+governed service that also supports private rooms, enterprise federation,
+machine authority, typed handoffs, policy, economics, and embodied effects.
+
+## Core Effect Boundary
 
 ```text
-Intent
-  -> Hypervisor client or application surface
-  -> Hypervisor Core session / adapter boundary
-  -> Hypervisor Daemon
-  -> Workflow Compositor when work needs directed graph structure
-  -> selected HarnessProfile, service module, tool, worker, verifier, or model path
-  -> scoped model/tool/result/model or deterministic step loop
-  -> receipts + normalized observations
-  -> Agentgres operations + artifact refs
-  -> storage backend payload bytes
-  -> optional AIIP handoff or L1 settlement by trigger
+intent or room claim
+  -> worker/model/harness proposes
+  -> semantic and capability checks
+  -> policy and authority providers authorize
+  -> Hypervisor Daemon admits, schedules, executes or mediates
+  -> environment/provider/actuator performs
+  -> observations, receipts, artifacts, and state deltas return
+  -> verifier and acceptance paths classify assurance
+  -> Agentgres admits local operational truth
+  -> AIIP handoff or L1 commitment only when policy triggers it
 ```
 
-Do not add another runtime beside the Hypervisor Daemon. Runtime profiles,
-harnesses, adapters, SDK clients, Hypervisor App/Web/CLI-headless clients, and
-Workbench/Automations/Foundry surfaces, other application surfaces, and
-Environments views are clients, projections, application surfaces,
-editors, views, or daemon-executed profiles.
+The daemon does not invent authority. Policy and authority providers authorize;
+the daemon admits, enforces, executes or mediates, receipts, and fails closed.
+
+Receipt assurance is staged:
+
+```text
+attested -> evidenced -> verified -> accepted -> adjudicated -> settled
+```
+
+A receipt proves only its bound event or claim. It is not automatically proof
+of correctness, truth, acceptance, or settlement.
+
+External-effect recovery is also explicit:
+
+```text
+replayable | checkpointable | compensatable |
+reconciliation_required | non_retryable
+```
+
+A timeout after a possible external effect is ambiguous, not safely retryable.
+Environment restore and outcome reconciliation are separate operations.
+
+## Persistent Intelligence, Privacy, And Embodiment
+
+- `MemorySpace` is portable vault truth; `MemoryProjection` is the filtered
+  harness/model/worker view. Harness-local memory is cache, not the durable
+  brain.
+- Improvement is proposal-driven. Traces and failures may yield skill, memory,
+  workflow, verifier, harness, routing, or Foundry candidates, but eval,
+  policy, authority, receipts, and Agentgres admission gate promotion.
+- Private Workspace backed by cTEE keeps protected plaintext, secrets,
+  strategy, and unrestricted authority off untrusted rented nodes by default.
+  Provider-trust API routes remain explicitly labeled provider-trust.
+- Embodied execution is two-speed: a deterministic local safety/control loop
+  handles heartbeat, limits, stop, and immediate actuator control; the slower
+  intelligence loop proposes missions, plans, semantic actions, and bounded
+  physical action segments. Model output is never a safety heartbeat.
 
 ## Route By Problem
 
-If you are entering the architecture with a concrete implementation problem,
-use this map before reading deep doctrine:
+Use [`current-canon-defaults.md`](./current-canon-defaults.md) for the current
+cross-owner digest, [`source-of-truth-map.md`](./source-of-truth-map.md) before
+editing doctrine, and [`implementation-matrix.md`](./implementation-matrix.md)
+before claiming that a target object is built.
 
-For current cross-owner defaults, skim
-[`current-canon-defaults.md`](./current-canon-defaults.md). For edit-first
-ownership, use [`source-of-truth-map.md`](./source-of-truth-map.md). For durable
-forms, code anchors, and conformance hooks, use
-[`implementation-matrix.md`](./implementation-matrix.md).
-
-| Problem | Start Here | Then Read |
+| Problem | Start here | Then read |
 | --- | --- | --- |
-| Build the Hypervisor cockpit from the IOI reference shell | [`components/hypervisor/core-clients-surfaces.md`](../components/hypervisor/core-clients-surfaces.md) | [`components/hypervisor/providers-and-environments.md`](../components/hypervisor/providers-and-environments.md), [`components/daemon-runtime/api.md`](../components/daemon-runtime/api.md), [`_meta/implementation-matrix.md`](./implementation-matrix.md) |
-| Route work through Codex/Claude/DeepSeek/Aider-style tools | [`components/hypervisor/core-clients-surfaces.md`](../components/hypervisor/core-clients-surfaces.md) | [`components/daemon-runtime/default-harness-profile.md`](../components/daemon-runtime/default-harness-profile.md), [`components/daemon-runtime/events-receipts-delivery-bundles.md`](../components/daemon-runtime/events-receipts-delivery-bundles.md) |
-| Build ioi.ai multi-model goal pursuit, Stockfish-style coding search, or goal-appropriate collaborative outcomes | [`domains/ioi-ai/collaborative-outcome-pattern.md`](../domains/ioi-ai/collaborative-outcome-pattern.md) | [`components/hypervisor/core-clients-surfaces.md`](../components/hypervisor/core-clients-surfaces.md), [`components/daemon-runtime/default-harness-profile.md`](../components/daemon-runtime/default-harness-profile.md), [`components/daemon-runtime/events-receipts-delivery-bundles.md`](../components/daemon-runtime/events-receipts-delivery-bundles.md) |
-| Implement wallet authority, approvals, scopes, or agent credentials | [`components/wallet-network/doctrine.md`](../components/wallet-network/doctrine.md) | [`components/wallet-network/api-authority-scopes.md`](../components/wallet-network/api-authority-scopes.md), [`components/wallet-network/product-exchange-risk.md`](../components/wallet-network/product-exchange-risk.md) |
-| Build exchange, trade, perps, or prediction-market flows | [`components/wallet-network/product-exchange-risk.md`](../components/wallet-network/product-exchange-risk.md) | [`domains/decentralized/exchange.md`](../domains/decentralized/exchange.md), [`domains/decentralized/trade.md`](../domains/decentralized/trade.md) |
-| Run private work on rented/cloud/DePIN compute | [`components/daemon-runtime/private-workspace-ctee.md`](../components/daemon-runtime/private-workspace-ctee.md) | [`components/daemon-runtime/runtime-nodes-tee-depin.md`](../components/daemon-runtime/runtime-nodes-tee-depin.md), [`components/hypervisor/providers-and-environments.md`](../components/hypervisor/providers-and-environments.md) |
-| Decide where model weights, private files, or plaintext may live | [`components/daemon-runtime/private-workspace-ctee.md`](../components/daemon-runtime/private-workspace-ctee.md) | [`components/model-router/doctrine.md`](../components/model-router/doctrine.md), [`components/wallet-network/doctrine.md`](../components/wallet-network/doctrine.md) |
-| Persist app/user/agent state, snapshots, archives, or restore refs | [`components/agentgres/artifact-ref-plane.md`](../components/agentgres/artifact-ref-plane.md) | [`components/agentgres/doctrine.md`](../components/agentgres/doctrine.md), [`components/storage-backends/doctrine.md`](../components/storage-backends/doctrine.md) |
-| Handle missing/corrupt/stale payload bytes | [`components/agentgres/artifact-ref-plane.md`](../components/agentgres/artifact-ref-plane.md) | [`components/storage-backends/doctrine.md`](../components/storage-backends/doctrine.md), [`components/storage-backends/filecoin-cas.md`](../components/storage-backends/filecoin-cas.md), [`components/daemon-runtime/events-receipts-delivery-bundles.md`](../components/daemon-runtime/events-receipts-delivery-bundles.md) |
-| Publish or rent a long-lived worker | [`domains/aiagent/worker-marketplace.md`](../domains/aiagent/worker-marketplace.md) | [`domains/aiagent/digital-worker-ontology.md`](../domains/aiagent/digital-worker-ontology.md), [`domains/aiagent/managed-worker-instance-lifecycle.md`](../domains/aiagent/managed-worker-instance-lifecycle.md) |
-| Sell or fulfill an autonomous service outcome | [`domains/sas/service-marketplace.md`](../domains/sas/service-marketplace.md) | [`domains/sas/service-endpoints.md`](../domains/sas/service-endpoints.md), [`components/daemon-runtime/events-receipts-delivery-bundles.md`](../components/daemon-runtime/events-receipts-delivery-bundles.md) |
-| Train robotics or embodied models in simulation | [`components/hypervisor/foundry.md`](../components/hypervisor/foundry.md) | [`foundations/domain-ontologies-and-data-recipes.md`](../foundations/domain-ontologies-and-data-recipes.md), [`foundations/physical-action-safety.md`](../foundations/physical-action-safety.md) |
-| Execute robots, vehicles, drones, or embodied work physically | [`foundations/physical-action-safety.md`](../foundations/physical-action-safety.md) | [`foundations/aiip.md`](../foundations/aiip.md), [`components/wallet-network/api-authority-scopes.md`](../components/wallet-network/api-authority-scopes.md) |
-| Add certification, compliance, liability, quarantine, SLA, billing, or customer audit posture | [`foundations/ecosystem-assurance-certification-liability.md`](../foundations/ecosystem-assurance-certification-liability.md) | [`components/daemon-runtime/events-receipts-delivery-bundles.md`](../components/daemon-runtime/events-receipts-delivery-bundles.md), [`components/wallet-network/doctrine.md`](../components/wallet-network/doctrine.md), [`components/agentgres/doctrine.md`](../components/agentgres/doctrine.md), [`domains/aiagent/worker-marketplace.md`](../domains/aiagent/worker-marketplace.md), [`domains/sas/service-marketplace.md`](../domains/sas/service-marketplace.md) |
-| Integrate AWS/GCP/Akash/Filecoin/local/customer providers | [`components/hypervisor/providers-and-environments.md`](../components/hypervisor/providers-and-environments.md) | [`components/storage-backends/doctrine.md`](../components/storage-backends/doctrine.md), [`components/daemon-runtime/hypervisoros.md`](../components/daemon-runtime/hypervisoros.md) |
-| Move work across autonomous systems | [`foundations/aiip.md`](../foundations/aiip.md) | [`foundations/common-objects-and-envelopes.md`](../foundations/common-objects-and-envelopes.md), [`foundations/ioi-l1-mainnet.md`](../foundations/ioi-l1-mainnet.md) |
+| Goal Space, open agent collaboration, room/workstream UX | [`collaborative-outcome-pattern.md`](../domains/ioi-ai/collaborative-outcome-pattern.md) | [`economic-flywheel-and-pricing-boundaries.md`](../foundations/economic-flywheel-and-pricing-boundaries.md), [`common-objects-and-envelopes.md`](../foundations/common-objects-and-envelopes.md) |
+| Goal Kernel, multi-harness execution, context cells | [`default-harness-profile.md`](../components/daemon-runtime/default-harness-profile.md) | [`events-receipts-delivery-bundles.md`](../components/daemon-runtime/events-receipts-delivery-bundles.md), [`api.md`](../components/daemon-runtime/api.md) |
+| Goal Space pricing, Work Credits, Network/Open budgets | [`economic-flywheel-and-pricing-boundaries.md`](../foundations/economic-flywheel-and-pricing-boundaries.md) | [`identity-access-and-metering.md`](../components/hypervisor/identity-access-and-metering.md), [`collaborative-outcome-pattern.md`](../domains/ioi-ai/collaborative-outcome-pattern.md) |
+| Foundation-model supply, OpenRouter, BYOK/BYOA, route rights | [`model-router/doctrine.md`](../components/model-router/doctrine.md) | [`api-byok-mounting.md`](../components/model-router/api-byok-mounting.md), [`economic-flywheel-and-pricing-boundaries.md`](../foundations/economic-flywheel-and-pricing-boundaries.md) |
+| Hypervisor product shell, clients, sessions, adapters | [`core-clients-surfaces.md`](../components/hypervisor/core-clients-surfaces.md) | [`providers-and-environments.md`](../components/hypervisor/providers-and-environments.md), [`doctrine.md`](../components/daemon-runtime/doctrine.md) |
+| Type 1/2/3 substrate and HypervisorOS | [`hypervisoros.md`](../components/daemon-runtime/hypervisoros.md) | [`providers-and-environments.md`](../components/hypervisor/providers-and-environments.md), [`runtime-nodes-tee-depin.md`](../components/daemon-runtime/runtime-nodes-tee-depin.md) |
+| Enterprise ontology, semantic federation, ODK | [`domain-ontologies-and-data-recipes.md`](../foundations/domain-ontologies-and-data-recipes.md) | [`common-objects-and-envelopes.md`](../foundations/common-objects-and-envelopes.md), [`foundry.md`](../components/hypervisor/foundry.md) |
+| Cross-domain collaboration or autonomous-system interop | [`aiip.md`](../foundations/aiip.md) | [`collaborative-outcome-pattern.md`](../domains/ioi-ai/collaborative-outcome-pattern.md), [`ioi-l1-mainnet.md`](../foundations/ioi-l1-mainnet.md) |
+| Authority, secrets, approvals, revocation | [`wallet-network/doctrine.md`](../components/wallet-network/doctrine.md) | [`wallet-network/api-authority-scopes.md`](../components/wallet-network/api-authority-scopes.md), [`security-privacy-policy-invariants.md`](../foundations/security-privacy-policy-invariants.md) |
+| Operational truth, object heads, projections | [`agentgres/doctrine.md`](../components/agentgres/doctrine.md) | [`agentgres/api-object-model.md`](../components/agentgres/api-object-model.md), [`agentgres/projection-system-reference.md`](../components/agentgres/projection-system-reference.md) |
+| Portable memory and model/harness projections | [`portable-memory-vault.md`](../components/daemon-runtime/portable-memory-vault.md) | [`agentgres/doctrine.md`](../components/agentgres/doctrine.md), [`default-harness-profile.md`](../components/daemon-runtime/default-harness-profile.md) |
+| Artifact refs, archives, restore, missing payloads | [`agentgres/artifact-ref-plane.md`](../components/agentgres/artifact-ref-plane.md) | [`storage-backends/doctrine.md`](../components/storage-backends/doctrine.md), [`events-receipts-delivery-bundles.md`](../components/daemon-runtime/events-receipts-delivery-bundles.md) |
+| Private rented/cloud compute | [`private-workspace-ctee.md`](../components/daemon-runtime/private-workspace-ctee.md) | [`runtime-nodes-tee-depin.md`](../components/daemon-runtime/runtime-nodes-tee-depin.md), [`model-router/doctrine.md`](../components/model-router/doctrine.md) |
+| Worker marketplace and managed instances | [`aiagent/worker-marketplace.md`](../domains/aiagent/worker-marketplace.md) | [`aiagent/digital-worker-ontology.md`](../domains/aiagent/digital-worker-ontology.md), [`aiagent/managed-worker-instance-lifecycle.md`](../domains/aiagent/managed-worker-instance-lifecycle.md) |
+| Service procurement and delivery | [`sas/service-marketplace.md`](../domains/sas/service-marketplace.md) | [`sas/service-endpoints.md`](../domains/sas/service-endpoints.md), [`events-receipts-delivery-bundles.md`](../components/daemon-runtime/events-receipts-delivery-bundles.md) |
+| Governed improvement and promotion | [`improvement-governance-gates.md`](../components/daemon-runtime/improvement-governance-gates.md) | [`foundry.md`](../components/hypervisor/foundry.md), [`default-harness-profile.md`](../components/daemon-runtime/default-harness-profile.md) |
+| Physical/embodied execution | [`physical-action-safety.md`](../foundations/physical-action-safety.md) | [`embodied-runtime.md`](../components/daemon-runtime/embodied-runtime.md), [`aiip.md`](../foundations/aiip.md) |
+| Assurance, certification, liability, audit | [`ecosystem-assurance-certification-liability.md`](../foundations/ecosystem-assurance-certification-liability.md) | [`events-receipts-delivery-bundles.md`](../components/daemon-runtime/events-receipts-delivery-bundles.md), [`marketplace-neutrality.md`](../domains/marketplace-neutrality.md) |
+| L1, token, BME, and sparse public settlement | [`ioi-l1-mainnet.md`](../foundations/ioi-l1-mainnet.md) | [`economic-flywheel-and-pricing-boundaries.md`](../foundations/economic-flywheel-and-pricing-boundaries.md) |
 
 ## Reader Paths
 
-### Implementing Runtime Orchestration
+### Runtime implementer
 
-Start here:
+Read, in order:
 
-1. [`components/daemon-runtime/default-harness-profile.md`](../components/daemon-runtime/default-harness-profile.md)
-2. [`components/daemon-runtime/private-workspace-ctee.md`](../components/daemon-runtime/private-workspace-ctee.md)
-3. [`components/daemon-runtime/runtime-nodes-tee-depin.md`](../components/daemon-runtime/runtime-nodes-tee-depin.md)
-4. [`components/daemon-runtime/hypervisoros.md`](../components/daemon-runtime/hypervisoros.md)
-5. [`components/hypervisor/core-clients-surfaces.md`](../components/hypervisor/core-clients-surfaces.md)
-6. [`components/hypervisor/providers-and-environments.md`](../components/hypervisor/providers-and-environments.md)
-7. [`domains/decentralized/README.md`](../domains/decentralized/README.md)
-8. [`components/daemon-runtime/doctrine.md`](../components/daemon-runtime/doctrine.md)
-9. [`components/daemon-runtime/api.md`](../components/daemon-runtime/api.md)
-10. [`components/daemon-runtime/events-receipts-delivery-bundles.md`](../components/daemon-runtime/events-receipts-delivery-bundles.md)
-11. [`../conformance/hypervisor-core/intent-resolution.md`](../../conformance/hypervisor-core/intent-resolution.md)
-12. [`../conformance/hypervisor-core/effect-execution.md`](../../conformance/hypervisor-core/effect-execution.md)
+1. [`default-harness-profile.md`](../components/daemon-runtime/default-harness-profile.md)
+2. [`doctrine.md`](../components/daemon-runtime/doctrine.md)
+3. [`api.md`](../components/daemon-runtime/api.md)
+4. [`events-receipts-delivery-bundles.md`](../components/daemon-runtime/events-receipts-delivery-bundles.md)
+5. [`common-objects-and-envelopes.md`](../foundations/common-objects-and-envelopes.md)
+6. [`implementation-matrix.md`](./implementation-matrix.md)
 
-Build for: intent resolution, action proposals, policy/authority gates,
-execution, normalized observations, receipts, context topology, output
-ownership, and terminal-state conformance.
+### Product implementer
 
-For ioi.ai collaborative outcomes, build goal-appropriate multi-model or
-multi-path pursuit. Coding goals may use code search, test/eval playouts,
-static analysis, visual verification, runtime traces, rollback/snapshot
-branching, skill reuse, failure mining, and benchmark-gated improvement. Other
-goals may use retrieval, connector calls, simulations, citations, screenshots,
-policy checks, or human review instead.
+Read Goal Space and Hypervisor as two views over one fabric:
 
-For persistent cloud Hypervisor on rented GPUs, build for Open Private
-Workspace, private workspace capsules, encrypted patches/blobs, no-plaintext
-protected classes, autonomy leases, cTEE guardians, declassification receipts,
-capability exits, and Candidate-Lattice Private Decoding as the default
-protected-agency path.
+1. [`collaborative-outcome-pattern.md`](../domains/ioi-ai/collaborative-outcome-pattern.md)
+2. [`core-clients-surfaces.md`](../components/hypervisor/core-clients-surfaces.md)
+3. [`providers-and-environments.md`](../components/hypervisor/providers-and-environments.md)
+4. [`identity-access-and-metering.md`](../components/hypervisor/identity-access-and-metering.md)
+5. [`economic-flywheel-and-pricing-boundaries.md`](../foundations/economic-flywheel-and-pricing-boundaries.md)
 
-For bare-metal or serious provider nodes, build for HypervisorOS: measured boot
-profiles, daemon-rooted workload launch, node integrity receipts,
-denied-by-default egress, cTEE compatibility, and no unmanaged model/tool/workspace
-bypass around the Hypervisor Daemon.
+### Semantic and interop implementer
 
-For provider and environment management, build for Hypervisor sessions,
-providers, and environments: node registry, provider integrations, VMs,
-containers, microVMs, WASM workloads, image/volume/network posture, GPU pools,
-DePIN/cloud GPU endpoints, storage posture, runtime placement, health, cost
-posture, cTEE posture, receipt/replay projections, and migration cockpit
-workflows. Hypervisor manages machines and workload posture while coordinating
-governance; Hypervisor Daemon executes; authority providers and local/domain
-governance authorize as required, with wallet.network mandatory for portable
-delegated authority and high-risk external effects; Agentgres records truth.
-For resource routing, direct provider connectors, local
-inventory, customer clouds, DePIN markets, storage networks, or user-specified
-routes may propose CloudRoute candidates. Hypervisor still routes through
-wallet.network authority, daemon/provider execution boundaries, Agentgres refs,
-and receipts.
+1. [`domain-ontologies-and-data-recipes.md`](../foundations/domain-ontologies-and-data-recipes.md)
+2. [`aiip.md`](../foundations/aiip.md)
+3. [`common-objects-and-envelopes.md`](../foundations/common-objects-and-envelopes.md)
+4. [`agentgres/doctrine.md`](../components/agentgres/doctrine.md)
+5. [`security-privacy-policy-invariants.md`](../foundations/security-privacy-policy-invariants.md)
 
-### Implementing Agentgres
+### Economics and marketplace implementer
 
-Start here:
+1. [`economic-flywheel-and-pricing-boundaries.md`](../foundations/economic-flywheel-and-pricing-boundaries.md)
+2. [`mixture-of-workers.md`](../foundations/mixture-of-workers.md)
+3. [`marketplace-neutrality.md`](../domains/marketplace-neutrality.md)
+4. [`aiagent/worker-marketplace.md`](../domains/aiagent/worker-marketplace.md)
+5. [`sas/service-marketplace.md`](../domains/sas/service-marketplace.md)
+6. [`ioi-l1-mainnet.md`](../foundations/ioi-l1-mainnet.md)
 
-1. [`components/agentgres/doctrine.md`](../components/agentgres/doctrine.md)
-2. [`components/agentgres/api-object-model.md`](../components/agentgres/api-object-model.md)
-3. [`components/agentgres/artifact-ref-plane.md`](../components/agentgres/artifact-ref-plane.md)
-4. [`components/agentgres/postgres-bridge-and-readiness-contract.md`](../components/agentgres/postgres-bridge-and-readiness-contract.md)
-5. [`components/agentgres/projection-system-reference.md`](../components/agentgres/projection-system-reference.md)
-6. [`components/storage-backends/doctrine.md`](../components/storage-backends/doctrine.md)
+## North-Star Internet-of-Intelligence Test
 
-Build for: accepted operations, object heads, state roots, projections,
-artifact refs, archive refs, receipt refs, restore/import operations, and
-Postgres-compatible read surfaces.
-
-Storage backend implementers should then read
-[`components/storage-backends/filecoin-cas.md`](../components/storage-backends/filecoin-cas.md)
-or another backend profile. Backend profiles explain byte availability; they do
-not own artifact meaning.
-
-### Implementing Memory
-
-Start here:
-
-1. [`components/agentgres/doctrine.md#memory-and-agent-wiki-boundary`](../components/agentgres/doctrine.md#memory-and-agent-wiki-boundary)
-2. [`foundations/common-objects-and-envelopes.md`](../foundations/common-objects-and-envelopes.md)
-3. [`components/daemon-runtime/api.md#memory-api`](../components/daemon-runtime/api.md#memory-api)
-4. [`components/agentgres/api-object-model.md`](../components/agentgres/api-object-model.md)
-
-Build for: Agent Wiki / `ioi-memory` as the semantic memory plane and
-Agentgres `ContextMutation` or equivalent operations as the admission path for
-durable behavior-affecting memory.
-
-### Implementing Authority
-
-Start here:
-
-1. [`components/wallet-network/doctrine.md`](../components/wallet-network/doctrine.md)
-2. [`components/wallet-network/product-exchange-risk.md`](../components/wallet-network/product-exchange-risk.md)
-3. [`components/wallet-network/api-authority-scopes.md`](../components/wallet-network/api-authority-scopes.md)
-4. [`domains/decentralized/README.md`](../domains/decentralized/README.md)
-5. [`foundations/security-privacy-policy-invariants.md`](../foundations/security-privacy-policy-invariants.md)
-6. [`components/daemon-runtime/api.md#action-mediation--authority-gateway-api`](../components/daemon-runtime/api.md#action-mediation--authority-gateway-api)
-
-Build for: `scope:*` authority scopes, `prim:*` primitive capabilities,
-grants, approvals, exact request hashes, revocation epochs, decryption leases,
-payment authority, exchange authority, trade authority, route-source
-boundaries, risk labels,
-asset exposure records, protection actions, approval inbox items, and wallet
-receipts.
-
-### Implementing Marketplace Or Routing
-
-Start here:
-
-1. [`foundations/mixture-of-workers.md`](../foundations/mixture-of-workers.md)
-2. [`domains/marketplace-neutrality.md`](../domains/marketplace-neutrality.md)
-3. [`domains/aiagent/worker-marketplace.md`](../domains/aiagent/worker-marketplace.md)
-4. [`domains/aiagent/digital-worker-ontology.md`](../domains/aiagent/digital-worker-ontology.md)
-5. [`domains/aiagent/vertical-ontology-packs.md`](../domains/aiagent/vertical-ontology-packs.md)
-6. [`domains/aiagent/integration-surface-taxonomy.md`](../domains/aiagent/integration-surface-taxonomy.md)
-7. [`domains/aiagent/managed-worker-instance-lifecycle.md`](../domains/aiagent/managed-worker-instance-lifecycle.md)
-8. [`domains/sas/service-marketplace.md`](../domains/sas/service-marketplace.md)
-9. [`components/daemon-runtime/events-receipts-delivery-bundles.md`](../components/daemon-runtime/events-receipts-delivery-bundles.md)
-
-Build for: worker packages, service packages, MoW routing, contribution
-receipts, routing receipts, ontology-bound digital and embodied workers,
-managed worker lifecycles, marketplace neutrality, and optional L1 settlement
-for listings, escrows, disputes, rights, and reputation.
-
-### Implementing Ecosystem Assurance
-
-Start here:
-
-1. [`foundations/ecosystem-assurance-certification-liability.md`](../foundations/ecosystem-assurance-certification-liability.md)
-2. [`components/daemon-runtime/events-receipts-delivery-bundles.md`](../components/daemon-runtime/events-receipts-delivery-bundles.md)
-3. [`components/agentgres/doctrine.md`](../components/agentgres/doctrine.md)
-4. [`components/wallet-network/doctrine.md`](../components/wallet-network/doctrine.md)
-5. [`domains/aiagent/worker-marketplace.md`](../domains/aiagent/worker-marketplace.md)
-6. [`domains/sas/service-marketplace.md`](../domains/sas/service-marketplace.md)
-7. [`foundations/ioi-l1-mainnet.md`](../foundations/ioi-l1-mainnet.md)
-
-Build for: assurance profiles, conformance profiles, certification claims,
-jurisdiction policy packs, evidence bundles, posture projections, abuse signals,
-quarantine advisories, liability claim routes, commercial exports, and public
-anchors only when certification, marketplace eligibility, bond, dispute,
-governance, or cross-domain trust requires them.
-
-### Implementing Product UX
-
-Start here:
-
-1. [`components/daemon-runtime/doctrine.md`](../components/daemon-runtime/doctrine.md)
-2. [`components/daemon-runtime/api.md`](../components/daemon-runtime/api.md)
-3. [`components/hypervisor/core-clients-surfaces.md`](../components/hypervisor/core-clients-surfaces.md)
-4. [`domains/ioi-ai/control-plane.md`](../domains/ioi-ai/control-plane.md)
-5. [`components/hypervisor/providers-and-environments.md`](../components/hypervisor/providers-and-environments.md)
-6. [`domains/aiagent/worker-marketplace.md`](../domains/aiagent/worker-marketplace.md)
-7. [`domains/sas/service-marketplace.md`](../domains/sas/service-marketplace.md)
-
-Build for: operator controls, approval cards, run graphs, context topology
-views, receipt timelines, artifact viewers, first-class App/Web/CLI clients,
-Workbench/Automations/Foundry application surfaces, other Applications
-surfaces, Environments views, package install/publish flows, and
-clear distinction between Hypervisor Core, Hypervisor Node, Hypervisor Daemon,
-Agentgres, wallet.network, and L1.
-
-### Implementing Interop
-
-Start here:
-
-1. [`foundations/aiip.md`](../foundations/aiip.md)
-2. [`foundations/ioi-l1-mainnet.md`](../foundations/ioi-l1-mainnet.md)
-3. [`foundations/common-objects-and-envelopes.md`](../foundations/common-objects-and-envelopes.md)
-4. [`components/wallet-network/doctrine.md`](../components/wallet-network/doctrine.md)
-
-Build for: bounded execution domains, AIIP envelopes, profiles, channels,
-authority leases, receipt commitments, settlement intents, disputes, and
-cross-domain finality.
-
-## Implementation Navigation
-
-Use these meta docs while building:
-
-- [`_meta/source-of-truth-map.md`](./source-of-truth-map.md): where each
-  concept is canonically owned.
-- [`_meta/vocabulary.md`](./vocabulary.md): canonical names and inactive naming
-  boundaries.
-- [`_meta/implementation-matrix.md`](./implementation-matrix.md): concept
-  to durable form, owner, code anchor, and conformance hook.
-- [`_meta/canon-readability-audit.md`](./canon-readability-audit.md):
-  current readability gaps and cleanup priorities.
+An independently operated external Worker must be able to discover an eligible
+OutcomeRoom through a policy-bound projection, negotiate semantic/action
+profiles, request admission, receive bounded leases, claim work, return a
+verifiable contribution, retain credit/dispute lineage, and exit with a
+portable policy-filtered participant-state bundle. Passing the test cannot
+require one runtime, operational database, administrator, or continued access
+to an IOI-hosted room. This is the minimum network proof; same-owner worker or
+model multiplicity alone does not satisfy it.
 
 ## Most Common Boundary Mistakes
 
-Avoid these models:
+Reject these models:
 
 ```text
-Default Harness Profile = a peer runtime beside the daemon
-Default Harness Profile = the only admissible autonomous harness
-Default Harness Profile = a meta-harness above other harnesses
-selected harness/model = owner of workspace memory or skills
-Hypervisor App/Web/CLI-headless = runtime truth
-TUI = separate first-class client lane
-external CLI agent harness = Hypervisor runtime truth
-Codex/Claude Code/Grok Build = Hypervisor client
-Hypervisor Workbench/Automations/Foundry/provider views = runtime truth
-one editor shell = live parent product term
-ioi.ai Goal Chat = durable automation owner
-provider posture = standalone provider-management product, execution runtime, or authority plane
-decentralized.exchange = exchange backend or liquidity owner
-decentralized.trade = broker, custodian, or ordinary swap route
-decentralized.exchange/trade/cloud = mandatory UIs users must visit before Wallet or Hypervisor
-Persistent rented GPU node = trusted private machine
-Agentgres = all memory or all payload bytes
-Agent Wiki / ioi-memory = canonical admitted truth
-Filecoin/CAS/S3/local disk = authority layer
-Boot measurement = consumer GPU privacy guarantee
-strategy source on rented node = protected strategy
-AIIP = separate bespoke protocol per app
-Ecosystem Assurance = runtime, wallet, marketplace, legal-advice engine, or insurer
-IOI L1 = execution database for every run
-aiagent.xyz -> sas.xyz = mandatory supply chain
-ioi.ai collaborative outcome = group chat or unbounded swarm
-Model output = authority
-scope:* = primitive capability
-prim:* = authority scope
+Goal Space = pooled frontier-model subscriptions
+OutcomeRoom = global database, chat room, or leaderboard
+Goal Kernel = one global swarm or coding-only loop
+multi-model = multi-worker = multi-node = multi-party
+ImplementationResult = universal work result
+ontology name = executable capability or authority
+receipt = verified truth, acceptance, or settlement
+daemon = authority provider
+provider fallback = harmless endpoint substitution
+provider-trust API = Private/no-provider-trust execution
+OpenRouter = the product moat or sole inference boundary
+Agentgres = one global enterprise graph or all payload bytes
+memory projection = portable vault truth
+environment restore = external-effect reconciliation
+model output = physical safety heartbeat
+IOI L1 = per-step execution database
+Work Credit = pooled provider token, cash, or protocol token
 ```
 
-Correct them to:
+Use this model instead:
 
 ```text
-daemon executes
-Hypervisor Core coordinates clients, surfaces, sessions, and adapters
-Hypervisor App/Web/CLI-headless are first-class clients
-TUI is an optional CLI presentation
-Hypervisor Workbench/Automations/Foundry and other application surfaces are projections over Core
-ioi.ai Goal Chat proposes, coordinates, compares, and synthesizes
-ioi.ai collaborative outcomes are goal-appropriate multi-model/multi-path
-pursuits over Hypervisor with evidence, receipts, and authority gates
-Foundry builds and evaluates models, workers, datasets, endpoints, registries,
-simulation-training jobs, and ontology-aware packages
-Environments views manage sessions, providers, and environments
-External agent harnesses are mediated through Agent Harness Adapters
-Workflow Compositor shapes high-level directed work
-selected HarnessProfiles resolve scoped steps
-Default Harness Profile is the reference scaffold/fallback HarnessProfile
-workspace skills and Agent Wiki / ioi-memory persist across harness/model swaps
-Agentgres admits operational truth
-Agent Wiki / ioi-memory remembers and retrieves
-artifact refs bind payload meaning
-storage backends hold bytes
-Private Workspace backed by cTEE forbids protected plaintext on rented nodes
-Plaintext-Free Runtime Mounting exposes only public/redacted refs and private handles
-authority providers/local governance authorize as required
-wallet.network supplies portable delegated/high-risk authority
-decentralized.exchange/trade/cloud expose route/venue/resource intelligence and propose candidates
-Hypervisor provider integrations remain direct execution routes
-AIIP moves bounded autonomous work
-Ecosystem Assurance projects trust posture from profiles, evidence, policy packs, and owner-domain receipts
-L1 settles selected public/economic/cross-domain commitments
+Goal Space sells governed outcome pursuit.
+OutcomeRoom coordinates shared pursuit above bounded GoalRuns.
+GoalRun loops, verifies, course-corrects, and collapses to direct when simple.
+Workers compose models, harnesses, tools, services, and runtime placements.
+Domains own local semantic and operational truth.
+AIIP moves typed, permitted work and refs between domains.
+Policy and authority providers authorize.
+The daemon admits, enforces, executes or mediates, and receipts.
+Agentgres admits local truth; storage holds payload bytes.
+Receipts feed explicit assurance stages.
+Hypervisor spans infrastructure and governed autonomy.
+Goal Space, Hypervisor, marketplaces, and services monetize product value.
+Substrate layers meter, attest, authorize, record, and settle.
+IOI L1 receives only selected public commitments.
 ```
+
+## Maintaining The Canon
+
+- Edit the subject owner named in
+  [`source-of-truth-map.md`](./source-of-truth-map.md) first.
+- Reconcile cross-owner defaults in
+  [`current-canon-defaults.md`](./current-canon-defaults.md).
+- Put shared enum values in
+  [`canonical-enums.md`](../foundations/canonical-enums.md).
+- Put shared names in [`vocabulary.md`](./vocabulary.md).
+- Record built/partial/planned truth in
+  [`implementation-matrix.md`](./implementation-matrix.md).
+- Do not use the whitepaper, an archive, an ignored internal guide, or a UI
+  projection as a competing architecture owner.

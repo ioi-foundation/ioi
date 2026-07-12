@@ -7,7 +7,7 @@ node integrity receipts, and HypervisorOS deployment profiles.
 Supersedes: wording that treats Hypervisor only as a hosted IDE, local daemon,
 Type-2 runtime, or cloud agent harness.
 Superseded by: none.
-Last alignment pass: 2026-06-07.
+Last alignment pass: 2026-07-11.
 Doctrine status: canonical
 Implementation status: speculative (bare-metal node profile design; no HypervisorOS build)
 Last implementation audit: 2026-07-05
@@ -491,10 +491,12 @@ NodeEnforcementProfile:
     - receipt://...
 ```
 
-## Daemon Root Rule
+## Daemon Execution-Root Rule
 
-HypervisorOS is conformant only if the Hypervisor Daemon is the root authority
-for autonomous execution.
+HypervisorOS is conformant only if the Hypervisor Daemon is the root admission,
+enforcement, and execution boundary for autonomous work. Policy and the
+applicable authority provider authorize; the daemon does not originate that
+authority.
 
 ```text
 Conformant:

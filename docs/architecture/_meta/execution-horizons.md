@@ -4,7 +4,7 @@ Status: canonical architecture note.
 Canonical owner: this file for the horizon framing that separates the launch wedge from long-horizon breadth without narrowing canon.
 Supersedes: readings of the canon that mistake speculative breadth for current shipped surface, or that treat horizon labels as scope deletion.
 Superseded by: none.
-Last alignment pass: 2026-07-05.
+Last alignment pass: 2026-07-11.
 Doctrine status: canonical
 Implementation status: mixed (this note classifies; subject owners carry per-file status)
 Last implementation audit: 2026-07-05
@@ -20,60 +20,140 @@ frame; the per-file `Implementation status` axis (see
 **Horizon does not equal deletion.** Nothing here narrows the architecture.
 A `speculative` label is a maturity statement, not a scope cut.
 
-## Horizon 1 — the launch wedge (build and sell now)
+## Horizon 0 — contract convergence and commercial truth
 
-Governed multi-provider compute plus authority custody plus receipts:
+Make the architecture executable without pretending the product is already
+commercially metered:
 
-- The BYO/managed provider plane and adapter ladder (SSH, Vast, RunPod,
-  Lambda, Akash, AWS, GCP; clusters and Azure next) —
-  [`../components/hypervisor/byo-provider-plane.md`](../components/hypervisor/byo-provider-plane.md).
-- The decentralized.cloud candidate plane filling `hypervisor_choose` —
-  [`../domains/decentralized/cloud.md`](../domains/decentralized/cloud.md).
-- Wallet-gated capability leases, sealed credentials, budget-before-mutation,
-  spend reconciliation, and receipts on every crossing —
-  [`../components/wallet-network/doctrine.md`](../components/wallet-network/doctrine.md).
-- Storage-plane archive custody with state-root restore truth —
-  [`../components/storage-backends/doctrine.md`](../components/storage-backends/doctrine.md).
-- The Hypervisor estate that operates all of it (sessions, environments,
-  operations, work ledger) —
-  [`../components/hypervisor/core-clients-surfaces.md`](../components/hypervisor/core-clients-surfaces.md).
+- implement the now-canonical `OutcomeRoom`, `OutcomeRoomDiscovery`,
+  `RoomParticipationRequest`, `ParticipantStateBundle`, room participant leases,
+  resource/capability offers, work-frontier items, claim leases, generic
+  attempts, findings, verifier challenges, `WorkResult`, and `OutcomeDelta`
+  over existing GoalRun, Mission, Agentgres, AIIP, evaluation, governance, and
+  contribution owners;
+- implement generic Goal Kernel results beyond software patches while retaining
+  `ImplementationResultPayload` as the software profile;
+- implement the canonical federated ontology namespace/version/mapping/assertion semantics and
+  executable OntologyActionContracts;
+- bind every model/provider route to access mode, automation, downstream-use,
+  credential-principal, privacy/retention, region, parameter, fallback,
+  price-limit, and training/distillation rights;
+- replace flat per-receipt model metering with invoice-grade route-attempt,
+  price-schedule, supplier-cost, broker-fee, IOI-fee, adjustment, Work Credit,
+  and provider-statement reconciliation;
+- preserve the assurance ladder from receipt to evidence, verification,
+  acceptance, adjudication, and settlement.
 
-Doc-detail budget: this horizon deserves endpoint-level and semantics-level
-detail, kept current with code.
+The BYO/managed provider plane, applicable authority gates, storage/archive
+custody, Hypervisor clients and surfaces, and Agentgres receipt spine are
+enabling substrate in this horizon. Provider-count expansion is not itself the
+product wedge.
 
-## Horizon 2 — network effects on the wedge
+## Horizon 1 — single-node reference pursuit
 
-Lands as the wedge produces volume and evidence:
+Build one permissioned collaborative engineering or research room on one
+Hypervisor Node and one declared Agentgres admission domain:
 
-- Marketplaces over the draft object planes (aiagent.xyz hire/install,
-  sas.xyz outcomes) and the Verified Work Graph they accrete.
-- Exchange/trade candidate intelligence going live behind wallet authority.
-- Foundry training/eval execution over the inert object plane; MoW routing
-  with routing receipts.
-- Multi-user/org distribution (IdP plane is already built; org adoption is
-  the horizon-2 work).
+- a disclosed first-party seed fleet of named planner, researcher/builder,
+  deterministic verifier, model critic, and synthesizer Worker compositions;
+- lawful cognition supply through open/self-hosted weights, provider APIs,
+  dedicated endpoints, or expressly permitted user-scoped routes—not pooled
+  enterprise chat/workspace seats;
+- pull-based claim leases, dynamic participants, capability/resource offers,
+  queue backpressure, spend limits, isolated attempts, positive and negative
+  findings, verifier challenges, contribution lineage, and replay;
+- hostile participant inputs remain tainted until bounded execution, policy,
+  verification, and hosted admission accept them;
+- Missions/Goal Space renders the frontier, active/sleeping/waiting/quarantined
+  participants, leases, costs, evidence, blockers, authority, and course
+  corrections instead of hiding agents behind a token stream.
 
-Doc-detail budget: object models and boundaries stay canonical; endpoint
-walls stay reference-class until implementation starts pulling them.
+Commercial posture: internal telemetry first, then a prepaid capped beta with
+no model-quality or upstream-availability SLA. A fixed included Work Credit
+allowance waits until provider-invoice reconciliation, p50/p90 COGS, fallback
+amplification, abuse/chargebacks, and accepted-outcome-per-dollar are bounded.
 
-## Horizon 3 — the full stack
+## Horizon 2 — two sovereign nodes
 
-Category-defining surface that waits on horizons 1–2 or on external
-maturity: IOI L1 settlement and token/BME, AIIP interop, cTEE private
-workspaces, HypervisorOS bare-metal, embodied/robot runtimes, ecosystem
-assurance/certification.
+Run the same OutcomeRoom across two independently operated
+Hypervisor/Agentgres domains via an initial AIIP semantic profile and
+conformance harness:
 
-Doc-detail budget: crisp boundaries, invariants, and object sketches —
-enough that horizon-1/2 decisions never paint these out — without
-endpoint-level elaboration that would drift for years.
+- begin with a customer/data-owner domain and an IOI
+  coordinator/managed-worker domain, then add an independently operated worker
+  provider and verifier;
+- use no shared raw operational database or raw private room context;
+- declare `hosted_admission` or `federated_admission` shared-state ordering, merge,
+  conflicts, adjudication, and failover;
+- negotiate ontology/action profiles and exchange only signed, sequenced,
+  idempotent, policy-permitted refs and restricted views;
+- preserve independent verification, acceptance, contribution lineage, and
+  dispute state without requiring IOI L1 for ordinary operation.
+- prove that an independently operated external Worker can discover an eligible
+  room through a policy-bound projection, negotiate semantic/action profiles,
+  submit a typed participation request, receive bounded leases, claim work,
+  return a verifiable contribution, preserve credit/dispute lineage, retire or
+  be revoked with claims released, and retain a portable participant-state
+  bundle without sharing one runtime, database, administrator, or continued
+  IOI-host trust.
+
+This is the minimum credible Internet-of-Intelligence conformance proof. It has
+priority over broad application-catalog expansion, generalized cloud-provider
+breadth, or public token economics.
+
+## Horizon 3 — Goal Space and open challenge service
+
+Expose the proven substrate through one ioi.ai Goal Space product:
+
+- persistent private goal, organization mission, invited cross-org pursuit,
+  and open challenge are room policies over one architecture;
+- same-domain 1–N worker orchestration is built into the subscription;
+  Network/Open contributors use a separately bounded goal budget;
+- the subscription pays for conductor, memory, policy, collaboration, receipts,
+  replay, and an observed-cost monthly Work Credit grant;
+- `Auto`/1-of-N, `Pinned`, and `Compare`/N-of-N are execution policies, not
+  separate node products; heavy work uses explicit top-up, overage, or
+  committed-spend drawdown;
+- marketplace sourcing, anti-spam/Sybil controls, permissioned visibility,
+  public projections, multi-objective leaderboards, worker/service fees, and
+  settlement appear only where they add real value.
+
+Managed inference uses a diversified portfolio: direct provider APIs and
+negotiated/dedicated capacity for core routes, aggregators as replaceable
+breadth/overflow adapters, customer BYOK/BYOA, and local/open-weight capacity.
+The durable margin is conductor, governed runtime, verified routing, assurance,
+private deployment, and outcome coordination—not opaque token arbitrage.
+
+## Horizon 4 — enterprise and embodied verticals
+
+Apply the proven collaboration fabric to a federated enterprise operational
+domain and an embodied mission. Validate semantic mapping, restricted views,
+continuous policy obligations, derived-artifact recall, audit, liability,
+customer-boundary/private execution, and the explicit two-speed embodied
+architecture: mission-level authority/course correction outside the certified
+local real-time control and safety loop.
+
+Provider breadth, cTEE private workspaces, HypervisorOS bare-metal, ecosystem
+assurance/certification, and vertical domain packs advance when these scenarios
+pull them, not as independent category theses.
+
+## Horizon 5 — public economic commitments
+
+Only after repeated verified demand should IOI attach public reputation roots,
+rights, bonds, dispute finality, token/BME economics, or other IOI L1
+commitments to selected contributions. Attempts, GoalRuns, tool calls, model
+calls, routine receipts, and local autonomous-system transitions remain local;
+public consensus is used only when independent ordering, rights, reputation,
+dispute, or economic finality creates value.
 
 ## The rule that keeps this honest
 
-**Doc detail follows implementation maturity.** When a subject moves up a
-horizon, its docs earn more detail; until then, elaborate detail on unbuilt
-subjects is a maintenance liability and a credibility risk (readers mistake
-spec for shipped). The per-file axis is the enforcement point: `speculative`
-files should stay lean; `built` files should carry the detail.
+**Architecture detail follows durable contracts; launch claims follow working
+evidence.** Target-state owner docs may be precise enough to prevent later
+implementation from painting out a required boundary. Every file still carries
+an honest implementation status, and no horizon label turns a planned object,
+route, receipt, privacy posture, commercial right, or network proof into a
+shipped claim.
 
 ## Related Canon
 

@@ -1,13 +1,13 @@
 # Physical Action Safety
 
 Status: canonical architecture authority.
-Canonical owner: this file for physical-action safety envelopes, embodied-system actuator authority, human supervision, emergency stop, sensor evidence, actuator receipts, incident handling, and physical-action anti-patterns.
+Canonical owner: this file for physical-action safety envelopes, embodied-system actuator authority, two-speed mission/local-control safety, human supervision, emergency stop, sensor evidence, segment and actuator receipts, incident handling, and physical-action anti-patterns.
 Supersedes: plan prose that treats `physical_action` as only a loose runtime risk class.
 Superseded by: none.
-Last alignment pass: 2026-06-22.
+Last alignment pass: 2026-07-11.
 Doctrine status: canonical
-Implementation status: speculative (safety envelope design; only the physical_action risk-class refusal is enforced today — crates/services/src/agentic/runtime/kernel/runtime_worker_package_install_admission.rs)
-Last implementation audit: 2026-07-05
+Implementation status: speculative beyond package admission (worker-package install admission currently requires vertical-pack, physical-action-policy, safety-envelope, and emergency-stop refs for `physical_action`; two-speed mission execution, certified local enforcement, segment commitments, live receipts, and incidents are not implemented — `crates/services/src/agentic/runtime/kernel/runtime_worker_package_install_admission.rs`)
+Last implementation audit: 2026-07-11
 
 ## Canonical Definition
 
@@ -47,6 +47,7 @@ This document owns the canonical meaning and minimal object model for:
 - `HumanSupervisionPolicy`
 - `SensorEvidenceReceipt`
 - `ActuatorCommandReceipt`
+- `PhysicalActionSegmentCommitmentReceipt`
 - `PhysicalActionExecutionReceipt`
 - `PhysicalActionIncident`
 - physical-action incident, dispute, and liability hooks
@@ -78,28 +79,63 @@ revocation. It should not sit in the millisecond actuator loop. A cached
 authority result may permit the run to proceed, but local Physical Action
 Safety retains the final real-time veto for motion.
 
+## Two-Speed Safety Architecture
+
+Embodied autonomy has two control speeds with different owners:
+
+| Plane | Timescale and responsibility | Canonical boundary |
+| --- | --- | --- |
+| Governance and intelligence plane | Goal grounding, mission planning, ontology/action semantics, simulation, risk classification, budget, authority, supervision, envelope issue, course correction, pause/revoke, incident response | Goal Kernel, Hypervisor Daemon admission, local/domain governance, wallet.network where portable delegated or high-risk authority is required, Agentgres receipts and mission truth |
+| Certified local control and safety plane | High-frequency perception/control, controller-local invariants, watchdog/heartbeat, command clipping/denial, local e-stop, safe stop, exception capture | Independently enforceable local safety controller/bridge operating only inside the admitted mission and `SafetyEnvelope` |
+
+The slow plane authorizes an embodied-owned `PhysicalMissionControlEnvelope`
+that binds this document's `PhysicalActionPolicy`, `SafetyEnvelope`,
+supervision, e-stop, and evidence requirements. The fast plane
+executes commands inside it without a daemon, wallet, AIIP, model-provider, or
+L1 round trip per motor update. Local safety may always deny, clip, stop, or
+hand control to an operator even when a remote grant remains valid. Remote
+revocation must propagate within the declared maximum latency, but no loss of
+network connectivity may remove the local veto or safe-stop behavior.
+
+Goal Kernel operates at mission, subgoal, evaluation, and course-correction
+timescales. It must not become the motor-control loop. Hypervising embodied
+agency means governing identity, mission envelope, controller binding,
+authority, resource use, evidence, incidents, and recovery—not scheduling every
+servo command through a general-purpose work protocol.
+
+The local plane may aggregate high-frequency commands and observations into
+segment commitments while emitting immediate exception, stop, violation, and
+incident receipts. Aggregation must preserve enough sensor/command refs,
+controller and policy version, time bounds, state roots, and exception detail
+for replay and investigation; it must not hide safety-critical events behind a
+single success hash.
+
 ## Lifecycle
 
 The physical-action lifecycle is:
 
 ```text
-worker / harness / service proposes PhysicalActionIntent
+worker / GoalRun / mission proposes PhysicalActionIntent or bounded mission
   -> Hypervisor Daemon classifies risk_class = physical_action
-  -> wallet.network checks scopes, leases, policy, and step-up requirements
-  -> PhysicalActionPolicy and SafetyEnvelope are validated
-  -> HumanSupervisionPolicy and EmergencyStopAuthority are checked
-  -> current sensor evidence is captured
-  -> actuator command is issued only through an approved adapter
-  -> result is normalized
-  -> SensorEvidenceReceipt and ActuatorCommandReceipt are emitted
-  -> Agentgres admits receipts, refs, state roots, and incident state
+  -> ontology action, local policy, and wallet.network scopes/leases/step-up are resolved
+  -> PhysicalActionPolicy, SafetyEnvelope, supervision, controller binding,
+     heartbeat/failsafe, and EmergencyStopAuthority are validated
+  -> current sensor/world evidence and sim-to-real eligibility are checked
+  -> daemon admits PhysicalMissionControlEnvelope with expiry and revoke semantics
+  -> certified local control-and-safety plane executes high-frequency commands inside it
+  -> local plane independently denies, clips, stops, or requests operator handoff
+  -> segment commitments plus immediate command/exception/e-stop receipts are emitted
+  -> daemon reconciles mission outcome, ambiguous effects, incidents, and recovery
+  -> Agentgres admits receipts, refs, state roots, replay, and incident state
   -> IOI L1 anchors only selected settlement, dispute, or public commitments
 ```
 
 Perception, simulation, planning, and reporting may be lower-risk actions when
 they do not affect actuators. Any command that moves, actuates, unlocks,
 controls, disables, overrides, dispenses, or physically manipulates must follow
-the physical-action lifecycle.
+the physical-action lifecycle. A mission envelope amortizes governance; it does
+not declassify the commands inside it or authorize work outside its zone,
+controller, action, time, force/speed, supervision, or stop bounds.
 
 ## Minimal Implementation Objects
 
@@ -160,6 +196,9 @@ SafetyEnvelope:
   sensor_requirements: []
   preflight_checks: []
   stop_conditions: []
+  heartbeat_failsafe_policy_ref: policy://...
+  segment_commitment_policy_ref: policy://...
+  max_remote_revocation_latency_ms: integer
   operator_contact_ref: user://... | org://...
   policy_hash: hash
 ```
@@ -168,7 +207,7 @@ SafetyEnvelope:
 EmergencyStopAuthority:
   authority_id: estop:...
   holders:
-    - user://... | org://... | daemon://...
+    - controller://... | user://... | org://... | daemon://...
   trigger_channels:
     - local_button | app | web | voice_supervisor | facility_system | api
   max_latency_ms: integer
@@ -188,37 +227,19 @@ HumanSupervisionPolicy:
   escalation_policy_ref: policy:...
 ```
 
-```yaml
-SensorEvidenceReceipt:
-  receipt_id: receipt:...
-  intent_id: intent:...
-  sensor_refs:
-    - sensor://...
-  observation_hashes:
-    - hash
-  artifact_refs:
-    - artifact://...
-  captured_at: timestamp
-  confidence: number | null
-  redaction_policy_ref: policy:... | null
-```
+Physical safety owns when `SensorEvidenceReceipt`, `ActuatorCommandReceipt`,
+`PhysicalActionSegmentCommitmentReceipt`, and
+`PhysicalActionExecutionReceipt` are required and the safety facts they must
+bind. Their single field-level schemas live in
+[`events-receipts-delivery-bundles.md`](../components/daemon-runtime/events-receipts-delivery-bundles.md#embodied-runtime-receipts).
 
-```yaml
-ActuatorCommandReceipt:
-  receipt_id: receipt:...
-  intent_id: intent:...
-  command_id: command:...
-  actuator_ref: actuator://...
-  command_hash: hash
-  issued_by: daemon://...
-  authority_ref: grant:...
-  safety_envelope_ref: safety:...
-  sensor_evidence_receipt_refs:
-    - receipt://...
-  result:
-    accepted | rejected | executed | stopped | failed | unknown
-  result_observation_ref: observation:... | null
-```
+High-frequency execution may aggregate routine commands into a
+`PhysicalActionSegmentCommitmentReceipt` only while immediate exception,
+emergency-stop, incident, and ambiguous-effect reporting remains available.
+The segment receipt must bind the local controller interval, controller/version,
+authority, policy and safety envelope, command/sensor sequence roots, initial
+and final state refs, immediate exception/e-stop receipt refs, and declared
+result. It does not replace mission-level reconciliation or acceptance.
 
 ```yaml
 PhysicalActionIncident:
@@ -245,6 +266,14 @@ actions. The model does not directly actuate. A connector, robot controller,
 AIIP handoff, or external harness may only carry a physical-action proposal or
 approved command envelope.
 
+After mission admission, the certified local controller owns high-frequency
+command issue and the final safety veto inside the envelope. This is delegated
+execution, not delegated authority creation: it cannot widen zone, duration,
+action class, force/speed, actuator set, supervision, budget, or stop policy.
+The daemon owns later reconciliation and may pause execution, quarantine,
+require operator handoff, or deny admission of the next segment; it is not in
+the servo loop and does not itself revoke authority.
+
 wallet.network owns authority scopes, leases, step-up, emergency revoke, and
 payment authorization. Physical-action scopes must stay explicit, such as
 `scope:physical.actuate`, `scope:robot.navigate`, or
@@ -258,6 +287,15 @@ IOI L1 is not the safety controller. It may anchor settlement, rights,
 insurance, marketplace, dispute, reputation, or public accountability
 commitments when required.
 
+Environment recovery and outcome recovery are separate. Restarting a robot
+runtime, controller bridge, VM, or network session does not establish whether a
+physical effect committed before failure. Every physical action or mission
+segment must declare a recovery class such as `replayable`, `checkpointable`,
+`compensatable`, `reconciliation_required`, or `non_retryable`. Unknown or
+ambiguous external effects fail into reconciliation/operator policy; they are
+never blindly replayed. Compensation is a new governed action with its own
+safety and authority checks, not a rollback fiction.
+
 ## Events and Receipts
 
 Physical-action work should emit:
@@ -267,6 +305,7 @@ Physical-action work should emit:
 - `PhysicalActionPreflightReceipt`
 - `SensorEvidenceReceipt`
 - `ActuatorCommandReceipt`
+- `PhysicalActionSegmentCommitmentReceipt`
 - `EmergencyStopReceipt`
 - `PhysicalActionExecutionReceipt`
 - `PhysicalActionIncident`
@@ -282,6 +321,9 @@ A conforming implementation must ensure:
 
 - every `physical_action` proposal carries `PhysicalActionPolicy` and
   `SafetyEnvelope` refs;
+- every admitted embodied mission identifies the certified local controller,
+  controller version, mission bounds, expiry, revocation latency,
+  heartbeat/failsafe policy, segment-commitment policy, and local e-stop;
 - actuator-affecting actions cannot execute through generic `tool.invoke`,
   `shell.exec`, `connector.call`, or AIIP packets without physical-action
   classification;
@@ -290,11 +332,18 @@ A conforming implementation must ensure:
 - required human supervision mode is enforced before command issue;
 - current sensor evidence is captured before and after high-risk actuator
   commands;
+- high-frequency commands remain inside the admitted envelope and can be
+  denied, clipped, stopped, or handed off locally without a remote round trip;
+- aggregated segments retain command/sensor roots and emit immediate exception,
+  violation, unknown-effect, and emergency-stop receipts;
 - `ActuatorCommandReceipt` binds command hash, authority ref, safety envelope
   ref, and sensor evidence receipt refs;
 - incident state is admitted through Agentgres rather than hidden in local logs;
 - cTEE, TEE, sandboxing, or model safety claims are not treated as physical
   safety envelopes.
+- runtime/environment restart is not treated as outcome recovery, and ambiguous
+  physical effects are reconciled according to the declared recovery class
+  before retry or compensation.
 
 ## Anti-Patterns
 
@@ -308,6 +357,16 @@ A conforming implementation must ensure:
   motor actions.
 - Treating a hardware TEE or cTEE private workspace as physical safety.
 - Using IOI L1 settlement as a substitute for local emergency stop.
+- Putting wallet.network, AIIP, the model provider, IOI L1, or a general daemon
+  request/response inside each motor-control update.
+- Letting Goal Kernel or an OutcomeRoom become the servo loop rather than the
+  mission/course-correction layer.
+- Treating a remote grant as authority to bypass the local safety veto or
+  continue after heartbeat/failsafe loss.
+- Hiding command exceptions or e-stop events inside an aggregate segment hash.
+- Blindly replaying a physical command after environment recovery when the
+  external effect is unknown, compensatable, reconciliation-required, or
+  non-retryable.
 - Storing sensor video or actuator logs as raw blobs without Agentgres refs and
   receipts.
 - Hiding a physical-action incident in provider logs instead of admitting it as

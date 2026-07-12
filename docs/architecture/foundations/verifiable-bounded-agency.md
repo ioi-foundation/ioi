@@ -4,7 +4,7 @@ Status: canonical architecture authority.
 Canonical owner: this file for IOI's alignment-security thesis, verifiable bounded agency, and execution-boundary alignment doctrine.
 Supersedes: `docs/specs/verifiable_bounded_agency.md` and product prose that claims IOI solves alignment by model cognition, prompt compliance, or one required proof backend.
 Superseded by: none.
-Last alignment pass: 2026-05-24.
+Last alignment pass: 2026-07-11.
 Doctrine status: canonical
 Implementation status: mixed (execution-boundary gating built in the daemon; proof/zk continuity speculative)
 Last implementation audit: 2026-07-05
@@ -356,12 +356,27 @@ Each principal can carry different leases, budgets, evidence duties, approval
 rights, and escalation powers. This turns autonomy from a shared blob of power
 into a legible system of compartmentalized authority.
 
+An OutcomeRoom preserves this separation at collective scale. Participants
+join through identity/eligibility and visibility policy; receive bounded
+context, authority, resource, budget, tool, and work-claim leases; execute in
+isolated domains; publish attributable attempts and findings; and cross shared
+state only through hosted or federated admission. Messages, artifacts,
+ontology mappings, verifier suggestions, and executable results from any
+participant remain tainted proposals until admitted. Consensus among agents is
+evidence, never authority or truth by itself.
+
+Multi-model, multi-worker, multi-node, and multi-party are not synonyms. Many
+workers or clouds controlled by one operator remain one authority/risk/truth
+principal. Independent-party verification requires a separately accountable
+principal with disclosed affiliation, its own authority and revocation path,
+and the declared verification/adjudication role.
+
 ## Verifiability Instead of Vendor Trust
 
 The difference between a platform promise and a durable guarantee is evidence.
 
 Conventional systems can log actions. Bounded sovereign systems make the action
-path itself proof-carrying.
+path attributable, policy-bound, evidence-carrying, and challengeable.
 
 The stronger trust surface is:
 

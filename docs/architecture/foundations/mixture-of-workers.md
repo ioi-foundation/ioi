@@ -1,12 +1,12 @@
 # Mixture of Workers
 
 Status: canonical architecture authority.
-Canonical owner: this file for Mixture of Workers, worker routing, sparse worker categories, and MoW neutrality doctrine.
+Canonical owner: this file for Mixture of Workers, worker composition and plurality distinctions, worker routing and execution policies, sparse worker categories, seed-supply posture, and MoW neutrality doctrine.
 Supersedes: product, marketplace, or model-routing prose when it treats models as the protocol actor or treats routing as platform fiat.
 Superseded by: none.
-Last alignment pass: 2026-05-14.
+Last alignment pass: 2026-07-11.
 Doctrine status: canonical
-Implementation status: planned (routing doctrine; MoW routing receipts not implemented)
+Implementation status: planned (routing doctrine; MoW routing receipts, general collaborative-frontier routing, independent-party supply, and contribution settlement are not implemented)
 Last implementation audit: 2026-07-05
 
 ## Canonical Definition
@@ -43,8 +43,41 @@ Models are mounted.
 Workers are installed.
 Services are hired.
 MoW is routed.
-Receipts pay contributors.
+Receipts attribute contributions; accepted or adjudicated claims may settle.
 ```
+
+The accountable routing unit is normally a versioned **Worker Composition**:
+
+```text
+Worker Composition
+  = manifest and publisher
+  + model route or model requirements
+  + harness/runtime entrypoint
+  + tools, connectors, and MCP contracts
+  + policy and authority requirements
+  + memory and persistence posture
+  + verifier and receipt obligations
+  + version, benchmark, cost, license, and contribution identity
+```
+
+Foundation models are mounted cognition, not labor-market identities. This
+keeps a worker portable across provider APIs, dedicated capacity, aggregators,
+open weights, customer endpoints, and future routes while preserving the
+publisher, policy, tool, verifier, and contribution boundary.
+
+MoW also distinguishes four kinds of plurality:
+
+| Shape | Distinct unit | Establishes | Does not establish |
+| --- | --- | --- | --- |
+| Multi-model | Model routes or model families | Cognitive diversity and route choice | Accountable worker identity or independent parties |
+| Multi-worker | Worker compositions, roles, manifests, policies, and outputs | Division of labor and comparable contribution | Independent authority, truth, or settlement roots |
+| Multi-node | Runtime nodes, providers, or failure domains | Scale, isolation, locality, custody, and resilience | Governance or economic independence |
+| Multi-party | Separate principals controlling authority, revocation, truth, risk, challenge, and settlement | Actual federation and a reason for `MultiPartyCollaborationEnvelope` | Independence when affiliations or dependencies are hidden |
+
+Ten IOI-owned workers on ten nodes and several foundation-model providers are
+still one party if IOI controls authority, operational truth, verification, and
+settlement. Model/cloud providers remain disclosed dependencies unless their
+principals accept participant-level rights and obligations.
 
 ## MoE vs MoW
 
@@ -86,14 +119,14 @@ A MoW flow turns intent into a receipt-backed labor graph:
 
 ```text
 intent
-→ task decomposition
-→ candidate worker discovery
-→ worker selection
-→ capability and policy check
-→ execution
-→ verification
-→ ContributionReceipts
-→ settlement
+-> direct bounded task or OutcomeRoom frontier item
+-> candidate worker and capability/resource discovery
+-> eligibility, affiliation, semantic, policy, privacy, authority, and budget checks
+-> 1-of-N selection, N-of-N comparison, or claimed work lease
+-> isolated attempt with explicit model/provider/runtime dependencies
+-> evidence, negative or positive result, verification, and acceptance
+-> ContributionReceipts and derivation lineage
+-> local accounting and sparse settlement only where required
 ```
 
 The canonical economic graph often has planner, executor, verifier, and merge
@@ -104,6 +137,36 @@ provisional work into canonical state, delivery, or settlement.
 Each routed worker remains independently accountable. It has its own manifest,
 policy envelope, contribution terms, receipt obligations, quality record, and
 dispute surface.
+
+For persistent collective pursuit, MoW supplies eligible Worker compositions
+to an `OutcomeRoom` / CollaborativeWorkGraph. The room owns neither the Worker
+manifest nor MoW ranking. It may advertise `CapabilityOffer` / `ResourceOffer`
+refs, create `WorkFrontierItem`s, grant bounded `WorkClaimLease`s, compare
+attempts, request replication or verification, and update routing priors from
+admitted evidence. Pull-based claims and conductor assignments are both policy
+options; a hard-coded planner/executor/verifier graph is not the protocol.
+
+Participant inputs are untrusted until admitted. Worker messages, artifacts,
+findings, ontology mappings, and evaluator suggestions must preserve provenance,
+taint, license/export, and trust labels and must not automatically change
+durable memory, ontology, routing, authority, or production capability.
+
+## Execution Policies
+
+The product may expose three route policies over the same MoW substrate:
+
+| Policy | Behavior | Accounting |
+| --- | --- | --- |
+| `Auto` / `1-of-N` | Select the least-cost eligible Worker composition expected to satisfy quality, privacy, authority, latency, semantic, and context requirements; a cheap-first cascade may escalate after verifier failure | Charge admitted attempts, verification, runtime, and escalation under the declared cap or quote |
+| `Pinned` | Use a named eligible Worker/model/provider route selected by the user or policy | Charge route-specific admitted work; fail closed on ineligibility or unapproved fallback |
+| `Compare` / `N-of-N` | Execute several independent routes and apply a declared comparison, verifier, or synthesis rule | Account for all admitted attempts, verifier work, and synthesis visibly |
+
+`1-of-N` is a routing policy, not a separate product plan. A verified cascade
+is often the economically best route: inexpensive worker first, deterministic
+or model verifier second, and frontier escalation only when evidence fails.
+Every fallback that changes the Worker composition, model/provider, privacy
+posture, or semantic behavior is a visible routing decision and must re-run the
+applicable verifier/acceptance path.
 
 ## Sparse Worker Categories
 
@@ -141,6 +204,30 @@ admission. Submission does not guarantee routing. Routing eligibility is earned
 through benchmark performance, receipt completeness, policy compatibility,
 price, runtime posture, and reputation.
 
+## First-Party Seed Supply
+
+IOI may operate an initial mesh of named planner/researcher,
+builder/implementer, deterministic verifier, model critic, synthesizer,
+benchmark, challenge, and evaluation Worker compositions to solve cold start.
+That mesh is anchor liquidity: baseline quality, conformance fixtures,
+last-resort capacity, and a credible first-run experience. It is not evidence of
+independent multi-party collaboration.
+
+Every first-party composition must:
+
+- disclose IOI ownership, publisher, affiliation, model/provider/runtime
+  dependencies, subsidy, and real cost class;
+- use the same authority, isolation, route receipt, replay, benchmark,
+  contribution, challenge, and dispute contracts as external workers;
+- receive no hidden MoW, marketplace, or verifier preference;
+- avoid simultaneously serving as coordinator, paid worker, sole verifier,
+  ranking authority, and settlement judge for the same consequential outcome;
+- remain replaceable or outperformable by a third-party Worker composition
+  without changing the pursuit contract.
+
+IOI may be the initial market maker. It must not become the permanent only
+counterparty or disguise one controlled fleet as decentralized supply.
+
 ## Routing Decision Receipts
 
 A MoW routing decision is protocol-visible. A router must be able to explain and
@@ -165,8 +252,12 @@ Routing outputs must include:
 
 - selected worker;
 - candidate-set commitment;
+- candidate ownership/affiliation commitment;
 - routing policy hash;
 - selection reason;
+- selected Worker composition and disclosed model/provider/runtime refs;
+- attempted routes, fallbacks, verifier-triggered escalations, and actual
+  admitted attempt refs;
 - contribution policy reference;
 - receipt obligations.
 
@@ -180,12 +271,28 @@ This is the MoW neutrality invariant:
 
 > **The platform routes intelligence; it does not absorb it.**
 
-## Contribution And Settlement
+## Contribution, Assurance, And Settlement
 
-ContributionReceipts are the unit of MoW economics. Payouts, royalties,
-reputation updates, routing weight, and subscription-credit distribution should
-be based on verified contribution rather than raw token usage, attention time,
-popularity, or platform fiat.
+`ContributionReceipt` is the attribution unit of MoW economics, not automatic
+proof of quality or a payout instruction. It binds a contributor, role, method,
+inputs/outputs, derivation, evidence, cost, routing decision, license, and
+downstream outcome. Economic or reputation effects follow only through the
+declared assurance path:
+
+```text
+attributed contribution
+-> evidence
+-> verification under a named rule/version
+-> customer/domain acceptance
+-> challenge or adjudication when invoked
+-> payout, royalty, reputation, or routing update
+```
+
+Useful contributions include planning, execution, data, review, debugging,
+independent replication, negative or inconclusive results, integrity reports,
+resource provision, semantic mapping, verifier hardening, curation, and
+synthesis. Credit follows accepted marginal information and derivation, not
+only the winning run.
 
 When ioi.ai or another Hypervisor-built coordinator routes through marketplace
 workers, the outcome graph should carry routing and ContributionReceipt refs.
@@ -193,15 +300,17 @@ The coordinator may synthesize the final answer, but MoW remains the worker
 supply, routing-eligibility, and attribution layer. Subscription attribution
 belongs to MoW, aiagent.xyz, and settlement rails, not to ioi.ai chat state.
 
-Subscription credits should behave as prepaid work credits:
+The ioi.ai subscription may fund managed work through prepaid, non-transferable
+Work Credits, but Work Credits are product budget units rather than contributor
+payout assets:
 
 ```text
 user subscription
-→ work credits
-→ worker invocation / benchmark / outcome delivery
-→ ContributionReceipt
-→ quality and reputation update
-→ receipt-weighted payout
+-> Work Credits and separately bounded network/open goal budget
+-> worker invocation / benchmark / outcome delivery / verifier work
+-> ContributionReceipt plus evidence and acceptance state
+-> quality and reputation update when admitted
+-> payout through an approved fiat, stablecoin, token, or other settlement rail
 ```
 
 Reference payout components may include:
@@ -217,23 +326,29 @@ worker_payout =
 ```
 
 IOI L1 may anchor sparse roots for registry, contribution, reward, reputation,
-license, and dispute commitments. Agentgres owns detailed routing, quality, and
-contribution ledgers.
+license, rights, bond, and dispute commitments only when shared public or
+economic finality adds value. Agentgres domains own detailed attempts, routing,
+quality, assurance, and contribution ledgers. One receipt, worker, GoalRun, or
+room participant does not require its own chain.
 
 ## Benchmark And Routing Non-Claims
 
-Benchmark receipts prove performance under a declared benchmark profile,
-evaluation environment, rubric, worker manifest, and policy hash. They do not
-prove universal intelligence, universal optimality, or permanent superiority.
+Benchmark receipts attest performance observations under a declared benchmark
+profile, evaluation environment, rubric, worker manifest, and policy hash. They
+do not prove universal intelligence, universal optimality, or permanent
+superiority.
 
-Routing receipts prove that a worker was selected under a declared policy and
-candidate set. They do not prove the selected worker is globally best in an
-absolute sense. They prove the decision was legible, receipt-backed,
-policy-compatible, and challengeable.
+Routing receipts attest that a worker was selected under a declared policy and
+candidate set. They do not establish that the selected worker is globally best
+or that its outcome is correct. They make the decision legible,
+policy-evaluable, and challengeable.
 
 Sparse Worker Categories are relative labor markets, not universal intelligence
 rankings.
 
 ## One-Line Doctrine
 
-> **MoW routes bounded workers by receipts, benchmarks, policy compatibility, cost, trust, and contribution quality rather than by model size or platform fiat.**
+> **MoW routes accountable Worker compositions—not naked models—by declared
+> policy, semantic fit, authority, privacy, cost, verified evidence, and
+> contribution quality; it preserves party identity, attribution, challenge,
+> and sparse settlement rather than routing by platform fiat.**

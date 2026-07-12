@@ -1,13 +1,13 @@
 # Governed Autonomous Systems and Hypervisor Nodes
 
 Status: canonical architecture authority.
-Canonical owner: this file for governed autonomous-system chains, Hypervisor Node settlement domains, and the coherent machine-economy stack.
+Canonical owner: this file for governed autonomous-system chains, Hypervisor Node settlement domains, collaborative-pursuit topology, and the coherent machine-economy stack.
 Supersedes: product prose that collapses Hypervisor UI, Hypervisor Node, autonomous-system state machines, and IOI L1 into one layer.
 Superseded by: none.
-Last alignment pass: 2026-05-25.
+Last alignment pass: 2026-07-11.
 Doctrine status: canonical
-Implementation status: mixed (improvement-proposal plane built; autonomous-system chains and local settlement domains speculative)
-Last implementation audit: 2026-07-05
+Implementation status: mixed (improvement-proposal plane and a narrow GoalRun multi-harness slice built; generalized OutcomeRoom / CollaborativeWorkGraph, autonomous-system chains, federated admission, and local settlement domains planned or speculative)
+Last implementation audit: 2026-07-11
 
 ## Canonical Definition
 
@@ -34,6 +34,25 @@ This is a system-local base layer in the state-machine sense. It is not
 necessarily a public blockchain, a standalone L1, a validator in global
 consensus, or an IOI L1 replacement.
 
+The broader system is one architecture, not an autonomy hypervisor beside a
+separate enterprise-ontology product:
+
+```text
+federated ontologies make a domain legible
+GoalRun and collaborative pursuit turn legibility into purposeful work
+Hypervisor isolates and executes that work
+local/domain governance and wallet.network authorize consequential power
+Agentgres admits each domain's operational truth
+AIIP connects independently governed domains
+IOI L1 settles only the selected commitments that need shared finality
+```
+
+Canonical category:
+
+> **IOI is an open, edge-sovereign operating fabric for governed autonomous
+> systems. Hypervisor is its reference execution and control environment; the
+> ontology layer is its semantic world plane, not a competing platform.**
+
 ## Layer Distinction
 
 These layers must not collapse into one another:
@@ -45,11 +64,18 @@ Hypervisor clients/surfaces != Hypervisor Node != IOI L1
 The canonical stack is:
 
 ```text
+Federated Semantic World Plane
+  namespaced ontologies, object/action/event contracts, mappings, and policy-bound views
+
+Collaborative Pursuit Plane
+  OutcomeRoom / CollaborativeWorkGraph above bounded GoalRuns and GoalGroundingLoops
+
 Governed Autonomous-System Chains
   local agents, workers, workflows, policies, modules, proposals, receipts
 
 Hypervisor Node
-  local orchestration, interop, authority, state, replay, routing, and local settlement
+  local orchestration, interop, authority integration/enforcement, state,
+  replay, routing, and local settlement
 
 AIIP
   RPC-shaped, receipt-native work interop across bounded execution domains
@@ -58,9 +84,14 @@ IOI L1
   global identity, registry, rights, receipt roots, disputes, reputation, and economic settlement
 ```
 
+These planes compose without sharing one runtime, database, administrator, or
+global ontology. Hypervisor clients remain projections; `OutcomeRoom` is a
+collaboration profile rather than a second runtime; Agentgres truth remains
+domain-local; public consensus remains exceptional.
+
 ## Hypervisor Node
 
-An **Hypervisor Node** is the local autonomous-system settlement domain for a
+A **Hypervisor Node** is the local autonomous-system settlement domain for a
 user, organization, project, or deployment.
 
 It is not merely a Hypervisor client or application surface. It is the
@@ -188,6 +219,114 @@ Examples:
 | Memory write | State projection module |
 | Self-improvement diff | Upgrade proposal module |
 
+## Coordination At Two Scales
+
+The governed-system architecture has two coordination scales. They must not be
+collapsed into one universal conductor or one implicit swarm:
+
+```text
+OutcomeRoom / CollaborativeWorkGraph
+  shared objective, frontier, participation, claims, attempts, findings,
+  resources, evaluation, contribution lineage, course correction, and replay
+
+    -> GoalRun A -> GoalGroundingLoop -> bounded harnesses / workers
+    -> GoalRun B -> GoalGroundingLoop -> bounded harnesses / workers
+    -> GoalRun C -> GoalGroundingLoop -> bounded harnesses / workers
+
+  admitted deltas update the shared frontier and may create or retire GoalRuns
+```
+
+`GoalRun` answers how one bounded participant or subteam grounds, executes,
+verifies, repairs, and continues a goal. `OutcomeRoom` answers how many
+participants discover work, claim it, exchange permitted artifacts, preserve
+positive and negative attempts, challenge evaluation, and collectively change
+course. AIIP carries that participation across autonomous-system boundaries.
+
+The `OutcomeRoom` / CollaborativeWorkGraph is a composition profile over the
+existing owners, not a peer runtime or a magically global Agentgres graph. It
+binds:
+
+- objective, constraints, acceptance, stop, visibility, budget, artifact
+  license/export, participation, contribution, and settlement policies;
+- `RoomParticipantLease`, `ResourceOffer` / `CapabilityOffer`,
+  `WorkFrontierItem`, `WorkClaimLease`, `Attempt`, `Finding`,
+  `VerifierChallenge`, and generic `WorkResult` / `OutcomeDelta` refs;
+- bounded GoalRuns, context/resource/tool/authority leases, verifier paths,
+  discussion projections, replay, and contribution lineage;
+- `MultiPartyCollaborationEnvelope` only when admitted principals are actually
+  independent parties.
+
+The room lifecycle supports invited, joining, active, sleeping, waiting,
+suspended, quarantined, retiring, retired, and revoked participants. Claims are
+leases with TTL, heartbeat, renewal, release, reassignment, duplication, and
+independent-replication policy. Dynamic roles and taskforces may emerge from
+the live frontier; the architecture does not hard-code a planner/executor/
+verifier DAG as the only topology.
+
+The shared intelligence loop is:
+
+```text
+ground objective, world state, constraints, and acceptance
+  -> observe uncertainty or opportunity
+  -> form hypotheses, plans, or frontier items
+  -> claim, allocate, or delegate bounded work
+  -> lease context, resources, tools, budget, and authority
+  -> execute isolated or cooperative attempts
+  -> publish results, evidence, negative findings, and integrity incidents
+  -> evaluate, falsify, reproduce, compare, merge, reject, or challenge
+  -> update admitted knowledge, contribution lineage, and routing priors
+  -> adapt topology, budget, participants, and verifier paths
+  -> stop on acceptance, risk, budget, deadline, or marginal value
+```
+
+This loop permits direct execution, hierarchy, leaderless blackboard
+coordination, specialist meshes, markets, branch-and-merge, and independent
+replication as policies over one substrate. Ordinary goals must still collapse
+to one GoalRun, one process, one local authority context, and no L1 when
+collective machinery would not create value.
+
+The communal board, inbox, digest, taskforce view, leaderboard, and replay are
+projections over structured room state. Narrative discussion is not the work
+contract. Participant scratch branches/workspaces remain separate from admitted
+shared state; promotion requires reproducible artifacts, declared verifier and
+rule versions, held-out or adversarial evaluation where appropriate, and the
+room's admission policy. One scalar leaderboard cannot replace multi-objective
+acceptance, guardrails, integrity challenges, or negative-result preservation.
+
+### Shared-State Ordering And Admission
+
+Every persistent collaborative pursuit must declare one coordination topology:
+
+1. **Hosted admission:** one named governed domain orders and admits room-level
+   frontier, attempt, finding, evaluation, and decision updates. This is the
+   first implementation target because failure, recovery, and dispute ownership
+   are explicit.
+2. **Federated admission:** a versioned policy names participating domains,
+   ordering and merge rules, quorum or adjudicator requirements, conflict
+   handling, failover, and recovery. This is an explicit later AIIP profile,
+   never an assumed property of an open room.
+
+In both topologies each party retains local operational truth and private
+context. AIIP transports signed, sequenced, idempotent permitted updates and
+refs. The host or declared federation policy admits the room projection. Raw
+private context crosses only through an authorized policy-bound view. Shared
+agreement, message volume, or a leaderboard is evidence; none is authority or
+truth by itself.
+
+The architecture distinguishes four kinds of plurality:
+
+| Shape | Distinct unit | Does not establish |
+| --- | --- | --- |
+| Multi-model | Model routes or families | Accountable workers or independent parties |
+| Multi-worker | Versioned worker compositions and roles | Independent authority, truth, or settlement roots |
+| Multi-node | Runtime nodes, providers, or failure domains | Governance or economic independence |
+| Multi-party | Separate principals controlling authority, revocation, truth, risk, challenge, and settlement | Independence when ownership or dependencies are hidden |
+
+Ten IOI-owned workers on ten nodes and several model providers remain one party
+when IOI controls authority, truth, verification, and settlement. They can prove
+multi-worker orchestration and seed capacity; they do not prove an Internet of
+Intelligence by themselves.
+
 ## Improvement Proposal Plane
 
 Bounded recursive improvement is proposal-mediated improvement. IOI does not
@@ -219,6 +358,23 @@ Canonical invariant:
 > **Agents and harnesses do not self-modify directly. Autonomous systems propose
 > improvements to governed objects, and only policy-bound, receipted governance
 > makes those improvements canonical.**
+
+Learning and production promotion use an epistemic ladder:
+
+```text
+cheap observation
+  -> branch-local hypothesis or finding
+  -> evaluated capability candidate
+  -> governed production promotion
+```
+
+Governing every observation would suffocate learning; promoting observations
+directly would invite reward hacking and persistent poisoning. Evaluator and
+rule versions, integrity incidents, re-scoring triggers, verifier diversity,
+adversarial holdouts, exploration budgets, uncertainty, shadow/canary evidence,
+rollback, and affected-capability recall therefore remain explicit. Shared
+agreement or improved benchmark score may propose a change; it does not grant
+production admission.
 
 Mutable units should be concrete governable objects:
 
@@ -271,6 +427,21 @@ split work into independent Context Cells only when separation creates value:
 protecting long-horizon intent, bounding implementation-token churn, enabling a
 fresh review, isolating private context, or satisfying policy. It should not
 spawn agent chatter merely because multiple harnesses are available.
+
+The implemented GoalRun policy is an intentionally narrow first slice:
+`parallel_implement_reconcile`, one deterministic conductor, at most two
+implementers, isolated software workspaces, implementation-shaped task briefs,
+deterministic candidate verification, and one admitted reconciliation. It is
+evidence for bounded multi-harness execution, not evidence that open joining,
+pull-based claims, generic work results, dynamic taskforces, or federated rooms
+already exist.
+
+The durable result seam is generic `WorkResult` / `OutcomeDelta`.
+`ImplementationResultPayload` remains its software profile for changed files,
+patches, tests, and implementation artifacts. Research findings, ontology
+mutations, incident resolution, service delivery, review, evaluation, and
+physical mission state use domain profiles rather than pretending every outcome
+is a code patch.
 
 For ordinary goal-shaped work, the conductor may also be the verifier. The
 default verifier path is conductor-run deterministic evidence: tests, diffs,
@@ -339,8 +510,9 @@ Adapter normalization
   events.
 
 Result contract
-  ImplementationResultPayload returns changed files, patch refs, tests,
-  blockers, artifacts, receipts, summary, and recommended next handoff.
+  WorkResult / OutcomeDelta returns the generic outcome, evidence, blockers,
+  artifacts, receipts, and recommended next handoff. Its software profile,
+  ImplementationResultPayload, returns changed files, patch refs, and tests.
 
 Verification and reconciliation
   The conductor consumes normalized results, runs the VerifierPath, repairs or
@@ -375,7 +547,8 @@ the commitment boundary.
 Hypervisor is the reference local interop and settlement fabric for autonomous
 systems. AIIP is the shared semantic protocol that lets Hypervisor route local
 microharness work and hand off external work to workers, services, enterprises,
-third-party autonomous systems, and independent AS-L1s.
+third-party autonomous systems, independent AS-L1s, and participants in a
+cross-domain OutcomeRoom.
 
 Canonical line:
 
@@ -397,7 +570,11 @@ Hypervisor Node interop messages may include:
 - state commitments;
 - receipt bundles;
 - settlement claims;
-- dispute evidence.
+- dispute evidence;
+- room join/leave and participant-lease updates;
+- work-frontier, claim, attempt, finding, resource, verifier-challenge, and
+  admission refs;
+- ontology/action-profile negotiation and mapping decisions.
 
 These messages must be typed, policy-bound, replayable, and receipt-backed when
 they influence consequential state.
@@ -409,6 +586,12 @@ difference is transport, trust boundary, privacy posture, and settlement depth.
 same semantic protocol
 different transport and settlement mode
 ```
+
+AIIP does not turn cross-domain messages into universal truth. Each domain
+admits its own state; the declared hosted or federated room policy admits shared
+room projections. A receipt authenticates the boundary statement it binds.
+Verification, acceptance, adjudication, and settlement remain later and
+distinct assurance states.
 
 ## Machine-Economy Stack
 
@@ -422,6 +605,9 @@ The coherent product and protocol roles are:
 | wallet.network | Authority, secrets, leases, grants, approvals, payment authority, and revocation. |
 | Model Router | Policy-bound cognition routing; model weights/endpoints are deployment-profile resources. |
 | AIIP | RPC-shaped interop protocol for bounded autonomous work, handoffs, authority leases, receipts, settlement intents, disputes, and reputation queries. |
+| OutcomeRoom / CollaborativeWorkGraph | Shared-frontier collaboration profile over GoalRuns, Agentgres domains, `MultiPartyCollaborationEnvelope`, and AIIP; not a new runtime or global truth store. |
+| Domain Ontologies / ODK | Federated semantic world plane and executable object/action contracts used by workers, rooms, generated domain apps, and cross-domain handoffs. |
+| ioi.ai | First outcome-conductor and Goal Space product over Hypervisor; it does not own runtime, authority, marketplace supply, or operational truth. |
 | aiagent.xyz | First-party worker and service-module marketplace built on AIIP and IOI settlement. |
 | sas.xyz | First-party outcome and Service-as-Software marketplace built on AIIP and IOI settlement. |
 | IOI L1 | Global autonomous-system settlement, registry, reputation, dispute, rights, and root-anchoring layer. |
@@ -443,11 +629,18 @@ The coherent product and protocol roles are:
 8. Do not create separate bespoke interop protocols for local microharnesses,
    aiagent.xyz, sas.xyz, and third-party autonomous systems when AIIP semantics
    apply.
+9. Do not imply a globally mutable CollaborativeWorkGraph. Every room must name
+   its hosted or federated ordering and admission topology.
+10. Do not present multi-model, multi-worker, or multi-node IOI-operated work as
+    independent multi-party federation.
+11. Do not force ontology, marketplace, room, wallet ceremony, or L1 settlement
+    onto a simple local goal when the relevant trust boundary is absent.
 
 ## One-Line Doctrine
 
 > **Each Hypervisor Node is a local autonomous-system settlement domain. It hosts
-> many governed autonomous-system chains, routes work between them, manages
-> authority through wallet.network, stores state and receipts through Agentgres,
-> and anchors selected commitments to IOI L1 for global registry, dispute,
-> reputation, and economic settlement.**
+> governed chains and bounded GoalRuns, may participate in declared hosted or
+> federated OutcomeRooms, routes work through AIIP, manages portable authority
+> through wallet.network, stores admitted state and receipts through Agentgres,
+> and anchors only selected commitments to IOI L1 for shared registry, dispute,
+> reputation, rights, or economic settlement.**

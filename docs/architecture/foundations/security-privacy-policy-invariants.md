@@ -6,7 +6,7 @@ conformance details live in
 [`../../conformance/hypervisor-core/`](../../conformance/hypervisor-core/).
 Supersedes: overlapping plan prose when invariants conflict.
 Superseded by: none.
-Last alignment pass: 2026-06-22.
+Last alignment pass: 2026-07-11.
 Doctrine status: canonical
 Implementation status: partial (authority/receipt gates enforced across built planes; TEE/cTEE/L1 items follow their owners)
 Last implementation audit: 2026-07-05
@@ -85,6 +85,14 @@ registry invariant, the registry wording wins on conflict.
 8. Hypervisor Node local settlement records are Agentgres/domain truth until a
    selected root is anchored to IOI L1 for public trust, dispute, reputation, or
    economic settlement.
+9. OutcomeRoom state has one declared hosted admission domain or a versioned
+   federated admission policy. No shared board, chat, projection, leaderboard,
+   or remote Agentgres database becomes universal truth by implication
+   (`INV-15`).
+10. Operational admission records that a domain accepted an assertion or
+    decision; it does not make the semantic proposition universally true.
+    Findings and ontology assertions retain uncertainty, evidence,
+    contradiction, supersession, and dispute state.
 
 ## File and Artifact Invariants
 
@@ -107,6 +115,18 @@ registry invariant, the registry wording wins on conflict.
 7. Provider-trust model routes require explicit privacy/authority posture and
    receipts; they must not be mislabeled as provider-independent custody,
    no-plaintext-custody, or wallet-governed authority.
+8. Provider/model routes must bind access mode, unattended-automation rights,
+   downstream customer-application or reseller/OEM rights, credential
+   principal, data-collection/retention posture, region, price limits,
+   supported parameters, fallback classes, and training/distillation rights.
+9. An aggregator is a replaceable route adapter, not an authority or privacy
+   boundary. Provider or model fallback is a semantic substitution and must
+   satisfy the same commercial, parameter, privacy, cost, authority, and
+   verifier policy or fail closed.
+10. `Private` for protected plaintext requires a custody-proven local,
+    customer-boundary, dedicated, or equivalent no-provider-trust route. An
+    aggregator or provider ZDR declaration alone does not establish that
+    stronger posture.
 
 ## Worker Training Invariants
 
@@ -145,6 +165,43 @@ registry invariant, the registry wording wins on conflict.
    freshness, recipe version, policy, and source watermarks.
 7. OntologyToWorkerPlan may propose workers, tools, evals, manifests, and
    training specs, but it cannot grant authority or bypass wallet.network.
+8. Ontologies are locally canonical, namespaced, and versioned. Cross-domain
+   work requires explicit compatibility negotiation, mappings, adapters,
+   mapping receipts, and policy-bound views rather than one global ontology.
+9. Ontology assertions bind valid/transaction time, source, observation
+   context, uncertainty, supporting and contradicting evidence, applicability,
+   supersession, and dispute state.
+10. An ontology action is executable only through an OntologyActionContract
+    binding typed inputs/outputs, state transition, pre/postconditions,
+    invariants, capability/runtime/tool, risk, authority, approval/revocation,
+    idempotency/retry, ambiguous-effect reconciliation, compensation,
+    verification, evidence, receipts, and physical-safety posture when needed.
+
+## Collaborative-Pursuit Invariants
+
+1. Contributor scope never widens privacy, retention, custody, context,
+   connector access, capability, or authority (`INV-16`).
+2. Every participant message, artifact, patch, finding, mapping, evaluator
+   change, and executable result remains tainted until bounded execution,
+   policy, verification, and declared room/domain admission accept it
+   (`INV-17`).
+3. Participant consensus is evidence, not authority. Sybil identities,
+   correlated reviewers, collusion, and self-verification must not manufacture
+   an admission or reputation claim.
+4. Participation, context, authority, resource, budget, tool, and work claims
+   are bounded leases with TTL, heartbeat, renewal/release, quarantine, and
+   revocation rather than ambient room membership.
+5. Multi-model, multi-worker, multi-node, and multi-party are distinct. A
+   first-party fleet remains one party regardless of how many models, clouds,
+   nodes, or keys it uses (`INV-18`).
+6. Open rooms require identity/eligibility policy, rate limits, queue
+   backpressure, fair resource allocation, context/spend/network blast-radius
+   limits, reviewer independence, anti-Sybil/collusion signals, reversible
+   promotion, and challengeable verifier versions.
+7. Positive, negative, inconclusive, invalid, exploit-finding, and superseded
+   attempts remain separately attributable. No participant input promotes
+   directly into durable memory, ontology, route priors, authority, or
+   production capability.
 
 ## Connector Invariants
 
@@ -160,7 +217,9 @@ registry invariant, the registry wording wins on conflict.
 2. Marketplace worker internals cannot be silently cloned.
 3. Contributions receive attribution.
 4. Service redirection is opt-in unless the service is explicitly ordered.
-5. Quality/reputation roots should be based on receipts and outcomes.
+5. Quality/reputation roots should preserve the assurance ladder: attributable
+   receipts, evidence, declared verification, acceptance, adjudication, and
+   settlement are distinct states.
 6. MoW routing must be explainable and receipt-backed when it affects payment,
    reputation, user trust, or marketplace ranking.
 7. Subscription-credit and outcome payouts should be based on verified
@@ -178,7 +237,7 @@ registry invariant, the registry wording wins on conflict.
 
 ## Privacy Doctrine
 
-> **Share intelligence, not raw data. Share ciphertext availability, not plaintext readability. Share proofs/receipts, not secrets.**
+> **Share permitted semantic projections and intelligence, not raw context. Share ciphertext availability, not plaintext readability. Share attributable receipts and policy-bound evidence, not secrets or universal-truth claims.**
 
 ## Execution Privacy Doctrine
 

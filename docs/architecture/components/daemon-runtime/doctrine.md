@@ -4,7 +4,7 @@ Status: canonical architecture authority.
 Canonical owner: this file for Hypervisor Daemon, CLI ownership boundaries, and IOI CLI operator-surface positioning; low-level daemon endpoints live in [`api.md`](./api.md).
 Supersedes: older CLI/daemon wording that implies the CLI owns runtime semantics or is primarily a chain/domain generator.
 Superseded by: none.
-Last alignment pass: 2026-05-30.
+Last alignment pass: 2026-07-11.
 Doctrine status: canonical
 Implementation status: partial (the daemon is the single runtime surface; hosted/DePIN endpoint families planned)
 Implementation refs:
@@ -21,7 +21,7 @@ connectors, browsers, shells, or computer-use providers trustworthy by existing.
 It supervises them as guest workloads/capabilities under scoped authority,
 policy, receipts, replay, and settlement hooks. Clients and operator surfaces
 may request, display, approve, interrupt, or inspect work, but the daemon owns
-execution semantics and durable run truth.
+execution semantics. Agentgres owns admitted durable run truth.
 
 **`ioi-cli` is the canonical local/operator interface to IOI runtimes,
 domains, manifests, receipts, authority scopes, and mainnet/application-domain
@@ -537,7 +537,10 @@ work_run.failed
 work_run.cancelled
 ```
 
-Events are not canonical by themselves; persisted settlement state and receipts are authoritative.
+Events are not canonical by themselves. Agentgres-admitted state and the
+applicable settlement owner are authoritative for their domains. Receipts bind
+declared event or claim facts and assurance evidence; they are not correctness,
+acceptance, or settlement by themselves.
 
 ## Relationship to Agentgres
 

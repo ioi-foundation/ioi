@@ -4,9 +4,9 @@ Status: canonical low-level reference.
 Canonical owner: this file for Agentgres APIs, canonical object classes, runtime v0 state, operation logs, projection watermarks, and replay/export validity; artifact-ref meaning and restore/import validity live in [`artifact-ref-plane.md`](./artifact-ref-plane.md), and bridge/readiness semantics live in [`postgres-bridge-and-readiness-contract.md`](./postgres-bridge-and-readiness-contract.md).
 Supersedes: older Agentgres-as-generic-store wording when runtime truth ownership conflicts.
 Superseded by: none.
-Last alignment pass: 2026-06-22.
+Last alignment pass: 2026-07-11.
 Doctrine status: reference
-Implementation status: partial (object catalog; families land with their planes — the Agent Execution Branch family is planned durable objects over existing fork/replay/snapshot substrate)
+Implementation status: partial (object catalog; families land with their planes — Agent Execution Branch is planned over existing fork/replay/snapshot substrate, and OutcomeRoom discovery/participation/portable-exit/frontier/claim/attempt/finding/WorkResult/OutcomeDelta plus NetworkGoalBudget persistence and admission are planned)
 Last implementation audit: 2026-07-05
 
 ## Purpose
@@ -130,7 +130,7 @@ merge decision.
     "file://src/parser.ts": "sha256:P2A"
   },
   "changed_artifact_refs": ["artifact://patch_A/parser.ts"],
-  "validation_receipt_refs": ["receipt_validate_A"],
+  "validation_receipt_refs": ["receipt://validate/A"],
   "scope_lease_refs": ["lease_symbol_parse_expression"]
 }
 ```
@@ -181,6 +181,14 @@ WorkerInstall
 ManagedWorkerInstance
 WorkerInvocation
 DomainOntology
+OntologyVersion
+OntologyOverlay
+OntologyAssertion
+ProvenanceAssertion
+OntologyMapping
+OntologyCrosswalk
+SemanticMappingDecision
+OntologyActionContract
 CanonicalObjectModel
 DataRecipe
 ConnectorMapping
@@ -219,8 +227,23 @@ RuntimeAssignment
 ComputeSession
 RuntimeSubscription
 ResourceAllocationDecision
+NetworkGoalBudget
 ComplianceAuditExportBundle
 MultiPartyCollaborationContext
+OutcomeRoom
+OutcomeRoomDiscovery
+RoomParticipationRequest
+ParticipantStateBundle
+RoomParticipantLease
+ResourceOffer
+CapabilityOffer
+WorkFrontierItem
+WorkClaimLease
+Attempt
+Finding
+VerifierChallenge
+WorkResult
+OutcomeDelta
 DeliveryBundle
 Approval
 ScopeLease
@@ -264,6 +287,20 @@ DomainSequenceCheckpoint
 DisputeRecord
 SettlementMirror
 ```
+
+Ontology profile registration is exact and does not introduce parallel storage
+schemas:
+
+| Registered semantic object/profile | Persisted class and canonical wire shape |
+| --- | --- |
+| `OntologyVersion` | `DomainOntology` using `DomainOntologyEnvelope` with `ontology_record_profile: ontology_version`. |
+| `OntologyOverlay` | `DomainOntology` using `DomainOntologyEnvelope` with `ontology_record_profile: ontology_overlay` and base-version refs. |
+| `ProvenanceAssertion` | `OntologyAssertion` using `OntologyAssertionEnvelope` with `assertion_profile: provenance_assertion`. |
+| `OntologyCrosswalk` | `OntologyMapping` using `OntologyMappingEnvelope` with `mapping_record_profile: ontology_crosswalk`. |
+| `SemanticMappingDecision` | `OntologyMapping` using `OntologyMappingEnvelope` with `mapping_record_profile: semantic_mapping_decision`, application targets, challenge refs, and a decision receipt. |
+
+The semantic profile name remains queryable and receipted, but the mapped base
+class owns object heads, operation semantics, and migrations.
 
 ## Domain Manifest
 
@@ -541,10 +578,20 @@ Agentgres records ontology and data recipe state as canonical operational
 truth. Source bytes and large transformed payloads remain in storage backends
 such as Filecoin/CAS by hash/CID.
 
+`OntologyVersion`, `OntologyOverlay`, `ProvenanceAssertion`,
+`OntologyCrosswalk`, and `SemanticMappingDecision` are the registered profiles
+listed above. Their authoritative field schemas are the corresponding
+`DomainOntologyEnvelope`, `OntologyAssertionEnvelope`, and
+`OntologyMappingEnvelope` in the shared object canon; Agentgres operations store
+the profile discriminator rather than inventing profile-local shapes.
+
 ```json
 {
   "object_class": "DomainOntology",
+  "ontology_record_profile": "ontology_version | ontology_overlay",
   "ontology_id": "ontology://construction-estimating/v1",
+  "ontology_family_ref": "ontology://construction-estimating",
+  "base_ontology_version_refs": [],
   "domain_id": "agentgres://domain/sas.xyz",
   "entity_types": ["Project", "PlanSheet", "Room", "Material", "Estimate", "Quote", "ChangeOrder"],
   "relationship_types": ["contains", "priced_by", "derived_from", "approved_by"],
@@ -1128,12 +1175,19 @@ portability, restore, retention, export, or user-visible doctrine.
   "collaboration_id": "collaboration://joint-service-outcome-001",
   "object_class": "MultiPartyCollaborationContext",
   "goal_ref": "order://123",
+  "outcome_room_ref": "outcome-room://joint-service-outcome-001",
   "coordinator_ref": "domain://service-coordinator",
+  "coordination_topology": "hosted_admission | federated_admission",
+  "coordination_and_ordering_policy_ref": "policy://room-ordering-v1",
+  "shared_state_admission_owner_ref": "domain://service-coordinator | policy://federated-admission-v1",
+  "conflict_failover_and_adjudication_policy_refs": ["policy://room-conflicts-v1"],
   "party_refs": [
     {
       "party_ref": "org://customer-a",
       "role": "data_owner",
       "domain_ref": "agentgres://domain/customer-a",
+      "operator_and_affiliation_refs": ["org://customer-a"],
+      "model_runtime_and_infrastructure_dependency_refs": [],
       "authority_provider_refs": ["authority://customer-a-policy"],
       "revocation_ref": "revocation://collaboration/customer-a",
       "status": "active"
@@ -1142,6 +1196,8 @@ portability, restore, retention, export, or user-visible doctrine.
       "party_ref": "org://provider-b",
       "role": "worker_provider",
       "domain_ref": "agentgres://domain/provider-b",
+      "operator_and_affiliation_refs": ["org://provider-b"],
+      "model_runtime_and_infrastructure_dependency_refs": ["model_route://provider-b/default", "runtime://provider-b/node-1"],
       "authority_provider_refs": ["wallet://provider-b"],
       "revocation_ref": null,
       "status": "active"
@@ -1196,6 +1252,101 @@ portability, restore, retention, export, or user-visible doctrine.
   "status": "proposed | active | blocked | delivery_submitted | accepted | revision_requested | disputed | settled | revoked | archived"
 }
 ```
+
+## OutcomeRoom And Collaborative Work Graph Shapes
+
+Agentgres persists the objects defined by
+[`common-objects-and-envelopes.md`](../../foundations/common-objects-and-envelopes.md)
+inside the domain that owns each operation. It does not create one global room
+database. A room declares one of two admission shapes:
+
+```text
+hosted_admission
+  one named Agentgres domain owns room ordering and admission
+
+federated_admission
+  each domain retains local truth; a versioned federation policy owns
+  signed update ordering, merge, quorum/adjudication, conflicts, and failover
+```
+
+Minimum persisted room graph:
+
+```json
+{
+  "outcome_room_id": "outcome-room://research-123",
+  "object_class": "OutcomeRoom",
+  "goal_ref": "goal://research-123",
+  "room_mode": "private_goal | permissioned_team | cross_org | open_challenge",
+  "coordination_topology": "hosted_admission | federated_admission",
+  "host_domain_ref": "agentgres://domain/ioi-ai | null",
+  "coordination_policy_ref": "policy://room-admission-v1",
+  "multi_party_collaboration_ref": "collaboration://research-123 | null",
+  "ontology_profile_refs": [],
+  "acceptance_stop_privacy_participation_contribution_and_export_policy_refs": [],
+  "scorecard_guardrail_verifier_resource_budget_and_settlement_refs": [],
+  "network_goal_budget_ref": "goal-budget://research-123 | order://... | null",
+  "participant_lease_refs": [],
+  "frontier_item_refs": [],
+  "attempt_refs": [],
+  "finding_refs": [],
+  "verifier_challenge_refs": [],
+  "contribution_refs": [],
+  "room_state_root": "sha256:...",
+  "status": "proposed | open | active | paused | blocked | verifying | accepted | disputed | settled | closed | revoked | archived"
+}
+```
+
+The room relation graph must preserve:
+
+```text
+OutcomeRoom
+  -> OutcomeRoomDiscovery
+       -> policy-filtered objective / category / semantic profile / eligibility
+       -> privacy / visibility / budget / verifier / settlement posture
+  -> RoomParticipationRequest
+       -> applicant / operator / home domain / affiliations / eligibility
+       -> requested role / capabilities / leases / accepted policy versions
+  -> RoomParticipantLease
+       -> identity / operator / home domain / affiliations
+       -> worker / model route / harness / runtime dependencies
+       -> context / resource / budget / authority leases
+       -> current WorkClaimLease / heartbeat / wake condition / quarantine
+       -> ParticipantStateBundle
+            -> released claims / included lineage / exclusions / redactions
+            -> export / acknowledgement / supersession / revocation
+  -> WorkFrontierItem
+       -> dependencies / related attempts and findings
+       -> required capabilities / context / resources / authority / evidence
+       -> expected value / uncertainty / priority / duplication policy
+       -> WorkClaimLease
+  -> ResourceOffer / CapabilityOffer
+       -> ResourceAllocationDecision / spend / contribution refs
+  -> NetworkGoalBudget
+       -> separate funding / cap / allocation / contribution / settlement refs
+       -> never an implicit draw on ordinary Goal Space Work Credits
+  -> Attempt
+       -> declared method / lineage / environment and version refs
+       -> positive / negative / inconclusive / invalid / exploit / superseded
+       -> WorkResult / OutcomeDelta / artifacts / evidence / costs
+       -> reproduction / verifier / license / export / contribution refs
+  -> Finding
+       -> uncertainty / time / provenance / applicability
+       -> supporting and contradicting evidence / supersession / dispute
+  -> VerifierChallenge
+       -> rule versions / adjudication / affected attempts / re-verification
+```
+
+Room messages, boards, inboxes, digests, feeds, taskforce lists, leaderboards,
+and replay timelines are projection definitions over those objects. They are
+not canonical state classes. Participant inputs remain tainted until the
+declared room admission path accepts an object or delta. Admission records the
+predecessor room root, resulting root, policy/version refs, operation refs, and
+receipt refs without rewriting rejected or superseded history.
+
+For a federated room, a local domain stores its own object heads plus signed
+remote refs and the last admitted federation watermark. It must not import a
+remote private context, raw operational database, or message stream as local
+truth merely because it arrived over AIIP.
 
 ## Worker Runtime v0 Canonical Objects
 
@@ -1360,7 +1511,7 @@ expected-head merge/admission with the required policy, authority, and receipts.
   "head_checkpoint_ref": "branch_checkpoint://...",
   "staged_effect_refs": ["staged_effect://..."],
   "receipt_root": "sha256:...",
-  "branch_purpose": "main | candidate | repair | verifier | replay | self_correction | comparison",
+  "branch_purpose": "main | candidate | research_attempt | ontology_attempt | incident_attempt | service_attempt | physical_mission_attempt | repair | verifier | reproduction | replay | self_correction | comparison",
   "status": "open | staged | admitted | discarded | superseded | archived | revoked"
 }
 ```
@@ -1682,7 +1833,10 @@ Agentgres mirrors L1 contract state but does not replace it.
 5. Projections must be rebuildable and checkpointable.
 6. Worker runtime truth lives in Agentgres operation logs; client checkpoints are non-authoritative caches or exports.
 7. Storage backend payloads, checkpoints, snapshots, and evidence bundles are refs from Agentgres state, not replacements for Agentgres state.
-8. Agents draft in isolated patch branches over pinned workspace snapshots; canonical heads advance only through expected-head merge and settlement.
+8. Participants draft software, research, ontology, incident, service,
+   evaluation, and physical-mission attempts in bounded execution branches;
+   canonical heads advance only through declared admission and expected-head
+   checks.
 9. Agent execution branches bind code/workspace diffs to trace, authority,
    memory projection, artifact, receipt, and replay state; they are not merely
    Git refs.
@@ -1700,3 +1854,13 @@ Agentgres mirrors L1 contract state but does not replace it.
     invalidatable, checkpointed, and rebuildable from Agentgres truth.
 16. Local-first working state is pre-canonical until admitted through Agentgres
     operation settlement.
+17. An OutcomeRoom must declare hosted or federated admission; no global mutable
+    room graph, message stream, board, or leaderboard is canonical by default.
+18. A remote signed statement proves attribution to its signer, not local
+    acceptance or universal correctness; cross-domain findings and deltas remain
+    refs or proposals until local/federated admission.
+19. Discoverable room projections are versioned, policy-filtered objects; they
+    never expose private room context or grant participation by publication.
+20. Participant exit releases/reassigns live claims and preserves a portable,
+    policy-bound state bundle that does not depend on continued hosted-room
+    database access.

@@ -5,7 +5,7 @@ Canonical owner: this file for Agentgres-governed artifact refs, payload refs, e
 Supersedes: product prose that lets storage backends appear to own artifact
 meaning, authority, lifecycle, or restore validity.
 Superseded by: none.
-Last alignment pass: 2026-06-19.
+Last alignment pass: 2026-07-11.
 Doctrine status: canonical
 Implementation status: partial (archive/restore refs, state-root restore truth, and repair receipts built on the storage plane)
 Implementation refs:
@@ -19,7 +19,7 @@ meaning layer for payload bytes used by IOI domains.**
 
 Agentgres does not store every large payload byte. It records what a payload is,
 why it exists, which operation produced it, which policy and authority governed
-it, which receipts prove it, which state root or object heads it binds, and how
+it, which boundary facts its receipts bind, which state root or object heads it binds, and how
 it can be verified, replayed, imported, restored, redacted, archived, or revoked.
 
 Storage backends hold bytes. Agentgres defines what those bytes mean.
@@ -137,7 +137,7 @@ ArtifactRef:
   policy:
     policy_hash: sha256:...
     schema_version: string
-    privacy_class: public | internal | confidential | secret
+    privacy_class: public | internal | confidential | restricted | regulated | safety_critical
     redaction_status: none | redacted | tombstoned
     encryption_ref: wallet.network://sealed-key/... | null
   authority:

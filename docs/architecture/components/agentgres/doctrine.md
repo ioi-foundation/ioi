@@ -4,9 +4,9 @@ Status: canonical architecture authority.
 Canonical owner: this file for high-level Agentgres doctrine; low-level runtime objects live in [`agentgres-api-and-object-model.md`](./api-object-model.md), and Postgres bridge/readiness guarantees live in [`postgres-bridge-and-readiness-contract.md`](./postgres-bridge-and-readiness-contract.md).
 Supersedes: overlapping plan prose when Agentgres state ownership conflicts.
 Superseded by: none.
-Last alignment pass: 2026-06-23.
+Last alignment pass: 2026-07-11.
 Doctrine status: canonical
-Implementation status: partial (runtime state store and object planes in the daemon; branch lane partial — thread forks, run replay, counterfactual what-if replay, and workspace snapshot/restore custody exist; the five branch/staged-effect durable objects are planned)
+Implementation status: partial (runtime state store and object planes in the daemon; branch lane partial — thread forks, run replay, counterfactual what-if replay, and workspace snapshot/restore custody exist; OutcomeRoom discovery/participation/portable-exit/frontier/claim/attempt/finding/result and the five branch/staged-effect durable object families are planned)
 Implementation refs:
   - `crates/services/src/agentic/runtime/`
 Last implementation audit: 2026-07-05
@@ -34,9 +34,25 @@ selected commitments are anchored to IOI L1.
 
 Agentgres does not run on IOI L1. It runs inside application-domain kernel deployments.
 
+For collaborative pursuit, Agentgres remains per-domain truth. An
+`OutcomeRoom` may project a shared work frontier across one or more Agentgres
+domains, but there is no implicitly global mutable Agentgres graph. Every room
+declares either one hosted admission domain or a versioned federated admission
+policy with ordering, merge, quorum/adjudication, conflict, and failover
+semantics. Each participant keeps private context and local operations in its
+home domain; AIIP carries signed permitted refs and updates between domains.
+
 ## Core Doctrine
 
-> **All state changes are patches. All accepted patches settle into truth. All truth is queryable from the nearest verifiable view.**
+> **All state changes are patches. Accepted patches become domain operational
+> truth. That truth is queryable through the nearest policy-permitted,
+> verifiable view.**
+
+Here, "truth" means the operational fact that a named domain admitted a state
+change under declared policy. It does not turn a finding, model judgment,
+semantic assertion, or external-world claim into universal truth. Those claims
+retain provenance, uncertainty, contradiction, verification, acceptance, and
+dispute state.
 
 Database doctrine:
 
@@ -64,6 +80,12 @@ source diffs, but it is broader than Git: it binds the workspace snapshot,
 operation/effect trace, memory projection, tool and connector leases, model
 route, harness session, artifact refs, policy posture, authority decisions,
 receipt roots, and replay metadata for a bounded line of work.
+
+An execution branch may implement an `Attempt` for software, research,
+ontology mutation, incident response, service delivery, evaluation, or an
+embodied mission. Positive, negative, inconclusive, invalid, exploit-finding,
+and superseded attempts remain durable evidence when retention policy admits
+their informational or audit value.
 
 The default shape is:
 
@@ -124,7 +146,7 @@ workspace snapshot/restore custody exist in the daemon today; the durable
 This does not replace Git. Git remains the source-code version-control system.
 Agentgres records the autonomous-work state around Git: why the branch exists,
 what the agent saw, what it attempted, what authority it held, which effects
-were staged, which receipts prove the path, and which merge/admission decision
+were staged, which boundary facts the receipts bind, and which merge/admission decision
 made it canonical.
 
 Agentgres should be described publicly as a canonical state substrate with a
@@ -370,6 +392,19 @@ Agentgres owns per-domain operational truth:
 - policy decision records;
 - quality ledgers;
 - contribution accounting;
+- OutcomeRooms and hosted/federated room-admission policy refs;
+- versioned, policy-filtered OutcomeRoom discovery projections;
+- typed room participation requests and admission/denial decisions;
+- portable participant-state bundles, claim-release, export, acknowledgement,
+  supersession, and revocation state;
+- room participant leases;
+- work-frontier items and claim leases;
+- resource/capability offers and allocation decisions;
+- positive, negative, inconclusive, invalid, exploit-finding, and superseded
+  attempts;
+- provenance-bearing findings and contradictions;
+- verifier challenges, rule versions, adjudication, and re-verification state;
+- generic WorkResults and proposed/admitted OutcomeDeltas;
 - execution traces;
 - execution branches;
 - staged effects;
@@ -402,7 +437,9 @@ Agentgres does not own:
 - every local UI hover/draft state;
 - private working memory unless promoted;
 - draft, fuzzy, local, or speculative memory that has not crossed an admission boundary;
-- retrieval candidates, embeddings, full-text indexes, or wiki projections as canonical truth.
+- retrieval candidates, embeddings, full-text indexes, or wiki projections as canonical truth;
+- a globally mutable shared collaboration graph across sovereign domains;
+- raw room chat, message-board consensus, or leaderboards as admission truth.
 
 Authority providers and domain governance own permission decisions. wallet.network
 is the portable delegated authority provider for secrets, provider credentials,
@@ -921,6 +958,20 @@ EvidenceSet
 DeliveryBundle
 QualityRecord
 ContributionReceipt
+OutcomeRoom
+OutcomeRoomDiscovery
+RoomParticipationRequest
+ParticipantStateBundle
+RoomParticipantLease
+ResourceOffer
+CapabilityOffer
+WorkFrontierItem
+WorkClaimLease
+Attempt
+Finding
+VerifierChallenge
+WorkResult
+OutcomeDelta
 ProjectionDefinition
 ProjectionCheckpoint
 DisputeRecord
@@ -990,6 +1041,15 @@ Reads should wake shared runtime only when freshness, policy, key release, proof
 
 ### ioi.ai Agentgres
 
+- Goal Space and OutcomeRoom refs;
+- discoverable room projections, participation requests/decisions, and portable
+  participant-state bundles when ioi.ai is the declared owner/host;
+- hosted room frontier, participant, claim, attempt, finding, verifier,
+  outcome-delta, contribution, and replay state when ioi.ai's named domain is
+  the declared admission host;
+- local projections of federated room state when another domain or federation
+  policy owns shared admission;
+- GoalRun, plan, attempt-summary, and cross-session outcome-graph refs;
 - account/runtime profile refs;
 - device registrations;
 - sealed archive refs;
@@ -1029,6 +1089,8 @@ a replacement for wallet.network authority
 a replacement for daemon execution
 a retrieval/vector index as canonical truth
 a silent local-file restore mechanism
+a globally mutable OutcomeRoom graph with no declared admission owner
+room chat, self-reported scores, or participant consensus as canonical truth
 ```
 
 Correct model:

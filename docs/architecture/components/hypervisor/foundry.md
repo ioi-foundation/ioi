@@ -10,7 +10,7 @@ Supersedes: product prose that treats Foundry as direct runtime mutation, a
 generic dashboard, only a training UI, or the same concept as ioi.ai goal
 coordination.
 Superseded by: none.
-Last alignment pass: 2026-06-23.
+Last alignment pass: 2026-07-11.
 Doctrine status: canonical
 Implementation status: partial (draft object plane bound to real model-mount substrate, deliberately inert; training/eval execution planned)
 Last implementation audit: 2026-07-05
@@ -297,7 +297,9 @@ simulated SaaS tenant, synthetic database, generated Domain App, robot simulator
 tool server, MCP gateway profile, connector fixture, or external test service.
 The world is an admitted environment recipe plus seeded state and scoring
 contracts. Provider telemetry and tool logs are evidence; Agentgres-admitted
-refs, receipts, and state roots are truth.
+operations, object heads, and state roots define domain operational truth.
+Receipts bind their declared boundary facts and assurance evidence; they do not
+make an evaluation correct or accepted by themselves.
 
 Executable Evals should cover:
 
@@ -439,11 +441,27 @@ consumed by ioi.ai or another coordinator. It is not runtime authority, not
 wallet authority, not marketplace truth, and not an automatic self-modification
 path.
 
+OutcomeRoom attempts, findings, verifier challenges, negative results,
+discussion projections, and contribution records are candidate evidence only.
+Before Foundry consumes them, the source domain must admit the relevant refs
+and a TrainingEvidenceEligibility decision must bind participant/operator
+affiliation, privacy, license/export and training-use rights, provenance,
+supporting/contradicting evidence, assurance state, retention, and revocation
+impact. Room consensus, leaderboard rank, or a self-reported score never
+creates training consent or truth.
+
 ## Teacher Distillation And Oversight
 
 Foundry should treat frontier and foundation models as teachers, critics,
 judges, data engines, and correction providers for bounded tasks. They are not
 truth engines. The source-neutral pattern is:
+
+Inference access is not training permission. Each teacher route must declare
+whether output retention, reuse, distillation, competing-model training,
+cross-customer aggregation, and downstream publication are allowed. Open
+weights/open data or an expressly licensed teacher agreement are the default
+reusable sources; ordinary API spend, aggregator access, or an enterprise chat
+seat does not silently grant those rights.
 
 ```text
 task contract and eval rubric
@@ -472,7 +490,8 @@ notes, verifier outputs, privacy posture, and cost.
 
 Candidate data is not accepted training data. It must remain quarantined until
 it passes purpose, privacy, provenance, quality, and truth gates. When the task
-is executable, execution proof outranks model judgment. When the task is
+is executable, deterministic execution evidence generally outranks model
+judgment, while verification and acceptance remain explicit. When the task is
 retrieval-grounded, evidence support and atomic-claim checks outrank holistic
 judge scores. When the task is open-ended, rubric and preference labels must be
 versioned, source-aware, and auditable.
@@ -903,9 +922,12 @@ physical-action safety, authority refs, receipts, and Governance release control
 
 ## Relationship To ioi.ai Collaborative Outcomes
 
-ioi.ai is the user-facing intent-to-outcome surface. It may use multiple models
-or strategies to answer a question, coordinate software repair, inspect
-evidence, or draft a Foundry job.
+ioi.ai is the user-facing intent-to-outcome conductor and Goal Space surface.
+An OutcomeRoom may coordinate many bounded GoalRuns over a shared work frontier
+for research, software, ontology, incident, service, evaluation, or embodied
+goals. It may compare models/strategies, inspect evidence, challenge an
+evaluator, or draft a Foundry job, but it does not train or promote capability
+inside the room.
 
 Foundry supports ioi.ai collaborative outcomes by providing:
 
@@ -915,11 +937,16 @@ Foundry supports ioi.ai collaborative outcomes by providing:
 - conductor-advisor candidates;
 - scorecards;
 - failure mining;
+- eligible positive, negative, inconclusive, and exploit-finding attempt
+  datasets with derivation lineage;
+- verifier-rule versioning, challenge cases, adversarial holdouts, and
+  affected-attempt re-evaluation;
 - skill/package improvement proposals;
 - reusable datasets and worker candidates.
 
 ioi.ai coordinates the user-facing pursuit. Foundry builds the engines, tracks
-the benchmarks, and turns proven lessons into reusable capability.
+the benchmarks, and turns eligible evaluated lessons into reusable capability.
+No room message, finding, score, or contribution promotes itself.
 
 ## Relationship To Workbench And Automations
 
@@ -998,11 +1025,11 @@ FoundryJobRequest:
   input_dataset_refs:
     - dataset://...
   model_route_refs:
-    - model_route:...
+    - model_route://...
   worker_refs:
-    - worker:...
+    - worker://...
   eval_gate_refs:
-    - eval_gate:...
+    - gate://...
   authority_refs:
     - grant://... | lease://...
   budget_policy_ref: policy://...
@@ -1220,7 +1247,7 @@ FoundryEvalWorld:
   persistent_state_policy_ref: policy://...
   fault_injection_policy_ref: optional policy://...
   authority_scope_refs:
-    - scope://...
+    - scope:*
   expected_receipt_refs:
     - receipt_policy://...
   status:

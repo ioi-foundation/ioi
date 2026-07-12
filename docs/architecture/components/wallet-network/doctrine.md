@@ -4,7 +4,7 @@ Status: canonical architecture authority.
 Canonical owner: this file for wallet.network authority doctrine; wallet product, exchange, route-source, exposure, protection, approval-inbox, and receipt doctrine lives in [`product-exchange-risk.md`](./product-exchange-risk.md); low-level scope APIs live in [`wallet-network-api-and-authority-scopes.md`](./api-authority-scopes.md).
 Supersedes: older generic capability-grant wording when it conflicts with `scope:*` authority grants.
 Superseded by: none.
-Last alignment pass: 2026-06-23.
+Last alignment pass: 2026-07-11.
 Doctrine status: canonical
 Implementation status: partial (capability-lease authority, sealed credentials, and approval gates live in the daemon; guardian surfaces, key shards, and MPC vault planned)
 Implementation refs:
@@ -812,8 +812,10 @@ profile.
 - `ModelMountReceipt`, `PrivateInferenceReceipt`,
   `CounterfactualLatticeReceipt`, `PrivateOperatorReceipt`,
   `DeclassificationReceipt`, capability-exit receipts, and
-  deterrence/detection receipts prove what was mounted, computed, privately
-  operated, revealed, denied, signed, watermarked, or canary-checked.
+  deterrence/detection receipts attest the declared boundary facts about what
+  was mounted, computed, privately operated, revealed, denied, signed,
+  watermarked, or canary-checked; verification and external-effect acceptance
+  remain separate.
 
 ### Enterprise Secure Profile
 

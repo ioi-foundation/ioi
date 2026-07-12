@@ -1,10 +1,13 @@
 # Default Harness Profile
 
 Status: canonical reference harness profile.
-Canonical owner: this file for HarnessProfile semantics, the Default Harness Profile reference scaffold/fallback, loop-native step resolution, context topology, output ownership, and implementation-stage object boundaries.
+Canonical owner: this file for HarnessProfile semantics, the Default Harness
+Profile reference scaffold/fallback, bounded Goal Kernel loop-native step
+resolution, context topology, generic result normalization, output ownership,
+and implementation-stage object boundaries.
 Supersedes: standalone harness-profile wording that implies a peer runtime beside the Hypervisor Daemon.
 Superseded by: none.
-Last alignment pass: 2026-06-01.
+Last alignment pass: 2026-07-11.
 Doctrine status: canonical
 Implementation status: partial (harness-profile registry and default profile built; wider adapter contracts in progress)
 Last implementation audit: 2026-07-05
@@ -25,10 +28,19 @@ Use this doctrine:
 > Harness Profile is IOI's reference scaffold and fallback profile, not a
 > meta-harness and not the only admissible harness.**
 
+The Goal Kernel is deliberately bounded. It grounds, implements, observes,
+verifies, repairs, course-corrects, and completes one GoalRun or claimed subgoal.
+It is not the whole collaborative system. When many participants share a
+frontier, an `OutcomeRoom` / `CollaborativeWorkGraph` sits above multiple
+GoalRuns and owns dynamic participation, work discovery, claim leases,
+attempt/finding exchange, verifier challenges, resource allocation, and
+shared-frontier admission. HarnessProfiles still resolve only scoped steps.
+
 It is not:
 
 ```text
 a fixed swarm
+a communal message board or shared-work-frontier owner
 a separate execution daemon
 a meta-harness above other harnesses
 the owner of high-level workflow composition
@@ -50,7 +62,8 @@ Hypervisor clients and surfaces
   Canvas views, Environments views, Authority Gateway adapters
 
 Hypervisor Daemon
-  execution owner and policy/authority/effect boundary
+  execution owner and authorization-admission, enforcement, and effect-execution
+  boundary under applicable policy and authority
 
 Workflow Compositor
   high-level service/workflow graph, dependencies, review points, acceptance
@@ -61,9 +74,9 @@ Hypervisor Automations
   background-mission product surface over Workflow Compositor contracts
 
 ioi.ai collaborative outcome pattern
-  chat.ioi.ai's goal-appropriate multi-model/multi-path pursuit over
-  Hypervisor; many harnesses may participate, but no harness owns coordination,
-  execution, authority, or truth
+  ioi.ai's Goal Space and optional OutcomeRoom/CollaborativeWorkGraph over
+  Hypervisor; many bounded GoalRuns and harnesses may participate, but no
+  harness owns room coordination, execution, authority, or truth
 
 Harness Profiles
   daemon-executed or daemon-mediated step-resolution profiles and adapters,
@@ -109,6 +122,27 @@ for that contract. It is useful as a fallback and as a template for custom
 profiles, but it does not own high-level workflow composition and should not
 make IOI hostile to other credible harnesses.
 
+The generic bounded loop is:
+
+```text
+ground objective, state, constraints, and acceptance
+  -> observe uncertainty or opportunity
+  -> form a bounded plan or hypothesis
+  -> lease context, resources, tools, and authority
+  -> execute or delegate
+  -> normalize WorkResult / OutcomeDelta
+  -> verify, falsify, reproduce, compare, accept, reject, or challenge
+  -> repair, escalate, update admitted learning, continue, or close
+```
+
+The live first implementation is intentionally narrower than this target. It
+admits only `parallel_implement_reconcile`, uses one deterministic conductor,
+at most two implementers, software-shaped task briefs/results, isolated
+candidate workspaces, deterministic candidate verification, and one admitted
+reconciliation. That is a valid bounded software profile, not evidence that
+open participation, dynamic topology, generic results, or cross-domain room
+coordination is already implemented.
+
 Persistent workspace intelligence is separate from any selected model or
 harness. Skills, memory, wiki state, learned tool affordances, and durable
 behavior-affecting context belong to the workspace/project/domain through
@@ -137,6 +171,8 @@ HarnessProfile:
     - GateResult
     - ExecutionResult
     - NormalizedObservation
+    - WorkResult
+    - OutcomeDelta
     - Receipt
     - ArtifactRef
     - PayloadRef
@@ -165,6 +201,7 @@ DefaultHarnessProfile:
     - live
   loop_native: true
   final_output_ownership_required: true
+  generic_work_result_required: true
   context_topology_planning_required: best_effort
   authority_model: wallet.network
   state_substrate: Agentgres
@@ -273,6 +310,13 @@ Subagents are delegated work items or child work runs, not hidden private
 threads. Parent and child work must share explicit authority, budget,
 conversation, cancellation, receipt, and output contracts.
 
+Inside an OutcomeRoom, a background agent additionally binds a
+`RoomParticipantLease` and usually a `WorkClaimLease`. The room owns join,
+sleep/wake, heartbeat, replacement, retirement, quarantine, resource offers,
+and frontier state; the child GoalRun owns the bounded pursuit. Spawning another
+process or model context does not by itself create an independent participant
+or party.
+
 Subagent message flow should use explicit boundary objects:
 
 ```text
@@ -303,6 +347,11 @@ The parent harness may wait, cancel, resume, assign, or send input to a
 subagent, but the daemon remains the admission, cancellation, event ordering,
 receipt, and state-root owner.
 
+Client projections must expose a background participant's claim, lease expiry,
+heartbeat or wake condition, spend, last contribution, blockers, evidence,
+verification state, and cancellation/quarantine controls. A token stream or
+opaque process count is not an adequate background-agent contract.
+
 ## Compositor And Harness Boundary
 
 The clean architecture is:
@@ -331,15 +380,15 @@ Hypervisor Automations
     Canvas editor state where useful
 
 ioi.ai collaborative outcomes
-  coordinate parallel attempts as a first-party client/product pattern over
-  Hypervisor and Automations when a goal calls for it:
-    participant roster
-    isolated sessions and branches
-    multi-path search policy
-    eval and benchmark gates
-    scorecards and leaderboards
-    promotion policy
-    failure mining and lesson extraction
+  conduct one Goal Space and optionally coordinate an
+  OutcomeRoom/CollaborativeWorkGraph over Hypervisor and Automations:
+    dynamic participant leases and affiliations
+    shared work frontier and claim leases
+    isolated GoalRuns, sessions, branches, and attempts
+    positive, negative, inconclusive, invalid, and superseded results
+    findings, verifier challenges, scorecards, and evaluation rule versions
+    hosted or federated shared-state admission
+    contribution lineage, failure mining, and replay
 
 Selected HarnessProfile
   resolves one scoped step:
@@ -404,7 +453,9 @@ verification, or terminal-state gates when those gates apply.
 11. Convert cross-context delegation into a ContextHandoff and
    TaskBriefPayload, then open a HarnessInvocation when a HarnessProfile or
    Agent Harness Adapter must perform the step.
-12. Normalize raw results into observations.
+12. Normalize raw results into generic `WorkResult` / `OutcomeDelta` plus
+    observations. Software implementation may use
+    `ImplementationResultPayload` as a profile of that seam.
 13. Record receipts, traces, Agentgres operations, and artifact refs.
 14. Re-enter model loop when more action or synthesis is needed.
 15. Verify claims according to risk.
@@ -414,6 +465,12 @@ verification, or terminal-state gates when those gates apply.
 19. Store payload bytes in selected storage backends behind ArtifactRefs.
 20. Trigger L1/app-chain settlement only when policy or contract requires it.
 ```
+
+When a GoalRun is fulfilling a room claim, its admitted result returns to the
+room admission owner. The room may update the frontier, create follow-on
+claims, request independent replication, change verifier policy, or stop on
+acceptance, risk, budget, deadline, or marginal-value grounds. The harness does
+not mutate shared-room truth directly.
 
 ## Loop-Native Execution
 
@@ -445,15 +502,17 @@ ContextHandoff(task_brief)
   -> ContextLease set
   -> HarnessInvocation(selected HarnessProfile or Agent Harness Adapter)
   -> HarnessAdapterEvents
-  -> ImplementationResultPayload
-  -> ContextHandoff(implementation_result)
+  -> WorkResult / OutcomeDelta
+       (ImplementationResultPayload for the software profile)
+  -> ContextHandoff(work_result)
   -> conductor VerifierPath
 ```
 
 Harness adapters may render a prompt, command, JSON request, terminal script, or
 provider-specific session internally. That rendering is adapter-private
-evidence. The durable contract is the task brief, leases, invocation, normalized
-events, implementation result, receipts, and verifier path.
+evidence. The durable contract is the task brief, leases, invocation,
+normalized events, generic result/outcome delta, domain profile, receipts, and
+verifier path.
 
 The deterministic substrate owns:
 
@@ -490,7 +549,8 @@ synthesizing final output
 ```
 
 Raw model output is never authority. A model may propose an effect; the daemon
-decides whether that effect can cross the deterministic boundary.
+admits and enforces execution only when applicable policy and authority
+providers authorize the crossing.
 
 ## Minimal Implementation Objects
 
@@ -511,6 +571,8 @@ needs justify object heads.
 | `GateResult` | policy/authority decision receipt | always for consequential actions |
 | `ExecutionResult` | tool/worker/service receipt | always for effectful or externally observed actions |
 | `NormalizedObservation` | typed event or projection payload | observations are reused by verifiers or downstream tasks |
+| `WorkResult` / `OutcomeDelta` | normalized harness result payload plus receipts and domain-profile refs | cross-run, cross-room, cross-domain, contribution, challenge, or replay consumers require stable identity |
+| `ImplementationResultPayload` | software profile of `WorkResult` with changed-file/diff/test refs | software implementation needs typed review and reconciliation |
 | `OutputOwnershipPass` | completion/output receipt plus terminal event | delivery claims need replay, dispute, or marketplace settlement |
 | `ArtifactRef` / `PayloadRef` | Agentgres object/ref | always when payload bytes matter |
 | `PrivateWorkspaceCapsule` | daemon profile payload plus Agentgres artifact/receipt refs | rented or provider GPU work touches protected classes |
@@ -537,8 +599,9 @@ IntentContract:
   constraints: [string]
   acceptance_criteria: [string]
   risk_class:
-    read | draft | local_write | external_message |
-    commerce | funds | deploy | secret_export | physical_action
+    read | draft | local_write | write_reversible | external_message |
+    commerce | funds | credential_access | policy_widening | secret_export |
+    identity_change | system_destructive | physical_action
   privacy_profile:
     local_only | redacted_remote | confidential_remote | managed
   execution_profile:
@@ -589,6 +652,8 @@ RuntimePlan:
     service_package | configured_engine | hybrid
   context_topology_ref: context_topology:... | null
   work_graph_ref: graph:... | null
+  outcome_room_ref: outcome-room://... | null
+  work_claim_lease_ref: work-claim://... | null
   selected_units:
     - type: worker | service_engine | workflow | model_backend | tool
       ref: string
@@ -609,6 +674,10 @@ RuntimePlan:
     - cost
     - service_contract
 ```
+
+`OutcomeRoom` refs are absent for ordinary direct work. When present, the plan
+must not infer broader authority, context, budget, or shared-state write access
+from room membership; the participant and claim leases remain controlling.
 
 ### ContextTopology
 
@@ -659,18 +728,24 @@ Context pressure estimates are planning heuristics, not protocol law. They may
 use a Context Fit Ratio, but thresholds are policy defaults rather than
 universal invariants.
 
-### ContextCell
+### Default Harness ContextCell Profile
+
+[`ContextCellEnvelope`](../../foundations/common-objects-and-envelopes.md#contextcellenvelope)
+owns the shared cell identity, role, room/participant binding, harness/model
+route, leases, authority scopes, wake condition, and lifecycle. The Default
+Harness Profile extends that envelope with the following loop-local execution
+state; it does not define a second `ContextCell` object.
 
 ```yaml
-ContextCell:
-  context_cell_id: context_cell://...
-  run_id: run:...
-  task_id: task:...
+DefaultHarnessContextCellProfile:
+  context_cell_ref: context_cell://...
+  run_ref: run://...
+  task_ref: task://...
   resolution: coarse | medium | fine | forensic
   goal: string
   constraints: [string]
   acceptance_criteria: [string]
-  authority_ref: grant:... | null
+  authority_ref: grant://... | null
   agentgres_refs:
     - agentgres://operation/...
     - agentgres://object/...
@@ -679,7 +754,7 @@ ContextCell:
   receipt_refs:
     - receipt://...
   prior_observation_refs:
-    - observation:...
+    - observation://...
   open_uncertainties:
     - string
   loop_policy:
@@ -726,6 +801,28 @@ LoopStep:
     continued | blocked | verified | failed | completed | escalated
 ```
 
+### WorkResult And OutcomeDelta
+
+Harness completion normalizes into the generic result seam owned by the shared
+object canon. Every domain profile preserves:
+
+```text
+claim and GoalRun identity
+worker/harness/model/runtime identity and versions
+method and derived-from lineage
+outcome class and summary
+typed state or knowledge delta
+claims, uncertainty, supporting and contradicting evidence
+artifact, receipt, trace, cost, authority, and verifier refs
+license, disclosure, retention, and export posture
+reproduction, acceptance, challenge, and supersession state
+```
+
+Software adds changed-file, diff, patch, test, branch/worktree, and merge refs
+through `ImplementationResultPayload`. Research, ontology, incident, service,
+physical-mission, review, and evaluation profiles must not be forced through
+software-only fields.
+
 ### ActionProposal
 
 ```yaml
@@ -744,8 +841,9 @@ ActionProposal:
   requested_scopes:
     - scope:...
   risk_class:
-    read | draft | local_write | external_message |
-    commerce | funds | deploy | secret_export | physical_action
+    read | draft | local_write | write_reversible | external_message |
+    commerce | funds | credential_access | policy_widening | secret_export |
+    identity_change | system_destructive | physical_action
   expected_result_schema: schema:... | null
   reason_summary: string
   input_refs:
@@ -1055,6 +1153,10 @@ a Foundry training/distillation/post-training pipeline
 a setup assistant for model downloads and provider configuration
 a chatbot loop with receipts added afterward
 a fixed swarm topology
+a shared-frontier or OutcomeRoom owner
+a reason to force every goal into collective pursuit
+a software-only ImplementationResultPayload as the universal result contract
+a hidden background-agent process tree without participant/claim projections
 a deterministic workflow that calls a model only at the end
 a CAS/Filecoin blob runtime
 a marketplace router that silently prefers itself
@@ -1075,7 +1177,7 @@ wallet.network authorizes
 Agentgres admits serious truth
 artifact refs bind payload meaning
 storage backends hold bytes
-receipts prove accountable transitions
+receipts bind accountable transition facts; verification and acceptance stay explicit
 Private Workspace backed by cTEE keeps protected plaintext off untrusted persistent nodes
 Plaintext-Free Runtime Mounting keeps tool/model context to public/redacted refs and private handles
 Candidate-Lattice Private Decoding lets rented GPUs generate candidates while private heads select
@@ -1138,11 +1240,25 @@ HP-8 Marketplace neutrality
 HP-9 Harness interoperability
   Any selected harness profile must produce the common boundary objects:
   ActionProposal, GateResult, ExecutionResult, NormalizedObservation,
-  Receipt, ArtifactRef/PayloadRef, Agentgres refs, and terminal/blocker state.
+  WorkResult/OutcomeDelta, Receipt, ArtifactRef/PayloadRef, Agentgres refs, and
+  terminal/blocker state.
 
 HP-10 Workspace intelligence portability
   Persistent skills and memory survive model/harness swaps when workspace
   identity, compatibility, provenance, policy, and authority remain valid.
+
+HP-11 Bounded Goal Kernel
+  One GoalRun owns one bounded pursue/verify/course-correct loop; room-level
+  participation, frontier, claims, and shared admission remain outside it.
+
+HP-12 Generic result seam
+  Harnesses return WorkResult/OutcomeDelta; software may use the
+  ImplementationResultPayload profile without imposing file/test fields on
+  other domains.
+
+HP-13 Observable background work
+  Background participants expose participant/claim leases, heartbeats or wake
+  conditions, spend, evidence, blockers, verification, and controls.
 ```
 
 CEC remains the post-resolution execution-collapse contract. CIRC remains the
@@ -1216,6 +1332,11 @@ optional L1 settlement hooks
   Agentgres runtime objects, operations, artifact refs, and archives.
 - [`../../foundations/aiip.md`](../../foundations/aiip.md): interop profile for
   bounded autonomous work.
+- [`../../foundations/common-objects-and-envelopes.md`](../../foundations/common-objects-and-envelopes.md):
+  GoalRun, OutcomeRoom, participant/claim, generic result, and collaboration
+  envelopes.
+- [`../../domains/ioi-ai/collaborative-outcome-pattern.md`](../../domains/ioi-ai/collaborative-outcome-pattern.md):
+  Goal Space and collaborative work graph product behavior above GoalRuns.
 - [`../../_meta/implementation-matrix.md`](../../_meta/implementation-matrix.md):
   concept-to-durable-form implementation index.
 
@@ -1258,9 +1379,20 @@ optional L1 settlement hooks
     party marketplace surfaces.
 23. Restore and import are operation-backed through Agentgres, not silent local
     mutation.
+24. Goal Kernel is the bounded loop for one GoalRun or claim; it is not the
+    OutcomeRoom, collaborative work graph, or universal conductor.
+25. `WorkResult` / `OutcomeDelta` is the generic result seam.
+    `ImplementationResultPayload` remains the software implementation profile.
+26. Dynamic room participation, claim leasing, resource allocation, shared
+    frontier admission, and verifier challenges belong to the collaborative
+    work graph, not private harness state.
+27. Background agents are durable delegated work with visible leases, spend,
+    evidence, blockers, verification, and cancellation/quarantine controls.
 
 ## One-Line Doctrine
 
 > **Workflow Compositor shapes work; HarnessProfiles resolve steps; the Default
-> Harness Profile is IOI's reference scaffold; workspace intelligence persists
-> through skills, memory, receipts, provenance, and policy.**
+> Harness Profile is IOI's reference bounded-loop scaffold; OutcomeRooms
+> coordinate many GoalRuns; generic results cross the seam; workspace
+> intelligence persists through skills, memory, receipts, provenance, and
+> policy.**

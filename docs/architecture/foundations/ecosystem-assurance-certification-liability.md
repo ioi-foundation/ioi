@@ -9,7 +9,7 @@ Supersedes: plan prose that scatters certification, compliance, insurance,
 abuse response, billing assurance, or customer audit exports across runtime,
 wallet, marketplace, and product docs without a shared boundary.
 Superseded by: none.
-Last alignment pass: 2026-06-23.
+Last alignment pass: 2026-07-11.
 Doctrine status: canonical
 Implementation status: speculative (assurance/certification layer design)
 Last implementation audit: 2026-07-05
@@ -34,7 +34,9 @@ Short form:
 
 ```text
 Owners do the work.
-Receipts prove the work.
+Receipts attest declared boundary facts.
+Evidence, verification, acceptance, adjudication, and settlement establish
+progressively stronger assurance states.
 Assurance profiles explain whether the work, package, client, runtime, or
 service is eligible for a trust posture.
 ```
@@ -92,6 +94,8 @@ IOI should implement this as:
 - **profiles** for expected controls and evidence;
 - **policy packs** for jurisdiction and regulated-action rules;
 - **receipts and evidence bundles** for observed behavior;
+- **versioned verification, acceptance, adjudication, and settlement state**
+  so a signed receipt is never mistaken for correctness or value;
 - **posture projections** for operators, customers, marketplaces, and auditors;
 - **claim/advisory workflows** for incidents, liability, and abuse response;
 - **public anchors** only when external trust, disputes, bonds, registry,
@@ -569,6 +573,31 @@ A `service_outcome` profile should require:
 sas.xyz owns service-order truth. Ecosystem Assurance only defines the profile
 and evidence shape.
 
+### Collaborative Pursuit Profile
+
+An `outcome_room` assurance profile should require:
+
+- declared hosted or federated shared-state admission and ordering;
+- participant identity, operator, affiliation, model/runtime/provider
+  dependencies, and independent-party posture;
+- participant/context/authority/resource/budget/work-claim leases with TTL,
+  heartbeat, quarantine, and revocation;
+- privacy, retention, artifact license/export, contribution, and settlement
+  policies that contributor scope cannot widen;
+- hostile-input taint and isolated execution before admission;
+- positive, negative, inconclusive, invalid, exploit-finding, and superseded
+  attempt retention;
+- verifier independence, rule versions, challenge/adjudication,
+  re-verification, and anti-collusion controls;
+- Sybil/rate-limit/backpressure/fair-allocation posture;
+- contribution/derivation lineage and an explicit assurance stage for every
+  claimed outcome or payout;
+- room replay that reconstructs participation, claims, resources, evidence,
+  authority, spend, course correction, and admission.
+
+This profile does not make the assurance layer the room coordinator, verifier,
+authority provider, truth substrate, or settlement judge.
+
 ## Jurisdiction And Compliance Packs
 
 Jurisdiction and compliance packs are declarative constraints over otherwise
@@ -647,6 +676,10 @@ Input signals may include:
 - wallet misuse, stolen credentials, suspicious authority requests, or payment
   abuse;
 - marketplace disputes, refund patterns, or verifier failures;
+- OutcomeRoom spam, Sybil clusters, cross-review collusion, resource capture,
+  poisoned artifacts/findings/mappings, evaluator exploits, or attempts to
+  promote participant input directly into memory, ontology, routing,
+  authority, or production;
 - cTEE leakage receipts, canary/watermark hits, or provider-policy violations;
 - physical-action incidents or emergency-stop events;
 - sanctions, jurisdiction, or regulatory blocks.
@@ -659,7 +692,9 @@ EcosystemAbuseSignal:
   signal_type:
     vulnerability | malware | exfiltration | spam | fraud |
     unsafe_physical_action | policy_violation | credential_abuse |
-    marketplace_abuse | conformance_failure | other
+    marketplace_abuse | collaboration_spam | sybil_cluster | collusion |
+    poisoned_artifact | evaluator_exploit | resource_capture |
+    conformance_failure | other
   severity: info | low | medium | high | critical
   evidence_refs:
     - receipt://...
@@ -679,6 +714,7 @@ QuarantineAdvisory:
   scope:
     local_domain | marketplace_listing | worker_version | runtime_node |
     authority_client | connector | mcp_gateway | service_package |
+    participant | outcome_room | verifier_rule | frontier_item |
     embodied_domain | ecosystem
   restrictions:
     - string
@@ -842,6 +878,7 @@ Do not model Ecosystem Assurance as:
 ## One-Line Doctrine
 
 > **Ecosystem Assurance makes autonomous systems legible to institutions:
-> profiles declare expectations, receipts prove behavior, owners act within
-> their boundaries, and public settlement is used only when external trust
-> requires it.**
+> profiles declare expectations, receipts bind attributable facts, evidence and
+> evaluation support verification, acceptance and adjudication remain explicit,
+> owners act within their boundaries, and public settlement is used only when
+> external trust requires it.**

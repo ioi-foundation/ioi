@@ -1,19 +1,28 @@
 # Model Router, BYOK, and Run-to-Idle Specification
 
 Status: canonical architecture authority.
-Canonical owner: this file for model routing doctrine; low-level model-router API lives in [`model-router-api-byok-and-mounting.md`](./api-byok-mounting.md).
+Canonical owner: this file for model routing, supply-portfolio, commercial
+route-rights, BYOK/BYOA, privacy/fallback, and run-to-idle doctrine; low-level
+model-router API lives in [`model-router-api-byok-and-mounting.md`](./api-byok-mounting.md).
 Supersedes: overlapping model/provider prose when routing or BYOK boundaries conflict.
 Superseded by: none.
-Last alignment pass: 2026-05-24.
+Last alignment pass: 2026-07-11.
 Doctrine status: canonical
-Implementation status: partial (model-route registry, BYOK, and local mounting built; custody-lane taxonomy partially exercised)
+Implementation status: partial (model-route registry and local Ollama mounting
+built; sealed BYOK and multi-transport session execution are unimplemented, and
+only active/available Ollama routes are currently bindable for execution;
+custody and commercial-rights policy remain partial)
 Last implementation audit: 2026-07-05
 
 ## Canonical Definition
 
-**The Model Router is the IOI runtime subsystem that selects and invokes model routes according to task, privacy, cost, latency, quality, primitive capability constraints, authority scopes, and policy.**
+**The Model Router is the IOI runtime subsystem that selects and invokes model
+routes according to task, quality, privacy, custody, cost, latency, commercial
+rights, primitive capability constraints, authority scopes, and policy.**
 
-It should support foundational model APIs, local model mounting, BYOK, open-model serving, run-to-idle infrastructure, and decentralized/hosted compute providers.
+It should support foundation-model APIs, direct and dedicated provider
+capacity, local model mounting, BYOK/BYOA, aggregator adapters, open-model
+serving, run-to-idle infrastructure, and decentralized/hosted compute providers.
 
 The model router belongs inside the runtime/node contract. Model weights,
 provider endpoints, local model servers, and hosted cognition backends are
@@ -37,6 +46,11 @@ records `ModelRoute`, `ModelEndpoint`, `ModelConfiguration`,
 `ReasoningEffort`, `ServiceTier`, custody posture, fallback policy, and
 receipt obligations for daemon/runtime use.
 
+Execution-policy naming rule:
+
+> **Expose `Auto`, `Pinned`, and `Compare`; preserve every candidate, route,
+> attempt, verifier, fallback, rights, and cost decision as runtime truth.**
+
 Model serving compute follows the same runtime-node rule as worker execution:
 remote, hosted, DePIN, TEE, and customer-boundary model jobs should be
 represented as compute sessions behind Hypervisor Daemon runtime-node profiles or
@@ -46,6 +60,12 @@ model execution.
 ## Core Doctrine
 
 > **Hypervisor should not care whether a model is OpenAI, local LM Studio, tenant BYOK, vLLM on a sleeping GPU, or a decentralized cloud worker. It should call a model route through policy.**
+
+The provider-neutral abstraction must not erase the contract behind a route.
+Every candidate is eligible only when automation, downstream application,
+credential-principal, data-use, retention, region, training/distillation,
+fallback, and customer-facing rights permit the requested work. A route that
+cannot prove its required right fails closed.
 
 Node packaging doctrine:
 
@@ -58,6 +78,14 @@ routes, but benchmarks, authority scopes, receipts, ContributionReceipts,
 disputes, royalties, reputation, and MoW routing eligibility attach to the
 worker identity and manifest rather than merely to the model that powered one
 reasoning step.
+
+Foundation-model subscriptions are not production inference inventory. Do not
+pool, share, browser-automate, or resell named-user chat/workspace seats as
+machine capacity. Provider-approved named-user harness access may be mounted as
+user-scoped BYOA for that user's interactive Goal Space, but it is not IOI
+worker-market inventory. Managed unattended work uses API, dedicated endpoint,
+expressly negotiated inference, self-hosted, or explicitly authorized OEM/
+reseller capacity.
 
 The model router may record model architecture and training-profile metadata,
 but that metadata is descriptive. It does not make a model the protocol actor.
@@ -76,6 +104,11 @@ Model availability is profile-dependent. Supported deployment shapes include:
 - local servers such as LM Studio, Ollama, vLLM, llama.cpp, or
   OpenAI-compatible endpoints;
 - BYOK provider APIs brokered through wallet.network;
+- user-scoped, provider-approved BYOA interactive harnesses;
+- direct provider APIs, managed endpoints, dedicated capacity, and negotiated
+  enterprise inference agreements;
+- policy-qualified aggregator adapters such as OpenRouter for breadth,
+  overflow, discovery, and fallback;
 - hosted IOI or provider model pools;
 - TEE, customer VPC, or DePIN compute sessions;
 - specialized verifier, embedding, reranker, vision, code, or speech endpoints.
@@ -220,7 +253,10 @@ ModelEndpoint:
 
 ## BYOK
 
-BYOK keys belong in wallet.network, not node config files.
+BYOK keys and BYOA credential bindings belong in wallet.network, not node
+config files. A customer-owned credential remains customer-owned; IOI brokers
+bounded use and charges explicitly for conductor/runtime/governance value
+rather than hiding a provider-spend markup.
 
 Flow:
 
@@ -231,6 +267,83 @@ workflow/model node declares prim:model.invoke and any required scope:model.* au
 → model router invokes provider
 → receipt emitted
 ```
+
+BYOA is narrower than BYOK. It may connect a provider-approved named-user
+harness subscription for the named user and approved interactive automation
+mode. It must preserve credential principal, access mode, automation right,
+downstream right, and provider terms; it must never become pooled capacity.
+
+## Supply Portfolio And Route Rights
+
+Model supply is a portfolio rather than one provider or aggregator boundary:
+
+| Supply | Preferred role | Required posture |
+| --- | --- | --- |
+| Direct provider API, managed endpoint, dedicated capacity, or negotiated inference agreement | high-volume, high-assurance, feature-fidelity, regional/SLA, or committed routes | first-class adapter and versioned direct contract |
+| Aggregator such as OpenRouter | bootstrap breadth, long-tail models, price/availability discovery, policy-qualified fallback, overflow, and experimentation | replaceable procurement/routing adapter behind Hypervisor; never sole inference authority |
+| Customer BYOK/BYOA | customer cost ownership, existing commitments, user-selected eligible harnesses | customer-owned credential binding; no key transfer or hidden provider markup |
+| Open/self-hosted weights | sovereignty, Private/no-provider-trust execution, customization, training rights, and concentration/COGS hedge | explicit license, custody, runtime, and attestation posture |
+
+OpenRouter or any equivalent aggregator is an adapter, not IOI's business model
+or trust boundary. Its own terms and every underlying provider/model term still
+apply. IOI must obtain explicit enterprise/OEM authorization when the intended
+customer-facing behavior could resemble raw API resale or a competing routing
+service. An aggregator route must remain disableable without changing the
+Worker or GoalRun contract.
+
+A provider/model term, commercial authorization, endpoint posture, or data
+policy change invalidates the cached eligibility decision. The route is killed
+or quarantined until a reviewed contract version is admitted; availability
+alone never re-enables it.
+
+Provider or aggregator prompt-logging, data-retention, secondary-use, and
+training opt-ins are off for protected Goal Space payloads. Enabling any such
+use requires an explicit eligible data class, policy/consent ref, disclosed
+license effect, and route receipt; it can never be inherited from an
+aggregator's broad account default.
+
+Every candidate resolves a versioned route-rights contract before admission:
+
+```yaml
+ModelRouteRightsContract:
+  contract_id: model-route-contract://...
+  contract_version: semver_or_hash
+  contract_hash: sha256:...
+  admitted_policy_hash: sha256:...
+  valid_from: timestamp
+  valid_until: timestamp | null
+  commercial_posture:
+    direct | aggregator | customer_byok | customer_byoa | self_hosted
+  access_mode:
+    named_human_seat | api | dedicated_endpoint | self_hosted
+  customer_facing_allowed: boolean
+  reseller_oem_authorized: true | false | not_required
+  automation_right:
+    interactive_only | unattended_allowed | negotiated
+  downstream_right:
+    internal_only | customer_application | reseller_oem
+  credential_principal:
+    named_human | service_account | customer_owned
+  provider_terms_version_ref: terms://...
+  model_terms_version_ref: terms://...
+  endpoint_ref: endpoint://...
+  model_version_ref: model://...
+  provider_allowlist: [provider://...]
+  data_collection: allow | deny
+  zdr_required: boolean
+  retention_policy_ref: policy://... | null
+  region_ref: region://... | null
+  fallback_classes: [string]
+  max_price_ref: price-schedule://... | null
+  required_parameters: [string]
+  output_training_right:
+    prohibited | noncompeting_only | expressly_licensed | open_license
+  status: active | quarantined | expired | superseded | revoked
+```
+
+Inference permission does not imply training or distillation permission.
+Foundry must use open licenses or expressly licensed teacher/output rights for
+reusable training and distillation.
 
 ## Model Profiles
 
@@ -270,7 +383,40 @@ The router should consider:
 - local/remote policy;
 - quality history;
 - fallback policy;
+- route-rights and applicable-terms versions;
+- access/automation/downstream/customer-facing rights;
+- data collection, retention/ZDR, region, provider allowlist, and required
+  parameter support;
 - user/org preferences.
+
+## Auto, Pinned, And Compare Policies
+
+```text
+Auto / 1-of-N
+  choose the cheapest eligible route expected to satisfy quality, privacy,
+  authority, latency, context, custody, and route-rights requirements;
+  optionally use a declared cheap-first verifier cascade and escalate only
+  after acceptance fails
+
+Pinned
+  invoke the selected eligible route; fail closed on ineligibility or
+  unavailability unless a policy-approved fallback was explicitly authorized
+
+Compare / N-of-N
+  invoke several declared routes, preserve each admitted attempt, and apply a
+  named verifier/comparison/synthesis rule
+```
+
+`1-of-N` is a routing policy, not a subscription SKU. A fallback that changes
+the underlying model, provider, privacy posture, commercial rights, or material
+capability is a semantic substitution. It must remain inside the route
+contract, emit model-route/model-invocation receipt evidence, and re-run the
+applicable acceptance or verifier path. MoW `RoutingDecisionReceipt` remains
+the accountable Worker-routing object, not the model/provider fallback object.
+Aggregator defaults must not silently widen provider choice,
+data collection, or fallback eligibility; governed sensitive routes pin or
+allowlist providers, deny data collection, require declared parameters, cap
+price, and fail closed.
 
 ## Run-to-Idle Lifecycle
 
@@ -331,6 +477,13 @@ third-party APIs
   -> private-native posture when cTEE custody checks pass
 ```
 
+An aggregator ZDR or no-logging control may satisfy a declared `Standard`
+route when contract and policy permit it. It does not by itself satisfy strict
+`Private` / no-provider-trust posture because the aggregator and selected
+upstream provider still participate in request routing. `Private` resolves to a
+custody-proven local, self-hosted, customer-boundary, direct confidential, or
+equivalent no-provider-trust path, or it blocks.
+
 The model router MUST NOT label a route as cTEE no-plaintext-custody when
 sensitive plaintext is sent to a third-party model API without a separately
 verifiable private-compute guarantee.
@@ -352,20 +505,19 @@ foundation/provider API with provider-owned proprietary weights
 
 ## Model Invocation Receipt
 
-Every significant model invocation should optionally emit:
+The sole field-level schema is
+[`ModelInvocationReceipt`](../daemon-runtime/events-receipts-delivery-bundles.md#model-invocation-and-invoice-reconciled-usage-receipts).
+It is mandatory for managed, billed, fallback, `Compare`, consequential, or
+customer-visible invocations. A strictly local, unmetered, non-consequential
+developer invocation may omit a durable receipt only when policy explicitly
+allows ephemeral execution and no result is promoted, shared, billed, accepted,
+or used as evidence.
 
-```yaml
-ModelInvocationReceipt:
-  route_id: reasoning_high
-  selected_provider: openai_byok
-  model_id: ...
-  input_hash: ...
-  output_hash: ...
-  privacy_class: internal
-  policy_hash: ...
-  cost_estimate: ...
-  latency_ms: ...
-```
+The receipt must preserve each attempted route, failure class, fallback or
+escalation, and supplier-billed status when the supplier exposes it. Raw tokens
+are cost telemetry, not the universal product unit; Work Credits may normalize
+heterogeneous model, accelerator, tool, storage, verifier, and runtime cost
+while receipts retain the accountable breakdown.
 
 ## Invariants
 
@@ -383,7 +535,23 @@ ModelInvocationReceipt:
    mounted as plaintext on a root-owned remote node.
 10. Proprietary weights require local/customer custody, provider API custody,
     accepted TEE/customer-cloud custody, or explicit provider-trust approval.
+11. Named-user chat/workspace subscriptions are not pooled managed-worker
+    capacity. User-scoped BYOA remains bound to the named principal and
+    provider-approved automation mode.
+12. Every unattended or customer-facing route must have an admitted versioned
+    commercial-rights contract. Missing required rights fail closed.
+13. Aggregators remain replaceable adapters. Provider/model terms, privacy,
+    retention, region, data-use, and commercial rights are not erased by one
+    API format.
+14. `Auto`, `Pinned`, and `Compare` preserve actual attempt, fallback,
+    verifier, route-rights, provider/model, and cost lineage.
+15. A model/provider substitution is a semantic routing decision, not a silent
+    availability detail.
+16. Inference permission and output training/distillation permission are
+    separate rights.
 
 ## One-Line Doctrine
 
-> **Use the best model available, run it where policy permits, and let the runtime sleep when it is not needed.**
+> **Use the best eligible model route, preserve its rights, custody, cost, and
+> fallback truth, run it where policy permits, and let the runtime sleep when it
+> is not needed.**

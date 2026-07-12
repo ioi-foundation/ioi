@@ -7,7 +7,7 @@ brokerage, payment, exchange, exposure, protection, receipt, wallet authority
 client, and revocation APIs.
 Supersedes: older wallet authority API wording when it conflicts with `scope:*` authority grants.
 Superseded by: none.
-Last alignment pass: 2026-06-23.
+Last alignment pass: 2026-07-11.
 Doctrine status: reference
 Implementation status: partial (authority-client seams and lease APIs live; guardian/shard surfaces planned)
 Last implementation audit: 2026-07-05
@@ -171,10 +171,9 @@ passkey, secure enclave, enrolled device, or equivalent signed assertion.
     "external_message",
     "commerce",
     "funds",
-    "deploy",
+    "system_destructive",
     "secret_export",
-    "policy_widening",
-    "private_workspace_declassification"
+    "policy_widening"
   ],
   "revocation_epoch": 7,
   "status": "active"
@@ -271,7 +270,7 @@ DELETE /v1/access-points/{binding_id}
   "challenge_id": "challenge://sms/abc",
   "binding_id": "access_point://sms/user_123/default",
   "request_hash": "sha256:...",
-  "risk_class": "external_message | funds | secret_export | private_workspace_view",
+  "risk_class": "external_message",
   "action_summary": "Approve one vendor email draft",
   "challenge_url": "https://wallet.network/step-up/challenge/abc",
   "challenge_delivery": "link | qr | push | local_cli",
@@ -331,7 +330,7 @@ POST /v1/authority/capability-leases/{lease_id}/revoke
     "expiry": "2026-05-01T12:00:00Z",
     "max_budget_usd": 5
   },
-  "risk_class": "read | write_reversible | external_message | commerce | funds | secret_export",
+  "risk_class": "write_reversible",
   "request_hash": "sha256:...",
   "policy_hash": "sha256:..."
 }

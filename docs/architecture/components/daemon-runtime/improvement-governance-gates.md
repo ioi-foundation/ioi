@@ -1,22 +1,49 @@
 # Improvement Governance Gates
 
-Status: implemented contract (daemon `ioi_intelligence_routes.rs` + `governance_routes.rs`)
+Status: canonical architecture authority with an implemented initial contract (`ioi_intelligence_routes.rs` + `governance_routes.rs`)
 Doctrine status: canonical
-Implementation status: built (apply gates enforced with deterministic 409s)
+Implementation status: mixed (current improvement apply/simulation/approval/release gates and deterministic 409s built; OutcomeRoom finding/evaluator-challenge promotion and derived-artifact recall extensions planned)
 Implementation refs:
   - `crates/node/src/bin/hypervisor_daemon_routes/ioi_intelligence_routes.rs`
+Last alignment pass: 2026-07-11.
 Last implementation audit: 2026-07-05
-Canonical owner: this file for the apply-time gate rule, freshness rule, and reason codes.
+Canonical owner: this file for the apply-time gate rule, freshness rule, reason codes, epistemic promotion ladder, evaluator-rule change/reverification gate, and no-automatic-promotion boundary.
 Object authority remains `docs/architecture/foundations/common-objects-and-envelopes.md`
 (improvement proposals, simulation reports) and the governance control objects
 (`approval-request://`, `release-control://`).
 
 ## Doctrine
 
-Evidence suggests, simulation previews, **governance decides**, receipts prove. A learned
-improvement whose saved what-if simulation is high-impact cannot become behavior without an
-APPROVED `ApprovalRequest` and an OPEN `ReleaseControl` targeting the proposal or that
-simulation report — validated LIVE at apply time, never trusted from stale stamped refs.
+Evidence suggests, simulation previews, **governance decides**, and receipts
+bind the policy/version/decision facts evaluated at the gate. A receipt does
+not prove that a learned improvement is universally correct or valuable. A
+learned improvement whose saved what-if simulation is high-impact cannot become
+behavior without an APPROVED `ApprovalRequest` and an OPEN `ReleaseControl`
+targeting the proposal or that simulation report—validated live at apply time,
+never trusted from stale stamped refs.
+
+The canonical improvement ladder is:
+
+```text
+cheap observation or participant input
+  -> tainted branch-local hypothesis / Finding
+  -> evaluated capability, policy, route, ontology, or verifier candidate
+  -> shadow / simulation / adversarial and regression evidence
+  -> governed canary or cohort promotion
+  -> monitored production promotion with rollback and recall
+```
+
+OutcomeRoom messages, artifacts, attempts, findings, ontology mappings,
+leaderboard movements, model judgments, and evaluator suggestions are evidence
+inputs only. They never promote themselves into durable memory, an ontology,
+route priors, authority policy, an evaluator rule, a worker/package, or
+production behavior. Participant consensus is evidence, not governance.
+
+Verifier/evaluator changes are versioned proposals. A successful
+`VerifierChallenge` names the prior and replacement rule, adjudicator, affected
+attempts, and required re-verification. History is not silently re-scored or
+deleted; old verdicts remain bound to their original rule versions while new
+verdicts state the replacement version.
 
 ## Gate rule (evaluated at apply; same evaluation feeds the UI posture)
 
@@ -34,8 +61,21 @@ simulation report — validated LIVE at apply time, never trusted from stale sta
    - a bound `release_control_ref` must resolve, target the proposal or the simulation
      report, and be `open` → else `release_control_required` / `release_control_not_open`.
 4. Low-impact fresh simulations apply without controls.
+5. A proposal derived from an external/room participant must bind source,
+   affiliation, attempt/finding lineage, taint state, license/export policy,
+   independent evaluation, and admission receipt before it can enter the
+   existing apply path. Missing lineage or unresolved taint fails closed.
+6. A verifier/evaluator-rule proposal must bind a `VerifierChallenge`, prior
+   rule version, proposed rule version, adjudication decision, affected-attempt
+   set, and re-verification plan. The new rule cannot overwrite prior verdicts
+   or become active solely because it improves its own leaderboard score.
+7. Promotion candidates must carry evaluator-integrity, correlated-verifier,
+   adversarial-holdout, regression, rollback, and recall posture appropriate to
+   risk. Authority widening is never an improvement side effect.
 
-All blocks are HTTP 409 with the deterministic reason codes above.
+The implemented first four rules block with deterministic HTTP 409 reason
+codes. Rules 5–7 are the target admission contract; their route/schema and
+reason-code implementation remains planned and must not be described as built.
 
 ## Binding
 

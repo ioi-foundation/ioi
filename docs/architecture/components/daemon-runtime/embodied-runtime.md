@@ -3,12 +3,13 @@
 Status: canonical architecture authority.
 Canonical owner: this file for embodied runtime domains, robot/fleet identity,
 controller bindings, sensor and actuator registries, local control bridges,
-heartbeat/failsafe posture, world models, physical telemetry, physical replay,
-command queues, fleet policy, recovery, and operator handoff.
+heartbeat/failsafe posture, two-speed mission/control execution, world models,
+physical telemetry, physical replay, command queues, fleet policy, recovery,
+and operator handoff.
 Supersedes: plan prose that treats robot fleets, actuator APIs, sensor streams,
 or physical telemetry as ordinary connector/tool details.
 Superseded by: none.
-Last alignment pass: 2026-06-23.
+Last alignment pass: 2026-07-11.
 Doctrine status: canonical
 Implementation status: speculative (robot-fleet runtime design; no embodied implementation)
 Last implementation audit: 2026-07-05
@@ -52,6 +53,8 @@ Embodied Runtime owns runtime representation and control-plane contracts for:
 - embodiment adapters, calibration registries, and time-synchronization
   contracts;
 - local control bridge and heartbeat/failsafe protocol;
+- slow mission/governance plane and certified local real-time control plane
+  separation;
 - world model, maps, zones, calibration, and environment state;
 - latency, degraded-network, offline, and emergency-stop runtime guarantees;
 - sim-to-real promotion gates for deployment into physical domains;
@@ -115,6 +118,10 @@ proposal
   -> Agentgres admission
 ```
 
+This flow admits a bounded mission/action envelope and safety policy; it does
+not require a remote daemon, wallet, model, Agentgres, AIIP, or chain round trip
+for every servo or motor-control tick.
+
 ## Robot and Fleet Identity
 
 Embodied systems need stable identity separate from worker identity. A marketplace
@@ -153,7 +160,7 @@ RobotFleetRecord:
   robot_refs:
     - robot://...
   controller_binding_refs:
-    - controller_binding://...
+    - controller-binding://...
   operator_group_refs:
     - org_group://...
   fleet_policy_ref: fleet_policy://...
@@ -174,7 +181,7 @@ EmbodiedUnitIdentity:
   manufacturer_ref: org://... | null
   model_ref: device_model://... | null
   serial_or_attestation_ref: attestation://... | null
-  controller_binding_ref: controller_binding://...
+  controller_binding_ref: controller-binding://...
   runtime_assignment_ref: runtime_assignment://...
   allowed_zone_refs:
     - zone://...
@@ -198,7 +205,7 @@ ordinary connectors even when the transport looks like an API.
 
 ```yaml
 RobotControllerBinding:
-  binding_id: controller_binding://...
+  binding_id: controller-binding://...
   unit_ref: robot://... | device://... | facility_system://...
   controller_ref: controller://...
   runtime_node_ref: runtime_node://...
@@ -311,7 +318,7 @@ EmbodiedCapabilityBinding:
   embodiment_adapter_refs:
     - embodiment_adapter://...
   controller_binding_refs:
-    - controller_binding://...
+    - controller-binding://...
   sensor_contract_ref: sensor_contract://...
   action_schema_ref: action_schema://...
   world_contract_ref: world_contract://...
@@ -487,6 +494,82 @@ state into a model and call that context. It should use explicit refs, freshness
 requirements, policy-bound views, and receipts so perception, planning, action,
 and safety can be audited and replayed independently.
 
+## Two-Speed Mission And Control Contract
+
+Embodied execution has two explicitly separated timescales:
+
+```text
+slow governance / intelligence plane
+  Goal Kernel, mission planning, ontology actions, policy, authority, budget,
+  route selection, approvals, verifier paths, operator handoff, course
+  correction, and admission of a bounded mission/action envelope
+
+fast certified local control-and-safety plane
+  deterministic or certified controller, short-horizon perception/action,
+  collision and zone enforcement, heartbeat, failsafe, e-stop, command
+  interpolation, and high-frequency actuator control inside that envelope
+```
+
+The slow plane issues a `PhysicalMissionControlEnvelope` that binds the target
+fleet/units, allowed action classes, zones, limits, start/expiry, supervisor and
+e-stop posture, local controller/capability versions, required evidence,
+exception policy, and revocation epoch. The local plane may execute only inside
+that envelope and its stricter local safety veto. It emits bounded segment
+commitments and exception/incident receipts rather than one globally settled
+record for every control tick.
+
+```yaml
+PhysicalMissionControlEnvelope:
+  envelope_id: physical_mission_envelope://...
+  mission_ref: mission:...
+  embodied_domain_ref: embodied_domain://...
+  unit_refs: [robot://...]
+  allowed_action_kinds: [string]
+  zone_refs: [physical_zone://...]
+  motion_force_speed_energy_limits_ref: policy://...
+  valid_from: timestamp
+  expires_at: timestamp
+  authority_ref: grant://...
+  safety_envelope_ref: safety://...
+  local_controller_version_refs: [controller://...]
+  supervisor_and_estop_refs: [supervision://... | estop://...]
+  required_evidence_policy_ref: policy://...
+  exception_policy_ref: policy://...
+  revocation_epoch: integer
+  status:
+    proposed | admitted | active | paused | expired | revoked |
+    completed | incident
+```
+
+`LocalControlSegment` is the embodied-runtime record for one bounded interval
+of local controller execution. It is not the safety/evidence commitment itself:
+Physical Action Safety owns when a `PhysicalActionSegmentCommitmentReceipt` and
+immediate exception, e-stop, and incident receipts are required; the events and
+receipts owner defines their field-level schemas.
+
+```yaml
+LocalControlSegment:
+  segment_ref: control-segment://...
+  mission_control_envelope_ref: physical_mission_envelope://...
+  local_control_bridge_ref: local_control_bridge://...
+  controller_binding_ref: controller-binding://...
+  unit_refs: [robot://...]
+  command_refs: [physical_command://...]
+  started_at: timestamp
+  ended_at: timestamp | null
+  telemetry_range_refs: [telemetry_range://...]
+  physical_action_segment_commitment_receipt_ref: receipt://... | null
+  exception_receipt_refs: [receipt://...]
+  incident_refs: [embodied_incident://...]
+  status:
+    proposed | active | completed | clipped | stopped | failed | ambiguous
+```
+
+Goal Kernel operates at mission, checkpoint, exception, and course-correction
+timescales. It may never be placed inside a hard real-time actuator loop.
+Network loss cannot broaden the envelope; local control either continues only
+under an explicitly admitted offline policy or transitions to a safe state.
+
 ## Local Control Bridge, Heartbeat, and Failsafe
 
 The local control bridge is the runtime component that mediates between the
@@ -500,7 +583,7 @@ LocalControlBridge:
   embodied_domain_ref: embodied_domain://...
   runtime_node_ref: runtime_node://...
   controller_binding_refs:
-    - controller_binding://...
+    - controller-binding://...
   network_profile_ref: network_profile://...
   heartbeat_policy_ref: heartbeat_policy://...
   failsafe_policy_ref: failsafe_policy://...
@@ -508,6 +591,8 @@ LocalControlBridge:
     - estop://...
   command_queue_refs:
     - physical_command_queue://...
+  active_mission_envelope_ref: physical_mission_envelope://... | null
+  local_control_segment_ref: control-segment://... | null
   telemetry_stream_refs:
     - telemetry_stream://...
   status:
@@ -536,6 +621,12 @@ HeartbeatFailsafePolicy:
 The bridge must never treat a live model stream as a heartbeat. Heartbeat proves
 control-channel health, not reasoning quality.
 
+The bridge is the enforcement boundary between the two speeds. It validates the
+mission envelope and revocation epoch before admitting a local control segment,
+enforces limits continuously, preserves the local e-stop and safety veto, and
+summarizes each segment with evidence/commitment refs. It fails closed on an
+expired, revoked, incompatible, or unverifiable envelope.
+
 ## Latency, Degraded Networking, Offline, and Emergency Stop
 
 Embodied domains need explicit runtime guarantees for timing and degraded
@@ -548,6 +639,11 @@ EmbodiedRuntimeGuarantee:
   max_command_latency_ms: integer
   max_observation_latency_ms: integer
   max_estop_latency_ms: integer
+  control_loop_owner:
+    certified_local_controller | deterministic_local_controller
+  remote_round_trip_in_control_loop: false
+  max_mission_envelope_age_ms: integer
+  control_segment_commit_interval_ms: integer
   offline_mode:
     disabled | observe_only | local_manual_only | safe_return |
     local_policy_limited
@@ -565,6 +661,12 @@ Emergency stop must remain local and testable. wallet.network may authorize who
 can issue emergency revoke or e-stop commands, but IOI L1, settlement, cloud
 availability, or a remote model response cannot be the live safety path.
 
+The guarantee separates mission-plane latency from controller-loop latency.
+Remote daemon/model/wallet/Agentgres/AIIP latency may delay a new mission,
+course correction, or envelope renewal, but it may not become part of the
+certified high-frequency loop. Envelope expiry or loss of required heartbeat
+causes the admitted local fallback, pause, handoff, or safe stop.
+
 ## Command Queue Semantics
 
 Movement and manipulation commands are stateful physical operations. They should
@@ -574,7 +676,7 @@ and result semantics.
 ```yaml
 PhysicalCommandQueue:
   queue_id: physical_command_queue://...
-  controller_binding_ref: controller_binding://...
+  controller_binding_ref: controller-binding://...
   embodied_domain_ref: embodied_domain://...
   queue_policy_ref: policy://...
   active_command_ref: physical_command://... | null
@@ -607,6 +709,8 @@ PhysicalCommand:
   required_sensor_evidence_refs:
     - sensor://...
   safety_envelope_ref: safety://...
+  mission_control_envelope_ref: physical_mission_envelope://...
+  local_control_segment_ref: control-segment://... | null
   authority_ref: grant://...
   idempotency_key: string
   interruptible: boolean
@@ -620,6 +724,13 @@ PhysicalCommand:
 Queue admission must check command conflicts. For example, two commands that
 share an actuator, zone, or safety envelope cannot run concurrently unless a
 domain-specific safe-parallel policy explicitly permits it.
+
+A queued command is mission-level intent, not a servo stream. The local bridge
+may expand it into controller-native setpoints only inside the admitted mission
+envelope. Normal control ticks remain local; the bridge emits segment
+commitments, completion evidence, material deviation, envelope exhaustion,
+ambiguous effect, safety intervention, and incident receipts at policy-defined
+boundaries.
 
 ## Telemetry Streams and Physical Replay
 
@@ -709,7 +820,7 @@ PhysicalTelemetryStream:
     force_torque | command_status | system_health | human_presence |
     estop_state | controller_log | other
   retention_policy_ref: policy://...
-  privacy_class: public | internal | private | regulated | safety_critical
+  privacy_class: public | internal | confidential | restricted | regulated | safety_critical
   sampling_profile:
     rate_hz: number | null
     event_driven: boolean
@@ -991,6 +1102,16 @@ A conforming embodied runtime implementation must ensure:
   commands according to policy;
 - emergency stop is local, testable, and not dependent on cloud, chain, model, or
   marketplace availability;
+- every actuator-bearing mission separates slow governance/intelligence from
+  certified local real-time control through an admitted
+  `PhysicalMissionControlEnvelope`;
+- Goal Kernel, remote model calls, wallet round trips, Agentgres admission,
+  AIIP, and settlement do not sit inside the high-frequency actuator loop;
+- the local bridge continuously enforces envelope limits, revocation epoch,
+  heartbeat/failsafe, and stricter local safety vetoes, then emits bounded
+  segment commitments and exception/incident receipts;
+- degraded/offline operation cannot widen an envelope and must follow an
+  explicit local fallback, handoff, pause, or safe-stop policy;
 - movement/manipulation/facility commands pass through `PhysicalCommandQueue`
   semantics rather than generic tool calls;
 - telemetry streams emit refs, hashes, and replay projections rather than only
@@ -1028,6 +1149,12 @@ A conforming embodied runtime implementation must ensure:
   replay indexes, receipts, and retention policy.
 - Hiding incidents inside vendor dashboards.
 - Relying on IOI L1 settlement or remote cloud availability for emergency stop.
+- Placing Goal Kernel, a foundation-model stream, wallet approval, Agentgres
+  admission, AIIP, or a network round trip inside a servo/motor-control loop.
+- Treating mission-level authority as permission for arbitrary local setpoints
+  outside an expiring, revocable action envelope.
+- Emitting one public/settlement receipt per motor tick instead of bounded local
+  segment commitments and material exception receipts.
 - Allowing a fleet-level unsafe state because each single robot command looked
   locally valid.
 

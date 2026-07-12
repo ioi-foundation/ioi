@@ -9,14 +9,14 @@ timing.
 Supersedes: product or plan prose that turns every protocol surface, authority
 check, receipt, state write, or builder surface into a separate toll booth.
 Superseded by: none.
-Last alignment pass: 2026-06-28.
+Last alignment pass: 2026-07-11.
 Doctrine status: canonical
-Implementation status: mixed (fee-basis declarations and OCU metering built; Work Credits, marketplace fees, and token/BME planned or deferred)
-Last implementation audit: 2026-07-05
+Implementation status: mixed (fee-basis declarations and flat OCU receipt metering built; invoice-grade multi-provider reconciliation, Work Credits, Goal Space allowances, marketplace fees, and token/BME planned or deferred)
+Last implementation audit: 2026-07-11
 
 ## Canonical Thesis
 
-**Product surfaces monetize. Substrate layers meter, prove, authorize, record,
+**Product surfaces monetize. Substrate layers meter, attest, authorize, record,
 or settle only where they naturally carry value.**
 
 IOI should capture value when the user receives a product outcome, managed
@@ -45,6 +45,25 @@ Your model, your cloud, your tools, your authority.
 IOI monetizes coordination, governed trust, distribution, verified outcomes,
 managed convenience, and value movement.
 ```
+
+Product thesis:
+
+> **ioi.ai sells one seat-like Goal Space subscription: persistent conductor,
+> policy, memory, receipts, replay, and same-domain 1-N worker orchestration,
+> plus a bounded managed-work allowance. Genuine independent network labor is
+> opt-in and separately funded.**
+
+This is a seat-like outcome product, not a resale bundle of named-user
+foundation-model subscriptions and not a separate SKU for every runtime node,
+worker, verifier, or protocol primitive.
+
+The margin thesis is not “buy tokens wholesale and resell them opaquely.”
+Durable margin comes from the conductor, verified cascade and route savings,
+governed runtime, memory/context continuity, private deployment and reserved
+capacity, evidence and assurance, worker/service discovery, settlement support,
+and successful outcome coordination. Inference remains a disclosed cost of
+delivered work and may carry a visible managed-service margin; it is not the
+defensible product by itself.
 
 ## Open Verification / Protected Network Covenant
 
@@ -136,6 +155,29 @@ attribution and reputation; wallet.network supplies authority and value-flow
 receipts; IOI L1 anchors selected public/economic commitments when portability,
 settlement, reputation, rights, or disputes require it.
 
+“Verified” is an assurance path, not a claim that every signed receipt is true
+or valuable:
+
+```text
+receipt / attestation
+  authenticated statement about one declared boundary fact
+-> evidence bundle
+  support for a claim
+-> verification
+  a named verifier applied a named rule/version
+-> acceptance
+  the user, customer, domain, or counterparty accepted the outcome
+-> adjudication
+  a challenge or dispute was resolved
+-> settlement
+  rights or value moved under the accepted/adjudicated claim
+```
+
+The graph preserves these states independently. A receipt may establish that a
+request was admitted, a policy hash was evaluated, a tool reported an effect,
+or a signer made an observation. It does not alone establish external-world
+change, correctness, causality, customer value, or settlement eligibility.
+
 The graph is the moat because it improves:
 
 - route calibration;
@@ -160,11 +202,105 @@ The graph is the moat because it improves:
 | Agentgres | Per-domain operational truth substrate, receipt/state/projection substrate, and Postgres-like compatibility layer | Not a separate pricing surface in the first-party stack. It records economics and may support optional managed infrastructure offerings, but routine Agentgres writes, refs, and projections are bundled substrate. |
 | IOI L1 | Public registry, rights, reputation, settlement, dispute, sparse commitments, and governance layer | Protocol fees apply only at public coordination, settlement, registry, dispute, reputation, rights, bond, or economic-finality boundaries. It is not charged per model thought, local workflow node, routine receipt, or Agentgres write. |
 
+## One Goal Space, Two Supply Lanes
+
+The canonical commercial shape is one product experience with explicit supply
+and owner boundaries:
+
+```text
+ioi.ai Goal Space subscription
+  = conductor, persistent goal state, portable memory, policy, receipts,
+    replay, collaboration, and ordinary support entitlement
+  + bounded monthly grant of non-transferable Work Credits
+  + provider-neutral Auto routing and disclosed route controls
+
+additional managed work
+  = Work Credit top-up, opt-in overage, or committed-spend drawdown
+
+Network / Open participation
+  = separately bounded goal budget, bounty, procurement limit, or sas.xyz
+    service order for independent workers, verifiers, services, challenge,
+    and settlement
+
+Enterprise / Private
+  = seats plus committed managed-work spend, customer-boundary/private
+    runtime, reserved capacity, administration, governance, audit, SLA,
+    retention, residency, and support
+```
+
+### Subscription-Backed Lane
+
+The base Goal Space includes persistent conductor/account state, private and
+organization goals, direct and same-domain 1-N worker execution, receipts,
+replay, memory, collaboration, budgets, governance, a modest managed-work
+allowance, BYOM/BYOK/BYOA/local/customer-infrastructure routes, and the
+`Standard` / `Private` policy semantics.
+
+`Private` availability does not promise that IOI-provisioned confidential
+compute, customer-boundary custody, attestation, or reserved capacity is free
+inside every seat. Where IOI supplies those resources or proof obligations,
+they consume Work Credits or require Private Workspace, committed capacity, or
+an enterprise entitlement. Heavy multi-session, multi-model, connector,
+training, storage, verifier, and background work consumes additional credits.
+Unlimited managed multi-worker burn is not canonical because it creates
+adverse selection, opaque subsidy, and unstable margin.
+
+This lane may use GoalRun and OutcomeRoom coordination but remains one party
+when one principal controls authority, truth, verification, and settlement.
+Multi-model, multi-worker, and multi-node execution do not manufacture
+multi-party federation.
+
+### Network / Open Lane
+
+Opening contributor scope to independent parties must:
+
+- use a separate goal budget, bounty, procurement cap, or service order rather
+  than silently spend the ordinary seat allowance;
+- admit worker-provider and verifier domains through explicit room membership
+  and bind `MultiPartyCollaborationEnvelope` when principals are actually
+  independent;
+- disclose worker affiliation, model/runtime dependencies, price, privacy,
+  license/export, verification, assurance, and settlement posture;
+- preserve each domain's local operational truth and use AIIP for signed,
+  permitted handoffs and refs;
+- separate execution, verification, acceptance, challenge/adjudication, and
+  payout;
+- emit routing and contribution receipts and preserve the product owners below.
+
+ioi.ai may charge for real cross-worker selection, evidence synthesis, verifier
+routing, and settlement handoff. aiagent.xyz retains worker-market fees;
+sas.xyz retains service procurement, acceptance, SLA, and dispute economics;
+Hypervisor retains managed execution charges. A single user-visible quote may
+aggregate these records, but the underlying ledgers may not erase ownership.
+
+### Orthogonal Product Controls
+
+Privacy, participation, and placement are independent axes:
+
+| Axis | Choices | Meaning |
+| --- | --- | --- |
+| Execution/custody | `Standard` or `Private` | Provider-trust disclosure, model-route, custody, and proof posture |
+| Contributor scope | `My workers`, `Organization`, or `Network / Open` | Which accountable worker/provider domains may participate |
+| Placement | `Run local`, `Use my infrastructure`, `Pick a cloud`, or `Let Hypervisor choose` | Where eligible work executes |
+
+Contributor scope never declassifies data or weakens retention, authority,
+provider-trust, custody, or privacy policy. Every candidate must satisfy the
+intersection of Goal Space policy and its home-domain policy or remain
+ineligible. Sell the governed goal, not physical node count: one logical domain
+may schedule many workers across machines, providers, and failure domains.
+
 ## Work Credits
 
 `WorkCredit` is the broad product usage and budget abstraction for managed
 autonomous work across Hypervisor, ioi.ai, aiagent.xyz, sas.xyz, and related
 first-party product flows.
+
+Work Credits are non-transferable product credits, not cash, a speculative
+token, a worker payout rail, or a claim on provider tokens. Monthly grants may
+expire or reset by disclosed plan policy. Their job is to normalize
+heterogeneous input, output, cached, reasoning, image, audio, tool, accelerator,
+environment, storage, worker, and verifier costs into one budget while keeping
+the underlying execution auditable.
 
 Work Credits may meter or budget:
 
@@ -196,6 +332,142 @@ Hypervisor may still charge for orchestration, governance, managed control
 plane, support, audit, marketplace distribution, or enterprise features.
 Self-hosted and local-first execution remain first-class. Managed execution is
 convenience, not captivity.
+
+The accountable charge is:
+
+```text
+Work Credits charged
+  = model / accelerator / compute supplier cost
+  + sandbox, storage, connector, environment, and replay cost
+  + external worker, verifier, or service cost
+  + declared IOI managed-work and orchestration charge
+```
+
+The rate card may simplify this for users, but the receipt ledger preserves at
+least the actual Worker composition, model/provider/endpoint and route, price
+schedule, token/compute categories where available, attempted and billed
+fallbacks, verifier/escalation reason, supplier/broker cost class, IOI fee basis
+and amount, adjustments/refunds, and total Work Credits. Direct BYOK normally
+removes the provider-cost component while retaining explicit conductor,
+runtime, governance, or support charges.
+
+`Auto` / `1-of-N`, `Pinned`, and `Compare` / `N-of-N` are routing policies, not
+plan tiers. Auto may use a verified cheap-first cascade and escalate only on
+failure. Pinned fails closed on an unavailable or commercially/privacy-
+ineligible route unless fallback was authorized. Compare visibly accounts for
+all admitted attempts, verifier work, and synthesis. Quotes and caps should be
+available before expensive or externally procured work.
+
+## Open Supply And Foundation-Model Procurement
+
+IOI must reproduce the simplicity of broad seat access without pooling,
+sharing, browser-automating, or reselling named-user chat/workspace subscription
+limits as production worker capacity. Public provider contracts separate
+interactive subscriptions from API capacity and commonly prohibit account
+credential sharing or resale. A negotiated order form may grant broader rights;
+the signed commercial posture, not an assumed public default, controls.
+
+The canonical procurement hierarchy is:
+
+1. open/self-hosted weights where operationally and legally suitable;
+2. provider APIs or managed cloud endpoints;
+3. dedicated capacity or negotiated inference agreements for volume, SLA,
+   retention, residency, or data posture;
+4. explicit OEM/reseller authorization when IOI exposes near-raw provider
+   capability;
+5. named-human workspace seats only for internal operators or expressly
+   provider-approved user-scoped interactive harnesses.
+
+The durable portfolio is intentionally plural:
+
+| Supply source | Preferred role | Economic and trust posture |
+| --- | --- | --- |
+| Direct provider API, managed endpoint, or negotiated inference agreement | Core/high-volume routes, feature fidelity, negotiated economics, regional/privacy commitments, dedicated capacity, high assurance | First-class adapter and direct receipt; graduate proven volume here |
+| Aggregator such as OpenRouter | Bootstrap breadth, long-tail models, price/availability discovery, policy-qualified fallback, overflow, experimentation | Replaceable procurement/routing adapter, never the product moat or sole inference authority; obtain enterprise/OEM interpretation where IOI's provider-neutral routing could approach prohibited raw resale/competition |
+| Customer BYOK/BYOA | Customer cost ownership, existing commitments, user-selected interactive harnesses, enterprise control | Customer-owned credential binding; explicit IOI conductor/runtime/governance charges instead of hidden spend markup |
+| Open/self-hosted weights | No-provider-trust execution, sovereignty, customization, training/distillation rights, concentration and COGS hedge | Hypervisor-managed or customer-boundary execution with explicit model license, custody, and attestation posture |
+
+An aggregator does not erase model/provider terms, commercial rights, data
+handling, availability risk, or semantic differences. Default provider or model
+fallbacks are too fail-open for governed sensitive work. Eligible routes pin or
+allowlist providers, required parameters, data-collection/ZDR and region policy,
+maximum price, fallback classes, and verifier obligations. An aggregator ZDR
+flag may qualify a disclosed `Standard` route; it does not satisfy strict
+`Private` / no-provider-trust posture without a custody-proven direct,
+dedicated, local, or customer-boundary route.
+
+Every candidate route resolves the versioned
+[`ModelRouteRightsContract`](../components/model-router/doctrine.md#supply-portfolio-and-route-rights)
+before unattended or customer-facing admission. The model-router owner defines
+the schema and enums. Economic admission requires its `commercial_posture`,
+`contract_version`, `contract_hash`, `admitted_policy_hash`, validity window,
+`status`, `access_mode`, `customer_facing_allowed`, `reseller_oem_authorized`,
+`automation_right`, `downstream_right`, `credential_principal`,
+`provider_terms_version_ref`, `model_terms_version_ref`, `endpoint_ref`,
+`model_version_ref`, `provider_allowlist`, `data_collection`, `zdr_required`,
+`retention_policy_ref`, `region_ref`, `fallback_classes`, `max_price_ref`,
+`required_parameters`, and `output_training_right` fields; pricing code must not
+invent a reduced parallel contract.
+
+Missing rights fail closed. A provider/model fallback is a semantic substitution
+and must remain within this contract, emit routing evidence, and re-run the
+applicable verifier/acceptance path. Inference rights and training/distillation
+rights are separate; Foundry uses open weights or expressly licensed teacher
+agreements rather than inferring training rights from ordinary inference spend.
+
+Primary current provider boundaries informing this doctrine include the
+[OpenAI Services Agreement](https://openai.com/policies/services-agreement/),
+[OpenAI subscription/API separation](https://help.openai.com/en/articles/8156019),
+[Anthropic paid-plan/API separation](https://support.claude.com/en/articles/9876003-i-have-a-paid-claude-subscription-pro-max-team-or-enterprise-plans-why-do-i-have-to-pay-separately-to-use-the-claude-api-and-console),
+and OpenRouter's [pricing](https://openrouter.ai/pricing),
+[BYOK](https://openrouter.ai/docs/guides/overview/auth/byok),
+[routing](https://openrouter.ai/docs/guides/routing/provider-selection),
+[fallback](https://openrouter.ai/docs/guides/routing/model-fallbacks),
+[ZDR](https://openrouter.ai/docs/guides/features/zdr), and
+[terms](https://openrouter.ai/terms/) documentation. Public fees and defaults
+are procurement inputs that can change, never customer-plan promises.
+
+## Commercial Activation Gates
+
+The target product is not a claim that current metering safely supports a paid
+multi-provider allowance. As of the implementation audit for this alignment
+pass, the live OCU slice charges `0.1` OCU for every model-backed receipt
+without reconciling provider, input/output/cache/reasoning classes, retries, or
+supplier invoice. The model-route overview declares sealed BYOK unimplemented
+and only Ollama-transport routes bindable for session execution. Work Credits,
+marketplace fees, and the Goal Space allowance remain planned.
+
+Before attaching a fixed managed-work allowance, IOI needs invoice-grade
+reconciliation for:
+
+- endpoint, provider, model, route, and price-schedule version;
+- uncached input, cache write/read, visible output, reasoning, image, audio,
+  tool, accelerator, environment, storage, and other billed categories exposed
+  by the supplier;
+- every attempted route, outcome/failure class, fallback, escalation, and which
+  attempts the supplier billed;
+- estimated cost, reserved budget, finalized supplier cost, external broker
+  fee, IOI fee basis and amount, refund/adjustment, and receipt refs;
+- organization and goal caps, concurrency/child-agent/runtime limits,
+  background-work policy, and explicit overage/top-up consent.
+
+The commercial sequence is:
+
+1. reconcile internal route-attempt telemetry against supplier statements;
+2. run a prepaid, capped beta without upstream model-quality or availability
+   promises;
+3. introduce a seat plus expiring/resetting monthly Work Credit grant and
+   opt-in top-ups only after P50/P90 cost and fallback amplification are bounded;
+4. add pooled organization budgets and route-policy administration;
+5. add enterprise commitments, reserved capacity, private deployment, support,
+   and decomposed control-plane/runtime/route-class SLAs.
+
+Progression gates are supplier-invoice reconciliation, positive cohort
+contribution margin, bounded p95 COGS, abuse and chargeback behavior, fallback
+cost amplification, accepted outcomes per dollar, and support burden—not gross
+token volume. The included allowance must be based on observed workload cohorts
+and managed-work COGS, never the sum of retail ChatGPT, Claude, or aggregator
+plan prices.
 
 ## Legitimate Revenue Surfaces
 
@@ -332,26 +604,42 @@ later intentionally sold as a standalone hosted capability factory.
 
 ### ioi.ai
 
-ioi.ai monetizes the conductor experience:
+ioi.ai monetizes one Goal Space conductor experience rather than separate
+single-node and network-node products:
 
-- subscription for persistent goal orchestration and account experience;
-- included Work Credits for routine tasks;
-- additional Work Credits for multi-session, multi-model, marketplace-worker,
-  connector-heavy, verifier-heavy, or long-running work;
-- enterprise plans for managed organizational conductors, policy, audit,
-  retention, connector governance, and private runtime boundaries.
+- recurring entitlement for persistent goal/account state, memory, policy,
+  collaboration, receipts, replay, and support;
+- bounded monthly Work Credit grant for routine managed work, sized from
+  observed cohorts rather than retail chat-plan prices;
+- top-up, opt-in overage, or committed-spend drawdown for heavy work;
+- separately funded Network/Open goal budgets for independent workers,
+  verifiers, services, challenges, and settlement;
+- enterprise plans for organization policy, pooled budgets, private/customer-
+  boundary deployment, reserved capacity, audit, retention, connector
+  governance, SLA, administration, and support.
 
-ioi.ai should use Hypervisor as the execution/control substrate and marketplaces
-as supply/delivery layers. It should not create a private runtime pricing model
-that bypasses Hypervisor, Agentgres, wallet.network, aiagent.xyz, sas.xyz, or
-IOI L1 boundaries.
+Same-domain 1-N worker orchestration is built into the Goal Space. Genuine
+multi-party participation is an opt-in supply scope with explicit admission,
+affiliation, evidence, and settlement terms. Node count is not the SKU.
 
-ioi.ai may charge for orchestration when it coordinates across the network:
-multi-worker pursuit, marketplace sourcing, verifier routing, connector
-escalation, settlement handoff, evidence synthesis, or managed execution. It
-should not tax a user for a direct local run that uses only the user's own
-model, cloud, tools, and authority envelope without IOI network selection or
-managed service.
+ioi.ai uses Hypervisor as execution/control and Work Credit owner, MoW and
+aiagent.xyz as worker supply/routing-attribution owners, sas.xyz as service
+procurement/delivery owner, wallet.network and local/domain governance as
+authority owners, and Agentgres domains as operational-truth owners. It must
+not invent private bypasses around them.
+
+ioi.ai may charge for cross-worker selection, multi-worker pursuit,
+marketplace sourcing, verifier routing, connector escalation, evidence
+synthesis, settlement handoff, or managed execution. It should not tax a direct
+local run using only customer models, infrastructure, tools, and authority when
+no managed service or network matching occurs.
+
+IOI may operate a disclosed seed fleet to create initial planner, builder,
+verifier, critic, synthesizer, benchmark, and challenge capacity. Those are
+ordinary first-party Worker compositions, use the same contracts as external
+supply, receive no hidden preference, disclose subsidy and dependencies, and
+remain one party until an independent principal joins. The fleet is anchor
+liquidity, not a permanent sole counterparty.
 
 The user-facing managed execution selector has only two modes: `Standard` and
 `Private`. `Standard` is still private-native at the operating-substrate layer
@@ -506,6 +794,21 @@ Token or BME design should be treated as protocol-economics work after product
 usage proves the demand curve. Until then, Work Credits are the cleaner product
 abstraction.
 
+The recursive trust topology is:
+
+```text
+attempt / execution branch
+-> local governed autonomous-system state
+-> organization or project Hypervisor Node / Agentgres domain
+-> AIIP cross-domain evidence and work exchange
+-> sparse public commitment only when independent trust or economic finality needs it
+```
+
+This is not one chain per worker, agent, GoalRun, OutcomeRoom, or node. Local
+signatures, deterministic admission, receipts, and replay handle ordinary work;
+consensus is reserved for independent ordering, rights, bonds, disputes,
+portable reputation, or economic finality.
+
 ## Anti-Patterns
 
 Do not model:
@@ -529,7 +832,22 @@ Do not model:
   runtime posture, authority requirements, or managed-instance clarity;
 - sas.xyz take-rate without escrow, SLA, procurement, billing, dispute,
   delivery, or commercial trust value;
-- separate SKUs for every internal primitive merely because it can be metered.
+- separate SKUs for every internal primitive merely because it can be metered;
+- pooled, shared, browser-automated, or resold named-user foundation-model
+  workspace seats treated as unattended production capacity;
+- a Goal Space allowance priced by adding retail chat subscriptions rather
+  than measured workload COGS;
+- unlimited managed multi-model or multi-worker burn hidden inside a flat seat;
+- raw token resale or opaque provider markup as IOI's margin thesis;
+- an aggregator as the sole inference authority or a ZDR flag presented as a
+  no-provider-trust `Private` guarantee;
+- ordinary seat credits silently funding independent Network/Open labor;
+- separate single-node and network-node subscriptions when contributor scope
+  and goal budget express the difference;
+- Work Credits made transferable, cash-redeemable, or conflated with worker
+  settlement assets;
+- a chain or L1 commitment for every worker, GoalRun, attempt, receipt, or room
+  update.
 
 ## Conformance Questions
 
@@ -553,6 +871,18 @@ marketplace take-rate, ask:
 11. Can the billing, receipt, payout, audit, and dispute trail be reconstructed
     from Agentgres refs, Work Credit ledgers, ContributionReceipts, wallet
     receipts, marketplace records, and IOI L1 commitments where applicable?
+12. Is a Goal Space allowance bounded by observed COGS, quotes/caps, and
+    explicit overage rather than implied unlimited work?
+13. Is external Network/Open labor funded separately and attributed to the
+    worker, service, and verifier owners rather than silently subsidized by the
+    seat?
+14. Does every managed route have current unattended/downstream, privacy,
+    fallback, model-license, and training-right posture, with missing rights
+    failing closed?
+15. Is Work Credit billing reconciled to supplier attempts and invoices rather
+    than inferred from one flat per-receipt constant?
+16. Does each economic claim preserve the distinction between attestation,
+    evidence, verification, acceptance, adjudication, and settlement?
 
 If the answer is unclear, bundle the primitive into the nearest product surface
 and revisit after real usage evidence exists.

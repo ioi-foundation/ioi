@@ -1,12 +1,12 @@
 # AIIP: Inter-Autonomous-System Protocol
 
 Status: canonical architecture authority.
-Canonical owner: this file for AIIP, bounded-execution-domain interop, work packets, AIIP profiles, and cross-system handoff semantics.
+Canonical owner: this file for AIIP, bounded-execution-domain interop, work and collaborative-pursuit packets, semantic-profile negotiation, AIIP profiles, and cross-system handoff/admission semantics.
 Supersedes: product prose that treats Hypervisor, aiagent.xyz, sas.xyz, or third-party autonomous systems as separate bespoke interop protocols.
 Superseded by: none.
-Last alignment pass: 2026-06-23.
+Last alignment pass: 2026-07-11.
 Doctrine status: canonical
-Implementation status: planned (protocol design; no AIIP implementation)
+Implementation status: planned (protocol design only; no AIIP transport, channel, semantic-negotiation, collaborative-pursuit, or two-sovereign-node implementation)
 Last implementation audit: 2026-07-05
 
 ## Canonical Definition
@@ -14,10 +14,12 @@ Last implementation audit: 2026-07-05
 **AIIP is IOI's RPC-shaped, receipt-native interoperability protocol for
 bounded autonomous work.**
 
-AIIP moves delegated work, authority leases, receipt commitments, settlement
-intents, reputation queries, dispute notices, and handoff finality across
-bounded execution domains. IOI mainnet settles the consequential record when
-public trust, economic finality, reputation portability, dispute resolution, or
+AIIP moves delegated work, collaborative-pursuit updates, negotiated semantic
+profiles, authority leases, receipt commitments, settlement intents, reputation
+queries, dispute notices, and handoff finality across bounded execution domains.
+Each domain keeps its own runtime, private context, and operational truth. IOI
+mainnet settles only the selected consequential record when public trust,
+economic finality, portable reputation or rights, dispute resolution, or
 cross-system interoperability requires it.
 
 Short form:
@@ -36,13 +38,14 @@ data, tools, models, users, or physical environment.
 ```text
 Autonomous systems execute anywhere.
 AIIP routes delegated work across systems.
-Receipts prove what happened.
+Receipts attest declared boundary facts.
 IOI mainnet settles the consequential record.
 ```
 
 The chain does not execute most model inference, browser activity, API calls,
 file edits, workflow steps, robot actions, human review, VM jobs, or artifact
-generation. The chain settles claims that work happened under known rules.
+generation. The chain may settle accepted or adjudicated claims under known
+rules; it does not turn a signed statement into a correct outcome.
 
 Canonical distinction:
 
@@ -51,6 +54,27 @@ Execution = local runtimes, microharnesses, workers, APIs, robots, VMs, enterpri
 Interop   = AIIP packets, profiles, channels, authority, receipts, settlement intents
 Settlement = IOI mainnet roots, rights, escrows, disputes, reputation, handoff finality
 ```
+
+AIIP preserves this assurance ladder across domains:
+
+```text
+receipt / attestation
+  authenticated statement about a declared boundary fact
+-> evidence bundle
+  support for a claim
+-> verification
+  named verifier and rule/version evaluated the claim
+-> acceptance
+  user, customer, domain, or counterparty accepted the outcome
+-> adjudication
+  challenge or dispute was resolved
+-> settlement
+  rights or value moved under the accepted or adjudicated claim
+```
+
+Cryptography makes claims attributable, ordered, portable, and challengeable.
+Correctness and economic value additionally require evaluation, acceptance,
+causality, demand, and dispute resolution.
 
 ## Bounded Execution Domains
 
@@ -112,13 +136,20 @@ system.invoke(task, authority)
 system.handoff(task)
 system.deliver(update)
 system.accept(delivery)
+room.join(policy, capabilities)
+room.claim(frontier_item, leases)
+room.publish(attempt_or_finding_ref)
+room.challenge(verifier_or_rule_ref)
+room.admit(outcome_delta_ref)
 system.commitReceipt()
 system.settle()
 system.dispute()
 system.resolveDispute()
 ```
 
-Underneath, these calls compile into signed, sequenced, receipt-aware packets.
+Underneath, these calls compile into signed, sequenced, idempotent,
+receipt-aware packets. Room calls carry refs and permitted projections; they do
+not expose a shared raw context bus.
 
 Canonical analogy:
 
@@ -148,6 +179,44 @@ TaskAcceptancePacket
 HandoffPacket
   Transfer this task or subtask to another bounded execution domain.
 
+SemanticProfileNegotiationPacket
+  Declare input/output ontology and action-schema profiles, compatible versions,
+  crosswalk or adapter refs, policy-bound views, mapping loss/ambiguity, and
+  verifier obligations for the handoff.
+
+OutcomeRoomDiscoveryPacket
+  Query or publish a signed, policy-bound OutcomeRoom discovery projection:
+  public objective/category, semantic and capability requirements, eligibility,
+  visibility/privacy, budget/quote, verifier, settlement, and admission endpoint,
+  with no raw private room context.
+
+RoomParticipationPacket
+  Request, admit, update, suspend, retire, or revoke a participant lease under
+  the room's declared membership and visibility policy; on exit, release claims
+  and carry the permitted portable participant-state bundle or its signed ref.
+
+FrontierUpdatePacket
+  Propose or admit a question, hypothesis, task, review need, dependency,
+  priority, stop condition, or resource need in a CollaborativeWorkGraph.
+
+WorkClaimPacket
+  Claim, renew, release, expire, reassign, or quarantine bounded frontier work
+  together with context, authority, data, compute, tool, and budget lease refs.
+
+AttemptFindingPacket
+  Publish positive, negative, inconclusive, invalid, exploit-found, or
+  superseded attempt/finding refs, derivation, evidence, cost, reproduction,
+  license, and disclosure posture.
+
+VerifierChallengePacket
+  Challenge a metric, rule version, verifier, evidence bundle, mapping,
+  eligibility decision, or claimed result and identify affected work requiring
+  re-evaluation.
+
+RoomAdmissionPacket
+  Propose, accept, reject, supersede, or reconcile a WorkResult / OutcomeDelta
+  under the declared hosted or federated room ordering policy.
+
 AuthorityQueryPacket
   Does this worker, system, or domain have authority to perform this action?
 
@@ -155,7 +224,8 @@ AuthorityGrantPacket
   This authority lease is valid for this scope, time, budget, subject, and policy.
 
 ReceiptCommitmentPacket
-  This work was performed; here is the receipt root or inclusion proof.
+  This signer attests declared work boundary facts; here is the receipt root or
+  inclusion proof for later evidence, verification, acceptance, or dispute.
 
 DeliveryUpdatePacket
   This milestone, partial delivery, final delivery, revision, or cancellation
@@ -181,35 +251,42 @@ ReputationQueryPacket
 
 ## AIIP Envelope
 
-The canonical packet envelope should include:
+AIIP owns packet semantics, processing rules, profiles, conformance, and
+evolution. The single canonical field-level `AIIPChannelEnvelope` and
+`AIIPEnvelope` schemas are owned by
+[`common-objects-and-envelopes.md`](./common-objects-and-envelopes.md#aiip-and-bounded-execution-domain-envelopes).
+That shared schema is the normative superset. It retains packet and payload
+identity while binding:
 
-```yaml
-AIIPEnvelope:
-  message_type: capability_discovery | task_offer | task_acceptance | handoff | authority_query | authority_grant | receipt_commitment | delivery_update | acceptance_decision | settlement_intent | dispute | dispute_resolution | reputation_query
-  system_id_from: system://...
-  system_id_to: system://...
-  channel_id: aiip://channel/...
-  sequence_or_nonce: string
-  timestamp_or_slot: string
-  profile: local | installed_worker | marketplace_worker | outcome_service | autonomous_system | enterprise
-  policy_hash: hash
-  authority_ref: optional grant://...
-  payload_hash: hash
-  receipt_obligations: []
-  settlement_terms:
-    mode: local_only | optional_anchor | mainnet_required | dispute_only | reputation_only
-    settlement_account_ref: optional
-    escrow_ref: optional
-    dispute_window: optional
-  signature:
-    scheme: ed25519 | secp256k1 | ml-dsa | hybrid
-    public_key_ref: string
-    signature: base64
-```
+- message type, sender, recipient, channel, sequence/nonce, timestamp, and
+  signature;
+- idempotency, causation, and correlation;
+- local, installed-worker, marketplace-worker, outcome-service,
+  autonomous-system, collaborative-pursuit, and enterprise profiles;
+- policy and authority, collaboration and OutcomeRoom, ontology/action
+  profiles, restricted views, and verifier challenges;
+- payload hash/ref, receipt obligations, verifier/acceptor refs, settlement
+  terms, and the canonical `assurance_stage` ladder;
+- external-effect recovery as `replayable`, `checkpointable`, `compensatable`,
+  `reconciliation_required`, or `non_retryable`.
+
+No profile or application may publish a reduced competing `AIIPEnvelope`.
+Profile-specific bodies travel through `payload_ref` or the typed packet
+objects below while preserving the shared envelope.
 
 AIIP payload bodies may remain private, encrypted, redacted, or available only
 to dispute participants. Public settlement should anchor commitments and roots,
-not sensitive operational payloads.
+not sensitive operational payloads. Sequence, idempotency, and causation fields
+must make retry, duplicate delivery, cancellation, ambiguous-effect
+reconciliation, and recovery explicit rather than relying on transport luck.
+
+Every task/action profile that can create an external effect declares an effect
+recovery class: `replayable`, `checkpointable`, `compensatable`,
+`reconciliation_required`, or `non_retryable`. Restoring a transport, VM,
+worker, or environment is not proof that the business or physical outcome was
+restored. A timeout after dispatch enters the declared reconciliation path;
+unknown effects are not blindly replayed, and compensation is a separately
+authorized action with its own receipts.
 
 ## Protocol Profiles
 
@@ -236,6 +313,11 @@ Autonomous-System Profile
   Peer system handoff, mutual receipts, settlement intents, cross-system reputation,
   handoff finality.
 
+Collaborative Pursuit Profile
+  OutcomeRoom membership, capability/resource offers, frontier and claim refs,
+  attempts and findings, verifier challenges, WorkResult / OutcomeDelta admission,
+  contribution lineage, and declared hosted or federated ordering.
+
 Enterprise Profile
   Private execution, redacted receipts, encrypted artifacts, selective disclosure,
   permissioned evidence, optional public roots.
@@ -246,37 +328,110 @@ enterprise, and inter-system variants.
 
 ## Multi-Party Collaboration
 
-AIIP channels are usually bilateral at the packet boundary, but autonomous
-outcomes may involve more than two parties: a data owner, worker provider,
-compute provider, customer, verifier, auditor, regulator, insurer, or
-settlement counterparty.
+AIIP channels are usually bilateral at the packet boundary, but an autonomous
+outcome may involve a data owner, worker provider, compute provider, customer,
+verifier, auditor, regulator, insurer, and settlement counterparty. A party is
+an accountable principal with independent control over some combination of
+authority, revocation, operational truth, risk, challenge, acceptance, or
+settlement. A model endpoint or cloud dependency is normally a disclosed
+subprocessor, not a party, unless its principal accepts room-level rights and
+obligations.
+
+Do not conflate:
+
+```text
+multi-model = distinct cognition routes
+multi-worker = distinct versioned worker compositions or roles
+multi-node = distinct execution or failure domains
+multi-party = distinct accountable principals and governed domains
+```
+
+Multiple IOI-owned workers, clouds, keys, and model providers remain one party
+when IOI controls their authority, truth, verifier, and settlement. Conversely,
+an organization-labelled room spanning independently governed domains is
+multi-party even if its UI is private and permissioned.
 
 Multi-party collaboration is represented by a
 `MultiPartyCollaborationEnvelope`, not by turning AIIP into a shared raw
-context bus. The collaboration envelope binds:
+context bus. The envelope binds:
 
-- participating parties, roles, domains, authority providers, and revocation
-  refs;
-- allowed shared refs such as artifacts, receipts, restricted views, redacted
-  summaries, AIIP channels, delivery bundles, and audit exports;
-- blocked context classes such as raw secrets, protected plaintext,
+- participating principals, affiliations, roles, home domains, authority
+  providers, join/eligibility evidence, revocation refs, and separation-of-duty
+  constraints;
+- allowed artifacts, receipts, restricted views, redacted summaries, AIIP
+  channels, delivery bundles, semantic profiles, and audit exports;
+- blocked context classes including raw secrets, protected plaintext,
   unauthorized connector payloads, unrelated private memory, and non-opted-in
   training traces;
-- per-party authority refs rather than one party's wallet grant authorizing
-  another party's connector or worker;
-- policy-bound data views, restricted views, handoffs, evidence bundles,
-  delivery bundles, contribution refs, settlement refs, and export profiles;
-- history policy for party removal, live-view revocation, and immutable
-  historical receipt roots.
+- per-party authority refs; one party's grant cannot authorize another party's
+  connector, worker, data, or physical system;
+- policy-bound views, evidence and delivery bundles, contribution refs,
+  challenge/adjudication, settlement, artifact license, retention, disclosure,
+  and export profiles;
+- history policy for party removal, live-view revocation, immutable historical
+  roots, and downstream recall or access rotation.
 
-The user or auditor may see one collaborative outcome, but the underlying
-protocol remains explicit about which domain did what, under whose authority,
-which evidence was shared, which evidence was withheld, and which settlement or
-contribution claims were produced.
+The user may see one outcome, but the protocol remains explicit about which
+domain did what, under whose authority, which semantic mapping and evidence were
+used, what was withheld, and which contribution, acceptance, dispute, or
+settlement claims resulted. Party removal revokes or rotates future access; it
+does not rewrite receipt roots, contribution lineage, delivery state, or
+required dispute/audit history.
 
-Party removal does not rewrite history. It revokes or rotates future access
-according to policy while preserving receipt roots, contribution refs, delivery
-state, and dispute/audit evidence.
+### OutcomeRoom And CollaborativeWorkGraph Handoffs
+
+An `OutcomeRoom` is a collaboration profile above bounded GoalRuns. AIIP moves
+discovery projections, participation requests and exits, portable participant-
+state bundles, room membership, capability/resource offers, frontier items,
+work claims, attempt and finding refs, verifier challenges, and proposed/
+admitted outcome deltas between domains. It does not own those objects, execute
+attempts, or become a global room database.
+
+Every persistent room declares one ordering and admission topology:
+
+1. **Hosted admission:** one named governed domain sequences and admits
+   room-level frontier, attempt, finding, evaluation, and decision updates.
+   This is the first conformance target.
+2. **Federated admission:** a versioned profile names member domains, sequence
+   or merge rules, quorum or adjudicator requirements, conflicts, failover,
+   recovery, and policy-version transitions. It is opt-in and planned, not an
+   implicit property of every AIIP channel.
+
+Both modes preserve local operational truth. The host or declared federation
+policy admits the shared-room projection; each participant separately admits
+its private work and outbound claims. AIIP packets are signed, sequenced,
+idempotent refs and permitted updates. Raw private context moves only through
+an authorized policy-bound view. A board, digest, inbox, leaderboard, and replay
+are projections over this state, not protocol authority.
+
+Cross-domain/open discovery and admission use the shared
+[`OutcomeRoomDiscoveryEnvelope`](./common-objects-and-envelopes.md#outcomeroomdiscoveryenvelope-and-roomparticipationrequestenvelope)
+and `RoomParticipationRequestEnvelope`. An external independently operated
+Worker can discover a signed public/permissioned objective and category,
+semantic/capability requirements, eligibility, visibility/privacy,
+budget/quote, verifier, settlement, and contribution posture, then request
+admission through the declared AIIP channel. Discovery contains no private room
+context and grants no membership, authority, budget, or data access. Admission
+creates a `RoomParticipantLeaseEnvelope` only after the named host domain or
+federation policy accepts the same typed request and evidence.
+
+Retire, expiry, quarantine, and revoke transitions release or reassign live
+claims and terminate future access. They preserve policy-allowed contribution,
+receipt, acceptance, settlement, and dispute refs and may carry a signed
+[`ParticipantStateBundleEnvelope`](./common-objects-and-envelopes.md#participantstatebundleenvelope).
+The participant's home domain can retain that portable state without continued
+access to or trust in a hosted room database. Hosted and federated rooms use the
+same discovery, request, lease, exit, and export contracts; they differ only in
+the declared ordering/admission owner and watermark.
+
+Open participation remains hostile-input territory. Membership and work packets
+must preserve provenance, taint, license/export, and trust labels; apply rate,
+resource, spend, context, and authority bounds; support quarantine; and prevent
+participant messages, artifacts, mappings, or evaluator suggestions from
+automatically entering durable memory, ontology, routing policy, authority, or
+production state. Sybil signals, affiliation disclosure, reviewer independence,
+anti-collusion policy, backpressure, and fair resource allocation are room
+admission concerns rather than optional UI moderation.
 
 ## Hypervisor As Coordination Substrate
 
@@ -293,8 +448,9 @@ Canonical formulation:
 Hypervisor routes.
 Selected harnesses, workers, services, and modules execute under daemon gates.
 AIIP hands off.
-Receipts prove.
-IOI settles.
+Receipts attest boundary facts.
+Verifiers and acceptors evaluate outcomes.
+IOI settles selected accepted or adjudicated commitments.
 ```
 
 Hypervisor should use AIIP internally for local microharness routing and
@@ -302,32 +458,38 @@ externally for worker, service, and peer autonomous-system handoffs. Hypervisor
 clients and application surfaces remain operator views over Hypervisor Core;
 they are not the protocol and not IOI L1.
 
-## Routing Receipts
+## Routing Decisions And Receipts
 
 Meaningful routing decisions should emit routing receipts, especially when they
 affect payment, reputation, trust, settlement, or dispute posture.
 
-```yaml
-RoutingDecisionReceipt:
-  intent_hash: hash
-  candidate_set_commitment: hash
-  selected_domain_or_worker: system://... | worker://... | service://... | runtime://...
-  routing_policy_hash: hash
-  authority_scope: []
-  cost_bound: optional
-  receipt_obligations: []
-  reason_code: string
-  fallback_policy: optional
-```
+The canonical decision object is
+[`RoutingDecisionEnvelope`](./common-objects-and-envelopes.md#routingdecisionenvelope).
+It owns the candidate and affiliation commitments, selected Worker composition,
+mounted model/provider/runtime dependencies, attempted and actual route refs,
+fallback and verifier escalation, contributor policy, and first-party seed-
+supply/independence evidence. AIIP carries the decision or its permitted refs;
+it does not define a parallel receipt schema.
+
+The canonical `RoutingDecisionReceipt` field schema is owned by
+[`events-receipts-delivery-bundles.md`](../components/daemon-runtime/events-receipts-delivery-bundles.md).
+That receipt must bind the `routing-decision://...` identity and decision hash,
+policy/version, selected route, actual attempts, and declared evidence refs. It
+attests those bound routing facts; it does not prove optimality, quality,
+independence, or fairness by receipt existence alone.
 
 Routing receipts answer:
 
 - why a harness, worker, service, or peer autonomous system was selected;
 - whether the selected worker or domain was eligible;
+- which Worker composition and model/provider/runtime dependencies were mounted;
+- which candidates were affiliated, first-party, subsidized seed supply, or
+  independently operated and what evidence supported that posture;
 - whether authority and budget were respected;
 - whether a cheaper, safer, more private, or more capable option was ignored;
 - whether a first-party service was silently favored;
-- what fallback path was available.
+- which routes were attempted in fact, what fallback/escalation occurred, and
+  whether independent verification was triggered.
 
 ## IOI Mainnet Relationship
 
@@ -345,7 +507,10 @@ handoffs may anchor to IOI mainnet when the handoff needs:
 - routing receipt roots;
 - cross-system handoff finality.
 
-Local receipts can stay local. Mainnet is for shared trust and economics.
+Local receipts and room updates stay local unless another trust boundary needs
+them. Mainnet is for sparse shared trust and economics, not an autonomous-system
+chain per worker, a transaction per attempt, or a publication rail for raw room
+context.
 
 ## First-Party Applications
 
@@ -435,6 +600,9 @@ a requirement that every handoff settles on L1
 a way to bypass daemon policy or wallet.network authority
 a marketplace-only protocol
 a public-disclosure default for private execution data
+a shared mutable room database or universal conductor
+an implicit federated-consensus layer with no declared ordering/admission owner
+an untyped semantic mapping or actuator-command bypass
 ```
 
 Correct model:
@@ -443,7 +611,9 @@ Correct model:
 same semantic protocol across local and external handoffs
 different transport and settlement mode by profile
 authority leases travel with work
-receipts prove what happened
+receipts attest declared boundary facts
+semantic profiles and mappings stay explicit
+verifiers, acceptors, and adjudicators remain distinct
 settlement intents promote only what needs public trust
 ```
 
@@ -476,6 +646,19 @@ settlement intents promote only what needs public trust
    receipts.
 8. Do not make public disclosure the default for sensitive enterprise execution
    data.
+9. Do not treat a model, worker, runtime node, or provider dependency as an
+   independent party unless an accountable principal accepts distinct rights,
+   obligations, challenge, and settlement roles.
+10. Do not create a CollaborativeWorkGraph with implicit global truth. Every
+    room must name hosted or federated ordering and admission semantics.
+11. Do not promote participant packets into memory, ontology, routing,
+    production, or settlement merely because they are signed or popular.
+12. Do not transport a physical actuator command as ordinary AIIP work. The
+    physical-action safety envelope and certified local-control path remain
+    mandatory.
+13. Do not equate environment or channel recovery with outcome recovery, and do
+    not retry an ambiguous external effect without its declared recovery and
+    reconciliation policy.
 
 ## Open Protocol Workstreams
 
@@ -491,8 +674,21 @@ The canonical doctrine is settled, but protocol specs still need to define:
 - AIIP version, schema, and profile governance;
 - conformance tests for third-party autonomous systems and AS-L1s;
 - privacy limits for receipt bodies, artifacts, and execution traces.
+- collaboration-profile membership, lease, frontier, attempt, finding,
+  challenge, and admission packet schemas;
+- hosted-admission failure/recovery semantics and later federated ordering,
+  quorum/adjudication, conflict, and failover profiles;
+- ontology/action-profile compatibility negotiation, mapping receipts, and
+  challenge/replay fixtures;
+- retry, cancellation, ambiguous-effect reconciliation, compensation, and
+  idempotency conformance across transports;
+- an end-to-end demonstration across two independently operated
+  Hypervisor/Agentgres domains with no shared raw operational database and no
+  mandatory L1 dependency.
 
 ## One-Line Doctrine
 
-> **AIIP is the work interop fabric for bounded autonomous systems; IOI mainnet
-> is the settlement layer for the consequential record.**
+> **AIIP is the signed, semantic, receipt-native work and collaboration interop
+> fabric for bounded autonomous systems; each domain keeps local truth, and IOI
+> mainnet settles only the selected consequential record that needs shared
+> rights, reputation, dispute, or economic finality.**

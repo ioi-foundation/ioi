@@ -4,7 +4,7 @@ Status: canonical architecture authority.
 Canonical owner: this file for IOI L1, root contracts, gas boundaries, settlement, and public commitments.
 Supersedes: overlapping plan prose when L1 ownership or gas boundaries conflict.
 Superseded by: none.
-Last alignment pass: 2026-06-22.
+Last alignment pass: 2026-07-11.
 Doctrine status: canonical
 Implementation status: speculative (no L1 deployment; design authority for a future chain)
 Last implementation audit: 2026-07-05
@@ -34,7 +34,8 @@ IOI L1 owns:
 4. Smart contracts for rights, licenses, escrows, SLA bonds, payouts, and disputes.
 5. Reputation, quality, contribution, ontology, benchmark, routing,
    training-lineage, and receipt-root commitments where public or economic
-   trust requires them.
+   trust requires them and the underlying assurance state distinguishes
+   receipt, evidence, verification, acceptance, and adjudication.
 6. Hypervisor Node, autonomous-system-chain, policy, module, upgrade, local
    settlement, and receipt roots when public trust, dispute, reputation, or
    economic settlement requires them.
@@ -90,6 +91,8 @@ IOI L1 does not own:
 - every governed autonomous-system-chain transition;
 - Agentgres operational state;
 - every worker run;
+- every GoalRun, OutcomeRoom, participant lease, work claim, attempt, finding,
+  verifier challenge, or OutcomeDelta;
 - every workflow event;
 - every model invocation;
 - every tool call;
@@ -101,11 +104,14 @@ IOI L1 does not own:
 - projection deltas;
 - runtime execution.
 
-> **IOI L1 settles rights and trust, not every agent thought.**
+> **IOI L1 settles selected rights and shared trust, not every agent thought,
+> attempt, receipt, or collaborative-room transition.**
 
-The commercial surface is the buy/sell or invocation record. The trust surface
-is the authority, receipt, routing, dispute, reputation, and settlement record.
-Both should settle through IOI when consequential.
+The commercial surface is the buy/sell, service-order, or invocation record.
+The trust surface is the authority, evidence, verification, acceptance,
+adjudication, contribution, reputation, and settlement record. Selected roots
+should settle through IOI only when independent public ordering, rights,
+portability, dispute, reputation, or economic finality creates value.
 
 ## Local and Global Settlement
 
@@ -238,6 +244,9 @@ Agentgres domain writes
 Hypervisor Node local settlement records
 autonomous-system-chain module invocations
 AIIP local-profile packets
+GoalRuns and GoalGroundingLoop iterations
+OutcomeRoom participant/frontier/claim/attempt/finding transitions
+verifier challenges and re-verification inside one declared room/domain
 private receipt bodies
 runtime events
 artifact generation
@@ -342,6 +351,7 @@ the Hypervisor Node
 the worker marketplace itself
 the service marketplace itself
 the place where every local run must settle
+a chain per agent, GoalRun, attempt, room, tool call, or receipt
 ```
 
 Correct model:
@@ -369,6 +379,11 @@ reputation, governance, and cross-domain commitments
 8. IOI L1 should not be described as the agent marketplace or outcome
    marketplace. aiagent.xyz and sas.xyz are first-party applications of the
    settlement layer.
+9. Contribution or reputation commitments must preserve their assurance stage;
+   a signed receipt or self-reported score alone is not accepted economic value.
+10. GoalRuns, OutcomeRooms, attempts, and local autonomous systems use
+    deterministic domain admission, signatures, branches, receipts, and replay
+    by default. Consensus appears only at a real independent-trust boundary.
 
 ## One-Line Doctrine
 

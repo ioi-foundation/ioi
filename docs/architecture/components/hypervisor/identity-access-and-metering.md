@@ -10,9 +10,9 @@ Supersedes: prose that treats org login/SSO/SCIM/secrets/metering for a
 self-hosted Hypervisor deployment as having no daemon-side plane, or that treats
 identity roles as machine authority.
 Superseded by: none.
-Last alignment pass: 2026-06-27.
+Last alignment pass: 2026-07-11.
 Doctrine status: canonical
-Implementation status: built (principals, sessions, OIDC SSO, SCIM, enforcement, and OCU metering live)
+Implementation status: mixed (principals, sessions, OIDC SSO, SCIM, and enforcement built; receipt-derived coarse OCU projection built; invoice-grade provider reconciliation, Work Credit debiting, and SaaS billing planned)
 Implementation refs:
   - `crates/node/src/bin/hypervisor_daemon_routes/`
 Last implementation audit: 2026-07-05
@@ -22,7 +22,7 @@ Last implementation audit: 2026-07-05
 Placement note: this file lives under `components/hypervisor/` because it
 is estate/product-facing governance, but the plane it specifies is owned
 and enforced by the Hypervisor Daemon (a deployment-local daemon
-governance plane). Read it as daemon-runtime authority projected into the
+governance and admission plane). Read it as daemon-runtime governance projected into the
 product estate; it was deliberately not moved to avoid churn on
 cross-references.
 
@@ -30,29 +30,33 @@ The Hypervisor Daemon owns a **deployment-local governance plane** that answers
 *who is operating this deployment, what org-surface access they hold, what
 secrets and inbound tokens exist, and what the deployment is consuming.*
 
-This plane **composes with — it does not replace — wallet.network protocol
-authority.** The split is strict:
+This plane **composes with — it does not replace — local/domain governance or
+the applicable authority provider.** The split is strict:
 
 ```text
 Identity / access  answers: WHO is this principal, and what org-surface
                    (settings, membership) access do they hold?
-wallet.network     answers: MAY this principal/agent/client perform this
+Policy/authority   answers: MAY this principal/agent/client perform this
                    specific consequential crossing?
-Hypervisor Daemon  enforces both rings.
-Agentgres          records both.
+wallet.network     is mandatory for portable delegated authority and the
+                   designated high-risk external effects assigned to it.
+Hypervisor Daemon  admits and enforces authorized work.
+Agentgres          records admitted operational truth.
 ```
 
 The decisive rule: **identity and org roles are never machine authority.** A
 role (`admin`, `member`) governs which app/settings surfaces a principal may
 see and manage; it does **not** authorize a push, a connector use, spend,
 declassification, an external message, or any other consequential crossing.
-Those still require a wallet.network grant / capability lease. (Proven in the
-done-bars: an authenticated admin session is still refused — 403 — on a
-connector crossing with no wallet grant.)
+Those still require the policy/authority evidence named by the domain and risk
+profile. For a connector profile assigned to wallet.network, an authenticated
+admin session is still refused — 403 — when the wallet grant is absent.
 
-This is the deployment-local layer; **wallet.network remains the protocol-level
-authority/SSO** (portable, cross-app, "powered-by"). A principal authenticated
-locally here still crosses boundaries only under wallet authority.
+This is the deployment-local layer; **wallet.network remains the
+protocol-level portable delegated-authority/SSO plane** (cross-app,
+"powered-by"). A principal authenticated locally here still crosses a boundary
+only under the authority profile applicable to that action; authentication
+never substitutes for it.
 
 ## Owns
 
@@ -92,41 +96,60 @@ locally here still crosses boundaries only under wallet authority.
 - Every connector/crossing invocation **attributes the calling principal** on
   its receipt. A connector may be made **principal-scoped**, requiring the caller
   to hold an explicit per-principal lease grant for `(connector, tool)` *before*
-  the wallet crossing. This is an additional least-privilege ring; it is an
-  explicit grant, never a role, and the wallet grant is still required after it.
+  authority evaluation. This is an additional least-privilege ring; it is an
+  explicit grant, never a role. A wallet.network grant is additionally required
+  when the connector/action profile assigns authority to wallet.network.
 
 ### Secrets & API-access-token management
 - **Secrets** (org / user / project scope) — the value is **sealed at rest**
   (the same key-store as other sealed credentials), stored separately from the
   metadata; every read returns metadata only. The daemon HOLDS the sealed value;
   consuming it at runtime is the downstream injection path, and any consequential
-  use crossing remains wallet/lease-gated.
+  use crossing remains gated by applicable policy and authority.
 - **API access tokens** (inbound) — high-entropy tokens that authenticate calls
   to the Hypervisor API; only a hash + metadata are stored, the plaintext is
   surfaced exactly once, and a token resolves to its principal through the auth
   ring.
 
 ### Metering & cost
-- **Consumption** — derived from the daemon's actual recorded receipts
-  (agentgres records → an economic projection), bucketed into per-day compute
-  units by kind; never fabricated.
+- **Current consumption projection** — derived from admitted daemon receipts
+  (Agentgres records → an economic projection) and bucketed per day. Runtime
+  duration contributes compute hours; the current model slice contributes a
+  flat `0.1` OCU per model-backed receipt. That is honest coarse telemetry, not
+  token-, route-, supplier-, or invoice-reconciled commercial usage.
 - **Budget** — a ceiling + a **wallet-backed auto-funding policy** (replenish
-  from wallet.network when the balance crosses a threshold), reconciled against
-  real consumption and recorded as ledger entries.
+  from wallet.network when the balance crosses a threshold), applied to the
+  current OCU projection and recorded as ledger entries.
+- **Target commercial reconciliation** — route-attempt receipts must bind
+  endpoint, provider, model/version, price-schedule version, detailed billed
+  usage classes, fallback chain, estimated and finalized supplier cost, broker
+  fee, IOI fee basis/amount, Work Credit reservation/debit, adjustment/refund,
+  and provider-statement reconciliation before the projection can support a
+  paid included managed-work allowance.
+
+This file owns the deployment-local meter and budget enforcement projection.
+[`economic-flywheel-and-pricing-boundaries.md`](../../foundations/economic-flywheel-and-pricing-boundaries.md)
+owns the Goal Space subscription, Work Credit, fee-legitimacy, and stack-wide
+pricing doctrine. ioi.ai owns account/subscription experience; Hypervisor owns
+managed-work execution and metering; Agentgres records the economic facts.
 
 ## Does Not Own
 
-- wallet.network authority itself — the authorization of any consequential
-  crossing, capability-lease issuance, secret-use approval, spend approval,
-  declassification, or protocol-level SSO/portable authority.
+- Portable delegated authority or domain-specific consequential-action
+  authority. wallet.network owns the portable grants, leases, approvals,
+  declassification, designated high-risk effects, and protocol-level SSO
+  assigned to it; other profiles retain their named authority owner.
 - The protocol-level identity/authority that crosses apps and deployments
   (that is wallet.network's; this plane is deployment-local).
 - Agentgres admitted truth, state roots, or receipt validity (metering and
   provisioning *read/record through* Agentgres; they do not define truth).
 - Runtime execution semantics (the daemon executes; this plane only identifies
   the caller and scopes surface access).
-- Payment/settlement mechanics — there is no SaaS billing; the wallet is the
-  funding rail and there is no credit-card/invoice plane.
+- Payment/settlement mechanics. The current implementation has no SaaS billing;
+  the target meter projects billing/entitlement refs owned by ioi.ai and the
+  applicable billing, invoice, marketplace, service-order, or settlement plane.
+- Product pricing, Goal Space plan design, Work Credit semantics, marketplace
+  payout, or IOI fee policy.
 - Multi-tenant federation beyond the deployment (cross-org SSO trust, directory
   federation) unless modeled explicitly elsewhere.
 
@@ -138,19 +161,25 @@ A request resolves through rings, outer to inner:
 authentication (who)            session / API token / SSO — gated when exposed
   -> principal scope (may this principal request this crossing?)   optional
   -> org/app policy (allow-list, risk posture)
-  -> wallet.network authority (is THIS crossing authorized?)       always, for crossings
-  -> daemon executes
+  -> applicable authority (is THIS crossing authorized?)
+       local/domain governance where canon permits
+       wallet.network for portable delegation and designated high-risk effects
+       another named authority provider only where the domain profile permits
+  -> daemon admits, enforces, and executes or mediates
   -> receipt (attributes the principal + the authority refs)
 ```
 
 Authentication and scope can only *narrow*; they never grant a crossing. The
-wallet ring is the sole authorizer of consequential crossings.
+applicable policy/authority ring authorizes. wallet.network is mandatory for
+portable delegated authority and the high-risk external effects assigned to it;
+it is not required merely to represent every deployment-local product action.
 
 ## Conformance Checks
 
-- Identity/roles must never authorize a consequential crossing; every such
-  crossing still requires a wallet.network grant / capability lease, regardless
-  of the caller's role or session.
+- Identity/roles must never authorize a consequential crossing by themselves.
+  Every crossing requires the policy/authority evidence named by its domain and
+  risk profile; portable delegation and designated high-risk external effects
+  require a wallet.network grant or capability lease regardless of role/session.
 - Passwords and inbound tokens (API access tokens, SCIM tokens, SSO client
   secrets) must be hashed/sealed at rest; plaintext is surfaced at most once and
   never recoverable from a list/read.
@@ -164,13 +193,19 @@ wallet ring is the sole authorizer of consequential crossings.
   issuer/audience/expiry, nonce) before trusting the identity; userinfo alone is
   a fallback only.
 - Principal-scoped connectors must refuse a caller lacking an explicit
-  `(connector, tool)` lease grant *before* the wallet crossing, and the wallet
-  crossing must still apply afterward.
-- Metering consumption must derive from recorded receipts (no fabricated usage);
-  budget auto-funding must record wallet-sourced ledger entries and must not
-  itself authorize any crossing.
-- The deployment-local identity plane must compose with, and never shadow,
-  wallet.network protocol authority.
+  `(connector, tool)` lease grant before authority evaluation. A wallet crossing
+  must additionally apply when the connector/action profile requires it.
+- Metering consumption must derive from recorded receipts; coarse OCU must be
+  labeled as coarse and must not be sold as provider-invoice truth. Budget
+  auto-funding must record wallet-sourced ledger entries and must not itself
+  authorize any crossing.
+- A sellable Work Credit debit must reconcile route-attempt receipts to the
+  applicable supplier price schedule and final statement, preserve fallbacks,
+  adjustments, BYOK/local exclusions, broker fees, and IOI fee basis, and fail
+  closed when required billing evidence is absent.
+- The deployment-local identity plane must compose with, and never shadow, the
+  applicable local/domain or protocol authority; it must preserve wallet.network
+  wherever portable delegation or a designated high-risk action requires it.
 
 ## Anti-Patterns
 
@@ -186,6 +221,9 @@ SSO identity trusted from userinfo without id_token signature + nonce
 enforcement off while the deployment is exposed
 /auth/policy or principal management reachable unauthenticated under enforcement
 metering numbers fabricated instead of derived from receipts
+flat per-receipt OCU presented as token-, supplier-, or invoice-grade usage
+retail chat subscription limits treated as managed worker capacity
+customer BYOK provider spend charged again as IOI model cost
 budget auto-fund treated as crossing authorization
 deployment-local identity replacing wallet.network protocol authority
 ```
@@ -194,13 +232,17 @@ Correct:
 
 ```text
 identity answers who + scopes org-surface access
-wallet.network authorizes every consequential crossing
+local/domain governance or the applicable authority provider authorizes
+wallet.network authorizes portable delegation and designated high-risk effects
 roles/scopes only narrow; they never grant a crossing
 secrets + tokens sealed/hashed at rest, surfaced at most once
 SSO id_token verified (JWKS + nonce) before trust
 enforcement is fail-safe (auto-on when exposed) with a lockout bootstrap
-metering is an economic projection of recorded receipts; wallet funds the budget
-the daemon enforces both rings; Agentgres records both
+coarse OCU is a labeled projection of recorded receipts, not invoice truth
+commercial Work Credits wait for route-attempt and supplier-statement reconciliation
+direct BYOK/local provider cost is not double charged
+wallet funds the deployment budget without granting crossing authority
+the daemon admits/enforces authorized work; Agentgres records admitted truth
 ```
 
 ## Related Canon

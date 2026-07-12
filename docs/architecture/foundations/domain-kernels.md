@@ -4,14 +4,18 @@ Status: canonical architecture authority.
 Canonical owner: this file for root/domain kernel boundaries and domain-kernel responsibilities.
 Supersedes: overlapping plan prose when kernel ownership conflicts.
 Superseded by: none.
-Last alignment pass: 2026-06-22.
+Last alignment pass: 2026-07-11.
 Doctrine status: canonical
 Implementation status: mixed (daemon + Agentgres substrate real; fractal domain-kernel topology speculative)
 Last implementation audit: 2026-07-05
 
 ## Canonical Definition
 
-The IOI kernel is the runtime/authority core that executes deterministic state transitions, validates policies, manages receipts, coordinates domains, and serves as the substrate on which Agentgres domains run.
+The IOI kernel is the runtime/admission core that executes deterministic state
+transitions, enforces policy and authority decisions from their owning
+providers, manages receipts, coordinates domain-local work, and serves as the
+substrate on which Agentgres domains run. It does not create authority by
+itself.
 
 Domain kernels are also where MoW routing becomes operational. They bind user
 intent, worker candidates, policy, authority, runtime placement, receipts, and
@@ -99,8 +103,10 @@ clients mirror or submit into that center. IOI inverts that shape:
 ```text
 local edge / runtime work
   -> domain kernel + Agentgres operational truth
-  -> Domain Ontologies and Data Recipes for semantic data truth
-  -> receipts, artifacts, state roots, and settlement mirrors
+  -> Domain Ontologies and Data Recipes for locally canonical semantic meaning
+  -> GoalRuns and OutcomeRooms for bounded individual and collective pursuit
+  -> AIIP for signed, policy-permitted cross-domain work and evidence exchange
+  -> receipts, evidence, verification, artifacts, state roots, and settlement mirrors
   -> sparse public commitments to IOI L1 when registry, settlement, dispute,
      or governance trust is required
 ```
@@ -234,10 +240,21 @@ sas.xyz kernel deployment
 ```text
 ioi.ai kernel deployment
   Agentgres namespace: user_control_plane
-  projections: account runtime profiles, devices, archive refs, restore status, publishing flows, compute entitlement
-  contract sync: account-level entitlement, publication, billing, and settlement refs when applicable
-  storage: sealed archive refs, sync metadata, runtime status pointers
+  objects: Goal Spaces, OutcomeRoom refs, GoalRuns, plans, attempt summaries,
+           cross-session outcome graphs, accounts, devices, archive refs,
+           restore lifecycle, publication state, compute entitlements
+  projections: goal/frontier graph, participants/claims, evidence and replay,
+               account runtime profiles, devices, restore/runtime/sync status
+  contract sync: account/subscription entitlement, publication, Work Credit,
+                 goal-budget, billing, contribution, and settlement refs when applicable
+  storage: sealed archive refs, permitted room artifacts, sync metadata,
+           publication artifacts, receipts, runtime status pointers
 ```
+
+When ioi.ai's domain hosts an OutcomeRoom it may own that room's declared
+ordering/admission state. A federated room still leaves each participant's
+operational truth in its home domain and carries signed permitted refs over
+AIIP; ioi.ai is not a universal room database.
 
 ## Communication Surfaces
 
@@ -335,6 +352,13 @@ It synchronizes with IOI L1 only for:
    optional TUI, SDK, ADK, Workbench, Workflow Compositor, Foundry, and
    Environments views must not bypass domain kernels or daemon
    runtime contracts for canonical work.
+7. A GoalRun, attempt, participant, or room does not receive its own blockchain
+   by default. Deterministic domain admission, branches, signatures, receipts,
+   and replay are sufficient until independent ordering, rights, reputation,
+   dispute, or economic finality requires consensus.
+8. Cross-domain OutcomeRooms must declare hosted or federated admission and
+   retain local Agentgres truth; no shared board or mutable global graph is a
+   domain kernel by implication.
 
 ## One-Line Doctrine
 

@@ -9,7 +9,7 @@ Supersedes: wallet product, swap, trade, risk-center, and route-authority
 language embedded only in prototypes or supporting product notes when it
 conflicts with this file.
 Superseded by: none.
-Last alignment pass: 2026-06-20.
+Last alignment pass: 2026-07-11.
 Doctrine status: canonical
 Implementation status: planned (exchange/trade/prediction product design; SDK candidate-source seams exist, no live exchange or trade surface)
 Last implementation audit: 2026-07-05
@@ -193,7 +193,8 @@ which budgets, call limits, spend limits, and expiry bounds apply
 which actions require review, step-up, or guardian approval
 which auth factors and guardian surfaces secure the account
 which grants, leases, and approval envelopes are active
-which receipts prove what happened
+which declared boundary facts each receipt binds, and what evidence,
+verification, acceptance, or dispute state supports the outcome
 which revocation and emergency-stop actions are available
 ```
 
@@ -1206,7 +1207,7 @@ Org wallets require:
 - separation between operator, approver, auditor, and agent owner.
 
 Org approvals must bind who approved, which role or quorum satisfied policy,
-what changed, and which receipt proves it.
+what changed, and which receipt binds the approval/quorum decision facts.
 
 ## Compliance and Jurisdictional Policy Hooks
 
