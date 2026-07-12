@@ -382,7 +382,11 @@ product pitch or routine onboarding flow.
 - `CollaborativeWorkGraph`: the admitted participant/frontier/claim/attempt/
   finding/evaluation graph of an OutcomeRoom. In ioi.ai it renders as a Goal
   Space workstream; in Hypervisor it renders as Mission detail. Boards, chats,
-  digests, leaderboards, and replay are projections over this graph.
+  digests, leaderboards, and replay are projections over this graph. It is not
+  an unbounded swarm and not a separate runtime: every participant acts under
+  a leased admission, every attempt runs as a bounded GoalRun (whose internal
+  parallelism is that run's `adaptive_work_graph`), and shared state changes
+  only through admitted, receipted transitions.
 - `RoomParticipantLease`: bounded room participation record binding actor,
   operator, home domain, Worker/harness/model/runtime refs, affiliation,
   eligibility evidence, visibility, context/authority/resource/budget leases,
@@ -1606,8 +1610,11 @@ product pitch or routine onboarding flow.
 - `adaptive_work_graph`: the durable runtime name for parallel/delegated work
   graph execution inside a bounded GoalRun. It is not the
   `CollaborativeWorkGraph` of an OutcomeRoom; a room may contain many GoalRuns,
-  each with its own adaptive work graph. `adaptive work graph` is legacy or
-  historical vocabulary only.
+  each with its own adaptive work graph. Neither is an unbounded swarm or a
+  separate runtime: the adaptive work graph stays inside one GoalRun's budget,
+  policy, and receipt envelope, and the room's shared graph is an admitted,
+  leased coordination structure over those bounded runs. `adaptive work graph`
+  is legacy or historical vocabulary only.
 
 ## Audit Terms
 

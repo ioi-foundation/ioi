@@ -295,16 +295,24 @@ read it.
 
 ## Capability Tiering
 
-Connector/tool contracts must separate two tiers:
+Connector/tool contracts must separate two tiers, and the tiers are named as
+distinct contract fields — never flattened back into one capability bag:
 
 - Primitive execution capabilities (`prim:*`) describe runtime feasibility,
-  isolation, and risk boundaries.
-- Authority scopes (`scope:*`) describe wallet/provider admission for a concrete
-  operation or account.
+  isolation, and risk boundaries. On the runtime tool contract this is the
+  `primitive_capabilities` field (serialized in the contract document as
+  `primitive_capabilities_required`).
+- Authority scopes (`scope:*`) describe wallet/provider admission for a
+  concrete operation or account. On the runtime tool contract this is the
+  `authority_scope_requirements` list (serialized as
+  `authority_scopes_required`); a connector action mapping binds one
+  operation's admission as its singular `authority_scope_required`.
 
-The older flattened `capability_*` projection has been removed from the runtime
-tool contract. Compatibility adapters must map explicitly into one of these two
-tiers instead of recreating a generic capability bag.
+The older flattened capability-lease projection field has been removed from
+the runtime tool contract. Compatibility adapters must map explicitly into one
+of these two tiers instead of recreating a generic capability bag; a lease is
+how an authority scope is GRANTED at runtime (the CapabilityLease gateway),
+not a third contract field.
 
 MCP tools, external agent tools, and workflow-as-tool subgraphs must compile to
 the same contract split:
