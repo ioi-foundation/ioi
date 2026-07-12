@@ -34,7 +34,7 @@
 //!   record first, backlink second, receipt third; every failure lane rolls back all earlier
 //!   writes with CHECKED operations and a distinct typed 5xx; no orphan record, no orphan
 //!   backlink, no orphan receipt.
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use axum::extract::{Path as AxumPath, State};
@@ -85,6 +85,12 @@ const UNAVAILABLE_PROPOSER_SCHEMES: &[&str] = &["attempt", "finding", "participa
 const SENSITIVE_KEY_FRAGMENTS: &[&str] = &[
     "password", "secret", "credential", "authorization", "privatekey", "apikey", "token",
 ];
+
+/// Serializes every delta admission's read→bind→backlink→receipt critical section (#71 round 2):
+/// without it, two concurrent admissions read the same WorkResult snapshot and the second
+/// truncating write loses the first's backlink. Held across SYNCHRONOUS file I/O only — no
+/// .await ever executes under this lock.
+static DELTA_ADMISSION_LOCK: Mutex<()> = Mutex::new(());
 
 const REF_MAX: usize = 300;
 const LIST_MAX: usize = 64;
@@ -155,11 +161,16 @@ fn str_opt_bounded(body: &Value, key: &str, max: usize) -> Result<Option<String>
     }
 }
 
-/// Canonical-ref admission for one value: `scheme://tail` with the FIELD's declared schemes, or
-/// one of the field's special non-URI prefixes (`scope:`, `harness_profile:`,
-/// `agent_harness_adapter:`, `encrypted_ref`). A raw string is never a ref.
-fn ref_scheme_ok(v: &str, schemes: &[&str], special_prefixes: &[&str]) -> bool {
-    if special_prefixes.iter().any(|p| v.starts_with(p) && v.len() > p.len()) {
+/// Canonical-ref admission for one value: `scheme://tail` with the FIELD's declared schemes; a
+/// special non-URI PREFIX form (`scope:`, `harness_profile:`, `agent_harness_adapter:` — tail
+/// required); or a special EXACT literal (`encrypted_ref` — the canon's opaque encrypted-payload
+/// marker, which matches EXACTLY: `encrypted_ref<anything>` is a raw string, not a ref). A raw
+/// string is never a ref.
+fn ref_scheme_ok(v: &str, schemes: &[&str], prefixes: &[&str], exacts: &[&str]) -> bool {
+    if exacts.contains(&v) {
+        return true;
+    }
+    if prefixes.iter().any(|p| v.starts_with(p) && v.len() > p.len()) {
         return true;
     }
     match v.split_once("://") {
@@ -168,23 +179,24 @@ fn ref_scheme_ok(v: &str, schemes: &[&str], special_prefixes: &[&str]) -> bool {
     }
 }
 
-fn scheme_err(key: &str, schemes: &[&str], special: &[&str]) -> VErr {
+fn scheme_err(key: &str, schemes: &[&str], prefixes: &[&str], exacts: &[&str]) -> VErr {
     let mut allowed: Vec<String> = schemes.iter().map(|s| format!("{s}://")).collect();
-    allowed.extend(special.iter().map(|p| format!("{p}*")));
+    allowed.extend(prefixes.iter().map(|p| format!("{p}*")));
+    allowed.extend(exacts.iter().map(|e| format!("{e} (exact)")));
     verr("work_result_ref_scheme_invalid", format!("`{key}` must be a canonical ref [{}] — a raw string is never a ref", allowed.join("|")))
 }
 
 /// Field-specific scalar canonical ref: typed, bounded, scheme-validated.
-fn scalar_ref(body: &Value, key: &str, schemes: &[&str], special: &[&str]) -> Result<Option<String>, VErr> {
+fn scalar_ref(body: &Value, key: &str, schemes: &[&str], prefixes: &[&str], exacts: &[&str]) -> Result<Option<String>, VErr> {
     match str_opt_bounded(body, key, REF_MAX)? {
         None => Ok(None),
-        Some(v) if ref_scheme_ok(&v, schemes, special) => Ok(Some(v)),
-        Some(_) => Err(scheme_err(key, schemes, special)),
+        Some(v) if ref_scheme_ok(&v, schemes, prefixes, exacts) => Ok(Some(v)),
+        Some(_) => Err(scheme_err(key, schemes, prefixes, exacts)),
     }
 }
 
 /// Field-specific ref list: typed, bounded, every member scheme-validated; omitted/null → [].
-fn list_ref(body: &Value, key: &str, schemes: &[&str], special: &[&str]) -> Result<Vec<String>, VErr> {
+fn list_ref(body: &Value, key: &str, schemes: &[&str], prefixes: &[&str], exacts: &[&str]) -> Result<Vec<String>, VErr> {
     match body.get(key) {
         None | Some(Value::Null) => Ok(Vec::new()),
         Some(Value::Array(items)) => {
@@ -200,8 +212,8 @@ fn list_ref(body: &Value, key: &str, schemes: &[&str], special: &[&str]) -> Resu
                         if t.chars().count() > REF_MAX {
                             return Err(verr("work_result_field_too_long", format!("a `{key}` member exceeds the bounded length ({REF_MAX} chars)")));
                         }
-                        if !ref_scheme_ok(t, schemes, special) {
-                            return Err(scheme_err(key, schemes, special));
+                        if !ref_scheme_ok(t, schemes, prefixes, exacts) {
+                            return Err(scheme_err(key, schemes, prefixes, exacts));
                         }
                         out.push(t.to_string());
                     }
@@ -292,6 +304,20 @@ fn build_work_result_receipt(record: &Value, now: &str) -> (String, Value) {
         "assurance_note": "admission of a declared result — a receipt is not proof of correctness; verification/acceptance/adjudication/settlement are the ladder rungs above and are NOT implied",
         "verification_ref": Value::Null,
         "acceptance_ref": Value::Null,
+        "claim_scope_ref": Value::Null,
+        "run_id": Value::Null,
+        "task_id": Value::Null,
+        "input_hash": Value::Null,
+        "policy_hash": Value::Null,
+        "authority_grant_id": Value::Null,
+        "primitive_capabilities": [],
+        "authority_scopes": [],
+        "artifact_refs": [],
+        "evidence_bundle_refs": [],
+        "adjudication_ref": Value::Null,
+        "settlement_ref": Value::Null,
+        "signature": Value::Null,
+        "l1_commitment": Value::Null,
         "timestamp": now,
         "outcome": "ok",
         "at": now
@@ -334,11 +360,56 @@ fn build_outcome_delta_receipt(record: &Value, now: &str) -> (String, Value) {
         "assurance_note": "the PROPOSAL record was admitted; the declared effect is NOT admitted, evaluated, or applied — evaluation/admission transitions are build-step-2/3 authority",
         "verification_ref": Value::Null,
         "acceptance_ref": Value::Null,
+        "claim_scope_ref": Value::Null,
+        "run_id": Value::Null,
+        "task_id": Value::Null,
+        "input_hash": Value::Null,
+        "policy_hash": Value::Null,
+        "authority_grant_id": Value::Null,
+        "primitive_capabilities": [],
+        "authority_scopes": [],
+        "artifact_refs": [],
+        "evidence_bundle_refs": [],
+        "adjudication_ref": Value::Null,
+        "settlement_ref": Value::Null,
+        "signature": Value::Null,
+        "l1_commitment": Value::Null,
         "timestamp": now,
         "outcome": "ok",
         "at": now
     });
     (id_tail, rec)
+}
+
+/// ATOMIC FILE REPLACEMENT for the MUTABLE WorkResult record (#71 round 2): a truncating
+/// `fs::write` lets a concurrent reader observe an empty/partial file (the review's false
+/// `outcome_delta_unbound_result` refusals). Writing to a `.tmp-*` sibling (no `.json`
+/// extension — `read_record_dir` only parses `*.json`) and `rename`ing into place is atomic on
+/// the same filesystem, so readers always see a complete record. These families are never
+/// substrate-promoted, so the local write path is the only writer.
+fn persist_result_atomic(data_dir: &str, record_id: &str, record: &Value) -> std::io::Result<()> {
+    let dir = std::path::Path::new(data_dir).join(RESULT_DIR);
+    std::fs::create_dir_all(&dir)?;
+    let safe: String = record_id.replace(|c: char| !c.is_ascii_alphanumeric() && c != '-' && c != '_', "_");
+    let tmp = dir.join(format!(".{safe}.tmp-{:x}", nanos()));
+    std::fs::write(&tmp, serde_json::to_vec_pretty(record).unwrap_or_default())?;
+    std::fs::rename(&tmp, dir.join(format!("{safe}.json")))
+}
+
+/// SURGICAL backlink rollback (#71 round 2): on a receipt failure the rollback re-reads the
+/// CURRENT WorkResult and removes exactly this delta's id from `outcome_delta_refs` — it never
+/// restores a captured snapshot, so a stale snapshot can never clobber another admission's
+/// backlink (belt to the DELTA_ADMISSION_LOCK's braces).
+fn unlink_backlink(data_dir: &str, result_tail: &str, delta_full_id: &str) -> bool {
+    let Some(mut current) = load_by(data_dir, RESULT_DIR, "work_result_id", &format!("work-result://{result_tail}")) else { return false; };
+    let Some(obj) = current.as_object_mut() else { return false; };
+    let refs: Vec<Value> = obj
+        .get("outcome_delta_refs")
+        .and_then(|v| v.as_array())
+        .map(|a| a.iter().filter(|r| r.as_str() != Some(delta_full_id)).cloned().collect())
+        .unwrap_or_default();
+    obj.insert("outcome_delta_refs".into(), Value::Array(refs));
+    persist_result_atomic(data_dir, result_tail, &current).is_ok()
 }
 
 /// Atomic-with-rollback finalization for a standalone record + receipt (results).
@@ -365,22 +436,26 @@ fn finalize_result_persist(
 }
 
 /// Atomic-with-rollback finalization for a delta + its WorkResult BACKLINK + receipt (#71 review
-/// items 8/12): delta record FIRST, backlink SECOND, receipt THIRD; every failure lane rolls back
-/// all earlier writes with CHECKED operations; distinct typed codes per lane.
+/// items 8/12, hardened in round 2): delta record FIRST, backlink SECOND (ATOMIC file
+/// replacement — readers never observe a torn record), receipt THIRD; every failure lane rolls
+/// back all earlier writes with CHECKED operations and distinct typed codes. The receipt-failure
+/// rollback is SURGICAL — it re-reads the current result and removes exactly this delta's id, so
+/// it can never restore a stale snapshot over another admission's success. Callers hold
+/// DELTA_ADMISSION_LOCK across resolution → finalization.
 fn finalize_delta_persist(
     data_dir: &str,
     delta_id: &str,
     delta: &Value,
     result_id: &str,
-    prior_result: &Value,
     updated_result: &Value,
     receipt_id: &str,
     receipt: &Value,
 ) -> Result<(), VErr> {
+    let delta_full_id = format!("outcome-delta://{delta_id}");
     if let Err(e) = persist_record(data_dir, DELTA_DIR, delta_id, delta) {
         return Err(verr("outcome_delta_record_persist_failed", format!("delta record persist failed ({e}) — nothing changed")));
     }
-    if let Err(e) = persist_record(data_dir, RESULT_DIR, result_id, updated_result) {
+    if let Err(e) = persist_result_atomic(data_dir, result_id, updated_result) {
         return if remove_record(data_dir, DELTA_DIR, delta_id) {
             Err(verr("outcome_delta_backlink_persist_failed", format!("work-result backlink persist failed ({e}); the delta record was rolled back — nothing changed")))
         } else {
@@ -390,12 +465,12 @@ fn finalize_delta_persist(
     match persist_record(data_dir, DELTA_RECEIPT_DIR, receipt_id, receipt) {
         Ok(()) => Ok(()),
         Err(e) => {
-            let restored = persist_record(data_dir, RESULT_DIR, result_id, prior_result).is_ok();
+            let unlinked = unlink_backlink(data_dir, result_id, &delta_full_id);
             let removed = remove_record(data_dir, DELTA_DIR, delta_id);
-            if restored && removed {
-                Err(verr("outcome_delta_receipt_persist_failed", format!("delta receipt persist failed ({e}); the delta and the work-result backlink were rolled back — nothing changed")))
+            if unlinked && removed {
+                Err(verr("outcome_delta_receipt_persist_failed", format!("delta receipt persist failed ({e}); the delta and its backlink were rolled back surgically — nothing changed")))
             } else {
-                Err(verr("outcome_delta_rollback_failed", format!("delta receipt persist failed ({e}) AND rollback was incomplete (backlink restored: {restored}, delta removed: {removed}) — manual repair required for '{delta_id}'")))
+                Err(verr("outcome_delta_rollback_failed", format!("delta receipt persist failed ({e}) AND rollback was incomplete (backlink unlinked: {unlinked}, delta removed: {removed}) — manual repair required for '{delta_id}'")))
             }
         }
     }
@@ -410,7 +485,7 @@ fn validate_work_result(
     reject_sensitive_keys(body, "")?;
     // goal_ref is a canonical goal:// identity (never a raw string).
     let goal_ref = match str_opt_bounded(body, "goal_ref", REF_MAX)? {
-        Some(g) if ref_scheme_ok(&g, &["goal"], &[]) => g,
+        Some(g) if ref_scheme_ok(&g, &["goal"], &[], &[]) => g,
         Some(_) => return Err(verr("work_result_goal_ref_invalid", "`goal_ref` must be a canonical goal:// identity")),
         None => return Err(verr("work_result_goal_ref_required", "A WorkResult requires `goal_ref` — every result is goal-shaped work.")),
     };
@@ -452,7 +527,7 @@ fn validate_work_result(
         Some(_) => return Err(verr("work_result_field_type_invalid", "`uncertainty` must be a number, string, or object when present")),
     };
     // supersedes_work_result_ref: only a resolvable SAME-GOAL work-result (item 6).
-    let supersedes = match scalar_ref(body, "supersedes_work_result_ref", &["work-result"], &[])? {
+    let supersedes = match scalar_ref(body, "supersedes_work_result_ref", &["work-result"], &[], &[])? {
         None => Value::Null,
         Some(r) => {
             let tail = r.strip_prefix("work-result://").unwrap_or("");
@@ -467,37 +542,37 @@ fn validate_work_result(
     let record = json!({
         "schema_version": RESULT_SCHEMA,
         "goal_ref": goal_ref,
-        "goal_run_ref": scalar_ref(body, "goal_run_ref", &["goal"], &[])?,
+        "goal_run_ref": scalar_ref(body, "goal_run_ref", &["goal"], &[], &[])?,
         "outcome_room_ref": Value::Null,
         "work_claim_ref": Value::Null,
         "attempt_ref": Value::Null,
-        "invocation_or_run_ref": scalar_ref(body, "invocation_or_run_ref", &["harness_invocation", "run", "service", "mission"], &[])?,
+        "invocation_or_run_ref": scalar_ref(body, "invocation_or_run_ref", &["harness_invocation", "run", "service", "mission"], &[], &[])?,
         "result_profile": result_profile,
-        "result_profile_ref": scalar_ref(body, "result_profile_ref", &["schema", "profile"], &[])?,
-        "result_payload_ref": scalar_ref(body, "result_payload_ref", &["artifact", "cid"], &["encrypted_ref"])?,
-        "worker_harness_model_runtime_version_refs": list_ref(body, "worker_harness_model_runtime_version_refs", &["worker", "model", "model_route", "runtime", "registry_version"], &["harness_profile:", "agent_harness_adapter:"])?,
-        "declared_method_and_lineage_refs": list_ref(body, "declared_method_and_lineage_refs", &["method", "attempt", "finding", "work-result", "artifact", "trace"], &[])?,
+        "result_profile_ref": scalar_ref(body, "result_profile_ref", &["schema", "profile"], &[], &[])?,
+        "result_payload_ref": scalar_ref(body, "result_payload_ref", &["artifact", "cid"], &[], &["encrypted_ref"])?,
+        "worker_harness_model_runtime_version_refs": list_ref(body, "worker_harness_model_runtime_version_refs", &["worker", "model", "model_route", "runtime", "registry_version"], &["harness_profile:", "agent_harness_adapter:"], &[])?,
+        "declared_method_and_lineage_refs": list_ref(body, "declared_method_and_lineage_refs", &["method", "attempt", "finding", "work-result", "artifact", "trace"], &[], &[])?,
         "outcome_class": outcome_class,
         "status": status,
         "outcome_delta_refs": [],
         "finding_refs": [],
-        "claim_refs": list_ref(body, "claim_refs", &["finding", "ontology-assertion", "evidence"], &[])?,
+        "claim_refs": list_ref(body, "claim_refs", &["finding", "ontology-assertion", "evidence"], &[], &[])?,
         "uncertainty": uncertainty,
-        "supporting_evidence_refs": list_ref(body, "supporting_evidence_refs", &["artifact", "evidence", "receipt", "ledger"], &[])?,
-        "contradicting_evidence_refs": list_ref(body, "contradicting_evidence_refs", &["finding", "ontology-assertion", "evidence", "artifact"], &[])?,
-        "artifact_receipt_and_trace_refs": list_ref(body, "artifact_receipt_and_trace_refs", &["artifact", "receipt", "ledger", "trace"], &[])?,
-        "resource_and_cost_refs": list_ref(body, "resource_and_cost_refs", &["resource-lease", "cost", "quote", "budget", "ledger", "receipt"], &[])?,
-        "authority_and_policy_refs": list_ref(body, "authority_and_policy_refs", &["grant", "policy", "receipt"], &["scope:"])?,
-        "blocker_and_decision_request_refs": list_ref(body, "blocker_and_decision_request_refs", &["blocker", "handoff", "proposal"], &[])?,
-        "verifier_refs": list_ref(body, "verifier_refs", &["verifier_path", "worker", "gate", "receipt"], &[])?,
-        "license_disclosure_retention_and_export_refs": list_ref(body, "license_disclosure_retention_and_export_refs", &["license", "policy", "restricted_view", "receipt"], &[])?,
+        "supporting_evidence_refs": list_ref(body, "supporting_evidence_refs", &["artifact", "evidence", "receipt", "ledger"], &[], &[])?,
+        "contradicting_evidence_refs": list_ref(body, "contradicting_evidence_refs", &["finding", "ontology-assertion", "evidence", "artifact"], &[], &[])?,
+        "artifact_receipt_and_trace_refs": list_ref(body, "artifact_receipt_and_trace_refs", &["artifact", "receipt", "ledger", "trace"], &[], &[])?,
+        "resource_and_cost_refs": list_ref(body, "resource_and_cost_refs", &["resource-lease", "cost", "quote", "budget", "ledger", "receipt"], &[], &[])?,
+        "authority_and_policy_refs": list_ref(body, "authority_and_policy_refs", &["grant", "policy", "receipt"], &["scope:"], &[])?,
+        "blocker_and_decision_request_refs": list_ref(body, "blocker_and_decision_request_refs", &["blocker", "handoff", "proposal"], &[], &[])?,
+        "verifier_refs": list_ref(body, "verifier_refs", &["verifier_path", "worker", "gate", "receipt"], &[], &[])?,
+        "license_disclosure_retention_and_export_refs": list_ref(body, "license_disclosure_retention_and_export_refs", &["license", "policy", "restricted_view", "receipt"], &[], &[])?,
         "reproduction_state": reproduction_state,
-        "reproduction_refs": list_ref(body, "reproduction_refs", &["attempt", "work-result", "evidence", "receipt"], &[])?,
+        "reproduction_refs": list_ref(body, "reproduction_refs", &["attempt", "work-result", "evidence", "receipt"], &[], &[])?,
         "acceptance_ref": Value::Null,
         "challenge_refs": [],
         "supersedes_work_result_ref": supersedes,
         "superseded_by_ref": Value::Null,
-        "summary_ref": scalar_ref(body, "summary_ref", &["message", "artifact"], &[])?,
+        "summary_ref": scalar_ref(body, "summary_ref", &["message", "artifact"], &[], &[])?,
         "next_action": next_action,
         "runtimeTruthSource": "daemon-runtime"
     });
@@ -526,7 +601,7 @@ fn validate_outcome_delta(
         return Err(verr("outcome_delta_receipt_plane_owned", "`admission_receipt_ref` is minted by this plane — it is never accepted from the caller."));
     }
     let goal_ref = match str_opt_bounded(body, "goal_ref", REF_MAX)? {
-        Some(g) if ref_scheme_ok(&g, &["goal"], &[]) => g,
+        Some(g) if ref_scheme_ok(&g, &["goal"], &[], &[]) => g,
         Some(_) => return Err(verr("outcome_delta_goal_ref_invalid", "`goal_ref` must be a canonical goal:// identity")),
         None => return Err(verr("outcome_delta_goal_ref_required", "An OutcomeDelta requires `goal_ref`.")),
     };
@@ -559,7 +634,7 @@ fn validate_outcome_delta(
         Some(t) => t,
         None => return Err(verr("outcome_delta_target_required", format!("`target_ref` is required and must use a canonical scheme [{}]", DELTA_TARGET_SCHEMES.join("|")))),
     };
-    if !ref_scheme_ok(&target_ref, DELTA_TARGET_SCHEMES, &[]) {
+    if !ref_scheme_ok(&target_ref, DELTA_TARGET_SCHEMES, &[], &[]) {
         return Err(verr("outcome_delta_target_scheme_invalid", format!("`target_ref` scheme must be one of [{}]", DELTA_TARGET_SCHEMES.join("|"))));
     }
     let record = json!({
@@ -569,10 +644,10 @@ fn validate_outcome_delta(
         "proposed_by_ref": proposed_by,
         "target_ref": target_ref,
         "delta_kind": delta_kind,
-        "payload_ref": scalar_ref(body, "payload_ref", &["artifact", "patch", "mapping", "state-delta"], &[])?,
-        "precondition_and_invariant_refs": list_ref(body, "precondition_and_invariant_refs", &["policy", "gate", "state"], &[])?,
-        "expected_effect_ref": scalar_ref(body, "expected_effect_ref", &["effect"], &[])?,
-        "verifier_and_acceptance_refs": list_ref(body, "verifier_and_acceptance_refs", &["verifier_path", "rubric", "gate"], &[])?,
+        "payload_ref": scalar_ref(body, "payload_ref", &["artifact", "patch", "mapping", "state-delta"], &[], &[])?,
+        "precondition_and_invariant_refs": list_ref(body, "precondition_and_invariant_refs", &["policy", "gate", "state"], &[], &[])?,
+        "expected_effect_ref": scalar_ref(body, "expected_effect_ref", &["effect"], &[], &[])?,
+        "verifier_and_acceptance_refs": list_ref(body, "verifier_and_acceptance_refs", &["verifier_path", "rubric", "gate"], &[], &[])?,
         "status": "proposed",
         "runtimeTruthSource": "daemon-runtime"
     });
@@ -682,6 +757,10 @@ pub(crate) async fn handle_outcome_delta_create(
 ) -> (StatusCode, Json<Value>) {
     let err400 = |(code, msg): VErr| (StatusCode::BAD_REQUEST, Json(json!({ "error": { "code": code, "message": msg } })));
     let data_dir = st.data_dir.clone();
+    // SERIALIZE the whole read→bind→backlink→receipt critical section (#71 round 2): concurrent
+    // admissions against one WorkResult must each see the previous backlink state. No .await
+    // executes under this lock — the section is synchronous file I/O.
+    let _admission = DELTA_ADMISSION_LOCK.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
     let resolve = |rid: &str| load_by(&data_dir, RESULT_DIR, "work_result_id", &format!("work-result://{rid}"));
     let (mut record, prior_result) = match validate_outcome_delta(&body, &resolve) {
         Ok(r) => r,
@@ -708,7 +787,7 @@ pub(crate) async fn handle_outcome_delta_create(
         obj.insert("outcome_delta_refs".into(), Value::Array(refs));
         obj.insert("updated_at".into(), json!(now));
     }
-    if let Err((code, msg)) = finalize_delta_persist(&st.data_dir, &id_tail, &record, &result_id_tail, &prior_result, &updated_result, &receipt_id, &receipt) {
+    if let Err((code, msg)) = finalize_delta_persist(&st.data_dir, &id_tail, &record, &result_id_tail, &updated_result, &receipt_id, &receipt) {
         return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "error": { "code": code, "message": msg } })));
     }
     (StatusCode::CREATED, Json(json!({ "outcome_delta": record, "outcome_delta_receipt": receipt, "work_result_backlink": { "work_result_id": s(&prior_result, "work_result_id", ""), "outcome_delta_refs_appended": outcome_delta_id } })))
@@ -786,10 +865,18 @@ mod work_result_tests {
         let mut b = valid_result_body();
         b["authority_and_policy_refs"] = json!(["scope:gmail.send", "grant://g1"]);
         b["worker_harness_model_runtime_version_refs"] = json!(["harness_profile:codex-local", "agent_harness_adapter:claude-code", "model://m1"]);
-        b["result_payload_ref"] = json!("encrypted_ref:vault-42");
+        b["result_payload_ref"] = json!("encrypted_ref");
         let rec = validate_work_result(&b, &no_resolve).unwrap();
         assert_eq!(rec["authority_and_policy_refs"][0], json!("scope:gmail.send"));
-        assert_eq!(rec["result_payload_ref"], json!("encrypted_ref:vault-42"));
+        assert_eq!(rec["result_payload_ref"], json!("encrypted_ref"));
+        // encrypted_ref matches EXACTLY — any suffix is a raw-value smuggling form (#71 round 2).
+        for smuggle in ["encrypted_refSENTINEL_RAW_MATERIAL", "encrypted_ref:vault-42", "encrypted_ref-x", "xencrypted_ref"] {
+            let mut b = valid_result_body(); b["result_payload_ref"] = json!(smuggle);
+            assert_eq!(validate_work_result(&b, &no_resolve).unwrap_err().0, "work_result_ref_scheme_invalid", "smuggle form: {smuggle:?}");
+        }
+        // Whitespace-padded input TRIMS to the exact literal (normalization, not smuggling).
+        let mut b = valid_result_body(); b["result_payload_ref"] = json!("encrypted_ref ");
+        assert_eq!(validate_work_result(&b, &no_resolve).unwrap()["result_payload_ref"], json!("encrypted_ref"));
         // But a bare special prefix with no tail refuses.
         let mut b = valid_result_body(); b["authority_and_policy_refs"] = json!(["scope:"]);
         assert_eq!(validate_work_result(&b, &no_resolve).unwrap_err().0, "work_result_ref_scheme_invalid");
@@ -885,9 +972,9 @@ mod work_result_tests {
         let mut updated = prior.clone();
         updated["outcome_delta_refs"] = json!(["outcome-delta://od_1"]);
         let (rid, receipt) = build_outcome_delta_receipt(&delta, now);
-        // Receipt dir blocked → delta removed AND the prior backlink state restored.
+        // Receipt dir blocked → delta removed AND the backlink surgically unlinked.
         std::fs::write(dir.join(DELTA_RECEIPT_DIR), b"blocker").unwrap();
-        let (code, msg) = finalize_delta_persist(data_dir, "od_1", &delta, "wr_1", &prior, &updated, &rid, &receipt).unwrap_err();
+        let (code, msg) = finalize_delta_persist(data_dir, "od_1", &delta, "wr_1", &updated, &rid, &receipt).unwrap_err();
         assert_eq!(code, "outcome_delta_receipt_persist_failed");
         assert!(msg.contains("rolled back"), "{msg}");
         assert!(read_record_dir(data_dir, DELTA_DIR).is_empty(), "no unproven delta survives");
@@ -895,12 +982,65 @@ mod work_result_tests {
         assert_eq!(restored["outcome_delta_refs"], json!([]), "the backlink was rolled back");
         std::fs::remove_file(dir.join(DELTA_RECEIPT_DIR)).unwrap();
         // Happy path: delta + backlink + receipt all persist.
-        finalize_delta_persist(data_dir, "od_1", &delta, "wr_1", &prior, &updated, &rid, &receipt).unwrap();
+        finalize_delta_persist(data_dir, "od_1", &delta, "wr_1", &updated, &rid, &receipt).unwrap();
         assert_eq!(read_record_dir(data_dir, DELTA_DIR).len(), 1);
         assert_eq!(read_record_dir(data_dir, DELTA_RECEIPT_DIR).len(), 1);
         let linked = read_record_dir(data_dir, RESULT_DIR).pop().unwrap();
         assert_eq!(linked["outcome_delta_refs"], json!(["outcome-delta://od_1"]), "the backlink landed atomically");
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn receipt_failure_rollback_is_surgical_never_a_stale_snapshot() {
+        // INTERLEAVING LANE (#71 round 2): delta A already landed ([A] on the result). Delta B's
+        // receipt fails. B's rollback must yield [A] — never restore a pre-A snapshot ([]).
+        let dir = temp_dir("interleave");
+        let data_dir = dir.to_str().unwrap();
+        let now = "2026-01-01T00:00:00Z";
+        let with_a = json!({ "work_result_id": "work-result://wr_1", "goal_ref": "goal://a", "outcome_delta_refs": ["outcome-delta://od_A"] });
+        persist_record(data_dir, RESULT_DIR, "wr_1", &with_a).unwrap();
+        let delta_b = json!({ "outcome_delta_id": "outcome-delta://od_B", "goal_ref": "goal://a", "proposed_by_ref": "work-result://wr_1", "status": "proposed" });
+        let mut updated = with_a.clone();
+        updated["outcome_delta_refs"] = json!(["outcome-delta://od_A", "outcome-delta://od_B"]);
+        let (rid, receipt) = build_outcome_delta_receipt(&delta_b, now);
+        std::fs::write(dir.join(DELTA_RECEIPT_DIR), b"blocker").unwrap();
+        let (code, _) = finalize_delta_persist(data_dir, "od_B", &delta_b, "wr_1", &updated, &rid, &receipt).unwrap_err();
+        assert_eq!(code, "outcome_delta_receipt_persist_failed");
+        let after = read_record_dir(data_dir, RESULT_DIR).pop().unwrap();
+        assert_eq!(after["outcome_delta_refs"], json!(["outcome-delta://od_A"]), "surgical rollback removed ONLY od_B — od_A's success survived");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn receipts_carry_the_exact_portable_envelope_key_set() {
+        // Pin the COMPLETE ReceiptEnvelope base (#71 round 2): every canonical base field is
+        // explicitly present (null/[] when unbound) and no key drifts in or out silently.
+        let expected_base = [
+            "schema_version", "receipt_id", "receipt_ref", "receipt_type", "receipt_profile_ref",
+            "actor_id", "subject_ref", "op", "attested_boundary_fact_refs", "bound_facts",
+            "output_hash", "hash_scope_excludes", "assurance_posture", "assurance_note",
+            "verification_ref", "acceptance_ref", "claim_scope_ref", "run_id", "task_id",
+            "input_hash", "policy_hash", "authority_grant_id", "primitive_capabilities",
+            "authority_scopes", "artifact_refs", "evidence_bundle_refs", "adjudication_ref",
+            "settlement_ref", "signature", "l1_commitment", "timestamp", "outcome", "at",
+        ];
+        let (_, wr) = build_work_result_receipt(&json!({ "work_result_id": "work-result://wr_k", "goal_ref": "goal://g", "result_profile": "research", "outcome_class": "positive", "status": "completed" }), "2026-01-01T00:00:00Z");
+        let (_, od) = build_outcome_delta_receipt(&json!({ "outcome_delta_id": "outcome-delta://od_k", "goal_ref": "goal://g", "proposed_by_ref": "work-result://wr_k", "target_ref": "frontier://f", "delta_kind": "update" }), "2026-01-01T00:00:00Z");
+        for (name, rcpt, extra) in [("WorkResultReceipt", &wr, vec![]), ("OutcomeDeltaAdmissionReceipt", &od, vec!["effect_admitted"])] {
+            let mut expected: Vec<&str> = expected_base.to_vec();
+            expected.extend(extra);
+            expected.sort_unstable();
+            let mut actual: Vec<String> = rcpt.as_object().unwrap().keys().cloned().collect();
+            actual.sort_unstable();
+            assert_eq!(actual, expected.iter().map(|k| k.to_string()).collect::<Vec<_>>(), "{name} key set drifted");
+            assert_eq!(rcpt["claim_scope_ref"], Value::Null);
+            assert_eq!(rcpt["primitive_capabilities"], json!([]));
+            assert_eq!(rcpt["authority_scopes"], json!([]));
+            assert_eq!(rcpt["artifact_refs"], json!([]));
+            assert_eq!(rcpt["evidence_bundle_refs"], json!([]));
+            assert_eq!(rcpt["adjudication_ref"], Value::Null);
+            assert_eq!(rcpt["settlement_ref"], Value::Null);
+        }
     }
 
     #[test]

@@ -99,6 +99,13 @@ async function run() {
       ok(`raw/foreign member refused in list ref \`${field}\``, r.status === 400 && r.j.error?.code === "work_result_ref_scheme_invalid");
     }
 
+    // 4b. LIVE LANE (#71 round 2): encrypted_ref is an EXACT literal — the suffix smuggling form
+    // refuses and the raw material persists nowhere.
+    const smuggle = await jd("POST", "/v1/hypervisor/work-results", { goal_ref: "goal://g", result_profile: "research", outcome_class: "positive", status: "completed", result_payload_ref: "encrypted_refSENTINEL_RAW_MATERIAL" });
+    ok("`encrypted_refSENTINEL_RAW_MATERIAL` refuses (exact-literal boundary — no raw-value smuggling)", smuggle.status === 400 && smuggle.j.error?.code === "work_result_ref_scheme_invalid" && !JSON.stringify(smuggle.j).includes("SENTINEL_RAW_MATERIAL"));
+    const exactEnc = await jd("POST", "/v1/hypervisor/work-results", { goal_ref: "goal://enc", result_profile: "custom", outcome_class: "positive", status: "completed", result_payload_ref: "encrypted_ref" });
+    ok("the canonical exact literal `encrypted_ref` admits", exactEnc.status === 201 && exactEnc.j.work_result?.result_payload_ref === "encrypted_ref");
+
     // 5. NO FORGED STATE — future-plane fields return their per-field named codes.
     const FUTURE = [
       ["outcome_room_ref", "outcome-room://r1", "work_result_outcome_room_unavailable"],
@@ -116,7 +123,7 @@ async function run() {
     }
     const ghostSuper = await jd("POST", "/v1/hypervisor/work-results", { goal_ref: "goal://g", result_profile: "research", outcome_class: "positive", status: "completed", supersedes_work_result_ref: "work-result://wr_ghost" });
     ok("ghost supersession refused (must resolve)", ghostSuper.status === 400 && ghostSuper.j.error?.code === "work_result_supersedes_unbound");
-    ok("EVERY refusal above persisted NOTHING (0/0/0/0)", counts() === "0/0/0/0", counts());
+    ok("EVERY refusal above persisted NOTHING (only the one legitimate exact-literal admission: 1/1/0/0)", counts() === "1/1/0/0", counts());
 
     // 6. GENERIC admission — research FIRST with real evidence:// claims (not a finding://
     // placeholder), structured uncertainty, negative outcome, zero software fields.
@@ -138,7 +145,7 @@ async function run() {
       outcome_class: "positive", status: "completed",
     });
     ok("software_implementation is ONE profile via result_payload_ref", software.status === 201 && software.j.work_result?.result_payload_ref === "artifact://implementation-result/run-77");
-    ok("ATOMIC evidence exact: 2 records, 2 receipts", counts() === "2/2/0/0", counts());
+    ok("ATOMIC evidence exact: 3 records, 3 receipts", counts() === "3/3/0/0", counts());
 
     // 7. RECEIPT PROFILES — receipt:// identity, bound facts, recomputable hash.
     const rcpt = research.j.work_result_receipt;
@@ -158,7 +165,7 @@ async function run() {
     ok("future proposer plane → its OWN named gap", futureProp.status === 400 && futureProp.j.error?.code === "outcome_delta_proposer_kind_unavailable");
     const selfStatus = await jd("POST", "/v1/hypervisor/outcome-deltas", { goal_ref: "goal://alpha", delta_kind: "update", target_ref: "frontier://f1", proposed_by_ref: rr.work_result_id, status: "admitted" });
     ok("caller-supplied status → plane-owned refusal", selfStatus.status === 400 && selfStatus.j.error?.code === "outcome_delta_status_plane_owned");
-    ok("every binding refusal persisted NOTHING and mutated NO backlink (still 2/2/0/0)", counts() === "2/2/0/0" && ((await jd("GET", `/v1/hypervisor/work-results/${rr.work_result_id.replace("work-result://", "")}`)).j.work_result.outcome_delta_refs || []).length === 0, counts());
+    ok("every binding refusal persisted NOTHING and mutated NO backlink (still 3/3/0/0)", counts() === "3/3/0/0" && ((await jd("GET", `/v1/hypervisor/work-results/${rr.work_result_id.replace("work-result://", "")}`)).j.work_result.outcome_delta_refs || []).length === 0, counts());
 
     const delta = await jd("POST", "/v1/hypervisor/outcome-deltas", {
       goal_ref: "goal://alpha", delta_kind: "update", target_ref: "frontier://alloy-survey-lane",
@@ -173,7 +180,7 @@ async function run() {
     // 9. THE ATOMIC BACKLINK — exact, registered in the same seam, reported in the response.
     const linked = (await jd("GET", `/v1/hypervisor/work-results/${rr.work_result_id.replace("work-result://", "")}`)).j.work_result;
     ok("the WorkResult backlink is EXACT (outcome_delta_refs === [the new delta id])", JSON.stringify(linked.outcome_delta_refs) === JSON.stringify([dd.outcome_delta_id]) && delta.j.work_result_backlink?.outcome_delta_refs_appended === dd.outcome_delta_id);
-    ok("delta evidence exact: 1 delta record, 1 delta receipt", counts() === "2/2/1/1", counts());
+    ok("delta evidence exact: 1 delta record, 1 delta receipt", counts() === "3/3/1/1", counts());
 
     // 10. OutcomeDeltaAdmissionReceipt — bound facts + effect_admitted:false + hash recompute.
     const drcpt = delta.j.outcome_delta_receipt;
@@ -182,18 +189,41 @@ async function run() {
     const persistedDelta = (await jd("GET", `/v1/hypervisor/outcome-deltas/${dd.outcome_delta_id.replace("outcome-delta://", "")}`)).j.outcome_delta;
     ok("OutcomeDeltaAdmissionReceipt output_hash recomputes EXACTLY from the persisted record minus hash_scope_excludes", recomputeHash(persistedDelta, drcpt.hash_scope_excludes || []) === drcpt.output_hash);
 
-    // 11. Sentinel sweep — the nested secret appears NOWHERE durable: records, receipts, log.
+    // 11. LIVE CONCURRENCY LANE (#71 round 2 — the review's stress probe): parallel delta
+    // admissions against ONE result must preserve EXACT equality among delta records, receipts,
+    // and backlinks — no lost backlinks, no false unbound refusals, no orphans.
+    const stressResult = (await jd("POST", "/v1/hypervisor/work-results", { goal_ref: "goal://stress", result_profile: "research", outcome_class: "positive", status: "completed" })).j.work_result;
+    const preStress = counts();
+    const VALID = 60, INVALID = 12;
+    const fire = [];
+    for (let i = 0; i < VALID; i++) fire.push(jd("POST", "/v1/hypervisor/outcome-deltas", { goal_ref: "goal://stress", delta_kind: "update", target_ref: `frontier://lane-${i}`, proposed_by_ref: stressResult.work_result_id }));
+    for (let i = 0; i < INVALID; i++) fire.push(jd("POST", "/v1/hypervisor/outcome-deltas", i % 2 ? { goal_ref: "goal://other", delta_kind: "update", target_ref: "frontier://x", proposed_by_ref: stressResult.work_result_id } : { goal_ref: "goal://stress", delta_kind: "update", target_ref: "frontier://x", proposed_by_ref: "work-result://wr_ghost" }));
+    const settled = await Promise.all(fire);
+    const okOnes = settled.slice(0, VALID);
+    const badOnes = settled.slice(VALID);
+    ok(`CONCURRENCY: all ${VALID} valid parallel admissions returned 201 (zero false unbound refusals)`, okOnes.every((r) => r.status === 201), okOnes.filter((r) => r.status !== 201).map((r) => r.j.error?.code).slice(0, 3).join(","));
+    ok(`CONCURRENCY: all ${INVALID} invalid parallel requests refused typed (cross-goal / ghost)`, badOnes.every((r) => r.status === 400 && ["outcome_delta_cross_goal", "outcome_delta_unbound_result"].includes(r.j.error?.code)));
+    const admittedIds = okOnes.map((r) => r.j.outcome_delta.outcome_delta_id).sort();
+    const finalStress = (await jd("GET", `/v1/hypervisor/work-results/${stressResult.work_result_id.replace("work-result://", "")}`)).j.work_result;
+    const backlinks = [...(finalStress.outcome_delta_refs || [])].sort();
+    ok(`CONCURRENCY: the backlink set EXACTLY equals the ${VALID} admitted delta ids (no lost updates, no orphans)`, JSON.stringify(backlinks) === JSON.stringify(admittedIds), `${backlinks.length} backlinks vs ${admittedIds.length} admitted`);
+    const allDeltas = (await jd("GET", "/v1/hypervisor/outcome-deltas")).j.outcome_deltas.filter((d) => d.proposed_by_ref === stressResult.work_result_id).map((d) => d.outcome_delta_id).sort();
+    ok("CONCURRENCY: durable delta records EXACTLY equal the admitted set (no orphan deltas)", JSON.stringify(allDeltas) === JSON.stringify(admittedIds));
+    const [r0, rr0, d0, dr0] = preStress.split("/").map(Number);
+    ok("CONCURRENCY: file evidence exact (+60 delta records, +60 delta receipts; results/receipts unchanged beyond the stress fixture)", counts() === `${r0}/${rr0}/${d0 + VALID}/${dr0 + VALID}`, `${preStress} → ${counts()}`);
+
+    // 12. Sentinel sweep — the nested secret appears NOWHERE durable: records, receipts, log.
     const allJson = JSON.stringify([
       (await jd("GET", "/v1/hypervisor/work-results")).j,
       (await jd("GET", "/v1/hypervisor/outcome-deltas")).j,
     ]);
     const daemonLog = (() => { try { return readFileSync(join(dataDir, "isolated-daemon.log"), "utf8"); } catch { return ""; } })();
-    ok("the nested-secret sentinel is absent from every record, receipt, and the daemon log", !allJson.includes("SENTINEL_NESTED_SECRET") && !daemonLog.includes("SENTINEL_NESTED_SECRET") && !allJson.includes("fixture-secret-raw-value"));
+    ok("NO sentinel appears in any record, receipt, or the daemon log (nested secret + raw ref + encrypted_ref smuggle)", !allJson.includes("SENTINEL_NESTED_SECRET") && !daemonLog.includes("SENTINEL_NESTED_SECRET") && !allJson.includes("fixture-secret-raw-value") && !allJson.includes("SENTINEL_RAW_MATERIAL") && !daemonLog.includes("SENTINEL_RAW_MATERIAL"));
   } finally {
     await plane.stop();
   }
 
-  // 12. ISOLATION PROOF.
+  // 13. ISOLATION PROOF.
   const realAfter = await fetch(`${REAL_DAEMON}/v1/hypervisor/work-results`).then((r) => r.json()).catch(() => null);
   const realCountsAfter = FAMILIES.map((f) => receiptFileCount(REAL_DATA_DIR, f));
   ok("REAL daemon work-result plane unchanged", (realBefore === null && realAfter === null) || (realBefore?.work_results || []).length === (realAfter?.work_results || []).length);
