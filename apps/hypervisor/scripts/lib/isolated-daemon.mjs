@@ -102,13 +102,15 @@ export async function startIsolatedPlane({ serve = false, env = {}, dataDir: reu
     for (const c of children) { try { c.kill("SIGTERM"); } catch { /* already gone */ } }
     await new Promise((r) => setTimeout(r, 400));
     for (const c of children) { try { c.kill("SIGKILL"); } catch { /* already gone */ } }
-    try { rmSync(dataDir, { recursive: true, force: true }); } catch { /* best effort */ }
+    // OWNERSHIP (#72 round 6 finding 5): only directories THIS helper created are deleted; a
+    // reused dataDir is caller-owned and survives stop and startup failure alike.
+    if (!reused) { try { rmSync(dataDir, { recursive: true, force: true }); } catch { /* best effort */ } }
   };
-  // Crash cover between spawn and the caller's finally: kill children, drop the temp dir.
+  // Crash cover between spawn and the caller's finally: kill children, drop only OUR temp dir.
   process.on("exit", () => {
     if (stopped) return;
     for (const c of children) { try { c.kill("SIGKILL"); } catch { /* already gone */ } }
-    try { rmSync(dataDir, { recursive: true, force: true }); } catch { /* best effort */ }
+    if (!reused) { try { rmSync(dataDir, { recursive: true, force: true }); } catch { /* best effort */ } }
   });
 
   if (!(await waitFor(`${daemonUrl}/v1/hypervisor/data-sources`))) {

@@ -447,14 +447,21 @@ async function run() {
       const rjd = async (method, p2, body) => { const r = await fetch(`${revived.daemonUrl}${p2}`, { method, headers: { "content-type": "application/json" }, body: body ? JSON.stringify(body) : undefined }); return { status: r.status, j: await r.json().catch(() => ({})) }; };
       const stuck = (await rjd("GET", "/v1/hypervisor/goal-runs/gr_crash")).j.goal_run || {};
       ok("CRASH RESTART: the reservation survived durably (reconciling + token) — no blind expiry, no silent unlock", stuck.status === "reconciling" && !!stuck.lifecycle_op?.token, stuck.status);
+      const crashedRef = stuck.lifecycle_op?.attempt_ref;
       const chall = await rjd("POST", "/v1/hypervisor/goal-runs/gr_crash/lifecycle-recovery", { op_token: stuck.lifecycle_op?.token, resolution: "release" });
       const g = chall.status === 403 ? mintApprovalGrant({ policyHash: chall.j.approval.policy_hash, requestHash: chall.j.approval.request_hash }) : null;
       const rel = g ? await rjd("POST", "/v1/hypervisor/goal-runs/gr_crash/lifecycle-recovery", { op_token: stuck.lifecycle_op?.token, resolution: "release", wallet_approval_grant: g }) : chall;
+      ok("CRASH RECOVERY: the reservation NAMES its attempt; the challenge hash covers reservation + attempt record; the receipt binds the crashed attempt ref AND that hash (#72 r6 finding 2)", String(crashedRef || "").startsWith("reconciliation_result://rc_gr_crash_") && rel.status === 200 && rel.j.recovery_receipt?.attempt_ref === crashedRef && rel.j.recovery_receipt?.failure_hash === chall.j.failure_hash && (rel.j.goal_run?.reconciliation_attempt_refs || []).includes(crashedRef), `${rel.status} attempt=${String(crashedRef).slice(-20)}`);
       const retry = await rjd("POST", "/v1/hypervisor/goal-runs/gr_crash/reconcile", {});
       const allComplete = FILES.every((f) => existsSync(join(cTarget, f)) && readFileSync(join(cTarget, f), "utf8") === CONTENT[f]);
       const attemptRecords = readdirSync(recDir).filter((n) => n.startsWith("rc_gr_crash_"));
-      ok("CRASH RECOVERY: governed release (403 → grant → receipted) then a clean retry lands ALL files; the crashed attempt's record is retained alongside the new one", chall.status === 403 && rel.status === 200 && retry.status === 200 && allComplete && retry.j.goal_run?.status === "complete" && attemptRecords.length === 2, `${chall.status}/${rel.status}/${retry.status} files=${FILES.filter((f) => existsSync(join(cTarget, f))).length}/${FILES.length} attempts=${attemptRecords.length}`);
+      const retryAttempts = retry.j.goal_run?.reconciliation_attempt_refs || [];
+      ok("CRASH RECOVERY: governed release then a clean retry lands ALL files; the GoalRun links BOTH the crashed attempt and the winner (append-only), records retained on disk", chall.status === 403 && rel.status === 200 && retry.status === 200 && allComplete && retry.j.goal_run?.status === "complete" && attemptRecords.length === 2 && retryAttempts.length === 2 && retryAttempts.includes(crashedRef) && retry.j.goal_run?.reconciliation_ref !== crashedRef, `${chall.status}/${rel.status}/${retry.status} files=${FILES.filter((f) => existsSync(join(cTarget, f))).length}/${FILES.length} refs=${retryAttempts.length}`);
+      // OWNERSHIP (#72 round 6 finding 5): a REUSED data dir is caller-owned — stop() must not
+      // delete it (the sentinel and the durable records survive).
+      writeFileSync(join(crash.dataDir, "caller-owned-sentinel"), "OWNED");
       await revived.stop();
+      ok("HELPER OWNERSHIP: stop() on a reused dataDir deletes NOTHING (sentinel + records survive)", existsSync(join(crash.dataDir, "caller-owned-sentinel")) && existsSync(join(crash.dataDir, "goal-runs", "gr_crash.json")));
     } finally {
       try { rmSync(crash.dataDir, { recursive: true, force: true }); } catch { /* best effort */ }
     }
@@ -462,7 +469,35 @@ async function run() {
     ok("CRASH: crash plane started", false, "daemon did not start");
   }
 
-  // 10. SUBSTRATE DUAL-WRITE PARITY (#72 round 3 finding 4): with the soak opted in, the ATOMIC
+  // 10. RECOVERY CRASH-ATOMICITY (#72 round 6 finding 4): a DELIBERATE kill point immediately
+  // after the GoalRun replacement (durable recovery intent) and before receipt persistence —
+  // the boot completer must finish the sealed transaction forward deterministically.
+  const kp = await startIsolatedPlane({ serve: false, env: { IOI_TEST_KILL_AFTER_RECOVERY_INTENT: "1" } });
+  if (kp) {
+    try {
+      const kjd = async (method, p2, body) => { const r = await fetch(`${kp.daemonUrl}${p2}`, { method, headers: { "content-type": "application/json" }, body: body ? JSON.stringify(body) : undefined }); return { status: r.status, j: await r.json().catch(() => ({})) }; };
+      mkdirSync(join(kp.dataDir, "goal-runs"), { recursive: true });
+      writeFileSync(join(kp.dataDir, "goal-runs", "gr_kp.json"), JSON.stringify({ goal_run_id: "gr_kp", schema_version: "ioi.hypervisor.goal-run.v1", normalized_goal: "kill point", status: "reconciling", goal_ref: "goal://gr_kp", lifecycle_op: { op: "reconcile", token: "lop_kp1", reserved_at: "2026-01-01T00:00:00Z", from_status: "active", attempt_ref: "reconciliation_result://rc_gr_kp_lop_kp1" }, created_at: "2026-01-01T00:00:00Z" }));
+      const kch = await kjd("POST", "/v1/hypervisor/goal-runs/gr_kp/lifecycle-recovery", { op_token: "lop_kp1", resolution: "release" });
+      const kg = mintApprovalGrant({ policyHash: kch.j.approval.policy_hash, requestHash: kch.j.approval.request_hash });
+      const killed = await fetch(`${kp.daemonUrl}/v1/hypervisor/goal-runs/gr_kp/lifecycle-recovery`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ op_token: "lop_kp1", resolution: "release", wallet_approval_grant: kg }) }).then((r) => r.status).catch(() => "died");
+      const durable = JSON.parse(readFileSync(join(kp.dataDir, "goal-runs", "gr_kp.json"), "utf8"));
+      const receiptsAtKill = (() => { try { return readdirSync(join(kp.dataDir, "receipts")).filter((n) => n.includes("lifecycle-recovery")); } catch { return []; } })();
+      ok("KILL POINT: the daemon died after the durable intent and before the receipt — reservation intact, receipt sealed INSIDE the intent, no receipt file yet", killed === "died" && durable.status === "reconciling" && !!durable.lifecycle_op && !!durable.recovery_intent?.receipt && receiptsAtKill.length === 0, `resp=${killed} intent=${!!durable.recovery_intent} receipts=${receiptsAtKill.length}`);
+      const kpRevived = await startIsolatedPlane({ serve: false, dataDir: kp.dataDir });
+      const rkjd = async (method, p2, body) => { const r = await fetch(`${kpRevived.daemonUrl}${p2}`, { method, headers: { "content-type": "application/json" }, body: body ? JSON.stringify(body) : undefined }); return { status: r.status, j: await r.json().catch(() => ({})) }; };
+      const after = (await rkjd("GET", "/v1/hypervisor/goal-runs/gr_kp")).j.goal_run || {};
+      const receiptFiles = readdirSync(join(kp.dataDir, "receipts")).filter((n) => n.includes("lifecycle-recovery"));
+      ok("KILL POINT: the boot completer finished FORWARD deterministically — released to from_status, crashed attempt ref RETAINED, sealed receipt persisted, reservation + intent consumed", after.status === "active" && !after.lifecycle_op && !after.recovery_intent && (after.reconciliation_attempt_refs || []).includes("reconciliation_result://rc_gr_kp_lop_kp1") && receiptFiles.length === 1, `${after.status} receipts=${receiptFiles.length}`);
+      await kpRevived.stop();
+    } finally {
+      try { rmSync(kp.dataDir, { recursive: true, force: true }); } catch { /* best effort */ }
+    }
+  } else {
+    ok("KILL POINT: crash plane started", false, "daemon did not start");
+  }
+
+  // 11. SUBSTRATE DUAL-WRITE PARITY (#72 round 3 finding 4): with the soak opted in, the ATOMIC
   // writers — the room mutation writer and the GoalRun seam — feed the substrate dual-write
   // hook exactly like persist_record; the engine's admitted counter proves the hook fired.
   const soak = await startIsolatedPlane({ serve: false, env: { IOI_SUBSTRATE_DUAL_WRITE: "1", IOI_SUBSTRATE_DUAL_WRITE_DOMAINS: "goal-runs,outcome-room-registry" } });
