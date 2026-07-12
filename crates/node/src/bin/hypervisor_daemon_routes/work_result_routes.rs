@@ -392,24 +392,17 @@ fn persist_result_atomic(data_dir: &str, record_id: &str, record: &Value) -> std
     std::fs::create_dir_all(&dir)?;
     let safe: String = record_id.replace(|c: char| !c.is_ascii_alphanumeric() && c != '-' && c != '_', "_");
     let tmp = dir.join(format!(".{safe}.tmp-{:x}", nanos()));
-    std::fs::write(&tmp, serde_json::to_vec_pretty(record).unwrap_or_default())?;
-    std::fs::rename(&tmp, dir.join(format!("{safe}.json")))
-}
-
-/// SURGICAL backlink rollback (#71 round 2): on a receipt failure the rollback re-reads the
-/// CURRENT WorkResult and removes exactly this delta's id from `outcome_delta_refs` — it never
-/// restores a captured snapshot, so a stale snapshot can never clobber another admission's
-/// backlink (belt to the DELTA_ADMISSION_LOCK's braces).
-fn unlink_backlink(data_dir: &str, result_tail: &str, delta_full_id: &str) -> bool {
-    let Some(mut current) = load_by(data_dir, RESULT_DIR, "work_result_id", &format!("work-result://{result_tail}")) else { return false; };
-    let Some(obj) = current.as_object_mut() else { return false; };
-    let refs: Vec<Value> = obj
-        .get("outcome_delta_refs")
-        .and_then(|v| v.as_array())
-        .map(|a| a.iter().filter(|r| r.as_str() != Some(delta_full_id)).cloned().collect())
-        .unwrap_or_default();
-    obj.insert("outcome_delta_refs".into(), Value::Array(refs));
-    persist_result_atomic(data_dir, result_tail, &current).is_ok()
+    // Both failure paths CLEAN UP the temporary sibling (#71 round 3): a leaked .tmp-* is
+    // deliberately invisible to read_record_dir, so it would evade every orphan check.
+    if let Err(e) = std::fs::write(&tmp, serde_json::to_vec_pretty(record).unwrap_or_default()) {
+        let _ = std::fs::remove_file(&tmp);
+        return Err(e);
+    }
+    if let Err(e) = std::fs::rename(&tmp, dir.join(format!("{safe}.json"))) {
+        let _ = std::fs::remove_file(&tmp);
+        return Err(e);
+    }
+    Ok(())
 }
 
 /// Atomic-with-rollback finalization for a standalone record + receipt (results).
@@ -436,22 +429,23 @@ fn finalize_result_persist(
 }
 
 /// Atomic-with-rollback finalization for a delta + its WorkResult BACKLINK + receipt (#71 review
-/// items 8/12, hardened in round 2): delta record FIRST, backlink SECOND (ATOMIC file
-/// replacement — readers never observe a torn record), receipt THIRD; every failure lane rolls
-/// back all earlier writes with CHECKED operations and distinct typed codes. The receipt-failure
-/// rollback is SURGICAL — it re-reads the current result and removes exactly this delta's id, so
-/// it can never restore a stale snapshot over another admission's success. Callers hold
-/// DELTA_ADMISSION_LOCK across resolution → finalization.
+/// items 8/12; rounds 2-3): delta record FIRST, backlink SECOND (ATOMIC file replacement —
+/// readers never observe a torn record), receipt THIRD; every failure lane rolls back all
+/// earlier writes with CHECKED operations and distinct typed codes. The receipt-failure rollback
+/// restores the EXACT prior record — outcome_delta_refs AND updated_at, byte for byte — so a
+/// "nothing changed" refusal leaves no unreceipted state mutation. That exact restore is safe
+/// ONLY because callers hold DELTA_ADMISSION_LOCK across resolution → finalization: `prior` is
+/// read inside the lock, so no other admission's success can be captured stale or clobbered.
 fn finalize_delta_persist(
     data_dir: &str,
     delta_id: &str,
     delta: &Value,
     result_id: &str,
+    prior_result: &Value,
     updated_result: &Value,
     receipt_id: &str,
     receipt: &Value,
 ) -> Result<(), VErr> {
-    let delta_full_id = format!("outcome-delta://{delta_id}");
     if let Err(e) = persist_record(data_dir, DELTA_DIR, delta_id, delta) {
         return Err(verr("outcome_delta_record_persist_failed", format!("delta record persist failed ({e}) — nothing changed")));
     }
@@ -465,12 +459,12 @@ fn finalize_delta_persist(
     match persist_record(data_dir, DELTA_RECEIPT_DIR, receipt_id, receipt) {
         Ok(()) => Ok(()),
         Err(e) => {
-            let unlinked = unlink_backlink(data_dir, result_id, &delta_full_id);
+            let restored = persist_result_atomic(data_dir, result_id, prior_result).is_ok();
             let removed = remove_record(data_dir, DELTA_DIR, delta_id);
-            if unlinked && removed {
-                Err(verr("outcome_delta_receipt_persist_failed", format!("delta receipt persist failed ({e}); the delta and its backlink were rolled back surgically — nothing changed")))
+            if restored && removed {
+                Err(verr("outcome_delta_receipt_persist_failed", format!("delta receipt persist failed ({e}); the delta was rolled back and the work-result restored EXACTLY (refs + updated_at) — nothing changed")))
             } else {
-                Err(verr("outcome_delta_rollback_failed", format!("delta receipt persist failed ({e}) AND rollback was incomplete (backlink unlinked: {unlinked}, delta removed: {removed}) — manual repair required for '{delta_id}'")))
+                Err(verr("outcome_delta_rollback_failed", format!("delta receipt persist failed ({e}) AND rollback was incomplete (prior restored: {restored}, delta removed: {removed}) — manual repair required for '{delta_id}'")))
             }
         }
     }
@@ -787,7 +781,7 @@ pub(crate) async fn handle_outcome_delta_create(
         obj.insert("outcome_delta_refs".into(), Value::Array(refs));
         obj.insert("updated_at".into(), json!(now));
     }
-    if let Err((code, msg)) = finalize_delta_persist(&st.data_dir, &id_tail, &record, &result_id_tail, &updated_result, &receipt_id, &receipt) {
+    if let Err((code, msg)) = finalize_delta_persist(&st.data_dir, &id_tail, &record, &result_id_tail, &prior_result, &updated_result, &receipt_id, &receipt) {
         return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "error": { "code": code, "message": msg } })));
     }
     (StatusCode::CREATED, Json(json!({ "outcome_delta": record, "outcome_delta_receipt": receipt, "work_result_backlink": { "work_result_id": s(&prior_result, "work_result_id", ""), "outcome_delta_refs_appended": outcome_delta_id } })))
@@ -972,17 +966,17 @@ mod work_result_tests {
         let mut updated = prior.clone();
         updated["outcome_delta_refs"] = json!(["outcome-delta://od_1"]);
         let (rid, receipt) = build_outcome_delta_receipt(&delta, now);
-        // Receipt dir blocked → delta removed AND the backlink surgically unlinked.
+        // Receipt dir blocked → delta removed AND the WorkResult restored BYTE-FOR-BYTE.
         std::fs::write(dir.join(DELTA_RECEIPT_DIR), b"blocker").unwrap();
-        let (code, msg) = finalize_delta_persist(data_dir, "od_1", &delta, "wr_1", &updated, &rid, &receipt).unwrap_err();
+        let (code, msg) = finalize_delta_persist(data_dir, "od_1", &delta, "wr_1", &prior, &updated, &rid, &receipt).unwrap_err();
         assert_eq!(code, "outcome_delta_receipt_persist_failed");
         assert!(msg.contains("rolled back"), "{msg}");
         assert!(read_record_dir(data_dir, DELTA_DIR).is_empty(), "no unproven delta survives");
         let restored = read_record_dir(data_dir, RESULT_DIR).pop().unwrap();
-        assert_eq!(restored["outcome_delta_refs"], json!([]), "the backlink was rolled back");
+        assert_eq!(serde_json::to_vec(&restored).unwrap(), serde_json::to_vec(&prior).unwrap(), "the WorkResult is byte-for-byte the prior record (refs AND updated_at)");
         std::fs::remove_file(dir.join(DELTA_RECEIPT_DIR)).unwrap();
         // Happy path: delta + backlink + receipt all persist.
-        finalize_delta_persist(data_dir, "od_1", &delta, "wr_1", &updated, &rid, &receipt).unwrap();
+        finalize_delta_persist(data_dir, "od_1", &delta, "wr_1", &prior, &updated, &rid, &receipt).unwrap();
         assert_eq!(read_record_dir(data_dir, DELTA_DIR).len(), 1);
         assert_eq!(read_record_dir(data_dir, DELTA_RECEIPT_DIR).len(), 1);
         let linked = read_record_dir(data_dir, RESULT_DIR).pop().unwrap();
@@ -991,23 +985,63 @@ mod work_result_tests {
     }
 
     #[test]
-    fn receipt_failure_rollback_is_surgical_never_a_stale_snapshot() {
-        // INTERLEAVING LANE (#71 round 2): delta A already landed ([A] on the result). Delta B's
-        // receipt fails. B's rollback must yield [A] — never restore a pre-A snapshot ([]).
+    fn receipt_failure_restores_the_exact_prior_record_including_interleaving() {
+        // INTERLEAVING LANE (#71 rounds 2-3): delta A already landed ([A] on the result, with A's
+        // updated_at). Delta B's receipt fails. B's rollback must restore the prior record
+        // BYTE-FOR-BYTE — [A] survives AND updated_at is A's, not B's (no unreceipted mutation).
+        // `prior` is captured under DELTA_ADMISSION_LOCK in the handler, so it is never stale.
         let dir = temp_dir("interleave");
         let data_dir = dir.to_str().unwrap();
-        let now = "2026-01-01T00:00:00Z";
-        let with_a = json!({ "work_result_id": "work-result://wr_1", "goal_ref": "goal://a", "outcome_delta_refs": ["outcome-delta://od_A"] });
+        let now_b = "2026-01-02T00:00:00Z";
+        let with_a = json!({ "work_result_id": "work-result://wr_1", "goal_ref": "goal://a", "outcome_delta_refs": ["outcome-delta://od_A"], "updated_at": "2026-01-01T11:11:11Z" });
         persist_record(data_dir, RESULT_DIR, "wr_1", &with_a).unwrap();
         let delta_b = json!({ "outcome_delta_id": "outcome-delta://od_B", "goal_ref": "goal://a", "proposed_by_ref": "work-result://wr_1", "status": "proposed" });
         let mut updated = with_a.clone();
         updated["outcome_delta_refs"] = json!(["outcome-delta://od_A", "outcome-delta://od_B"]);
-        let (rid, receipt) = build_outcome_delta_receipt(&delta_b, now);
+        updated["updated_at"] = json!(now_b);
+        let (rid, receipt) = build_outcome_delta_receipt(&delta_b, now_b);
         std::fs::write(dir.join(DELTA_RECEIPT_DIR), b"blocker").unwrap();
-        let (code, _) = finalize_delta_persist(data_dir, "od_B", &delta_b, "wr_1", &updated, &rid, &receipt).unwrap_err();
+        let (code, _) = finalize_delta_persist(data_dir, "od_B", &delta_b, "wr_1", &with_a, &updated, &rid, &receipt).unwrap_err();
         assert_eq!(code, "outcome_delta_receipt_persist_failed");
         let after = read_record_dir(data_dir, RESULT_DIR).pop().unwrap();
-        assert_eq!(after["outcome_delta_refs"], json!(["outcome-delta://od_A"]), "surgical rollback removed ONLY od_B — od_A's success survived");
+        assert_eq!(serde_json::to_vec(&after).unwrap(), serde_json::to_vec(&with_a).unwrap(), "byte-for-byte prior: [A] survives and updated_at is untouched");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn atomic_replacement_cleans_its_temp_file_on_rename_failure() {
+        // #71 round 3: a failed write/rename must leave NO .tmp-* sibling (tmp files are
+        // invisible to read_record_dir, so a leak would evade every orphan sweep).
+        let dir = temp_dir("tmpclean");
+        let data_dir = dir.to_str().unwrap();
+        let record_dir = dir.join(RESULT_DIR);
+        std::fs::create_dir_all(&record_dir).unwrap();
+        // Force RENAME failure: the destination path is a NON-EMPTY DIRECTORY.
+        let dest = record_dir.join("wr_block.json");
+        std::fs::create_dir_all(dest.join("occupied")).unwrap();
+        let err = persist_result_atomic(data_dir, "wr_block", &json!({ "work_result_id": "work-result://wr_block" }));
+        assert!(err.is_err(), "rename onto a non-empty directory must fail");
+        let tmp_leaks: Vec<String> = std::fs::read_dir(&record_dir).unwrap()
+            .filter_map(|e| e.ok())
+            .map(|e| e.file_name().to_string_lossy().into_owned())
+            .filter(|n| n.contains(".tmp-"))
+            .collect();
+        assert!(tmp_leaks.is_empty(), "no temporary artifact survives a failed replacement: {tmp_leaks:?}");
+        // And through the FULL finalize path: the backlink rename fails → delta rolled back,
+        // no tmp, no delta record, no receipt.
+        let delta = json!({ "outcome_delta_id": "outcome-delta://od_t", "goal_ref": "goal://a", "proposed_by_ref": "work-result://wr_block", "status": "proposed" });
+        let prior = json!({ "work_result_id": "work-result://wr_block", "outcome_delta_refs": [] });
+        let (rid, receipt) = build_outcome_delta_receipt(&delta, "2026-01-01T00:00:00Z");
+        let (code, _) = finalize_delta_persist(data_dir, "od_t", &delta, "wr_block", &prior, &prior, &rid, &receipt).unwrap_err();
+        assert_eq!(code, "outcome_delta_backlink_persist_failed");
+        let tmp_leaks2: Vec<String> = std::fs::read_dir(&record_dir).unwrap()
+            .filter_map(|e| e.ok())
+            .map(|e| e.file_name().to_string_lossy().into_owned())
+            .filter(|n| n.contains(".tmp-"))
+            .collect();
+        assert!(tmp_leaks2.is_empty(), "no temporary artifact survives the finalize backlink failure: {tmp_leaks2:?}");
+        assert!(read_record_dir(data_dir, DELTA_DIR).is_empty(), "delta rolled back");
+        assert!(read_record_dir(data_dir, DELTA_RECEIPT_DIR).is_empty(), "no receipt");
         let _ = std::fs::remove_dir_all(&dir);
     }
 

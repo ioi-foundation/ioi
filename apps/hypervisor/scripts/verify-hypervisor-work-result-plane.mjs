@@ -27,7 +27,7 @@
 // Exit 2 = BLOCKED (daemon binary not built).
 
 import { createHash } from "node:crypto";
-import { readFileSync } from "node:fs";
+import { readFileSync, writeFileSync, unlinkSync, chmodSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { startIsolatedPlane, receiptFileCount } from "./lib/isolated-daemon.mjs";
 
@@ -154,6 +154,19 @@ async function run() {
     const persistedResearch = (await jd("GET", `/v1/hypervisor/work-results/${rr.work_result_id.replace("work-result://", "")}`)).j.work_result;
     ok("WorkResultReceipt output_hash recomputes EXACTLY from the persisted record minus hash_scope_excludes", recomputeHash(persistedResearch, rcpt.hash_scope_excludes || []) === rcpt.output_hash, rcpt.output_hash?.slice(0, 24));
 
+    // 7b. LIVE FAILURE INJECTION (#71 round 3): a delta receipt-persist failure must leave the
+    // WorkResult BYTE-FOR-BYTE untouched (refs AND updated_at) and leak no .tmp-* artifact.
+    const tmpLeaks = () => { try { return readdirSync(join(dataDir, "work-result-registry")).filter((n) => n.includes(".tmp-")); } catch { return []; } };
+    const preFailure = canon(persistedResearch);
+    const receiptsDirPath = join(dataDir, "outcome-delta-registry-receipts");
+    writeFileSync(receiptsDirPath, "blocker"); // the receipts DIR does not exist yet — a plain file blocks its creation
+    const injected = await jd("POST", "/v1/hypervisor/outcome-deltas", { goal_ref: "goal://alpha", delta_kind: "update", target_ref: "frontier://injected", proposed_by_ref: rr.work_result_id });
+    ok("injected receipt failure → typed 5xx (outcome_delta_receipt_persist_failed)", injected.status === 500 && injected.j.error?.code === "outcome_delta_receipt_persist_failed", injected.j.error?.code);
+    const afterFailure = (await jd("GET", `/v1/hypervisor/work-results/${rr.work_result_id.replace("work-result://", "")}`)).j.work_result;
+    ok("the WorkResult is BYTE-FOR-BYTE unchanged after the failed admission (refs AND updated_at)", canon(afterFailure) === preFailure);
+    ok("no delta record and NO .tmp-* artifact survives the failure", (await jd("GET", "/v1/hypervisor/outcome-deltas")).j.outcome_deltas.length === 0 && tmpLeaks().length === 0, tmpLeaks().join(","));
+    unlinkSync(receiptsDirPath);
+
     // 8. BINDING INVARIANTS — cross-goal refused with ZERO writes; same-goal binds + backlink.
     const cross = await jd("POST", "/v1/hypervisor/outcome-deltas", { goal_ref: "goal://beta", delta_kind: "update", target_ref: "frontier://f1", proposed_by_ref: rr.work_result_id });
     ok("CROSS-GOAL delta binding refused typed", cross.status === 400 && cross.j.error?.code === "outcome_delta_cross_goal");
@@ -181,6 +194,15 @@ async function run() {
     const linked = (await jd("GET", `/v1/hypervisor/work-results/${rr.work_result_id.replace("work-result://", "")}`)).j.work_result;
     ok("the WorkResult backlink is EXACT (outcome_delta_refs === [the new delta id])", JSON.stringify(linked.outcome_delta_refs) === JSON.stringify([dd.outcome_delta_id]) && delta.j.work_result_backlink?.outcome_delta_refs_appended === dd.outcome_delta_id);
     ok("delta evidence exact: 1 delta record, 1 delta receipt", counts() === "3/3/1/1", counts());
+
+    // 9b. LIVE A-SUCCESS / B-FAILURE INTERLEAVE (#71 round 3): with delta A landed, B's receipt
+    // failure must restore the post-A state byte-for-byte — [A] and A-era updated_at survive.
+    const postA = canon((await jd("GET", `/v1/hypervisor/work-results/${rr.work_result_id.replace("work-result://", "")}`)).j.work_result);
+    chmodSync(receiptsDirPath, 0o555); // the receipts DIR now exists (holds A's receipt) — make it unwritable
+    const bFail = await jd("POST", "/v1/hypervisor/outcome-deltas", { goal_ref: "goal://alpha", delta_kind: "close", target_ref: "frontier://b-lane", proposed_by_ref: rr.work_result_id });
+    chmodSync(receiptsDirPath, 0o755);
+    ok("interleaved B receipt failure → typed 5xx, A's success untouched BYTE-FOR-BYTE", bFail.status === 500 && bFail.j.error?.code === "outcome_delta_receipt_persist_failed" && canon((await jd("GET", `/v1/hypervisor/work-results/${rr.work_result_id.replace("work-result://", "")}`)).j.work_result) === postA);
+    ok("B left no delta record, no receipt, no .tmp-* (still 3/3/1/1)", counts() === "3/3/1/1" && tmpLeaks().length === 0, counts());
 
     // 10. OutcomeDeltaAdmissionReceipt — bound facts + effect_admitted:false + hash recompute.
     const drcpt = delta.j.outcome_delta_receipt;
