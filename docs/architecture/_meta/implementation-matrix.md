@@ -23,7 +23,11 @@ map and remaining terminal blockers), not by this file. The historical
 sprint-lane and model_mount blocker narration formerly embedded here is
 archived at
 [`../_archive/change-ledgers/implementation-matrix-sprint-lane-log.md`](../_archive/change-ledgers/implementation-matrix-sprint-lane-log.md).
-The rows below are the durable concept → owner → form index.
+The rows below are the durable concept → owner → form index. The
+object-level delta for the collaborative-pursuit and federated-ontology leg —
+what the canon requires next versus what code holds today, plus the deferred
+application-UX backlog that replaced the former surface queue — is owned by
+[`canon-to-code-delta.md`](./canon-to-code-delta.md).
 
 Status values:
 

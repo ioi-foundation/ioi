@@ -146,6 +146,42 @@ calls, routine receipts, and local autonomous-system transitions remain local;
 public consensus is used only when independent ordering, rights, reputation,
 dispute, or economic finality creates value.
 
+## The build sequence (contract-first)
+
+The horizons above frame maturity; this is the ORDER work is pulled in. Each
+step is a durable contract with its own conformance proof — application UX
+resumes only when one of these contracts pulls it (see
+[`canon-to-code-delta.md`](./canon-to-code-delta.md) for the object-level
+delta and the deferred UX backlog):
+
+1. Generic `WorkResult` and `OutcomeDelta` — the result envelope beyond
+   software patches, with `ImplementationResultPayload` retained as the
+   software profile.
+2. Hosted `OutcomeRoom` aggregate over GoalRuns — the room record family with
+   declared admission mode; every shared-state transition admitted + receipted.
+3. Participants, offers, frontier, claims, attempts, findings, and challenges —
+   `RoomParticipationRequest`, `RoomParticipantLease`, `ResourceOffer`,
+   `CapabilityOffer`, `WorkFrontierItem`, `WorkClaimLease`, `Attempt`,
+   `Finding`, `VerifierChallenge` as admitted, leased, receipted objects.
+4. Missions projection over that shared graph — the product surface renders
+   the frontier, participants, leases, costs, evidence, and blockers; it owns
+   none of the truth.
+5. Federated ontology versions, assertions, mappings, and action contracts —
+   `OntologyVersion`, `OntologyOverlay`, `OntologyCrosswalk`,
+   `SemanticMappingDecision`, `ProvenanceAssertion`, `OntologyActionContract`
+   as durable envelope profiles.
+6. Single-node collaborative-pursuit proof — Horizon 1's room, end to end, on
+   one node, as a working demonstration.
+7. AIIP discovery, participation, portable exit, and federated admission —
+   `OutcomeRoomDiscovery`, typed participation, `ParticipantStateBundle`, and
+   `hosted_admission`/`federated_admission` semantics across domain boundaries.
+8. Two-sovereign-node conformance proof — Horizon 2's minimum credible
+   Internet-of-Intelligence demonstration.
+
+**Completion is not forced into an arbitrary PR number. Closure is the working
+proof** — a step is done when its conformance evidence exists, and the next
+step starts from that evidence.
+
 ## The rule that keeps this honest
 
 **Architecture detail follows durable contracts; launch claims follow working
@@ -159,4 +195,5 @@ shipped claim.
 
 - [`doc-classes.md`](./doc-classes.md) — the status-axis vocabulary.
 - [`implementation-matrix.md`](./implementation-matrix.md) — per-concept durable-form status.
+- [`canon-to-code-delta.md`](./canon-to-code-delta.md) — the object-level canon-to-code delta and deferred UX backlog.
 - [`../foundations/economic-flywheel-and-pricing-boundaries.md`](../foundations/economic-flywheel-and-pricing-boundaries.md) — what monetizes at each layer.
