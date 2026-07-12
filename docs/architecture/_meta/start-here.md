@@ -129,7 +129,7 @@ Hypervisor App, Hypervisor Web, CLI/headless, optional TUI, SDK, ADK, the
 application suite (Studio with its agent lens, Automations, Ontology, Data,
 Governance, Missions, Provenance, Evaluations, Improvement, Foundry,
 Marketplace, Workbench, Developer Console), the Environments and Operations
-substrate lane, generated domain apps, and Robot Fleets are clients, builder
+substrate lane, generated domain apps, and the named HypervisorOS horizon entry (embodied systems lane; named only) are clients, builder
 surfaces, or projections over the same Core. ODK is the developer kit beneath
 Ontology and Data; the former Work Ledger card converges in Provenance. They do not create private runtime
 truth beside the daemon.

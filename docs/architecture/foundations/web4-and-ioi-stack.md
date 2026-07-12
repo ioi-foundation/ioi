@@ -238,7 +238,7 @@ Client Surfaces
 Hypervisor Application Surfaces
   Studio, Automations, Ontology, Data, Governance, Missions, Provenance, Evaluations, Improvement, Foundry, Marketplace, Workbench, Developer Console,
   plus the Environments and Operations substrate lane, generated domain apps,
-  Robot Fleets / Embodied
+  and the named HypervisorOS horizon entry (embodied systems lane; named only)
 
 Storage Backends
   immutable package, artifact, evidence, receipt, checkpoint, snapshot, sealed archive byte availability
@@ -317,7 +317,7 @@ Execution Nodes           = local/hosted/DePIN/TEE/customer runtime nodes
 Portable Authority Plane  = wallet.network
 Artifact-Ref Plane        = Agentgres artifact refs
 Storage Backends          = local disk, S3/object stores, Filecoin, CAS/IPFS, provider blobs
-Application Surfaces      = Studio, Automations, Ontology, Data, Governance, Missions, Provenance, Evaluations, Improvement, Foundry, Marketplace, Workbench, Developer Console; substrate lane: Environments, Operations; generated domain apps; Robot Fleets / Embodied
+Application Surfaces      = Studio, Automations, Ontology, Data, Governance, Missions, Provenance, Evaluations, Improvement, Foundry, Marketplace, Workbench, Developer Console; substrate lane: Environments, Operations; generated domain apps; the named HypervisorOS horizon entry (embodied systems lane; named only)
 Developer/Operator Clients = Hypervisor App, Hypervisor Web, IOI CLI/headless, optional TUI, @ioi/agent-sdk, IOI ADK, Workbench, Workflow Compositor, harness profiles
 MoW Routing               = worker selection, sparse categories, contribution policy, benchmark eligibility
 ```

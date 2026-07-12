@@ -92,7 +92,7 @@ Client surfaces
 Hypervisor application surfaces
   Studio, Automations, Ontology, Data, Governance, Missions, Provenance, Evaluations, Improvement, Foundry, Marketplace, Workbench, Developer Console,
   plus the Environments and Operations substrate lane, generated domain apps,
-  Robot Fleets / Embodied
+  and the named HypervisorOS horizon entry (embodied systems lane; named only)
   organize the same Core by job-to-be-done without owning runtime truth
 ```
 

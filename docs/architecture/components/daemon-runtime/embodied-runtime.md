@@ -1060,7 +1060,8 @@ Embodied Runtime may appear through:
 
 ```text
 Applications catalog
-  Robot Fleets / Embodied Runtime
+  the named HypervisorOS horizon entry (embodied systems lane; named only
+  today — the Open Application surfaces below are target-state design)
 
 Open Application
   fleet overview, controller health, map/zone view, telemetry, command queue,

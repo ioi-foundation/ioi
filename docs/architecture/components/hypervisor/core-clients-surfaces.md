@@ -767,7 +767,7 @@ shell is owned by ADOPTION, not recreation, so no "current version vs
 recreated version" gap exists for discrepancies to hide in. The running
 bundle is vendored as an editable source tree
 (`apps/hypervisor/product-ui/owned/public`, built by
-`scripts/vendor-product-ui.mjs`: app chunks beautified, third-party
+`apps/hypervisor/scripts/vendor-product-ui.mjs`: app chunks beautified, third-party
 `vendor-*.js` verbatim, hand edits preserved as recorded owned-edits) and the
 live estate serves from it (`IOI_PRODUCT_UI_PUBLIC`). Every ownership step is
 gated by the shell-parity oracle (`verify-hypervisor-shell-parity.mjs`, 6
@@ -973,7 +973,7 @@ picker, placement preview) — one daemon-backed launch lane, no forked truth.
 Implementation status: live — Home is an owned EXPLORER rendered over the
 shell at `/ai` (the rail's Home destination and default view), built from the
 shell's own design tokens (`renderExplorer`/`applyAiViews` in
-`apps/hypervisor/scripts/ioi-augmentation.js`, owns no truth): welcome hero
+`apps/hypervisor/scripts/augmentation/` (modular `00-core.js`…`80-automations.js`), owns no truth): welcome hero
 with a live summary; get-started actions (New Session / Applications /
 Automations); first-class governed-work rows (approvals waiting, runs parked
 at a wallet gate incl. `awaiting_authority_*` failover runs, failed runs —
@@ -1053,8 +1053,8 @@ creates, inspects, modifies, or governs Projects, Automations, Sessions,
 Agents, Workers, Models, Environments, surface descriptors, generated apps,
 integrations, Governance, Missions, Provenance, Marketplace, or other domain
 objects. Older family labels such as `Providers / Environments`,
-`Connections`, `Connectors / Tools / MCP`, `Data / Knowledge`, `Ontology`,
-`Workshop`, `Domain Blueprints`, `Authority / Govern`, `Release Controls`,
+`Connections`, `Connectors / Tools / MCP`, `Data / Knowledge`,
+`Ontology Studio`, `Workshop`, `Domain Blueprints`, `Authority / Govern`, `Release Controls`,
 `Resource Management`, `Operations Center`, `Learning Center`, and
 `Receipts / Replay` remain aliases or facets for those product surfaces.
 
@@ -1235,7 +1235,7 @@ Each mode should be classified under an owning suite surface, such as
 Studio, Automations, Ontology, Data, Governance, Missions, Provenance, Evaluations,
 Improvement, Foundry, Marketplace, Projects / Workbench, Developer Console, or
 the substrate lane (Environments, Operations). Older family labels such as
-`Data / Knowledge`, `Ontology`,
+`Data / Knowledge`, `Ontology Studio`,
 `Workshop`, `Domain Blueprints`, `Providers / Environments`,
 `Release Controls`, `Resource Management`, `Authority / Govern`,
 `Receipts / Replay`, and `Patterns / Examples / Training` are aliases or

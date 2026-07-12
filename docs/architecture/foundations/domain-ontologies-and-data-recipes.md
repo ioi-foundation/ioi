@@ -288,7 +288,7 @@ memory and knowledge refs
 freshness, lineage, quality, and access posture
 ```
 
-The ODK ontology facet owns product-level views for:
+The Ontology application owns product-level views for:
 
 ```text
 domain ontologies

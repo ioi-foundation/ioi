@@ -263,7 +263,7 @@ synchronized.
 - The Hypervisor application suite — Studio, Automations, Ontology, Data,
   Governance, Missions, Provenance, Evaluations, Improvement, Foundry,
   Marketplace, Workbench, and Developer Console — plus the Environments and
-  Operations substrate lane and roadmap Robot Fleets / Embodied are
+  Operations substrate lane and the named HypervisorOS horizon entry (embodied systems lane; named only) are
   application surfaces over Hypervisor Core, not runtime-truth owners. Agent
   Studio is Studio's agent lens, not a separate application; ODK is the
   developer kit whose artifacts surface through Ontology, Data, and Developer
@@ -408,8 +408,9 @@ applicable;
   eval packs, worker/package skeletons, and marketplace-ready ontology packs,
   but it is not a runtime, truth store, authority layer, data warehouse,
   training-consent owner, marketplace, or settlement layer;
-- Connectors / Tools / MCP is a first-party Hypervisor surface over the
-  authority-aware registry; MCP servers, external agent tools, and
+- Connectors / Tools / MCP is Developer Console's facet over the
+  authority-aware registry (a legacy family label, not a separate
+  application); MCP servers, external agent tools, and
   workflow-as-tool subgraphs must compile to RuntimeToolContract, primitive
   capabilities, authority scopes, policy decisions, and receipt obligations;
   the Hypervisor Operator Plane may consume those contracts, while child
@@ -500,9 +501,10 @@ applicable;
   plane, provider account owner, VM lifecycle owner, authority layer, restore
   truth layer, storage custody owner, or trust root;
 - Hypervisor has direct provider integrations for cloud compute, storage,
-  GPUs, confidential compute, DePIN, local machines, customer cloud,
-  enterprise infrastructure, decentralized storage, and user-specified
-  provider routes;
+  GPUs, DePIN, local machines, customer cloud, enterprise infrastructure,
+  decentralized storage, and user-specified provider routes; confidential
+  compute / cTEE lanes remain speculative design, not a shipped provider
+  kind;
 - aiagent.xyz is the capability market for benchmarked, installable,
   attributable autonomous capability. It is the discovery, procurement,
   installation, initialization, and routing layer for ontology-bound digital

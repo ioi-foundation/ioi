@@ -26,9 +26,11 @@ decisions, and receipts.
 
 ## Product Surface Doctrine
 
-`Connectors / Tools / MCP` is a first-party Hypervisor Application surface over
-this registry. It belongs in the Applications catalog and may render as the
-singular Open Application when active.
+`Connectors / Tools / MCP` is Developer Console's registry facet — a legacy
+family label that maps to the Developer Console application (the alias
+authority in `_meta/vocabulary.md`), never a separate catalog card. It
+reaches the Applications catalog through Developer Console and renders inside
+the singular Open Application slot when Developer Console is active.
 
 The surface may expose:
 

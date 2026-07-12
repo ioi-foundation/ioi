@@ -5,11 +5,11 @@ Canonical intent: resolve the current Hypervisor daemon and Rust/WASM kernel/wor
 Primary owner candidate: architecture meta until promoted into component canon.
 Last alignment pass: 2026-07-11.
 Doctrine status: canonical
-Implementation status: partial (migration in flight; route-family state in the migration matrix)
+Implementation status: partial (the JS runtime daemon was retired and deleted 2026-06-23 — `1b68cca12`; Part I's split-brain evidence is preserved as PRE-RETIREMENT history; remaining route-family state in the migration matrix)
 Implementation refs:
   - `crates/node/src/bin/hypervisor-daemon.rs`
   - `crates/node/src/bin/hypervisor_daemon_routes/`
-Last implementation audit: 2026-07-05
+Last implementation audit: 2026-07-12
 Last pruning alignment: 2026-06-12. The migration matrix is now a compact macro
 ledger; future guide updates should steer macro authority cuts instead of
 per-slice evidence accumulation.
@@ -192,16 +192,16 @@ The repo already contains a serious Rust kernel/workload substrate:
 | Agentic runtime kernel | `crates/services/src/agentic/runtime/kernel/*` defines shared bounded-runtime primitives, invocation envelopes, policy, capability, evidence, trace, settlement, and profile checks. | There is already Rust-side language for governed agent invocations. |
 | Harness projection adapter | `crates/services/src/agentic/runtime/harness.rs` says it lifts runtime kernels into stable workflow-addressable component frames and does not replace the live runtime executor. | This is a direct bridge hint: projection exists before full live execution migration. |
 
-The repo also contains extensive product-facing Hypervisor daemon infrastructure:
+At the time of the split-brain analysis the repo also contained extensive product-facing JS daemon infrastructure — since DELETED (2026-06-23, `1b68cca12`; the Rust daemon is the single runtime surface). Preserved as historical rationale:
 
 | Area | Current evidence | Architectural meaning |
 | --- | --- | --- |
-| Node daemon package | `packages/runtime-daemon/package.json` is `@ioi/runtime-daemon`, ESM, Node >= 18. | The live product daemon is still Node/JS. |
-| HTTP daemon service | `packages/runtime-daemon/src/service/runtime-daemon-service.mjs` creates an HTTP server and local state dir under `.ioi/agentgres`. | Product runtime control is currently HTTP/JS, not native workload IPC by default. |
-| Tool dispatch | `packages/runtime-daemon/src/coding-tools.mjs` dispatches coding tools through JS functions such as `workspace.status`, `git.diff`, `file.apply_patch`, `test.run`, and `lsp.diagnostics`. | The live coding-agent step path is direct daemon-native JS tool execution. |
+| Node daemon package | `packages/runtime-daemon/package.json` is `@ioi/runtime-daemon`, ESM, Node >= 18. | The live product daemon was still Node/JS at analysis time (retired 2026-06-23). |
+| HTTP daemon service | `packages/runtime-daemon/src/service/runtime-daemon-service.mjs` creates an HTTP server and local state dir under `.ioi/agentgres`. | Product runtime control was then HTTP/JS, not native workload IPC by default (retired). |
+| Tool dispatch | `packages/runtime-daemon/src/coding-tools.mjs` dispatches coding tools through JS functions such as `workspace.status`, `git.diff`, `file.apply_patch`, `test.run`, and `lsp.diagnostics`. | The then-live coding-agent step path was direct daemon-native JS tool execution (retired). |
 | Approval routes | `packages/runtime-daemon/src/runtime-route-handlers.mjs` exposes thread approvals, tool invocation, events, replay, trace, and inspect routes. | The daemon owns product UX/control surfaces. |
 | Runtime event envelopes | `packages/runtime-daemon/src/runtime-event-envelopes.mjs` maps runtime events into workflow-node, component-kind, receipt-ref, artifact-ref, policy-ref projections. | The daemon already has the projection vocabulary needed by the IDE. |
-| Model mounting | `packages/runtime-daemon/src/model-mounting/*` stores model artifacts, routes, providers, instances, vault refs, receipts, and projections. | Model mounting is currently product-daemon state, with Agentgres-like receipt/operation hooks. |
+| Model mounting | `packages/runtime-daemon/src/model-mounting/*` stores model artifacts, routes, providers, instances, vault refs, receipts, and projections. | Model mounting was then product-daemon state, with Agentgres-like receipt/operation hooks (retired; Rust owns it now). |
 | Retired runtime-service command bridge | The old JS RuntimeAgentService command adapter, `RuntimeApiBridge` adapter surface, `runtime-api-bridge.mjs` module, `ioi-runtime-bridge` binary, bridge env policy overrides, and deleted runtime-service helper are retired. The daemon rejects `runtimeBridge` options. | Runtime-service execution must return through stable Rust daemon-core protocol/API ownership, not a revived Node command/env or binary bridge. |
 
 The architecture docs already name the intended boundaries:

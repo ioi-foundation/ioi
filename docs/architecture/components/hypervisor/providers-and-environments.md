@@ -1254,8 +1254,8 @@ The Change Plane does not replace local surface ownership:
 Environments
   runtime environment lifecycle and provider placement evidence
 
-Operations
-  execution queue, run, retry, failure, and build state
+Missions
+  running-system execution queue, run, retry, failure, and build workstreams
 
 Operations resource facet
   quota, queue, capacity, rate-limit, utilization, and spend posture

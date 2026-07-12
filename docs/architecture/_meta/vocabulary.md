@@ -790,8 +790,8 @@ product pitch or routine onboarding flow.
   Studio), Automations, Ontology, Data, Governance, Missions, Provenance
   (the former Work Ledger card), Evaluations, Improvement, Foundry,
   Marketplace, Workbench, Developer Console — plus the Environments and
-  Operations substrate lane, generated domain apps, roadmap Robot Fleets /
-  Embodied, and other application surfaces.
+  Operations substrate lane, generated domain apps, the named HypervisorOS horizon entry (embodied systems lane; named only),
+  and other application surfaces.
 - `HypervisorWeb`: the browser/team/remote client over Hypervisor Core. It may
   host web/operator/team versions of the same application surfaces while using
   the same daemon, authority, Agentgres, session, receipt, and adapter
@@ -820,7 +820,7 @@ product pitch or routine onboarding flow.
   such as Studio, Automations, Ontology, Data, Governance, Missions,
   Provenance, Evaluations, Improvement, Foundry, Marketplace, Workbench,
   Developer Console, the Environments and Operations substrate lane, or
-  roadmap Robot Fleets / Embodied. Provider/environment posture may appear
+  the named HypervisorOS horizon entry (embodied systems lane; named only). Provider/environment posture may appear
   through the Applications catalog, Open Application, session, project,
   provider, org/admin, or operator-console views, not through a standalone
   provider-management product. Application surfaces are not separate apps with

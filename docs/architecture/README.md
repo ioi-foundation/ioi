@@ -68,7 +68,8 @@ requires them.
 Product and collaboration
   ioi.ai Goal Space
   Hypervisor App / Web / CLI-headless / optional TUI
-  Studio / Automations / Ontology / Data / Missions / Provenance / Foundry / Workbench
+  Studio / Automations / Ontology / Data / Governance / Missions / Provenance /
+  Evaluations / Improvement / Foundry / Marketplace / Workbench / Developer Console
   aiagent.xyz / sas.xyz / wallet.network
 
 Shared pursuit
