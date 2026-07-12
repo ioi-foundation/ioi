@@ -409,6 +409,16 @@ pub(crate) async fn handle_session_open(State(st): State<Arc<DaemonState>>, Axum
     }
 }
 
+/// Session-release wording (honesty correction #67) — conditioned on the tied run's REAL status:
+/// after execution the registered batch stands; before it, nothing was registered.
+pub(crate) fn session_release_summary(gateway_lease_id: &str, run_executed: bool) -> String {
+    if run_executed {
+        format!("sealed session {gateway_lease_id} released after execution — the registered batch stands")
+    } else {
+        format!("sealed session {gateway_lease_id} released before execution — no batch was registered under it")
+    }
+}
+
 /// POST /:id/release — receipted release (terminal for this session).
 pub(crate) async fn handle_session_release(State(st): State<Arc<DaemonState>>, AxumPath(id): AxumPath<String>) -> (StatusCode, Json<Value>) {
     let Some(mut record) = load_session(&st.data_dir, &id) else {
@@ -418,7 +428,13 @@ pub(crate) async fn handle_session_release(State(st): State<Arc<DaemonState>>, A
         return (StatusCode::BAD_REQUEST, Json(json!({ "ok": false, "error": { "code": "session_nothing_to_release", "message": "the session is not open" } })));
     }
     let slid = record.pointer("/session/gateway_lease_id").and_then(|v| v.as_str()).unwrap_or("").to_string();
-    let receipt = session_receipt(&st.data_dir, &s(&record, "ref", ""), "session_released", "ok", &format!("sealed session {slid} released (never used — no execution exists)"));
+    // Honesty correction (#67): the tied run may already have executed under this session —
+    // check the run's real status instead of an unconditional stale capability claim.
+    let run_executed = record.get("materializing_run_id").and_then(|v| v.as_str())
+        .and_then(|rid| find_by_key(&st.data_dir, crate::materializing_run_routes::RECORD_DIR, "id", rid))
+        .map(|r| s(&r, "status", "") == "executed")
+        .unwrap_or(false);
+    let receipt = session_receipt(&st.data_dir, &s(&record, "ref", ""), "session_released", "ok", &session_release_summary(&slid, run_executed));
     record["status"] = json!("session_released");
     record["session"]["obtained"] = json!(false);
     record["session"]["released_at"] = json!(iso_now());
@@ -489,6 +505,16 @@ mod connector_session_tests {
     fn lifecycle_and_missing_authority_are_explicit() {
         assert_eq!(LIFECYCLE_STATES, &["requested", "session_obtained", "session_released", "cancelled"]);
         assert_eq!(MISSING_AUTHORITY, &["ConnectorExecution", "MaterializedRows"]);
+    }
+
+    #[test]
+    fn session_release_wording_is_honest_about_execution() {
+        let pre = session_release_summary("lease_x", false);
+        assert!(pre.contains("released before execution"), "{pre}");
+        let post = session_release_summary("lease_x", true);
+        assert!(post.contains("released after execution"), "{post}");
+        assert!(post.contains("registered batch stands"), "{post}");
+        assert!(!pre.contains("no execution exists") && !post.contains("no execution exists"));
     }
 
     #[test]

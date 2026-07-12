@@ -8,7 +8,7 @@
 //   as the env exists and the run is registered; the harness runs async and this registry
 //   tracks status + transcript + changed files for GetAgentExecution / ListAgentExecutions
 //   and the conversation stream. The daemon EXECUTES; this is an app-side view of its run.
-import { mintApprovalGrant } from "../../../scripts/lib/mint-approval-grant.mjs";
+import { mintTestGrant } from "./lib/wallet-authority.mjs";
 import { daemonEnvToIOI } from "./ioi-projection.mjs";
 import { join } from "node:path";
 
@@ -440,8 +440,12 @@ export async function publishRunViaConnector(runId, connectorId) {
     bump(run, `Publish blocked: ${challenge.body?.reason || challenge.status}`);
     return { ok: false, reason: challenge.body?.reason || `publish challenge failed (${challenge.status})` };
   }
+  const grant = await mintTestGrant({ policyHash, requestHash }).catch(() => null);
+  if (!grant) {
+    bump(run, "Publish parked: awaiting wallet authority — no signer is attached (dev test signer only under IOI_WALLET_TEST_SIGNER=1)");
+    return { ok: false, reason: "awaiting_wallet_authority", approval: { policy_hash: policyHash, request_hash: requestHash } };
+  }
   bump(run, "Authorizing publish (wallet grant)…");
-  const grant = mintApprovalGrant({ policyHash, requestHash });
   const pub = await dj("POST", path, { connector_id: cid, title, wallet_approval_grant: grant });
   if (pub.status !== 200 || !pub.body?.ok) {
     bump(run, `Publish failed: ${pub.body?.reason || pub.status}`);
@@ -465,8 +469,14 @@ async function executeRun(run, base, dj) {
       finalize(run, challenge);
       return;
     }
+    const grant = await mintTestGrant({ policyHash, requestHash }).catch(() => null);
+    if (!grant) {
+      run.status = "awaiting_wallet_authority";
+      run.authority = { policyHash, requestHash, grantId: null, expiresAt: null, mintedAt: null };
+      bump(run, "Run parked: awaiting wallet authority — no signer is attached (dev test signer only under IOI_WALLET_TEST_SIGNER=1)");
+      return;
+    }
     bump(run, "Authorizing run (wallet grant)…");
-    const grant = mintApprovalGrant({ policyHash, requestHash });
     // Record the authority proof on the run (hashes + grant identity only — never the secret) so the
     // owned Run Timeline can surface the governed-work authority crossing.
     run.authority = {

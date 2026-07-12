@@ -39,6 +39,13 @@ const RUN_RECEIPT_DIR: &str = "odk-materializing-run-receipts";
 /// v1 allowlist: exactly one read-only adapter path.
 const SUPPORTED_EXECUTION_KINDS: &[&str] = &["rest_api"];
 const MAX_BATCH_LIMIT: u64 = 500;
+
+/// Honesty correction (#67): a run that has EXECUTED no longer misses ConnectorExecution /
+/// MaterializedRows — clearing the pre-execution claim keeps records (and every surface that
+/// renders missing_authority as a warning) truthful.
+pub(crate) fn clear_missing_authority(record: &mut Value) {
+    record["missing_authority"] = json!([]);
+}
 const PLAINTEXT_SECRET_KEYS: &[&str] = &["secret", "password", "api_key", "apikey", "token", "credential"];
 const RAW_QUERY_KEYS: &[&str] = &["query", "sql", "raw_query", "statement", "command"];
 const ENV_FALLBACK_KEYS: &[&str] = &["env", "env_var", "env_credential", "credential_env", "from_env"];
@@ -441,6 +448,7 @@ pub(crate) async fn handle_run_execute(State(st): State<Arc<DaemonState>>, AxumP
         return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "ok": false, "error": { "code": "execution_finalize_failed", "message": "the projection flip could not persist — the set was rolled back; no partial truth remains" } })));
     }
     run["status"] = json!("executed");
+    clear_missing_authority(&mut run); // the execution authorities are no longer missing — they just ran
     run["execution"] = json!({
         "source_contacted": true, "data_moved": true, "rows_extracted": count, "object_instances": count,
         "endpoint": display_endpoint, "materialized_set_ref": set_ref, "completed_at": iso_now(),
@@ -523,6 +531,13 @@ pub(crate) async fn handle_set_delete(State(st): State<Arc<DaemonState>>, AxumPa
 #[cfg(test)]
 mod connector_execution_tests {
     use super::*;
+
+    #[test]
+    fn executed_run_clears_missing_authority() {
+        let mut r = json!({ "missing_authority": ["ConnectorExecution", "MaterializedRows"] });
+        clear_missing_authority(&mut r);
+        assert_eq!(r["missing_authority"], json!([]));
+    }
 
     #[test]
     fn allowlist_and_bounds_are_narrow() {

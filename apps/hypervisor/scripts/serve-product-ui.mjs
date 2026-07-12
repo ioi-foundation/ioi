@@ -39,7 +39,7 @@ import { bindSurface, boundSurface, boundActionRoute, embeddableRoutes } from ".
 import { escHtml } from "../surfaces/kit.mjs";
 import { managerLink, managerResourceLink, objectSetLink, sourcesLink, pipelineNodeLink, lineageLink as semLineageLink, vertexLink as semVertexLink, provenanceReceiptLink, provenanceSetLink, semanticBreadcrumb } from "../surfaces/ontology-context.mjs";
 import { ioiGlobalRailHtml, IOI_GRAIL_CSS } from "../surfaces/chrome.mjs";
-import { mintApprovalGrant } from "../../../scripts/lib/mint-approval-grant.mjs";
+import { mintTestGrant, awaitingWalletAuthority } from "./lib/wallet-authority.mjs";
 
 // Build the current conversation entries for a run, in the exact NDJSON shape the SPA's V1 pane
 // renders ({id, phase, userInput|todoGroup|text}). Streamed entries are emitted once each (keyed by
@@ -6972,7 +6972,12 @@ async function runSurfaceAction(hit, res, body) {
     if (!action) return refuse("action_unknown", `unknown transition '${transition.slice(0, 40)}' — declared: ${hit.actions.map((a) => a.transition || a.id).join("|")}`);
     if (action.confirm && p.get("confirm") !== "1") return refuse("confirmation_required", `${action.id} requires explicit confirmation (${action.from} -> ${action.to}) — re-submit with the confirmation checked`);
     const fields = {};
-    for (const f of action.fields || []) { const v = p.get(f); if (v !== null && v !== "") fields[f] = String(v).slice(0, 2000); }
+    // Per-field bound: 2000 default; an action may declare fieldMax (hard-capped 8192) for fields
+    // that legitimately carry larger opaque blobs — e.g. an externally signed wallet grant
+    // (~1.1KB serialized, larger with optional wallet fields). Truncating a signed grant would
+    // forward a corrupt artifact, so the bound is declared, never lucked into.
+    const fieldCap = Math.min(Number(action.fieldMax) || 2000, 8192);
+    for (const f of action.fields || []) { const v = p.get(f); if (v !== null && v !== "") fields[f] = String(v).slice(0, fieldCap); }
     const result = await hit.impl.handleAction({ action, id: hit.recordId, fields, daemon: DAEMON, url: new URL(hit.surface.route + (p.get("ontology") ? `?ontology=${encodeURIComponent(p.get("ontology"))}` : ""), "http://x") });
     if (!result || typeof result !== "object" || !["success", "refusal", "failure"].includes(result.kind)) {
       return refuse("action_result_invalid", "the module returned no typed result — failing closed");
@@ -6982,7 +6987,7 @@ async function runSurfaceAction(hit, res, body) {
     if (result.kind === "success") {
       if (!result.receipt_ref) return refuse("receipt_missing", "success without the declared receipt — failing closed", result.redirect);
       const back2 = safeReturnPath(result.redirect, back);
-      const url = `${back2}${back2.includes("?") ? "&" : "?"}${new URLSearchParams({ acted: action.id, receipt: result.receipt_ref, record: result.createdOntology || hit.recordId, result: result.status || "" }).toString()}${embed ? "&embed=1" : ""}#ap-result`;
+      const url = `${back2}${back2.includes("?") ? "&" : "?"}${new URLSearchParams({ acted: action.id, receipt: result.receipt_ref, record: result.createdOntology || result.created || hit.recordId, result: result.status || "" }).toString()}${embed ? "&embed=1" : ""}#ap-result`;
       res.writeHead(303, { Location: url, "Cache-Control": "no-cache" }); return res.end();
     }
     return refuse(result.code || (result.kind === "failure" ? "action_failed" : "action_refused"), result.message, result.redirect);
@@ -8534,12 +8539,20 @@ async function handleEstateRequest(req, res, body) {
         res.end(JSON.stringify(a));
         return;
       }
+      // #67 authority preflight: production holds NO signer — the launch parks in the honest
+      // awaiting_wallet_authority state carrying the daemon's challenge verbatim; the dev test
+      // signer completes it only under IOI_WALLET_TEST_SIGNER=1 (flag-gated dynamic import).
       let grant = null;
       try {
-        grant = mintApprovalGrant({ policyHash: a.approval.policy_hash, requestHash: a.approval.request_hash });
+        grant = await mintTestGrant({ policyHash: a.approval.policy_hash, requestHash: a.approval.request_hash });
       } catch (e) {
         res.writeHead(502, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ ok: false, error: { code: "wallet_grant_mint_failed", message: String(e?.message || e) } }));
+        return;
+      }
+      if (!grant) {
+        res.writeHead(403, { "Content-Type": "application/json", "Cache-Control": "no-cache" });
+        res.end(JSON.stringify(awaitingWalletAuthority(a.approval)));
         return;
       }
       const phaseB = await daemonLaunch(JSON.stringify({ launch_id: a.launch_id, wallet_approval_grant: grant }));

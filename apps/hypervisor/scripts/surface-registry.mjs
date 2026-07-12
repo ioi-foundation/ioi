@@ -45,7 +45,7 @@ export const EMBEDDED_SHELL_STATES = ["ported_rail_only", "native_single_rail"];
 export const INTERACTION_PARITY_STATES = ["none", "atlas_verified"];
 
 export const SURFACES = [
-  { slug: "pipeline", owner: "Data", title: "Pipeline Builder", icon: PIPELINE_APP_ICON_URI, route: "/__ioi/pipeline", verifier: "scripts/verify-hypervisor-app-parity-pipeline.mjs", certification: "pixel-certifications/pipeline.json", capabilities: ["browse", "select", "inspect", "proof"], operational_state: "inspect", embedded_shell_state: "native_single_rail", interaction_parity_state: "atlas_verified" },
+  { slug: "pipeline", owner: "Data", title: "Pipeline Builder", icon: PIPELINE_APP_ICON_URI, route: "/__ioi/pipeline", verifier: "scripts/verify-hypervisor-app-parity-pipeline.mjs", certification: "pixel-certifications/pipeline.json", capabilities: ["browse", "select", "inspect", "create", "transition", "execute", "proof"], operational_state: "workflow_complete", embedded_shell_state: "native_single_rail", interaction_parity_state: "atlas_verified" },
   { slug: "sources", owner: "Data", title: "Data Connection", icon: SRC_APP_TILE_URI, route: "/__ioi/data/sources", verifier: "scripts/verify-hypervisor-app-parity-sources.mjs", certification: "pixel-certifications/sources.json", capabilities: ["browse", "select"], operational_state: "browse", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
   { slug: "schema", owner: "Ontology", title: "Ontology Manager", icon: ONTOLOGY_APP_ICON_URI, route: "/__ioi/ontology/manager", verifier: "scripts/verify-hypervisor-app-parity-ontology-manager.mjs", certification: "pixel-certifications/schema.json", capabilities: ["browse", "filter", "select", "inspect", "create", "update", "proof"], operational_state: "act", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
   { slug: "explorer", owner: "Ontology", title: "Object Explorer", icon: EXPLORER_APP_ICON_URI, route: "/__ioi/ontology/explorer", verifier: "scripts/verify-hypervisor-app-parity-object-explorer.mjs", certification: "pixel-certifications/explorer.json", capabilities: ["browse", "filter", "select", "inspect", "proof"], operational_state: "inspect", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
@@ -162,8 +162,8 @@ if (process.env.IOI_APP_RUNTIME_TEST_ROUTE === "1") {
 for (const s of SURFACES) {
   const impl = bound.get(s.slug);
   const mutations = impl && Array.isArray(impl.actions) ? impl.actions.filter((a) => a.method && a.method !== "GET") : [];
-  if (s.operational_state === "act") {
-    if (!impl || typeof impl.handleAction !== "function" || mutations.length === 0) throw new Error(`surface-registry: '${s.slug}' claims operational_state 'act' without a bound module declaring receipted actions`);
+  if (s.operational_state === "act" || s.operational_state === "workflow_complete") {
+    if (!impl || typeof impl.handleAction !== "function" || mutations.length === 0) throw new Error(`surface-registry: '${s.slug}' claims operational_state '${s.operational_state}' without a bound module declaring receipted actions`);
     if (!mutations.every((a) => a.id && a.authority && a.authority.operation && a.receipt)) throw new Error(`surface-registry: '${s.slug}' declares an action without authority + receipt metadata`);
   }
   if (s.operational_state === "read_only_by_contract" && mutations.length > 0) throw new Error(`surface-registry: '${s.slug}' is read_only_by_contract but registers mutation actions`);

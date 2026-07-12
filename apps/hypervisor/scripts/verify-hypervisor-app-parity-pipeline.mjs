@@ -232,7 +232,7 @@ async function run() {
   // 5. COMMAND DISCIPLINE (static) — every header command is a real action or a visible disabled
   // control naming its reason; nothing is a blank-href/fragment no-op.
   ok("Preview is a REAL command: a state URL selecting the materialized node with the ontology preserved (not a fragment no-op)", (() => { const m = t.match(/data-cmd="preview" href="([^"]*)"/); return !!m && m[1].includes("node=materialized") && m[1].includes(`ontology=${ont.id}`) && m[1].endsWith("#pb-preview"); })());
-  ok("Build is DISABLED in place naming the exact governed-ladder requirement (no POST pretends to build)", /<button class="pb-btn primary" disabled[^>]*>Build<\/button>/.test(t) && t.includes('data-ioi-disabled-reason="no single-call build authority exists') && t.includes("wallet-approved lease → sealed ConnectorSession → execute"));
+  ok("Build is the governed workflow entry (#67): an enabled anchor to the review pane on the READY fixture — never a direct POST", /<a class="pb-btn primary" data-cmd="build" href="[^"]*pane=build[^"]*">Build<\/a>/.test(t));
   ok("Schedule + Deploy are present but DISABLED in place with named reasons (named gaps, not hidden)", /<button[^>]*disabled[^>]*>Schedule<\/button>/.test(t) && /<button[^>]*disabled[^>]*>Deploy<\/button>/.test(t) && (t.match(/data-ioi-disabled-reason="/g) || []).length >= 3);
   ok("reference capture linked as the secondary baseline; brand/reference clean", t.includes("/__apps/pipeline") && !/\bPalantir\b/.test(t) && !/\bFoundry\b/.test(t));
 
@@ -251,12 +251,13 @@ async function run() {
     try {
       const pg = await b.newPage({ viewport: { width: 1440, height: 900 } });
       await pg.goto(`${SERVE}/__ioi/pipeline?ontology=${encodeURIComponent(ont.id)}`, { waitUntil: "networkidle" });
-      ok("Build renders visibly disabled with the ladder requirement named (in the reference shell location)", await pg.locator('button.pb-btn.primary[disabled][data-ioi-disabled-reason*="MaterializingRun"]').count() === 1);
+      ok("Build is enabled on the READY ladder as the governed-workflow anchor (#67 — review pane, never a direct POST)", await pg.locator('a.pb-btn.primary[data-cmd="build"][href*="pane=build"]').count() === 1);
       const setsBefore = ((await jd("GET", "/v1/hypervisor/odk/materialized-object-sets")).j.materialized_object_sets || []).length;
-      await pg.locator("button.pb-btn.primary[disabled]").dispatchEvent("click");
-      await pg.waitForTimeout(400);
+      await pg.click('a.pb-btn.primary[data-cmd="build"]');
+      await pg.waitForLoadState("networkidle");
       const setsAfter = ((await jd("GET", "/v1/hypervisor/odk/materialized-object-sets")).j.materialized_object_sets || []).length;
-      ok("a disabled Build cannot mutate daemon truth (forced click → no new materialized set, no navigation)", setsBefore === setsAfter && new URL(pg.url()).pathname === "/__ioi/pipeline", `${setsBefore} sets before and after`);
+      ok("Build click is READ navigation: lands on the review pane, mutates nothing (mutations are declared wallet-gated stages inside)", setsBefore === setsAfter && pg.url().includes("pane=build") && await pg.locator("#pb-build").count() === 1, `${setsBefore} sets before and after`);
+      await pg.goto(`${SERVE}/__ioi/pipeline?ontology=${encodeURIComponent(ont.id)}`, { waitUntil: "networkidle" });
       // Preview on the BUILT pipeline.
       await pg.click('a[data-cmd="preview"]');
       await pg.waitForLoadState("domcontentloaded");
@@ -279,7 +280,8 @@ async function run() {
       ok("no command is a silent no-op: real state/route href XOR disabled-with-named-reason", cmds.length >= 6 && cmds.every((c) => (c.tag === "A" && c.href && !c.href.startsWith("#")) || (c.disabled && c.reason.length > 20)), cmds.map((c) => `${c.text}:${c.disabled ? "disabled" : c.href.slice(0, 30)}`).join(" · "));
       // The module's declared command table is the contract the DOM rendered from.
       const mod = await import(path.join(appRoot, "surfaces", "pipeline", "index.mjs"));
-      ok("module command table: enabled ⇒ route+proof · disabled ⇒ named reason (Build/Schedule/Deploy disabled, Preview read-navigation)", mod.actions.length === 4 && mod.actions.every((a) => a.key && a.label && (a.enabled ? (a.route && a.proof) : (a.reason && a.reason.length > 20))) && !mod.actions.find((a) => a.key === "build").enabled && mod.actions.find((a) => a.key === "preview").enabled);
+      ok("module command table: enabled ⇒ route+proof · disabled ⇒ named reason (Preview+Build navigations; Schedule/Deploy named gaps)", mod.commands.length === 4 && mod.commands.every((a) => a.key && a.label && (a.enabled ? (a.route && a.proof) : (a.reason && a.reason.length > 20))) && mod.commands.find((a) => a.key === "build").enabled && mod.commands.find((a) => a.key === "preview").enabled);
+      ok("the governed Build stages are DECLARED runtime mutations (#67: authority + receipt + bounded fields on all 8)", mod.actions.length === 8 && mod.actions.every((a) => a.method === "POST" && a.authority && a.authority.plane && a.receipt && Array.isArray(a.fields)) && typeof mod.handleAction === "function");
       ok("no-secrets sweep across command result pages (built + unbuilt)", !htmlBuilt.includes(SENTINEL) && !htmlFresh.includes(SENTINEL) && !htmlBuilt.includes(`:${port}/rows`) && !htmlFresh.includes(`:${port}/rows`));
     } finally {
       await b.close();

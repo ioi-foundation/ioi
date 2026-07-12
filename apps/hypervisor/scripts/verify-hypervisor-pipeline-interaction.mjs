@@ -147,7 +147,7 @@ async function run() {
 
   // 6. Classification + certs.
   const pl = SURFACES.find((s) => s.slug === "pipeline");
-  ok("registry: pipeline interaction_parity_state=atlas_verified, operational_state stays inspect (Build waits for #67), vocab valid", pl.interaction_parity_state === "atlas_verified" && pl.operational_state === "inspect" && SURFACES.every((s) => INTERACTION_PARITY_STATES.includes(s.interaction_parity_state)));
+  ok("registry: pipeline interaction_parity_state=atlas_verified, operational_state=workflow_complete with execute earned (#67 journey-gated), vocab valid", pl.interaction_parity_state === "atlas_verified" && pl.operational_state === "workflow_complete" && pl.capabilities.includes("execute") && SURFACES.every((s) => INTERACTION_PARITY_STATES.includes(s.interaction_parity_state)));
   const dirty = execSync("git status --porcelain -- pixel-certifications", { cwd: join(HERE, ".."), encoding: "utf8" }).trim();
   ok("pixel-certification artifacts byte-identical", dirty === "", dirty || "clean");
 

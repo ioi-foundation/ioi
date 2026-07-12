@@ -431,6 +431,13 @@ pub(crate) async fn handle_mrun_acquire_lease(State(st): State<Arc<DaemonState>>
     }
 }
 
+/// Release-receipt wording (honesty correction #67): a run lease can only be released BEFORE
+/// execution (the executed state refuses release), and connector execution exists as a landed
+/// authority — so the receipt records the pre-execution fact instead of the old stale capability claim.
+pub(crate) fn lease_release_summary(lease_id: &str) -> String {
+    format!("lease {lease_id} released before execution — no batch was registered under it")
+}
+
 /// POST /:id/release-lease — receipted release of the held lease (terminal for this run).
 pub(crate) async fn handle_mrun_release_lease(State(st): State<Arc<DaemonState>>, AxumPath(id): AxumPath<String>) -> (StatusCode, Json<Value>) {
     let Some(mut record) = load_run(&st.data_dir, &id) else {
@@ -440,7 +447,7 @@ pub(crate) async fn handle_mrun_release_lease(State(st): State<Arc<DaemonState>>
         return (StatusCode::BAD_REQUEST, Json(json!({ "ok": false, "error": { "code": "materializing_run_no_lease_to_release", "message": "the run holds no lease" } })));
     }
     let lease_id = record.pointer("/lease/lease_id").and_then(|v| v.as_str()).unwrap_or("").to_string();
-    let receipt = run_receipt(&st.data_dir, &s(&record, "ref", ""), "lease_released", "ok", &format!("lease {lease_id} released (never used — no execution exists)"));
+    let receipt = run_receipt(&st.data_dir, &s(&record, "ref", ""), "lease_released", "ok", &lease_release_summary(&lease_id));
     record["status"] = json!("lease_released");
     record["lease"]["obtained"] = json!(false);
     record["lease"]["released_at"] = json!(iso_now());
@@ -531,6 +538,14 @@ mod materializing_run_tests {
     fn lifecycle_and_missing_authority_are_explicit() {
         assert_eq!(LIFECYCLE_STATES, &["planned", "lease_obtained", "executed", "lease_released", "cancelled"]);
         assert_eq!(MISSING_AUTHORITY, &["ConnectorExecution", "MaterializedRows"]);
+    }
+
+    #[test]
+    fn release_receipt_wording_is_honest_about_execution() {
+        let w = lease_release_summary("lease_abc");
+        assert!(w.contains("released before execution"), "{w}");
+        assert!(w.contains("no batch was registered"), "{w}");
+        assert!(!w.contains("no execution exists"), "stale capability claim must not return: {w}");
     }
 
     #[test]

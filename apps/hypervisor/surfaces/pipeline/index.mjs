@@ -25,7 +25,7 @@ export const meta = {
 // binding) performed; a dead daemon yields honest empty lists, never fabricated rows.
 export async function load(ctx) {
   const J = (p) => fetch(`${ctx.daemon}${p}`).then((r) => r.json()).catch(() => ({}));
-  const [o, ds, cm, pv, tr, op, lp, mr, cs, ms] = await Promise.all([
+  const [o, ds, cm, pv, tr, op, lp, mr, cs, ms, cn] = await Promise.all([
     J("/v1/hypervisor/odk/domain-ontologies"),
     J("/v1/hypervisor/data-sources"),
     J("/v1/hypervisor/odk/connector-mappings"),
@@ -36,6 +36,7 @@ export async function load(ctx) {
     J("/v1/hypervisor/odk/materializing-runs"),
     J("/v1/hypervisor/odk/connector-sessions"),
     J("/v1/hypervisor/odk/materialized-object-sets"),
+    J("/v1/hypervisor/connectors"),
   ]);
   return {
     ontologies: o.ontologies || [],
@@ -48,6 +49,7 @@ export async function load(ctx) {
     materializing_runs: mr.materializing_runs || [],
     connector_sessions: cs.connector_sessions || [],
     materialized_sets: ms.materialized_object_sets || [],
+    connectors: cn.connectors || [],
   };
 }
 
@@ -55,7 +57,8 @@ export function render(model, ctx) {
   // The URL is the single source of interaction truth (#66): selection (ontology/node/output),
   // tray tab, right-panel choice, and persisted view state (tray/legend collapse, hidden legend
   // categories) all parse here and fail CLOSED to defaults on unknown values.
-  const sel = parseSelection(ctx.url, ["ontology", "node", "tab", "panel", "output", "hide", "tray", "legend"]);
+  const sel = parseSelection(ctx.url, ["ontology", "node", "tab", "panel", "output", "hide", "tray", "legend", "pane", "run", "session", "challenge_policy", "challenge_request"]);
+  sel.banner = parseSelection(ctx.url, ["acted", "receipt", "refused", "reason", "record", "result"]);
   return renderPipelineBuilder(model, sel, ctx.embed);
 }
 
@@ -66,12 +69,170 @@ export function render(model, ctx) {
 // → sealed ConnectorSession → execute) — a multi-step, wallet-gated authority, not a single safe
 // call; a POST that pretended otherwise would cross an authority line this surface doesn't own.
 // The header renders FROM this table, so the UI cannot drift from the declared command model.
-export const actions = [
+// The Pipeline COMMAND table (command-discipline contract, #58/#66): every header command is an
+// ENABLED navigation carrying its route + expected proof, or DISABLED with the reason naming
+// exactly what is missing. Build (#67) is now the governed workflow entry — a read navigation to
+// the review pane; every MUTATION inside the workflow is a declared runtime action below.
+export const commands = [
   { key: "preview", label: "Preview", enabled: true, kind: "read_navigation", route: "/__ioi/pipeline?node=materialized&tab=preview", proof: "the materialized set's real rows + provenance refs render in the tray (read-only — no authority crossed)" },
-  { key: "build", label: "Build", enabled: false, authority: null, reason: "no single-call build authority exists — materialization is the governed ODK ladder: MaterializingRun (citing a CapabilityLeasePlan) → wallet-approved lease → sealed ConnectorSession → execute; run the ladder from the Ontology Manager" },
+  { key: "build", label: "Build", enabled: true, kind: "read_navigation", route: "/__ioi/pipeline?pane=build", authority: { plane: "odk.materializing-runs", operation: "the governed ladder — MaterializingRun → wallet-approved lease → sealed ConnectorSession → bounded execute, each stage a declared receipted action" }, proof: "the review pane derives every stage from existing records; header renders it DISABLED with the missing rungs named until the ladder is coherent-ready" },
   { key: "schedule", label: "Schedule", enabled: false, authority: null, reason: "no pipeline scheduler exists yet — a named gap (author + run via a materializing run)" },
   { key: "deploy", label: "Deploy", enabled: false, authority: null, reason: "no pipeline deploy exists yet — a named gap" },
 ];
+
+// ---- Governed Build workflow (#67) — the runtime MUTATION descriptors. Every stage is a
+// declared action over an EXISTING daemon authority (no PipelineBuild plane exists); the wallet
+// grant rides ONE bounded opaque field (fieldMax covers external wallets' larger grants), is
+// forwarded to the daemon exactly once, and is never persisted, logged, or echoed. State is
+// never a URL claim: every handler re-reads the record and the daemon's own state machine is the
+// idempotency backstop (already_obtained / terminal_immutable / already_registered).
+const MRUN_RECEIPT = "ioi.hypervisor.odk.materializing-run-receipt.v1";
+const SESS_RECEIPT = "ioi.hypervisor.odk.connector-session-receipt.v1";
+const GRANT_FIELD_MAX = 8192;
+const bAct = (id, route, fields, receipt, extra) => ({ id, method: "POST", route, fields: [...fields, "ontology", "return"], context: ["ontology"], authority: extra && extra.authority ? extra.authority : { plane: "odk.materializing-runs", operation: extra && extra.operation ? extra.operation : "" }, receipt, confirm: !!(extra && extra.confirm), fieldMax: extra && extra.fieldMax, success: "return-to-surface", refusal: "typed-banner" });
+export const actions = [
+  bAct("admit-run", "/actions/admit-run", ["capability_lease_plan_id", "name"], MRUN_RECEIPT, { operation: "POST /v1/hypervisor/odk/materializing-runs" }),
+  bAct("submit-lease-grant", "/:id/submit-lease-grant", ["wallet_approval_grant"], MRUN_RECEIPT, { operation: "POST /v1/hypervisor/odk/materializing-runs/:id/acquire-lease", fieldMax: GRANT_FIELD_MAX }),
+  bAct("cancel-run", "/:id/cancel-run", [], MRUN_RECEIPT, { operation: "POST /v1/hypervisor/odk/materializing-runs/:id/cancel", confirm: true }),
+  bAct("release-lease", "/:id/release-lease", [], MRUN_RECEIPT, { operation: "POST /v1/hypervisor/odk/materializing-runs/:id/release-lease", confirm: true }),
+  bAct("admit-session", "/:id/admit-session", ["connector_id", "name"], SESS_RECEIPT, { authority: { plane: "odk.connector-sessions", operation: "POST /v1/hypervisor/odk/connector-sessions" } }),
+  bAct("submit-session-grant", "/:id/submit-session-grant", ["connector_session_id", "wallet_approval_grant"], SESS_RECEIPT, { authority: { plane: "odk.connector-sessions", operation: "POST /v1/hypervisor/odk/connector-sessions/:id/open" }, fieldMax: GRANT_FIELD_MAX }),
+  bAct("release-session", "/:id/release-session", ["connector_session_id"], SESS_RECEIPT, { authority: { plane: "odk.connector-sessions", operation: "POST /v1/hypervisor/odk/connector-sessions/:id/release" }, confirm: true }),
+  bAct("execute", "/:id/execute", ["connector_session_id", "limit"], MRUN_RECEIPT, { operation: "POST /v1/hypervisor/odk/materializing-runs/:id/execute", confirm: true }),
+];
+
+// One typed result, always. Receipts come from the RECORD's own history (the daemon receipts
+// every transition, including refusals); a challenge (403) is returned as a typed refusal whose
+// redirect carries ONLY the two public commitment hashes — the pane re-renders the full
+// challenge from the same plan truth the daemon derived it from. The grant blob exists in this
+// scope for the single forward POST and is never referenced afterwards.
+export async function handleAction({ action, id, fields, daemon }) {
+  const J = async (method, path, body) => {
+    const r = await fetch(`${daemon}${path}`, { method, headers: { "content-type": "application/json" }, body: body === undefined ? undefined : JSON.stringify(body) }).then(async (x) => ({ status: x.status, j: await x.json().catch(() => ({})) })).catch(() => null);
+    return r;
+  };
+  const ont = fields.ontology || "";
+  const buildBack = (params) => `/__ioi/pipeline?${new URLSearchParams({ ontology: ont, pane: "build", ...params }).toString()}`;
+  const lastReceipt = (rec, ops) => {
+    const h = (rec && rec.history) || [];
+    for (let i = h.length - 1; i >= 0; i--) if (ops.includes(h[i].op) && h[i].receipt_ref) return h[i].receipt_ref;
+    return "";
+  };
+  const refuse = (code, message, redirect) => ({ kind: "refusal", code, message: String(message || "").slice(0, 200), redirect });
+  const fail = (code, message, redirect) => ({ kind: "failure", code, message: String(message || "").slice(0, 200), redirect });
+  const challengeRefusal = (body, params) => {
+    const ap = (body && body.approval) || {};
+    // Public commitments only — hashes name WHAT to sign; the grant itself never appears here.
+    const qp = { ...params };
+    if (/^sha256:[0-9a-f]{64}$/.test(ap.policy_hash || "")) qp.challenge_policy = ap.policy_hash;
+    if (/^sha256:[0-9a-f]{64}$/.test(ap.request_hash || "")) qp.challenge_request = ap.request_hash;
+    return refuse((body && body.reason) || "wallet_authority_required", (body && body.message) || "wallet authority required", buildBack(qp));
+  };
+  const parseGrant = (raw) => {
+    if (!raw) return { grant: undefined };
+    try {
+      const g = JSON.parse(raw);
+      if (!g || typeof g !== "object" || Array.isArray(g)) return { err: "the pasted grant is not a JSON object" };
+      return { grant: g };
+    } catch { return { err: "the pasted grant is not valid JSON (was it truncated?)" }; }
+  };
+
+  if (action.id === "admit-run") {
+    const plan = String(fields.capability_lease_plan_id || "");
+    if (!plan) return refuse("plan_required", "no capability lease plan named — the ladder review names the plan", buildBack({}));
+    // Idempotency precheck: a non-terminal run already citing this plan is RESUMED, never duplicated.
+    const runs = await J("GET", "/v1/hypervisor/odk/materializing-runs");
+    const existing = ((runs && runs.j.materializing_runs) || []).find((r) => r.capability_lease_plan_id === plan && ["planned", "lease_obtained"].includes(r.status));
+    if (existing) return refuse("run_already_admitted", `run ${existing.id} already cites this plan — resuming it instead of minting a duplicate`, buildBack({ run: existing.id }));
+    const r = await J("POST", "/v1/hypervisor/odk/materializing-runs", { capability_lease_plan_id: plan, name: String(fields.name || "governed build") });
+    if (!r) return fail("daemon_unavailable", "the daemon did not answer — nothing was admitted");
+    const rec = r.j.materializing_run;
+    if (r.status >= 400 || !rec) return refuse((r.j.error && r.j.error.code) || "run_admission_refused", (r.j.error && r.j.error.message) || r.j.reason, buildBack({}));
+    const receipt = lastReceipt(rec, ["created"]);
+    if (!receipt) return fail("receipt_missing", "admission returned no receipt — failing closed");
+    return { kind: "success", status: rec.status, created: rec.id, receipt_ref: receipt, redirect: buildBack({ run: rec.id }) };
+  }
+
+  if (action.id === "submit-lease-grant") {
+    const { grant, err } = parseGrant(fields.wallet_approval_grant);
+    if (err) return refuse("grant_invalid_json", err, buildBack({ run: id }));
+    const r = await J("POST", `/v1/hypervisor/odk/materializing-runs/${encodeURIComponent(id)}/acquire-lease`, grant ? { wallet_approval_grant: grant } : {});
+    if (!r) return fail("daemon_unavailable", "the daemon did not answer — state unchanged");
+    if (r.status === 403) return challengeRefusal(r.j, { run: id });
+    const rec = r.j.materializing_run;
+    if (r.status >= 400 || !rec) return refuse((r.j.error && r.j.error.code) || "lease_refused", (r.j.error && r.j.error.message) || r.j.reason, buildBack({ run: id }));
+    const receipt = lastReceipt(rec, ["lease_obtained"]);
+    if (!receipt) return fail("receipt_missing", "lease obtained without a receipt — failing closed");
+    return { kind: "success", status: rec.status, receipt_ref: receipt, redirect: buildBack({ run: id }) };
+  }
+
+  if (action.id === "cancel-run" || action.id === "release-lease") {
+    const lane = action.id === "cancel-run" ? "cancel" : "release-lease";
+    const r = await J("POST", `/v1/hypervisor/odk/materializing-runs/${encodeURIComponent(id)}/${lane}`);
+    if (!r) return fail("daemon_unavailable", "the daemon did not answer — state unchanged");
+    const rec = r.j.materializing_run;
+    if (r.status >= 400 || !rec) return refuse((r.j.error && r.j.error.code) || "lifecycle_refused", (r.j.error && r.j.error.message) || r.j.reason, buildBack({ run: id }));
+    const receipt = lastReceipt(rec, ["cancelled", "lease_released"]);
+    if (!receipt) return fail("receipt_missing", "the transition returned no receipt — failing closed");
+    return { kind: "success", status: rec.status, receipt_ref: receipt, redirect: buildBack({ run: id }) };
+  }
+
+  if (action.id === "admit-session") {
+    const runs = await J("GET", "/v1/hypervisor/odk/connector-sessions");
+    const existing = ((runs && runs.j.connector_sessions) || []).find((c) => c.materializing_run_id === id && ["requested", "session_obtained"].includes(c.status));
+    if (existing) return refuse("session_already_admitted", `session ${existing.id} already exists for this run — resuming it`, buildBack({ run: id, session: existing.id }));
+    const r = await J("POST", "/v1/hypervisor/odk/connector-sessions", { materializing_run_id: id, connector_id: String(fields.connector_id || ""), name: String(fields.name || "governed build session") });
+    if (!r) return fail("daemon_unavailable", "the daemon did not answer — nothing was admitted");
+    const rec = r.j.connector_session;
+    if (r.status >= 400 || !rec) return refuse((r.j.error && r.j.error.code) || "session_admission_refused", (r.j.error && r.j.error.message) || r.j.reason, buildBack({ run: id }));
+    const receipt = lastReceipt(rec, ["created"]);
+    if (!receipt) return fail("receipt_missing", "session admission returned no receipt — failing closed");
+    return { kind: "success", status: rec.status, created: rec.id, receipt_ref: receipt, redirect: buildBack({ run: id, session: rec.id }) };
+  }
+
+  if (action.id === "submit-session-grant") {
+    const sid = String(fields.connector_session_id || "");
+    if (!sid) return refuse("session_required", "no session named", buildBack({ run: id }));
+    const { grant, err } = parseGrant(fields.wallet_approval_grant);
+    if (err) return refuse("grant_invalid_json", err, buildBack({ run: id, session: sid }));
+    const r = await J("POST", `/v1/hypervisor/odk/connector-sessions/${encodeURIComponent(sid)}/open`, grant ? { wallet_approval_grant: grant } : {});
+    if (!r) return fail("daemon_unavailable", "the daemon did not answer — state unchanged");
+    if (r.status === 428) return refuse((r.j.reason) || "credential_unresolved", (r.j.message) || "the connector needs a resolvable sealed credential before this crossing", buildBack({ run: id, session: sid }));
+    if (r.status === 403) return challengeRefusal(r.j, { run: id, session: sid });
+    const rec = r.j.connector_session;
+    if (r.status >= 400 || !rec) return refuse((r.j.error && r.j.error.code) || "session_open_refused", (r.j.error && r.j.error.message) || r.j.reason, buildBack({ run: id, session: sid }));
+    const receipt = lastReceipt(rec, ["session_obtained"]);
+    if (!receipt) return fail("receipt_missing", "session opened without a receipt — failing closed");
+    return { kind: "success", status: rec.status, receipt_ref: receipt, redirect: buildBack({ run: id, session: sid }) };
+  }
+
+  if (action.id === "release-session") {
+    const sid = String(fields.connector_session_id || "");
+    const r = await J("POST", `/v1/hypervisor/odk/connector-sessions/${encodeURIComponent(sid)}/release`);
+    if (!r) return fail("daemon_unavailable", "the daemon did not answer — state unchanged");
+    const rec = r.j.connector_session;
+    if (r.status >= 400 || !rec) return refuse((r.j.error && r.j.error.code) || "release_refused", (r.j.error && r.j.error.message) || r.j.reason, buildBack({ run: id, session: sid }));
+    const receipt = lastReceipt(rec, ["session_released"]);
+    if (!receipt) return fail("receipt_missing", "release returned no receipt — failing closed");
+    return { kind: "success", status: rec.status, receipt_ref: receipt, redirect: buildBack({ run: id }) };
+  }
+
+  if (action.id === "execute") {
+    const sid = String(fields.connector_session_id || "");
+    const limit = Math.max(1, Math.min(500, parseInt(fields.limit, 10) || 100));
+    const r = await J("POST", `/v1/hypervisor/odk/materializing-runs/${encodeURIComponent(id)}/execute`, { connector_session_id: sid, limit });
+    if (!r) return fail("daemon_unavailable", "the daemon did not answer — state unchanged");
+    if (r.status === 428) return refuse(r.j.reason || (r.j.error && r.j.error.code) || "credential_unresolved", r.j.message || (r.j.error && r.j.error.message), buildBack({ run: id, session: sid }));
+    const rec = r.j.materializing_run;
+    if (r.status >= 400 || !rec) return refuse((r.j.error && r.j.error.code) || r.j.reason || "execution_refused", (r.j.error && r.j.error.message) || r.j.message || r.j.reason, buildBack({ run: id, session: sid }));
+    const receipt = lastReceipt(rec, ["materialized_output_registered"]);
+    if (!receipt) return fail("receipt_missing", "execution registered no receipt — failing closed");
+    // Success lands ON the result: materialized node selected, Preview tab open, real rows visible.
+    return { kind: "success", status: rec.status, receipt_ref: receipt, redirect: `/__ioi/pipeline?${new URLSearchParams({ ontology: ont, node: "materialized", tab: "preview" }).toString()}` };
+  }
+
+  return refuse("action_unknown", `undeclared stage '${action.id}'`);
+}
 
 // ============================ PIPELINE BUILDER (reference-UX parity over the ODK ladder) =========
 // The Reference UX Port program (post-#31 reset), substrate for the Data Pipeline Builder. The reference
@@ -109,6 +270,7 @@ function renderPipelineBuilder(lists, sel, embed) {
   const maps = F(lists.connector_mappings), views = F(lists.policy_views), truns = F(lists.transformation_runs);
   const projs = F(lists.ontology_projections), plans = F(lists.capability_lease_plans), mruns = F(lists.materializing_runs);
   const sessions = F(lists.connector_sessions), osets = F(lists.materialized_sets);
+  const connectors = Array.isArray(lists.connectors) ? lists.connectors : [];
   const dsIds = new Set(maps.map((m) => m.data_source_id).filter(Boolean));
   const dsources = (lists.data_sources || []).filter((d) => dsIds.has(d.source_id));
   const instances = osets.reduce((a, s) => a + (s.count || 0), 0);
@@ -158,6 +320,28 @@ function renderPipelineBuilder(lists, sel, embed) {
   const hiddenCats = (sel.hide || "").split(",").map((x) => x.trim()).filter((x) => CATEGORY_KEYS.includes(x));
   const trayCollapsed = sel.tray === "0";
   const legendCollapsed = sel.legend === "0";
+  // ---- Governed Build (#67): the URL carries ONLY record ids + the pane name; the STAGE is a
+  // pure function of record status re-read from daemon truth on every render (refresh resumes
+  // exactly; a stale/foreign id fails closed to review with a visible note).
+  const paneKey = sel.pane === "build" ? "build" : "";
+  const invalidBuildPane = !!(sel.pane && !paneKey);
+  const runRec = sel.run ? mruns.find((r) => r.id === sel.run) || null : null;
+  const invalidRun = !!(sel.run && !runRec);
+  const sessRec = sel.session ? sessions.find((c) => c.id === sel.session && (!runRec || c.materializing_run_id === runRec.id)) || null : null;
+  const invalidSession = !!(sel.session && !sessRec);
+  const runSel = runRec ? runRec.id : "";
+  const sessSel = sessRec ? sessRec.id : "";
+  const setForRun = runRec ? osets.find((x) => x.materializing_run_ref === runRec.ref) || null : null;
+  const RUN_TERMINAL = ["lease_released", "cancelled"];
+  const buildStage = !runRec ? "review"
+    : RUN_TERMINAL.includes(runRec.status) || (sessRec && ["session_released", "cancelled"].includes(sessRec.status) && runRec.status !== "executed") ? "ended"
+    : runRec.status === "planned" ? "lease"
+    : runRec.status === "lease_obtained" && !sessRec ? "session"
+    : runRec.status === "lease_obtained" && sessRec.status === "requested" ? "open"
+    : runRec.status === "lease_obtained" && sessRec.status === "session_obtained" ? "execute"
+    : runRec.status === "executed" ? "done"
+    : "review";
+  const resumableRun = mruns.find((r) => pl0 && r.capability_lease_plan_id === pl0.id && ["planned", "lease_obtained"].includes(r.status)) || null;
   // Canonical current-state href builder — links preserve every non-default dimension, so tab
   // switches keep the selection, panel swaps keep the tab, and refresh reproduces the view.
   const state = { ontology: oid };
@@ -168,6 +352,9 @@ function renderPipelineBuilder(lists, sel, embed) {
   if (hiddenCats.length) state.hide = hiddenCats.join(",");
   if (trayCollapsed) state.tray = "0";
   if (legendCollapsed) state.legend = "0";
+  if (paneKey) state.pane = paneKey;
+  if (runSel) state.run = runSel;
+  if (sessSel) state.session = sessSel;
   const stateHref = (over) => selectionQuery("/__ioi/pipeline", { ...state, ...over });
   const enc = encodeURIComponent, esc = CX_ESC;
   const oname = selected ? esc(selected.domain || selected.id) : "no pipeline";
@@ -413,6 +600,25 @@ function renderPipelineBuilder(lists, sel, embed) {
   </svg>`;
   const graphData = JSON.stringify(nodes.map((nd) => ({ key: nd.key, label: nd.label, category: NODE_CATEGORY[nd.key], ref: nodeRef(nd.key), href: selected ? stateHref({ node: nd.key, output: "" }) : "#", pos: NODE_POS[nd.key] }))).replace(/</g, "\\u003c");
 
+  // ---- Build readiness (#67): ONE coherent ready ladder = every rung's own readiness predicate
+  // AND the typed-edge chain unbroken (the same proof the graph draws). Owner links for anything
+  // missing live in the review pane + the warnings tab (Go-to-node -> the rung's Manager links).
+  const readyChecks = [
+    { key: "datasource", label: "Datasource", ok: dsources.length > 0, node: "datasource" },
+    { key: "mapping", label: "Object mapping (health ready)", ok: !!(m0 && (m0.health || {}).status === "ready"), node: "mapping" },
+    { key: "policy", label: "Policy gate (health ready)", ok: !!(v0 && (v0.health || {}).status === "ready"), node: "policy" },
+    { key: "transform", label: "Transform plan (dry-run validated)", ok: !!(r0 && r0.status === "dry_run_ready"), node: "transform" },
+    { key: "projection", label: "Read projection (ready)", ok: !!(proj && proj.status === "ready"), node: "projection" },
+    { key: "plan", label: "Capability lease plan (declared)", ok: !!pl0, node: "lease" },
+    { key: "coherence", label: "Typed-edge coherence (one unbroken chain)", ok: ["datasource:mapping", "mapping:policy", "policy:transform", "transform:lease", "projection:lease"].every((k) => edges.some((e) => `${e.from}:${e.to}` === k)), node: "lease" },
+  ];
+  const missingForBuild = readyChecks.filter((c) => !c.ok).map((c) => c.label);
+  const buildReady = missingForBuild.length === 0;
+  // The covering connector — the SAME same-origin + path-prefix rule the daemon enforces
+  // (connector_covers_endpoint); the daemon re-checks authoritatively at admit/open/execute.
+  const coversEndpoint = (baseUrl, endpoint) => { try { const b = new URL(baseUrl), e = new URL(endpoint); return b.protocol === e.protocol && b.host.toLowerCase() === e.host.toLowerCase() && (e.pathname === b.pathname || e.pathname.startsWith(b.pathname.endsWith("/") ? b.pathname : b.pathname + "/")); } catch { return false; } };
+  const coveringConnector = d0 ? connectors.find((c) => coversEndpoint(c.base_url || "", d0.endpoint || "")) || null : null;
+
   // ---- Command state (command-discipline): the header renders from the module's declared
   // command table. Preview is a real read-navigation — it selects the materialized node (URL
   // state, ontology preserved) and lands on the tray, where real rows or the honest missing-rung
@@ -420,7 +626,7 @@ function renderPipelineBuilder(lists, sel, embed) {
   // cluster sits inside the harness's both-sides session-state mask, so command-state changes
   // never move certified shell pixels). The old Build→ODK jump lives on as the explicit
   // "Ontology Manager" link — a labeled navigation, not a command pretending to build.
-  const cmd = Object.fromEntries(actions.map((a) => [a.key, a]));
+  const cmd = Object.fromEntries(commands.map((a) => [a.key, a]));
   const previewHref = `${stateHref({ node: "materialized", tab: "preview" })}#pb-preview`;
 
   // ---- HEADER (h51, white, hairline shadow) — the reference navbar: app chip · breadcrumb title row
@@ -443,7 +649,7 @@ function renderPipelineBuilder(lists, sel, embed) {
       </div>
     </div>
     <div class="pb-hmid">
-      <button class="pb-btn primary" disabled title="${esc(cmd.build.reason)}" data-ioi-disabled-reason="${esc(cmd.build.reason)}">Build</button>
+      ${(buildReady || resumableRun || (paneKey && runRec)) ? `<a class="pb-btn primary" data-cmd="build" href="${stateHref({ pane: "build", run: resumableRun ? resumableRun.id : runSel })}">Build</a>` : `<button class="pb-btn primary" disabled title="${esc(`the ladder is not coherent-ready — missing: ${missingForBuild.join(" · ")} (each rung links to its owner in the Pipeline warnings tab)`)}" data-ioi-disabled-reason="${esc(`the ladder is not coherent-ready — missing: ${missingForBuild.join(" · ")} — the governed ladder is MaterializingRun → wallet-approved lease → sealed ConnectorSession → execute`)}">Build</button>`}
       <a class="pb-btn ghost" data-cmd="preview" href="${previewHref}">Preview</a>
       <button class="pb-btn ghost" disabled title="${esc(cmd.schedule.reason)}" data-ioi-disabled-reason="${esc(cmd.schedule.reason)}">Schedule</button>
       <button class="pb-btn ghost" disabled title="${esc(cmd.deploy.reason)}" data-ioi-disabled-reason="${esc(cmd.deploy.reason)}">Deploy</button>
@@ -568,14 +774,120 @@ function renderPipelineBuilder(lists, sel, embed) {
     + (invalidTab ? `<div class="pb-ihint pb-warnhint">Unknown tray tab <code>${esc(sel.tab)}</code> — failed closed to Selection preview.</div>` : "")
     + (previewWithoutSel ? `<div class="pb-ihint pb-warnhint">The Preview tab exists only with a selection (reference behavior) — failed closed to Selection preview. Select a node first.</div>` : "")
     + (invalidPanel ? `<div class="pb-ihint pb-warnhint">Unknown panel <code>${esc(sel.panel)}</code> — failed closed to Pipeline outputs.</div>` : "");
-  const trayBody = trayTabKey === "warnings" ? warningsPanel
+  // ---- GOVERNED BUILD PANE (#67) — every fact below is a loaded daemon record; every mutation
+  // is a declared runtime action; the wallet grant is pasted, forwarded once, dropped. The pane
+  // is fully resumable: stage = f(record status), so refresh/back/direct links re-derive it.
+  const bHere = stateHref({});
+  const bForm = (actionPath, inner, submitId, submitLabel, opts = {}) => `<form class="pb-bd-form" method="post" action="/__ioi/pipeline${actionPath}">
+      <input type="hidden" name="ontology" value="${esc(oid)}">
+      <input type="hidden" name="return" value="${esc(bHere)}">
+      ${inner}
+      ${opts.confirm ? `<label class="pb-bd-confirm"><input type="checkbox" name="confirm" value="1" required> ${esc(opts.confirm)}</label>` : ""}
+      <button id="${submitId}" class="pb-btn ${opts.ghost ? "ghost" : "primary"}" type="submit">${esc(submitLabel)}</button>
+    </form>`;
+  const bChip = (key, label) => {
+    const order = ["review", "lease", "session", "open", "execute", "done"];
+    const cur = order.indexOf(buildStage === "ended" ? "review" : buildStage);
+    const me = order.indexOf(key);
+    return `<span class="pb-bd-chip${me === cur ? " on" : me < cur ? " done" : ""}">${esc(label)}</span>`;
+  };
+  const bHistory = (rec, title) => rec ? `<div class="ioi-tray-hd">${esc(title)} — receipted history (refusals included)</div>` + trayTable(["at", "op", "summary", "receipt"], (rec.history || []).slice(-8).map((h) => [esc(h.at || ""), icode(h.op || ""), esc(redactUrls(h.summary)), icode(h.receipt_ref || "")])) : "";
+  const custodyNote = ["scm_credential_required", "execution_credential_unresolved", "credential_unresolved"].includes((sel.banner || {}).refused || "")
+    ? `<div class="pb-ihint pb-warnhint">The connector holds <b>no resolvable sealed credential</b> for this crossing. Resolve it in <a href="/__ioi/connections">connector custody (Developer Console)</a> — Pipeline never accepts or displays credential material. Then re-run this stage.</div>` : "";
+  const challengePanel = (kindLabel, toolPrefix) => (sel.challenge_policy && sel.challenge_request) ? `<div class="pb-bd-challenge" id="pb-bd-challenge">
+      <div class="ioi-tray-hd">Wallet authority challenge — ${esc(kindLabel)} (sign OUTSIDE this surface)</div>
+      <div class="pb-irow"><span class="pb-ik">policy hash</span><span class="pb-iv">${icode(sel.challenge_policy)}</span></div>
+      <div class="pb-irow"><span class="pb-ik">request hash</span><span class="pb-iv">${icode(sel.challenge_request)}</span></div>
+      <div class="pb-irow"><span class="pb-ik">allowed tools</span><span class="pb-iv">${(pl0 ? pl0.requested_operations || [] : []).map((op) => icode(`${toolPrefix}.${op}`)).join(" ") || "—"}</span></div>
+      <div class="pb-irow"><span class="pb-ik">resource refs</span><span class="pb-iv">${pl0 ? [pl0.data_source_ref, pl0.connector_mapping_ref, pl0.policy_view_ref, pl0.transformation_run_ref, pl0.ontology_projection_ref].filter(Boolean).map(icode).join(" ") : "—"}</span></div>
+      <div class="pb-ihint">The hashes are the daemon's 403 challenge VERBATIM (deterministic public commitments over the declared plan — the scope rows above are that same declaration). Sign them with an external wallet and paste the grant JSON below: it is forwarded to the daemon <b>once</b> and dropped — never persisted, logged, or echoed. The refusal itself is receipted on the record history below.</div>
+    </div>` : "";
+  const grantForm = (actionPath, submitId, extraInputs) => bForm(actionPath,
+    `${extraInputs || ""}<textarea class="pb-bd-grant" name="wallet_approval_grant" rows="4" placeholder="paste the externally signed wallet_approval_grant JSON" aria-label="Signed wallet approval grant"></textarea>`,
+    submitId, "Submit signed grant");
+  const requestForm = (actionPath, submitId, label, extraInputs) => bForm(actionPath, extraInputs || "", submitId, label, { ghost: true });
+  const sessInput = `<input type="hidden" name="connector_session_id" value="${esc(sessSel)}">`;
+  const buildPane = (() => {
+    if (!paneKey) return "";
+    const notes = [
+      invalidBuildPane ? `Unknown pane <code>${esc(sel.pane)}</code>` : "",
+      invalidRun ? `Unknown run <code>${esc(sel.run)}</code> — failed closed to review` : "",
+      invalidSession ? `Unknown/mismatched session <code>${esc(sel.session)}</code> — dropped` : "",
+    ].filter(Boolean).map((n) => `<div class="pb-ihint pb-warnhint">${n}</div>`).join("");
+    const chips = `<div class="pb-bd-chips">${bChip("review", "Review")}${bChip("lease", "Run + lease")}${bChip("session", "Session")}${bChip("open", "Sealed open")}${bChip("execute", "Execute")}${bChip("done", "Registered")}</div>`;
+    const crumb = semanticBreadcrumb([{ label: selected ? (selected.domain || selected.id) : "ontology", href: managerLink({ ontology: oid }) }, { label: "Governed build" }]);
+    let body = "";
+    if (buildStage === "review") {
+      const rows = readyChecks.map((c) => `<tr><td>${esc(c.label)}</td><td>${c.ok ? '<span class="pb-live">ready</span>' : '<span class="pb-declared">missing</span>'}</td><td>${c.ok ? "" : `<a href="${stateHref({ node: c.node, pane: "", run: "", session: "", tab: "" })}">Go to node</a> · <a href="${managerLink({ ontology: oid })}">Ontology Manager</a>`}</td></tr>`).join("");
+      const review = pl0 ? [
+        irow("source origin", d0 ? safeOrigin(d0.endpoint || "") : "—"),
+        irow("object type", m0 ? `${icode(m0.object_type_id || "—")} · <a href="${managerLink({ ontology: oid, section: "object-types", definitionKind: "object-type", definitionId: m0.object_type_id })}">definition</a>` : "—"),
+        irow("fields", m0 ? [m0.key_mapping && `${icode(m0.key_mapping.property_id)} (key)`, m0.title_mapping && `${icode(m0.title_mapping.property_id)} (title)`, ...(m0.field_mappings || []).map((f) => icode(f.property_id))].filter(Boolean).join(" ") : "—"),
+        irow("purpose", esc(pl0.purpose || "—")),
+        irow("operations", (pl0.requested_operations || []).map(icode).join(" ") || "—"),
+        irow("TTL", `${esc(String(pl0.ttl_seconds ?? "—"))}s`),
+        irow("obligations", v0 ? `evaluation ${icode(v0.evaluation_posture || "—")} · export ${icode(v0.export_posture || "—")}${v0.retention_posture ? ` · retention ${icode(v0.retention_posture)}` : ""}` : "—"),
+        irow("connector", coveringConnector ? `${icode(coveringConnector.connector_id || coveringConnector.id)} covers the source origin` : `<span class="pb-declared">none covers the source</span> — declare one in <a href="/__ioi/connections">connector custody</a>`),
+        irow("row limit", `bounded 1–500 (set at execute; default 100) — exactly ONE read of the declared endpoint`),
+        irow("standing output", mset ? `${icode(mset.ref || mset.id)} already registered — executing again materializes a NEW set under a NEW governed run (the prior set stands until reset)` : "none — first build"),
+      ].join("") : "";
+      const resume = resumableRun ? `<div class="pb-ihint">A non-terminal run already cites this plan — <a href="${stateHref({ run: resumableRun.id })}">resume run ${icode(resumableRun.id)}</a> (duplicates are never minted).</div>` : "";
+      const cta = !buildReady
+        ? `<button class="pb-btn primary" disabled title="${esc(`missing: ${missingForBuild.join(" · ")}`)}" data-ioi-disabled-reason="${esc(`the ladder is not coherent-ready — missing: ${missingForBuild.join(" · ")}`)}">Admit materializing run</button>`
+        : resumableRun ? ""
+        : bForm("/actions/admit-run", `<input type="hidden" name="capability_lease_plan_id" value="${esc(pl0 ? pl0.id : "")}"><input type="hidden" name="name" value="${esc(`governed build — ${selected ? selected.domain || selected.id : ""}`)}">`, "pb-bd-admit", "Admit materializing run");
+      body = `<div class="ioi-tray-hd">Review — the declared ladder this build will consume</div><table class="pb-table"><thead><tr><th>rung</th><th>state</th><th>owner</th></tr></thead><tbody>${rows}</tbody></table>${review}${resume}${cta}`;
+    } else if (buildStage === "lease") {
+      body = irow("materializing run", `${icode(runRec.ref || runRec.id)} · status ${icode(runRec.status)}`)
+        + irow("plan", icode(runRec.capability_lease_plan_id || ""))
+        + challengePanel("materializing-run lease", "odk.materialize")
+        + custodyNote
+        + requestForm(`/${enc(runSel)}/submit-lease-grant`, "pb-bd-lease-request", sel.challenge_policy ? "Re-show challenge (receipted refusal)" : "Request lease — surfaces the wallet challenge")
+        + (sel.challenge_policy ? grantForm(`/${enc(runSel)}/submit-lease-grant`, "pb-bd-lease-submit") : "")
+        + bForm(`/${enc(runSel)}/cancel-run`, "", "pb-bd-cancel", "Cancel run", { confirm: "cancel this planned run (terminal, receipted)", ghost: true })
+        + bHistory(runRec, "Run");
+    } else if (buildStage === "session") {
+      body = irow("materializing run", `${icode(runRec.ref || runRec.id)} · ${icode(runRec.status)} · lease ${icode((runRec.lease || {}).lease_id || "")}`)
+        + (coveringConnector
+          ? bForm(`/${enc(runSel)}/admit-session`, `<input type="hidden" name="connector_id" value="${esc(coveringConnector.connector_id || coveringConnector.id)}"><input type="hidden" name="name" value="${esc(`governed build session — ${selected ? selected.domain || selected.id : ""}`)}">`, "pb-bd-admit-session", "Admit connector session")
+          : `<div class="pb-ihint pb-warnhint">No registered connector covers the declared source origin — declare one in <a href="/__ioi/connections">connector custody</a>; the daemon re-checks coverage at every stage (confused-deputy fail-closed).</div>`)
+        + bForm(`/${enc(runSel)}/release-lease`, "", "pb-bd-release", "Release lease", { confirm: "release the held lease before execution (terminal for this run, receipted)", ghost: true })
+        + bHistory(runRec, "Run");
+    } else if (buildStage === "open") {
+      body = irow("session", `${icode(sessRec.ref || sessRec.id)} · status ${icode(sessRec.status)} · connector ${icode(sessRec.connector_id || "")}`)
+        + challengePanel("sealed connector session", "odk.session")
+        + custodyNote
+        + requestForm(`/${enc(runSel)}/submit-session-grant`, "pb-bd-open-request", sel.challenge_policy ? "Re-show challenge (receipted refusal)" : "Open sealed session — resolves the credential server-side, then surfaces the wallet challenge", sessInput)
+        + (sel.challenge_policy ? grantForm(`/${enc(runSel)}/submit-session-grant`, "pb-bd-open-submit", sessInput) : "")
+        + bHistory(sessRec, "Session") + bHistory(runRec, "Run");
+    } else if (buildStage === "execute") {
+      body = irow("sealed session", `${icode((sessRec.session || {}).session_ref || sessRec.id)} · credential material held: <b>${(sessRec.session || {}).credential_material === true}</b>`)
+        + irow("bounded read", `exactly ONE GET of ${d0 ? safeOrigin(d0.endpoint || "") : "the declared endpoint"} · redirects refused · all-or-nothing row validation`)
+        + bForm(`/${enc(runSel)}/execute`, `${sessInput}<label class="pb-bd-limit">row limit <input type="number" name="limit" min="1" max="500" value="100"></label>`, "pb-bd-execute", "Execute materialization", { confirm: "execute ONE bounded read under the held lease + sealed session (receipted before registration)" })
+        + bForm(`/${enc(runSel)}/release-session`, sessInput, "pb-bd-release-session", "Release session", { confirm: "release the sealed session (terminal for the session, receipted)", ghost: true })
+        + bHistory(sessRec, "Session") + bHistory(runRec, "Run");
+    } else if (buildStage === "done") {
+      body = irow("registered set", setForRun ? `${icode(setForRun.ref || setForRun.id)} · <b>${esc(String(setForRun.count ?? 0))}</b> objects` : "executed — the set was since reset (honest note; receipts below stand)")
+        + (setForRun ? irow("pre-output receipt", icode(setForRun.pre_output_receipt_ref || "")) : "")
+        + irow("open in", `<a href="${stateHref({ node: "materialized", tab: "preview", pane: "", run: "", session: "" })}#pb-preview">Preview rows</a>${setForRun ? ` · <a href="${objectSetLink(oid, setForRun.id)}">Explorer set</a> · <a href="${lineageLink(oid, setForRun.id)}">Lineage</a> · <a href="${vertexLink(oid, setForRun.id)}">Vertex</a> · <a href="${provenanceSetLink(setForRun.id)}">Provenance</a>` : ""}`)
+        + bHistory(runRec, "Run") + (sessRec ? bHistory(sessRec, "Session") : "");
+    } else { // ended
+      body = `<div class="pb-ihint">This run ended before execution (${icode(runRec ? runRec.status : "")}${sessRec ? ` · session ${icode(sessRec.status)}` : ""}) — receipts below stand; start a fresh review to build.</div>`
+        + `<a class="pb-btn ghost" href="${stateHref({ run: "", session: "" })}">Back to review</a>`
+        + bHistory(runRec, "Run") + (sessRec ? bHistory(sessRec, "Session") : "");
+    }
+    return `<div id="pb-build" class="pb-bd">${crumb}${chips}${notes}${body}
+      <div class="pb-gapnote">This workflow crosses ONLY existing daemon authorities (MaterializingRun → wallet-approved CapabilityLease → sealed ConnectorSession → ONE bounded execute). No PipelineBuild plane exists; grants are pasted from an external wallet, forwarded once, and dropped — the serve holds no signer (dev test signer only under its explicit flag).</div></div>`;
+  })();
+  const trayBody = paneKey ? buildPane
+    : trayTabKey === "warnings" ? warningsPanel
     : trayTabKey === "suggestions" ? suggestionsPanel
     : trayTabKey === "preview" ? previewPanel
     : inspectorMode ? nodeDetailPanel
     : outputSel ? outputDetailPanel
     : selectionEmpty;
   const gapnote = `<div class="pb-gapnote">Freeform canvas authoring — drag-connect nodes, transform code editor, scheduling, deploy — are <b>reference-only lanes disabled above</b>, not yet wired. Author stages in the <a href="${managerLink({ ontology: oid })}">Ontology Manager</a> (<a href="/__ioi/odk?ontology=${enc(oid)}">ODK substrate</a>); execute via a materializing run. Reference: <a href="/__apps/pipeline">Pipeline Builder capture ↗</a>.</div>`;
-  const trayTabLink = (key, icon2, label, extraCls) => `<a class="pb-tab${extraCls ? " " + extraCls : ""}${trayTabKey === key ? " on" : ""}" data-traytab="${key}" href="${stateHref({ tab: key === "selection" ? "" : key })}">${bpIcon(icon2)} ${label}${key === "suggestions" ? `<span class="pb-tabpill" title="suggestions count — reference-only lane"></span>` : ""}</a>`;
+  const trayTabLink = (key, icon2, label, extraCls) => `<a class="pb-tab${extraCls ? " " + extraCls : ""}${trayTabKey === key && !paneKey ? " on" : ""}" data-traytab="${key}" href="${stateHref({ tab: key === "selection" ? "" : key, pane: "", run: "", session: "" })}">${bpIcon(icon2)} ${label}${key === "suggestions" ? `<span class="pb-tabpill" title="suggestions count — reference-only lane"></span>` : ""}</a>`;
 
   // Node quick-action strip + header card (reference on-selection chrome) — rendered in the
   // excluded canvas body, positioned by the client beside the selected node; every action is
@@ -607,13 +919,16 @@ function renderPipelineBuilder(lists, sel, embed) {
     ${ctxMenu}
     <div class="pb-tray${trayCollapsed ? " pb-collapsed" : ""}" id="pb-preview">
       <div class="pb-traytabs">
+        ${paneKey ? `<a class="pb-tab on" data-traytab="build" href="${stateHref({})}">${bpIcon("build")} Build</a>` : ""}
         ${trayTabLink("selection", "panel-table", "Selection preview")}
         ${hasSelection ? trayTabLink("preview", "eye-open", "Preview") : ""}
         ${trayTabLink("suggestions", "clean", "Suggestions", "s2")}
         ${trayTabLink("warnings", "warning-sign", "Pipeline warnings", "warn")}
         <button type="button" class="pb-traycollapse" id="pb-tray-toggle" title="Toggle bottom bar" aria-expanded="${!trayCollapsed}">${bpIcon("double-chevron-down")}</button>
       </div>
-      <div class="pb-traybody">${trayBody}
+      <div class="pb-traybody">${(sel.banner && (sel.banner.acted || sel.banner.refused)) ? (sel.banner.acted
+        ? `<div class="pb-ihint pb-bd-ok" id="ap-result">✓ ${esc(sel.banner.acted)} — ${sel.banner.result ? `status ${icode(sel.banner.result)} · ` : ""}receipt ${icode(sel.banner.receipt || "")}${sel.banner.record ? ` · record ${icode(sel.banner.record)}` : ""}</div>`
+        : `<div class="pb-ihint pb-warnhint" id="ap-result">✕ refused ${icode(sel.banner.refused)} — ${esc(sel.banner.reason || "")} · state unchanged</div>`) : ""}${trayBody}
         ${trayTabKey === "selection" && !hasSelection ? gapnote : ""}
       </div>
     </div>
@@ -892,6 +1207,20 @@ function renderPipelineBuilder(lists, sel, embed) {
     .pb-treeempty{font-size:11px;color:#a5adba;padding:2px 9px;font-style:italic}
     .pb-outcard.pb-outsel{border-color:#2d72d2;box-shadow:0 0 0 2px rgba(45,114,210,.35)}
     a.pb-outcard{display:block}
+    /* governed build pane (#67) — tray-body content, excluded live region */
+    .pb-bd{max-width:980px}
+    .pb-bd-chips{display:flex;gap:6px;margin:8px 0 12px;flex-wrap:wrap}
+    .pb-bd-chip{font-size:11px;padding:3px 10px;border-radius:999px;background:#f1f3f6;color:#5f6b7c;border:1px solid #e0e3e8}
+    .pb-bd-chip.on{background:rgba(138,187,255,.35);color:#215db0;border-color:#8abbff;font-weight:600}
+    .pb-bd-chip.done{background:#eafaf1;color:#0e8a53;border-color:#8fdcb6}
+    .pb-bd-form{margin:10px 0;display:flex;flex-direction:column;gap:8px;align-items:flex-start}
+    .pb-bd-grant{width:100%;max-width:720px;font-family:ui-monospace,SFMono-Regular,monospace;font-size:10.5px;border:1px solid #d3d8de;border-radius:4px;padding:6px 8px;background:#fbfbfc}
+    .pb-bd-confirm{font-size:12px;color:#935610;display:flex;gap:6px;align-items:center}
+    .pb-bd-limit{font-size:12px;color:#1c2127;display:flex;gap:6px;align-items:center}
+    .pb-bd-limit input{width:72px;border:1px solid #d3d8de;border-radius:4px;padding:3px 6px;font:inherit}
+    .pb-bd-challenge{margin:10px 0;padding:10px 12px;border:1px solid #d0e0f5;border-radius:6px;background:#f0f6ff}
+    .pb-bd-ok{border-color:#8fdcb6;background:#eafaf1;color:#0e8a53}
+    .pb-live{color:#0e8a53;font-weight:600}.pb-declared{color:#935610;font-weight:600}
     /* 1140px embedded-header fix (#66): the command cluster is an absolute 494px box flex never
        sees, so below 1440 it collides with the right cluster. Bare captures are exactly 1440/1920
        wide, so a max-width:1439 rule is capture-invisible; it clamps the box at the right cluster
