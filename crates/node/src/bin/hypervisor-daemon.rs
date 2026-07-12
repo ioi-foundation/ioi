@@ -331,6 +331,10 @@ async fn async_main() -> anyhow::Result<()> {
     // WS-3r — reconcile editor services on boot: a runtime persisted `ready` did not survive the
     // restart, so mark it degraded (restart required) rather than claim a phantom-ready editor.
     let _ = editor_host::reconcile_editor_services(&data_dir);
+    // #72 round 6 — finish any GoalRun lifecycle-recovery transaction a crash interrupted: the
+    // durable recovery intent seals the receipt and release facts, so restart completes it
+    // FORWARD deterministically (receipt, then release) instead of guessing.
+    goalrun_routes::complete_recovery_intents(&data_dir);
 
     let stream_frame_delay_ms = std::env::var("IOI_DETERMINISTIC_PROVIDER_STREAM_DELAY_MS")
         .ok()
