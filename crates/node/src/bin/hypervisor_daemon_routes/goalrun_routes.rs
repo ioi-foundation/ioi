@@ -38,19 +38,25 @@ use std::time::Duration;
 use super::lifecycle_routes::{
     execute_authority_gate, load_session_record, resolve_adapter_driver, run_host_spawn_lane,
 };
-use super::{iso_now, persist_record, read_record_dir, DaemonState};
+use super::{iso_now, persist_record, read_record_dir, remove_record, DaemonState};
 use std::sync::Mutex;
 
 const GOAL_RUN_KIND: &str = "goal-runs";
 
 /// GoalRun record mutation lock (#72 review round 2). LOCK ORDERING (fixed, documented):
 /// ROOM_MUTATION_LOCK — when held — is always acquired BEFORE this lock; no .await ever executes
-/// under it (update_goal_run's closure is synchronous).
+/// under it (update_goal_run_guarded's predicate and closure are synchronous).
 pub(crate) static GOAL_RUN_MUTATION_LOCK: Mutex<()> = Mutex::new(());
 
 /// ATOMIC file replacement for the mutable goal-run record: tmp sibling (no .json extension —
 /// invisible to read_record_dir) + rename; both failure paths clean the temp file.
 fn persist_goal_run_atomic(data_dir: &str, goal_run_id: &str, record: &Value) -> std::io::Result<()> {
+    // Parity with persist_record (#72 review round 3): a promoted family has exactly one write
+    // path (the substrate engine), and a not-yet-promoted family still feeds the opt-in
+    // dual-write soak — atomic replacement must not silently drop either cross-cutting hook.
+    if super::substrate_store::is_promoted(GOAL_RUN_KIND) {
+        return super::substrate_store::persist_promoted(data_dir, GOAL_RUN_KIND, goal_run_id, record);
+    }
     let dir = std::path::Path::new(data_dir).join(GOAL_RUN_KIND);
     std::fs::create_dir_all(&dir)?;
     let safe: String = goal_run_id.replace(|c: char| !c.is_ascii_alphanumeric() && c != '-' && c != '_', "_");
@@ -63,29 +69,126 @@ fn persist_goal_run_atomic(data_dir: &str, goal_run_id: &str, record: &Value) ->
         let _ = std::fs::remove_file(&tmp);
         return Err(e);
     }
+    super::substrate_store::dual_write(data_dir, GOAL_RUN_KIND, goal_run_id, record);
     Ok(())
 }
 
-/// THE SHARED GoalRun MUTATION/CAS SEAM (#72 review round 2): every GoalRun-record writer —
+/// A typed seam refusal: (code, message). Codes are wire-facing.
+pub(crate) type SeamErr = (String, String);
+
+/// THE SHARED GoalRun MUTATION/CAS SEAM (#72 review rounds 2 + 3): every GoalRun-record writer —
 /// lifecycle `start`/`reconcile` here, the room plane's reciprocal membership stamp — re-reads
-/// the LATEST record under GOAL_RUN_MUTATION_LOCK and merges ONLY the fields it owns, persisting
-/// via atomic replacement. A handler that did async work against a stale snapshot must NOT
-/// persist that snapshot: it routes its computed fields through this seam, so a concurrent
-/// writer's fields (e.g. `outcome_room_ref`) always survive. Returns the merged record.
-pub(crate) fn update_goal_run(
+/// the LATEST record under GOAL_RUN_MUTATION_LOCK, evaluates the caller's `expect` predicate
+/// against that FRESH record (this is the CAS: state prechecks and operation-token comparisons
+/// happen atomically with the write, never against a stale snapshot), then merges ONLY the
+/// fields the caller owns and persists via atomic replacement. Outcomes are TYPED and distinct —
+/// `goal_run_not_found`, the predicate's own refusal, `goal_run_persist_failed` — because a
+/// caller that reports success without an `Ok` from this seam is fail-open (round 3 finding 1).
+pub(crate) fn update_goal_run_guarded(
     data_dir: &str,
     goal_run_id: &str,
+    expect: impl FnOnce(&Value) -> Result<(), SeamErr>,
     mutate: impl FnOnce(&mut serde_json::Map<String, Value>),
-) -> Option<Value> {
+) -> Result<Value, SeamErr> {
     let _guard = GOAL_RUN_MUTATION_LOCK.lock().unwrap_or_else(|p| p.into_inner());
-    let mut fresh = read_record_dir(data_dir, GOAL_RUN_KIND)
+    let Some(mut fresh) = read_record_dir(data_dir, GOAL_RUN_KIND)
         .into_iter()
-        .find(|r| r.get("goal_run_id").and_then(Value::as_str) == Some(goal_run_id))?;
+        .find(|r| r.get("goal_run_id").and_then(Value::as_str) == Some(goal_run_id))
+    else {
+        return Err((
+            "goal_run_not_found".to_string(),
+            format!("no durable GoalRun record '{goal_run_id}'"),
+        ));
+    };
+    expect(&fresh)?;
     if let Some(obj) = fresh.as_object_mut() {
         mutate(obj);
     }
-    persist_goal_run_atomic(data_dir, goal_run_id, &fresh).ok()?;
-    Some(fresh)
+    if let Err(e) = persist_goal_run_atomic(data_dir, goal_run_id, &fresh) {
+        return Err((
+            "goal_run_persist_failed".to_string(),
+            format!("the GoalRun record write did not commit ({e}) — the durable record is unchanged"),
+        ));
+    }
+    Ok(fresh)
+}
+
+/// Release a lifecycle operation reservation (token-guarded): restore `status`, drop
+/// `lifecycle_op`. Every post-reservation refusal/rollback path releases through here so a
+/// refused request leaves the run exactly re-runnable. A token mismatch means this request no
+/// longer owns the run — it must not touch it.
+pub(crate) fn release_lifecycle_reservation(
+    data_dir: &str,
+    goal_run_id: &str,
+    token: &str,
+    restore_status: &str,
+) -> Result<(), SeamErr> {
+    update_goal_run_guarded(
+        data_dir,
+        goal_run_id,
+        |fresh| {
+            if fresh.pointer("/lifecycle_op/token").and_then(Value::as_str) != Some(token) {
+                return Err((
+                    "goal_run_operation_conflict".to_string(),
+                    "lifecycle reservation token mismatch — another operation owns this run".to_string(),
+                ));
+            }
+            Ok(())
+        },
+        |obj| {
+            obj.insert("status".into(), json!(restore_status));
+            obj.remove("lifecycle_op");
+        },
+    )
+    .map(|_| ())
+}
+
+/// HTTP status for a seam/lifecycle refusal code — persistence and rollback lanes are 5xx
+/// (infrastructure truth), a missing run is 404, every state/token refusal is a 409 conflict.
+fn seam_status(code: &str) -> StatusCode {
+    match code {
+        "goal_run_not_found" => StatusCode::NOT_FOUND,
+        "goal_run_persist_failed" | "goal_run_finalize_failed" | "goal_run_rollback_failed"
+        | "goal_run_release_failed" => StatusCode::INTERNAL_SERVER_ERROR,
+        _ => StatusCode::CONFLICT,
+    }
+}
+
+/// Reconcile rollback lane (#72 round 3 finding 1): remove the listed partial records (checked),
+/// release the reservation back to `active`, and refuse typed. On success the durable state is
+/// EXACTLY as before this request (workspace file copies are idempotent re-runs), so the
+/// reconcile is retryable — recoverable, never partial. Any incomplete step escalates to
+/// `goal_run_rollback_failed` with the surviving pieces named for manual repair.
+fn reconcile_abort(
+    data_dir: &str,
+    goal_run_id: &str,
+    token: &str,
+    code: &str,
+    detail: &str,
+    cleanup: &[(&str, &str)],
+) -> (StatusCode, Json<Value>) {
+    let mut failures: Vec<String> = Vec::new();
+    for (family, record_id) in cleanup {
+        if !remove_record(data_dir, family, record_id) {
+            failures.push(format!("{family}/{record_id}"));
+        }
+    }
+    if let Err((rcode, rmsg)) = release_lifecycle_reservation(data_dir, goal_run_id, token, "active") {
+        failures.push(format!("reservation release ({rcode}: {rmsg})"));
+    }
+    if failures.is_empty() {
+        bad(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            code,
+            &format!("{detail}; every partial record was rolled back and the reservation released — the run remains `active` and reconcile may be retried (nothing partial persists)"),
+        )
+    } else {
+        bad(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "goal_run_rollback_failed",
+            &format!("{detail} AND rollback was incomplete ({}) — manual repair required", failures.join(", ")),
+        )
+    }
 }
 const INVOCATION_KIND: &str = "goal-run-invocations";
 const VERIFICATION_KIND: &str = "goal-run-verifications";
@@ -774,26 +877,58 @@ pub(crate) async fn handle_goal_run_start(
     AxumPath(id): AxumPath<String>,
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
-    let Some(mut run) = load(&st, GOAL_RUN_KIND, &id) else {
-        return bad(StatusCode::NOT_FOUND, "goal_run_not_found", "Unknown GoalRun.");
+    // OPERATION RESERVATION (#72 round 3 finding 2): `start` is one-shot and wallet-gated — the
+    // draft precheck and the transition to `starting` are ONE atomic CAS under the seam, before
+    // any await and before the wallet crossing. Exactly one concurrent start wins the
+    // reservation; the loser refuses typed, so a duplicate wallet-gated start is impossible.
+    let op_token = format!("lop_{:x}", nanos());
+    let reserved_at = iso_now();
+    let run = match update_goal_run_guarded(
+        &st.data_dir,
+        &id,
+        |fresh| {
+            if text(fresh, "status") != "draft" {
+                return Err((
+                    "goal_run_already_started".to_string(),
+                    "This GoalRun has already been started.".to_string(),
+                ));
+            }
+            Ok(())
+        },
+        |obj| {
+            obj.insert("status".into(), json!("starting"));
+            obj.insert(
+                "lifecycle_op".into(),
+                json!({ "op": "start", "token": op_token.clone(), "reserved_at": reserved_at }),
+            );
+        },
+    ) {
+        Ok(run) => run,
+        Err((code, msg)) => return bad(seam_status(&code), &code, &msg),
     };
-    if text(&run, "status") != "draft" {
-        return bad(
-            StatusCode::CONFLICT,
-            "goal_run_already_started",
-            "This GoalRun has already been started.",
-        );
-    }
     let goal_ref = text(&run, "goal_ref").to_string();
     let goal = text(&run, "normalized_goal").to_string();
     let target_workspace = text(&run, "target_workspace_root").to_string();
 
     // Wallet authority gate — one admitted crossing covers the run's bounded invocations; the
     // lease ref is named on every invocation receipt. 403 challenge shape identical to execute.
+    // A refusal here happened before any side effect: release the reservation so the draft is
+    // exactly re-runnable; a failed release is itself a typed 5xx, never a silent wedge.
     let capability_lease_ref =
         match execute_authority_gate(&body, &goal_ref, &target_workspace, &goal) {
             Ok(lease) => lease,
-            Err(challenge) => return (StatusCode::FORBIDDEN, Json(challenge)),
+            Err(challenge) => {
+                if let Err((rcode, rmsg)) =
+                    release_lifecycle_reservation(&st.data_dir, &id, &op_token, "draft")
+                {
+                    return bad(
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        "goal_run_release_failed",
+                        &format!("the start authority gate refused AND the reservation release did not commit ({rcode}: {rmsg}) — manual inspection required"),
+                    );
+                }
+                return (StatusCode::FORBIDDEN, Json(challenge));
+            }
         };
 
     // Refresh live facts and admit each implementer invocation (fail-closed per role; a
@@ -890,6 +1025,16 @@ pub(crate) async fn handle_goal_run_start(
         }
     }
     if admitted_plans.is_empty() && invocations.is_empty() {
+        // Refused with no durable side effect — release the reservation (draft is re-runnable).
+        if let Err((rcode, rmsg)) =
+            release_lifecycle_reservation(&st.data_dir, &id, &op_token, "draft")
+        {
+            return bad(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "goal_run_release_failed",
+                &format!("the start refused (no implementer cells) AND the reservation release did not commit ({rcode}: {rmsg}) — manual inspection required"),
+            );
+        }
         return bad(
             StatusCode::CONFLICT,
             "goal_run_no_implementer_cells",
@@ -1016,25 +1161,51 @@ pub(crate) async fn handle_goal_run_start(
         .iter()
         .any(|v| text(v, "goal_ref") == goal_ref && text(v, "verdict") == "pass");
     let partial = !blockers.is_empty();
-    // #72 review round 2: this handler awaited with a STALE snapshot in hand — persisting that
-    // snapshot would erase concurrent foreign fields (e.g. the room plane's reciprocal
-    // outcome_room_ref stamp). The lifecycle fields it OWNS merge onto the LATEST record
-    // through the shared CAS seam instead.
-    let run = update_goal_run(&st.data_dir, &goal_run_id, |object| {
-        object.insert("status".into(), json!("active"));
-        object.insert("active_loop_phase".into(), json!("verify"));
-        object.insert(
-            "continuation_state".into(),
-            json!(if any_verified { "verifying" } else { "blocked" }),
-        );
-        object.insert("invocation_refs".into(), json!(invocation_refs));
-        object.insert("verification_refs".into(), json!(verification_refs));
-        object.insert("blockers".into(), json!(blockers));
-        object.insert("partial_result".into(), json!(partial));
-        object.insert("capability_lease_ref".into(), json!(capability_lease_ref));
-        object.insert("updated_at".into(), json!(iso_now()));
-    })
-    .unwrap_or(run);
+    // FINALIZATION (#72 rounds 2 + 3): the lifecycle fields this handler OWNS merge onto the
+    // LATEST record through the shared CAS seam (a stale-snapshot persist would erase the room
+    // plane's reciprocal stamp), and the commit is TOKEN-GUARDED — it lands only while this
+    // request still holds its reservation. A seam failure is a typed 5xx, never a 200: the
+    // reservation (status `starting` + token) is preserved DELIBERATELY, because releasing to
+    // `draft` after the wallet crossing would re-open the run to a duplicate wallet-gated start.
+    let run = match update_goal_run_guarded(
+        &st.data_dir,
+        &goal_run_id,
+        |fresh| {
+            if fresh.pointer("/lifecycle_op/token").and_then(Value::as_str)
+                != Some(op_token.as_str())
+            {
+                return Err((
+                    "goal_run_operation_conflict".to_string(),
+                    "start finalization no longer holds the reservation token — refusing to commit".to_string(),
+                ));
+            }
+            Ok(())
+        },
+        |object| {
+            object.insert("status".into(), json!("active"));
+            object.insert("active_loop_phase".into(), json!("verify"));
+            object.insert(
+                "continuation_state".into(),
+                json!(if any_verified { "verifying" } else { "blocked" }),
+            );
+            object.insert("invocation_refs".into(), json!(invocation_refs));
+            object.insert("verification_refs".into(), json!(verification_refs));
+            object.insert("blockers".into(), json!(blockers));
+            object.insert("partial_result".into(), json!(partial));
+            object.insert("capability_lease_ref".into(), json!(capability_lease_ref));
+            object.insert("updated_at".into(), json!(iso_now()));
+            object.remove("lifecycle_op");
+        },
+    ) {
+        Ok(run) => run,
+        Err((code, msg)) => {
+            return bad(
+                seam_status(&code),
+                "goal_run_finalize_failed",
+                &format!("start executed but its finalization did not commit ({code}: {msg}); invocation and verification records are durable and the run remains reserved (`starting`) — no duplicate start is possible, manual recovery applies"),
+            );
+        }
+    };
 
     (
         StatusCode::OK,
@@ -1057,16 +1228,36 @@ pub(crate) async fn handle_goal_run_reconcile(
     AxumPath(id): AxumPath<String>,
     Json(_body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
-    let Some(mut run) = load(&st, GOAL_RUN_KIND, &id) else {
-        return bad(StatusCode::NOT_FOUND, "goal_run_not_found", "Unknown GoalRun.");
+    // OPERATION RESERVATION (#72 round 3 finding 2): reconcile is one-shot — `active ->
+    // reconciling` is reserved atomically with a fresh operation token BEFORE any await, so of
+    // two simultaneous reconciles exactly one wins; the loser sees `reconciling` in the SAME
+    // CAS predicate and refuses typed. Finalization commits only while it still holds this
+    // token, and every refusal/rollback path releases the reservation back to `active`.
+    let op_token = format!("lop_{:x}", nanos());
+    let reserved_at = iso_now();
+    let run = match update_goal_run_guarded(
+        &st.data_dir,
+        &id,
+        |fresh| {
+            if text(fresh, "status") != "active" {
+                return Err((
+                    "goal_run_not_reconcilable".to_string(),
+                    "Reconciliation applies to a started (active) GoalRun exactly once.".to_string(),
+                ));
+            }
+            Ok(())
+        },
+        |obj| {
+            obj.insert("status".into(), json!("reconciling"));
+            obj.insert(
+                "lifecycle_op".into(),
+                json!({ "op": "reconcile", "token": op_token.clone(), "reserved_at": reserved_at }),
+            );
+        },
+    ) {
+        Ok(run) => run,
+        Err((code, msg)) => return bad(seam_status(&code), &code, &msg),
     };
-    if text(&run, "status") != "active" {
-        return bad(
-            StatusCode::CONFLICT,
-            "goal_run_not_reconcilable",
-            "Reconciliation applies to a started (active) GoalRun exactly once.",
-        );
-    }
     let goal_ref = text(&run, "goal_ref").to_string();
     let goal_run_id = text(&run, "goal_run_id").to_string();
     let target_workspace = text(&run, "target_workspace_root").to_string();
@@ -1159,7 +1350,20 @@ pub(crate) async fn handle_goal_run_reconcile(
         &iso_now(),
     ) {
         Ok(admitted) => admitted,
-        Err(error) => return kernel_err(error),
+        Err(error) => {
+            // Admission refused with nothing persisted — release the reservation so the run
+            // stays exactly retryable; a failed release is a typed 5xx, never a silent wedge.
+            if let Err((rcode, rmsg)) =
+                release_lifecycle_reservation(&st.data_dir, &goal_run_id, &op_token, "active")
+            {
+                return bad(
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "goal_run_release_failed",
+                    &format!("reconciliation admission refused AND the reservation release did not commit ({rcode}: {rmsg}) — manual inspection required"),
+                );
+            }
+            return kernel_err(error);
+        }
     };
 
     // Admitted: copy selected candidate files into the target workspace (first time any
@@ -1203,7 +1407,18 @@ pub(crate) async fn handle_goal_run_reconcile(
         "at": iso_now(),
         "runtimeTruthSource": "daemon-runtime",
     });
-    let _ = persist_record(&st.data_dir, "receipts", &receipt_ref, &receipt);
+    // CHECKED persist (#72 round 3 finding 1): a failed receipt write refuses typed and releases
+    // the reservation — success is never reported over partial truth.
+    if let Err(e) = persist_record(&st.data_dir, "receipts", &receipt_ref, &receipt) {
+        return reconcile_abort(
+            &st.data_dir,
+            &goal_run_id,
+            &op_token,
+            "goal_run_reconcile_receipt_persist_failed",
+            &format!("the reconciliation receipt write did not commit ({e})"),
+            &[],
+        );
+    }
 
     let conductor_ref = run
         .pointer("/role_topology/conductor_ref")
@@ -1264,25 +1479,70 @@ pub(crate) async fn handle_goal_run_reconcile(
         "reconciled_at": iso_now(),
         "runtimeTruthSource": "daemon-runtime",
     });
-    let _ = persist_record(&st.data_dir, RECONCILIATION_KIND, &reconciliation_id, &reconciliation);
+    // CHECKED persist (#72 round 3 finding 1): a failed reconciliation write rolls the receipt
+    // back and releases the reservation — nothing partial survives.
+    if let Err(e) = persist_record(&st.data_dir, RECONCILIATION_KIND, &reconciliation_id, &reconciliation) {
+        return reconcile_abort(
+            &st.data_dir,
+            &goal_run_id,
+            &op_token,
+            "goal_run_reconciliation_persist_failed",
+            &format!("the reconciliation record write did not commit ({e})"),
+            &[("receipts", receipt_ref.as_str())],
+        );
+    }
 
-    // #72 review round 2: merge ONLY the reconciliation-owned fields onto the LATEST record via
-    // the shared CAS seam — a concurrent reciprocal room stamp survives this persist.
-    let run = update_goal_run(&st.data_dir, &goal_run_id, |object| {
-        object.insert("status".into(), json!(if blocked { "blocked" } else { "complete" }));
-        object.insert(
-            "continuation_state".into(),
-            json!(if blocked { "blocked" } else { "complete" }),
-        );
-        object.insert("active_loop_phase".into(), json!("continue_or_close"));
-        object.insert(
-            "reconciliation_ref".into(),
-            json!(format!("reconciliation_result://{reconciliation_id}")),
-        );
-        object.insert("final_changed_files".into(), json!(reconciliation["final_changed_files"]));
-        object.insert("updated_at".into(), json!(iso_now()));
-    })
-    .unwrap_or(run);
+    // FINALIZATION (#72 rounds 2 + 3): merge ONLY the reconciliation-owned fields onto the
+    // LATEST record via the shared CAS seam — a concurrent reciprocal room stamp survives — and
+    // commit TOKEN-GUARDED: only while this request still holds its reservation. A seam failure
+    // here rolls back the reconciliation record AND its receipt and releases the reservation, so
+    // the durable state is exactly pre-request and the reconcile is retryable: recoverable,
+    // typed, never a 200 over partial truth.
+    let run = match update_goal_run_guarded(
+        &st.data_dir,
+        &goal_run_id,
+        |fresh| {
+            if fresh.pointer("/lifecycle_op/token").and_then(Value::as_str)
+                != Some(op_token.as_str())
+            {
+                return Err((
+                    "goal_run_operation_conflict".to_string(),
+                    "reconcile finalization no longer holds the reservation token — refusing to commit".to_string(),
+                ));
+            }
+            Ok(())
+        },
+        |object| {
+            object.insert("status".into(), json!(if blocked { "blocked" } else { "complete" }));
+            object.insert(
+                "continuation_state".into(),
+                json!(if blocked { "blocked" } else { "complete" }),
+            );
+            object.insert("active_loop_phase".into(), json!("continue_or_close"));
+            object.insert(
+                "reconciliation_ref".into(),
+                json!(format!("reconciliation_result://{reconciliation_id}")),
+            );
+            object.insert("final_changed_files".into(), json!(reconciliation["final_changed_files"]));
+            object.insert("updated_at".into(), json!(iso_now()));
+            object.remove("lifecycle_op");
+        },
+    ) {
+        Ok(run) => run,
+        Err((code, msg)) => {
+            return reconcile_abort(
+                &st.data_dir,
+                &goal_run_id,
+                &op_token,
+                "goal_run_finalize_failed",
+                &format!("reconciliation was computed but its finalization did not commit ({code}: {msg})"),
+                &[
+                    (RECONCILIATION_KIND, reconciliation_id.as_str()),
+                    ("receipts", receipt_ref.as_str()),
+                ],
+            );
+        }
+    };
 
     (
         StatusCode::OK,
@@ -1330,4 +1590,150 @@ pub(crate) async fn handle_goal_run_events(
             "verifications": verifications,
         })),
     )
+}
+
+#[cfg(test)]
+mod goal_run_seam_tests {
+    use super::*;
+
+    fn temp_dir(tag: &str) -> std::path::PathBuf {
+        let dir = std::env::temp_dir().join(format!("ioi-goalrun-{tag}-{:x}", nanos()));
+        std::fs::create_dir_all(dir.join(GOAL_RUN_KIND)).unwrap();
+        dir
+    }
+
+    fn plant(dir: &std::path::Path, file: &str, record: &Value) {
+        std::fs::write(
+            dir.join(GOAL_RUN_KIND).join(file),
+            serde_json::to_vec_pretty(record).unwrap(),
+        )
+        .unwrap();
+    }
+
+    #[test]
+    fn guarded_seam_distinguishes_not_found_refusal_and_persist_failure() {
+        // #72 round 3 finding 1: the seam's outcomes are TYPED and distinct — a caller can no
+        // longer collapse "record missing" and "write failed" into one silent lane.
+        let dir = temp_dir("lanes");
+        let data_dir = dir.to_str().unwrap();
+        let seed = json!({ "goal_run_id": "gr_a", "status": "active", "normalized_goal": "x" });
+        // The record lives in seed.json; the seam's atomic write targets gr_a.json — the two
+        // names differ deliberately so a destination blocker can fail ONLY the persist step.
+        plant(&dir, "seed.json", &seed);
+
+        // Lane 1: unknown run — typed not-found, nothing else.
+        let (code, _) = update_goal_run_guarded(data_dir, "gr_missing", |_| Ok(()), |_| {}).unwrap_err();
+        assert_eq!(code, "goal_run_not_found");
+
+        // Lane 2: predicate refusal — propagated verbatim, the mutation NEVER runs.
+        let mut mutated = false;
+        let (code, msg) = update_goal_run_guarded(
+            data_dir,
+            "gr_a",
+            |_| Err(("goal_run_not_reconcilable".to_string(), "state precheck refused".to_string())),
+            |_| mutated = true,
+        )
+        .unwrap_err();
+        assert_eq!(code, "goal_run_not_reconcilable");
+        assert_eq!(msg, "state precheck refused");
+        assert!(!mutated, "the CAS predicate gates the mutation");
+
+        // Lane 3: persist failure — a non-empty directory blocks the atomic rename destination.
+        let blocker = dir.join(GOAL_RUN_KIND).join("gr_a.json");
+        std::fs::create_dir_all(blocker.join("occupied")).unwrap();
+        let before = std::fs::read(dir.join(GOAL_RUN_KIND).join("seed.json")).unwrap();
+        let (code, _) = update_goal_run_guarded(data_dir, "gr_a", |_| Ok(()), |obj| {
+            obj.insert("status".into(), json!("complete"));
+        })
+        .unwrap_err();
+        assert_eq!(code, "goal_run_persist_failed", "a write failure is its OWN typed lane");
+        assert_eq!(
+            std::fs::read(dir.join(GOAL_RUN_KIND).join("seed.json")).unwrap(),
+            before,
+            "the durable record is byte-for-byte unchanged after a failed persist"
+        );
+        let leaks: Vec<String> = std::fs::read_dir(dir.join(GOAL_RUN_KIND))
+            .unwrap()
+            .flatten()
+            .map(|e| e.file_name().to_string_lossy().into_owned())
+            .filter(|n| n.contains(".tmp-"))
+            .collect();
+        assert!(leaks.is_empty(), "no temporary artifact survives: {leaks:?}");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn operation_reservation_admits_exactly_one_winner_and_finalizes_by_token() {
+        // #72 round 3 finding 2: `active -> reconciling` is an atomic CAS reservation — of two
+        // concurrent reconciles exactly one wins; finalization commits only under the winner's
+        // token; release restores the exact pre-reservation lifecycle state.
+        let dir = temp_dir("reserve");
+        let data_dir = dir.to_str().unwrap();
+        plant(&dir, "gr_b.json", &json!({ "goal_run_id": "gr_b", "status": "active" }));
+        let reserve = |token: &str| {
+            let token = token.to_string();
+            update_goal_run_guarded(
+                data_dir,
+                "gr_b",
+                |fresh| {
+                    if fresh.get("status").and_then(Value::as_str) != Some("active") {
+                        return Err((
+                            "goal_run_not_reconcilable".to_string(),
+                            "not active".to_string(),
+                        ));
+                    }
+                    Ok(())
+                },
+                move |obj| {
+                    obj.insert("status".into(), json!("reconciling"));
+                    obj.insert("lifecycle_op".into(), json!({ "op": "reconcile", "token": token }));
+                },
+            )
+        };
+        assert!(reserve("t1").is_ok(), "the first reservation wins");
+        let (code, _) = reserve("t2").unwrap_err();
+        assert_eq!(code, "goal_run_not_reconcilable", "the second request loses the SAME CAS it would have raced");
+
+        // Finalization compares the token INSIDE the seam: a foreign token refuses.
+        let finalize = |token: &str| {
+            let token = token.to_string();
+            update_goal_run_guarded(
+                data_dir,
+                "gr_b",
+                move |fresh| {
+                    if fresh.pointer("/lifecycle_op/token").and_then(Value::as_str) != Some(token.as_str()) {
+                        return Err(("goal_run_operation_conflict".to_string(), "token mismatch".to_string()));
+                    }
+                    Ok(())
+                },
+                |obj| {
+                    obj.insert("status".into(), json!("complete"));
+                    obj.remove("lifecycle_op");
+                },
+            )
+        };
+        let (code, _) = finalize("t2").unwrap_err();
+        assert_eq!(code, "goal_run_operation_conflict");
+        let committed = finalize("t1").unwrap();
+        assert_eq!(committed["status"], json!("complete"));
+        assert!(committed.get("lifecycle_op").is_none(), "the reservation is consumed by the commit");
+
+        // Release restores the reserved status exactly and consumes the token.
+        plant(&dir, "gr_c.json", &json!({ "goal_run_id": "gr_c", "status": "active" }));
+        let hold = update_goal_run_guarded(data_dir, "gr_c", |_| Ok(()), |obj| {
+            obj.insert("status".into(), json!("reconciling"));
+            obj.insert("lifecycle_op".into(), json!({ "op": "reconcile", "token": "t3" }));
+        });
+        assert!(hold.is_ok());
+        release_lifecycle_reservation(data_dir, "gr_c", "t3", "active").unwrap();
+        let restored = read_record_dir(data_dir, GOAL_RUN_KIND)
+            .into_iter()
+            .find(|r| r.get("goal_run_id").and_then(Value::as_str) == Some("gr_c"))
+            .unwrap();
+        assert_eq!(restored["status"], json!("active"), "release restores the pre-reservation status");
+        assert!(restored.get("lifecycle_op").is_none(), "release consumes the reservation");
+        let (code, _) = release_lifecycle_reservation(data_dir, "gr_c", "t3", "active").unwrap_err();
+        assert_eq!(code, "goal_run_operation_conflict", "a consumed token releases nothing twice");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 }

@@ -223,9 +223,69 @@ async function run() {
     const postClose = await jd("POST", "/v1/hypervisor/work-results", { goal_ref: "goal://race", result_profile: "research", outcome_class: "positive", status: "completed", outcome_room_ref: roomD.outcome_room_id });
     ok("RACE: a post-close admission refuses deterministically", postClose.status === 400 && postClose.j.error?.code === "work_result_room_not_open");
 
+    // 8c. LIFECYCLE FAIL-CLOSED (#72 round 3 finding 1): an injected goal-run write failure
+    // surfaces as a TYPED 5xx with ZERO partial truth — never a 200 over an unchanged record —
+    // and the SAME reconcile retries cleanly once the fault clears (recoverable, idempotent).
+    writeFileSync(join(dataDir, "goal-runs", "gr_failclosed.json"), JSON.stringify({ goal_run_id: "gr_failclosed", schema_version: "ioi.hypervisor.goal-run.v1", normalized_goal: "fixture", status: "active", goal_ref: "goal://gr_failclosed", created_at: "2026-01-01T00:00:00Z" }));
+    writeFileSync(join(dataDir, "goal-run-verifications", "ver_failclosed.json"), JSON.stringify({ goal_ref: "goal://gr_failclosed", verdict: "pass", verification_ref: "agentgres://goal-run-verification/ver_failclosed", harness_invocation_ref: "harness_invocation://inv_failclosed", created_at: "2026-01-01T00:00:00Z" }));
+    const reconBefore = receiptFileCount(dataDir, "goal-run-reconciliations");
+    chmodSync(join(dataDir, "goal-runs"), 0o555);
+    const failClosed = await jd("POST", "/v1/hypervisor/goal-runs/gr_failclosed/reconcile", {});
+    chmodSync(join(dataDir, "goal-runs"), 0o755);
+    const frozenStr = JSON.stringify((await jd("GET", "/v1/hypervisor/goal-runs/gr_failclosed")).j);
+    ok("FAIL-CLOSED: an injected goal-run write failure → typed 5xx goal_run_persist_failed, NEVER a 200 (#72 r3 finding 1)", failClosed.status === 500 && failClosed.j.error?.code === "goal_run_persist_failed", `${failClosed.status}/${failClosed.j.error?.code || "ok"}`);
+    ok("FAIL-CLOSED: zero partial truth — the run stays active with no reconciliation_ref, no reservation residue, and NO reconciliation record persisted", frozenStr.includes('"active"') && !frozenStr.includes("reconciliation_result://") && !frozenStr.includes("lifecycle_op") && receiptFileCount(dataDir, "goal-run-reconciliations") === reconBefore);
+    const retried = await jd("POST", "/v1/hypervisor/goal-runs/gr_failclosed/reconcile", {});
+    ok("RECOVERABLE: after the fault clears, the SAME reconcile retries to a clean 200 — nothing partial blocked it", retried.status === 200 && JSON.stringify(retried.j).includes("reconciliation_result://"), `${retried.status}/${retried.j.error?.code || "ok"}`);
+
+    // 8d. ONE-SHOT RESERVATION (#72 round 3 finding 2): of two SIMULTANEOUS reconciles exactly
+    // one wins the atomic `active -> reconciling` reservation; the loser refuses typed at the
+    // same CAS that would have raced.
+    writeFileSync(join(dataDir, "goal-runs", "gr_dup.json"), JSON.stringify({ goal_run_id: "gr_dup", schema_version: "ioi.hypervisor.goal-run.v1", normalized_goal: "fixture", status: "active", goal_ref: "goal://gr_dup", created_at: "2026-01-01T00:00:00Z" }));
+    writeFileSync(join(dataDir, "goal-run-verifications", "ver_dup.json"), JSON.stringify({ goal_ref: "goal://gr_dup", verdict: "pass", verification_ref: "agentgres://goal-run-verification/ver_dup", harness_invocation_ref: "harness_invocation://inv_dup", created_at: "2026-01-01T00:00:00Z" }));
+    const twins = await Promise.all([jd("POST", "/v1/hypervisor/goal-runs/gr_dup/reconcile", {}), jd("POST", "/v1/hypervisor/goal-runs/gr_dup/reconcile", {})]);
+    const dupWins = twins.filter((r) => r.status === 200);
+    const dupLosses = twins.filter((r) => r.status === 409 && r.j.error?.code === "goal_run_not_reconcilable");
+    ok("DUPLICATE RECONCILE: exactly ONE 200; the loser refuses 409 goal_run_not_reconcilable (#72 r3 finding 2)", dupWins.length === 1 && dupLosses.length === 1, twins.map((r) => `${r.status}/${r.j.error?.code || "ok"}`).join(" + "));
+    const dupAfter = JSON.stringify((await jd("GET", "/v1/hypervisor/goal-runs/gr_dup")).j);
+    ok("DUPLICATE RECONCILE: one durable reconciliation, reservation consumed by the winner's commit", dupAfter.includes("reconciliation_result://") && !dupAfter.includes("lifecycle_op"));
+
+    // 8e. EXACT PRIOR FIELD SHAPE (#72 round 3 finding 3): a run carrying `outcome_room_ref:
+    // null` EXPLICITLY keeps that exact representation through an injected attach rollback —
+    // the unstamp restores presence AND value, never just deleting the key.
+    const roomE = (await jd("POST", "/v1/hypervisor/outcome-rooms", VALID_ROOM)).j.outcome_room;
+    writeFileSync(join(dataDir, "goal-runs", "gr_nullshape.json"), JSON.stringify({ goal_run_id: "gr_nullshape", schema_version: "ioi.hypervisor.goal-run.v1", normalized_goal: "fixture", status: "active", goal_ref: "goal://gr_nullshape", outcome_room_ref: null, created_at: "2026-01-01T00:00:00Z" }));
+    chmodSync(join(dataDir, "outcome-room-registry-receipts"), 0o555);
+    const nullInjected = await jd("POST", `/v1/hypervisor/outcome-rooms/${roomTail(roomE.outcome_room_id)}/attach-goal-run`, { goal_run_ref: "goal://gr_nullshape", expected_revision: 1 });
+    chmodSync(join(dataDir, "outcome-room-registry-receipts"), 0o755);
+    const shapeAfter = JSON.parse(readFileSync(join(dataDir, "goal-runs", "gr_nullshape.json"), "utf8"));
+    ok("NULL-SHAPE ROLLBACK: injected receipt failure → 500; the EXPLICIT `outcome_room_ref: null` survives with its exact shape and lifecycle intact", nullInjected.status === 500 && Object.prototype.hasOwnProperty.call(shapeAfter, "outcome_room_ref") && shapeAfter.outcome_room_ref === null && shapeAfter.status === "active", `${nullInjected.status}/${nullInjected.j.error?.code || "ok"}`);
+    const nullAttach = await jd("POST", `/v1/hypervisor/outcome-rooms/${roomTail(roomE.outcome_room_id)}/attach-goal-run`, { goal_run_ref: "goal://gr_nullshape", expected_revision: 1 });
+    ok("NULL-SHAPE: the explicitly-null run attaches cleanly after the fault clears (null is not membership)", nullAttach.status === 200 && nullAttach.j.goal_run_stamped?.outcome_room_ref === roomE.outcome_room_id);
+
     ok("no sentinel and no .tmp-* residue anywhere", !JSON.stringify((await jd("GET", "/v1/hypervisor/outcome-rooms")).j).includes("SENTINEL_ROOM_SECRET") && tmpLeaks().length === 0);
   } finally {
     await plane.stop();
+  }
+
+  // 9. SUBSTRATE DUAL-WRITE PARITY (#72 round 3 finding 4): with the soak opted in, the ATOMIC
+  // writers — the room mutation writer and the GoalRun seam — feed the substrate dual-write
+  // hook exactly like persist_record; the engine's admitted counter proves the hook fired.
+  const soak = await startIsolatedPlane({ serve: false, env: { IOI_SUBSTRATE_DUAL_WRITE: "1", IOI_SUBSTRATE_DUAL_WRITE_DOMAINS: "goal-runs,outcome-room-registry" } });
+  if (soak) {
+    try {
+      const sjd = async (method, p, body) => { const r = await fetch(`${soak.daemonUrl}${p}`, { method, headers: { "content-type": "application/json" }, body: body ? JSON.stringify(body) : undefined }); return { status: r.status, j: await r.json().catch(() => ({})) }; };
+      const sRoom = (await sjd("POST", "/v1/hypervisor/outcome-rooms", VALID_ROOM)).j.outcome_room;
+      mkdirSync(join(soak.dataDir, "goal-runs"), { recursive: true });
+      writeFileSync(join(soak.dataDir, "goal-runs", "gr_soak.json"), JSON.stringify({ goal_run_id: "gr_soak", schema_version: "ioi.hypervisor.goal-run.v1", normalized_goal: "fixture", status: "active", goal_ref: "goal://gr_soak", created_at: "2026-01-01T00:00:00Z" }));
+      const sAttach = await sjd("POST", `/v1/hypervisor/outcome-rooms/${sRoom.outcome_room_id.replace("outcome-room://", "")}/attach-goal-run`, { goal_run_ref: "goal://gr_soak", expected_revision: 1 });
+      const sStatus = (await sjd("GET", "/v1/hypervisor/substrate/status")).j;
+      ok("SOAK PARITY: room create + attach + seam stamp through the ATOMIC writers all fed the dual-write hook (admitted ≥ 3, zero refusals) (#72 r3 finding 4)", sAttach.status === 200 && sStatus.soak?.enabled === true && (sStatus.admitted || 0) >= 3 && (sStatus.errors || 0) === 0, `admitted=${sStatus.admitted} errors=${sStatus.errors} attach=${sAttach.status}`);
+    } finally {
+      await soak.stop();
+    }
+  } else {
+    ok("SOAK PARITY: isolated soak plane started", false, "daemon did not start");
   }
 
   // 9. ISOLATION PROOF.
