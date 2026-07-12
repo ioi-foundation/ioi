@@ -94,6 +94,8 @@ mod microvm;
 mod data_source_routes;
 #[path = "hypervisor_daemon_routes/work_result_routes.rs"]
 mod work_result_routes;
+#[path = "hypervisor_daemon_routes/outcome_room_routes.rs"]
+mod outcome_room_routes;
 #[path = "hypervisor_daemon_routes/connector_mapping_routes.rs"]
 mod connector_mapping_routes;
 #[path = "hypervisor_daemon_routes/policy_bound_data_view_routes.rs"]
@@ -1909,6 +1911,27 @@ async fn async_main() -> anyhow::Result<()> {
         .route(
             "/v1/hypervisor/outcome-deltas/:id",
             get(work_result_routes::handle_outcome_delta_get),
+        )
+        .route(
+            "/v1/hypervisor/outcome-rooms",
+            get(outcome_room_routes::handle_outcome_rooms_list)
+                .post(outcome_room_routes::handle_outcome_room_create),
+        )
+        .route(
+            "/v1/hypervisor/outcome-rooms/overview",
+            get(outcome_room_routes::handle_outcome_rooms_overview),
+        )
+        .route(
+            "/v1/hypervisor/outcome-rooms/:id",
+            get(outcome_room_routes::handle_outcome_room_get),
+        )
+        .route(
+            "/v1/hypervisor/outcome-rooms/:id/transition",
+            axum::routing::post(outcome_room_routes::handle_outcome_room_transition),
+        )
+        .route(
+            "/v1/hypervisor/outcome-rooms/:id/attach-goal-run",
+            axum::routing::post(outcome_room_routes::handle_outcome_room_attach_goal_run),
         )
         .route(
             "/v1/hypervisor/placement/resolve",

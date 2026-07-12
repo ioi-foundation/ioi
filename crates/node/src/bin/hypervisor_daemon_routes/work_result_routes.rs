@@ -475,6 +475,7 @@ fn finalize_delta_persist(
 fn validate_work_result(
     body: &Value,
     resolve_result_goal: &dyn Fn(&str) -> Option<String>,
+    resolve_room: &dyn Fn(&str) -> Option<Value>,
 ) -> Result<Value, VErr> {
     reject_sensitive_keys(body, "")?;
     // goal_ref is a canonical goal:// identity (never a raw string).
@@ -483,8 +484,18 @@ fn validate_work_result(
         Some(_) => return Err(verr("work_result_goal_ref_invalid", "`goal_ref` must be a canonical goal:// identity")),
         None => return Err(verr("work_result_goal_ref_required", "A WorkResult requires `goal_ref` — every result is goal-shaped work.")),
     };
-    // FUTURE-PLANE fields (build steps 2-3): non-empty values are per-field named gaps.
-    future_plane_scalar(body, "outcome_room_ref", "work_result_outcome_room_unavailable", "the hosted OutcomeRoom aggregate is build step 2")?;
+    // Room binding (build step 2, LIVE): a declared room must RESOLVE to an OPEN hosted room.
+    let outcome_room = match scalar_ref(body, "outcome_room_ref", &["outcome-room"], &[], &[])? {
+        None => Value::Null,
+        Some(r) => match resolve_room(&r) {
+            None => return Err(verr("work_result_room_unbound", format!("`outcome_room_ref` does not resolve to an admitted OutcomeRoom ('{r}')"))),
+            Some(room) if room.get("status").and_then(|v| v.as_str()) != Some("open") => {
+                return Err(verr("work_result_room_not_open", format!("room '{r}' is '{}' — results admit only into an open room", room.get("status").and_then(|v| v.as_str()).unwrap_or("unknown"))));
+            }
+            Some(_) => Value::String(r),
+        },
+    };
+    // FUTURE-PLANE fields (build step 3): non-empty values are per-field named gaps.
     future_plane_scalar(body, "work_claim_ref", "work_result_work_claim_unavailable", "WorkClaimLease is build step 3")?;
     future_plane_scalar(body, "attempt_ref", "work_result_attempt_unavailable", "the Attempt plane is build step 3")?;
     future_plane_scalar(body, "acceptance_ref", "work_result_acceptance_unavailable", "acceptance authority is build step 3; admission never implies acceptance")?;
@@ -537,7 +548,7 @@ fn validate_work_result(
         "schema_version": RESULT_SCHEMA,
         "goal_ref": goal_ref,
         "goal_run_ref": scalar_ref(body, "goal_run_ref", &["goal"], &[], &[])?,
-        "outcome_room_ref": Value::Null,
+        "outcome_room_ref": outcome_room,
         "work_claim_ref": Value::Null,
         "attempt_ref": Value::Null,
         "invocation_or_run_ref": scalar_ref(body, "invocation_or_run_ref", &["harness_invocation", "run", "service", "mission"], &[], &[])?,
@@ -585,6 +596,7 @@ fn load_by(data_dir: &str, dir: &str, id_key: &str, id: &str) -> Option<Value> {
 fn validate_outcome_delta(
     body: &Value,
     resolve_result: &dyn Fn(&str) -> Option<Value>,
+    resolve_room: &dyn Fn(&str) -> Option<Value>,
 ) -> Result<(Value, Value), VErr> {
     reject_sensitive_keys(body, "")?;
     // Plane-owned fields refuse typed — a caller can never self-admit or self-receipt a delta.
@@ -599,9 +611,18 @@ fn validate_outcome_delta(
         Some(_) => return Err(verr("outcome_delta_goal_ref_invalid", "`goal_ref` must be a canonical goal:// identity")),
         None => return Err(verr("outcome_delta_goal_ref_required", "An OutcomeDelta requires `goal_ref`.")),
     };
-    // Room refs are a named gap until build step 2 — and room EQUALITY with the bound result is
-    // enforced here the moment rooms exist (both sides refuse non-empty rooms today).
-    future_plane_scalar(body, "outcome_room_ref", "outcome_delta_room_unavailable", "the hosted OutcomeRoom aggregate is build step 2; room-scope equality with the bound result is enforced when rooms exist")?;
+    // Room binding (build step 2, LIVE): a declared room must resolve to an OPEN hosted room,
+    // and must EXACTLY equal the bound result's room (checked after the result resolves below).
+    let delta_room = match scalar_ref(body, "outcome_room_ref", &["outcome-room"], &[], &[])? {
+        None => Value::Null,
+        Some(r) => match resolve_room(&r) {
+            None => return Err(verr("outcome_delta_room_unbound", format!("`outcome_room_ref` does not resolve to an admitted OutcomeRoom ('{r}')"))),
+            Some(room) if room.get("status").and_then(|v| v.as_str()) != Some("open") => {
+                return Err(verr("outcome_delta_room_not_open", format!("room '{r}' is '{}' — deltas admit only into an open room", room.get("status").and_then(|v| v.as_str()).unwrap_or("unknown"))));
+            }
+            Some(_) => Value::String(r),
+        },
+    };
     let delta_kind = vocab_required(body, "delta_kind", DELTA_KINDS, "outcome_delta_kind_invalid")?;
     // THE INVARIANT: the delta binds an EXISTING admitted WorkResult UNDER THE SAME GOAL.
     let proposed_by = match str_opt_bounded(body, "proposed_by_ref", REF_MAX)? {
@@ -624,6 +645,12 @@ fn validate_outcome_delta(
     if bound_goal != goal_ref {
         return Err(verr("outcome_delta_cross_goal", format!("the bound WorkResult belongs to '{bound_goal}', not this delta's '{goal_ref}' — a delta never binds a result from another goal (zero mutation)")));
     }
+    // EXACT room equality with the bound result (#71 round-1 directive, live since step 2):
+    // both null, or the same outcome-room:// ref — anything else is a cross-room binding.
+    let result_room = bound_result.get("outcome_room_ref").cloned().unwrap_or(Value::Null);
+    if delta_room != result_room {
+        return Err(verr("outcome_delta_cross_room", format!("the delta's room ({}) must exactly equal the bound result's room ({}) — a delta never crosses room scope (zero mutation)", if delta_room.is_null() { "null".into() } else { delta_room.to_string() }, if result_room.is_null() { "null".into() } else { result_room.to_string() })));
+    }
     let target_ref = match str_opt_bounded(body, "target_ref", REF_MAX)? {
         Some(t) => t,
         None => return Err(verr("outcome_delta_target_required", format!("`target_ref` is required and must use a canonical scheme [{}]", DELTA_TARGET_SCHEMES.join("|")))),
@@ -634,7 +661,7 @@ fn validate_outcome_delta(
     let record = json!({
         "schema_version": DELTA_SCHEMA,
         "goal_ref": goal_ref,
-        "outcome_room_ref": Value::Null,
+        "outcome_room_ref": delta_room,
         "proposed_by_ref": proposed_by,
         "target_ref": target_ref,
         "delta_kind": delta_kind,
@@ -690,7 +717,7 @@ pub(crate) async fn handle_work_results_overview(State(st): State<Arc<DaemonStat
             "results and deltas are ADMITTED DECLARATIONS with durable receipts — acceptance, verification, adjudication, and settlement are the assurance-ladder rungs above admission and are NOT implied (a receipt is not proof of correctness)",
             "outcome-delta evaluation/admission/rollback TRANSITIONS are not wired: status is plane-owned at `proposed` until the room/acceptance authority of build steps 2-3 exists",
             "attempt://, finding://, and participant-lease:// proposers are named gaps (build step 3) — today a delta binds an admitted, SAME-GOAL work-result://",
-            "future-plane fields (outcome_room_ref, work_claim_ref, attempt_ref, finding_refs, acceptance_ref, challenge_refs, superseded_by_ref) refuse non-empty values with per-field unavailable codes until their planes exist (build steps 2-3); outcome_delta_refs is plane-owned and registered atomically by delta admission"
+            "outcome_room_ref is LIVE (build step 2): it must resolve to an OPEN hosted room, and a delta's room must exactly equal its bound result's room; the remaining future-plane fields (work_claim_ref, attempt_ref, finding_refs, acceptance_ref, challenge_refs, superseded_by_ref) refuse non-empty values with per-field unavailable codes until build step 3; outcome_delta_refs is plane-owned and registered atomically by delta admission"
         ],
         "runtimeTruthSource": "daemon-runtime"
     }))
@@ -707,7 +734,8 @@ pub(crate) async fn handle_work_result_create(
         load_by(&data_dir, RESULT_DIR, "work_result_id", &format!("work-result://{tail}"))
             .map(|r| s(&r, "goal_ref", ""))
     };
-    let mut record = match validate_work_result(&body, &resolve_goal) {
+    let resolve_room = |room_ref: &str| super::outcome_room_routes::resolve_open_room(&data_dir, room_ref);
+    let mut record = match validate_work_result(&body, &resolve_goal, &resolve_room) {
         Ok(r) => r,
         Err(e) => return err400(e),
     };
@@ -756,7 +784,8 @@ pub(crate) async fn handle_outcome_delta_create(
     // executes under this lock — the section is synchronous file I/O.
     let _admission = DELTA_ADMISSION_LOCK.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
     let resolve = |rid: &str| load_by(&data_dir, RESULT_DIR, "work_result_id", &format!("work-result://{rid}"));
-    let (mut record, prior_result) = match validate_outcome_delta(&body, &resolve) {
+    let resolve_room = |room_ref: &str| super::outcome_room_routes::resolve_open_room(&data_dir, room_ref);
+    let (mut record, prior_result) = match validate_outcome_delta(&body, &resolve, &resolve_room) {
         Ok(r) => r,
         Err(e) => return err400(e),
     };
@@ -797,6 +826,11 @@ mod work_result_tests {
         dir
     }
     fn no_resolve(_: &str) -> Option<String> { None }
+    fn no_room(_: &str) -> Option<Value> { None }
+    fn open_room(r: &str) -> Option<Value> {
+        (r == "outcome-room://or_open").then(|| json!({ "outcome_room_id": r, "status": "open" }))
+            .or_else(|| (r == "outcome-room://or_closed").then(|| json!({ "outcome_room_id": r, "status": "closed" })))
+    }
     fn valid_result_body() -> Value {
         json!({
             "goal_ref": "goal://g-research-1",
@@ -813,7 +847,7 @@ mod work_result_tests {
         for p in RESULT_PROFILES {
             let mut b = valid_result_body();
             b["result_profile"] = json!(p);
-            let rec = validate_work_result(&b, &no_resolve).unwrap();
+            let rec = validate_work_result(&b, &no_resolve, &no_room).unwrap();
             assert_eq!(rec["result_profile"], json!(*p));
             assert_eq!(rec["next_action"], json!("none"));
             assert_eq!(rec["reproduction_state"], Value::Null);
@@ -838,7 +872,7 @@ mod work_result_tests {
         for extra in cases {
             let mut b = valid_result_body();
             for (k, v) in extra.as_object().unwrap() { b[k] = v.clone(); }
-            assert_eq!(validate_work_result(&b, &no_resolve).unwrap_err().0, "work_result_plaintext_secret_rejected", "case: {extra}");
+            assert_eq!(validate_work_result(&b, &no_resolve, &no_room).unwrap_err().0, "work_result_plaintext_secret_rejected", "case: {extra}");
         }
     }
 
@@ -846,40 +880,39 @@ mod work_result_tests {
     fn refs_are_canonical_per_field_and_raw_strings_never_pass() {
         // goal_ref must be a goal:// identity.
         let mut b = valid_result_body(); b["goal_ref"] = json!("not-a-ref");
-        assert_eq!(validate_work_result(&b, &no_resolve).unwrap_err().0, "work_result_goal_ref_invalid");
+        assert_eq!(validate_work_result(&b, &no_resolve, &no_room).unwrap_err().0, "work_result_goal_ref_invalid");
         // Scalar refs: raw strings and wrong schemes refuse per field.
         let mut b = valid_result_body(); b["result_payload_ref"] = json!("fixture-secret-raw-value");
-        assert_eq!(validate_work_result(&b, &no_resolve).unwrap_err().0, "work_result_ref_scheme_invalid");
+        assert_eq!(validate_work_result(&b, &no_resolve, &no_room).unwrap_err().0, "work_result_ref_scheme_invalid");
         let mut b = valid_result_body(); b["summary_ref"] = json!("goal://not-a-summary-scheme");
-        assert_eq!(validate_work_result(&b, &no_resolve).unwrap_err().0, "work_result_ref_scheme_invalid");
+        assert_eq!(validate_work_result(&b, &no_resolve, &no_room).unwrap_err().0, "work_result_ref_scheme_invalid");
         // List refs: every member scheme-checked.
         let mut b = valid_result_body(); b["supporting_evidence_refs"] = json!(["artifact://ok", "raw-string"]);
-        assert_eq!(validate_work_result(&b, &no_resolve).unwrap_err().0, "work_result_ref_scheme_invalid");
+        assert_eq!(validate_work_result(&b, &no_resolve, &no_room).unwrap_err().0, "work_result_ref_scheme_invalid");
         // Special non-URI forms admit where the envelope declares them.
         let mut b = valid_result_body();
         b["authority_and_policy_refs"] = json!(["scope:gmail.send", "grant://g1"]);
         b["worker_harness_model_runtime_version_refs"] = json!(["harness_profile:codex-local", "agent_harness_adapter:claude-code", "model://m1"]);
         b["result_payload_ref"] = json!("encrypted_ref");
-        let rec = validate_work_result(&b, &no_resolve).unwrap();
+        let rec = validate_work_result(&b, &no_resolve, &no_room).unwrap();
         assert_eq!(rec["authority_and_policy_refs"][0], json!("scope:gmail.send"));
         assert_eq!(rec["result_payload_ref"], json!("encrypted_ref"));
         // encrypted_ref matches EXACTLY — any suffix is a raw-value smuggling form (#71 round 2).
         for smuggle in ["encrypted_refSENTINEL_RAW_MATERIAL", "encrypted_ref:vault-42", "encrypted_ref-x", "xencrypted_ref"] {
             let mut b = valid_result_body(); b["result_payload_ref"] = json!(smuggle);
-            assert_eq!(validate_work_result(&b, &no_resolve).unwrap_err().0, "work_result_ref_scheme_invalid", "smuggle form: {smuggle:?}");
+            assert_eq!(validate_work_result(&b, &no_resolve, &no_room).unwrap_err().0, "work_result_ref_scheme_invalid", "smuggle form: {smuggle:?}");
         }
         // Whitespace-padded input TRIMS to the exact literal (normalization, not smuggling).
         let mut b = valid_result_body(); b["result_payload_ref"] = json!("encrypted_ref ");
-        assert_eq!(validate_work_result(&b, &no_resolve).unwrap()["result_payload_ref"], json!("encrypted_ref"));
+        assert_eq!(validate_work_result(&b, &no_resolve, &no_room).unwrap()["result_payload_ref"], json!("encrypted_ref"));
         // But a bare special prefix with no tail refuses.
         let mut b = valid_result_body(); b["authority_and_policy_refs"] = json!(["scope:"]);
-        assert_eq!(validate_work_result(&b, &no_resolve).unwrap_err().0, "work_result_ref_scheme_invalid");
+        assert_eq!(validate_work_result(&b, &no_resolve, &no_room).unwrap_err().0, "work_result_ref_scheme_invalid");
     }
 
     #[test]
     fn future_plane_fields_refuse_with_named_codes() {
         let cases = vec![
-            ("outcome_room_ref", json!("outcome-room://r1"), "work_result_outcome_room_unavailable"),
             ("work_claim_ref", json!("work-claim://c1"), "work_result_work_claim_unavailable"),
             ("attempt_ref", json!("attempt://a1"), "work_result_attempt_unavailable"),
             ("acceptance_ref", json!("acceptance://ghost"), "work_result_acceptance_unavailable"),
@@ -891,8 +924,28 @@ mod work_result_tests {
         for (key, val, code) in cases {
             let mut b = valid_result_body();
             b[key] = val;
-            assert_eq!(validate_work_result(&b, &no_resolve).unwrap_err().0, code, "field: {key}");
+            assert_eq!(validate_work_result(&b, &no_resolve, &no_room).unwrap_err().0, code, "field: {key}");
         }
+    }
+
+    #[test]
+    fn room_binding_resolves_open_rooms_and_deltas_never_cross_rooms() {
+        // Result side: unresolvable and non-open rooms refuse; an open room binds.
+        let mut b = valid_result_body(); b["outcome_room_ref"] = json!("outcome-room://or_ghost");
+        assert_eq!(validate_work_result(&b, &no_resolve, &open_room).unwrap_err().0, "work_result_room_unbound");
+        let mut b = valid_result_body(); b["outcome_room_ref"] = json!("outcome-room://or_closed");
+        assert_eq!(validate_work_result(&b, &no_resolve, &open_room).unwrap_err().0, "work_result_room_not_open");
+        let mut b = valid_result_body(); b["outcome_room_ref"] = json!("outcome-room://or_open");
+        assert_eq!(validate_work_result(&b, &no_resolve, &open_room).unwrap()["outcome_room_ref"], json!("outcome-room://or_open"));
+        // Delta side: room EQUALITY with the bound result — same room admits; both-null admits.
+        let roomed = json!({ "work_result_id": "work-result://wr_r", "goal_ref": "goal://alpha", "outcome_room_ref": "outcome-room://or_open", "outcome_delta_refs": [] });
+        let resolver = |rid: &str| (rid == "wr_r").then(|| roomed.clone());
+        let base = json!({ "goal_ref": "goal://alpha", "delta_kind": "update", "target_ref": "frontier://f1", "proposed_by_ref": "work-result://wr_r", "outcome_room_ref": "outcome-room://or_open" });
+        let (rec, _) = validate_outcome_delta(&base, &resolver, &open_room).unwrap();
+        assert_eq!(rec["outcome_room_ref"], json!("outcome-room://or_open"));
+        // A room-less delta against a roomed result is cross-room too.
+        let mut b = base.clone(); b.as_object_mut().unwrap().remove("outcome_room_ref");
+        assert_eq!(validate_outcome_delta(&b, &resolver, &open_room).unwrap_err().0, "outcome_delta_cross_room");
     }
 
     #[test]
@@ -903,11 +956,11 @@ mod work_result_tests {
             _ => None,
         };
         let mut b = valid_result_body(); b["supersedes_work_result_ref"] = json!("work-result://wr_ghost");
-        assert_eq!(validate_work_result(&b, &resolver).unwrap_err().0, "work_result_supersedes_unbound");
+        assert_eq!(validate_work_result(&b, &resolver, &no_room).unwrap_err().0, "work_result_supersedes_unbound");
         let mut b = valid_result_body(); b["supersedes_work_result_ref"] = json!("work-result://wr_other");
-        assert_eq!(validate_work_result(&b, &resolver).unwrap_err().0, "work_result_supersedes_cross_goal");
+        assert_eq!(validate_work_result(&b, &resolver, &no_room).unwrap_err().0, "work_result_supersedes_cross_goal");
         let mut b = valid_result_body(); b["supersedes_work_result_ref"] = json!("work-result://wr_same");
-        assert_eq!(validate_work_result(&b, &resolver).unwrap()["supersedes_work_result_ref"], json!("work-result://wr_same"));
+        assert_eq!(validate_work_result(&b, &resolver, &no_room).unwrap()["supersedes_work_result_ref"], json!("work-result://wr_same"));
     }
 
     #[test]
@@ -917,19 +970,24 @@ mod work_result_tests {
         let base = json!({ "goal_ref": "goal://alpha", "delta_kind": "update", "target_ref": "frontier://f1", "proposed_by_ref": "work-result://wr_real" });
         // Cross-goal binding refuses typed (finding 2).
         let mut b = base.clone(); b["goal_ref"] = json!("goal://beta");
-        assert_eq!(validate_outcome_delta(&b, &resolver).unwrap_err().0, "outcome_delta_cross_goal");
-        // Room refs are a named gap on the delta side too.
-        let mut b = base.clone(); b["outcome_room_ref"] = json!("outcome-room://r1");
-        assert_eq!(validate_outcome_delta(&b, &resolver).unwrap_err().0, "outcome_delta_room_unavailable");
+        assert_eq!(validate_outcome_delta(&b, &resolver, &open_room).unwrap_err().0, "outcome_delta_cross_goal");
+        // Rooms are LIVE (step 2): unresolvable / closed / cross-room bindings refuse typed.
+        let mut b = base.clone(); b["outcome_room_ref"] = json!("outcome-room://or_ghost");
+        assert_eq!(validate_outcome_delta(&b, &resolver, &open_room).unwrap_err().0, "outcome_delta_room_unbound");
+        let mut b = base.clone(); b["outcome_room_ref"] = json!("outcome-room://or_closed");
+        assert_eq!(validate_outcome_delta(&b, &resolver, &open_room).unwrap_err().0, "outcome_delta_room_not_open");
+        // The bound result has NO room — a roomed delta is a cross-room binding.
+        let mut b = base.clone(); b["outcome_room_ref"] = json!("outcome-room://or_open");
+        assert_eq!(validate_outcome_delta(&b, &resolver, &open_room).unwrap_err().0, "outcome_delta_cross_room");
         // Ghost / foreign / future proposers refuse.
         let mut b = base.clone(); b["proposed_by_ref"] = json!("work-result://wr_ghost");
-        assert_eq!(validate_outcome_delta(&b, &resolver).unwrap_err().0, "outcome_delta_unbound_result");
+        assert_eq!(validate_outcome_delta(&b, &resolver, &open_room).unwrap_err().0, "outcome_delta_unbound_result");
         for scheme in UNAVAILABLE_PROPOSER_SCHEMES {
             let mut b = base.clone(); b["proposed_by_ref"] = json!(format!("{scheme}://x1"));
-            assert_eq!(validate_outcome_delta(&b, &resolver).unwrap_err().0, "outcome_delta_proposer_kind_unavailable");
+            assert_eq!(validate_outcome_delta(&b, &resolver, &open_room).unwrap_err().0, "outcome_delta_proposer_kind_unavailable");
         }
         // Happy: same-goal binding returns the BOUND RECORD for the atomic backlink.
-        let (rec, prior) = validate_outcome_delta(&base, &resolver).unwrap();
+        let (rec, prior) = validate_outcome_delta(&base, &resolver, &open_room).unwrap();
         assert_eq!(rec["status"], json!("proposed"));
         assert_eq!(s(&prior, "work_result_id", ""), "work-result://wr_real");
         // Receipt profiles: canonical receipt:// identity + bound facts + hash + honest posture.

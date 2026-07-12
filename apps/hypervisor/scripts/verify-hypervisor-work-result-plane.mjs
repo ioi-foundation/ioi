@@ -108,7 +108,8 @@ async function run() {
 
     // 5. NO FORGED STATE — future-plane fields return their per-field named codes.
     const FUTURE = [
-      ["outcome_room_ref", "outcome-room://r1", "work_result_outcome_room_unavailable"],
+      // outcome_room_ref is LIVE since build step 2 — a ghost room refuses as unbound.
+      ["outcome_room_ref", "outcome-room://or_ghost", "work_result_room_unbound"],
       ["work_claim_ref", "work-claim://c1", "work_result_work_claim_unavailable"],
       ["attempt_ref", "attempt://a1", "work_result_attempt_unavailable"],
       ["acceptance_ref", "acceptance://ghost", "work_result_acceptance_unavailable"],
@@ -170,8 +171,8 @@ async function run() {
     // 8. BINDING INVARIANTS — cross-goal refused with ZERO writes; same-goal binds + backlink.
     const cross = await jd("POST", "/v1/hypervisor/outcome-deltas", { goal_ref: "goal://beta", delta_kind: "update", target_ref: "frontier://f1", proposed_by_ref: rr.work_result_id });
     ok("CROSS-GOAL delta binding refused typed", cross.status === 400 && cross.j.error?.code === "outcome_delta_cross_goal");
-    const roomed = await jd("POST", "/v1/hypervisor/outcome-deltas", { goal_ref: "goal://alpha", delta_kind: "update", target_ref: "frontier://f1", proposed_by_ref: rr.work_result_id, outcome_room_ref: "outcome-room://r1" });
-    ok("delta room ref → named gap (room-scope equality enforced when rooms exist)", roomed.status === 400 && roomed.j.error?.code === "outcome_delta_room_unavailable");
+    const roomed = await jd("POST", "/v1/hypervisor/outcome-deltas", { goal_ref: "goal://alpha", delta_kind: "update", target_ref: "frontier://f1", proposed_by_ref: rr.work_result_id, outcome_room_ref: "outcome-room://or_ghost" });
+    ok("delta ghost room → outcome_delta_room_unbound (rooms LIVE since step 2; full room-scope proofs live in the room-plane verifier)", roomed.status === 400 && roomed.j.error?.code === "outcome_delta_room_unbound");
     const ghost = await jd("POST", "/v1/hypervisor/outcome-deltas", { goal_ref: "goal://alpha", delta_kind: "update", target_ref: "frontier://f1", proposed_by_ref: "work-result://wr_ghost" });
     ok("ghost result binding refused", ghost.status === 400 && ghost.j.error?.code === "outcome_delta_unbound_result");
     const futureProp = await jd("POST", "/v1/hypervisor/outcome-deltas", { goal_ref: "goal://alpha", delta_kind: "update", target_ref: "frontier://f1", proposed_by_ref: "attempt://a1" });
