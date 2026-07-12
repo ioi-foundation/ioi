@@ -141,7 +141,10 @@ async function run() {
 
     // 5. GOALRUN MEMBERSHIP — canonical goal:// identity, reciprocal stamp, SINGULAR room.
     mkdirSync(join(dataDir, "goal-runs"), { recursive: true });
-    for (const g of ["gr_fixture", "gr_fixture2"]) writeFileSync(join(dataDir, "goal-runs", `${g}.json`), JSON.stringify({ goal_run_id: g, schema_version: "ioi.hypervisor.goal-run.v1", normalized_goal: "fixture", created_at: "2026-01-01T00:00:00Z" }));
+    for (const g of ["gr_fixture", "gr_fixture2"]) writeFileSync(join(dataDir, "goal-runs", `${g}.json`), JSON.stringify({ goal_run_id: g, schema_version: "ioi.hypervisor.goal-run.v1", normalized_goal: "fixture", status: "active", goal_ref: `goal://${g}`, created_at: "2026-01-01T00:00:00Z" }));
+    // The reconciliation admission requires verifier evidence — one passing verification fixture.
+    mkdirSync(join(dataDir, "goal-run-verifications"), { recursive: true });
+    writeFileSync(join(dataDir, "goal-run-verifications", "ver_fixture.json"), JSON.stringify({ goal_ref: "goal://gr_fixture", verdict: "pass", verification_ref: "agentgres://goal-run-verification/ver_fixture", harness_invocation_ref: "harness_invocation://inv_fixture", created_at: "2026-01-01T00:00:00Z" }));
     const rawId = await jd("POST", `/v1/hypervisor/outcome-rooms/${roomTail(room.outcome_room_id)}/attach-goal-run`, { goal_run_ref: "gr_fixture", expected_revision: 3 });
     ok("a RAW route id refuses — membership speaks the canonical goal:// identity (#72 finding 2)", rawId.status === 400 && rawId.j.error?.code === "outcome_room_goal_run_ref_invalid");
     const ghostRun = await jd("POST", `/v1/hypervisor/outcome-rooms/${roomTail(room.outcome_room_id)}/attach-goal-run`, { goal_run_ref: "goal://gr_ghost", expected_revision: 3 });
@@ -150,6 +153,13 @@ async function run() {
     ok("attach admits: canonical membership + receipted bound facts incl. the reciprocal-stamp attestation", attached.status === 200 && JSON.stringify(attached.j.outcome_room?.member_goal_run_refs) === JSON.stringify(["goal://gr_fixture"]) && attached.j.outcome_room_receipt?.bound_facts?.goal_run_ref === "goal://gr_fixture" && attached.j.outcome_room_receipt?.bound_facts?.reciprocal_outcome_room_ref_stamped === true && attached.j.goal_run_stamped?.outcome_room_ref === room.outcome_room_id);
     const stamped = (await jd("GET", "/v1/hypervisor/goal-runs/gr_fixture")).j;
     ok("the reciprocal GoalRun.outcome_room_ref stamp is DURABLE on the goal-run record", JSON.stringify(stamped).includes(room.outcome_room_id));
+    // THE REVIEW'S EXACT INTERLEAVING, LIVE (#72 round 2): a lifecycle write (reconcile) AFTER
+    // the attach must not erase the reciprocal stamp — every GoalRun writer merges its own
+    // fields onto the latest record through the shared CAS seam.
+    const reconciled = await jd("POST", "/v1/hypervisor/goal-runs/gr_fixture/reconcile", {});
+    const afterReconcile = (await jd("GET", "/v1/hypervisor/goal-runs/gr_fixture")).j;
+    const afterStr = JSON.stringify(afterReconcile);
+    ok("RECONCILE-vs-ATTACH: the reconcile landed AND the reciprocal room stamp SURVIVED (no split-brain membership)", reconciled.status === 200 && afterStr.includes(room.outcome_room_id) && afterStr.includes("reconciliation_result://"), `reconcile=${reconciled.status}/${reconciled.j.error?.code || 'ok'} stamped=${afterStr.includes(room.outcome_room_id)}`);
     const dup = await jd("POST", `/v1/hypervisor/outcome-rooms/${roomTail(room.outcome_room_id)}/attach-goal-run`, { goal_run_ref: "goal://gr_fixture", expected_revision: 4 });
     ok("re-attach refuses: the run already belongs to a room (singular identity)", dup.status === 400 && dup.j.error?.code === "outcome_room_goal_run_already_member");
     // SINGULAR ROOM IDENTITY across rooms: a second room cannot claim the same run.
