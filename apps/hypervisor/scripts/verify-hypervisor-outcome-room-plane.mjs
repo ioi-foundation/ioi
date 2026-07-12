@@ -61,6 +61,7 @@ const VALID_ROOM = {
   coordination_policy_ref: "policy://coordination-v1",
   ordering_and_merge_policy_ref: "policy://ordered-admission",
   conflict_and_failover_policy_ref: "policy://host-failover",
+  host_domain_ref: "domain://acme-host",
 };
 
 async function run() {
@@ -87,6 +88,9 @@ async function run() {
 
     // 2. Creation fail-closed sweep — every refusal typed, NOTHING persisted.
     const REFUSALS = [
+      // #72 finding 1: hosted admission BINDS a host authority.
+      [{ ...VALID_ROOM, host_domain_ref: null }, "outcome_room_host_domain_required"],
+      [{ ...VALID_ROOM, host_domain_ref: "not-a-ref" }, "outcome_room_ref_scheme_invalid"],
       [{ ...VALID_ROOM, coordination_topology: "federated_admission" }, "outcome_room_federated_unavailable"],
       [{ ...VALID_ROOM, coordination_topology: "mesh" }, "outcome_room_topology_invalid"],
       [{ ...VALID_ROOM, room_mode: "party" }, "outcome_room_mode_invalid"],
@@ -110,7 +114,7 @@ async function run() {
     const room = created.j.outcome_room;
     const rcpt = created.j.outcome_room_receipt;
     ok("a hosted room admits as `open`, revision 1, with plane-owned empties", created.status === 201 && room?.status === "open" && room?.revision === 1 && JSON.stringify(room?.member_goal_run_refs) === "[]" && JSON.stringify(room?.participant_lease_refs) === "[]");
-    ok("OutcomeRoomAdmissionReceipt: receipt:// identity + bound facts (mode/topology/owner/objective/status)", String(rcpt?.receipt_id).startsWith("receipt://orr_") && rcpt?.receipt_type === "OutcomeRoomAdmissionReceipt" && rcpt?.bound_facts?.room_mode === "permissioned_team" && rcpt?.bound_facts?.coordination_topology === "hosted_admission" && rcpt?.bound_facts?.status_at_admission === "open");
+    ok("OutcomeRoomAdmissionReceipt: receipt:// identity + bound facts incl. the HOST AUTHORITY (mode/topology/owner/objective/host/status)", String(rcpt?.receipt_id).startsWith("receipt://orr_") && rcpt?.receipt_type === "OutcomeRoomAdmissionReceipt" && rcpt?.bound_facts?.room_mode === "permissioned_team" && rcpt?.bound_facts?.coordination_topology === "hosted_admission" && rcpt?.bound_facts?.host_domain_ref === "domain://acme-host" && (rcpt?.attested_boundary_fact_refs || []).includes("domain://acme-host") && rcpt?.bound_facts?.status_at_admission === "open");
     ok("the receipt carries the complete portable base (spot: claim_scope_ref/adjudication_ref/settlement_ref explicit null; capability/scope/artifact/evidence lists [])", rcpt?.claim_scope_ref === null && rcpt?.adjudication_ref === null && rcpt?.settlement_ref === null && JSON.stringify(rcpt?.primitive_capabilities) === "[]" && JSON.stringify(rcpt?.authority_scopes) === "[]");
     const persisted0 = (await jd("GET", `/v1/hypervisor/outcome-rooms/${roomTail(room.outcome_room_id)}`)).j.outcome_room;
     ok("admission output_hash recomputes EXACTLY from the persisted room minus hash_scope_excludes", recomputeHash(persisted0, rcpt.hash_scope_excludes || []) === rcpt.output_hash);
@@ -132,17 +136,26 @@ async function run() {
     ok("resume admits: open, revision 3; the receipt trail grew by exactly one ref per transition", resumed.status === 200 && resumed.j.outcome_room?.revision === 3 && (resumed.j.outcome_room?.admission_and_replay_refs || []).length === 3);
     const trHash = resumed.j.outcome_room_receipt;
     const persisted3 = (await jd("GET", `/v1/hypervisor/outcome-rooms/${roomTail(room.outcome_room_id)}`)).j.outcome_room;
-    ok("transition output_hash recomputes from the persisted room minus the declared excludes", recomputeHash(persisted3, trHash.hash_scope_excludes || []) === trHash.output_hash);
+    ok("transition output_hash recomputes from the persisted room minus the declared TRANSITION excludes (status/revision/membership INCLUDED)", recomputeHash(persisted3, trHash.hash_scope_excludes || []) === trHash.output_hash && (trHash.hash_scope_excludes || []).length === 3);
+    ok("DISTINCT states emit DISTINCT hashes: admission ≠ pause ≠ resume (#72 finding 4)", new Set([rcpt.output_hash, paused.j.outcome_room_receipt.output_hash, trHash.output_hash]).size === 3, [rcpt.output_hash, paused.j.outcome_room_receipt.output_hash, trHash.output_hash].map((h) => h.slice(7, 15)).join(" / "));
 
-    // 5. GOALRUN MEMBERSHIP — fixture record in the isolated family exercises the real resolve.
+    // 5. GOALRUN MEMBERSHIP — canonical goal:// identity, reciprocal stamp, SINGULAR room.
     mkdirSync(join(dataDir, "goal-runs"), { recursive: true });
-    writeFileSync(join(dataDir, "goal-runs", "gr_fixture.json"), JSON.stringify({ goal_run_id: "gr_fixture", schema_version: "ioi.hypervisor.goal-run.v1", normalized_goal: "fixture", created_at: "2026-01-01T00:00:00Z" }));
-    const ghostRun = await jd("POST", `/v1/hypervisor/outcome-rooms/${roomTail(room.outcome_room_id)}/attach-goal-run`, { goal_run_ref: "gr_ghost", expected_revision: 3 });
+    for (const g of ["gr_fixture", "gr_fixture2"]) writeFileSync(join(dataDir, "goal-runs", `${g}.json`), JSON.stringify({ goal_run_id: g, schema_version: "ioi.hypervisor.goal-run.v1", normalized_goal: "fixture", created_at: "2026-01-01T00:00:00Z" }));
+    const rawId = await jd("POST", `/v1/hypervisor/outcome-rooms/${roomTail(room.outcome_room_id)}/attach-goal-run`, { goal_run_ref: "gr_fixture", expected_revision: 3 });
+    ok("a RAW route id refuses — membership speaks the canonical goal:// identity (#72 finding 2)", rawId.status === 400 && rawId.j.error?.code === "outcome_room_goal_run_ref_invalid");
+    const ghostRun = await jd("POST", `/v1/hypervisor/outcome-rooms/${roomTail(room.outcome_room_id)}/attach-goal-run`, { goal_run_ref: "goal://gr_ghost", expected_revision: 3 });
     ok("attaching a GHOST goal-run refuses (the aggregate binds only real bounded runs)", ghostRun.status === 400 && ghostRun.j.error?.code === "outcome_room_goal_run_unbound");
-    const attached = await jd("POST", `/v1/hypervisor/outcome-rooms/${roomTail(room.outcome_room_id)}/attach-goal-run`, { goal_run_ref: "gr_fixture", expected_revision: 3 });
-    ok("attach admits: membership registered through the receipted transition (bound facts carry the run + count)", attached.status === 200 && JSON.stringify(attached.j.outcome_room?.member_goal_run_refs) === JSON.stringify(["gr_fixture"]) && attached.j.outcome_room_receipt?.bound_facts?.goal_run_ref === "gr_fixture" && attached.j.outcome_room_receipt?.bound_facts?.member_count_after === 1);
-    const dup = await jd("POST", `/v1/hypervisor/outcome-rooms/${roomTail(room.outcome_room_id)}/attach-goal-run`, { goal_run_ref: "gr_fixture", expected_revision: 4 });
-    ok("duplicate attach refuses typed (never double-registered)", dup.status === 400 && dup.j.error?.code === "outcome_room_goal_run_duplicate");
+    const attached = await jd("POST", `/v1/hypervisor/outcome-rooms/${roomTail(room.outcome_room_id)}/attach-goal-run`, { goal_run_ref: "goal://gr_fixture", expected_revision: 3 });
+    ok("attach admits: canonical membership + receipted bound facts incl. the reciprocal-stamp attestation", attached.status === 200 && JSON.stringify(attached.j.outcome_room?.member_goal_run_refs) === JSON.stringify(["goal://gr_fixture"]) && attached.j.outcome_room_receipt?.bound_facts?.goal_run_ref === "goal://gr_fixture" && attached.j.outcome_room_receipt?.bound_facts?.reciprocal_outcome_room_ref_stamped === true && attached.j.goal_run_stamped?.outcome_room_ref === room.outcome_room_id);
+    const stamped = (await jd("GET", "/v1/hypervisor/goal-runs/gr_fixture")).j;
+    ok("the reciprocal GoalRun.outcome_room_ref stamp is DURABLE on the goal-run record", JSON.stringify(stamped).includes(room.outcome_room_id));
+    const dup = await jd("POST", `/v1/hypervisor/outcome-rooms/${roomTail(room.outcome_room_id)}/attach-goal-run`, { goal_run_ref: "goal://gr_fixture", expected_revision: 4 });
+    ok("re-attach refuses: the run already belongs to a room (singular identity)", dup.status === 400 && dup.j.error?.code === "outcome_room_goal_run_already_member");
+    // SINGULAR ROOM IDENTITY across rooms: a second room cannot claim the same run.
+    const roomB = (await jd("POST", "/v1/hypervisor/outcome-rooms", VALID_ROOM)).j.outcome_room;
+    const crossAttach = await jd("POST", `/v1/hypervisor/outcome-rooms/${roomTail(roomB.outcome_room_id)}/attach-goal-run`, { goal_run_ref: "goal://gr_fixture", expected_revision: 1 });
+    ok("a SECOND room cannot attach the same GoalRun — contradictory multi-room state is never created (#72 finding 2)", crossAttach.status === 400 && crossAttach.j.error?.code === "outcome_room_goal_run_already_member");
 
     // 6. ROOM-SCOPED ADMISSION across planes.
     const roomedResult = await jd("POST", "/v1/hypervisor/work-results", { goal_ref: "goal://alpha", result_profile: "research", outcome_class: "positive", status: "completed", outcome_room_ref: room.outcome_room_id });
@@ -158,8 +171,16 @@ async function run() {
     ok("close admits (open→closed, revision 5)", closed.status === 200 && closed.j.outcome_room?.status === "closed" && closed.j.outcome_room?.revision === 5);
     const intoClosed = await jd("POST", "/v1/hypervisor/work-results", { goal_ref: "goal://alpha", result_profile: "research", outcome_class: "positive", status: "completed", outcome_room_ref: room.outcome_room_id });
     ok("results refuse a CLOSED room (work_result_room_not_open)", intoClosed.status === 400 && intoClosed.j.error?.code === "work_result_room_not_open");
-    const attachClosed = await jd("POST", `/v1/hypervisor/outcome-rooms/${roomTail(room.outcome_room_id)}/attach-goal-run`, { goal_run_ref: "gr_fixture", expected_revision: 5 });
+    const attachClosed = await jd("POST", `/v1/hypervisor/outcome-rooms/${roomTail(room.outcome_room_id)}/attach-goal-run`, { goal_run_ref: "goal://gr_fixture2", expected_revision: 5 });
     ok("membership refuses a non-open room", attachClosed.status === 400 && attachClosed.j.error?.code === "outcome_room_not_open");
+    // Supersession preserves room identity exactly like deltas (#72 finding 2): a roomless
+    // result cannot supersede the roomed one; a same-room supersession admits.
+    const roomC = (await jd("POST", "/v1/hypervisor/outcome-rooms", VALID_ROOM)).j.outcome_room;
+    const inC = await jd("POST", "/v1/hypervisor/work-results", { goal_ref: "goal://alpha", result_profile: "research", outcome_class: "positive", status: "completed", outcome_room_ref: roomC.outcome_room_id });
+    const roomlessSuper = await jd("POST", "/v1/hypervisor/work-results", { goal_ref: "goal://alpha", result_profile: "research", outcome_class: "superseded", status: "completed", supersedes_work_result_ref: inC.j.work_result.work_result_id });
+    ok("a ROOMLESS result cannot supersede a roomed result (work_result_supersedes_cross_room)", roomlessSuper.status === 400 && roomlessSuper.j.error?.code === "work_result_supersedes_cross_room");
+    const sameRoomSuper = await jd("POST", "/v1/hypervisor/work-results", { goal_ref: "goal://alpha", result_profile: "research", outcome_class: "positive", status: "completed", outcome_room_ref: roomC.outcome_room_id, supersedes_work_result_ref: inC.j.work_result.work_result_id });
+    ok("a SAME-ROOM supersession admits", sameRoomSuper.status === 201 && sameRoomSuper.j.work_result?.supersedes_work_result_ref === inC.j.work_result.work_result_id);
 
     // 7. FAILURE INJECTION — receipts unwritable → typed 5xx, room byte-identical, no tmp.
     const preFail = canon((await jd("GET", `/v1/hypervisor/outcome-rooms/${roomTail(room.outcome_room_id)}`)).j.outcome_room);
@@ -177,6 +198,21 @@ async function run() {
     ok("CONCURRENCY: exactly ONE same-revision transition wins; every loser refuses typed", wins.length === 1 && wins.length + conflicts.length === 24, `${wins.length} wins / ${conflicts.length} typed refusals`);
     const finalRoom2 = (await jd("GET", `/v1/hypervisor/outcome-rooms/${roomTail(room2.outcome_room_id)}`)).j.outcome_room;
     ok("CONCURRENCY: the room is consistent (paused, revision 2, trail = admission + exactly one transition)", finalRoom2.status === "paused" && finalRoom2.revision === 2 && (finalRoom2.admission_and_replay_refs || []).length === 2);
+    // 8b. CLOSE-vs-ADMISSION STRESS (#72 finding 3): the room-scope lock serializes room
+    // resolution through result finalization — no result may be admitted AFTER the close.
+    const roomD = (await jd("POST", "/v1/hypervisor/outcome-rooms", VALID_ROOM)).j.outcome_room;
+    const race = await Promise.all([
+      ...Array.from({ length: 20 }, (_, i) => jd("POST", "/v1/hypervisor/work-results", { goal_ref: "goal://race", result_profile: "research", outcome_class: "positive", status: "completed", outcome_room_ref: roomD.outcome_room_id, summary_ref: `artifact://race-${i}` })),
+      jd("POST", `/v1/hypervisor/outcome-rooms/${roomTail(roomD.outcome_room_id)}/transition`, { transition: "close", expected_revision: 1 }),
+    ]);
+    const closeResp = race[race.length - 1];
+    const admissions = race.slice(0, 20);
+    const closedRoomD = (await jd("GET", `/v1/hypervisor/outcome-rooms/${roomTail(roomD.outcome_room_id)}`)).j.outcome_room;
+    ok("RACE: the close landed and every admission either succeeded or refused typed room_not_open", closeResp.status === 200 && closedRoomD.status === "closed" && admissions.every((r) => r.status === 201 || (r.status === 400 && r.j.error?.code === "work_result_room_not_open")), `${admissions.filter((r) => r.status === 201).length} admitted / ${admissions.filter((r) => r.status === 400).length} refused`);
+    ok("RACE: NO result was admitted after the close (every admitted created_at <= the room's closed updated_at)", admissions.filter((r) => r.status === 201).every((r) => r.j.work_result.created_at <= closedRoomD.updated_at));
+    const postClose = await jd("POST", "/v1/hypervisor/work-results", { goal_ref: "goal://race", result_profile: "research", outcome_class: "positive", status: "completed", outcome_room_ref: roomD.outcome_room_id });
+    ok("RACE: a post-close admission refuses deterministically", postClose.status === 400 && postClose.j.error?.code === "work_result_room_not_open");
+
     ok("no sentinel and no .tmp-* residue anywhere", !JSON.stringify((await jd("GET", "/v1/hypervisor/outcome-rooms")).j).includes("SENTINEL_ROOM_SECRET") && tmpLeaks().length === 0);
   } finally {
     await plane.stop();

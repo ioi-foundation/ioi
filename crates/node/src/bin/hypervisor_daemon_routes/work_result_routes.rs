@@ -474,7 +474,7 @@ fn finalize_delta_persist(
 /// resolver, which returns the resolved result's goal_ref).
 fn validate_work_result(
     body: &Value,
-    resolve_result_goal: &dyn Fn(&str) -> Option<String>,
+    resolve_result: &dyn Fn(&str) -> Option<Value>,
     resolve_room: &dyn Fn(&str) -> Option<Value>,
 ) -> Result<Value, VErr> {
     reject_sensitive_keys(body, "")?;
@@ -531,15 +531,25 @@ fn validate_work_result(
         }
         Some(_) => return Err(verr("work_result_field_type_invalid", "`uncertainty` must be a number, string, or object when present")),
     };
-    // supersedes_work_result_ref: only a resolvable SAME-GOAL work-result (item 6).
+    // supersedes_work_result_ref: only a resolvable SAME-GOAL, SAME-ROOM work-result (#71 item 6;
+    // #72 review finding 2 — supersession preserves singular room identity exactly like deltas).
     let supersedes = match scalar_ref(body, "supersedes_work_result_ref", &["work-result"], &[], &[])? {
         None => Value::Null,
         Some(r) => {
             let tail = r.strip_prefix("work-result://").unwrap_or("");
-            match resolve_result_goal(tail) {
+            match resolve_result(tail) {
                 None => return Err(verr("work_result_supersedes_unbound", format!("`supersedes_work_result_ref` does not resolve to an admitted WorkResult ('{r}')"))),
-                Some(g) if g != goal_ref => return Err(verr("work_result_supersedes_cross_goal", format!("`supersedes_work_result_ref` resolves under '{g}', not this result's '{goal_ref}' — supersession never crosses goals"))),
-                Some(_) => Value::String(r),
+                Some(target) => {
+                    let target_goal = s(&target, "goal_ref", "");
+                    if target_goal != goal_ref {
+                        return Err(verr("work_result_supersedes_cross_goal", format!("`supersedes_work_result_ref` resolves under '{target_goal}', not this result's '{goal_ref}' — supersession never crosses goals")));
+                    }
+                    let target_room = target.get("outcome_room_ref").cloned().unwrap_or(Value::Null);
+                    if target_room != outcome_room {
+                        return Err(verr("work_result_supersedes_cross_room", format!("the superseded result's room ({}) must exactly equal this result's room ({}) — supersession never crosses room scope", if target_room.is_null() { "null".into() } else { target_room.to_string() }, if outcome_room.is_null() { "null".into() } else { outcome_room.to_string() })));
+                    }
+                    Value::String(r)
+                }
             }
         }
     };
@@ -730,12 +740,13 @@ pub(crate) async fn handle_work_result_create(
 ) -> (StatusCode, Json<Value>) {
     let err400 = |(code, msg): VErr| (StatusCode::BAD_REQUEST, Json(json!({ "error": { "code": code, "message": msg } })));
     let data_dir = st.data_dir.clone();
-    let resolve_goal = |tail: &str| {
-        load_by(&data_dir, RESULT_DIR, "work_result_id", &format!("work-result://{tail}"))
-            .map(|r| s(&r, "goal_ref", ""))
-    };
+    // ROOM-SCOPE critical section (#72 review finding 3): room resolution through finalization
+    // holds ROOM_MUTATION_LOCK, so a room cannot close between the check and the persist.
+    // Lock ordering: ROOM_MUTATION_LOCK before DELTA_ADMISSION_LOCK, always.
+    let _room_scope = super::outcome_room_routes::ROOM_MUTATION_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    let resolve_result = |tail: &str| load_by(&data_dir, RESULT_DIR, "work_result_id", &format!("work-result://{tail}"));
     let resolve_room = |room_ref: &str| super::outcome_room_routes::resolve_open_room(&data_dir, room_ref);
-    let mut record = match validate_work_result(&body, &resolve_goal, &resolve_room) {
+    let mut record = match validate_work_result(&body, &resolve_result, &resolve_room) {
         Ok(r) => r,
         Err(e) => return err400(e),
     };
@@ -779,9 +790,11 @@ pub(crate) async fn handle_outcome_delta_create(
 ) -> (StatusCode, Json<Value>) {
     let err400 = |(code, msg): VErr| (StatusCode::BAD_REQUEST, Json(json!({ "error": { "code": code, "message": msg } })));
     let data_dir = st.data_dir.clone();
-    // SERIALIZE the whole read→bind→backlink→receipt critical section (#71 round 2): concurrent
-    // admissions against one WorkResult must each see the previous backlink state. No .await
-    // executes under this lock — the section is synchronous file I/O.
+    // ROOM-SCOPE + ADMISSION critical section (#71 round 2; #72 finding 3): the documented lock
+    // ordering is ROOM_MUTATION_LOCK first, DELTA_ADMISSION_LOCK second — room resolution through
+    // finalization is serialized against room transitions, and concurrent delta admissions
+    // against one WorkResult each see the previous backlink state. No .await under either lock.
+    let _room_scope = super::outcome_room_routes::ROOM_MUTATION_LOCK.lock().unwrap_or_else(|p| p.into_inner());
     let _admission = DELTA_ADMISSION_LOCK.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
     let resolve = |rid: &str| load_by(&data_dir, RESULT_DIR, "work_result_id", &format!("work-result://{rid}"));
     let resolve_room = |room_ref: &str| super::outcome_room_routes::resolve_open_room(&data_dir, room_ref);
@@ -825,7 +838,7 @@ mod work_result_tests {
         std::fs::create_dir_all(&dir).unwrap();
         dir
     }
-    fn no_resolve(_: &str) -> Option<String> { None }
+    fn no_resolve(_: &str) -> Option<Value> { None }
     fn no_room(_: &str) -> Option<Value> { None }
     fn open_room(r: &str) -> Option<Value> {
         (r == "outcome-room://or_open").then(|| json!({ "outcome_room_id": r, "status": "open" }))
@@ -949,10 +962,11 @@ mod work_result_tests {
     }
 
     #[test]
-    fn supersedes_requires_resolvable_same_goal_result() {
+    fn supersedes_requires_resolvable_same_goal_same_room_result() {
         let resolver = |tail: &str| match tail {
-            "wr_same" => Some("goal://g-research-1".to_string()),
-            "wr_other" => Some("goal://g-other".to_string()),
+            "wr_same" => Some(json!({ "work_result_id": "work-result://wr_same", "goal_ref": "goal://g-research-1" })),
+            "wr_other" => Some(json!({ "work_result_id": "work-result://wr_other", "goal_ref": "goal://g-other" })),
+            "wr_roomed" => Some(json!({ "work_result_id": "work-result://wr_roomed", "goal_ref": "goal://g-research-1", "outcome_room_ref": "outcome-room://or_open" })),
             _ => None,
         };
         let mut b = valid_result_body(); b["supersedes_work_result_ref"] = json!("work-result://wr_ghost");
@@ -961,6 +975,20 @@ mod work_result_tests {
         assert_eq!(validate_work_result(&b, &resolver, &no_room).unwrap_err().0, "work_result_supersedes_cross_goal");
         let mut b = valid_result_body(); b["supersedes_work_result_ref"] = json!("work-result://wr_same");
         assert_eq!(validate_work_result(&b, &resolver, &no_room).unwrap()["supersedes_work_result_ref"], json!("work-result://wr_same"));
+        // #72 finding 2: supersession preserves room identity EXACTLY, like deltas.
+        // Roomless result superseding a roomed result → cross-room.
+        let mut b = valid_result_body(); b["supersedes_work_result_ref"] = json!("work-result://wr_roomed");
+        assert_eq!(validate_work_result(&b, &resolver, &open_room).unwrap_err().0, "work_result_supersedes_cross_room");
+        // Same-room supersession admits.
+        let mut b = valid_result_body();
+        b["supersedes_work_result_ref"] = json!("work-result://wr_roomed");
+        b["outcome_room_ref"] = json!("outcome-room://or_open");
+        assert_eq!(validate_work_result(&b, &resolver, &open_room).unwrap()["supersedes_work_result_ref"], json!("work-result://wr_roomed"));
+        // Roomed result superseding a room-less result → cross-room too.
+        let mut b = valid_result_body();
+        b["supersedes_work_result_ref"] = json!("work-result://wr_same");
+        b["outcome_room_ref"] = json!("outcome-room://or_open");
+        assert_eq!(validate_work_result(&b, &resolver, &open_room).unwrap_err().0, "work_result_supersedes_cross_room");
     }
 
     #[test]
