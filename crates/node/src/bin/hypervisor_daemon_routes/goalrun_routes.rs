@@ -39,6 +39,8 @@ use super::lifecycle_routes::{
     execute_authority_gate, load_session_record, resolve_adapter_driver, run_host_spawn_lane,
 };
 use super::{iso_now, persist_record, read_record_dir, remove_record, DaemonState};
+use ioi_services::agentic::runtime::kernel::approval::verify_wallet_approval_grant_binding;
+use sha2::{Digest, Sha256};
 use std::sync::Mutex;
 
 const GOAL_RUN_KIND: &str = "goal-runs";
@@ -220,7 +222,36 @@ fn reconcile_preserve_abort(
     if let Err(e) = persist_record(data_dir, RECONCILIATION_KIND, reconciliation_id, &preserved) {
         failures.push(format!("operation-record update ({RECONCILIATION_KIND}/{reconciliation_id}: {e})"));
     }
-    if let Err((rcode, rmsg)) = release_lifecycle_reservation(data_dir, goal_run_id, token, "active") {
+    // Release + APPEND-ONLY attempt retention (#72 round 5 finding 2): the failed attempt's ref
+    // joins the run's `reconciliation_attempt_refs` so no retry can orphan its evidence.
+    let attempt_ref = format!("reconciliation_result://{reconciliation_id}");
+    let released = update_goal_run_guarded(
+        data_dir,
+        goal_run_id,
+        |fresh| {
+            if fresh.pointer("/lifecycle_op/token").and_then(Value::as_str) != Some(token) {
+                return Err((
+                    "goal_run_operation_conflict".to_string(),
+                    "lifecycle reservation token mismatch — another operation owns this run".to_string(),
+                ));
+            }
+            Ok(())
+        },
+        |obj| {
+            obj.insert("status".into(), json!("active"));
+            obj.remove("lifecycle_op");
+            let mut attempts: Vec<Value> = obj
+                .get("reconciliation_attempt_refs")
+                .and_then(Value::as_array)
+                .cloned()
+                .unwrap_or_default();
+            if !attempts.iter().any(|a| a.as_str() == Some(attempt_ref.as_str())) {
+                attempts.push(json!(attempt_ref));
+            }
+            obj.insert("reconciliation_attempt_refs".into(), Value::Array(attempts));
+        },
+    );
+    if let Err((rcode, rmsg)) = released {
         failures.push(format!("reservation release ({rcode}: {rmsg})"));
     }
     let status = preserved_record.get("status").and_then(Value::as_str).unwrap_or("recovery_required");
@@ -243,8 +274,116 @@ const VERIFICATION_KIND: &str = "goal-run-verifications";
 const RECONCILIATION_KIND: &str = "goal-run-reconciliations";
 /// Plane-owned staging area for reconcile output commits (#72 round 4): candidate outputs are
 /// staged here BEFORE the pre-output receipt, so every refusal up to the commit step leaves the
-/// target workspace untouched — literally, not rhetorically.
+/// target workspace untouched — literally, not rhetorically. An attempt's staging is PRESERVED
+/// until that attempt terminates successfully (#72 round 5 finding 3): after a post-effect
+/// failure or a crash it remains the immutable evidence of exactly what was declared.
 const STAGING_KIND: &str = "goal-run-reconcile-staging";
+
+fn sha256_hex(bytes: &[u8]) -> String {
+    format!("sha256:{:x}", Sha256::digest(bytes))
+}
+
+/// Canonical JSON hash (serde_json BTreeMap key order — recomputable from the durable record).
+fn sha256_canonical(value: &Value) -> String {
+    sha256_hex(&serde_json::to_vec(value).unwrap_or_default())
+}
+
+/// Containment validator for a declared changed-file path (#72 round 5 finding 1): outputs are
+/// canonical RELATIVE paths made of plain components only — an absolute path or a parent/
+/// current-dir/root/prefix component can never cross a workspace boundary at any of the three
+/// joins (candidate read, staging write, target commit).
+fn contained_rel_path(file: &str) -> Result<std::path::PathBuf, String> {
+    if file.trim().is_empty() {
+        return Err("an empty output path is never a workspace file".to_string());
+    }
+    let p = std::path::Path::new(file);
+    if p.is_absolute() {
+        return Err(format!("'{file}' is absolute — outputs are declared relative to their workspace root"));
+    }
+    let mut normalized = std::path::PathBuf::new();
+    for component in p.components() {
+        match component {
+            std::path::Component::Normal(seg) => normalized.push(seg),
+            _ => {
+                return Err(format!("'{file}' carries a parent/current-dir/root/prefix component — only normalized plain components cross into a workspace"));
+            }
+        }
+    }
+    if normalized.as_os_str().is_empty() {
+        return Err(format!("'{file}' normalizes to nothing"));
+    }
+    Ok(normalized)
+}
+
+/// NON-MUTATING symlink-containment check (#72 round 5 finding 1), staging-time: walk to the
+/// deepest EXISTING ancestor of the destination's parent and prove its canonical form is still
+/// inside the canonical root. Directories that do not exist yet are created fresh at commit
+/// time (a fresh directory cannot be a symlink); a pre-existing symlinked ancestor is caught
+/// here BEFORE any receipt exists, with zero target mutation.
+fn symlink_contained(canon_root: &std::path::Path, rel: &std::path::Path) -> Result<(), String> {
+    let mut probe = canon_root
+        .join(rel)
+        .parent()
+        .map(|p| p.to_path_buf())
+        .unwrap_or_else(|| canon_root.to_path_buf());
+    while !probe.exists() {
+        match probe.parent() {
+            Some(parent) => probe = parent.to_path_buf(),
+            None => break,
+        }
+    }
+    let canon_probe = probe
+        .canonicalize()
+        .map_err(|e| format!("'{}' does not resolve ({e})", probe.display()))?;
+    if !canon_probe.starts_with(canon_root) {
+        return Err(format!("'{}' escapes the workspace through a symlinked ancestor ('{}' resolves outside)", rel.display(), probe.display()));
+    }
+    Ok(())
+}
+
+/// CRASH-DURABLE single-file commit (#72 round 5 finding 3): re-prove parent containment after
+/// creating it (symlink TOCTOU belt), write the full content to a TARGET-LOCAL temporary
+/// sibling, fsync the file, rename atomically into place, then fsync the parent directory. A
+/// crash at any instant leaves the destination either absent or complete — never truncated —
+/// and the temporary sibling is a dot-file that never reads as output.
+fn commit_one(staged: &std::path::Path, canon_root: &std::path::Path, rel: &std::path::Path) -> Result<(u64, String), String> {
+    use std::io::Write;
+    let dst = canon_root.join(rel);
+    let parent = dst.parent().ok_or_else(|| "destination has no parent".to_string())?;
+    std::fs::create_dir_all(parent).map_err(|e| format!("cannot create '{}' ({e})", parent.display()))?;
+    let canon_parent = parent
+        .canonicalize()
+        .map_err(|e| format!("'{}' does not resolve ({e})", parent.display()))?;
+    if !canon_parent.starts_with(canon_root) {
+        return Err(format!("'{}' escapes the workspace through a symlinked parent", rel.display()));
+    }
+    let file_name = dst
+        .file_name()
+        .ok_or_else(|| "destination has no file name".to_string())?
+        .to_string_lossy()
+        .into_owned();
+    let bytes = std::fs::read(staged).map_err(|e| format!("staged read failed ({e})"))?;
+    let sha = sha256_hex(&bytes);
+    let tmp = canon_parent.join(format!(".{file_name}.wal-tmp-{:x}", nanos()));
+    let write_result = (|| -> std::io::Result<()> {
+        let mut f = std::fs::File::create(&tmp)?;
+        f.write_all(&bytes)?;
+        f.sync_all()?;
+        Ok(())
+    })();
+    if let Err(e) = write_result {
+        let _ = std::fs::remove_file(&tmp);
+        return Err(format!("temporary write failed ({e})"));
+    }
+    if let Err(e) = std::fs::rename(&tmp, canon_parent.join(&file_name)) {
+        let _ = std::fs::remove_file(&tmp);
+        return Err(format!("atomic rename failed ({e})"));
+    }
+    if let Ok(dir) = std::fs::File::open(&canon_parent) {
+        let _ = dir.sync_all();
+    }
+    Ok((bytes.len() as u64, sha))
+}
 
 const GOAL_RUN_SCHEMA_VERSION: &str = "ioi.hypervisor.goal-run.v1";
 const INVOCATION_SCHEMA_VERSION: &str = "ioi.hypervisor.goal-run-invocation.v1";
@@ -1222,9 +1361,17 @@ pub(crate) async fn handle_goal_run_start(
         let mut files_real = completed && !changed.is_empty();
         if completed {
             for file in &changed {
-                let path = std::path::Path::new(workspace).join(file);
-                let real = path.exists()
-                    && std::fs::metadata(&path).map(|m| m.len() > 0).unwrap_or(false);
+                // Containment is part of the verdict (#72 round 5 finding 1): a path that
+                // escapes its workspace never verifies, so it can never be selected for the
+                // reconcile copy pipeline.
+                let real = match contained_rel_path(file) {
+                    Ok(rel) => {
+                        let path = std::path::Path::new(workspace).join(rel);
+                        path.exists()
+                            && std::fs::metadata(&path).map(|m| m.len() > 0).unwrap_or(false)
+                    }
+                    Err(_) => false,
+                };
                 checks.push(json!({ "check": "reported_file_exists_with_content", "file": file, "pass": real }));
                 files_real &= real;
             }
@@ -1490,24 +1637,87 @@ pub(crate) async fn handle_goal_run_reconcile(
         }
     };
 
-    // DECLARE-BEFORE-DO OUTPUT COMMIT (#72 round 4 finding 1). Order: STAGE the selected
+    // DECLARE-BEFORE-DO OUTPUT COMMIT (#72 rounds 4 + 5). Order: VALIDATE + STAGE the selected
     // candidate outputs into a plane-owned staging area (no target-workspace effect), persist
     // the PRE-OUTPUT receipt, persist the operation record (`status: committing`), and only
-    // then commit staged outputs into the target under a checked per-file journal. Failures
-    // BEFORE the commit clean up completely — "nothing changed" is literally true, target
-    // included. From the moment output MAY have reached the target, NOTHING is deleted:
-    // failures update the operation record to a recovery status and preserve the receipt.
-    let reconciliation_id = format!("rc_{}", safe(&goal_run_id));
+    // then commit staged outputs into the target under a crash-durable per-file WAL journal.
+    // Failures BEFORE the commit clean up completely — "nothing changed" is literally true,
+    // target included. From the moment output MAY have reached the target, NOTHING is deleted:
+    // failures update the operation record to a recovery status, preserve the receipt AND the
+    // staged attempt, and the run retains every attempt ref.
+    //
+    // ATTEMPT-SCOPED IDENTITY (#72 round 5 finding 2): the operation record and its receipt are
+    // keyed by (goal run, operation token) — every attempt is APPEND-ONLY; a retry mints a new
+    // attempt identity and can never overwrite a failed attempt's evidence.
+    let attempt_id = format!("{}_{}", safe(&goal_run_id), safe(&op_token));
+    let reconciliation_id = format!("rc_{attempt_id}");
     let staging_root = std::path::Path::new(&st.data_dir)
         .join(STAGING_KIND)
-        .join(format!("{}_{}", safe(&goal_run_id), op_token));
+        .join(&attempt_id);
+    // CONTAINMENT (#72 round 5 finding 1): the target root must resolve canonically, every
+    // declared path must be a plain relative path, aliases may not collide, the candidate
+    // source must resolve inside its candidate workspace, and the target ancestry must not
+    // escape through a pre-existing symlink — all proven BEFORE any receipt or effect.
+    let canon_target = if selected.is_empty() {
+        // A blocked reconciliation (no verified candidate) commits nothing — no target
+        // resolution is required to record that truth.
+        std::path::PathBuf::new()
+    } else {
+        match std::path::Path::new(&target_workspace).canonicalize() {
+            Ok(p) => p,
+            Err(e) => {
+                return reconcile_abort(
+                    &st.data_dir,
+                    &goal_run_id,
+                    &op_token,
+                    "goal_run_target_workspace_invalid",
+                    &format!("target workspace '{target_workspace}' does not resolve ({e}); nothing was written"),
+                    &[],
+                );
+            }
+        }
+    };
     let mut planned_files: Vec<(String, std::path::PathBuf, std::path::PathBuf)> = Vec::new();
+    let mut planned_set: std::collections::HashSet<std::path::PathBuf> = std::collections::HashSet::new();
+    let mut escape_errors: Vec<String> = Vec::new();
+    let mut collision_errors: Vec<String> = Vec::new();
     let mut staging_errors: Vec<String> = Vec::new();
     for invocation in &selected {
         let candidate_workspace = text(invocation, "candidate_workspace_root");
+        let canon_candidate = std::path::Path::new(candidate_workspace).canonicalize().ok();
         for file in changed_of(invocation) {
-            let src = std::path::Path::new(candidate_workspace).join(&file);
-            let staged = staging_root.join(&file);
+            let rel = match contained_rel_path(&file) {
+                Ok(rel) => rel,
+                Err(reason) => {
+                    escape_errors.push(reason);
+                    continue;
+                }
+            };
+            if !planned_set.insert(rel.clone()) {
+                collision_errors.push(format!("'{}' is declared more than once — normalized-alias collisions never race last-write-wins", rel.display()));
+                continue;
+            }
+            if let Err(reason) = symlink_contained(&canon_target, &rel) {
+                escape_errors.push(format!("target: {reason}"));
+                continue;
+            }
+            let Some(canon_candidate) = canon_candidate.as_ref() else {
+                staging_errors.push(format!("{file}: candidate workspace '{candidate_workspace}' does not resolve"));
+                continue;
+            };
+            let src = canon_candidate.join(&rel);
+            match src.canonicalize() {
+                Ok(canon_src) if canon_src.starts_with(canon_candidate) => {}
+                Ok(_) => {
+                    escape_errors.push(format!("candidate: '{}' resolves outside its candidate workspace (symlink)", rel.display()));
+                    continue;
+                }
+                Err(e) => {
+                    staging_errors.push(format!("{file}: candidate source does not resolve ({e})"));
+                    continue;
+                }
+            }
+            let staged = staging_root.join(&rel);
             if let Some(parent) = staged.parent() {
                 if let Err(e) = std::fs::create_dir_all(parent) {
                     staging_errors.push(format!("{file}: {e}"));
@@ -1515,29 +1725,31 @@ pub(crate) async fn handle_goal_run_reconcile(
                 }
             }
             match std::fs::copy(&src, &staged) {
-                Ok(_) => planned_files.push((
-                    file.clone(),
-                    staged,
-                    std::path::Path::new(&target_workspace).join(&file),
-                )),
+                Ok(_) => planned_files.push((file.clone(), staged, rel)),
                 Err(e) => staging_errors.push(format!("{file}: {e}")),
             }
         }
     }
-    if !staging_errors.is_empty() {
-        let _ = std::fs::remove_dir_all(&staging_root);
-        return reconcile_abort(
-            &st.data_dir,
-            &goal_run_id,
-            &op_token,
-            "goal_run_output_staging_failed",
-            &format!("candidate output staging failed ({}); no receipt was written and the target workspace was NOT touched", staging_errors.join("; ")),
-            &[],
-        );
+    for (code, errors) in [
+        ("goal_run_output_path_escape", &escape_errors),
+        ("goal_run_output_path_collision", &collision_errors),
+        ("goal_run_output_staging_failed", &staging_errors),
+    ] {
+        if !errors.is_empty() {
+            let _ = std::fs::remove_dir_all(&staging_root);
+            return reconcile_abort(
+                &st.data_dir,
+                &goal_run_id,
+                &op_token,
+                code,
+                &format!("output validation/staging refused ({}); no receipt was written and the target workspace was NOT touched", errors.join("; ")),
+                &[],
+            );
+        }
     }
     let planned_list: Vec<String> = planned_files.iter().map(|(f, _, _)| f.clone()).collect();
 
-    let receipt_ref = format!("receipt://hypervisor/goal-run-reconciliation/{}", safe(&goal_run_id));
+    let receipt_ref = format!("receipt://hypervisor/goal-run-reconciliation/{attempt_id}");
     let receipt = json!({
         "id": receipt_ref,
         "kind": "hypervisor.goal-run.reconcile",
@@ -1552,7 +1764,8 @@ pub(crate) async fn handle_goal_run_reconcile(
         "selected_model_route_refs": selected.iter().map(|i| text(i, "model_route_ref")).collect::<Vec<_>>(),
         "verifier_evidence_refs": verifier_evidence_refs,
         "final_changed_files": planned_list,
-        "output_commit_policy": "staged_pre_receipt: this receipt precedes ANY target-workspace effect; the reconciliation operation record journals the per-file commit",
+        "attempt_token": op_token,
+        "output_commit_policy": "staged_pre_receipt: this receipt precedes ANY target-workspace effect; the attempt-scoped operation record write-ahead-journals the per-file commit",
         "reason_codes": [reason_code],
         "admission_id": text(&admission, "admission_id"),
         "capability_lease_ref": run.get("capability_lease_ref").cloned().unwrap_or(Value::Null),
@@ -1590,6 +1803,8 @@ pub(crate) async fn handle_goal_run_reconcile(
             "final_changed_files": final_files,
             "commit_journal": journal,
             "copy_errors": copy_errors,
+            "attempt_token": op_token,
+            "staging_root": staging_root.display().to_string(),
             "final_receipt_refs": [receipt_ref],
             "transcript_run_ref": transcript,
             "state_root": state_root,
@@ -1613,28 +1828,65 @@ pub(crate) async fn handle_goal_run_reconcile(
         );
     }
 
-    // COMMIT staged outputs → target workspace, per-file checked journal. From here on the
-    // receipt and the operation record are NEVER deleted — they are the evidence for whatever
-    // actually reached the target.
+    // COMMIT staged outputs → target workspace under a CRASH-DURABLE WAL (#72 round 5 finding
+    // 3): each file gets a durable `applying` journal entry BEFORE its content moves, the move
+    // itself is target-local-tmp + fsync + atomic rename + parent fsync, and the applied
+    // content hash lands durably AFTER. A crash at any instant leaves (a) every destination
+    // either absent or complete — never truncated — and (b) a durable journal naming exactly
+    // which file was in flight. From here on the receipt and the operation record are NEVER
+    // deleted, and the staged attempt is PRESERVED until terminal success.
     let mut commit_journal: Vec<Value> = Vec::new();
     let mut final_changed_files: Vec<String> = Vec::new();
     let mut copy_errors: Vec<String> = Vec::new();
-    for (file, staged, dst) in &planned_files {
-        if let Some(parent) = dst.parent() {
-            let _ = std::fs::create_dir_all(parent);
+    for (file, staged, rel) in &planned_files {
+        commit_journal.push(json!({ "file": file, "phase": "applying", "at": iso_now() }));
+        if let Err(e) = persist_record(
+            &st.data_dir,
+            RECONCILIATION_KIND,
+            &reconciliation_id,
+            &base_record("committing", &final_changed_files, &commit_journal, &copy_errors, &None, ""),
+        ) {
+            commit_journal.pop();
+            let preserved = base_record("recovery_required", &final_changed_files, &commit_journal, &copy_errors, &None, "");
+            return reconcile_preserve_abort(
+                &st.data_dir,
+                &goal_run_id,
+                &op_token,
+                &reconciliation_id,
+                &preserved,
+                "goal_run_commit_journal_persist_failed",
+                &format!("the write-ahead journal entry for '{file}' did not commit ({e}); '{file}' was NOT applied"),
+            );
         }
-        match std::fs::copy(staged, dst) {
-            Ok(bytes) => {
+        commit_journal.pop();
+        match commit_one(staged, &canon_target, rel) {
+            Ok((bytes, sha)) => {
                 final_changed_files.push(file.clone());
-                commit_journal.push(json!({ "file": file, "applied": true, "bytes": bytes }));
+                commit_journal.push(json!({ "file": file, "applied": true, "bytes": bytes, "sha256": sha, "at": iso_now() }));
             }
             Err(e) => {
                 copy_errors.push(format!("{file}: {e}"));
-                commit_journal.push(json!({ "file": file, "applied": false, "error": format!("{e}") }));
+                commit_journal.push(json!({ "file": file, "applied": false, "error": e, "at": iso_now() }));
             }
         }
+        if let Err(e) = persist_record(
+            &st.data_dir,
+            RECONCILIATION_KIND,
+            &reconciliation_id,
+            &base_record("committing", &final_changed_files, &commit_journal, &copy_errors, &None, ""),
+        ) {
+            let preserved = base_record("recovery_required", &final_changed_files, &commit_journal, &copy_errors, &None, "");
+            return reconcile_preserve_abort(
+                &st.data_dir,
+                &goal_run_id,
+                &op_token,
+                &reconciliation_id,
+                &preserved,
+                "goal_run_commit_journal_persist_failed",
+                &format!("the applied-journal entry for '{file}' did not commit ({e})"),
+            );
+        }
     }
-    let _ = std::fs::remove_dir_all(&staging_root);
     if !copy_errors.is_empty() {
         let preserved = base_record("failed_partial_commit", &final_changed_files, &commit_journal, &copy_errors, &None, "");
         return reconcile_preserve_abort(
@@ -1644,7 +1896,7 @@ pub(crate) async fn handle_goal_run_reconcile(
             &reconciliation_id,
             &preserved,
             "goal_run_output_commit_failed",
-            &format!("the output commit failed partway ({}); the journal records exactly what reached the target", copy_errors.join("; ")),
+            &format!("the output commit failed partway ({}); the journal records exactly what reached the target and the staged attempt is preserved", copy_errors.join("; ")),
         );
     }
 
@@ -1739,6 +1991,18 @@ pub(crate) async fn handle_goal_run_reconcile(
                 "reconciliation_ref".into(),
                 json!(format!("reconciliation_result://{reconciliation_id}")),
             );
+            // APPEND-ONLY attempt retention (#72 round 5 finding 2): the successful attempt
+            // joins the same list every failed attempt joined — nothing is ever superseded away.
+            let mut attempts: Vec<Value> = object
+                .get("reconciliation_attempt_refs")
+                .and_then(Value::as_array)
+                .cloned()
+                .unwrap_or_default();
+            let attempt_ref = format!("reconciliation_result://{reconciliation_id}");
+            if !attempts.iter().any(|a| a.as_str() == Some(attempt_ref.as_str())) {
+                attempts.push(json!(attempt_ref));
+            }
+            object.insert("reconciliation_attempt_refs".into(), Value::Array(attempts));
             object.insert("final_changed_files".into(), json!(reconciliation["final_changed_files"]));
             object.insert("updated_at".into(), json!(iso_now()));
             object.remove("lifecycle_op");
@@ -1758,6 +2022,9 @@ pub(crate) async fn handle_goal_run_reconcile(
             );
         }
     };
+    // TERMINAL SUCCESS: only now is the staged attempt released (#72 round 5 finding 3 —
+    // staging is preserved through every failure and crash as the immutable declared input).
+    let _ = std::fs::remove_dir_all(&staging_root);
 
     (
         StatusCode::OK,
@@ -1769,16 +2036,44 @@ pub(crate) async fn handle_goal_run_reconcile(
 // lifecycle-recovery — the token-addressed, receipted reservation recovery
 // ---------------------------------------------------------------------------
 
-/// POST /v1/hypervisor/goal-runs/:id/lifecycle-recovery (#72 round 4 finding 3): the recovery
+/// Wallet capability scopes a lifecycle-recovery grant must carry (#72 round 5 finding 4).
+const RECOVERY_AUTHORITY_SCOPES: &[&str] = &["goal_run_lifecycle_recovery"];
+
+/// Daemon-derived POLICY hash for a recovery grant: the stable identity of "recover THIS run's
+/// lifecycle under THESE scopes".
+fn recovery_policy_hash(goal_run_id: &str) -> String {
+    sha256_canonical(&json!({
+        "domain": "hypervisor.goal-run.lifecycle-recovery.policy.v1",
+        "goal_run_id": goal_run_id,
+        "scopes": RECOVERY_AUTHORITY_SCOPES,
+    }))
+}
+
+/// Daemon-derived REQUEST hash: binds the grant to THIS reservation token, THIS resolution, and
+/// the hash of THE failure evidence being resolved — a grant can never be replayed against a
+/// different reservation, a different resolution, or after the reservation's evidence changed.
+fn recovery_request_hash(goal_run_id: &str, token: &str, resolution: &str, failure_hash: &str) -> String {
+    sha256_canonical(&json!({
+        "domain": "hypervisor.goal-run.lifecycle-recovery.request.v1",
+        "goal_run_id": goal_run_id,
+        "op_token": token,
+        "resolution": resolution,
+        "failure_hash": failure_hash,
+        "scopes": RECOVERY_AUTHORITY_SCOPES,
+    }))
+}
+
+/// POST /v1/hypervisor/goal-runs/:id/lifecycle-recovery (#72 rounds 4 + 5): the recovery
 /// contract for a durable lifecycle reservation — a crash after `draft -> starting` /
 /// `active -> reconciling`, or a deliberately retained failed-start reservation, is resolved by
-/// an EXPLICIT governed transition, never by a blind expiry. The caller must present the
-/// reservation's own token (readable on the durable run record — proof they saw the current
-/// state). `resolution: "release"` restores the reservation's recorded `from_status`, drops
-/// `lifecycle_op` (its failure evidence moves into the receipt), and persists a
-/// GoalRunLifecycleRecoveryReceipt; the receipt records that releasing after a consequential
-/// execution (a completed wallet crossing) is a deliberate decision whose re-run performs a NEW
-/// crossing. A receipt persist failure restores the reservation EXACTLY — nothing changed.
+/// an EXPLICIT governed transition, never by a blind expiry. The token is the ADDRESS (proof
+/// the caller read the durable reservation); the AUTHORITY is a verified wallet capability
+/// grant bound to {run, token, resolution, failure evidence hash} (finding 4 — a token-only
+/// release could re-open a wallet-crossed start to any reader). Release, receipt persistence,
+/// and exact rollback all execute inside ONE GoalRun mutation critical section (finding 5 — no
+/// concurrent reservation can interleave with the release and be clobbered by the rollback).
+/// `resolution: "release"` restores the reservation's recorded `from_status`; the receipt binds
+/// the acting identity, its grant, and every hash it was verified against.
 pub(crate) async fn handle_goal_run_lifecycle_recovery(
     State(st): State<Arc<DaemonState>>,
     AxumPath(id): AxumPath<String>,
@@ -1799,44 +2094,98 @@ pub(crate) async fn handle_goal_run_lifecycle_recovery(
             "`resolution` must be \"release\" (restore the reservation's from_status and consume the token); richer resolutions are named gaps, not silent defaults",
         );
     }
-    let mut prior_op: Option<Value> = None;
-    let mut prior_status = String::new();
-    let released = update_goal_run_guarded(
-        &st.data_dir,
-        &id,
-        |fresh| {
-            if fresh.pointer("/lifecycle_op/token").and_then(Value::as_str) != Some(token.as_str()) {
-                return Err((
-                    "goal_run_operation_conflict".to_string(),
-                    "no durable reservation carries this token — recovery is addressed to the CURRENT reservation".to_string(),
-                ));
-            }
-            Ok(())
-        },
-        |obj| {
-            prior_op = obj.get("lifecycle_op").cloned();
-            prior_status = obj.get("status").and_then(Value::as_str).unwrap_or("").to_string();
-            let from = prior_op
-                .as_ref()
-                .and_then(|o| o.get("from_status"))
-                .and_then(Value::as_str)
-                .unwrap_or("draft")
-                .to_string();
-            obj.insert("status".into(), json!(from));
-            obj.insert("updated_at".into(), json!(iso_now()));
-            obj.remove("lifecycle_op");
-        },
-    );
-    let run = match released {
-        Ok(run) => run,
-        Err((code, msg)) => return bad(seam_status(&code), &code, &msg),
+    // Read the CURRENT reservation (pre-gate snapshot) to derive the authority binding facts.
+    let Some(snapshot) = read_record_dir(&st.data_dir, GOAL_RUN_KIND)
+        .into_iter()
+        .find(|r| r.get("goal_run_id").and_then(Value::as_str) == Some(id.as_str()))
+    else {
+        return bad(StatusCode::NOT_FOUND, "goal_run_not_found", "Unknown GoalRun.");
     };
-    let op = prior_op.unwrap_or(Value::Null);
-    let restored_status = op
+    let snapshot_op = snapshot.get("lifecycle_op").cloned().unwrap_or(Value::Null);
+    if snapshot_op.get("token").and_then(Value::as_str) != Some(token.as_str()) {
+        return bad(
+            StatusCode::CONFLICT,
+            "goal_run_operation_conflict",
+            "no durable reservation carries this token — recovery is addressed to the CURRENT reservation",
+        );
+    }
+    // AUTHORITY, not just address (#72 round 5 finding 4): the token proves the caller READ the
+    // durable state; releasing a reservation — which can re-open a wallet-crossed start — is a
+    // GOVERNED crossing requiring a wallet capability grant bound to this exact run, token,
+    // resolution, and the hash of the failure evidence being resolved.
+    let failure_hash = sha256_canonical(&snapshot_op);
+    let policy_hash = recovery_policy_hash(&id);
+    let request_hash = recovery_request_hash(&id, &token, resolution, &failure_hash);
+    let now_ms = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis() as u64)
+        .unwrap_or(0);
+    let grant_value = body.get("wallet_approval_grant").cloned().unwrap_or(Value::Null);
+    let binding = if grant_value.is_null() {
+        Err("a wallet_approval_grant is required".to_string())
+    } else {
+        verify_wallet_approval_grant_binding(&grant_value, Some(now_ms), Some(&policy_hash), Some(&request_hash))
+    };
+    let binding = match binding {
+        Ok(binding) => binding,
+        Err(reason) => {
+            return (
+                StatusCode::FORBIDDEN,
+                Json(json!({
+                    "ok": false,
+                    "reason": "recovery_authority_required",
+                    "message": format!("Releasing a lifecycle reservation is a governed recovery decision ({reason}). Bind a wallet grant to policy_hash {policy_hash} + request_hash {request_hash}."),
+                    "required_scopes": RECOVERY_AUTHORITY_SCOPES,
+                    "approval": { "policy_hash": policy_hash, "request_hash": request_hash },
+                    "failure_hash": failure_hash,
+                    "runtimeTruthSource": "daemon-runtime",
+                })),
+            );
+        }
+    };
+    let acting_authority_id = grant_value.get("authority_id").cloned().unwrap_or(Value::Null);
+
+    // ONE CRITICAL SECTION (#72 round 5 finding 5): re-verify the reservation (CAS — it must
+    // not have changed since the gate bound its failure hash), release, persist the receipt,
+    // and roll back EXACTLY on receipt failure — all under the GoalRun mutation lock, so no
+    // other operation can reserve in between and be clobbered by the rollback. Everything
+    // inside is synchronous; no .await executes under the lock.
+    let _guard = GOAL_RUN_MUTATION_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    let Some(prior) = read_record_dir(&st.data_dir, GOAL_RUN_KIND)
+        .into_iter()
+        .find(|r| r.get("goal_run_id").and_then(Value::as_str) == Some(id.as_str()))
+    else {
+        return bad(StatusCode::NOT_FOUND, "goal_run_not_found", "Unknown GoalRun.");
+    };
+    let prior_op = prior.get("lifecycle_op").cloned().unwrap_or(Value::Null);
+    if prior_op.get("token").and_then(Value::as_str) != Some(token.as_str())
+        || sha256_canonical(&prior_op) != failure_hash
+    {
+        return bad(
+            StatusCode::CONFLICT,
+            "goal_run_operation_conflict",
+            "the reservation changed between the authority gate and the release — re-read the run and re-challenge",
+        );
+    }
+    let prior_status = prior.get("status").and_then(Value::as_str).unwrap_or("").to_string();
+    let restored_status = prior_op
         .get("from_status")
         .and_then(Value::as_str)
         .unwrap_or("draft")
         .to_string();
+    let mut released = prior.clone();
+    if let Some(obj) = released.as_object_mut() {
+        obj.insert("status".into(), json!(restored_status.clone()));
+        obj.insert("updated_at".into(), json!(iso_now()));
+        obj.remove("lifecycle_op");
+    }
+    if let Err(e) = persist_goal_run_atomic(&st.data_dir, &id, &released) {
+        return bad(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "goal_run_persist_failed",
+            &format!("the recovery release did not commit ({e}) — the reservation is unchanged"),
+        );
+    }
     let receipt_id = format!(
         "receipt://hypervisor/goal-run-lifecycle-recovery/{}_{}",
         safe(&id),
@@ -1847,45 +2196,46 @@ pub(crate) async fn handle_goal_run_lifecycle_recovery(
         "kind": "hypervisor.goal-run.lifecycle-recovery",
         "receipt_type": "GoalRunLifecycleRecoveryReceipt",
         "goal_run_id": id,
-        "op": op.get("op").cloned().unwrap_or(Value::Null),
+        "op": prior_op.get("op").cloned().unwrap_or(Value::Null),
         "op_token": token,
-        "reservation": op,
+        "reservation": prior_op,
         "reserved_status": prior_status,
         "restored_status": restored_status,
         "resolution": "release",
+        // The acting identity and its authority (#72 round 5 finding 4) — who decided, under
+        // what verified grant, bound to which policy/request/failure hashes.
+        "acting_authority_id": acting_authority_id,
+        "authority_grant_ref": binding.grant_ref,
+        "authority_provider_ref": binding.provider_ref,
+        "authority_grant_hash": binding.hash,
+        "policy_hash": policy_hash,
+        "request_hash": request_hash,
+        "failure_hash": failure_hash,
+        "required_scopes": RECOVERY_AUTHORITY_SCOPES,
         "consequential_execution_note": "releasing after a consequential execution (e.g. a completed wallet crossing) is an explicit governed decision recorded by this receipt — re-running the operation performs a NEW crossing",
         "at": iso_now(),
         "runtimeTruthSource": "daemon-runtime",
     });
+    // SYNCHRONOUS receipt persist inside the SAME critical section: a failure rolls the release
+    // back to the EXACT prior record while no other writer can have interleaved (they all take
+    // this lock), so the restore can never clobber a newer reservation.
     if let Err(e) = persist_record(&st.data_dir, "receipts", &receipt_id, &receipt) {
-        // Receipted transition or no transition: restore the reservation EXACTLY.
-        let restore_status = prior_status.clone();
-        let restore_op = receipt["reservation"].clone();
-        let restored = update_goal_run_guarded(
-            &st.data_dir,
-            &id,
-            |_| Ok(()),
-            |obj| {
-                obj.insert("status".into(), json!(restore_status));
-                obj.insert("lifecycle_op".into(), restore_op);
-            },
-        );
-        return match restored {
-            Ok(_) => bad(
+        return match persist_goal_run_atomic(&st.data_dir, &id, &prior) {
+            Ok(()) => bad(
                 StatusCode::INTERNAL_SERVER_ERROR,
                 "goal_run_recovery_receipt_persist_failed",
-                &format!("the recovery receipt did not persist ({e}); the reservation was restored EXACTLY — nothing changed"),
+                &format!("the recovery receipt did not persist ({e}); the reservation was restored EXACTLY inside the same critical section — nothing changed"),
             ),
-            Err((rcode, rmsg)) => bad(
+            Err(re) => bad(
                 StatusCode::INTERNAL_SERVER_ERROR,
                 "goal_run_rollback_failed",
-                &format!("the recovery receipt did not persist ({e}) AND the reservation restore failed ({rcode}: {rmsg}) — manual repair required"),
+                &format!("the recovery receipt did not persist ({e}) AND the reservation restore failed ({re}) — manual repair required"),
             ),
         };
     }
     (
         StatusCode::OK,
-        Json(json!({ "ok": true, "goal_run": run, "recovery_receipt": receipt })),
+        Json(json!({ "ok": true, "goal_run": released, "recovery_receipt": receipt })),
     )
 }
 
@@ -2001,6 +2351,64 @@ mod goal_run_seam_tests {
         let _ = std::fs::remove_dir_all(&dir);
     }
 
+
+    #[test]
+    fn contained_rel_path_rejects_every_escape_shape() {
+        // #72 round 5 finding 1: traversal, absolute, current-dir, and empty declarations never
+        // reach a workspace join.
+        assert_eq!(contained_rel_path("out.txt").unwrap(), std::path::PathBuf::from("out.txt"));
+        assert_eq!(contained_rel_path("nested/dir/out.txt").unwrap(), std::path::PathBuf::from("nested/dir/out.txt"));
+        // An interior `./` NORMALIZES (the alias then collides with its plain form in the
+        // planned set); leading `./`, parent traversal, absolute, and empty all REFUSE.
+        assert_eq!(contained_rel_path("a/./b.txt").unwrap(), std::path::PathBuf::from("a/b.txt"));
+        for escape in ["../escape.txt", "a/../../b.txt", "a/../b.txt", "/etc/passwd", "./a.txt", "", "  "] {
+            assert!(contained_rel_path(escape).is_err(), "'{escape}' must refuse");
+        }
+    }
+
+    #[test]
+    fn symlink_containment_catches_a_symlinked_ancestor_without_mutating_anything() {
+        let dir = temp_dir("symlink");
+        let root = dir.join("target-root");
+        let outside = dir.join("outside");
+        std::fs::create_dir_all(&root).unwrap();
+        std::fs::create_dir_all(&outside).unwrap();
+        std::os::unix::fs::symlink(&outside, root.join("sub")).unwrap();
+        let canon_root = root.canonicalize().unwrap();
+        let err = symlink_contained(&canon_root, std::path::Path::new("sub/x.txt")).unwrap_err();
+        assert!(err.contains("symlinked ancestor"), "{err}");
+        // A brand-new (not yet existing) subtree is fine — it cannot be a symlink.
+        symlink_contained(&canon_root, std::path::Path::new("fresh/depth/x.txt")).unwrap();
+        assert!(std::fs::read_dir(&outside).unwrap().next().is_none(), "the check wrote NOTHING outside");
+        assert!(!root.join("fresh").exists(), "the check wrote NOTHING inside either");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn commit_one_is_atomic_hashed_and_symlink_safe() {
+        let dir = temp_dir("commit-one");
+        let root = dir.join("target-root");
+        let outside = dir.join("outside");
+        std::fs::create_dir_all(&root).unwrap();
+        std::fs::create_dir_all(&outside).unwrap();
+        let staged = dir.join("staged.txt");
+        std::fs::write(&staged, b"FULL_CONTENT").unwrap();
+        let canon_root = root.canonicalize().unwrap();
+        // Happy path: full content lands, the applied hash is the content hash, no tmp survives.
+        let (bytes, sha) = commit_one(&staged, &canon_root, std::path::Path::new("deep/out.txt")).unwrap();
+        assert_eq!(bytes, 12);
+        assert_eq!(sha, sha256_hex(b"FULL_CONTENT"));
+        assert_eq!(std::fs::read(root.join("deep/out.txt")).unwrap(), b"FULL_CONTENT");
+        let leaks: Vec<String> = std::fs::read_dir(root.join("deep")).unwrap().flatten().map(|e| e.file_name().to_string_lossy().into_owned()).filter(|n| n.contains(".wal-tmp-")).collect();
+        assert!(leaks.is_empty(), "no wal-tmp survives: {leaks:?}");
+        // Symlink TOCTOU belt: a symlinked parent refuses AND writes nothing outside.
+        std::os::unix::fs::symlink(&outside, root.join("link")).unwrap();
+        let err = commit_one(&staged, &canon_root, std::path::Path::new("link/out.txt")).unwrap_err();
+        assert!(err.contains("symlinked parent"), "{err}");
+        assert!(std::fs::read_dir(&outside).unwrap().next().is_none(), "zero external mutation");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
     #[test]
     fn preserve_abort_updates_the_operation_record_and_never_deletes_evidence() {
         // #72 round 4 finding 1: once output MAY have reached the target, the abort lane
@@ -2022,6 +2430,11 @@ mod goal_run_seam_tests {
         let run = read_record_dir(data_dir, GOAL_RUN_KIND).pop().unwrap();
         assert_eq!(run["status"], json!("active"), "the reservation was released for an idempotent retry");
         assert!(run.get("lifecycle_op").is_none());
+        assert_eq!(
+            run["reconciliation_attempt_refs"],
+            json!(["reconciliation_result://rc_gr_p"]),
+            "the FAILED attempt's ref is retained append-only on the run (#72 round 5 finding 2)"
+        );
         // Bookkeeping failure lane: a blocked record family escalates to rollback_failed while
         // STILL deleting nothing.
         plant(&dir, "gr_q.json", &json!({ "goal_run_id": "gr_q", "status": "reconciling", "lifecycle_op": { "op": "reconcile", "token": "tq", "from_status": "active" } }));

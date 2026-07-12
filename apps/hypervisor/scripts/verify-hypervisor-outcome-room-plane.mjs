@@ -25,7 +25,7 @@
 // Exit 2 = BLOCKED (daemon binary not built).
 
 import { createHash } from "node:crypto";
-import { readFileSync, writeFileSync, unlinkSync, chmodSync, readdirSync, mkdirSync, existsSync } from "node:fs";
+import { readFileSync, writeFileSync, unlinkSync, chmodSync, readdirSync, mkdirSync, existsSync, symlinkSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { startIsolatedPlane, receiptFileCount } from "./lib/isolated-daemon.mjs";
 // Real dcrypt-signed ApprovalGrant minting (no test bypass) — the round-4 start lane completes
@@ -309,16 +309,22 @@ async function run() {
     chmodSync(targetDir, 0o555);
     const commitFail = await jd("POST", "/v1/hypervisor/goal-runs/gr_out/reconcile", {});
     chmodSync(targetDir, 0o755);
-    const preservedRec = JSON.parse(readFileSync(join(dataDir, "goal-run-reconciliations", "rc_gr_out.json"), "utf8"));
-    ok("OUTPUT LANE commit failure: typed 5xx; the PRE-OUTPUT receipt survives (+1) and the operation record is preserved with its journal (failed_partial_commit), NOT deleted", commitFail.status === 500 && commitFail.j.error?.code === "goal_run_output_commit_failed" && receiptsCount() === rB + 1 && preservedRec.status === "failed_partial_commit" && preservedRec.commit_journal?.[0]?.applied === false && preservedRec.recovery?.code === "goal_run_output_commit_failed", `${commitFail.status}/${commitFail.j.error?.code || "ok"} recStatus=${preservedRec.status}`);
+    const attemptRecord = (ref) => JSON.parse(readFileSync(join(dataDir, "goal-run-reconciliations", `${String(ref).replace("reconciliation_result://", "").replace(/[^A-Za-z0-9_-]/g, "_")}.json`), "utf8"));
+    const failedAttemptRef = ((await jd("GET", "/v1/hypervisor/goal-runs/gr_out")).j.goal_run?.reconciliation_attempt_refs || []).at(-1);
+    const preservedRec = attemptRecord(failedAttemptRef);
+    ok("OUTPUT LANE commit failure: typed 5xx; the PRE-OUTPUT receipt survives (+1) and the ATTEMPT-SCOPED operation record is preserved with its journal (failed_partial_commit), NOT deleted", commitFail.status === 500 && commitFail.j.error?.code === "goal_run_output_commit_failed" && receiptsCount() === rB + 1 && !!failedAttemptRef && preservedRec.status === "failed_partial_commit" && preservedRec.commit_journal?.some((e) => e.applied === false) && preservedRec.recovery?.code === "goal_run_output_commit_failed", `${commitFail.status}/${commitFail.j.error?.code || "ok"} recStatus=${preservedRec.status}`);
+    ok("OUTPUT LANE commit failure: the STAGED attempt is preserved as immutable evidence (staging survives every post-receipt failure)", readdirSync(join(dataDir, "goal-run-reconcile-staging")).some((n) => n.startsWith("gr_out_")), readdirSync(join(dataDir, "goal-run-reconcile-staging")).join(","));
     const runAfterCommitFail = (await jd("GET", "/v1/hypervisor/goal-runs/gr_out")).j.goal_run || {};
     ok("OUTPUT LANE commit failure: the reservation was released for the idempotent retry (active, no lifecycle_op)", runAfterCommitFail.status === "active" && !runAfterCommitFail.lifecycle_op);
 
-    // Lane 5 — clean retry: outputs land, journal applied, run completes; the prior evidence is
-    // superseded in place (same operation identity), nothing orphaned.
+    // Lane 5 — clean retry mints a NEW APPEND-ONLY attempt (#72 round 5 finding 2): the failed
+    // attempt's record and receipt survive untouched; the run retains BOTH attempt refs.
     const outOk = await jd("POST", "/v1/hypervisor/goal-runs/gr_out/reconcile", {});
-    const finalRec = JSON.parse(readFileSync(join(dataDir, "goal-run-reconciliations", "rc_gr_out.json"), "utf8"));
-    ok("OUTPUT LANE retry: 200; the CANDIDATE output reached the target with an applied journal and a complete record; the untouched target file survives", outOk.status === 200 && readFileSync(join(targetDir, "out.txt"), "utf8") === "CANDIDATE_OUTPUT" && readFileSync(join(targetDir, "old.txt"), "utf8") === "OLD_TARGET" && finalRec.status === "complete" && finalRec.commit_journal?.[0]?.applied === true && (outOk.j.goal_run?.status === "complete"), `${outOk.status} rec=${finalRec.status}`);
+    const attemptsAfter = outOk.j.goal_run?.reconciliation_attempt_refs || [];
+    const finalRec = attemptRecord(attemptsAfter.at(-1));
+    const failedRecStill = attemptRecord(failedAttemptRef);
+    ok("OUTPUT LANE retry: 200 under a NEW attempt identity; output landed (WAL journal applied + sha256) and the run retains BOTH attempt refs", outOk.status === 200 && readFileSync(join(targetDir, "out.txt"), "utf8") === "CANDIDATE_OUTPUT" && readFileSync(join(targetDir, "old.txt"), "utf8") === "OLD_TARGET" && attemptsAfter.length === 2 && attemptsAfter.at(-1) !== failedAttemptRef && finalRec.status === "complete" && finalRec.commit_journal?.at(-1)?.applied === true && String(finalRec.commit_journal?.at(-1)?.sha256 || "").startsWith("sha256:") && outOk.j.goal_run?.status === "complete", `${outOk.status} attempts=${attemptsAfter.length}`);
+    ok("OUTPUT LANE retry: the FAILED attempt's evidence is untouched by the retry (append-only, never superseded in place)", failedRecStill.status === "failed_partial_commit" && failedRecStill.recovery?.code === "goal_run_output_commit_failed" && outOk.j.goal_run?.reconciliation_ref === attemptsAfter.at(-1));
 
     // 8g. START SIDE-RECORD INTEGRITY + LIFECYCLE RECOVERY (#72 round 4 findings 2 + 3) — the
     // REAL wallet crossing (403 challenge → dcrypt-signed grant), then an injected verification
@@ -341,18 +347,122 @@ async function run() {
     const noToken = await jd("POST", "/v1/hypervisor/goal-runs/gr_start/lifecycle-recovery", { resolution: "release" });
     const wrongToken = await jd("POST", "/v1/hypervisor/goal-runs/gr_start/lifecycle-recovery", { op_token: "lop_bogus", resolution: "release" });
     ok("RECOVERY: token-addressed — missing token 400, foreign token 409 (never a blind expiry)", noToken.status === 400 && noToken.j.error?.code === "goal_run_recovery_token_required" && wrongToken.status === 409 && wrongToken.j.error?.code === "goal_run_operation_conflict");
-    const recovered = await jd("POST", "/v1/hypervisor/goal-runs/gr_start/lifecycle-recovery", { op_token: reserved.lifecycle_op?.token, resolution: "release" });
-    ok("RECOVERY: an explicit RECEIPTED release restores from_status and carries the failure evidence into the receipt", recovered.status === 200 && recovered.j.recovery_receipt?.receipt_type === "GoalRunLifecycleRecoveryReceipt" && recovered.j.recovery_receipt?.restored_status === "draft" && recovered.j.recovery_receipt?.reservation?.failure?.family === "goal-run-verifications" && recovered.j.goal_run?.status === "draft" && !recovered.j.goal_run?.lifecycle_op, `${recovered.status}/${recovered.j.error?.code || "ok"}`);
+    // AUTHORITY, not just address (#72 round 5 finding 4): the readable token alone must NOT
+    // release a reservation after a real wallet crossing.
+    const tokenOnly = await jd("POST", "/v1/hypervisor/goal-runs/gr_start/lifecycle-recovery", { op_token: reserved.lifecycle_op?.token, resolution: "release" });
+    ok("RECOVERY: the token ALONE is refused — 403 challenge binding {run, token, resolution, failure_hash} (the token is an address, not authority)", tokenOnly.status === 403 && tokenOnly.j?.reason === "recovery_authority_required" && !!tokenOnly.j?.approval?.policy_hash && !!tokenOnly.j?.approval?.request_hash && String(tokenOnly.j?.failure_hash || "").startsWith("sha256:"), `${tokenOnly.status}/${tokenOnly.j?.reason || "ok"}`);
+    const stillReserved = (await jd("GET", "/v1/hypervisor/goal-runs/gr_start")).j.goal_run || {};
+    ok("RECOVERY: the refused release changed NOTHING (reservation intact)", stillReserved.status === "starting" && stillReserved.lifecycle_op?.token === reserved.lifecycle_op?.token);
+    const recGrant = mintApprovalGrant({ policyHash: tokenOnly.j.approval.policy_hash, requestHash: tokenOnly.j.approval.request_hash });
+    const recovered = await jd("POST", "/v1/hypervisor/goal-runs/gr_start/lifecycle-recovery", { op_token: reserved.lifecycle_op?.token, resolution: "release", wallet_approval_grant: recGrant });
+    ok("RECOVERY: a GRANTED release succeeds — receipted with the acting authority, grant ref, and every bound hash (policy/request/failure)", recovered.status === 200 && recovered.j.recovery_receipt?.receipt_type === "GoalRunLifecycleRecoveryReceipt" && recovered.j.recovery_receipt?.restored_status === "draft" && recovered.j.recovery_receipt?.reservation?.failure?.family === "goal-run-verifications" && String(recovered.j.recovery_receipt?.authority_grant_ref || "").startsWith("wallet.network://grant/") && recovered.j.recovery_receipt?.failure_hash === tokenOnly.j.failure_hash && recovered.j.recovery_receipt?.request_hash === tokenOnly.j.approval.request_hash && !!recovered.j.recovery_receipt?.acting_authority_id && recovered.j.goal_run?.status === "draft" && !recovered.j.goal_run?.lifecycle_op, `${recovered.status}/${recovered.j.error?.code || "ok"}`);
     const retry = await startWithGrant();
     const retriedRun = retry.started.j?.goal_run || {};
     ok("RECOVERY: after the release, a NEW receipted crossing starts the run and every side record persists before its ref binds", retry.started.status === 200 && retriedRun.status === "active" && (retriedRun.verification_refs || []).length === 1 && readdirSync(join(dataDir, "goal-run-verifications")).some((n) => n.includes("gr_start")) && readdirSync(join(dataDir, "goal-run-invocations")).some((n) => n.includes("gr_start")), `${retry.started.status} vrefs=${(retriedRun.verification_refs || []).length}`);
+
+    // 8h. OUTPUT CONTAINMENT (#72 round 5 finding 1) — traversal, absolute, symlink-ancestor,
+    // and normalized-alias declarations refuse typed with ZERO external mutation.
+    const escTarget = join(dataDir, "esc-target");
+    const escCand = join(dataDir, "esc-cand");
+    mkdirSync(escTarget, { recursive: true });
+    mkdirSync(escCand, { recursive: true });
+    writeFileSync(join(escCand, "a.txt"), "SAFE");
+    const plantEscape = (grid, files, target) => {
+      writeFileSync(join(dataDir, "goal-runs", `${grid}.json`), JSON.stringify({ goal_run_id: grid, schema_version: "ioi.hypervisor.goal-run.v1", normalized_goal: "containment", status: "active", goal_ref: `goal://${grid}`, target_workspace_root: target, created_at: "2026-01-01T00:00:00Z" }));
+      writeFileSync(join(dataDir, "goal-run-invocations", `${grid}_a.json`), JSON.stringify({ goal_ref: `goal://${grid}`, goal_run_id: grid, harness_invocation_id: `harness_invocation://hi_${grid}_a`, role_key: "a", status: "completed", candidate_workspace_root: escCand, implementation_result: { implementation_result_id: `implementation_result://ir_${grid}_a`, status: "completed", changed_files: files } }));
+      writeFileSync(join(dataDir, "goal-run-verifications", `ver_${grid}.json`), JSON.stringify({ goal_ref: `goal://${grid}`, verdict: "pass", verification_ref: `agentgres://goal-run-verification/ver_${grid}`, harness_invocation_ref: `harness_invocation://hi_${grid}_a`, created_at: "2026-01-01T00:00:00Z" }));
+    };
+    const escTarget2 = join(dataDir, "esc-target2");
+    const outsideDir = join(dataDir, "outside");
+    mkdirSync(escTarget2, { recursive: true });
+    mkdirSync(outsideDir, { recursive: true });
+    symlinkSync(outsideDir, join(escTarget2, "sub"));
+    const CONTAINMENT = [
+      ["gr_esc1", ["../escape.txt"], escTarget, "goal_run_output_path_escape", join(dataDir, "escape.txt"), "parent traversal"],
+      ["gr_esc2", [join(dataDir, "abs-escape.txt")], escTarget, "goal_run_output_path_escape", join(dataDir, "abs-escape.txt"), "absolute path"],
+      ["gr_esc3", ["a.txt", "a.txt"], escTarget, "goal_run_output_path_collision", null, "normalized-alias collision"],
+      ["gr_esc4", ["sub/x.txt"], escTarget2, "goal_run_output_path_escape", join(outsideDir, "x.txt"), "symlinked ancestor"],
+    ];
+    for (const [grid, files, target, code, escapePath, label] of CONTAINMENT) {
+      plantEscape(grid, files, target);
+      const r = await jd("POST", `/v1/hypervisor/goal-runs/${grid}/reconcile`, {});
+      const released = (await jd("GET", `/v1/hypervisor/goal-runs/${grid}`)).j.goal_run || {};
+      ok(`CONTAINMENT (${label}): typed ${code}; ZERO external mutation; run released for correction`, r.status === 500 && r.j.error?.code === code && (!escapePath || !existsSync(escapePath)) && readdirSync(target).filter((n) => n !== "sub").length === 0 && readdirSync(outsideDir).length === 0 && released.status === "active" && !released.lifecycle_op, `${r.status}/${r.j.error?.code || "ok"}`);
+    }
 
     ok("no sentinel and no .tmp-* residue anywhere", !JSON.stringify((await jd("GET", "/v1/hypervisor/outcome-rooms")).j).includes("SENTINEL_ROOM_SECRET") && tmpLeaks().length === 0);
   } finally {
     await plane.stop();
   }
 
-  // 9. SUBSTRATE DUAL-WRITE PARITY (#72 round 3 finding 4): with the soak opted in, the ATOMIC
+  // 9. CRASH DURABILITY (#72 round 5 finding 3): SIGKILL the daemon MID multi-file commit —
+  // the durable write-ahead journal names exactly what was in flight, no destination is ever
+  // truncated, the staged attempt survives, and the SAME data dir recovers through the governed
+  // lane (403 → grant → release) to a complete retry with the crashed attempt's evidence intact.
+  const crash = await startIsolatedPlane({ serve: false });
+  if (crash) {
+    try {
+      const cjd = async (method, p2, body) => { const r = await fetch(`${crash.daemonUrl}${p2}`, { method, headers: { "content-type": "application/json" }, body: body ? JSON.stringify(body) : undefined }); return { status: r.status, j: await r.json().catch(() => ({})) }; };
+      const cCand = join(crash.dataDir, "crash-cand");
+      const cTarget = join(crash.dataDir, "crash-target");
+      mkdirSync(cCand, { recursive: true });
+      mkdirSync(cTarget, { recursive: true });
+      mkdirSync(join(crash.dataDir, "goal-runs"), { recursive: true });
+      mkdirSync(join(crash.dataDir, "goal-run-invocations"), { recursive: true });
+      mkdirSync(join(crash.dataDir, "goal-run-verifications"), { recursive: true });
+      const FILES = Array.from({ length: 32 }, (_, i) => `f${String(i).padStart(2, "0")}.bin`);
+      const CONTENT = {};
+      for (const f of FILES) { CONTENT[f] = `CONTENT_${f}_`.repeat(80000); writeFileSync(join(cCand, f), CONTENT[f]); }
+      writeFileSync(join(crash.dataDir, "goal-runs", "gr_crash.json"), JSON.stringify({ goal_run_id: "gr_crash", schema_version: "ioi.hypervisor.goal-run.v1", normalized_goal: "crash durability", status: "active", goal_ref: "goal://gr_crash", target_workspace_root: cTarget, created_at: "2026-01-01T00:00:00Z" }));
+      writeFileSync(join(crash.dataDir, "goal-run-invocations", "gr_crash_a.json"), JSON.stringify({ goal_ref: "goal://gr_crash", goal_run_id: "gr_crash", harness_invocation_id: "harness_invocation://hi_gr_crash_a", role_key: "a", status: "completed", candidate_workspace_root: cCand, implementation_result: { implementation_result_id: "implementation_result://ir_gr_crash_a", status: "completed", changed_files: FILES } }));
+      writeFileSync(join(crash.dataDir, "goal-run-verifications", "ver_crash.json"), JSON.stringify({ goal_ref: "goal://gr_crash", verdict: "pass", verification_ref: "agentgres://goal-run-verification/ver_crash", harness_invocation_ref: "harness_invocation://hi_gr_crash_a", created_at: "2026-01-01T00:00:00Z" }));
+      const recDir = join(crash.dataDir, "goal-run-reconciliations");
+      const readAttempt = () => { try { const f = readdirSync(recDir).find((n) => n.startsWith("rc_gr_crash_")); return f ? JSON.parse(readFileSync(join(recDir, f), "utf8")) : null; } catch { return null; } };
+      const inflight = fetch(`${crash.daemonUrl}/v1/hypervisor/goal-runs/gr_crash/reconcile`, { method: "POST", headers: { "content-type": "application/json" }, body: "{}" }).catch(() => null);
+      let sawCommit = false;
+      for (let i = 0; i < 4000; i++) {
+        const rec = readAttempt();
+        if (rec && (rec.commit_journal || []).length >= 2) { sawCommit = true; break; }
+        await new Promise((r) => setTimeout(r, 2));
+      }
+      process.kill(crash.daemonPid, "SIGKILL");
+      await inflight;
+      const rec = readAttempt();
+      const journal = rec?.commit_journal || [];
+      ok("CRASH: SIGKILL landed mid-commit with the durable WAL in place (status `committing`, journal in flight)", sawCommit && rec?.status === "committing" && journal.length >= 2 && journal.length < FILES.length, `journal=${journal.length}/${FILES.length} status=${rec?.status}`);
+      let consistent = true;
+      const journaled = new Set();
+      for (const e of journal) {
+        journaled.add(e.file);
+        const p2 = join(cTarget, e.file);
+        if (e.applied === true) consistent = consistent && existsSync(p2) && readFileSync(p2, "utf8") === CONTENT[e.file] && String(e.sha256 || "").startsWith("sha256:");
+        else if (e.phase === "applying") consistent = consistent && (!existsSync(p2) || readFileSync(p2, "utf8") === CONTENT[e.file]);
+      }
+      for (const f of FILES) if (!journaled.has(f)) consistent = consistent && !existsSync(join(cTarget, f));
+      for (const v of readdirSync(cTarget).filter((n) => !n.startsWith("."))) consistent = consistent && readFileSync(join(cTarget, v), "utf8") === CONTENT[v];
+      ok("CRASH: every visible target file is COMPLETE and journaled; unjournaled files are absent; the in-flight file is atomic (absent or complete, never truncated)", consistent, `journal=${journal.length}`);
+      ok("CRASH: the staged attempt survived the crash (immutable declared input preserved)", readdirSync(join(crash.dataDir, "goal-run-reconcile-staging")).length === 1);
+      // RESTART on the SAME durable state → governed recovery → complete retry.
+      const revived = await startIsolatedPlane({ serve: false, dataDir: crash.dataDir });
+      const rjd = async (method, p2, body) => { const r = await fetch(`${revived.daemonUrl}${p2}`, { method, headers: { "content-type": "application/json" }, body: body ? JSON.stringify(body) : undefined }); return { status: r.status, j: await r.json().catch(() => ({})) }; };
+      const stuck = (await rjd("GET", "/v1/hypervisor/goal-runs/gr_crash")).j.goal_run || {};
+      ok("CRASH RESTART: the reservation survived durably (reconciling + token) — no blind expiry, no silent unlock", stuck.status === "reconciling" && !!stuck.lifecycle_op?.token, stuck.status);
+      const chall = await rjd("POST", "/v1/hypervisor/goal-runs/gr_crash/lifecycle-recovery", { op_token: stuck.lifecycle_op?.token, resolution: "release" });
+      const g = chall.status === 403 ? mintApprovalGrant({ policyHash: chall.j.approval.policy_hash, requestHash: chall.j.approval.request_hash }) : null;
+      const rel = g ? await rjd("POST", "/v1/hypervisor/goal-runs/gr_crash/lifecycle-recovery", { op_token: stuck.lifecycle_op?.token, resolution: "release", wallet_approval_grant: g }) : chall;
+      const retry = await rjd("POST", "/v1/hypervisor/goal-runs/gr_crash/reconcile", {});
+      const allComplete = FILES.every((f) => existsSync(join(cTarget, f)) && readFileSync(join(cTarget, f), "utf8") === CONTENT[f]);
+      const attemptRecords = readdirSync(recDir).filter((n) => n.startsWith("rc_gr_crash_"));
+      ok("CRASH RECOVERY: governed release (403 → grant → receipted) then a clean retry lands ALL files; the crashed attempt's record is retained alongside the new one", chall.status === 403 && rel.status === 200 && retry.status === 200 && allComplete && retry.j.goal_run?.status === "complete" && attemptRecords.length === 2, `${chall.status}/${rel.status}/${retry.status} files=${FILES.filter((f) => existsSync(join(cTarget, f))).length}/${FILES.length} attempts=${attemptRecords.length}`);
+      await revived.stop();
+    } finally {
+      try { rmSync(crash.dataDir, { recursive: true, force: true }); } catch { /* best effort */ }
+    }
+  } else {
+    ok("CRASH: crash plane started", false, "daemon did not start");
+  }
+
+  // 10. SUBSTRATE DUAL-WRITE PARITY (#72 round 3 finding 4): with the soak opted in, the ATOMIC
   // writers — the room mutation writer and the GoalRun seam — feed the substrate dual-write
   // hook exactly like persist_record; the engine's admitted counter proves the hook fired.
   const soak = await startIsolatedPlane({ serve: false, env: { IOI_SUBSTRATE_DUAL_WRITE: "1", IOI_SUBSTRATE_DUAL_WRITE_DOMAINS: "goal-runs,outcome-room-registry" } });
