@@ -297,6 +297,12 @@ fn build_room_receipt(
 /// sibling (no .json extension — invisible to read_record_dir) + rename; BOTH failure paths
 /// clean the temp file.
 fn persist_atomic(data_dir: &str, family: &str, record_id: &str, record: &Value) -> std::io::Result<()> {
+    // Parity with persist_record (#72 review round 3 finding 4): a promoted family has exactly
+    // one write path (the substrate engine), and a not-yet-promoted family still feeds the
+    // opt-in dual-write soak — atomic replacement must not silently drop either hook.
+    if super::substrate_store::is_promoted(family) {
+        return super::substrate_store::persist_promoted(data_dir, family, record_id, record);
+    }
     let dir = std::path::Path::new(data_dir).join(family);
     std::fs::create_dir_all(&dir)?;
     let safe: String = record_id.replace(|c: char| !c.is_ascii_alphanumeric() && c != '-' && c != '_', "_");
@@ -309,6 +315,7 @@ fn persist_atomic(data_dir: &str, family: &str, record_id: &str, record: &Value)
         let _ = std::fs::remove_file(&tmp);
         return Err(e);
     }
+    super::substrate_store::dual_write(data_dir, family, record_id, record);
     Ok(())
 }
 
@@ -372,13 +379,15 @@ fn finalize_room_mutation(
     }
 }
 
-/// ATTACH finalize (#72 review findings 2 + round 2): updated room FIRST (atomic, exact-prior
-/// restore), the reciprocal GoalRun stamp SECOND — through the SHARED GoalRun CAS seam
-/// (`goalrun_routes::update_goal_run`), which re-reads the latest record under the GoalRun lock
-/// and merges ONLY the `outcome_room_ref` field, so a concurrent lifecycle write (start/
-/// reconcile) is never clobbered and never clobbers us — the receipt THIRD. Rollback of the
-/// stamp is SURGICAL (remove exactly `outcome_room_ref` via the same seam): a full prior-run
-/// restore could erase a lifecycle write that landed between our stamp and the failure. Lock
+/// ATTACH finalize (#72 review findings 2 + rounds 2 + 3): updated room FIRST (atomic,
+/// exact-prior restore), the reciprocal GoalRun stamp SECOND — through the SHARED GoalRun CAS
+/// seam (`goalrun_routes::update_goal_run_guarded`), which re-reads the latest record under the
+/// GoalRun lock and merges ONLY the `outcome_room_ref` field, so a concurrent lifecycle write
+/// (start/reconcile) is never clobbered and never clobbers us — the receipt THIRD. Rollback of
+/// the stamp is SURGICAL and SHAPE-EXACT (round 3 finding 3): the stamp closure captures the
+/// prior presence AND value of `outcome_room_ref` from the fresh record (`None` = key absent,
+/// `Some(Value::Null)` = key explicitly null), and the unstamp restores THAT representation —
+/// it never invents or drops a field shape, and every concurrent lifecycle field survives. Lock
 /// ordering holds: callers hold ROOM_MUTATION_LOCK; the seam takes GOAL_RUN_MUTATION_LOCK inside
 /// (room → GoalRun, always).
 fn finalize_attach(
@@ -395,27 +404,49 @@ fn finalize_attach(
         return Err(verr("outcome_room_record_persist_failed", format!("room membership persist failed ({e}) — nothing changed")));
     }
     let room_ref = room_id.to_string();
-    let stamped = super::goalrun_routes::update_goal_run(data_dir, run_file_id, move |obj| {
-        obj.insert("outcome_room_ref".into(), json!(room_ref));
-    });
-    if stamped.is_none() {
+    // `None` = the stamp closure never ran; `Some(inner)` = it ran, and `inner` is the exact
+    // prior representation of the field (absent vs explicit value, null included).
+    let mut prior_stamp: Option<Option<Value>> = None;
+    let stamped = super::goalrun_routes::update_goal_run_guarded(
+        data_dir,
+        run_file_id,
+        |_| Ok(()),
+        |obj| {
+            prior_stamp = Some(obj.get("outcome_room_ref").cloned());
+            obj.insert("outcome_room_ref".into(), json!(room_ref));
+        },
+    );
+    if let Err((code, msg)) = stamped {
         return if persist_atomic(data_dir, ROOM_DIR, room_tail, prior_room).is_ok() {
-            Err(verr("outcome_room_reciprocal_stamp_failed", "the reciprocal GoalRun stamp failed; the room was restored EXACTLY — nothing changed".to_string()))
+            Err(verr("outcome_room_reciprocal_stamp_failed", format!("the reciprocal GoalRun stamp failed ({code}: {msg}); the room was restored EXACTLY — nothing changed")))
         } else {
-            Err(verr("outcome_room_rollback_failed", format!("the reciprocal GoalRun stamp failed AND the room restore failed — manual repair required for '{room_tail}'")))
+            Err(verr("outcome_room_rollback_failed", format!("the reciprocal GoalRun stamp failed ({code}: {msg}) AND the room restore failed — manual repair required for '{room_tail}'")))
         };
     }
     match persist_record(data_dir, ROOM_RECEIPT_DIR, receipt_id, receipt) {
         Ok(()) => Ok(()),
         Err(e) => {
             let room_ok = persist_atomic(data_dir, ROOM_DIR, room_tail, prior_room).is_ok();
-            // SURGICAL unstamp through the seam — concurrent lifecycle fields survive.
-            let run_ok = super::goalrun_routes::update_goal_run(data_dir, run_file_id, |obj| {
-                obj.remove("outcome_room_ref");
-            })
-            .is_some();
+            // SURGICAL, SHAPE-EXACT unstamp through the seam: restore the captured prior
+            // representation of `outcome_room_ref` — absent stays absent, an explicit null
+            // stays an explicit null — while concurrent lifecycle fields survive untouched.
+            let prior_field: Option<Value> = prior_stamp.unwrap_or(None);
+            let run_ok = super::goalrun_routes::update_goal_run_guarded(
+                data_dir,
+                run_file_id,
+                |_| Ok(()),
+                |obj| match prior_field {
+                    None => {
+                        obj.remove("outcome_room_ref");
+                    }
+                    Some(v) => {
+                        obj.insert("outcome_room_ref".into(), v);
+                    }
+                },
+            )
+            .is_ok();
             if room_ok && run_ok {
-                Err(verr("outcome_room_receipt_persist_failed", format!("attach receipt persist failed ({e}); the room was restored EXACTLY and the GoalRun stamp removed surgically — nothing changed")))
+                Err(verr("outcome_room_receipt_persist_failed", format!("attach receipt persist failed ({e}); the room was restored EXACTLY and the GoalRun stamp reverted to its exact prior shape — nothing changed")))
             } else {
                 Err(verr("outcome_room_rollback_failed", format!("attach receipt persist failed ({e}) AND rollback was incomplete (room restored: {room_ok}, run unstamped: {run_ok}) — manual repair required for '{room_tail}'")))
             }
@@ -987,6 +1018,44 @@ mod outcome_room_tests {
     }
 
     #[test]
+    fn attach_rollback_restores_the_exact_prior_field_shape_including_explicit_null() {
+        // #72 round 3 finding 3: a prior record carrying `outcome_room_ref: null` EXPLICITLY is
+        // a different canonical shape from one with the key absent. The unstamp restores the
+        // captured representation — explicit null stays explicit null, absent stays absent
+        // (the sibling test above) — while lifecycle fields survive.
+        let dir = temp_dir("attach-null");
+        let data_dir = dir.to_str().unwrap();
+        let prior_room = json!({ "outcome_room_id": "outcome-room://or_n", "status": "open", "revision": 1, "member_goal_run_refs": [], "updated_at": "2026-01-01T00:00:00Z" });
+        let prior_run = json!({ "goal_run_id": "gr_n", "normalized_goal": "x", "status": "active", "outcome_room_ref": null });
+        persist_atomic(data_dir, ROOM_DIR, "or_n", &prior_room).unwrap();
+        persist_atomic(data_dir, GOAL_RUN_DIR, "gr_n", &prior_run).unwrap();
+        let mut updated_room = prior_room.clone();
+        updated_room["member_goal_run_refs"] = json!(["goal://gr_n"]);
+        updated_room["revision"] = json!(2);
+        let (rid, receipt) = build_room_receipt(TRANSITION_RECEIPT_SCHEMA, "OutcomeRoomTransitionReceipt", "ort", "outcome-room://or_n", "goal_run_attached", json!({}), vec![], "sha256:x".into(), TRANSITION_HASH_EXCLUDES, "admitted_not_verified", "n", "2026-01-01T00:00:00Z");
+        std::fs::write(dir.join(ROOM_RECEIPT_DIR), b"blocker").unwrap();
+        let (code, _) = finalize_attach(data_dir, "or_n", &prior_room, &updated_room, "gr_n", "outcome-room://or_n", &rid, &receipt).unwrap_err();
+        assert_eq!(code, "outcome_room_receipt_persist_failed");
+        let run_after = read_record_dir(data_dir, GOAL_RUN_DIR).pop().unwrap();
+        assert!(
+            run_after.as_object().unwrap().contains_key("outcome_room_ref"),
+            "the explicitly-null key is PRESENT after rollback — the shape was not dropped"
+        );
+        assert_eq!(run_after["outcome_room_ref"], Value::Null, "the explicit null value is restored exactly");
+        assert_eq!(run_after["status"], json!("active"), "lifecycle fields survive the shape-exact unstamp");
+        assert_eq!(
+            serde_json::to_vec(&run_after).unwrap(),
+            serde_json::to_vec(&prior_run).unwrap(),
+            "the run record is canonically identical to its prior shape"
+        );
+        std::fs::remove_file(dir.join(ROOM_RECEIPT_DIR)).unwrap();
+        // Happy path afterwards: the explicit-null prior is stampable like any unbound run.
+        finalize_attach(data_dir, "or_n", &prior_room, &updated_room, "gr_n", "outcome-room://or_n", &rid, &receipt).unwrap();
+        assert_eq!(read_record_dir(data_dir, GOAL_RUN_DIR).pop().unwrap()["outcome_room_ref"], json!("outcome-room://or_n"));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
     fn deterministic_interleaving_reconcile_reads_first_attach_lands_reconcile_persists_last() {
         // #72 round 2, the reviewer's exact interleaving: a lifecycle writer loads a STALE
         // snapshot, the attach stamp lands second, the lifecycle writer persists last — BOTH the
@@ -1000,12 +1069,12 @@ mod outcome_room_tests {
         let stale_snapshot = read_record_dir(data_dir, GOAL_RUN_DIR).pop().unwrap();
         assert!(stale_snapshot.get("outcome_room_ref").is_none());
         // 2. "attach lands second" — the stamp goes through the seam.
-        super::super::goalrun_routes::update_goal_run(data_dir, "gr_race", |obj| {
+        super::super::goalrun_routes::update_goal_run_guarded(data_dir, "gr_race", |_| Ok(()), |obj| {
             obj.insert("outcome_room_ref".into(), json!("outcome-room://or_race"));
         })
         .unwrap();
         // 3. "reconcile persists last" — through the seam, merging ONLY its lifecycle fields.
-        let merged = super::super::goalrun_routes::update_goal_run(data_dir, "gr_race", |obj| {
+        let merged = super::super::goalrun_routes::update_goal_run_guarded(data_dir, "gr_race", |_| Ok(()), |obj| {
             obj.insert("status".into(), json!("complete"));
             obj.insert("reconciliation_ref".into(), json!("reconciliation_result://rec_1"));
         })

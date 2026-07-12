@@ -385,9 +385,14 @@ fn build_outcome_delta_receipt(record: &Value, now: &str) -> (String, Value) {
 /// `fs::write` lets a concurrent reader observe an empty/partial file (the review's false
 /// `outcome_delta_unbound_result` refusals). Writing to a `.tmp-*` sibling (no `.json`
 /// extension — `read_record_dir` only parses `*.json`) and `rename`ing into place is atomic on
-/// the same filesystem, so readers always see a complete record. These families are never
-/// substrate-promoted, so the local write path is the only writer.
+/// the same filesystem, so readers always see a complete record. Parity with persist_record
+/// (#72 review round 3 finding 4): a promoted family would have exactly one write path (the
+/// substrate engine), and a not-yet-promoted family still feeds the opt-in dual-write soak —
+/// atomic replacement must not silently drop either cross-cutting hook.
 fn persist_result_atomic(data_dir: &str, record_id: &str, record: &Value) -> std::io::Result<()> {
+    if super::substrate_store::is_promoted(RESULT_DIR) {
+        return super::substrate_store::persist_promoted(data_dir, RESULT_DIR, record_id, record);
+    }
     let dir = std::path::Path::new(data_dir).join(RESULT_DIR);
     std::fs::create_dir_all(&dir)?;
     let safe: String = record_id.replace(|c: char| !c.is_ascii_alphanumeric() && c != '-' && c != '_', "_");
@@ -402,6 +407,7 @@ fn persist_result_atomic(data_dir: &str, record_id: &str, record: &Value) -> std
         let _ = std::fs::remove_file(&tmp);
         return Err(e);
     }
+    super::substrate_store::dual_write(data_dir, RESULT_DIR, record_id, record);
     Ok(())
 }
 
