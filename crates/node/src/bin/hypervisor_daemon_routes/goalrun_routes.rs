@@ -39,8 +39,54 @@ use super::lifecycle_routes::{
     execute_authority_gate, load_session_record, resolve_adapter_driver, run_host_spawn_lane,
 };
 use super::{iso_now, persist_record, read_record_dir, DaemonState};
+use std::sync::Mutex;
 
 const GOAL_RUN_KIND: &str = "goal-runs";
+
+/// GoalRun record mutation lock (#72 review round 2). LOCK ORDERING (fixed, documented):
+/// ROOM_MUTATION_LOCK — when held — is always acquired BEFORE this lock; no .await ever executes
+/// under it (update_goal_run's closure is synchronous).
+pub(crate) static GOAL_RUN_MUTATION_LOCK: Mutex<()> = Mutex::new(());
+
+/// ATOMIC file replacement for the mutable goal-run record: tmp sibling (no .json extension —
+/// invisible to read_record_dir) + rename; both failure paths clean the temp file.
+fn persist_goal_run_atomic(data_dir: &str, goal_run_id: &str, record: &Value) -> std::io::Result<()> {
+    let dir = std::path::Path::new(data_dir).join(GOAL_RUN_KIND);
+    std::fs::create_dir_all(&dir)?;
+    let safe: String = goal_run_id.replace(|c: char| !c.is_ascii_alphanumeric() && c != '-' && c != '_', "_");
+    let tmp = dir.join(format!(".{safe}.tmp-{:x}", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_nanos()).unwrap_or(0)));
+    if let Err(e) = std::fs::write(&tmp, serde_json::to_vec_pretty(record).unwrap_or_default()) {
+        let _ = std::fs::remove_file(&tmp);
+        return Err(e);
+    }
+    if let Err(e) = std::fs::rename(&tmp, dir.join(format!("{safe}.json"))) {
+        let _ = std::fs::remove_file(&tmp);
+        return Err(e);
+    }
+    Ok(())
+}
+
+/// THE SHARED GoalRun MUTATION/CAS SEAM (#72 review round 2): every GoalRun-record writer —
+/// lifecycle `start`/`reconcile` here, the room plane's reciprocal membership stamp — re-reads
+/// the LATEST record under GOAL_RUN_MUTATION_LOCK and merges ONLY the fields it owns, persisting
+/// via atomic replacement. A handler that did async work against a stale snapshot must NOT
+/// persist that snapshot: it routes its computed fields through this seam, so a concurrent
+/// writer's fields (e.g. `outcome_room_ref`) always survive. Returns the merged record.
+pub(crate) fn update_goal_run(
+    data_dir: &str,
+    goal_run_id: &str,
+    mutate: impl FnOnce(&mut serde_json::Map<String, Value>),
+) -> Option<Value> {
+    let _guard = GOAL_RUN_MUTATION_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    let mut fresh = read_record_dir(data_dir, GOAL_RUN_KIND)
+        .into_iter()
+        .find(|r| r.get("goal_run_id").and_then(Value::as_str) == Some(goal_run_id))?;
+    if let Some(obj) = fresh.as_object_mut() {
+        mutate(obj);
+    }
+    persist_goal_run_atomic(data_dir, goal_run_id, &fresh).ok()?;
+    Some(fresh)
+}
 const INVOCATION_KIND: &str = "goal-run-invocations";
 const VERIFICATION_KIND: &str = "goal-run-verifications";
 const RECONCILIATION_KIND: &str = "goal-run-reconciliations";
@@ -970,7 +1016,11 @@ pub(crate) async fn handle_goal_run_start(
         .iter()
         .any(|v| text(v, "goal_ref") == goal_ref && text(v, "verdict") == "pass");
     let partial = !blockers.is_empty();
-    if let Some(object) = run.as_object_mut() {
+    // #72 review round 2: this handler awaited with a STALE snapshot in hand — persisting that
+    // snapshot would erase concurrent foreign fields (e.g. the room plane's reciprocal
+    // outcome_room_ref stamp). The lifecycle fields it OWNS merge onto the LATEST record
+    // through the shared CAS seam instead.
+    let run = update_goal_run(&st.data_dir, &goal_run_id, |object| {
         object.insert("status".into(), json!("active"));
         object.insert("active_loop_phase".into(), json!("verify"));
         object.insert(
@@ -983,8 +1033,8 @@ pub(crate) async fn handle_goal_run_start(
         object.insert("partial_result".into(), json!(partial));
         object.insert("capability_lease_ref".into(), json!(capability_lease_ref));
         object.insert("updated_at".into(), json!(iso_now()));
-    }
-    let _ = persist_record(&st.data_dir, GOAL_RUN_KIND, &goal_run_id, &run);
+    })
+    .unwrap_or(run);
 
     (
         StatusCode::OK,
@@ -1216,7 +1266,9 @@ pub(crate) async fn handle_goal_run_reconcile(
     });
     let _ = persist_record(&st.data_dir, RECONCILIATION_KIND, &reconciliation_id, &reconciliation);
 
-    if let Some(object) = run.as_object_mut() {
+    // #72 review round 2: merge ONLY the reconciliation-owned fields onto the LATEST record via
+    // the shared CAS seam — a concurrent reciprocal room stamp survives this persist.
+    let run = update_goal_run(&st.data_dir, &goal_run_id, |object| {
         object.insert("status".into(), json!(if blocked { "blocked" } else { "complete" }));
         object.insert(
             "continuation_state".into(),
@@ -1229,8 +1281,8 @@ pub(crate) async fn handle_goal_run_reconcile(
         );
         object.insert("final_changed_files".into(), json!(reconciliation["final_changed_files"]));
         object.insert("updated_at".into(), json!(iso_now()));
-    }
-    let _ = persist_record(&st.data_dir, GOAL_RUN_KIND, &goal_run_id, &run);
+    })
+    .unwrap_or(run);
 
     (
         StatusCode::OK,
