@@ -66,6 +66,17 @@
     if (el) el.style.display = "none";
     updateOpenAppRail();
   }
+  function embeddedAppSrc(href) {
+    // Stack correction (#61 amendment): the Open Application slot always renders /__ioi/
+    // applications EMBEDDED (embed=1; query/hash preserved) — the native rail outside the
+    // iframe is the one platform rail. Non-/__ioi/ hrefs pass through untouched.
+    try {
+      if (!String(href).startsWith("/__ioi/")) return href;
+      const u = new URL(href, location.origin);
+      u.searchParams.set("embed", "1");
+      return u.pathname + u.search + u.hash;
+    } catch (e) { return href; }
+  }
   function openApplication(href, title) {
     let el = document.getElementById("ioi-open-app");
     if (!el) {
@@ -79,7 +90,8 @@
     el.setAttribute("data-app-name", title || "Application");
     el.setAttribute("data-app-icon", appIconFor(title));
     const f = el.querySelector("iframe");
-    if (f.getAttribute("src") !== href) f.setAttribute("src", href); // singular slot: reuse, replace src (no reload if same href)
+    const src = embeddedAppSrc(href);
+    if (f.getAttribute("src") !== src) f.setAttribute("src", src); // singular slot: reuse, replace src (no reload if same href)
     el.style.display = "block";
     positionOpenApp();
     updateOpenAppRail();

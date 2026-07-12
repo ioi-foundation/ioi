@@ -1,32 +1,3 @@
-  // ---- Native Ontology rail item (operational wave PR61) — the ONE missing permanent rail
-  // destination: after Automations, before Applications; routes to the Ontology MANAGER (the
-  // owner surface; /__ioi/odk stays the substrate linked from within) and opens in the singular
-  // Open Application slot in EMBEDDED mode. Cloned from the native Automations item so it keeps
-  // the SPA's own rail styling; self-guarded + re-applied per tick (React re-renders the rail).
-  function mountOntologyNav() {
-    if (document.getElementById("ioi-ontology-rail")) return;
-    const sidebar = document.querySelector('[data-testid="sidebar"]');
-    if (!sidebar) return;
-    const auto = sidebar.querySelector('a[href="/automations"]');
-    if (!auto) return;
-    const item = auto.cloneNode(true);
-    item.id = "ioi-ontology-rail";
-    item.setAttribute("href", "/__ioi/ontology/manager?embed=1");
-    item.setAttribute("data-ioi-app", "Ontology");
-    item.removeAttribute("aria-current");
-    const label = Array.prototype.find.call(item.querySelectorAll("*"), (el) => el.childElementCount === 0 && /automations/i.test(el.textContent || ""));
-    if (label) label.textContent = "Ontology"; else item.textContent = "Ontology";
-    const svg = item.querySelector("svg");
-    if (svg) {
-      const ico = document.createElement("span");
-      ico.textContent = "🧬";
-      ico.setAttribute("aria-hidden", "true");
-      ico.style.cssText = "font-size:15px;line-height:16px;display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px";
-      svg.replaceWith(ico);
-    }
-    auto.insertAdjacentElement("afterend", item);
-  }
-
   function wireApplicationsLauncher() {
     if (window.__ioiAppsLauncherWired) return;
     window.__ioiAppsLauncherWired = true;

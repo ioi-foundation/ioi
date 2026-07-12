@@ -1,16 +1,21 @@
 #!/usr/bin/env node
-// Native-shell integration verifier (operational wave PR61 — Native Ontology Integration).
+// Native-shell integration verifier (operational wave PR61 — Native Ontology Integration,
+// AMENDED by the #70 stack correction: Ontology is CATALOG-LAUNCHED, not a permanent rail item).
 //
 // Proves the product architecture the wave stands on:
-//   1. NATIVE RAIL — Ontology is a permanent rail destination, placed after Automations and
-//      before Applications; no other permanent item was added; the rail stays authoritative.
-//   2. SINGLE SLOT / SINGLE RAIL — Ontology opens in the existing singular Open Application
-//      slot in EMBEDDED mode: the native rail stays visible, the app's duplicated reference
-//      global rail is NOT visible inside the iframe, app-LOCAL navigation IS, and in-app
-//      navigation never creates a second slot. Close → reopen preserves native navigation.
+//   1. NATIVE RAIL — the permanent rail is EXACTLY the native five (Home · Projects ·
+//      Automations · Applications · Sessions); NO permanent Ontology rail entry exists and no
+//      other permanent item is injected (the only injected rail row is the contextual
+//      Open Application row).
+//   2. CATALOG LAUNCH / SINGLE SLOT / SINGLE RAIL — Ontology launches from the REAL
+//      Applications catalog into the existing singular Open Application slot in EMBEDDED mode
+//      (openApplication forces embed=1 at the funnel): the native rail stays visible, the app's
+//      duplicated reference global rail is NOT visible inside the iframe, app-LOCAL navigation
+//      IS, and in-app navigation never creates a second slot. Close → reopen from the catalog
+//      preserves normal launcher behavior.
 //   3. EMBED PERSISTENCE — embed=1 survives in-app links, row onclicks, and GET forms.
 //   4. STANDALONE UNTOUCHED — direct routes render the complete certified reference shell
-//      (no embed style, global rail present); the pixel gate's capture state is unchanged.
+//      (no embed style, global rail present); certification artifacts stay byte-identical.
 //   5. SUITE — the Applications estate + launcher catalogs route Ontology to the Manager
 //      (owner surface), never to the /__ioi/odk substrate (which stays linked from within).
 //   6. CAPABILITY MODEL — every registry surface declares authority-derived capabilities +
@@ -19,7 +24,12 @@
 // Usage: node apps/hypervisor/scripts/verify-hypervisor-native-shell-integration.mjs
 // Exit 0 = all assertions pass; exit 1 = one or more failed.
 
+import { spawnSync } from "node:child_process";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { SURFACES, CAPABILITIES, OPERATIONAL_STATES, boundSurface } from "./surface-registry.mjs";
+
+const HERE = dirname(fileURLToPath(import.meta.url));
 
 const SERVE = (process.env.IOI_HYPERVISOR_SERVE_URL || "http://127.0.0.1:4173").replace(/\/$/, "");
 
@@ -53,7 +63,9 @@ async function run() {
   const aug = await page(`${SERVE}/ioi-augmentation.js`);
   ok("the launcher catalog routes Ontology to the Manager; the substrate stays a Data-lane link", /name: "Ontology"[^}]*href: "\/__ioi\/ontology\/manager"/.test(aug.text) && /name: "Data"[^}]*href: "\/__ioi\/odk#data-planes"/.test(aug.text));
   ok("the Manager keeps the substrate linked from within (odk stays the advanced contract surface)", em.text.includes("/__ioi/odk"));
-  ok("the rail item ships in the augmentation (mounted after Automations, embedded target)", aug.text.includes("mountOntologyNav") && aug.text.includes('"/__ioi/ontology/manager?embed=1"'));
+  ok("NO rail injection ships in the augmentation (#70 stack correction) — Ontology is catalog-launched", !aug.text.includes("mountOntologyNav") && !aug.text.includes("ioi-ontology-rail"));
+  ok("openApplication forces embed=1 for /__ioi/ applications at the funnel (embeddedAppSrc)", aug.text.includes("embeddedAppSrc") && /searchParams\.set\("embed", "1"\)/.test(aug.text));
+  ok("certification artifacts are byte-identical (git-clean)", (spawnSync("git", ["status", "--porcelain", "--", "pixel-certifications"], { cwd: join(HERE, ".."), encoding: "utf8" }).stdout || "").trim() === "");
 
   // 1+2+3 (live). The native shell journey, driven in a real browser.
   {
@@ -63,26 +75,37 @@ async function run() {
       const pg = await b.newPage({ viewport: { width: 1440, height: 1000 } });
       await pg.goto(`${SERVE}/ai`, { waitUntil: "networkidle" });
       const rail = pg.locator('[data-testid="sidebar"]');
-      await pg.waitForSelector("#ioi-ontology-rail", { timeout: 15000 });
-      ok("Ontology is a permanent native-rail item", await pg.locator("#ioi-ontology-rail").count() === 1);
-      const order = await pg.evaluate(() => {
+      await pg.waitForSelector('[data-testid="sidebar"] a[href="#applications"]', { timeout: 15000 });
+      await pg.waitForTimeout(1200); // augmentation ticks settle (React re-renders the rail)
+      ok("NO permanent Ontology rail entry exists (#70 stack correction)", await pg.locator("#ioi-ontology-rail").count() === 0);
+      const railState = await pg.evaluate(() => {
         const sb = document.querySelector('[data-testid="sidebar"]');
-        const items = [...sb.querySelectorAll("a")];
-        const idx = (pred) => items.findIndex(pred);
+        const anchors = [...sb.querySelectorAll("a")];
+        const texts = anchors.map((a) => (a.textContent || "").trim());
+        const idx = (href) => anchors.findIndex((a) => a.getAttribute("href") === href && (a.textContent || "").trim());
         return {
-          automations: idx((a) => a.getAttribute("href") === "/automations"),
-          ontology: idx((a) => a.id === "ioi-ontology-rail"),
-          applications: idx((a) => a.getAttribute("href") === "#applications"),
+          home: idx("/ai"), projects: idx("/projects"), automations: idx("/automations"), applications: idx("#applications"),
+          sessions: !!sb.querySelector('[data-testid="sessions-filter-button"]'),
+          ontologyText: texts.some((t) => /^\S?Ontology$/.test(t)),
+          injected: [...sb.querySelectorAll('[id^="ioi-"]')].map((e) => e.id).filter((id) => id !== "ioi-openapp-rail").join(","),
         };
       });
-      ok("rail order: Automations → Ontology → Applications", order.automations >= 0 && order.ontology === order.automations + 1 && (order.applications === -1 || order.ontology < order.applications), JSON.stringify(order));
-      ok("no OTHER permanent rail item was added (exactly one injected nav id)", await pg.evaluate(() => [...document.querySelectorAll('[data-testid="sidebar"] [id^="ioi-"]')].map((e) => e.id).filter((id) => id !== "ioi-openapp-rail").join(",")) === "ioi-ontology-rail");
-      // Open Ontology → the singular slot, embedded.
-      await pg.click("#ioi-ontology-rail");
+      ok("the permanent rail is EXACTLY the native five: Home → Projects → Automations → Applications, with the Sessions region", railState.home >= 0 && railState.projects > railState.home && railState.automations > railState.projects && railState.applications > railState.automations && railState.sessions === true, JSON.stringify(railState));
+      ok("no Ontology rail label and no injected permanent nav id (the Open Application row is the only injected rail row)", railState.ontologyText === false && railState.injected === "");
+      // Launch Ontology from the REAL Applications catalog → the singular slot, embedded.
+      await pg.click('[data-testid="sidebar"] a[href="#applications"]');
+      await pg.waitForSelector("#ioi-apps-modal.open", { timeout: 15000 });
+      await pg.click('#ioi-apps-modal .ioi-mrow[data-name="Ontology"]');
       await pg.waitForSelector("#ioi-open-app iframe", { timeout: 15000 });
-      ok("Ontology opens in the singular Open Application slot (embedded Manager)", await pg.locator("#ioi-open-app").count() === 1 && ((await pg.locator("#ioi-open-app iframe").getAttribute("src")) || "").includes("/__ioi/ontology/manager?embed=1"));
+      ok("Ontology launches FROM THE CATALOG into the singular Open Application slot (embedded Manager — the funnel forced embed=1)", await pg.locator("#ioi-open-app").count() === 1 && ((await pg.locator("#ioi-open-app iframe").getAttribute("src")) || "").includes("/__ioi/ontology/manager?embed=1"));
       ok("the native rail stays visible while the app is open", await rail.isVisible());
-      const frame = pg.frames().find((f) => f.url().includes("/__ioi/ontology/manager"));
+      // Poll for the manager frame (iframe navigation race — never a fixed sleep).
+      let frame = null;
+      for (let i = 0; i < 40 && !frame; i++) {
+        await pg.waitForTimeout(400);
+        const f = pg.frames().find((x) => x.url().includes("/__ioi/ontology/manager"));
+        if (f && await f.locator(".og-arail").count().catch(() => 0)) frame = f;
+      }
       ok("inside the app: the duplicated global rail is NOT visible, the app-LOCAL rail IS", !!frame && !(await frame.locator(".og-grail").isVisible().catch(() => true)) && (await frame.locator(".og-arail").isVisible().catch(() => false)));
       // In-app navigation stays embedded, stays single-slot.
       await frame.click('a[href="/__ioi/ontology/explorer?embed=1"]');
@@ -97,8 +120,11 @@ async function run() {
       // Close → native navigation intact → reopen.
       await pg.click("#ioi-open-app .ioi-oa-close");
       await pg.waitForTimeout(400);
-      ok("closing the app preserves native navigation (rail + Home explorer intact)", await rail.isVisible() && await pg.locator("#ioi-ontology-rail").count() === 1 && await pg.locator('[data-testid="ioi-home-explorer"]').count() === 1);
-      await pg.click("#ioi-ontology-rail");
+      ok("closing the app preserves native navigation (rail + Home explorer intact; still no Ontology rail item)", await rail.isVisible() && await pg.locator("#ioi-ontology-rail").count() === 0 && await pg.locator('[data-testid="ioi-home-explorer"]').count() === 1);
+      // Reopen from the catalog — normal launcher behavior preserved.
+      await pg.click('[data-testid="sidebar"] a[href="#applications"]');
+      await pg.waitForSelector("#ioi-apps-modal.open", { timeout: 15000 });
+      await pg.click('#ioi-apps-modal .ioi-mrow[data-name="Ontology"]');
       await pg.waitForSelector("#ioi-open-app iframe", { timeout: 15000 });
       ok("reopening uses the same singular slot (never a second one)", await pg.locator("#ioi-open-app").count() === 1 && await pg.locator("#ioi-open-app iframe").count() === 1);
     } finally {

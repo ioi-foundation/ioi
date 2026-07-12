@@ -139,7 +139,7 @@ async function captureRoute(page, route) {
     // Augmentation-injected chrome is EXCLUDED from the shell fingerprint entirely (not just
     // volatile-pruned): its mount races React re-renders by design (observer remount within a
     // tick), and its presence/behavior is asserted functionally by its own done-bars.
-    const isInjected = (el) => { const id = el.id || ""; return id === "ioi-ns-advanced-wrap" || id === "ioi-ns-modal" || id === "ioi-apps-modal" || id === "ioi-open-app" || id === "ioi-openapp-rail" || id === "ioi-ontology-rail"; };
+    const isInjected = (el) => { const id = el.id || ""; return id === "ioi-ns-advanced-wrap" || id === "ioi-ns-modal" || id === "ioi-apps-modal" || id === "ioi-open-app" || id === "ioi-openapp-rail"; };
     const fp = (el) => {
       const tid = el.getAttribute && el.getAttribute("data-testid");
       const cls = String(el.className && el.className.baseVal !== undefined ? el.className.baseVal : el.className || "").split(/\s+/).filter(Boolean).sort();
