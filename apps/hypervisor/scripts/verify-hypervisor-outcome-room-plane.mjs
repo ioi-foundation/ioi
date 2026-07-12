@@ -390,6 +390,48 @@ async function run() {
       ok(`CONTAINMENT (${label}): typed ${code}; ZERO external mutation; run released for correction`, r.status === 500 && r.j.error?.code === code && (!escapePath || !existsSync(escapePath)) && readdirSync(target).filter((n) => n !== "sub").length === 0 && readdirSync(outsideDir).length === 0 && released.status === "active" && !released.lifecycle_op, `${r.status}/${r.j.error?.code || "ok"}`);
     }
 
+    // 8i. BOUNDED INTAKE (#72 round 7 finding 4) — a FIFO refuses without blocking; an oversize
+    // file refuses typed; a too-many-files declaration refuses before any read.
+    const biCand = join(dataDir, "bi-cand");
+    const biTarget = join(dataDir, "bi-target");
+    mkdirSync(biCand, { recursive: true });
+    mkdirSync(biTarget, { recursive: true });
+    const mkfifo = (await import("node:child_process")).execSync;
+    mkfifo(`mkfifo ${JSON.stringify(join(biCand, "pipe"))}`);
+    const plantBI = (grid, files) => {
+      writeFileSync(join(dataDir, "goal-runs", `${grid}.json`), JSON.stringify({ goal_run_id: grid, schema_version: "ioi.hypervisor.goal-run.v1", normalized_goal: "bounded", status: "active", goal_ref: `goal://${grid}`, target_workspace_root: biTarget, created_at: "2026-01-01T00:00:00Z" }));
+      writeFileSync(join(dataDir, "goal-run-invocations", `${grid}_a.json`), JSON.stringify({ goal_ref: `goal://${grid}`, goal_run_id: grid, harness_invocation_id: `harness_invocation://hi_${grid}_a`, role_key: "a", status: "completed", candidate_workspace_root: biCand, implementation_result: { implementation_result_id: `implementation_result://ir_${grid}_a`, status: "completed", changed_files: files } }));
+      writeFileSync(join(dataDir, "goal-run-verifications", `ver_${grid}.json`), JSON.stringify({ goal_ref: `goal://${grid}`, verdict: "pass", verification_ref: `agentgres://goal-run-verification/ver_${grid}`, harness_invocation_ref: `harness_invocation://hi_${grid}_a`, created_at: "2026-01-01T00:00:00Z" }));
+    };
+    plantBI("gr_fifo", ["pipe"]);
+    const fifoR = await jd("POST", "/v1/hypervisor/goal-runs/gr_fifo/reconcile", {});
+    ok("BOUNDED INTAKE: a candidate FIFO refuses typed (not_regular) without blocking the daemon; target untouched", fifoR.status === 500 && fifoR.j.error?.code === "goal_run_output_file_not_regular" && readdirSync(biTarget).length === 0, `${fifoR.status}/${fifoR.j.error?.code || "ok"}`);
+    plantBI("gr_many", Array.from({ length: 300 }, (_, i) => `f${i}.txt`));
+    const manyR = await jd("POST", "/v1/hypervisor/goal-runs/gr_many/reconcile", {});
+    ok("BOUNDED INTAKE: >256 declared files refuse before any read (too_many_files)", manyR.status === 500 && manyR.j.error?.code === "goal_run_output_too_many_files", `${manyR.status}/${manyR.j.error?.code || "ok"}`);
+
+    // 8j. DURABLE STAGING MANIFEST (#72 round 7 finding 2) — the pre-output receipt binds each
+    // staged file's sha256 + size; the staged bytes on disk match that manifest exactly (a
+    // restart validates bytes, not mere existence).
+    const dsCand = join(dataDir, "ds-cand");
+    const dsTarget = join(dataDir, "ds-target");
+    mkdirSync(join(dsCand, "sub"), { recursive: true });
+    mkdirSync(dsTarget, { recursive: true });
+    const dsContent = { "a.txt": "ALPHA", "sub/b.txt": "BETABETA" };
+    for (const [f, c] of Object.entries(dsContent)) writeFileSync(join(dsCand, f), c);
+    plantBI.constructor;
+    writeFileSync(join(dataDir, "goal-runs", "gr_ds.json"), JSON.stringify({ goal_run_id: "gr_ds", schema_version: "ioi.hypervisor.goal-run.v1", normalized_goal: "manifest", status: "active", goal_ref: "goal://gr_ds", target_workspace_root: dsTarget, created_at: "2026-01-01T00:00:00Z" }));
+    writeFileSync(join(dataDir, "goal-run-invocations", "gr_ds_a.json"), JSON.stringify({ goal_ref: "goal://gr_ds", goal_run_id: "gr_ds", harness_invocation_id: "harness_invocation://hi_gr_ds_a", role_key: "a", status: "completed", candidate_workspace_root: dsCand, implementation_result: { implementation_result_id: "implementation_result://ir_gr_ds_a", status: "completed", changed_files: ["a.txt", "sub/b.txt"] } }));
+    writeFileSync(join(dataDir, "goal-run-verifications", "ver_ds.json"), JSON.stringify({ goal_ref: "goal://gr_ds", verdict: "pass", verification_ref: "agentgres://goal-run-verification/ver_ds", harness_invocation_ref: "harness_invocation://hi_gr_ds_a", created_at: "2026-01-01T00:00:00Z" }));
+    const dsR = await jd("POST", "/v1/hypervisor/goal-runs/gr_ds/reconcile", {});
+    const dsAttempt = dsR.j.goal_run?.reconciliation_attempt_refs?.at(-1) || dsR.j.goal_run?.reconciliation_ref;
+    const dsRecId = String(dsAttempt).replace("reconciliation_result://", "");
+    const dsRec = JSON.parse(readFileSync(join(dataDir, "goal-run-reconciliations", `${dsRecId}.json`), "utf8"));
+    const sha256 = (s) => "sha256:" + createHash("sha256").update(s).digest("hex");
+    const manifest = dsRec.staged_output_manifest || [];
+    const manifestOk = manifest.length === 2 && manifest.every((m) => m.sha256 === sha256(dsContent[m.file]) && m.bytes === Buffer.byteLength(dsContent[m.file]));
+    ok("DURABLE STAGING: the operation record's manifest binds each file's sha256 + size; the committed target bytes match the manifest exactly", dsR.status === 200 && manifestOk && Object.entries(dsContent).every(([f, c]) => readFileSync(join(dsTarget, f), "utf8") === c), `${dsR.status} manifest=${manifest.length}`);
+
     ok("no sentinel and no .tmp-* residue anywhere", !JSON.stringify((await jd("GET", "/v1/hypervisor/outcome-rooms")).j).includes("SENTINEL_ROOM_SECRET") && tmpLeaks().length === 0);
   } finally {
     await plane.stop();
@@ -489,6 +531,13 @@ async function run() {
       const after = (await rkjd("GET", "/v1/hypervisor/goal-runs/gr_kp")).j.goal_run || {};
       const receiptFiles = readdirSync(join(kp.dataDir, "receipts")).filter((n) => n.includes("lifecycle-recovery"));
       ok("KILL POINT: the boot completer finished FORWARD deterministically — released to from_status, crashed attempt ref RETAINED, sealed receipt persisted, reservation + intent consumed", after.status === "active" && !after.lifecycle_op && !after.recovery_intent && (after.reconciliation_attempt_refs || []).includes("reconciliation_result://rc_gr_kp_lop_kp1") && receiptFiles.length === 1, `${after.status} receipts=${receiptFiles.length}`);
+      // #72 round 7 finding 3: this reservation named an attempt that NEVER had a record (the
+      // crash preceded any output admission). The retained ref must RESOLVE — recovery created
+      // an aborted_before_output_admission record for it.
+      const abortedAttempt = (await rkjd("GET", "/v1/hypervisor/goal-runs/gr_kp")).j.goal_run?.reconciliation_attempt_refs?.[0];
+      const abortedFile = existsSync(join(kp.dataDir, "goal-run-reconciliations", "rc_gr_kp_lop_kp1.json")) ? JSON.parse(readFileSync(join(kp.dataDir, "goal-run-reconciliations", "rc_gr_kp_lop_kp1.json"), "utf8")) : null;
+      const recRcpt = JSON.parse(readFileSync(join(kp.dataDir, "receipts", receiptFiles[0]), "utf8"));
+      ok("KILL POINT: the dangling attempt ref RESOLVES — recovery created an aborted_before_output_admission record; the receipt records attempt_resolution", abortedAttempt === "reconciliation_result://rc_gr_kp_lop_kp1" && abortedFile?.status === "aborted_before_output_admission" && recRcpt.attempt_resolution === "aborted_before_output_admission", `resolved=${!!abortedFile} resolution=${recRcpt.attempt_resolution}`);
       await kpRevived.stop();
     } finally {
       try { rmSync(kp.dataDir, { recursive: true, force: true }); } catch { /* best effort */ }
