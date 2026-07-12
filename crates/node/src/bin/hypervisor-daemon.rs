@@ -1578,6 +1578,10 @@ async fn async_main() -> anyhow::Result<()> {
             post(goalrun_routes::handle_goal_run_reconcile),
         )
         .route(
+            "/v1/hypervisor/goal-runs/:id/lifecycle-recovery",
+            post(goalrun_routes::handle_goal_run_lifecycle_recovery),
+        )
+        .route(
             "/v1/hypervisor/goal-runs/:id/events",
             get(goalrun_routes::handle_goal_run_events),
         )
