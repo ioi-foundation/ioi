@@ -16,10 +16,20 @@
 //   3. SECURITY: the daemon REJECTS credential-bearing endpoints with its typed code (probed with
 //      a sentinel that is never created); rendered HTML + the committed cert artifact carry NO
 //      userinfo/query fragments; endpoints render scheme+host+path only.
-//   4. NO EXTRACTION SEMANTICS: read-only (no forms, no connect/test/sync affordance); the
-//      set-up cards are verbatim reference chrome with disabled overlays; the governed path
-//      stays the ODK ladder (linked first-class).
+//   4. DECLARE-ONLY MUTATION (#69): the bare certified render carries NO form; New source and the
+//      Connect-to-external-system card are the surface's ONE governed receipted declaration lane
+//      (?declare=1, daemon-derived vocabulary, no secret field); EVERYTHING past declaration —
+//      extraction, connection tests, edit/delete, syncs/agents/listeners/external-stacks, upload,
+//      synthesis, installs — stays disabled with its exact reason; the governed read path stays
+//      the ODK ladder (linked first-class).
 //   5. NO body pixel claim: the certification is SHELL-scoped; rows are masked live data.
+//
+// FIXTURE ISOLATION (#69): this verifier NEVER writes to the shared daemon. Its old shape
+// declared a fixture on the real registry when empty and "cleaned up" via
+// DELETE /v1/hypervisor/data-sources/:id — a route that does not exist — leaking one record per
+// empty-registry run. Now: when the real registry is empty, the dynamic render checks run against
+// an ISOLATED daemon+serve pair (lib/isolated-daemon.mjs) with fixtures declared THERE and torn
+// down whole. The credential probe is a REJECTED registration (typed 400) that persists nothing.
 //
 // Usage: node apps/hypervisor/scripts/verify-hypervisor-app-parity-sources.mjs
 // Exit 2 = BLOCKED.
@@ -28,6 +38,7 @@ import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { startIsolatedPlane } from "./lib/isolated-daemon.mjs";
 
 const SERVE = (process.env.IOI_HYPERVISOR_SERVE_URL || "http://127.0.0.1:4173").replace(/\/$/, "");
 const DAEMON = (process.env.IOI_HYPERVISOR_DAEMON_URL || "http://127.0.0.1:8765").replace(/\/$/, "");
@@ -37,21 +48,23 @@ const appRoot = path.resolve(here, "..");
 const results = [];
 const ok = (name, cond, detail) => { results.push({ name, pass: !!cond, detail: detail || "" }); };
 const page = (url) => fetch(url).then(async (r) => ({ status: r.status, text: await r.text() })).catch(() => ({ status: 0, text: "" }));
-async function jd(method, p, body) {
-  const r = await fetch(`${DAEMON}${p}`, { method, headers: { "content-type": "application/json" }, body: body ? JSON.stringify(body) : undefined });
-  return { status: r.status, j: await r.json().catch(() => ({})) };
-}
 
 async function run() {
-  const reg = (await jd("GET", "/v1/hypervisor/data-sources")).j;
-  const sourcesAll = reg.data_sources || [];
-  if (!Array.isArray(reg.data_sources)) { console.error("BLOCKED: daemon data-source registry not reachable at " + DAEMON); process.exit(2); }
-  const cleanup = [];
-  let fixture = null;
-  if (!sourcesAll.length) {
-    // Legitimate fixture through the existing daemon route (no secrets; local declared endpoint).
-    fixture = (await jd("POST", "/v1/hypervisor/data-sources", { name: "sources-parity-fixture", kind: "rest_api", endpoint: "http://127.0.0.1:9/declared-only", credential_posture: "wallet_credential_lease" })).j.data_source;
-    if (fixture?.source_id) cleanup.push(fixture.source_id);
+  const regProbe = await fetch(`${DAEMON}/v1/hypervisor/data-sources`).then((r) => r.json()).catch(() => ({}));
+  if (!Array.isArray(regProbe.data_sources)) { console.error("BLOCKED: daemon data-source registry not reachable at " + DAEMON); process.exit(2); }
+  // FIXTURE ISOLATION: with a populated real registry the dynamic checks read it as-is (zero
+  // writes). With an EMPTY registry the dynamic checks run on an isolated daemon+serve pair with
+  // fixtures declared there — the shared daemon is NEVER written and there is no DELETE "cleanup".
+  let SERVE_D = SERVE, DAEMON_D = DAEMON, plane = null;
+  if (!regProbe.data_sources.length) {
+    plane = await startIsolatedPlane({ serve: true });
+    if (!plane) { console.error("BLOCKED: real registry is empty and target/debug/hypervisor-daemon is not built for the isolated fixture lane"); process.exit(2); }
+    SERVE_D = plane.serveUrl; DAEMON_D = plane.daemonUrl;
+    await fetch(`${DAEMON_D}/v1/hypervisor/data-sources`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ name: "sources-parity-fixture", kind: "rest_api", endpoint: "http://127.0.0.1:9/declared-only", credential_posture: "wallet_credential_lease" }) });
+  }
+  async function jd(method, p, body) {
+    const r = await fetch(`${DAEMON_D}${p}`, { method, headers: { "content-type": "application/json" }, body: body ? JSON.stringify(body) : undefined });
+    return { status: r.status, j: await r.json().catch(() => ({})) };
   }
   const sources = (await jd("GET", "/v1/hypervisor/data-sources")).j.data_sources || [];
 
@@ -88,7 +101,7 @@ async function run() {
   ok("the /__apps/sources proxy lane still serves (kept as the familiar baseline; documented insufficient — never silently removed)", ref.status === 200);
 
   // 2. The PORT = the faithful landing shell over the real registry.
-  const sp = await page(`${SERVE}/__ioi/data/sources`);
+  const sp = await page(`${SERVE_D}/__ioi/data/sources`);
   const t = sp.text;
   ok("the port renders the faithful Data Connection landing shell (tabbed header + hero + set-up card + View row + table + examples + catalog)", sp.status === 200 && /class="src-htitle">Data Connection</.test(t) && /class="src-tab" href="\/__ioi\/data\/sources"/.test(t) && /Synchronize and manage data flows/.test(t) && /Set up new connections/.test(t) && /class="src-thead"/.test(t) && /Explore reference examples/.test(t) && /id="sources-catalog"/.test(t));
   ok("all matrix reference landmarks render on the port", (row.reference_landmarks || []).every((l) => t.toLowerCase().includes(String(l).toLowerCase())), (row.reference_landmarks || []).filter((l) => !t.toLowerCase().includes(String(l).toLowerCase())).join(" · ") || "10/10");
@@ -112,19 +125,26 @@ async function run() {
   })());
   ok("credential postures are declared postures only (the surface says so; no posture VALUE is a secret)", /Credential postures are declared postures/.test(t) && /credential VALUES never appear/.test(t));
 
-  // 5. NO EXTRACTION SEMANTICS — the hard line.
-  ok("the surface is READ-ONLY (no forms; no connect/test/sync/extract affordance)", !/<form/.test(t) && !/action="[^"]*\/(connect|test|sync|extract|materialize)"/.test(t));
+  // 5. DECLARE-ONLY MUTATION (#69) — the hard line moved one honest notch: declaration is the
+  // surface's ONE governed receipted action; extraction and everything past declaration stay out.
+  ok("the BARE certified render carries NO form; no connect/test/sync/extract affordance", !/<form/.test(t) && !/action="[^"]*\/(connect|test|sync|extract|materialize)"/.test(t));
   ok("the boundary is declared in place: no extraction / no connection test / no live connector read / no materialization on this surface", /no extraction, no connection test, no live connector read, no materialization/.test(t));
-  ok("unsupported controls are DISABLED IN PLACE with named-gap titles (tabs ×4 · store · New source · Help · set-up options ×3 · example installs ×2)", (t.match(/aria-disabled="true"/g) || []).length >= 11 && /Live-connection setup is not a bound lane/.test(t) && /Static upload is a reference-only lane/.test(t) && /Data synthesis is a reference-only lane/.test(t) && /Source declaration from this surface is a reference-only lane/.test(t), `${(t.match(/aria-disabled="true"/g) || []).length} disabled controls`);
+  ok("New source + Connect to external system are ENABLED into the governed declare pane (the atlas's governed_receipted_action pair)", /<a class="src-hbtn success" href="[^"]*declare=1[^"]*"/.test(t) && /<a class="src-opt c1" href="[^"]*declare=1[^"]*"/.test(t) && /receipted registry record|receipted source record/.test(t));
+  ok("everything PAST declaration stays DISABLED IN PLACE with named reasons (tabs ×4 · store · Help · upload · synthesis · example installs ×2 · favorites)", (t.match(/aria-disabled="true"/g) || []).length >= 10 && /Sync scheduling is not a bound lane/.test(t) && /Static upload is a reference-only lane/.test(t) && /Data synthesis is a reference-only lane/.test(t) && /Marketplace example installs are a reference-only lane/.test(t), `${(t.match(/aria-disabled="true"/g) || []).length} disabled controls`);
   ok("the verbatim strips are declared capture chrome and NOT extraction affordances", /verbatim capture chrome/.test(t) && /not an extraction affordance/i.test(t));
+  // The declare pane itself: daemon-derived vocabulary, no secret field, permanence confirmed.
+  const dp = await page(`${SERVE_D}/__ioi/data/sources?declare=1`);
+  ok("?declare=1 renders ONE bounded form: kind + endpoint requirement from the daemon projection, posture picker, required confirmation, NO secret field", (dp.text.match(/<form/g) || []).length === 1 && /action="\/__ioi\/data\/sources\/actions\/declare"/.test(dp.text) && /endpoint required|no endpoint \(local\)/.test(dp.text) && /name="credential_posture"/.test(dp.text) && /name="confirm"[^>]*required|required[^>]*name="confirm"/.test(dp.text.replace(/\n/g, " ")) && !/type="password"|name="secret"|name="token"|name="api_key"/.test(dp.text));
 
   // 6. Owner discoverability + brand.
-  const odk = await page(`${SERVE}/__ioi/odk`);
+  const odk = await page(`${SERVE_D}/__ioi/odk`);
   ok("owner discoverability: the ODK builder links the catalog first-class, and the port links the Data ladder + builder back", odk.status === 200 && odk.text.includes("/__ioi/data/sources") && t.includes('href="/__ioi/pipeline"') && t.includes('href="/__ioi/odk"'));
   ok("the origin-aligned reference + the insufficient proxy lane are BOTH linked and explained on the surface", t.includes("http://localhost:9225/workspace/data-ingestion-app/") && t.includes("/__apps/sources") && /renders no data/.test(t));
   ok("IOI surface brand-clean (no Palantir)", !/\bPalantir\b/.test(t));
 
-  for (const id of cleanup) await jd("DELETE", `/v1/hypervisor/data-sources/${id}`);
+  // Isolation teardown (only when the empty-registry fixture lane spawned a plane): both
+  // processes stop and the temp data dir is removed — the shared daemon was never written.
+  if (plane) await plane.stop();
 }
 
 run().then(() => {
