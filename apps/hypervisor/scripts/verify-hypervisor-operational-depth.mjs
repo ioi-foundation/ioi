@@ -35,9 +35,11 @@
 //
 // Usage: node apps/hypervisor/scripts/verify-hypervisor-operational-depth.mjs
 import { readFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { SURFACES, OPERATIONAL_STATES, CAPABILITIES, boundSurface } from "./surface-registry.mjs";
+import { evolveRanking } from "./build-operational-depth-atlas.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const APP = join(HERE, "..");
@@ -146,7 +148,14 @@ async function run() {
   ok("scoring EVIDENCE preserved: every audited surface scored on all 5 factors", Array.isArray(rank.scored) && rank.scored.length >= 10 && rank.scored.every((e) => FACTORS.every((f) => Number.isInteger(e.ranking_inputs && e.ranking_inputs[f]))));
   ok("NO ACTIVE SURFACE QUEUE exists: no `queue` field, no PR-number assignments, no estate-closure terminal entry", !("queue" in rank) && !JSON.stringify(rank).includes("estate-closure") && (rank.evidence_order || []).every((e) => !("pr" in e)) && (rank.scored || []).every((e) => !("pr" in e)), `${(rank.evidence_order || []).length} evidence-ranked surfaces`);
   ok("the atlas DECLARES its implementation sequence superseded by the canon", rank.implementation_sequence_status === "superseded_by_canon" && String(rank.superseded_by || "").includes("docs/architecture/_meta/canon-to-code-delta.md") && /audit evidence/i.test(rank.sequence_note || ""));
-  ok("evidence-ranked order retained for every unfinished surface (evidence, not a queue)", Array.isArray(rank.evidence_order) && unfinished.every((u) => rank.evidence_order.filter((e) => e.slug === u).length === 1));
+  ok("evidence order is EXACTLY the audited set: ten unique entries whose slug set equals ranking.scored, covering every unfinished surface once", (() => {
+    if (!Array.isArray(rank.evidence_order) || rank.evidence_order.length !== 10) return false;
+    const slugs = rank.evidence_order.map((e) => e.slug);
+    if (new Set(slugs).size !== 10) return false;
+    const scoredSlugs = new Set((rank.scored || []).map((e) => e.slug));
+    if (scoredSlugs.size !== 10 || !slugs.every((x) => scoredSlugs.has(x))) return false;
+    return unfinished.every((u) => slugs.filter((x) => x === u).length === 1);
+  })(), `${(rank.evidence_order || []).length} entries`);
 
   // The superseding canon: every unfinished surface appears EXACTLY ONCE in the deferred
   // application-UX backlog, and the contract-first build sequence remains canonical.
@@ -167,6 +176,37 @@ async function run() {
   ok("no held-stack work is described as landed/shipped (delta doc + atlas)", !/already-landed/i.test(deltaDoc) && !/shipped state/.test(deltaDoc) && /held stack/.test(deltaDoc) && /not yet\s+merged to master/i.test(deltaDoc.replace(/\n/g, " ")) && !JSON.stringify(atlas).includes("LANDED"));
 
   ok("the atlas records the audit invariant: daemon_wired + shell-pixel certification do NOT imply operational completeness", typeof atlas.doctrine === "string" && /certification.*(not|never).*operational|operational.*not.*implied/i.test(atlas.doctrine));
+
+  // 8. SEQUENCE-EVOLUTION TRANSFORM (#70 review round 2) — the exported pure transform is proven
+  // on fixtures AND on the committed artifact; the builder cannot destroy evidence accidentally.
+  const bytes = (a) => JSON.stringify(a, null, 2) + "\n";
+  const legacyFixture = {
+    surfaces: {},
+    ranking: {
+      method: "m",
+      scored: [{ slug: "alpha", composite: 9 }, { slug: "beta", composite: 7 }],
+      queue: [
+        { pr: 70, slug: "alpha", title: "A", composite: 9, rationale: "r-a" },
+        { pr: 71, slug: "beta", title: "B", composite: 7, rationale: "r-b" },
+        { pr: 72, slug: "estate-closure", title: "Estate workflow closure", rationale: "terminal" },
+      ],
+    },
+  };
+  const evolvedFixture = evolveRanking(legacyFixture);
+  ok("evolve: a LEGACY pr-numbered queue becomes superseded evidence (pr stripped, estate-closure dropped, declaration stamped)", !("queue" in evolvedFixture.ranking) && evolvedFixture.ranking.implementation_sequence_status === "superseded_by_canon" && evolvedFixture.ranking.evidence_order.length === 2 && evolvedFixture.ranking.evidence_order.every((e) => !("pr" in e)) && !JSON.stringify(evolvedFixture.ranking).includes("estate-closure"));
+  ok("evolve: IDEMPOTENT byte-for-byte — evolve(evolve(x)) === evolve(x) on the fixture", bytes(evolveRanking(evolvedFixture)) === bytes(evolvedFixture));
+  ok("evolve: never mutates its input (the legacy fixture still carries its queue)", Array.isArray(legacyFixture.ranking.queue) && legacyFixture.ranking.queue.length === 3);
+  const committedRaw = readFileSync(join(APP, "application-operational-depth.json"), "utf8");
+  ok("evolve: the COMMITTED atlas is a fixed point of the transform (regeneration cannot change it)", bytes(evolveRanking(JSON.parse(committedRaw))) === committedRaw);
+  const refuses = (a, code) => { try { evolveRanking(a); return false; } catch (e) { return String(e.message).startsWith(code); } };
+  ok("evolve: FAILS CLOSED before write — empty source order refused", refuses({ ranking: { method: "m", scored: [{ slug: "a" }], evidence_order: [] } }, "evolve_source_empty") && refuses({ ranking: { method: "m", scored: [{ slug: "a" }] } }, "evolve_source_empty"));
+  ok("evolve: FAILS CLOSED — duplicate slugs refused", refuses({ ranking: { method: "m", scored: [{ slug: "a" }], evidence_order: [{ slug: "a" }, { slug: "a" }] } }, "evolve_slugs_duplicated"));
+  ok("evolve: FAILS CLOSED — slug set must exactly equal ranking.scored", refuses({ ranking: { method: "m", scored: [{ slug: "a" }, { slug: "b" }], evidence_order: [{ slug: "a" }] } }, "evolve_slug_set_mismatch") && refuses({ ranking: { method: "m", scored: [{ slug: "a" }], evidence_order: [{ slug: "a" }, { slug: "z" }] } }, "evolve_slug_set_mismatch"));
+  const builderPath = join(HERE, "build-operational-depth-atlas.mjs");
+  const noArg = spawnSync(process.execPath, [builderPath], { encoding: "utf8" });
+  ok("builder: NO-ARGUMENT execution is safe — exit 2, nothing written (artifact byte-identical)", noArg.status === 2 && readFileSync(join(APP, "application-operational-depth.json"), "utf8") === committedRaw && /nothing was read or written/.test(noArg.stderr));
+  const builderSrc = readFileSync(builderPath, "utf8");
+  ok("builder: the stale-raw rebuild requires the explicit --rebuild-from-raw flag (no implicit destructive default)", /if \(process\.argv\.includes\("--rebuild-from-raw"\)\) \{\s*rebuildFromRaw\(\);/.test(builderSrc) && (builderSrc.match(/rebuildFromRaw\(\)/g) || []).length === 2 && /DESTRUCTIVE/.test(builderSrc));
 }
 
 run().then(() => {
