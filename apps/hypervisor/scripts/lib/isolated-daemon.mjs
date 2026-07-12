@@ -68,16 +68,20 @@ export function receiptFileCount(dataDir, family) {
  * Spawn an isolated daemon (+ optional serve) on a temp data dir and random ports.
  * Returns null when the daemon binary is missing (caller should exit 2 BLOCKED), throws when the
  * processes spawn but never become healthy (that is a real failure, not an environment gap).
- * options.serve  — also spawn a serve-product-ui instance bound to the isolated daemon.
- * options.env    — extra env for BOTH processes (e.g. test flags for a flagged serve).
+ * options.serve   — also spawn a serve-product-ui instance bound to the isolated daemon.
+ * options.env     — extra env for BOTH processes (e.g. test flags for a flagged serve).
+ * options.dataDir — reuse an EXISTING isolated data dir (crash/restart lanes prove recovery
+ *                   against the same durable state); the caller keeps ownership of cleanup.
+ * The returned handle exposes daemonPid so crash lanes can SIGKILL the daemon mid-request.
  */
-export async function startIsolatedPlane({ serve = false, env = {} } = {}) {
+export async function startIsolatedPlane({ serve = false, env = {}, dataDir: reuseDataDir = null } = {}) {
   const { existsSync } = await import("node:fs");
   if (!existsSync(DAEMON_BINARY)) return null;
-  const dataDir = mkdtempSync(join(tmpdir(), "ioi-isolated-plane-"));
+  const reused = !!reuseDataDir;
+  const dataDir = reuseDataDir || mkdtempSync(join(tmpdir(), "ioi-isolated-plane-"));
   const daemonPort = await freePort();
   const daemonUrl = `http://127.0.0.1:${daemonPort}`;
-  const logFd = openSync(join(dataDir, "isolated-daemon.log"), "w");
+  const logFd = openSync(join(dataDir, reused ? `isolated-daemon-restart-${Date.now()}.log` : "isolated-daemon.log"), "w");
   const children = [];
   const daemon = spawn(DAEMON_BINARY, [], {
     env: {
@@ -136,5 +140,5 @@ export async function startIsolatedPlane({ serve = false, env = {} } = {}) {
     }
   }
 
-  return { daemonUrl, serveUrl, dataDir, stop };
+  return { daemonUrl, serveUrl, dataDir, stop, daemonPid: daemon.pid };
 }
