@@ -25,7 +25,7 @@
 // Exit 2 = BLOCKED (daemon binary not built).
 
 import { createHash } from "node:crypto";
-import { readFileSync, writeFileSync, unlinkSync, chmodSync, readdirSync, mkdirSync, existsSync, symlinkSync, rmSync } from "node:fs";
+import { readFileSync, writeFileSync, unlinkSync, chmodSync, readdirSync, mkdirSync, existsSync, symlinkSync, rmSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { startIsolatedPlane, receiptFileCount } from "./lib/isolated-daemon.mjs";
 // Real dcrypt-signed ApprovalGrant minting (no test bypass) — the round-4 start lane completes
@@ -682,6 +682,34 @@ async function run() {
     ok("RECEIPT FAULT: plane started", false, "daemon did not start");
   }
 
+  // 11b. ROOM-RECEIPT DURABILITY FAULT PLANE (#72 round 19 finding 2): a receipt whose directory
+  // sync is unconfirmed is VISIBLE-BUT-UNCONFIRMED — it must NOT be promoted to success. Room
+  // creation refuses pending (the room is NOT committed, the intent is NOT consumed); a restart
+  // re-fsyncs the byte-identical receipt and only THEN admits — a crash can never leave a
+  // committed room referencing a lost receipt.
+  const rc = await startIsolatedPlane({ serve: false, env: { IOI_TEST_FORCE_DIRSYNC_UNCONFIRMED: "outcome-room-registry-receipts" } });
+  if (rc) {
+    try {
+      const cjd = async (method, p2, body) => { const r = await fetch(`${rc.daemonUrl}${p2}`, { method, headers: { "content-type": "application/json" }, body: body ? JSON.stringify(body) : undefined }); return { status: r.status, j: await r.json().catch(() => ({})) }; };
+      const cCreate = await cjd("POST", "/v1/hypervisor/outcome-rooms", VALID_ROOM);
+      const cListBefore = (await cjd("GET", "/v1/hypervisor/outcome-rooms")).j.outcome_rooms || [];
+      const cIntents = readdirSync(join(rc.dataDir, "outcome-room-admission-intents"));
+      const cReceipts = readdirSync(join(rc.dataDir, "outcome-room-registry-receipts"));
+      ok("ROOM-RECEIPT DURABILITY: an unconfirmed admission receipt is NOT promoted to success — creation refuses pending, the room is NOT in the registry, the intent is retained, the receipt is visible for replay (#72 r19 finding 2)", cCreate.status >= 400 && cCreate.j.error?.code === "outcome_room_admission_pending_convergence" && cListBefore.length === 0 && cIntents.length === 1 && cReceipts.length === 1, `${cCreate.status}/${cCreate.j.error?.code || "ok"} rooms=${cListBefore.length} intents=${cIntents.length}`);
+      process.kill(rc.daemonPid, "SIGKILL");
+      const rcRevived = await startIsolatedPlane({ serve: false, dataDir: rc.dataDir });
+      const rcjd = async (method, p2, body) => { const r = await fetch(`${rcRevived.daemonUrl}${p2}`, { method, headers: { "content-type": "application/json" }, body: body ? JSON.stringify(body) : undefined }); return { status: r.status, j: await r.json().catch(() => ({})) }; };
+      const cListAfter = (await rcjd("GET", "/v1/hypervisor/outcome-rooms")).j.outcome_rooms || [];
+      const cIntentsAfter = readdirSync(join(rc.dataDir, "outcome-room-admission-intents"));
+      ok("ROOM-RECEIPT DURABILITY: restart re-fsyncs the byte-identical receipt and ONLY THEN admits — the intent is consumed after durable evidence (#72 r19 finding 2)", cListAfter.length === 1 && cListAfter[0].status === "open" && cIntentsAfter.length === 0, `rooms=${cListAfter.length} status=${cListAfter[0]?.status} intents=${cIntentsAfter.length}`);
+      await rcRevived.stop();
+    } finally {
+      try { rmSync(rc.dataDir, { recursive: true, force: true }); } catch { /* best effort */ }
+    }
+  } else {
+    ok("ROOM-RECEIPT DURABILITY: plane started", false, "daemon did not start");
+  }
+
   // 12. ROOM DURABILITY FAULT PLANE (#72 round 10 findings 1 + 3): every room mutation is an
   // intent transaction — pending records never read as admitted/open, transitions never advance
   // the visible status before their receipt is durable, and restart converges everything
@@ -827,6 +855,18 @@ async function run() {
       // filename (content id != stem) must be invisible to get/list.
       const relRoom = { outcome_room_id: "outcome-room://or_rel0", schema_version: "ioi.hypervisor.outcome-room.v1", objective: "x", status: "open", revision: 1, member_goal_run_refs: [], status_history: [], admission_and_replay_refs: ["receipt://orr_rel0"], admission_receipt_ref: "receipt://orr_rel0", created_at: "2026-01-01T00:00:00Z", updated_at: "2026-01-01T00:00:00Z" };
       writeFileSync(join(rp.dataDir, "outcome-room-registry", "or_rel1.json"), JSON.stringify(relRoom));
+      // (o) PATH TRAVERSAL (#72 r19 finding 1): a matching room record planted OUTSIDE the room
+      // directory (under goal-runs/) must be unreachable via a `../…` URL-derived stem.
+      const escRoom = { outcome_room_id: "outcome-room://../goal-runs/gr_esc", schema_version: "ioi.hypervisor.outcome-room.v1", objective: "x", status: "open", revision: 1, member_goal_run_refs: [], status_history: [], admission_and_replay_refs: ["receipt://orr_esc"], admission_receipt_ref: "receipt://orr_esc", created_at: "2026-01-01T00:00:00Z", updated_at: "2026-01-01T00:00:00Z" };
+      writeFileSync(join(rp.dataDir, "goal-runs", "gr_esc.json"), JSON.stringify(escRoom));
+      // (p) UNREADABLE RECEIPT SLOT (#72 r19 finding 3): an API-created room (registry write held
+      // unconfirmed, intent retained) whose sealed receipt slot is chmod 000 — the completer must
+      // REFUSE (only ENOENT means empty), never overwrite, never admit.
+      const urRoom = (await pjd("POST", "/v1/hypervisor/outcome-rooms", VALID_ROOM)).j.outcome_room;
+      const urTail = urRoom.outcome_room_id.replace("outcome-room://", "");
+      const urReceiptTail = urRoom.admission_receipt_ref.replace("receipt://", "");
+      try { rmSync(join(rp.dataDir, "outcome-room-registry", `${urTail}.json`)); } catch {}
+      chmodSync(join(rp.dataDir, "outcome-room-registry-receipts", `${urReceiptTail}.json`), 0o000);
       // RESTART with the fault cleared: convergence + non-overwrite.
       process.kill(rp.daemonPid, "SIGKILL");
       const rpRevived = await startIsolatedPlane({ serve: false, dataDir: rp.dataDir });
@@ -892,6 +932,17 @@ async function run() {
       const relGetId = await rpjd("GET", "/v1/hypervisor/outcome-rooms/or_rel0");
       const relListed = afterRooms.some((r) => r.outcome_room_id === "outcome-room://or_rel0");
       ok("ROOM FAULT restart: a relocated room file (content id != filename stem) is INVISIBLE to get (both ids 404) and list (#72 r18 finding 2)", relGetStem.status === 404 && relGetId.status === 404 && !relListed, `getStem=${relGetStem.status} getId=${relGetId.status} listed=${relListed}`);
+      // PATH TRAVERSAL (#72 r19 finding 1): the `../…` stem is refused before any filesystem
+      // access, on both the GET read path and cross-plane WorkResult binding.
+      const escGet = await fetch(`${rpRevived.daemonUrl}/v1/hypervisor/outcome-rooms/${encodeURIComponent("../goal-runs/gr_esc")}`).then((r) => r.status).catch(() => 0);
+      const escBind = await rpjd("POST", "/v1/hypervisor/work-results", { goal_ref: "goal://esc", result_profile: "research", outcome_class: "positive", status: "completed", outcome_room_ref: "outcome-room://../goal-runs/gr_esc" });
+      ok("ROOM FAULT restart: a `../goal-runs/gr_esc` traversal id is refused on GET (404) and never binds a WorkResult to a cross-plane record (#72 r19 finding 1)", (escGet === 404 || escGet === 400) && escBind.status >= 400 && escBind.j.error?.code !== undefined && escBind.j.work_result === undefined, `get=${escGet} bind=${escBind.status}/${escBind.j.error?.code || "ok"}`);
+      // UNREADABLE RECEIPT SLOT (#72 r19 finding 3): only ENOENT means empty.
+      const urAdmitted = afterRooms.some((r) => r.outcome_room_id === urRoom.outcome_room_id);
+      const urSlotType = statSync(join(rp.dataDir, "outcome-room-registry-receipts", `${urReceiptTail}.json`));
+      const urIntentRetained = existsSync(join(rp.dataDir, "outcome-room-admission-intents", `${urTail}.json`));
+      ok("ROOM FAULT restart: an UNREADABLE (mode 000) receipt slot BLOCKS admission — the completer refuses (only ENOENT means empty), the room is NOT admitted, the intent stays (#72 r19 finding 3)", !urAdmitted && urIntentRetained && urSlotType.size > 0, `admitted=${urAdmitted} intent=${urIntentRetained} occupantBytes=${urSlotType.size}`);
+      chmodSync(join(rp.dataDir, "outcome-room-registry-receipts", `${urReceiptTail}.json`), 0o644);
       await rpRevived.stop();
     } finally {
       try { rmSync(rp.dataDir, { recursive: true, force: true }); } catch { /* best effort */ }
