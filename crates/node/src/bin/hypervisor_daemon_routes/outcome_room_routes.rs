@@ -677,10 +677,55 @@ fn persist_atomic(data_dir: &str, family: &str, record_id: &str, record: &Value)
     super::goalrun_routes::persist_record_durable(data_dir, family, record_id, record)
 }
 
+/// APPEND-ONLY, no-clobber durable receipt writer (#72 round 18 finding 1): receipts are
+/// evidence — the exact target slot is inspected and only BYTE-IDENTICAL existing content is
+/// accepted (idempotent replay). A DIFFERENT occupant is refused typed, never overwritten.
+/// Callers hold ROOM_MUTATION_LOCK, so the check-then-write is race-free within the process.
+/// Every receipt writer — create, transition, attach, and both boot completers — uses THIS.
+fn persist_receipt_no_clobber(data_dir: &str, tail: &str, receipt: &Value) -> Result<(), VErr> {
+    if !is_normalization_safe(tail) {
+        return Err(verr("outcome_room_receipt_key_invalid", format!("receipt tail '{tail}' is not filesystem-safe")));
+    }
+    let path = std::path::Path::new(data_dir).join(ROOM_RECEIPT_DIR).join(format!("{tail}.json"));
+    if let Ok(existing) = std::fs::read(&path) {
+        // The on-disk form is exactly what the durable writer emits (pretty JSON).
+        if existing == serde_json::to_vec_pretty(receipt).unwrap_or_default() {
+            return Ok(()); // idempotent — already durable, byte-identical
+        }
+        return Err(verr("outcome_room_receipt_conflict", format!("the receipt slot '{tail}' already holds DIFFERENT evidence — receipts are append-only and never overwritten")));
+    }
+    match persist_atomic(data_dir, ROOM_RECEIPT_DIR, tail, receipt) {
+        Ok(()) => Ok(()),
+        // A visible-but-unconfirmed receipt is written (idempotent on restart); a not-committed
+        // write is a durability failure the caller surfaces.
+        Err(f) if f.visible() => Ok(()),
+        Err(f) => Err(verr("outcome_room_receipt_persist_failed", f.detail())),
+    }
+}
+
+/// EXACT-PATH room loader (#72 round 18 finding 2): read the file AT the id's stem and require
+/// its content `outcome_room_id` to equal the id — the storage key and the claimed identity
+/// must agree. A relocated/renamed file (content id != its filename stem) is INVISIBLE to every
+/// read path (get/list/overview/resolve/mutate/attach), so one identity can never map to two
+/// files. Never scans by embedded id.
 fn load_room(data_dir: &str, id: &str) -> Option<Value> {
-    read_record_dir(data_dir, ROOM_DIR)
+    let stem = id.strip_prefix("outcome-room://")?;
+    let room = load_room_file(data_dir, stem)?;
+    if room.get("outcome_room_id").and_then(|v| v.as_str()) == Some(id) {
+        Some(room)
+    } else {
+        None
+    }
+}
+
+/// List only rooms whose content identity AGREES with their storage key (#72 round 18 finding
+/// 2) — a relocated file is excluded, never counted or served.
+fn list_rooms_exact(data_dir: &str) -> Vec<Value> {
+    read_dir_with_stems(data_dir, ROOM_DIR)
         .into_iter()
-        .find(|r| r.get("outcome_room_id").and_then(|v| v.as_str()) == Some(id))
+        .filter(|(stem, room)| room.get("outcome_room_id").and_then(|v| v.as_str()) == Some(format!("outcome-room://{stem}").as_str()))
+        .map(|(_, room)| room)
+        .collect()
 }
 
 pub(crate) fn resolve_open_room(data_dir: &str, room_ref: &str) -> Option<Value> {
@@ -739,8 +784,8 @@ fn finalize_room_create(
             return Err(verr("outcome_room_record_persist_failed", format!("the admission intent persist is {} — nothing changed", f.detail())));
         }
     }
-    if let Err(f) = persist_atomic(data_dir, ROOM_RECEIPT_DIR, receipt_id, receipt) {
-        return Err(verr("outcome_room_admission_pending_convergence", format!("the admission receipt is {}; the DURABLE intent is retained internally (the room is not yet in the registry) — a restart re-persists the sealed receipt and admits this same room; do not re-create", f.detail())));
+    if let Err((code, msg)) = persist_receipt_no_clobber(data_dir, receipt_id, receipt) {
+        return Err(verr(if code == "outcome_room_receipt_conflict" { "outcome_room_receipt_conflict" } else { "outcome_room_admission_pending_convergence" }, format!("the admission receipt did not commit ({code}: {msg}); the DURABLE intent is retained internally — a restart re-persists the sealed receipt (append-only) and admits this same room; do not re-create")));
     }
     match persist_atomic(data_dir, ROOM_DIR, room_tail, record) {
         Ok(()) => {
@@ -798,16 +843,20 @@ fn finalize_room_mutation(
             return Err(verr("outcome_room_record_persist_failed", format!("the transition intent persist is {} — nothing changed", f.detail())));
         }
     }
-    match persist_atomic(data_dir, ROOM_RECEIPT_DIR, receipt_id, receipt) {
+    match persist_receipt_no_clobber(data_dir, receipt_id, receipt) {
         Ok(()) => {}
-        Err(f) if f.visible() => {
-            return Err(verr("outcome_room_mutation_pending_convergence", format!("the transition receipt is {}; the DURABLE intent is retained with the room still in its PRIOR state — a restart re-persists the sealed receipt and applies the transition", f.detail())));
-        }
-        Err(f) => {
-            let e = f.detail();
+        Err((code, msg)) if code == "outcome_room_receipt_conflict" => {
+            // A foreign occupant at the receipt slot — roll the intent back exactly and refuse
+            // (append-only; never overwrite existing evidence).
             return match persist_atomic(data_dir, ROOM_DIR, room_tail, prior) {
-                Ok(()) => Err(verr("outcome_room_receipt_persist_failed", format!("transition receipt persist is {e}; the intent was rolled back EXACTLY (the room never left its prior state) — nothing changed"))),
-                Err(_) => Err(verr("outcome_room_mutation_pending_convergence", format!("transition receipt persist is {e} AND the intent rollback did not commit — a restart converges the sealed transition"))),
+                Ok(()) => Err(verr("outcome_room_receipt_conflict", format!("{msg}; the intent was rolled back EXACTLY — nothing changed"))),
+                Err(_) => Err(verr("outcome_room_receipt_conflict", format!("{msg} AND the intent rollback did not commit — manual repair required"))),
+            };
+        }
+        Err((_code, msg)) => {
+            return match persist_atomic(data_dir, ROOM_DIR, room_tail, prior) {
+                Ok(()) => Err(verr("outcome_room_receipt_persist_failed", format!("transition receipt persist did not commit ({msg}); the intent was rolled back EXACTLY (the room never left its prior state) — nothing changed"))),
+                Err(_) => Err(verr("outcome_room_mutation_pending_convergence", format!("transition receipt persist did not commit ({msg}) AND the intent rollback did not commit — a restart converges the sealed transition"))),
             };
         }
     }
@@ -919,17 +968,11 @@ pub(crate) fn complete_room_intents(data_dir: &str) {
                 same_room_already_admitted = true;
             }
         }
-        let sealed_receipt_ref = receipt.get("receipt_id").and_then(Value::as_str).unwrap_or("").to_string();
-        let existing = read_record_dir(data_dir, ROOM_RECEIPT_DIR)
-            .into_iter()
-            .find(|r| r.get("receipt_id").and_then(Value::as_str) == Some(sealed_receipt_ref.as_str()));
-        if let Some(existing) = existing {
-            if serde_json::to_vec(&existing).unwrap_or_default() != serde_json::to_vec(&receipt).unwrap_or_default() {
-                eprintln!("outcome-room {kind} completer: a DIFFERENT receipt already exists for '{receipt_id}' — conflicting evidence is never overwritten; left for manual repair");
-                continue;
-            }
-        } else if let Err(f) = persist_atomic(data_dir, ROOM_RECEIPT_DIR, &receipt_id, &receipt) {
-            eprintln!("outcome-room {kind} completer: receipt persist for '{room_tail}' is {} — intent retained, retried next boot", f.detail());
+        // APPEND-ONLY receipt write keyed by the TARGET SLOT (#72 round 18 finding 1): the
+        // no-clobber writer inspects the exact `receipt_id.json` slot — byte-identical existing
+        // content is idempotent, a different occupant refuses, an empty slot is written durably.
+        if let Err((code, msg)) = persist_receipt_no_clobber(data_dir, &receipt_id, &receipt) {
+            eprintln!("outcome-room {kind} completer: receipt write for '{room_tail}' refused ({code}: {msg}) — intent retained, left for manual repair");
             continue;
         }
         if !same_room_already_admitted {
@@ -1039,10 +1082,11 @@ fn finalize_attach(
             };
         }
     }
-    // (3) Receipt — DURABLE required; any failure keeps the intent for replay (never unstamp,
-    // never delete: the completer re-persists the sealed receipt byte-exact and finishes).
-    if let Err(f) = persist_atomic(data_dir, ROOM_RECEIPT_DIR, receipt_id, receipt) {
-        return Err(verr("outcome_room_attach_pending_convergence", format!("the attach receipt is {}; the DURABLE intent and the stamp are retained — a restart re-persists the sealed receipt and completes the membership", f.detail())));
+    // (3) Receipt — DURABLE, APPEND-ONLY; any failure keeps the intent for replay (never
+    // unstamp, never delete, never overwrite existing evidence).
+    if let Err((code, msg)) = persist_receipt_no_clobber(data_dir, receipt_id, receipt) {
+        let ecode = if code == "outcome_room_receipt_conflict" { "outcome_room_receipt_conflict" } else { "outcome_room_attach_pending_convergence" };
+        return Err(verr(ecode, format!("the attach receipt did not commit ({code}: {msg}); the DURABLE intent and the stamp are retained — a restart re-persists the sealed receipt (append-only) and completes the membership")));
     }
     // (4) TERMINAL: membership in, intent consumed — visible-unconfirmed tolerated (a
     // crash-revert restores the intent, which replays forward).
@@ -1137,19 +1181,9 @@ pub(crate) fn complete_attach_intents(data_dir: &str) {
                 continue;
             }
         }
-        // Receipt: byte-exact if it exists; else durable persist. The intent's receipt_id is
-        // the FILE tail; the record's receipt_id field carries the receipt:// form.
-        let sealed_receipt_ref = receipt.get("receipt_id").and_then(Value::as_str).unwrap_or("").to_string();
-        let existing = read_record_dir(data_dir, ROOM_RECEIPT_DIR)
-            .into_iter()
-            .find(|r| r.get("receipt_id").and_then(Value::as_str) == Some(sealed_receipt_ref.as_str()));
-        if let Some(existing) = existing {
-            if serde_json::to_vec(&existing).unwrap_or_default() != serde_json::to_vec(&receipt).unwrap_or_default() {
-                eprintln!("outcome-room attach completer: a DIFFERENT receipt already exists for '{receipt_id}' — conflicting evidence is never overwritten; left for manual repair");
-                continue;
-            }
-        } else if let Err(f) = persist_atomic(data_dir, ROOM_RECEIPT_DIR, &receipt_id, &receipt) {
-            eprintln!("outcome-room attach completer: receipt persist for '{room_tail}' is {} — intent retained, retried next boot", f.detail());
+        // APPEND-ONLY receipt write keyed by the TARGET SLOT (#72 round 18 finding 1).
+        if let Err((code, msg)) = persist_receipt_no_clobber(data_dir, &receipt_id, &receipt) {
+            eprintln!("outcome-room attach completer: receipt write for '{room_tail}' refused ({code}: {msg}) — intent retained, left for manual repair");
             continue;
         }
         // TERMINAL membership write (tolerates visible-unconfirmed — a revert restores the intent).
@@ -1267,7 +1301,9 @@ fn validate_room_create(body: &Value) -> Result<Value, VErr> {
 }
 
 fn sorted_newest(data_dir: &str) -> Vec<Value> {
-    let mut items = read_record_dir(data_dir, ROOM_DIR);
+    // EXACT-PATH listing (#72 round 18 finding 2): only rooms whose content identity agrees with
+    // their storage key — a relocated file is never listed.
+    let mut items = list_rooms_exact(data_dir);
     items.sort_by(|a, b| s(b, "created_at", "").cmp(&s(a, "created_at", "")));
     items
 }
@@ -1289,7 +1325,7 @@ pub(crate) async fn handle_outcome_room_get(
 }
 
 pub(crate) async fn handle_outcome_rooms_overview(State(st): State<Arc<DaemonState>>) -> Json<Value> {
-    let rooms = read_record_dir(&st.data_dir, ROOM_DIR);
+    let rooms = list_rooms_exact(&st.data_dir);
     let by_status = |status: &str| rooms.iter().filter(|r| s(r, "status", "") == status).count();
     Json(json!({
         "schema_version": OVERVIEW_SCHEMA,
@@ -1913,6 +1949,63 @@ mod outcome_room_tests {
         let room = load_room(data_dir, "outcome-room://or_a2").unwrap();
         assert_eq!(room["status"], json!("paused"), "the newer legitimate state is NOT overwritten by the replay");
         assert!(read_record_dir(data_dir, ADMISSION_INTENT_DIR).is_empty(), "the intent was recognized as consumed and dropped");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn receipt_writer_is_append_only_no_clobber() {
+        // #72 round 18 finding 1: a canonical receipt slot already holding DIFFERENT evidence is
+        // NEVER overwritten; byte-identical content is idempotent.
+        let dir = temp_dir("no-clobber");
+        let data_dir = dir.to_str().unwrap();
+        let foreign = json!({ "foreign": "evidence", "sentinel": "DO_NOT_ERASE" });
+        persist_atomic(data_dir, ROOM_RECEIPT_DIR, "orr_deadbeef", &foreign).unwrap();
+        let ours = json!({ "receipt_id": "receipt://orr_deadbeef", "mine": true });
+        let (code, _) = persist_receipt_no_clobber(data_dir, "orr_deadbeef", &ours).unwrap_err();
+        assert_eq!(code, "outcome_room_receipt_conflict", "a different occupant is refused");
+        let on_disk: Value = serde_json::from_slice(&std::fs::read(dir.join(ROOM_RECEIPT_DIR).join("orr_deadbeef.json")).unwrap()).unwrap();
+        assert_eq!(on_disk, foreign, "the foreign sentinel evidence is UNTOUCHED");
+        // Idempotent: writing the SAME bytes that are already there is Ok, no error.
+        persist_receipt_no_clobber(data_dir, "orr_cafe", &ours).unwrap();
+        persist_receipt_no_clobber(data_dir, "orr_cafe", &ours).unwrap();
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn admission_completer_refuses_when_the_receipt_slot_is_occupied() {
+        // #72 round 18 finding 1, end-to-end: a foreign occupant at the sealed receipt tail
+        // blocks admission — the room is NOT admitted, the sentinel survives, the intent stays.
+        let dir = temp_dir("slot-occupied");
+        let data_dir = dir.to_str().unwrap();
+        let (intent, _room, rid, _rcpt) = canonical_admission("or_90");
+        let foreign = json!({ "foreign": "evidence", "sentinel": "KEEP" });
+        persist_atomic(data_dir, ROOM_RECEIPT_DIR, &rid, &foreign).unwrap();
+        persist_atomic(data_dir, ADMISSION_INTENT_DIR, "or_90", &intent).unwrap();
+        complete_room_intents(data_dir);
+        assert!(load_room_file(data_dir, "or_90").is_none(), "the room was NOT admitted over an occupied receipt slot");
+        let on_disk: Value = serde_json::from_slice(&std::fs::read(dir.join(ROOM_RECEIPT_DIR).join(format!("{rid}.json"))).unwrap()).unwrap();
+        assert_eq!(on_disk, foreign, "the foreign sentinel evidence is UNTOUCHED");
+        assert_eq!(read_record_dir(data_dir, ADMISSION_INTENT_DIR).len(), 1, "intent retained for manual repair");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn relocated_room_file_is_invisible_to_every_read_path() {
+        // #72 round 18 finding 2: a valid room moved to a DIFFERENT canonical filename (content
+        // id no longer matches its stem) is invisible via get/list/resolve — one identity can
+        // never map to two files.
+        let dir = temp_dir("relocated");
+        let data_dir = dir.to_str().unwrap();
+        let (_intent, room, _rid, _rcpt) = canonical_admission("or_91");
+        // Store the room (claiming outcome-room://or_91) at a DIFFERENT stem or_92.json.
+        persist_atomic(data_dir, ROOM_DIR, "or_92", &room).unwrap();
+        // GET by the ORIGINAL id: the file or_91.json does not exist → None.
+        assert!(load_room(data_dir, "outcome-room://or_91").is_none(), "GET original id: no file at that stem");
+        // GET by the NEW filename's id: content id (or_91) != stem (or_92) → None.
+        assert!(load_room(data_dir, "outcome-room://or_92").is_none(), "GET new stem: content id != stem, refused");
+        // LIST/resolve exclude the relocated file entirely.
+        assert!(sorted_newest(data_dir).is_empty(), "the relocated room is not listed");
+        assert!(resolve_open_room(data_dir, "outcome-room://or_91").is_none());
         let _ = std::fs::remove_dir_all(&dir);
     }
 

@@ -812,6 +812,21 @@ async function run() {
       const sbFinal = { outcome_room_id: "outcome-room://or_5b1", schema_version: "ioi.hypervisor.outcome-room.v1", objective: "x", owner_or_sponsor_ref: "org://x", status: "open", revision: 1, member_goal_run_refs: [], status_history: [], admission_receipt_ref: "receipt://orr_5b0", admission_and_replay_refs: ["receipt://orr_5b0"], created_at: "2026-01-01T00:00:00Z", updated_at: "2026-01-01T00:00:00Z" };
       const sbReceipt = roomReceipt("orr_5b0", "ioi.hypervisor.outcome-room-admission-receipt.v1", "OutcomeRoomAdmissionReceipt", "outcome-room://or_5b0", "admitted", { status_at_admission: "open" }, ["outcome-room://or_5b0"], "sha256:whatever", ROOM_DECL_EXCLUDES, "n", "2026-01-01T00:00:00Z");
       writeFileSync(join(rp.dataDir, "outcome-room-admission-intents", "or_5b0.json"), JSON.stringify({ room_tail: "or_5b0", room_ref: "outcome-room://or_5b0", receipt_id: "orr_5b0", receipt: sbReceipt, receipt_hash: sha(sbReceipt), final_room: sbFinal, final_room_hash: sha(sbFinal), at: "2026-01-01T00:00:00Z" }));
+      // (m) OCCUPIED RECEIPT SLOT (#72 r18 finding 1): a valid API-created room's terminal write
+      // is held back (forced visible-unconfirmed), leaving its admission intent to converge at
+      // restart — but its canonical receipt slot is pre-occupied by FOREIGN evidence. The
+      // append-only completer must refuse: the sentinel survives, the room is not admitted.
+      const occRoom = (await pjd("POST", "/v1/hypervisor/outcome-rooms", VALID_ROOM)).j.outcome_room;
+      const occTail = occRoom.outcome_room_id.replace("outcome-room://", "");
+      const occReceiptTail = occRoom.admission_receipt_ref.replace("receipt://", "");
+      // The API create returned 201 with the intent retained (registry write visible-unconfirmed);
+      // delete the terminal room + real receipt, occupy the receipt slot with foreign evidence.
+      try { rmSync(join(rp.dataDir, "outcome-room-registry", `${occTail}.json`)); } catch {}
+      writeFileSync(join(rp.dataDir, "outcome-room-registry-receipts", `${occReceiptTail}.json`), JSON.stringify({ foreign: "evidence", sentinel: "KEEP_ME" }));
+      // (n) RELOCATED ROOM FILE (#72 r18 finding 2): a valid room moved to a DIFFERENT canonical
+      // filename (content id != stem) must be invisible to get/list.
+      const relRoom = { outcome_room_id: "outcome-room://or_rel0", schema_version: "ioi.hypervisor.outcome-room.v1", objective: "x", status: "open", revision: 1, member_goal_run_refs: [], status_history: [], admission_and_replay_refs: ["receipt://orr_rel0"], admission_receipt_ref: "receipt://orr_rel0", created_at: "2026-01-01T00:00:00Z", updated_at: "2026-01-01T00:00:00Z" };
+      writeFileSync(join(rp.dataDir, "outcome-room-registry", "or_rel1.json"), JSON.stringify(relRoom));
       // RESTART with the fault cleared: convergence + non-overwrite.
       process.kill(rp.daemonPid, "SIGKILL");
       const rpRevived = await startIsolatedPlane({ serve: false, dataDir: rp.dataDir });
@@ -868,6 +883,15 @@ async function run() {
       const sbAtClaimed = afterRooms.some((r) => r.outcome_room_id === "outcome-room://or_5b1");
       const sbIntentRetained = existsSync(join(rp.dataDir, "outcome-room-admission-intents", "or_5b0.json"));
       ok("ROOM FAULT restart: an admission intent whose sealed room claims a DIFFERENT id than its filename stem is REFUSED — nothing admitted at either id, intent retained (#72 r17 finding 1)", !sbAtStem && !sbAtClaimed && sbIntentRetained && !readdirSync(join(rp.dataDir, "outcome-room-registry-receipts")).some((n) => n.includes("orr_5b0")), `stem=${sbAtStem} claimed=${sbAtClaimed} intent=${sbIntentRetained}`);
+      // OCCUPIED RECEIPT SLOT (#72 r18 finding 1): the append-only completer never overwrites.
+      const occSentinel = JSON.parse(readFileSync(join(rp.dataDir, "outcome-room-registry-receipts", `${occReceiptTail}.json`), "utf8"));
+      const occAdmitted = afterRooms.some((r) => r.outcome_room_id === occRoom.outcome_room_id);
+      ok("ROOM FAULT restart: a pre-occupied receipt slot BLOCKS admission — the foreign sentinel survives byte-for-byte, the room is NOT admitted, the intent stays (#72 r18 finding 1)", occSentinel.sentinel === "KEEP_ME" && !occAdmitted && existsSync(join(rp.dataDir, "outcome-room-admission-intents", `${occTail}.json`)), `sentinel=${occSentinel.sentinel} admitted=${occAdmitted}`);
+      // RELOCATED ROOM FILE (#72 r18 finding 2): content-id != stem is invisible everywhere.
+      const relGetStem = await rpjd("GET", "/v1/hypervisor/outcome-rooms/or_rel1");
+      const relGetId = await rpjd("GET", "/v1/hypervisor/outcome-rooms/or_rel0");
+      const relListed = afterRooms.some((r) => r.outcome_room_id === "outcome-room://or_rel0");
+      ok("ROOM FAULT restart: a relocated room file (content id != filename stem) is INVISIBLE to get (both ids 404) and list (#72 r18 finding 2)", relGetStem.status === 404 && relGetId.status === 404 && !relListed, `getStem=${relGetStem.status} getId=${relGetId.status} listed=${relListed}`);
       await rpRevived.stop();
     } finally {
       try { rmSync(rp.dataDir, { recursive: true, force: true }); } catch { /* best effort */ }
