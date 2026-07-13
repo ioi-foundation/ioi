@@ -416,12 +416,25 @@ fn finalize_attach(
             obj.insert("outcome_room_ref".into(), json!(room_ref));
         },
     );
-    if let Err((code, msg)) = stamped {
-        return if persist_atomic(data_dir, ROOM_DIR, room_tail, prior_room).is_ok() {
-            Err(verr("outcome_room_reciprocal_stamp_failed", format!("the reciprocal GoalRun stamp failed ({code}: {msg}); the room was restored EXACTLY — nothing changed")))
-        } else {
-            Err(verr("outcome_room_rollback_failed", format!("the reciprocal GoalRun stamp failed ({code}: {msg}) AND the room restore failed — manual repair required for '{room_tail}'")))
-        };
+    // VISIBILITY-AWARE consumption of the seam outcome (#72 round 8 finding 1): only a
+    // NOT-COMMITTED stamp (Err) rolls the room back — the stamp is provably absent, so
+    // "nothing changed" is true. A VISIBLE-but-unconfirmed stamp proceeds FORWARD: the run
+    // visibly carries `outcome_room_ref`, so rolling back only the room would manufacture the
+    // exact split-brain this plane exists to prevent; reciprocal equality is preserved and the
+    // durability caveat travels with the receipt.
+    match stamped {
+        Err((code, msg)) => {
+            return if persist_atomic(data_dir, ROOM_DIR, room_tail, prior_room).is_ok() {
+                Err(verr("outcome_room_reciprocal_stamp_failed", format!("the reciprocal GoalRun stamp failed ({code}: {msg}); the room was restored EXACTLY — nothing changed")))
+            } else {
+                Err(verr("outcome_room_rollback_failed", format!("the reciprocal GoalRun stamp failed ({code}: {msg}) AND the room restore failed — manual repair required for '{room_tail}'")))
+            };
+        }
+        Ok(outcome) => {
+            if !outcome.durable() {
+                eprintln!("outcome-room attach: the reciprocal stamp for '{run_file_id}' is VISIBLE but its durability is unconfirmed — proceeding forward (reciprocal equality preserved)");
+            }
+        }
     }
     match persist_record(data_dir, ROOM_RECEIPT_DIR, receipt_id, receipt) {
         Ok(()) => Ok(()),
@@ -1078,7 +1091,8 @@ mod outcome_room_tests {
             obj.insert("status".into(), json!("complete"));
             obj.insert("reconciliation_ref".into(), json!("reconciliation_result://rec_1"));
         })
-        .unwrap();
+        .unwrap()
+        .into_record();
         assert_eq!(merged["status"], json!("complete"), "the reconciliation state survived");
         assert_eq!(merged["outcome_room_ref"], json!("outcome-room://or_race"), "the reciprocal room binding SURVIVED the later lifecycle persist");
         let durable = read_record_dir(data_dir, GOAL_RUN_DIR).pop().unwrap();
