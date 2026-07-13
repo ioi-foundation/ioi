@@ -74,6 +74,9 @@ export function receiptFileCount(dataDir, family) {
  *                   against the same durable state); the caller keeps ownership of cleanup.
  * The returned handle exposes daemonPid so crash lanes can SIGKILL the daemon mid-request.
  */
+const EXIT_CLEANUPS = new Set();
+process.on("exit", () => { for (const fn of EXIT_CLEANUPS) fn(); });
+
 export async function startIsolatedPlane({ serve = false, env = {}, dataDir: reuseDataDir = null } = {}) {
   const { existsSync } = await import("node:fs");
   if (!existsSync(DAEMON_BINARY)) return null;
@@ -107,7 +110,9 @@ export async function startIsolatedPlane({ serve = false, env = {}, dataDir: reu
     if (!reused) { try { rmSync(dataDir, { recursive: true, force: true }); } catch { /* best effort */ } }
   };
   // Crash cover between spawn and the caller's finally: kill children, drop only OUR temp dir.
-  process.on("exit", () => {
+  // ONE shared exit hook for every plane (a per-plane listener trips MaxListenersExceeded once
+  // fault/restart lanes spawn a dozen planes).
+  EXIT_CLEANUPS.add(() => {
     if (stopped) return;
     for (const c of children) { try { c.kill("SIGKILL"); } catch { /* already gone */ } }
     if (!reused) { try { rmSync(dataDir, { recursive: true, force: true }); } catch { /* best effort */ } }

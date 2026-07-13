@@ -317,26 +317,29 @@ pub(crate) fn resolve_open_room(data_dir: &str, room_ref: &str) -> Option<Value>
 /// Which durable intent (if any) is pending on a room record — EVERY room mutator refuses
 /// while one is in flight (#72 round 10 finding 2): a mutation that raced an intent would be
 /// silently erased when the completer replays the sealed final state.
-fn pending_intent(room: &Value) -> Option<(&'static str, &'static str)> {
+pub(crate) fn pending_intent(room: &Value) -> Option<(&'static str, &'static str)> {
     if room.get("attach_intent").is_some() {
         return Some(("attach_intent", "outcome_room_attach_in_flight"));
     }
     if room.get("transition_intent").is_some() {
         return Some(("transition_intent", "outcome_room_mutation_in_flight"));
     }
-    if room.get("admission_intent").is_some() {
-        return Some(("admission_intent", "outcome_room_mutation_in_flight"));
-    }
     None
 }
 
-/// CREATION as an INTENT TRANSACTION (#72 round 10 finding 1): the first durable artifact is a
-/// `pending_admission` room sealing the final open room + its receipt — a pending record NEVER
-/// resolves as admitted/open (status alone refuses every open-room binding), so durability
-/// uncertainty can no longer expose an unreceipted open room. The receipt must be DURABLE
-/// before the terminal write; only the terminal write (final open room, intent consumed)
-/// tolerates visible-unconfirmed, because a crash-revert restores the intent for boot replay.
-/// NOTHING is ever deleted — the non-durable unlink hazard is gone from creation too.
+/// Internal family for pending admissions (#72 round 11 finding 2): a room being admitted
+/// lives HERE — never in the public registry — until its receipt is durable, so no
+/// noncanonical status ever escapes to consumers and no binding can resolve a pending room.
+const ADMISSION_INTENT_DIR: &str = "outcome-room-admission-intents";
+
+/// CREATION as an INTENT TRANSACTION over an INTERNAL family (#72 round 10 finding 1 + round
+/// 11 finding 2): the first durable artifact is an admission-intent RECORD in
+/// `outcome-room-admission-intents` — the public registry never holds a pending room, so no
+/// noncanonical status escapes (`ROOM_STATUSES` stays the enum consumers see) and no binding
+/// can resolve a room whose admission is unconfirmed. The receipt must be DURABLE before the
+/// terminal registry write; only that terminal write tolerates visible-unconfirmed. The
+/// consumed intent is dropped afterwards — an unlink resurrected by a crash merely replays the
+/// idempotent, byte-exact convergence.
 fn finalize_room_create(
     data_dir: &str,
     room_tail: &str,
@@ -345,6 +348,8 @@ fn finalize_room_create(
     receipt: &Value,
 ) -> Result<(), VErr> {
     let intent = json!({
+        "room_tail": room_tail,
+        "room_ref": record.get("outcome_room_id").cloned().unwrap_or(Value::Null),
         "receipt_id": receipt_id,
         "receipt": receipt,
         "receipt_hash": record_output_hash(receipt, &[]),
@@ -352,28 +357,29 @@ fn finalize_room_create(
         "final_room_hash": record_output_hash(record, &[]),
         "at": iso_now(),
     });
-    let mut pending = record.clone();
-    if let Some(obj) = pending.as_object_mut() {
-        obj.insert("status".into(), json!("pending_admission"));
-        obj.insert("admission_intent".into(), intent);
-    }
-    match persist_atomic(data_dir, ROOM_DIR, room_tail, &pending) {
+    match persist_atomic(data_dir, ADMISSION_INTENT_DIR, room_tail, &intent) {
         Ok(()) => {}
         Err(f) if f.visible() => {
-            return Err(verr("outcome_room_admission_pending_convergence", format!("the admission intent is {}; the pending room NEVER reads as open — a restart either admits it (completer) or it never existed", f.detail())));
+            return Err(verr("outcome_room_admission_pending_convergence", format!("the admission intent is {}; the room is NOT in the registry — a restart either admits this same room (completer) or it never existed; do not re-create", f.detail())));
         }
         Err(f) => {
             return Err(verr("outcome_room_record_persist_failed", format!("the admission intent persist is {} — nothing changed", f.detail())));
         }
     }
     if let Err(f) = persist_atomic(data_dir, ROOM_RECEIPT_DIR, receipt_id, receipt) {
-        return Err(verr("outcome_room_admission_pending_convergence", format!("the admission receipt is {}; the pending room and its DURABLE intent are retained (never open, never deleted) — a restart re-persists the sealed receipt and admits the room", f.detail())));
+        return Err(verr("outcome_room_admission_pending_convergence", format!("the admission receipt is {}; the DURABLE intent is retained internally (the room is not yet in the registry) — a restart re-persists the sealed receipt and admits this same room; do not re-create", f.detail())));
     }
     match persist_atomic(data_dir, ROOM_DIR, room_tail, record) {
-        Ok(()) => Ok(()),
-        Err(f) if f.visible() => Ok(()),
-        Err(f) => Err(verr("outcome_room_admission_pending_convergence", format!("the terminal admission write is {}; the DURABLE intent and receipt are retained — a restart completes the admission", f.detail()))),
+        Ok(()) => {}
+        Err(f) if f.visible() => {}
+        Err(f) => {
+            return Err(verr("outcome_room_admission_pending_convergence", format!("the terminal registry write is {}; the DURABLE intent and receipt are retained — a restart admits this same room; do not re-create", f.detail())));
+        }
     }
+    // Consume the intent (plain unlink is fine HERE: a resurrected intent replays an
+    // idempotent byte-exact convergence, never a second room).
+    let _ = std::fs::remove_file(std::path::Path::new(data_dir).join(ADMISSION_INTENT_DIR).join(format!("{room_tail}.json")));
+    Ok(())
 }
 
 /// MUTATION as an INTENT TRANSACTION (#72 round 10 finding 1): the first durable artifact is
@@ -437,16 +443,21 @@ fn finalize_room_mutation(
 /// is left in place for manual repair; nothing is manufactured, overwritten, or deleted.
 pub(crate) fn complete_room_intents(data_dir: &str) {
     let _guard = ROOM_MUTATION_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    // Pending admissions live in the INTERNAL intent family (#72 round 11 finding 2); pending
+    // transitions ride on their registry record. Both converge through the same sealed replay.
+    let mut work: Vec<(&'static str, Value, String)> = Vec::new();
+    for intent in read_record_dir(data_dir, ADMISSION_INTENT_DIR) {
+        let tail = intent.get("room_tail").and_then(Value::as_str).unwrap_or("").to_string();
+        work.push(("admission", intent, tail));
+    }
     for room in read_record_dir(data_dir, ROOM_DIR) {
-        let (kind, intent) = if let Some(i) = room.get("admission_intent") {
-            ("admission", i.clone())
-        } else if let Some(i) = room.get("transition_intent") {
-            ("transition", i.clone())
-        } else {
-            continue;
-        };
-        let room_id = room.get("outcome_room_id").and_then(|v| v.as_str()).unwrap_or("").to_string();
-        let room_tail = room_id.replace("outcome-room://", "");
+        if let Some(i) = room.get("transition_intent") {
+            let tail = room.get("outcome_room_id").and_then(|v| v.as_str()).unwrap_or("").replace("outcome-room://", "");
+            work.push(("transition", i.clone(), tail));
+        }
+    }
+    for (kind, intent, room_tail) in work {
+        let room_id = format!("outcome-room://{room_tail}");
         let receipt = intent.get("receipt").cloned().unwrap_or(Value::Null);
         let receipt_id = intent.get("receipt_id").and_then(Value::as_str).unwrap_or("").to_string();
         let final_room = intent.get("final_room").cloned().unwrap_or(Value::Null);
@@ -482,6 +493,14 @@ pub(crate) fn complete_room_intents(data_dir: &str) {
             eprintln!("outcome-room {kind} completer: receipt persist for '{room_tail}' is {} — intent retained, retried next boot", f.detail());
             continue;
         }
+        if kind == "admission" {
+            if let Some(existing_room) = load_room(data_dir, &room_id) {
+                if serde_json::to_vec(&existing_room).unwrap_or_default() != serde_json::to_vec(&final_room).unwrap_or_default() {
+                    eprintln!("outcome-room admission completer: a DIFFERENT room already exists at '{room_id}' — conflicting state is never overwritten; intent left for manual repair");
+                    continue;
+                }
+            }
+        }
         match persist_atomic(data_dir, ROOM_DIR, &room_tail, &final_room) {
             Ok(()) => {}
             Err(f) if f.visible() => {}
@@ -489,6 +508,9 @@ pub(crate) fn complete_room_intents(data_dir: &str) {
                 eprintln!("outcome-room {kind} completer: terminal write for '{room_tail}' is {} — intent retained, retried next boot", f.detail());
                 continue;
             }
+        }
+        if kind == "admission" {
+            let _ = std::fs::remove_file(std::path::Path::new(data_dir).join(ADMISSION_INTENT_DIR).join(format!("{room_tail}.json")));
         }
         eprintln!("outcome-room {kind} completer: converged the interrupted {kind} on '{room_tail}'");
     }
@@ -891,7 +913,17 @@ pub(crate) async fn handle_outcome_room_create(
         obj.insert("admission_and_replay_refs".into(), json!([receipt["receipt_ref"]]));
     }
     if let Err((code, msg)) = finalize_room_create(&st.data_dir, &id_tail, &record, &receipt_id, &receipt) {
-        return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "error": { "code": code, "message": msg } })));
+        // The refusal CARRIES the room's identity (#72 round 11 finding 2): a 500 retry must be
+        // able to recognize that THIS room may still converge at restart instead of blindly
+        // creating a second one.
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({
+                "error": { "code": code, "message": msg },
+                "outcome_room_ref": record["outcome_room_id"],
+                "admission_intent_ref": format!("outcome-room-admission-intent://{id_tail}"),
+            })),
+        );
     }
     (StatusCode::CREATED, Json(json!({ "outcome_room": record, "outcome_room_receipt": receipt })))
 }
@@ -1312,6 +1344,45 @@ mod outcome_room_tests {
         // Idempotent second boot.
         complete_room_intents(data_dir);
         assert_eq!(load_room(data_dir, "outcome-room://or_t").unwrap()["status"], json!("paused"));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn admission_intent_family_converges_without_a_public_pending_status() {
+        // #72 round 11 finding 2: a pending admission lives in the INTERNAL intent family — the
+        // registry never lists it — and the boot completer admits the sealed room with its
+        // receipt; a conflicting existing room is never overwritten.
+        let dir = temp_dir("admission-intent");
+        let data_dir = dir.to_str().unwrap();
+        let final_room = json!({ "outcome_room_id": "outcome-room://or_p", "status": "open", "revision": 1, "member_goal_run_refs": [], "updated_at": "2026-01-01T00:00:00Z" });
+        let (rid, receipt) = build_room_receipt(ADMISSION_RECEIPT_SCHEMA, "OutcomeRoomAdmissionReceipt", "orr", "outcome-room://or_p", "room_admitted", json!({}), vec![], "sha256:x".into(), ROOM_HASH_EXCLUDES, "admitted_not_verified", "n", "2026-01-01T00:00:00Z");
+        let intent = json!({
+            "room_tail": "or_p",
+            "room_ref": "outcome-room://or_p",
+            "receipt_id": rid,
+            "receipt": receipt,
+            "receipt_hash": record_output_hash(&receipt, &[]),
+            "final_room": final_room,
+            "final_room_hash": record_output_hash(&final_room, &[]),
+            "at": "2026-01-01T00:00:00Z",
+        });
+        persist_atomic(data_dir, ADMISSION_INTENT_DIR, "or_p", &intent).unwrap();
+        assert!(load_room(data_dir, "outcome-room://or_p").is_none(), "the registry never lists a pending admission");
+        complete_room_intents(data_dir);
+        let admitted = load_room(data_dir, "outcome-room://or_p").expect("admitted at boot");
+        assert_eq!(admitted["status"], json!("open"), "the sealed CANONICAL status — no pending_admission enum ever existed");
+        assert_eq!(read_record_dir(data_dir, ROOM_RECEIPT_DIR).len(), 1, "the sealed receipt was persisted");
+        assert!(read_record_dir(data_dir, ADMISSION_INTENT_DIR).is_empty(), "the consumed intent was dropped");
+        // Conflicting existing room: a second intent for the same id with DIFFERENT content is
+        // left for manual repair, never overwritten.
+        let mut other = intent.clone();
+        other["final_room"]["objective"] = json!("different");
+        other["final_room_hash"] = json!(record_output_hash(&other["final_room"], &[]));
+        persist_atomic(data_dir, ADMISSION_INTENT_DIR, "or_p", &other).unwrap();
+        complete_room_intents(data_dir);
+        let still = load_room(data_dir, "outcome-room://or_p").unwrap();
+        assert!(still.get("objective").is_none(), "the existing room was NOT overwritten");
+        assert_eq!(read_record_dir(data_dir, ADMISSION_INTENT_DIR).len(), 1, "the conflicting intent is retained for manual repair");
         let _ = std::fs::remove_dir_all(&dir);
     }
 

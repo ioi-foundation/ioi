@@ -690,19 +690,26 @@ async function run() {
   if (rp) {
     try {
       const pjd = async (method, p2, body) => { const r = await fetch(`${rp.daemonUrl}${p2}`, { method, headers: { "content-type": "application/json" }, body: body ? JSON.stringify(body) : undefined }); return { status: r.status, j: await r.json().catch(() => ({})) }; };
-      // (a) CREATE under durability uncertainty: 5xx, and the pending room NEVER reads as open.
+      // (a) CREATE under registry-write uncertainty: the TERMINAL write tolerates visible
+      // (crash-revert replays the internal intent), the room lists with a CANONICAL status, and
+      // the consumed intent is dropped — no noncanonical status ever escapes (#72 r11 f2).
       const cFault = await pjd("POST", "/v1/hypervisor/outcome-rooms", VALID_ROOM);
       const listed = (await pjd("GET", "/v1/hypervisor/outcome-rooms")).j.outcome_rooms || [];
-      const pendingRoom = listed.find((r) => r.status === "pending_admission");
-      const bindPending = pendingRoom ? await pjd("POST", "/v1/hypervisor/work-results", { goal_ref: "goal://p", result_profile: "research", outcome_class: "positive", status: "completed", outcome_room_ref: pendingRoom.outcome_room_id }) : { status: 0, j: {} };
-      ok("ROOM FAULT create: 5xx typed; the pending room NEVER resolves as admitted/open (status pending_admission; open-room bindings refuse) (#72 r10 finding 1)", cFault.status === 500 && cFault.j.error?.code === "outcome_room_admission_pending_convergence" && !!pendingRoom && !listed.some((r) => r.status === "open") && bindPending.status === 400 && bindPending.j.error?.code === "work_result_room_not_open", `${cFault.status}/${cFault.j.error?.code || "ok"} pending=${!!pendingRoom}`);
+      ok("ROOM FAULT create: the terminal registry write tolerates visible-unconfirmed (201; intent family backs the revert); every listed status is CANONICAL — pending_admission never escapes (#72 r11 finding 2)", cFault.status === 201 && listed.length === 1 && listed.every((r) => r.status === "open") && receiptFileCount(rp.dataDir, "outcome-room-admission-intents") === 0, `${cFault.status} listed=${listed.map((r) => r.status).join(",")}`);
       // (b) TRANSITION under durability uncertainty: 5xx; the visible status NEVER advances and
       // no receipt exists — the reviewer's `paused with zero receipt` is structurally gone.
       writeFileSync(join(rp.dataDir, "outcome-room-registry", "or_tf.json"), JSON.stringify({ outcome_room_id: "outcome-room://or_tf", schema_version: "ioi.hypervisor.outcome-room.v1", status: "open", revision: 1, member_goal_run_refs: [], admission_and_replay_refs: [], status_history: [], updated_at: "2026-01-01T00:00:00Z" }));
+      const receiptsBaseline = (() => { try { return readdirSync(join(rp.dataDir, "outcome-room-registry-receipts")).length; } catch { return 0; } })();
       const tFault = await pjd("POST", "/v1/hypervisor/outcome-rooms/or_tf/transition", { transition: "pause", expected_revision: 1 });
       const tfDisk = JSON.parse(readFileSync(join(rp.dataDir, "outcome-room-registry", "or_tf.json"), "utf8"));
       const tfReceipts = (() => { try { return readdirSync(join(rp.dataDir, "outcome-room-registry-receipts")).length; } catch { return 0; } })();
-      ok("ROOM FAULT transition: 5xx typed; disk still shows the PRIOR status with the intent sealed and ZERO transition receipt (#72 r10 finding 1)", tFault.status === 500 && tFault.j.error?.code === "outcome_room_mutation_pending_convergence" && tfDisk.status === "open" && !!tfDisk.transition_intent && tfReceipts === 0, `${tFault.status}/${tFault.j.error?.code || "ok"} disk=${tfDisk.status} receipts=${tfReceipts}`);
+      ok("ROOM FAULT transition: 5xx typed; disk still shows the PRIOR status with the intent sealed and ZERO transition receipt (#72 r10 finding 1)", tFault.status === 500 && tFault.j.error?.code === "outcome_room_mutation_pending_convergence" && tfDisk.status === "open" && !!tfDisk.transition_intent && tfReceipts === receiptsBaseline, `${tFault.status}/${tFault.j.error?.code || "ok"} disk=${tfDisk.status} receipts=${tfReceipts - receiptsBaseline} new`);
+      // (b2) THE ADMISSION BOUNDARY IS INTENT-AWARE (#72 r11 finding 1): the visibly-open room
+      // with a durably ORDERED transition refuses results AND deltas typed, zero mutation.
+      const wrBefore = receiptFileCount(rp.dataDir, "work-result-registry");
+      const pendResult = await pjd("POST", "/v1/hypervisor/work-results", { goal_ref: "goal://p", result_profile: "research", outcome_class: "positive", status: "completed", outcome_room_ref: "outcome-room://or_tf" });
+      const pendDelta = await pjd("POST", "/v1/hypervisor/outcome-deltas", { goal_ref: "goal://p", delta_kind: "update", target_ref: "frontier://p", proposed_by_ref: "work_result://wr_ghost", outcome_room_ref: "outcome-room://or_tf" });
+      ok("ROOM FAULT admission boundary: results AND deltas refuse typed while the transition intent is pending — the ordered close outranks the visible prior status (#72 r11 finding 1)", pendResult.status === 400 && pendResult.j.error?.code === "work_result_room_intent_pending" && pendDelta.status === 400 && pendDelta.j.error?.code === "outcome_delta_room_intent_pending" && receiptFileCount(rp.dataDir, "work-result-registry") === wrBefore, `${pendResult.status}/${pendResult.j.error?.code} ${pendDelta.status}/${pendDelta.j.error?.code}`);
       // (c) Plant the A-intent/B-binding conflict for restart (#72 r10 finding 3).
       mkdirSync(join(rp.dataDir, "goal-runs"), { recursive: true });
       writeFileSync(join(rp.dataDir, "goal-runs", "gr_ab.json"), JSON.stringify({ goal_run_id: "gr_ab", schema_version: "ioi.hypervisor.goal-run.v1", normalized_goal: "conflict", status: "active", goal_ref: "goal://gr_ab", outcome_room_ref: "outcome-room://or_B", created_at: "2026-01-01T00:00:00Z" }));
@@ -716,10 +723,12 @@ async function run() {
       const rpRevived = await startIsolatedPlane({ serve: false, dataDir: rp.dataDir });
       const rpjd = async (method, p2, body) => { const r = await fetch(`${rpRevived.daemonUrl}${p2}`, { method, headers: { "content-type": "application/json" }, body: body ? JSON.stringify(body) : undefined }); return { status: r.status, j: await r.json().catch(() => ({})) }; };
       const afterRooms = (await rpjd("GET", "/v1/hypervisor/outcome-rooms")).j.outcome_rooms || [];
-      const admitted = afterRooms.find((r) => r.outcome_room_id === pendingRoom?.outcome_room_id);
+      const admitted = afterRooms.find((r) => r.status === "open" && r.outcome_room_id !== "outcome-room://or_A");
       const tfAfter = afterRooms.find((r) => r.outcome_room_id === "outcome-room://or_tf");
       const tfReceiptsAfter = readdirSync(join(rp.dataDir, "outcome-room-registry-receipts")).length;
-      ok("ROOM FAULT restart: the completer ADMITTED the pending room (open + durable receipt) and APPLIED the sealed transition (paused + receipt, intent consumed)", admitted?.status === "open" && !admitted?.admission_intent && tfAfter?.status === "paused" && !tfAfter?.transition_intent && tfReceiptsAfter >= 2, `admitted=${admitted?.status} tf=${tfAfter?.status} receipts=${tfReceiptsAfter}`);
+      ok("ROOM FAULT restart: the completer APPLIED the sealed transition (paused + receipt, intent consumed); the created room stands canonical", admitted?.status === "open" && tfAfter?.status === "paused" && !tfAfter?.transition_intent && tfReceiptsAfter >= 2, `admitted=${admitted?.status} tf=${tfAfter?.status} receipts=${tfReceiptsAfter}`);
+      const postConverge = await rpjd("POST", "/v1/hypervisor/work-results", { goal_ref: "goal://p", result_profile: "research", outcome_class: "positive", status: "completed", outcome_room_ref: "outcome-room://or_tf" });
+      ok("ROOM FAULT restart: after the ordered transition applies, bindings refuse room_not_open — no result was ever admitted across the close boundary", postConverge.status === 400 && postConverge.j.error?.code === "work_result_room_not_open", `${postConverge.status}/${postConverge.j.error?.code || "ok"}`);
       const abRun = JSON.parse(readFileSync(join(rp.dataDir, "goal-runs", "gr_ab.json"), "utf8"));
       const roomA = afterRooms.find((r) => r.outcome_room_id === "outcome-room://or_A");
       ok("ROOM FAULT restart: the A-intent/B-binding conflict is NEVER overwritten — room B's binding intact, room A's intent retained as a manual conflict, no membership manufactured (#72 r10 finding 3)", abRun.outcome_room_ref === "outcome-room://or_B" && !!roomA?.attach_intent && (roomA?.member_goal_run_refs || []).length === 0, `binding=${abRun.outcome_room_ref} intentA=${!!roomA?.attach_intent}`);
