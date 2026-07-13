@@ -495,6 +495,12 @@ fn validate_work_result(
         None => Value::Null,
         Some(r) => match resolve_room(&r) {
             None => return Err(verr("work_result_room_unbound", format!("`outcome_room_ref` does not resolve to an admitted OutcomeRoom ('{r}')"))),
+            // ADMISSION BOUNDARY IS INTENT-AWARE (#72 round 10 review, finding 1): a room whose
+            // transition/attach intent is durably sealed may already be ORDERED closed — its
+            // visible prior status must not admit new results while convergence is pending.
+            Some(room) if super::outcome_room_routes::pending_intent(&room).is_some() => {
+                return Err(verr("work_result_room_intent_pending", format!("room '{r}' has a durable mutation intent pending convergence — results refuse until the sealed transition applies (a restart converges it)")));
+            }
             Some(room) if room.get("status").and_then(|v| v.as_str()) != Some("open") => {
                 return Err(verr("work_result_room_not_open", format!("room '{r}' is '{}' — results admit only into an open room", room.get("status").and_then(|v| v.as_str()).unwrap_or("unknown"))));
             }
@@ -633,6 +639,11 @@ fn validate_outcome_delta(
         None => Value::Null,
         Some(r) => match resolve_room(&r) {
             None => return Err(verr("outcome_delta_room_unbound", format!("`outcome_room_ref` does not resolve to an admitted OutcomeRoom ('{r}')"))),
+            // Intent-aware admission boundary (#72 round 10 review, finding 1) — same rule as
+            // results: a durably ordered transition outranks the visible prior status.
+            Some(room) if super::outcome_room_routes::pending_intent(&room).is_some() => {
+                return Err(verr("outcome_delta_room_intent_pending", format!("room '{r}' has a durable mutation intent pending convergence — deltas refuse until the sealed transition applies (a restart converges it)")));
+            }
             Some(room) if room.get("status").and_then(|v| v.as_str()) != Some("open") => {
                 return Err(verr("outcome_delta_room_not_open", format!("room '{r}' is '{}' — deltas admit only into an open room", room.get("status").and_then(|v| v.as_str()).unwrap_or("unknown"))));
             }
