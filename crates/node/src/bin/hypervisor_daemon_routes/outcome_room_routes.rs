@@ -294,6 +294,11 @@ fn read_dir_with_stems(data_dir: &str, family: &str) -> Vec<(String, Value)> {
             if path.extension().and_then(|e| e.to_str()) != Some("json") {
                 continue;
             }
+            // lstat-based (does NOT follow): a symlinked entry never enters the trusted set
+            // (#72 round 19 finding 1 — pinned, no-follow reads everywhere).
+            if !entry.file_type().map(|t| t.is_file()).unwrap_or(false) {
+                continue;
+            }
             let Some(stem) = path.file_stem().and_then(|s| s.to_str()).map(str::to_string) else { continue };
             if let Ok(bytes) = std::fs::read(&path) {
                 if let Ok(value) = serde_json::from_slice::<Value>(&bytes) {
@@ -305,10 +310,108 @@ fn read_dir_with_stems(data_dir: &str, family: &str) -> Vec<(String, Value)> {
     out
 }
 
-/// Load the room stored AT `stem.json` (by filename, not content id) — the trusted key.
+/// Pin a record-family directory (O_DIRECTORY|O_NOFOLLOW) — the walk root for every strict
+/// slot inspection and the no-replace link commit below (#72 round 19 findings 1+3).
+fn open_family_dir_pinned(data_dir: &str, family: &str) -> std::io::Result<std::fs::File> {
+    use std::os::unix::fs::OpenOptionsExt;
+    std::fs::OpenOptions::new()
+        .read(true)
+        .custom_flags(libc::O_DIRECTORY | libc::O_NOFOLLOW | libc::O_CLOEXEC)
+        .open(std::path::Path::new(data_dir).join(family))
+}
+
+fn slot_cstr(name: &str) -> std::io::Result<std::ffi::CString> {
+    std::ffi::CString::new(name)
+        .map_err(|_| std::io::Error::new(std::io::ErrorKind::InvalidInput, "NUL in slot name"))
+}
+
+/// STRICT slot inspection (#72 round 19 finding 3): Ok(Some((fd, bytes))) = a REGULAR file
+/// occupant opened O_NOFOLLOW and read; Ok(None) = definitively ABSENT (ENOENT only). EVERY
+/// other outcome — unreadable occupant, symlink (ELOOP), FIFO/device — is Err: the caller must
+/// REFUSE, never treat the slot as empty.
+fn read_slot_strict(dir: &std::fs::File, name: &str) -> std::io::Result<Option<(std::fs::File, Vec<u8>)>> {
+    use std::io::Read;
+    use std::os::unix::io::{AsRawFd, FromRawFd};
+    let c = slot_cstr(name)?;
+    let fd = unsafe {
+        libc::openat(dir.as_raw_fd(), c.as_ptr(), libc::O_RDONLY | libc::O_NOFOLLOW | libc::O_NONBLOCK | libc::O_CLOEXEC)
+    };
+    if fd < 0 {
+        let e = std::io::Error::last_os_error();
+        if e.kind() == std::io::ErrorKind::NotFound {
+            return Ok(None); // ONLY ENOENT means empty
+        }
+        return Err(e);
+    }
+    let mut f = unsafe { std::fs::File::from_raw_fd(fd) };
+    if !f.metadata()?.is_file() {
+        return Err(std::io::Error::new(std::io::ErrorKind::InvalidData, format!("slot '{name}' is occupied by a non-regular file")));
+    }
+    let mut bytes = Vec::new();
+    f.read_to_end(&mut bytes)?;
+    Ok(Some((f, bytes)))
+}
+
+/// O_CREAT|O_EXCL|O_NOFOLLOW create relative to the pinned dir (temp sibling for the
+/// no-replace commit).
+fn create_excl_at(dir: &std::fs::File, name: &str) -> std::io::Result<std::fs::File> {
+    use std::os::unix::io::{AsRawFd, FromRawFd};
+    let c = slot_cstr(name)?;
+    let fd = unsafe {
+        libc::openat(dir.as_raw_fd(), c.as_ptr(), libc::O_WRONLY | libc::O_CREAT | libc::O_EXCL | libc::O_NOFOLLOW | libc::O_CLOEXEC, 0o644 as libc::c_uint)
+    };
+    if fd < 0 {
+        return Err(std::io::Error::last_os_error());
+    }
+    Ok(unsafe { std::fs::File::from_raw_fd(fd) })
+}
+
+/// linkat within the pinned dir — the ATOMIC NO-REPLACE commit: unlike rename, link fails with
+/// EEXIST if ANY occupant appeared between inspection and commit (#72 round 19 finding 3).
+fn link_no_replace_at(dir: &std::fs::File, from: &str, to: &str) -> std::io::Result<()> {
+    use std::os::unix::io::AsRawFd;
+    let (cf, ct) = (slot_cstr(from)?, slot_cstr(to)?);
+    if unsafe { libc::linkat(dir.as_raw_fd(), cf.as_ptr(), dir.as_raw_fd(), ct.as_ptr(), 0) } != 0 {
+        return Err(std::io::Error::last_os_error());
+    }
+    Ok(())
+}
+
+fn unlink_at(dir: &std::fs::File, name: &str) -> std::io::Result<()> {
+    use std::os::unix::io::AsRawFd;
+    let c = slot_cstr(name)?;
+    if unsafe { libc::unlinkat(dir.as_raw_fd(), c.as_ptr(), 0) } != 0 {
+        return Err(std::io::Error::last_os_error());
+    }
+    Ok(())
+}
+
+/// Strict ROOM slot read (#72 round 19 finding 1): the stem is validated CANONICAL before any
+/// filesystem access — a URL-derived `../…` stem never reaches a path join — and the read is a
+/// pinned no-follow open. Ok(None) = definitively absent; Err = unreadable / symlink /
+/// non-regular / non-JSON occupant — WRITE-side callers refuse, read paths map Err to invisible.
+fn read_room_slot_strict(data_dir: &str, stem: &str) -> Result<Option<Value>, String> {
+    if !is_canonical_room_tail(stem) {
+        return Err(format!("non-canonical room stem '{stem}' — refused before any filesystem access"));
+    }
+    let dir = match open_family_dir_pinned(data_dir, ROOM_DIR) {
+        Ok(d) => d,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(e) => return Err(format!("room directory unavailable ({e})")),
+    };
+    match read_slot_strict(&dir, &format!("{stem}.json")) {
+        Ok(None) => Ok(None),
+        Ok(Some((_f, bytes))) => serde_json::from_slice::<Value>(&bytes)
+            .map(Some)
+            .map_err(|e| format!("room slot '{stem}' holds non-JSON content ({e})")),
+        Err(e) => Err(format!("room slot '{stem}' is occupied but not readable as a regular file ({e})")),
+    }
+}
+
+/// Load the room stored AT `stem.json` (by filename, not content id) — the trusted key. Reads
+/// are strict (canonical stem, pinned no-follow); anything questionable is simply invisible.
 fn load_room_file(data_dir: &str, stem: &str) -> Option<Value> {
-    let path = std::path::Path::new(data_dir).join(ROOM_DIR).join(format!("{stem}.json"));
-    std::fs::read(path).ok().and_then(|b| serde_json::from_slice::<Value>(&b).ok())
+    read_room_slot_strict(data_dir, stem).ok().flatten()
 }
 
 /// Plane-owned + identity fields the creation constructor sets itself — stripped from a sealed
@@ -677,29 +780,80 @@ fn persist_atomic(data_dir: &str, family: &str, record_id: &str, record: &Value)
     super::goalrun_routes::persist_record_durable(data_dir, family, record_id, record)
 }
 
-/// APPEND-ONLY, no-clobber durable receipt writer (#72 round 18 finding 1): receipts are
-/// evidence — the exact target slot is inspected and only BYTE-IDENTICAL existing content is
-/// accepted (idempotent replay). A DIFFERENT occupant is refused typed, never overwritten.
-/// Callers hold ROOM_MUTATION_LOCK, so the check-then-write is race-free within the process.
+/// APPEND-ONLY, no-clobber, DURABILITY-HONEST receipt writer (#72 rounds 18-19). The exact
+/// target slot is inspected through a PINNED no-follow directory fd:
+///   - only ENOENT means empty (#72 round 19 finding 3) — an unreadable occupant, a symlink,
+///     or a non-regular file REFUSES; evidence is never replaced on uncertainty;
+///   - an empty slot commits via a hidden temp sibling (O_CREAT|O_EXCL, fsynced) + linkat —
+///     an ATOMIC NO-REPLACE: an occupant appearing between inspection and commit surfaces as
+///     EEXIST/conflict, where rename would silently replace it;
+///   - a byte-identical occupant is RE-FSYNCED (file + directory) before being reported
+///     durable (#72 round 19 finding 2) — an earlier unconfirmed rename may not be on disk;
+///   - the durability outcome is PRESERVED (#72 round 19 finding 2): visible-but-unconfirmed
+///     returns `outcome_room_receipt_durability_unconfirmed`, never Ok — terminal state and
+///     intent consumption require a DURABLE receipt.
 /// Every receipt writer — create, transition, attach, and both boot completers — uses THIS.
 fn persist_receipt_no_clobber(data_dir: &str, tail: &str, receipt: &Value) -> Result<(), VErr> {
+    use std::io::Write;
     if !is_normalization_safe(tail) {
         return Err(verr("outcome_room_receipt_key_invalid", format!("receipt tail '{tail}' is not filesystem-safe")));
     }
-    let path = std::path::Path::new(data_dir).join(ROOM_RECEIPT_DIR).join(format!("{tail}.json"));
-    if let Ok(existing) = std::fs::read(&path) {
-        // The on-disk form is exactly what the durable writer emits (pretty JSON).
-        if existing == serde_json::to_vec_pretty(receipt).unwrap_or_default() {
-            return Ok(()); // idempotent — already durable, byte-identical
-        }
-        return Err(verr("outcome_room_receipt_conflict", format!("the receipt slot '{tail}' already holds DIFFERENT evidence — receipts are append-only and never overwritten")));
+    let bytes = serde_json::to_vec_pretty(receipt).unwrap_or_default();
+    if let Err(e) = std::fs::create_dir_all(std::path::Path::new(data_dir).join(ROOM_RECEIPT_DIR)) {
+        return Err(verr("outcome_room_receipt_persist_failed", format!("receipt directory unavailable ({e}) — nothing was written")));
     }
-    match persist_atomic(data_dir, ROOM_RECEIPT_DIR, tail, receipt) {
-        Ok(()) => Ok(()),
-        // A visible-but-unconfirmed receipt is written (idempotent on restart); a not-committed
-        // write is a durability failure the caller surfaces.
-        Err(f) if f.visible() => Ok(()),
-        Err(f) => Err(verr("outcome_room_receipt_persist_failed", f.detail())),
+    let dir = match open_family_dir_pinned(data_dir, ROOM_RECEIPT_DIR) {
+        Ok(d) => d,
+        Err(e) => return Err(verr("outcome_room_receipt_persist_failed", format!("receipt directory pin failed ({e}) — nothing was written"))),
+    };
+    let target = format!("{tail}.json");
+    let confirm_dir_durable = |dir: &std::fs::File| -> Result<(), VErr> {
+        // DELIBERATE TEST FAULT POINT (same contract as the typed durable writer): absent env =
+        // no effect; the receipt is already VISIBLE when this fires.
+        if std::env::var("IOI_TEST_FORCE_DIRSYNC_UNCONFIRMED").ok().as_deref() == Some(ROOM_RECEIPT_DIR) {
+            return Err(verr("outcome_room_receipt_durability_unconfirmed", "test-forced directory-sync failure — the receipt is VISIBLE but its durability is unconfirmed".to_string()));
+        }
+        dir.sync_all().map_err(|e| verr("outcome_room_receipt_durability_unconfirmed", format!("receipt directory sync failed ({e}) — the receipt is VISIBLE but its durability is unconfirmed")))
+    };
+    match read_slot_strict(&dir, &target) {
+        Err(e) => Err(verr("outcome_room_receipt_slot_unreadable", format!("the receipt slot '{tail}' is occupied but NOT readable as a regular file ({e}) — refused; evidence is never replaced on uncertainty"))),
+        Ok(Some((occupant, existing))) => {
+            if existing != bytes {
+                return Err(verr("outcome_room_receipt_conflict", format!("the receipt slot '{tail}' already holds DIFFERENT evidence — receipts are append-only and never overwritten")));
+            }
+            // Byte-identical replay: re-fsync BEFORE reporting durable (#72 round 19 finding 2).
+            if let Err(e) = occupant.sync_all() {
+                return Err(verr("outcome_room_receipt_durability_unconfirmed", format!("receipt re-sync failed ({e}) — the receipt is VISIBLE but its durability is unconfirmed")));
+            }
+            confirm_dir_durable(&dir)
+        }
+        Ok(None) => {
+            // Hidden temp sibling (no .json extension — invisible to readers); a crash leftover
+            // from a prior attempt is cleared first, then recreated O_EXCL.
+            let tmp = format!(".nc-{tail}.tmp");
+            let _ = unlink_at(&dir, &tmp);
+            let write = (|| -> std::io::Result<()> {
+                let mut f = create_excl_at(&dir, &tmp)?;
+                f.write_all(&bytes)?;
+                f.sync_all()
+            })();
+            if let Err(e) = write {
+                let _ = unlink_at(&dir, &tmp);
+                return Err(verr("outcome_room_receipt_persist_failed", format!("receipt staging failed ({e}) — nothing is visible")));
+            }
+            if let Err(e) = link_no_replace_at(&dir, &tmp, &target) {
+                let _ = unlink_at(&dir, &tmp);
+                if e.kind() == std::io::ErrorKind::AlreadyExists {
+                    return Err(verr("outcome_room_receipt_conflict", format!("the receipt slot '{tail}' was occupied between inspection and commit — refused atomically (no-replace), nothing overwritten")));
+                }
+                return Err(verr("outcome_room_receipt_persist_failed", format!("receipt commit failed ({e}) — nothing is visible")));
+            }
+            let _ = unlink_at(&dir, &tmp);
+            // The receipt is VISIBLE from here — dual-write parity fires on visibility, exactly
+            // like the typed durable writer.
+            super::substrate_store::dual_write(data_dir, ROOM_RECEIPT_DIR, tail, receipt);
+            confirm_dir_durable(&dir)
+        }
     }
 }
 
@@ -723,7 +877,10 @@ fn load_room(data_dir: &str, id: &str) -> Option<Value> {
 fn list_rooms_exact(data_dir: &str) -> Vec<Value> {
     read_dir_with_stems(data_dir, ROOM_DIR)
         .into_iter()
-        .filter(|(stem, room)| room.get("outcome_room_id").and_then(|v| v.as_str()) == Some(format!("outcome-room://{stem}").as_str()))
+        .filter(|(stem, room)| {
+            is_canonical_room_tail(stem)
+                && room.get("outcome_room_id").and_then(|v| v.as_str()) == Some(format!("outcome-room://{stem}").as_str())
+        })
         .map(|(_, room)| room)
         .collect()
 }
@@ -785,7 +942,11 @@ fn finalize_room_create(
         }
     }
     if let Err((code, msg)) = persist_receipt_no_clobber(data_dir, receipt_id, receipt) {
-        return Err(verr(if code == "outcome_room_receipt_conflict" { "outcome_room_receipt_conflict" } else { "outcome_room_admission_pending_convergence" }, format!("the admission receipt did not commit ({code}: {msg}); the DURABLE intent is retained internally — a restart re-persists the sealed receipt (append-only) and admits this same room; do not re-create")));
+        // Occupied/unreadable slots surface their own code; everything else — including
+        // VISIBLE-BUT-UNCONFIRMED (#72 round 19 finding 2) — is pending convergence: the room is
+        // NOT committed and the intent is NOT consumed until the receipt is DURABLE.
+        let ecode = if code == "outcome_room_receipt_conflict" || code == "outcome_room_receipt_slot_unreadable" { code.as_str() } else { "outcome_room_admission_pending_convergence" };
+        return Err(verr(ecode, format!("the admission receipt is not durably committed ({code}: {msg}); the DURABLE intent is retained internally and the room is NOT in the registry — a restart converges this same admission; do not re-create")));
     }
     match persist_atomic(data_dir, ROOM_DIR, room_tail, record) {
         Ok(()) => {
@@ -845,12 +1006,18 @@ fn finalize_room_mutation(
     }
     match persist_receipt_no_clobber(data_dir, receipt_id, receipt) {
         Ok(()) => {}
-        Err((code, msg)) if code == "outcome_room_receipt_conflict" => {
-            // A foreign occupant at the receipt slot — roll the intent back exactly and refuse
-            // (append-only; never overwrite existing evidence).
+        Err((code, msg)) if code == "outcome_room_receipt_durability_unconfirmed" => {
+            // The receipt is VISIBLE and possibly durable (#72 round 19 finding 2) — rolling
+            // the intent back would orphan it; the intent is RETAINED and a restart re-fsyncs
+            // the byte-identical receipt, then applies the transition.
+            return Err(verr("outcome_room_mutation_pending_convergence", format!("{msg}; the DURABLE intent is retained with the room still showing its PRIOR state — a restart confirms the sealed receipt and applies the transition")));
+        }
+        Err((code, msg)) if code == "outcome_room_receipt_conflict" || code == "outcome_room_receipt_slot_unreadable" => {
+            // A foreign/unreadable occupant at the receipt slot — roll the intent back exactly
+            // and refuse (append-only; never overwrite, never replace on uncertainty).
             return match persist_atomic(data_dir, ROOM_DIR, room_tail, prior) {
-                Ok(()) => Err(verr("outcome_room_receipt_conflict", format!("{msg}; the intent was rolled back EXACTLY — nothing changed"))),
-                Err(_) => Err(verr("outcome_room_receipt_conflict", format!("{msg} AND the intent rollback did not commit — manual repair required"))),
+                Ok(()) => Err(verr(&code, format!("{msg}; the intent was rolled back EXACTLY — nothing changed"))),
+                Err(_) => Err(verr(&code, format!("{msg} AND the intent rollback did not commit — manual repair required"))),
             };
         }
         Err((_code, msg)) => {
@@ -923,7 +1090,16 @@ pub(crate) fn complete_room_intents(data_dir: &str) {
         // the receipt. A different/tampered occupant is refused, never receipted over.
         let mut same_room_already_admitted = false;
         if kind == "admission" {
-            if let Some(existing_room) = load_room_file(data_dir, &room_tail) {
+            // STRICT slot inspection (#72 round 19 finding 3): an unreadable/symlinked/non-JSON
+            // occupant at the room slot is REFUSED — only definitively-absent proceeds to admit.
+            let existing_slot = match read_room_slot_strict(data_dir, &room_tail) {
+                Ok(v) => v,
+                Err(why) => {
+                    eprintln!("outcome-room admission completer: the room slot '{room_tail}' cannot be inspected ({why}) — refused, never replaced on uncertainty; intent retained for manual repair");
+                    continue;
+                }
+            };
+            if let Some(existing_room) = existing_slot {
                 // SAME-ADMISSION PROOF (#72 rounds 12-14): anchor equality alone does not prove
                 // identity, and NEITHER does a receipt-self-declared hash scope — a malformed
                 // intent could widen `hash_scope_excludes` to exclude `objective`/
@@ -1082,11 +1258,12 @@ fn finalize_attach(
             };
         }
     }
-    // (3) Receipt — DURABLE, APPEND-ONLY; any failure keeps the intent for replay (never
-    // unstamp, never delete, never overwrite existing evidence).
+    // (3) Receipt — DURABLE, APPEND-ONLY; any failure — including VISIBLE-BUT-UNCONFIRMED (#72
+    // round 19 finding 2) — keeps the intent for replay (never unstamp, never delete, never
+    // overwrite existing evidence); membership does not advance until the receipt is DURABLE.
     if let Err((code, msg)) = persist_receipt_no_clobber(data_dir, receipt_id, receipt) {
-        let ecode = if code == "outcome_room_receipt_conflict" { "outcome_room_receipt_conflict" } else { "outcome_room_attach_pending_convergence" };
-        return Err(verr(ecode, format!("the attach receipt did not commit ({code}: {msg}); the DURABLE intent and the stamp are retained — a restart re-persists the sealed receipt (append-only) and completes the membership")));
+        let ecode = if code == "outcome_room_receipt_conflict" || code == "outcome_room_receipt_slot_unreadable" { code.as_str() } else { "outcome_room_attach_pending_convergence" };
+        return Err(verr(ecode, format!("the attach receipt is not durably committed ({code}: {msg}); the DURABLE intent and the stamp are retained — a restart converges the sealed receipt (append-only) and completes the membership")));
     }
     // (4) TERMINAL: membership in, intent consumed — visible-unconfirmed tolerated (a
     // crash-revert restores the intent, which replays forward).
@@ -1949,6 +2126,76 @@ mod outcome_room_tests {
         let room = load_room(data_dir, "outcome-room://or_a2").unwrap();
         assert_eq!(room["status"], json!("paused"), "the newer legitimate state is NOT overwritten by the replay");
         assert!(read_record_dir(data_dir, ADMISSION_INTENT_DIR).is_empty(), "the intent was recognized as consumed and dropped");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn room_reads_refuse_path_traversal_stems() {
+        // #72 round 19 finding 1: a URL-derived `../…` stem must never reach a path join — a
+        // matching record planted OUTSIDE the room directory is invisible to every read path.
+        let dir = temp_dir("traversal");
+        let data_dir = dir.to_str().unwrap();
+        let planted = json!({ "outcome_room_id": "outcome-room://../goal-runs/gr_esc", "status": "open", "schema_version": ROOM_SCHEMA });
+        std::fs::create_dir_all(dir.join("goal-runs")).unwrap();
+        std::fs::write(dir.join("goal-runs/gr_esc.json"), serde_json::to_vec_pretty(&planted).unwrap()).unwrap();
+        assert!(load_room(data_dir, "outcome-room://../goal-runs/gr_esc").is_none(), "traversal id refused BEFORE any filesystem access");
+        assert!(resolve_open_room(data_dir, "outcome-room://../goal-runs/gr_esc").is_none(), "cross-plane binding resolution refuses the traversal id");
+        assert!(load_room_file(data_dir, "../goal-runs/gr_esc").is_none(), "non-canonical stems never reach a path join");
+        // A SYMLINKED room slot is equally invisible (pinned no-follow read).
+        let (_i, room, _rid, _rcpt) = canonical_admission("or_a0");
+        std::fs::create_dir_all(dir.join(ROOM_DIR)).unwrap();
+        std::fs::write(dir.join(ROOM_DIR).join("real.json"), serde_json::to_vec_pretty(&room).unwrap()).unwrap();
+        std::os::unix::fs::symlink("real.json", dir.join(ROOM_DIR).join("or_a0.json")).unwrap();
+        assert!(load_room(data_dir, "outcome-room://or_a0").is_none(), "a symlinked room slot is refused (O_NOFOLLOW)");
+        assert!(sorted_newest(data_dir).is_empty(), "neither the symlink nor the non-canonical stem is listed");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn receipt_writer_refuses_unreadable_and_symlink_occupants() {
+        // #72 round 19 finding 3: only ENOENT means empty — an unreadable (mode 000) or
+        // symlinked occupant REFUSES; nothing is overwritten. (Runs as non-root: mode 000
+        // genuinely blocks the open.)
+        use std::os::unix::fs::PermissionsExt;
+        let dir = temp_dir("strict-slot");
+        let data_dir = dir.to_str().unwrap();
+        let foreign = json!({ "foreign": "evidence" });
+        persist_atomic(data_dir, ROOM_RECEIPT_DIR, "orr_aa", &foreign).unwrap();
+        let slot = dir.join(ROOM_RECEIPT_DIR).join("orr_aa.json");
+        std::fs::set_permissions(&slot, std::fs::Permissions::from_mode(0o000)).unwrap();
+        let ours = json!({ "receipt_id": "receipt://orr_aa", "mine": true });
+        let (code, _) = persist_receipt_no_clobber(data_dir, "orr_aa", &ours).unwrap_err();
+        assert_eq!(code, "outcome_room_receipt_slot_unreadable", "an unreadable occupant is REFUSED, never treated as empty");
+        std::fs::set_permissions(&slot, std::fs::Permissions::from_mode(0o644)).unwrap();
+        let on_disk: Value = serde_json::from_slice(&std::fs::read(&slot).unwrap()).unwrap();
+        assert_eq!(on_disk, foreign, "the unreadable occupant was NOT overwritten");
+        // Symlinked occupant: refused at the open (O_NOFOLLOW), the link survives as a link.
+        std::os::unix::fs::symlink("orr_aa.json", dir.join(ROOM_RECEIPT_DIR).join("orr_ab.json")).unwrap();
+        let (code2, _) = persist_receipt_no_clobber(data_dir, "orr_ab", &ours).unwrap_err();
+        assert_eq!(code2, "outcome_room_receipt_slot_unreadable");
+        assert!(std::fs::symlink_metadata(dir.join(ROOM_RECEIPT_DIR).join("orr_ab.json")).unwrap().file_type().is_symlink(), "the symlink occupant was NOT replaced");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn admission_completer_refuses_an_unreadable_receipt_slot() {
+        // #72 round 19 finding 3, end-to-end: a mode-000 occupant at the sealed receipt slot
+        // blocks admission at boot — occupant untouched, room absent, intent retained.
+        use std::os::unix::fs::PermissionsExt;
+        let dir = temp_dir("slot-000");
+        let data_dir = dir.to_str().unwrap();
+        let (intent, _room, rid, _rcpt) = canonical_admission("or_a1");
+        let foreign = json!({ "foreign": "evidence", "sentinel": "KEEP" });
+        persist_atomic(data_dir, ROOM_RECEIPT_DIR, &rid, &foreign).unwrap();
+        let slot = dir.join(ROOM_RECEIPT_DIR).join(format!("{rid}.json"));
+        std::fs::set_permissions(&slot, std::fs::Permissions::from_mode(0o000)).unwrap();
+        persist_atomic(data_dir, ADMISSION_INTENT_DIR, "or_a1", &intent).unwrap();
+        complete_room_intents(data_dir);
+        assert!(load_room_file(data_dir, "or_a1").is_none(), "the room was NOT admitted over an unreadable receipt slot");
+        assert_eq!(read_record_dir(data_dir, ADMISSION_INTENT_DIR).len(), 1, "intent retained for manual repair");
+        std::fs::set_permissions(&slot, std::fs::Permissions::from_mode(0o644)).unwrap();
+        let on_disk: Value = serde_json::from_slice(&std::fs::read(&slot).unwrap()).unwrap();
+        assert_eq!(on_disk, foreign, "the unreadable occupant survived byte-for-byte");
         let _ = std::fs::remove_dir_all(&dir);
     }
 
