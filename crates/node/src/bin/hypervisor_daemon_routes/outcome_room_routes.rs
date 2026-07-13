@@ -497,9 +497,35 @@ pub(crate) fn complete_room_intents(data_dir: &str) {
         let mut same_room_already_admitted = false;
         if kind == "admission" {
             if let Some(existing_room) = load_room(data_dir, &room_id) {
+                // SAME-ADMISSION PROOF (#72 round 12 review): anchor equality alone does not
+                // prove identity — a tampered room can keep the anchor while altering its
+                // declaration. The existing room is the same admission ONLY when
+                //   (a) BOTH its `admission_receipt_ref` and its trail anchor equal the sealed
+                //       receipt ref,
+                //   (b) the sealed receipt actually describes a room admission (type, profile,
+                //       subject), and
+                //   (c) the existing room's IMMUTABLE DECLARATION recomputes to the receipt's
+                //       output_hash under the receipt's own hash-scope excludes (legitimate
+                //       transitions only ever touch excluded fields).
+                // Any mismatch refuses with room, receipt family, and intent byte-unchanged.
+                let sealed_ref = receipt.get("receipt_ref").cloned().unwrap_or(Value::Null);
                 let anchor = |r: &Value| r.pointer("/admission_and_replay_refs/0").cloned().unwrap_or(Value::Null);
-                if anchor(&existing_room).is_null() || anchor(&existing_room) != anchor(&final_room) {
-                    eprintln!("outcome-room admission completer: a DIFFERENT room already occupies '{room_id}' — nothing was written (room, receipts, and intent are byte-unchanged); left for manual repair");
+                let refs_ok = !sealed_ref.is_null()
+                    && anchor(&existing_room) == sealed_ref
+                    && existing_room.get("admission_receipt_ref") == Some(&sealed_ref);
+                let receipt_shape_ok = receipt.get("receipt_type").and_then(Value::as_str) == Some("OutcomeRoomAdmissionReceipt")
+                    && receipt.get("receipt_profile_ref").and_then(Value::as_str) == Some(format!("schema://{ADMISSION_RECEIPT_SCHEMA}").as_str())
+                    && receipt.get("subject_ref").and_then(Value::as_str) == Some(room_id.as_str());
+                let excludes: Vec<String> = receipt
+                    .get("hash_scope_excludes")
+                    .and_then(Value::as_array)
+                    .map(|a| a.iter().filter_map(Value::as_str).map(str::to_string).collect())
+                    .unwrap_or_default();
+                let exclude_refs: Vec<&str> = excludes.iter().map(String::as_str).collect();
+                let declaration_ok = receipt.get("output_hash").and_then(Value::as_str)
+                    == Some(record_output_hash(&existing_room, &exclude_refs).as_str());
+                if !(refs_ok && receipt_shape_ok && declaration_ok) {
+                    eprintln!("outcome-room admission completer: the room at '{room_id}' does NOT prove this admission (refs_ok={refs_ok} receipt_shape_ok={receipt_shape_ok} declaration_ok={declaration_ok}) — nothing was written (room, receipts, and intent are byte-unchanged); left for manual repair");
                     continue;
                 }
                 same_room_already_admitted = true;
@@ -1435,8 +1461,12 @@ mod outcome_room_tests {
         // ANCHOR (first trail entry) and consumed without overwriting the newer state.
         let dir = temp_dir("admission-anchor");
         let data_dir = dir.to_str().unwrap();
-        let (rid, receipt) = build_room_receipt(ADMISSION_RECEIPT_SCHEMA, "OutcomeRoomAdmissionReceipt", "orr", "outcome-room://or_a2", "room_admitted", json!({}), vec![], "sha256:x".into(), ROOM_HASH_EXCLUDES, "admitted_not_verified", "n", "2026-01-01T00:00:00Z");
-        let final_room = json!({ "outcome_room_id": "outcome-room://or_a2", "status": "open", "revision": 1, "member_goal_run_refs": [], "admission_and_replay_refs": [receipt["receipt_ref"]], "updated_at": "2026-01-01T00:00:00Z" });
+        // A fixture that satisfies the FULL identity proof (#72 round 13): declaration room,
+        // real output_hash over the declaration scope, admission_receipt_ref set on the room.
+        let mut final_room = json!({ "outcome_room_id": "outcome-room://or_a2", "objective": "original objective", "owner_or_sponsor_ref": "org://original", "status": "open", "revision": 1, "member_goal_run_refs": [], "updated_at": "2026-01-01T00:00:00Z" });
+        let (rid, receipt) = build_room_receipt(ADMISSION_RECEIPT_SCHEMA, "OutcomeRoomAdmissionReceipt", "orr", "outcome-room://or_a2", "room_admitted", json!({}), vec![], record_output_hash(&final_room, ROOM_HASH_EXCLUDES), ROOM_HASH_EXCLUDES, "admitted_not_verified", "n", "2026-01-01T00:00:00Z");
+        final_room["admission_receipt_ref"] = receipt["receipt_ref"].clone();
+        final_room["admission_and_replay_refs"] = json!([receipt["receipt_ref"]]);
         let intent = json!({
             "room_tail": "or_a2", "room_ref": "outcome-room://or_a2",
             "receipt_id": rid, "receipt": receipt, "receipt_hash": record_output_hash(&receipt, &[]),
@@ -1444,7 +1474,8 @@ mod outcome_room_tests {
             "at": "2026-01-01T00:00:00Z",
         });
         persist_atomic(data_dir, ADMISSION_INTENT_DIR, "or_a2", &intent).unwrap();
-        // The room already converged AND was later paused (same anchor, newer content).
+        // The room already converged AND was later paused (same anchor, newer content — but
+        // ONLY hash-excluded fields changed, so the declaration still proves the admission).
         let mut mutated = final_room.clone();
         mutated["status"] = json!("paused");
         mutated["revision"] = json!(2);
@@ -1454,6 +1485,38 @@ mod outcome_room_tests {
         let room = load_room(data_dir, "outcome-room://or_a2").unwrap();
         assert_eq!(room["status"], json!("paused"), "the newer legitimate state is NOT overwritten by the replay");
         assert!(read_record_dir(data_dir, ADMISSION_INTENT_DIR).is_empty(), "the intent was recognized as consumed and dropped");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn admission_replay_refuses_a_tampered_declaration_behind_the_same_anchor() {
+        // #72 round 13 — the reviewer's exact reproduction: same anchor, but `objective` and
+        // `owner_or_sponsor_ref` (immutable declaration fields) were altered. The replay must
+        // refuse with room, receipt family, and intent byte-for-byte unchanged.
+        let dir = temp_dir("admission-tamper");
+        let data_dir = dir.to_str().unwrap();
+        let mut final_room = json!({ "outcome_room_id": "outcome-room://or_tp", "objective": "original objective", "owner_or_sponsor_ref": "org://original", "status": "open", "revision": 1, "member_goal_run_refs": [], "updated_at": "2026-01-01T00:00:00Z" });
+        let (rid, receipt) = build_room_receipt(ADMISSION_RECEIPT_SCHEMA, "OutcomeRoomAdmissionReceipt", "orr", "outcome-room://or_tp", "room_admitted", json!({}), vec![], record_output_hash(&final_room, ROOM_HASH_EXCLUDES), ROOM_HASH_EXCLUDES, "admitted_not_verified", "n", "2026-01-01T00:00:00Z");
+        final_room["admission_receipt_ref"] = receipt["receipt_ref"].clone();
+        final_room["admission_and_replay_refs"] = json!([receipt["receipt_ref"]]);
+        let intent = json!({
+            "room_tail": "or_tp", "room_ref": "outcome-room://or_tp",
+            "receipt_id": rid, "receipt": receipt, "receipt_hash": record_output_hash(&receipt, &[]),
+            "final_room": final_room, "final_room_hash": record_output_hash(&final_room, &[]),
+            "at": "2026-01-01T00:00:00Z",
+        });
+        persist_atomic(data_dir, ADMISSION_INTENT_DIR, "or_tp", &intent).unwrap();
+        // Tampered occupant: SAME anchor + SAME admission_receipt_ref, altered declaration.
+        let mut tampered = final_room.clone();
+        tampered["objective"] = json!("TAMPERED objective");
+        tampered["owner_or_sponsor_ref"] = json!("org://attacker");
+        persist_atomic(data_dir, ROOM_DIR, "or_tp", &tampered).unwrap();
+        let tampered_bytes = serde_json::to_vec(&load_room(data_dir, "outcome-room://or_tp").unwrap()).unwrap();
+        complete_room_intents(data_dir);
+        let after = load_room(data_dir, "outcome-room://or_tp").unwrap();
+        assert_eq!(serde_json::to_vec(&after).unwrap(), tampered_bytes, "the room is byte-for-byte unchanged — neither receipted over nor 'repaired'");
+        assert!(read_record_dir(data_dir, ROOM_RECEIPT_DIR).is_empty(), "NO receipt was persisted for an admission the declaration does not prove");
+        assert_eq!(read_record_dir(data_dir, ADMISSION_INTENT_DIR).len(), 1, "the intent is retained for manual repair");
         let _ = std::fs::remove_dir_all(&dir);
     }
 
