@@ -335,6 +335,9 @@ async fn async_main() -> anyhow::Result<()> {
     // durable recovery intent seals the receipt and release facts, so restart completes it
     // FORWARD deterministically (receipt, then release) instead of guessing.
     goalrun_routes::complete_recovery_intents(&data_dir);
+    // #72 round 9 — converge any attach intent a crash interrupted: re-stamp, re-persist the
+    // sealed receipt (byte-exact), terminal membership — or roll back if the run vanished.
+    outcome_room_routes::complete_attach_intents(&data_dir);
 
     let stream_frame_delay_ms = std::env::var("IOI_DETERMINISTIC_PROVIDER_STREAM_DELAY_MS")
         .ok()

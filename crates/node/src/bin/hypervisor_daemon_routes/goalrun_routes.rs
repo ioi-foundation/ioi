@@ -53,7 +53,7 @@ pub(crate) static GOAL_RUN_MUTATION_LOCK: Mutex<()> = Mutex::new(());
 /// Distinct durable-persist failure OUTCOMES (#72 round 7 finding 1): the two failure classes
 /// have OPPOSITE truthful handling and must never be conflated.
 #[derive(Debug)]
-enum PersistFailure {
+pub(crate) enum PersistFailure {
     /// The failure happened before or at the rename: the OLD record provably survives, so
     /// "nothing changed" cleanup/rollback language is truthful.
     NotCommitted(std::io::Error),
@@ -65,10 +65,10 @@ enum PersistFailure {
 }
 
 impl PersistFailure {
-    fn visible(&self) -> bool {
+    pub(crate) fn visible(&self) -> bool {
         matches!(self, PersistFailure::RenamedDurabilityUnconfirmed(_))
     }
-    fn detail(&self) -> String {
+    pub(crate) fn detail(&self) -> String {
         match self {
             PersistFailure::NotCommitted(e) => format!("not committed ({e}); the prior record is intact"),
             PersistFailure::RenamedDurabilityUnconfirmed(e) => format!("RENAMED but durability unconfirmed ({e}); the new record is VISIBLE and may already be durable"),
@@ -82,7 +82,7 @@ impl PersistFailure {
 /// `RenamedDurabilityUnconfirmed` (new record visible, durability unknown) so callers can model
 /// the truth instead of pretending nothing happened. A NEWLY CREATED family directory is made
 /// durable by fsyncing its parent before any record lands inside it.
-fn persist_record_durable(data_dir: &str, family: &str, record_id: &str, record: &Value) -> Result<(), PersistFailure> {
+pub(crate) fn persist_record_durable(data_dir: &str, family: &str, record_id: &str, record: &Value) -> Result<(), PersistFailure> {
     use std::io::Write;
     use PersistFailure::{NotCommitted, RenamedDurabilityUnconfirmed};
     // Parity with persist_record (#72 round 3): promoted families have exactly one write path;
@@ -1471,9 +1471,19 @@ pub(crate) async fn handle_goal_run_start(
             );
         },
     ) {
-        // FORWARD on both outcomes (#72 round 8 finding 1): a visible-but-unconfirmed
-        // reservation proceeds — if a crash drops it, every later token-CAS fails closed.
-        Ok(outcome) => outcome.into_record(),
+        // DURABLE REQUIRED before any authority or effect boundary (#72 round 9 finding 1): a
+        // wallet crossing or harness effect must never rest on a reservation a crash can
+        // un-happen — the later token-CAS would prevent finalization but could not undo the
+        // external work nor stop a duplicate retry. The visible reservation stays for the
+        // token-addressed recovery transition; if the crash loses it, nothing happened at all.
+        Ok(MutationOutcome::Durable(run)) => run,
+        Ok(MutationOutcome::VisibleUnconfirmed(_, note)) => {
+            return bad(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "goal_run_reservation_durability_unconfirmed",
+                &format!("the start reservation is visible but not durably confirmed ({note}); NO wallet, harness, or filesystem effect was performed — release the visible reservation via the token-addressed lifecycle-recovery transition and retry"),
+            );
+        }
         Err((code, msg)) => return bad(seam_status(&code), &code, &msg),
     };
     let goal_ref = text(&run, "goal_ref").to_string();
@@ -1851,9 +1861,17 @@ pub(crate) async fn handle_goal_run_reconcile(
             );
         },
     ) {
-        // FORWARD on both outcomes (#72 round 8 finding 1): a visible-but-unconfirmed
-        // reservation proceeds — if a crash drops it, every later token-CAS fails closed.
-        Ok(outcome) => outcome.into_record(),
+        // DURABLE REQUIRED before any effect boundary (#72 round 9 finding 1): reconcile writes
+        // receipts, records, and target files — none may rest on a crash-revertible
+        // reservation, or a lost rename re-opens the one-shot to a duplicate retry.
+        Ok(MutationOutcome::Durable(run)) => run,
+        Ok(MutationOutcome::VisibleUnconfirmed(_, note)) => {
+            return bad(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "goal_run_reservation_durability_unconfirmed",
+                &format!("the reconcile reservation is visible but not durably confirmed ({note}); NO receipt, record, or target effect was performed — release the visible reservation via the token-addressed lifecycle-recovery transition and retry"),
+            );
+        }
         Err((code, msg)) => return bad(seam_status(&code), &code, &msg),
     };
     let goal_ref = text(&run, "goal_ref").to_string();
@@ -2731,9 +2749,16 @@ pub(crate) async fn handle_goal_run_lifecycle_recovery(
                 &format!("the recovery intent is {} — the reservation is unchanged", f.detail()),
             );
         }
-        // Visible-but-unconfirmed intent (#72 round 7 finding 1): the transaction is designed
-        // to complete FORWARD — if the intent survives a crash the completer finishes it; if it
-        // does not, the reservation stands. Continuing is the truthful direction.
+        // DURABLE INTENT REQUIRED before any evidence lands (#72 round 9 finding 2): if the
+        // receipt were written now and a crash lost the unconfirmed intent, the completer would
+        // have nothing to replay against orphaned evidence. The visible intent stays put — if
+        // it turns out durable, the boot completer finishes it; if the crash loses it, the
+        // reservation stands and nothing else ever happened.
+        return bad(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "goal_run_recovery_intent_durability_unconfirmed",
+            &format!("the recovery intent is {}; no receipt or record was written — a restart either completes the intent (if it proved durable) or leaves the reservation intact", f.detail()),
+        );
     }
     // DELIBERATE TEST KILL POINT (#72 round 6 finding 4): absent env = no effect. Crashing here
     // — after the GoalRun replacement, before receipt persistence — leaves ONLY the durable
@@ -2741,25 +2766,32 @@ pub(crate) async fn handle_goal_run_lifecycle_recovery(
     if std::env::var("IOI_TEST_KILL_AFTER_RECOVERY_INTENT").ok().as_deref() == Some("1") {
         std::process::abort();
     }
-    // (3) Durable receipt. A NOT-COMMITTED failure rolls the intent back EXACTLY (the
-    // reservation survives untouched) inside the same critical section; a visible-but-
-    // unconfirmed receipt continues FORWARD (the completer converges the same direction).
+    // (3) Durable receipt REQUIRED (#72 round 9 finding 2): a NOT-COMMITTED failure rolls the
+    // intent back EXACTLY (the reservation survives untouched); a visible-but-unconfirmed
+    // receipt KEEPS THE DURABLE INTENT and refuses typed — the completer re-persists the
+    // sealed receipt (byte-exact) at restart and finishes. The intent is never consumed while
+    // any piece of its evidence is unconfirmed.
     if let Err(f) = persist_record_durable(&st.data_dir, "receipts", &receipt_id, &receipt) {
-        if !f.visible() {
-            let detail = f.detail();
-            return match persist_goal_run_atomic(&st.data_dir, &id, &prior) {
-                Ok(()) => bad(
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    "goal_run_recovery_receipt_persist_failed",
-                    &format!("the recovery receipt is {detail}; the intent was rolled back EXACTLY inside the same critical section — nothing changed"),
-                ),
-                Err(re) => bad(
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    "goal_run_rollback_failed",
-                    &format!("the recovery receipt is {detail} AND the intent rollback failed ({}) — the boot completer will finish the durable intent deterministically", re.detail()),
-                ),
-            };
+        if f.visible() {
+            return bad(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "goal_run_recovery_receipt_durability_unconfirmed",
+                &format!("the recovery receipt is {}; the DURABLE intent is retained — a restart re-persists the sealed receipt and completes the release", f.detail()),
+            );
         }
+        let detail = f.detail();
+        return match persist_goal_run_atomic(&st.data_dir, &id, &prior) {
+            Ok(()) => bad(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "goal_run_recovery_receipt_persist_failed",
+                &format!("the recovery receipt is {detail}; the intent was rolled back EXACTLY inside the same critical section — nothing changed"),
+            ),
+            Err(re) => bad(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "goal_run_rollback_failed",
+                &format!("the recovery receipt is {detail} AND the intent rollback failed ({}) — the boot completer will finish the durable intent deterministically", re.detail()),
+            ),
+        };
     }
     // (3b) The aborted-attempt record, when this recovery must create one — every retained
     // attempt ref RESOLVES (#72 round 7 finding 3). Post-receipt failure leaves the intent for
@@ -2771,13 +2803,15 @@ pub(crate) async fn handle_goal_run_lifecycle_recovery(
             .unwrap_or_default()
             .to_string();
         if let Err(f) = persist_record_durable(&st.data_dir, RECONCILIATION_KIND, &record_tail, &aborted_attempt_record) {
-            if !f.visible() {
-                return bad(
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    "goal_run_recovery_finalize_failed",
-                    &format!("the aborted-attempt record is {}; the durable intent and receipt stand — the boot completer finishes this transaction deterministically", f.detail()),
-                );
-            }
+            let code = if f.visible() { "goal_run_recovery_attempt_record_durability_unconfirmed" } else { "goal_run_recovery_finalize_failed" };
+            // Either way the DURABLE intent (and durable receipt) stand; the release has NOT
+            // consumed them — restart validates the seals and finishes deterministically
+            // (#72 round 9 finding 2: the intent outlives every unconfirmed piece of evidence).
+            return bad(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                code,
+                &format!("the aborted-attempt record is {}; the durable intent and receipt stand — a restart finishes this transaction deterministically", f.detail()),
+            );
         }
     }
     // (4) Durable release: restore from_status, RETAIN the (now resolving) attempt ref, consume
@@ -2951,10 +2985,10 @@ pub(crate) fn complete_recovery_intents(data_dir: &str) {
                 continue;
             }
         } else if let Err(f) = persist_record_durable(data_dir, "receipts", &receipt_id, &receipt) {
-            if !f.visible() {
-                eprintln!("goal-run recovery completer: receipt persist for '{goal_run_id}' is {} — intent retained, retried next boot", f.detail());
-                continue;
-            }
+            // DURABLE required (#72 round 9 finding 2): a visible-unconfirmed receipt must not
+            // let the release consume the intent — retained, retried next boot either way.
+            eprintln!("goal-run recovery completer: receipt persist for '{goal_run_id}' is {} — intent retained, retried next boot", f.detail());
+            continue;
         }
         // Replay the sealed aborted-attempt record (#72 rounds 7 + 8 findings 3 + 4) so the
         // retained attempt ref resolves after a crash between receipt and record — but ONLY
@@ -3004,10 +3038,9 @@ pub(crate) fn complete_recovery_intents(data_dir: &str) {
                     .unwrap_or_default()
                     .to_string();
                 if let Err(f) = persist_record_durable(data_dir, RECONCILIATION_KIND, &record_tail, &aborted) {
-                    if !f.visible() {
-                        eprintln!("goal-run recovery completer: aborted-attempt record persist for '{goal_run_id}' is {} — intent retained, retried next boot", f.detail());
-                        continue;
-                    }
+                    // DURABLE required before the intent is consumed (#72 round 9 finding 2).
+                    eprintln!("goal-run recovery completer: aborted-attempt record persist for '{goal_run_id}' is {} — intent retained, retried next boot", f.detail());
+                    continue;
                 }
             }
         }
