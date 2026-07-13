@@ -718,6 +718,17 @@ async function run() {
       const aReceipt = { schema_version: "x", receipt_id: "receipt://ort_conflict", receipt_ref: "receipt://ort_conflict", receipt_type: "OutcomeRoomTransitionReceipt", subject_ref: "outcome-room://or_A", op: "goal_run_attached" };
       const sha = (v) => "sha256:" + createHash("sha256").update(canon(v)).digest("hex");
       writeFileSync(join(rp.dataDir, "outcome-room-registry", "or_A.json"), JSON.stringify({ ...priorA, attach_intent: { run_file_id: "gr_ab", room_ref: "outcome-room://or_A", receipt_id: "ort_conflict", receipt: aReceipt, receipt_hash: sha(aReceipt), updated_room: updatedA, updated_room_hash: sha(updatedA), at: "2026-01-01T00:00:00Z" } }));
+      // (d) TAMPERED-DECLARATION REPLAY (#72 r13): same anchor + same admission_receipt_ref,
+      // but altered objective/owner — the completer must refuse with room, receipt family, and
+      // intent byte-for-byte unchanged.
+      const ROOM_DECL_EXCLUDES = ["admission_receipt_ref", "updated_at", "revision", "status", "status_history", "member_goal_run_refs", "admission_and_replay_refs"];
+      const tpDecl = { outcome_room_id: "outcome-room://or_tp", schema_version: "ioi.hypervisor.outcome-room.v1", objective: "original objective", owner_or_sponsor_ref: "org://original", status: "open", revision: 1, member_goal_run_refs: [], status_history: [], updated_at: "2026-01-01T00:00:00Z" };
+      const tpReceipt = { schema_version: "ioi.hypervisor.outcome-room-admission-receipt.v1", receipt_id: "receipt://orr_tamper", receipt_ref: "receipt://orr_tamper", receipt_type: "OutcomeRoomAdmissionReceipt", receipt_profile_ref: "schema://ioi.hypervisor.outcome-room-admission-receipt.v1", subject_ref: "outcome-room://or_tp", op: "room_admitted", output_hash: recomputeHash(tpDecl, ROOM_DECL_EXCLUDES), hash_scope_excludes: ROOM_DECL_EXCLUDES };
+      const tpFinal = { ...tpDecl, admission_receipt_ref: "receipt://orr_tamper", admission_and_replay_refs: ["receipt://orr_tamper"] };
+      writeFileSync(join(rp.dataDir, "outcome-room-admission-intents", "or_tp.json"), JSON.stringify({ room_tail: "or_tp", room_ref: "outcome-room://or_tp", receipt_id: "orr_tamper", receipt: tpReceipt, receipt_hash: sha(tpReceipt), final_room: tpFinal, final_room_hash: sha(tpFinal), at: "2026-01-01T00:00:00Z" }));
+      const tpTampered = { ...tpFinal, objective: "TAMPERED objective", owner_or_sponsor_ref: "org://attacker" };
+      writeFileSync(join(rp.dataDir, "outcome-room-registry", "or_tp.json"), JSON.stringify(tpTampered));
+      const tpBytes = readFileSync(join(rp.dataDir, "outcome-room-registry", "or_tp.json"), "utf8");
       // RESTART with the fault cleared: convergence + non-overwrite.
       process.kill(rp.daemonPid, "SIGKILL");
       const rpRevived = await startIsolatedPlane({ serve: false, dataDir: rp.dataDir });
@@ -726,12 +737,17 @@ async function run() {
       const admitted = afterRooms.find((r) => r.status === "open" && r.outcome_room_id !== "outcome-room://or_A");
       const tfAfter = afterRooms.find((r) => r.outcome_room_id === "outcome-room://or_tf");
       const tfReceiptsAfter = readdirSync(join(rp.dataDir, "outcome-room-registry-receipts")).length;
-      ok("ROOM FAULT restart: the completer APPLIED the sealed transition (paused + receipt, intent consumed); the created room stands canonical and its retained admission anchor is consumed only now — after a DURABLE confirmation (#72 r12 finding 1)", admitted?.status === "open" && tfAfter?.status === "paused" && !tfAfter?.transition_intent && tfReceiptsAfter >= 2 && receiptFileCount(rp.dataDir, "outcome-room-admission-intents") === 0, `admitted=${admitted?.status} tf=${tfAfter?.status} intents=${receiptFileCount(rp.dataDir, "outcome-room-admission-intents")}`);
+      const createdIntentGone = !existsSync(join(rp.dataDir, "outcome-room-admission-intents", `${String(admitted?.outcome_room_id || "").replace("outcome-room://", "")}.json`));
+      ok("ROOM FAULT restart: the completer APPLIED the sealed transition (paused + receipt, intent consumed); the created room stands canonical and its retained admission anchor is consumed only now — after a DURABLE confirmation (#72 r12 finding 1)", admitted?.status === "open" && tfAfter?.status === "paused" && !tfAfter?.transition_intent && tfReceiptsAfter >= 2 && createdIntentGone, `admitted=${admitted?.status} tf=${tfAfter?.status} createdIntentGone=${createdIntentGone}`);
       const postConverge = await rpjd("POST", "/v1/hypervisor/work-results", { goal_ref: "goal://p", result_profile: "research", outcome_class: "positive", status: "completed", outcome_room_ref: "outcome-room://or_tf" });
       ok("ROOM FAULT restart: after the ordered transition applies, bindings refuse room_not_open — no result was ever admitted across the close boundary", postConverge.status === 400 && postConverge.j.error?.code === "work_result_room_not_open", `${postConverge.status}/${postConverge.j.error?.code || "ok"}`);
       const abRun = JSON.parse(readFileSync(join(rp.dataDir, "goal-runs", "gr_ab.json"), "utf8"));
       const roomA = afterRooms.find((r) => r.outcome_room_id === "outcome-room://or_A");
       ok("ROOM FAULT restart: the A-intent/B-binding conflict is NEVER overwritten — room B's binding intact, room A's intent retained as a manual conflict, no membership manufactured (#72 r10 finding 3)", abRun.outcome_room_ref === "outcome-room://or_B" && !!roomA?.attach_intent && (roomA?.member_goal_run_refs || []).length === 0, `binding=${abRun.outcome_room_ref} intentA=${!!roomA?.attach_intent}`);
+      const tpAfter = readFileSync(join(rp.dataDir, "outcome-room-registry", "or_tp.json"), "utf8");
+      const tpReceiptExists = readdirSync(join(rp.dataDir, "outcome-room-registry-receipts")).some((n) => n.includes("orr_tamper"));
+      const tpIntentRetained = existsSync(join(rp.dataDir, "outcome-room-admission-intents", "or_tp.json"));
+      ok("ROOM FAULT restart: a TAMPERED declaration behind the same anchor is refused — room byte-unchanged, NO receipt persisted for the unproven admission, intent retained for manual repair (#72 r13)", tpAfter === tpBytes && !tpReceiptExists && tpIntentRetained, `unchanged=${tpAfter === tpBytes} receipt=${tpReceiptExists} intent=${tpIntentRetained}`);
       await rpRevived.stop();
     } finally {
       try { rmSync(rp.dataDir, { recursive: true, force: true }); } catch { /* best effort */ }
