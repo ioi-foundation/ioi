@@ -35,7 +35,7 @@ use axum::Json;
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 
-use super::{iso_now, persist_record, read_record_dir, remove_record, DaemonState};
+use super::{iso_now, read_record_dir, DaemonState};
 
 const ROOM_SCHEMA: &str = "ioi.hypervisor.outcome-room.v1";
 const ADMISSION_RECEIPT_SCHEMA: &str = "ioi.hypervisor.outcome-room-admission-receipt.v1";
@@ -236,6 +236,213 @@ const ROOM_HASH_EXCLUDES: &[&str] = &[
 const TRANSITION_HASH_EXCLUDES: &[&str] = &[
     "admission_receipt_ref", "admission_and_replay_refs", "status_history",
 ];
+
+// ================================================================================================
+// SEMANTIC REPLAY VALIDATORS (#72 round 15): a boot completer must never trust a sealed intent's
+// self-consistent hashes — those are recomputed from the same mutable intent and prove nothing
+// about authenticity. Every intent is validated by CANONICAL SEMANTICS before ANY replay write,
+// in EVERY state (room present or absent): the receipt's exact profile/identity/scope is pinned,
+// the hash scope is the server-side CONSTANT (never receipt-supplied), and the sealed successor
+// is reconstructed as the ONLY valid successor of the durable prior state. Any violation refuses
+// with room, receipt family, and intent byte-for-byte unchanged.
+// ================================================================================================
+
+/// Pin a receipt's full identity against server-side constants (#72 round 15): schema, type,
+/// profile, op, subject, self-consistent id/ref, and the ref derived from the intent's file tail.
+fn receipt_identity_ok(receipt: &Value, schema: &str, rtype: &str, op: &str, subject: &str, intent_receipt_id: &str) -> bool {
+    let ref_from_tail = format!("receipt://{intent_receipt_id}");
+    receipt.get("schema_version").and_then(Value::as_str) == Some(schema)
+        && receipt.get("receipt_type").and_then(Value::as_str) == Some(rtype)
+        && receipt.get("receipt_profile_ref").and_then(Value::as_str) == Some(format!("schema://{schema}").as_str())
+        && receipt.get("op").and_then(Value::as_str) == Some(op)
+        && receipt.get("subject_ref").and_then(Value::as_str) == Some(subject)
+        && receipt.get("receipt_id").and_then(Value::as_str) == Some(ref_from_tail.as_str())
+        && receipt.get("receipt_ref").and_then(Value::as_str) == Some(ref_from_tail.as_str())
+}
+
+/// The receipt's declared hash scope must EQUAL the canonical constant exactly (#72 round 14) —
+/// a widened/duplicated/reordered/non-string scope is a forged receipt.
+fn declared_scope_ok(receipt: &Value, expected: &[&str]) -> bool {
+    let declared: Vec<&str> = receipt
+        .get("hash_scope_excludes")
+        .and_then(Value::as_array)
+        .map(|a| a.iter().map(|v| v.as_str().unwrap_or("\0non-string")).collect())
+        .unwrap_or_default();
+    declared == expected
+}
+
+/// ADMISSION intent validator — there is no prior state; the sealed room must be the CANONICAL
+/// INITIAL room whose declaration the receipt attests. Runs for EVERY admission intent, room
+/// present or absent (#72 round 15 finding 1).
+fn validate_admission_intent(intent: &Value, room_id: &str) -> Result<(), String> {
+    let receipt = intent.get("receipt").cloned().unwrap_or(Value::Null);
+    let final_room = intent.get("final_room").cloned().unwrap_or(Value::Null);
+    let intent_receipt_id = intent.get("receipt_id").and_then(Value::as_str).unwrap_or("");
+    let receipt_ref = receipt.get("receipt_ref").cloned().unwrap_or(Value::Null);
+    // Self-consistency of the intent seals (fast reject).
+    if intent.get("receipt_hash").and_then(Value::as_str) != Some(record_output_hash(&receipt, &[]).as_str()) {
+        return Err("receipt seal".into());
+    }
+    if intent.get("final_room_hash").and_then(Value::as_str) != Some(record_output_hash(&final_room, &[]).as_str()) {
+        return Err("final-room seal".into());
+    }
+    // Receipt identity + scope pinned to constants.
+    if !receipt_identity_ok(&receipt, ADMISSION_RECEIPT_SCHEMA, "OutcomeRoomAdmissionReceipt", "admitted", room_id, intent_receipt_id) {
+        return Err("receipt identity".into());
+    }
+    if !declared_scope_ok(&receipt, ROOM_HASH_EXCLUDES) {
+        return Err("hash scope".into());
+    }
+    if receipt.get("assurance_posture").and_then(Value::as_str) != Some("admitted_not_verified") {
+        return Err("assurance posture".into());
+    }
+    // The receipt's output_hash binds the room DECLARATION under the CONSTANT scope.
+    if receipt.get("output_hash").and_then(Value::as_str) != Some(record_output_hash(&final_room, ROOM_HASH_EXCLUDES).as_str()) {
+        return Err("declaration output_hash".into());
+    }
+    // The plane-owned fields the output_hash does NOT cover must be the canonical INITIAL state.
+    let canonical_initial = final_room.get("outcome_room_id").and_then(Value::as_str) == Some(room_id)
+        && final_room.get("status").and_then(Value::as_str) == Some("open")
+        && final_room.get("revision").and_then(Value::as_u64) == Some(1)
+        && final_room.get("status_history").and_then(Value::as_array).map(|a| a.is_empty()).unwrap_or(false)
+        && final_room.get("member_goal_run_refs").and_then(Value::as_array).map(|a| a.is_empty()).unwrap_or(false)
+        && final_room.get("admission_receipt_ref") == Some(&receipt_ref)
+        && final_room.get("admission_and_replay_refs").map(|v| *v == json!([receipt_ref])).unwrap_or(false);
+    if !canonical_initial {
+        return Err("canonical initial room".into());
+    }
+    // Bound facts must describe THIS room's declaration.
+    let bf = receipt.get("bound_facts").cloned().unwrap_or(Value::Null);
+    let bound_facts_ok = bf.get("room_mode") == final_room.get("room_mode")
+        && bf.get("coordination_topology") == final_room.get("coordination_topology")
+        && bf.get("owner_or_sponsor_ref") == final_room.get("owner_or_sponsor_ref")
+        && bf.get("objective_ref") == final_room.get("objective_ref")
+        && bf.get("host_domain_ref") == final_room.get("host_domain_ref")
+        && bf.get("status_at_admission").and_then(Value::as_str) == Some("open");
+    if !bound_facts_ok {
+        return Err("bound facts".into());
+    }
+    Ok(())
+}
+
+/// Reconstruct the ONLY valid TRANSITION successor of `prior` for the named op, then require the
+/// sealed `final_room` to equal it byte-for-byte (#72 round 15 finding 2). `prior` is the durable
+/// room with its `transition_intent` stripped — so a forged declaration, status, revision, or
+/// trail can never match the deterministic reconstruction.
+fn validate_transition_intent(intent: &Value, prior: &Value, room_id: &str) -> Result<(), String> {
+    let receipt = intent.get("receipt").cloned().unwrap_or(Value::Null);
+    let final_room = intent.get("final_room").cloned().unwrap_or(Value::Null);
+    let intent_receipt_id = intent.get("receipt_id").and_then(Value::as_str).unwrap_or("");
+    let receipt_ref = receipt.get("receipt_ref").cloned().unwrap_or(Value::Null);
+    if intent.get("receipt_hash").and_then(Value::as_str) != Some(record_output_hash(&receipt, &[]).as_str()) {
+        return Err("receipt seal".into());
+    }
+    if intent.get("final_room_hash").and_then(Value::as_str) != Some(record_output_hash(&final_room, &[]).as_str()) {
+        return Err("final-room seal".into());
+    }
+    let op = receipt.get("op").and_then(Value::as_str).unwrap_or("");
+    if !receipt_identity_ok(&receipt, TRANSITION_RECEIPT_SCHEMA, "OutcomeRoomTransitionReceipt", op, room_id, intent_receipt_id) {
+        return Err("receipt identity".into());
+    }
+    if !declared_scope_ok(&receipt, TRANSITION_HASH_EXCLUDES) {
+        return Err("hash scope".into());
+    }
+    // The op must be a CANONICAL transition admitted from the prior status.
+    let Some((_, allowed_from, to_status)) = TRANSITIONS.iter().find(|(t, _, _)| *t == op) else {
+        return Err("unknown transition op".into());
+    };
+    let from = prior.get("status").and_then(Value::as_str).unwrap_or("");
+    if !allowed_from.contains(&from) {
+        return Err("transition not admitted from prior status".into());
+    }
+    let prior_rev = prior.get("revision").and_then(Value::as_u64).unwrap_or(0);
+    let now = final_room.get("updated_at").cloned().unwrap_or(Value::Null); // excluded/free timestamp
+    // Reconstruct the deterministic successor exactly as mutate_room would.
+    let mut expected = prior.clone();
+    if let Some(obj) = expected.as_object_mut() {
+        obj.remove("transition_intent");
+        obj.insert("status".into(), json!(to_status));
+        obj.insert("revision".into(), json!(prior_rev + 1));
+        obj.insert("updated_at".into(), now.clone());
+        let mut trail: Vec<Value> = obj.get("admission_and_replay_refs").and_then(|v| v.as_array()).cloned().unwrap_or_default();
+        trail.push(receipt_ref.clone());
+        obj.insert("admission_and_replay_refs".into(), Value::Array(trail));
+        let mut history: Vec<Value> = obj.get("status_history").and_then(|v| v.as_array()).cloned().unwrap_or_default();
+        history.push(json!({ "op": op, "at": now, "receipt_ref": receipt_ref, "revision": prior_rev + 1 }));
+        if history.len() > HISTORY_MAX { let drop_n = history.len() - HISTORY_MAX; history.drain(0..drop_n); }
+        obj.insert("status_history".into(), Value::Array(history));
+    }
+    // The output_hash must bind the reconstructed successor under the CONSTANT transition scope.
+    if receipt.get("output_hash").and_then(Value::as_str) != Some(record_output_hash(&expected, TRANSITION_HASH_EXCLUDES).as_str()) {
+        return Err("transition output_hash".into());
+    }
+    // The ONLY valid successor: byte-for-byte equality with the reconstruction (a forged
+    // declaration/status/revision/membership/trail can never match).
+    if serde_json::to_vec(&expected).unwrap_or_default() != serde_json::to_vec(&final_room).unwrap_or_default() {
+        return Err("not the deterministic successor".into());
+    }
+    Ok(())
+}
+
+/// Reconstruct the ONLY valid ATTACH (membership) successor of `prior` for the sealed run, then
+/// require the sealed `updated_room` to equal it byte-for-byte (#72 round 15 finding 2). `prior`
+/// is the durable room with its `attach_intent` stripped.
+fn validate_attach_intent(intent: &Value, prior: &Value, room_id: &str) -> Result<(), String> {
+    let receipt = intent.get("receipt").cloned().unwrap_or(Value::Null);
+    let updated_room = intent.get("updated_room").cloned().unwrap_or(Value::Null);
+    let intent_receipt_id = intent.get("receipt_id").and_then(Value::as_str).unwrap_or("");
+    let run_file_id = intent.get("run_file_id").and_then(Value::as_str).unwrap_or("");
+    let receipt_ref = receipt.get("receipt_ref").cloned().unwrap_or(Value::Null);
+    if intent.get("receipt_hash").and_then(Value::as_str) != Some(record_output_hash(&receipt, &[]).as_str()) {
+        return Err("receipt seal".into());
+    }
+    if intent.get("updated_room_hash").and_then(Value::as_str) != Some(record_output_hash(&updated_room, &[]).as_str()) {
+        return Err("updated-room seal".into());
+    }
+    if !receipt_identity_ok(&receipt, TRANSITION_RECEIPT_SCHEMA, "OutcomeRoomTransitionReceipt", "goal_run_attached", room_id, intent_receipt_id) {
+        return Err("receipt identity".into());
+    }
+    if !declared_scope_ok(&receipt, TRANSITION_HASH_EXCLUDES) {
+        return Err("hash scope".into());
+    }
+    if run_file_id.is_empty() {
+        return Err("missing run".into());
+    }
+    // Membership admits only on an OPEN room; the added member is the run's canonical identity.
+    if prior.get("status").and_then(Value::as_str) != Some("open") {
+        return Err("attach not admitted from prior status".into());
+    }
+    let member = format!("goal://{run_file_id}");
+    let members: Vec<String> = prior.get("member_goal_run_refs").and_then(|v| v.as_array()).map(|a| a.iter().filter_map(|x| x.as_str().map(String::from)).collect()).unwrap_or_default();
+    if members.iter().any(|m| m == &member) {
+        return Err("run already a member of the prior room".into());
+    }
+    let prior_rev = prior.get("revision").and_then(Value::as_u64).unwrap_or(0);
+    let now = updated_room.get("updated_at").cloned().unwrap_or(Value::Null);
+    let mut expected = prior.clone();
+    if let Some(obj) = expected.as_object_mut() {
+        obj.remove("attach_intent");
+        let mut arr: Vec<Value> = members.iter().cloned().map(Value::String).collect();
+        arr.push(json!(member));
+        obj.insert("member_goal_run_refs".into(), Value::Array(arr));
+        obj.insert("revision".into(), json!(prior_rev + 1));
+        obj.insert("updated_at".into(), now.clone());
+        let mut trail: Vec<Value> = obj.get("admission_and_replay_refs").and_then(|v| v.as_array()).cloned().unwrap_or_default();
+        trail.push(receipt_ref.clone());
+        obj.insert("admission_and_replay_refs".into(), Value::Array(trail));
+        let mut history: Vec<Value> = obj.get("status_history").and_then(|v| v.as_array()).cloned().unwrap_or_default();
+        history.push(json!({ "op": "goal_run_attached", "at": now, "receipt_ref": receipt_ref, "revision": prior_rev + 1 }));
+        if history.len() > HISTORY_MAX { let drop_n = history.len() - HISTORY_MAX; history.drain(0..drop_n); }
+        obj.insert("status_history".into(), Value::Array(history));
+    }
+    if receipt.get("output_hash").and_then(Value::as_str) != Some(record_output_hash(&expected, TRANSITION_HASH_EXCLUDES).as_str()) {
+        return Err("attach output_hash".into());
+    }
+    if serde_json::to_vec(&expected).unwrap_or_default() != serde_json::to_vec(&updated_room).unwrap_or_default() {
+        return Err("not the deterministic membership successor".into());
+    }
+    Ok(())
+}
 
 /// PURE receipt on the complete portable ReceiptEnvelope base (the exact key set pinned by the
 /// work-result plane's tests is preserved here, plus this plane's own bound facts).
@@ -469,31 +676,32 @@ pub(crate) fn complete_room_intents(data_dir: &str) {
         let receipt = intent.get("receipt").cloned().unwrap_or(Value::Null);
         let receipt_id = intent.get("receipt_id").and_then(Value::as_str).unwrap_or("").to_string();
         let final_room = intent.get("final_room").cloned().unwrap_or(Value::Null);
-        let mut violations: Vec<&str> = Vec::new();
         if room_tail.is_empty() || receipt.is_null() || receipt_id.is_empty() || final_room.is_null() {
-            violations.push("schema");
-        }
-        if intent.get("receipt_hash").and_then(Value::as_str) != Some(record_output_hash(&receipt, &[]).as_str()) {
-            violations.push("receipt hash");
-        }
-        if intent.get("final_room_hash").and_then(Value::as_str) != Some(record_output_hash(&final_room, &[]).as_str()) {
-            violations.push("final-room hash");
-        }
-        if final_room.get("outcome_room_id").and_then(Value::as_str) != Some(room_id.as_str())
-            || receipt.get("subject_ref").and_then(Value::as_str) != Some(room_id.as_str())
-        {
-            violations.push("identity binding");
-        }
-        if !violations.is_empty() {
-            eprintln!("outcome-room {kind} completer: intent on '{room_tail}' fails validation ({}) — left in place for manual repair", violations.join(", "));
+            eprintln!("outcome-room {kind} completer: intent on '{room_tail}' fails schema — left in place for manual repair");
             continue;
         }
-        // ADMISSION conflict check FIRST — before ANY write (#72 round 12 finding 2): a
-        // conflict lane leaves room, receipt family, and intent byte-for-byte unchanged. A room
+        // SEMANTIC VALIDATION FIRST, for EVERY intent, room present or absent (#72 round 15):
+        // a sealed intent is only replayed if it is the CANONICAL successor of the durable prior
+        // state — never merely self-consistent. The transition prior is the room record with its
+        // `transition_intent` stripped; admission has no prior (canonical initial room).
+        let semantic = if kind == "admission" {
+            validate_admission_intent(&intent, &room_id)
+        } else {
+            match load_room(data_dir, &room_id) {
+                Some(prior) => validate_transition_intent(&intent, &prior, &room_id),
+                None => Err("transition intent has no durable prior room".into()),
+            }
+        };
+        if let Err(why) = semantic {
+            eprintln!("outcome-room {kind} completer: intent on '{room_tail}' is NOT the canonical successor ({why}) — nothing was written (room, receipts, and intent are byte-unchanged); left for manual repair");
+            continue;
+        }
+        // ADMISSION conflict check — before ANY write (#72 round 12 finding 2): a conflict lane
+        // leaves room, receipt family, and intent byte-for-byte unchanged. The intent is already
+        // proven canonical above; this decides same-vs-foreign for an EXISTING occupant. A room
         // already at this identity is THE SAME admission iff its anchor (the first entry of its
-        // admission trail — the sealed admission receipt ref) matches; later transitions mutate
-        // content but never that anchor. A different anchor is a foreign occupant — refused,
-        // never receipted over.
+        // admission trail — the sealed admission receipt ref) matches AND its declaration proves
+        // the receipt. A different/tampered occupant is refused, never receipted over.
         let mut same_room_already_admitted = false;
         if kind == "admission" {
             if let Some(existing_room) = load_room(data_dir, &room_id) {
@@ -690,28 +898,28 @@ pub(crate) fn complete_attach_intents(data_dir: &str) {
             .and_then(|v| v.as_str())
             .unwrap_or("")
             .replace("outcome-room://", "");
+        let room_id = format!("outcome-room://{room_tail}");
         let receipt = intent.get("receipt").cloned().unwrap_or(Value::Null);
         let receipt_id = intent.get("receipt_id").and_then(Value::as_str).unwrap_or("").to_string();
         let updated_room = intent.get("updated_room").cloned().unwrap_or(Value::Null);
         let run_file_id = intent.get("run_file_id").and_then(Value::as_str).unwrap_or("").to_string();
         let room_ref = intent.get("room_ref").and_then(Value::as_str).unwrap_or("").to_string();
-        let mut violations: Vec<&str> = Vec::new();
         if room_tail.is_empty() || receipt.is_null() || receipt_id.is_empty() || updated_room.is_null() || run_file_id.is_empty() || room_ref.is_empty() {
-            violations.push("schema");
+            eprintln!("outcome-room attach completer: intent on '{room_tail}' fails schema — left in place for manual repair");
+            continue;
         }
-        if intent.get("receipt_hash").and_then(Value::as_str) != Some(record_output_hash(&receipt, &[]).as_str()) {
-            violations.push("receipt hash");
+        // SEMANTIC VALIDATION FIRST (#72 round 15): the sealed updated_room must be the ONLY
+        // valid membership successor of the durable prior room (this room minus its
+        // attach_intent) — never merely self-consistent. The receipt's exact
+        // profile/identity/op/scope is pinned and the successor is reconstructed deterministically.
+        if room_ref != room_id {
+            eprintln!("outcome-room attach completer: intent room_ref '{room_ref}' does not match '{room_id}' — left in place for manual repair");
+            continue;
         }
-        if intent.get("updated_room_hash").and_then(Value::as_str) != Some(record_output_hash(&updated_room, &[]).as_str()) {
-            violations.push("room hash");
-        }
-        if updated_room.get("outcome_room_id").and_then(Value::as_str) != Some(room_ref.as_str())
-            || receipt.get("subject_ref").and_then(Value::as_str) != Some(room_ref.as_str())
-        {
-            violations.push("identity binding");
-        }
-        if !violations.is_empty() {
-            eprintln!("outcome-room attach completer: intent on '{room_tail}' fails validation ({}) — left in place for manual repair", violations.join(", "));
+        let mut prior = room.clone();
+        if let Some(obj) = prior.as_object_mut() { obj.remove("attach_intent"); }
+        if let Err(why) = validate_attach_intent(&intent, &prior, &room_id) {
+            eprintln!("outcome-room attach completer: intent on '{room_tail}' is NOT the canonical membership successor ({why}) — nothing was written (room, receipts, and intent are byte-unchanged); left for manual repair");
             continue;
         }
         // Re-stamp (idempotent merge of the single owned field), DURABLE required. The CAS
@@ -1202,6 +1410,97 @@ mod outcome_room_tests {
         })
     }
 
+    // CANONICAL fixtures built from the PRODUCTION construction paths (#72 round 15): the
+    // semantic replay validators now accept ONLY the deterministic successor, so completer
+    // fixtures must be byte-identical to what the finalizers seal — never hand-crafted.
+    fn canonical_admission(room_tail: &str) -> (Value, Value, String, Value) {
+        let room_id = format!("outcome-room://{room_tail}");
+        let mut record = validate_room_create(&valid_room_body()).unwrap();
+        record["outcome_room_id"] = json!(room_id);
+        record["created_at"] = json!("2026-01-01T00:00:00Z");
+        record["updated_at"] = json!("2026-01-01T00:00:00Z");
+        let (rid, receipt) = build_room_receipt(
+            ADMISSION_RECEIPT_SCHEMA, "OutcomeRoomAdmissionReceipt", "orr", &room_id, "admitted",
+            json!({ "room_mode": record["room_mode"], "coordination_topology": record["coordination_topology"], "owner_or_sponsor_ref": record["owner_or_sponsor_ref"], "objective_ref": record["objective_ref"], "host_domain_ref": record["host_domain_ref"], "status_at_admission": "open" }),
+            vec![json!(room_id), record["owner_or_sponsor_ref"].clone(), record["objective_ref"].clone(), record["host_domain_ref"].clone()],
+            record_output_hash(&record, ROOM_HASH_EXCLUDES), ROOM_HASH_EXCLUDES, "admitted_not_verified", "n", "2026-01-01T00:00:00Z",
+        );
+        record["admission_receipt_ref"] = receipt["receipt_ref"].clone();
+        record["admission_and_replay_refs"] = json!([receipt["receipt_ref"]]);
+        let intent = json!({
+            "room_tail": room_tail, "room_ref": room_id,
+            "receipt_id": rid, "receipt": receipt, "receipt_hash": record_output_hash(&receipt, &[]),
+            "final_room": record, "final_room_hash": record_output_hash(&record, &[]), "at": "2026-01-01T00:00:00Z",
+        });
+        (intent, record, rid, receipt)
+    }
+
+    // A canonical transition successor built exactly as mutate_room would (op in TRANSITIONS).
+    fn canonical_transition(prior: &Value, op: &str) -> (Value, Value, String, Value) {
+        let room_id = prior["outcome_room_id"].as_str().unwrap().to_string();
+        let to = TRANSITIONS.iter().find(|(t, _, _)| *t == op).unwrap().2;
+        let rev = prior["revision"].as_u64().unwrap();
+        let now = "2026-06-06T00:00:00Z";
+        let mut updated = prior.clone();
+        updated.as_object_mut().unwrap().insert("status".into(), json!(to));
+        updated.as_object_mut().unwrap().insert("revision".into(), json!(rev + 1));
+        updated.as_object_mut().unwrap().insert("updated_at".into(), json!(now));
+        let (rid, receipt) = build_room_receipt(
+            TRANSITION_RECEIPT_SCHEMA, "OutcomeRoomTransitionReceipt", "ort", &room_id, op,
+            json!({}), vec![json!(room_id)],
+            record_output_hash(&updated, TRANSITION_HASH_EXCLUDES), TRANSITION_HASH_EXCLUDES, "admitted_not_verified", "n", now,
+        );
+        {
+            let obj = updated.as_object_mut().unwrap();
+            let mut trail: Vec<Value> = obj.get("admission_and_replay_refs").and_then(|v| v.as_array()).cloned().unwrap_or_default();
+            trail.push(receipt["receipt_ref"].clone());
+            obj.insert("admission_and_replay_refs".into(), Value::Array(trail));
+            let mut hist: Vec<Value> = obj.get("status_history").and_then(|v| v.as_array()).cloned().unwrap_or_default();
+            hist.push(json!({ "op": op, "at": now, "receipt_ref": receipt["receipt_ref"], "revision": rev + 1 }));
+            obj.insert("status_history".into(), Value::Array(hist));
+        }
+        let intent = json!({
+            "receipt_id": rid, "receipt": receipt, "receipt_hash": record_output_hash(&receipt, &[]),
+            "final_room": updated, "final_room_hash": record_output_hash(&updated, &[]), "at": now,
+        });
+        (intent, updated, rid, receipt)
+    }
+
+    // A canonical membership successor built exactly as the attach handler would.
+    fn canonical_attach(prior: &Value, run_file_id: &str) -> (Value, Value, String, Value) {
+        let room_id = prior["outcome_room_id"].as_str().unwrap().to_string();
+        let rev = prior["revision"].as_u64().unwrap();
+        let now = "2026-06-06T00:00:00Z";
+        let member = format!("goal://{run_file_id}");
+        let mut members: Vec<Value> = prior.get("member_goal_run_refs").and_then(|v| v.as_array()).cloned().unwrap_or_default();
+        members.push(json!(member));
+        let mut updated = prior.clone();
+        updated.as_object_mut().unwrap().insert("member_goal_run_refs".into(), Value::Array(members));
+        updated.as_object_mut().unwrap().insert("revision".into(), json!(rev + 1));
+        updated.as_object_mut().unwrap().insert("updated_at".into(), json!(now));
+        let (rid, receipt) = build_room_receipt(
+            TRANSITION_RECEIPT_SCHEMA, "OutcomeRoomTransitionReceipt", "ort", &room_id, "goal_run_attached",
+            json!({ "goal_run_ref": member, "reciprocal_outcome_room_ref_stamped": true, "member_count_after": prior.get("member_goal_run_refs").and_then(|v| v.as_array()).map(|a| a.len() + 1).unwrap_or(1), "revision_before": rev, "revision_after": rev + 1 }),
+            vec![json!(room_id), json!(member)],
+            record_output_hash(&updated, TRANSITION_HASH_EXCLUDES), TRANSITION_HASH_EXCLUDES, "admitted_not_verified", "n", now,
+        );
+        {
+            let obj = updated.as_object_mut().unwrap();
+            let mut trail: Vec<Value> = obj.get("admission_and_replay_refs").and_then(|v| v.as_array()).cloned().unwrap_or_default();
+            trail.push(receipt["receipt_ref"].clone());
+            obj.insert("admission_and_replay_refs".into(), Value::Array(trail));
+            let mut hist: Vec<Value> = obj.get("status_history").and_then(|v| v.as_array()).cloned().unwrap_or_default();
+            hist.push(json!({ "op": "goal_run_attached", "at": now, "receipt_ref": receipt["receipt_ref"], "revision": rev + 1 }));
+            obj.insert("status_history".into(), Value::Array(hist));
+        }
+        let intent = json!({
+            "run_file_id": run_file_id, "room_ref": room_id,
+            "receipt_id": rid, "receipt": receipt, "receipt_hash": record_output_hash(&receipt, &[]),
+            "updated_room": updated, "updated_room_hash": record_output_hash(&updated, &[]), "at": now,
+        });
+        (intent, updated, rid, receipt)
+    }
+
     #[test]
     fn creation_is_fail_closed_typed_and_hosted_only() {
         let rec = validate_room_create(&valid_room_body()).unwrap();
@@ -1348,14 +1647,11 @@ mod outcome_room_tests {
         // completer converges the attach to exact reciprocal equality.
         let dir = temp_dir("attach");
         let data_dir = dir.to_str().unwrap();
-        let prior_room = json!({ "outcome_room_id": "outcome-room://or_1", "status": "open", "revision": 1, "member_goal_run_refs": [], "updated_at": "2026-01-01T00:00:00Z" });
+        let (_ai, prior_room, _arid, _arcpt) = canonical_admission("or_1");
         let prior_run = json!({ "goal_run_id": "gr_1", "normalized_goal": "x", "status": "active" });
         persist_atomic(data_dir, ROOM_DIR, "or_1", &prior_room).unwrap();
         persist_atomic(data_dir, GOAL_RUN_DIR, "gr_1", &prior_run).unwrap();
-        let mut updated_room = prior_room.clone();
-        updated_room["member_goal_run_refs"] = json!(["goal://gr_1"]);
-        updated_room["revision"] = json!(2);
-        let (rid, receipt) = build_room_receipt(TRANSITION_RECEIPT_SCHEMA, "OutcomeRoomTransitionReceipt", "ort", "outcome-room://or_1", "goal_run_attached", json!({}), vec![], "sha256:x".into(), TRANSITION_HASH_EXCLUDES, "admitted_not_verified", "n", "2026-01-01T00:00:00Z");
+        let (_intent, updated_room, rid, receipt) = canonical_attach(&prior_room, "gr_1");
         std::fs::write(dir.join(ROOM_RECEIPT_DIR), b"blocker").unwrap();
         let (code, _) = finalize_attach(data_dir, "or_1", &prior_room, &updated_room, "gr_1", "outcome-room://or_1", &rid, &receipt).unwrap_err();
         assert_eq!(code, "outcome_room_attach_pending_convergence");
@@ -1371,7 +1667,7 @@ mod outcome_room_tests {
         assert_eq!(converged["member_goal_run_refs"], json!(["goal://gr_1"]), "membership converged");
         assert!(converged.get("attach_intent").is_none(), "the intent was consumed by the terminal write");
         assert_eq!(read_record_dir(data_dir, GOAL_RUN_DIR).pop().unwrap()["outcome_room_ref"], json!("outcome-room://or_1"), "EXACT reciprocal convergence: member ⇔ stamp");
-        let persisted_receipt = read_record_dir(data_dir, ROOM_RECEIPT_DIR).pop().expect("the sealed receipt was persisted");
+        let persisted_receipt = read_record_dir(data_dir, ROOM_RECEIPT_DIR).into_iter().find(|r| r["receipt_id"] == receipt["receipt_id"]).expect("the sealed receipt was persisted");
         assert_eq!(persisted_receipt["receipt_id"], receipt["receipt_id"]);
         // Idempotent: a second boot pass changes nothing.
         complete_attach_intents(data_dir);
@@ -1385,20 +1681,10 @@ mod outcome_room_tests {
         // at boot — sealed receipt persisted, sealed final room applied, intent consumed.
         let dir = temp_dir("transition-intent");
         let data_dir = dir.to_str().unwrap();
-        let prior = json!({ "outcome_room_id": "outcome-room://or_t", "status": "open", "revision": 1, "member_goal_run_refs": [], "updated_at": "2026-01-01T00:00:00Z" });
-        let mut final_room = prior.clone();
-        final_room["status"] = json!("paused");
-        final_room["revision"] = json!(2);
-        let (rid, receipt) = build_room_receipt(TRANSITION_RECEIPT_SCHEMA, "OutcomeRoomTransitionReceipt", "ort", "outcome-room://or_t", "pause", json!({}), vec![], "sha256:x".into(), TRANSITION_HASH_EXCLUDES, "admitted_not_verified", "n", "2026-01-01T00:00:00Z");
+        let (_ai, prior, _arid, _arcpt) = canonical_admission("or_t");
+        let (tintent, _final_room, _rid, _rcpt) = canonical_transition(&prior, "pause");
         let mut pending = prior.clone();
-        pending["transition_intent"] = json!({
-            "receipt_id": rid,
-            "receipt": receipt,
-            "receipt_hash": record_output_hash(&receipt, &[]),
-            "final_room": final_room,
-            "final_room_hash": record_output_hash(&final_room, &[]),
-            "at": "2026-01-01T00:00:00Z",
-        });
+        pending["transition_intent"] = tintent;
         persist_atomic(data_dir, ROOM_DIR, "or_t", &pending).unwrap();
         complete_room_intents(data_dir);
         let converged = load_room(data_dir, "outcome-room://or_t").unwrap();
@@ -1419,18 +1705,7 @@ mod outcome_room_tests {
         // receipt; a conflicting existing room is never overwritten.
         let dir = temp_dir("admission-intent");
         let data_dir = dir.to_str().unwrap();
-        let final_room = json!({ "outcome_room_id": "outcome-room://or_p", "status": "open", "revision": 1, "member_goal_run_refs": [], "updated_at": "2026-01-01T00:00:00Z" });
-        let (rid, receipt) = build_room_receipt(ADMISSION_RECEIPT_SCHEMA, "OutcomeRoomAdmissionReceipt", "orr", "outcome-room://or_p", "admitted", json!({}), vec![], "sha256:x".into(), ROOM_HASH_EXCLUDES, "admitted_not_verified", "n", "2026-01-01T00:00:00Z");
-        let intent = json!({
-            "room_tail": "or_p",
-            "room_ref": "outcome-room://or_p",
-            "receipt_id": rid,
-            "receipt": receipt,
-            "receipt_hash": record_output_hash(&receipt, &[]),
-            "final_room": final_room,
-            "final_room_hash": record_output_hash(&final_room, &[]),
-            "at": "2026-01-01T00:00:00Z",
-        });
+        let (intent, _final_room, _rid, _rcpt) = canonical_admission("or_p");
         persist_atomic(data_dir, ADMISSION_INTENT_DIR, "or_p", &intent).unwrap();
         assert!(load_room(data_dir, "outcome-room://or_p").is_none(), "the registry never lists a pending admission");
         complete_room_intents(data_dir);
@@ -1438,27 +1713,15 @@ mod outcome_room_tests {
         assert_eq!(admitted["status"], json!("open"), "the sealed CANONICAL status — no pending_admission enum ever existed");
         assert_eq!(read_record_dir(data_dir, ROOM_RECEIPT_DIR).len(), 1, "the sealed receipt was persisted");
         assert!(read_record_dir(data_dir, ADMISSION_INTENT_DIR).is_empty(), "the consumed intent was dropped");
-        // CONFLICT-FIRST (#72 round 12 finding 2): a FOREIGN room at the same identity (different
-        // admission anchor) refuses BEFORE any write — room, receipt family, and intent stay
-        // byte-for-byte unchanged, including the conflicting intent's DIFFERENT receipt.
-        let (rid2, receipt2) = build_room_receipt(ADMISSION_RECEIPT_SCHEMA, "OutcomeRoomAdmissionReceipt", "orr", "outcome-room://or_p", "admitted", json!({ "v": 2 }), vec![], "sha256:y".into(), ROOM_HASH_EXCLUDES, "admitted_not_verified", "n", "2026-01-01T00:00:00Z");
-        let mut foreign_room = json!({ "outcome_room_id": "outcome-room://or_p", "status": "open", "revision": 1, "member_goal_run_refs": [], "admission_and_replay_refs": [receipt2["receipt_ref"]], "updated_at": "2026-01-01T00:00:00Z" });
-        foreign_room["objective"] = json!("different");
-        let other = json!({
-            "room_tail": "or_p",
-            "room_ref": "outcome-room://or_p",
-            "receipt_id": rid2,
-            "receipt": receipt2,
-            "receipt_hash": record_output_hash(&receipt2, &[]),
-            "final_room": foreign_room,
-            "final_room_hash": record_output_hash(&foreign_room, &[]),
-            "at": "2026-01-01T00:00:00Z",
-        });
+        // CONFLICT-FIRST (#72 round 12 finding 2): a FOREIGN room at the same identity (a
+        // DIFFERENT canonical admission, different anchor) refuses BEFORE any write — room,
+        // receipt family, and intent stay byte-for-byte unchanged, incl. the intent's receipt.
+        let (other, _fr, _rid2, _rcpt2) = canonical_admission("or_p");
         persist_atomic(data_dir, ADMISSION_INTENT_DIR, "or_p", &other).unwrap();
         let receipts_before = read_record_dir(data_dir, ROOM_RECEIPT_DIR).len();
         complete_room_intents(data_dir);
         let still = load_room(data_dir, "outcome-room://or_p").unwrap();
-        assert!(still.get("objective").is_none(), "the existing room was NOT overwritten");
+        assert_eq!(still["admission_receipt_ref"], admitted["admission_receipt_ref"], "the ORIGINAL admission stands — the foreign intent did not overwrite it");
         assert_eq!(read_record_dir(data_dir, ROOM_RECEIPT_DIR).len(), receipts_before, "NO receipt was persisted for the room the completer refused to admit (#72 r12 finding 2)");
         assert_eq!(read_record_dir(data_dir, ADMISSION_INTENT_DIR).len(), 1, "the conflicting intent is retained for manual repair");
         let _ = std::fs::remove_dir_all(&dir);
@@ -1471,30 +1734,107 @@ mod outcome_room_tests {
         // ANCHOR (first trail entry) and consumed without overwriting the newer state.
         let dir = temp_dir("admission-anchor");
         let data_dir = dir.to_str().unwrap();
-        // A fixture that satisfies the FULL identity proof (#72 round 13): declaration room,
-        // real output_hash over the declaration scope, admission_receipt_ref set on the room.
-        let mut final_room = json!({ "outcome_room_id": "outcome-room://or_a2", "objective": "original objective", "owner_or_sponsor_ref": "org://original", "status": "open", "revision": 1, "member_goal_run_refs": [], "updated_at": "2026-01-01T00:00:00Z" });
-        let (rid, receipt) = build_room_receipt(ADMISSION_RECEIPT_SCHEMA, "OutcomeRoomAdmissionReceipt", "orr", "outcome-room://or_a2", "admitted", json!({}), vec![], record_output_hash(&final_room, ROOM_HASH_EXCLUDES), ROOM_HASH_EXCLUDES, "admitted_not_verified", "n", "2026-01-01T00:00:00Z");
-        final_room["admission_receipt_ref"] = receipt["receipt_ref"].clone();
-        final_room["admission_and_replay_refs"] = json!([receipt["receipt_ref"]]);
-        let intent = json!({
-            "room_tail": "or_a2", "room_ref": "outcome-room://or_a2",
-            "receipt_id": rid, "receipt": receipt, "receipt_hash": record_output_hash(&receipt, &[]),
-            "final_room": final_room, "final_room_hash": record_output_hash(&final_room, &[]),
-            "at": "2026-01-01T00:00:00Z",
-        });
+        let (intent, final_room, rid, receipt) = canonical_admission("or_a2");
         persist_atomic(data_dir, ADMISSION_INTENT_DIR, "or_a2", &intent).unwrap();
-        // The room already converged AND was later paused (same anchor, newer content — but
-        // ONLY hash-excluded fields changed, so the declaration still proves the admission).
-        let mut mutated = final_room.clone();
-        mutated["status"] = json!("paused");
-        mutated["revision"] = json!(2);
+        // The room already converged AND was later legitimately PAUSED (same anchor, newer
+        // content — only hash-excluded fields changed, so the declaration still proves the
+        // admission). The pause is a real canonical transition applied to the admitted room.
+        let (_ti, mutated, _prid, _prcpt) = canonical_transition(&final_room, "pause");
         persist_atomic(data_dir, ROOM_DIR, "or_a2", &mutated).unwrap();
         persist_atomic(data_dir, ROOM_RECEIPT_DIR, &rid, &receipt).unwrap();
         complete_room_intents(data_dir);
         let room = load_room(data_dir, "outcome-room://or_a2").unwrap();
         assert_eq!(room["status"], json!("paused"), "the newer legitimate state is NOT overwritten by the replay");
         assert!(read_record_dir(data_dir, ADMISSION_INTENT_DIR).is_empty(), "the intent was recognized as consumed and dropped");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn admission_replay_refuses_a_forged_intent_when_the_room_is_ABSENT() {
+        // #72 round 15 finding 1 — the reviewer's exact bypass: in the NORMAL missing-room
+        // recovery state (no existing room), a forged intent (wrong schema/op/scope/declaration)
+        // must be refused by the FULL semantic validator, not admitted unvalidated.
+        let dir = temp_dir("forged-admission-absent");
+        let data_dir = dir.to_str().unwrap();
+        let (canonical, _room, _rid, _rcpt) = canonical_admission("or_fa");
+        // Forge the sealed room + receipt: wrong op, widened scope, forged declaration. Reseal
+        // the intent hashes so ONLY the semantic validator (not the self-consistency check)
+        // stands between the forgery and admission.
+        let mut receipt = canonical["receipt"].clone();
+        let mut final_room = canonical["final_room"].clone();
+        final_room["objective"] = json!("FORGED");
+        final_room["owner_or_sponsor_ref"] = json!("org://attacker");
+        receipt["op"] = json!("not-admitted");
+        receipt["hash_scope_excludes"] = json!(ROOM_HASH_EXCLUDES.iter().copied().chain(["objective", "owner_or_sponsor_ref"]).collect::<Vec<_>>());
+        receipt["output_hash"] = json!(record_output_hash(&final_room, &ROOM_HASH_EXCLUDES.iter().copied().chain(["objective", "owner_or_sponsor_ref"]).collect::<Vec<_>>()));
+        let forged = json!({
+            "room_tail": "or_fa", "room_ref": "outcome-room://or_fa",
+            "receipt_id": canonical["receipt_id"], "receipt": receipt, "receipt_hash": record_output_hash(&receipt, &[]),
+            "final_room": final_room, "final_room_hash": record_output_hash(&final_room, &[]), "at": "2026-01-01T00:00:00Z",
+        });
+        persist_atomic(data_dir, ADMISSION_INTENT_DIR, "or_fa", &forged).unwrap();
+        assert!(load_room(data_dir, "outcome-room://or_fa").is_none(), "the room is ABSENT — the normal recovery state");
+        complete_room_intents(data_dir);
+        assert!(load_room(data_dir, "outcome-room://or_fa").is_none(), "the forged room was NOT admitted");
+        assert!(read_record_dir(data_dir, ROOM_RECEIPT_DIR).is_empty(), "no receipt was persisted for the forgery");
+        assert_eq!(read_record_dir(data_dir, ADMISSION_INTENT_DIR).len(), 1, "the intent is retained for manual repair");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn transition_replay_refuses_a_forged_successor() {
+        // #72 round 15 finding 2 — a forged transition intent (illegal status, bumped revision,
+        // altered declaration) is NOT the deterministic successor of the durable prior; refused.
+        let dir = temp_dir("forged-transition");
+        let data_dir = dir.to_str().unwrap();
+        let (_ai, prior, _arid, _arcpt) = canonical_admission("or_ft");
+        let (tintent, _updated, _rid, _rcpt) = canonical_transition(&prior, "pause");
+        // Forge the sealed final_room: illegal status "accepted", revision 99, altered owner.
+        let mut forged_intent = tintent.clone();
+        let mut forged_room = forged_intent["final_room"].clone();
+        forged_room["status"] = json!("accepted");
+        forged_room["revision"] = json!(99);
+        forged_room["owner_or_sponsor_ref"] = json!("org://attacker");
+        forged_intent["final_room"] = forged_room.clone();
+        forged_intent["final_room_hash"] = json!(record_output_hash(&forged_room, &[]));
+        let mut pending = prior.clone();
+        pending["transition_intent"] = forged_intent;
+        let pending_bytes = serde_json::to_vec(&pending).unwrap();
+        persist_atomic(data_dir, ROOM_DIR, "or_ft", &pending).unwrap();
+        complete_room_intents(data_dir);
+        let after = load_room(data_dir, "outcome-room://or_ft").unwrap();
+        assert_eq!(serde_json::to_vec(&after).unwrap(), pending_bytes, "the room (still carrying the forged intent) is byte-for-byte unchanged — the forgery was NOT applied");
+        assert_eq!(after["status"], json!("open"), "the visible status never advanced to the forged 'accepted'");
+        assert!(read_record_dir(data_dir, ROOM_RECEIPT_DIR).is_empty(), "no receipt was persisted for the forged transition");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn attach_replay_refuses_a_forged_membership_successor() {
+        // #72 round 15 finding 2 — a forged attach intent whose updated_room is not the
+        // deterministic membership successor (extra members, altered declaration, bumped
+        // revision) is refused; the run is never stamped and nothing is written.
+        let dir = temp_dir("forged-attach");
+        let data_dir = dir.to_str().unwrap();
+        let (_ai, prior, _arid, _arcpt) = canonical_admission("or_fm");
+        persist_atomic(data_dir, GOAL_RUN_DIR, "gr_fm", &json!({ "goal_run_id": "gr_fm", "status": "active" })).unwrap();
+        let (aintent, _updated, _rid, _rcpt) = canonical_attach(&prior, "gr_fm");
+        let mut forged_intent = aintent.clone();
+        let mut forged_room = forged_intent["updated_room"].clone();
+        forged_room["member_goal_run_refs"] = json!(["goal://gr_fm", "goal://gr_smuggled"]);
+        forged_room["revision"] = json!(42);
+        forged_intent["updated_room"] = forged_room.clone();
+        forged_intent["updated_room_hash"] = json!(record_output_hash(&forged_room, &[]));
+        let mut with_intent = prior.clone();
+        with_intent["attach_intent"] = forged_intent;
+        persist_atomic(data_dir, ROOM_DIR, "or_fm", &with_intent).unwrap();
+        complete_attach_intents(data_dir);
+        let after = load_room(data_dir, "outcome-room://or_fm").unwrap();
+        assert!(after.get("attach_intent").is_some(), "the forged intent is retained (refused, not applied)");
+        assert_eq!(after["member_goal_run_refs"], json!([]), "no membership was manufactured");
+        let run = read_record_dir(data_dir, GOAL_RUN_DIR).pop().unwrap();
+        assert!(run.get("outcome_room_ref").is_none(), "the run was NEVER stamped for a forged successor");
+        assert!(read_record_dir(data_dir, ROOM_RECEIPT_DIR).is_empty(), "no receipt was persisted");
         let _ = std::fs::remove_dir_all(&dir);
     }
 
@@ -1573,20 +1913,10 @@ mod outcome_room_tests {
         // as a typed/manual conflict and B's binding is untouched.
         let dir = temp_dir("attach-conflict");
         let data_dir = dir.to_str().unwrap();
-        let prior_room = json!({ "outcome_room_id": "outcome-room://or_A", "status": "open", "revision": 1, "member_goal_run_refs": [], "updated_at": "2026-01-01T00:00:00Z" });
-        let updated_room = { let mut u = prior_room.clone(); u["member_goal_run_refs"] = json!(["goal://gr_ab"]); u["revision"] = json!(2); u };
-        let (rid, receipt) = build_room_receipt(TRANSITION_RECEIPT_SCHEMA, "OutcomeRoomTransitionReceipt", "ort", "outcome-room://or_A", "goal_run_attached", json!({}), vec![], "sha256:x".into(), TRANSITION_HASH_EXCLUDES, "admitted_not_verified", "n", "2026-01-01T00:00:00Z");
+        let (_ai, prior_room, _arid, _arcpt) = canonical_admission("or_A");
+        let (intent, _updated_room, _rid, _rcpt) = canonical_attach(&prior_room, "gr_ab");
         let mut with_intent = prior_room.clone();
-        with_intent["attach_intent"] = json!({
-            "run_file_id": "gr_ab",
-            "room_ref": "outcome-room://or_A",
-            "receipt_id": rid,
-            "receipt": receipt,
-            "receipt_hash": record_output_hash(&receipt, &[]),
-            "updated_room": updated_room,
-            "updated_room_hash": record_output_hash(&updated_room, &[]),
-            "at": "2026-01-01T00:00:00Z",
-        });
+        with_intent["attach_intent"] = intent;
         persist_atomic(data_dir, ROOM_DIR, "or_A", &with_intent).unwrap();
         // The run was bound to room B in the meantime.
         persist_atomic(data_dir, GOAL_RUN_DIR, "gr_ab", &json!({ "goal_run_id": "gr_ab", "status": "active", "outcome_room_ref": "outcome-room://or_B" })).unwrap();
@@ -1607,19 +1937,8 @@ mod outcome_room_tests {
         // to the exact prior room, and no membership, stamp, or receipt is manufactured.
         let dir = temp_dir("attach-vanish");
         let data_dir = dir.to_str().unwrap();
-        let prior_room = json!({ "outcome_room_id": "outcome-room://or_v", "status": "open", "revision": 1, "member_goal_run_refs": [], "updated_at": "2026-01-01T00:00:00Z" });
-        let updated_room = { let mut u = prior_room.clone(); u["member_goal_run_refs"] = json!(["goal://gr_ghost"]); u["revision"] = json!(2); u };
-        let (rid, receipt) = build_room_receipt(TRANSITION_RECEIPT_SCHEMA, "OutcomeRoomTransitionReceipt", "ort", "outcome-room://or_v", "goal_run_attached", json!({}), vec![], "sha256:x".into(), TRANSITION_HASH_EXCLUDES, "admitted_not_verified", "n", "2026-01-01T00:00:00Z");
-        let intent = json!({
-            "run_file_id": "gr_ghost",
-            "room_ref": "outcome-room://or_v",
-            "receipt_id": rid,
-            "receipt": receipt,
-            "receipt_hash": record_output_hash(&receipt, &[]),
-            "updated_room": updated_room,
-            "updated_room_hash": record_output_hash(&updated_room, &[]),
-            "at": "2026-01-01T00:00:00Z",
-        });
+        let (_ai, prior_room, _arid, _arcpt) = canonical_admission("or_v");
+        let (intent, _updated_room, _rid, _rcpt) = canonical_attach(&prior_room, "gr_ghost");
         let mut with_intent = prior_room.clone();
         with_intent["attach_intent"] = intent;
         persist_atomic(data_dir, ROOM_DIR, "or_v", &with_intent).unwrap();
