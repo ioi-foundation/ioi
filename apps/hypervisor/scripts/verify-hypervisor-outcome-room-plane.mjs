@@ -296,7 +296,10 @@ async function run() {
     chmodSync(join(dataDir, "receipts"), 0o555);
     const rcptFail = await jd("POST", "/v1/hypervisor/goal-runs/gr_out/reconcile", {});
     chmodSync(join(dataDir, "receipts"), 0o755);
-    ok("OUTPUT LANE receipt failure: typed 5xx and the target carries NO unreceipted output (staging preceded the receipt; the receipt precedes the commit)", rcptFail.status === 500 && rcptFail.j.error?.code === "goal_run_reconcile_receipt_persist_failed" && !targetHasOutput() && reconCount() === cB, `${rcptFail.status}/${rcptFail.j.error?.code || "ok"} targetMutated=${targetHasOutput()}`);
+    const rcptFailRun = (await jd("GET", "/v1/hypervisor/goal-runs/gr_out")).j.goal_run || {};
+    const rcptFailRef = (rcptFailRun.reconciliation_attempt_refs || []).at(-1);
+    const rcptFailRec = rcptFailRef ? JSON.parse(readFileSync(join(dataDir, "goal-run-reconciliations", `${String(rcptFailRef).replace("reconciliation_result://", "").replace(/[^A-Za-z0-9_-]/g, "_")}.json`), "utf8")) : null;
+    ok("OUTPUT LANE receipt failure: typed 5xx; NO unreceipted output; the DECLARED attempt is retained with a resolving record and a backlink (#72 r8 finding 2 — nothing deleted, nothing orphaned)", rcptFail.status === 500 && rcptFail.j.error?.code === "goal_run_reconcile_receipt_persist_failed" && !targetHasOutput() && reconCount() === cB + 1 && !!rcptFailRef && rcptFailRec?.status === "aborted_before_output_admission" && receiptsCount() === rB, `${rcptFail.status}/${rcptFail.j.error?.code || "ok"} rec=${rcptFailRec?.status}`);
 
     // Lane 3 — operation-record failure: still pre-effect; the checked receipt rollback keeps
     // "nothing changed" literally true.
@@ -319,11 +322,12 @@ async function run() {
 
     // Lane 5 — clean retry mints a NEW APPEND-ONLY attempt (#72 round 5 finding 2): the failed
     // attempt's record and receipt survive untouched; the run retains BOTH attempt refs.
+    const refsBeforeRetry = ((await jd("GET", "/v1/hypervisor/goal-runs/gr_out")).j.goal_run?.reconciliation_attempt_refs || []).length;
     const outOk = await jd("POST", "/v1/hypervisor/goal-runs/gr_out/reconcile", {});
     const attemptsAfter = outOk.j.goal_run?.reconciliation_attempt_refs || [];
     const finalRec = attemptRecord(attemptsAfter.at(-1));
     const failedRecStill = attemptRecord(failedAttemptRef);
-    ok("OUTPUT LANE retry: 200 under a NEW attempt identity; output landed (WAL journal applied + sha256) and the run retains BOTH attempt refs", outOk.status === 200 && readFileSync(join(targetDir, "out.txt"), "utf8") === "CANDIDATE_OUTPUT" && readFileSync(join(targetDir, "old.txt"), "utf8") === "OLD_TARGET" && attemptsAfter.length === 2 && attemptsAfter.at(-1) !== failedAttemptRef && finalRec.status === "complete" && finalRec.commit_journal?.at(-1)?.applied === true && String(finalRec.commit_journal?.at(-1)?.sha256 || "").startsWith("sha256:") && outOk.j.goal_run?.status === "complete", `${outOk.status} attempts=${attemptsAfter.length}`);
+    ok("OUTPUT LANE retry: 200 under a NEW attempt identity; output landed (WAL journal applied + sha256) and EVERY prior attempt ref is retained", outOk.status === 200 && readFileSync(join(targetDir, "out.txt"), "utf8") === "CANDIDATE_OUTPUT" && readFileSync(join(targetDir, "old.txt"), "utf8") === "OLD_TARGET" && attemptsAfter.length === refsBeforeRetry + 1 && attemptsAfter.includes(failedAttemptRef) && attemptsAfter.at(-1) !== failedAttemptRef && finalRec.status === "complete" && finalRec.commit_journal?.at(-1)?.applied === true && String(finalRec.commit_journal?.at(-1)?.sha256 || "").startsWith("sha256:") && outOk.j.goal_run?.status === "complete", `${outOk.status} attempts=${attemptsAfter.length}`);
     ok("OUTPUT LANE retry: the FAILED attempt's evidence is untouched by the retry (append-only, never superseded in place)", failedRecStill.status === "failed_partial_commit" && failedRecStill.recovery?.code === "goal_run_output_commit_failed" && outOk.j.goal_run?.reconciliation_ref === attemptsAfter.at(-1));
 
     // 8g. START SIDE-RECORD INTEGRITY + LIFECYCLE RECOVERY (#72 round 4 findings 2 + 3) — the
@@ -432,6 +436,28 @@ async function run() {
     const manifestOk = manifest.length === 2 && manifest.every((m) => m.sha256 === sha256(dsContent[m.file]) && m.bytes === Buffer.byteLength(dsContent[m.file]));
     ok("DURABLE STAGING: the operation record's manifest binds each file's sha256 + size; the committed target bytes match the manifest exactly", dsR.status === 200 && manifestOk && Object.entries(dsContent).every(([f, c]) => readFileSync(join(dsTarget, f), "utf8") === c), `${dsR.status} manifest=${manifest.length}`);
 
+    // 8k. LIVE STAGED-EVIDENCE BINDING (#72 round 8 finding 3): the recovery challenge hash
+    // covers the ACTUAL staged bytes; mutating a staged file after the challenge forces a
+    // re-challenge that carries the damaged-state facts, and only a grant over THOSE facts
+    // releases.
+    const svStage = join(dataDir, "goal-run-reconcile-staging", "gr_sv_lop_sv1");
+    mkdirSync(svStage, { recursive: true });
+    writeFileSync(join(svStage, "x.txt"), "STAGED_TRUTH");
+    const svSha = "sha256:" + createHash("sha256").update("STAGED_TRUTH").digest("hex");
+    writeFileSync(join(dataDir, "goal-run-reconciliations", "rc_gr_sv_lop_sv1.json"), JSON.stringify({ reconciliation_result_id: "reconciliation_result://rc_gr_sv_lop_sv1", goal_run_id: "gr_sv", goal_ref: "goal://gr_sv", status: "failed_partial_commit", attempt_token: "lop_sv1", staging_root: svStage, staged_output_manifest: [{ file: "x.txt", sha256: svSha, bytes: 12 }], commit_journal: [], final_receipt_refs: [] }));
+    writeFileSync(join(dataDir, "goal-runs", "gr_sv.json"), JSON.stringify({ goal_run_id: "gr_sv", schema_version: "ioi.hypervisor.goal-run.v1", normalized_goal: "staged binding", status: "reconciling", goal_ref: "goal://gr_sv", lifecycle_op: { op: "reconcile", token: "lop_sv1", reserved_at: "2026-01-01T00:00:00Z", from_status: "active", attempt_ref: "reconciliation_result://rc_gr_sv_lop_sv1" }, created_at: "2026-01-01T00:00:00Z" }));
+    const svCh1 = await jd("POST", "/v1/hypervisor/goal-runs/gr_sv/lifecycle-recovery", { op_token: "lop_sv1", resolution: "release" });
+    ok("STAGED BINDING: the challenge validates the staged bytes live (validated=true) and binds them into failure_hash", svCh1.status === 403 && svCh1.j.staging_validation?.validated === true && svCh1.j.staging_validation?.checked === 1, `${svCh1.status} validated=${svCh1.j.staging_validation?.validated}`);
+    writeFileSync(join(svStage, "x.txt"), "TAMPERED!!!!");
+    const svG1 = mintApprovalGrant({ policyHash: svCh1.j.approval.policy_hash, requestHash: svCh1.j.approval.request_hash });
+    const svStale = await jd("POST", "/v1/hypervisor/goal-runs/gr_sv/lifecycle-recovery", { op_token: "lop_sv1", resolution: "release", wallet_approval_grant: svG1 });
+    ok("STAGED BINDING: a staged file mutated AFTER the challenge defeats the stale grant — refused at the gate with a fresh challenge (the recomputed hash no longer matches), nothing released; the lock recheck guards the residual gate→lock window", svStale.status === 403 && svStale.j?.reason === "recovery_authority_required" && svStale.j.staging_validation?.validated === false && JSON.parse(readFileSync(join(dataDir, "goal-runs", "gr_sv.json"), "utf8")).status === "reconciling", `${svStale.status}/${svStale.j?.reason || "ok"}`);
+    const svCh2 = await jd("POST", "/v1/hypervisor/goal-runs/gr_sv/lifecycle-recovery", { op_token: "lop_sv1", resolution: "release" });
+    ok("STAGED BINDING: the re-challenge carries the damaged-state facts (mismatched file named, different failure_hash)", svCh2.status === 403 && svCh2.j.staging_validation?.validated === false && svCh2.j.staging_validation?.mismatches?.[0]?.file === "x.txt" && svCh2.j.failure_hash !== svCh1.j.failure_hash, `mismatches=${(svCh2.j.staging_validation?.mismatches || []).length}`);
+    const svG2 = mintApprovalGrant({ policyHash: svCh2.j.approval.policy_hash, requestHash: svCh2.j.approval.request_hash });
+    const svRel = await jd("POST", "/v1/hypervisor/goal-runs/gr_sv/lifecycle-recovery", { op_token: "lop_sv1", resolution: "release", wallet_approval_grant: svG2 });
+    ok("STAGED BINDING: a grant over the DAMAGED facts releases; the receipt binds the staging validation verdict and mismatch facts", svRel.status === 200 && svRel.j.recovery_receipt?.staging_validation?.validated === false && svRel.j.recovery_receipt?.staging_validation?.mismatches?.[0]?.file === "x.txt" && svRel.j.recovery_receipt?.failure_hash === svCh2.j.failure_hash, `${svRel.status}`);
+
     ok("no sentinel and no .tmp-* residue anywhere", !JSON.stringify((await jd("GET", "/v1/hypervisor/outcome-rooms")).j).includes("SENTINEL_ROOM_SECRET") && tmpLeaks().length === 0);
   } finally {
     await plane.stop();
@@ -491,6 +517,7 @@ async function run() {
       ok("CRASH RESTART: the reservation survived durably (reconciling + token) — no blind expiry, no silent unlock", stuck.status === "reconciling" && !!stuck.lifecycle_op?.token, stuck.status);
       const crashedRef = stuck.lifecycle_op?.attempt_ref;
       const chall = await rjd("POST", "/v1/hypervisor/goal-runs/gr_crash/lifecycle-recovery", { op_token: stuck.lifecycle_op?.token, resolution: "release" });
+      ok("CRASH RESTART: the recovery challenge VALIDATES the surviving staged bytes against the sealed manifest (all 32 intact)", chall.status === 403 && chall.j.staging_validation?.validated === true && chall.j.staging_validation?.checked === FILES.length, `validated=${chall.j.staging_validation?.validated} checked=${chall.j.staging_validation?.checked}`);
       const g = chall.status === 403 ? mintApprovalGrant({ policyHash: chall.j.approval.policy_hash, requestHash: chall.j.approval.request_hash }) : null;
       const rel = g ? await rjd("POST", "/v1/hypervisor/goal-runs/gr_crash/lifecycle-recovery", { op_token: stuck.lifecycle_op?.token, resolution: "release", wallet_approval_grant: g }) : chall;
       ok("CRASH RECOVERY: the reservation NAMES its attempt; the challenge hash covers reservation + attempt record; the receipt binds the crashed attempt ref AND that hash (#72 r6 finding 2)", String(crashedRef || "").startsWith("reconciliation_result://rc_gr_crash_") && rel.status === 200 && rel.j.recovery_receipt?.attempt_ref === crashedRef && rel.j.recovery_receipt?.failure_hash === chall.j.failure_hash && (rel.j.goal_run?.reconciliation_attempt_refs || []).includes(crashedRef), `${rel.status} attempt=${String(crashedRef).slice(-20)}`);
@@ -546,7 +573,56 @@ async function run() {
     ok("KILL POINT: crash plane started", false, "daemon did not start");
   }
 
-  // 11. SUBSTRATE DUAL-WRITE PARITY (#72 round 3 finding 4): with the soak opted in, the ATOMIC
+  // 11. VISIBILITY FAULT PLANES (#72 round 8 findings 1 + 2): the env-gated dir-sync fault
+  // (absent = no effect; a permission split is impossible on a read-then-write seam because the
+  // directory listing and the fsync open need the same read bit) forces the
+  // RenamedDurabilityUnconfirmed outcome through REAL request paths.
+  const vf = await startIsolatedPlane({ serve: false, env: { IOI_TEST_FORCE_DIRSYNC_UNCONFIRMED: "goal-runs" } });
+  if (vf) {
+    try {
+      const vjd = async (method, p2, body) => { const r = await fetch(`${vf.daemonUrl}${p2}`, { method, headers: { "content-type": "application/json" }, body: body ? JSON.stringify(body) : undefined }); return { status: r.status, j: await r.json().catch(() => ({})) }; };
+      const vRoom = (await vjd("POST", "/v1/hypervisor/outcome-rooms", VALID_ROOM)).j.outcome_room;
+      mkdirSync(join(vf.dataDir, "goal-runs"), { recursive: true });
+      writeFileSync(join(vf.dataDir, "goal-runs", "gr_vf.json"), JSON.stringify({ goal_run_id: "gr_vf", schema_version: "ioi.hypervisor.goal-run.v1", normalized_goal: "fault", status: "active", goal_ref: "goal://gr_vf", created_at: "2026-01-01T00:00:00Z" }));
+      const vAttach = await vjd("POST", `/v1/hypervisor/outcome-rooms/${vRoom.outcome_room_id.replace("outcome-room://", "")}/attach-goal-run`, { goal_run_ref: "goal://gr_vf", expected_revision: 1 });
+      const vRun = JSON.parse(readFileSync(join(vf.dataDir, "goal-runs", "gr_vf.json"), "utf8"));
+      const vRoomAfter = (await vjd("GET", `/v1/hypervisor/outcome-rooms/${vRoom.outcome_room_id.replace("outcome-room://", "")}`)).j.outcome_room;
+      ok("ATTACH FAULT (GoalRun dir-sync after rename): the VISIBLE stamp goes FORWARD — no room-only rollback, RECIPROCAL EQUALITY preserved (room member ⇔ run stamp)", vAttach.status === 200 && (vRoomAfter.member_goal_run_refs || []).includes("goal://gr_vf") && vRun.outcome_room_ref === vRoom.outcome_room_id, `${vAttach.status} member=${(vRoomAfter.member_goal_run_refs || []).length} stamp=${vRun.outcome_room_ref === vRoom.outcome_room_id}`);
+    } finally {
+      await vf.stop();
+    }
+  } else {
+    ok("ATTACH FAULT: plane started", false, "daemon did not start");
+  }
+  const rf = await startIsolatedPlane({ serve: false, env: { IOI_TEST_FORCE_DIRSYNC_UNCONFIRMED: "receipts" } });
+  if (rf) {
+    try {
+      const fjd = async (method, p2, body) => { const r = await fetch(`${rf.daemonUrl}${p2}`, { method, headers: { "content-type": "application/json" }, body: body ? JSON.stringify(body) : undefined }); return { status: r.status, j: await r.json().catch(() => ({})) }; };
+      const fCand = join(rf.dataDir, "cand");
+      const fTarget = join(rf.dataDir, "target");
+      mkdirSync(fCand, { recursive: true });
+      mkdirSync(fTarget, { recursive: true });
+      writeFileSync(join(fCand, "out.txt"), "PAYLOAD");
+      mkdirSync(join(rf.dataDir, "goal-runs"), { recursive: true });
+      mkdirSync(join(rf.dataDir, "goal-run-invocations"), { recursive: true });
+      mkdirSync(join(rf.dataDir, "goal-run-verifications"), { recursive: true });
+      writeFileSync(join(rf.dataDir, "goal-runs", "gr_rf.json"), JSON.stringify({ goal_run_id: "gr_rf", schema_version: "ioi.hypervisor.goal-run.v1", normalized_goal: "receipt fault", status: "active", goal_ref: "goal://gr_rf", target_workspace_root: fTarget, created_at: "2026-01-01T00:00:00Z" }));
+      writeFileSync(join(rf.dataDir, "goal-run-invocations", "gr_rf_a.json"), JSON.stringify({ goal_ref: "goal://gr_rf", goal_run_id: "gr_rf", harness_invocation_id: "harness_invocation://hi_gr_rf_a", role_key: "a", status: "completed", candidate_workspace_root: fCand, implementation_result: { implementation_result_id: "implementation_result://ir_gr_rf_a", status: "completed", changed_files: ["out.txt"] } }));
+      writeFileSync(join(rf.dataDir, "goal-run-verifications", "ver_rf.json"), JSON.stringify({ goal_ref: "goal://gr_rf", verdict: "pass", verification_ref: "agentgres://goal-run-verification/ver_rf", harness_invocation_ref: "harness_invocation://hi_gr_rf_a", created_at: "2026-01-01T00:00:00Z" }));
+      const fRec = await fjd("POST", "/v1/hypervisor/goal-runs/gr_rf/reconcile", {});
+      const fRun = JSON.parse(readFileSync(join(rf.dataDir, "goal-runs", "gr_rf.json"), "utf8"));
+      const fRef = (fRun.reconciliation_attempt_refs || [])[0];
+      const fRecFile = fRef ? JSON.parse(readFileSync(join(rf.dataDir, "goal-run-reconciliations", `${String(fRef).replace("reconciliation_result://", "")}.json`), "utf8")) : null;
+      const fReceipts = readdirSync(join(rf.dataDir, "receipts")).filter((n) => n.includes("goal-run-reconciliation"));
+      ok("RECEIPT FAULT (visible-unconfirmed): typed 5xx; the VISIBLE receipt is preserved WITH a resolving attempt record and a retained backlink — no orphan evidence, target untouched, staging preserved", fRec.status === 500 && fRec.j.error?.code === "goal_run_reconcile_receipt_durability_unconfirmed" && fReceipts.length === 1 && !!fRef && fRecFile?.status === "aborted_before_output_admission" && !existsSync(join(fTarget, "out.txt")) && readdirSync(join(rf.dataDir, "goal-run-reconcile-staging")).length === 1, `${fRec.status}/${fRec.j.error?.code || "ok"} receipt=${fReceipts.length} rec=${fRecFile?.status}`);
+    } finally {
+      await rf.stop();
+    }
+  } else {
+    ok("RECEIPT FAULT: plane started", false, "daemon did not start");
+  }
+
+  // 12. SUBSTRATE DUAL-WRITE PARITY (#72 round 3 finding 4): with the soak opted in, the ATOMIC
   // writers — the room mutation writer and the GoalRun seam — feed the substrate dual-write
   // hook exactly like persist_record; the engine's admitted counter proves the hook fired.
   const soak = await startIsolatedPlane({ serve: false, env: { IOI_SUBSTRATE_DUAL_WRITE: "1", IOI_SUBSTRATE_DUAL_WRITE_DOMAINS: "goal-runs,outcome-room-registry" } });
