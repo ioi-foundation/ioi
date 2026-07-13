@@ -723,12 +723,23 @@ async function run() {
       // intent byte-for-byte unchanged.
       const ROOM_DECL_EXCLUDES = ["admission_receipt_ref", "updated_at", "revision", "status", "status_history", "member_goal_run_refs", "admission_and_replay_refs"];
       const tpDecl = { outcome_room_id: "outcome-room://or_tp", schema_version: "ioi.hypervisor.outcome-room.v1", objective: "original objective", owner_or_sponsor_ref: "org://original", status: "open", revision: 1, member_goal_run_refs: [], status_history: [], updated_at: "2026-01-01T00:00:00Z" };
-      const tpReceipt = { schema_version: "ioi.hypervisor.outcome-room-admission-receipt.v1", receipt_id: "receipt://orr_tamper", receipt_ref: "receipt://orr_tamper", receipt_type: "OutcomeRoomAdmissionReceipt", receipt_profile_ref: "schema://ioi.hypervisor.outcome-room-admission-receipt.v1", subject_ref: "outcome-room://or_tp", op: "room_admitted", output_hash: recomputeHash(tpDecl, ROOM_DECL_EXCLUDES), hash_scope_excludes: ROOM_DECL_EXCLUDES };
+      const tpReceipt = { schema_version: "ioi.hypervisor.outcome-room-admission-receipt.v1", receipt_id: "receipt://orr_tamper", receipt_ref: "receipt://orr_tamper", receipt_type: "OutcomeRoomAdmissionReceipt", receipt_profile_ref: "schema://ioi.hypervisor.outcome-room-admission-receipt.v1", subject_ref: "outcome-room://or_tp", op: "admitted", output_hash: recomputeHash(tpDecl, ROOM_DECL_EXCLUDES), hash_scope_excludes: ROOM_DECL_EXCLUDES };
       const tpFinal = { ...tpDecl, admission_receipt_ref: "receipt://orr_tamper", admission_and_replay_refs: ["receipt://orr_tamper"] };
       writeFileSync(join(rp.dataDir, "outcome-room-admission-intents", "or_tp.json"), JSON.stringify({ room_tail: "or_tp", room_ref: "outcome-room://or_tp", receipt_id: "orr_tamper", receipt: tpReceipt, receipt_hash: sha(tpReceipt), final_room: tpFinal, final_room_hash: sha(tpFinal), at: "2026-01-01T00:00:00Z" }));
       const tpTampered = { ...tpFinal, objective: "TAMPERED objective", owner_or_sponsor_ref: "org://attacker" };
       writeFileSync(join(rp.dataDir, "outcome-room-registry", "or_tp.json"), JSON.stringify(tpTampered));
       const tpBytes = readFileSync(join(rp.dataDir, "outcome-room-registry", "or_tp.json"), "utf8");
+      // (e) WIDENED-SCOPE REPLAY (#72 r13 review / round 14): the intent's receipt widens
+      // hash_scope_excludes to also exclude objective+owner, and the tampered room recomputes to
+      // the receipt's output_hash under THAT widened scope. The completer recomputes under the
+      // CONSTANT excludes and requires the declared scope to equal it — so the forgery refuses.
+      const wsDecl = { outcome_room_id: "outcome-room://or_ws", schema_version: "ioi.hypervisor.outcome-room.v1", objective: "TAMPERED", owner_or_sponsor_ref: "org://attacker", status: "open", revision: 1, member_goal_run_refs: [], status_history: [], updated_at: "2026-01-01T00:00:00Z" };
+      const wsWidened = [...ROOM_DECL_EXCLUDES, "objective", "owner_or_sponsor_ref"];
+      const wsReceipt = { schema_version: "ioi.hypervisor.outcome-room-admission-receipt.v1", receipt_id: "receipt://orr_scope", receipt_ref: "receipt://orr_scope", receipt_type: "OutcomeRoomAdmissionReceipt", receipt_profile_ref: "schema://ioi.hypervisor.outcome-room-admission-receipt.v1", subject_ref: "outcome-room://or_ws", op: "admitted", output_hash: recomputeHash(wsDecl, wsWidened), hash_scope_excludes: wsWidened };
+      const wsFinal = { ...wsDecl, admission_receipt_ref: "receipt://orr_scope", admission_and_replay_refs: ["receipt://orr_scope"] };
+      writeFileSync(join(rp.dataDir, "outcome-room-admission-intents", "or_ws.json"), JSON.stringify({ room_tail: "or_ws", room_ref: "outcome-room://or_ws", receipt_id: "orr_scope", receipt: wsReceipt, receipt_hash: sha(wsReceipt), final_room: wsFinal, final_room_hash: sha(wsFinal), at: "2026-01-01T00:00:00Z" }));
+      writeFileSync(join(rp.dataDir, "outcome-room-registry", "or_ws.json"), JSON.stringify(wsFinal));
+      const wsBytes = readFileSync(join(rp.dataDir, "outcome-room-registry", "or_ws.json"), "utf8");
       // RESTART with the fault cleared: convergence + non-overwrite.
       process.kill(rp.daemonPid, "SIGKILL");
       const rpRevived = await startIsolatedPlane({ serve: false, dataDir: rp.dataDir });
@@ -748,6 +759,10 @@ async function run() {
       const tpReceiptExists = readdirSync(join(rp.dataDir, "outcome-room-registry-receipts")).some((n) => n.includes("orr_tamper"));
       const tpIntentRetained = existsSync(join(rp.dataDir, "outcome-room-admission-intents", "or_tp.json"));
       ok("ROOM FAULT restart: a TAMPERED declaration behind the same anchor is refused — room byte-unchanged, NO receipt persisted for the unproven admission, intent retained for manual repair (#72 r13)", tpAfter === tpBytes && !tpReceiptExists && tpIntentRetained, `unchanged=${tpAfter === tpBytes} receipt=${tpReceiptExists} intent=${tpIntentRetained}`);
+      const wsAfter = readFileSync(join(rp.dataDir, "outcome-room-registry", "or_ws.json"), "utf8");
+      const wsReceiptExists = readdirSync(join(rp.dataDir, "outcome-room-registry-receipts")).some((n) => n.includes("orr_scope"));
+      const wsIntentRetained = existsSync(join(rp.dataDir, "outcome-room-admission-intents", "or_ws.json"));
+      ok("ROOM FAULT restart: a WIDENED hash_scope_excludes hiding a tampered declaration is refused — the completer recomputes under the CONSTANT excludes; room byte-unchanged, no receipt, intent retained (#72 r14)", wsAfter === wsBytes && !wsReceiptExists && wsIntentRetained, `unchanged=${wsAfter === wsBytes} receipt=${wsReceiptExists} intent=${wsIntentRetained}`);
       await rpRevived.stop();
     } finally {
       try { rmSync(rp.dataDir, { recursive: true, force: true }); } catch { /* best effort */ }
