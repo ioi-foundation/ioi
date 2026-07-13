@@ -722,6 +722,7 @@ async function run() {
       // but altered objective/owner — the completer must refuse with room, receipt family, and
       // intent byte-for-byte unchanged.
       const ROOM_DECL_EXCLUDES = ["admission_receipt_ref", "updated_at", "revision", "status", "status_history", "member_goal_run_refs", "admission_and_replay_refs"];
+      const TRANSITION_DECL_EXCLUDES = ["admission_receipt_ref", "admission_and_replay_refs", "status_history"];
       const tpDecl = { outcome_room_id: "outcome-room://or_tp", schema_version: "ioi.hypervisor.outcome-room.v1", objective: "original objective", owner_or_sponsor_ref: "org://original", status: "open", revision: 1, member_goal_run_refs: [], status_history: [], updated_at: "2026-01-01T00:00:00Z" };
       const tpReceipt = { schema_version: "ioi.hypervisor.outcome-room-admission-receipt.v1", receipt_id: "receipt://orr_tamper", receipt_ref: "receipt://orr_tamper", receipt_type: "OutcomeRoomAdmissionReceipt", receipt_profile_ref: "schema://ioi.hypervisor.outcome-room-admission-receipt.v1", subject_ref: "outcome-room://or_tp", op: "admitted", output_hash: recomputeHash(tpDecl, ROOM_DECL_EXCLUDES), hash_scope_excludes: ROOM_DECL_EXCLUDES };
       const tpFinal = { ...tpDecl, admission_receipt_ref: "receipt://orr_tamper", admission_and_replay_refs: ["receipt://orr_tamper"] };
@@ -740,6 +741,32 @@ async function run() {
       writeFileSync(join(rp.dataDir, "outcome-room-admission-intents", "or_ws.json"), JSON.stringify({ room_tail: "or_ws", room_ref: "outcome-room://or_ws", receipt_id: "orr_scope", receipt: wsReceipt, receipt_hash: sha(wsReceipt), final_room: wsFinal, final_room_hash: sha(wsFinal), at: "2026-01-01T00:00:00Z" }));
       writeFileSync(join(rp.dataDir, "outcome-room-registry", "or_ws.json"), JSON.stringify(wsFinal));
       const wsBytes = readFileSync(join(rp.dataDir, "outcome-room-registry", "or_ws.json"), "utf8");
+      // (f) ABSENT-ROOM FORGED ADMISSION (#72 r15 finding 1): the NORMAL recovery state — only a
+      // self-consistent but NON-CANONICAL admission intent exists (wrong op + widened scope +
+      // forged declaration), no room in the registry. The completer must run the FULL semantic
+      // validator and refuse, admitting nothing.
+      const fafRoom = { outcome_room_id: "outcome-room://or_faf", schema_version: "ioi.hypervisor.outcome-room.v1", objective: "FORGED", owner_or_sponsor_ref: "org://attacker", status: "open", revision: 1, member_goal_run_refs: [], status_history: [], updated_at: "2026-01-01T00:00:00Z" };
+      const fafWidened = [...ROOM_DECL_EXCLUDES, "objective", "owner_or_sponsor_ref"];
+      const fafReceipt = { schema_version: "ioi.hypervisor.outcome-room-admission-receipt.v1", receipt_id: "receipt://orr_faf", receipt_ref: "receipt://orr_faf", receipt_type: "OutcomeRoomAdmissionReceipt", receipt_profile_ref: "schema://ioi.hypervisor.outcome-room-admission-receipt.v1", subject_ref: "outcome-room://or_faf", op: "NOT-admitted", output_hash: recomputeHash(fafRoom, fafWidened), hash_scope_excludes: fafWidened };
+      const fafFinal = { ...fafRoom, admission_receipt_ref: "receipt://orr_faf", admission_and_replay_refs: ["receipt://orr_faf"] };
+      writeFileSync(join(rp.dataDir, "outcome-room-admission-intents", "or_faf.json"), JSON.stringify({ room_tail: "or_faf", room_ref: "outcome-room://or_faf", receipt_id: "orr_faf", receipt: fafReceipt, receipt_hash: sha(fafReceipt), final_room: fafFinal, final_room_hash: sha(fafFinal), at: "2026-01-01T00:00:00Z" }));
+      // (g) FORGED TRANSITION (#72 r15 finding 2): an open room carrying a self-consistent but
+      // NON-canonical transition_intent (illegal status accepted, revision 99, altered owner).
+      const ftfPrior = { outcome_room_id: "outcome-room://or_ftf", schema_version: "ioi.hypervisor.outcome-room.v1", objective: "legit", owner_or_sponsor_ref: "org://legit", status: "open", revision: 1, member_goal_run_refs: [], admission_and_replay_refs: ["receipt://orr_ftf"], admission_receipt_ref: "receipt://orr_ftf", status_history: [], updated_at: "2026-01-01T00:00:00Z" };
+      const ftfForgedRoom = { ...ftfPrior, status: "accepted", revision: 99, owner_or_sponsor_ref: "org://attacker" };
+      const ftfReceipt = { schema_version: "ioi.hypervisor.outcome-room-transition-receipt.v1", receipt_id: "receipt://ort_ftf", receipt_ref: "receipt://ort_ftf", receipt_type: "OutcomeRoomTransitionReceipt", receipt_profile_ref: "schema://ioi.hypervisor.outcome-room-transition-receipt.v1", subject_ref: "outcome-room://or_ftf", op: "pause", output_hash: "sha256:whatever", hash_scope_excludes: TRANSITION_DECL_EXCLUDES };
+      const ftfIntent = { receipt_id: "ort_ftf", receipt: ftfReceipt, receipt_hash: sha(ftfReceipt), final_room: ftfForgedRoom, final_room_hash: sha(ftfForgedRoom), at: "2026-01-01T00:00:00Z" };
+      writeFileSync(join(rp.dataDir, "outcome-room-registry", "or_ftf.json"), JSON.stringify({ ...ftfPrior, transition_intent: ftfIntent }));
+      const ftfBytes = readFileSync(join(rp.dataDir, "outcome-room-registry", "or_ftf.json"), "utf8");
+      // (h) FORGED ATTACH (#72 r15 finding 2): an open room carrying a self-consistent but
+      // NON-canonical attach_intent (a smuggled extra member) + the run it names.
+      writeFileSync(join(rp.dataDir, "goal-runs", "gr_fmf.json"), JSON.stringify({ goal_run_id: "gr_fmf", schema_version: "ioi.hypervisor.goal-run.v1", normalized_goal: "x", status: "active", goal_ref: "goal://gr_fmf", created_at: "2026-01-01T00:00:00Z" }));
+      const fmfPrior = { outcome_room_id: "outcome-room://or_fmf", schema_version: "ioi.hypervisor.outcome-room.v1", objective: "legit", owner_or_sponsor_ref: "org://legit", status: "open", revision: 1, member_goal_run_refs: [], admission_and_replay_refs: ["receipt://orr_fmf"], admission_receipt_ref: "receipt://orr_fmf", status_history: [], updated_at: "2026-01-01T00:00:00Z" };
+      const fmfForgedRoom = { ...fmfPrior, member_goal_run_refs: ["goal://gr_fmf", "goal://gr_smuggled"], revision: 42 };
+      const fmfReceipt = { schema_version: "ioi.hypervisor.outcome-room-transition-receipt.v1", receipt_id: "receipt://ort_fmf", receipt_ref: "receipt://ort_fmf", receipt_type: "OutcomeRoomTransitionReceipt", receipt_profile_ref: "schema://ioi.hypervisor.outcome-room-transition-receipt.v1", subject_ref: "outcome-room://or_fmf", op: "goal_run_attached", output_hash: "sha256:whatever", hash_scope_excludes: TRANSITION_DECL_EXCLUDES };
+      const fmfIntent = { run_file_id: "gr_fmf", room_ref: "outcome-room://or_fmf", receipt_id: "ort_fmf", receipt: fmfReceipt, receipt_hash: sha(fmfReceipt), updated_room: fmfForgedRoom, updated_room_hash: sha(fmfForgedRoom), at: "2026-01-01T00:00:00Z" };
+      writeFileSync(join(rp.dataDir, "outcome-room-registry", "or_fmf.json"), JSON.stringify({ ...fmfPrior, attach_intent: fmfIntent }));
+      const fmfBytes = readFileSync(join(rp.dataDir, "outcome-room-registry", "or_fmf.json"), "utf8");
       // RESTART with the fault cleared: convergence + non-overwrite.
       process.kill(rp.daemonPid, "SIGKILL");
       const rpRevived = await startIsolatedPlane({ serve: false, dataDir: rp.dataDir });
@@ -763,6 +790,22 @@ async function run() {
       const wsReceiptExists = readdirSync(join(rp.dataDir, "outcome-room-registry-receipts")).some((n) => n.includes("orr_scope"));
       const wsIntentRetained = existsSync(join(rp.dataDir, "outcome-room-admission-intents", "or_ws.json"));
       ok("ROOM FAULT restart: a WIDENED hash_scope_excludes hiding a tampered declaration is refused — the completer recomputes under the CONSTANT excludes; room byte-unchanged, no receipt, intent retained (#72 r14)", wsAfter === wsBytes && !wsReceiptExists && wsIntentRetained, `unchanged=${wsAfter === wsBytes} receipt=${wsReceiptExists} intent=${wsIntentRetained}`);
+      // ABSENT-ROOM FORGED ADMISSION (#72 r15 finding 1): the semantic validator runs even with
+      // NO existing room — the forgery admits nothing.
+      const fafRoomAdmitted = afterRooms.some((r) => r.outcome_room_id === "outcome-room://or_faf");
+      const fafReceiptExists = readdirSync(join(rp.dataDir, "outcome-room-registry-receipts")).some((n) => n.includes("orr_faf"));
+      const fafIntentRetained = existsSync(join(rp.dataDir, "outcome-room-admission-intents", "or_faf.json"));
+      ok("ROOM FAULT restart: an ABSENT-room forged admission intent is REFUSED by the full semantic validator — no room admitted, no receipt, intent retained (#72 r15 finding 1)", !fafRoomAdmitted && !fafReceiptExists && fafIntentRetained, `admitted=${fafRoomAdmitted} receipt=${fafReceiptExists} intent=${fafIntentRetained}`);
+      // FORGED TRANSITION (#72 r15 finding 2): the reconstruction rejects a non-successor.
+      const ftfAfter = readFileSync(join(rp.dataDir, "outcome-room-registry", "or_ftf.json"), "utf8");
+      const ftfReceiptExists = readdirSync(join(rp.dataDir, "outcome-room-registry-receipts")).some((n) => n.includes("ort_ftf"));
+      const ftfRoom = afterRooms.find((r) => r.outcome_room_id === "outcome-room://or_ftf");
+      ok("ROOM FAULT restart: a FORGED transition successor (accepted/rev 99/altered owner) is refused — room byte-unchanged, status still open, no transition receipt (#72 r15 finding 2)", ftfAfter === ftfBytes && ftfRoom?.status === "open" && !ftfReceiptExists, `unchanged=${ftfAfter === ftfBytes} status=${ftfRoom?.status} receipt=${ftfReceiptExists}`);
+      // FORGED ATTACH (#72 r15 finding 2): the membership reconstruction rejects a smuggled member.
+      const fmfAfter = readFileSync(join(rp.dataDir, "outcome-room-registry", "or_fmf.json"), "utf8");
+      const fmfRun = JSON.parse(readFileSync(join(rp.dataDir, "goal-runs", "gr_fmf.json"), "utf8"));
+      const fmfReceiptExists = readdirSync(join(rp.dataDir, "outcome-room-registry-receipts")).some((n) => n.includes("ort_fmf"));
+      ok("ROOM FAULT restart: a FORGED attach successor (smuggled member/rev 42) is refused — room byte-unchanged, run NEVER stamped, no receipt (#72 r15 finding 2)", fmfAfter === fmfBytes && !fmfRun.outcome_room_ref && !fmfReceiptExists, `unchanged=${fmfAfter === fmfBytes} stamped=${!!fmfRun.outcome_room_ref} receipt=${fmfReceiptExists}`);
       await rpRevived.stop();
     } finally {
       try { rmSync(rp.dataDir, { recursive: true, force: true }); } catch { /* best effort */ }
