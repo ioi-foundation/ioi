@@ -314,11 +314,29 @@ pub(crate) fn resolve_open_room(data_dir: &str, room_ref: &str) -> Option<Value>
     load_room(data_dir, room_ref)
 }
 
-/// CREATION finalize: room record first (DURABLE required — an unconfirmed record must not be
-/// receipted over, #72 round 9 finding 3), receipt second; a not-committed receipt removes the
-/// created record with a CHECKED rollback; a visible-unconfirmed receipt is TERMINAL tolerance
-/// (the admitted room + its visible receipt stand; a crash-revert of the receipt leaves an
-/// admitted room whose re-admission is refused by id — never split evidence).
+/// Which durable intent (if any) is pending on a room record — EVERY room mutator refuses
+/// while one is in flight (#72 round 10 finding 2): a mutation that raced an intent would be
+/// silently erased when the completer replays the sealed final state.
+fn pending_intent(room: &Value) -> Option<(&'static str, &'static str)> {
+    if room.get("attach_intent").is_some() {
+        return Some(("attach_intent", "outcome_room_attach_in_flight"));
+    }
+    if room.get("transition_intent").is_some() {
+        return Some(("transition_intent", "outcome_room_mutation_in_flight"));
+    }
+    if room.get("admission_intent").is_some() {
+        return Some(("admission_intent", "outcome_room_mutation_in_flight"));
+    }
+    None
+}
+
+/// CREATION as an INTENT TRANSACTION (#72 round 10 finding 1): the first durable artifact is a
+/// `pending_admission` room sealing the final open room + its receipt — a pending record NEVER
+/// resolves as admitted/open (status alone refuses every open-room binding), so durability
+/// uncertainty can no longer expose an unreceipted open room. The receipt must be DURABLE
+/// before the terminal write; only the terminal write (final open room, intent consumed)
+/// tolerates visible-unconfirmed, because a crash-revert restores the intent for boot replay.
+/// NOTHING is ever deleted — the non-durable unlink hazard is gone from creation too.
 fn finalize_room_create(
     data_dir: &str,
     room_tail: &str,
@@ -326,32 +344,44 @@ fn finalize_room_create(
     receipt_id: &str,
     receipt: &Value,
 ) -> Result<(), VErr> {
-    match persist_atomic(data_dir, ROOM_DIR, room_tail, record) {
+    let intent = json!({
+        "receipt_id": receipt_id,
+        "receipt": receipt,
+        "receipt_hash": record_output_hash(receipt, &[]),
+        "final_room": record,
+        "final_room_hash": record_output_hash(record, &[]),
+        "at": iso_now(),
+    });
+    let mut pending = record.clone();
+    if let Some(obj) = pending.as_object_mut() {
+        obj.insert("status".into(), json!("pending_admission"));
+        obj.insert("admission_intent".into(), intent);
+    }
+    match persist_atomic(data_dir, ROOM_DIR, room_tail, &pending) {
         Ok(()) => {}
         Err(f) if f.visible() => {
-            return Err(verr("outcome_room_record_durability_unconfirmed", format!("the room record is {} — no receipt was written; the visible room is not yet admitted", f.detail())));
+            return Err(verr("outcome_room_admission_pending_convergence", format!("the admission intent is {}; the pending room NEVER reads as open — a restart either admits it (completer) or it never existed", f.detail())));
         }
         Err(f) => {
-            return Err(verr("outcome_room_record_persist_failed", format!("room record persist is {} — nothing changed", f.detail())));
+            return Err(verr("outcome_room_record_persist_failed", format!("the admission intent persist is {} — nothing changed", f.detail())));
         }
     }
-    match persist_atomic(data_dir, ROOM_RECEIPT_DIR, receipt_id, receipt) {
+    if let Err(f) = persist_atomic(data_dir, ROOM_RECEIPT_DIR, receipt_id, receipt) {
+        return Err(verr("outcome_room_admission_pending_convergence", format!("the admission receipt is {}; the pending room and its DURABLE intent are retained (never open, never deleted) — a restart re-persists the sealed receipt and admits the room", f.detail())));
+    }
+    match persist_atomic(data_dir, ROOM_DIR, room_tail, record) {
         Ok(()) => Ok(()),
         Err(f) if f.visible() => Ok(()),
-        Err(f) => {
-            let e = f.detail();
-            if remove_record(data_dir, ROOM_DIR, room_tail) {
-                Err(verr("outcome_room_receipt_persist_failed", format!("admission receipt persist is {e}; the created room was rolled back — nothing changed")))
-            } else {
-                Err(verr("outcome_room_rollback_failed", format!("admission receipt persist is {e} AND the created room rollback failed — manual repair required for '{room_tail}'")))
-            }
-        }
+        Err(f) => Err(verr("outcome_room_admission_pending_convergence", format!("the terminal admission write is {}; the DURABLE intent and receipt are retained — a restart completes the admission", f.detail()))),
     }
 }
 
-/// MUTATION finalize: updated room first (DURABLE required), receipt second; a not-committed
-/// receipt restores the EXACT prior record; a visible-unconfirmed receipt is TERMINAL
-/// tolerance. Safe because callers hold ROOM_MUTATION_LOCK across read → validate → finalize.
+/// MUTATION as an INTENT TRANSACTION (#72 round 10 finding 1): the first durable artifact is
+/// the PRIOR room carrying a `transition_intent` sealing the final state + its receipt — the
+/// visible status NEVER advances before the receipt is durable (the reviewer's `paused` with
+/// zero receipt is structurally impossible). A not-committed receipt rolls the intent back to
+/// the exact prior room (durable, nothing changed); a visible-unconfirmed receipt retains the
+/// intent for boot replay; only the terminal write tolerates visible-unconfirmed.
 fn finalize_room_mutation(
     data_dir: &str,
     room_tail: &str,
@@ -360,29 +390,111 @@ fn finalize_room_mutation(
     receipt_id: &str,
     receipt: &Value,
 ) -> Result<(), VErr> {
-    match persist_atomic(data_dir, ROOM_DIR, room_tail, updated) {
+    let intent = json!({
+        "receipt_id": receipt_id,
+        "receipt": receipt,
+        "receipt_hash": record_output_hash(receipt, &[]),
+        "final_room": updated,
+        "final_room_hash": record_output_hash(updated, &[]),
+        "at": iso_now(),
+    });
+    let mut pending = prior.clone();
+    if let Some(obj) = pending.as_object_mut() {
+        obj.insert("transition_intent".into(), intent);
+    }
+    match persist_atomic(data_dir, ROOM_DIR, room_tail, &pending) {
         Ok(()) => {}
         Err(f) if f.visible() => {
-            return Err(verr("outcome_room_record_durability_unconfirmed", format!("the room mutation is {} — no receipt was written; the visible state stands, nothing was rolled back as absent", f.detail())));
+            return Err(verr("outcome_room_mutation_pending_convergence", format!("the transition intent is {}; the visible room still shows the PRIOR state — a restart either applies the sealed transition (completer) or nothing happened", f.detail())));
         }
         Err(f) => {
-            return Err(verr("outcome_room_record_persist_failed", format!("room mutation persist is {} — nothing changed", f.detail())));
+            return Err(verr("outcome_room_record_persist_failed", format!("the transition intent persist is {} — nothing changed", f.detail())));
         }
     }
     match persist_atomic(data_dir, ROOM_RECEIPT_DIR, receipt_id, receipt) {
-        Ok(()) => Ok(()),
-        Err(f) if f.visible() => Ok(()),
+        Ok(()) => {}
+        Err(f) if f.visible() => {
+            return Err(verr("outcome_room_mutation_pending_convergence", format!("the transition receipt is {}; the DURABLE intent is retained with the room still in its PRIOR state — a restart re-persists the sealed receipt and applies the transition", f.detail())));
+        }
         Err(f) => {
             let e = f.detail();
-            match persist_atomic(data_dir, ROOM_DIR, room_tail, prior) {
-                Ok(()) => Err(verr("outcome_room_receipt_persist_failed", format!("transition receipt persist is {e}; the room was restored EXACTLY (status, revision, membership, updated_at) — nothing changed"))),
-                Err(_) => Err(verr("outcome_room_rollback_failed", format!("transition receipt persist is {e} AND the prior-room restore failed — manual repair required for '{room_tail}'"))),
-            }
+            return match persist_atomic(data_dir, ROOM_DIR, room_tail, prior) {
+                Ok(()) => Err(verr("outcome_room_receipt_persist_failed", format!("transition receipt persist is {e}; the intent was rolled back EXACTLY (the room never left its prior state) — nothing changed"))),
+                Err(_) => Err(verr("outcome_room_mutation_pending_convergence", format!("transition receipt persist is {e} AND the intent rollback did not commit — a restart converges the sealed transition"))),
+            };
         }
+    }
+    match persist_atomic(data_dir, ROOM_DIR, room_tail, updated) {
+        Ok(()) => Ok(()),
+        Err(f) if f.visible() => Ok(()),
+        Err(f) => Err(verr("outcome_room_mutation_pending_convergence", format!("the terminal transition write is {}; the DURABLE intent and receipt are retained — a restart completes the transition", f.detail()))),
     }
 }
 
-/// ATTACH INTENT TRANSACTION (#72 round 9 finding 3): the attach spans TWO aggregates (room
+/// BOOT COMPLETER for admission + transition intents (#72 round 10 finding 1): validate the
+/// seals (receipt + final-room hashes, identity bindings), re-persist the sealed receipt
+/// (byte-exact when it already exists), then apply the sealed final room. Anything inconsistent
+/// is left in place for manual repair; nothing is manufactured, overwritten, or deleted.
+pub(crate) fn complete_room_intents(data_dir: &str) {
+    let _guard = ROOM_MUTATION_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    for room in read_record_dir(data_dir, ROOM_DIR) {
+        let (kind, intent) = if let Some(i) = room.get("admission_intent") {
+            ("admission", i.clone())
+        } else if let Some(i) = room.get("transition_intent") {
+            ("transition", i.clone())
+        } else {
+            continue;
+        };
+        let room_id = room.get("outcome_room_id").and_then(|v| v.as_str()).unwrap_or("").to_string();
+        let room_tail = room_id.replace("outcome-room://", "");
+        let receipt = intent.get("receipt").cloned().unwrap_or(Value::Null);
+        let receipt_id = intent.get("receipt_id").and_then(Value::as_str).unwrap_or("").to_string();
+        let final_room = intent.get("final_room").cloned().unwrap_or(Value::Null);
+        let mut violations: Vec<&str> = Vec::new();
+        if room_tail.is_empty() || receipt.is_null() || receipt_id.is_empty() || final_room.is_null() {
+            violations.push("schema");
+        }
+        if intent.get("receipt_hash").and_then(Value::as_str) != Some(record_output_hash(&receipt, &[]).as_str()) {
+            violations.push("receipt hash");
+        }
+        if intent.get("final_room_hash").and_then(Value::as_str) != Some(record_output_hash(&final_room, &[]).as_str()) {
+            violations.push("final-room hash");
+        }
+        if final_room.get("outcome_room_id").and_then(Value::as_str) != Some(room_id.as_str())
+            || receipt.get("subject_ref").and_then(Value::as_str) != Some(room_id.as_str())
+        {
+            violations.push("identity binding");
+        }
+        if !violations.is_empty() {
+            eprintln!("outcome-room {kind} completer: intent on '{room_tail}' fails validation ({}) — left in place for manual repair", violations.join(", "));
+            continue;
+        }
+        let sealed_receipt_ref = receipt.get("receipt_id").and_then(Value::as_str).unwrap_or("").to_string();
+        let existing = read_record_dir(data_dir, ROOM_RECEIPT_DIR)
+            .into_iter()
+            .find(|r| r.get("receipt_id").and_then(Value::as_str) == Some(sealed_receipt_ref.as_str()));
+        if let Some(existing) = existing {
+            if serde_json::to_vec(&existing).unwrap_or_default() != serde_json::to_vec(&receipt).unwrap_or_default() {
+                eprintln!("outcome-room {kind} completer: a DIFFERENT receipt already exists for '{receipt_id}' — conflicting evidence is never overwritten; left for manual repair");
+                continue;
+            }
+        } else if let Err(f) = persist_atomic(data_dir, ROOM_RECEIPT_DIR, &receipt_id, &receipt) {
+            eprintln!("outcome-room {kind} completer: receipt persist for '{room_tail}' is {} — intent retained, retried next boot", f.detail());
+            continue;
+        }
+        match persist_atomic(data_dir, ROOM_DIR, &room_tail, &final_room) {
+            Ok(()) => {}
+            Err(f) if f.visible() => {}
+            Err(f) => {
+                eprintln!("outcome-room {kind} completer: terminal write for '{room_tail}' is {} — intent retained, retried next boot", f.detail());
+                continue;
+            }
+        }
+        eprintln!("outcome-room {kind} completer: converged the interrupted {kind} on '{room_tail}'");
+    }
+}
+
+/// ATTACH INTENT TRANSACTION (#72 round 9 finding 3)/// ATTACH INTENT TRANSACTION (#72 round 9 finding 3): the attach spans TWO aggregates (room
 /// membership + reciprocal GoalRun stamp) plus a receipt, so a durable intent SEALED ON THE
 /// ROOM RECORD anchors the whole transaction before any component lands:
 ///   1. room record + `attach_intent` (durable REQUIRED — seals the updated room, the receipt,
@@ -431,10 +543,18 @@ fn finalize_attach(
     }
     // (2) Reciprocal stamp — DURABLE required before the receipt exists.
     let room_ref = room_id.to_string();
+    let ref_for_predicate = room_ref.clone();
     let stamped = super::goalrun_routes::update_goal_run_guarded(
         data_dir,
         run_file_id,
-        |_| Ok(()),
+        move |fresh| match fresh.get("outcome_room_ref").and_then(Value::as_str) {
+            None => Ok(()),
+            Some(r) if r.is_empty() || r == ref_for_predicate => Ok(()),
+            Some(other) => Err((
+                "outcome_room_conflicting_binding".to_string(),
+                format!("the run is already bound to '{other}' — singular room identity holds at the write itself, not just at validation"),
+            )),
+        },
         |obj| {
             obj.insert("outcome_room_ref".into(), json!(room_ref));
         },
@@ -507,12 +627,23 @@ pub(crate) fn complete_attach_intents(data_dir: &str) {
             eprintln!("outcome-room attach completer: intent on '{room_tail}' fails validation ({}) — left in place for manual repair", violations.join(", "));
             continue;
         }
-        // Re-stamp (idempotent merge of the single owned field), DURABLE required.
+        // Re-stamp (idempotent merge of the single owned field), DURABLE required. The CAS
+        // predicate is SINGULARITY-SAFE (#72 round 10 finding 3): only an absent/null binding
+        // or the SAME room may be stamped — the initiation-time check is stale by replay time,
+        // and a run bound elsewhere since must never be overwritten.
         let ref_for_stamp = room_ref.clone();
+        let ref_for_predicate = room_ref.clone();
         let stamped = super::goalrun_routes::update_goal_run_guarded(
             data_dir,
             &run_file_id,
-            |_| Ok(()),
+            move |fresh| match fresh.get("outcome_room_ref").and_then(Value::as_str) {
+                None => Ok(()),
+                Some(r) if r.is_empty() || r == ref_for_predicate => Ok(()),
+                Some(other) => Err((
+                    "outcome_room_conflicting_binding".to_string(),
+                    format!("the run is already bound to '{other}' — replay never overwrites another room's reciprocal binding"),
+                )),
+            },
             |obj| {
                 obj.insert("outcome_room_ref".into(), json!(ref_for_stamp));
             },
@@ -534,6 +665,10 @@ pub(crate) fn complete_attach_intents(data_dir: &str) {
                     Err(f) if f.visible() => eprintln!("outcome-room attach completer: the intent rollback on '{room_tail}' is visible-unconfirmed — converges next boot"),
                     Err(f) => eprintln!("outcome-room attach completer: the intent rollback on '{room_tail}' is {} — retried next boot", f.detail()),
                 }
+                continue;
+            }
+            Err((code, msg)) if code == "outcome_room_conflicting_binding" => {
+                eprintln!("outcome-room attach completer: CONFLICT on '{room_tail}' — {msg}; the intent is left untouched for manual repair (never overwritten)");
                 continue;
             }
             Err((code, msg)) => {
@@ -773,6 +908,11 @@ fn mutate_room(
     let Some(prior) = load_room(data_dir, &room_id) else {
         return Err(verr("outcome_room_not_found", format!("no admitted room '{room_id}'")));
     };
+    // MUTUAL EXCLUSION (#72 round 10 finding 2): a mutation admitted while an intent is in
+    // flight would be silently erased when the completer replays the sealed final state.
+    if let Some((field, code)) = pending_intent(&prior) {
+        return Err(verr(code, format!("a durable {field} is pending on this room — a restart (boot completer) converges it before any other mutation is admitted")));
+    }
     let current_rev = prior.get("revision").and_then(|v| v.as_u64()).unwrap_or(0);
     check_expected_revision(body, current_rev)?;
     let now = iso_now();
@@ -841,8 +981,8 @@ pub(crate) async fn handle_outcome_room_transition(
     match result {
         Ok((room, receipt)) => (StatusCode::OK, Json(json!({ "outcome_room": room, "outcome_room_receipt": receipt }))),
         Err(e) if e.0 == "outcome_room_not_found" => err(StatusCode::NOT_FOUND, e),
-        Err(e) if e.0 == "outcome_room_revision_conflict" => err(StatusCode::CONFLICT, e),
-        Err(e) if e.0.ends_with("_persist_failed") || e.0 == "outcome_room_rollback_failed" => err(StatusCode::INTERNAL_SERVER_ERROR, e),
+        Err(e) if e.0 == "outcome_room_revision_conflict" || e.0.ends_with("_in_flight") => err(StatusCode::CONFLICT, e),
+        Err(e) if e.0.ends_with("_persist_failed") || e.0.ends_with("_pending_convergence") || e.0.ends_with("_durability_unconfirmed") || e.0 == "outcome_room_rollback_failed" => err(StatusCode::INTERNAL_SERVER_ERROR, e),
         Err(e) => err(StatusCode::BAD_REQUEST, e),
     }
 }
@@ -885,8 +1025,8 @@ pub(crate) async fn handle_outcome_room_attach_goal_run(
     let Some(prior_room) = load_room(&st.data_dir, &room_id) else {
         return err(StatusCode::NOT_FOUND, verr("outcome_room_not_found", format!("no admitted room '{room_id}'")));
     };
-    if prior_room.get("attach_intent").is_some() {
-        return err(StatusCode::CONFLICT, verr("outcome_room_attach_in_flight", "a durable attach intent is already pending on this room — a restart (boot completer) converges it before new membership is admitted"));
+    if let Some((field, code)) = pending_intent(&prior_room) {
+        return err(StatusCode::CONFLICT, verr(code, format!("a durable {field} is pending on this room — a restart (boot completer) converges it before new membership is admitted")));
     }
     let current_rev = prior_room.get("revision").and_then(|v| v.as_u64()).unwrap_or(0);
     if let Err(e) = check_expected_revision(&body, current_rev) {
@@ -1139,6 +1279,73 @@ mod outcome_room_tests {
         // Idempotent: a second boot pass changes nothing.
         complete_attach_intents(data_dir);
         assert_eq!(load_room(data_dir, "outcome-room://or_1").unwrap()["member_goal_run_refs"], json!(["goal://gr_1"]));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn transition_intent_completer_applies_the_sealed_final_state() {
+        // #72 round 10 finding 1: a transition interrupted after its durable intent converges
+        // at boot — sealed receipt persisted, sealed final room applied, intent consumed.
+        let dir = temp_dir("transition-intent");
+        let data_dir = dir.to_str().unwrap();
+        let prior = json!({ "outcome_room_id": "outcome-room://or_t", "status": "open", "revision": 1, "member_goal_run_refs": [], "updated_at": "2026-01-01T00:00:00Z" });
+        let mut final_room = prior.clone();
+        final_room["status"] = json!("paused");
+        final_room["revision"] = json!(2);
+        let (rid, receipt) = build_room_receipt(TRANSITION_RECEIPT_SCHEMA, "OutcomeRoomTransitionReceipt", "ort", "outcome-room://or_t", "pause", json!({}), vec![], "sha256:x".into(), TRANSITION_HASH_EXCLUDES, "admitted_not_verified", "n", "2026-01-01T00:00:00Z");
+        let mut pending = prior.clone();
+        pending["transition_intent"] = json!({
+            "receipt_id": rid,
+            "receipt": receipt,
+            "receipt_hash": record_output_hash(&receipt, &[]),
+            "final_room": final_room,
+            "final_room_hash": record_output_hash(&final_room, &[]),
+            "at": "2026-01-01T00:00:00Z",
+        });
+        persist_atomic(data_dir, ROOM_DIR, "or_t", &pending).unwrap();
+        complete_room_intents(data_dir);
+        let converged = load_room(data_dir, "outcome-room://or_t").unwrap();
+        assert_eq!(converged["status"], json!("paused"), "the sealed transition was applied");
+        assert_eq!(converged["revision"], json!(2));
+        assert!(converged.get("transition_intent").is_none(), "the intent was consumed");
+        assert_eq!(read_record_dir(data_dir, ROOM_RECEIPT_DIR).len(), 1, "the sealed receipt was persisted");
+        // Idempotent second boot.
+        complete_room_intents(data_dir);
+        assert_eq!(load_room(data_dir, "outcome-room://or_t").unwrap()["status"], json!("paused"));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn attach_completer_never_overwrites_another_rooms_binding() {
+        // #72 round 10 finding 3 — the A-intent/B-binding proof: room A's surviving intent must
+        // NOT rewrite a run that was bound to room B after A's stamp failed; the intent stays
+        // as a typed/manual conflict and B's binding is untouched.
+        let dir = temp_dir("attach-conflict");
+        let data_dir = dir.to_str().unwrap();
+        let prior_room = json!({ "outcome_room_id": "outcome-room://or_A", "status": "open", "revision": 1, "member_goal_run_refs": [], "updated_at": "2026-01-01T00:00:00Z" });
+        let updated_room = { let mut u = prior_room.clone(); u["member_goal_run_refs"] = json!(["goal://gr_ab"]); u["revision"] = json!(2); u };
+        let (rid, receipt) = build_room_receipt(TRANSITION_RECEIPT_SCHEMA, "OutcomeRoomTransitionReceipt", "ort", "outcome-room://or_A", "goal_run_attached", json!({}), vec![], "sha256:x".into(), TRANSITION_HASH_EXCLUDES, "admitted_not_verified", "n", "2026-01-01T00:00:00Z");
+        let mut with_intent = prior_room.clone();
+        with_intent["attach_intent"] = json!({
+            "run_file_id": "gr_ab",
+            "room_ref": "outcome-room://or_A",
+            "receipt_id": rid,
+            "receipt": receipt,
+            "receipt_hash": record_output_hash(&receipt, &[]),
+            "updated_room": updated_room,
+            "updated_room_hash": record_output_hash(&updated_room, &[]),
+            "at": "2026-01-01T00:00:00Z",
+        });
+        persist_atomic(data_dir, ROOM_DIR, "or_A", &with_intent).unwrap();
+        // The run was bound to room B in the meantime.
+        persist_atomic(data_dir, GOAL_RUN_DIR, "gr_ab", &json!({ "goal_run_id": "gr_ab", "status": "active", "outcome_room_ref": "outcome-room://or_B" })).unwrap();
+        complete_attach_intents(data_dir);
+        let run = read_record_dir(data_dir, GOAL_RUN_DIR).pop().unwrap();
+        assert_eq!(run["outcome_room_ref"], json!("outcome-room://or_B"), "room B's reciprocal binding is UNTOUCHED");
+        let room_a = load_room(data_dir, "outcome-room://or_A").unwrap();
+        assert!(room_a.get("attach_intent").is_some(), "room A's intent is left as a manual conflict, never overwritten");
+        assert_eq!(room_a["member_goal_run_refs"], json!([]), "room A gained no membership");
+        assert!(read_record_dir(data_dir, ROOM_RECEIPT_DIR).is_empty(), "no receipt was manufactured");
         let _ = std::fs::remove_dir_all(&dir);
     }
 

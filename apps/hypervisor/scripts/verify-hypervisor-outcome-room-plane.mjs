@@ -266,6 +266,10 @@ async function run() {
     ok("ATTACH PENDING: receipt failure after the durable intent + stamp → typed pending-convergence; the intent is retained, the stamp STAYS, membership awaits the completer (#72 r9 finding 3)", pendInjected.status === 500 && pendInjected.j.error?.code === "outcome_room_attach_pending_convergence" && !!roomEPending.attach_intent && (roomEPending.member_goal_run_refs || []).length === 0 && stampAfter.outcome_room_ref === roomE.outcome_room_id, `${pendInjected.status}/${pendInjected.j.error?.code || "ok"} intent=${!!roomEPending.attach_intent}`);
     const inFlight = await jd("POST", `/v1/hypervisor/outcome-rooms/${roomTail(roomE.outcome_room_id)}/attach-goal-run`, { goal_run_ref: "goal://gr_fixture2", expected_revision: 1 });
     ok("ATTACH PENDING: new membership refuses while the intent is in flight (409 typed)", inFlight.status === 409 && inFlight.j.error?.code === "outcome_room_attach_in_flight", `${inFlight.status}/${inFlight.j.error?.code || "ok"}`);
+    // #72 round 10 finding 2 — the reviewer's exact regression: a lifecycle transition during a
+    // pending attach must refuse, or the completer's replay would silently erase it.
+    const pauseDuring = await jd("POST", `/v1/hypervisor/outcome-rooms/${roomTail(roomE.outcome_room_id)}/transition`, { transition: "pause", expected_revision: 1 });
+    ok("ATTACH PENDING: EVERY room mutator refuses while the intent is in flight — pause → 409, so replay can never erase an admitted transition (#72 r10 finding 2)", pauseDuring.status === 409 && pauseDuring.j.error?.code === "outcome_room_attach_in_flight", `${pauseDuring.status}/${pauseDuring.j.error?.code || "ok"}`);
 
     // 8f. RECONCILE OUTPUT INTEGRITY (#72 round 4 finding 1) — REAL candidate output against a
     // REAL target workspace; every failure lane proves the target is never mutated without a
@@ -678,7 +682,56 @@ async function run() {
     ok("RECEIPT FAULT: plane started", false, "daemon did not start");
   }
 
-  // 12. SUBSTRATE DUAL-WRITE PARITY (#72 round 3 finding 4): with the soak opted in, the ATOMIC
+  // 12. ROOM DURABILITY FAULT PLANE (#72 round 10 findings 1 + 3): every room mutation is an
+  // intent transaction — pending records never read as admitted/open, transitions never advance
+  // the visible status before their receipt is durable, and restart converges everything
+  // (including the A-intent/B-binding conflict, which is never overwritten).
+  const rp = await startIsolatedPlane({ serve: false, env: { IOI_TEST_FORCE_DIRSYNC_UNCONFIRMED: "outcome-room-registry" } });
+  if (rp) {
+    try {
+      const pjd = async (method, p2, body) => { const r = await fetch(`${rp.daemonUrl}${p2}`, { method, headers: { "content-type": "application/json" }, body: body ? JSON.stringify(body) : undefined }); return { status: r.status, j: await r.json().catch(() => ({})) }; };
+      // (a) CREATE under durability uncertainty: 5xx, and the pending room NEVER reads as open.
+      const cFault = await pjd("POST", "/v1/hypervisor/outcome-rooms", VALID_ROOM);
+      const listed = (await pjd("GET", "/v1/hypervisor/outcome-rooms")).j.outcome_rooms || [];
+      const pendingRoom = listed.find((r) => r.status === "pending_admission");
+      const bindPending = pendingRoom ? await pjd("POST", "/v1/hypervisor/work-results", { goal_ref: "goal://p", result_profile: "research", outcome_class: "positive", status: "completed", outcome_room_ref: pendingRoom.outcome_room_id }) : { status: 0, j: {} };
+      ok("ROOM FAULT create: 5xx typed; the pending room NEVER resolves as admitted/open (status pending_admission; open-room bindings refuse) (#72 r10 finding 1)", cFault.status === 500 && cFault.j.error?.code === "outcome_room_admission_pending_convergence" && !!pendingRoom && !listed.some((r) => r.status === "open") && bindPending.status === 400 && bindPending.j.error?.code === "work_result_room_not_open", `${cFault.status}/${cFault.j.error?.code || "ok"} pending=${!!pendingRoom}`);
+      // (b) TRANSITION under durability uncertainty: 5xx; the visible status NEVER advances and
+      // no receipt exists — the reviewer's `paused with zero receipt` is structurally gone.
+      writeFileSync(join(rp.dataDir, "outcome-room-registry", "or_tf.json"), JSON.stringify({ outcome_room_id: "outcome-room://or_tf", schema_version: "ioi.hypervisor.outcome-room.v1", status: "open", revision: 1, member_goal_run_refs: [], admission_and_replay_refs: [], status_history: [], updated_at: "2026-01-01T00:00:00Z" }));
+      const tFault = await pjd("POST", "/v1/hypervisor/outcome-rooms/or_tf/transition", { transition: "pause", expected_revision: 1 });
+      const tfDisk = JSON.parse(readFileSync(join(rp.dataDir, "outcome-room-registry", "or_tf.json"), "utf8"));
+      const tfReceipts = (() => { try { return readdirSync(join(rp.dataDir, "outcome-room-registry-receipts")).length; } catch { return 0; } })();
+      ok("ROOM FAULT transition: 5xx typed; disk still shows the PRIOR status with the intent sealed and ZERO transition receipt (#72 r10 finding 1)", tFault.status === 500 && tFault.j.error?.code === "outcome_room_mutation_pending_convergence" && tfDisk.status === "open" && !!tfDisk.transition_intent && tfReceipts === 0, `${tFault.status}/${tFault.j.error?.code || "ok"} disk=${tfDisk.status} receipts=${tfReceipts}`);
+      // (c) Plant the A-intent/B-binding conflict for restart (#72 r10 finding 3).
+      mkdirSync(join(rp.dataDir, "goal-runs"), { recursive: true });
+      writeFileSync(join(rp.dataDir, "goal-runs", "gr_ab.json"), JSON.stringify({ goal_run_id: "gr_ab", schema_version: "ioi.hypervisor.goal-run.v1", normalized_goal: "conflict", status: "active", goal_ref: "goal://gr_ab", outcome_room_ref: "outcome-room://or_B", created_at: "2026-01-01T00:00:00Z" }));
+      const priorA = { outcome_room_id: "outcome-room://or_A", schema_version: "ioi.hypervisor.outcome-room.v1", status: "open", revision: 1, member_goal_run_refs: [], admission_and_replay_refs: [], status_history: [], updated_at: "2026-01-01T00:00:00Z" };
+      const updatedA = { ...priorA, member_goal_run_refs: ["goal://gr_ab"], revision: 2 };
+      const aReceipt = { schema_version: "x", receipt_id: "receipt://ort_conflict", receipt_ref: "receipt://ort_conflict", receipt_type: "OutcomeRoomTransitionReceipt", subject_ref: "outcome-room://or_A", op: "goal_run_attached" };
+      const sha = (v) => "sha256:" + createHash("sha256").update(canon(v)).digest("hex");
+      writeFileSync(join(rp.dataDir, "outcome-room-registry", "or_A.json"), JSON.stringify({ ...priorA, attach_intent: { run_file_id: "gr_ab", room_ref: "outcome-room://or_A", receipt_id: "ort_conflict", receipt: aReceipt, receipt_hash: sha(aReceipt), updated_room: updatedA, updated_room_hash: sha(updatedA), at: "2026-01-01T00:00:00Z" } }));
+      // RESTART with the fault cleared: convergence + non-overwrite.
+      process.kill(rp.daemonPid, "SIGKILL");
+      const rpRevived = await startIsolatedPlane({ serve: false, dataDir: rp.dataDir });
+      const rpjd = async (method, p2, body) => { const r = await fetch(`${rpRevived.daemonUrl}${p2}`, { method, headers: { "content-type": "application/json" }, body: body ? JSON.stringify(body) : undefined }); return { status: r.status, j: await r.json().catch(() => ({})) }; };
+      const afterRooms = (await rpjd("GET", "/v1/hypervisor/outcome-rooms")).j.outcome_rooms || [];
+      const admitted = afterRooms.find((r) => r.outcome_room_id === pendingRoom?.outcome_room_id);
+      const tfAfter = afterRooms.find((r) => r.outcome_room_id === "outcome-room://or_tf");
+      const tfReceiptsAfter = readdirSync(join(rp.dataDir, "outcome-room-registry-receipts")).length;
+      ok("ROOM FAULT restart: the completer ADMITTED the pending room (open + durable receipt) and APPLIED the sealed transition (paused + receipt, intent consumed)", admitted?.status === "open" && !admitted?.admission_intent && tfAfter?.status === "paused" && !tfAfter?.transition_intent && tfReceiptsAfter >= 2, `admitted=${admitted?.status} tf=${tfAfter?.status} receipts=${tfReceiptsAfter}`);
+      const abRun = JSON.parse(readFileSync(join(rp.dataDir, "goal-runs", "gr_ab.json"), "utf8"));
+      const roomA = afterRooms.find((r) => r.outcome_room_id === "outcome-room://or_A");
+      ok("ROOM FAULT restart: the A-intent/B-binding conflict is NEVER overwritten — room B's binding intact, room A's intent retained as a manual conflict, no membership manufactured (#72 r10 finding 3)", abRun.outcome_room_ref === "outcome-room://or_B" && !!roomA?.attach_intent && (roomA?.member_goal_run_refs || []).length === 0, `binding=${abRun.outcome_room_ref} intentA=${!!roomA?.attach_intent}`);
+      await rpRevived.stop();
+    } finally {
+      try { rmSync(rp.dataDir, { recursive: true, force: true }); } catch { /* best effort */ }
+    }
+  } else {
+    ok("ROOM FAULT: plane started", false, "daemon did not start");
+  }
+
+  // 13. SUBSTRATE DUAL-WRITE PARITY (#72 round 3 finding 4): with the soak opted in, the ATOMIC
   // writers — the room mutation writer and the GoalRun seam — feed the substrate dual-write
   // hook exactly like persist_record; the engine's admitted counter proves the hook fired.
   const soak = await startIsolatedPlane({ serve: false, env: { IOI_SUBSTRATE_DUAL_WRITE: "1", IOI_SUBSTRATE_DUAL_WRITE_DOMAINS: "goal-runs,outcome-room-registry" } });
