@@ -723,6 +723,19 @@ async function run() {
       // intent byte-for-byte unchanged.
       const ROOM_DECL_EXCLUDES = ["admission_receipt_ref", "updated_at", "revision", "status", "status_history", "member_goal_run_refs", "admission_and_replay_refs"];
       const TRANSITION_DECL_EXCLUDES = ["admission_receipt_ref", "admission_and_replay_refs", "status_history"];
+      const TRANSITION_NOTE = "an admitted shared-state transition on a hosted room — receipted, optimistically concurrent, and honest about being admission (not verification or acceptance)";
+      const ATTACH_NOTE = "an admitted membership transition — the room's member list and the GoalRun's reciprocal outcome_room_ref stamp land in one atomic finalization";
+      // Mirror of build_room_receipt_at (the server-side receipt constructor) — used to build a
+      // TRUTHFUL receipt for the lying-receipt adversarial lanes (#72 r16 finding 2).
+      const roomReceipt = (tail, schema, type, subject, op, boundFacts, boundaryRefs, outputHash, excludes, note, now) => ({
+        schema_version: schema, receipt_id: `receipt://${tail}`, receipt_ref: `receipt://${tail}`, receipt_type: type,
+        receipt_profile_ref: `schema://${schema}`, actor_id: "daemon://hypervisor-runtime", subject_ref: subject, op,
+        attested_boundary_fact_refs: boundaryRefs, bound_facts: boundFacts, output_hash: outputHash, hash_scope_excludes: excludes,
+        assurance_posture: "admitted_not_verified", assurance_note: note, verification_ref: null, acceptance_ref: null,
+        claim_scope_ref: null, run_id: null, task_id: null, input_hash: null, policy_hash: null, authority_grant_id: null,
+        primitive_capabilities: [], authority_scopes: [], artifact_refs: [], evidence_bundle_refs: [], adjudication_ref: null,
+        settlement_ref: null, signature: null, l1_commitment: null, timestamp: now, outcome: "ok", at: now,
+      });
       const tpDecl = { outcome_room_id: "outcome-room://or_tp", schema_version: "ioi.hypervisor.outcome-room.v1", objective: "original objective", owner_or_sponsor_ref: "org://original", status: "open", revision: 1, member_goal_run_refs: [], status_history: [], updated_at: "2026-01-01T00:00:00Z" };
       const tpReceipt = { schema_version: "ioi.hypervisor.outcome-room-admission-receipt.v1", receipt_id: "receipt://orr_tamper", receipt_ref: "receipt://orr_tamper", receipt_type: "OutcomeRoomAdmissionReceipt", receipt_profile_ref: "schema://ioi.hypervisor.outcome-room-admission-receipt.v1", subject_ref: "outcome-room://or_tp", op: "admitted", output_hash: recomputeHash(tpDecl, ROOM_DECL_EXCLUDES), hash_scope_excludes: ROOM_DECL_EXCLUDES };
       const tpFinal = { ...tpDecl, admission_receipt_ref: "receipt://orr_tamper", admission_and_replay_refs: ["receipt://orr_tamper"] };
@@ -767,6 +780,32 @@ async function run() {
       const fmfIntent = { run_file_id: "gr_fmf", room_ref: "outcome-room://or_fmf", receipt_id: "ort_fmf", receipt: fmfReceipt, receipt_hash: sha(fmfReceipt), updated_room: fmfForgedRoom, updated_room_hash: sha(fmfForgedRoom), at: "2026-01-01T00:00:00Z" };
       writeFileSync(join(rp.dataDir, "outcome-room-registry", "or_fmf.json"), JSON.stringify({ ...fmfPrior, attach_intent: fmfIntent }));
       const fmfBytes = readFileSync(join(rp.dataDir, "outcome-room-registry", "or_fmf.json"), "utf8");
+      // (i) HOLLOW ADMISSION ENVELOPE (#72 r16 finding 1): a room with NO governing declaration
+      // (no owner/objective/host/mode/topology/policies). The full reconstruction through the
+      // creation validator rejects it — a hollow envelope can never enter the registry.
+      const hoRoom = { outcome_room_id: "outcome-room://or_ho", schema_version: "ioi.hypervisor.outcome-room.v1", status: "open", revision: 1, member_goal_run_refs: [], status_history: [], admission_receipt_ref: "receipt://orr_ho", admission_and_replay_refs: ["receipt://orr_ho"], created_at: "2026-01-01T00:00:00Z", updated_at: "2026-01-01T00:00:00Z" };
+      const hoReceipt = roomReceipt("orr_ho", "ioi.hypervisor.outcome-room-admission-receipt.v1", "OutcomeRoomAdmissionReceipt", "outcome-room://or_ho", "admitted", { status_at_admission: "open" }, ["outcome-room://or_ho"], "sha256:whatever", ROOM_DECL_EXCLUDES, "n", "2026-01-01T00:00:00Z");
+      writeFileSync(join(rp.dataDir, "outcome-room-admission-intents", "or_ho.json"), JSON.stringify({ room_tail: "or_ho", room_ref: "outcome-room://or_ho", receipt_id: "orr_ho", receipt: hoReceipt, receipt_hash: sha(hoReceipt), final_room: hoRoom, final_room_hash: sha(hoRoom), at: "2026-01-01T00:00:00Z" }));
+      // (j) TRUTHFUL SUCCESSOR, LYING TRANSITION RECEIPT (#72 r16 finding 2): the room advances
+      // to the CORRECT pause, but the receipt attests a fabricated archive/accepted→settled with
+      // a foreign boundary and forged posture. The reconstructed receipt won't match — refused.
+      const ltPrior = { outcome_room_id: "outcome-room://or_lt", schema_version: "ioi.hypervisor.outcome-room.v1", objective: "legit", status: "open", revision: 1, member_goal_run_refs: [], admission_and_replay_refs: ["receipt://orr_lt"], admission_receipt_ref: "receipt://orr_lt", status_history: [], updated_at: "2026-01-01T00:00:00Z" };
+      const ltNow = "2026-06-06T00:00:00Z";
+      const ltSuccessor = { ...ltPrior, status: "paused", revision: 2, updated_at: ltNow, admission_and_replay_refs: ["receipt://orr_lt", "receipt://ort_lt"], status_history: [{ op: "pause", at: ltNow, receipt_ref: "receipt://ort_lt", revision: 2 }] };
+      const ltOutputHash = sha(Object.fromEntries(Object.entries(ltSuccessor).filter(([k]) => !TRANSITION_DECL_EXCLUDES.includes(k))));
+      const ltLyingReceipt = roomReceipt("ort_lt", "ioi.hypervisor.outcome-room-transition-receipt.v1", "OutcomeRoomTransitionReceipt", "outcome-room://or_lt", "pause", { transition: "archive", from: "accepted", to: "settled", revision_before: 900, revision_after: 901 }, ["outcome-room://some-other-room"], ltOutputHash, TRANSITION_DECL_EXCLUDES, TRANSITION_NOTE, ltNow);
+      ltLyingReceipt.assurance_posture = "forged_assurance";
+      writeFileSync(join(rp.dataDir, "outcome-room-registry", "or_lt.json"), JSON.stringify({ ...ltPrior, transition_intent: { receipt_id: "ort_lt", receipt: ltLyingReceipt, receipt_hash: sha(ltLyingReceipt), final_room: ltSuccessor, final_room_hash: sha(ltSuccessor), at: ltNow } }));
+      const ltBytes = readFileSync(join(rp.dataDir, "outcome-room-registry", "or_lt.json"), "utf8");
+      // (k) TRUTHFUL MEMBERSHIP, LYING ATTACH RECEIPT (#72 r16 finding 2).
+      writeFileSync(join(rp.dataDir, "goal-runs", "gr_la.json"), JSON.stringify({ goal_run_id: "gr_la", schema_version: "ioi.hypervisor.goal-run.v1", normalized_goal: "x", status: "active", goal_ref: "goal://gr_la", created_at: "2026-01-01T00:00:00Z" }));
+      const laPrior = { outcome_room_id: "outcome-room://or_la", schema_version: "ioi.hypervisor.outcome-room.v1", objective: "legit", status: "open", revision: 1, member_goal_run_refs: [], admission_and_replay_refs: ["receipt://orr_la"], admission_receipt_ref: "receipt://orr_la", status_history: [], updated_at: "2026-01-01T00:00:00Z" };
+      const laNow = "2026-06-06T00:00:00Z";
+      const laSuccessor = { ...laPrior, member_goal_run_refs: ["goal://gr_la"], revision: 2, updated_at: laNow, admission_and_replay_refs: ["receipt://orr_la", "receipt://ort_la"], status_history: [{ op: "goal_run_attached", at: laNow, receipt_ref: "receipt://ort_la", revision: 2 }] };
+      const laOutputHash = sha(Object.fromEntries(Object.entries(laSuccessor).filter(([k]) => !TRANSITION_DECL_EXCLUDES.includes(k))));
+      const laLyingReceipt = roomReceipt("ort_la", "ioi.hypervisor.outcome-room-transition-receipt.v1", "OutcomeRoomTransitionReceipt", "outcome-room://or_la", "goal_run_attached", { goal_run_ref: "goal://gr_smuggled", reciprocal_outcome_room_ref_stamped: false, member_count_after: 99, revision_before: 5, revision_after: 6 }, ["outcome-room://or_la", "goal://gr_la"], laOutputHash, TRANSITION_DECL_EXCLUDES, ATTACH_NOTE, laNow);
+      writeFileSync(join(rp.dataDir, "outcome-room-registry", "or_la.json"), JSON.stringify({ ...laPrior, attach_intent: { run_file_id: "gr_la", room_ref: "outcome-room://or_la", receipt_id: "ort_la", receipt: laLyingReceipt, receipt_hash: sha(laLyingReceipt), updated_room: laSuccessor, updated_room_hash: sha(laSuccessor), at: laNow } }));
+      const laBytes = readFileSync(join(rp.dataDir, "outcome-room-registry", "or_la.json"), "utf8");
       // RESTART with the fault cleared: convergence + non-overwrite.
       process.kill(rp.daemonPid, "SIGKILL");
       const rpRevived = await startIsolatedPlane({ serve: false, dataDir: rp.dataDir });
@@ -806,6 +845,18 @@ async function run() {
       const fmfRun = JSON.parse(readFileSync(join(rp.dataDir, "goal-runs", "gr_fmf.json"), "utf8"));
       const fmfReceiptExists = readdirSync(join(rp.dataDir, "outcome-room-registry-receipts")).some((n) => n.includes("ort_fmf"));
       ok("ROOM FAULT restart: a FORGED attach successor (smuggled member/rev 42) is refused — room byte-unchanged, run NEVER stamped, no receipt (#72 r15 finding 2)", fmfAfter === fmfBytes && !fmfRun.outcome_room_ref && !fmfReceiptExists, `unchanged=${fmfAfter === fmfBytes} stamped=${!!fmfRun.outcome_room_ref} receipt=${fmfReceiptExists}`);
+      // HOLLOW ADMISSION (#72 r16 finding 1): reconstruction through the creation validator rejects it.
+      const hoAdmitted = afterRooms.some((r) => r.outcome_room_id === "outcome-room://or_ho");
+      const hoIntentRetained = existsSync(join(rp.dataDir, "outcome-room-admission-intents", "or_ho.json"));
+      ok("ROOM FAULT restart: a HOLLOW ungoverned admission envelope (no owner/objective/host/mode/policies) is REFUSED by full reconstruction — nothing admitted, intent retained (#72 r16 finding 1)", !hoAdmitted && hoIntentRetained && !readdirSync(join(rp.dataDir, "outcome-room-registry-receipts")).some((n) => n.includes("orr_ho")), `admitted=${hoAdmitted} intent=${hoIntentRetained}`);
+      // LYING TRANSITION RECEIPT (#72 r16 finding 2): truthful successor, forged attested facts.
+      const ltAfter = readFileSync(join(rp.dataDir, "outcome-room-registry", "or_lt.json"), "utf8");
+      const ltRoom = afterRooms.find((r) => r.outcome_room_id === "outcome-room://or_lt");
+      ok("ROOM FAULT restart: a TRUTHFUL pause successor with a LYING receipt (archive/accepted→settled, foreign boundary, forged posture) is refused — room byte-unchanged, status open, no false receipt (#72 r16 finding 2)", ltAfter === ltBytes && ltRoom?.status === "open" && !readdirSync(join(rp.dataDir, "outcome-room-registry-receipts")).some((n) => n.includes("ort_lt")), `unchanged=${ltAfter === ltBytes} status=${ltRoom?.status}`);
+      // LYING ATTACH RECEIPT (#72 r16 finding 2): truthful membership, forged run/stamp facts.
+      const laAfter = readFileSync(join(rp.dataDir, "outcome-room-registry", "or_la.json"), "utf8");
+      const laRun = JSON.parse(readFileSync(join(rp.dataDir, "goal-runs", "gr_la.json"), "utf8"));
+      ok("ROOM FAULT restart: a TRUTHFUL membership successor with a LYING attach receipt (smuggled run, false reciprocal stamp) is refused — room byte-unchanged, run NEVER stamped, no false receipt (#72 r16 finding 2)", laAfter === laBytes && !laRun.outcome_room_ref && !readdirSync(join(rp.dataDir, "outcome-room-registry-receipts")).some((n) => n.includes("ort_la")), `unchanged=${laAfter === laBytes} stamped=${!!laRun.outcome_room_ref}`);
       await rpRevived.stop();
     } finally {
       try { rmSync(rp.dataDir, { recursive: true, force: true }); } catch { /* best effort */ }
