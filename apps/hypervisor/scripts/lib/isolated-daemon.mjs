@@ -99,9 +99,20 @@ export async function startIsolatedPlane({ serve = false, env = {}, dataDir: reu
   children.push(daemon);
 
   let stopped = false;
+  // Crash cover between spawn and the caller's finally: kill children, drop only OUR temp dir.
+  // ONE shared exit hook for every plane (a per-plane listener trips MaxListenersExceeded once
+  // fault/restart lanes spawn a dozen planes), and stop() DEREGISTERS the plane's cleanup so a
+  // long verifier process retains no dead child/data-dir closures (#72 round 12 finding 3).
+  const cleanup = () => {
+    if (stopped) return;
+    for (const c of children) { try { c.kill("SIGKILL"); } catch { /* already gone */ } }
+    if (!reused) { try { rmSync(dataDir, { recursive: true, force: true }); } catch { /* best effort */ } }
+  };
+  EXIT_CLEANUPS.add(cleanup);
   const stop = async () => {
     if (stopped) return;
     stopped = true;
+    EXIT_CLEANUPS.delete(cleanup);
     for (const c of children) { try { c.kill("SIGTERM"); } catch { /* already gone */ } }
     await new Promise((r) => setTimeout(r, 400));
     for (const c of children) { try { c.kill("SIGKILL"); } catch { /* already gone */ } }
@@ -109,14 +120,6 @@ export async function startIsolatedPlane({ serve = false, env = {}, dataDir: reu
     // reused dataDir is caller-owned and survives stop and startup failure alike.
     if (!reused) { try { rmSync(dataDir, { recursive: true, force: true }); } catch { /* best effort */ } }
   };
-  // Crash cover between spawn and the caller's finally: kill children, drop only OUR temp dir.
-  // ONE shared exit hook for every plane (a per-plane listener trips MaxListenersExceeded once
-  // fault/restart lanes spawn a dozen planes).
-  EXIT_CLEANUPS.add(() => {
-    if (stopped) return;
-    for (const c of children) { try { c.kill("SIGKILL"); } catch { /* already gone */ } }
-    if (!reused) { try { rmSync(dataDir, { recursive: true, force: true }); } catch { /* best effort */ } }
-  });
 
   if (!(await waitFor(`${daemonUrl}/v1/hypervisor/data-sources`))) {
     await stop();

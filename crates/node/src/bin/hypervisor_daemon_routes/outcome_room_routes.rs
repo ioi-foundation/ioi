@@ -370,16 +370,24 @@ fn finalize_room_create(
         return Err(verr("outcome_room_admission_pending_convergence", format!("the admission receipt is {}; the DURABLE intent is retained internally (the room is not yet in the registry) — a restart re-persists the sealed receipt and admits this same room; do not re-create", f.detail())));
     }
     match persist_atomic(data_dir, ROOM_DIR, room_tail, record) {
-        Ok(()) => {}
-        Err(f) if f.visible() => {}
-        Err(f) => {
-            return Err(verr("outcome_room_admission_pending_convergence", format!("the terminal registry write is {}; the DURABLE intent and receipt are retained — a restart admits this same room; do not re-create", f.detail())));
+        Ok(()) => {
+            // Consume the intent ONLY after the terminal room write is DURABLE (#72 round 12
+            // finding 1): the rename and the unlink live in DIFFERENT directories, so a crash
+            // could otherwise preserve the unlink while losing an unconfirmed rename — leaving
+            // an admission receipt with neither room nor replay anchor. A lost unlink is the
+            // safe direction: the resurrected intent replays an idempotent byte-exact
+            // convergence, never a second room.
+            let _ = std::fs::remove_file(std::path::Path::new(data_dir).join(ADMISSION_INTENT_DIR).join(format!("{room_tail}.json")));
+            Ok(())
         }
+        Err(f) if f.visible() => {
+            // The room is VISIBLE but its durability is unconfirmed — the intent is RETAINED as
+            // the replay anchor; restart confirms or replays the terminal write. Room-or-intent
+            // always survives alongside the durable receipt.
+            Ok(())
+        }
+        Err(f) => Err(verr("outcome_room_admission_pending_convergence", format!("the terminal registry write is {}; the DURABLE intent and receipt are retained — a restart admits this same room; do not re-create", f.detail()))),
     }
-    // Consume the intent (plain unlink is fine HERE: a resurrected intent replays an
-    // idempotent byte-exact convergence, never a second room).
-    let _ = std::fs::remove_file(std::path::Path::new(data_dir).join(ADMISSION_INTENT_DIR).join(format!("{room_tail}.json")));
-    Ok(())
 }
 
 /// MUTATION as an INTENT TRANSACTION (#72 round 10 finding 1): the first durable artifact is
@@ -480,6 +488,23 @@ pub(crate) fn complete_room_intents(data_dir: &str) {
             eprintln!("outcome-room {kind} completer: intent on '{room_tail}' fails validation ({}) — left in place for manual repair", violations.join(", "));
             continue;
         }
+        // ADMISSION conflict check FIRST — before ANY write (#72 round 12 finding 2): a
+        // conflict lane leaves room, receipt family, and intent byte-for-byte unchanged. A room
+        // already at this identity is THE SAME admission iff its anchor (the first entry of its
+        // admission trail — the sealed admission receipt ref) matches; later transitions mutate
+        // content but never that anchor. A different anchor is a foreign occupant — refused,
+        // never receipted over.
+        let mut same_room_already_admitted = false;
+        if kind == "admission" {
+            if let Some(existing_room) = load_room(data_dir, &room_id) {
+                let anchor = |r: &Value| r.pointer("/admission_and_replay_refs/0").cloned().unwrap_or(Value::Null);
+                if anchor(&existing_room).is_null() || anchor(&existing_room) != anchor(&final_room) {
+                    eprintln!("outcome-room admission completer: a DIFFERENT room already occupies '{room_id}' — nothing was written (room, receipts, and intent are byte-unchanged); left for manual repair");
+                    continue;
+                }
+                same_room_already_admitted = true;
+            }
+        }
         let sealed_receipt_ref = receipt.get("receipt_id").and_then(Value::as_str).unwrap_or("").to_string();
         let existing = read_record_dir(data_dir, ROOM_RECEIPT_DIR)
             .into_iter()
@@ -493,30 +518,34 @@ pub(crate) fn complete_room_intents(data_dir: &str) {
             eprintln!("outcome-room {kind} completer: receipt persist for '{room_tail}' is {} — intent retained, retried next boot", f.detail());
             continue;
         }
-        if kind == "admission" {
-            if let Some(existing_room) = load_room(data_dir, &room_id) {
-                if serde_json::to_vec(&existing_room).unwrap_or_default() != serde_json::to_vec(&final_room).unwrap_or_default() {
-                    eprintln!("outcome-room admission completer: a DIFFERENT room already exists at '{room_id}' — conflicting state is never overwritten; intent left for manual repair");
+        if !same_room_already_admitted {
+            match persist_atomic(data_dir, ROOM_DIR, &room_tail, &final_room) {
+                Ok(()) => {}
+                Err(f) if f.visible() && kind == "transition" => {}
+                Err(f) if f.visible() => {
+                    // ADMISSION terminal visible-unconfirmed (#72 round 12 finding 1): the
+                    // intent is the ONLY durable replay anchor in another directory — it must
+                    // outlive an unconfirmed rename. Retained; the next boot confirms/replays.
+                    eprintln!("outcome-room admission completer: terminal write for '{room_tail}' is {} — intent retained until a boot confirms it", f.detail());
+                    continue;
+                }
+                Err(f) => {
+                    eprintln!("outcome-room {kind} completer: terminal write for '{room_tail}' is {} — intent retained, retried next boot", f.detail());
                     continue;
                 }
             }
         }
-        match persist_atomic(data_dir, ROOM_DIR, &room_tail, &final_room) {
-            Ok(()) => {}
-            Err(f) if f.visible() => {}
-            Err(f) => {
-                eprintln!("outcome-room {kind} completer: terminal write for '{room_tail}' is {} — intent retained, retried next boot", f.detail());
-                continue;
-            }
-        }
         if kind == "admission" {
+            // The room is durably in the registry (or was already) — NOW the intent may go
+            // (#72 round 12 finding 1). A crash-lost unlink resurrects only an idempotent
+            // byte-exact replay.
             let _ = std::fs::remove_file(std::path::Path::new(data_dir).join(ADMISSION_INTENT_DIR).join(format!("{room_tail}.json")));
         }
         eprintln!("outcome-room {kind} completer: converged the interrupted {kind} on '{room_tail}'");
     }
 }
 
-/// ATTACH INTENT TRANSACTION (#72 round 9 finding 3)/// ATTACH INTENT TRANSACTION (#72 round 9 finding 3): the attach spans TWO aggregates (room
+/// ATTACH INTENT TRANSACTION (#72 round 9 finding 3): the attach spans TWO aggregates (room
 /// membership + reciprocal GoalRun stamp) plus a receipt, so a durable intent SEALED ON THE
 /// ROOM RECORD anchors the whole transaction before any component lands:
 ///   1. room record + `attach_intent` (durable REQUIRED — seals the updated room, the receipt,
@@ -1373,16 +1402,58 @@ mod outcome_room_tests {
         assert_eq!(admitted["status"], json!("open"), "the sealed CANONICAL status — no pending_admission enum ever existed");
         assert_eq!(read_record_dir(data_dir, ROOM_RECEIPT_DIR).len(), 1, "the sealed receipt was persisted");
         assert!(read_record_dir(data_dir, ADMISSION_INTENT_DIR).is_empty(), "the consumed intent was dropped");
-        // Conflicting existing room: a second intent for the same id with DIFFERENT content is
-        // left for manual repair, never overwritten.
-        let mut other = intent.clone();
-        other["final_room"]["objective"] = json!("different");
-        other["final_room_hash"] = json!(record_output_hash(&other["final_room"], &[]));
+        // CONFLICT-FIRST (#72 round 12 finding 2): a FOREIGN room at the same identity (different
+        // admission anchor) refuses BEFORE any write — room, receipt family, and intent stay
+        // byte-for-byte unchanged, including the conflicting intent's DIFFERENT receipt.
+        let (rid2, receipt2) = build_room_receipt(ADMISSION_RECEIPT_SCHEMA, "OutcomeRoomAdmissionReceipt", "orr", "outcome-room://or_p", "room_admitted", json!({ "v": 2 }), vec![], "sha256:y".into(), ROOM_HASH_EXCLUDES, "admitted_not_verified", "n", "2026-01-01T00:00:00Z");
+        let mut foreign_room = json!({ "outcome_room_id": "outcome-room://or_p", "status": "open", "revision": 1, "member_goal_run_refs": [], "admission_and_replay_refs": [receipt2["receipt_ref"]], "updated_at": "2026-01-01T00:00:00Z" });
+        foreign_room["objective"] = json!("different");
+        let other = json!({
+            "room_tail": "or_p",
+            "room_ref": "outcome-room://or_p",
+            "receipt_id": rid2,
+            "receipt": receipt2,
+            "receipt_hash": record_output_hash(&receipt2, &[]),
+            "final_room": foreign_room,
+            "final_room_hash": record_output_hash(&foreign_room, &[]),
+            "at": "2026-01-01T00:00:00Z",
+        });
         persist_atomic(data_dir, ADMISSION_INTENT_DIR, "or_p", &other).unwrap();
+        let receipts_before = read_record_dir(data_dir, ROOM_RECEIPT_DIR).len();
         complete_room_intents(data_dir);
         let still = load_room(data_dir, "outcome-room://or_p").unwrap();
         assert!(still.get("objective").is_none(), "the existing room was NOT overwritten");
+        assert_eq!(read_record_dir(data_dir, ROOM_RECEIPT_DIR).len(), receipts_before, "NO receipt was persisted for the room the completer refused to admit (#72 r12 finding 2)");
         assert_eq!(read_record_dir(data_dir, ADMISSION_INTENT_DIR).len(), 1, "the conflicting intent is retained for manual repair");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn admission_completer_recognizes_its_own_later_mutated_room_by_anchor() {
+        // #72 round 12 finding 1 corollary: a retained intent whose room already reached the
+        // registry — and was then legitimately transitioned — is recognized by its admission
+        // ANCHOR (first trail entry) and consumed without overwriting the newer state.
+        let dir = temp_dir("admission-anchor");
+        let data_dir = dir.to_str().unwrap();
+        let (rid, receipt) = build_room_receipt(ADMISSION_RECEIPT_SCHEMA, "OutcomeRoomAdmissionReceipt", "orr", "outcome-room://or_a2", "room_admitted", json!({}), vec![], "sha256:x".into(), ROOM_HASH_EXCLUDES, "admitted_not_verified", "n", "2026-01-01T00:00:00Z");
+        let final_room = json!({ "outcome_room_id": "outcome-room://or_a2", "status": "open", "revision": 1, "member_goal_run_refs": [], "admission_and_replay_refs": [receipt["receipt_ref"]], "updated_at": "2026-01-01T00:00:00Z" });
+        let intent = json!({
+            "room_tail": "or_a2", "room_ref": "outcome-room://or_a2",
+            "receipt_id": rid, "receipt": receipt, "receipt_hash": record_output_hash(&receipt, &[]),
+            "final_room": final_room, "final_room_hash": record_output_hash(&final_room, &[]),
+            "at": "2026-01-01T00:00:00Z",
+        });
+        persist_atomic(data_dir, ADMISSION_INTENT_DIR, "or_a2", &intent).unwrap();
+        // The room already converged AND was later paused (same anchor, newer content).
+        let mut mutated = final_room.clone();
+        mutated["status"] = json!("paused");
+        mutated["revision"] = json!(2);
+        persist_atomic(data_dir, ROOM_DIR, "or_a2", &mutated).unwrap();
+        persist_atomic(data_dir, ROOM_RECEIPT_DIR, &rid, &receipt).unwrap();
+        complete_room_intents(data_dir);
+        let room = load_room(data_dir, "outcome-room://or_a2").unwrap();
+        assert_eq!(room["status"], json!("paused"), "the newer legitimate state is NOT overwritten by the replay");
+        assert!(read_record_dir(data_dir, ADMISSION_INTENT_DIR).is_empty(), "the intent was recognized as consumed and dropped");
         let _ = std::fs::remove_dir_all(&dir);
     }
 
