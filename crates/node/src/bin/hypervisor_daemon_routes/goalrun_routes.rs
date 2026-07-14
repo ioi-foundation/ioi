@@ -476,6 +476,14 @@ fn nanos() -> u128 {
         .unwrap_or(0)
 }
 
+/// The receipts family keys files by the FULL receipt ref, sanitized. This normalization was
+/// the durable writer's own until #73; the shared core now REJECTS unsafe ids instead of
+/// normalizing them, so the ref→file-key mapping is THIS plane's explicit naming policy — the
+/// on-disk filenames are byte-for-byte what they always were.
+fn receipt_file_key(receipt_ref: &str) -> String {
+    receipt_ref.replace(|c: char| !c.is_ascii_alphanumeric() && c != '-' && c != '_', "_")
+}
+
 fn safe(seg: &str) -> String {
     seg.chars()
         .map(|c| {
@@ -1985,7 +1993,7 @@ pub(crate) async fn handle_goal_run_reconcile(
     // Receipt second (#72 round 8 finding 2): EITHER failure class now aborts WITH a resolving
     // attempt record and a retained backlink — nothing is ever deleted, so the non-durable
     // unlink lane no longer exists in this transaction at all.
-    if let Err(f) = persist_record_durable(&st.data_dir, "receipts", &receipt_ref, &receipt) {
+    if let Err(f) = persist_record_durable(&st.data_dir, "receipts", &receipt_file_key(&receipt_ref), &receipt) {
         let (code, note) = if f.visible() {
             ("goal_run_reconcile_receipt_durability_unconfirmed", "the VISIBLE receipt, the declared attempt record, and the staged manifest are all preserved and linked")
         } else {
@@ -2539,7 +2547,7 @@ pub(crate) async fn handle_goal_run_lifecycle_recovery(
     // receipt KEEPS THE DURABLE INTENT and refuses typed — the completer re-persists the
     // sealed receipt (byte-exact) at restart and finishes. The intent is never consumed while
     // any piece of its evidence is unconfirmed.
-    if let Err(f) = persist_record_durable(&st.data_dir, "receipts", &receipt_id, &receipt) {
+    if let Err(f) = persist_record_durable(&st.data_dir, "receipts", &receipt_file_key(&receipt_id), &receipt) {
         if f.visible() {
             return bad(
                 StatusCode::INTERNAL_SERVER_ERROR,
@@ -2752,7 +2760,7 @@ pub(crate) fn complete_recovery_intents(data_dir: &str) {
                 eprintln!("goal-run recovery completer: a DIFFERENT receipt already exists at '{receipt_id}' for '{goal_run_id}' — conflicting evidence is never overwritten; left for manual repair");
                 continue;
             }
-        } else if let Err(f) = persist_record_durable(data_dir, "receipts", &receipt_id, &receipt) {
+        } else if let Err(f) = persist_record_durable(data_dir, "receipts", &receipt_file_key(&receipt_id), &receipt) {
             // DURABLE required (#72 round 9 finding 2): a visible-unconfirmed receipt must not
             // let the release consume the intent — retained, retried next boot either way.
             eprintln!("goal-run recovery completer: receipt persist for '{goal_run_id}' is {} — intent retained, retried next boot", f.detail());
