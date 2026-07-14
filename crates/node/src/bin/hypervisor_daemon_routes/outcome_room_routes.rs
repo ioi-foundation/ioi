@@ -283,26 +283,57 @@ fn is_rfc3339(v: &Value) -> bool {
         .unwrap_or(false)
 }
 
+/// Enumerate the entries of an ALREADY-PINNED directory through the fd ITSELF (fdopendir over a
+/// dup) — NOT by re-walking the pathname (#72 round 21 finding 3): a directory-level exchange
+/// (the family dir swapped for a symlink to another namespace) cannot redirect enumeration,
+/// because the names come from the same inode the caller pinned and reads through. fdopendir
+/// takes ownership of the dup; closedir closes it.
+fn enumerate_pinned(dir: &std::fs::File) -> std::io::Result<Vec<String>> {
+    use std::os::unix::io::AsRawFd;
+    let dupfd = unsafe { libc::dup(dir.as_raw_fd()) };
+    if dupfd < 0 {
+        return Err(std::io::Error::last_os_error());
+    }
+    let dp = unsafe { libc::fdopendir(dupfd) };
+    if dp.is_null() {
+        let e = std::io::Error::last_os_error();
+        unsafe { libc::close(dupfd) };
+        return Err(e);
+    }
+    let mut names = Vec::new();
+    loop {
+        let ent = unsafe { libc::readdir(dp) };
+        if ent.is_null() {
+            break;
+        }
+        let name = unsafe { std::ffi::CStr::from_ptr((*ent).d_name.as_ptr()) };
+        if let Ok(s) = name.to_str() {
+            if s != "." && s != ".." {
+                names.push(s.to_string());
+            }
+        }
+    }
+    unsafe { libc::closedir(dp) };
+    Ok(names)
+}
+
 /// Read a NON-promoted room-family directory as (canonical-stem, value) pairs — the file STEM is
-/// the trusted storage key (#72 round 17 finding 1). readdir only ENUMERATES candidate names;
-/// each is then re-resolved with `openat(O_NOFOLLOW)` RELATIVE to a PINNED directory fd, so an
-/// lstat→read TOCTOU (an atomic regular-file/symlink exchange between enumeration and read) is
-/// impossible — the no-follow enforcement IS the open, at use time (#72 round 20 finding 2). A
-/// non-canonical stem is skipped BEFORE the open; every room family (registry + admission
-/// intents) keys by a canonical room tail.
-fn read_dir_with_stems(data_dir: &str, family: &str) -> Vec<(String, Value)> {
-    let mut out = Vec::new();
+/// the trusted storage key (#72 round 17 finding 1). Enumeration is through the PINNED fd
+/// (#72 round 21 finding 3), and each name is re-resolved with `openat(O_NOFOLLOW)` RELATIVE to
+/// that same fd, so neither a directory-level exchange nor an entry-level regular/symlink swap
+/// can redirect a read. A directory-level failure (pin/enumerate) is a TYPED ERROR, never a
+/// false-empty list; per-entry non-canonical stems and refused (symlink/non-regular) occupants
+/// are skipped as legitimately-invisible.
+fn read_dir_with_stems(data_dir: &str, family: &str) -> Result<Vec<(String, Value)>, String> {
     let dir = match open_family_dir_pinned(data_dir, family) {
         Ok(d) => d,
-        Err(_) => return out,
+        // A not-yet-created family is genuinely empty; anything else (ELOOP from a swapped
+        // directory symlink, EACCES, …) is a real error, NOT an empty registry.
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
+        Err(e) => return Err(format!("family '{family}' directory could not be pinned ({e}) — refusing to report a false-empty registry")),
     };
-    let names: Vec<String> = match std::fs::read_dir(std::path::Path::new(data_dir).join(family)) {
-        Ok(entries) => entries
-            .flatten()
-            .filter_map(|e| e.file_name().to_str().map(str::to_string))
-            .collect(),
-        Err(_) => return out,
-    };
+    let names = enumerate_pinned(&dir).map_err(|e| format!("family '{family}' could not be enumerated through its pinned fd ({e}) — refusing to report a false-empty registry"))?;
+    let mut out = Vec::new();
     for name in names {
         let Some(stem) = name.strip_suffix(".json") else { continue };
         // Canonicalize the stem BEFORE any open (#72 round 20 finding 2).
@@ -310,14 +341,17 @@ fn read_dir_with_stems(data_dir: &str, family: &str) -> Vec<(String, Value)> {
             continue;
         }
         // Re-resolve the name O_NOFOLLOW relative to the pinned fd — a symlink/non-regular
-        // occupant (or one swapped in after enumeration) is refused here, never read-through.
-        if let Ok(Some((_f, bytes))) = read_slot_strict(&dir, &name) {
-            if let Ok(value) = serde_json::from_slice::<Value>(&bytes) {
-                out.push((stem.to_string(), value));
+        // occupant (or one swapped in after enumeration) is skipped, never read-through.
+        match read_slot_strict(&dir, &name) {
+            Ok(Some((_f, bytes))) => {
+                if let Ok(value) = serde_json::from_slice::<Value>(&bytes) {
+                    out.push((stem.to_string(), value));
+                }
             }
+            _ => continue,
         }
     }
-    out
+    Ok(out)
 }
 
 /// Pin a record-family directory (O_DIRECTORY|O_NOFOLLOW) — the walk root for every strict
@@ -389,6 +423,60 @@ fn link_tmpfile_at(tmp: &std::fs::File, dir: &std::fs::File, to: &str) -> std::i
         return Err(std::io::Error::last_os_error());
     }
     Ok(())
+}
+
+fn unlink_at(dir: &std::fs::File, name: &str) -> std::io::Result<()> {
+    use std::os::unix::io::AsRawFd;
+    let c = slot_cstr(name)?;
+    if unsafe { libc::unlinkat(dir.as_raw_fd(), c.as_ptr(), 0) } != 0 {
+        return Err(std::io::Error::last_os_error());
+    }
+    Ok(())
+}
+
+/// True iff two descriptors reference the SAME on-disk object (device + inode). The receipt
+/// certifier compares the re-opened canonical name against the pinned committed descriptor
+/// (#72 round 21 finding 1) — a name swapped to a different inode fails this.
+fn same_inode(a: &std::fs::File, b: &std::fs::File) -> std::io::Result<bool> {
+    use std::os::unix::fs::MetadataExt;
+    let (ma, mb) = (a.metadata()?, b.metadata()?);
+    Ok(ma.dev() == mb.dev() && ma.ino() == mb.ino())
+}
+
+/// DELIBERATE TEST FAULT (#72 round 21 finding 1): simulate a CONCURRENT adversary replacing the
+/// canonical receipt name during the post-commit fsync window, so the re-verification below is
+/// exercised. Absent env = no effect. `point` is "new" (fresh linkat) or "replay" (byte-compare).
+fn test_swap_receipt_target(dir: &std::fs::File, target: &str, point: &str) {
+    use std::io::Write;
+    if std::env::var("IOI_TEST_FORCE_RECEIPT_TARGET_SWAP").ok().as_deref() != Some(point) {
+        return;
+    }
+    let _ = unlink_at(dir, target);
+    if let Ok(mut f) = open_tmpfile_at(dir) {
+        let _ = f.write_all(format!("{{\"foreign\":\"REPLACED_AFTER_{}\"}}", point.to_uppercase()).as_bytes());
+        let _ = f.sync_all();
+        let _ = link_tmpfile_at(&f, dir, target);
+    }
+}
+
+/// Re-verify the canonical name AFTER the file + directory fsyncs (#72 round 21 finding 1):
+/// re-open the target O_NOFOLLOW, prove it is the SAME inode as the committed descriptor, and
+/// re-read its bytes — a target swapped during the durability barrier is caught and refused.
+fn certify_receipt_target(dir: &std::fs::File, target: &str, committed: &std::fs::File, bytes: &[u8], point: &str) -> Result<(), VErr> {
+    test_swap_receipt_target(dir, target, point);
+    match read_slot_strict(dir, target) {
+        Ok(Some((reopened, on_disk))) => {
+            if !same_inode(&reopened, committed).unwrap_or(false) {
+                return Err(verr("outcome_room_receipt_swapped", format!("the receipt name '{target}' no longer resolves to the certified inode after the durability barrier — refused, never certified over a swapped target")));
+            }
+            if on_disk != bytes {
+                return Err(verr("outcome_room_receipt_swapped", format!("the receipt bytes at '{target}' changed after the durability barrier — refused")));
+            }
+            Ok(())
+        }
+        Ok(None) => Err(verr("outcome_room_receipt_swapped", format!("the receipt name '{target}' vanished after commit — refused"))),
+        Err(e) => Err(verr("outcome_room_receipt_slot_unreadable", format!("post-commit re-verify of '{target}' failed ({e}) — refused"))),
+    }
 }
 
 /// Strict ROOM slot read (#72 round 19 finding 1): the stem is validated CANONICAL before any
@@ -807,31 +895,33 @@ fn persist_receipt_no_clobber(data_dir: &str, tail: &str, receipt: &Value) -> Re
         return Err(verr("outcome_room_receipt_key_invalid", format!("receipt tail '{tail}' is not filesystem-safe")));
     }
     let bytes = serde_json::to_vec_pretty(receipt).unwrap_or_default();
-    // PARENT-durable family creation (#72 round 20 finding 4): a brand-new family directory's
-    // entry in data_dir must be fsynced, exactly like persist_record_durable — otherwise a crash
-    // can lose the whole family even though the receipt file inside it was "durable".
     let fam_path = std::path::Path::new(data_dir).join(ROOM_RECEIPT_DIR);
-    let family_created = !fam_path.exists();
     if let Err(e) = std::fs::create_dir_all(&fam_path) {
         return Err(verr("outcome_room_receipt_persist_failed", format!("receipt directory unavailable ({e}) — nothing was written")));
-    }
-    if family_created {
-        if let Err(e) = (|| -> std::io::Result<()> { std::fs::File::open(data_dir)?.sync_all() })() {
-            return Err(verr("outcome_room_receipt_durability_unconfirmed", format!("the new receipt family directory is VISIBLE but its parent entry is not durable ({e})")));
-        }
     }
     let dir = match open_family_dir_pinned(data_dir, ROOM_RECEIPT_DIR) {
         Ok(d) => d,
         Err(e) => return Err(verr("outcome_room_receipt_persist_failed", format!("receipt directory pin failed ({e}) — nothing was written"))),
     };
     let target = format!("{tail}.json");
+    // The durability barrier: fsync the receipt file's directory AND — UNCONDITIONALLY, every
+    // write, never gated on a visibility check — data_dir, so the family directory ENTRY is
+    // durable even if an earlier parent fsync failed and left the family visible (#72 round 21
+    // finding 2). A visibility-gated `family_created` would skip the retry forever.
     let confirm_dir_durable = |dir: &std::fs::File| -> Result<(), VErr> {
         // DELIBERATE TEST FAULT POINT (same contract as the typed durable writer): absent env =
         // no effect; the receipt is already VISIBLE when this fires.
         if std::env::var("IOI_TEST_FORCE_DIRSYNC_UNCONFIRMED").ok().as_deref() == Some(ROOM_RECEIPT_DIR) {
             return Err(verr("outcome_room_receipt_durability_unconfirmed", "test-forced directory-sync failure — the receipt is VISIBLE but its durability is unconfirmed".to_string()));
         }
-        dir.sync_all().map_err(|e| verr("outcome_room_receipt_durability_unconfirmed", format!("receipt directory sync failed ({e}) — the receipt is VISIBLE but its durability is unconfirmed")))
+        dir.sync_all().map_err(|e| verr("outcome_room_receipt_durability_unconfirmed", format!("receipt directory sync failed ({e}) — the receipt is VISIBLE but its durability is unconfirmed")))?;
+        // Parent (data_dir) fsync — UNCONDITIONAL (#72 round 21 finding 2); a separate fault hook
+        // fails only the parent leg so the failure→restart lane is exact.
+        if std::env::var("IOI_TEST_FORCE_PARENT_FSYNC_UNCONFIRMED").ok().as_deref() == Some(ROOM_RECEIPT_DIR) {
+            return Err(verr("outcome_room_receipt_durability_unconfirmed", "test-forced parent-directory-sync failure — the receipt family entry is VISIBLE but not durable".to_string()));
+        }
+        (|| -> std::io::Result<()> { std::fs::File::open(data_dir)?.sync_all() })()
+            .map_err(|e| verr("outcome_room_receipt_durability_unconfirmed", format!("data_dir sync failed ({e}) — the receipt family entry is VISIBLE but not durable")))
     };
     match read_slot_strict(&dir, &target) {
         Err(e) => Err(verr("outcome_room_receipt_slot_unreadable", format!("the receipt slot '{tail}' is occupied but NOT readable as a regular file ({e}) — refused; evidence is never replaced on uncertainty"))),
@@ -843,7 +933,10 @@ fn persist_receipt_no_clobber(data_dir: &str, tail: &str, receipt: &Value) -> Re
             if let Err(e) = occupant.sync_all() {
                 return Err(verr("outcome_room_receipt_durability_unconfirmed", format!("receipt re-sync failed ({e}) — the receipt is VISIBLE but its durability is unconfirmed")));
             }
-            confirm_dir_durable(&dir)
+            confirm_dir_durable(&dir)?;
+            // Re-verify the name still resolves to the compared inode after the barrier (#72
+            // round 21 finding 1) — a target swapped during the occupant fsync is caught here.
+            certify_receipt_target(&dir, &target, &occupant, &bytes, "replay")
         }
         Ok(None) => {
             // ANONYMOUS descriptor (O_TMPFILE) — NO name, so nothing to swap and nothing to clean
@@ -869,7 +962,10 @@ fn persist_receipt_no_clobber(data_dir: &str, tail: &str, receipt: &Value) -> Re
             // The receipt is VISIBLE from here — dual-write parity fires on visibility, exactly
             // like the typed durable writer.
             super::substrate_store::dual_write(data_dir, ROOM_RECEIPT_DIR, tail, receipt);
-            confirm_dir_durable(&dir)
+            confirm_dir_durable(&dir)?;
+            // Re-verify the name still resolves to the linked inode after the barrier (#72 round
+            // 21 finding 1) — a target replaced during the directory fsync is caught here.
+            certify_receipt_target(&dir, &target, &tmp, &bytes, "new")
         }
     }
 }
@@ -890,16 +986,17 @@ fn load_room(data_dir: &str, id: &str) -> Option<Value> {
 }
 
 /// List only rooms whose content identity AGREES with their storage key (#72 round 18 finding
-/// 2) — a relocated file is excluded, never counted or served.
-fn list_rooms_exact(data_dir: &str) -> Vec<Value> {
-    read_dir_with_stems(data_dir, ROOM_DIR)
+/// 2) — a relocated file is excluded, never counted or served. Propagates a scanner error as a
+/// TYPED error rather than a false-empty list (#72 round 21 finding 3).
+fn list_rooms_exact(data_dir: &str) -> Result<Vec<Value>, String> {
+    Ok(read_dir_with_stems(data_dir, ROOM_DIR)?
         .into_iter()
         .filter(|(stem, room)| {
             is_canonical_room_tail(stem)
                 && room.get("outcome_room_id").and_then(|v| v.as_str()) == Some(format!("outcome-room://{stem}").as_str())
         })
         .map(|(_, room)| room)
-        .collect()
+        .collect())
 }
 
 pub(crate) fn resolve_open_room(data_dir: &str, room_ref: &str) -> Option<Value> {
@@ -962,7 +1059,7 @@ fn finalize_room_create(
         // Occupied/unreadable slots surface their own code; everything else — including
         // VISIBLE-BUT-UNCONFIRMED (#72 round 19 finding 2) — is pending convergence: the room is
         // NOT committed and the intent is NOT consumed until the receipt is DURABLE.
-        let ecode = if code == "outcome_room_receipt_conflict" || code == "outcome_room_receipt_slot_unreadable" { code.as_str() } else { "outcome_room_admission_pending_convergence" };
+        let ecode = if code == "outcome_room_receipt_conflict" || code == "outcome_room_receipt_slot_unreadable" || code == "outcome_room_receipt_swapped" { code.as_str() } else { "outcome_room_admission_pending_convergence" };
         return Err(verr(ecode, format!("the admission receipt is not durably committed ({code}: {msg}); the DURABLE intent is retained internally and the room is NOT in the registry — a restart converges this same admission; do not re-create")));
     }
     match persist_atomic(data_dir, ROOM_DIR, room_tail, record) {
@@ -1029,7 +1126,7 @@ fn finalize_room_mutation(
             // the byte-identical receipt, then applies the transition.
             return Err(verr("outcome_room_mutation_pending_convergence", format!("{msg}; the DURABLE intent is retained with the room still showing its PRIOR state — a restart confirms the sealed receipt and applies the transition")));
         }
-        Err((code, msg)) if code == "outcome_room_receipt_conflict" || code == "outcome_room_receipt_slot_unreadable" => {
+        Err((code, msg)) if code == "outcome_room_receipt_conflict" || code == "outcome_room_receipt_slot_unreadable" || code == "outcome_room_receipt_swapped" => {
             // A foreign/unreadable occupant at the receipt slot — roll the intent back exactly
             // and refuse (append-only; never overwrite, never replace on uncertainty).
             return match persist_atomic(data_dir, ROOM_DIR, room_tail, prior) {
@@ -1063,10 +1160,20 @@ pub(crate) fn complete_room_intents(data_dir: &str) {
     // field a forged record controls. Admission intents live in the internal family; transitions
     // ride on their registry record — both keyed by their own file stem.
     let mut work: Vec<(&'static str, Value, String)> = Vec::new();
-    for (stem, intent) in read_dir_with_stems(data_dir, ADMISSION_INTENT_DIR) {
+    // A scan error is NEVER a false-empty pass (#72 round 21 finding 3): log and retry next boot,
+    // rather than silently "converging" an unreadable registry as if it had no pending work.
+    let admission_intents = match read_dir_with_stems(data_dir, ADMISSION_INTENT_DIR) {
+        Ok(v) => v,
+        Err(e) => { eprintln!("outcome-room completer: admission-intent scan failed ({e}) — retrying next boot, nothing converged"); return; }
+    };
+    let rooms = match read_dir_with_stems(data_dir, ROOM_DIR) {
+        Ok(v) => v,
+        Err(e) => { eprintln!("outcome-room completer: registry scan failed ({e}) — retrying next boot, nothing converged"); return; }
+    };
+    for (stem, intent) in admission_intents {
         work.push(("admission", intent, stem));
     }
-    for (stem, room) in read_dir_with_stems(data_dir, ROOM_DIR) {
+    for (stem, room) in rooms {
         if let Some(i) = room.get("transition_intent") {
             work.push(("transition", i.clone(), stem));
         }
@@ -1279,7 +1386,7 @@ fn finalize_attach(
     // round 19 finding 2) — keeps the intent for replay (never unstamp, never delete, never
     // overwrite existing evidence); membership does not advance until the receipt is DURABLE.
     if let Err((code, msg)) = persist_receipt_no_clobber(data_dir, receipt_id, receipt) {
-        let ecode = if code == "outcome_room_receipt_conflict" || code == "outcome_room_receipt_slot_unreadable" { code.as_str() } else { "outcome_room_attach_pending_convergence" };
+        let ecode = if code == "outcome_room_receipt_conflict" || code == "outcome_room_receipt_slot_unreadable" || code == "outcome_room_receipt_swapped" { code.as_str() } else { "outcome_room_attach_pending_convergence" };
         return Err(verr(ecode, format!("the attach receipt is not durably committed ({code}: {msg}); the DURABLE intent and the stamp are retained — a restart converges the sealed receipt (append-only) and completes the membership")));
     }
     // (4) TERMINAL: membership in, intent consumed — visible-unconfirmed tolerated (a
@@ -1299,8 +1406,13 @@ fn finalize_attach(
 /// durable), rolls the intent back to the prior room. Exact reciprocal convergence either way.
 pub(crate) fn complete_attach_intents(data_dir: &str) {
     let _guard = ROOM_MUTATION_LOCK.lock().unwrap_or_else(|p| p.into_inner());
-    // The TRUSTED storage key is the FILENAME STEM (#72 round 17 finding 1).
-    for (room_tail, room) in read_dir_with_stems(data_dir, ROOM_DIR) {
+    // The TRUSTED storage key is the FILENAME STEM (#72 round 17 finding 1). A scan error is
+    // NEVER a false-empty pass (#72 round 21 finding 3): log and retry next boot.
+    let rooms = match read_dir_with_stems(data_dir, ROOM_DIR) {
+        Ok(v) => v,
+        Err(e) => { eprintln!("outcome-room attach completer: registry scan failed ({e}) — retrying next boot, nothing converged"); return; }
+    };
+    for (room_tail, room) in rooms {
         let Some(intent) = room.get("attach_intent").cloned() else { continue };
         let room_id = format!("outcome-room://{room_tail}");
         let receipt = intent.get("receipt").cloned().unwrap_or(Value::Null);
@@ -1494,18 +1606,22 @@ fn validate_room_create(body: &Value) -> Result<Value, VErr> {
     Ok(record)
 }
 
-fn sorted_newest(data_dir: &str) -> Vec<Value> {
+fn sorted_newest(data_dir: &str) -> Result<Vec<Value>, String> {
     // EXACT-PATH listing (#72 round 18 finding 2): only rooms whose content identity agrees with
     // their storage key — a relocated file is never listed.
-    let mut items = list_rooms_exact(data_dir);
+    let mut items = list_rooms_exact(data_dir)?;
     items.sort_by(|a, b| s(b, "created_at", "").cmp(&s(a, "created_at", "")));
-    items
+    Ok(items)
 }
 
 // ================================ HANDLERS =======================================================
 
-pub(crate) async fn handle_outcome_rooms_list(State(st): State<Arc<DaemonState>>) -> Json<Value> {
-    Json(json!({ "schema_version": ROOM_SCHEMA, "outcome_rooms": sorted_newest(&st.data_dir), "runtimeTruthSource": "daemon-runtime" }))
+pub(crate) async fn handle_outcome_rooms_list(State(st): State<Arc<DaemonState>>) -> (StatusCode, Json<Value>) {
+    // A scanner error is a TYPED 5xx, NEVER a false-empty 200 (#72 round 21 finding 3).
+    match sorted_newest(&st.data_dir) {
+        Ok(rooms) => (StatusCode::OK, Json(json!({ "schema_version": ROOM_SCHEMA, "outcome_rooms": rooms, "runtimeTruthSource": "daemon-runtime" }))),
+        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "error": { "code": "outcome_room_registry_unreadable", "message": e } }))),
+    }
 }
 
 pub(crate) async fn handle_outcome_room_get(
@@ -1518,10 +1634,14 @@ pub(crate) async fn handle_outcome_room_get(
     }
 }
 
-pub(crate) async fn handle_outcome_rooms_overview(State(st): State<Arc<DaemonState>>) -> Json<Value> {
-    let rooms = list_rooms_exact(&st.data_dir);
+pub(crate) async fn handle_outcome_rooms_overview(State(st): State<Arc<DaemonState>>) -> (StatusCode, Json<Value>) {
+    let rooms = match list_rooms_exact(&st.data_dir) {
+        Ok(r) => r,
+        // A scanner error is a TYPED 5xx, NEVER a false-empty overview (#72 round 21 finding 3).
+        Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "error": { "code": "outcome_room_registry_unreadable", "message": e } }))),
+    };
     let by_status = |status: &str| rooms.iter().filter(|r| s(r, "status", "") == status).count();
-    Json(json!({
+    (StatusCode::OK, Json(json!({
         "schema_version": OVERVIEW_SCHEMA,
         "outcome_rooms": rooms.len(),
         "by_status": ROOM_STATUSES.iter().filter(|st2| by_status(st2) > 0).map(|st2| json!({ "status": st2, "count": by_status(st2) })).collect::<Vec<_>>(),
@@ -1536,7 +1656,7 @@ pub(crate) async fn handle_outcome_rooms_overview(State(st): State<Arc<DaemonSta
             "richer lifecycle statuses (active/blocked/verifying/accepted/disputed/settled/revoked) are named-gap transitions requiring later authority; a receipt is not proof of correctness — acceptance and settlement are assurance rungs above admission"
         ],
         "runtimeTruthSource": "daemon-runtime"
-    }))
+    })))
 }
 
 /// POST /v1/hypervisor/outcome-rooms — admit a HOSTED room (fail-closed, atomic, receipted).
@@ -2147,6 +2267,52 @@ mod outcome_room_tests {
     }
 
     #[test]
+    fn certify_receipt_target_catches_a_swapped_inode_and_passes_the_untouched_one() {
+        // #72 round 21 finding 1: the post-barrier re-verification (used on both the fresh-create
+        // and byte-identical replay paths) proves the canonical name still resolves to the
+        // committed inode with the committed bytes. Tested against the helper directly (no
+        // process-global env) — the production wiring is proven by the live restart lanes.
+        use std::io::Write;
+        let dir_t = temp_dir("certify");
+        let data_dir = dir_t.to_str().unwrap();
+        let receipt = json!({ "receipt_id": "receipt://orr_s0", "attested": true });
+        persist_receipt_no_clobber(data_dir, "orr_s0", &receipt).unwrap();
+        let bytes = serde_json::to_vec_pretty(&receipt).unwrap();
+        let dir = open_family_dir_pinned(data_dir, ROOM_RECEIPT_DIR).unwrap();
+        let (committed, _) = read_slot_strict(&dir, "orr_s0.json").unwrap().unwrap();
+        // Untouched: same inode, same bytes → certified.
+        certify_receipt_target(&dir, "orr_s0.json", &committed, &bytes, "unit").unwrap();
+        // Swap the canonical name to a DIFFERENT inode carrying foreign bytes.
+        unlink_at(&dir, "orr_s0.json").unwrap();
+        let mut f = open_tmpfile_at(&dir).unwrap();
+        f.write_all(b"{\"foreign\":\"REPLACED\"}").unwrap();
+        f.sync_all().unwrap();
+        link_tmpfile_at(&f, &dir, "orr_s0.json").unwrap();
+        // Re-verify with the ORIGINAL committed descriptor → inode mismatch → refused.
+        let (code, _) = certify_receipt_target(&dir, "orr_s0.json", &committed, &bytes, "unit").unwrap_err();
+        assert_eq!(code, "outcome_room_receipt_swapped", "a name resolving to a different inode after the barrier is refused");
+        let _ = std::fs::remove_dir_all(&dir_t);
+    }
+
+    #[test]
+    fn scanner_returns_typed_error_not_false_empty_when_registry_is_unreadable() {
+        // #72 round 21 finding 3: a directory-level exchange (registry replaced by a symlink) or
+        // any pin/enumerate failure is a TYPED error, never an empty registry served as truth.
+        let dir = temp_dir("false-empty");
+        let data_dir = dir.to_str().unwrap();
+        let (_i, room, _rid, _rcpt) = canonical_admission("or_d0");
+        persist_atomic(data_dir, ROOM_DIR, "or_d0", &room).unwrap();
+        // Move the real registry aside and replace it with a SYMLINK to the moved directory.
+        std::fs::rename(dir.join(ROOM_DIR), dir.join("registry-moved")).unwrap();
+        std::os::unix::fs::symlink(dir.join("registry-moved"), dir.join(ROOM_DIR)).unwrap();
+        // The pinned open is O_NOFOLLOW → ELOOP → typed Err, NOT a false-empty Ok(vec![]).
+        assert!(read_dir_with_stems(data_dir, ROOM_DIR).is_err(), "a symlinked registry directory is a typed error");
+        assert!(sorted_newest(data_dir).is_err(), "list surfaces the error, never a false-empty list");
+        assert!(list_rooms_exact(data_dir).is_err());
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
     fn receipt_commit_from_anonymous_descriptor_leaves_no_residue() {
         // #72 round 20 findings 1+3: the O_TMPFILE commit binds bytes to the DESCRIPTOR (no
         // swappable named source) and leaves NO temp residue — the directory holds exactly the
@@ -2185,9 +2351,9 @@ mod outcome_room_tests {
         std::os::unix::fs::symlink(dir.join("EXTERNAL.json"), dir.join(ROOM_DIR).join("or_c2.json")).unwrap();
         // A real file under a NON-canonical stem (uppercase / non-hex).
         std::fs::write(dir.join(ROOM_DIR).join("or_ZZ.json"), serde_json::to_vec(&json!({ "outcome_room_id": "outcome-room://or_ZZ" })).unwrap()).unwrap();
-        let stems: Vec<String> = read_dir_with_stems(data_dir, ROOM_DIR).into_iter().map(|(s, _)| s).collect();
+        let stems: Vec<String> = read_dir_with_stems(data_dir, ROOM_DIR).unwrap().into_iter().map(|(s, _)| s).collect();
         assert_eq!(stems, vec!["or_c1".to_string()], "only the genuine canonical regular file is scanned");
-        let listed: Vec<String> = sorted_newest(data_dir).into_iter().filter_map(|r| r["outcome_room_id"].as_str().map(str::to_string)).collect();
+        let listed: Vec<String> = sorted_newest(data_dir).unwrap().into_iter().filter_map(|r| r["outcome_room_id"].as_str().map(str::to_string)).collect();
         assert_eq!(listed, vec!["outcome-room://or_c1".to_string()], "the symlink's forged content never reaches the public list");
         let _ = std::fs::remove_dir_all(&dir);
     }
@@ -2210,7 +2376,7 @@ mod outcome_room_tests {
         std::fs::write(dir.join(ROOM_DIR).join("real.json"), serde_json::to_vec_pretty(&room).unwrap()).unwrap();
         std::os::unix::fs::symlink("real.json", dir.join(ROOM_DIR).join("or_a0.json")).unwrap();
         assert!(load_room(data_dir, "outcome-room://or_a0").is_none(), "a symlinked room slot is refused (O_NOFOLLOW)");
-        assert!(sorted_newest(data_dir).is_empty(), "neither the symlink nor the non-canonical stem is listed");
+        assert!(sorted_newest(data_dir).unwrap().is_empty(), "neither the symlink nor the non-canonical stem is listed");
         let _ = std::fs::remove_dir_all(&dir);
     }
 
@@ -2314,7 +2480,7 @@ mod outcome_room_tests {
         // GET by the NEW filename's id: content id (or_91) != stem (or_92) → None.
         assert!(load_room(data_dir, "outcome-room://or_92").is_none(), "GET new stem: content id != stem, refused");
         // LIST/resolve exclude the relocated file entirely.
-        assert!(sorted_newest(data_dir).is_empty(), "the relocated room is not listed");
+        assert!(sorted_newest(data_dir).unwrap().is_empty(), "the relocated room is not listed");
         assert!(resolve_open_room(data_dir, "outcome-room://or_91").is_none());
         let _ = std::fs::remove_dir_all(&dir);
     }
