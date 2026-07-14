@@ -17,7 +17,8 @@
 //!     target is re-opened and certified (device/inode + bytes) AFTER the durability barrier;
 //!   - durability outcomes are structural: visible-but-unconfirmed is never reported as success
 //!     and never rolled back "as absent";
-//!   - enumeration goes through the pinned fd (`fdopendir(dup(fd))`) and distinguishes readdir
+//!   - enumeration goes through the pinned fd (`fdopendir` over an independent `openat(fd, ".")`
+//!     description) and distinguishes readdir
 //!     EOF from error via errno (#73 named gap) — an enumeration error propagates typed, never
 //!     as partial or empty truth.
 
@@ -98,6 +99,32 @@ fn cstr(name: impl AsRef<std::ffi::OsStr>) -> std::io::Result<std::ffi::CString>
         .map_err(|_| std::io::Error::new(std::io::ErrorKind::InvalidInput, "NUL in path component"))
 }
 
+/// A single, NON-TRAVERSING path component: no `/` separators, not `.`/`..`, not empty. The
+/// shared core enforces its containment contract ITSELF (#73 review finding 1): `O_NOFOLLOW`
+/// only protects the terminal component, so a multi-segment or dot-dot "name" smuggled into an
+/// `*at` helper or a family would otherwise walk wherever it liked.
+fn is_single_component(name: &std::ffi::OsStr) -> bool {
+    use std::os::unix::ffi::OsStrExt;
+    let b = name.as_bytes();
+    !b.is_empty() && b != b"." && b != b".." && !b.contains(&b'/')
+}
+
+/// The validated CString every name-taking `*at` helper uses — a traversing name is refused
+/// typed BEFORE any syscall, inside the shared boundary.
+fn component_cstr(name: impl AsRef<std::ffi::OsStr>) -> std::io::Result<std::ffi::CString> {
+    let n = name.as_ref();
+    if !is_single_component(n) {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            format!(
+                "'{}' is not a single non-traversing path component — refused",
+                n.to_string_lossy()
+            ),
+        ));
+    }
+    cstr(n)
+}
+
 /// Pin a directory as a walk root: must be a directory, terminal symlink refused.
 pub(crate) fn open_dir_pinned(path: &std::path::Path) -> std::io::Result<std::fs::File> {
     use std::os::unix::fs::OpenOptionsExt;
@@ -108,15 +135,31 @@ pub(crate) fn open_dir_pinned(path: &std::path::Path) -> std::io::Result<std::fs
 }
 
 /// Pin a record-family directory — the walk root for slot reads, enumeration, and commits.
-pub(crate) fn open_family_dir_pinned(data_dir: &str, family: &str) -> std::io::Result<std::fs::File> {
+pub(crate) fn open_family_dir_pinned(
+    data_dir: &str,
+    family: &str,
+) -> std::io::Result<std::fs::File> {
+    if !is_single_component(std::ffi::OsStr::new(family)) {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            format!("family '{family}' is not a single non-traversing path component — refused"),
+        ));
+    }
     open_dir_pinned(&std::path::Path::new(data_dir).join(family))
 }
 
-pub(crate) fn open_dir_at(parent: &std::fs::File, name: impl AsRef<std::ffi::OsStr>) -> std::io::Result<std::fs::File> {
+pub(crate) fn open_dir_at(
+    parent: &std::fs::File,
+    name: impl AsRef<std::ffi::OsStr>,
+) -> std::io::Result<std::fs::File> {
     use std::os::unix::io::{AsRawFd, FromRawFd};
-    let c = cstr(name)?;
+    let c = component_cstr(name)?;
     let fd = unsafe {
-        libc::openat(parent.as_raw_fd(), c.as_ptr(), libc::O_RDONLY | libc::O_DIRECTORY | libc::O_NOFOLLOW | libc::O_CLOEXEC)
+        libc::openat(
+            parent.as_raw_fd(),
+            c.as_ptr(),
+            libc::O_RDONLY | libc::O_DIRECTORY | libc::O_NOFOLLOW | libc::O_CLOEXEC,
+        )
     };
     if fd < 0 {
         return Err(std::io::Error::last_os_error());
@@ -125,9 +168,12 @@ pub(crate) fn open_dir_at(parent: &std::fs::File, name: impl AsRef<std::ffi::OsS
 }
 
 /// mkdirat; returns whether the directory was CREATED by this call (EEXIST = false).
-pub(crate) fn mkdir_at(parent: &std::fs::File, name: impl AsRef<std::ffi::OsStr>) -> std::io::Result<bool> {
+pub(crate) fn mkdir_at(
+    parent: &std::fs::File,
+    name: impl AsRef<std::ffi::OsStr>,
+) -> std::io::Result<bool> {
     use std::os::unix::io::AsRawFd;
-    let c = cstr(name)?;
+    let c = component_cstr(name)?;
     let rc = unsafe { libc::mkdirat(parent.as_raw_fd(), c.as_ptr(), 0o755) };
     if rc != 0 {
         let e = std::io::Error::last_os_error();
@@ -141,9 +187,12 @@ pub(crate) fn mkdir_at(parent: &std::fs::File, name: impl AsRef<std::ffi::OsStr>
 
 /// O_NONBLOCK is deliberate (#72 round 7 finding 4): opening a FIFO must never block the
 /// daemon; the regular-file check at the caller then refuses it typed.
-pub(crate) fn open_file_at(parent: &std::fs::File, name: impl AsRef<std::ffi::OsStr>) -> std::io::Result<std::fs::File> {
+pub(crate) fn open_file_at(
+    parent: &std::fs::File,
+    name: impl AsRef<std::ffi::OsStr>,
+) -> std::io::Result<std::fs::File> {
     use std::os::unix::io::{AsRawFd, FromRawFd};
-    let c = cstr(name)?;
+    let c = component_cstr(name)?;
     let fd = unsafe {
         libc::openat(
             parent.as_raw_fd(),
@@ -158,9 +207,12 @@ pub(crate) fn open_file_at(parent: &std::fs::File, name: impl AsRef<std::ffi::Os
 }
 
 /// O_CREAT|O_EXCL|O_NOFOLLOW create relative to the pinned dir.
-pub(crate) fn create_file_at(parent: &std::fs::File, name: impl AsRef<std::ffi::OsStr>) -> std::io::Result<std::fs::File> {
+pub(crate) fn create_file_at(
+    parent: &std::fs::File,
+    name: impl AsRef<std::ffi::OsStr>,
+) -> std::io::Result<std::fs::File> {
     use std::os::unix::io::{AsRawFd, FromRawFd};
-    let c = cstr(name)?;
+    let c = component_cstr(name)?;
     let fd = unsafe {
         libc::openat(
             parent.as_raw_fd(),
@@ -175,20 +227,34 @@ pub(crate) fn create_file_at(parent: &std::fs::File, name: impl AsRef<std::ffi::
     Ok(unsafe { std::fs::File::from_raw_fd(fd) })
 }
 
-pub(crate) fn rename_at(parent: &std::fs::File, from: impl AsRef<std::ffi::OsStr>, to: impl AsRef<std::ffi::OsStr>) -> std::io::Result<()> {
+pub(crate) fn rename_at(
+    parent: &std::fs::File,
+    from: impl AsRef<std::ffi::OsStr>,
+    to: impl AsRef<std::ffi::OsStr>,
+) -> std::io::Result<()> {
     use std::os::unix::io::AsRawFd;
-    let cf = cstr(from)?;
-    let ct = cstr(to)?;
-    let rc = unsafe { libc::renameat(parent.as_raw_fd(), cf.as_ptr(), parent.as_raw_fd(), ct.as_ptr()) };
+    let cf = component_cstr(from)?;
+    let ct = component_cstr(to)?;
+    let rc = unsafe {
+        libc::renameat(
+            parent.as_raw_fd(),
+            cf.as_ptr(),
+            parent.as_raw_fd(),
+            ct.as_ptr(),
+        )
+    };
     if rc != 0 {
         return Err(std::io::Error::last_os_error());
     }
     Ok(())
 }
 
-pub(crate) fn unlink_at(parent: &std::fs::File, name: impl AsRef<std::ffi::OsStr>) -> std::io::Result<()> {
+pub(crate) fn unlink_at(
+    parent: &std::fs::File,
+    name: impl AsRef<std::ffi::OsStr>,
+) -> std::io::Result<()> {
     use std::os::unix::io::AsRawFd;
-    let c = cstr(name)?;
+    let c = component_cstr(name)?;
     if unsafe { libc::unlinkat(parent.as_raw_fd(), c.as_ptr(), 0) } != 0 {
         return Err(std::io::Error::last_os_error());
     }
@@ -198,9 +264,24 @@ pub(crate) fn unlink_at(parent: &std::fs::File, name: impl AsRef<std::ffi::OsStr
 /// Walk (and in `create` mode, mkdirat) each PARENT component of `rel` under `root`,
 /// returning the pinned parent directory fd. A directory CREATED here is made durable by a
 /// checked fsync of the directory that received the new entry (#72 round 7 finding 1).
-pub(crate) fn pin_parent(root: &std::fs::File, rel: &std::path::Path, create: bool) -> std::io::Result<std::fs::File> {
+pub(crate) fn pin_parent(
+    root: &std::fs::File,
+    rel: &std::path::Path,
+    create: bool,
+) -> std::io::Result<std::fs::File> {
     let mut cur = root.try_clone()?;
     if let Some(parent) = rel.parent() {
+        // Validate the ENTIRE walk BEFORE creating anything (#73 review finding 1): a
+        // noncanonical relative path (`..`, a root, `.`) is REFUSED with zero mutation, never
+        // silently skipped and never after a partial mkdir — the walk only ever descends.
+        for comp in parent.components() {
+            if !matches!(comp, std::path::Component::Normal(_)) {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::InvalidInput,
+                    format!("noncanonical path component {comp:?} — refused"),
+                ));
+            }
+        }
         for comp in parent.components() {
             if let std::path::Component::Normal(seg) = comp {
                 if create && mkdir_at(&cur, seg)? {
@@ -217,7 +298,11 @@ pub(crate) fn pin_parent(root: &std::fs::File, rel: &std::path::Path, create: bo
 /// walk → NOFOLLOW|NONBLOCK file open) with fstat-enforced bounds: only REGULAR files, only
 /// up to `max_bytes` — a FIFO can never block the daemon and a huge file can never exhaust
 /// its memory. No path is re-resolved between validation and read.
-pub(crate) fn read_contained(root: &std::fs::File, rel: &std::path::Path, max_bytes: u64) -> Result<Vec<u8>, ReadRefusal> {
+pub(crate) fn read_contained(
+    root: &std::fs::File,
+    rel: &std::path::Path,
+    max_bytes: u64,
+) -> Result<Vec<u8>, ReadRefusal> {
     use std::io::Read;
     let classify = |e: std::io::Error| -> ReadRefusal {
         if matches!(e.raw_os_error(), Some(libc::ELOOP) | Some(libc::ENOTDIR)) {
@@ -227,9 +312,12 @@ pub(crate) fn read_contained(root: &std::fs::File, rel: &std::path::Path, max_by
         }
     };
     let parent = pin_parent(root, rel, false).map_err(&classify)?;
-    let name = rel
-        .file_name()
-        .ok_or_else(|| ReadRefusal::Io(std::io::Error::new(std::io::ErrorKind::InvalidInput, "no file name")))?;
+    let name = rel.file_name().ok_or_else(|| {
+        ReadRefusal::Io(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            "no file name",
+        ))
+    })?;
     let f = open_file_at(&parent, name).map_err(&classify)?;
     let md = f.metadata().map_err(ReadRefusal::Io)?;
     if !md.file_type().is_file() {
@@ -254,12 +342,19 @@ pub(crate) fn read_contained(root: &std::fs::File, rel: &std::path::Path, max_by
 /// occupant opened O_NOFOLLOW and read; Ok(None) = definitively ABSENT (ENOENT only). EVERY
 /// other outcome — unreadable occupant, symlink (ELOOP), FIFO/device — is Err: the caller must
 /// REFUSE, never treat the slot as empty.
-pub(crate) fn read_slot_strict(dir: &std::fs::File, name: &str) -> std::io::Result<Option<(std::fs::File, Vec<u8>)>> {
+pub(crate) fn read_slot_strict(
+    dir: &std::fs::File,
+    name: &str,
+) -> std::io::Result<Option<(std::fs::File, Vec<u8>)>> {
     use std::io::Read;
     use std::os::unix::io::{AsRawFd, FromRawFd};
-    let c = cstr(name)?;
+    let c = component_cstr(name)?;
     let fd = unsafe {
-        libc::openat(dir.as_raw_fd(), c.as_ptr(), libc::O_RDONLY | libc::O_NOFOLLOW | libc::O_NONBLOCK | libc::O_CLOEXEC)
+        libc::openat(
+            dir.as_raw_fd(),
+            c.as_ptr(),
+            libc::O_RDONLY | libc::O_NOFOLLOW | libc::O_NONBLOCK | libc::O_CLOEXEC,
+        )
     };
     if fd < 0 {
         let e = std::io::Error::last_os_error();
@@ -270,33 +365,54 @@ pub(crate) fn read_slot_strict(dir: &std::fs::File, name: &str) -> std::io::Resu
     }
     let mut f = unsafe { std::fs::File::from_raw_fd(fd) };
     if !f.metadata()?.is_file() {
-        return Err(std::io::Error::new(std::io::ErrorKind::InvalidData, format!("slot '{name}' is occupied by a non-regular file")));
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidData,
+            format!("slot '{name}' is occupied by a non-regular file"),
+        ));
     }
     let mut bytes = Vec::new();
     f.read_to_end(&mut bytes)?;
     Ok(Some((f, bytes)))
 }
 
-/// Enumerate the entries of an ALREADY-PINNED directory through the fd ITSELF (fdopendir over a
-/// dup) — NOT by re-walking the pathname (#72 round 21 finding 3): a directory-level exchange
-/// cannot redirect enumeration, because the names come from the same inode the caller pinned
-/// and reads through. fdopendir takes ownership of the dup; closedir closes it.
+/// Enumerate the entries of an ALREADY-PINNED directory through the fd ITSELF — NOT by
+/// re-walking the pathname (#72 round 21 finding 3): a directory-level exchange cannot redirect
+/// enumeration, because the names come from the same inode the caller pinned and reads through.
+///
+/// The stream is opened via `openat(fd, ".")`, giving an INDEPENDENT open-file description at
+/// offset 0 — NOT `dup`, which shares the caller's directory offset, so a second enumeration on
+/// the same pinned fd after EOF would read as EMPTY (#73 review finding 2). The caller's fd may
+/// be enumerated any number of times.
+pub(crate) fn enumerate_pinned(dir: &std::fs::File) -> std::io::Result<Vec<String>> {
+    use std::os::unix::io::AsRawFd;
+    let dot = cstr(".")?;
+    let fd = unsafe {
+        libc::openat(
+            dir.as_raw_fd(),
+            dot.as_ptr(),
+            libc::O_RDONLY | libc::O_DIRECTORY | libc::O_CLOEXEC,
+        )
+    };
+    if fd < 0 {
+        return Err(std::io::Error::last_os_error());
+    }
+    let dp = unsafe { libc::fdopendir(fd) };
+    if dp.is_null() {
+        let e = std::io::Error::last_os_error();
+        unsafe { libc::close(fd) };
+        return Err(e);
+    }
+    drain_dir_stream(dp)
+}
+
+/// The readdir loop over an OWNED directory stream (closedir always runs) — the deterministic
+/// seam for the post-readdir error branch (#73 review finding 2).
 ///
 /// readdir signals BOTH end-of-stream and error by returning NULL; the only way to tell them
 /// apart is errno (#73 named-gap fix): errno is reset before every call and inspected after a
-/// NULL — a genuine enumeration error propagates TYPED, never as partial or empty truth.
-pub(crate) fn enumerate_pinned(dir: &std::fs::File) -> std::io::Result<Vec<String>> {
-    use std::os::unix::io::AsRawFd;
-    let dupfd = unsafe { libc::dup(dir.as_raw_fd()) };
-    if dupfd < 0 {
-        return Err(std::io::Error::last_os_error());
-    }
-    let dp = unsafe { libc::fdopendir(dupfd) };
-    if dp.is_null() {
-        let e = std::io::Error::last_os_error();
-        unsafe { libc::close(dupfd) };
-        return Err(e);
-    }
+/// NULL. A genuine enumeration error propagates TYPED and DISCARDS every name collected so far —
+/// a partial listing served as truth is exactly the false-empty registry this fixes.
+fn drain_dir_stream(dp: *mut libc::DIR) -> std::io::Result<Vec<String>> {
     let mut names = Vec::new();
     loop {
         unsafe { *libc::__errno_location() = 0 };
@@ -305,8 +421,6 @@ pub(crate) fn enumerate_pinned(dir: &std::fs::File) -> std::io::Result<Vec<Strin
             let errno = unsafe { *libc::__errno_location() };
             unsafe { libc::closedir(dp) };
             if errno != 0 {
-                // A real readdir failure — refuse the WHOLE enumeration; a partial listing
-                // served as truth is exactly the false-empty registry this fixes.
                 return Err(std::io::Error::from_raw_os_error(errno));
             }
             return Ok(names); // genuine EOF
@@ -329,7 +443,12 @@ pub(crate) fn open_tmpfile_at(dir: &std::fs::File) -> std::io::Result<std::fs::F
     use std::os::unix::io::{AsRawFd, FromRawFd};
     let dot = cstr(".")?;
     let fd = unsafe {
-        libc::openat(dir.as_raw_fd(), dot.as_ptr(), libc::O_WRONLY | libc::O_TMPFILE | libc::O_CLOEXEC, 0o644 as libc::c_uint)
+        libc::openat(
+            dir.as_raw_fd(),
+            dot.as_ptr(),
+            libc::O_WRONLY | libc::O_TMPFILE | libc::O_CLOEXEC,
+            0o644 as libc::c_uint,
+        )
     };
     if fd < 0 {
         return Err(std::io::Error::last_os_error());
@@ -341,11 +460,24 @@ pub(crate) fn open_tmpfile_at(dir: &std::fs::File) -> std::io::Result<std::fs::F
 /// binds the committed bytes to the DESCRIPTOR, not to any swappable source name (#72 round 20
 /// finding 1). Uses the /proc/self/fd form (no CAP_DAC_READ_SEARCH needed for non-root); link
 /// fails EEXIST if the target appeared since inspection, exactly like a named no-replace link.
-pub(crate) fn link_tmpfile_at(tmp: &std::fs::File, dir: &std::fs::File, to: &str) -> std::io::Result<()> {
+pub(crate) fn link_tmpfile_at(
+    tmp: &std::fs::File,
+    dir: &std::fs::File,
+    to: &str,
+) -> std::io::Result<()> {
     use std::os::unix::io::AsRawFd;
     let src = cstr(format!("/proc/self/fd/{}", tmp.as_raw_fd()))?;
-    let ct = cstr(to)?;
-    if unsafe { libc::linkat(libc::AT_FDCWD, src.as_ptr(), dir.as_raw_fd(), ct.as_ptr(), libc::AT_SYMLINK_FOLLOW) } != 0 {
+    let ct = component_cstr(to)?;
+    if unsafe {
+        libc::linkat(
+            libc::AT_FDCWD,
+            src.as_ptr(),
+            dir.as_raw_fd(),
+            ct.as_ptr(),
+            libc::AT_SYMLINK_FOLLOW,
+        )
+    } != 0
+    {
         return Err(std::io::Error::last_os_error());
     }
     Ok(())
@@ -364,7 +496,10 @@ pub(crate) fn same_inode(a: &std::fs::File, b: &std::fs::File) -> std::io::Resul
 /// normalizes unsafe characters, so two different keys could silently target the same file —
 /// a caller must reject rather than collide.
 pub(crate) fn is_normalization_safe(id: &str) -> bool {
-    !id.is_empty() && id.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_')
+    !id.is_empty()
+        && id
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_')
 }
 
 /// DELIBERATE TEST FAULT (#72 round 21 finding 1): simulate a CONCURRENT adversary replacing the
@@ -372,12 +507,22 @@ pub(crate) fn is_normalization_safe(id: &str) -> bool {
 /// exercised. Absent env = no effect. `point` is "new" (fresh linkat) or "replay" (byte-compare).
 fn test_swap_target(dir: &std::fs::File, target: &str, point: &str) {
     use std::io::Write;
-    if std::env::var("IOI_TEST_FORCE_RECEIPT_TARGET_SWAP").ok().as_deref() != Some(point) {
+    if std::env::var("IOI_TEST_FORCE_RECEIPT_TARGET_SWAP")
+        .ok()
+        .as_deref()
+        != Some(point)
+    {
         return;
     }
     let _ = unlink_at(dir, target);
     if let Ok(mut f) = open_tmpfile_at(dir) {
-        let _ = f.write_all(format!("{{\"foreign\":\"REPLACED_AFTER_{}\"}}", point.to_uppercase()).as_bytes());
+        let _ = f.write_all(
+            format!(
+                "{{\"foreign\":\"REPLACED_AFTER_{}\"}}",
+                point.to_uppercase()
+            )
+            .as_bytes(),
+        );
         let _ = f.sync_all();
         let _ = link_tmpfile_at(&f, dir, target);
     }
@@ -386,7 +531,13 @@ fn test_swap_target(dir: &std::fs::File, target: &str, point: &str) {
 /// Re-verify the canonical name AFTER the file + directory fsyncs (#72 round 21 finding 1):
 /// re-open the target O_NOFOLLOW, prove it is the SAME inode as the committed descriptor, and
 /// re-read its bytes — a target swapped during the durability barrier is caught and refused.
-pub(crate) fn certify_target(dir: &std::fs::File, target: &str, committed: &std::fs::File, bytes: &[u8], point: &str) -> Result<(), CommitFailure> {
+pub(crate) fn certify_target(
+    dir: &std::fs::File,
+    target: &str,
+    committed: &std::fs::File,
+    bytes: &[u8],
+    point: &str,
+) -> Result<(), CommitFailure> {
     test_swap_target(dir, target, point);
     match read_slot_strict(dir, target) {
         Ok(Some((reopened, on_disk))) => {
@@ -398,8 +549,12 @@ pub(crate) fn certify_target(dir: &std::fs::File, target: &str, committed: &std:
             }
             Ok(())
         }
-        Ok(None) => Err(CommitFailure::Swapped(format!("the receipt name '{target}' vanished after commit — refused"))),
-        Err(e) => Err(CommitFailure::SlotUnreadable(format!("post-commit re-verify of '{target}' failed ({e}) — refused"))),
+        Ok(None) => Err(CommitFailure::Swapped(format!(
+            "the receipt name '{target}' vanished after commit — refused"
+        ))),
+        Err(e) => Err(CommitFailure::SlotUnreadable(format!(
+            "post-commit re-verify of '{target}' failed ({e}) — refused"
+        ))),
     }
 }
 
@@ -411,13 +566,31 @@ pub(crate) fn certify_target(dir: &std::fs::File, target: &str, committed: &std:
 /// `RenamedDurabilityUnconfirmed` (new record visible, durability unknown) so callers can model
 /// the truth instead of pretending nothing happened. A NEWLY CREATED family directory is made
 /// durable by fsyncing its parent before any record lands inside it.
-pub(crate) fn persist_record_durable(data_dir: &str, family: &str, record_id: &str, record: &Value) -> Result<(), PersistFailure> {
+pub(crate) fn persist_record_durable(
+    data_dir: &str,
+    family: &str,
+    record_id: &str,
+    record: &Value,
+) -> Result<(), PersistFailure> {
     use std::io::Write;
     use PersistFailure::{NotCommitted, RenamedDurabilityUnconfirmed};
     // Parity with persist_record (#72 round 3): promoted families have exactly one write path;
     // not-yet-promoted families still feed the opt-in dual-write soak.
     if super::substrate_store::is_promoted(family) {
-        return super::substrate_store::persist_promoted(data_dir, family, record_id, record).map_err(NotCommitted);
+        return super::substrate_store::persist_promoted(data_dir, family, record_id, record)
+            .map_err(NotCommitted);
+    }
+    // Containment inside the shared boundary (#73 review finding 1): the family must be a
+    // single non-traversing component, and an unsafe record id is REJECTED — normalizing it
+    // would let two DISTINCT ids silently collide on one file.
+    if !is_single_component(std::ffi::OsStr::new(family)) {
+        return Err(NotCommitted(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            format!("family '{family}' is not a single non-traversing path component — refused"),
+        )));
+    }
+    if !is_normalization_safe(record_id) {
+        return Err(NotCommitted(std::io::Error::new(std::io::ErrorKind::InvalidInput, format!("record id '{record_id}' is not filesystem-safe (would normalize to a different key) — refused, never normalized"))));
     }
     let dir = std::path::Path::new(data_dir).join(family);
     let family_created = !dir.exists();
@@ -425,10 +598,10 @@ pub(crate) fn persist_record_durable(data_dir: &str, family: &str, record_id: &s
     if family_created {
         // A brand-new record family: fsync the data dir so the family directory itself
         // survives a crash (#72 round 7 finding 1).
-        (|| -> std::io::Result<()> { std::fs::File::open(data_dir)?.sync_all() })().map_err(NotCommitted)?;
+        (|| -> std::io::Result<()> { std::fs::File::open(data_dir)?.sync_all() })()
+            .map_err(NotCommitted)?;
     }
-    let safe: String = record_id.replace(|c: char| !c.is_ascii_alphanumeric() && c != '-' && c != '_', "_");
-    let tmp = dir.join(format!(".{safe}.tmp-{:x}", nanos()));
+    let tmp = dir.join(format!(".{record_id}.tmp-{:x}", nanos()));
     let write = (|| -> std::io::Result<()> {
         let mut f = std::fs::File::create(&tmp)?;
         f.write_all(&serde_json::to_vec_pretty(record).unwrap_or_default())?;
@@ -438,7 +611,7 @@ pub(crate) fn persist_record_durable(data_dir: &str, family: &str, record_id: &s
         let _ = std::fs::remove_file(&tmp);
         return Err(NotCommitted(e));
     }
-    if let Err(e) = std::fs::rename(&tmp, dir.join(format!("{safe}.json"))) {
+    if let Err(e) = std::fs::rename(&tmp, dir.join(format!("{record_id}.json"))) {
         let _ = std::fs::remove_file(&tmp);
         return Err(NotCommitted(e));
     }
@@ -448,8 +621,14 @@ pub(crate) fn persist_record_durable(data_dir: &str, family: &str, record_id: &s
     // directory-fsync failure cannot be injected by permissions on a read-then-write seam (the
     // dir listing and the fsync open need the same read bit), so the visible-unconfirmed lane
     // is forced here for the fault verifiers — the rename has genuinely happened.
-    if std::env::var("IOI_TEST_FORCE_DIRSYNC_UNCONFIRMED").ok().as_deref() == Some(family) {
-        return Err(RenamedDurabilityUnconfirmed(std::io::Error::other("test-forced directory-sync failure")));
+    if std::env::var("IOI_TEST_FORCE_DIRSYNC_UNCONFIRMED")
+        .ok()
+        .as_deref()
+        == Some(family)
+    {
+        return Err(RenamedDurabilityUnconfirmed(std::io::Error::other(
+            "test-forced directory-sync failure",
+        )));
     }
     if let Err(e) = (|| -> std::io::Result<()> { std::fs::File::open(&dir)?.sync_all() })() {
         return Err(RenamedDurabilityUnconfirmed(e));
@@ -475,35 +654,62 @@ pub(crate) fn persist_record_durable(data_dir: &str, family: &str, record_id: &s
 ///   - the durability outcome is PRESERVED (#72 round 19 finding 2): visible-but-unconfirmed
 ///     is `DurabilityUnconfirmed`, never Ok — terminal state and intent consumption require a
 ///     DURABLE commit.
-pub(crate) fn persist_receipt_no_clobber(data_dir: &str, family: &str, tail: &str, receipt: &Value) -> Result<(), CommitFailure> {
+pub(crate) fn persist_receipt_no_clobber(
+    data_dir: &str,
+    family: &str,
+    tail: &str,
+    receipt: &Value,
+) -> Result<(), CommitFailure> {
     use std::io::Write;
+    if !is_single_component(std::ffi::OsStr::new(family)) {
+        return Err(CommitFailure::NotCommitted(format!("family '{family}' is not a single non-traversing path component — refused, nothing was written")));
+    }
     if !is_normalization_safe(tail) {
-        return Err(CommitFailure::KeyInvalid(format!("receipt tail '{tail}' is not filesystem-safe")));
+        return Err(CommitFailure::KeyInvalid(format!(
+            "receipt tail '{tail}' is not filesystem-safe"
+        )));
     }
     let bytes = serde_json::to_vec_pretty(receipt).unwrap_or_default();
     let fam_path = std::path::Path::new(data_dir).join(family);
     if let Err(e) = std::fs::create_dir_all(&fam_path) {
-        return Err(CommitFailure::NotCommitted(format!("receipt directory unavailable ({e}) — nothing was written")));
+        return Err(CommitFailure::NotCommitted(format!(
+            "receipt directory unavailable ({e}) — nothing was written"
+        )));
     }
     let dir = match open_family_dir_pinned(data_dir, family) {
         Ok(d) => d,
-        Err(e) => return Err(CommitFailure::NotCommitted(format!("receipt directory pin failed ({e}) — nothing was written"))),
+        Err(e) => {
+            return Err(CommitFailure::NotCommitted(format!(
+                "receipt directory pin failed ({e}) — nothing was written"
+            )))
+        }
     };
     let target = format!("{tail}.json");
     let confirm_dir_durable = |dir: &std::fs::File| -> Result<(), CommitFailure> {
         // DELIBERATE TEST FAULT POINT (same contract as the typed durable writer): absent env =
         // no effect; the receipt is already VISIBLE when this fires.
-        if std::env::var("IOI_TEST_FORCE_DIRSYNC_UNCONFIRMED").ok().as_deref() == Some(family) {
+        if std::env::var("IOI_TEST_FORCE_DIRSYNC_UNCONFIRMED")
+            .ok()
+            .as_deref()
+            == Some(family)
+        {
             return Err(CommitFailure::DurabilityUnconfirmed("test-forced directory-sync failure — the receipt is VISIBLE but its durability is unconfirmed".to_string()));
         }
         dir.sync_all().map_err(|e| CommitFailure::DurabilityUnconfirmed(format!("receipt directory sync failed ({e}) — the receipt is VISIBLE but its durability is unconfirmed")))?;
         // Parent (data_dir) fsync — UNCONDITIONAL (#72 round 21 finding 2); a separate fault hook
         // fails only the parent leg so the failure→restart lane is exact.
-        if std::env::var("IOI_TEST_FORCE_PARENT_FSYNC_UNCONFIRMED").ok().as_deref() == Some(family) {
+        if std::env::var("IOI_TEST_FORCE_PARENT_FSYNC_UNCONFIRMED")
+            .ok()
+            .as_deref()
+            == Some(family)
+        {
             return Err(CommitFailure::DurabilityUnconfirmed("test-forced parent-directory-sync failure — the receipt family entry is VISIBLE but not durable".to_string()));
         }
-        (|| -> std::io::Result<()> { std::fs::File::open(data_dir)?.sync_all() })()
-            .map_err(|e| CommitFailure::DurabilityUnconfirmed(format!("data_dir sync failed ({e}) — the receipt family entry is VISIBLE but not durable")))
+        (|| -> std::io::Result<()> { std::fs::File::open(data_dir)?.sync_all() })().map_err(|e| {
+            CommitFailure::DurabilityUnconfirmed(format!(
+                "data_dir sync failed ({e}) — the receipt family entry is VISIBLE but not durable"
+            ))
+        })
     };
     match read_slot_strict(&dir, &target) {
         Err(e) => Err(CommitFailure::SlotUnreadable(format!("the receipt slot '{tail}' is occupied but NOT readable as a regular file ({e}) — refused; evidence is never replaced on uncertainty"))),
@@ -575,16 +781,141 @@ mod durable_fs_tests {
         std::fs::write(dir.join("a.json"), b"{}").unwrap();
         std::fs::write(dir.join("b.json"), b"{}").unwrap();
         // Pollute errno deliberately with a failing syscall (ENOENT).
-        let missing = std::ffi::CString::new(format!("{}/definitely-missing", dir.display())).unwrap();
+        let missing =
+            std::ffi::CString::new(format!("{}/definitely-missing", dir.display())).unwrap();
         let rc = unsafe { libc::open(missing.as_ptr(), libc::O_RDONLY) };
         assert!(rc < 0, "the polluting open must fail");
         let pinned = open_dir_pinned(&dir).unwrap();
         let mut names = enumerate_pinned(&pinned).unwrap();
         names.sort();
-        assert_eq!(names, vec!["a.json".to_string(), "b.json".to_string()], "EOF with polluted errno is still a COMPLETE listing");
-        // Non-directory fd → typed error, never empty truth.
+        assert_eq!(
+            names,
+            vec!["a.json".to_string(), "b.json".to_string()],
+            "EOF with polluted errno is still a COMPLETE listing"
+        );
+        // Non-directory fd → typed error (openat(".") ENOTDIR), never empty truth.
         let file_fd = std::fs::File::open(dir.join("a.json")).unwrap();
-        assert!(enumerate_pinned(&file_fd).is_err(), "a non-directory fd is a TYPED enumeration error");
+        assert!(
+            enumerate_pinned(&file_fd).is_err(),
+            "a non-directory fd is a TYPED enumeration error"
+        );
+        // TWO CONSECUTIVE COMPLETE enumerations on the SAME pinned fd (#73 review finding 2):
+        // the stream is an independent open-file description, not a dup sharing the offset —
+        // a second listing after EOF must be COMPLETE, never empty.
+        let mut second = enumerate_pinned(&pinned).unwrap();
+        second.sort();
+        assert_eq!(
+            second, names,
+            "the pinned fd is reusable — the second enumeration is complete, not offset-exhausted"
+        );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn drain_dir_stream_error_branch_discards_partial_names() {
+        // #73 review finding 2: exercise the ACTUAL `readdir() == NULL && errno != 0` branch
+        // deterministically. The stream's underlying fd is redirected to /dev/null via dup2
+        // (thread-safe: the fd number stays occupied, so closedir cannot close a stranger),
+        // making the first getdents fail ENOTDIR — with entries PRESENT in the directory, the
+        // result must be a typed error carrying NO names, never a partial or empty Ok.
+        use std::os::unix::io::AsRawFd;
+        let dir = temp_dir("drain-err");
+        for n in ["x.json", "y.json", "z.json"] {
+            std::fs::write(dir.join(n), b"{}").unwrap();
+        }
+        let pinned = open_dir_pinned(&dir).unwrap();
+        let dot = std::ffi::CString::new(".").unwrap();
+        let fd = unsafe {
+            libc::openat(
+                pinned.as_raw_fd(),
+                dot.as_ptr(),
+                libc::O_RDONLY | libc::O_DIRECTORY | libc::O_CLOEXEC,
+            )
+        };
+        assert!(fd >= 0);
+        let dp = unsafe { libc::fdopendir(fd) };
+        assert!(!dp.is_null());
+        let devnull = std::fs::File::open("/dev/null").unwrap();
+        assert_eq!(
+            unsafe { libc::dup2(devnull.as_raw_fd(), fd) },
+            fd,
+            "dup2 sabotage failed"
+        );
+        let err = drain_dir_stream(dp).unwrap_err();
+        assert_eq!(
+            err.raw_os_error(),
+            Some(libc::ENOTDIR),
+            "the post-readdir errno branch fired typed: {err}"
+        );
+        // The three real entries were NEVER served as a partial listing — the error carries none.
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn shared_boundary_refuses_traversal_and_collisions_with_zero_mutation() {
+        // #73 review finding 1: containment is enforced INSIDE the shared core.
+        use serde_json::json;
+        let dir = temp_dir("boundary");
+        let data_dir = dir.to_str().unwrap();
+        let outside = dir.join("outside-sentinel");
+        std::fs::create_dir_all(&outside).unwrap();
+        // (a) traversing family names are refused with ZERO mutation outside the boundary.
+        assert!(open_family_dir_pinned(data_dir, "../outside-sentinel").is_err());
+        assert!(matches!(
+            persist_record_durable(data_dir, "../outside-sentinel", "rec", &json!({})).unwrap_err(),
+            PersistFailure::NotCommitted(_)
+        ));
+        assert!(matches!(
+            persist_receipt_no_clobber(
+                data_dir,
+                "fam/../../outside-sentinel",
+                "orr_aa",
+                &json!({})
+            )
+            .unwrap_err(),
+            CommitFailure::NotCommitted(_)
+        ));
+        assert!(
+            std::fs::read_dir(&outside).unwrap().next().is_none(),
+            "nothing was ever written outside the family boundary"
+        );
+        // (b) traversing slot names are refused BEFORE any syscall.
+        let fam = dir.join("fam");
+        std::fs::create_dir_all(&fam).unwrap();
+        let pinned = open_dir_pinned(&fam).unwrap();
+        assert!(read_slot_strict(&pinned, "../escape.json").is_err());
+        assert!(unlink_at(&pinned, "..").is_err());
+        assert!(open_file_at(&pinned, "a/b.json").is_err());
+        // (c) noncanonical relative paths are REFUSED by the walk, not silently skipped.
+        assert!(pin_parent(&pinned, std::path::Path::new("a/../b/file.txt"), true).is_err());
+        assert!(
+            std::fs::read_dir(&fam).unwrap().next().is_none(),
+            "the refused walk created nothing"
+        );
+        // (d) unsafe record ids are REJECTED, never normalized — distinct ids can no longer
+        // collide on one file.
+        persist_record_durable(data_dir, "recs", "a_b", &json!({ "id": "a_b" })).unwrap();
+        assert!(matches!(
+            persist_record_durable(data_dir, "recs", "a/b", &json!({ "id": "a/b" })).unwrap_err(),
+            PersistFailure::NotCommitted(_)
+        ));
+        assert!(matches!(
+            persist_record_durable(data_dir, "recs", "a:b", &json!({ "id": "a:b" })).unwrap_err(),
+            PersistFailure::NotCommitted(_)
+        ));
+        let survivor: Value =
+            serde_json::from_slice(&std::fs::read(dir.join("recs").join("a_b.json")).unwrap())
+                .unwrap();
+        assert_eq!(
+            survivor["id"],
+            json!("a_b"),
+            "the honest record was never clobbered by a normalized collision"
+        );
+        assert_eq!(
+            std::fs::read_dir(dir.join("recs")).unwrap().count(),
+            1,
+            "exactly one record exists"
+        );
         let _ = std::fs::remove_dir_all(&dir);
     }
 
@@ -602,7 +933,10 @@ mod durable_fs_tests {
         assert_eq!(std::fs::metadata(&slot).unwrap().nlink(), 1);
         persist_receipt_no_clobber(data_dir, "evidence", "orr_x0", &receipt).unwrap(); // idempotent replay
         let different = json!({ "receipt_id": "receipt://orr_x0", "attested": false });
-        assert!(matches!(persist_receipt_no_clobber(data_dir, "evidence", "orr_x0", &different).unwrap_err(), CommitFailure::Conflict(_)));
+        assert!(matches!(
+            persist_receipt_no_clobber(data_dir, "evidence", "orr_x0", &different).unwrap_err(),
+            CommitFailure::Conflict(_)
+        ));
         // Swap the canonical name to a different inode; certification refuses.
         let pinned = open_family_dir_pinned(data_dir, "evidence").unwrap();
         let (committed, _) = read_slot_strict(&pinned, "orr_x0.json").unwrap().unwrap();
@@ -614,7 +948,10 @@ mod durable_fs_tests {
         f.write_all(b"{\"foreign\":\"SWAPPED\"}").unwrap();
         f.sync_all().unwrap();
         link_tmpfile_at(&f, &pinned, "orr_x0.json").unwrap();
-        assert!(matches!(certify_target(&pinned, "orr_x0.json", &committed, &bytes, "unit").unwrap_err(), CommitFailure::Swapped(_)));
+        assert!(matches!(
+            certify_target(&pinned, "orr_x0.json", &committed, &bytes, "unit").unwrap_err(),
+            CommitFailure::Swapped(_)
+        ));
         let _ = std::fs::remove_dir_all(&dir_t);
     }
 }
