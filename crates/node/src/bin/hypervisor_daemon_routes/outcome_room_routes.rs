@@ -846,8 +846,42 @@ pub(crate) fn resolve_room_host(data_dir: &str, room_ref: &str) -> Option<String
     load_room(data_dir, room_ref).and_then(|r| r.get("host_domain_ref").and_then(Value::as_str).map(String::from))
 }
 
-pub(crate) fn resolve_open_room(data_dir: &str, room_ref: &str) -> Option<Value> {
+/// Resolve an admitted room at any lifecycle status. Callers that own their own typed
+/// status/pending-intent errors use this rather than weakening `resolve_open_room`.
+pub(crate) fn resolve_room(data_dir: &str, room_ref: &str) -> Option<Value> {
     load_room(data_dir, room_ref)
+}
+
+/// Strict write-side room resolution. Unlike the read projection above, this distinguishes a
+/// definitively absent slot from an unreadable/symlinked/non-JSON occupant and treats content-id
+/// mismatch as storage uncertainty. Recovery cleanup must never erase an intent on `Err`.
+pub(crate) fn resolve_room_strict(
+    data_dir: &str,
+    room_ref: &str,
+) -> Result<Option<Value>, String> {
+    let stem = room_ref
+        .strip_prefix("outcome-room://")
+        .ok_or_else(|| "the room ref must be outcome-room://...".to_string())?;
+    match read_room_slot_strict(data_dir, stem)? {
+        None => Ok(None),
+        Some(room)
+            if room.get("outcome_room_id").and_then(Value::as_str) == Some(room_ref) =>
+        {
+            Ok(Some(room))
+        }
+        Some(_) => Err(format!(
+            "room slot '{stem}' content identity does not match '{room_ref}'"
+        )),
+    }
+}
+
+/// Resolve only a room that is presently OPEN and carries no durable mutation intent. The name
+/// is a contract: a closed room (or the visible prior state of a pending close) never resolves as
+/// an admission target.
+pub(crate) fn resolve_open_room(data_dir: &str, room_ref: &str) -> Option<Value> {
+    load_room(data_dir, room_ref).filter(|room| {
+        s(room, "status", "") == "open" && pending_intent(room).is_none()
+    })
 }
 
 /// Which durable intent (if any) is pending on a room record — EVERY room mutator refuses
@@ -1624,6 +1658,19 @@ fn mutate_room(
 /// `already_bound` in the error position distinguishes idempotent replay (the caller's boot
 /// completer treats an ALREADY-BOUND ref as converged, never as a fresh conflict).
 pub(crate) fn bind_room_backlink(data_dir: &str, room_ref: &str, op: &str, bound_ref: &str) -> Result<(Value, Value), VErr> {
+    let _guard = ROOM_MUTATION_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    bind_room_backlink_room_locked(data_dir, room_ref, op, bound_ref)
+}
+
+/// Room-owned backlink seam for callers that already hold `ROOM_MUTATION_LOCK` across room
+/// validation and their whole room-scoped finalization. Keeping the unlocked core private to the
+/// crate makes close-vs-admit serialization explicit without recursively locking the mutex.
+pub(crate) fn bind_room_backlink_room_locked(
+    data_dir: &str,
+    room_ref: &str,
+    op: &str,
+    bound_ref: &str,
+) -> Result<(Value, Value), VErr> {
     let Some((_, field, scheme)) = BACKLINK_OPS.iter().find(|(o, _, _)| *o == op) else {
         return Err(verr("outcome_room_backlink_op_invalid", format!("unknown backlink op '{op}'")));
     };
@@ -1633,15 +1680,23 @@ pub(crate) fn bind_room_backlink(data_dir: &str, room_ref: &str, op: &str, bound
     let Some(room_tail) = room_ref.strip_prefix("outcome-room://").map(str::to_string) else {
         return Err(verr("outcome_room_ref_scheme_invalid", "the room ref must be outcome-room://…"));
     };
-    let _guard = ROOM_MUTATION_LOCK.lock().unwrap_or_else(|p| p.into_inner());
-    let Some(prior) = load_room(data_dir, room_ref) else {
-        return Err(verr("outcome_room_not_found", format!("no admitted room '{room_ref}'")));
+    let prior = match resolve_room_strict(data_dir, room_ref) {
+        Ok(Some(room)) => room,
+        Ok(None) => {
+            return Err(verr(
+                "outcome_room_not_found",
+                format!("no admitted room '{room_ref}'"),
+            ))
+        }
+        Err(message) => {
+            return Err(verr(
+                "outcome_room_registry_unreadable",
+                format!("room '{room_ref}' cannot be resolved strictly ({message})"),
+            ))
+        }
     };
     if let Some((f, code)) = pending_intent(&prior) {
         return Err(verr(code, format!("a durable {f} is pending on this room — a restart (boot completer) converges it before any other mutation is admitted")));
-    }
-    if s(&prior, "status", "") != "open" {
-        return Err(verr("outcome_room_not_open", format!("backlinks bind only to an OPEN room (status: {})", s(&prior, "status", "?"))));
     }
     // A RELEASE only applies to a lease that was actually bound (#74) — releasing an unbound ref
     // is a caller error, not a no-op.
@@ -1654,6 +1709,9 @@ pub(crate) fn bind_room_backlink(data_dir: &str, room_ref: &str, op: &str, bound
     let existing: Vec<String> = prior.get(*field).and_then(|v| v.as_array()).map(|a| a.iter().filter_map(|x| x.as_str().map(String::from)).collect()).unwrap_or_default();
     if existing.iter().any(|m| m == bound_ref) {
         return Err(verr("outcome_room_backlink_already_bound", format!("'{bound_ref}' is already bound in {field} — idempotent replay converges, a fresh bind is a conflict")));
+    }
+    if s(&prior, "status", "") != "open" {
+        return Err(verr("outcome_room_not_open", format!("backlinks bind only to an OPEN room (status: {})", s(&prior, "status", "?"))));
     }
     let current_rev = prior.get("revision").and_then(|v| v.as_u64()).unwrap_or(0);
     let now = iso_now();

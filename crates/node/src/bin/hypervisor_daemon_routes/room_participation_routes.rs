@@ -11,22 +11,25 @@
 //! Step-3 contract (honest scope):
 //! - HOSTED admission only; `federated_admission`, AIIP signatures, and
 //!   `room_discovery_ref` are named gaps (build steps 7-8) — declared, never faked.
-//! - Request lifecycle: creation admits as `submitted`; `evaluate` → evaluating;
-//!   `reject` / `withdraw` are terminal; `admit` (its own endpoint) mints the lease in ONE
-//!   crash-convergent finalization. `draft` is client-side; `expired` needs TTL/clock authority
-//!   (named gap).
-//! - Lease lifecycle: admitted `active`; suspend/resume, sleep/wake, wait/activate,
-//!   quarantine/release_quarantine, retire, revoke. `invited`/`joining` (invite flow),
+//! - Request intake admits as `submitted` and grants nothing. Governed evaluate/reject/withdraw/
+//!   admit operations are TYPED-UNAVAILABLE until a trusted identity ref → wallet authority
+//!   binding plane can establish the expected signer; signature + request/policy hashes alone
+//!   are insufficient. The room-first transaction machinery remains implemented and adversarially
+//!   tested without a production authority bypass; legacy governed intents are quarantined rather
+//!   than replayed from copied receipt fields.
+//! - Lease lifecycle machinery covers suspend/resume, sleep/wake, wait/activate,
+//!   quarantine/release_quarantine, retire, revoke for already-admitted/replayed leases, but its
+//!   online decisions share the same identity-binding hold. `invited`/`joining` (invite flow),
 //!   `retiring` (claim-release orchestration, arrives with WorkClaimLease), and `expire`
 //!   (TTL/clock) are named gaps. Revocation ends FUTURE participation only: it appends the
 //!   revocation receipt, never erases lineage.
 //! - OutcomeRoom backlinks (`participation_request_refs`, `participant_lease_refs`) are bound
-//!   EXCLUSIVELY through the room-owned seam `outcome_room_routes::bind_room_backlink` — this
-//!   plane never writes a room record.
-//! - Every admitted mutation is an intent transaction on the shared durable core (#73):
-//!   durable intent → append-only no-clobber receipt → terminal record, with a boot completer
-//!   that reconstructs the ONLY valid successor (record AND receipt) through the SAME
-//!   constructors and requires byte equality before converging — the full #72 discipline.
+//!   EXCLUSIVELY through the room-owned `bind_room_backlink` seam (including its room-locked
+//!   entrypoint for cross-plane transactions) — this plane never writes a room record.
+//! - Every admitted mutation is an intent transaction on the shared durable core (#73). Ungated
+//!   submit replay reconstructs the ONLY valid successor (record AND receipt) byte-exactly.
+//!   Governed replay requires a future proof-bearing identity-authority leg; receipt fields alone
+//!   never cross that boundary.
 use std::sync::{Arc, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -135,6 +138,30 @@ fn plist(
     }
 }
 
+/// `home_domain_ref` has one path-qualified form in canon: `agentgres://domain/<id>`.
+/// Generic scheme validation is deliberately insufficient because `agentgres://artifact/...`
+/// (or any other non-domain tail) names a different object class.
+fn home_domain_ref_ok(value: &str) -> bool {
+    pref_ok(value, &["domain", "system"], &[])
+        || value
+            .strip_prefix("agentgres://domain/")
+            .is_some_and(|tail| !tail.is_empty())
+}
+
+fn home_domain_ref_required(body: &Value) -> Result<String, VErr> {
+    match str_opt_bounded(body, "home_domain_ref", REF_MAX)? {
+        Some(value) if home_domain_ref_ok(&value) => Ok(value),
+        Some(_) => Err(verr(
+            "room_participation_ref_scheme_invalid",
+            "`home_domain_ref` must be domain://..., system://..., or the canonical path-qualified agentgres://domain/... ref",
+        )),
+        None => Err(verr(
+            "participant_lease_home_domain_required",
+            "`home_domain_ref` is required (domain://..., system://..., or agentgres://domain/...)",
+        )),
+    }
+}
+
 const REQUEST_SCHEMA: &str = "ioi.hypervisor.room-participation-request.v1";
 const LEASE_SCHEMA: &str = "ioi.hypervisor.room-participant-lease.v1";
 const REQUEST_RECEIPT_SCHEMA: &str = "ioi.hypervisor.room-participation-request-receipt.v1";
@@ -153,18 +180,18 @@ const DECISION_RECEIPT_SCHEMA: &str = "ioi.hypervisor.room-participation-decisio
 
 // ================================ DECISION AUTHORITY (#74 review finding 1) ======================
 // Hosted participation DECISIONS are governed operations, not open daemon endpoints. Comparing a
-// caller-supplied `admission_owner_ref` to the room host is NOT authorization; every gated
-// operation requires a wallet approval grant cryptographically bound to a DAEMON-DERIVED policy
-// hash + request hash (the only untrusted input is the grant itself — every expected value is
-// server-derived, never the POST body). Authority is split by operation:
+// caller-supplied `admission_owner_ref` to the room host is NOT authorization; nor is verifying a
+// grant's signature and DAEMON-DERIVED policy/request hashes. A trusted resolver must also bind
+// the required host/participant identity to the grant signer. This cut has no such resolver, so
+// online decisions are typed-unavailable. The ready comparison boundary below is exercised with
+// real same-hash/different-signer grants in unit coverage. Authority is split by operation:
 //   - HOST-bound (the room's host domain must authorize): request evaluate/reject, admit, and
 //     the administrative lease transitions suspend/resume/quarantine/release_quarantine/revoke.
 //   - PARTICIPANT-bound (the record's own principal must authorize): request withdraw and the
 //     self-state lease transitions sleep/wake/wait/activate/retire.
-// The request hash binds the exact {subject, op, revision, required authority}, so a grant can
-// never be replayed against a different operation, record, or a later revision. The resulting
-// `RoomParticipationDecisionReceipt` binds actor, grant, room, subject, op, revision, and the
-// policy hash. No grant, a foreign grant, or a replayed grant → typed 403 with ZERO mutation.
+// The request hash binds the exact {subject, op, revision, required authority}, and the eventual
+// resolver must supply the expected authority id/public key. Until then no decision receipt is
+// emitted and every governed operation refuses with ZERO mutation.
 use ioi_services::agentic::runtime::kernel::approval::verify_wallet_approval_grant_binding;
 
 const HOST_ADMISSION_SCOPES: &[&str] = &["room_participation_host_admission"];
@@ -189,6 +216,17 @@ impl Gov {
             Gov::Participant => PARTICIPANT_SELF_SCOPES,
         }
     }
+}
+
+fn decision_authority_posture() -> Value {
+    json!({
+        "status": "unavailable",
+        "code": "room_participation_authority_binding_unavailable",
+        "missing_binding": "versioned, revocable identity ref -> wallet authority id/public key",
+        "effect": "request/admit/lease decisions refuse before mutation",
+        "pending_governed_intents": "quarantined; receipt fields are not replay-verifiable authority",
+        "runtimeTruthSource": "daemon-runtime",
+    })
 }
 
 /// Request lifecycle governance: withdraw is the participant's own; evaluate/reject are the host's.
@@ -249,15 +287,30 @@ struct DecisionAuthority {
     request_hash: String,
 }
 
-/// Verify the caller's wallet grant against the daemon-derived policy + request hashes. Returns
-/// the proven authority, or a typed 403 challenge (carrying the exact hashes + required authority
-/// to bind) with ZERO mutation. The grant is the ONLY untrusted input.
+/// Resolve the accountable host/participant ref to the wallet authority expected to sign its
+/// decisions. This cut has no trusted, versioned identity-authority binding plane: room records
+/// contain a `domain://...` host, and requests contain worker/service/org/domain refs, but no
+/// authenticated mapping from those refs to a wallet authority id or public key. Local login,
+/// opaque wallet refs, and trust-on-first-use are not substitutes for that missing plane.
+fn resolve_required_authority_id(
+    _data_dir: &str,
+    required_authority_ref: &str,
+) -> Result<[u8; 32], String> {
+    Err(format!(
+        "no daemon-trusted identity-authority binding resolves '{required_authority_ref}' to a wallet authority id/public key"
+    ))
+}
+
+/// Verify a wallet grant against the daemon-derived policy/request hashes AND an authority id
+/// obtained from a trusted identity binding. Kept separate so the cryptographic foreign-signer
+/// refusal is directly testable while the production resolver remains honestly unavailable.
 #[allow(clippy::too_many_arguments)]
-fn authorize_decision(
+fn authorize_decision_for_expected_authority(
     body: &Value,
     gov: Gov,
     room_ref: &str,
     required_authority: &str,
+    expected_authority_id: &[u8; 32],
     subject_ref: &str,
     op: &str,
     revision: u64,
@@ -281,6 +334,18 @@ fn authorize_decision(
             Some(&policy_hash),
             Some(&request_hash),
         )
+        .and_then(|binding| {
+            let actual: [u8; 32] = serde_json::from_value(
+                grant.get("authority_id").cloned().unwrap_or(Value::Null),
+            )
+            .map_err(|_| "approval grant authority_id is not a 32-byte authority id".to_string())?;
+            if &actual != expected_authority_id {
+                return Err(format!(
+                    "approval grant signer does not match the authority bound to '{required_authority}'"
+                ));
+            }
+            Ok(binding)
+        })
     };
     match binding {
         Ok(b) => Ok(DecisionAuthority {
@@ -294,7 +359,7 @@ fn authorize_decision(
             Json(json!({
                 "error": {
                     "code": if gov == Gov::Host { "room_participation_host_authority_required" } else { "room_participation_participant_authority_required" },
-                    "message": format!("'{op}' on '{subject_ref}' is a governed {} decision ({reason}). Bind a wallet approval grant to policy_hash + request_hash for required authority '{required_authority}'.", gov.label()),
+                    "message": format!("'{op}' on '{subject_ref}' is a governed {} decision ({reason}). Bind a wallet approval grant from the authority resolved for '{required_authority}' to policy_hash + request_hash.", gov.label()),
                     "governance": gov.label(),
                     "required_authority_ref": required_authority,
                     "required_scopes": gov.scopes(),
@@ -304,6 +369,55 @@ fn authorize_decision(
             })),
         )),
     }
+}
+
+/// Resolve the required identity binding before considering any grant. Until that resolver is
+/// live, every governed operation is typed-unavailable with ZERO mutation. The hashes remain in
+/// the response so conformance can prove that two real, same-hash signers are both refused rather
+/// than accidentally treating hash binding as identity binding.
+#[allow(clippy::too_many_arguments)]
+fn authorize_decision(
+    data_dir: &str,
+    body: &Value,
+    gov: Gov,
+    room_ref: &str,
+    required_authority: &str,
+    subject_ref: &str,
+    op: &str,
+    revision: u64,
+) -> Result<DecisionAuthority, (StatusCode, Json<Value>)> {
+    let policy_hash = decision_policy_hash(gov, room_ref, required_authority);
+    let request_hash = decision_request_hash(gov, subject_ref, op, revision, required_authority);
+    let expected_authority_id = match resolve_required_authority_id(data_dir, required_authority) {
+        Ok(id) => id,
+        Err(reason) => {
+            return Err((
+                StatusCode::NOT_IMPLEMENTED,
+                Json(json!({
+                    "error": {
+                        "code": "room_participation_authority_binding_unavailable",
+                        "message": format!("'{op}' on '{subject_ref}' is unavailable: {reason}. Signature + request/policy hash verification cannot establish who may act for a domain or participant."),
+                        "governance": gov.label(),
+                        "required_authority_ref": required_authority,
+                        "required_scopes": gov.scopes(),
+                        "missing_binding": "versioned, revocable identity ref -> wallet authority id/public key",
+                        "approval": { "policy_hash": policy_hash, "request_hash": request_hash },
+                        "runtimeTruthSource": "daemon-runtime"
+                    }
+                })),
+            ));
+        }
+    };
+    authorize_decision_for_expected_authority(
+        body,
+        gov,
+        room_ref,
+        required_authority,
+        &expected_authority_id,
+        subject_ref,
+        op,
+        revision,
+    )
 }
 
 /// Build a decision receipt: the portable base + the sealed authority binding (actor = the
@@ -347,7 +461,10 @@ fn build_decision_receipt(
     r
 }
 
-/// Recover the sealed authority from a decision receipt (for byte-exact replay reconstruction).
+/// Recover receipt fields for STRUCTURAL byte-exact reconstruction only. These copied fields are
+/// not authority: without the original signed grant plus a trusted expected-signer resolution,
+/// they must never authorize boot replay.
+#[allow(dead_code)]
 fn sealed_authority(receipt: &Value) -> DecisionAuthority {
     DecisionAuthority {
         acting_authority_id: receipt.get("actor_id").cloned().unwrap_or(Value::Null),
@@ -487,9 +604,9 @@ const TRAIL_EXCLUDES: &[&str] = &[
 const HISTORY_MAX: usize = 100;
 
 /// Serializes every PARTICIPATION-scope critical section. LOCK ORDERING (fixed, documented):
-/// PARTICIPATION_LOCK is acquired BEFORE the room plane's ROOM_MUTATION_LOCK (taken inside
-/// `bind_room_backlink`); no path ever takes them in the reverse order, and no .await runs
-/// under either lock.
+/// PARTICIPATION_LOCK is acquired BEFORE the room plane's ROOM_MUTATION_LOCK; callers either hold
+/// both across a cross-plane finalizer or use the room-owned locking seam after taking this lock.
+/// No path ever takes them in the reverse order, and no .await runs under either lock.
 static PARTICIPATION_LOCK: Mutex<()> = Mutex::new(());
 
 fn nanos() -> u128 {
@@ -539,7 +656,8 @@ fn persist_receipt(data_dir: &str, tail: &str, receipt: &Value) -> Result<(), VE
 
 /// Strict slot read keyed by a CANONICAL stem (validated BEFORE any filesystem access), through
 /// the shared pinned no-follow primitives. Ok(None) = definitively absent; Err = unreadable /
-/// non-JSON occupant — write-side callers refuse, read paths map Err to invisible.
+/// non-JSON occupant. Callers must preserve the distinction between definitive absence and an
+/// occupied-but-unreadable slot; uncertainty is never mapped to not-found.
 fn read_slot_strict(
     data_dir: &str,
     family: &str,
@@ -583,6 +701,20 @@ fn scan_family(
         Err(e) => return Err(format!("family '{family}' directory could not be pinned ({e}) — refusing to report a false-empty registry")),
     };
     let names = super::durable_fs::enumerate_pinned(&dir).map_err(|e| format!("family '{family}' could not be enumerated ({e}) — refusing to report a false-empty registry"))?;
+    scan_family_entries(&dir, names, family, id_field, id_prefix, canonical)
+}
+
+/// The read half of `scan_family`, split so the vanished-after-enumeration contract can be
+/// exercised deterministically while retaining the same pinned directory descriptor in
+/// production and tests.
+fn scan_family_entries(
+    dir: &std::fs::File,
+    names: Vec<String>,
+    family: &str,
+    id_field: &str,
+    id_prefix: &str,
+    canonical: fn(&str) -> bool,
+) -> Result<Vec<(String, Value)>, String> {
     let mut out = Vec::new();
     for name in names {
         let Some(stem) = name.strip_suffix(".json") else {
@@ -591,41 +723,208 @@ fn scan_family(
         if !canonical(stem) {
             continue;
         }
-        match super::durable_fs::read_slot_strict(&dir, &name) {
-            Ok(Some((_f, bytes))) => {
-                if let Ok(value) = serde_json::from_slice::<Value>(&bytes) {
-                    // Content identity must agree with the trusted storage key.
-                    if value.get(id_field).and_then(Value::as_str)
-                        == Some(format!("{id_prefix}{stem}").as_str())
-                    {
-                        out.push((stem.to_string(), value));
-                    }
-                }
+        let bytes = match super::durable_fs::read_slot_strict(&dir, &name) {
+            Ok(Some((_f, bytes))) => bytes,
+            Ok(None) => {
+                return Err(format!(
+                    "canonical slot '{name}' vanished after enumeration — refusing to report a false-empty registry"
+                ))
             }
-            _ => continue,
+            Err(e) => {
+                return Err(format!(
+                    "canonical slot '{name}' is not readable as a regular file ({e}) — refusing to report a false-empty registry"
+                ))
+            }
+        };
+        let value = serde_json::from_slice::<Value>(&bytes).map_err(|e| {
+            format!(
+                "canonical slot '{name}' holds malformed JSON ({e}) — refusing to report a false-empty registry"
+            )
+        })?;
+        let expected_id = format!("{id_prefix}{stem}");
+        if value.get(id_field).and_then(Value::as_str) != Some(expected_id.as_str()) {
+            return Err(format!(
+                "canonical slot '{name}' has an identity that does not match its storage key — refusing to report a false-empty registry"
+            ));
         }
+        validate_registry_record(family, stem, &value).map_err(|why| {
+            format!(
+                "canonical slot '{name}' is malformed ({why}) — refusing to report a false-empty registry"
+            )
+        })?;
+        out.push((stem.to_string(), value));
     }
     Ok(out)
 }
 
-fn load_request(data_dir: &str, tail: &str) -> Option<Value> {
-    let id = format!("participation-request://{tail}");
-    read_slot_strict(data_dir, REQUEST_DIR, tail, is_canonical_request_tail)
-        .ok()
-        .flatten()
-        .filter(|r| r.get("participation_request_id").and_then(Value::as_str) == Some(id.as_str()))
+/// Storage-level canonical validation for records discovered under a canonical filename. This is
+/// deliberately narrower than authorization: it proves that registry state has a typed envelope,
+/// canonical identity/status, and (when present) a deterministically sealed transaction intent.
+fn validate_registry_record(family: &str, tail: &str, record: &Value) -> Result<(), String> {
+    if !record.is_object() {
+        return Err("record is not a JSON object".into());
+    }
+    let (schema, statuses, id_field, expected_id) = if family == REQUEST_DIR {
+        (
+            REQUEST_SCHEMA,
+            REQUEST_STATUSES,
+            "participation_request_id",
+            format!("participation-request://{tail}"),
+        )
+    } else if family == LEASE_DIR {
+        (
+            LEASE_SCHEMA,
+            LEASE_STATUSES,
+            "participant_lease_id",
+            format!("participant-lease://{tail}"),
+        )
+    } else {
+        return Ok(());
+    };
+    if record.get("schema_version").and_then(Value::as_str) != Some(schema) {
+        return Err("schema_version is absent or noncanonical".into());
+    }
+    if record.get(id_field).and_then(Value::as_str) != Some(expected_id.as_str()) {
+        return Err("record identity does not bind to the storage key".into());
+    }
+    let status = record.get("status").and_then(Value::as_str).unwrap_or("");
+    if !statuses.contains(&status) {
+        return Err("status is absent or outside the canonical vocabulary".into());
+    }
+    if record.get("revision").and_then(Value::as_u64).is_none() {
+        return Err("revision is absent or not an unsigned integer".into());
+    }
+    if !record
+        .get("outcome_room_ref")
+        .and_then(Value::as_str)
+        .is_some_and(|value| pref_ok(value, &["outcome-room"], &[]))
+    {
+        return Err("outcome_room_ref is absent or noncanonical".into());
+    }
+
+    if family == REQUEST_DIR {
+        if !record
+            .get("requested_by_ref")
+            .and_then(Value::as_str)
+            .is_some_and(|value| pref_ok(value, &["worker", "service", "org", "domain"], &[]))
+        {
+            return Err("requested_by_ref is absent or noncanonical".into());
+        }
+        if status == "admitted"
+            && !record
+                .get("participant_lease_ref")
+                .and_then(Value::as_str)
+                .and_then(|value| value.strip_prefix("participant-lease://"))
+                .is_some_and(is_canonical_lease_tail)
+        {
+            return Err("admitted request has no canonical participant_lease_ref".into());
+        }
+        if record.get("admit_intent").is_some() && record.get("transition_intent").is_some() {
+            return Err("request carries two pending intents".into());
+        }
+        if let Some(intent) = record.get("admit_intent") {
+            let mut prior = record.clone();
+            prior
+                .as_object_mut()
+                .expect("object")
+                .remove("admit_intent");
+            validate_admit_intent(intent, &prior, tail)
+                .map_err(|why| format!("admit_intent is not canonical: {why}"))?;
+        } else if let Some(intent) = record.get("transition_intent") {
+            let mut prior = record.clone();
+            prior
+                .as_object_mut()
+                .expect("object")
+                .remove("transition_intent");
+            validate_transition_intent(
+                intent,
+                &prior,
+                tail,
+                "participation_request_id",
+                "participation-request://",
+                REQUEST_TRANSITIONS,
+                "rqt",
+                REQUEST_TRANSITION_NOTE,
+                is_canonical_request_tail,
+            )
+            .map_err(|why| format!("transition_intent is not canonical: {why}"))?;
+        }
+    } else {
+        if !record
+            .get("participant_ref")
+            .and_then(Value::as_str)
+            .is_some_and(|value| pref_ok(value, &["worker", "service", "org", "domain"], &[]))
+        {
+            return Err("participant_ref is absent or noncanonical".into());
+        }
+        if !record
+            .get("join_request_ref")
+            .and_then(Value::as_str)
+            .is_some_and(|value| pref_ok(value, &["participation-request"], &[]))
+        {
+            return Err("join_request_ref is absent or noncanonical".into());
+        }
+        if let Some(intent) = record.get("transition_intent") {
+            let mut prior = record.clone();
+            prior
+                .as_object_mut()
+                .expect("object")
+                .remove("transition_intent");
+            validate_transition_intent(
+                intent,
+                &prior,
+                tail,
+                "participant_lease_id",
+                "participant-lease://",
+                LEASE_TRANSITIONS,
+                "rlt",
+                LEASE_TRANSITION_NOTE,
+                is_canonical_lease_tail,
+            )
+            .map_err(|why| format!("transition_intent is not canonical: {why}"))?;
+        }
+    }
+    Ok(())
 }
 
-fn load_lease(data_dir: &str, tail: &str) -> Option<Value> {
+fn load_request(data_dir: &str, tail: &str) -> Result<Option<Value>, String> {
+    let id = format!("participation-request://{tail}");
+    match read_slot_strict(data_dir, REQUEST_DIR, tail, is_canonical_request_tail)? {
+        None => Ok(None),
+        Some(record)
+            if record
+                .get("participation_request_id")
+                .and_then(Value::as_str)
+                == Some(id.as_str()) =>
+        {
+            validate_registry_record(REQUEST_DIR, tail, &record)?;
+            Ok(Some(record))
+        }
+        Some(_) => Err(format!(
+            "request slot '{tail}' has an identity that does not match its storage key"
+        )),
+    }
+}
+
+fn load_lease(data_dir: &str, tail: &str) -> Result<Option<Value>, String> {
     let id = format!("participant-lease://{tail}");
-    read_slot_strict(data_dir, LEASE_DIR, tail, is_canonical_lease_tail)
-        .ok()
-        .flatten()
-        .filter(|r| r.get("participant_lease_id").and_then(Value::as_str) == Some(id.as_str()))
+    match read_slot_strict(data_dir, LEASE_DIR, tail, is_canonical_lease_tail)? {
+        None => Ok(None),
+        Some(record)
+            if record.get("participant_lease_id").and_then(Value::as_str) == Some(id.as_str()) =>
+        {
+            validate_registry_record(LEASE_DIR, tail, &record)?;
+            Ok(Some(record))
+        }
+        Some(_) => Err(format!(
+            "lease slot '{tail}' has an identity that does not match its storage key"
+        )),
+    }
 }
 
 /// Which durable intent (if any) is pending on a plane record — EVERY mutator refuses while one
-/// is in flight; a restart (boot completer) converges it first.
+/// is in flight. Governed intents are quarantined until replay has verifiable identity-bound
+/// authority; they are never auto-applied from sealed receipt fields.
 fn pending_intent(record: &Value) -> Option<(&'static str, &'static str)> {
     if record.get("admit_intent").is_some() {
         return Some(("admit_intent", "room_participation_admit_in_flight"));
@@ -767,14 +1066,8 @@ fn validate_admit_params(body: &Value) -> Result<Value, VErr> {
         &[],
         "participant_lease_operator_required",
     )?;
-    // `home_domain_ref` also admits the canonical `agentgres://domain/…` path form (envelope).
-    let home_domain_ref = preq(
-        body,
-        "home_domain_ref",
-        &["domain", "system", "agentgres"],
-        &[],
-        "participant_lease_home_domain_required",
-    )?;
+    // `agentgres` is path-qualified here: only agentgres://domain/… is a home domain.
+    let home_domain_ref = home_domain_ref_required(body)?;
     // TTL is DECLARED but not enforced — there is no clock/expiry authority yet (#74 review
     // finding 3). Rather than store a bound we cannot honor, a non-null `ttl_seconds` is REFUSED
     // as a named gap: a receipted expiry transition + bounded maximum arrive with clock authority.
@@ -924,11 +1217,100 @@ fn live_request_exists(data_dir: &str, room_ref: &str, principal: &str) -> Resul
         is_canonical_request_tail,
     )
     .map_err(|e| verr("room_participation_registry_unreadable", e))?;
-    Ok(requests.iter().any(|(_, r)| {
+    // A submit intent reserves the same uniqueness key before its request becomes visible. Scan
+    // and canonically reconstruct EVERY intent first so an unrelated malformed slot cannot be
+    // hidden by an early positive match.
+    let submit_intents = scan_intent_family(data_dir)
+        .map_err(|e| verr("room_participation_registry_unreadable", e))?;
+    let mut pending_requests = Vec::with_capacity(submit_intents.len());
+    for (tail, intent) in submit_intents {
+        let (final_request, _, _) = validate_submit_intent(&intent, &tail).map_err(|why| {
+            verr(
+                "room_participation_registry_unreadable",
+                format!("submit intent '{tail}' is not canonical ({why})"),
+            )
+        })?;
+        pending_requests.push(final_request);
+    }
+    let completed_live = requests.iter().any(|(_, r)| {
         s(r, "outcome_room_ref", "") == room_ref
             && s(r, "requested_by_ref", "") == principal
-            && matches!(s(r, "status", "").as_str(), "submitted" | "evaluating")
-    }))
+            && matches!(
+                s(r, "status", "").as_str(),
+                "draft" | "submitted" | "evaluating"
+            )
+    });
+    let pending_live = pending_requests.iter().any(|request| {
+        s(request, "outcome_room_ref", "") == room_ref
+            && s(request, "requested_by_ref", "") == principal
+    });
+    Ok(completed_live || pending_live)
+}
+
+/// Parse the room-owned lease reservation ledger without the projection helper's permissive
+/// defaults. Uniqueness is a write-side decision, so a missing/wrong-type/duplicate/noncanonical
+/// entry or a release with no prior bind makes the reservation truth unknown.
+fn strict_room_lease_refs(
+    room: &Value,
+) -> Result<
+    (
+        std::collections::HashSet<String>,
+        std::collections::HashSet<String>,
+    ),
+    String,
+> {
+    fn parse(
+        room: &Value,
+        field: &str,
+        required: bool,
+    ) -> Result<std::collections::HashSet<String>, String> {
+        let Some(value) = room.get(field) else {
+            return if required {
+                Err(format!("room field '{field}' is absent"))
+            } else {
+                Ok(std::collections::HashSet::new())
+            };
+        };
+        if value.is_null() && !required {
+            return Ok(std::collections::HashSet::new());
+        }
+        let Some(values) = value.as_array() else {
+            return Err(format!("room field '{field}' is not an array"));
+        };
+        let mut out = std::collections::HashSet::with_capacity(values.len());
+        for value in values {
+            let Some(lease_ref) = value.as_str() else {
+                return Err(format!(
+                    "room field '{field}' contains a non-string lease ref"
+                ));
+            };
+            let Some(tail) = lease_ref.strip_prefix("participant-lease://") else {
+                return Err(format!(
+                    "room field '{field}' contains noncanonical ref '{lease_ref}'"
+                ));
+            };
+            if !is_canonical_lease_tail(tail) {
+                return Err(format!(
+                    "room field '{field}' contains noncanonical ref '{lease_ref}'"
+                ));
+            }
+            if !out.insert(lease_ref.to_string()) {
+                return Err(format!(
+                    "room field '{field}' contains duplicate ref '{lease_ref}'"
+                ));
+            }
+        }
+        Ok(out)
+    }
+
+    let bound = parse(room, "participant_lease_refs", true)?;
+    let released = parse(room, "released_participant_lease_refs", false)?;
+    if !released.is_subset(&bound) {
+        return Err(
+            "released_participant_lease_refs is not a subset of participant_lease_refs".into(),
+        );
+    }
+    Ok((bound, released))
 }
 
 fn live_lease_exists(data_dir: &str, room_ref: &str, participant: &str) -> Result<bool, VErr> {
@@ -940,24 +1322,267 @@ fn live_lease_exists(data_dir: &str, room_ref: &str, participant: &str) -> Resul
         is_canonical_lease_tail,
     )
     .map_err(|e| verr("participant_lease_registry_unreadable", e))?;
-    Ok(leases.iter().any(|(_, l)| {
-        s(l, "outcome_room_ref", "") == room_ref
-            && s(l, "participant_ref", "") == participant
-            && !matches!(s(l, "status", "").as_str(), "retired" | "revoked")
-    }))
+    // Admission reserves its final lease while the request still carries `admit_intent`. Include
+    // those canonically validated reservations, not only visible lease records, or two request
+    // records can race into the same (room, participant) lease key.
+    let requests = scan_family(
+        data_dir,
+        REQUEST_DIR,
+        "participation_request_id",
+        "participation-request://",
+        is_canonical_request_tail,
+    )
+    .map_err(|e| verr("participant_lease_registry_unreadable", e))?;
+    let mut reserved_leases: Vec<(String, Value)> = Vec::new();
+    for (tail, request) in &requests {
+        if let Some(intent) = request.get("admit_intent") {
+            let mut prior = request.clone();
+            prior
+                .as_object_mut()
+                .expect("object")
+                .remove("admit_intent");
+            validate_admit_intent(intent, &prior, tail).map_err(|why| {
+                verr(
+                    "participant_lease_registry_unreadable",
+                    format!("request '{tail}' carries a noncanonical admit reservation ({why})"),
+                )
+            })?;
+            reserved_leases.push((
+                tail.clone(),
+                intent.get("final_lease").cloned().unwrap_or(Value::Null),
+            ));
+        }
+    }
+    let completed_live = leases.iter().any(|(_, lease)| {
+        s(lease, "outcome_room_ref", "") == room_ref
+            && s(lease, "participant_ref", "") == participant
+            && !matches!(s(lease, "status", "").as_str(), "retired" | "revoked")
+    });
+    let reserved_live = reserved_leases.iter().any(|(_, lease)| {
+        s(lease, "outcome_room_ref", "") == room_ref
+            && s(lease, "participant_ref", "") == participant
+            && !matches!(s(lease, "status", "").as_str(), "retired" | "revoked")
+    });
+    // The room backlink is the room plane's exact live reservation set. A terminal lease remains
+    // reserved until its `participant_lease_released` backlink lands; conversely, an orphaned or
+    // mismatched live backlink is registry uncertainty, not permission to mint another lease.
+    let room = match rooms::resolve_room_strict(data_dir, room_ref) {
+        Ok(Some(room)) => room,
+        Ok(None) => {
+            return Err(verr(
+                "room_participation_room_not_found",
+                format!("room '{room_ref}' does not resolve while checking lease uniqueness"),
+            ))
+        }
+        Err(message) => {
+            return Err(verr(
+                "room_participation_room_unreadable",
+                format!(
+                "room '{room_ref}' cannot be resolved while checking lease uniqueness ({message})"
+            ),
+            ))
+        }
+    };
+    let (bound_backlinks, released_backlinks) = strict_room_lease_refs(&room).map_err(|why| {
+        verr(
+            "participant_lease_registry_unreadable",
+            format!("room '{room_ref}' has malformed lease reservations ({why})"),
+        )
+    })?;
+    let live_backlinks: Vec<String> = bound_backlinks
+        .difference(&released_backlinks)
+        .cloned()
+        .collect();
+    let mut backlink_live_for_participant = false;
+    for lease_ref in &live_backlinks {
+        let Some(lease_tail) = lease_ref.strip_prefix("participant-lease://") else {
+            return Err(verr(
+                "participant_lease_registry_unreadable",
+                format!("room '{room_ref}' has a noncanonical live lease backlink '{lease_ref}'"),
+            ));
+        };
+        if !is_canonical_lease_tail(lease_tail) {
+            return Err(verr(
+                "participant_lease_registry_unreadable",
+                format!("room '{room_ref}' has a noncanonical live lease backlink '{lease_ref}'"),
+            ));
+        }
+        let bound = leases
+            .iter()
+            .find(|(_, lease)| s(lease, "participant_lease_id", "") == *lease_ref)
+            .map(|(_, lease)| lease)
+            .or_else(|| {
+                reserved_leases
+                    .iter()
+                    .find(|(_, lease)| s(lease, "participant_lease_id", "") == *lease_ref)
+                    .map(|(_, lease)| lease)
+            });
+        let Some(bound) = bound else {
+            return Err(verr(
+                "participant_lease_registry_unreadable",
+                format!("room '{room_ref}' reserves live lease '{lease_ref}', but no canonical completed or pending lease binds that ref"),
+            ));
+        };
+        if s(bound, "outcome_room_ref", "") != room_ref {
+            return Err(verr(
+                "participant_lease_registry_unreadable",
+                format!("room '{room_ref}' live backlink '{lease_ref}' resolves to a lease bound to another room"),
+            ));
+        }
+        if s(bound, "participant_ref", "") == participant {
+            backlink_live_for_participant = true;
+        }
+    }
+
+    // A completed admitted request is the durable lineage anchor for its lease. Its ref must
+    // resolve and agree on room, participant, and join request even after room release; missing
+    // lineage is an inconsistent registry and therefore typed-unreadable.
+    for (request_tail, request) in requests {
+        if s(&request, "status", "") != "admitted" {
+            continue;
+        }
+        let lease_ref = s(&request, "participant_lease_ref", "");
+        let Some(lease_tail) = lease_ref.strip_prefix("participant-lease://") else {
+            return Err(verr(
+                "participant_lease_registry_unreadable",
+                format!("admitted request '{request_tail}' has no canonical participant_lease_ref"),
+            ));
+        };
+        if !is_canonical_lease_tail(lease_tail) {
+            return Err(verr(
+                "participant_lease_registry_unreadable",
+                format!("admitted request '{request_tail}' has no canonical participant_lease_ref"),
+            ));
+        }
+        let Some((_, lease)) = leases
+            .iter()
+            .find(|(_, lease)| s(lease, "participant_lease_id", "") == lease_ref)
+        else {
+            return Err(verr(
+                "participant_lease_registry_unreadable",
+                format!("admitted request '{request_tail}' references missing lease '{lease_ref}'"),
+            ));
+        };
+        let request_id = format!("participation-request://{request_tail}");
+        if s(lease, "outcome_room_ref", "") != s(&request, "outcome_room_ref", "")
+            || s(lease, "participant_ref", "") != s(&request, "requested_by_ref", "")
+            || s(lease, "join_request_ref", "") != request_id
+        {
+            return Err(verr(
+                "participant_lease_registry_unreadable",
+                format!("admitted request '{request_tail}' and lease '{lease_ref}' do not bind the same room, participant, and join lineage"),
+            ));
+        }
+        if s(&request, "outcome_room_ref", "") == room_ref {
+            if !bound_backlinks.contains(&lease_ref) {
+                return Err(verr(
+                    "participant_lease_registry_unreadable",
+                    format!("admitted request '{request_tail}' and lease '{lease_ref}' have no room backlink reservation"),
+                ));
+            }
+            let terminal = matches!(s(lease, "status", "").as_str(), "retired" | "revoked");
+            if released_backlinks.contains(&lease_ref) && !terminal {
+                return Err(verr(
+                    "participant_lease_registry_unreadable",
+                    format!("room '{room_ref}' releases nonterminal lease '{lease_ref}'"),
+                ));
+            }
+        }
+    }
+
+    Ok(completed_live || reserved_live || backlink_live_for_participant)
 }
 
-/// SUBMIT finalization: durable internal intent → append-only receipt → room backlink (through
-/// the room-owned seam; `already_bound` = converged replay) → terminal request → consume the
-/// intent. Any failure after the intent refuses typed with the intent RETAINED — a restart
-/// converges this same submission.
+/// Durably consume a submit intent through a pinned family descriptor. A checked directory fsync
+/// makes rollback of a pre-linearization intent survive a crash instead of resurrecting an
+/// impossible submission on the next boot.
+fn consume_submit_intent(data_dir: &str, tail: &str) -> Result<(), String> {
+    let dir = match super::durable_fs::open_family_dir_pinned(data_dir, SUBMIT_INTENT_DIR) {
+        Ok(dir) => dir,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(()),
+        Err(e) => {
+            return Err(format!(
+                "submit-intent family could not be pinned for consumption ({e})"
+            ))
+        }
+    };
+    match super::durable_fs::unlink_at(&dir, format!("{tail}.json")) {
+        Ok(()) => {}
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(()),
+        Err(e) => return Err(format!("submit intent could not be unlinked ({e})")),
+    }
+    dir.sync_all()
+        .map_err(|e| format!("submit-intent directory sync failed after unlink ({e})"))
+}
+
+/// Preflight submission-owned targets before either its durable intent or room reservation. The
+/// returned flags distinguish exact crash-replay occupants from absent targets for safe rollback.
+fn preflight_submit_targets(
+    data_dir: &str,
+    tail: &str,
+    final_request: &Value,
+    receipt_id: &str,
+    receipt: &Value,
+) -> Result<(bool, bool), VErr> {
+    let request_preexisting =
+        match read_slot_strict(data_dir, REQUEST_DIR, tail, is_canonical_request_tail) {
+            Ok(None) => false,
+            Ok(Some(existing)) if existing == *final_request => true,
+            Ok(Some(_)) => {
+                return Err(verr(
+                    "room_participation_request_conflict",
+                    format!(
+                        "request slot '{tail}' holds a different record — the room was not mutated"
+                    ),
+                ))
+            }
+            Err(e) => {
+                return Err(verr(
+                    "room_participation_registry_unreadable",
+                    format!(
+                    "request slot '{tail}' cannot be certified ({e}) — the room was not mutated"
+                ),
+                ))
+            }
+        };
+    let receipt_preexisting = match read_slot_strict(
+        data_dir,
+        RECEIPT_DIR,
+        receipt_id,
+        |candidate| is_canonical_receipt_tail(candidate, "rqr"),
+    ) {
+        Ok(None) => false,
+        Ok(Some(existing)) if existing == *receipt => true,
+        Ok(Some(_)) => {
+            return Err(verr(
+                "room_participation_receipt_conflict",
+                format!("receipt slot '{receipt_id}' holds different append-only evidence — the room was not mutated"),
+            ))
+        }
+        Err(e) => {
+            return Err(verr(
+                "room_participation_receipt_slot_unreadable",
+                format!("receipt slot '{receipt_id}' cannot be certified ({e}) — the room was not mutated"),
+            ))
+        }
+    };
+    Ok((request_preexisting, receipt_preexisting))
+}
+
+/// SUBMIT finalization: durable internal intent → room backlink reservation (through the
+/// room-owned seam; `already_bound` = converged replay) → append-only receipt → terminal
+/// request → consume the intent. The caller holds the room lock from OPEN validation through
+/// reservation, so close cannot win after admission evidence starts to land. Any post-
+/// linearization failure retains the intent and a restart converges this same submission.
 fn finalize_submit(
     data_dir: &str,
     tail: &str,
     final_request: &Value,
     receipt_id: &str,
     receipt: &Value,
+    room_scope: &std::sync::MutexGuard<'_, ()>,
 ) -> Result<(), VErr> {
+    preflight_submit_targets(data_dir, tail, final_request, receipt_id, receipt)?;
     let intent = json!({
         "kind": "submit",
         "request_tail": tail,
@@ -982,25 +1607,35 @@ fn finalize_submit(
             ),
         ));
     }
-    complete_submit(data_dir, tail, final_request, receipt_id, receipt)
+    complete_submit(
+        data_dir,
+        tail,
+        final_request,
+        receipt_id,
+        receipt,
+        room_scope,
+    )
 }
 
 /// The convergent tail of a submission — called by the finalizer AND (after validation) by the
-/// boot completer, so both paths produce the identical durable outcome.
+/// boot completer, so both paths produce the identical durable outcome. `room_scope` proves that
+/// room-open validation and room reservation share one room-scoped critical section.
 fn complete_submit(
     data_dir: &str,
     tail: &str,
     final_request: &Value,
     receipt_id: &str,
     receipt: &Value,
+    _room_scope: &std::sync::MutexGuard<'_, ()>,
 ) -> Result<(), VErr> {
-    persist_receipt(data_dir, receipt_id, receipt).map_err(|(code, msg)| {
-        let ecode = if code == "room_participation_receipt_conflict" || code == "room_participation_receipt_slot_unreadable" || code == "room_participation_receipt_swapped" { code } else { "room_participation_submit_pending_convergence".to_string() };
-        (ecode, format!("the submission receipt is not durably committed ({msg}); the DURABLE intent is retained — a restart converges this same submission"))
-    })?;
+    // Preflight every participation-owned target BEFORE reserving the room. The participation
+    // mutex excludes in-daemon writers until commit, so a foreign/unreadable target cannot strand
+    // a room backlink. Byte-identical occupants are valid crash replay.
+    let (request_preexisting, receipt_preexisting) =
+        preflight_submit_targets(data_dir, tail, final_request, receipt_id, receipt)?;
     let room_ref = s(final_request, "outcome_room_ref", "");
     let request_id = s(final_request, "participation_request_id", "");
-    match rooms::bind_room_backlink(
+    match rooms::bind_room_backlink_room_locked(
         data_dir,
         &room_ref,
         "participation_request_bound",
@@ -1009,27 +1644,59 @@ fn complete_submit(
         Ok(_) => {}
         // Idempotent replay: the ref landed before a crash — converged, not a conflict.
         Err((code, _)) if code == "outcome_room_backlink_already_bound" => {}
+        Err((code, msg)) if code == "outcome_room_not_open" || code == "outcome_room_not_found" => {
+            // Before the room reservation there is no admitted evidence to preserve. Consume the
+            // impossible intent durably so a closed room cannot leave permanent retry state.
+            // Legacy exact artifacts from the old receipt-first order cannot be rolled back.
+            if !request_preexisting && !receipt_preexisting {
+                consume_submit_intent(data_dir, tail).map_err(|why| {
+                    verr(
+                        "room_participation_submit_pending_convergence",
+                        format!("{msg}; no submission evidence was written, but the pre-linearization intent could not be consumed ({why})"),
+                    )
+                })?;
+                let mapped = if code == "outcome_room_not_found" {
+                    "room_participation_room_not_found"
+                } else {
+                    "room_participation_room_not_open"
+                };
+                return Err(verr(
+                    mapped,
+                    format!("{msg}; the pre-linearization submit intent was rolled back durably and no submission evidence was written"),
+                ));
+            }
+            return Err(verr(
+                "room_participation_submit_pending_convergence",
+                format!("{msg}; legacy submission artifacts already exist, so append-only evidence forbids rollback and the intent is retained for manual repair"),
+            ));
+        }
         Err((code, msg)) => {
             return Err(verr(&code, format!("{msg}; the DURABLE submit intent is retained — a restart converges this same submission")));
         }
     }
+    persist_receipt(data_dir, receipt_id, receipt).map_err(|(code, msg)| {
+        let ecode = if code == "room_participation_receipt_conflict" || code == "room_participation_receipt_slot_unreadable" || code == "room_participation_receipt_swapped" { code } else { "room_participation_submit_pending_convergence".to_string() };
+        (ecode, format!("the room reservation is durable, but the submission receipt is not durably committed ({msg}); the DURABLE intent is retained — a restart converges this same submission"))
+    })?;
     if let Err(f) = persist_atomic(data_dir, REQUEST_DIR, tail, final_request) {
         if f.visible() {
             return Err(verr("room_participation_submit_pending_convergence", format!("the terminal request write is {} — the intent is retained; a restart re-verifies and completes", f.detail())));
         }
         return Err(verr("room_participation_submit_pending_convergence", format!("the terminal request write did not commit ({}) — the intent is retained; a restart completes it", f.detail())));
     }
-    let _ = std::fs::remove_file(
-        std::path::Path::new(data_dir)
-            .join(SUBMIT_INTENT_DIR)
-            .join(format!("{tail}.json")),
-    );
+    consume_submit_intent(data_dir, tail).map_err(|why| {
+        verr(
+            "room_participation_submit_pending_convergence",
+            format!("the submission is durable, but its replay intent could not be consumed ({why}); a restart consumes the same byte-identical intent"),
+        )
+    })?;
     Ok(())
 }
 
 /// Single-record transition finalization (request or lease): seal the intent ON the record →
 /// receipt (append-only) → terminal record with the intent consumed. Receipt failure retains
-/// the intent (visible/unconfirmed evidence is never rolled back "as absent").
+/// the intent (visible/unconfirmed evidence is never rolled back "as absent"); current boot
+/// policy quarantines that governed intent rather than replaying unverifiable authority.
 fn finalize_record_transition(
     data_dir: &str,
     family: &str,
@@ -1054,7 +1721,7 @@ fn finalize_record_transition(
     );
     if let Err(f) = persist_atomic(data_dir, family, tail, &carrying) {
         if f.visible() {
-            return Err(verr("room_participation_transition_pending_convergence", format!("the transition intent is {} — a restart converges it; the visible state may already carry the intent", f.detail())));
+            return Err(verr("room_participation_transition_pending_convergence", format!("the transition intent is {} — the visible state may already carry it; governed replay remains quarantined until its authority can be reverified", f.detail())));
         }
         return Err(verr(
             "room_participation_persist_failed",
@@ -1067,7 +1734,7 @@ fn finalize_record_transition(
     match persist_receipt(data_dir, receipt_id, receipt) {
         Ok(()) => {}
         Err((code, msg)) if code == "room_participation_receipt_durability_unconfirmed" => {
-            return Err(verr("room_participation_transition_pending_convergence", format!("{msg}; the DURABLE intent is retained with the record still showing its PRIOR state — a restart confirms the receipt and applies the transition")));
+            return Err(verr("room_participation_transition_pending_convergence", format!("{msg}; the DURABLE intent is retained with the record still showing its PRIOR state, but boot will not apply it without replay-verifiable identity-bound authority")));
         }
         Err((code, msg))
             if code == "room_participation_receipt_conflict"
@@ -1091,26 +1758,101 @@ fn finalize_record_transition(
         Err((_code, msg)) => {
             return match persist_atomic(data_dir, family, tail, prior) {
                 Ok(()) => Err(verr("room_participation_receipt_persist_failed", format!("transition receipt persist did not commit ({msg}); the intent was rolled back EXACTLY — nothing changed"))),
-                Err(_) => Err(verr("room_participation_transition_pending_convergence", format!("transition receipt persist did not commit ({msg}) AND the intent rollback did not commit — a restart converges the sealed transition"))),
+                Err(_) => Err(verr("room_participation_transition_pending_convergence", format!("transition receipt persist did not commit ({msg}) AND the intent rollback did not commit — the governed intent is quarantined for authenticated repair"))),
             };
         }
     }
     if let Err(f) = persist_atomic(data_dir, family, tail, updated) {
-        return Err(verr("room_participation_transition_pending_convergence", format!("the terminal transition write is {}; the DURABLE intent and receipt are retained — a restart completes the transition", f.detail())));
+        return Err(verr("room_participation_transition_pending_convergence", format!("the terminal transition write is {}; the DURABLE intent and receipt are retained, but boot will not apply them without replay-verifiable identity-bound authority", f.detail())));
     }
     Ok(())
 }
 
-/// ADMIT finalization: seal the admit intent ON the request → lease receipt → request receipt →
-/// room backlink (lease ref) → lease record → terminal request with the intent consumed. Every
-/// failure after the durable intent refuses typed with the intent retained.
+/// Certify that every participation-owned admission target is either absent or already contains
+/// the exact sealed value. This runs BEFORE the room backlink linearizes admission, so a foreign
+/// or unreadable receipt/lease occupant cannot reserve a phantom live lease and permanently block
+/// room close. `PARTICIPATION_LOCK` excludes all in-daemon writers across this preflight + commit.
+fn preflight_admit_targets(data_dir: &str, admit: &Value) -> Result<(), VErr> {
+    let lease_tail = admit
+        .get("lease_tail")
+        .and_then(Value::as_str)
+        .unwrap_or("");
+    let final_lease = admit.get("final_lease").cloned().unwrap_or(Value::Null);
+    let expected_lease_id = format!("participant-lease://{lease_tail}");
+    if final_lease
+        .get("participant_lease_id")
+        .and_then(Value::as_str)
+        != Some(expected_lease_id.as_str())
+    {
+        return Err(verr(
+            "participant_lease_conflict",
+            "the sealed lease identity does not bind to its target slot — the room was not mutated",
+        ));
+    }
+    match read_slot_strict(data_dir, LEASE_DIR, lease_tail, is_canonical_lease_tail) {
+        Ok(None) => {}
+        Ok(Some(existing)) if existing == final_lease => {}
+        Ok(Some(_)) => {
+            return Err(verr(
+                "participant_lease_conflict",
+                format!("the lease slot '{lease_tail}' holds different state — the room was not mutated"),
+            ))
+        }
+        Err(e) => {
+            return Err(verr(
+                "participant_lease_registry_unreadable",
+                format!("the lease slot '{lease_tail}' cannot be certified ({e}) — the room was not mutated"),
+            ))
+        }
+    }
+
+    for (field, prefix) in [("lease_receipt", "rlr"), ("request_receipt", "rqt")] {
+        let id_field = format!("{field}_id");
+        let receipt_id = admit
+            .get(id_field.as_str())
+            .and_then(Value::as_str)
+            .unwrap_or("");
+        let expected = admit.get(field).cloned().unwrap_or(Value::Null);
+        let canonical: fn(&str) -> bool = match prefix {
+            "rlr" => |tail| is_canonical_receipt_tail(tail, "rlr"),
+            _ => |tail| is_canonical_receipt_tail(tail, "rqt"),
+        };
+        match read_slot_strict(data_dir, RECEIPT_DIR, receipt_id, canonical) {
+            Ok(None) => {}
+            Ok(Some(existing)) if existing == expected => {}
+            Ok(Some(_)) => {
+                return Err(verr(
+                    "room_participation_receipt_conflict",
+                    format!("receipt slot '{receipt_id}' holds different append-only evidence — the room was not mutated"),
+                ))
+            }
+            Err(e) => {
+                return Err(verr(
+                    "room_participation_receipt_slot_unreadable",
+                    format!("receipt slot '{receipt_id}' cannot be certified ({e}) — the room was not mutated"),
+                ))
+            }
+        }
+    }
+    Ok(())
+}
+
+/// ADMIT finalization under the room-scoped lock: seal the admit intent ON the request → reserve
+/// the room slot through its own intent transaction → lease receipt → request receipt → lease
+/// record → terminal request. The room transition is the linearization point: before it, the
+/// held room lock excludes close; after it, a pending room intent or live lease ref excludes
+/// close. Participation decision evidence is therefore never persisted for a closed room.
 #[allow(clippy::too_many_arguments)]
 fn finalize_admit(
     data_dir: &str,
     request_tail: &str,
     prior_request: &Value,
     admit: &Value,
+    room_scope: &std::sync::MutexGuard<'_, ()>,
 ) -> Result<(), VErr> {
+    // Conflict-atomicity: refuse deterministic target conflicts before either the request intent
+    // or the room reservation exists.
+    preflight_admit_targets(data_dir, admit)?;
     let mut carrying = prior_request.clone();
     carrying
         .as_object_mut()
@@ -1121,7 +1863,7 @@ fn finalize_admit(
             return Err(verr(
                 "room_participation_admit_pending_convergence",
                 format!(
-                    "the admit intent is {} — a restart converges it",
+                    "the admit intent is {} — governed replay is quarantined until its authority can be reverified",
                     f.detail()
                 ),
             ));
@@ -1134,15 +1876,18 @@ fn finalize_admit(
             ),
         ));
     }
-    complete_admit(data_dir, request_tail, prior_request, admit)
+    complete_admit(data_dir, request_tail, prior_request, admit, room_scope)
 }
 
-/// The convergent tail of an admission — finalizer AND (after validation) boot completer.
+/// The room-locked tail of an already-authorized admission. Current boot never calls this for a
+/// governed intent; a future replay caller must first supply replay-verifiable identity-bound
+/// authority. `room_scope` proves room-open validation and reservation cannot race a close.
 fn complete_admit(
     data_dir: &str,
     request_tail: &str,
     prior_request: &Value,
     admit: &Value,
+    _room_scope: &std::sync::MutexGuard<'_, ()>,
 ) -> Result<(), VErr> {
     let final_request = admit.get("final_request").cloned().unwrap_or(Value::Null);
     let final_lease = admit.get("final_lease").cloned().unwrap_or(Value::Null);
@@ -1164,8 +1909,61 @@ fn complete_admit(
         .to_string();
     let request_receipt = admit.get("request_receipt").cloned().unwrap_or(Value::Null);
     let pend = |msg: String| -> VErr {
-        verr("room_participation_admit_pending_convergence", format!("{msg}; the DURABLE admit intent is retained — a restart converges this same admission"))
+        verr("room_participation_admit_pending_convergence", format!("{msg}; the DURABLE admit intent is retained, but boot will not apply it without replay-verifiable identity-bound authority"))
     };
+    // Re-check at the linearization boundary. The normal finalizer already preflighted before
+    // sealing its intent; this second check protects a resumed/future proof-bearing replay and
+    // detects out-of-band target swaps before the room is mutated.
+    preflight_admit_targets(data_dir, admit)?;
+    // ROOM FIRST. Its durable intent is the cross-plane reservation that keeps close from
+    // winning after admission evidence starts to land.
+    let room_ref = s(&final_lease, "outcome_room_ref", "");
+    let lease_id = s(&final_lease, "participant_lease_id", "");
+    match rooms::bind_room_backlink_room_locked(
+        data_dir,
+        &room_ref,
+        "participant_lease_bound",
+        &lease_id,
+    ) {
+        Ok(_) => {}
+        Err((code, _)) if code == "outcome_room_backlink_already_bound" => {}
+        Err((code, msg)) if code == "outcome_room_not_open" || code == "outcome_room_not_found" => {
+            // A request-intent write can be visible-but-unconfirmed before the room reservation.
+            // If close wins after that refusal and NO admission artifact exists, restore the
+            // exact prior request instead of retaining a permanently impossible intent. Legacy
+            // receipts/lease occupants make rollback unsafe and remain held for manual repair.
+            let lease_absent = matches!(
+                read_slot_strict(data_dir, LEASE_DIR, &lease_tail, is_canonical_lease_tail),
+                Ok(None)
+            );
+            let lease_receipt_absent = matches!(
+                read_slot_strict(data_dir, RECEIPT_DIR, &lease_receipt_id, |tail| {
+                    is_canonical_receipt_tail(tail, "rlr")
+                }),
+                Ok(None)
+            );
+            let request_receipt_absent = matches!(
+                read_slot_strict(data_dir, RECEIPT_DIR, &request_receipt_id, |tail| {
+                    is_canonical_receipt_tail(tail, "rqt")
+                }),
+                Ok(None)
+            );
+            if lease_absent && lease_receipt_absent && request_receipt_absent {
+                return match persist_atomic(data_dir, REQUEST_DIR, request_tail, prior_request) {
+                    Ok(()) => Err(verr(
+                        "room_participation_room_not_open",
+                        format!("room '{room_ref}' is no longer open; the pre-linearization admit intent was rolled back EXACTLY and no admission evidence was written"),
+                    )),
+                    Err(f) => Err(pend(format!("room '{room_ref}' is no longer open and exact rollback of the pre-linearization intent is {}", f.detail()))),
+                };
+            }
+            return Err(verr(
+                "room_participation_admit_pending_convergence",
+                format!("{msg}; legacy admission artifacts already exist, so append-only evidence forbids rollback and the intent is retained for manual repair"),
+            ));
+        }
+        Err((_code, msg)) => return Err(pend(msg)),
+    }
     persist_receipt(data_dir, &lease_receipt_id, &lease_receipt).map_err(|(code, msg)| {
         if code == "room_participation_receipt_conflict"
             || code == "room_participation_receipt_slot_unreadable"
@@ -1186,13 +1984,6 @@ fn complete_admit(
             pend(msg)
         }
     })?;
-    let room_ref = s(&final_lease, "outcome_room_ref", "");
-    let lease_id = s(&final_lease, "participant_lease_id", "");
-    match rooms::bind_room_backlink(data_dir, &room_ref, "participant_lease_bound", &lease_id) {
-        Ok(_) => {}
-        Err((code, _)) if code == "outcome_room_backlink_already_bound" => {}
-        Err((_code, msg)) => return Err(pend(msg)),
-    }
     // The lease slot is append-only in spirit: an existing occupant must BE this sealed lease.
     match read_slot_strict(data_dir, LEASE_DIR, &lease_tail, is_canonical_lease_tail) {
         Ok(Some(existing)) => {
@@ -1340,6 +2131,9 @@ fn validate_submit_intent(
 }
 
 /// Reconstruct the ONLY valid single-record transition successor + EXACT receipt; byte-compare.
+/// This is structural validation only; production replay remains quarantined until intents retain
+/// a re-verifiable signed grant and the daemon can resolve the expected signer.
+#[allow(dead_code)]
 #[allow(clippy::too_many_arguments)]
 fn validate_transition_intent(
     intent: &Value,
@@ -1632,13 +2426,103 @@ fn validate_admit_intent(
     Ok(())
 }
 
+/// Safe cleanup for the old closed-room failure lane. This does NOT replay a governed decision:
+/// after structural validation, it only removes an unlinearized intent when the room is gone or
+/// closed, the proposed lease was never reserved, and every admission target is definitively
+/// absent. Any evidence, unreadable slot, live room, or pending room mutation leaves the intent
+/// quarantined for manual repair.
+fn rollback_impossible_unlinearized_admit(
+    data_dir: &str,
+    request_tail: &str,
+    prior_request: &Value,
+    admit: &Value,
+    _room_scope: &std::sync::MutexGuard<'_, ()>,
+) -> Result<bool, VErr> {
+    let room_ref = s(prior_request, "outcome_room_ref", "");
+    let final_lease = admit.get("final_lease").cloned().unwrap_or(Value::Null);
+    if s(&final_lease, "outcome_room_ref", "") != room_ref {
+        return Ok(false);
+    }
+    let lease_tail = admit
+        .get("lease_tail")
+        .and_then(Value::as_str)
+        .unwrap_or("");
+    let lease_id = format!("participant-lease://{lease_tail}");
+    if s(&final_lease, "participant_lease_id", "") != lease_id {
+        return Ok(false);
+    }
+    match rooms::resolve_room_strict(data_dir, &room_ref) {
+        Ok(Some(room)) => {
+            if rooms::pending_intent(&room).is_some() || s(&room, "status", "") == "open" {
+                return Ok(false);
+            }
+            if room
+                .get("participant_lease_refs")
+                .and_then(Value::as_array)
+                .is_some_and(|refs| {
+                    refs.iter()
+                        .any(|value| value.as_str() == Some(lease_id.as_str()))
+                })
+            {
+                return Ok(false);
+            }
+        }
+        Ok(None) => {}
+        Err(message) => {
+            return Err(verr(
+                "room_participation_room_unreadable",
+                format!("room '{room_ref}' is not definitively absent or closed ({message}); the admit intent remains quarantined"),
+            ))
+        }
+    }
+
+    let lease_absent = matches!(
+        read_slot_strict(data_dir, LEASE_DIR, lease_tail, is_canonical_lease_tail),
+        Ok(None)
+    );
+    let lease_receipt_id = admit
+        .get("lease_receipt_id")
+        .and_then(Value::as_str)
+        .unwrap_or("");
+    let lease_receipt_absent = matches!(
+        read_slot_strict(data_dir, RECEIPT_DIR, lease_receipt_id, |tail| {
+            is_canonical_receipt_tail(tail, "rlr")
+        }),
+        Ok(None)
+    );
+    let request_receipt_id = admit
+        .get("request_receipt_id")
+        .and_then(Value::as_str)
+        .unwrap_or("");
+    let request_receipt_absent = matches!(
+        read_slot_strict(data_dir, RECEIPT_DIR, request_receipt_id, |tail| {
+            is_canonical_receipt_tail(tail, "rqt")
+        }),
+        Ok(None)
+    );
+    if !(lease_absent && lease_receipt_absent && request_receipt_absent) {
+        return Ok(false);
+    }
+    persist_atomic(data_dir, REQUEST_DIR, request_tail, prior_request).map_err(|failure| {
+        verr(
+            "room_participation_admit_pending_convergence",
+            format!(
+                "the impossible pre-linearization admit intent could not be rolled back exactly ({})",
+                failure.detail()
+            ),
+        )
+    })?;
+    Ok(true)
+}
+
 // ================================ BOOT COMPLETER =================================================
 
-/// BOOT COMPLETER for the participation plane: validate every pending intent by CANONICAL
-/// reconstruction (never trusting sealed hashes alone), then converge forward byte-exactly.
-/// Anything inconsistent is left in place for manual repair; nothing is manufactured,
-/// overwritten, or deleted. Runs AFTER the room-plane completers (its backlink replay requires
-/// no pending room intents).
+/// BOOT COMPLETER for the participation plane. Ungoverned submit intents are canonically
+/// reconstructed and converged. Governed admit/request/lease decision intents are QUARANTINED:
+/// their receipts retain actor/grant/hash fields but not a replay-verifiable signed grant bound
+/// to a daemon-trusted expected identity, so replaying them would bypass the live 501 hold. The
+/// only governed cleanup admitted here is exact rollback of a closed, definitively unlinearized
+/// admission; already-terminal leases may complete their non-decision room-release tail.
 pub(crate) fn complete_participation_intents(data_dir: &str) {
     let _guard = PARTICIPATION_LOCK.lock().unwrap_or_else(|p| p.into_inner());
     // (1) Submit intents — internal family; the file STEM is the trusted request tail.
@@ -1663,16 +2547,25 @@ pub(crate) fn complete_participation_intents(data_dir: &str) {
                             eprintln!("participation completer: request '{tail}' exists with a DIFFERENT admission lineage — intent retained for manual repair");
                             continue;
                         }
-                        let _ = std::fs::remove_file(
-                            std::path::Path::new(data_dir)
-                                .join(SUBMIT_INTENT_DIR)
-                                .join(format!("{tail}.json")),
-                        );
+                        if let Err(why) = consume_submit_intent(data_dir, &tail) {
+                            eprintln!("participation completer: submit '{tail}' is already terminal but its replay intent could not be consumed ({why}) — retrying next boot");
+                        }
                     }
                     Ok(None) => {
-                        if let Err((code, msg)) =
-                            complete_submit(data_dir, &tail, &final_request, &receipt_id, &receipt)
-                        {
+                        // Fixed order: participation lock (held by this completer) → room lock.
+                        // A pending close may converge before the next boot; a completed close
+                        // causes exact pre-linearization rollback with zero false evidence.
+                        let room_scope = rooms::ROOM_MUTATION_LOCK
+                            .lock()
+                            .unwrap_or_else(|p| p.into_inner());
+                        if let Err((code, msg)) = complete_submit(
+                            data_dir,
+                            &tail,
+                            &final_request,
+                            &receipt_id,
+                            &receipt,
+                            &room_scope,
+                        ) {
                             eprintln!("participation completer: submit '{tail}' not converged ({code}: {msg}) — retrying next boot");
                         }
                     }
@@ -1709,45 +2602,27 @@ pub(crate) fn complete_participation_intents(data_dir: &str) {
                 .remove("admit_intent");
             match validate_admit_intent(&admit, &prior, &tail) {
                 Ok(()) => {
-                    if let Err((code, msg)) = complete_admit(data_dir, &tail, &prior, &admit) {
-                        eprintln!("participation completer: admit '{tail}' not converged ({code}: {msg}) — retrying next boot");
+                    let room_scope = rooms::ROOM_MUTATION_LOCK
+                        .lock()
+                        .unwrap_or_else(|p| p.into_inner());
+                    match rollback_impossible_unlinearized_admit(
+                        data_dir,
+                        &tail,
+                        &prior,
+                        &admit,
+                        &room_scope,
+                    ) {
+                        Ok(true) => eprintln!("participation completer: admit '{tail}' targeted a closed/missing room before linearization — rolled back exactly with zero admission evidence"),
+                        Ok(false) => eprintln!("participation completer: admit '{tail}' is QUARANTINED — sealed receipt fields are not a replay-verifiable identity-bound grant; no decision was applied"),
+                        Err((code, msg)) => eprintln!("participation completer: admit '{tail}' cleanup is pending ({code}: {msg}) — no decision was applied"),
                     }
                 }
                 Err(why) => {
                     eprintln!("participation completer: admit intent on '{tail}' fails canonical validation ({why}) — left in place for manual repair");
                 }
             }
-        } else if let Some(ti) = record.get("transition_intent").cloned() {
-            let mut prior = record.clone();
-            prior
-                .as_object_mut()
-                .expect("object")
-                .remove("transition_intent");
-            match validate_transition_intent(
-                &ti,
-                &prior,
-                &tail,
-                "participation_request_id",
-                "participation-request://",
-                REQUEST_TRANSITIONS,
-                "rqt",
-                REQUEST_TRANSITION_NOTE,
-                is_canonical_request_tail,
-            ) {
-                Ok((final_record, receipt_id, receipt)) => {
-                    if persist_receipt(data_dir, &receipt_id, &receipt).is_ok() {
-                        if let Err(f) = persist_atomic(data_dir, REQUEST_DIR, &tail, &final_record)
-                        {
-                            eprintln!("participation completer: request transition '{tail}' terminal write {} — retrying next boot", f.detail());
-                        }
-                    } else {
-                        eprintln!("participation completer: request transition '{tail}' receipt not durable — intent retained");
-                    }
-                }
-                Err(why) => {
-                    eprintln!("participation completer: transition intent on request '{tail}' fails canonical validation ({why}) — left for manual repair");
-                }
-            }
+        } else if record.get("transition_intent").is_some() {
+            eprintln!("participation completer: request transition '{tail}' is QUARANTINED — no replay-verifiable identity-bound grant is retained; no decision was applied");
         }
     }
     // (3) Lease records carrying transition intents.
@@ -1765,42 +2640,16 @@ pub(crate) fn complete_participation_intents(data_dir: &str) {
         }
     };
     for (tail, record) in leases {
-        if let Some(ti) = record.get("transition_intent").cloned() {
-            let mut prior = record.clone();
-            prior
-                .as_object_mut()
-                .expect("object")
-                .remove("transition_intent");
-            match validate_transition_intent(
-                &ti,
-                &prior,
-                &tail,
-                "participant_lease_id",
-                "participant-lease://",
-                LEASE_TRANSITIONS,
-                "rlt",
-                LEASE_TRANSITION_NOTE,
-                is_canonical_lease_tail,
-            ) {
-                Ok((final_record, receipt_id, receipt)) => {
-                    if persist_receipt(data_dir, &receipt_id, &receipt).is_ok() {
-                        if let Err(f) = persist_atomic(data_dir, LEASE_DIR, &tail, &final_record) {
-                            eprintln!("participation completer: lease transition '{tail}' terminal write {} — retrying next boot", f.detail());
-                        }
-                    } else {
-                        eprintln!("participation completer: lease transition '{tail}' receipt not durable — intent retained");
-                    }
-                }
-                Err(why) => {
-                    eprintln!("participation completer: transition intent on lease '{tail}' fails canonical validation ({why}) — left for manual repair");
-                }
-            }
+        if record.get("transition_intent").is_some() {
+            eprintln!("participation completer: lease transition '{tail}' is QUARANTINED — no replay-verifiable identity-bound grant is retained; no decision was applied or released");
         } else if matches!(s(&record, "status", "").as_str(), "revoked" | "retired") {
-            // Crash-convergence for the room-release step (#74 finding 2): a lease that reached
+            // Crash-convergence for the room-release step (#74 finding 3): a lease that reached
             // a terminal state but whose room slot was not released (crash between the terminal
             // lease write and the release bind) is released now — idempotent, so an
             // already-released lease is a no-op.
-            ensure_lease_released(data_dir, &record);
+            if let Err((code, msg)) = ensure_lease_released(data_dir, &record) {
+                eprintln!("participation completer: terminal lease '{tail}' room release is pending ({code}: {msg}) — retrying next boot");
+            }
         }
     }
 }
@@ -1813,6 +2662,13 @@ fn scan_intent_family(data_dir: &str) -> Result<Vec<(String, Value)>, String> {
     };
     let names = super::durable_fs::enumerate_pinned(&dir)
         .map_err(|e| format!("intent family could not be enumerated ({e})"))?;
+    scan_intent_entries(&dir, names)
+}
+
+fn scan_intent_entries(
+    dir: &std::fs::File,
+    names: Vec<String>,
+) -> Result<Vec<(String, Value)>, String> {
     let mut out = Vec::new();
     for name in names {
         let Some(stem) = name.strip_suffix(".json") else {
@@ -1821,11 +2677,26 @@ fn scan_intent_family(data_dir: &str) -> Result<Vec<(String, Value)>, String> {
         if !is_canonical_request_tail(stem) {
             continue;
         }
-        if let Ok(Some((_f, bytes))) = super::durable_fs::read_slot_strict(&dir, &name) {
-            if let Ok(value) = serde_json::from_slice::<Value>(&bytes) {
-                out.push((stem.to_string(), value));
+        let bytes = match super::durable_fs::read_slot_strict(&dir, &name) {
+            Ok(Some((_f, bytes))) => bytes,
+            Ok(None) => {
+                return Err(format!(
+                    "canonical submit-intent slot '{name}' vanished after enumeration"
+                ))
             }
-        }
+            Err(e) => {
+                return Err(format!(
+                    "canonical submit-intent slot '{name}' is not readable as a regular file ({e})"
+                ))
+            }
+        };
+        let value = serde_json::from_slice::<Value>(&bytes).map_err(|e| {
+            format!("canonical submit-intent slot '{name}' holds malformed JSON ({e})")
+        })?;
+        validate_submit_intent(&value, stem).map_err(|why| {
+            format!("canonical submit-intent slot '{name}' is not canonical ({why})")
+        })?;
+        out.push((stem.to_string(), value));
     }
     Ok(out)
 }
@@ -1873,11 +2744,38 @@ pub(crate) async fn handle_participation_request_create(
     };
     let room_ref = s(&declaration, "outcome_room_ref", "");
     let _guard = PARTICIPATION_LOCK.lock().unwrap_or_else(|p| p.into_inner());
-    // The room must resolve OPEN and hosted, its host must BE the declared admission owner, and
-    // no room intent may be pending (the bind would refuse anyway — refuse early and typed).
-    let Some(room) = rooms::resolve_open_room(&st.data_dir, &room_ref) else {
-        return classify(verr("room_participation_room_not_found", format!("no admitted OPEN room '{room_ref}' — participation binds only to a live hosted room")));
+    // Fixed lock order: participation → room. Hold the room lock from exact status/intent
+    // validation through the room-first submit finalizer so close cannot win in between.
+    let room_scope = rooms::ROOM_MUTATION_LOCK
+        .lock()
+        .unwrap_or_else(|p| p.into_inner());
+    let room = match rooms::resolve_room_strict(&st.data_dir, &room_ref) {
+        Ok(Some(room)) => room,
+        Ok(None) => {
+            return classify(verr(
+                "room_participation_room_not_found",
+                format!("no admitted room '{room_ref}' — participation binds only to a live hosted room"),
+            ))
+        }
+        Err(message) if message.starts_with("non-canonical room stem") => {
+            return classify(verr(
+                "room_participation_room_not_found",
+                format!("no admitted room '{room_ref}' — participation binds only to a canonical hosted room"),
+            ))
+        }
+        Err(message) => {
+            return classify(verr(
+                "room_participation_room_unreadable",
+                format!("room '{room_ref}' cannot be resolved strictly ({message})"),
+            ))
+        }
     };
+    if let Some((field, code)) = rooms::pending_intent(&room) {
+        return classify(verr(
+            code,
+            format!("a durable {field} is pending on room '{room_ref}' — a restart converges it before request submission"),
+        ));
+    }
     if s(&room, "status", "") != "open" {
         return classify(verr(
             "room_participation_room_not_open",
@@ -1927,7 +2825,14 @@ pub(crate) async fn handle_participation_request_create(
         SUBMIT_NOTE,
         &now,
     );
-    if let Err(e) = finalize_submit(&st.data_dir, &tail, &record, &receipt_id, &receipt) {
+    if let Err(e) = finalize_submit(
+        &st.data_dir,
+        &tail,
+        &record,
+        &receipt_id,
+        &receipt,
+        &room_scope,
+    ) {
         return classify(e);
     }
     (
@@ -1962,7 +2867,7 @@ pub(crate) async fn handle_participation_requests_list(
             (
                 StatusCode::OK,
                 Json(
-                    json!({ "schema_version": REQUEST_SCHEMA, "participation_requests": rows, "request_statuses": REQUEST_STATUSES, "request_transitions": REQUEST_TRANSITIONS.iter().map(|(t, from, to)| json!({ "transition": t, "from": from, "to": to })).collect::<Vec<_>>(), "runtimeTruthSource": "daemon-runtime" }),
+                    json!({ "schema_version": REQUEST_SCHEMA, "participation_requests": rows, "request_statuses": REQUEST_STATUSES, "request_transitions": REQUEST_TRANSITIONS.iter().map(|(t, from, to)| json!({ "transition": t, "from": from, "to": to, "available": false, "unavailable_code": "room_participation_authority_binding_unavailable" })).collect::<Vec<_>>(), "admit_available": false, "decision_authority_posture": decision_authority_posture(), "runtimeTruthSource": "daemon-runtime" }),
                 ),
             )
         }
@@ -1979,13 +2884,17 @@ pub(crate) async fn handle_participation_request_get(
     AxumPath(id): AxumPath<String>,
 ) -> (StatusCode, Json<Value>) {
     match load_request(&st.data_dir, &id) {
-        Some(r) => (StatusCode::OK, Json(json!({ "participation_request": r }))),
-        None => http_err(
+        Ok(Some(r)) => (StatusCode::OK, Json(json!({ "participation_request": r }))),
+        Ok(None) => http_err(
             StatusCode::NOT_FOUND,
             verr(
                 "room_participation_request_not_found",
                 format!("no participation request '{id}'"),
             ),
+        ),
+        Err(e) => http_err(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            verr("room_participation_registry_unreadable", e),
         ),
     }
 }
@@ -2044,11 +2953,15 @@ pub(crate) async fn handle_participation_request_transition(
     let _guard = PARTICIPATION_LOCK.lock().unwrap_or_else(|p| p.into_inner());
     // AUTHORITY (#74 review finding 1): the decision is gated BEFORE any mutation. evaluate/reject
     // are host-governed; withdraw is the participant's own.
-    let Some(prior) = load_request(&st.data_dir, &id) else {
-        return classify(verr(
-            "room_participation_request_not_found",
-            format!("no participation request '{id}'"),
-        ));
+    let prior = match load_request(&st.data_dir, &id) {
+        Ok(Some(prior)) => prior,
+        Ok(None) => {
+            return classify(verr(
+                "room_participation_request_not_found",
+                format!("no participation request '{id}'"),
+            ))
+        }
+        Err(e) => return classify(verr("room_participation_registry_unreadable", e)),
     };
     let gov = request_op_gov(&transition);
     let room_ref = s(&prior, "outcome_room_ref", "");
@@ -2062,6 +2975,7 @@ pub(crate) async fn handle_participation_request_transition(
         Gov::Participant => s(&prior, "requested_by_ref", ""),
     };
     let auth = match authorize_decision(
+        &st.data_dir,
         &body,
         gov,
         &room_ref,
@@ -2099,7 +3013,6 @@ pub(crate) async fn handle_participation_request_transition(
 
 /// The shared single-record transition core (request + lease).
 #[allow(clippy::too_many_arguments)]
-#[allow(clippy::too_many_arguments)]
 fn transition_record(
     data_dir: &str,
     family: &str,
@@ -2114,16 +3027,30 @@ fn transition_record(
     code_ns: &str,
     auth: &DecisionAuthority,
 ) -> Result<(Value, Value), VErr> {
-    let (loader, nf_code): (fn(&str, &str) -> Option<Value>, &str) = if family == REQUEST_DIR {
-        (load_request, "room_participation_request_not_found")
+    let (loader, nf_code, unreadable_code): (
+        fn(&str, &str) -> Result<Option<Value>, String>,
+        &str,
+        &str,
+    ) = if family == REQUEST_DIR {
+        (
+            load_request,
+            "room_participation_request_not_found",
+            "room_participation_registry_unreadable",
+        )
     } else {
-        (load_lease, "participant_lease_not_found")
+        (
+            load_lease,
+            "participant_lease_not_found",
+            "participant_lease_registry_unreadable",
+        )
     };
-    let Some(prior) = loader(data_dir, tail) else {
-        return Err(verr(nf_code, format!("no record '{tail}'")));
+    let prior = match loader(data_dir, tail) {
+        Ok(Some(prior)) => prior,
+        Ok(None) => return Err(verr(nf_code, format!("no record '{tail}'"))),
+        Err(e) => return Err(verr(unreadable_code, e)),
     };
     if let Some((field, code)) = pending_intent(&prior) {
-        return Err(verr(code, format!("a durable {field} is pending on this record — a restart converges it before any other mutation is admitted")));
+        return Err(verr(code, format!("a durable {field} is pending on this record — governed replay is quarantined until its authority can be reverified")));
     }
     // LEASE transitions RE-RESOLVE the room (#74 review finding 2): a lease may not be mutated
     // once its room is no longer open — the room-close interlock keeps a live lease's room open,
@@ -2194,26 +3121,34 @@ fn transition_record(
     // A lease reaching a TERMINAL state (revoked/retired) releases its room slot (#74 review
     // finding 2), through the room-owned seam — the room's live-lease set shrinks by one, so a
     // room with no remaining live participants can close. Idempotent + crash-convergent (the
-    // completer re-drives it), so a failure here is not fatal to the transition itself.
+    // completer re-drives it). The lease transition may already be durable, but the HTTP
+    // operation is not complete until this second plane converges: return typed pending rather
+    // than falsely reporting 200.
     if family == LEASE_DIR && matches!(to_status, "revoked" | "retired") {
-        ensure_lease_released(data_dir, &updated);
+        ensure_lease_released(data_dir, &updated)?;
     }
     Ok((updated, receipt))
 }
 
 /// Release a terminal lease's room slot through the room-owned seam (#74 finding 2). Idempotent:
-/// an already-released ref converges. Best-effort here; the boot completer guarantees eventual
-/// convergence so a crash between the terminal lease write and this call cannot strand the slot.
-fn ensure_lease_released(data_dir: &str, lease: &Value) {
+/// an already-released ref converges. Any incomplete cross-plane release is surfaced as typed
+/// pending convergence; the boot completer retries it.
+fn ensure_lease_released(data_dir: &str, lease: &Value) -> Result<(), VErr> {
     let room_ref = s(lease, "outcome_room_ref", "");
     let lease_id = s(lease, "participant_lease_id", "");
     if room_ref.is_empty() || lease_id.is_empty() {
-        return;
+        return Err(verr(
+            "participant_lease_release_pending_convergence",
+            "the terminal lease is missing its room or lease identity — its room slot cannot be released automatically",
+        ));
     }
     match rooms::bind_room_backlink(data_dir, &room_ref, "participant_lease_released", &lease_id) {
-        Ok(_) => {}
-        Err((code, _)) if code == "outcome_room_backlink_already_bound" => {}
-        Err((code, msg)) => eprintln!("participation: lease '{lease_id}' room-release deferred ({code}: {msg}) — the boot completer will converge it"),
+        Ok(_) => Ok(()),
+        Err((code, _)) if code == "outcome_room_backlink_already_bound" => Ok(()),
+        Err((code, msg)) => Err(verr(
+            "participant_lease_release_pending_convergence",
+            format!("terminal lease '{lease_id}' is durable but its room release is incomplete ({code}: {msg}); restart convergence will retry the same release"),
+        )),
     }
 }
 
@@ -2229,16 +3164,25 @@ pub(crate) async fn handle_participation_request_admit(
         Err(e) => return classify(e),
     };
     let _guard = PARTICIPATION_LOCK.lock().unwrap_or_else(|p| p.into_inner());
-    let Some(prior) = load_request(&st.data_dir, &id) else {
-        return classify(verr(
-            "room_participation_request_not_found",
-            format!("no participation request '{id}'"),
-        ));
+    // Fixed lock order: participation → room. Hold the room lock from exact status/intent
+    // validation through the room-first admission finalizer so close cannot win in between.
+    let room_scope = rooms::ROOM_MUTATION_LOCK
+        .lock()
+        .unwrap_or_else(|p| p.into_inner());
+    let prior = match load_request(&st.data_dir, &id) {
+        Ok(Some(prior)) => prior,
+        Ok(None) => {
+            return classify(verr(
+                "room_participation_request_not_found",
+                format!("no participation request '{id}'"),
+            ))
+        }
+        Err(e) => return classify(verr("room_participation_registry_unreadable", e)),
     };
     if let Some((field, code)) = pending_intent(&prior) {
         return classify(verr(
             code,
-            format!("a durable {field} is pending on this record — a restart converges it first"),
+            format!("a durable {field} is pending on this record — governed replay is quarantined until its authority can be reverified"),
         ));
     }
     let from = s(&prior, "status", "");
@@ -2260,15 +3204,44 @@ pub(crate) async fn handle_participation_request_admit(
         Ok(false) => {}
         Err(e) => return classify(e),
     }
-    // The room must still be OPEN with no pending intent (the bind enforces it; check early).
-    let Some(room) = rooms::resolve_open_room(&st.data_dir, &room_ref) else {
-        return classify(verr("room_participation_room_not_found", format!("room '{room_ref}' no longer resolves OPEN — admission refuses rather than leasing into a closed room")));
+    // Exact missing/pending/closed distinctions while the room scope is held. This check and
+    // the room-first backlink transaction below are one critical section.
+    let room = match rooms::resolve_room_strict(&st.data_dir, &room_ref) {
+        Ok(Some(room)) => room,
+        Ok(None) => {
+            return classify(verr(
+                "room_participation_room_not_found",
+                format!("room '{room_ref}' does not resolve — admission refuses"),
+            ))
+        }
+        Err(message) => {
+            return classify(verr(
+                "room_participation_room_unreadable",
+                format!("room '{room_ref}' cannot be resolved strictly ({message})"),
+            ))
+        }
+    };
+    if let Some((field, code)) = rooms::pending_intent(&room) {
+        return classify(verr(
+            code,
+            format!("a durable {field} is pending on room '{room_ref}' — admission waits for room convergence"),
+        ));
+    }
+    if s(&room, "status", "") != "open" {
+        return classify(verr(
+            "room_participation_room_not_open",
+            format!(
+                "room '{room_ref}' is '{}' — admission is admitted only while the room is open",
+                s(&room, "status", "?")
+            ),
+        ));
     };
     // AUTHORITY (#74 review finding 1): admission is a HOST decision — the room's host domain
     // must authorize it, bound to THIS request + revision. Gated BEFORE the lease is minted.
     let request_id = s(&prior, "participation_request_id", "");
     let host_authority = s(&room, "host_domain_ref", "");
     let auth = match authorize_decision(
+        &st.data_dir,
         &body,
         Gov::Host,
         &room_ref,
@@ -2344,7 +3317,7 @@ pub(crate) async fn handle_participation_request_admit(
         "request_receipt_hash": record_output_hash(&request_receipt, &[]),
         "at": now,
     });
-    if let Err(e) = finalize_admit(&st.data_dir, &id, &prior, &admit) {
+    if let Err(e) = finalize_admit(&st.data_dir, &id, &prior, &admit, &room_scope) {
         return classify(e);
     }
     (
@@ -2381,7 +3354,7 @@ pub(crate) async fn handle_participant_leases_list(
             (
                 StatusCode::OK,
                 Json(
-                    json!({ "schema_version": LEASE_SCHEMA, "participant_leases": rows, "lease_statuses": LEASE_STATUSES, "lease_transitions": LEASE_TRANSITIONS.iter().map(|(t, from, to)| json!({ "transition": t, "from": from, "to": to })).collect::<Vec<_>>(), "admitted_roles": ADMITTED_ROLES, "runtimeTruthSource": "daemon-runtime" }),
+                    json!({ "schema_version": LEASE_SCHEMA, "participant_leases": rows, "lease_statuses": LEASE_STATUSES, "lease_transitions": LEASE_TRANSITIONS.iter().map(|(t, from, to)| json!({ "transition": t, "from": from, "to": to, "available": false, "unavailable_code": "room_participation_authority_binding_unavailable" })).collect::<Vec<_>>(), "decision_authority_posture": decision_authority_posture(), "admitted_roles": ADMITTED_ROLES, "runtimeTruthSource": "daemon-runtime" }),
                 ),
             )
         }
@@ -2398,13 +3371,17 @@ pub(crate) async fn handle_participant_lease_get(
     AxumPath(id): AxumPath<String>,
 ) -> (StatusCode, Json<Value>) {
     match load_lease(&st.data_dir, &id) {
-        Some(r) => (StatusCode::OK, Json(json!({ "participant_lease": r }))),
-        None => http_err(
+        Ok(Some(r)) => (StatusCode::OK, Json(json!({ "participant_lease": r }))),
+        Ok(None) => http_err(
             StatusCode::NOT_FOUND,
             verr(
                 "participant_lease_not_found",
                 format!("no participant lease '{id}'"),
             ),
+        ),
+        Err(e) => http_err(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            verr("participant_lease_registry_unreadable", e),
         ),
     }
 }
@@ -2463,11 +3440,15 @@ pub(crate) async fn handle_participant_lease_transition(
     // AUTHORITY (#74 review finding 1): administrative transitions (suspend/resume/quarantine/
     // release_quarantine/revoke) are host-governed; self-state (sleep/wake/wait/activate/retire)
     // is the participant's own. Gated BEFORE any mutation.
-    let Some(prior) = load_lease(&st.data_dir, &id) else {
-        return classify(verr(
-            "participant_lease_not_found",
-            format!("no participant lease '{id}'"),
-        ));
+    let prior = match load_lease(&st.data_dir, &id) {
+        Ok(Some(prior)) => prior,
+        Ok(None) => {
+            return classify(verr(
+                "participant_lease_not_found",
+                format!("no participant lease '{id}'"),
+            ))
+        }
+        Err(e) => return classify(verr("participant_lease_registry_unreadable", e)),
     };
     let gov = lease_op_gov(&transition);
     let room_ref = s(&prior, "outcome_room_ref", "");
@@ -2481,6 +3462,7 @@ pub(crate) async fn handle_participant_lease_transition(
         Gov::Participant => s(&prior, "participant_ref", ""),
     };
     let auth = match authorize_decision(
+        &st.data_dir,
         &body,
         gov,
         &room_ref,
@@ -2520,17 +3502,46 @@ pub(crate) async fn handle_participant_lease_transition(
 mod participation_tests {
     use super::*;
 
+    // Existing transaction tests use terse Option-style fixtures. Production callers use the
+    // strict Result-returning point loaders above; these wrappers keep fixture setup readable
+    // without collapsing errors anywhere on the daemon surface.
+    fn load_request(data_dir: &str, tail: &str) -> Option<Value> {
+        super::load_request(data_dir, tail).expect("test request slot must be readable")
+    }
+
+    fn load_lease(data_dir: &str, tail: &str) -> Option<Value> {
+        super::load_lease(data_dir, tail).expect("test lease slot must be readable")
+    }
+
+    fn scan_requests(data_dir: &str) -> Result<Vec<(String, Value)>, String> {
+        scan_family(
+            data_dir,
+            REQUEST_DIR,
+            "participation_request_id",
+            "participation-request://",
+            is_canonical_request_tail,
+        )
+    }
+
+    fn scan_leases(data_dir: &str) -> Result<Vec<(String, Value)>, String> {
+        scan_family(
+            data_dir,
+            LEASE_DIR,
+            "participant_lease_id",
+            "participant-lease://",
+            is_canonical_lease_tail,
+        )
+    }
+
     fn temp_dir(tag: &str) -> std::path::PathBuf {
         let d = std::env::temp_dir().join(format!("ioi-participation-{tag}-{:x}", nanos()));
         std::fs::create_dir_all(&d).unwrap();
         d
     }
 
-    /// A fixed decision authority for the finalize/replay unit tests — these prove the
-    /// intent-transaction + byte-exact reconstruction machinery, not the wallet crossing (the
-    /// real signed-grant crossing + no-grant/foreign-grant/replay refusals are proven live in
-    /// the isolated verifier). The replay validators reconstruct from the SEALED receipt, so any
-    /// self-consistent authority round-trips here; the online gate is the security boundary.
+    /// A fixed decision authority for lower-seam transaction/structural-validation tests. It is
+    /// intentionally NOT authorization: production online gates refuse it, and boot quarantines
+    /// governed intents whose authority cannot be reverified against an expected signer.
     fn ta() -> DecisionAuthority {
         DecisionAuthority {
             acting_authority_id: json!("wallet://acct_test_authority"),
@@ -2538,6 +3549,49 @@ mod participation_tests {
             policy_hash: "sha256:testpolicyhash".to_string(),
             request_hash: "sha256:testrequesthash".to_string(),
         }
+    }
+
+    /// Mint the same real Ed25519 ApprovalGrant used by the live fixture, with caller-selected
+    /// signer seed and exact daemon-derived hashes. This lets the unit test distinguish
+    /// same-hashes/different-signer from the older, weaker different-hashes case.
+    fn signed_grant(seed_byte: u8, policy_hash: &str, request_hash: &str) -> Value {
+        use ioi_api::crypto::{SerializableKey, SigningKeyPair};
+        use ioi_crypto::sign::eddsa::{Ed25519KeyPair, Ed25519PrivateKey};
+        use ioi_types::app::action::ApprovalGrant;
+        use ioi_types::app::{account_id_from_key_material, SignatureSuite};
+
+        fn hash32(value: &str) -> [u8; 32] {
+            let bytes = hex::decode(value.trim_start_matches("sha256:"))
+                .expect("decision hash is canonical hex");
+            bytes.try_into().expect("decision hash is 32 bytes")
+        }
+
+        let private_key = Ed25519PrivateKey::from_bytes(&[seed_byte; 32]).unwrap();
+        let keypair = Ed25519KeyPair::from_private_key(&private_key).unwrap();
+        let approver_public_key = keypair.public_key().to_bytes();
+        let authority_id =
+            account_id_from_key_material(SignatureSuite::ED25519, &approver_public_key).unwrap();
+        let mut grant = ApprovalGrant {
+            schema_version: 1,
+            authority_id,
+            request_hash: hash32(request_hash),
+            policy_hash: hash32(policy_hash),
+            audience: [3u8; 32],
+            nonce: [4u8; 32],
+            counter: 1,
+            expires_at: 1_850_000_000_000,
+            max_usages: Some(1),
+            window_id: None,
+            pii_action: None,
+            scoped_exception: None,
+            review_request_hash: None,
+            approver_public_key,
+            approver_sig: Vec::new(),
+            approver_suite: SignatureSuite::ED25519,
+        };
+        let signing_bytes = grant.signing_bytes().unwrap();
+        grant.approver_sig = keypair.sign(&signing_bytes).unwrap().to_bytes().to_vec();
+        serde_json::to_value(grant).unwrap()
     }
 
     /// A minimal OPEN hosted room the seam accepts (content id == stem, open, no intents).
@@ -2568,6 +3622,433 @@ mod participation_tests {
         })
     }
 
+    fn canonical_submit_intent(
+        room_tail: &str,
+        request_tail: &str,
+        receipt_tail: &str,
+        now: &str,
+    ) -> (Value, Value) {
+        let declaration = validate_request_create(&declaration_body(room_tail)).unwrap();
+        let receipt_ref = format!("receipt://{receipt_tail}");
+        let request = seal_request(&declaration, request_tail, &receipt_ref, now);
+        let request_id = s(&request, "participation_request_id", "");
+        let room_ref = s(&request, "outcome_room_ref", "");
+        let receipt = build_room_receipt_at(
+            receipt_tail,
+            REQUEST_RECEIPT_SCHEMA,
+            "RoomParticipationRequestReceipt",
+            &request_id,
+            "submitted",
+            json!({ "outcome_room_ref": room_ref, "requested_by_ref": s(&request, "requested_by_ref", ""), "status_at_submission": "submitted" }),
+            vec![json!(request_id), json!(room_ref)],
+            record_output_hash(&request, REQUEST_CREATE_EXCLUDES),
+            REQUEST_CREATE_EXCLUDES,
+            "admitted_not_verified",
+            SUBMIT_NOTE,
+            now,
+        );
+        let intent = json!({
+            "kind": "submit",
+            "request_tail": request_tail,
+            "request_ref": request.get("participation_request_id").cloned().unwrap_or(Value::Null),
+            "room_ref": request.get("outcome_room_ref").cloned().unwrap_or(Value::Null),
+            "final_request": request,
+            "final_request_hash": record_output_hash(&request, &[]),
+            "receipt_id": receipt_tail,
+            "receipt": receipt,
+            "receipt_hash": record_output_hash(&receipt, &[]),
+            "at": now,
+        });
+        (request, intent)
+    }
+
+    #[test]
+    fn strict_loaders_and_scans_refuse_canonical_slot_corruption() {
+        use std::os::unix::fs::symlink;
+
+        // Definitive absence remains distinguishable from an occupied-but-unreadable point slot.
+        let absent = temp_dir("strict-absent");
+        let absent_data = absent.to_str().unwrap();
+        assert!(super::load_request(absent_data, "rpr_a0")
+            .unwrap()
+            .is_none());
+        assert!(super::load_lease(absent_data, "rpl_a0").unwrap().is_none());
+        let _ = std::fs::remove_dir_all(&absent);
+
+        // REQUEST: malformed JSON, unreadable canonical occupant, and identity relocation each
+        // make both the point loader and the registry scan fail closed.
+        let malformed_request = temp_dir("strict-request-malformed");
+        let malformed_request_data = malformed_request.to_str().unwrap();
+        std::fs::create_dir_all(malformed_request.join(REQUEST_DIR)).unwrap();
+        std::fs::write(
+            malformed_request.join(REQUEST_DIR).join("rpr_a1.json"),
+            b"{not-json",
+        )
+        .unwrap();
+        assert!(super::load_request(malformed_request_data, "rpr_a1").is_err());
+        assert!(scan_requests(malformed_request_data)
+            .unwrap_err()
+            .contains("malformed JSON"));
+        let _ = std::fs::remove_dir_all(&malformed_request);
+
+        let unreadable_request = temp_dir("strict-request-unreadable");
+        let unreadable_request_data = unreadable_request.to_str().unwrap();
+        std::fs::create_dir_all(unreadable_request.join(REQUEST_DIR)).unwrap();
+        std::fs::write(unreadable_request.join("request-decoy.json"), b"{}").unwrap();
+        symlink(
+            unreadable_request.join("request-decoy.json"),
+            unreadable_request.join(REQUEST_DIR).join("rpr_a2.json"),
+        )
+        .unwrap();
+        assert!(super::load_request(unreadable_request_data, "rpr_a2").is_err());
+        assert!(scan_requests(unreadable_request_data)
+            .unwrap_err()
+            .contains("not readable as a regular file"));
+        let _ = std::fs::remove_dir_all(&unreadable_request);
+
+        let mismatched_request = temp_dir("strict-request-identity");
+        let mismatched_request_data = mismatched_request.to_str().unwrap();
+        let (foreign_request, _) =
+            canonical_submit_intent("or_a3", "rpr_a4", "rqr_a4", "2026-02-01T00:00:00Z");
+        persist_atomic(
+            mismatched_request_data,
+            REQUEST_DIR,
+            "rpr_a3",
+            &foreign_request,
+        )
+        .unwrap();
+        assert!(super::load_request(mismatched_request_data, "rpr_a3").is_err());
+        assert!(scan_requests(mismatched_request_data)
+            .unwrap_err()
+            .contains("identity that does not match"));
+        let _ = std::fs::remove_dir_all(&mismatched_request);
+
+        // LEASE: the same three canonical-slot failure classes are never skipped.
+        let malformed_lease = temp_dir("strict-lease-malformed");
+        let malformed_lease_data = malformed_lease.to_str().unwrap();
+        std::fs::create_dir_all(malformed_lease.join(LEASE_DIR)).unwrap();
+        std::fs::write(malformed_lease.join(LEASE_DIR).join("rpl_b1.json"), b"[").unwrap();
+        assert!(super::load_lease(malformed_lease_data, "rpl_b1").is_err());
+        assert!(scan_leases(malformed_lease_data)
+            .unwrap_err()
+            .contains("malformed JSON"));
+        let _ = std::fs::remove_dir_all(&malformed_lease);
+
+        let unreadable_lease = temp_dir("strict-lease-unreadable");
+        let unreadable_lease_data = unreadable_lease.to_str().unwrap();
+        std::fs::create_dir_all(unreadable_lease.join(LEASE_DIR)).unwrap();
+        std::fs::write(unreadable_lease.join("lease-decoy.json"), b"{}").unwrap();
+        symlink(
+            unreadable_lease.join("lease-decoy.json"),
+            unreadable_lease.join(LEASE_DIR).join("rpl_b2.json"),
+        )
+        .unwrap();
+        assert!(super::load_lease(unreadable_lease_data, "rpl_b2").is_err());
+        assert!(scan_leases(unreadable_lease_data)
+            .unwrap_err()
+            .contains("not readable as a regular file"));
+        let _ = std::fs::remove_dir_all(&unreadable_lease);
+
+        let mismatched_lease = temp_dir("strict-lease-identity");
+        let mismatched_lease_data = mismatched_lease.to_str().unwrap();
+        let (request, _) =
+            canonical_submit_intent("or_b3", "rpr_b3", "rqr_b3", "2026-02-01T00:00:00Z");
+        let params = validate_admit_params(&json!({
+            "admitted_role": "implementer",
+            "operator_ref": "org://alloy-lab",
+            "home_domain_ref": "domain://alloy-lab.example",
+        }))
+        .unwrap();
+        let foreign_lease = build_lease(
+            &request,
+            &params,
+            "rpl_b4",
+            "receipt://rlr_b4",
+            "2026-02-02T00:00:00Z",
+        );
+        persist_atomic(mismatched_lease_data, LEASE_DIR, "rpl_b3", &foreign_lease).unwrap();
+        assert!(super::load_lease(mismatched_lease_data, "rpl_b3").is_err());
+        assert!(scan_leases(mismatched_lease_data)
+            .unwrap_err()
+            .contains("identity that does not match"));
+        let _ = std::fs::remove_dir_all(&mismatched_lease);
+
+        // SUBMIT INTENT: canonical filenames with malformed, unreadable, or relocated content
+        // make the internal scan fail instead of disappearing from the uniqueness union.
+        let malformed_intent = temp_dir("strict-intent-malformed");
+        let malformed_intent_data = malformed_intent.to_str().unwrap();
+        std::fs::create_dir_all(malformed_intent.join(SUBMIT_INTENT_DIR)).unwrap();
+        std::fs::write(
+            malformed_intent.join(SUBMIT_INTENT_DIR).join("rpr_c1.json"),
+            b"null trailing",
+        )
+        .unwrap();
+        assert!(scan_intent_family(malformed_intent_data)
+            .unwrap_err()
+            .contains("malformed JSON"));
+        let _ = std::fs::remove_dir_all(&malformed_intent);
+
+        let unreadable_intent = temp_dir("strict-intent-unreadable");
+        let unreadable_intent_data = unreadable_intent.to_str().unwrap();
+        std::fs::create_dir_all(unreadable_intent.join(SUBMIT_INTENT_DIR)).unwrap();
+        std::fs::write(unreadable_intent.join("intent-decoy.json"), b"{}").unwrap();
+        symlink(
+            unreadable_intent.join("intent-decoy.json"),
+            unreadable_intent
+                .join(SUBMIT_INTENT_DIR)
+                .join("rpr_c2.json"),
+        )
+        .unwrap();
+        assert!(scan_intent_family(unreadable_intent_data)
+            .unwrap_err()
+            .contains("not readable as a regular file"));
+        let _ = std::fs::remove_dir_all(&unreadable_intent);
+
+        let mismatched_intent = temp_dir("strict-intent-identity");
+        let mismatched_intent_data = mismatched_intent.to_str().unwrap();
+        let (_, foreign_intent) =
+            canonical_submit_intent("or_c3", "rpr_c4", "rqr_c4", "2026-02-01T00:00:00Z");
+        persist_atomic(
+            mismatched_intent_data,
+            SUBMIT_INTENT_DIR,
+            "rpr_c3",
+            &foreign_intent,
+        )
+        .unwrap();
+        assert!(scan_intent_family(mismatched_intent_data)
+            .unwrap_err()
+            .contains("not canonical"));
+        let _ = std::fs::remove_dir_all(&mismatched_intent);
+    }
+
+    #[test]
+    fn canonical_scans_refuse_slots_that_vanish_after_enumeration() {
+        // REQUEST: pin + enumerate, then remove the canonical name before the strict read.
+        let request_dir = temp_dir("vanished-request");
+        let request_data = request_dir.to_str().unwrap();
+        let (request, _) =
+            canonical_submit_intent("or_d1", "rpr_d1", "rqr_d1", "2026-02-01T00:00:00Z");
+        persist_atomic(request_data, REQUEST_DIR, "rpr_d1", &request).unwrap();
+        let pinned =
+            super::super::durable_fs::open_family_dir_pinned(request_data, REQUEST_DIR).unwrap();
+        let names = super::super::durable_fs::enumerate_pinned(&pinned).unwrap();
+        std::fs::remove_file(request_dir.join(REQUEST_DIR).join("rpr_d1.json")).unwrap();
+        assert!(scan_family_entries(
+            &pinned,
+            names,
+            REQUEST_DIR,
+            "participation_request_id",
+            "participation-request://",
+            is_canonical_request_tail,
+        )
+        .unwrap_err()
+        .contains("vanished after enumeration"));
+        let _ = std::fs::remove_dir_all(&request_dir);
+
+        // LEASE: exercise the identical window through the shared entry scanner.
+        let lease_dir = temp_dir("vanished-lease");
+        let lease_data = lease_dir.to_str().unwrap();
+        let (request, _) =
+            canonical_submit_intent("or_d2", "rpr_d2", "rqr_d2", "2026-02-01T00:00:00Z");
+        let params = validate_admit_params(&json!({
+            "admitted_role": "implementer",
+            "operator_ref": "org://alloy-lab",
+            "home_domain_ref": "domain://alloy-lab.example",
+        }))
+        .unwrap();
+        let lease = build_lease(
+            &request,
+            &params,
+            "rpl_d2",
+            "receipt://rlr_d2",
+            "2026-02-02T00:00:00Z",
+        );
+        persist_atomic(lease_data, LEASE_DIR, "rpl_d2", &lease).unwrap();
+        let pinned =
+            super::super::durable_fs::open_family_dir_pinned(lease_data, LEASE_DIR).unwrap();
+        let names = super::super::durable_fs::enumerate_pinned(&pinned).unwrap();
+        std::fs::remove_file(lease_dir.join(LEASE_DIR).join("rpl_d2.json")).unwrap();
+        assert!(scan_family_entries(
+            &pinned,
+            names,
+            LEASE_DIR,
+            "participant_lease_id",
+            "participant-lease://",
+            is_canonical_lease_tail,
+        )
+        .unwrap_err()
+        .contains("vanished after enumeration"));
+        let _ = std::fs::remove_dir_all(&lease_dir);
+
+        // SUBMIT INTENT: the internal family has the same pinned-enumeration guarantee.
+        let intent_dir = temp_dir("vanished-intent");
+        let intent_data = intent_dir.to_str().unwrap();
+        let (_, intent) =
+            canonical_submit_intent("or_d3", "rpr_d3", "rqr_d3", "2026-02-01T00:00:00Z");
+        persist_atomic(intent_data, SUBMIT_INTENT_DIR, "rpr_d3", &intent).unwrap();
+        let pinned =
+            super::super::durable_fs::open_family_dir_pinned(intent_data, SUBMIT_INTENT_DIR)
+                .unwrap();
+        let names = super::super::durable_fs::enumerate_pinned(&pinned).unwrap();
+        std::fs::remove_file(intent_dir.join(SUBMIT_INTENT_DIR).join("rpr_d3.json")).unwrap();
+        assert!(scan_intent_entries(&pinned, names)
+            .unwrap_err()
+            .contains("vanished after enumeration"));
+        let _ = std::fs::remove_dir_all(&intent_dir);
+    }
+
+    #[test]
+    fn pending_submit_and_admit_intents_reserve_uniqueness_keys() {
+        // `draft` is canonical but not emitted by this hosted cut. If one is durably present,
+        // conservatively treat it as live instead of validating it and then declaring absence.
+        let draft_dir = temp_dir("draft-request-unique");
+        let draft_data = draft_dir.to_str().unwrap();
+        plant_room(draft_data, "or_e0");
+        let (mut draft, _) =
+            canonical_submit_intent("or_e0", "rpr_e0", "rqr_e0", "2026-02-01T00:00:00Z");
+        draft["status"] = json!("draft");
+        persist_atomic(draft_data, REQUEST_DIR, "rpr_e0", &draft).unwrap();
+        assert!(live_request_exists(
+            draft_data,
+            "outcome-room://or_e0",
+            "worker://independent-alloy-lab",
+        )
+        .unwrap());
+        let _ = std::fs::remove_dir_all(&draft_dir);
+
+        let submit_dir = temp_dir("pending-submit-unique");
+        let submit_data = submit_dir.to_str().unwrap();
+        plant_room(submit_data, "or_e1");
+        let (_, intent) =
+            canonical_submit_intent("or_e1", "rpr_e1", "rqr_e1", "2026-02-01T00:00:00Z");
+        persist_atomic(submit_data, SUBMIT_INTENT_DIR, "rpr_e1", &intent).unwrap();
+        assert!(load_request(submit_data, "rpr_e1").is_none());
+        assert!(live_request_exists(
+            submit_data,
+            "outcome-room://or_e1",
+            "worker://independent-alloy-lab",
+        )
+        .unwrap());
+        let _ = std::fs::remove_dir_all(&submit_dir);
+
+        let admit_dir = temp_dir("pending-admit-unique");
+        let admit_data = admit_dir.to_str().unwrap();
+        plant_room(admit_data, "or_e2");
+        submit(
+            admit_data,
+            "or_e2",
+            "rpr_e2",
+            "rqr_e2",
+            "2026-02-01T00:00:00Z",
+        );
+        let prior = load_request(admit_data, "rpr_e2").unwrap();
+        let admit =
+            canonical_admit_intent(&prior, "rpl_e2", "rlr_e2", "rqt_e2", "2026-02-02T00:00:00Z");
+        let mut carrying = prior;
+        carrying["admit_intent"] = admit;
+        persist_atomic(admit_data, REQUEST_DIR, "rpr_e2", &carrying).unwrap();
+        assert!(load_lease(admit_data, "rpl_e2").is_none());
+        assert!(live_lease_exists(
+            admit_data,
+            "outcome-room://or_e2",
+            "worker://independent-alloy-lab",
+        )
+        .unwrap());
+        let _ = std::fs::remove_dir_all(&admit_dir);
+    }
+
+    #[test]
+    fn room_backlink_remains_a_lease_reservation_until_exact_release() {
+        let dir = temp_dir("lease-backlink-unique");
+        let data_dir = dir.to_str().unwrap();
+        plant_room(data_dir, "or_f1");
+        submit(
+            data_dir,
+            "or_f1",
+            "rpr_f1",
+            "rqr_f1",
+            "2026-02-01T00:00:00Z",
+        );
+        let prior = load_request(data_dir, "rpr_f1").unwrap();
+        let admit =
+            canonical_admit_intent(&prior, "rpl_f1", "rlr_f1", "rqt_f1", "2026-02-02T00:00:00Z");
+        let room_scope = rooms::ROOM_MUTATION_LOCK
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        finalize_admit(data_dir, "rpr_f1", &prior, &admit, &room_scope).unwrap();
+        drop(room_scope);
+
+        let lease = load_lease(data_dir, "rpl_f1").unwrap();
+        let terminal = apply_transition(
+            &lease,
+            "transition_intent",
+            "revoke",
+            "revoked",
+            &json!("receipt://rlt_f1"),
+            &json!("2026-02-03T00:00:00Z"),
+            true,
+        );
+        persist_atomic(data_dir, LEASE_DIR, "rpl_f1", &terminal).unwrap();
+        assert!(live_lease_exists(
+            data_dir,
+            "outcome-room://or_f1",
+            "worker://independent-alloy-lab",
+        )
+        .unwrap());
+
+        rooms::bind_room_backlink(
+            data_dir,
+            "outcome-room://or_f1",
+            "participant_lease_released",
+            "participant-lease://rpl_f1",
+        )
+        .unwrap();
+        assert!(!live_lease_exists(
+            data_dir,
+            "outcome-room://or_f1",
+            "worker://independent-alloy-lab",
+        )
+        .unwrap());
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn orphaned_or_malformed_room_lease_reservations_fail_typed() {
+        let orphan = temp_dir("orphan-backlink");
+        let orphan_data = orphan.to_str().unwrap();
+        plant_room(orphan_data, "or_f2");
+        rooms::bind_room_backlink(
+            orphan_data,
+            "outcome-room://or_f2",
+            "participant_lease_bound",
+            "participant-lease://rpl_f2",
+        )
+        .unwrap();
+        let orphan_err = live_lease_exists(
+            orphan_data,
+            "outcome-room://or_f2",
+            "worker://independent-alloy-lab",
+        )
+        .unwrap_err();
+        assert_eq!(orphan_err.0, "participant_lease_registry_unreadable");
+        let _ = std::fs::remove_dir_all(&orphan);
+
+        let malformed = temp_dir("malformed-room-backlink");
+        let malformed_data = malformed.to_str().unwrap();
+        plant_room(malformed_data, "or_f3");
+        let mut room = rooms::resolve_room(malformed_data, "outcome-room://or_f3").unwrap();
+        room["participant_lease_refs"] = json!([Value::Null]);
+        persist_atomic(malformed_data, rooms::ROOM_DIR, "or_f3", &room).unwrap();
+        let malformed_err = live_lease_exists(
+            malformed_data,
+            "outcome-room://or_f3",
+            "worker://independent-alloy-lab",
+        )
+        .unwrap_err();
+        assert_eq!(malformed_err.0, "participant_lease_registry_unreadable");
+        let _ = std::fs::remove_dir_all(&malformed);
+    }
+
     /// Drive the SUBMIT flow exactly as the handler does (validate → seal → receipt → finalize).
     fn submit(
         data_dir: &str,
@@ -2595,8 +4076,141 @@ mod participation_tests {
             SUBMIT_NOTE,
             now,
         );
-        finalize_submit(data_dir, req_tail, &record, receipt_tail, &receipt).unwrap();
+        let _participation = PARTICIPATION_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+        let room_scope = rooms::ROOM_MUTATION_LOCK
+            .lock()
+            .unwrap_or_else(|p| p.into_inner());
+        finalize_submit(
+            data_dir,
+            req_tail,
+            &record,
+            receipt_tail,
+            &receipt,
+            &room_scope,
+        )
+        .unwrap();
         (record, receipt)
+    }
+
+    /// Build the exact sealed admission intent the HTTP handler would produce after authority
+    /// succeeds. Internal transaction/race/recovery tests use this because the online surface is
+    /// correctly typed-unavailable until identity→wallet authority binding exists.
+    fn canonical_admit_intent(
+        prior: &Value,
+        lease_tail: &str,
+        lease_receipt_id: &str,
+        request_receipt_id: &str,
+        now: &str,
+    ) -> Value {
+        let params = validate_admit_params(&json!({
+            "admitted_role": "implementer",
+            "operator_ref": "org://alloy-lab",
+            "home_domain_ref": "domain://alloy-lab.example",
+        }))
+        .unwrap();
+        let lease_id = format!("participant-lease://{lease_tail}");
+        let lease_receipt_ref = format!("receipt://{lease_receipt_id}");
+        let request_receipt_ref = json!(format!("receipt://{request_receipt_id}"));
+        let final_lease = build_lease(prior, &params, lease_tail, &lease_receipt_ref, now);
+        let current_rev = prior.get("revision").and_then(Value::as_u64).unwrap();
+        let from = s(prior, "status", "");
+        let request_id = s(prior, "participation_request_id", "");
+        let room_ref = s(prior, "outcome_room_ref", "");
+        let mut final_request = apply_transition(
+            prior,
+            "admit_intent",
+            "admit",
+            "admitted",
+            &request_receipt_ref,
+            &json!(now),
+            false,
+        );
+        if let Some(obj) = final_request.as_object_mut() {
+            obj.insert("participant_lease_ref".into(), json!(lease_id));
+            obj.insert("admission_decision_ref".into(), request_receipt_ref);
+        }
+        let lease_receipt = build_decision_receipt(
+            lease_receipt_id,
+            "RoomParticipationDecisionReceipt",
+            &lease_id,
+            "admitted",
+            json!({ "outcome_room_ref": room_ref, "participant_ref": s(&final_lease, "participant_ref", ""), "admitted_role": s(&final_lease, "admitted_role", ""), "join_request_ref": request_id, "status_at_admission": "active" }),
+            vec![json!(lease_id), json!(room_ref), json!(request_id)],
+            record_output_hash(&final_lease, LEASE_CREATE_EXCLUDES),
+            LEASE_CREATE_EXCLUDES,
+            ADMIT_NOTE,
+            now,
+            &ta(),
+        );
+        let request_receipt = build_decision_receipt(
+            request_receipt_id,
+            "RoomParticipationDecisionReceipt",
+            &request_id,
+            "admit",
+            json!({ "transition": "admit", "from": from, "to": "admitted", "participant_lease_ref": lease_id, "revision_before": current_rev, "revision_after": current_rev + 1, "outcome_room_ref": room_ref }),
+            vec![json!(request_id), json!(lease_id)],
+            record_output_hash(&final_request, TRAIL_EXCLUDES),
+            TRAIL_EXCLUDES,
+            ADMIT_NOTE,
+            now,
+            &ta(),
+        );
+        json!({
+            "kind": "admit",
+            "lease_tail": lease_tail,
+            "admit_params": params,
+            "final_request": final_request,
+            "final_request_hash": record_output_hash(&final_request, &[]),
+            "final_lease": final_lease,
+            "final_lease_hash": record_output_hash(&final_lease, &[]),
+            "lease_receipt_id": lease_receipt_id,
+            "lease_receipt": lease_receipt,
+            "lease_receipt_hash": record_output_hash(&lease_receipt, &[]),
+            "request_receipt_id": request_receipt_id,
+            "request_receipt": request_receipt,
+            "request_receipt_hash": record_output_hash(&request_receipt, &[]),
+            "at": now,
+        })
+    }
+
+    fn plant_bound_active_lease(
+        data_dir: &str,
+        room_tail: &str,
+        request_tail: &str,
+        submit_receipt_tail: &str,
+        lease_tail: &str,
+    ) -> Value {
+        plant_room(data_dir, room_tail);
+        submit(
+            data_dir,
+            room_tail,
+            request_tail,
+            submit_receipt_tail,
+            "2026-02-01T00:00:00Z",
+        );
+        let request = load_request(data_dir, request_tail).unwrap();
+        let params = validate_admit_params(&json!({
+            "admitted_role": "implementer",
+            "operator_ref": "org://alloy-lab",
+            "home_domain_ref": "domain://alloy-lab.example",
+        }))
+        .unwrap();
+        let lease = build_lease(
+            &request,
+            &params,
+            lease_tail,
+            &format!("receipt://rlr_{}", lease_tail.trim_start_matches("rpl_")),
+            "2026-02-02T00:00:00Z",
+        );
+        persist_atomic(data_dir, LEASE_DIR, lease_tail, &lease).unwrap();
+        rooms::bind_room_backlink(
+            data_dir,
+            &format!("outcome-room://{room_tail}"),
+            "participant_lease_bound",
+            &format!("participant-lease://{lease_tail}"),
+        )
+        .unwrap();
+        lease
     }
 
     #[test]
@@ -2643,7 +4257,8 @@ mod participation_tests {
         let dir = temp_dir("submit-replay");
         let data_dir = dir.to_str().unwrap();
         plant_room(data_dir, "or_b2");
-        // Seal the intent EXACTLY as finalize_submit would, then "crash" before everything else.
+        // Seal the intent EXACTLY as finalize_submit would. Let the room-first reservation land,
+        // then "crash" before the submission receipt/request; replay must finish byte-exactly.
         let declaration = validate_request_create(&declaration_body("or_b2")).unwrap();
         let now = "2026-02-01T00:00:00Z";
         let record = seal_request(&declaration, "rpr_b2", "receipt://rqr_b2", now);
@@ -2670,6 +4285,13 @@ mod participation_tests {
             "at": now,
         });
         persist_atomic(data_dir, SUBMIT_INTENT_DIR, "rpr_b2", &intent).unwrap();
+        rooms::bind_room_backlink(
+            data_dir,
+            "outcome-room://or_b2",
+            "participation_request_bound",
+            "participation-request://rpr_b2",
+        )
+        .unwrap();
         complete_participation_intents(data_dir);
         assert!(
             load_request(data_dir, "rpr_b2").is_some(),
@@ -2714,19 +4336,281 @@ mod participation_tests {
     }
 
     #[test]
+    fn closed_room_submit_replay_consumes_intent_without_false_evidence() {
+        // Regression for receipt-first submission: if a crash leaves only the internal intent
+        // and close wins before replay, boot rolls the pre-linearization intent back durably.
+        let dir = temp_dir("closed-submit-replay");
+        let data_dir = dir.to_str().unwrap();
+        plant_room(data_dir, "or_b8");
+        let declaration = validate_request_create(&declaration_body("or_b8")).unwrap();
+        let now = "2026-02-01T00:00:00Z";
+        let record = seal_request(&declaration, "rpr_b8", "receipt://rqr_b8", now);
+        let request_id = s(&record, "participation_request_id", "");
+        let receipt = build_room_receipt_at(
+            "rqr_b8",
+            REQUEST_RECEIPT_SCHEMA,
+            "RoomParticipationRequestReceipt",
+            &request_id,
+            "submitted",
+            json!({ "outcome_room_ref": "outcome-room://or_b8", "requested_by_ref": s(&record, "requested_by_ref", ""), "status_at_submission": "submitted" }),
+            vec![json!(request_id), json!("outcome-room://or_b8")],
+            record_output_hash(&record, REQUEST_CREATE_EXCLUDES),
+            REQUEST_CREATE_EXCLUDES,
+            "admitted_not_verified",
+            SUBMIT_NOTE,
+            now,
+        );
+        let intent = json!({
+            "kind": "submit", "request_tail": "rpr_b8", "request_ref": request_id,
+            "room_ref": "outcome-room://or_b8",
+            "final_request": record, "final_request_hash": record_output_hash(&record, &[]),
+            "receipt_id": "rqr_b8", "receipt": receipt, "receipt_hash": record_output_hash(&receipt, &[]),
+            "at": now,
+        });
+        persist_atomic(data_dir, SUBMIT_INTENT_DIR, "rpr_b8", &intent).unwrap();
+        let mut closed = rooms::resolve_room(data_dir, "outcome-room://or_b8").unwrap();
+        closed["status"] = json!("closed");
+        persist_atomic(data_dir, rooms::ROOM_DIR, "or_b8", &closed).unwrap();
+        let room_before = serde_json::to_vec(&closed).unwrap();
+
+        complete_participation_intents(data_dir);
+
+        assert!(load_request(data_dir, "rpr_b8").is_none());
+        assert!(!dir.join(RECEIPT_DIR).join("rqr_b8.json").exists());
+        assert!(
+            !dir.join(SUBMIT_INTENT_DIR).join("rpr_b8.json").exists(),
+            "the impossible pre-linearization intent is consumed"
+        );
+        assert_eq!(
+            serde_json::to_vec(&rooms::resolve_room(data_dir, "outcome-room://or_b8").unwrap())
+                .unwrap(),
+            room_before,
+            "the closed room is byte-unchanged and gains no false request backlink"
+        );
+        // Repeated boot is a no-op: rollback is itself crash-durable.
+        complete_participation_intents(data_dir);
+        assert!(load_request(data_dir, "rpr_b8").is_none());
+        assert!(!dir.join(RECEIPT_DIR).join("rqr_b8.json").exists());
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn unreadable_room_never_consumes_submit_or_admit_recovery_intents() {
+        use std::os::unix::fs::symlink;
+
+        // SUBMIT: construct the exact intent, then make the room slot a symlink before its
+        // room-first reservation. Strict uncertainty retains the recovery anchor.
+        let submit_dir = temp_dir("unreadable-room-submit");
+        let submit_data = submit_dir.to_str().unwrap();
+        plant_room(submit_data, "or_bc");
+        let declaration = validate_request_create(&declaration_body("or_bc")).unwrap();
+        let now = "2026-02-01T00:00:00Z";
+        let record = seal_request(&declaration, "rpr_bc", "receipt://rqr_bc", now);
+        let request_id = s(&record, "participation_request_id", "");
+        let receipt = build_room_receipt_at(
+            "rqr_bc",
+            REQUEST_RECEIPT_SCHEMA,
+            "RoomParticipationRequestReceipt",
+            &request_id,
+            "submitted",
+            json!({ "outcome_room_ref": "outcome-room://or_bc", "requested_by_ref": s(&record, "requested_by_ref", ""), "status_at_submission": "submitted" }),
+            vec![json!(request_id), json!("outcome-room://or_bc")],
+            record_output_hash(&record, REQUEST_CREATE_EXCLUDES),
+            REQUEST_CREATE_EXCLUDES,
+            "admitted_not_verified",
+            SUBMIT_NOTE,
+            now,
+        );
+        let room_path = submit_dir.join(rooms::ROOM_DIR).join("or_bc.json");
+        let room_backup = submit_dir.join("or_bc-room-backup.json");
+        std::fs::rename(&room_path, &room_backup).unwrap();
+        symlink(&room_backup, &room_path).unwrap();
+        let room_scope = rooms::ROOM_MUTATION_LOCK
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        let (code, _) = finalize_submit(
+            submit_data,
+            "rpr_bc",
+            &record,
+            "rqr_bc",
+            &receipt,
+            &room_scope,
+        )
+        .unwrap_err();
+        drop(room_scope);
+        assert_eq!(code, "outcome_room_registry_unreadable");
+        let submit_intent_path = submit_dir.join(SUBMIT_INTENT_DIR).join("rpr_bc.json");
+        assert!(submit_intent_path.exists());
+        complete_participation_intents(submit_data);
+        assert!(submit_intent_path.exists());
+        assert!(load_request(submit_data, "rpr_bc").is_none());
+        assert!(!submit_dir.join(RECEIPT_DIR).join("rqr_bc.json").exists());
+        let _ = std::fs::remove_dir_all(&submit_dir);
+
+        // ADMIT: a structurally valid legacy intent is likewise retained when the room is not
+        // strictly readable; cleanup is allowed only for proven absence or a valid closed room.
+        let admit_dir = temp_dir("unreadable-room-admit");
+        let admit_data = admit_dir.to_str().unwrap();
+        plant_room(admit_data, "or_cd");
+        submit(
+            admit_data,
+            "or_cd",
+            "rpr_cd",
+            "rqr_cd",
+            "2026-02-01T00:00:00Z",
+        );
+        let prior = load_request(admit_data, "rpr_cd").unwrap();
+        let admit =
+            canonical_admit_intent(&prior, "rpl_cd", "rlr_cd", "rqt_cd", "2026-02-02T00:00:00Z");
+        let mut carrying = prior;
+        carrying["admit_intent"] = admit;
+        persist_atomic(admit_data, REQUEST_DIR, "rpr_cd", &carrying).unwrap();
+        let admit_before = serde_json::to_vec(&carrying).unwrap();
+        let room_path = admit_dir.join(rooms::ROOM_DIR).join("or_cd.json");
+        let room_backup = admit_dir.join("or_cd-room-backup.json");
+        std::fs::rename(&room_path, &room_backup).unwrap();
+        symlink(&room_backup, &room_path).unwrap();
+        complete_participation_intents(admit_data);
+        assert_eq!(
+            serde_json::to_vec(&load_request(admit_data, "rpr_cd").unwrap()).unwrap(),
+            admit_before
+        );
+        assert!(load_lease(admit_data, "rpl_cd").is_none());
+        assert!(!admit_dir.join(RECEIPT_DIR).join("rlr_cd.json").exists());
+        assert!(!admit_dir.join(RECEIPT_DIR).join("rqt_cd.json").exists());
+        let _ = std::fs::remove_dir_all(&admit_dir);
+    }
+
+    #[test]
+    fn close_vs_submit_race_serializes_open_validation_and_room_reservation() {
+        // Both operations enter the same room critical section. Close-first leaves zero submit
+        // artifacts; submit-first lands the complete transaction before close may proceed.
+        for round in 0..12u8 {
+            let dir = temp_dir(&format!("close-submit-race-{round:x}"));
+            let data_dir = dir.to_str().unwrap().to_string();
+            let room_tail = format!("or_b{round:x}");
+            let request_tail = format!("rpr_b{round:x}");
+            let receipt_tail = format!("rqr_b{round:x}");
+            let room_ref = format!("outcome-room://{room_tail}");
+            plant_room(&data_dir, &room_tail);
+            let declaration = validate_request_create(&declaration_body(&room_tail)).unwrap();
+            let now = "2026-02-01T00:00:00Z";
+            let record = seal_request(
+                &declaration,
+                &request_tail,
+                &format!("receipt://{receipt_tail}"),
+                now,
+            );
+            let request_id = s(&record, "participation_request_id", "");
+            let receipt = build_room_receipt_at(
+                &receipt_tail,
+                REQUEST_RECEIPT_SCHEMA,
+                "RoomParticipationRequestReceipt",
+                &request_id,
+                "submitted",
+                json!({ "outcome_room_ref": room_ref, "requested_by_ref": s(&record, "requested_by_ref", ""), "status_at_submission": "submitted" }),
+                vec![json!(request_id), json!(room_ref)],
+                record_output_hash(&record, REQUEST_CREATE_EXCLUDES),
+                REQUEST_CREATE_EXCLUDES,
+                "admitted_not_verified",
+                SUBMIT_NOTE,
+                now,
+            );
+            let barrier = Arc::new(std::sync::Barrier::new(2));
+
+            let submit_data = data_dir.clone();
+            let submit_room_ref = room_ref.clone();
+            let submit_request_tail = request_tail.clone();
+            let submit_receipt_tail = receipt_tail.clone();
+            let submit_barrier = Arc::clone(&barrier);
+            let submit_thread = std::thread::spawn(move || {
+                submit_barrier.wait();
+                let _participation = PARTICIPATION_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+                let room_scope = rooms::ROOM_MUTATION_LOCK
+                    .lock()
+                    .unwrap_or_else(|p| p.into_inner());
+                let room = rooms::resolve_room(&submit_data, &submit_room_ref).unwrap();
+                if s(&room, "status", "") != "open" || rooms::pending_intent(&room).is_some() {
+                    return false;
+                }
+                finalize_submit(
+                    &submit_data,
+                    &submit_request_tail,
+                    &record,
+                    &submit_receipt_tail,
+                    &receipt,
+                    &room_scope,
+                )
+                .is_ok()
+            });
+
+            let close_data = data_dir.clone();
+            let close_room_tail = room_tail.clone();
+            let close_room_ref = room_ref.clone();
+            let close_barrier = Arc::clone(&barrier);
+            let close_thread = std::thread::spawn(move || {
+                close_barrier.wait();
+                let _room_scope = rooms::ROOM_MUTATION_LOCK
+                    .lock()
+                    .unwrap_or_else(|p| p.into_inner());
+                let mut room = rooms::resolve_room(&close_data, &close_room_ref).unwrap();
+                if s(&room, "status", "") != "open" || rooms::pending_intent(&room).is_some() {
+                    return false;
+                }
+                room["status"] = json!("closed");
+                persist_atomic(&close_data, rooms::ROOM_DIR, &close_room_tail, &room).unwrap();
+                true
+            });
+
+            let submitted = submit_thread.join().unwrap();
+            let closed = close_thread.join().unwrap();
+            assert!(
+                closed,
+                "close either wins first or follows a complete submission"
+            );
+            let room = rooms::resolve_room(&data_dir, &room_ref).unwrap();
+            assert_eq!(s(&room, "status", ""), "closed");
+            assert!(!dir
+                .join(SUBMIT_INTENT_DIR)
+                .join(format!("{request_tail}.json"))
+                .exists());
+            if submitted {
+                assert!(load_request(&data_dir, &request_tail).is_some());
+                assert!(dir
+                    .join(RECEIPT_DIR)
+                    .join(format!("{receipt_tail}.json"))
+                    .exists());
+                assert!(room["participation_request_refs"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .any(
+                        |value| value == &json!(format!("participation-request://{request_tail}"))
+                    ));
+            } else {
+                assert!(load_request(&data_dir, &request_tail).is_none());
+                assert!(!dir
+                    .join(RECEIPT_DIR)
+                    .join(format!("{receipt_tail}.json"))
+                    .exists());
+                assert_eq!(room["participation_request_refs"], json!([]));
+            }
+            let _ = std::fs::remove_dir_all(&dir);
+        }
+    }
+
+    #[test]
     fn admit_mints_the_lease_binds_the_room_and_guards_duplicates() {
         let dir = temp_dir("admit");
         let data_dir = dir.to_str().unwrap();
         plant_room(data_dir, "or_c3");
-        let (prior, _r) = submit(
+        submit(
             data_dir,
             "or_c3",
             "rpr_c3",
             "rqr_c3",
             "2026-02-01T00:00:00Z",
         );
-        let prior = load_request(data_dir, "rpr_c3").unwrap();
-        let _ = prior;
         let prior = load_request(data_dir, "rpr_c3").unwrap();
         let params = validate_admit_params(&json!({
             "admitted_role": "implementer", "operator_ref": "org://alloy-lab", "home_domain_ref": "domain://alloy-lab.example"
@@ -2795,7 +4679,10 @@ mod participation_tests {
         });
         // The sealed admit intent must validate through canonical reconstruction…
         validate_admit_intent(&admit, &prior, "rpr_c3").expect("canonical admit validates");
-        finalize_admit(data_dir, "rpr_c3", &prior, &admit).unwrap();
+        let room_scope = rooms::ROOM_MUTATION_LOCK
+            .lock()
+            .unwrap_or_else(|p| p.into_inner());
+        finalize_admit(data_dir, "rpr_c3", &prior, &admit, &room_scope).unwrap();
         let lease = load_lease(data_dir, "rpl_c3").expect("lease minted");
         assert_eq!(lease["status"], json!("active"));
         assert_eq!(lease["admitted_role"], json!("implementer"));
@@ -2842,6 +4729,360 @@ mod participation_tests {
     }
 
     #[test]
+    fn admit_preflights_all_targets_before_room_linearization() {
+        use std::os::unix::fs::symlink;
+
+        for (round, target, expected_code) in [
+            (0u8, "lease_receipt", "room_participation_receipt_conflict"),
+            (1, "request_receipt", "room_participation_receipt_conflict"),
+            (2, "lease", "participant_lease_conflict"),
+            (
+                3,
+                "unreadable_request_receipt",
+                "room_participation_receipt_slot_unreadable",
+            ),
+        ] {
+            let suffix = format!("d{round:x}");
+            let room_tail = format!("or_{suffix}");
+            let request_tail = format!("rpr_{suffix}");
+            let submit_receipt = format!("rqr_{suffix}");
+            let lease_tail = format!("rpl_{suffix}");
+            let lease_receipt = format!("rlr_{suffix}");
+            let request_receipt = format!("rqt_{suffix}");
+            let dir = temp_dir(&format!("admit-preflight-{target}"));
+            let data_dir = dir.to_str().unwrap();
+            plant_room(data_dir, &room_tail);
+            submit(
+                data_dir,
+                &room_tail,
+                &request_tail,
+                &submit_receipt,
+                "2026-02-01T00:00:00Z",
+            );
+            let prior = load_request(data_dir, &request_tail).unwrap();
+            let admit = canonical_admit_intent(
+                &prior,
+                &lease_tail,
+                &lease_receipt,
+                &request_receipt,
+                "2026-02-02T00:00:00Z",
+            );
+            let room_ref = format!("outcome-room://{room_tail}");
+            let room_before =
+                serde_json::to_vec(&rooms::resolve_room(data_dir, &room_ref).unwrap()).unwrap();
+            match target {
+                "lease_receipt" => persist_atomic(
+                    data_dir,
+                    RECEIPT_DIR,
+                    &lease_receipt,
+                    &json!({ "foreign": true }),
+                )
+                .unwrap(),
+                "request_receipt" => persist_atomic(
+                    data_dir,
+                    RECEIPT_DIR,
+                    &request_receipt,
+                    &json!({ "foreign": true }),
+                )
+                .unwrap(),
+                "lease" => persist_atomic(
+                    data_dir,
+                    LEASE_DIR,
+                    &lease_tail,
+                    &json!({
+                        "participant_lease_id": format!("participant-lease://{lease_tail}"),
+                        "status": "foreign",
+                    }),
+                )
+                .unwrap(),
+                "unreadable_request_receipt" => {
+                    let decoy = dir.join("foreign-receipt.json");
+                    std::fs::write(&decoy, b"{}").unwrap();
+                    symlink(
+                        &decoy,
+                        dir.join(RECEIPT_DIR)
+                            .join(format!("{request_receipt}.json")),
+                    )
+                    .unwrap();
+                }
+                _ => unreachable!(),
+            }
+
+            let room_scope = rooms::ROOM_MUTATION_LOCK
+                .lock()
+                .unwrap_or_else(|poisoned| poisoned.into_inner());
+            let (code, _) =
+                finalize_admit(data_dir, &request_tail, &prior, &admit, &room_scope).unwrap_err();
+            drop(room_scope);
+            assert_eq!(code, expected_code, "target={target}");
+            assert_eq!(
+                serde_json::to_vec(&load_request(data_dir, &request_tail).unwrap()).unwrap(),
+                serde_json::to_vec(&prior).unwrap(),
+                "preflight conflict never leaves an admit intent ({target})"
+            );
+            assert_eq!(
+                serde_json::to_vec(&rooms::resolve_room(data_dir, &room_ref).unwrap()).unwrap(),
+                room_before,
+                "preflight conflict never reserves a phantom room lease ({target})"
+            );
+            assert!(
+                rooms::resolve_room(data_dir, &room_ref).unwrap()["participant_lease_refs"]
+                    .as_array()
+                    .unwrap()
+                    .is_empty()
+            );
+            let _ = std::fs::remove_dir_all(&dir);
+        }
+    }
+
+    #[test]
+    fn closed_room_admit_replay_rolls_back_without_false_evidence() {
+        // Regression for the live failure: a closed room must be rejected BEFORE either decision
+        // receipt. A pre-linearization request intent (for example, a visible-unconfirmed write)
+        // is restored exactly instead of becoming permanently stuck.
+        let dir = temp_dir("closed-admit");
+        let data_dir = dir.to_str().unwrap();
+        plant_room(data_dir, "or_c8");
+        submit(
+            data_dir,
+            "or_c8",
+            "rpr_c8",
+            "rqr_c8",
+            "2026-02-01T00:00:00Z",
+        );
+        let prior = load_request(data_dir, "rpr_c8").unwrap();
+        let admit =
+            canonical_admit_intent(&prior, "rpl_c8", "rlr_c8", "rqt_c8", "2026-02-02T00:00:00Z");
+        let mut closed = rooms::resolve_room(data_dir, "outcome-room://or_c8").unwrap();
+        closed["status"] = json!("closed");
+        persist_atomic(data_dir, rooms::ROOM_DIR, "or_c8", &closed).unwrap();
+        let room_before = serde_json::to_vec(&closed).unwrap();
+        let mut carrying = prior.clone();
+        carrying["admit_intent"] = admit;
+        persist_atomic(data_dir, REQUEST_DIR, "rpr_c8", &carrying).unwrap();
+
+        complete_participation_intents(data_dir);
+
+        let after_request = load_request(data_dir, "rpr_c8").unwrap();
+        assert_eq!(
+            serde_json::to_vec(&after_request).unwrap(),
+            serde_json::to_vec(&prior).unwrap(),
+            "the impossible pre-linearization intent is rolled back exactly"
+        );
+        assert!(load_lease(data_dir, "rpl_c8").is_none());
+        assert!(!dir.join(RECEIPT_DIR).join("rlr_c8.json").exists());
+        assert!(!dir.join(RECEIPT_DIR).join("rqt_c8.json").exists());
+        assert_eq!(
+            serde_json::to_vec(&rooms::resolve_room(data_dir, "outcome-room://or_c8").unwrap())
+                .unwrap(),
+            room_before,
+            "the closed room is byte-unchanged and gains no false lease backlink"
+        );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn governed_admit_and_request_replays_are_quarantined_without_identity_binding() {
+        let dir = temp_dir("governed-replay-quarantine");
+        let data_dir = dir.to_str().unwrap();
+        plant_room(data_dir, "or_ca");
+        submit(
+            data_dir,
+            "or_ca",
+            "rpr_ca",
+            "rqr_ca",
+            "2026-02-01T00:00:00Z",
+        );
+        let prior = load_request(data_dir, "rpr_ca").unwrap();
+
+        // A fully self-consistent legacy admit intent carrying arbitrary sealed authority fields
+        // must not mint a lease on an open room.
+        let admit =
+            canonical_admit_intent(&prior, "rpl_ca", "rlr_ca", "rqt_ca", "2026-02-02T00:00:00Z");
+        let mut carrying_admit = prior.clone();
+        carrying_admit["admit_intent"] = admit;
+        persist_atomic(data_dir, REQUEST_DIR, "rpr_ca", &carrying_admit).unwrap();
+        let admit_before = serde_json::to_vec(&carrying_admit).unwrap();
+        complete_participation_intents(data_dir);
+        assert_eq!(
+            serde_json::to_vec(&load_request(data_dir, "rpr_ca").unwrap()).unwrap(),
+            admit_before
+        );
+        assert!(load_lease(data_dir, "rpl_ca").is_none());
+        assert!(!dir.join(RECEIPT_DIR).join("rlr_ca.json").exists());
+        assert!(!dir.join(RECEIPT_DIR).join("rqt_ca.json").exists());
+        let room = rooms::resolve_open_room(data_dir, "outcome-room://or_ca").unwrap();
+        assert_eq!(room["participant_lease_refs"], json!([]));
+
+        // The request-transition branch is independently quarantined. Its sealed receipt is
+        // structurally canonical but its copied actor/grant fields are not authorization.
+        persist_atomic(data_dir, REQUEST_DIR, "rpr_ca", &prior).unwrap();
+        let now = json!("2026-02-03T00:00:00Z");
+        let updated = apply_transition(
+            &prior,
+            "transition_intent",
+            "evaluate",
+            "evaluating",
+            &json!("receipt://rqt_cb"),
+            &now,
+            false,
+        );
+        let receipt = build_decision_receipt(
+            "rqt_cb",
+            "RoomParticipationDecisionReceipt",
+            "participation-request://rpr_ca",
+            "evaluate",
+            json!({ "transition": "evaluate", "from": "submitted", "to": "evaluating", "revision_before": 1, "revision_after": 2, "outcome_room_ref": "outcome-room://or_ca" }),
+            vec![
+                json!("participation-request://rpr_ca"),
+                json!("outcome-room://or_ca"),
+            ],
+            record_output_hash(&updated, TRAIL_EXCLUDES),
+            TRAIL_EXCLUDES,
+            REQUEST_TRANSITION_NOTE,
+            "2026-02-03T00:00:00Z",
+            &ta(),
+        );
+        let mut carrying_transition = prior.clone();
+        carrying_transition["transition_intent"] = json!({
+            "op": "evaluate",
+            "final_record": updated,
+            "final_record_hash": record_output_hash(&updated, &[]),
+            "receipt_id": "rqt_cb",
+            "receipt": receipt,
+            "receipt_hash": record_output_hash(&receipt, &[]),
+            "at": "2026-02-03T00:00:00Z",
+        });
+        persist_atomic(data_dir, REQUEST_DIR, "rpr_ca", &carrying_transition).unwrap();
+        let transition_before = serde_json::to_vec(&carrying_transition).unwrap();
+        complete_participation_intents(data_dir);
+        assert_eq!(
+            serde_json::to_vec(&load_request(data_dir, "rpr_ca").unwrap()).unwrap(),
+            transition_before
+        );
+        assert!(!dir.join(RECEIPT_DIR).join("rqt_cb.json").exists());
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn close_vs_admit_race_has_one_room_scoped_winner() {
+        // Exercise both critical sections concurrently. Legal outcomes are exclusively:
+        // close wins with zero admission artifacts, OR admission reserves the room and close is
+        // blocked by the live-lease set. Closed + admission evidence is forbidden.
+        for round in 0..12u8 {
+            let dir = temp_dir(&format!("close-admit-race-{round:x}"));
+            let data_dir = dir.to_str().unwrap().to_string();
+            let room_tail = format!("or_a{round:x}");
+            let request_tail = format!("rpr_a{round:x}");
+            let submit_receipt = format!("rqr_a{round:x}");
+            let lease_tail = format!("rpl_a{round:x}");
+            let lease_receipt = format!("rlr_a{round:x}");
+            let request_receipt = format!("rqt_a{round:x}");
+            plant_room(&data_dir, &room_tail);
+            submit(
+                &data_dir,
+                &room_tail,
+                &request_tail,
+                &submit_receipt,
+                "2026-02-01T00:00:00Z",
+            );
+            let prior = load_request(&data_dir, &request_tail).unwrap();
+            let admit = canonical_admit_intent(
+                &prior,
+                &lease_tail,
+                &lease_receipt,
+                &request_receipt,
+                "2026-02-02T00:00:00Z",
+            );
+            let barrier = Arc::new(std::sync::Barrier::new(2));
+
+            let admit_data = data_dir.clone();
+            let admit_room_ref = format!("outcome-room://{room_tail}");
+            let admit_request_tail = request_tail.clone();
+            let admit_barrier = Arc::clone(&barrier);
+            let admit_thread = std::thread::spawn(move || {
+                admit_barrier.wait();
+                let _participation = PARTICIPATION_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+                let room_scope = rooms::ROOM_MUTATION_LOCK
+                    .lock()
+                    .unwrap_or_else(|p| p.into_inner());
+                let room = rooms::resolve_room(&admit_data, &admit_room_ref).unwrap();
+                if s(&room, "status", "") != "open" || rooms::pending_intent(&room).is_some() {
+                    return false;
+                }
+                finalize_admit(
+                    &admit_data,
+                    &admit_request_tail,
+                    &prior,
+                    &admit,
+                    &room_scope,
+                )
+                .is_ok()
+            });
+
+            let close_data = data_dir.clone();
+            let close_room_tail = room_tail.clone();
+            let close_room_ref = format!("outcome-room://{room_tail}");
+            let close_barrier = Arc::clone(&barrier);
+            let close_thread = std::thread::spawn(move || {
+                close_barrier.wait();
+                let _room_scope = rooms::ROOM_MUTATION_LOCK
+                    .lock()
+                    .unwrap_or_else(|p| p.into_inner());
+                let mut room = rooms::resolve_room(&close_data, &close_room_ref).unwrap();
+                if s(&room, "status", "") != "open"
+                    || rooms::pending_intent(&room).is_some()
+                    || !rooms::live_lease_refs(&room).is_empty()
+                {
+                    return false;
+                }
+                room["status"] = json!("closed");
+                persist_atomic(&close_data, rooms::ROOM_DIR, &close_room_tail, &room).unwrap();
+                true
+            });
+
+            let admitted = admit_thread.join().unwrap();
+            let closed = close_thread.join().unwrap();
+            assert_ne!(
+                admitted, closed,
+                "exactly one room-scoped operation must win"
+            );
+            let room =
+                rooms::resolve_room(&data_dir, &format!("outcome-room://{room_tail}")).unwrap();
+            if admitted {
+                assert_eq!(s(&room, "status", ""), "open");
+                assert_eq!(
+                    rooms::live_lease_refs(&room),
+                    vec![format!("participant-lease://{lease_tail}")]
+                );
+                assert_eq!(
+                    s(
+                        &load_request(&data_dir, &request_tail).unwrap(),
+                        "status",
+                        ""
+                    ),
+                    "admitted"
+                );
+            } else {
+                assert_eq!(s(&room, "status", ""), "closed");
+                assert!(load_lease(&data_dir, &lease_tail).is_none());
+                assert!(!dir
+                    .join(RECEIPT_DIR)
+                    .join(format!("{lease_receipt}.json"))
+                    .exists());
+                assert!(!dir
+                    .join(RECEIPT_DIR)
+                    .join(format!("{request_receipt}.json"))
+                    .exists());
+                let request = load_request(&data_dir, &request_tail).unwrap();
+                assert_eq!(s(&request, "status", ""), "submitted");
+                assert!(request.get("admit_intent").is_none());
+            }
+            let _ = std::fs::remove_dir_all(&dir);
+        }
+    }
+
+    #[test]
     fn lease_transitions_walk_receipted_and_revoke_appends_revocation() {
         let dir = temp_dir("lease-walk");
         let data_dir = dir.to_str().unwrap();
@@ -2858,6 +5099,13 @@ mod participation_tests {
         let now = "2026-02-02T00:00:00Z";
         let final_lease = build_lease(&prior, &params, "rpl_d4", "receipt://rlr_d4", now);
         persist_atomic(data_dir, LEASE_DIR, "rpl_d4", &final_lease).unwrap();
+        rooms::bind_room_backlink(
+            data_dir,
+            "outcome-room://or_d4",
+            "participant_lease_bound",
+            "participant-lease://rpl_d4",
+        )
+        .unwrap();
         // suspend → resume → revoke, each optimistically concurrent and receipted.
         let (l1, r1) = transition_record(
             data_dir,
@@ -2962,7 +5210,7 @@ mod participation_tests {
     }
 
     #[test]
-    fn lease_transition_intent_replays_byte_exact_and_refuses_forgery() {
+    fn lease_transition_intent_is_quarantined_without_replayable_authority() {
         let dir = temp_dir("lease-replay");
         let data_dir = dir.to_str().unwrap();
         plant_room(data_dir, "or_e5");
@@ -3017,71 +5265,137 @@ mod participation_tests {
             "at": "2026-02-03T00:00:00Z",
         }));
         persist_atomic(data_dir, LEASE_DIR, "rpl_e5", &carrying).unwrap();
-        complete_participation_intents(data_dir);
-        let converged = load_lease(data_dir, "rpl_e5").unwrap();
-        assert_eq!(
-            converged["status"],
-            json!("suspended"),
-            "the completer applied the sealed transition"
-        );
-        assert!(
-            converged.get("transition_intent").is_none(),
-            "intent consumed"
-        );
-        assert!(
-            std::fs::read(dir.join(RECEIPT_DIR).join("rlt_e5.json")).is_ok(),
-            "the sealed receipt is durable"
-        );
-        // FORGERY: a lying final_record (status jumped to revoked) with fixed seals is refused.
-        let mut lying = converged.clone();
-        let bad_final = {
-            let mut b = apply_transition(
-                &converged,
-                "transition_intent",
-                "suspend",
-                "suspended",
-                &json!("receipt://rlt_e6"),
-                &json!("2026-02-04T00:00:00Z"),
-                false,
-            );
-            b.as_object_mut()
-                .unwrap()
-                .insert("status".into(), json!("revoked"));
-            b
-        };
-        let bad_receipt = build_decision_receipt(
-            "rlt_e6",
-            "RoomParticipationDecisionReceipt",
-            "participant-lease://rpl_e5",
-            "suspend",
-            json!({ "transition": "suspend", "from": "suspended", "to": "suspended", "revision_before": 2, "revision_after": 3, "outcome_room_ref": "outcome-room://or_e5" }),
-            vec![
-                json!("participant-lease://rpl_e5"),
-                json!("outcome-room://or_e5"),
-            ],
-            record_output_hash(&bad_final, TRAIL_EXCLUDES),
-            TRAIL_EXCLUDES,
-            LEASE_TRANSITION_NOTE,
-            "2026-02-04T00:00:00Z",
-            &ta(),
-        );
-        lying.as_object_mut().unwrap().insert("transition_intent".into(), json!({
-            "op": "suspend", "final_record": bad_final, "final_record_hash": record_output_hash(&bad_final, &[]),
-            "receipt_id": "rlt_e6", "receipt": bad_receipt, "receipt_hash": record_output_hash(&bad_receipt, &[]),
-            "at": "2026-02-04T00:00:00Z",
-        }));
-        persist_atomic(data_dir, LEASE_DIR, "rpl_e5", &lying).unwrap();
+        let before = serde_json::to_vec(&carrying).unwrap();
         complete_participation_intents(data_dir);
         let after = load_lease(data_dir, "rpl_e5").unwrap();
+        assert_eq!(serde_json::to_vec(&after).unwrap(), before);
+        assert_eq!(s(&after, "status", ""), "active");
+        assert!(after.get("transition_intent").is_some());
+        assert!(!dir.join(RECEIPT_DIR).join("rlt_e5.json").exists());
+
+        // This intent is structurally canonical and would pass the old sealed-field replay
+        // validator. That is deliberately insufficient: `ta()` is not a re-verifiable signed
+        // grant bound to an expected participant/host identity, so production boot applies zero.
+        assert!(validate_transition_intent(
+            after.get("transition_intent").unwrap(),
+            &lease,
+            "rpl_e5",
+            "participant_lease_id",
+            "participant-lease://",
+            LEASE_TRANSITIONS,
+            "rlt",
+            LEASE_TRANSITION_NOTE,
+            is_canonical_lease_tail,
+        )
+        .is_ok());
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn already_terminal_lease_releases_in_one_boot_pass() {
+        let dir = temp_dir("one-boot-release");
+        let data_dir = dir.to_str().unwrap();
+        let lease = plant_bound_active_lease(data_dir, "or_e8", "rpr_e8", "rqr_e8", "rpl_e8");
+        let now = json!("2026-02-03T00:00:00Z");
+        let receipt_ref = json!("receipt://rlt_e8");
+        let updated = apply_transition(
+            &lease,
+            "transition_intent",
+            "revoke",
+            "revoked",
+            &receipt_ref,
+            &now,
+            true,
+        );
+        let receipt = build_decision_receipt(
+            "rlt_e8",
+            "RoomParticipationDecisionReceipt",
+            "participant-lease://rpl_e8",
+            "revoke",
+            json!({ "transition": "revoke", "from": "active", "to": "revoked", "revision_before": 1, "revision_after": 2, "outcome_room_ref": "outcome-room://or_e8" }),
+            vec![
+                json!("participant-lease://rpl_e8"),
+                json!("outcome-room://or_e8"),
+            ],
+            record_output_hash(&updated, TRAIL_EXCLUDES),
+            TRAIL_EXCLUDES,
+            LEASE_TRANSITION_NOTE,
+            "2026-02-03T00:00:00Z",
+            &ta(),
+        );
+        // Model the crash boundary AFTER the governed transition and its receipt are durable but
+        // BEFORE the non-decision room-release tail. Boot may finish release without replaying an
+        // untrusted decision intent.
+        persist_receipt(data_dir, "rlt_e8", &receipt).unwrap();
+        persist_atomic(data_dir, LEASE_DIR, "rpl_e8", &updated).unwrap();
+
+        complete_participation_intents(data_dir);
+
+        let terminal = load_lease(data_dir, "rpl_e8").unwrap();
+        assert_eq!(s(&terminal, "status", ""), "revoked");
+        assert!(terminal.get("transition_intent").is_none());
+        let room = rooms::resolve_open_room(data_dir, "outcome-room://or_e8").unwrap();
         assert!(
-            after.get("transition_intent").is_some(),
-            "the forged intent is retained for manual repair, never applied"
+            room["released_participant_lease_refs"]
+                .as_array()
+                .unwrap()
+                .contains(&json!("participant-lease://rpl_e8")),
+            "one boot pass releases an already-durable terminal lease"
         );
+        assert!(rooms::live_lease_refs(&room).is_empty());
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn terminal_release_failure_is_typed_pending_then_one_boot_converges() {
+        use std::os::unix::fs::symlink;
+
+        let dir = temp_dir("release-pending");
+        let data_dir = dir.to_str().unwrap();
+        plant_bound_active_lease(data_dir, "or_e9", "rpr_e9", "rqr_e9", "rpl_e9");
+        // Break only the room-receipt family after the lease has been bound. The terminal lease
+        // receipt/record can commit; the cross-plane release cannot, and must not return success.
+        let receipt_dir = dir.join("outcome-room-registry-receipts");
+        let receipt_backup = dir.join("outcome-room-registry-receipts-backup");
+        let decoy = dir.join("decoy-room-receipts");
+        std::fs::rename(&receipt_dir, &receipt_backup).unwrap();
+        std::fs::create_dir_all(&decoy).unwrap();
+        symlink(&decoy, &receipt_dir).unwrap();
+
+        let (code, _) = transition_record(
+            data_dir,
+            LEASE_DIR,
+            "rpl_e9",
+            &json!({ "expected_revision": 1 }),
+            "revoke",
+            &["active", "sleeping", "waiting", "suspended", "quarantined"],
+            "revoked",
+            "participant-lease://",
+            "rlt",
+            LEASE_TRANSITION_NOTE,
+            "participant_lease",
+            &ta(),
+        )
+        .unwrap_err();
+        assert_eq!(code, "participant_lease_release_pending_convergence");
         assert_eq!(
-            s(&after, "status", ""),
-            "suspended",
-            "the lying successor was refused"
+            s(&load_lease(data_dir, "rpl_e9").unwrap(), "status", ""),
+            "revoked",
+            "the lease transition is durable even though the compound operation is pending"
         );
+        let unreleased = rooms::resolve_open_room(data_dir, "outcome-room://or_e9").unwrap();
+        assert!(!rooms::live_lease_refs(&unreleased).is_empty());
+
+        std::fs::remove_file(&receipt_dir).unwrap();
+        std::fs::rename(&receipt_backup, &receipt_dir).unwrap();
+        complete_participation_intents(data_dir);
+
+        let released = rooms::resolve_open_room(data_dir, "outcome-room://or_e9").unwrap();
+        assert!(rooms::live_lease_refs(&released).is_empty());
+        assert!(released["released_participant_lease_refs"]
+            .as_array()
+            .unwrap()
+            .contains(&json!("participant-lease://rpl_e9")));
         let _ = std::fs::remove_dir_all(&dir);
     }
 
@@ -3261,8 +5575,25 @@ mod participation_tests {
                 "noncanonical {field} {val} must be refused"
             );
         }
-        // Admit params: home_domain_ref accepts the agentgres path form; ttl is a named gap.
+        // Admit params: home_domain_ref accepts ONLY the field-specific Agentgres domain path.
         assert!(validate_admit_params(&json!({ "admitted_role": "implementer", "operator_ref": "org://o", "home_domain_ref": "agentgres://domain/acme" })).is_ok());
+        for invalid in [
+            "agentgres://not-domain",
+            "agentgres://domain",
+            "agentgres://domain/",
+            "agentgres://artifact/x",
+        ] {
+            let (code, _) = validate_admit_params(&json!({
+                "admitted_role": "implementer",
+                "operator_ref": "org://o",
+                "home_domain_ref": invalid,
+            }))
+            .unwrap_err();
+            assert_eq!(
+                code, "room_participation_ref_scheme_invalid",
+                "non-domain Agentgres ref '{invalid}' must be refused"
+            );
+        }
         let (code, _) = validate_admit_params(&json!({ "admitted_role": "implementer", "operator_ref": "org://o", "home_domain_ref": "domain://d", "ttl_seconds": 3600 })).unwrap_err();
         assert_eq!(
             code, "participant_lease_ttl_unavailable",
@@ -3276,10 +5607,14 @@ mod participation_tests {
     }
 
     #[test]
-    fn decision_authority_gate_challenges_without_a_grant_and_binds_the_receipt() {
-        // #74 review finding 1: no grant → typed 403 challenge with the daemon-derived hashes and
-        // ZERO mutation. The policy/request hashes are deterministic and operation-bound.
+    fn decision_authority_requires_identity_binding_and_refuses_same_hash_foreign_signer() {
+        // #74 finding 1: production has no trusted domain/participant → wallet authority
+        // resolver, so even a real grant is typed-unavailable before mutation. The response still
+        // carries deterministic hashes for conformance diagnostics.
+        let dir = temp_dir("authority-binding");
+        let data_dir = dir.to_str().unwrap();
         let (status, body) = authorize_decision(
+            data_dir,
             &json!({}),
             Gov::Host,
             "outcome-room://or_z1",
@@ -3289,10 +5624,10 @@ mod participation_tests {
             1,
         )
         .unwrap_err();
-        assert_eq!(status, StatusCode::FORBIDDEN);
+        assert_eq!(status, StatusCode::NOT_IMPLEMENTED);
         assert_eq!(
             body.0["error"]["code"],
-            json!("room_participation_host_authority_required")
+            json!("room_participation_authority_binding_unavailable")
         );
         assert_eq!(
             body.0["error"]["required_authority_ref"],
@@ -3306,6 +5641,83 @@ mod participation_tests {
             .as_str()
             .unwrap()
             .starts_with("sha256:"));
+        let policy_hash = body.0["error"]["approval"]["policy_hash"]
+            .as_str()
+            .unwrap()
+            .to_string();
+        let request_hash = body.0["error"]["approval"]["request_hash"]
+            .as_str()
+            .unwrap()
+            .to_string();
+        let bound_grant = signed_grant(7, &policy_hash, &request_hash);
+        let foreign_grant = signed_grant(8, &policy_hash, &request_hash);
+        for grant in [&bound_grant, &foreign_grant] {
+            let (status, body) = authorize_decision(
+                data_dir,
+                &json!({ "wallet_approval_grant": grant }),
+                Gov::Host,
+                "outcome-room://or_z1",
+                "domain://acme-host",
+                "participation-request://rpr_z1",
+                "admit",
+                1,
+            )
+            .unwrap_err();
+            assert_eq!(status, StatusCode::NOT_IMPLEMENTED);
+            assert_eq!(
+                body.0["error"]["code"],
+                json!("room_participation_authority_binding_unavailable"),
+                "neither same-hash signer is accepted without a trusted identity binding"
+            );
+        }
+
+        // Exercise the ready cryptographic boundary against an explicitly RESOLVED expected id:
+        // the matching signer succeeds, while a different real signer carrying the SAME hashes
+        // is refused. This is the case the old verifier failed to cover.
+        let expected: [u8; 32] =
+            serde_json::from_value(bound_grant["authority_id"].clone()).unwrap();
+        assert!(authorize_decision_for_expected_authority(
+            &json!({ "wallet_approval_grant": bound_grant }),
+            Gov::Host,
+            "outcome-room://or_z1",
+            "domain://acme-host",
+            &expected,
+            "participation-request://rpr_z1",
+            "admit",
+            1,
+        )
+        .is_ok());
+        let (foreign_status, foreign_body) = authorize_decision_for_expected_authority(
+            &json!({ "wallet_approval_grant": foreign_grant.clone() }),
+            Gov::Host,
+            "outcome-room://or_z1",
+            "domain://acme-host",
+            &expected,
+            "participation-request://rpr_z1",
+            "admit",
+            1,
+        )
+        .unwrap_err();
+        assert_eq!(foreign_status, StatusCode::FORBIDDEN);
+        assert_eq!(
+            foreign_body.0["error"]["code"],
+            json!("room_participation_host_authority_required")
+        );
+        // Spoofing the expected authority_id onto the foreign key invalidates the grant's own
+        // signature/key binding and is also refused.
+        let mut spoofed = foreign_grant;
+        spoofed["authority_id"] = json!(expected);
+        assert!(authorize_decision_for_expected_authority(
+            &json!({ "wallet_approval_grant": spoofed }),
+            Gov::Host,
+            "outcome-room://or_z1",
+            "domain://acme-host",
+            &expected,
+            "participation-request://rpr_z1",
+            "admit",
+            1,
+        )
+        .is_err());
         // The request hash BINDS the revision — a grant for rev 1 cannot authorize rev 2 (replay).
         let rh1 = decision_request_hash(
             Gov::Host,
@@ -3366,6 +5778,7 @@ mod participation_tests {
         assert_eq!(r["policy_hash"], json!("sha256:testpolicyhash"));
         assert_eq!(r["input_hash"], json!("sha256:testrequesthash"));
         assert_eq!(r["schema_version"], json!(DECISION_RECEIPT_SCHEMA));
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]
