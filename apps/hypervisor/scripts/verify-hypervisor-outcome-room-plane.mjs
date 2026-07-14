@@ -711,6 +711,72 @@ async function run() {
     ok("ROOM-RECEIPT DURABILITY: plane started", false, "daemon did not start");
   }
 
+  // 11c. POST-BARRIER TARGET SWAP (#72 round 21 finding 1): a concurrent adversary replaces the
+  // canonical receipt name during the fsync window — the writer re-opens the target, compares
+  // device/inode against the committed descriptor, re-verifies bytes, and REFUSES a swap.
+  const rsw = await startIsolatedPlane({ serve: false, env: { IOI_TEST_FORCE_RECEIPT_TARGET_SWAP: "new" } });
+  if (rsw) {
+    try {
+      const swjd = async (method, p2, body) => { const r = await fetch(`${rsw.daemonUrl}${p2}`, { method, headers: { "content-type": "application/json" }, body: body ? JSON.stringify(body) : undefined }); return { status: r.status, j: await r.json().catch(() => ({})) }; };
+      const swCreate = await swjd("POST", "/v1/hypervisor/outcome-rooms", VALID_ROOM);
+      const swRooms = (await swjd("GET", "/v1/hypervisor/outcome-rooms")).j.outcome_rooms || [];
+      ok("POST-BARRIER SWAP: a receipt target replaced during the fsync window is REFUSED typed (device/inode + bytes re-verified) — the room is NOT admitted (#72 r21 finding 1)", swCreate.status >= 400 && swCreate.j.error?.code === "outcome_room_receipt_swapped" && swRooms.length === 0, `${swCreate.status}/${swCreate.j.error?.code || "ok"} rooms=${swRooms.length}`);
+      await rsw.stop();
+    } finally {
+      try { rmSync(rsw.dataDir, { recursive: true, force: true }); } catch { /* best effort */ }
+    }
+  } else {
+    ok("POST-BARRIER SWAP: plane started", false, "daemon did not start");
+  }
+
+  // 11d. PARENT-DURABILITY RETRY (#72 round 21 finding 2): a failed data_dir fsync leaves the
+  // family VISIBLE; the unconditional parent fsync must RE-RUN on replay (not skip because the
+  // directory exists). First admission refuses pending; a restart with the fault cleared admits.
+  const rpf = await startIsolatedPlane({ serve: false, env: { IOI_TEST_FORCE_PARENT_FSYNC_UNCONFIRMED: "outcome-room-registry-receipts" } });
+  if (rpf) {
+    try {
+      const pfjd = async (method, p2, body) => { const r = await fetch(`${rpf.daemonUrl}${p2}`, { method, headers: { "content-type": "application/json" }, body: body ? JSON.stringify(body) : undefined }); return { status: r.status, j: await r.json().catch(() => ({})) }; };
+      const pfCreate = await pfjd("POST", "/v1/hypervisor/outcome-rooms", VALID_ROOM);
+      const pfRooms = (await pfjd("GET", "/v1/hypervisor/outcome-rooms")).j.outcome_rooms || [];
+      const pfIntents = readdirSync(join(rpf.dataDir, "outcome-room-admission-intents"));
+      ok("PARENT-DURABILITY: a failed data_dir fsync refuses pending — room absent, intent retained (#72 r21 finding 2)", pfCreate.status >= 400 && pfCreate.j.error?.code === "outcome_room_admission_pending_convergence" && pfRooms.length === 0 && pfIntents.length === 1, `${pfCreate.status}/${pfCreate.j.error?.code || "ok"} rooms=${pfRooms.length} intents=${pfIntents.length}`);
+      process.kill(rpf.daemonPid, "SIGKILL");
+      const rpfRevived = await startIsolatedPlane({ serve: false, dataDir: rpf.dataDir });
+      const rpfjd = async (method, p2, body) => { const r = await fetch(`${rpfRevived.daemonUrl}${p2}`, { method, headers: { "content-type": "application/json" }, body: body ? JSON.stringify(body) : undefined }); return { status: r.status, j: await r.json().catch(() => ({})) }; };
+      const pfAfter = (await rpfjd("GET", "/v1/hypervisor/outcome-rooms")).j.outcome_rooms || [];
+      const pfIntentsAfter = readdirSync(join(rpf.dataDir, "outcome-room-admission-intents"));
+      ok("PARENT-DURABILITY: the parent fsync RE-RUNS on restart (not skipped on an existing family) and admits — intent consumed after durable evidence (#72 r21 finding 2)", pfAfter.length === 1 && pfAfter[0].status === "open" && pfIntentsAfter.length === 0, `rooms=${pfAfter.length} status=${pfAfter[0]?.status} intents=${pfIntentsAfter.length}`);
+      await rpfRevived.stop();
+    } finally {
+      try { rmSync(rpf.dataDir, { recursive: true, force: true }); } catch { /* best effort */ }
+    }
+  } else {
+    ok("PARENT-DURABILITY: plane started", false, "daemon did not start");
+  }
+
+  // 11e. REGISTRY-UNREADABLE (#72 round 21 finding 3): a directory-level exchange (the registry
+  // dir replaced by a symlink) is a TYPED 5xx, never a false-empty 200 registry.
+  const rud = await startIsolatedPlane({ serve: false });
+  if (rud) {
+    try {
+      const udjd = async (method, p2, body) => { const r = await fetch(`${rud.daemonUrl}${p2}`, { method, headers: { "content-type": "application/json" }, body: body ? JSON.stringify(body) : undefined }); return { status: r.status, j: await r.json().catch(() => ({})) }; };
+      await udjd("POST", "/v1/hypervisor/outcome-rooms", VALID_ROOM);
+      const udBefore = (await udjd("GET", "/v1/hypervisor/outcome-rooms")).j.outcome_rooms || [];
+      // Replace the registry directory with a symlink to a decoy (empty) directory.
+      mkdirSync(join(rud.dataDir, "decoy-registry"), { recursive: true });
+      rmSync(join(rud.dataDir, "outcome-room-registry"), { recursive: true, force: true });
+      symlinkSync(join(rud.dataDir, "decoy-registry"), join(rud.dataDir, "outcome-room-registry"));
+      const udList = await udjd("GET", "/v1/hypervisor/outcome-rooms");
+      const udOverview = await udjd("GET", "/v1/hypervisor/outcome-rooms/overview");
+      ok("REGISTRY-UNREADABLE: a registry directory swapped for a symlink is a TYPED 5xx (outcome_room_registry_unreadable), NEVER a false-empty 200 — list AND overview both refuse (#72 r21 finding 3)", udBefore.length === 1 && udList.status === 500 && udList.j.error?.code === "outcome_room_registry_unreadable" && udOverview.status === 500 && udOverview.j.error?.code === "outcome_room_registry_unreadable", `before=${udBefore.length} list=${udList.status}/${udList.j.error?.code || "ok"} overview=${udOverview.status}`);
+      await rud.stop();
+    } finally {
+      try { rmSync(rud.dataDir, { recursive: true, force: true }); } catch { /* best effort */ }
+    }
+  } else {
+    ok("REGISTRY-UNREADABLE: plane started", false, "daemon did not start");
+  }
+
   // 12. ROOM DURABILITY FAULT PLANE (#72 round 10 findings 1 + 3): every room mutation is an
   // intent transaction — pending records never read as admitted/open, transitions never advance
   // the visible status before their receipt is durable, and restart converges everything
