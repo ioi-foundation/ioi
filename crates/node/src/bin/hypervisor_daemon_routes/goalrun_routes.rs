@@ -52,81 +52,9 @@ pub(crate) static GOAL_RUN_MUTATION_LOCK: Mutex<()> = Mutex::new(());
 
 /// Distinct durable-persist failure OUTCOMES (#72 round 7 finding 1): the two failure classes
 /// have OPPOSITE truthful handling and must never be conflated.
-#[derive(Debug)]
-pub(crate) enum PersistFailure {
-    /// The failure happened before or at the rename: the OLD record provably survives, so
-    /// "nothing changed" cleanup/rollback language is truthful.
-    NotCommitted(std::io::Error),
-    /// The rename ALREADY replaced the old record in the live view; only the directory fsync
-    /// failed, so durability is unconfirmed — the new record is visible and may well be
-    /// durable. Callers must PRESERVE evidence and report unknown-but-possibly-applied; rolling
-    /// back "as absent" would be a lie.
-    RenamedDurabilityUnconfirmed(std::io::Error),
-}
-
-impl PersistFailure {
-    pub(crate) fn visible(&self) -> bool {
-        matches!(self, PersistFailure::RenamedDurabilityUnconfirmed(_))
-    }
-    pub(crate) fn detail(&self) -> String {
-        match self {
-            PersistFailure::NotCommitted(e) => format!("not committed ({e}); the prior record is intact"),
-            PersistFailure::RenamedDurabilityUnconfirmed(e) => format!("RENAMED but durability unconfirmed ({e}); the new record is VISIBLE and may already be durable"),
-        }
-    }
-}
-
-/// ATOMIC-DURABLE record persistence (#72 rounds 6 + 7 finding 1): temporary sibling → file
-/// fsync → rename → CHECKED directory fsync → cleanup. Failures before/at the rename return
-/// `NotCommitted` (old record intact); a post-rename directory-sync failure returns
-/// `RenamedDurabilityUnconfirmed` (new record visible, durability unknown) so callers can model
-/// the truth instead of pretending nothing happened. A NEWLY CREATED family directory is made
-/// durable by fsyncing its parent before any record lands inside it.
-pub(crate) fn persist_record_durable(data_dir: &str, family: &str, record_id: &str, record: &Value) -> Result<(), PersistFailure> {
-    use std::io::Write;
-    use PersistFailure::{NotCommitted, RenamedDurabilityUnconfirmed};
-    // Parity with persist_record (#72 round 3): promoted families have exactly one write path;
-    // not-yet-promoted families still feed the opt-in dual-write soak.
-    if super::substrate_store::is_promoted(family) {
-        return super::substrate_store::persist_promoted(data_dir, family, record_id, record).map_err(NotCommitted);
-    }
-    let dir = std::path::Path::new(data_dir).join(family);
-    let family_created = !dir.exists();
-    std::fs::create_dir_all(&dir).map_err(NotCommitted)?;
-    if family_created {
-        // A brand-new record family: fsync the data dir so the family directory itself
-        // survives a crash (#72 round 7 finding 1).
-        (|| -> std::io::Result<()> { std::fs::File::open(data_dir)?.sync_all() })().map_err(NotCommitted)?;
-    }
-    let safe: String = record_id.replace(|c: char| !c.is_ascii_alphanumeric() && c != '-' && c != '_', "_");
-    let tmp = dir.join(format!(".{safe}.tmp-{:x}", nanos()));
-    let write = (|| -> std::io::Result<()> {
-        let mut f = std::fs::File::create(&tmp)?;
-        f.write_all(&serde_json::to_vec_pretty(record).unwrap_or_default())?;
-        f.sync_all()
-    })();
-    if let Err(e) = write {
-        let _ = std::fs::remove_file(&tmp);
-        return Err(NotCommitted(e));
-    }
-    if let Err(e) = std::fs::rename(&tmp, dir.join(format!("{safe}.json"))) {
-        let _ = std::fs::remove_file(&tmp);
-        return Err(NotCommitted(e));
-    }
-    // The record is VISIBLE from here — dual-write parity fires on visibility.
-    super::substrate_store::dual_write(data_dir, family, record_id, record);
-    // DELIBERATE TEST FAULT POINT (#72 round 8 finding 1): absent env = no effect. A real
-    // directory-fsync failure cannot be injected by permissions on a read-then-write seam (the
-    // dir listing and the fsync open need the same read bit), so the visible-unconfirmed lane
-    // is forced here for the fault verifiers — the rename has genuinely happened.
-    if std::env::var("IOI_TEST_FORCE_DIRSYNC_UNCONFIRMED").ok().as_deref() == Some(family) {
-        return Err(RenamedDurabilityUnconfirmed(std::io::Error::other("test-forced directory-sync failure")));
-    }
-    if let Err(e) = (|| -> std::io::Result<()> { std::fs::File::open(&dir)?.sync_all() })() {
-        return Err(RenamedDurabilityUnconfirmed(e));
-    }
-    Ok(())
-}
+// The typed atomic-replacement writer and its outcome now live in the SHARED durable-fs
+// core (#73) — extracted verbatim from this plane (#72 rounds 6-8).
+use super::durable_fs::{persist_record_durable, PersistFailure};
 
 /// ATOMIC-DURABLE replacement for the mutable goal-run record — the durable helper over the
 /// goal-run family (reservations, recovery intents, and releases order-depend on durability).
@@ -134,169 +62,9 @@ fn persist_goal_run_atomic(data_dir: &str, goal_run_id: &str, record: &Value) ->
     persist_record_durable(data_dir, GOAL_RUN_KIND, goal_run_id, record)
 }
 
-/// Descriptor-relative, symlink-refusing filesystem walks (#72 round 6 finding 3): every
-/// component is opened O_NOFOLLOW relative to the previously PINNED directory fd
-/// (openat/mkdirat/renameat), so a concurrent path or ancestor swap cannot redirect a read or a
-/// write after validation — the enforcement IS the open, not a check before it. A symlink
-/// anywhere in the walk fails with ELOOP/ENOTDIR at use time.
-mod nofollow {
-    use std::ffi::CString;
-    use std::os::unix::ffi::OsStrExt;
-    use std::os::unix::io::{AsRawFd, FromRawFd};
-
-    fn cstr(name: &std::ffi::OsStr) -> std::io::Result<CString> {
-        CString::new(name.as_bytes())
-            .map_err(|_| std::io::Error::new(std::io::ErrorKind::InvalidInput, "NUL in path component"))
-    }
-
-    /// Pin the walk ROOT itself: must be a directory, terminal symlink refused.
-    pub(super) fn open_root(path: &std::path::Path) -> std::io::Result<std::fs::File> {
-        use std::os::unix::fs::OpenOptionsExt;
-        std::fs::OpenOptions::new()
-            .read(true)
-            .custom_flags(libc::O_DIRECTORY | libc::O_NOFOLLOW | libc::O_CLOEXEC)
-            .open(path)
-    }
-
-    pub(super) fn open_dir_at(parent: &std::fs::File, name: &std::ffi::OsStr) -> std::io::Result<std::fs::File> {
-        let c = cstr(name)?;
-        let fd = unsafe {
-            libc::openat(parent.as_raw_fd(), c.as_ptr(), libc::O_RDONLY | libc::O_DIRECTORY | libc::O_NOFOLLOW | libc::O_CLOEXEC)
-        };
-        if fd < 0 {
-            return Err(std::io::Error::last_os_error());
-        }
-        Ok(unsafe { std::fs::File::from_raw_fd(fd) })
-    }
-
-    /// mkdirat; returns whether the directory was CREATED by this call (EEXIST = false).
-    pub(super) fn mkdir_at(parent: &std::fs::File, name: &std::ffi::OsStr) -> std::io::Result<bool> {
-        let c = cstr(name)?;
-        let rc = unsafe { libc::mkdirat(parent.as_raw_fd(), c.as_ptr(), 0o755) };
-        if rc != 0 {
-            let e = std::io::Error::last_os_error();
-            if e.raw_os_error() != Some(libc::EEXIST) {
-                return Err(e);
-            }
-            return Ok(false);
-        }
-        Ok(true)
-    }
-
-    /// O_NONBLOCK is deliberate (#72 round 7 finding 4): opening a FIFO must never block the
-    /// daemon; the regular-file check below then refuses it typed.
-    pub(super) fn open_file_at(parent: &std::fs::File, name: &std::ffi::OsStr) -> std::io::Result<std::fs::File> {
-        let c = cstr(name)?;
-        let fd = unsafe {
-            libc::openat(
-                parent.as_raw_fd(),
-                c.as_ptr(),
-                libc::O_RDONLY | libc::O_NOFOLLOW | libc::O_NONBLOCK | libc::O_CLOEXEC,
-            )
-        };
-        if fd < 0 {
-            return Err(std::io::Error::last_os_error());
-        }
-        Ok(unsafe { std::fs::File::from_raw_fd(fd) })
-    }
-
-    pub(super) fn create_file_at(parent: &std::fs::File, name: &std::ffi::OsStr) -> std::io::Result<std::fs::File> {
-        let c = cstr(name)?;
-        let fd = unsafe {
-            libc::openat(
-                parent.as_raw_fd(),
-                c.as_ptr(),
-                libc::O_WRONLY | libc::O_CREAT | libc::O_EXCL | libc::O_NOFOLLOW | libc::O_CLOEXEC,
-                0o644 as libc::c_uint,
-            )
-        };
-        if fd < 0 {
-            return Err(std::io::Error::last_os_error());
-        }
-        Ok(unsafe { std::fs::File::from_raw_fd(fd) })
-    }
-
-    pub(super) fn rename_at(parent: &std::fs::File, from: &std::ffi::OsStr, to: &std::ffi::OsStr) -> std::io::Result<()> {
-        let cf = cstr(from)?;
-        let ct = cstr(to)?;
-        let rc = unsafe { libc::renameat(parent.as_raw_fd(), cf.as_ptr(), parent.as_raw_fd(), ct.as_ptr()) };
-        if rc != 0 {
-            return Err(std::io::Error::last_os_error());
-        }
-        Ok(())
-    }
-
-    pub(super) fn unlink_at(parent: &std::fs::File, name: &std::ffi::OsStr) {
-        if let Ok(c) = cstr(name) {
-            unsafe { libc::unlinkat(parent.as_raw_fd(), c.as_ptr(), 0) };
-        }
-    }
-
-    /// Walk (and in `create` mode, mkdirat) each PARENT component of `rel` under `root`,
-    /// returning the pinned parent directory fd. A directory CREATED here is made durable by a
-    /// checked fsync of the directory that received the new entry (#72 round 7 finding 1).
-    pub(super) fn pin_parent(root: &std::fs::File, rel: &std::path::Path, create: bool) -> std::io::Result<std::fs::File> {
-        let mut cur = root.try_clone()?;
-        if let Some(parent) = rel.parent() {
-            for comp in parent.components() {
-                if let std::path::Component::Normal(seg) = comp {
-                    if create && mkdir_at(&cur, seg)? {
-                        cur.sync_all()?;
-                    }
-                    cur = open_dir_at(&cur, seg)?;
-                }
-            }
-        }
-        Ok(cur)
-    }
-
-    /// A bounded-intake read refusal (#72 round 7 finding 4) — each shape is typed distinctly.
-    #[derive(Debug)]
-    pub(super) enum ReadRefusal {
-        /// Symlink / non-directory component at use time — a containment escape.
-        Escape(std::io::Error),
-        /// The declared output is not a regular file (FIFO, device, socket, directory).
-        NotRegular(String),
-        /// The file exceeds the per-file or remaining per-attempt byte budget.
-        TooLarge(u64),
-        Io(std::io::Error),
-    }
-
-    /// Read a workspace file ENTIRELY through pinned descriptors (root fd → NOFOLLOW component
-    /// walk → NOFOLLOW|NONBLOCK file open) with fstat-enforced bounds: only REGULAR files, only
-    /// up to `max_bytes` — a FIFO can never block the daemon and a huge file can never exhaust
-    /// its memory. No path is re-resolved between validation and read.
-    pub(super) fn read_contained(root: &std::fs::File, rel: &std::path::Path, max_bytes: u64) -> Result<Vec<u8>, ReadRefusal> {
-        use std::io::Read;
-        let classify = |e: std::io::Error| -> ReadRefusal {
-            if matches!(e.raw_os_error(), Some(libc::ELOOP) | Some(libc::ENOTDIR)) {
-                ReadRefusal::Escape(e)
-            } else {
-                ReadRefusal::Io(e)
-            }
-        };
-        let parent = pin_parent(root, rel, false).map_err(&classify)?;
-        let name = rel
-            .file_name()
-            .ok_or_else(|| ReadRefusal::Io(std::io::Error::new(std::io::ErrorKind::InvalidInput, "no file name")))?;
-        let f = open_file_at(&parent, name).map_err(&classify)?;
-        let md = f.metadata().map_err(ReadRefusal::Io)?;
-        if !md.file_type().is_file() {
-            return Err(ReadRefusal::NotRegular(format!("{:?}", md.file_type())));
-        }
-        if md.len() > max_bytes {
-            return Err(ReadRefusal::TooLarge(md.len()));
-        }
-        let mut bytes = Vec::with_capacity(md.len() as usize);
-        let mut bounded = f.take(max_bytes + 1);
-        bounded.read_to_end(&mut bytes).map_err(ReadRefusal::Io)?;
-        if bytes.len() as u64 > max_bytes {
-            // The file grew between fstat and read — still refused, never swallowed.
-            return Err(ReadRefusal::TooLarge(bytes.len() as u64));
-        }
-        Ok(bytes)
-    }
-}
+// Descriptor-relative, symlink-refusing filesystem walks now live in the SHARED durable-fs
+// core (#73) — extracted verbatim from this plane's `nofollow` module (#72 rounds 6-7).
+use super::durable_fs as nofollow_fs;
 
 /// A typed seam refusal: (code, message). Codes are wire-facing.
 pub(crate) type SeamErr = (String, String);
@@ -622,7 +390,7 @@ enum CommitFailure {
 fn commit_one(staged: &std::path::Path, target_root: &std::fs::File, rel: &std::path::Path) -> Result<(u64, String), CommitFailure> {
     use std::io::Write;
     use CommitFailure::NotApplied;
-    let parent = nofollow::pin_parent(target_root, rel, true)
+    let parent = nofollow_fs::pin_parent(target_root, rel, true)
         .map_err(|e| NotApplied(format!("'{}': pinned parent walk refused ({e}) — a symlinked or swapped ancestor never redirects a write", rel.display())))?;
     let file_name = rel
         .file_name()
@@ -631,16 +399,16 @@ fn commit_one(staged: &std::path::Path, target_root: &std::fs::File, rel: &std::
     let sha = sha256_hex(&bytes);
     let tmp_name = std::ffi::OsString::from(format!(".{}.wal-tmp-{:x}", file_name.to_string_lossy(), nanos()));
     let write_result = (|| -> std::io::Result<()> {
-        let mut f = nofollow::create_file_at(&parent, &tmp_name)?;
+        let mut f = nofollow_fs::create_file_at(&parent, &tmp_name)?;
         f.write_all(&bytes)?;
         f.sync_all()
     })();
     if let Err(e) = write_result {
-        nofollow::unlink_at(&parent, &tmp_name);
+        let _ = nofollow_fs::unlink_at(&parent, &tmp_name);
         return Err(NotApplied(format!("temporary write failed ({e})")));
     }
-    if let Err(e) = nofollow::rename_at(&parent, &tmp_name, file_name) {
-        nofollow::unlink_at(&parent, &tmp_name);
+    if let Err(e) = nofollow_fs::rename_at(&parent, &tmp_name, file_name) {
+        let _ = nofollow_fs::unlink_at(&parent, &tmp_name);
         return Err(NotApplied(format!("atomic rename failed ({e})")));
     }
     if let Err(e) = parent.sync_all() {
@@ -2010,7 +1778,7 @@ pub(crate) async fn handle_goal_run_reconcile(
     } else {
         match std::path::Path::new(&target_workspace)
             .canonicalize()
-            .and_then(|p| nofollow::open_root(&p).map(|fd| (p, fd)))
+            .and_then(|p| nofollow_fs::open_dir_pinned(&p).map(|fd| (p, fd)))
         {
             // The target root fd is PINNED here (#72 round 6 finding 3): every commit descends
             // from this descriptor, so a later swap of the root path cannot redirect writes.
@@ -2050,7 +1818,7 @@ pub(crate) async fn handle_goal_run_reconcile(
         // The candidate root is PINNED once; every source byte is read through NOFOLLOW
         // descriptor walks from it (#72 round 6 finding 3) — validation and read are the SAME
         // syscall, so no swap window exists between them.
-        let candidate_root = nofollow::open_root(std::path::Path::new(candidate_workspace)).ok();
+        let candidate_root = nofollow_fs::open_dir_pinned(std::path::Path::new(candidate_workspace)).ok();
         for file in changed_of(invocation) {
             let rel = match contained_rel_path(&file) {
                 Ok(rel) => rel,
@@ -2073,22 +1841,22 @@ pub(crate) async fn handle_goal_run_reconcile(
             };
             let remaining = MAX_ATTEMPT_TOTAL_BYTES.saturating_sub(total_bytes);
             let budget = MAX_OUTPUT_FILE_BYTES.min(remaining);
-            let bytes = match nofollow::read_contained(candidate_root, &rel, budget) {
+            let bytes = match nofollow_fs::read_contained(candidate_root, &rel, budget) {
                 Ok(bytes) => bytes,
-                Err(nofollow::ReadRefusal::Escape(e)) => {
+                Err(nofollow_fs::ReadRefusal::Escape(e)) => {
                     escape_errors.push(format!("candidate: '{}' walks through a symlink/non-directory component ({e}) — descriptor-relative reads never follow it", rel.display()));
                     continue;
                 }
-                Err(nofollow::ReadRefusal::NotRegular(kind)) => {
+                Err(nofollow_fs::ReadRefusal::NotRegular(kind)) => {
                     bound_errors.push(("goal_run_output_file_not_regular", format!("'{}' is not a regular file ({kind}) — FIFOs, devices, and sockets never enter an output commit", rel.display())));
                     continue;
                 }
-                Err(nofollow::ReadRefusal::TooLarge(size)) => {
+                Err(nofollow_fs::ReadRefusal::TooLarge(size)) => {
                     let code = if size > MAX_OUTPUT_FILE_BYTES { "goal_run_output_file_too_large" } else { "goal_run_output_attempt_too_large" };
                     bound_errors.push((code, format!("'{}' ({size} bytes) exceeds the byte budget (file limit {MAX_OUTPUT_FILE_BYTES}, attempt limit {MAX_ATTEMPT_TOTAL_BYTES})", rel.display())));
                     continue;
                 }
-                Err(nofollow::ReadRefusal::Io(e)) => {
+                Err(nofollow_fs::ReadRefusal::Io(e)) => {
                     staging_errors.push(format!("{file}: candidate source read failed ({e})"));
                     continue;
                 }
@@ -3211,7 +2979,7 @@ mod goal_run_seam_tests {
         std::fs::create_dir_all(&outside).unwrap();
         let staged = dir.join("staged.txt");
         std::fs::write(&staged, b"FULL_CONTENT").unwrap();
-        let root_fd = nofollow::open_root(&root).unwrap();
+        let root_fd = nofollow_fs::open_dir_pinned(&root).unwrap();
         // Happy path: full content lands, the applied hash is the content hash, no tmp survives.
         let (bytes, sha) = commit_one(&staged, &root_fd, std::path::Path::new("deep/out.txt")).unwrap();
         assert_eq!(bytes, 12);
@@ -3275,11 +3043,11 @@ mod goal_run_seam_tests {
         std::fs::write(root.join("real/inside.txt"), b"INSIDE").unwrap();
         std::fs::write(outside.join("loot.txt"), b"LOOT").unwrap();
         std::os::unix::fs::symlink(&outside, root.join("link")).unwrap();
-        let root_fd = nofollow::open_root(&root).unwrap();
+        let root_fd = nofollow_fs::open_dir_pinned(&root).unwrap();
         // Reads: a symlink component refuses at USE time; a legitimate path reads fine.
-        assert_eq!(nofollow::read_contained(&root_fd, std::path::Path::new("real/inside.txt"), 1 << 20).unwrap(), b"INSIDE");
-        let err = nofollow::read_contained(&root_fd, std::path::Path::new("link/loot.txt"), 1 << 20).unwrap_err();
-        assert!(matches!(err, nofollow::ReadRefusal::Escape(_)), "{err:?}");
+        assert_eq!(nofollow_fs::read_contained(&root_fd, std::path::Path::new("real/inside.txt"), 1 << 20).unwrap(), b"INSIDE");
+        let err = nofollow_fs::read_contained(&root_fd, std::path::Path::new("link/loot.txt"), 1 << 20).unwrap_err();
+        assert!(matches!(err, nofollow_fs::ReadRefusal::Escape(_)), "{err:?}");
         // SWAP LANE (source/target parent swap): pin the root fd, then swap the root path to a
         // symlink pointing outside — the pinned fd still resolves to the ORIGINAL directory.
         let staged = dir.join("staged.txt");
@@ -3322,18 +3090,18 @@ mod goal_run_seam_tests {
         let dir = temp_dir("bounded");
         let root = dir.join("root");
         std::fs::create_dir_all(&root).unwrap();
-        let root_fd = nofollow::open_root(&root).unwrap();
+        let root_fd = nofollow_fs::open_dir_pinned(&root).unwrap();
         // FIFO
         let fifo = std::ffi::CString::new(root.join("pipe").to_str().unwrap()).unwrap();
         assert_eq!(unsafe { libc::mkfifo(fifo.as_ptr(), 0o644) }, 0, "mkfifo failed");
-        let err = nofollow::read_contained(&root_fd, std::path::Path::new("pipe"), 1 << 20).unwrap_err();
-        assert!(matches!(err, nofollow::ReadRefusal::NotRegular(_)), "{err:?}");
+        let err = nofollow_fs::read_contained(&root_fd, std::path::Path::new("pipe"), 1 << 20).unwrap_err();
+        assert!(matches!(err, nofollow_fs::ReadRefusal::NotRegular(_)), "{err:?}");
         // Oversize regular file
         std::fs::write(root.join("big.bin"), vec![0u8; 4096]).unwrap();
-        let err = nofollow::read_contained(&root_fd, std::path::Path::new("big.bin"), 1024).unwrap_err();
-        assert!(matches!(err, nofollow::ReadRefusal::TooLarge(4096)), "{err:?}");
+        let err = nofollow_fs::read_contained(&root_fd, std::path::Path::new("big.bin"), 1024).unwrap_err();
+        assert!(matches!(err, nofollow_fs::ReadRefusal::TooLarge(4096)), "{err:?}");
         // A within-budget regular file reads fine.
-        assert_eq!(nofollow::read_contained(&root_fd, std::path::Path::new("big.bin"), 8192).unwrap().len(), 4096);
+        assert_eq!(nofollow_fs::read_contained(&root_fd, std::path::Path::new("big.bin"), 8192).unwrap().len(), 4096);
         let _ = std::fs::remove_dir_all(&dir);
     }
 
