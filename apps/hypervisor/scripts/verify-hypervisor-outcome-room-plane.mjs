@@ -701,7 +701,8 @@ async function run() {
       const rcjd = async (method, p2, body) => { const r = await fetch(`${rcRevived.daemonUrl}${p2}`, { method, headers: { "content-type": "application/json" }, body: body ? JSON.stringify(body) : undefined }); return { status: r.status, j: await r.json().catch(() => ({})) }; };
       const cListAfter = (await rcjd("GET", "/v1/hypervisor/outcome-rooms")).j.outcome_rooms || [];
       const cIntentsAfter = readdirSync(join(rc.dataDir, "outcome-room-admission-intents"));
-      ok("ROOM-RECEIPT DURABILITY: restart re-fsyncs the byte-identical receipt and ONLY THEN admits — the intent is consumed after durable evidence (#72 r19 finding 2)", cListAfter.length === 1 && cListAfter[0].status === "open" && cIntentsAfter.length === 0, `rooms=${cListAfter.length} status=${cListAfter[0]?.status} intents=${cIntentsAfter.length}`);
+      const cResidue = readdirSync(join(rc.dataDir, "outcome-room-registry-receipts")).some((n) => n.startsWith(".") || n.includes(".nc-") || n.includes(".tmp"));
+      ok("ROOM-RECEIPT DURABILITY: restart re-fsyncs the byte-identical receipt and ONLY THEN admits — the intent is consumed after durable evidence, ZERO temp residue (#72 r19 finding 2, r20 finding 3)", cListAfter.length === 1 && cListAfter[0].status === "open" && cIntentsAfter.length === 0 && !cResidue, `rooms=${cListAfter.length} status=${cListAfter[0]?.status} intents=${cIntentsAfter.length} residue=${cResidue}`);
       await rcRevived.stop();
     } finally {
       try { rmSync(rc.dataDir, { recursive: true, force: true }); } catch { /* best effort */ }
@@ -867,6 +868,11 @@ async function run() {
       const urReceiptTail = urRoom.admission_receipt_ref.replace("receipt://", "");
       try { rmSync(join(rp.dataDir, "outcome-room-registry", `${urTail}.json`)); } catch {}
       chmodSync(join(rp.dataDir, "outcome-room-registry-receipts", `${urReceiptTail}.json`), 0o000);
+      // (q) SCANNER SYMLINK SWAP (#72 r20 finding 2): a symlink named like a canonical room,
+      // pointing at forged EXTERNAL content, must never be read-through by the list/replay
+      // scanner (openat O_NOFOLLOW relative to the pinned dir refuses it).
+      writeFileSync(join(rp.dataDir, "EXTERNAL_FORGED.json"), JSON.stringify({ outcome_room_id: "outcome-room://or_sym0", status: "open", forged: "EXTERNAL", schema_version: "ioi.hypervisor.outcome-room.v1", revision: 1, member_goal_run_refs: [], status_history: [], admission_and_replay_refs: [], created_at: "2026-01-01T00:00:00Z", updated_at: "2026-01-01T00:00:00Z" }));
+      symlinkSync(join(rp.dataDir, "EXTERNAL_FORGED.json"), join(rp.dataDir, "outcome-room-registry", "or_sym0.json"));
       // RESTART with the fault cleared: convergence + non-overwrite.
       process.kill(rp.daemonPid, "SIGKILL");
       const rpRevived = await startIsolatedPlane({ serve: false, dataDir: rp.dataDir });
@@ -943,6 +949,18 @@ async function run() {
       const urIntentRetained = existsSync(join(rp.dataDir, "outcome-room-admission-intents", `${urTail}.json`));
       ok("ROOM FAULT restart: an UNREADABLE (mode 000) receipt slot BLOCKS admission — the completer refuses (only ENOENT means empty), the room is NOT admitted, the intent stays (#72 r19 finding 3)", !urAdmitted && urIntentRetained && urSlotType.size > 0, `admitted=${urAdmitted} intent=${urIntentRetained} occupantBytes=${urSlotType.size}`);
       chmodSync(join(rp.dataDir, "outcome-room-registry-receipts", `${urReceiptTail}.json`), 0o644);
+      // SCANNER SYMLINK SWAP (#72 r20 finding 2): the symlinked forged room is invisible.
+      const symListed = afterRooms.some((r) => r.outcome_room_id === "outcome-room://or_sym0" || r.forged === "EXTERNAL");
+      const symGet = await rpjd("GET", "/v1/hypervisor/outcome-rooms/or_sym0");
+      ok("ROOM FAULT restart: a symlink named like a canonical room (→ forged external content) is NEVER read-through by the list/replay scanner — unlisted, 404 (#72 r20 finding 2)", !symListed && symGet.status === 404, `listed=${symListed} get=${symGet.status}`);
+      // DESCRIPTOR-BOUND RECEIPT + ZERO RESIDUE (#72 r20 findings 1+3): the committed receipt for
+      // the admitted room is exactly its sealed bytes, and NO temp residue exists anywhere.
+      const rcptDirEntries = readdirSync(join(rp.dataDir, "outcome-room-registry-receipts"));
+      const noResidue = !rcptDirEntries.some((n) => n.startsWith(".") || n.includes(".nc-") || n.includes(".tmp"));
+      const admittedTail = String(admitted?.outcome_room_id || "").replace("outcome-room://", "");
+      const admittedReceiptTail = String(admitted?.admission_receipt_ref || "").replace("receipt://", "");
+      const committedReceipt = admittedReceiptTail ? JSON.parse(readFileSync(join(rp.dataDir, "outcome-room-registry-receipts", `${admittedReceiptTail}.json`), "utf8")) : {};
+      ok("ROOM FAULT restart: the admitted room's receipt is DESCRIPTOR-BOUND (subject binds the room, no forged bytes) with ZERO temp residue in the receipt directory (#72 r20 findings 1+3)", noResidue && committedReceipt.subject_ref === `outcome-room://${admittedTail}` && committedReceipt.forged === undefined, `residue=${!noResidue} subject=${committedReceipt.subject_ref}`);
       await rpRevived.stop();
     } finally {
       try { rmSync(rp.dataDir, { recursive: true, force: true }); } catch { /* best effort */ }
