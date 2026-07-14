@@ -269,19 +269,20 @@ pub(crate) fn pin_parent(
     rel: &std::path::Path,
     create: bool,
 ) -> std::io::Result<std::fs::File> {
+    // Validate the COMPLETE relative path — every parent component AND the terminal — BEFORE
+    // creating anything (#73 review rounds 1+2): a noncanonical component (`..`, a root, `.`)
+    // anywhere in `rel` is REFUSED with ZERO mutation. Validating only `rel.parent()` would let
+    // `a/..` validate-and-create `a` and then "succeed" without its terminal ever being checked.
+    for comp in rel.components() {
+        if !matches!(comp, std::path::Component::Normal(_)) {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                format!("noncanonical path component {comp:?} — refused"),
+            ));
+        }
+    }
     let mut cur = root.try_clone()?;
     if let Some(parent) = rel.parent() {
-        // Validate the ENTIRE walk BEFORE creating anything (#73 review finding 1): a
-        // noncanonical relative path (`..`, a root, `.`) is REFUSED with zero mutation, never
-        // silently skipped and never after a partial mkdir — the walk only ever descends.
-        for comp in parent.components() {
-            if !matches!(comp, std::path::Component::Normal(_)) {
-                return Err(std::io::Error::new(
-                    std::io::ErrorKind::InvalidInput,
-                    format!("noncanonical path component {comp:?} — refused"),
-                ));
-            }
-        }
         for comp in parent.components() {
             if let std::path::Component::Normal(seg) = comp {
                 if create && mkdir_at(&cur, seg)? {
@@ -574,15 +575,10 @@ pub(crate) fn persist_record_durable(
 ) -> Result<(), PersistFailure> {
     use std::io::Write;
     use PersistFailure::{NotCommitted, RenamedDurabilityUnconfirmed};
-    // Parity with persist_record (#72 round 3): promoted families have exactly one write path;
-    // not-yet-promoted families still feed the opt-in dual-write soak.
-    if super::substrate_store::is_promoted(family) {
-        return super::substrate_store::persist_promoted(data_dir, family, record_id, record)
-            .map_err(NotCommitted);
-    }
-    // Containment inside the shared boundary (#73 review finding 1): the family must be a
-    // single non-traversing component, and an unsafe record id is REJECTED — normalizing it
-    // would let two DISTINCT ids silently collide on one file.
+    // Containment inside the shared boundary (#73 review rounds 1+2), BEFORE any backend
+    // delegation — the refusal is uniform, never backend-dependent: the family must be a single
+    // non-traversing component, and an unsafe record id is REJECTED — normalizing it would let
+    // two DISTINCT ids silently collide on one file.
     if !is_single_component(std::ffi::OsStr::new(family)) {
         return Err(NotCommitted(std::io::Error::new(
             std::io::ErrorKind::InvalidInput,
@@ -591,6 +587,12 @@ pub(crate) fn persist_record_durable(
     }
     if !is_normalization_safe(record_id) {
         return Err(NotCommitted(std::io::Error::new(std::io::ErrorKind::InvalidInput, format!("record id '{record_id}' is not filesystem-safe (would normalize to a different key) — refused, never normalized"))));
+    }
+    // Parity with persist_record (#72 round 3): promoted families have exactly one write path;
+    // not-yet-promoted families still feed the opt-in dual-write soak.
+    if super::substrate_store::is_promoted(family) {
+        return super::substrate_store::persist_promoted(data_dir, family, record_id, record)
+            .map_err(NotCommitted);
     }
     let dir = std::path::Path::new(data_dir).join(family);
     let family_created = !dir.exists();
@@ -886,11 +888,40 @@ mod durable_fs_tests {
         assert!(read_slot_strict(&pinned, "../escape.json").is_err());
         assert!(unlink_at(&pinned, "..").is_err());
         assert!(open_file_at(&pinned, "a/b.json").is_err());
+        // (c) noncanonical relative paths are REFUSED by the walk, not silently skipped —
+        // INCLUDING a noncanonical TERMINAL (#73 round 2): `a/..` must not validate-and-create
+        // `a` and then "succeed" because only the parent was checked.
+        assert!(pin_parent(&pinned, std::path::Path::new("a/.."), true).is_err());
+        assert!(
+            !fam.join("a").exists(),
+            "pin_parent('a/..') refused with ZERO mutation — no partial mkdir"
+        );
         // (c) noncanonical relative paths are REFUSED by the walk, not silently skipped.
         assert!(pin_parent(&pinned, std::path::Path::new("a/../b/file.txt"), true).is_err());
         assert!(
             std::fs::read_dir(&fam).unwrap().next().is_none(),
             "the refused walk created nothing"
+        );
+        // (c2) validation precedes PROMOTED-family delegation (#73 round 2): an unsafe id on a
+        // promoted family is refused by the SHARED boundary itself, uniformly — never handed to
+        // a backend to decide.
+        assert!(
+            super::super::substrate_store::is_promoted("provider-receipts"),
+            "precondition: the promoted domain"
+        );
+        let err =
+            persist_record_durable(data_dir, "provider-receipts", "a/b", &json!({})).unwrap_err();
+        match err {
+            PersistFailure::NotCommitted(e) => assert_eq!(
+                e.kind(),
+                std::io::ErrorKind::InvalidInput,
+                "uniform pre-delegation refusal: {e}"
+            ),
+            other => panic!("expected NotCommitted(InvalidInput), got {other:?}"),
+        }
+        assert!(
+            !dir.join("provider-receipts").exists(),
+            "nothing was created for the refused promoted write"
         );
         // (d) unsafe record ids are REJECTED, never normalized — distinct ids can no longer
         // collide on one file.
