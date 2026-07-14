@@ -268,53 +268,10 @@ fn is_canonical_room_tail(tail: &str) -> bool {
     is_canonical_receipt_tail(tail, "or")
 }
 
-/// A record id is filesystem-safe iff it survives the persistence normalization unchanged (#72
-/// round 17 finding 2): otherwise two distinct ids (e.g. `ort/collision` and `ort_collision`)
-/// would silently target the same evidence file.
-fn is_normalization_safe(id: &str) -> bool {
-    !id.is_empty() && id.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_')
-}
-
-/// RFC3339 timestamp validation (#72 round 17 finding 3): replay must reject any timestamp
-/// production could not emit (null, empty, or malformed) rather than coerce it to "".
 fn is_rfc3339(v: &Value) -> bool {
     v.as_str()
         .map(|s| time::OffsetDateTime::parse(s, &time::format_description::well_known::Rfc3339).is_ok())
         .unwrap_or(false)
-}
-
-/// Enumerate the entries of an ALREADY-PINNED directory through the fd ITSELF (fdopendir over a
-/// dup) — NOT by re-walking the pathname (#72 round 21 finding 3): a directory-level exchange
-/// (the family dir swapped for a symlink to another namespace) cannot redirect enumeration,
-/// because the names come from the same inode the caller pinned and reads through. fdopendir
-/// takes ownership of the dup; closedir closes it.
-fn enumerate_pinned(dir: &std::fs::File) -> std::io::Result<Vec<String>> {
-    use std::os::unix::io::AsRawFd;
-    let dupfd = unsafe { libc::dup(dir.as_raw_fd()) };
-    if dupfd < 0 {
-        return Err(std::io::Error::last_os_error());
-    }
-    let dp = unsafe { libc::fdopendir(dupfd) };
-    if dp.is_null() {
-        let e = std::io::Error::last_os_error();
-        unsafe { libc::close(dupfd) };
-        return Err(e);
-    }
-    let mut names = Vec::new();
-    loop {
-        let ent = unsafe { libc::readdir(dp) };
-        if ent.is_null() {
-            break;
-        }
-        let name = unsafe { std::ffi::CStr::from_ptr((*ent).d_name.as_ptr()) };
-        if let Ok(s) = name.to_str() {
-            if s != "." && s != ".." {
-                names.push(s.to_string());
-            }
-        }
-    }
-    unsafe { libc::closedir(dp) };
-    Ok(names)
 }
 
 /// Read a NON-promoted room-family directory as (canonical-stem, value) pairs — the file STEM is
@@ -325,14 +282,14 @@ fn enumerate_pinned(dir: &std::fs::File) -> std::io::Result<Vec<String>> {
 /// false-empty list; per-entry non-canonical stems and refused (symlink/non-regular) occupants
 /// are skipped as legitimately-invisible.
 fn read_dir_with_stems(data_dir: &str, family: &str) -> Result<Vec<(String, Value)>, String> {
-    let dir = match open_family_dir_pinned(data_dir, family) {
+    let dir = match super::durable_fs::open_family_dir_pinned(data_dir, family) {
         Ok(d) => d,
         // A not-yet-created family is genuinely empty; anything else (ELOOP from a swapped
         // directory symlink, EACCES, …) is a real error, NOT an empty registry.
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
         Err(e) => return Err(format!("family '{family}' directory could not be pinned ({e}) — refusing to report a false-empty registry")),
     };
-    let names = enumerate_pinned(&dir).map_err(|e| format!("family '{family}' could not be enumerated through its pinned fd ({e}) — refusing to report a false-empty registry"))?;
+    let names = super::durable_fs::enumerate_pinned(&dir).map_err(|e| format!("family '{family}' could not be enumerated through its pinned fd ({e}) — refusing to report a false-empty registry"))?;
     let mut out = Vec::new();
     for name in names {
         let Some(stem) = name.strip_suffix(".json") else { continue };
@@ -342,7 +299,7 @@ fn read_dir_with_stems(data_dir: &str, family: &str) -> Result<Vec<(String, Valu
         }
         // Re-resolve the name O_NOFOLLOW relative to the pinned fd — a symlink/non-regular
         // occupant (or one swapped in after enumeration) is skipped, never read-through.
-        match read_slot_strict(&dir, &name) {
+        match super::durable_fs::read_slot_strict(&dir, &name) {
             Ok(Some((_f, bytes))) => {
                 if let Ok(value) = serde_json::from_slice::<Value>(&bytes) {
                     out.push((stem.to_string(), value));
@@ -354,131 +311,6 @@ fn read_dir_with_stems(data_dir: &str, family: &str) -> Result<Vec<(String, Valu
     Ok(out)
 }
 
-/// Pin a record-family directory (O_DIRECTORY|O_NOFOLLOW) — the walk root for every strict
-/// slot inspection and the no-replace link commit below (#72 round 19 findings 1+3).
-fn open_family_dir_pinned(data_dir: &str, family: &str) -> std::io::Result<std::fs::File> {
-    use std::os::unix::fs::OpenOptionsExt;
-    std::fs::OpenOptions::new()
-        .read(true)
-        .custom_flags(libc::O_DIRECTORY | libc::O_NOFOLLOW | libc::O_CLOEXEC)
-        .open(std::path::Path::new(data_dir).join(family))
-}
-
-fn slot_cstr(name: &str) -> std::io::Result<std::ffi::CString> {
-    std::ffi::CString::new(name)
-        .map_err(|_| std::io::Error::new(std::io::ErrorKind::InvalidInput, "NUL in slot name"))
-}
-
-/// STRICT slot inspection (#72 round 19 finding 3): Ok(Some((fd, bytes))) = a REGULAR file
-/// occupant opened O_NOFOLLOW and read; Ok(None) = definitively ABSENT (ENOENT only). EVERY
-/// other outcome — unreadable occupant, symlink (ELOOP), FIFO/device — is Err: the caller must
-/// REFUSE, never treat the slot as empty.
-fn read_slot_strict(dir: &std::fs::File, name: &str) -> std::io::Result<Option<(std::fs::File, Vec<u8>)>> {
-    use std::io::Read;
-    use std::os::unix::io::{AsRawFd, FromRawFd};
-    let c = slot_cstr(name)?;
-    let fd = unsafe {
-        libc::openat(dir.as_raw_fd(), c.as_ptr(), libc::O_RDONLY | libc::O_NOFOLLOW | libc::O_NONBLOCK | libc::O_CLOEXEC)
-    };
-    if fd < 0 {
-        let e = std::io::Error::last_os_error();
-        if e.kind() == std::io::ErrorKind::NotFound {
-            return Ok(None); // ONLY ENOENT means empty
-        }
-        return Err(e);
-    }
-    let mut f = unsafe { std::fs::File::from_raw_fd(fd) };
-    if !f.metadata()?.is_file() {
-        return Err(std::io::Error::new(std::io::ErrorKind::InvalidData, format!("slot '{name}' is occupied by a non-regular file")));
-    }
-    let mut bytes = Vec::new();
-    f.read_to_end(&mut bytes)?;
-    Ok(Some((f, bytes)))
-}
-
-/// Open an ANONYMOUS (nameless) inode in the pinned dir via O_TMPFILE (#72 round 20 findings 1+3):
-/// the receipt bytes are written into a descriptor that has NO directory entry, so no named
-/// source ever exists to be swapped, and there is nothing to clean up after the commit.
-fn open_tmpfile_at(dir: &std::fs::File) -> std::io::Result<std::fs::File> {
-    use std::os::unix::io::{AsRawFd, FromRawFd};
-    let dot = slot_cstr(".")?;
-    let fd = unsafe {
-        libc::openat(dir.as_raw_fd(), dot.as_ptr(), libc::O_WRONLY | libc::O_TMPFILE | libc::O_CLOEXEC, 0o644 as libc::c_uint)
-    };
-    if fd < 0 {
-        return Err(std::io::Error::last_os_error());
-    }
-    Ok(unsafe { std::fs::File::from_raw_fd(fd) })
-}
-
-/// Give an O_TMPFILE descriptor EXACTLY ONE name via linkat — the ATOMIC NO-REPLACE commit that
-/// binds the committed bytes to the DESCRIPTOR, not to any swappable source name (#72 round 20
-/// finding 1). Uses the /proc/self/fd form (no CAP_DAC_READ_SEARCH needed for non-root); link
-/// fails EEXIST if the target appeared since inspection, exactly like a named no-replace link.
-fn link_tmpfile_at(tmp: &std::fs::File, dir: &std::fs::File, to: &str) -> std::io::Result<()> {
-    use std::os::unix::io::AsRawFd;
-    let src = slot_cstr(&format!("/proc/self/fd/{}", tmp.as_raw_fd()))?;
-    let ct = slot_cstr(to)?;
-    if unsafe { libc::linkat(libc::AT_FDCWD, src.as_ptr(), dir.as_raw_fd(), ct.as_ptr(), libc::AT_SYMLINK_FOLLOW) } != 0 {
-        return Err(std::io::Error::last_os_error());
-    }
-    Ok(())
-}
-
-fn unlink_at(dir: &std::fs::File, name: &str) -> std::io::Result<()> {
-    use std::os::unix::io::AsRawFd;
-    let c = slot_cstr(name)?;
-    if unsafe { libc::unlinkat(dir.as_raw_fd(), c.as_ptr(), 0) } != 0 {
-        return Err(std::io::Error::last_os_error());
-    }
-    Ok(())
-}
-
-/// True iff two descriptors reference the SAME on-disk object (device + inode). The receipt
-/// certifier compares the re-opened canonical name against the pinned committed descriptor
-/// (#72 round 21 finding 1) — a name swapped to a different inode fails this.
-fn same_inode(a: &std::fs::File, b: &std::fs::File) -> std::io::Result<bool> {
-    use std::os::unix::fs::MetadataExt;
-    let (ma, mb) = (a.metadata()?, b.metadata()?);
-    Ok(ma.dev() == mb.dev() && ma.ino() == mb.ino())
-}
-
-/// DELIBERATE TEST FAULT (#72 round 21 finding 1): simulate a CONCURRENT adversary replacing the
-/// canonical receipt name during the post-commit fsync window, so the re-verification below is
-/// exercised. Absent env = no effect. `point` is "new" (fresh linkat) or "replay" (byte-compare).
-fn test_swap_receipt_target(dir: &std::fs::File, target: &str, point: &str) {
-    use std::io::Write;
-    if std::env::var("IOI_TEST_FORCE_RECEIPT_TARGET_SWAP").ok().as_deref() != Some(point) {
-        return;
-    }
-    let _ = unlink_at(dir, target);
-    if let Ok(mut f) = open_tmpfile_at(dir) {
-        let _ = f.write_all(format!("{{\"foreign\":\"REPLACED_AFTER_{}\"}}", point.to_uppercase()).as_bytes());
-        let _ = f.sync_all();
-        let _ = link_tmpfile_at(&f, dir, target);
-    }
-}
-
-/// Re-verify the canonical name AFTER the file + directory fsyncs (#72 round 21 finding 1):
-/// re-open the target O_NOFOLLOW, prove it is the SAME inode as the committed descriptor, and
-/// re-read its bytes — a target swapped during the durability barrier is caught and refused.
-fn certify_receipt_target(dir: &std::fs::File, target: &str, committed: &std::fs::File, bytes: &[u8], point: &str) -> Result<(), VErr> {
-    test_swap_receipt_target(dir, target, point);
-    match read_slot_strict(dir, target) {
-        Ok(Some((reopened, on_disk))) => {
-            if !same_inode(&reopened, committed).unwrap_or(false) {
-                return Err(verr("outcome_room_receipt_swapped", format!("the receipt name '{target}' no longer resolves to the certified inode after the durability barrier — refused, never certified over a swapped target")));
-            }
-            if on_disk != bytes {
-                return Err(verr("outcome_room_receipt_swapped", format!("the receipt bytes at '{target}' changed after the durability barrier — refused")));
-            }
-            Ok(())
-        }
-        Ok(None) => Err(verr("outcome_room_receipt_swapped", format!("the receipt name '{target}' vanished after commit — refused"))),
-        Err(e) => Err(verr("outcome_room_receipt_slot_unreadable", format!("post-commit re-verify of '{target}' failed ({e}) — refused"))),
-    }
-}
-
 /// Strict ROOM slot read (#72 round 19 finding 1): the stem is validated CANONICAL before any
 /// filesystem access — a URL-derived `../…` stem never reaches a path join — and the read is a
 /// pinned no-follow open. Ok(None) = definitively absent; Err = unreadable / symlink /
@@ -487,12 +319,12 @@ fn read_room_slot_strict(data_dir: &str, stem: &str) -> Result<Option<Value>, St
     if !is_canonical_room_tail(stem) {
         return Err(format!("non-canonical room stem '{stem}' — refused before any filesystem access"));
     }
-    let dir = match open_family_dir_pinned(data_dir, ROOM_DIR) {
+    let dir = match super::durable_fs::open_family_dir_pinned(data_dir, ROOM_DIR) {
         Ok(d) => d,
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
         Err(e) => return Err(format!("room directory unavailable ({e})")),
     };
-    match read_slot_strict(&dir, &format!("{stem}.json")) {
+    match super::durable_fs::read_slot_strict(&dir, &format!("{stem}.json")) {
         Ok(None) => Ok(None),
         Ok(Some((_f, bytes))) => serde_json::from_slice::<Value>(&bytes)
             .map(Some)
@@ -859,115 +691,38 @@ fn build_room_receipt_at(
 /// file fsync + rename + checked directory fsync, with the same NotCommitted /
 /// RenamedDurabilityUnconfirmed outcome split — room records and receipts carry the same
 /// crash-durability contract as goal-run evidence.
-fn persist_atomic(data_dir: &str, family: &str, record_id: &str, record: &Value) -> Result<(), super::goalrun_routes::PersistFailure> {
+fn persist_atomic(data_dir: &str, family: &str, record_id: &str, record: &Value) -> Result<(), super::durable_fs::PersistFailure> {
     // Evidence keys must be filesystem-safe AS WRITTEN (#72 round 17 finding 2): the durable
     // writer normalizes unsafe characters, so `ort/collision` and `ort_collision` would silently
     // target the same file. Reject rather than collide — the room plane only ever writes
     // canonical `or_hex` / `orr_hex` / `ort_hex` keys, so this is a no-op for honest callers.
-    if !is_normalization_safe(record_id) {
-        return Err(super::goalrun_routes::PersistFailure::NotCommitted(std::io::Error::new(
+    if !super::durable_fs::is_normalization_safe(record_id) {
+        return Err(super::durable_fs::PersistFailure::NotCommitted(std::io::Error::new(
             std::io::ErrorKind::InvalidInput,
             format!("record id '{record_id}' is not filesystem-safe (would normalize to a different key)"),
         )));
     }
-    super::goalrun_routes::persist_record_durable(data_dir, family, record_id, record)
+    super::durable_fs::persist_record_durable(data_dir, family, record_id, record)
 }
 
-/// APPEND-ONLY, no-clobber, DURABILITY-HONEST receipt writer (#72 rounds 18-20). The exact
-/// target slot is inspected through a PINNED no-follow directory fd:
-///   - only ENOENT means empty (#72 round 19 finding 3) — an unreadable occupant, a symlink,
-///     or a non-regular file REFUSES; evidence is never replaced on uncertainty;
-///   - an empty slot commits from an ANONYMOUS O_TMPFILE descriptor via linkat (#72 round 20
-///     findings 1+3): the bytes are bound to the DESCRIPTOR, not a swappable source name, and
-///     no named temp ever exists — so there is nothing to clean up and no source-swap window.
-///     link is NO-REPLACE: an occupant appearing between inspection and commit surfaces EEXIST;
-///   - a byte-identical occupant is RE-FSYNCED (file + directory) before being reported
-///     durable (#72 round 19 finding 2) — an earlier unconfirmed rename may not be on disk;
-///   - the family directory, when first created, is made PARENT-durable by fsyncing data_dir
-///     (#72 round 20 finding 4) — the new directory entry survives a crash;
-///   - the durability outcome is PRESERVED (#72 round 19 finding 2): visible-but-unconfirmed
-///     returns `outcome_room_receipt_durability_unconfirmed`, never Ok — terminal state and
-///     intent consumption require a DURABLE receipt.
-/// Every receipt writer — create, transition, attach, and both boot completers — uses THIS.
+/// APPEND-ONLY, no-clobber, DURABILITY-HONEST receipt writer — the SHARED durable-fs commit
+/// (#73; mechanics proven in #72 rounds 18-21: ENOENT-only-empty strict inspection, O_TMPFILE
+/// descriptor-bound no-replace linkat, byte-identical re-fsync, unconditional directory+parent
+/// durability barrier, post-barrier inode/byte certification), mapped onto THIS plane's wire
+/// codes. Every receipt writer — create, transition, attach, and both boot completers — uses
+/// THIS; the typed outcomes preserve #72's exact contract: visible-but-unconfirmed is
+/// `outcome_room_receipt_durability_unconfirmed`, never Ok — terminal state and intent
+/// consumption require a DURABLE receipt.
 fn persist_receipt_no_clobber(data_dir: &str, tail: &str, receipt: &Value) -> Result<(), VErr> {
-    use std::io::Write;
-    if !is_normalization_safe(tail) {
-        return Err(verr("outcome_room_receipt_key_invalid", format!("receipt tail '{tail}' is not filesystem-safe")));
-    }
-    let bytes = serde_json::to_vec_pretty(receipt).unwrap_or_default();
-    let fam_path = std::path::Path::new(data_dir).join(ROOM_RECEIPT_DIR);
-    if let Err(e) = std::fs::create_dir_all(&fam_path) {
-        return Err(verr("outcome_room_receipt_persist_failed", format!("receipt directory unavailable ({e}) — nothing was written")));
-    }
-    let dir = match open_family_dir_pinned(data_dir, ROOM_RECEIPT_DIR) {
-        Ok(d) => d,
-        Err(e) => return Err(verr("outcome_room_receipt_persist_failed", format!("receipt directory pin failed ({e}) — nothing was written"))),
-    };
-    let target = format!("{tail}.json");
-    // The durability barrier: fsync the receipt file's directory AND — UNCONDITIONALLY, every
-    // write, never gated on a visibility check — data_dir, so the family directory ENTRY is
-    // durable even if an earlier parent fsync failed and left the family visible (#72 round 21
-    // finding 2). A visibility-gated `family_created` would skip the retry forever.
-    let confirm_dir_durable = |dir: &std::fs::File| -> Result<(), VErr> {
-        // DELIBERATE TEST FAULT POINT (same contract as the typed durable writer): absent env =
-        // no effect; the receipt is already VISIBLE when this fires.
-        if std::env::var("IOI_TEST_FORCE_DIRSYNC_UNCONFIRMED").ok().as_deref() == Some(ROOM_RECEIPT_DIR) {
-            return Err(verr("outcome_room_receipt_durability_unconfirmed", "test-forced directory-sync failure — the receipt is VISIBLE but its durability is unconfirmed".to_string()));
-        }
-        dir.sync_all().map_err(|e| verr("outcome_room_receipt_durability_unconfirmed", format!("receipt directory sync failed ({e}) — the receipt is VISIBLE but its durability is unconfirmed")))?;
-        // Parent (data_dir) fsync — UNCONDITIONAL (#72 round 21 finding 2); a separate fault hook
-        // fails only the parent leg so the failure→restart lane is exact.
-        if std::env::var("IOI_TEST_FORCE_PARENT_FSYNC_UNCONFIRMED").ok().as_deref() == Some(ROOM_RECEIPT_DIR) {
-            return Err(verr("outcome_room_receipt_durability_unconfirmed", "test-forced parent-directory-sync failure — the receipt family entry is VISIBLE but not durable".to_string()));
-        }
-        (|| -> std::io::Result<()> { std::fs::File::open(data_dir)?.sync_all() })()
-            .map_err(|e| verr("outcome_room_receipt_durability_unconfirmed", format!("data_dir sync failed ({e}) — the receipt family entry is VISIBLE but not durable")))
-    };
-    match read_slot_strict(&dir, &target) {
-        Err(e) => Err(verr("outcome_room_receipt_slot_unreadable", format!("the receipt slot '{tail}' is occupied but NOT readable as a regular file ({e}) — refused; evidence is never replaced on uncertainty"))),
-        Ok(Some((occupant, existing))) => {
-            if existing != bytes {
-                return Err(verr("outcome_room_receipt_conflict", format!("the receipt slot '{tail}' already holds DIFFERENT evidence — receipts are append-only and never overwritten")));
-            }
-            // Byte-identical replay: re-fsync BEFORE reporting durable (#72 round 19 finding 2).
-            if let Err(e) = occupant.sync_all() {
-                return Err(verr("outcome_room_receipt_durability_unconfirmed", format!("receipt re-sync failed ({e}) — the receipt is VISIBLE but its durability is unconfirmed")));
-            }
-            confirm_dir_durable(&dir)?;
-            // Re-verify the name still resolves to the compared inode after the barrier (#72
-            // round 21 finding 1) — a target swapped during the occupant fsync is caught here.
-            certify_receipt_target(&dir, &target, &occupant, &bytes, "replay")
-        }
-        Ok(None) => {
-            // ANONYMOUS descriptor (O_TMPFILE) — NO name, so nothing to swap and nothing to clean
-            // up (#72 round 20 findings 1+3). Write + fsync the bytes into the inode, then bind
-            // it to EXACTLY ONE name (the target) with a NO-REPLACE linkat.
-            let write = (|| -> std::io::Result<std::fs::File> {
-                let mut f = open_tmpfile_at(&dir)?;
-                f.write_all(&bytes)?;
-                f.sync_all()?;
-                Ok(f)
-            })();
-            let tmp = match write {
-                Ok(f) => f,
-                Err(e) => return Err(verr("outcome_room_receipt_persist_failed", format!("receipt staging failed ({e}) — nothing is visible (anonymous inode discarded)"))),
-            };
-            if let Err(e) = link_tmpfile_at(&tmp, &dir, &target) {
-                // The anonymous inode is discarded when `tmp` drops — no residue on any path.
-                if e.kind() == std::io::ErrorKind::AlreadyExists {
-                    return Err(verr("outcome_room_receipt_conflict", format!("the receipt slot '{tail}' was occupied between inspection and commit — refused atomically (no-replace), nothing overwritten")));
-                }
-                return Err(verr("outcome_room_receipt_persist_failed", format!("receipt commit failed ({e}) — nothing is visible")));
-            }
-            // The receipt is VISIBLE from here — dual-write parity fires on visibility, exactly
-            // like the typed durable writer.
-            super::substrate_store::dual_write(data_dir, ROOM_RECEIPT_DIR, tail, receipt);
-            confirm_dir_durable(&dir)?;
-            // Re-verify the name still resolves to the linked inode after the barrier (#72 round
-            // 21 finding 1) — a target replaced during the directory fsync is caught here.
-            certify_receipt_target(&dir, &target, &tmp, &bytes, "new")
-        }
-    }
+    use super::durable_fs::CommitFailure;
+    super::durable_fs::persist_receipt_no_clobber(data_dir, ROOM_RECEIPT_DIR, tail, receipt).map_err(|f| match f {
+        CommitFailure::KeyInvalid(m) => verr("outcome_room_receipt_key_invalid", m),
+        CommitFailure::NotCommitted(m) => verr("outcome_room_receipt_persist_failed", m),
+        CommitFailure::SlotUnreadable(m) => verr("outcome_room_receipt_slot_unreadable", m),
+        CommitFailure::Conflict(m) => verr("outcome_room_receipt_conflict", m),
+        CommitFailure::DurabilityUnconfirmed(m) => verr("outcome_room_receipt_durability_unconfirmed", m),
+        CommitFailure::Swapped(m) => verr("outcome_room_receipt_swapped", m),
+    })
 }
 
 /// EXACT-PATH room loader (#72 round 18 finding 2): read the file AT the id's stem and require
@@ -2267,34 +2022,6 @@ mod outcome_room_tests {
     }
 
     #[test]
-    fn certify_receipt_target_catches_a_swapped_inode_and_passes_the_untouched_one() {
-        // #72 round 21 finding 1: the post-barrier re-verification (used on both the fresh-create
-        // and byte-identical replay paths) proves the canonical name still resolves to the
-        // committed inode with the committed bytes. Tested against the helper directly (no
-        // process-global env) — the production wiring is proven by the live restart lanes.
-        use std::io::Write;
-        let dir_t = temp_dir("certify");
-        let data_dir = dir_t.to_str().unwrap();
-        let receipt = json!({ "receipt_id": "receipt://orr_s0", "attested": true });
-        persist_receipt_no_clobber(data_dir, "orr_s0", &receipt).unwrap();
-        let bytes = serde_json::to_vec_pretty(&receipt).unwrap();
-        let dir = open_family_dir_pinned(data_dir, ROOM_RECEIPT_DIR).unwrap();
-        let (committed, _) = read_slot_strict(&dir, "orr_s0.json").unwrap().unwrap();
-        // Untouched: same inode, same bytes → certified.
-        certify_receipt_target(&dir, "orr_s0.json", &committed, &bytes, "unit").unwrap();
-        // Swap the canonical name to a DIFFERENT inode carrying foreign bytes.
-        unlink_at(&dir, "orr_s0.json").unwrap();
-        let mut f = open_tmpfile_at(&dir).unwrap();
-        f.write_all(b"{\"foreign\":\"REPLACED\"}").unwrap();
-        f.sync_all().unwrap();
-        link_tmpfile_at(&f, &dir, "orr_s0.json").unwrap();
-        // Re-verify with the ORIGINAL committed descriptor → inode mismatch → refused.
-        let (code, _) = certify_receipt_target(&dir, "orr_s0.json", &committed, &bytes, "unit").unwrap_err();
-        assert_eq!(code, "outcome_room_receipt_swapped", "a name resolving to a different inode after the barrier is refused");
-        let _ = std::fs::remove_dir_all(&dir_t);
-    }
-
-    #[test]
     fn scanner_returns_typed_error_not_false_empty_when_registry_is_unreadable() {
         // #72 round 21 finding 3: a directory-level exchange (registry replaced by a symlink) or
         // any pin/enumerate failure is a TYPED error, never an empty registry served as truth.
@@ -2510,7 +2237,7 @@ mod outcome_room_tests {
         let data_dir = dir.to_str().unwrap();
         persist_atomic(data_dir, ROOM_RECEIPT_DIR, "ort_deadbeef", &json!({ "ok": true })).unwrap();
         let err = persist_atomic(data_dir, ROOM_RECEIPT_DIR, "ort/collision", &json!({ "evil": true })).unwrap_err();
-        assert!(matches!(err, super::super::goalrun_routes::PersistFailure::NotCommitted(_)));
+        assert!(matches!(err, super::super::durable_fs::PersistFailure::NotCommitted(_)));
         // The canonical file is untouched; no collided file was written.
         assert_eq!(read_record_dir(data_dir, ROOM_RECEIPT_DIR).len(), 1);
         let _ = std::fs::remove_dir_all(&dir);

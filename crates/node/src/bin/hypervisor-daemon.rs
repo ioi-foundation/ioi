@@ -40,6 +40,8 @@ mod feedback_routes;
 mod eval_suite_routes;
 #[path = "hypervisor_daemon_routes/state_machine_routes.rs"]
 mod state_machine_routes;
+#[path = "hypervisor_daemon_routes/durable_fs.rs"]
+mod durable_fs;
 #[path = "hypervisor_daemon_routes/goalrun_routes.rs"]
 mod goalrun_routes;
 #[path = "hypervisor_daemon_routes/ioi_agent_routes.rs"]
