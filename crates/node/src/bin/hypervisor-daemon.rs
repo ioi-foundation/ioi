@@ -42,6 +42,8 @@ mod eval_suite_routes;
 mod state_machine_routes;
 #[path = "hypervisor_daemon_routes/durable_fs.rs"]
 mod durable_fs;
+#[path = "hypervisor_daemon_routes/room_participation_routes.rs"]
+mod room_participation_routes;
 #[path = "hypervisor_daemon_routes/goalrun_routes.rs"]
 mod goalrun_routes;
 #[path = "hypervisor_daemon_routes/ioi_agent_routes.rs"]
@@ -342,6 +344,9 @@ async fn async_main() -> anyhow::Result<()> {
     outcome_room_routes::complete_attach_intents(&data_dir);
     // #72 round 10 — converge interrupted room admissions and transitions the same way.
     outcome_room_routes::complete_room_intents(&data_dir);
+    // #74 — converge interrupted participation submissions, decisions, and lease transitions
+    // AFTER the room completers (its backlink replay requires no pending room intents).
+    room_participation_routes::complete_participation_intents(&data_dir);
 
     let stream_frame_delay_ms = std::env::var("IOI_DETERMINISTIC_PROVIDER_STREAM_DELAY_MS")
         .ok()
@@ -1947,6 +1952,35 @@ async fn async_main() -> anyhow::Result<()> {
         .route(
             "/v1/hypervisor/outcome-rooms/:id/attach-goal-run",
             axum::routing::post(outcome_room_routes::handle_outcome_room_attach_goal_run),
+        )
+        .route(
+            "/v1/hypervisor/room-participation-requests",
+            axum::routing::post(room_participation_routes::handle_participation_request_create)
+                .get(room_participation_routes::handle_participation_requests_list),
+        )
+        .route(
+            "/v1/hypervisor/room-participation-requests/:id",
+            axum::routing::get(room_participation_routes::handle_participation_request_get),
+        )
+        .route(
+            "/v1/hypervisor/room-participation-requests/:id/transition",
+            axum::routing::post(room_participation_routes::handle_participation_request_transition),
+        )
+        .route(
+            "/v1/hypervisor/room-participation-requests/:id/admit",
+            axum::routing::post(room_participation_routes::handle_participation_request_admit),
+        )
+        .route(
+            "/v1/hypervisor/room-participant-leases",
+            axum::routing::get(room_participation_routes::handle_participant_leases_list),
+        )
+        .route(
+            "/v1/hypervisor/room-participant-leases/:id",
+            axum::routing::get(room_participation_routes::handle_participant_lease_get),
+        )
+        .route(
+            "/v1/hypervisor/room-participant-leases/:id/transition",
+            axum::routing::post(room_participation_routes::handle_participant_lease_transition),
         )
         .route(
             "/v1/hypervisor/placement/resolve",

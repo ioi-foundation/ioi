@@ -74,6 +74,16 @@ const UNAVAILABLE_TRANSITIONS: &[(&str, &str)] = &[
     ("settle", "settlement authority (build step 5+)"),
     ("revoke", "governance revocation authority (build step 3)"),
 ];
+/// Room-owned BACKLINK transitions (#74): step-3 object planes never write the room record —
+/// they call `bind_room_backlink`, and the room appends ONE canonical ref to ONE plane-owned
+/// list through the same receipted, intent-transactional machinery as every other transition.
+/// op → (list field, required ref scheme).
+const BACKLINK_OPS: &[(&str, &str, &str)] = &[
+    ("participation_request_bound", "participation_request_refs", "participation-request"),
+    ("participant_lease_bound", "participant_lease_refs", "participant-lease"),
+];
+const BACKLINK_NOTE: &str = "an admitted backlink transition — the room's object list gains one canonical ref; the object record itself is its own plane's truth";
+
 const SENSITIVE_KEY_FRAGMENTS: &[&str] = &[
     "password", "secret", "credential", "authorization", "privatekey", "apikey", "token",
 ];
@@ -93,16 +103,16 @@ const HISTORY_MAX: usize = 100;
 fn nanos() -> u128 {
     SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_nanos()).unwrap_or(0)
 }
-fn s(v: &Value, k: &str, d: &str) -> String {
+pub(crate) fn s(v: &Value, k: &str, d: &str) -> String {
     v.get(k).and_then(|x| x.as_str()).unwrap_or(d).to_string()
 }
 
-type VErr = (String, String);
-fn verr(code: &str, msg: impl Into<String>) -> VErr {
+pub(crate) type VErr = (String, String);
+pub(crate) fn verr(code: &str, msg: impl Into<String>) -> VErr {
     (code.into(), msg.into())
 }
 
-fn reject_sensitive_keys(v: &Value, path: &str) -> Result<(), VErr> {
+pub(crate) fn reject_sensitive_keys(v: &Value, path: &str) -> Result<(), VErr> {
     match v {
         Value::Object(map) => {
             for (k, child) in map {
@@ -124,7 +134,7 @@ fn reject_sensitive_keys(v: &Value, path: &str) -> Result<(), VErr> {
     }
 }
 
-fn str_opt_bounded(body: &Value, key: &str, max: usize) -> Result<Option<String>, VErr> {
+pub(crate) fn str_opt_bounded(body: &Value, key: &str, max: usize) -> Result<Option<String>, VErr> {
     match body.get(key) {
         None | Some(Value::Null) => Ok(None),
         Some(Value::String(raw)) => {
@@ -139,7 +149,7 @@ fn str_opt_bounded(body: &Value, key: &str, max: usize) -> Result<Option<String>
     }
 }
 
-fn ref_scheme_ok(v: &str, schemes: &[&str]) -> bool {
+pub(crate) fn ref_scheme_ok(v: &str, schemes: &[&str]) -> bool {
     match v.split_once("://") {
         Some((scheme, tail)) if !tail.is_empty() => schemes.contains(&scheme),
         _ => false,
@@ -150,7 +160,7 @@ fn scheme_err(key: &str, schemes: &[&str]) -> VErr {
     verr("outcome_room_ref_scheme_invalid", format!("`{key}` must be a canonical ref [{}] — a raw string is never a ref", schemes.iter().map(|s| format!("{s}://")).collect::<Vec<_>>().join("|")))
 }
 
-fn scalar_ref(body: &Value, key: &str, schemes: &[&str]) -> Result<Option<String>, VErr> {
+pub(crate) fn scalar_ref(body: &Value, key: &str, schemes: &[&str]) -> Result<Option<String>, VErr> {
     match str_opt_bounded(body, key, REF_MAX)? {
         None => Ok(None),
         Some(v) if ref_scheme_ok(&v, schemes) => Ok(Some(v)),
@@ -159,14 +169,14 @@ fn scalar_ref(body: &Value, key: &str, schemes: &[&str]) -> Result<Option<String
 }
 
 /// A REQUIRED canonical scalar ref (rooms are governed: their core policy refs must be declared).
-fn required_ref(body: &Value, key: &str, schemes: &[&str], req_code: &str) -> Result<String, VErr> {
+pub(crate) fn required_ref(body: &Value, key: &str, schemes: &[&str], req_code: &str) -> Result<String, VErr> {
     match scalar_ref(body, key, schemes)? {
         Some(v) => Ok(v),
         None => Err(verr(req_code, format!("`{key}` is required — a room without it is ungoverned (declare a canonical [{}] ref)", schemes.join("|")))),
     }
 }
 
-fn list_ref(body: &Value, key: &str, schemes: &[&str]) -> Result<Vec<String>, VErr> {
+pub(crate) fn list_ref(body: &Value, key: &str, schemes: &[&str]) -> Result<Vec<String>, VErr> {
     match body.get(key) {
         None | Some(Value::Null) => Ok(Vec::new()),
         Some(Value::Array(items)) => {
@@ -196,7 +206,7 @@ fn list_ref(body: &Value, key: &str, schemes: &[&str]) -> Result<Vec<String>, VE
     }
 }
 
-fn vocab_required(body: &Value, key: &str, vocab: &[&str], code: &str) -> Result<String, VErr> {
+pub(crate) fn vocab_required(body: &Value, key: &str, vocab: &[&str], code: &str) -> Result<String, VErr> {
     match str_opt_bounded(body, key, 80)? {
         Some(v) if vocab.contains(&v.as_str()) => Ok(v),
         Some(v) => Err(verr(code, format!("`{key}` value '{v}' is not a member of the canonical vocabulary [{}]", vocab.join("|")))),
@@ -219,7 +229,7 @@ fn plane_owned_list(body: &Value, key: &str, code: &str, why: &str) -> Result<()
     }
 }
 
-fn record_output_hash(record: &Value, excludes: &[&str]) -> String {
+pub(crate) fn record_output_hash(record: &Value, excludes: &[&str]) -> String {
     let mut clone = record.clone();
     if let Some(obj) = clone.as_object_mut() {
         for k in excludes { obj.remove(*k); }
@@ -256,7 +266,7 @@ const TRANSITION_HASH_EXCLUDES: &[&str] = &[
 /// build_room_receipt mints (#72 round 17 finding 2). Rejecting anything else before
 /// reconstruction closes the normalization-collision attack (`ort/collision` → `ort_collision`)
 /// at the source: a non-canonical tail can never name an evidence file.
-fn is_canonical_receipt_tail(tail: &str, prefix: &str) -> bool {
+pub(crate) fn is_canonical_receipt_tail(tail: &str, prefix: &str) -> bool {
     tail.strip_prefix(prefix)
         .and_then(|rest| rest.strip_prefix('_'))
         .map(|hex| !hex.is_empty() && hex.bytes().all(|b| b.is_ascii_hexdigit() && !b.is_ascii_uppercase()))
@@ -268,7 +278,7 @@ fn is_canonical_room_tail(tail: &str) -> bool {
     is_canonical_receipt_tail(tail, "or")
 }
 
-fn is_rfc3339(v: &Value) -> bool {
+pub(crate) fn is_rfc3339(v: &Value) -> bool {
     v.as_str()
         .map(|s| time::OffsetDateTime::parse(s, &time::format_description::well_known::Rfc3339).is_ok())
         .unwrap_or(false)
@@ -481,7 +491,10 @@ fn validate_transition_intent(intent: &Value, prior: &Value, room_id: &str, room
         return Err("receipt ref vs intent tail".into());
     }
     let op = receipt.get("op").and_then(Value::as_str).unwrap_or("");
-    // The op must be a CANONICAL transition admitted from the prior status.
+    // The op must be a CANONICAL lifecycle transition OR a room-owned backlink op (#74).
+    if let Some((_, field, scheme)) = BACKLINK_OPS.iter().find(|(o, _, _)| *o == op) {
+        return validate_backlink_intent(intent, prior, room_id, field, scheme, &receipt, &final_room, intent_receipt_id);
+    }
     let Some((_, allowed_from, to_status)) = TRANSITIONS.iter().find(|(t, _, _)| *t == op) else {
         return Err("unknown transition op".into());
     };
@@ -519,6 +532,60 @@ fn validate_transition_intent(intent: &Value, prior: &Value, room_id: &str, room
     );
     if serde_json::to_vec(&expected_receipt).unwrap_or_default() != serde_json::to_vec(&receipt).unwrap_or_default() {
         return Err("not the canonical transition receipt".into());
+    }
+    Ok(())
+}
+
+/// Reconstruct the ONLY valid BACKLINK successor of `prior` for the sealed op (#74): the named
+/// plane-owned list gains EXACTLY the receipt's bound ref (canonical scheme, not already
+/// present, room OPEN, status unchanged), revision+1, trail + history appended — then require
+/// the sealed `final_room` AND receipt to equal the reconstruction byte-for-byte. Identity,
+/// seal, storage-key, tail, and timestamp checks already ran in `validate_transition_intent`.
+#[allow(clippy::too_many_arguments)]
+fn validate_backlink_intent(_intent: &Value, prior: &Value, room_id: &str, field: &str, scheme: &str, receipt: &Value, final_room: &Value, intent_receipt_id: &str) -> Result<(), String> {
+    let op = receipt.get("op").and_then(Value::as_str).unwrap_or("");
+    let bound_ref = receipt.pointer("/bound_facts/bound_ref").and_then(Value::as_str).unwrap_or("").to_string();
+    if !ref_scheme_ok(&bound_ref, &[scheme]) {
+        return Err("backlink bound ref is not canonical for the op".into());
+    }
+    if prior.get("status").and_then(Value::as_str) != Some("open") {
+        return Err("backlink not admitted from prior status".into());
+    }
+    let existing: Vec<String> = prior.get(field).and_then(|v| v.as_array()).map(|a| a.iter().filter_map(|x| x.as_str().map(String::from)).collect()).unwrap_or_default();
+    if existing.iter().any(|m| m == &bound_ref) {
+        return Err("ref already bound on the prior room".into());
+    }
+    let prior_rev = prior.get("revision").and_then(Value::as_u64).unwrap_or(0);
+    let now = final_room.get("updated_at").cloned().unwrap_or(Value::Null);
+    let now_str = now.as_str().unwrap_or("");
+    let receipt_ref = receipt.get("receipt_ref").cloned().unwrap_or(Value::Null);
+    let mut expected = prior.clone();
+    if let Some(obj) = expected.as_object_mut() {
+        obj.remove("transition_intent");
+        let mut arr: Vec<Value> = existing.iter().cloned().map(Value::String).collect();
+        arr.push(json!(bound_ref));
+        obj.insert(field.into(), Value::Array(arr));
+        obj.insert("revision".into(), json!(prior_rev + 1));
+        obj.insert("updated_at".into(), now.clone());
+        let mut trail: Vec<Value> = obj.get("admission_and_replay_refs").and_then(|v| v.as_array()).cloned().unwrap_or_default();
+        trail.push(receipt_ref.clone());
+        obj.insert("admission_and_replay_refs".into(), Value::Array(trail));
+        let mut history: Vec<Value> = obj.get("status_history").and_then(|v| v.as_array()).cloned().unwrap_or_default();
+        history.push(json!({ "op": op, "at": now, "receipt_ref": receipt_ref, "revision": prior_rev + 1 }));
+        if history.len() > HISTORY_MAX { let drop_n = history.len() - HISTORY_MAX; history.drain(0..drop_n); }
+        obj.insert("status_history".into(), Value::Array(history));
+    }
+    if serde_json::to_vec(&expected).unwrap_or_default() != serde_json::to_vec(final_room).unwrap_or_default() {
+        return Err("not the deterministic backlink successor".into());
+    }
+    let expected_receipt = build_room_receipt_at(
+        intent_receipt_id, TRANSITION_RECEIPT_SCHEMA, "OutcomeRoomTransitionReceipt", room_id, op,
+        json!({ "list_field": field, "bound_ref": bound_ref, "revision_before": prior_rev, "revision_after": prior_rev + 1 }),
+        vec![json!(room_id), json!(bound_ref)],
+        record_output_hash(&expected, TRANSITION_HASH_EXCLUDES), TRANSITION_HASH_EXCLUDES, "admitted_not_verified", BACKLINK_NOTE, now_str,
+    );
+    if serde_json::to_vec(&expected_receipt).unwrap_or_default() != serde_json::to_vec(receipt).unwrap_or_default() {
+        return Err("not the canonical backlink receipt".into());
     }
     Ok(())
 }
@@ -632,7 +699,7 @@ fn build_room_receipt(
 /// no sealed receipt field (bound facts, boundary refs, posture, actor, portable-base nulls,
 /// timestamps) is ever trusted.
 #[allow(clippy::too_many_arguments)]
-fn build_room_receipt_at(
+pub(crate) fn build_room_receipt_at(
     id_tail: &str,
     schema: &str,
     receipt_type: &str,
@@ -1262,7 +1329,7 @@ pub(crate) fn complete_attach_intents(data_dir: &str) {
 
 /// Optimistic concurrency (#63 discipline, REQUIRED on this new plane — no legacy callers):
 /// `expected_revision` must be an integer exactly matching the persisted revision.
-fn check_expected_revision(body: &Value, current: u64) -> Result<(), VErr> {
+pub(crate) fn check_expected_revision(body: &Value, current: u64) -> Result<(), VErr> {
     match body.get("expected_revision") {
         None | Some(Value::Null) => Err(verr("outcome_room_expected_revision_invalid", "`expected_revision` is required on every room mutation (optimistic concurrency; read the room first)")),
         Some(v) => match v.as_u64() {
@@ -1520,6 +1587,72 @@ fn mutate_room(
         obj.insert("status_history".into(), Value::Array(history));
     }
     finalize_room_mutation(data_dir, room_tail, &prior, &updated, &receipt_id, &receipt)?;
+    Ok((updated, receipt))
+}
+
+/// THE ROOM-OWNED BACKLINK SEAM (#74): the ONLY path by which a step-3 object plane reaches a
+/// room record. Internal (no client expected_revision — ROOM_MUTATION_LOCK serializes writers;
+/// the append is order-independent), receipted, and intent-transactional exactly like every
+/// other room mutation: OPEN room required, pending-intent exclusion, duplicate ref refused,
+/// revision bump, trail + history append, crash-convergent finalization.
+/// `already_bound` in the error position distinguishes idempotent replay (the caller's boot
+/// completer treats an ALREADY-BOUND ref as converged, never as a fresh conflict).
+pub(crate) fn bind_room_backlink(data_dir: &str, room_ref: &str, op: &str, bound_ref: &str) -> Result<(Value, Value), VErr> {
+    let Some((_, field, scheme)) = BACKLINK_OPS.iter().find(|(o, _, _)| *o == op) else {
+        return Err(verr("outcome_room_backlink_op_invalid", format!("unknown backlink op '{op}'")));
+    };
+    if !ref_scheme_ok(bound_ref, &[scheme]) {
+        return Err(verr("outcome_room_backlink_ref_invalid", format!("backlink ref must be {scheme}://… (got '{bound_ref}')")));
+    }
+    let Some(room_tail) = room_ref.strip_prefix("outcome-room://").map(str::to_string) else {
+        return Err(verr("outcome_room_ref_scheme_invalid", "the room ref must be outcome-room://…"));
+    };
+    let _guard = ROOM_MUTATION_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    let Some(prior) = load_room(data_dir, room_ref) else {
+        return Err(verr("outcome_room_not_found", format!("no admitted room '{room_ref}'")));
+    };
+    if let Some((f, code)) = pending_intent(&prior) {
+        return Err(verr(code, format!("a durable {f} is pending on this room — a restart (boot completer) converges it before any other mutation is admitted")));
+    }
+    if s(&prior, "status", "") != "open" {
+        return Err(verr("outcome_room_not_open", format!("backlinks bind only to an OPEN room (status: {})", s(&prior, "status", "?"))));
+    }
+    let existing: Vec<String> = prior.get(*field).and_then(|v| v.as_array()).map(|a| a.iter().filter_map(|x| x.as_str().map(String::from)).collect()).unwrap_or_default();
+    if existing.iter().any(|m| m == bound_ref) {
+        return Err(verr("outcome_room_backlink_already_bound", format!("'{bound_ref}' is already bound in {field} — idempotent replay converges, a fresh bind is a conflict")));
+    }
+    let current_rev = prior.get("revision").and_then(|v| v.as_u64()).unwrap_or(0);
+    let now = iso_now();
+    let mut updated = prior.clone();
+    {
+        let obj = updated.as_object_mut().expect("room is an object");
+        let mut arr: Vec<Value> = existing.iter().cloned().map(Value::String).collect();
+        arr.push(json!(bound_ref));
+        obj.insert((*field).into(), Value::Array(arr));
+        obj.insert("revision".into(), json!(current_rev + 1));
+        obj.insert("updated_at".into(), json!(now));
+    }
+    let (receipt_id, receipt) = build_room_receipt(
+        TRANSITION_RECEIPT_SCHEMA, "OutcomeRoomTransitionReceipt", "ort", room_ref, op,
+        json!({ "list_field": field, "bound_ref": bound_ref, "revision_before": current_rev, "revision_after": current_rev + 1 }),
+        vec![json!(room_ref), json!(bound_ref)],
+        record_output_hash(&updated, TRANSITION_HASH_EXCLUDES),
+        TRANSITION_HASH_EXCLUDES,
+        "admitted_not_verified",
+        BACKLINK_NOTE,
+        &now,
+    );
+    {
+        let obj = updated.as_object_mut().expect("object");
+        let mut trail: Vec<Value> = obj.get("admission_and_replay_refs").and_then(|v| v.as_array()).cloned().unwrap_or_default();
+        trail.push(receipt["receipt_ref"].clone());
+        obj.insert("admission_and_replay_refs".into(), Value::Array(trail));
+        let mut history: Vec<Value> = obj.get("status_history").and_then(|v| v.as_array()).cloned().unwrap_or_default();
+        history.push(json!({ "op": op, "at": now, "receipt_ref": receipt["receipt_ref"], "revision": current_rev + 1 }));
+        if history.len() > HISTORY_MAX { let drop_n = history.len() - HISTORY_MAX; history.drain(0..drop_n); }
+        obj.insert("status_history".into(), Value::Array(history));
+    }
+    finalize_room_mutation(data_dir, &room_tail, &prior, &updated, &receipt_id, &receipt)?;
     Ok((updated, receipt))
 }
 
@@ -2082,6 +2215,86 @@ mod outcome_room_tests {
         assert_eq!(stems, vec!["or_c1".to_string()], "only the genuine canonical regular file is scanned");
         let listed: Vec<String> = sorted_newest(data_dir).unwrap().into_iter().filter_map(|r| r["outcome_room_id"].as_str().map(str::to_string)).collect();
         assert_eq!(listed, vec!["outcome-room://or_c1".to_string()], "the symlink's forged content never reaches the public list");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn backlink_seam_binds_receipted_refuses_typed_and_replays_byte_exact() {
+        // #74: the room-owned backlink seam — the ONLY path an object plane has to a room
+        // record — is receipted, duplicate-refusing, open-room-only, and its sealed intent
+        // replays byte-exactly through the SAME completer as every other room transition.
+        let dir = temp_dir("backlink");
+        let data_dir = dir.to_str().unwrap();
+        let (_i, room, _rid, _rcpt) = canonical_admission("or_91");
+        persist_atomic(data_dir, ROOM_DIR, "or_91", &room).unwrap();
+        let (updated, receipt) = bind_room_backlink(data_dir, "outcome-room://or_91", "participation_request_bound", "participation-request://rpr_91").unwrap();
+        assert_eq!(updated["participation_request_refs"], json!(["participation-request://rpr_91"]));
+        assert_eq!(updated["revision"], json!(2));
+        assert_eq!(receipt["op"], json!("participation_request_bound"));
+        assert_eq!(receipt["bound_facts"]["bound_ref"], json!("participation-request://rpr_91"));
+        let (code, _) = bind_room_backlink(data_dir, "outcome-room://or_91", "participation_request_bound", "participation-request://rpr_91").unwrap_err();
+        assert_eq!(code, "outcome_room_backlink_already_bound");
+        let (code, _) = bind_room_backlink(data_dir, "outcome-room://or_91", "frontier_item_bound", "frontier://x").unwrap_err();
+        assert_eq!(code, "outcome_room_backlink_op_invalid");
+        let (code, _) = bind_room_backlink(data_dir, "outcome-room://or_91", "participant_lease_bound", "participation-request://wrong-scheme").unwrap_err();
+        assert_eq!(code, "outcome_room_backlink_ref_invalid");
+        let (_i2, mut closed, _rid2, _rcpt2) = canonical_admission("or_92");
+        closed.as_object_mut().unwrap().insert("status".into(), json!("closed"));
+        persist_atomic(data_dir, ROOM_DIR, "or_92", &closed).unwrap();
+        let (code, _) = bind_room_backlink(data_dir, "outcome-room://or_92", "participation_request_bound", "participation-request://rpr_92").unwrap_err();
+        assert_eq!(code, "outcome_room_not_open");
+        // CRASH REPLAY: seal a canonical backlink intent and let the ROOM completer converge it.
+        let prior = load_room(data_dir, "outcome-room://or_91").unwrap();
+        let now = json!("2026-03-01T00:00:00Z");
+        let receipt_ref = json!("receipt://ort_9b");
+        let prior_rev = prior["revision"].as_u64().unwrap();
+        let mut expected = prior.clone();
+        {
+            let obj = expected.as_object_mut().unwrap();
+            let mut arr: Vec<Value> = obj.get("participant_lease_refs").and_then(|v| v.as_array()).cloned().unwrap_or_default();
+            arr.push(json!("participant-lease://rpl_91"));
+            obj.insert("participant_lease_refs".into(), Value::Array(arr));
+            obj.insert("revision".into(), json!(prior_rev + 1));
+            obj.insert("updated_at".into(), now.clone());
+            let mut trail: Vec<Value> = obj.get("admission_and_replay_refs").and_then(|v| v.as_array()).cloned().unwrap_or_default();
+            trail.push(receipt_ref.clone());
+            obj.insert("admission_and_replay_refs".into(), Value::Array(trail));
+            let mut history: Vec<Value> = obj.get("status_history").and_then(|v| v.as_array()).cloned().unwrap_or_default();
+            history.push(json!({ "op": "participant_lease_bound", "at": now, "receipt_ref": receipt_ref, "revision": prior_rev + 1 }));
+            obj.insert("status_history".into(), Value::Array(history));
+        }
+        let sealed_receipt = build_room_receipt_at(
+            "ort_9b", TRANSITION_RECEIPT_SCHEMA, "OutcomeRoomTransitionReceipt", "outcome-room://or_91", "participant_lease_bound",
+            json!({ "list_field": "participant_lease_refs", "bound_ref": "participant-lease://rpl_91", "revision_before": prior_rev, "revision_after": prior_rev + 1 }),
+            vec![json!("outcome-room://or_91"), json!("participant-lease://rpl_91")],
+            record_output_hash(&expected, TRANSITION_HASH_EXCLUDES), TRANSITION_HASH_EXCLUDES, "admitted_not_verified", BACKLINK_NOTE, "2026-03-01T00:00:00Z",
+        );
+        let mut carrying = prior.clone();
+        carrying.as_object_mut().unwrap().insert("transition_intent".into(), json!({
+            "op": "participant_lease_bound",
+            "final_room": expected, "final_room_hash": record_output_hash(&expected, &[]),
+            "receipt_id": "ort_9b", "receipt": sealed_receipt, "receipt_hash": record_output_hash(&sealed_receipt, &[]),
+            "at": "2026-03-01T00:00:00Z",
+        }));
+        persist_atomic(data_dir, ROOM_DIR, "or_91", &carrying).unwrap();
+        complete_room_intents(data_dir);
+        let converged = load_room(data_dir, "outcome-room://or_91").unwrap();
+        assert_eq!(converged["participant_lease_refs"], json!(["participant-lease://rpl_91"]), "the sealed backlink applied byte-exactly");
+        assert!(converged.get("transition_intent").is_none(), "intent consumed");
+        // FORGED backlink (ref not in the receipt's reconstruction) never converges.
+        let mut lying = converged.clone();
+        let mut bad_final = expected.clone();
+        bad_final.as_object_mut().unwrap().insert("participant_lease_refs".into(), json!(["participant-lease://rpl_FORGED"]));
+        lying.as_object_mut().unwrap().insert("transition_intent".into(), json!({
+            "op": "participant_lease_bound",
+            "final_room": bad_final, "final_room_hash": record_output_hash(&bad_final, &[]),
+            "receipt_id": "ort_9c", "receipt": sealed_receipt, "receipt_hash": record_output_hash(&sealed_receipt, &[]),
+            "at": "2026-03-01T00:00:00Z",
+        }));
+        persist_atomic(data_dir, ROOM_DIR, "or_91", &lying).unwrap();
+        complete_room_intents(data_dir);
+        let after = load_room_file(data_dir, "or_91").unwrap();
+        assert!(after.get("transition_intent").is_some(), "the forged backlink intent is retained, never applied");
         let _ = std::fs::remove_dir_all(&dir);
     }
 
