@@ -81,6 +81,7 @@ const UNAVAILABLE_TRANSITIONS: &[(&str, &str)] = &[
 const BACKLINK_OPS: &[(&str, &str, &str)] = &[
     ("participation_request_bound", "participation_request_refs", "participation-request"),
     ("participant_lease_bound", "participant_lease_refs", "participant-lease"),
+    ("participant_lease_released", "released_participant_lease_refs", "participant-lease"),
 ];
 const BACKLINK_NOTE: &str = "an admitted backlink transition — the room's object list gains one canonical ref; the object record itself is its own plane's truth";
 
@@ -241,7 +242,7 @@ pub(crate) fn record_output_hash(record: &Value, excludes: &[&str]) -> String {
 /// mutable fields are excluded so later receipted transitions never invalidate it.
 const ROOM_HASH_EXCLUDES: &[&str] = &[
     "admission_receipt_ref", "updated_at", "revision", "status", "status_history",
-    "member_goal_run_refs", "admission_and_replay_refs",
+    "member_goal_run_refs", "admission_and_replay_refs", "released_participant_lease_refs",
 ];
 /// TRANSITION hash scope (#72 review finding 4): a transition receipt hashes the transition's
 /// OUTPUT — resulting status, revision, membership, and updated_at ARE included; only the
@@ -819,6 +820,30 @@ fn list_rooms_exact(data_dir: &str) -> Result<Vec<Value>, String> {
         })
         .map(|(_, room)| room)
         .collect())
+}
+
+/// The room's LIVE participant leases (#74 review finding 2): admitted (`participant_lease_refs`)
+/// minus released (`released_participant_lease_refs`). A room refuses `close`/`archive` while
+/// this is non-empty, and the set only shrinks through the receipted `participant_lease_released`
+/// backlink — so the interlock is exact under ROOM_MUTATION_LOCK.
+pub(crate) fn live_lease_refs(room: &Value) -> Vec<String> {
+    let released: std::collections::HashSet<String> = room
+        .get("released_participant_lease_refs")
+        .and_then(|v| v.as_array())
+        .map(|a| a.iter().filter_map(|x| x.as_str().map(String::from)).collect())
+        .unwrap_or_default();
+    room.get("participant_lease_refs")
+        .and_then(|v| v.as_array())
+        .map(|a| a.iter().filter_map(|x| x.as_str().map(String::from)).filter(|r| !released.contains(r)).collect())
+        .unwrap_or_default()
+}
+
+/// The room's host domain authority — resolved from the room record at ANY status (#74 review
+/// finding 1). Host-governed participation decisions bind their grant to THIS principal, so a
+/// host decision (evaluate/reject/admit/admin lease transition) can be authorized even on a room
+/// that has left `open`.
+pub(crate) fn resolve_room_host(data_dir: &str, room_ref: &str) -> Option<String> {
+    load_room(data_dir, room_ref).and_then(|r| r.get("host_domain_ref").and_then(Value::as_str).map(String::from))
 }
 
 pub(crate) fn resolve_open_room(data_dir: &str, room_ref: &str) -> Option<Value> {
@@ -1410,6 +1435,7 @@ fn validate_room_create(body: &Value) -> Result<Value, VErr> {
         "resource_and_budget_refs": list_ref(body, "resource_and_budget_refs", &["resource_pool", "budget", "goal-budget", "order"])?,
         "settlement_policy_ref": scalar_ref(body, "settlement_policy_ref", &["policy"])?,
         "participant_lease_refs": [],
+        "released_participant_lease_refs": [],
         "participation_request_refs": [],
         "frontier_item_refs": [],
         "attempt_refs": [],
@@ -1617,6 +1643,14 @@ pub(crate) fn bind_room_backlink(data_dir: &str, room_ref: &str, op: &str, bound
     if s(&prior, "status", "") != "open" {
         return Err(verr("outcome_room_not_open", format!("backlinks bind only to an OPEN room (status: {})", s(&prior, "status", "?"))));
     }
+    // A RELEASE only applies to a lease that was actually bound (#74) — releasing an unbound ref
+    // is a caller error, not a no-op.
+    if op == "participant_lease_released" {
+        let bound: Vec<String> = prior.get("participant_lease_refs").and_then(|v| v.as_array()).map(|a| a.iter().filter_map(|x| x.as_str().map(String::from)).collect()).unwrap_or_default();
+        if !bound.iter().any(|m| m == bound_ref) {
+            return Err(verr("outcome_room_backlink_ref_invalid", format!("'{bound_ref}' was never bound to this room — cannot release it")));
+        }
+    }
     let existing: Vec<String> = prior.get(*field).and_then(|v| v.as_array()).map(|a| a.iter().filter_map(|x| x.as_str().map(String::from)).collect()).unwrap_or_default();
     if existing.iter().any(|m| m == bound_ref) {
         return Err(verr("outcome_room_backlink_already_bound", format!("'{bound_ref}' is already bound in {field} — idempotent replay converges, a fresh bind is a conflict")));
@@ -1682,6 +1716,19 @@ pub(crate) async fn handle_outcome_room_transition(
         let from = s(room, "status", "");
         if !allowed_from.contains(&from.as_str()) {
             return Err(verr("outcome_room_transition_invalid", format!("transition '{transition}' is not admitted from status '{from}' (allowed from: [{}])", allowed_from.join("|"))));
+        }
+        // ROOM-CLOSE INTERLOCK (#74 review finding 2): a room may not leave `open` for a terminal
+        // state while it still has LIVE participant leases — that would strand active
+        // participants and let their leases keep mutating in a closed room. Orchestrated
+        // participant retirement/export on close is a NAMED GAP (arrives with WorkClaimLease
+        // claim-release, #76); until then, close/archive refuses typed while live leases exist,
+        // and every live lease must be revoked or retired first. The check is under
+        // ROOM_MUTATION_LOCK against the room's own released-set, so it is exact.
+        if matches!(transition.as_str(), "close" | "archive") {
+            let live = live_lease_refs(room);
+            if !live.is_empty() {
+                return Err(verr("outcome_room_close_blocked_live_leases", format!("cannot {transition} — {} live participant lease(s) remain ({}); revoke or retire them first (orchestrated retirement-on-close is a named gap, build step 3 #76)", live.len(), live.join(", "))));
+            }
         }
         room.as_object_mut().expect("object").insert("status".into(), json!(to_status));
         let rev = room.get("revision").and_then(|v| v.as_u64()).unwrap_or(0);

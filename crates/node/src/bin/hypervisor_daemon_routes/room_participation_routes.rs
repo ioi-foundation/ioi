@@ -37,15 +37,107 @@ use serde_json::{json, Value};
 
 use super::outcome_room_routes::{
     self as rooms, build_room_receipt_at, check_expected_revision, is_canonical_receipt_tail,
-    is_rfc3339, list_ref, record_output_hash, reject_sensitive_keys, required_ref, s, scalar_ref,
-    str_opt_bounded, verr, vocab_required, VErr,
+    is_rfc3339, record_output_hash, reject_sensitive_keys, s, str_opt_bounded, verr,
+    vocab_required, VErr,
 };
 use super::{iso_now, DaemonState};
+
+// ============================ CANONICAL REFERENCE GRAMMAR ========================================
+// The room plane's `ref_scheme_ok` is `scheme://`-only; the participation envelopes use the
+// RICHER canon grammar (#74 review finding 4): `scheme://tail` with EXACT canonical scheme names
+// (underscores/hyphens as the envelope writes them), non-URI PREFIX forms (`harness_profile:`,
+// `agent_harness_adapter:`, `prim:`), and — for `home_domain_ref` — the `agentgres://domain/…`
+// path form. Aliasing hyphenated schemes (the earlier bug: canonical `model_route://` refused
+// while noncanonical `model-route://` persisted) is replaced by validating the declared forms
+// verbatim. Mirrors the WorkResult grammar.
+const REF_MAX: usize = 300;
+const LIST_MAX: usize = 64;
+
+fn pref_ok(v: &str, schemes: &[&str], prefixes: &[&str]) -> bool {
+    if prefixes
+        .iter()
+        .any(|p| v.starts_with(p) && v.len() > p.len())
+    {
+        return true;
+    }
+    match v.split_once("://") {
+        Some((scheme, tail)) if !tail.is_empty() => schemes.contains(&scheme),
+        _ => false,
+    }
+}
+
+fn pscheme_err(key: &str, schemes: &[&str], prefixes: &[&str]) -> VErr {
+    let mut allowed: Vec<String> = schemes.iter().map(|s| format!("{s}://")).collect();
+    allowed.extend(prefixes.iter().map(|p| format!("{p}*")));
+    verr("room_participation_ref_scheme_invalid", format!("`{key}` must be a canonical ref [{}] — a raw string or noncanonical alias is never a ref", allowed.join("|")))
+}
+
+fn preq(
+    body: &Value,
+    key: &str,
+    schemes: &[&str],
+    prefixes: &[&str],
+    req_code: &str,
+) -> Result<String, VErr> {
+    match str_opt_bounded(body, key, REF_MAX)? {
+        Some(v) if pref_ok(&v, schemes, prefixes) => Ok(v),
+        Some(_) => Err(pscheme_err(key, schemes, prefixes)),
+        None => Err(verr(
+            req_code,
+            format!("`{key}` is required (a canonical ref)"),
+        )),
+    }
+}
+
+fn pscalar(
+    body: &Value,
+    key: &str,
+    schemes: &[&str],
+    prefixes: &[&str],
+) -> Result<Option<String>, VErr> {
+    match str_opt_bounded(body, key, REF_MAX)? {
+        None => Ok(None),
+        Some(v) if pref_ok(&v, schemes, prefixes) => Ok(Some(v)),
+        Some(_) => Err(pscheme_err(key, schemes, prefixes)),
+    }
+}
+
+fn plist(
+    body: &Value,
+    key: &str,
+    schemes: &[&str],
+    prefixes: &[&str],
+) -> Result<Vec<String>, VErr> {
+    match body.get(key) {
+        None | Some(Value::Null) => Ok(Vec::new()),
+        Some(Value::Array(items)) => {
+            if items.len() > LIST_MAX {
+                return Err(verr(
+                    "room_participation_field_too_long",
+                    format!("`{key}` exceeds the bounded list length ({LIST_MAX})"),
+                ));
+            }
+            let mut out = Vec::with_capacity(items.len());
+            for it in items {
+                match it.as_str() {
+                    Some(t) if t.len() <= REF_MAX && pref_ok(t, schemes, prefixes) => {
+                        out.push(t.to_string())
+                    }
+                    _ => return Err(pscheme_err(key, schemes, prefixes)),
+                }
+            }
+            Ok(out)
+        }
+        Some(_) => Err(verr(
+            "room_participation_field_type_invalid",
+            format!("`{key}` must be an array of canonical refs"),
+        )),
+    }
+}
 
 const REQUEST_SCHEMA: &str = "ioi.hypervisor.room-participation-request.v1";
 const LEASE_SCHEMA: &str = "ioi.hypervisor.room-participant-lease.v1";
 const REQUEST_RECEIPT_SCHEMA: &str = "ioi.hypervisor.room-participation-request-receipt.v1";
-const LEASE_RECEIPT_SCHEMA: &str = "ioi.hypervisor.room-participant-lease-receipt.v1";
 pub(crate) const REQUEST_DIR: &str = "room-participation-requests";
 pub(crate) const LEASE_DIR: &str = "room-participant-leases";
 const RECEIPT_DIR: &str = "room-participation-receipts";
@@ -57,6 +149,225 @@ const SUBMIT_NOTE: &str = "admission of a typed participation request — a rece
 const REQUEST_TRANSITION_NOTE: &str = "an admitted participation-request transition — receipted, optimistically concurrent, and honest about being admission (not verification)";
 const ADMIT_NOTE: &str = "an admitted participation decision — the request's terminal admission and the bounded participant lease land in one crash-convergent finalization; the lease grants nothing beyond its own declared refs";
 const LEASE_TRANSITION_NOTE: &str = "an admitted participant-lease transition — receipted, optimistically concurrent; revocation ends FUTURE participation and never erases contribution lineage";
+const DECISION_RECEIPT_SCHEMA: &str = "ioi.hypervisor.room-participation-decision-receipt.v1";
+
+// ================================ DECISION AUTHORITY (#74 review finding 1) ======================
+// Hosted participation DECISIONS are governed operations, not open daemon endpoints. Comparing a
+// caller-supplied `admission_owner_ref` to the room host is NOT authorization; every gated
+// operation requires a wallet approval grant cryptographically bound to a DAEMON-DERIVED policy
+// hash + request hash (the only untrusted input is the grant itself — every expected value is
+// server-derived, never the POST body). Authority is split by operation:
+//   - HOST-bound (the room's host domain must authorize): request evaluate/reject, admit, and
+//     the administrative lease transitions suspend/resume/quarantine/release_quarantine/revoke.
+//   - PARTICIPANT-bound (the record's own principal must authorize): request withdraw and the
+//     self-state lease transitions sleep/wake/wait/activate/retire.
+// The request hash binds the exact {subject, op, revision, required authority}, so a grant can
+// never be replayed against a different operation, record, or a later revision. The resulting
+// `RoomParticipationDecisionReceipt` binds actor, grant, room, subject, op, revision, and the
+// policy hash. No grant, a foreign grant, or a replayed grant → typed 403 with ZERO mutation.
+use ioi_services::agentic::runtime::kernel::approval::verify_wallet_approval_grant_binding;
+
+const HOST_ADMISSION_SCOPES: &[&str] = &["room_participation_host_admission"];
+const PARTICIPANT_SELF_SCOPES: &[&str] = &["room_participant_self_state"];
+
+/// Governance class of a gated operation.
+#[derive(Clone, Copy, PartialEq)]
+enum Gov {
+    Host,
+    Participant,
+}
+impl Gov {
+    fn label(self) -> &'static str {
+        match self {
+            Gov::Host => "host_admission",
+            Gov::Participant => "participant_self",
+        }
+    }
+    fn scopes(self) -> &'static [&'static str] {
+        match self {
+            Gov::Host => HOST_ADMISSION_SCOPES,
+            Gov::Participant => PARTICIPANT_SELF_SCOPES,
+        }
+    }
+}
+
+/// Request lifecycle governance: withdraw is the participant's own; evaluate/reject are the host's.
+fn request_op_gov(op: &str) -> Gov {
+    match op {
+        "withdraw" => Gov::Participant,
+        _ => Gov::Host,
+    }
+}
+/// Lease lifecycle governance: self-state is the participant's; discipline is the host's.
+fn lease_op_gov(op: &str) -> Gov {
+    match op {
+        "sleep" | "wake" | "wait" | "activate" | "retire" => Gov::Participant,
+        _ => Gov::Host,
+    }
+}
+
+fn decision_policy_hash(gov: Gov, room_ref: &str, required_authority: &str) -> String {
+    record_output_hash(
+        &json!({
+            "domain": "hypervisor.room-participation.decision.policy.v1",
+            "governance": gov.label(),
+            "outcome_room_ref": room_ref,
+            "required_authority_ref": required_authority,
+            "scopes": gov.scopes(),
+        }),
+        &[],
+    )
+}
+fn decision_request_hash(
+    gov: Gov,
+    subject_ref: &str,
+    op: &str,
+    revision: u64,
+    required_authority: &str,
+) -> String {
+    record_output_hash(
+        &json!({
+            "domain": "hypervisor.room-participation.decision.request.v1",
+            "governance": gov.label(),
+            "subject_ref": subject_ref,
+            "op": op,
+            "revision": revision,
+            "required_authority_ref": required_authority,
+            "scopes": gov.scopes(),
+        }),
+        &[],
+    )
+}
+
+/// The proven authority for one gated decision — sealed into the receipt so a replay reconstructs
+/// it byte-exactly.
+#[derive(Clone, Debug)]
+struct DecisionAuthority {
+    acting_authority_id: Value,
+    grant_ref: String,
+    policy_hash: String,
+    request_hash: String,
+}
+
+/// Verify the caller's wallet grant against the daemon-derived policy + request hashes. Returns
+/// the proven authority, or a typed 403 challenge (carrying the exact hashes + required authority
+/// to bind) with ZERO mutation. The grant is the ONLY untrusted input.
+#[allow(clippy::too_many_arguments)]
+fn authorize_decision(
+    body: &Value,
+    gov: Gov,
+    room_ref: &str,
+    required_authority: &str,
+    subject_ref: &str,
+    op: &str,
+    revision: u64,
+) -> Result<DecisionAuthority, (StatusCode, Json<Value>)> {
+    let policy_hash = decision_policy_hash(gov, room_ref, required_authority);
+    let request_hash = decision_request_hash(gov, subject_ref, op, revision, required_authority);
+    let now_ms = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_millis() as u64)
+        .unwrap_or(0);
+    let grant = body
+        .get("wallet_approval_grant")
+        .cloned()
+        .unwrap_or(Value::Null);
+    let binding = if grant.is_null() {
+        Err("a wallet_approval_grant is required".to_string())
+    } else {
+        verify_wallet_approval_grant_binding(
+            &grant,
+            Some(now_ms),
+            Some(&policy_hash),
+            Some(&request_hash),
+        )
+    };
+    match binding {
+        Ok(b) => Ok(DecisionAuthority {
+            acting_authority_id: grant.get("authority_id").cloned().unwrap_or(Value::Null),
+            grant_ref: b.grant_ref,
+            policy_hash,
+            request_hash,
+        }),
+        Err(reason) => Err((
+            StatusCode::FORBIDDEN,
+            Json(json!({
+                "error": {
+                    "code": if gov == Gov::Host { "room_participation_host_authority_required" } else { "room_participation_participant_authority_required" },
+                    "message": format!("'{op}' on '{subject_ref}' is a governed {} decision ({reason}). Bind a wallet approval grant to policy_hash + request_hash for required authority '{required_authority}'.", gov.label()),
+                    "governance": gov.label(),
+                    "required_authority_ref": required_authority,
+                    "required_scopes": gov.scopes(),
+                    "approval": { "policy_hash": policy_hash, "request_hash": request_hash },
+                    "runtimeTruthSource": "daemon-runtime"
+                }
+            })),
+        )),
+    }
+}
+
+/// Build a decision receipt: the portable base + the sealed authority binding (actor = the
+/// acting authority, `authority_grant_id` = the verified grant ref, `policy_hash` and
+/// `input_hash` = the daemon-derived decision hashes). Finalizers AND replay validators call
+/// THIS, so a reconstructed decision receipt is byte-identical.
+#[allow(clippy::too_many_arguments)]
+fn build_decision_receipt(
+    id_tail: &str,
+    receipt_type: &str,
+    subject_ref: &str,
+    op: &str,
+    bound_facts: Value,
+    boundary_refs: Vec<Value>,
+    output_hash: String,
+    excludes: &[&str],
+    note: &str,
+    now: &str,
+    auth: &DecisionAuthority,
+) -> Value {
+    let mut r = build_room_receipt_at(
+        id_tail,
+        DECISION_RECEIPT_SCHEMA,
+        receipt_type,
+        subject_ref,
+        op,
+        bound_facts,
+        boundary_refs,
+        output_hash,
+        excludes,
+        "admitted_not_verified",
+        note,
+        now,
+    );
+    if let Some(obj) = r.as_object_mut() {
+        obj.insert("actor_id".into(), auth.acting_authority_id.clone());
+        obj.insert("authority_grant_id".into(), json!(auth.grant_ref));
+        obj.insert("policy_hash".into(), json!(auth.policy_hash));
+        obj.insert("input_hash".into(), json!(auth.request_hash));
+    }
+    r
+}
+
+/// Recover the sealed authority from a decision receipt (for byte-exact replay reconstruction).
+fn sealed_authority(receipt: &Value) -> DecisionAuthority {
+    DecisionAuthority {
+        acting_authority_id: receipt.get("actor_id").cloned().unwrap_or(Value::Null),
+        grant_ref: receipt
+            .get("authority_grant_id")
+            .and_then(Value::as_str)
+            .unwrap_or("")
+            .to_string(),
+        policy_hash: receipt
+            .get("policy_hash")
+            .and_then(Value::as_str)
+            .unwrap_or("")
+            .to_string(),
+        request_hash: receipt
+            .get("input_hash")
+            .and_then(Value::as_str)
+            .unwrap_or("")
+            .to_string(),
+    }
+}
 
 /// Canonical vocabularies (envelopes, verbatim).
 const REQUEST_STATUSES: &[&str] = &[
@@ -174,7 +485,6 @@ const TRAIL_EXCLUDES: &[&str] = &[
 ];
 
 const HISTORY_MAX: usize = 100;
-const REF_MAX: usize = 300;
 
 /// Serializes every PARTICIPATION-scope critical section. LOCK ORDERING (fixed, documented):
 /// PARTICIPATION_LOCK is acquired BEFORE the room plane's ROOM_MUTATION_LOCK (taken inside
@@ -351,16 +661,18 @@ fn validate_request_create(body: &Value) -> Result<Value, VErr> {
             return Err(verr(code, why));
         }
     }
-    let outcome_room_ref = required_ref(
+    let outcome_room_ref = preq(
         body,
         "outcome_room_ref",
         &["outcome-room"],
+        &[],
         "room_participation_room_required",
     )?;
-    let requested_by = required_ref(
+    let requested_by = preq(
         body,
         "requested_by_ref",
         &["worker", "service", "org", "domain"],
+        &[],
         "room_participation_requested_by_required",
     )?;
     let topology = vocab_required(
@@ -372,10 +684,11 @@ fn validate_request_create(body: &Value) -> Result<Value, VErr> {
     if topology == "federated_admission" {
         return Err(verr("room_participation_federated_unavailable", "`federated_admission` participation needs the AIIP leg (build steps 7-8) — hosted_admission is the step-3 contract"));
     }
-    let admission_owner = required_ref(
+    let admission_owner = preq(
         body,
         "admission_owner_ref",
         &["domain", "policy"],
+        &[],
         "room_participation_admission_owner_required",
     )?;
     // The canon pins `private_context_included: false` — a request NEVER carries raw context.
@@ -387,17 +700,17 @@ fn validate_request_create(body: &Value) -> Result<Value, VErr> {
     let record = json!({
         "outcome_room_ref": outcome_room_ref,
         "requested_by_ref": requested_by,
-        "operator_and_home_domain_refs": list_ref(body, "operator_and_home_domain_refs", &["user", "wallet", "org", "domain", "system"])?,
-        "worker_composition_and_dependency_refs": list_ref(body, "worker_composition_and_dependency_refs", &["package", "worker", "model-route", "harness-profile", "runtime", "provider"])?,
-        "capability_offer_refs": list_ref(body, "capability_offer_refs", &["capability-offer", "ai", "package"])?,
-        "affiliation_and_independent_operation_evidence_refs": list_ref(body, "affiliation_and_independent_operation_evidence_refs", &["evidence", "receipt", "org", "certification-claim"])?,
-        "supported_semantic_and_action_profile_refs": list_ref(body, "supported_semantic_and_action_profile_refs", &["ontology", "semantic-profile", "ontology-mapping", "ontology-action", "action-schema"])?,
-        "eligibility_evidence_refs": list_ref(body, "eligibility_evidence_refs", &["evidence", "receipt", "benchmark", "conformance-profile", "certification-claim"])?,
-        "requested_role_frontier_and_visibility_refs": list_ref(body, "requested_role_frontier_and_visibility_refs", &["frontier", "policy", "restricted-view"])?,
-        "privacy_custody_and_context_policy_refs": list_ref(body, "privacy_custody_and_context_policy_refs", &["privacy-posture", "custody", "policy"])?,
-        "proposed_quote_and_budget_refs": list_ref(body, "proposed_quote_and_budget_refs", &["quote", "goal-budget", "order"])?,
-        "accepted_verifier_settlement_dispute_and_contribution_policy_refs": list_ref(body, "accepted_verifier_settlement_dispute_and_contribution_policy_refs", &["verifier-path", "policy", "settlement-intent", "dispute"])?,
-        "requested_participant_state_export_policy_ref": scalar_ref(body, "requested_participant_state_export_policy_ref", &["policy"])?,
+        "operator_and_home_domain_refs": plist(body, "operator_and_home_domain_refs", &["user", "wallet", "org", "domain", "system"], &[])?,
+        "worker_composition_and_dependency_refs": plist(body, "worker_composition_and_dependency_refs", &["package", "worker", "model_route", "runtime", "provider"], &["harness_profile:"])?,
+        "capability_offer_refs": plist(body, "capability_offer_refs", &["capability-offer", "ai", "package"], &[])?,
+        "affiliation_and_independent_operation_evidence_refs": plist(body, "affiliation_and_independent_operation_evidence_refs", &["evidence", "receipt", "org", "certification_claim"], &[])?,
+        "supported_semantic_and_action_profile_refs": plist(body, "supported_semantic_and_action_profile_refs", &["ontology", "semantic-profile", "ontology-mapping", "ontology-action", "action_schema"], &[])?,
+        "eligibility_evidence_refs": plist(body, "eligibility_evidence_refs", &["evidence", "receipt", "benchmark", "conformance_profile", "certification_claim"], &[])?,
+        "requested_role_frontier_and_visibility_refs": plist(body, "requested_role_frontier_and_visibility_refs", &["frontier", "policy", "restricted_view"], &[])?,
+        "privacy_custody_and_context_policy_refs": plist(body, "privacy_custody_and_context_policy_refs", &["privacy_posture", "custody", "policy"], &[])?,
+        "proposed_quote_and_budget_refs": plist(body, "proposed_quote_and_budget_refs", &["quote", "goal-budget", "order"], &[])?,
+        "accepted_verifier_settlement_dispute_and_contribution_policy_refs": plist(body, "accepted_verifier_settlement_dispute_and_contribution_policy_refs", &["verifier_path", "policy", "settlement-intent", "dispute"], &[])?,
+        "requested_participant_state_export_policy_ref": pscalar(body, "requested_participant_state_export_policy_ref", &["policy"], &[])?,
         "coordination_topology": topology,
         "admission_owner_ref": admission_owner,
         "private_context_included": false,
@@ -447,37 +760,41 @@ fn validate_admit_params(body: &Value) -> Result<Value, VErr> {
         ADMITTED_ROLES,
         "participant_lease_role_invalid",
     )?;
-    let operator_ref = required_ref(
+    let operator_ref = preq(
         body,
         "operator_ref",
         &["user", "org", "wallet", "domain"],
+        &[],
         "participant_lease_operator_required",
     )?;
-    let home_domain_ref = required_ref(
+    // `home_domain_ref` also admits the canonical `agentgres://domain/…` path form (envelope).
+    let home_domain_ref = preq(
         body,
         "home_domain_ref",
-        &["domain", "system"],
+        &["domain", "system", "agentgres"],
+        &[],
         "participant_lease_home_domain_required",
     )?;
-    let ttl = match body.get("ttl_seconds") {
-        None | Some(Value::Null) => Value::Null,
-        Some(v) => match v.as_u64() {
-            Some(n) if n > 0 => json!(n),
-            _ => {
-                return Err(verr(
-                    "participant_lease_ttl_invalid",
-                    "`ttl_seconds` must be a positive integer or null",
-                ))
-            }
-        },
-    };
+    // TTL is DECLARED but not enforced — there is no clock/expiry authority yet (#74 review
+    // finding 3). Rather than store a bound we cannot honor, a non-null `ttl_seconds` is REFUSED
+    // as a named gap: a receipted expiry transition + bounded maximum arrive with clock authority.
+    match body.get("ttl_seconds") {
+        None | Some(Value::Null) => {}
+        Some(_) => {
+            return Err(verr(
+                "participant_lease_ttl_unavailable",
+                "`ttl_seconds` is not enforceable yet — lease expiry needs clock/expiry authority (a later build step). Omit it (null); a bounded, receipted TTL arrives with that authority, never a stored-but-unenforced deadline",
+            ))
+        }
+    }
+    let ttl = Value::Null;
     Ok(json!({
         "admitted_role": admitted_role,
         "operator_ref": operator_ref,
         "home_domain_ref": home_domain_ref,
-        "visibility_scope_ref": scalar_ref(body, "visibility_scope_ref", &["policy", "restricted-view"])?,
-        "context_and_authority_lease_refs": list_ref(body, "context_and_authority_lease_refs", &["context-lease", "grant", "authority"])?,
-        "runtime_resource_and_budget_lease_refs": list_ref(body, "runtime_resource_and_budget_lease_refs", &["lease", "resource-lease", "budget"])?,
+        "visibility_scope_ref": pscalar(body, "visibility_scope_ref", &["policy", "restricted_view"], &[])?,
+        "context_and_authority_lease_refs": plist(body, "context_and_authority_lease_refs", &["context_lease", "grant", "authority"], &[])?,
+        "runtime_resource_and_budget_lease_refs": plist(body, "runtime_resource_and_budget_lease_refs", &["lease", "resource-lease", "budget"], &[])?,
         "ttl_seconds": ttl,
     }))
 }
@@ -1032,8 +1349,6 @@ fn validate_transition_intent(
     id_prefix: &str,
     transitions: &[(&str, &[&str], &str)],
     receipt_prefix: &str,
-    receipt_schema: &str,
-    receipt_type: &str,
     note: &str,
     canonical: fn(&str) -> bool,
 ) -> Result<(Value, String, Value), String> {
@@ -1105,13 +1420,15 @@ fn validate_transition_intent(
     {
         return Err("not the deterministic successor".into());
     }
-    let expected_receipt = build_room_receipt_at(
+    // Reconstruct the decision receipt with the SEALED authority (#74 finding 1): the byte
+    // compare requires the sealed receipt to carry a consistent actor/grant/policy binding AND
+    // an output hash that still binds the reconstructed record.
+    let expected_receipt = build_decision_receipt(
         &receipt_id,
-        receipt_schema,
-        receipt_type,
+        "RoomParticipationDecisionReceipt",
         &record_id,
         op,
-        json!({ "transition": op, "from": from, "to": to_status, "revision_before": prior_rev, "revision_after": prior_rev + 1 }),
+        json!({ "transition": op, "from": from, "to": to_status, "revision_before": prior_rev, "revision_after": prior_rev + 1, "outcome_room_ref": final_record.get("outcome_room_ref").cloned().unwrap_or(Value::Null) }),
         vec![
             json!(record_id),
             final_record
@@ -1121,9 +1438,9 @@ fn validate_transition_intent(
         ],
         record_output_hash(&expected, TRAIL_EXCLUDES),
         TRAIL_EXCLUDES,
-        "admitted_not_verified",
         note,
         now.as_str().unwrap_or(""),
+        &sealed_authority(&receipt),
     );
     if serde_json::to_vec(&expected_receipt).unwrap_or_default()
         != serde_json::to_vec(&receipt).unwrap_or_default()
@@ -1263,40 +1580,49 @@ fn validate_admit_intent(
     {
         return Err("not the deterministic admitted request".into());
     }
-    // Reconstruct BOTH receipts exactly.
+    // Reconstruct BOTH decision receipts exactly, with the SEALED host authority (#74 finding 1).
     let room_ref = s(&final_lease, "outcome_room_ref", "");
-    let expected_lease_receipt = build_room_receipt_at(
+    let expected_lease_receipt = build_decision_receipt(
         lease_receipt_id,
-        LEASE_RECEIPT_SCHEMA,
-        "RoomParticipantLeaseReceipt",
+        "RoomParticipationDecisionReceipt",
         &lease_id,
         "admitted",
         json!({ "outcome_room_ref": room_ref, "participant_ref": s(&final_lease, "participant_ref", ""), "admitted_role": s(&final_lease, "admitted_role", ""), "join_request_ref": request_id, "status_at_admission": "active" }),
         vec![json!(lease_id), json!(room_ref), json!(request_id)],
         record_output_hash(&expected_lease, LEASE_CREATE_EXCLUDES),
         LEASE_CREATE_EXCLUDES,
-        "admitted_not_verified",
         ADMIT_NOTE,
         now_str,
+        &sealed_authority(&lease_receipt),
     );
     if serde_json::to_vec(&expected_lease_receipt).unwrap_or_default()
         != serde_json::to_vec(&lease_receipt).unwrap_or_default()
     {
         return Err("not the canonical lease receipt".into());
     }
-    let expected_request_receipt = build_room_receipt_at(
+    // BOTH admit receipts must carry the SAME sealed authority (one host decision, two receipts).
+    for field in [
+        "actor_id",
+        "authority_grant_id",
+        "policy_hash",
+        "input_hash",
+    ] {
+        if lease_receipt.get(field) != request_receipt.get(field) {
+            return Err("admit receipts carry inconsistent authority".into());
+        }
+    }
+    let expected_request_receipt = build_decision_receipt(
         request_receipt_id,
-        REQUEST_RECEIPT_SCHEMA,
-        "RoomParticipationRequestReceipt",
+        "RoomParticipationDecisionReceipt",
         &request_id,
         "admit",
-        json!({ "transition": "admit", "from": from, "to": "admitted", "participant_lease_ref": lease_id, "revision_before": prior_rev, "revision_after": prior_rev + 1 }),
+        json!({ "transition": "admit", "from": from, "to": "admitted", "participant_lease_ref": lease_id, "revision_before": prior_rev, "revision_after": prior_rev + 1, "outcome_room_ref": room_ref }),
         vec![json!(request_id), json!(lease_id)],
         record_output_hash(&expected_request, TRAIL_EXCLUDES),
         TRAIL_EXCLUDES,
-        "admitted_not_verified",
         ADMIT_NOTE,
         now_str,
+        &sealed_authority(&request_receipt),
     );
     if serde_json::to_vec(&expected_request_receipt).unwrap_or_default()
         != serde_json::to_vec(&request_receipt).unwrap_or_default()
@@ -1405,8 +1731,6 @@ pub(crate) fn complete_participation_intents(data_dir: &str) {
                 "participation-request://",
                 REQUEST_TRANSITIONS,
                 "rqt",
-                REQUEST_RECEIPT_SCHEMA,
-                "RoomParticipationRequestReceipt",
                 REQUEST_TRANSITION_NOTE,
                 is_canonical_request_tail,
             ) {
@@ -1455,8 +1779,6 @@ pub(crate) fn complete_participation_intents(data_dir: &str) {
                 "participant-lease://",
                 LEASE_TRANSITIONS,
                 "rlt",
-                LEASE_RECEIPT_SCHEMA,
-                "RoomParticipantLeaseReceipt",
                 LEASE_TRANSITION_NOTE,
                 is_canonical_lease_tail,
             ) {
@@ -1473,6 +1795,12 @@ pub(crate) fn complete_participation_intents(data_dir: &str) {
                     eprintln!("participation completer: transition intent on lease '{tail}' fails canonical validation ({why}) — left for manual repair");
                 }
             }
+        } else if matches!(s(&record, "status", "").as_str(), "revoked" | "retired") {
+            // Crash-convergence for the room-release step (#74 finding 2): a lease that reached
+            // a terminal state but whose room slot was not released (crash between the terminal
+            // lease write and the release bind) is released now — idempotent, so an
+            // already-released lease is a no-op.
+            ensure_lease_released(data_dir, &record);
         }
     }
 }
@@ -1714,6 +2042,37 @@ pub(crate) async fn handle_participation_request_transition(
         ));
     };
     let _guard = PARTICIPATION_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    // AUTHORITY (#74 review finding 1): the decision is gated BEFORE any mutation. evaluate/reject
+    // are host-governed; withdraw is the participant's own.
+    let Some(prior) = load_request(&st.data_dir, &id) else {
+        return classify(verr(
+            "room_participation_request_not_found",
+            format!("no participation request '{id}'"),
+        ));
+    };
+    let gov = request_op_gov(&transition);
+    let room_ref = s(&prior, "outcome_room_ref", "");
+    let subject_ref = s(&prior, "participation_request_id", "");
+    let revision = prior.get("revision").and_then(Value::as_u64).unwrap_or(0);
+    let required_authority = match gov {
+        Gov::Host => match rooms::resolve_room_host(&st.data_dir, &room_ref) {
+            Some(h) => h,
+            None => return classify(verr("room_participation_room_not_found", format!("the request's room '{room_ref}' no longer resolves — its host authority cannot be established"))),
+        },
+        Gov::Participant => s(&prior, "requested_by_ref", ""),
+    };
+    let auth = match authorize_decision(
+        &body,
+        gov,
+        &room_ref,
+        &required_authority,
+        &subject_ref,
+        &transition,
+        revision,
+    ) {
+        Ok(a) => a,
+        Err(challenge) => return challenge,
+    };
     match transition_record(
         &st.data_dir,
         REQUEST_DIR,
@@ -1724,10 +2083,9 @@ pub(crate) async fn handle_participation_request_transition(
         to_status,
         "participation-request://",
         "rqt",
-        REQUEST_RECEIPT_SCHEMA,
-        "RoomParticipationRequestReceipt",
         REQUEST_TRANSITION_NOTE,
         "room_participation",
+        &auth,
     ) {
         Ok((record, receipt)) => (
             StatusCode::OK,
@@ -1741,6 +2099,7 @@ pub(crate) async fn handle_participation_request_transition(
 
 /// The shared single-record transition core (request + lease).
 #[allow(clippy::too_many_arguments)]
+#[allow(clippy::too_many_arguments)]
 fn transition_record(
     data_dir: &str,
     family: &str,
@@ -1751,10 +2110,9 @@ fn transition_record(
     to_status: &str,
     id_prefix: &str,
     receipt_prefix: &str,
-    receipt_schema: &str,
-    receipt_type: &str,
     note: &str,
     code_ns: &str,
+    auth: &DecisionAuthority,
 ) -> Result<(Value, Value), VErr> {
     let (loader, nf_code): (fn(&str, &str) -> Option<Value>, &str) = if family == REQUEST_DIR {
         (load_request, "room_participation_request_not_found")
@@ -1766,6 +2124,17 @@ fn transition_record(
     };
     if let Some((field, code)) = pending_intent(&prior) {
         return Err(verr(code, format!("a durable {field} is pending on this record — a restart converges it before any other mutation is admitted")));
+    }
+    // LEASE transitions RE-RESOLVE the room (#74 review finding 2): a lease may not be mutated
+    // once its room is no longer open — the room-close interlock keeps a live lease's room open,
+    // so this is belt-and-suspenders against any window, and it refuses typed rather than
+    // mutating a lease inside a closed room.
+    if family == LEASE_DIR {
+        let room_ref = s(&prior, "outcome_room_ref", "");
+        match rooms::resolve_open_room(data_dir, &room_ref) {
+            Some(room) if s(&room, "status", "") == "open" => {}
+            _ => return Err(verr("participant_lease_room_not_open", format!("the lease's room '{room_ref}' is not open — no lease transition is admitted once the room has left `open`"))),
+        }
     }
     let from = s(&prior, "status", "");
     if !allowed_from.contains(&from.as_str()) {
@@ -1794,13 +2163,12 @@ fn transition_record(
         &now_v,
         op == "revoke",
     );
-    let receipt = build_room_receipt_at(
+    let receipt = build_decision_receipt(
         &receipt_id,
-        receipt_schema,
-        receipt_type,
+        "RoomParticipationDecisionReceipt",
         &record_id,
         op,
-        json!({ "transition": op, "from": from, "to": to_status, "revision_before": current_rev, "revision_after": current_rev + 1 }),
+        json!({ "transition": op, "from": from, "to": to_status, "revision_before": current_rev, "revision_after": current_rev + 1, "outcome_room_ref": updated.get("outcome_room_ref").cloned().unwrap_or(Value::Null) }),
         vec![
             json!(record_id),
             updated
@@ -1810,9 +2178,9 @@ fn transition_record(
         ],
         record_output_hash(&updated, TRAIL_EXCLUDES),
         TRAIL_EXCLUDES,
-        "admitted_not_verified",
         note,
         &now,
+        auth,
     );
     finalize_record_transition(
         data_dir,
@@ -1823,7 +2191,30 @@ fn transition_record(
         &receipt_id,
         &receipt,
     )?;
+    // A lease reaching a TERMINAL state (revoked/retired) releases its room slot (#74 review
+    // finding 2), through the room-owned seam — the room's live-lease set shrinks by one, so a
+    // room with no remaining live participants can close. Idempotent + crash-convergent (the
+    // completer re-drives it), so a failure here is not fatal to the transition itself.
+    if family == LEASE_DIR && matches!(to_status, "revoked" | "retired") {
+        ensure_lease_released(data_dir, &updated);
+    }
     Ok((updated, receipt))
+}
+
+/// Release a terminal lease's room slot through the room-owned seam (#74 finding 2). Idempotent:
+/// an already-released ref converges. Best-effort here; the boot completer guarantees eventual
+/// convergence so a crash between the terminal lease write and this call cannot strand the slot.
+fn ensure_lease_released(data_dir: &str, lease: &Value) {
+    let room_ref = s(lease, "outcome_room_ref", "");
+    let lease_id = s(lease, "participant_lease_id", "");
+    if room_ref.is_empty() || lease_id.is_empty() {
+        return;
+    }
+    match rooms::bind_room_backlink(data_dir, &room_ref, "participant_lease_released", &lease_id) {
+        Ok(_) => {}
+        Err((code, _)) if code == "outcome_room_backlink_already_bound" => {}
+        Err((code, msg)) => eprintln!("participation: lease '{lease_id}' room-release deferred ({code}: {msg}) — the boot completer will converge it"),
+    }
 }
 
 /// POST /v1/hypervisor/room-participation-requests/:id/admit — the hosted owner's admitted
@@ -1870,8 +2261,24 @@ pub(crate) async fn handle_participation_request_admit(
         Err(e) => return classify(e),
     }
     // The room must still be OPEN with no pending intent (the bind enforces it; check early).
-    let Some(_room) = rooms::resolve_open_room(&st.data_dir, &room_ref) else {
+    let Some(room) = rooms::resolve_open_room(&st.data_dir, &room_ref) else {
         return classify(verr("room_participation_room_not_found", format!("room '{room_ref}' no longer resolves OPEN — admission refuses rather than leasing into a closed room")));
+    };
+    // AUTHORITY (#74 review finding 1): admission is a HOST decision — the room's host domain
+    // must authorize it, bound to THIS request + revision. Gated BEFORE the lease is minted.
+    let request_id = s(&prior, "participation_request_id", "");
+    let host_authority = s(&room, "host_domain_ref", "");
+    let auth = match authorize_decision(
+        &body,
+        Gov::Host,
+        &room_ref,
+        &host_authority,
+        &request_id,
+        "admit",
+        current_rev,
+    ) {
+        Ok(a) => a,
+        Err(challenge) => return challenge,
     };
     let now = iso_now();
     let lease_tail = format!("rpl_{:x}", nanos());
@@ -1879,7 +2286,6 @@ pub(crate) async fn handle_participation_request_admit(
     let request_receipt_id = format!("rqt_{:x}", nanos());
     let lease_receipt_ref = format!("receipt://{lease_receipt_id}");
     let request_receipt_ref = json!(format!("receipt://{request_receipt_id}"));
-    let request_id = s(&prior, "participation_request_id", "");
     let lease_id = format!("participant-lease://{lease_tail}");
     let final_lease = build_lease(&prior, &params, &lease_tail, &lease_receipt_ref, &now);
     let now_v = json!(now);
@@ -1896,33 +2302,31 @@ pub(crate) async fn handle_participation_request_admit(
         obj.insert("participant_lease_ref".into(), json!(lease_id));
         obj.insert("admission_decision_ref".into(), request_receipt_ref.clone());
     }
-    let lease_receipt = build_room_receipt_at(
+    let lease_receipt = build_decision_receipt(
         &lease_receipt_id,
-        LEASE_RECEIPT_SCHEMA,
-        "RoomParticipantLeaseReceipt",
+        "RoomParticipationDecisionReceipt",
         &lease_id,
         "admitted",
         json!({ "outcome_room_ref": room_ref, "participant_ref": s(&final_lease, "participant_ref", ""), "admitted_role": s(&final_lease, "admitted_role", ""), "join_request_ref": request_id, "status_at_admission": "active" }),
         vec![json!(lease_id), json!(room_ref), json!(request_id)],
         record_output_hash(&final_lease, LEASE_CREATE_EXCLUDES),
         LEASE_CREATE_EXCLUDES,
-        "admitted_not_verified",
         ADMIT_NOTE,
         &now,
+        &auth,
     );
-    let request_receipt = build_room_receipt_at(
+    let request_receipt = build_decision_receipt(
         &request_receipt_id,
-        REQUEST_RECEIPT_SCHEMA,
-        "RoomParticipationRequestReceipt",
+        "RoomParticipationDecisionReceipt",
         &request_id,
         "admit",
-        json!({ "transition": "admit", "from": from, "to": "admitted", "participant_lease_ref": lease_id, "revision_before": current_rev, "revision_after": current_rev + 1 }),
+        json!({ "transition": "admit", "from": from, "to": "admitted", "participant_lease_ref": lease_id, "revision_before": current_rev, "revision_after": current_rev + 1, "outcome_room_ref": room_ref }),
         vec![json!(request_id), json!(lease_id)],
         record_output_hash(&final_request, TRAIL_EXCLUDES),
         TRAIL_EXCLUDES,
-        "admitted_not_verified",
         ADMIT_NOTE,
         &now,
+        &auth,
     );
     let admit = json!({
         "kind": "admit",
@@ -2056,6 +2460,38 @@ pub(crate) async fn handle_participant_lease_transition(
         ));
     };
     let _guard = PARTICIPATION_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    // AUTHORITY (#74 review finding 1): administrative transitions (suspend/resume/quarantine/
+    // release_quarantine/revoke) are host-governed; self-state (sleep/wake/wait/activate/retire)
+    // is the participant's own. Gated BEFORE any mutation.
+    let Some(prior) = load_lease(&st.data_dir, &id) else {
+        return classify(verr(
+            "participant_lease_not_found",
+            format!("no participant lease '{id}'"),
+        ));
+    };
+    let gov = lease_op_gov(&transition);
+    let room_ref = s(&prior, "outcome_room_ref", "");
+    let subject_ref = s(&prior, "participant_lease_id", "");
+    let revision = prior.get("revision").and_then(Value::as_u64).unwrap_or(0);
+    let required_authority = match gov {
+        Gov::Host => match rooms::resolve_room_host(&st.data_dir, &room_ref) {
+            Some(h) => h,
+            None => return classify(verr("participant_lease_room_not_open", format!("the lease's room '{room_ref}' no longer resolves — its host authority cannot be established"))),
+        },
+        Gov::Participant => s(&prior, "participant_ref", ""),
+    };
+    let auth = match authorize_decision(
+        &body,
+        gov,
+        &room_ref,
+        &required_authority,
+        &subject_ref,
+        &transition,
+        revision,
+    ) {
+        Ok(a) => a,
+        Err(challenge) => return challenge,
+    };
     match transition_record(
         &st.data_dir,
         LEASE_DIR,
@@ -2066,10 +2502,9 @@ pub(crate) async fn handle_participant_lease_transition(
         to_status,
         "participant-lease://",
         "rlt",
-        LEASE_RECEIPT_SCHEMA,
-        "RoomParticipantLeaseReceipt",
         LEASE_TRANSITION_NOTE,
         "participant_lease",
+        &auth,
     ) {
         Ok((record, receipt)) => (
             StatusCode::OK,
@@ -2089,6 +2524,20 @@ mod participation_tests {
         let d = std::env::temp_dir().join(format!("ioi-participation-{tag}-{:x}", nanos()));
         std::fs::create_dir_all(&d).unwrap();
         d
+    }
+
+    /// A fixed decision authority for the finalize/replay unit tests — these prove the
+    /// intent-transaction + byte-exact reconstruction machinery, not the wallet crossing (the
+    /// real signed-grant crossing + no-grant/foreign-grant/replay refusals are proven live in
+    /// the isolated verifier). The replay validators reconstruct from the SEALED receipt, so any
+    /// self-consistent authority round-trips here; the online gate is the security boundary.
+    fn ta() -> DecisionAuthority {
+        DecisionAuthority {
+            acting_authority_id: json!("wallet://acct_test_authority"),
+            grant_ref: "wallet.network://grant/approval/testgranthash".to_string(),
+            policy_hash: "sha256:testpolicyhash".to_string(),
+            request_hash: "sha256:testrequesthash".to_string(),
+        }
     }
 
     /// A minimal OPEN hosted room the seam accepts (content id == stem, open, no intents).
@@ -2280,7 +2729,7 @@ mod participation_tests {
         let _ = prior;
         let prior = load_request(data_dir, "rpr_c3").unwrap();
         let params = validate_admit_params(&json!({
-            "admitted_role": "implementer", "operator_ref": "org://alloy-lab", "home_domain_ref": "domain://alloy-lab.example", "ttl_seconds": 86400
+            "admitted_role": "implementer", "operator_ref": "org://alloy-lab", "home_domain_ref": "domain://alloy-lab.example"
         })).unwrap();
         let now = "2026-02-02T00:00:00Z";
         let final_lease = build_lease(&prior, &params, "rpl_c3", "receipt://rlr_c3", now);
@@ -2306,10 +2755,9 @@ mod participation_tests {
         let request_id = s(&prior, "participation_request_id", "");
         let room_ref = s(&prior, "outcome_room_ref", "");
         let current_rev = prior["revision"].as_u64().unwrap();
-        let lease_receipt = build_room_receipt_at(
+        let lease_receipt = build_decision_receipt(
             "rlr_c3",
-            LEASE_RECEIPT_SCHEMA,
-            "RoomParticipantLeaseReceipt",
+            "RoomParticipationDecisionReceipt",
             "participant-lease://rpl_c3",
             "admitted",
             json!({ "outcome_room_ref": room_ref, "participant_ref": s(&final_lease, "participant_ref", ""), "admitted_role": "implementer", "join_request_ref": request_id, "status_at_admission": "active" }),
@@ -2320,23 +2768,22 @@ mod participation_tests {
             ],
             record_output_hash(&final_lease, LEASE_CREATE_EXCLUDES),
             LEASE_CREATE_EXCLUDES,
-            "admitted_not_verified",
             ADMIT_NOTE,
             now,
+            &ta(),
         );
-        let request_receipt = build_room_receipt_at(
+        let request_receipt = build_decision_receipt(
             "rqt_c3",
-            REQUEST_RECEIPT_SCHEMA,
-            "RoomParticipationRequestReceipt",
+            "RoomParticipationDecisionReceipt",
             &request_id,
             "admit",
-            json!({ "transition": "admit", "from": "submitted", "to": "admitted", "participant_lease_ref": "participant-lease://rpl_c3", "revision_before": current_rev, "revision_after": current_rev + 1 }),
+            json!({ "transition": "admit", "from": "submitted", "to": "admitted", "participant_lease_ref": "participant-lease://rpl_c3", "revision_before": current_rev, "revision_after": current_rev + 1, "outcome_room_ref": room_ref }),
             vec![json!(request_id), json!("participant-lease://rpl_c3")],
             record_output_hash(&final_request, TRAIL_EXCLUDES),
             TRAIL_EXCLUDES,
-            "admitted_not_verified",
             ADMIT_NOTE,
             now,
+            &ta(),
         );
         let admit = json!({
             "kind": "admit", "lease_tail": "rpl_c3", "admit_params": params,
@@ -2422,10 +2869,9 @@ mod participation_tests {
             "suspended",
             "participant-lease://",
             "rlt",
-            LEASE_RECEIPT_SCHEMA,
-            "RoomParticipantLeaseReceipt",
             LEASE_TRANSITION_NOTE,
             "participant_lease",
+            &ta(),
         )
         .unwrap();
         assert_eq!(l1["status"], json!("suspended"));
@@ -2441,10 +2887,9 @@ mod participation_tests {
             "active",
             "participant-lease://",
             "rlt",
-            LEASE_RECEIPT_SCHEMA,
-            "RoomParticipantLeaseReceipt",
             LEASE_TRANSITION_NOTE,
             "participant_lease",
+            &ta(),
         );
         assert_eq!(stale.unwrap_err().0, "participant_lease_revision_conflict");
         let (l2, _) = transition_record(
@@ -2457,10 +2902,9 @@ mod participation_tests {
             "active",
             "participant-lease://",
             "rlt",
-            LEASE_RECEIPT_SCHEMA,
-            "RoomParticipantLeaseReceipt",
             LEASE_TRANSITION_NOTE,
             "participant_lease",
+            &ta(),
         )
         .unwrap();
         assert_eq!(l2["status"], json!("active"));
@@ -2474,10 +2918,9 @@ mod participation_tests {
             "revoked",
             "participant-lease://",
             "rlt",
-            LEASE_RECEIPT_SCHEMA,
-            "RoomParticipantLeaseReceipt",
             LEASE_TRANSITION_NOTE,
             "participant_lease",
+            &ta(),
         )
         .unwrap();
         assert_eq!(l3["status"], json!("revoked"));
@@ -2497,10 +2940,9 @@ mod participation_tests {
             "active",
             "participant-lease://",
             "rlt",
-            LEASE_RECEIPT_SCHEMA,
-            "RoomParticipantLeaseReceipt",
             LEASE_TRANSITION_NOTE,
             "participant_lease",
+            &ta(),
         );
         assert_eq!(dead.unwrap_err().0, "participant_lease_transition_invalid");
         // The lease no longer counts as live.
@@ -2552,22 +2994,21 @@ mod participation_tests {
             &now,
             false,
         );
-        let receipt = build_room_receipt_at(
+        let receipt = build_decision_receipt(
             "rlt_e5",
-            LEASE_RECEIPT_SCHEMA,
-            "RoomParticipantLeaseReceipt",
+            "RoomParticipationDecisionReceipt",
             "participant-lease://rpl_e5",
             "suspend",
-            json!({ "transition": "suspend", "from": "active", "to": "suspended", "revision_before": 1, "revision_after": 2 }),
+            json!({ "transition": "suspend", "from": "active", "to": "suspended", "revision_before": 1, "revision_after": 2, "outcome_room_ref": "outcome-room://or_e5" }),
             vec![
                 json!("participant-lease://rpl_e5"),
                 json!("outcome-room://or_e5"),
             ],
             record_output_hash(&updated, TRAIL_EXCLUDES),
             TRAIL_EXCLUDES,
-            "admitted_not_verified",
             LEASE_TRANSITION_NOTE,
             "2026-02-03T00:00:00Z",
+            &ta(),
         );
         let mut carrying = lease.clone();
         carrying.as_object_mut().unwrap().insert("transition_intent".into(), json!({
@@ -2608,22 +3049,21 @@ mod participation_tests {
                 .insert("status".into(), json!("revoked"));
             b
         };
-        let bad_receipt = build_room_receipt_at(
+        let bad_receipt = build_decision_receipt(
             "rlt_e6",
-            LEASE_RECEIPT_SCHEMA,
-            "RoomParticipantLeaseReceipt",
+            "RoomParticipationDecisionReceipt",
             "participant-lease://rpl_e5",
             "suspend",
-            json!({ "transition": "suspend", "from": "suspended", "to": "suspended", "revision_before": 2, "revision_after": 3 }),
+            json!({ "transition": "suspend", "from": "suspended", "to": "suspended", "revision_before": 2, "revision_after": 3, "outcome_room_ref": "outcome-room://or_e5" }),
             vec![
                 json!("participant-lease://rpl_e5"),
                 json!("outcome-room://or_e5"),
             ],
             record_output_hash(&bad_final, TRAIL_EXCLUDES),
             TRAIL_EXCLUDES,
-            "admitted_not_verified",
             LEASE_TRANSITION_NOTE,
             "2026-02-04T00:00:00Z",
+            &ta(),
         );
         lying.as_object_mut().unwrap().insert("transition_intent".into(), json!({
             "op": "suspend", "final_record": bad_final, "final_record_hash": record_output_hash(&bad_final, &[]),
@@ -2685,11 +3125,11 @@ mod participation_tests {
             ),
             (
                 json!({ "requested_by_ref": "user://someone" }),
-                "outcome_room_ref_scheme_invalid",
+                "room_participation_ref_scheme_invalid",
             ),
             (
                 json!({ "capability_offer_refs": ["not-a-ref"] }),
-                "outcome_room_ref_scheme_invalid",
+                "room_participation_ref_scheme_invalid",
             ),
             (
                 json!({ "notes": { "api_key": "SENTINEL" } }),
@@ -2707,6 +3147,316 @@ mod participation_tests {
         let (code, _) = validate_admit_params(&json!({ "admitted_role": "root", "operator_ref": "org://x", "home_domain_ref": "domain://x" })).unwrap_err();
         assert_eq!(code, "participant_lease_role_invalid");
         let _ = code;
+    }
+
+    #[test]
+    fn reference_grammar_accepts_canonical_forms_and_refuses_aliases() {
+        // #74 review finding 4: EXACT canonical scheme names + prefix forms; the earlier bug
+        // (canonical `model_route://` refused while noncanonical `model-route://` persisted) is
+        // gone. Table-driven over every declared form.
+        let accept = [
+            (
+                "worker_composition_and_dependency_refs",
+                json!([
+                    "model_route://m",
+                    "harness_profile:codex",
+                    "package://p",
+                    "worker://w",
+                    "runtime://r",
+                    "provider://pr"
+                ]),
+            ),
+            (
+                "capability_offer_refs",
+                json!(["capability-offer://c", "ai://a", "package://p"]),
+            ),
+            (
+                "affiliation_and_independent_operation_evidence_refs",
+                json!([
+                    "certification_claim://cc",
+                    "evidence://e",
+                    "receipt://r",
+                    "org://o"
+                ]),
+            ),
+            (
+                "supported_semantic_and_action_profile_refs",
+                json!([
+                    "ontology://o",
+                    "semantic-profile://s",
+                    "ontology-mapping://m",
+                    "ontology-action://a",
+                    "action_schema://sc"
+                ]),
+            ),
+            (
+                "eligibility_evidence_refs",
+                json!([
+                    "conformance_profile://c",
+                    "certification_claim://cc",
+                    "benchmark://b"
+                ]),
+            ),
+            (
+                "requested_role_frontier_and_visibility_refs",
+                json!(["restricted_view://rv", "frontier://f", "policy://p"]),
+            ),
+            (
+                "privacy_custody_and_context_policy_refs",
+                json!(["privacy_posture://pp", "custody://c", "policy://p"]),
+            ),
+            (
+                "accepted_verifier_settlement_dispute_and_contribution_policy_refs",
+                json!([
+                    "verifier_path://v",
+                    "settlement-intent://s",
+                    "dispute://d",
+                    "policy://p"
+                ]),
+            ),
+        ];
+        for (field, val) in accept {
+            let mut b = declaration_body("or_ff");
+            b.as_object_mut().unwrap().insert(field.into(), val.clone());
+            assert!(
+                validate_request_create(&b).is_ok(),
+                "canonical {field} {val} must be accepted"
+            );
+        }
+        // Noncanonical aliases + raw strings are refused (a representative set).
+        let refuse = [
+            (
+                "worker_composition_and_dependency_refs",
+                json!(["model-route://m"]),
+            ), // hyphen alias
+            (
+                "worker_composition_and_dependency_refs",
+                json!(["harness-profile://h"]),
+            ), // wrong form
+            (
+                "affiliation_and_independent_operation_evidence_refs",
+                json!(["certification-claim://c"]),
+            ),
+            (
+                "requested_role_frontier_and_visibility_refs",
+                json!(["restricted-view://v"]),
+            ),
+            (
+                "privacy_custody_and_context_policy_refs",
+                json!(["privacy-posture://p"]),
+            ),
+            (
+                "accepted_verifier_settlement_dispute_and_contribution_policy_refs",
+                json!(["verifier-path://v"]),
+            ),
+            ("capability_offer_refs", json!(["capability_offer://c"])), // underscore where canon has hyphen
+            ("capability_offer_refs", json!(["raw-string"])),
+        ];
+        for (field, val) in refuse {
+            let mut b = declaration_body("or_ff");
+            b.as_object_mut().unwrap().insert(field.into(), val.clone());
+            let (code, _) = validate_request_create(&b).unwrap_err();
+            assert_eq!(
+                code, "room_participation_ref_scheme_invalid",
+                "noncanonical {field} {val} must be refused"
+            );
+        }
+        // Admit params: home_domain_ref accepts the agentgres path form; ttl is a named gap.
+        assert!(validate_admit_params(&json!({ "admitted_role": "implementer", "operator_ref": "org://o", "home_domain_ref": "agentgres://domain/acme" })).is_ok());
+        let (code, _) = validate_admit_params(&json!({ "admitted_role": "implementer", "operator_ref": "org://o", "home_domain_ref": "domain://d", "ttl_seconds": 3600 })).unwrap_err();
+        assert_eq!(
+            code, "participant_lease_ttl_unavailable",
+            "a non-null TTL is refused until expiry authority exists (#74 finding 3)"
+        );
+        let (code, _) = validate_admit_params(&json!({ "admitted_role": "implementer", "operator_ref": "org://o", "home_domain_ref": "domain://d", "ttl_seconds": 0 })).unwrap_err();
+        assert_eq!(
+            code, "participant_lease_ttl_unavailable",
+            "even ttl 0 is refused — TTL is unavailable, not merely invalid"
+        );
+    }
+
+    #[test]
+    fn decision_authority_gate_challenges_without_a_grant_and_binds_the_receipt() {
+        // #74 review finding 1: no grant → typed 403 challenge with the daemon-derived hashes and
+        // ZERO mutation. The policy/request hashes are deterministic and operation-bound.
+        let (status, body) = authorize_decision(
+            &json!({}),
+            Gov::Host,
+            "outcome-room://or_z1",
+            "domain://acme-host",
+            "participation-request://rpr_z1",
+            "admit",
+            1,
+        )
+        .unwrap_err();
+        assert_eq!(status, StatusCode::FORBIDDEN);
+        assert_eq!(
+            body.0["error"]["code"],
+            json!("room_participation_host_authority_required")
+        );
+        assert_eq!(
+            body.0["error"]["required_authority_ref"],
+            json!("domain://acme-host")
+        );
+        assert!(body.0["error"]["approval"]["policy_hash"]
+            .as_str()
+            .unwrap()
+            .starts_with("sha256:"));
+        assert!(body.0["error"]["approval"]["request_hash"]
+            .as_str()
+            .unwrap()
+            .starts_with("sha256:"));
+        // The request hash BINDS the revision — a grant for rev 1 cannot authorize rev 2 (replay).
+        let rh1 = decision_request_hash(
+            Gov::Host,
+            "participation-request://rpr_z1",
+            "admit",
+            1,
+            "domain://acme-host",
+        );
+        let rh2 = decision_request_hash(
+            Gov::Host,
+            "participation-request://rpr_z1",
+            "admit",
+            2,
+            "domain://acme-host",
+        );
+        assert_ne!(
+            rh1, rh2,
+            "the request hash is revision-bound — replay after the record moves is refused"
+        );
+        // And it binds the operation + required authority (host vs participant differ).
+        assert_ne!(
+            decision_policy_hash(Gov::Host, "outcome-room://or_z1", "domain://acme-host"),
+            decision_policy_hash(Gov::Participant, "outcome-room://or_z1", "worker://w"),
+            "host and participant governance derive distinct policies"
+        );
+        // Governance split: withdraw is the participant's; evaluate/reject/admit are the host's.
+        assert!(request_op_gov("withdraw") == Gov::Participant);
+        assert!(request_op_gov("evaluate") == Gov::Host && request_op_gov("reject") == Gov::Host);
+        assert!(
+            lease_op_gov("revoke") == Gov::Host
+                && lease_op_gov("suspend") == Gov::Host
+                && lease_op_gov("quarantine") == Gov::Host
+        );
+        assert!(
+            lease_op_gov("sleep") == Gov::Participant
+                && lease_op_gov("retire") == Gov::Participant
+                && lease_op_gov("wake") == Gov::Participant
+        );
+        // The decision receipt binds actor + grant + policy + request hash.
+        let r = build_decision_receipt(
+            "rlt_z1",
+            "RoomParticipationDecisionReceipt",
+            "participant-lease://rpl_z1",
+            "revoke",
+            json!({}),
+            vec![json!("participant-lease://rpl_z1")],
+            "sha256:x".into(),
+            TRAIL_EXCLUDES,
+            LEASE_TRANSITION_NOTE,
+            "2026-01-01T00:00:00Z",
+            &ta(),
+        );
+        assert_eq!(r["actor_id"], json!("wallet://acct_test_authority"));
+        assert_eq!(
+            r["authority_grant_id"],
+            json!("wallet.network://grant/approval/testgranthash")
+        );
+        assert_eq!(r["policy_hash"], json!("sha256:testpolicyhash"));
+        assert_eq!(r["input_hash"], json!("sha256:testrequesthash"));
+        assert_eq!(r["schema_version"], json!(DECISION_RECEIPT_SCHEMA));
+    }
+
+    #[test]
+    fn room_close_interlock_blocks_while_a_lease_is_live_then_releases() {
+        // #74 review finding 2: a room may not close while it has a live participant lease; a
+        // revoke/retire RELEASES the slot (idempotent) and then close is admitted. Lease
+        // transitions also refuse once the room is not open. Driven through the real seams.
+        use super::super::outcome_room_routes as orr;
+        let dir = temp_dir("close-interlock");
+        let data_dir = dir.to_str().unwrap();
+        plant_room(data_dir, "or_c7");
+        // Admit a lease (bind through the seam so the room counts it live).
+        submit(
+            data_dir,
+            "or_c7",
+            "rpr_c7",
+            "rqr_c7",
+            "2026-02-01T00:00:00Z",
+        );
+        let prior = load_request(data_dir, "rpr_c7").unwrap();
+        let params = validate_admit_params(&json!({ "admitted_role": "implementer", "operator_ref": "org://alloy-lab", "home_domain_ref": "domain://alloy-lab.example" })).unwrap();
+        let now = "2026-02-02T00:00:00Z";
+        let lease = build_lease(&prior, &params, "rpl_c7", "receipt://rlr_c7", now);
+        persist_atomic(data_dir, LEASE_DIR, "rpl_c7", &lease).unwrap();
+        orr::bind_room_backlink(
+            data_dir,
+            "outcome-room://or_c7",
+            "participant_lease_bound",
+            "participant-lease://rpl_c7",
+        )
+        .unwrap();
+        // Close is BLOCKED while the lease is live.
+        let live = orr::live_lease_refs(
+            &orr::resolve_open_room(data_dir, "outcome-room://or_c7").unwrap(),
+        );
+        assert_eq!(
+            live,
+            vec!["participant-lease://rpl_c7".to_string()],
+            "the room counts the lease live"
+        );
+        // Revoke the lease (host op) via the real transition core → releases the room slot.
+        let (revoked, _r) = transition_record(
+            data_dir,
+            LEASE_DIR,
+            "rpl_c7",
+            &json!({ "expected_revision": 1 }),
+            "revoke",
+            &["active", "sleeping", "waiting", "suspended", "quarantined"],
+            "revoked",
+            "participant-lease://",
+            "rlt",
+            LEASE_TRANSITION_NOTE,
+            "participant_lease",
+            &ta(),
+        )
+        .unwrap();
+        assert_eq!(revoked["status"], json!("revoked"));
+        let after = orr::resolve_open_room(data_dir, "outcome-room://or_c7").unwrap();
+        assert!(
+            orr::live_lease_refs(&after).is_empty(),
+            "the revoke released the room slot — no live leases remain"
+        );
+        // A further transition on the revoked lease refuses (terminal), and even a fresh op is
+        // refused once the room is closed. Close the room directly (all leases released).
+        let mut closed = after.clone();
+        closed
+            .as_object_mut()
+            .unwrap()
+            .insert("status".into(), json!("closed"));
+        super::super::durable_fs::persist_record_durable(data_dir, orr::ROOM_DIR, "or_c7", &closed)
+            .unwrap();
+        let denied = transition_record(
+            data_dir,
+            LEASE_DIR,
+            "rpl_c7",
+            &json!({ "expected_revision": 2 }),
+            "suspend",
+            &["active", "sleeping", "waiting"],
+            "suspended",
+            "participant-lease://",
+            "rlt",
+            LEASE_TRANSITION_NOTE,
+            "participant_lease",
+            &ta(),
+        );
+        assert_eq!(
+            denied.unwrap_err().0,
+            "participant_lease_room_not_open",
+            "no lease transition is admitted once the room is not open"
+        );
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]
