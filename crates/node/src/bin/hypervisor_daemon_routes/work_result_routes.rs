@@ -762,7 +762,8 @@ pub(crate) async fn handle_work_result_create(
     // Lock ordering: ROOM_MUTATION_LOCK before DELTA_ADMISSION_LOCK, always.
     let _room_scope = super::outcome_room_routes::ROOM_MUTATION_LOCK.lock().unwrap_or_else(|p| p.into_inner());
     let resolve_result = |tail: &str| load_by(&data_dir, RESULT_DIR, "work_result_id", &format!("work-result://{tail}"));
-    let resolve_room = |room_ref: &str| super::outcome_room_routes::resolve_open_room(&data_dir, room_ref);
+    // The validator owns the typed distinction between missing, pending, and non-open rooms.
+    let resolve_room = |room_ref: &str| super::outcome_room_routes::resolve_room(&data_dir, room_ref);
     let mut record = match validate_work_result(&body, &resolve_result, &resolve_room) {
         Ok(r) => r,
         Err(e) => return err400(e),
@@ -814,7 +815,8 @@ pub(crate) async fn handle_outcome_delta_create(
     let _room_scope = super::outcome_room_routes::ROOM_MUTATION_LOCK.lock().unwrap_or_else(|p| p.into_inner());
     let _admission = DELTA_ADMISSION_LOCK.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
     let resolve = |rid: &str| load_by(&data_dir, RESULT_DIR, "work_result_id", &format!("work-result://{rid}"));
-    let resolve_room = |room_ref: &str| super::outcome_room_routes::resolve_open_room(&data_dir, room_ref);
+    // The validator owns the typed distinction between missing, pending, and non-open rooms.
+    let resolve_room = |room_ref: &str| super::outcome_room_routes::resolve_room(&data_dir, room_ref);
     let (mut record, prior_result) = match validate_outcome_delta(&body, &resolve, &resolve_room) {
         Ok(r) => r,
         Err(e) => return err400(e),

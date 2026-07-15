@@ -42,6 +42,10 @@ mod eval_suite_routes;
 mod state_machine_routes;
 #[path = "hypervisor_daemon_routes/durable_fs.rs"]
 mod durable_fs;
+#[path = "hypervisor_daemon_routes/room_participation_routes.rs"]
+mod room_participation_routes;
+#[path = "hypervisor_daemon_routes/wallet_network_capability_client.rs"]
+mod wallet_network_capability_client;
 #[path = "hypervisor_daemon_routes/goalrun_routes.rs"]
 mod goalrun_routes;
 #[path = "hypervisor_daemon_routes/ioi_agent_routes.rs"]
@@ -342,6 +346,10 @@ async fn async_main() -> anyhow::Result<()> {
     outcome_room_routes::complete_attach_intents(&data_dir);
     // #72 round 10 — converge interrupted room admissions and transitions the same way.
     outcome_room_routes::complete_room_intents(&data_dir);
+    // #74 — converge only local/ungoverned participation submissions and already-terminal
+    // room-release tails before readiness. Governed replay performs network I/O and is launched
+    // only after the listener is bound, so resolver outage cannot delay readiness.
+    room_participation_routes::complete_participation_intents(&data_dir);
 
     let stream_frame_delay_ms = std::env::var("IOI_DETERMINISTIC_PROVIDER_STREAM_DELAY_MS")
         .ok()
@@ -1949,6 +1957,35 @@ async fn async_main() -> anyhow::Result<()> {
             axum::routing::post(outcome_room_routes::handle_outcome_room_attach_goal_run),
         )
         .route(
+            "/v1/hypervisor/room-participation-requests",
+            axum::routing::post(room_participation_routes::handle_participation_request_create)
+                .get(room_participation_routes::handle_participation_requests_list),
+        )
+        .route(
+            "/v1/hypervisor/room-participation-requests/:id",
+            axum::routing::get(room_participation_routes::handle_participation_request_get),
+        )
+        .route(
+            "/v1/hypervisor/room-participation-requests/:id/transition",
+            axum::routing::post(room_participation_routes::handle_participation_request_transition),
+        )
+        .route(
+            "/v1/hypervisor/room-participation-requests/:id/admit",
+            axum::routing::post(room_participation_routes::handle_participation_request_admit),
+        )
+        .route(
+            "/v1/hypervisor/room-participant-leases",
+            axum::routing::get(room_participation_routes::handle_participant_leases_list),
+        )
+        .route(
+            "/v1/hypervisor/room-participant-leases/:id",
+            axum::routing::get(room_participation_routes::handle_participant_lease_get),
+        )
+        .route(
+            "/v1/hypervisor/room-participant-leases/:id/transition",
+            axum::routing::post(room_participation_routes::handle_participant_lease_transition),
+        )
+        .route(
             "/v1/hypervisor/placement/resolve",
             post(orchestration_routes::handle_placement_resolve),
         )
@@ -2830,6 +2867,36 @@ async fn async_main() -> anyhow::Result<()> {
     ));
 
     let listener = tokio::net::TcpListener::bind(addr).await?;
+    // Bounded post-readiness governed convergence. Each pass has both an intent-count ceiling and
+    // a wall-clock deadline; pending intents already refuse every online mutation fail-closed, so
+    // timeout leaves their exact bytes untouched for a later boot/pass.
+    let governed_data_dir = state.data_dir.clone();
+    let governed_max_intents = std::env::var("IOI_HYPERVISOR_GOVERNED_REPLAY_MAX_INTENTS")
+        .ok()
+        .and_then(|value| value.trim().parse::<usize>().ok())
+        .unwrap_or(32)
+        .clamp(1, 1_024);
+    let governed_timeout_ms = std::env::var("IOI_HYPERVISOR_GOVERNED_REPLAY_TIMEOUT_MS")
+        .ok()
+        .and_then(|value| value.trim().parse::<u64>().ok())
+        .unwrap_or(10_000)
+        .clamp(250, 60_000);
+    let governed_pass = async move {
+        if tokio::time::timeout(
+            std::time::Duration::from_millis(governed_timeout_ms),
+            room_participation_routes::complete_governed_participation_intents(
+                &governed_data_dir,
+                governed_max_intents,
+            ),
+        )
+        .await
+        .is_err()
+        {
+            eprintln!(
+                "participation governed completer: bounded pass timed out after {governed_timeout_ms} ms; remaining intents retained"
+            );
+        }
+    };
     // Opt-in auto-failover evaluator: IOI_FAILOVER_AUTO_EVALUATE_SECS > 0
     // polls provider evidence for ARMED plans. Detection only — a
     // triggered run parks at the wallet gate (INV-1).
@@ -2849,7 +2916,12 @@ async fn async_main() -> anyhow::Result<()> {
     }
 
     tracing::info!(%addr, "hypervisor-daemon listening");
-    axum::serve(listener, app).await?;
+    let server = tokio::spawn(async move { axum::serve(listener, app).await });
+    // Put the accept loop on the runtime before starting any resolver-backed convergence. This
+    // ordering—not resolver speed—is what makes readiness independent of accumulated intents.
+    tokio::task::yield_now().await;
+    tokio::spawn(governed_pass);
+    server.await??;
     Ok(())
 }
 
