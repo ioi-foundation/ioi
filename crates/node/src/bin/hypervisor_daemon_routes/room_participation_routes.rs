@@ -36,7 +36,6 @@ use axum::extract::{Path as AxumPath, Query, State};
 use axum::http::StatusCode;
 use axum::Json;
 use serde_json::{json, Value};
-use sha2::{Digest, Sha256};
 
 use super::outcome_room_routes::{
     self as rooms, build_room_receipt_at, check_expected_revision, is_canonical_receipt_tail,
@@ -191,15 +190,21 @@ const DECISION_RECEIPT_SCHEMA: &str = "ioi.hypervisor.room-participation-decisio
 //     self-state lease transitions sleep/wake/wait/activate/retire.
 // The request hash binds the exact {subject, op, revision, required authority}; without a valid
 // resolver result no decision receipt is emitted and every governed operation refuses with ZERO mutation.
-use ioi_services::agentic::runtime::kernel::approval::{
-    verify_wallet_approval_grant_binding, ApprovalScopeContext, AuthorityScopeMatcher,
-};
 #[cfg(test)]
-use ioi_types::app::ApprovalAuthority;
 use ioi_types::app::{
-    ApprovalGrant, PrincipalAuthorityBindingCoordinates, PrincipalAuthorityBindingProofV1,
-    PrincipalAuthorityKind, PrincipalAuthorityResolutionReceipt, PrincipalAuthorityResolutionV1,
-    ResolvePrincipalAuthorityParams,
+    ApprovalAuthority, ApprovalGrant, PrincipalAuthorityBindingCoordinates,
+    PrincipalAuthorityKind, PrincipalAuthorityResolutionV1,
+};
+use super::governed_authority::{self as governed, AuthorityContract, Governance};
+
+const ROOM_AUTHORITY: AuthorityContract = AuthorityContract {
+    scope_prefix: "room_participation",
+    policy_domain: "hypervisor.room-participation.decision.policy.v1",
+    request_domain: "hypervisor.room-participation.decision.request.v1",
+    resolution_domain: "hypervisor.room-participation.authority-resolution.v1",
+    code_prefix: "room_participation",
+    host_label: "host_admission",
+    participant_label: "participant_self",
 };
 
 /// Governance class of a gated operation.
@@ -208,30 +213,17 @@ enum Gov {
     Host,
     Participant,
 }
-impl Gov {
-    fn label(self) -> &'static str {
-        match self {
-            Gov::Host => "host_admission",
-            Gov::Participant => "participant_self",
+impl From<Gov> for Governance {
+    fn from(value: Gov) -> Self {
+        match value {
+            Gov::Host => Governance::Host,
+            Gov::Participant => Governance::Participant,
         }
     }
 }
 
-fn operation_scope(op: &str) -> String {
-    format!("room_participation.{op}")
-}
-
 fn decision_authority_posture() -> Value {
-    let configured = super::wallet_network_capability_client::configured();
-    json!({
-        "status": if configured { "configured" } else { "not_configured" },
-        "code": if configured { "room_participation_authority_binding_configured" } else { "room_participation_authority_binding_not_configured" },
-        "reachability": "not_probed",
-        "resolver": "wallet.network principal-authority binding v1 via pinned TLS and a signed CallService capability transaction",
-        "effect": "governed decisions attempt authenticated wallet.network resolution and fail closed before mutation when wallet.network is unavailable or refuses resolution",
-        "pending_governed_intents": if configured { "bounded post-readiness replay attempts authenticated re-resolution against exact immutable coordinates; failures retain intents unchanged" } else { "retained fail-closed until wallet.network is configured" },
-        "runtimeTruthSource": "daemon-runtime",
-    })
+    governed::decision_authority_posture(ROOM_AUTHORITY)
 }
 
 /// Request lifecycle governance: withdraw is the participant's own; evaluate/reject are the host's.
@@ -250,15 +242,12 @@ fn lease_op_gov(op: &str) -> Gov {
 }
 
 fn decision_policy_hash(gov: Gov, room_ref: &str, required_authority: &str, op: &str) -> String {
-    record_output_hash(
-        &json!({
-            "domain": "hypervisor.room-participation.decision.policy.v1",
-            "governance": gov.label(),
-            "outcome_room_ref": room_ref,
-            "required_authority_ref": required_authority,
-            "required_scope": operation_scope(op),
-        }),
-        &[],
+    governed::decision_policy_hash(
+        ROOM_AUTHORITY,
+        gov.into(),
+        room_ref,
+        required_authority,
+        op,
     )
 }
 fn decision_request_hash(
@@ -268,17 +257,13 @@ fn decision_request_hash(
     revision: u64,
     required_authority: &str,
 ) -> String {
-    record_output_hash(
-        &json!({
-            "domain": "hypervisor.room-participation.decision.request.v1",
-            "governance": gov.label(),
-            "subject_ref": subject_ref,
-            "op": op,
-            "revision": revision,
-            "required_authority_ref": required_authority,
-            "required_scope": operation_scope(op),
-        }),
-        &[],
+    governed::decision_request_hash(
+        ROOM_AUTHORITY,
+        gov.into(),
+        subject_ref,
+        op,
+        revision,
+        required_authority,
     )
 }
 
@@ -294,184 +279,7 @@ struct DecisionAuthority {
     authority_binding: Value,
 }
 
-struct VerifiedAuthorityResolution {
-    resolution: PrincipalAuthorityResolutionV1,
-    authority_binding: Value,
-}
-
-fn resolution_request_id(
-    required_authority_ref: &str,
-    required_scope: &str,
-    expected: Option<&PrincipalAuthorityBindingCoordinates>,
-) -> [u8; 32] {
-    let material = json!({
-        "domain": "hypervisor.room-participation.authority-resolution.v1",
-        "principal_ref": required_authority_ref,
-        "required_scope": required_scope,
-        "expected_coordinates": expected,
-        "nonce": nanos(),
-    });
-    let mut out = [0u8; 32];
-    out.copy_from_slice(&Sha256::digest(
-        serde_json::to_vec(&material).unwrap_or_default(),
-    ));
-    if out == [0u8; 32] {
-        out[31] = 1;
-    }
-    out
-}
-
-fn stable_authority_binding(
-    resolution: &PrincipalAuthorityResolutionV1,
-    binding_proof: &PrincipalAuthorityBindingProofV1,
-) -> Value {
-    json!({
-        "schema_version": resolution.schema_version,
-        "principal_ref": resolution.principal_ref,
-        "authority_kind": resolution.authority_kind,
-        "coordinates": resolution.coordinates,
-        "required_scope": resolution.required_scope,
-        "matched_scope": resolution.matched_scope,
-        "approval_authority": resolution.approval_authority,
-        "approval_authority_snapshot_hash": resolution.approval_authority_snapshot_hash,
-        "binding_proof": binding_proof,
-    })
-}
-
-fn validate_authority_resolution(
-    request: &ResolvePrincipalAuthorityParams,
-    receipt: PrincipalAuthorityResolutionReceipt,
-    binding_proof: PrincipalAuthorityBindingProofV1,
-) -> Result<VerifiedAuthorityResolution, String> {
-    if receipt.request_id != request.request_id {
-        return Err("wallet resolver returned a receipt for a different request_id".into());
-    }
-    let resolution = receipt.resolution;
-    if resolution.schema_version != 1
-        || receipt.resolved_at_ms != resolution.resolved_at_ms
-        || resolution.principal_ref != request.principal_ref
-        || resolution.authority_kind != PrincipalAuthorityKind::Approval
-        || resolution.required_scope != request.required_scope
-    {
-        return Err(
-            "wallet resolver returned a foreign principal, kind, scope, or timestamp".into(),
-        );
-    }
-    if request
-        .expected_coordinates
-        .as_ref()
-        .is_some_and(|expected| expected != &resolution.coordinates)
-    {
-        return Err("wallet resolver returned coordinates different from the replay pin".into());
-    }
-    if resolution.coordinates.binding_version == 0
-        || resolution.coordinates.binding_hash == [0u8; 32]
-        || resolution.coordinates.binding_ref
-            != format!(
-                "wallet.network://principal-authority-binding/{}",
-                hex::encode(resolution.coordinates.binding_hash)
-            )
-    {
-        return Err("wallet resolver returned noncanonical immutable coordinates".into());
-    }
-    let authority = &resolution.approval_authority;
-    authority.verify().map_err(|error| {
-        format!("wallet resolver returned an invalid authority snapshot: {error}")
-    })?;
-    if resolution.approval_authority_snapshot_hash == [0u8; 32]
-        || resolution.mutation_audit_event_id == [0u8; 32]
-        || resolution.mutation_audit_event_hash == [0u8; 32]
-        || authority
-            .artifact_hash()
-            .map_err(|error| error.to_string())?
-            != resolution.approval_authority_snapshot_hash
-        || authority.authority_id != resolution.authority_id
-        || authority.public_key != resolution.authority_public_key
-        || authority.signature_suite != resolution.authority_signature_suite
-    {
-        return Err("wallet resolver authority snapshot/hash/signer tuple mismatch".into());
-    }
-    let now_ms = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map(|duration| duration.as_millis() as u64)
-        .unwrap_or(0);
-    if authority.revoked
-        || authority.expires_at < resolution.resolved_at_ms
-        || authority.expires_at < now_ms
-    {
-        return Err("wallet resolver returned a revoked or expired authority snapshot".into());
-    }
-    let decision = AuthorityScopeMatcher::evaluate(
-        authority,
-        &ApprovalScopeContext::new(request.required_scope.clone()),
-    );
-    if !decision.allowed
-        || decision.matched_scope.as_deref() != Some(resolution.matched_scope.as_str())
-    {
-        return Err(
-            "wallet resolver matched_scope is not the canonical snapshot scope match".into(),
-        );
-    }
-    let authority_binding = stable_authority_binding(&resolution, &binding_proof);
-    Ok(VerifiedAuthorityResolution {
-        resolution,
-        authority_binding,
-    })
-}
-
-async fn resolve_required_authority(
-    required_authority_ref: &str,
-    required_scope: &str,
-    expected_coordinates: Option<PrincipalAuthorityBindingCoordinates>,
-) -> Result<VerifiedAuthorityResolution, (StatusCode, String, String)> {
-    let request = ResolvePrincipalAuthorityParams {
-        request_id: resolution_request_id(
-            required_authority_ref,
-            required_scope,
-            expected_coordinates.as_ref(),
-        ),
-        principal_ref: required_authority_ref.to_string(),
-        authority_kind: PrincipalAuthorityKind::Approval,
-        required_scope: required_scope.to_string(),
-        expected_coordinates,
-    };
-    let authenticated =
-        super::wallet_network_capability_client::resolve_principal_authority(request.clone())
-            .await
-            .map_err(|error| {
-                use super::wallet_network_capability_client::ResolveError;
-                match error {
-                    ResolveError::NotConfigured(message) => (
-                        StatusCode::NOT_IMPLEMENTED,
-                        "room_participation_authority_binding_unavailable".to_string(),
-                        message,
-                    ),
-                    ResolveError::Unavailable(message) => (
-                        StatusCode::SERVICE_UNAVAILABLE,
-                        "room_participation_authority_resolver_unavailable".to_string(),
-                        message,
-                    ),
-                    ResolveError::Refused(message) => (
-                        StatusCode::FORBIDDEN,
-                        "room_participation_authority_resolution_refused".to_string(),
-                        message,
-                    ),
-                    ResolveError::Invalid(message) => (
-                        StatusCode::BAD_GATEWAY,
-                        "room_participation_authority_resolution_invalid".to_string(),
-                        message,
-                    ),
-                }
-            })?;
-    validate_authority_resolution(&request, authenticated.receipt, authenticated.binding_proof)
-        .map_err(|message| {
-            (
-                StatusCode::BAD_GATEWAY,
-                "room_participation_authority_resolution_invalid".to_string(),
-                message,
-            )
-        })
-}
+type VerifiedAuthorityResolution = governed::VerifiedAuthorityResolution;
 
 /// Verify a wallet grant against the daemon-derived policy/request hashes AND the complete frozen
 /// authority snapshot obtained from wallet.network. Kept separate so foreign-signer and snapshot
@@ -487,65 +295,25 @@ fn authorize_decision_for_resolution(
     op: &str,
     revision: u64,
 ) -> Result<DecisionAuthority, (StatusCode, Json<Value>)> {
-    let resolution = &verified_resolution.resolution;
-    let policy_hash = decision_policy_hash(gov, room_ref, required_authority, op);
-    let request_hash = decision_request_hash(gov, subject_ref, op, revision, required_authority);
-    let now_ms = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map(|d| d.as_millis() as u64)
-        .unwrap_or(0);
-    let grant = body
-        .get("wallet_approval_grant")
-        .cloned()
-        .unwrap_or(Value::Null);
-    let binding = if grant.is_null() {
-        Err("a wallet_approval_grant is required".to_string())
-    } else {
-        verify_wallet_approval_grant_binding(
-            &grant,
-            Some(now_ms),
-            Some(&policy_hash),
-            Some(&request_hash),
-        )
-        .and_then(|binding| {
-            let parsed: ApprovalGrant = serde_json::from_value(grant.clone())
-                .map_err(|error| format!("approval grant is not canonical: {error}"))?;
-            let authority = &resolution.approval_authority;
-            if parsed.authority_id != authority.authority_id
-                || parsed.approver_public_key != authority.public_key
-                || parsed.approver_suite != authority.signature_suite
-            {
-                return Err(format!(
-                    "approval grant signer tuple does not match the frozen authority snapshot bound to '{required_authority}'"
-                ));
-            }
-            Ok(binding)
-        })
-    };
-    match binding {
-        Ok(b) => Ok(DecisionAuthority {
-            acting_authority_id: grant.get("authority_id").cloned().unwrap_or(Value::Null),
-            grant_ref: b.grant_ref,
-            policy_hash,
-            request_hash,
-            wallet_approval_grant: grant,
-            authority_binding: verified_resolution.authority_binding.clone(),
-        }),
-        Err(reason) => Err((
-            StatusCode::FORBIDDEN,
-            Json(json!({
-                "error": {
-                    "code": if gov == Gov::Host { "room_participation_host_authority_required" } else { "room_participation_participant_authority_required" },
-                    "message": format!("'{op}' on '{subject_ref}' is a governed {} decision ({reason}). Bind a wallet approval grant from the authority resolved for '{required_authority}' to policy_hash + request_hash.", gov.label()),
-                    "governance": gov.label(),
-                    "required_authority_ref": required_authority,
-                    "required_scope": operation_scope(op),
-                    "approval": { "policy_hash": policy_hash, "request_hash": request_hash },
-                    "runtimeTruthSource": "daemon-runtime"
-                }
-            })),
-        )),
-    }
+    governed::authorize_decision_for_resolution(
+        ROOM_AUTHORITY,
+        body,
+        gov.into(),
+        room_ref,
+        required_authority,
+        verified_resolution,
+        subject_ref,
+        op,
+        revision,
+    )
+    .map(|authorized| DecisionAuthority {
+        acting_authority_id: authorized.evidence.acting_authority_id,
+        grant_ref: authorized.evidence.grant_ref,
+        policy_hash: authorized.evidence.policy_hash,
+        request_hash: authorized.evidence.request_hash,
+        wallet_approval_grant: authorized.evidence.wallet_approval_grant,
+        authority_binding: authorized.evidence.authority_binding,
+    })
 }
 
 /// Resolve the required identity binding before considering any grant. Resolver absence/refusal
@@ -561,40 +329,25 @@ async fn authorize_decision(
     op: &str,
     revision: u64,
 ) -> Result<DecisionAuthority, (StatusCode, Json<Value>)> {
-    let policy_hash = decision_policy_hash(gov, room_ref, required_authority, op);
-    let request_hash = decision_request_hash(gov, subject_ref, op, revision, required_authority);
-    let required_scope = operation_scope(op);
-    let resolution = match resolve_required_authority(required_authority, &required_scope, None)
-        .await
-    {
-        Ok(resolution) => resolution,
-        Err((status, code, reason)) => {
-            return Err((
-                status,
-                Json(json!({
-                    "error": {
-                        "code": code,
-                        "message": format!("'{op}' on '{subject_ref}' is unavailable: {reason}. Signature + request/policy hash verification cannot establish who may act for a domain or participant."),
-                        "governance": gov.label(),
-                        "required_authority_ref": required_authority,
-                        "required_scope": required_scope,
-                        "approval": { "policy_hash": policy_hash, "request_hash": request_hash },
-                        "runtimeTruthSource": "daemon-runtime"
-                    }
-                })),
-            ));
-        }
-    };
-    authorize_decision_for_resolution(
+    governed::authorize_decision(
+        ROOM_AUTHORITY,
         body,
-        gov,
+        gov.into(),
         room_ref,
         required_authority,
-        &resolution,
         subject_ref,
         op,
         revision,
     )
+    .await
+    .map(|authorized| DecisionAuthority {
+        acting_authority_id: authorized.evidence.acting_authority_id,
+        grant_ref: authorized.evidence.grant_ref,
+        policy_hash: authorized.evidence.policy_hash,
+        request_hash: authorized.evidence.request_hash,
+        wallet_approval_grant: authorized.evidence.wallet_approval_grant,
+        authority_binding: authorized.evidence.authority_binding,
+    })
 }
 
 /// Build a decision receipt: the portable base + the sealed authority binding (actor = the
@@ -688,64 +441,17 @@ async fn reauthorize_sealed_receipt(
     op: &str,
     revision: u64,
 ) -> Result<(), String> {
-    let sealed = sealed_authority(receipt);
-    if sealed.wallet_approval_grant.is_null() || !sealed.authority_binding.is_object() {
-        return Err("the governed intent does not retain its complete signed grant and authority binding tuple".into());
-    }
-    let required_scope = operation_scope(op);
-    if sealed
-        .authority_binding
-        .get("principal_ref")
-        .and_then(Value::as_str)
-        != Some(required_authority)
-        || sealed
-            .authority_binding
-            .get("required_scope")
-            .and_then(Value::as_str)
-            != Some(required_scope.as_str())
-    {
-        return Err(
-            "the governed intent authority tuple names a foreign principal or operation scope"
-                .into(),
-        );
-    }
-    let coordinates: PrincipalAuthorityBindingCoordinates = serde_json::from_value(
-        sealed
-            .authority_binding
-            .get("coordinates")
-            .cloned()
-            .unwrap_or(Value::Null),
-    )
-    .map_err(|error| format!("the governed intent binding coordinates are malformed: {error}"))?;
-    let resolution =
-        resolve_required_authority(required_authority, &required_scope, Some(coordinates))
-            .await
-            .map_err(|(_, code, message)| format!("{code}: {message}"))?;
-    if resolution.authority_binding != sealed.authority_binding {
-        return Err("wallet.network no longer resolves the exact snapshot, scope, and immutable coordinates pinned by the governed intent".into());
-    }
-    let body = json!({ "wallet_approval_grant": sealed.wallet_approval_grant });
-    let live = authorize_decision_for_resolution(
-        &body,
-        gov,
+    governed::reauthorize_sealed_receipt(
+        ROOM_AUTHORITY,
+        receipt,
+        gov.into(),
         room_ref,
         required_authority,
-        &resolution,
         subject_ref,
         op,
         revision,
     )
-    .map_err(|(_, Json(payload))| {
-        payload
-            .pointer("/error/message")
-            .and_then(Value::as_str)
-            .unwrap_or("the retained approval grant no longer verifies")
-            .to_string()
-    })?;
-    if live != sealed {
-        return Err("the reverified grant and resolution do not reconstruct the exact sealed authority tuple".into());
-    }
-    Ok(())
+    .await
 }
 
 /// Canonical vocabularies (envelopes, verbatim).

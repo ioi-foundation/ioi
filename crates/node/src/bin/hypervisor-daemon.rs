@@ -44,6 +44,8 @@ mod state_machine_routes;
 mod durable_fs;
 #[path = "hypervisor_daemon_routes/room_participation_routes.rs"]
 mod room_participation_routes;
+#[path = "hypervisor_daemon_routes/governed_authority.rs"]
+mod governed_authority;
 #[path = "hypervisor_daemon_routes/wallet_network_capability_client.rs"]
 mod wallet_network_capability_client;
 #[path = "hypervisor_daemon_routes/goalrun_routes.rs"]
