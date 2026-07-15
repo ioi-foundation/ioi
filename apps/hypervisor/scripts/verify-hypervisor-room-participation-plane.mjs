@@ -154,7 +154,8 @@ async function run() {
     const requestTail = String(request?.participation_request_id).replace("participation-request://", "");
     ok("SUBMIT: request is live and grants nothing", submit.status === 201 && request?.status === "submitted" && request?.revision === 1, `${submit.status}/${request?.status}`);
     const posture = await jd("GET", "/v1/hypervisor/room-participation-requests");
-    ok("AUTHORITY: production resolver posture is live", posture.body.decision_authority_posture?.status === "available", JSON.stringify(posture.body.decision_authority_posture));
+    const authorityPosture = posture.body.decision_authority_posture;
+    ok("AUTHORITY: production resolver posture reports configuration without claiming reachability", authorityPosture?.status === "configured" && authorityPosture?.code === "room_participation_authority_binding_configured" && authorityPosture?.reachability === "not_probed", JSON.stringify(authorityPosture));
 
     const evaluatePath = `/v1/hypervisor/room-participation-requests/${requestTail}/transition`;
     const evaluate = await challengeAndGrant(plane, resolver, "domain://acme-host", evaluatePath, { transition: "evaluate", expected_revision: 1 });
@@ -248,8 +249,10 @@ async function run() {
       const readinessMs = Date.now() - readinessStarted;
       const ready = await fetch(`${faultPlane.daemonUrl}/readyz`);
       const stalled = await jsonCall(faultPlane.daemonUrl, "GET", `/v1/hypervisor/room-participation-requests/${faultRequestTail}`);
+      const blackholeOverview = await jsonCall(faultPlane.daemonUrl, "GET", "/v1/hypervisor/room-participation-requests");
+      const blackholePosture = blackholeOverview.body.decision_authority_posture;
       const bytesAfterBlackhole = readFileSync(blackholeCarryingPath, "utf8");
-      ok("READINESS: blackholed resolver cannot delay listener readiness or consume intent", ready.status === 200 && readinessMs < 2_500 && !!stalled.body.participation_request?.admit_intent && bytesAfterBlackhole === bytesBeforeBlackhole && count(blackholeDir, "room-participant-leases") === 0, `${readinessMs}ms/intent=${!!stalled.body.participation_request?.admit_intent}`);
+      ok("READINESS: blackholed resolver cannot delay readiness, consume intent, or make overview claim live reachability", ready.status === 200 && readinessMs < 2_500 && !!stalled.body.participation_request?.admit_intent && bytesAfterBlackhole === bytesBeforeBlackhole && count(blackholeDir, "room-participant-leases") === 0 && blackholePosture?.status === "configured" && blackholePosture?.code === "room_participation_authority_binding_configured" && blackholePosture?.reachability === "not_probed", `${readinessMs}ms/intent=${!!stalled.body.participation_request?.admit_intent}/posture=${JSON.stringify(blackholePosture)}`);
     } finally {
       if (faultPlane) await faultPlane.stop();
       faultPlane = null;
@@ -316,7 +319,7 @@ async function run() {
   for (const result of results) console.log(`  ${result.pass ? "PASS" : "FAIL"}  ${result.name}${result.detail ? `  (${result.detail})` : ""}`);
   console.log(`${passed}/${results.length} passed`);
   if (passed !== results.length) process.exit(1);
-  console.log("room-participation plane held-bar: PASS (full scope-bound wallet.network journey live; #74 remains held)");
+  console.log("room-participation plane integration bar: PASS (full scope-bound wallet.network journey verified)");
 }
 
 run().catch((error) => { console.error("VERIFIER CRASH:", error); process.exit(1); });

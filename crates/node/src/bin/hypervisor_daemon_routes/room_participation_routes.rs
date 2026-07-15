@@ -224,11 +224,12 @@ fn operation_scope(op: &str) -> String {
 fn decision_authority_posture() -> Value {
     let configured = super::wallet_network_capability_client::configured();
     json!({
-        "status": if configured { "available" } else { "not_configured" },
-        "code": if configured { "room_participation_authority_binding_live" } else { "room_participation_authority_binding_unavailable" },
+        "status": if configured { "configured" } else { "not_configured" },
+        "code": if configured { "room_participation_authority_binding_configured" } else { "room_participation_authority_binding_not_configured" },
+        "reachability": "not_probed",
         "resolver": "wallet.network principal-authority binding v1 via pinned TLS and a signed CallService capability transaction",
-        "effect": if configured { "governed decisions resolve and pin the full authority tuple plus root-signed immutable proof" } else { "request/admit/lease decisions refuse before mutation" },
-        "pending_governed_intents": if configured { "re-resolved against exact immutable coordinates on boot" } else { "retained fail-closed until wallet.network is configured" },
+        "effect": "governed decisions attempt authenticated wallet.network resolution and fail closed before mutation when wallet.network is unavailable or refuses resolution",
+        "pending_governed_intents": if configured { "bounded post-readiness replay attempts authenticated re-resolution against exact immutable coordinates; failures retain intents unchanged" } else { "retained fail-closed until wallet.network is configured" },
         "runtimeTruthSource": "daemon-runtime",
     })
 }
