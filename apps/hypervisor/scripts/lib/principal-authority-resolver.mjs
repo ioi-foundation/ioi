@@ -1,6 +1,10 @@
 import { createHash } from "node:crypto";
 import { createServer } from "node:http";
 
+// Deliberately unauthenticated resolver-shaped HTTP mock. It exists only to prove that
+// Hypervisor refuses an internally consistent response from an arbitrary endpoint. Production
+// positive coverage lives in wallet-network-principal-authority-fixture.mjs and uses the real
+// wallet.network service through signed CallService transactions.
 import { mintApprovalGrant } from "../../../../scripts/lib/mint-approval-grant.mjs";
 
 const hashBytes = (text) => [...createHash("sha256").update(text).digest()];
@@ -44,15 +48,17 @@ function signer(seed, principalRef, version = 1) {
   };
 }
 
-export async function startPrincipalAuthorityResolver(bindings) {
+export async function startUnauthenticatedPrincipalAuthorityMock(bindings) {
   const state = new Map(bindings.map(({ principalRef, seed }) => [principalRef, signer(seed, principalRef)]));
   let tamper = null;
+  let requestCount = 0;
   const server = createServer(async (request, response) => {
     if (request.method !== "POST" || request.url !== "/v1/authority/principal-bindings/resolve") {
       response.writeHead(404, { "content-type": "application/json" });
       response.end(JSON.stringify({ error: { code: "not_found" } }));
       return;
     }
+    requestCount += 1;
     const chunks = [];
     for await (const chunk of request) chunks.push(chunk);
     let body;
@@ -126,6 +132,7 @@ export async function startPrincipalAuthorityResolver(bindings) {
     },
     restore(principalRef, binding) { state.set(principalRef, binding); },
     setTamper(value) { tamper = value; },
+    requests() { return requestCount; },
     async stop() { await new Promise((resolve) => server.close(resolve)); },
   };
 }

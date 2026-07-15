@@ -30,7 +30,7 @@
 //!   Governed replay re-resolves the exact stored coordinates and byte-compares the full tuple;
 //!   copied receipt fields alone never cross that boundary.
 use std::sync::{Arc, Mutex};
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use axum::extract::{Path as AxumPath, Query, State};
 use axum::http::StatusCode;
@@ -194,13 +194,13 @@ const DECISION_RECEIPT_SCHEMA: &str = "ioi.hypervisor.room-participation-decisio
 use ioi_services::agentic::runtime::kernel::approval::{
     verify_wallet_approval_grant_binding, ApprovalScopeContext, AuthorityScopeMatcher,
 };
-use ioi_types::app::{
-    ApprovalGrant, PrincipalAuthorityBindingCoordinates, PrincipalAuthorityKind,
-    PrincipalAuthorityResolutionReceipt, PrincipalAuthorityResolutionV1,
-    ResolvePrincipalAuthorityParams,
-};
 #[cfg(test)]
 use ioi_types::app::ApprovalAuthority;
+use ioi_types::app::{
+    ApprovalGrant, PrincipalAuthorityBindingCoordinates, PrincipalAuthorityBindingProofV1,
+    PrincipalAuthorityKind, PrincipalAuthorityResolutionReceipt, PrincipalAuthorityResolutionV1,
+    ResolvePrincipalAuthorityParams,
+};
 
 /// Governance class of a gated operation.
 #[derive(Clone, Copy, PartialEq)]
@@ -222,12 +222,12 @@ fn operation_scope(op: &str) -> String {
 }
 
 fn decision_authority_posture() -> Value {
-    let configured = wallet_network_endpoint().is_some();
+    let configured = super::wallet_network_capability_client::configured();
     json!({
         "status": if configured { "available" } else { "not_configured" },
         "code": if configured { "room_participation_authority_binding_live" } else { "room_participation_authority_binding_unavailable" },
-        "resolver": "wallet.network principal-authority binding v1",
-        "effect": if configured { "governed decisions resolve and pin the full authority tuple" } else { "request/admit/lease decisions refuse before mutation" },
+        "resolver": "wallet.network principal-authority binding v1 via pinned TLS and a signed CallService capability transaction",
+        "effect": if configured { "governed decisions resolve and pin the full authority tuple plus root-signed immutable proof" } else { "request/admit/lease decisions refuse before mutation" },
         "pending_governed_intents": if configured { "re-resolved against exact immutable coordinates on boot" } else { "retained fail-closed until wallet.network is configured" },
         "runtimeTruthSource": "daemon-runtime",
     })
@@ -293,11 +293,9 @@ struct DecisionAuthority {
     authority_binding: Value,
 }
 
-fn wallet_network_endpoint() -> Option<String> {
-    std::env::var("IOI_WALLET_NETWORK_URL")
-        .ok()
-        .map(|value| value.trim().trim_end_matches('/').to_string())
-        .filter(|value| !value.is_empty())
+struct VerifiedAuthorityResolution {
+    resolution: PrincipalAuthorityResolutionV1,
+    authority_binding: Value,
 }
 
 fn resolution_request_id(
@@ -322,7 +320,10 @@ fn resolution_request_id(
     out
 }
 
-fn stable_authority_binding(resolution: &PrincipalAuthorityResolutionV1) -> Value {
+fn stable_authority_binding(
+    resolution: &PrincipalAuthorityResolutionV1,
+    binding_proof: &PrincipalAuthorityBindingProofV1,
+) -> Value {
     json!({
         "schema_version": resolution.schema_version,
         "principal_ref": resolution.principal_ref,
@@ -332,13 +333,15 @@ fn stable_authority_binding(resolution: &PrincipalAuthorityResolutionV1) -> Valu
         "matched_scope": resolution.matched_scope,
         "approval_authority": resolution.approval_authority,
         "approval_authority_snapshot_hash": resolution.approval_authority_snapshot_hash,
+        "binding_proof": binding_proof,
     })
 }
 
 fn validate_authority_resolution(
     request: &ResolvePrincipalAuthorityParams,
     receipt: PrincipalAuthorityResolutionReceipt,
-) -> Result<PrincipalAuthorityResolutionV1, String> {
+    binding_proof: PrincipalAuthorityBindingProofV1,
+) -> Result<VerifiedAuthorityResolution, String> {
     if receipt.request_id != request.request_id {
         return Err("wallet resolver returned a receipt for a different request_id".into());
     }
@@ -378,9 +381,9 @@ fn validate_authority_resolution(
         || resolution.mutation_audit_event_id == [0u8; 32]
         || resolution.mutation_audit_event_hash == [0u8; 32]
         || authority
-        .artifact_hash()
-        .map_err(|error| error.to_string())?
-        != resolution.approval_authority_snapshot_hash
+            .artifact_hash()
+            .map_err(|error| error.to_string())?
+            != resolution.approval_authority_snapshot_hash
         || authority.authority_id != resolution.authority_id
         || authority.public_key != resolution.authority_public_key
         || authority.signature_suite != resolution.authority_signature_suite
@@ -408,21 +411,18 @@ fn validate_authority_resolution(
             "wallet resolver matched_scope is not the canonical snapshot scope match".into(),
         );
     }
-    Ok(resolution)
+    let authority_binding = stable_authority_binding(&resolution, &binding_proof);
+    Ok(VerifiedAuthorityResolution {
+        resolution,
+        authority_binding,
+    })
 }
 
 async fn resolve_required_authority(
     required_authority_ref: &str,
     required_scope: &str,
     expected_coordinates: Option<PrincipalAuthorityBindingCoordinates>,
-) -> Result<PrincipalAuthorityResolutionV1, (StatusCode, String, String)> {
-    let endpoint = wallet_network_endpoint().ok_or_else(|| {
-        (
-            StatusCode::NOT_IMPLEMENTED,
-            "room_participation_authority_binding_unavailable".to_string(),
-            "IOI_WALLET_NETWORK_URL is not configured; no production wallet.network resolver is available".to_string(),
-        )
-    })?;
+) -> Result<VerifiedAuthorityResolution, (StatusCode, String, String)> {
     let request = ResolvePrincipalAuthorityParams {
         request_id: resolution_request_id(
             required_authority_ref,
@@ -434,65 +434,42 @@ async fn resolve_required_authority(
         required_scope: required_scope.to_string(),
         expected_coordinates,
     };
-    let client = reqwest::Client::builder()
-        .connect_timeout(Duration::from_secs(2))
-        .timeout(Duration::from_secs(5))
-        .build()
-        .map_err(|error| {
-            (
-                StatusCode::SERVICE_UNAVAILABLE,
-                "room_participation_authority_resolver_unavailable".to_string(),
-                format!("wallet.network resolver client could not be built: {error}"),
-            )
-        })?;
-    let response = client
-        .post(format!(
-            "{endpoint}/v1/authority/principal-bindings/resolve"
-        ))
-        .json(&request)
-        .send()
-        .await
-        .map_err(|error| {
-            (
-                StatusCode::SERVICE_UNAVAILABLE,
-                "room_participation_authority_resolver_unavailable".to_string(),
-                format!("wallet.network resolver could not be reached: {error}"),
-            )
-        })?;
-    let status = response.status();
-    let payload = response.json::<Value>().await.map_err(|error| {
-        (
-            StatusCode::BAD_GATEWAY,
-            "room_participation_authority_resolution_invalid".to_string(),
-            format!("wallet.network resolver returned malformed JSON: {error}"),
-        )
-    })?;
-    if !status.is_success() {
-        return Err((
-            if status.is_client_error() {
-                StatusCode::FORBIDDEN
-            } else {
-                StatusCode::SERVICE_UNAVAILABLE
-            },
-            "room_participation_authority_resolution_refused".to_string(),
-            format!("wallet.network refused resolution ({status}): {payload}"),
-        ));
-    }
-    let receipt: PrincipalAuthorityResolutionReceipt =
-        serde_json::from_value(payload).map_err(|error| {
+    let authenticated =
+        super::wallet_network_capability_client::resolve_principal_authority(request.clone())
+            .await
+            .map_err(|error| {
+                use super::wallet_network_capability_client::ResolveError;
+                match error {
+                    ResolveError::NotConfigured(message) => (
+                        StatusCode::NOT_IMPLEMENTED,
+                        "room_participation_authority_binding_unavailable".to_string(),
+                        message,
+                    ),
+                    ResolveError::Unavailable(message) => (
+                        StatusCode::SERVICE_UNAVAILABLE,
+                        "room_participation_authority_resolver_unavailable".to_string(),
+                        message,
+                    ),
+                    ResolveError::Refused(message) => (
+                        StatusCode::FORBIDDEN,
+                        "room_participation_authority_resolution_refused".to_string(),
+                        message,
+                    ),
+                    ResolveError::Invalid(message) => (
+                        StatusCode::BAD_GATEWAY,
+                        "room_participation_authority_resolution_invalid".to_string(),
+                        message,
+                    ),
+                }
+            })?;
+    validate_authority_resolution(&request, authenticated.receipt, authenticated.binding_proof)
+        .map_err(|message| {
             (
                 StatusCode::BAD_GATEWAY,
                 "room_participation_authority_resolution_invalid".to_string(),
-                format!("wallet.network resolution receipt is not canonical: {error}"),
+                message,
             )
-        })?;
-    validate_authority_resolution(&request, receipt).map_err(|message| {
-        (
-            StatusCode::BAD_GATEWAY,
-            "room_participation_authority_resolution_invalid".to_string(),
-            message,
-        )
-    })
+        })
 }
 
 /// Verify a wallet grant against the daemon-derived policy/request hashes AND the complete frozen
@@ -504,11 +481,12 @@ fn authorize_decision_for_resolution(
     gov: Gov,
     room_ref: &str,
     required_authority: &str,
-    resolution: &PrincipalAuthorityResolutionV1,
+    verified_resolution: &VerifiedAuthorityResolution,
     subject_ref: &str,
     op: &str,
     revision: u64,
 ) -> Result<DecisionAuthority, (StatusCode, Json<Value>)> {
+    let resolution = &verified_resolution.resolution;
     let policy_hash = decision_policy_hash(gov, room_ref, required_authority, op);
     let request_hash = decision_request_hash(gov, subject_ref, op, revision, required_authority);
     let now_ms = SystemTime::now()
@@ -550,7 +528,7 @@ fn authorize_decision_for_resolution(
             policy_hash,
             request_hash,
             wallet_approval_grant: grant,
-            authority_binding: stable_authority_binding(resolution),
+            authority_binding: verified_resolution.authority_binding.clone(),
         }),
         Err(reason) => Err((
             StatusCode::FORBIDDEN,
@@ -742,7 +720,7 @@ async fn reauthorize_sealed_receipt(
         resolve_required_authority(required_authority, &required_scope, Some(coordinates))
             .await
             .map_err(|(_, code, message)| format!("{code}: {message}"))?;
-    if stable_authority_binding(&resolution) != sealed.authority_binding {
+    if resolution.authority_binding != sealed.authority_binding {
         return Err("wallet.network no longer resolves the exact snapshot, scope, and immutable coordinates pinned by the governed intent".into());
     }
     let body = json!({ "wallet_approval_grant": sealed.wallet_approval_grant });
@@ -2162,9 +2140,10 @@ fn finalize_admit(
     complete_admit(data_dir, request_tail, prior_request, admit, room_scope)
 }
 
-/// The room-locked tail of an already-authorized admission. Current boot never calls this for a
-/// governed intent; a future replay caller must first supply replay-verifiable identity-bound
-/// authority. `room_scope` proves room-open validation and reservation cannot race a close.
+/// The room-locked tail of an already-authorized admission. Both the online handler and the
+/// post-readiness replay pass call this only after wallet.network has authenticated and pinned the
+/// complete identity-bound authority tuple. `room_scope` proves room-open validation and
+/// reservation cannot race a close.
 fn complete_admit(
     data_dir: &str,
     request_tail: &str,
@@ -2800,12 +2779,12 @@ fn rollback_impossible_unlinearized_admit(
 
 // ================================ BOOT COMPLETER =================================================
 
-/// BOOT COMPLETER for the participation plane. Ungoverned submit intents are canonically
-/// reconstructed and converged. Governed admit/request/lease decision intents are QUARANTINED:
-/// their receipts retain actor/grant/hash fields but not a replay-verifiable signed grant bound
-/// to a daemon-trusted expected identity, so replaying them would bypass the live 501 hold. The
-/// only governed cleanup admitted here is exact rollback of a closed, definitively unlinearized
-/// admission; already-terminal leases may complete their non-decision room-release tail.
+/// Synchronous boot completer for the participation plane. Ungoverned submit intents are
+/// canonically reconstructed and converged without network I/O. Governed admit/request/lease
+/// decision intents retain their complete signed grant, root-signed binding proof, and authority
+/// tuple, but remain quarantined here so resolver latency cannot delay listener readiness. The
+/// post-readiness bounded completer re-resolves them. This pass only performs exact rollback of a
+/// closed, definitively unlinearized admission and already-terminal non-decision room release.
 pub(crate) fn complete_participation_intents(data_dir: &str) {
     let _guard = PARTICIPATION_LOCK.lock().unwrap_or_else(|p| p.into_inner());
     // (1) Submit intents — internal family; the file STEM is the trusted request tail.
@@ -2896,7 +2875,7 @@ pub(crate) fn complete_participation_intents(data_dir: &str) {
                         &room_scope,
                     ) {
                         Ok(true) => eprintln!("participation completer: admit '{tail}' targeted a closed/missing room before linearization — rolled back exactly with zero admission evidence"),
-                        Ok(false) => eprintln!("participation completer: admit '{tail}' is QUARANTINED — sealed receipt fields are not a replay-verifiable identity-bound grant; no decision was applied"),
+                        Ok(false) => eprintln!("participation completer: admit '{tail}' is QUARANTINED for bounded post-readiness authority re-resolution; no decision was applied"),
                         Err((code, msg)) => eprintln!("participation completer: admit '{tail}' cleanup is pending ({code}: {msg}) — no decision was applied"),
                     }
                 }
@@ -2905,7 +2884,7 @@ pub(crate) fn complete_participation_intents(data_dir: &str) {
                 }
             }
         } else if record.get("transition_intent").is_some() {
-            eprintln!("participation completer: request transition '{tail}' is QUARANTINED — no replay-verifiable identity-bound grant is retained; no decision was applied");
+            eprintln!("participation completer: request transition '{tail}' is QUARANTINED for bounded post-readiness authority re-resolution; no decision was applied");
         }
     }
     // (3) Lease records carrying transition intents.
@@ -2924,7 +2903,7 @@ pub(crate) fn complete_participation_intents(data_dir: &str) {
     };
     for (tail, record) in leases {
         if record.get("transition_intent").is_some() {
-            eprintln!("participation completer: lease transition '{tail}' is QUARANTINED — no replay-verifiable identity-bound grant is retained; no decision was applied or released");
+            eprintln!("participation completer: lease transition '{tail}' is QUARANTINED for bounded post-readiness authority re-resolution; no decision was applied or released");
         } else if matches!(s(&record, "status", "").as_str(), "revoked" | "retired") {
             // Crash-convergence for the room-release step (#74 finding 3): a lease that reached
             // a terminal state but whose room slot was not released (crash between the terminal
@@ -3099,7 +3078,11 @@ async fn complete_live_admit_intent(
 /// ungated submission and release tails; this pass then re-resolves every retained decision
 /// against its exact immutable coordinates and byte-compares the complete authority tuple before
 /// applying the already sealed successor. Resolver absence/refusal leaves the intent untouched.
-pub(crate) async fn complete_governed_participation_intents(data_dir: &str) {
+pub(crate) async fn complete_governed_participation_intents(data_dir: &str, max_intents: usize) {
+    if max_intents == 0 {
+        return;
+    }
+    let mut attempted = 0usize;
     let requests = match scan_family(
         data_dir,
         REQUEST_DIR,
@@ -3114,11 +3097,15 @@ pub(crate) async fn complete_governed_participation_intents(data_dir: &str) {
         }
     };
     for (tail, carrying) in requests {
+        if attempted >= max_intents {
+            break;
+        }
         let mut prior = carrying.clone();
         if let Some(admit) = prior
             .as_object_mut()
             .and_then(|object| object.remove("admit_intent"))
         {
+            attempted += 1;
             if let Err(error) =
                 complete_live_admit_intent(data_dir, &tail, &carrying, &prior, &admit).await
             {
@@ -3131,6 +3118,7 @@ pub(crate) async fn complete_governed_participation_intents(data_dir: &str) {
             .and_then(|object| object.remove("transition_intent"))
             .is_some()
         {
+            attempted += 1;
             if let Err(error) =
                 complete_live_transition_intent(data_dir, REQUEST_DIR, &tail, &carrying, &prior)
                     .await
@@ -3154,12 +3142,16 @@ pub(crate) async fn complete_governed_participation_intents(data_dir: &str) {
         }
     };
     for (tail, carrying) in leases {
+        if attempted >= max_intents {
+            break;
+        }
         let mut prior = carrying.clone();
         if prior
             .as_object_mut()
             .and_then(|object| object.remove("transition_intent"))
             .is_some()
         {
+            attempted += 1;
             if let Err(error) =
                 complete_live_transition_intent(data_dir, LEASE_DIR, &tail, &carrying, &prior).await
             {
@@ -6230,12 +6222,16 @@ mod participation_tests {
             mutation_audit_event_id: [18u8; 32],
             mutation_audit_event_hash: [19u8; 32],
         };
+        let verified_resolution = VerifiedAuthorityResolution {
+            authority_binding: json!({ "test_only": "signer-binding-unit-test" }),
+            resolution,
+        };
         assert!(authorize_decision_for_resolution(
             &json!({ "wallet_approval_grant": bound_grant }),
             Gov::Host,
             "outcome-room://or_z1",
             "domain://acme-host",
-            &resolution,
+            &verified_resolution,
             "participation-request://rpr_z1",
             "admit",
             1,
@@ -6246,7 +6242,7 @@ mod participation_tests {
             Gov::Host,
             "outcome-room://or_z1",
             "domain://acme-host",
-            &resolution,
+            &verified_resolution,
             "participation-request://rpr_z1",
             "admit",
             1,
@@ -6260,13 +6256,13 @@ mod participation_tests {
         // Spoofing the expected authority_id onto the foreign key invalidates the grant's own
         // signature/key binding and is also refused.
         let mut spoofed = foreign_grant;
-        spoofed["authority_id"] = json!(resolution.authority_id);
+        spoofed["authority_id"] = json!(verified_resolution.resolution.authority_id);
         assert!(authorize_decision_for_resolution(
             &json!({ "wallet_approval_grant": spoofed }),
             Gov::Host,
             "outcome-room://or_z1",
             "domain://acme-host",
-            &resolution,
+            &verified_resolution,
             "participation-request://rpr_z1",
             "admit",
             1,

@@ -572,10 +572,15 @@ fn verify_hybrid_signature(
 /// Verify a portable wallet signature proof and return the account id derived
 /// from the exact suite/public-key tuple that signed `message`.
 ///
-/// This deliberately supports only suites with complete verification paths in
-/// the wallet service. An unknown or partially implemented suite is a typed
-/// refusal, never a structural-only success.
-pub(super) fn verify_wallet_signature_proof(
+/// Verify a wallet signature proof with the exact suite support used by wallet.network.
+///
+/// This deliberately supports only suites with complete verification paths in the wallet
+/// service. An unknown or partially implemented suite is a typed refusal, never a
+/// structural-only success.
+///
+/// This is public so authenticated consumers can verify immutable wallet.network artifacts
+/// after reading them from committed state instead of trusting a transport-shaped response.
+pub fn verify_wallet_signature_proof(
     proof: &SignatureProof,
     message: &[u8],
     context: &str,

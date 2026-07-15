@@ -1,14 +1,17 @@
 #!/usr/bin/env node
-// #74 held integration bar. Production routes use the wallet.network HTTP resolution contract;
-// this verifier supplies that external boundary, never an in-process/test-only daemon bypass.
+// #74 held integration bar. Positive authority resolution runs the merged wallet.network service
+// on a real one-validator cluster and reaches it through Hypervisor's signed capability-client
+// CallService transport. The resolver-shaped HTTP mock below is negative-only.
 
-import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync } from "node:fs";
+import { cpSync, mkdtempSync, readFileSync, readdirSync, rmSync } from "node:fs";
+import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { mintApprovalGrant } from "../../../scripts/lib/mint-approval-grant.mjs";
 import { startIsolatedPlane } from "./lib/isolated-daemon.mjs";
-import { startPrincipalAuthorityResolver } from "./lib/principal-authority-resolver.mjs";
+import { startUnauthenticatedPrincipalAuthorityMock } from "./lib/principal-authority-resolver.mjs";
+import { startRealWalletNetworkPrincipalAuthorityFixture } from "./lib/wallet-network-principal-authority-fixture.mjs";
 
 const REAL_DATA_DIR = process.env.IOI_HYPERVISOR_DATA_DIR || `${process.env.HOME}/.ioi/hypervisor/data`;
 const FAMILIES = ["room-participation-requests", "room-participant-leases", "room-participation-receipts", "room-participation-submit-intents"];
@@ -57,13 +60,83 @@ async function challengeAndGrant(plane, resolver, principal, path, body) {
   };
 }
 
+const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+async function pollJson(call, accept, timeoutMs = 8_000) {
+  const deadline = Date.now() + timeoutMs;
+  let last;
+  while (Date.now() < deadline) {
+    last = await call();
+    if (accept(last)) return last;
+    await delay(50);
+  }
+  return last;
+}
+
+async function startBlackholedRpc() {
+  const sockets = new Set();
+  const server = createServer((socket) => {
+    sockets.add(socket);
+    socket.on("close", () => sockets.delete(socket));
+  });
+  await new Promise((resolve, reject) => {
+    server.once("error", reject);
+    server.listen(0, "127.0.0.1", resolve);
+  });
+  return {
+    addr: `https://127.0.0.1:${server.address().port}`,
+    async stop() {
+      for (const socket of sockets) socket.destroy();
+      await new Promise((resolve) => server.close(resolve));
+    },
+  };
+}
+
 async function run() {
   const before = Object.fromEntries(FAMILIES.map((family) => [family, count(REAL_DATA_DIR, family)]));
-  const resolver = await startPrincipalAuthorityResolver([
+  const mock = await startUnauthenticatedPrincipalAuthorityMock([
     { principalRef: "domain://acme-host", seed: "07".repeat(32) },
     { principalRef: "worker://independent-alloy-lab", seed: "09".repeat(32) },
   ]);
-  const env = { IOI_WALLET_NETWORK_URL: resolver.url };
+  let mockPlane;
+  try {
+    mockPlane = await startIsolatedPlane({ serve: false, env: { IOI_WALLET_NETWORK_URL: mock.url } });
+    if (!mockPlane) { console.log("BLOCKED: hypervisor-daemon binary not built"); process.exit(2); }
+    const m = (method, path, body) => jsonCall(mockPlane.daemonUrl, method, path, body);
+    const room = (await m("POST", "/v1/hypervisor/outcome-rooms", VALID_ROOM)).body.outcome_room;
+    const request = (await m("POST", "/v1/hypervisor/room-participation-requests", VALID_REQUEST(room.outcome_room_id))).body.participation_request;
+    const requestTail = request.participation_request_id.replace("participation-request://", "");
+    const refused = await m("POST", `/v1/hypervisor/room-participation-requests/${requestTail}/transition`, { transition: "evaluate", expected_revision: 1 });
+    ok("AUTHENTICATION: arbitrary resolver-shaped HTTP mock never authorizes", refused.status === 501 && refused.body.error?.code === "room_participation_authority_binding_unavailable" && mock.requests() === 0, `${refused.status}/${refused.body.error?.code}/mock_requests=${mock.requests()}`);
+  } finally {
+    if (mockPlane) await mockPlane.stop();
+    await mock.stop();
+  }
+
+  const resolver = await startRealWalletNetworkPrincipalAuthorityFixture();
+  const env = resolver.env;
+  const rpcImpostor = await startUnauthenticatedPrincipalAuthorityMock([
+    { principalRef: "domain://acme-host", seed: "07".repeat(32) },
+  ]);
+  let impostorPlane;
+  try {
+    impostorPlane = await startIsolatedPlane({
+      serve: false,
+      env: { ...env, IOI_WALLET_NETWORK_RPC_ADDR: rpcImpostor.url },
+    });
+    const call = (method, path, body) => jsonCall(impostorPlane.daemonUrl, method, path, body);
+    const room = (await call("POST", "/v1/hypervisor/outcome-rooms", VALID_ROOM)).body.outcome_room;
+    const request = (await call("POST", "/v1/hypervisor/room-participation-requests", VALID_REQUEST(room.outcome_room_id))).body.participation_request;
+    const tail = request.participation_request_id.replace("participation-request://", "");
+    const path = `/v1/hypervisor/room-participation-requests/${tail}/transition`;
+    const challenge = await call("POST", path, { transition: "evaluate", expected_revision: 1 });
+    const grant = resolver.mint("domain://acme-host", challenge.body.error.approval.policy_hash, challenge.body.error.approval.request_hash);
+    const refused = await call("POST", path, { transition: "evaluate", expected_revision: 1, wallet_approval_grant: grant });
+    ok("AUTHENTICATION: valid client/root config cannot bless a plaintext RPC impostor", refused.status === 501 && refused.body.error?.code === "room_participation_authority_binding_unavailable" && rpcImpostor.requests() === 0, `${refused.status}/${refused.body.error?.code}/mock_requests=${rpcImpostor.requests()}`);
+  } finally {
+    if (impostorPlane) await impostorPlane.stop();
+    await rpcImpostor.stop();
+  }
   let plane;
   try {
     plane = await startIsolatedPlane({ serve: false, env });
@@ -92,18 +165,6 @@ async function run() {
     const evaluated = await jd("POST", evaluatePath, { transition: "evaluate", expected_revision: 1, wallet_approval_grant: evaluate.grant });
     ok("EVALUATE: bound host grant advances request", evaluated.status === 200 && evaluated.body.participation_request?.status === "evaluating" && evaluated.body.participation_request?.revision === 2, `${evaluated.status}/${evaluated.body.participation_request?.status}`);
 
-    resolver.setTamper("scope");
-    const scopeTamper = await jd("POST", evaluatePath, { transition: "reject", expected_revision: 2 });
-    resolver.setTamper("snapshot");
-    const snapshotTamper = await jd("POST", evaluatePath, { transition: "reject", expected_revision: 2 });
-    resolver.setTamper("expiry");
-    const expiryTamper = await jd("POST", evaluatePath, { transition: "reject", expected_revision: 2 });
-    resolver.setTamper(null);
-    const afterTamper = await jd("GET", `/v1/hypervisor/room-participation-requests/${requestTail}`);
-    ok("RESOLUTION: scope-escalated unchanged hash is refused before mutation", scopeTamper.status === 502 && scopeTamper.body.error?.code === "room_participation_authority_resolution_invalid", `${scopeTamper.status}/${scopeTamper.body.error?.code}`);
-    ok("RESOLUTION: revoked snapshot with frozen hash is refused before mutation", snapshotTamper.status === 502 && snapshotTamper.body.error?.code === "room_participation_authority_resolution_invalid" && afterTamper.body.participation_request?.revision === 2, `${snapshotTamper.status}/${snapshotTamper.body.error?.code}`);
-    ok("RESOLUTION: altered expiry with frozen hash is refused before mutation", expiryTamper.status === 502 && expiryTamper.body.error?.code === "room_participation_authority_resolution_invalid" && afterTamper.body.participation_request?.revision === 2, `${expiryTamper.status}/${expiryTamper.body.error?.code}`);
-
     const admitPath = `/v1/hypervisor/room-participation-requests/${requestTail}/admit`;
     const admit = await challengeAndGrant(plane, resolver, "domain://acme-host", admitPath, { ...VALID_ADMIT, expected_revision: 2 });
     const admitted = await jd("POST", admitPath, { ...VALID_ADMIT, expected_revision: 2, wallet_approval_grant: admit.grant });
@@ -111,7 +172,7 @@ async function run() {
     const leaseTail = String(lease?.participant_lease_id).replace("participant-lease://", "");
     const authorityEvidence = admitted.body.participation_request_receipt;
     ok("ADMIT: request and bounded lease land together", admitted.status === 200 && admitted.body.participation_request?.status === "admitted" && lease?.status === "active", `${admitted.status}/${lease?.status}`);
-    ok("ADMIT: evidence retains signed grant plus full pinned tuple", !!authorityEvidence?.wallet_approval_grant?.approver_sig && authorityEvidence?.principal_authority_binding?.required_scope === "room_participation.admit" && authorityEvidence?.principal_authority_binding?.coordinates?.binding_version === 1 && Array.isArray(authorityEvidence?.principal_authority_binding?.approval_authority_snapshot_hash), JSON.stringify(authorityEvidence?.principal_authority_binding || {}));
+    ok("ADMIT: evidence retains signed grant, root-signed proof, and full pinned tuple", !!authorityEvidence?.wallet_approval_grant?.approver_sig && authorityEvidence?.principal_authority_binding?.required_scope === "room_participation.admit" && authorityEvidence?.principal_authority_binding?.coordinates?.binding_version === 1 && Array.isArray(authorityEvidence?.principal_authority_binding?.approval_authority_snapshot_hash) && Array.isArray(authorityEvidence?.principal_authority_binding?.binding_proof?.issuer_signature_proof?.signature), JSON.stringify(authorityEvidence?.principal_authority_binding || {}));
 
     const leasePath = `/v1/hypervisor/room-participant-leases/${leaseTail}/transition`;
     const sleep = await challengeAndGrant(plane, resolver, "worker://independent-alloy-lab", leasePath, { transition: "sleep", expected_revision: 1 });
@@ -149,21 +210,75 @@ async function run() {
     const pendingAdmit = await jsonCall(faultPlane.daemonUrl, "POST", admitPath, { ...VALID_ADMIT, expected_revision: 1, wallet_approval_grant: admit.grant });
     const carrying = JSON.parse(readFileSync(join(faultDir, "room-participation-requests", `${faultRequestTail}.json`), "utf8"));
     ok("ADMIT FAULT: typed pending retains complete grant and binding tuple", pendingAdmit.status === 500 && pendingAdmit.body.error?.code === "room_participation_admit_pending_convergence" && !!carrying.admit_intent?.request_receipt?.wallet_approval_grant?.approver_sig && carrying.admit_intent?.request_receipt?.principal_authority_binding?.required_scope === "room_participation.admit", `${pendingAdmit.status}/${pendingAdmit.body.error?.code}`);
+    if (!carrying.admit_intent) {
+      await faultPlane.stop();
+      faultPlane = null;
+      const faultLog = readdirSync(faultDir)
+        .filter((name) => name.endsWith(".log"))
+        .sort()
+        .map((name) => readFileSync(join(faultDir, name), "utf8"))
+        .join("\n")
+        .slice(-12_000);
+      throw new Error(`faulted admission did not reach its durable intent: response=${JSON.stringify(pendingAdmit)} challenge=${JSON.stringify(admit.challenge)} logs=${faultLog}`);
+    }
     process.kill(faultPlane.daemonPid, "SIGKILL");
     await faultPlane.stop();
 
-    const oldBinding = resolver.rotate("domain://acme-host", "0a".repeat(32));
-    faultPlane = await startIsolatedPlane({ serve: false, env, dataDir: faultDir });
-    const stale = await jsonCall(faultPlane.daemonUrl, "GET", `/v1/hypervisor/room-participation-requests/${faultRequestTail}`);
-    ok("REPLAY: rotated/stale coordinates retain intent and admit nothing", !!stale.body.participation_request?.admit_intent && count(faultDir, "room-participant-leases") === 0, `intent=${!!stale.body.participation_request?.admit_intent}`);
-    await faultPlane.stop();
-    resolver.restore("domain://acme-host", oldBinding);
+    const originalCarryingPath = join(faultDir, "room-participation-requests", `${faultRequestTail}.json`);
+    const originalRoomPath = join(faultDir, "outcome-room-registry", `${faultRoomTail}.json`);
+    const requestBeforeReplay = JSON.parse(readFileSync(originalCarryingPath, "utf8"));
+    const roomBeforeReplay = JSON.parse(readFileSync(originalRoomPath, "utf8"));
+    const blackholeDir = mkdtempSync(join(tmpdir(), "ioi-room-participation-blackhole-"));
+    cpSync(faultDir, blackholeDir, { recursive: true });
+    const blackholeCarryingPath = join(blackholeDir, "room-participation-requests", `${faultRequestTail}.json`);
+    const bytesBeforeBlackhole = readFileSync(blackholeCarryingPath, "utf8");
+    const blackhole = await startBlackholedRpc();
+    try {
+      const readinessStarted = Date.now();
+      faultPlane = await startIsolatedPlane({
+        serve: false,
+        env: {
+          ...env,
+          IOI_WALLET_NETWORK_RPC_ADDR: blackhole.addr,
+          IOI_WALLET_NETWORK_RESOLUTION_TIMEOUT_MS: "5000",
+          IOI_HYPERVISOR_GOVERNED_REPLAY_TIMEOUT_MS: "6000",
+        },
+        dataDir: blackholeDir,
+      });
+      const readinessMs = Date.now() - readinessStarted;
+      const ready = await fetch(`${faultPlane.daemonUrl}/readyz`);
+      const stalled = await jsonCall(faultPlane.daemonUrl, "GET", `/v1/hypervisor/room-participation-requests/${faultRequestTail}`);
+      const bytesAfterBlackhole = readFileSync(blackholeCarryingPath, "utf8");
+      ok("READINESS: blackholed resolver cannot delay listener readiness or consume intent", ready.status === 200 && readinessMs < 2_500 && !!stalled.body.participation_request?.admit_intent && bytesAfterBlackhole === bytesBeforeBlackhole && count(blackholeDir, "room-participant-leases") === 0, `${readinessMs}ms/intent=${!!stalled.body.participation_request?.admit_intent}`);
+    } finally {
+      if (faultPlane) await faultPlane.stop();
+      faultPlane = null;
+      await blackhole.stop();
+      rmSync(blackholeDir, { recursive: true, force: true });
+    }
 
     faultPlane = await startIsolatedPlane({ serve: false, env, dataDir: faultDir });
-    const converged = await jsonCall(faultPlane.daemonUrl, "GET", `/v1/hypervisor/room-participation-requests/${faultRequestTail}`);
+    const converged = await pollJson(
+      () => jsonCall(faultPlane.daemonUrl, "GET", `/v1/hypervisor/room-participation-requests/${faultRequestTail}`),
+      (response) => response.body.participation_request?.status === "admitted" && !response.body.participation_request?.admit_intent,
+      45_000,
+    );
     const leases = (await jsonCall(faultPlane.daemonUrl, "GET", "/v1/hypervisor/room-participant-leases")).body.participant_leases || [];
     const replayedLease = leases[0];
     ok("REPLAY: exact coordinates converge admission in one boot", converged.body.participation_request?.status === "admitted" && !converged.body.participation_request?.admit_intent && leases.length === 1 && replayedLease?.status === "active", `${converged.body.participation_request?.status}/leases=${leases.length}`);
+    if (!replayedLease?.participant_lease_id) {
+      await faultPlane.stop();
+      faultPlane = null;
+      const replayLog = readdirSync(faultDir)
+        .filter((name) => name.endsWith(".log"))
+        .sort()
+        .map((name) => readFileSync(join(faultDir, name), "utf8"))
+        .join("\n")
+        .slice(-12_000);
+      const requestAfterReplay = JSON.parse(readFileSync(originalCarryingPath, "utf8"));
+      const roomAfterReplay = JSON.parse(readFileSync(originalRoomPath, "utf8"));
+      throw new Error(`governed admission did not converge through real wallet.network: status=${converged.body.participation_request?.status} leases=${leases.length} intent_before=${!!requestBeforeReplay.admit_intent} intent_after=${!!requestAfterReplay.admit_intent} room_before=${roomBeforeReplay.status} room_after=${roomAfterReplay.status} logs=${replayLog}`);
+    }
     await faultPlane.stop();
 
     faultPlane = await startIsolatedPlane({ serve: false, env: { ...env, IOI_TEST_FORCE_DIRSYNC_UNCONFIRMED: "room-participation-receipts" }, dataDir: faultDir });
@@ -176,8 +291,17 @@ async function run() {
     await faultPlane.stop();
 
     faultPlane = await startIsolatedPlane({ serve: false, env, dataDir: faultDir });
-    const finalLease = (await jsonCall(faultPlane.daemonUrl, "GET", `/v1/hypervisor/room-participant-leases/${leaseTail}`)).body.participant_lease;
-    const finalRoom = (await jsonCall(faultPlane.daemonUrl, "GET", `/v1/hypervisor/outcome-rooms/${faultRoomTail}`)).body.outcome_room;
+    const finalLeaseResponse = await pollJson(
+      () => jsonCall(faultPlane.daemonUrl, "GET", `/v1/hypervisor/room-participant-leases/${leaseTail}`),
+      (response) => response.body.participant_lease?.status === "revoked" && !response.body.participant_lease?.transition_intent,
+      45_000,
+    );
+    const finalLease = finalLeaseResponse.body.participant_lease;
+    const finalRoomResponse = await pollJson(
+      () => jsonCall(faultPlane.daemonUrl, "GET", `/v1/hypervisor/outcome-rooms/${faultRoomTail}`),
+      (response) => (response.body.outcome_room?.released_participant_lease_refs || []).includes(replayedLease.participant_lease_id),
+    );
+    const finalRoom = finalRoomResponse.body.outcome_room;
     const finalClose = await jsonCall(faultPlane.daemonUrl, "POST", `/v1/hypervisor/outcome-rooms/${faultRoomTail}/transition`, { transition: "close", expected_revision: finalRoom.revision });
     ok("TERMINAL REPLAY: one boot finalizes lease and releases room slot", finalLease?.status === "revoked" && !finalLease?.transition_intent && (finalRoom?.released_participant_lease_refs || []).includes(replayedLease.participant_lease_id) && finalClose.status === 200, `${finalLease?.status}/close=${finalClose.status}`);
   } finally {

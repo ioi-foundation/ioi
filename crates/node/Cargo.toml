@@ -66,7 +66,7 @@ rand = { workspace = true }
 dcrypt = { workspace = true }
 base64 = { workspace = true }
 parity-scale-codec = { workspace = true, features = ["std"] }
-tonic = "0.11"
+tonic = { version = "0.11", features = ["tls", "transport"] }
 warp = "0.3"
 libc = "0.2"
 rpassword = "7.0"

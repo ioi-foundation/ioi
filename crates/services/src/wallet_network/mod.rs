@@ -34,6 +34,8 @@ mod mail_transport;
 mod support;
 mod validation;
 
+pub use validation::verify_wallet_signature_proof;
+
 #[cfg(test)]
 mod tests;
 
