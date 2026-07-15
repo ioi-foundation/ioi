@@ -12,14 +12,13 @@
 //! - HOSTED admission only; `federated_admission`, AIIP signatures, and
 //!   `room_discovery_ref` are named gaps (build steps 7-8) — declared, never faked.
 //! - Request intake admits as `submitted` and grants nothing. Governed evaluate/reject/withdraw/
-//!   admit operations are TYPED-UNAVAILABLE until a trusted identity ref → wallet authority
-//!   binding plane can establish the expected signer; signature + request/policy hashes alone
-//!   are insufficient. The room-first transaction machinery remains implemented and adversarially
-//!   tested without a production authority bypass; legacy governed intents are quarantined rather
-//!   than replayed from copied receipt fields.
+//!   admit operations resolve the accountable host/participant through wallet.network's versioned,
+//!   revocable principal-authority binding contract. Every decision pins the complete signed grant,
+//!   authority snapshot/hash, operation scope match, and immutable binding coordinates; missing or
+//!   invalid resolver configuration refuses typed before mutation.
 //! - Lease lifecycle machinery covers suspend/resume, sleep/wake, wait/activate,
 //!   quarantine/release_quarantine, retire, revoke for already-admitted/replayed leases, but its
-//!   online decisions share the same identity-binding hold. `invited`/`joining` (invite flow),
+//!   online and boot decisions share the same full-tuple authority verification. `invited`/`joining` (invite flow),
 //!   `retiring` (claim-release orchestration, arrives with WorkClaimLease), and `expire`
 //!   (TTL/clock) are named gaps. Revocation ends FUTURE participation only: it appends the
 //!   revocation receipt, never erases lineage.
@@ -28,15 +27,16 @@
 //!   entrypoint for cross-plane transactions) — this plane never writes a room record.
 //! - Every admitted mutation is an intent transaction on the shared durable core (#73). Ungated
 //!   submit replay reconstructs the ONLY valid successor (record AND receipt) byte-exactly.
-//!   Governed replay requires a future proof-bearing identity-authority leg; receipt fields alone
-//!   never cross that boundary.
+//!   Governed replay re-resolves the exact stored coordinates and byte-compares the full tuple;
+//!   copied receipt fields alone never cross that boundary.
 use std::sync::{Arc, Mutex};
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use axum::extract::{Path as AxumPath, Query, State};
 use axum::http::StatusCode;
 use axum::Json;
 use serde_json::{json, Value};
+use sha2::{Digest, Sha256};
 
 use super::outcome_room_routes::{
     self as rooms, build_room_receipt_at, check_expected_revision, is_canonical_receipt_tail,
@@ -182,20 +182,25 @@ const DECISION_RECEIPT_SCHEMA: &str = "ioi.hypervisor.room-participation-decisio
 // Hosted participation DECISIONS are governed operations, not open daemon endpoints. Comparing a
 // caller-supplied `admission_owner_ref` to the room host is NOT authorization; nor is verifying a
 // grant's signature and DAEMON-DERIVED policy/request hashes. A trusted resolver must also bind
-// the required host/participant identity to the grant signer. This cut has no such resolver, so
-// online decisions are typed-unavailable. The ready comparison boundary below is exercised with
-// real same-hash/different-signer grants in unit coverage. Authority is split by operation:
+// the required host/participant identity to the grant signer. The production wallet.network
+// resolver supplies the complete frozen authority snapshot, operation scope match, and immutable
+// binding coordinates; this plane verifies and retains that whole tuple. Authority is split by operation:
 //   - HOST-bound (the room's host domain must authorize): request evaluate/reject, admit, and
 //     the administrative lease transitions suspend/resume/quarantine/release_quarantine/revoke.
 //   - PARTICIPANT-bound (the record's own principal must authorize): request withdraw and the
 //     self-state lease transitions sleep/wake/wait/activate/retire.
-// The request hash binds the exact {subject, op, revision, required authority}, and the eventual
-// resolver must supply the expected authority id/public key. Until then no decision receipt is
-// emitted and every governed operation refuses with ZERO mutation.
-use ioi_services::agentic::runtime::kernel::approval::verify_wallet_approval_grant_binding;
-
-const HOST_ADMISSION_SCOPES: &[&str] = &["room_participation_host_admission"];
-const PARTICIPANT_SELF_SCOPES: &[&str] = &["room_participant_self_state"];
+// The request hash binds the exact {subject, op, revision, required authority}; without a valid
+// resolver result no decision receipt is emitted and every governed operation refuses with ZERO mutation.
+use ioi_services::agentic::runtime::kernel::approval::{
+    verify_wallet_approval_grant_binding, ApprovalScopeContext, AuthorityScopeMatcher,
+};
+use ioi_types::app::{
+    ApprovalGrant, PrincipalAuthorityBindingCoordinates, PrincipalAuthorityKind,
+    PrincipalAuthorityResolutionReceipt, PrincipalAuthorityResolutionV1,
+    ResolvePrincipalAuthorityParams,
+};
+#[cfg(test)]
+use ioi_types::app::ApprovalAuthority;
 
 /// Governance class of a gated operation.
 #[derive(Clone, Copy, PartialEq)]
@@ -210,21 +215,20 @@ impl Gov {
             Gov::Participant => "participant_self",
         }
     }
-    fn scopes(self) -> &'static [&'static str] {
-        match self {
-            Gov::Host => HOST_ADMISSION_SCOPES,
-            Gov::Participant => PARTICIPANT_SELF_SCOPES,
-        }
-    }
+}
+
+fn operation_scope(op: &str) -> String {
+    format!("room_participation.{op}")
 }
 
 fn decision_authority_posture() -> Value {
+    let configured = wallet_network_endpoint().is_some();
     json!({
-        "status": "unavailable",
-        "code": "room_participation_authority_binding_unavailable",
-        "missing_binding": "versioned, revocable identity ref -> wallet authority id/public key",
-        "effect": "request/admit/lease decisions refuse before mutation",
-        "pending_governed_intents": "quarantined; receipt fields are not replay-verifiable authority",
+        "status": if configured { "available" } else { "not_configured" },
+        "code": if configured { "room_participation_authority_binding_live" } else { "room_participation_authority_binding_unavailable" },
+        "resolver": "wallet.network principal-authority binding v1",
+        "effect": if configured { "governed decisions resolve and pin the full authority tuple" } else { "request/admit/lease decisions refuse before mutation" },
+        "pending_governed_intents": if configured { "re-resolved against exact immutable coordinates on boot" } else { "retained fail-closed until wallet.network is configured" },
         "runtimeTruthSource": "daemon-runtime",
     })
 }
@@ -244,14 +248,14 @@ fn lease_op_gov(op: &str) -> Gov {
     }
 }
 
-fn decision_policy_hash(gov: Gov, room_ref: &str, required_authority: &str) -> String {
+fn decision_policy_hash(gov: Gov, room_ref: &str, required_authority: &str, op: &str) -> String {
     record_output_hash(
         &json!({
             "domain": "hypervisor.room-participation.decision.policy.v1",
             "governance": gov.label(),
             "outcome_room_ref": room_ref,
             "required_authority_ref": required_authority,
-            "scopes": gov.scopes(),
+            "required_scope": operation_scope(op),
         }),
         &[],
     )
@@ -271,7 +275,7 @@ fn decision_request_hash(
             "op": op,
             "revision": revision,
             "required_authority_ref": required_authority,
-            "scopes": gov.scopes(),
+            "required_scope": operation_scope(op),
         }),
         &[],
     )
@@ -279,43 +283,233 @@ fn decision_request_hash(
 
 /// The proven authority for one gated decision — sealed into the receipt so a replay reconstructs
 /// it byte-exactly.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 struct DecisionAuthority {
     acting_authority_id: Value,
     grant_ref: String,
     policy_hash: String,
     request_hash: String,
+    wallet_approval_grant: Value,
+    authority_binding: Value,
 }
 
-/// Resolve the accountable host/participant ref to the wallet authority expected to sign its
-/// decisions. This cut has no trusted, versioned identity-authority binding plane: room records
-/// contain a `domain://...` host, and requests contain worker/service/org/domain refs, but no
-/// authenticated mapping from those refs to a wallet authority id or public key. Local login,
-/// opaque wallet refs, and trust-on-first-use are not substitutes for that missing plane.
-fn resolve_required_authority_id(
-    _data_dir: &str,
+fn wallet_network_endpoint() -> Option<String> {
+    std::env::var("IOI_WALLET_NETWORK_URL")
+        .ok()
+        .map(|value| value.trim().trim_end_matches('/').to_string())
+        .filter(|value| !value.is_empty())
+}
+
+fn resolution_request_id(
     required_authority_ref: &str,
-) -> Result<[u8; 32], String> {
-    Err(format!(
-        "no daemon-trusted identity-authority binding resolves '{required_authority_ref}' to a wallet authority id/public key"
-    ))
+    required_scope: &str,
+    expected: Option<&PrincipalAuthorityBindingCoordinates>,
+) -> [u8; 32] {
+    let material = json!({
+        "domain": "hypervisor.room-participation.authority-resolution.v1",
+        "principal_ref": required_authority_ref,
+        "required_scope": required_scope,
+        "expected_coordinates": expected,
+        "nonce": nanos(),
+    });
+    let mut out = [0u8; 32];
+    out.copy_from_slice(&Sha256::digest(
+        serde_json::to_vec(&material).unwrap_or_default(),
+    ));
+    if out == [0u8; 32] {
+        out[31] = 1;
+    }
+    out
 }
 
-/// Verify a wallet grant against the daemon-derived policy/request hashes AND an authority id
-/// obtained from a trusted identity binding. Kept separate so the cryptographic foreign-signer
-/// refusal is directly testable while the production resolver remains honestly unavailable.
+fn stable_authority_binding(resolution: &PrincipalAuthorityResolutionV1) -> Value {
+    json!({
+        "schema_version": resolution.schema_version,
+        "principal_ref": resolution.principal_ref,
+        "authority_kind": resolution.authority_kind,
+        "coordinates": resolution.coordinates,
+        "required_scope": resolution.required_scope,
+        "matched_scope": resolution.matched_scope,
+        "approval_authority": resolution.approval_authority,
+        "approval_authority_snapshot_hash": resolution.approval_authority_snapshot_hash,
+    })
+}
+
+fn validate_authority_resolution(
+    request: &ResolvePrincipalAuthorityParams,
+    receipt: PrincipalAuthorityResolutionReceipt,
+) -> Result<PrincipalAuthorityResolutionV1, String> {
+    if receipt.request_id != request.request_id {
+        return Err("wallet resolver returned a receipt for a different request_id".into());
+    }
+    let resolution = receipt.resolution;
+    if resolution.schema_version != 1
+        || receipt.resolved_at_ms != resolution.resolved_at_ms
+        || resolution.principal_ref != request.principal_ref
+        || resolution.authority_kind != PrincipalAuthorityKind::Approval
+        || resolution.required_scope != request.required_scope
+    {
+        return Err(
+            "wallet resolver returned a foreign principal, kind, scope, or timestamp".into(),
+        );
+    }
+    if request
+        .expected_coordinates
+        .as_ref()
+        .is_some_and(|expected| expected != &resolution.coordinates)
+    {
+        return Err("wallet resolver returned coordinates different from the replay pin".into());
+    }
+    if resolution.coordinates.binding_version == 0
+        || resolution.coordinates.binding_hash == [0u8; 32]
+        || resolution.coordinates.binding_ref
+            != format!(
+                "wallet.network://principal-authority-binding/{}",
+                hex::encode(resolution.coordinates.binding_hash)
+            )
+    {
+        return Err("wallet resolver returned noncanonical immutable coordinates".into());
+    }
+    let authority = &resolution.approval_authority;
+    authority.verify().map_err(|error| {
+        format!("wallet resolver returned an invalid authority snapshot: {error}")
+    })?;
+    if resolution.approval_authority_snapshot_hash == [0u8; 32]
+        || resolution.mutation_audit_event_id == [0u8; 32]
+        || resolution.mutation_audit_event_hash == [0u8; 32]
+        || authority
+        .artifact_hash()
+        .map_err(|error| error.to_string())?
+        != resolution.approval_authority_snapshot_hash
+        || authority.authority_id != resolution.authority_id
+        || authority.public_key != resolution.authority_public_key
+        || authority.signature_suite != resolution.authority_signature_suite
+    {
+        return Err("wallet resolver authority snapshot/hash/signer tuple mismatch".into());
+    }
+    let now_ms = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|duration| duration.as_millis() as u64)
+        .unwrap_or(0);
+    if authority.revoked
+        || authority.expires_at < resolution.resolved_at_ms
+        || authority.expires_at < now_ms
+    {
+        return Err("wallet resolver returned a revoked or expired authority snapshot".into());
+    }
+    let decision = AuthorityScopeMatcher::evaluate(
+        authority,
+        &ApprovalScopeContext::new(request.required_scope.clone()),
+    );
+    if !decision.allowed
+        || decision.matched_scope.as_deref() != Some(resolution.matched_scope.as_str())
+    {
+        return Err(
+            "wallet resolver matched_scope is not the canonical snapshot scope match".into(),
+        );
+    }
+    Ok(resolution)
+}
+
+async fn resolve_required_authority(
+    required_authority_ref: &str,
+    required_scope: &str,
+    expected_coordinates: Option<PrincipalAuthorityBindingCoordinates>,
+) -> Result<PrincipalAuthorityResolutionV1, (StatusCode, String, String)> {
+    let endpoint = wallet_network_endpoint().ok_or_else(|| {
+        (
+            StatusCode::NOT_IMPLEMENTED,
+            "room_participation_authority_binding_unavailable".to_string(),
+            "IOI_WALLET_NETWORK_URL is not configured; no production wallet.network resolver is available".to_string(),
+        )
+    })?;
+    let request = ResolvePrincipalAuthorityParams {
+        request_id: resolution_request_id(
+            required_authority_ref,
+            required_scope,
+            expected_coordinates.as_ref(),
+        ),
+        principal_ref: required_authority_ref.to_string(),
+        authority_kind: PrincipalAuthorityKind::Approval,
+        required_scope: required_scope.to_string(),
+        expected_coordinates,
+    };
+    let client = reqwest::Client::builder()
+        .connect_timeout(Duration::from_secs(2))
+        .timeout(Duration::from_secs(5))
+        .build()
+        .map_err(|error| {
+            (
+                StatusCode::SERVICE_UNAVAILABLE,
+                "room_participation_authority_resolver_unavailable".to_string(),
+                format!("wallet.network resolver client could not be built: {error}"),
+            )
+        })?;
+    let response = client
+        .post(format!(
+            "{endpoint}/v1/authority/principal-bindings/resolve"
+        ))
+        .json(&request)
+        .send()
+        .await
+        .map_err(|error| {
+            (
+                StatusCode::SERVICE_UNAVAILABLE,
+                "room_participation_authority_resolver_unavailable".to_string(),
+                format!("wallet.network resolver could not be reached: {error}"),
+            )
+        })?;
+    let status = response.status();
+    let payload = response.json::<Value>().await.map_err(|error| {
+        (
+            StatusCode::BAD_GATEWAY,
+            "room_participation_authority_resolution_invalid".to_string(),
+            format!("wallet.network resolver returned malformed JSON: {error}"),
+        )
+    })?;
+    if !status.is_success() {
+        return Err((
+            if status.is_client_error() {
+                StatusCode::FORBIDDEN
+            } else {
+                StatusCode::SERVICE_UNAVAILABLE
+            },
+            "room_participation_authority_resolution_refused".to_string(),
+            format!("wallet.network refused resolution ({status}): {payload}"),
+        ));
+    }
+    let receipt: PrincipalAuthorityResolutionReceipt =
+        serde_json::from_value(payload).map_err(|error| {
+            (
+                StatusCode::BAD_GATEWAY,
+                "room_participation_authority_resolution_invalid".to_string(),
+                format!("wallet.network resolution receipt is not canonical: {error}"),
+            )
+        })?;
+    validate_authority_resolution(&request, receipt).map_err(|message| {
+        (
+            StatusCode::BAD_GATEWAY,
+            "room_participation_authority_resolution_invalid".to_string(),
+            message,
+        )
+    })
+}
+
+/// Verify a wallet grant against the daemon-derived policy/request hashes AND the complete frozen
+/// authority snapshot obtained from wallet.network. Kept separate so foreign-signer and snapshot
+/// mismatch refusal remain directly testable without a network fixture.
 #[allow(clippy::too_many_arguments)]
-fn authorize_decision_for_expected_authority(
+fn authorize_decision_for_resolution(
     body: &Value,
     gov: Gov,
     room_ref: &str,
     required_authority: &str,
-    expected_authority_id: &[u8; 32],
+    resolution: &PrincipalAuthorityResolutionV1,
     subject_ref: &str,
     op: &str,
     revision: u64,
 ) -> Result<DecisionAuthority, (StatusCode, Json<Value>)> {
-    let policy_hash = decision_policy_hash(gov, room_ref, required_authority);
+    let policy_hash = decision_policy_hash(gov, room_ref, required_authority, op);
     let request_hash = decision_request_hash(gov, subject_ref, op, revision, required_authority);
     let now_ms = SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -335,13 +529,15 @@ fn authorize_decision_for_expected_authority(
             Some(&request_hash),
         )
         .and_then(|binding| {
-            let actual: [u8; 32] = serde_json::from_value(
-                grant.get("authority_id").cloned().unwrap_or(Value::Null),
-            )
-            .map_err(|_| "approval grant authority_id is not a 32-byte authority id".to_string())?;
-            if &actual != expected_authority_id {
+            let parsed: ApprovalGrant = serde_json::from_value(grant.clone())
+                .map_err(|error| format!("approval grant is not canonical: {error}"))?;
+            let authority = &resolution.approval_authority;
+            if parsed.authority_id != authority.authority_id
+                || parsed.approver_public_key != authority.public_key
+                || parsed.approver_suite != authority.signature_suite
+            {
                 return Err(format!(
-                    "approval grant signer does not match the authority bound to '{required_authority}'"
+                    "approval grant signer tuple does not match the frozen authority snapshot bound to '{required_authority}'"
                 ));
             }
             Ok(binding)
@@ -353,6 +549,8 @@ fn authorize_decision_for_expected_authority(
             grant_ref: b.grant_ref,
             policy_hash,
             request_hash,
+            wallet_approval_grant: grant,
+            authority_binding: stable_authority_binding(resolution),
         }),
         Err(reason) => Err((
             StatusCode::FORBIDDEN,
@@ -362,7 +560,7 @@ fn authorize_decision_for_expected_authority(
                     "message": format!("'{op}' on '{subject_ref}' is a governed {} decision ({reason}). Bind a wallet approval grant from the authority resolved for '{required_authority}' to policy_hash + request_hash.", gov.label()),
                     "governance": gov.label(),
                     "required_authority_ref": required_authority,
-                    "required_scopes": gov.scopes(),
+                    "required_scope": operation_scope(op),
                     "approval": { "policy_hash": policy_hash, "request_hash": request_hash },
                     "runtimeTruthSource": "daemon-runtime"
                 }
@@ -371,13 +569,11 @@ fn authorize_decision_for_expected_authority(
     }
 }
 
-/// Resolve the required identity binding before considering any grant. Until that resolver is
-/// live, every governed operation is typed-unavailable with ZERO mutation. The hashes remain in
-/// the response so conformance can prove that two real, same-hash signers are both refused rather
-/// than accidentally treating hash binding as identity binding.
+/// Resolve the required identity binding before considering any grant. Resolver absence/refusal
+/// is typed with ZERO mutation. The hashes remain in every challenge so an external wallet can
+/// sign exactly what the daemon derived.
 #[allow(clippy::too_many_arguments)]
-fn authorize_decision(
-    data_dir: &str,
+async fn authorize_decision(
     body: &Value,
     gov: Gov,
     room_ref: &str,
@@ -386,21 +582,23 @@ fn authorize_decision(
     op: &str,
     revision: u64,
 ) -> Result<DecisionAuthority, (StatusCode, Json<Value>)> {
-    let policy_hash = decision_policy_hash(gov, room_ref, required_authority);
+    let policy_hash = decision_policy_hash(gov, room_ref, required_authority, op);
     let request_hash = decision_request_hash(gov, subject_ref, op, revision, required_authority);
-    let expected_authority_id = match resolve_required_authority_id(data_dir, required_authority) {
-        Ok(id) => id,
-        Err(reason) => {
+    let required_scope = operation_scope(op);
+    let resolution = match resolve_required_authority(required_authority, &required_scope, None)
+        .await
+    {
+        Ok(resolution) => resolution,
+        Err((status, code, reason)) => {
             return Err((
-                StatusCode::NOT_IMPLEMENTED,
+                status,
                 Json(json!({
                     "error": {
-                        "code": "room_participation_authority_binding_unavailable",
+                        "code": code,
                         "message": format!("'{op}' on '{subject_ref}' is unavailable: {reason}. Signature + request/policy hash verification cannot establish who may act for a domain or participant."),
                         "governance": gov.label(),
                         "required_authority_ref": required_authority,
-                        "required_scopes": gov.scopes(),
-                        "missing_binding": "versioned, revocable identity ref -> wallet authority id/public key",
+                        "required_scope": required_scope,
                         "approval": { "policy_hash": policy_hash, "request_hash": request_hash },
                         "runtimeTruthSource": "daemon-runtime"
                     }
@@ -408,12 +606,12 @@ fn authorize_decision(
             ));
         }
     };
-    authorize_decision_for_expected_authority(
+    authorize_decision_for_resolution(
         body,
         gov,
         room_ref,
         required_authority,
-        &expected_authority_id,
+        &resolution,
         subject_ref,
         op,
         revision,
@@ -457,6 +655,14 @@ fn build_decision_receipt(
         obj.insert("authority_grant_id".into(), json!(auth.grant_ref));
         obj.insert("policy_hash".into(), json!(auth.policy_hash));
         obj.insert("input_hash".into(), json!(auth.request_hash));
+        obj.insert(
+            "wallet_approval_grant".into(),
+            auth.wallet_approval_grant.clone(),
+        );
+        obj.insert(
+            "principal_authority_binding".into(),
+            auth.authority_binding.clone(),
+        );
     }
     r
 }
@@ -483,7 +689,84 @@ fn sealed_authority(receipt: &Value) -> DecisionAuthority {
             .and_then(Value::as_str)
             .unwrap_or("")
             .to_string(),
+        wallet_approval_grant: receipt
+            .get("wallet_approval_grant")
+            .cloned()
+            .unwrap_or(Value::Null),
+        authority_binding: receipt
+            .get("principal_authority_binding")
+            .cloned()
+            .unwrap_or(Value::Null),
     }
+}
+
+async fn reauthorize_sealed_receipt(
+    receipt: &Value,
+    gov: Gov,
+    room_ref: &str,
+    required_authority: &str,
+    subject_ref: &str,
+    op: &str,
+    revision: u64,
+) -> Result<(), String> {
+    let sealed = sealed_authority(receipt);
+    if sealed.wallet_approval_grant.is_null() || !sealed.authority_binding.is_object() {
+        return Err("the governed intent does not retain its complete signed grant and authority binding tuple".into());
+    }
+    let required_scope = operation_scope(op);
+    if sealed
+        .authority_binding
+        .get("principal_ref")
+        .and_then(Value::as_str)
+        != Some(required_authority)
+        || sealed
+            .authority_binding
+            .get("required_scope")
+            .and_then(Value::as_str)
+            != Some(required_scope.as_str())
+    {
+        return Err(
+            "the governed intent authority tuple names a foreign principal or operation scope"
+                .into(),
+        );
+    }
+    let coordinates: PrincipalAuthorityBindingCoordinates = serde_json::from_value(
+        sealed
+            .authority_binding
+            .get("coordinates")
+            .cloned()
+            .unwrap_or(Value::Null),
+    )
+    .map_err(|error| format!("the governed intent binding coordinates are malformed: {error}"))?;
+    let resolution =
+        resolve_required_authority(required_authority, &required_scope, Some(coordinates))
+            .await
+            .map_err(|(_, code, message)| format!("{code}: {message}"))?;
+    if stable_authority_binding(&resolution) != sealed.authority_binding {
+        return Err("wallet.network no longer resolves the exact snapshot, scope, and immutable coordinates pinned by the governed intent".into());
+    }
+    let body = json!({ "wallet_approval_grant": sealed.wallet_approval_grant });
+    let live = authorize_decision_for_resolution(
+        &body,
+        gov,
+        room_ref,
+        required_authority,
+        &resolution,
+        subject_ref,
+        op,
+        revision,
+    )
+    .map_err(|(_, Json(payload))| {
+        payload
+            .pointer("/error/message")
+            .and_then(Value::as_str)
+            .unwrap_or("the retained approval grant no longer verifies")
+            .to_string()
+    })?;
+    if live != sealed {
+        return Err("the reverified grant and resolution do not reconstruct the exact sealed authority tuple".into());
+    }
+    Ok(())
 }
 
 /// Canonical vocabularies (envelopes, verbatim).
@@ -2654,6 +2937,238 @@ pub(crate) fn complete_participation_intents(data_dir: &str) {
     }
 }
 
+fn replay_host_authority(data_dir: &str, room_ref: &str) -> Result<String, String> {
+    match rooms::resolve_room_strict(data_dir, room_ref) {
+        Ok(Some(room)) => {
+            let host = s(&room, "host_domain_ref", "");
+            if host.is_empty() {
+                Err(format!("room '{room_ref}' has no canonical host authority"))
+            } else {
+                Ok(host)
+            }
+        }
+        Ok(None) => Err(format!("room '{room_ref}' no longer resolves")),
+        Err(error) => Err(format!("room '{room_ref}' is unreadable: {error}")),
+    }
+}
+
+async fn complete_live_transition_intent(
+    data_dir: &str,
+    family: &str,
+    tail: &str,
+    carrying: &Value,
+    prior: &Value,
+) -> Result<(), String> {
+    let intent = carrying
+        .get("transition_intent")
+        .ok_or_else(|| "transition intent vanished".to_string())?;
+    let is_request = family == REQUEST_DIR;
+    let (final_record, receipt_id, receipt) = validate_transition_intent(
+        intent,
+        prior,
+        tail,
+        if is_request {
+            "participation_request_id"
+        } else {
+            "participant_lease_id"
+        },
+        if is_request {
+            "participation-request://"
+        } else {
+            "participant-lease://"
+        },
+        if is_request {
+            REQUEST_TRANSITIONS
+        } else {
+            LEASE_TRANSITIONS
+        },
+        if is_request { "rqt" } else { "rlt" },
+        if is_request {
+            REQUEST_TRANSITION_NOTE
+        } else {
+            LEASE_TRANSITION_NOTE
+        },
+        if is_request {
+            is_canonical_request_tail
+        } else {
+            is_canonical_lease_tail
+        },
+    )?;
+    let op = receipt
+        .get("op")
+        .and_then(Value::as_str)
+        .ok_or_else(|| "transition receipt has no operation".to_string())?;
+    let gov = if is_request {
+        request_op_gov(op)
+    } else {
+        lease_op_gov(op)
+    };
+    let room_ref = s(prior, "outcome_room_ref", "");
+    let required_authority = match gov {
+        Gov::Host => replay_host_authority(data_dir, &room_ref)?,
+        Gov::Participant if is_request => s(prior, "requested_by_ref", ""),
+        Gov::Participant => s(prior, "participant_ref", ""),
+    };
+    let subject_ref = if is_request {
+        s(prior, "participation_request_id", "")
+    } else {
+        s(prior, "participant_lease_id", "")
+    };
+    let revision = prior.get("revision").and_then(Value::as_u64).unwrap_or(0);
+    reauthorize_sealed_receipt(
+        &receipt,
+        gov,
+        &room_ref,
+        &required_authority,
+        &subject_ref,
+        op,
+        revision,
+    )
+    .await?;
+
+    let _guard = PARTICIPATION_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    let current = if is_request {
+        load_request(data_dir, tail)
+    } else {
+        load_lease(data_dir, tail)
+    }
+    .map_err(|error| format!("transition slot became unreadable: {error}"))?
+    .ok_or_else(|| "transition slot vanished before convergence".to_string())?;
+    if current != *carrying {
+        return Err("transition slot changed after authority re-resolution".into());
+    }
+    persist_receipt(data_dir, &receipt_id, &receipt)
+        .map_err(|(code, message)| format!("{code}: {message}"))?;
+    persist_atomic(data_dir, family, tail, &final_record)
+        .map_err(|failure| format!("terminal transition write is {}", failure.detail()))?;
+    if !is_request
+        && matches!(
+            s(&final_record, "status", "").as_str(),
+            "revoked" | "retired"
+        )
+    {
+        ensure_lease_released(data_dir, &final_record).map_err(|error| error.1)?;
+    }
+    Ok(())
+}
+
+async fn complete_live_admit_intent(
+    data_dir: &str,
+    tail: &str,
+    carrying: &Value,
+    prior: &Value,
+    admit: &Value,
+) -> Result<(), String> {
+    validate_admit_intent(admit, prior, tail)?;
+    let request_receipt = admit
+        .get("request_receipt")
+        .ok_or_else(|| "admit intent has no request receipt".to_string())?;
+    let lease_receipt = admit
+        .get("lease_receipt")
+        .ok_or_else(|| "admit intent has no lease receipt".to_string())?;
+    if sealed_authority(request_receipt) != sealed_authority(lease_receipt) {
+        return Err("admit receipts do not retain the same complete authority tuple".into());
+    }
+    let room_ref = s(prior, "outcome_room_ref", "");
+    let host = replay_host_authority(data_dir, &room_ref)?;
+    reauthorize_sealed_receipt(
+        request_receipt,
+        Gov::Host,
+        &room_ref,
+        &host,
+        &s(prior, "participation_request_id", ""),
+        "admit",
+        prior.get("revision").and_then(Value::as_u64).unwrap_or(0),
+    )
+    .await?;
+
+    let _guard = PARTICIPATION_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    let room_scope = rooms::ROOM_MUTATION_LOCK
+        .lock()
+        .unwrap_or_else(|p| p.into_inner());
+    let current = load_request(data_dir, tail)
+        .map_err(|error| format!("admit slot became unreadable: {error}"))?
+        .ok_or_else(|| "admit slot vanished before convergence".to_string())?;
+    if current != *carrying {
+        return Err("admit slot changed after authority re-resolution".into());
+    }
+    complete_admit(data_dir, tail, prior, admit, &room_scope).map_err(|error| error.1)
+}
+
+/// Production boot pass for governed intents. The synchronous completer first converges the
+/// ungated submission and release tails; this pass then re-resolves every retained decision
+/// against its exact immutable coordinates and byte-compares the complete authority tuple before
+/// applying the already sealed successor. Resolver absence/refusal leaves the intent untouched.
+pub(crate) async fn complete_governed_participation_intents(data_dir: &str) {
+    let requests = match scan_family(
+        data_dir,
+        REQUEST_DIR,
+        "participation_request_id",
+        "participation-request://",
+        is_canonical_request_tail,
+    ) {
+        Ok(records) => records,
+        Err(error) => {
+            eprintln!("participation governed completer: request scan failed ({error})");
+            return;
+        }
+    };
+    for (tail, carrying) in requests {
+        let mut prior = carrying.clone();
+        if let Some(admit) = prior
+            .as_object_mut()
+            .and_then(|object| object.remove("admit_intent"))
+        {
+            if let Err(error) =
+                complete_live_admit_intent(data_dir, &tail, &carrying, &prior, &admit).await
+            {
+                eprintln!("participation governed completer: admit '{tail}' retained ({error})");
+            }
+            continue;
+        }
+        if prior
+            .as_object_mut()
+            .and_then(|object| object.remove("transition_intent"))
+            .is_some()
+        {
+            if let Err(error) =
+                complete_live_transition_intent(data_dir, REQUEST_DIR, &tail, &carrying, &prior)
+                    .await
+            {
+                eprintln!("participation governed completer: request transition '{tail}' retained ({error})");
+            }
+        }
+    }
+
+    let leases = match scan_family(
+        data_dir,
+        LEASE_DIR,
+        "participant_lease_id",
+        "participant-lease://",
+        is_canonical_lease_tail,
+    ) {
+        Ok(records) => records,
+        Err(error) => {
+            eprintln!("participation governed completer: lease scan failed ({error})");
+            return;
+        }
+    };
+    for (tail, carrying) in leases {
+        let mut prior = carrying.clone();
+        if prior
+            .as_object_mut()
+            .and_then(|object| object.remove("transition_intent"))
+            .is_some()
+        {
+            if let Err(error) =
+                complete_live_transition_intent(data_dir, LEASE_DIR, &tail, &carrying, &prior).await
+            {
+                eprintln!("participation governed completer: lease transition '{tail}' retained ({error})");
+            }
+        }
+    }
+}
+
 fn scan_intent_family(data_dir: &str) -> Result<Vec<(String, Value)>, String> {
     let dir = match super::durable_fs::open_family_dir_pinned(data_dir, SUBMIT_INTENT_DIR) {
         Ok(d) => d,
@@ -2974,8 +3489,8 @@ pub(crate) async fn handle_participation_request_transition(
         },
         Gov::Participant => s(&prior, "requested_by_ref", ""),
     };
+    drop(_guard);
     let auth = match authorize_decision(
-        &st.data_dir,
         &body,
         gov,
         &room_ref,
@@ -2983,10 +3498,13 @@ pub(crate) async fn handle_participation_request_transition(
         &subject_ref,
         &transition,
         revision,
-    ) {
+    )
+    .await
+    {
         Ok(a) => a,
         Err(challenge) => return challenge,
     };
+    let _guard = PARTICIPATION_LOCK.lock().unwrap_or_else(|p| p.into_inner());
     match transition_record(
         &st.data_dir,
         REQUEST_DIR,
@@ -3240,8 +3758,9 @@ pub(crate) async fn handle_participation_request_admit(
     // must authorize it, bound to THIS request + revision. Gated BEFORE the lease is minted.
     let request_id = s(&prior, "participation_request_id", "");
     let host_authority = s(&room, "host_domain_ref", "");
+    drop(room_scope);
+    drop(_guard);
     let auth = match authorize_decision(
-        &st.data_dir,
         &body,
         Gov::Host,
         &room_ref,
@@ -3249,10 +3768,59 @@ pub(crate) async fn handle_participation_request_admit(
         &request_id,
         "admit",
         current_rev,
-    ) {
+    )
+    .await
+    {
         Ok(a) => a,
         Err(challenge) => return challenge,
     };
+    let _guard = PARTICIPATION_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    let room_scope = rooms::ROOM_MUTATION_LOCK
+        .lock()
+        .unwrap_or_else(|p| p.into_inner());
+    match load_request(&st.data_dir, &id) {
+        Ok(Some(current)) if current == prior => {}
+        Ok(Some(_)) => {
+            return classify(verr(
+                "room_participation_revision_conflict",
+                "the request changed while wallet.network resolved authority; retry against the current revision",
+            ))
+        }
+        Ok(None) => {
+            return classify(verr(
+                "room_participation_request_not_found",
+                format!("no participation request '{id}'"),
+            ))
+        }
+        Err(error) => return classify(verr("room_participation_registry_unreadable", error)),
+    }
+    match live_lease_exists(&st.data_dir, &room_ref, &s(&prior, "requested_by_ref", "")) {
+        Ok(true) => return classify(verr(
+            "participant_lease_duplicate",
+            "this principal already holds a live lease in this room — one participant, one lease",
+        )),
+        Ok(false) => {}
+        Err(error) => return classify(error),
+    }
+    match rooms::resolve_room_strict(&st.data_dir, &room_ref) {
+        Ok(Some(current_room))
+            if s(&current_room, "status", "") == "open"
+                && rooms::pending_intent(&current_room).is_none()
+                && s(&current_room, "host_domain_ref", "") == host_authority => {}
+        Ok(Some(_)) => {
+            return classify(verr(
+                "room_participation_room_not_open",
+                format!("room '{room_ref}' changed while authority resolved; admission refuses"),
+            ))
+        }
+        Ok(None) => {
+            return classify(verr(
+                "room_participation_room_not_found",
+                format!("room '{room_ref}' does not resolve"),
+            ))
+        }
+        Err(error) => return classify(verr("room_participation_room_unreadable", error)),
+    }
     let now = iso_now();
     let lease_tail = format!("rpl_{:x}", nanos());
     let lease_receipt_id = format!("rlr_{:x}", nanos());
@@ -3461,8 +4029,8 @@ pub(crate) async fn handle_participant_lease_transition(
         },
         Gov::Participant => s(&prior, "participant_ref", ""),
     };
+    drop(_guard);
     let auth = match authorize_decision(
-        &st.data_dir,
         &body,
         gov,
         &room_ref,
@@ -3470,10 +4038,13 @@ pub(crate) async fn handle_participant_lease_transition(
         &subject_ref,
         &transition,
         revision,
-    ) {
+    )
+    .await
+    {
         Ok(a) => a,
         Err(challenge) => return challenge,
     };
+    let _guard = PARTICIPATION_LOCK.lock().unwrap_or_else(|p| p.into_inner());
     match transition_record(
         &st.data_dir,
         LEASE_DIR,
@@ -3548,6 +4119,8 @@ mod participation_tests {
             grant_ref: "wallet.network://grant/approval/testgranthash".to_string(),
             policy_hash: "sha256:testpolicyhash".to_string(),
             request_hash: "sha256:testrequesthash".to_string(),
+            wallet_approval_grant: Value::Null,
+            authority_binding: Value::Null,
         }
     }
 
@@ -4009,7 +4582,6 @@ mod participation_tests {
             "worker://independent-alloy-lab",
         )
         .unwrap());
-        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]
@@ -5608,91 +6180,73 @@ mod participation_tests {
 
     #[test]
     fn decision_authority_requires_identity_binding_and_refuses_same_hash_foreign_signer() {
-        // #74 finding 1: production has no trusted domain/participant → wallet authority
-        // resolver, so even a real grant is typed-unavailable before mutation. The response still
-        // carries deterministic hashes for conformance diagnostics.
         let dir = temp_dir("authority-binding");
-        let data_dir = dir.to_str().unwrap();
-        let (status, body) = authorize_decision(
-            data_dir,
-            &json!({}),
+        let policy_hash = decision_policy_hash(
             Gov::Host,
             "outcome-room://or_z1",
             "domain://acme-host",
+            "admit",
+        );
+        let request_hash = decision_request_hash(
+            Gov::Host,
             "participation-request://rpr_z1",
             "admit",
             1,
-        )
-        .unwrap_err();
-        assert_eq!(status, StatusCode::NOT_IMPLEMENTED);
-        assert_eq!(
-            body.0["error"]["code"],
-            json!("room_participation_authority_binding_unavailable")
+            "domain://acme-host",
         );
-        assert_eq!(
-            body.0["error"]["required_authority_ref"],
-            json!("domain://acme-host")
-        );
-        assert!(body.0["error"]["approval"]["policy_hash"]
-            .as_str()
-            .unwrap()
-            .starts_with("sha256:"));
-        assert!(body.0["error"]["approval"]["request_hash"]
-            .as_str()
-            .unwrap()
-            .starts_with("sha256:"));
-        let policy_hash = body.0["error"]["approval"]["policy_hash"]
-            .as_str()
-            .unwrap()
-            .to_string();
-        let request_hash = body.0["error"]["approval"]["request_hash"]
-            .as_str()
-            .unwrap()
-            .to_string();
         let bound_grant = signed_grant(7, &policy_hash, &request_hash);
         let foreign_grant = signed_grant(8, &policy_hash, &request_hash);
-        for grant in [&bound_grant, &foreign_grant] {
-            let (status, body) = authorize_decision(
-                data_dir,
-                &json!({ "wallet_approval_grant": grant }),
-                Gov::Host,
-                "outcome-room://or_z1",
-                "domain://acme-host",
-                "participation-request://rpr_z1",
-                "admit",
-                1,
-            )
-            .unwrap_err();
-            assert_eq!(status, StatusCode::NOT_IMPLEMENTED);
-            assert_eq!(
-                body.0["error"]["code"],
-                json!("room_participation_authority_binding_unavailable"),
-                "neither same-hash signer is accepted without a trusted identity binding"
-            );
-        }
-
-        // Exercise the ready cryptographic boundary against an explicitly RESOLVED expected id:
-        // the matching signer succeeds, while a different real signer carrying the SAME hashes
-        // is refused. This is the case the old verifier failed to cover.
-        let expected: [u8; 32] =
-            serde_json::from_value(bound_grant["authority_id"].clone()).unwrap();
-        assert!(authorize_decision_for_expected_authority(
+        let parsed: ApprovalGrant = serde_json::from_value(bound_grant.clone()).unwrap();
+        let authority = ApprovalAuthority {
+            schema_version: 1,
+            authority_id: parsed.authority_id,
+            public_key: parsed.approver_public_key.clone(),
+            signature_suite: parsed.approver_suite,
+            expires_at: parsed.expires_at,
+            revoked: false,
+            scope_allowlist: vec!["room_participation.admit".to_string()],
+        };
+        let binding_hash = [17u8; 32];
+        let resolution = PrincipalAuthorityResolutionV1 {
+            schema_version: 1,
+            principal_ref: "domain://acme-host".to_string(),
+            authority_kind: PrincipalAuthorityKind::Approval,
+            coordinates: PrincipalAuthorityBindingCoordinates {
+                binding_ref: format!(
+                    "wallet.network://principal-authority-binding/{}",
+                    hex::encode(binding_hash)
+                ),
+                binding_version: 1,
+                binding_hash,
+            },
+            required_scope: "room_participation.admit".to_string(),
+            matched_scope: "room_participation.admit".to_string(),
+            approval_authority_snapshot_hash: authority.artifact_hash().unwrap(),
+            authority_id: authority.authority_id,
+            authority_public_key: authority.public_key.clone(),
+            authority_signature_suite: authority.signature_suite,
+            approval_authority: authority,
+            resolved_at_ms: parsed.expires_at - 1,
+            mutation_audit_event_id: [18u8; 32],
+            mutation_audit_event_hash: [19u8; 32],
+        };
+        assert!(authorize_decision_for_resolution(
             &json!({ "wallet_approval_grant": bound_grant }),
             Gov::Host,
             "outcome-room://or_z1",
             "domain://acme-host",
-            &expected,
+            &resolution,
             "participation-request://rpr_z1",
             "admit",
             1,
         )
         .is_ok());
-        let (foreign_status, foreign_body) = authorize_decision_for_expected_authority(
+        let (foreign_status, foreign_body) = authorize_decision_for_resolution(
             &json!({ "wallet_approval_grant": foreign_grant.clone() }),
             Gov::Host,
             "outcome-room://or_z1",
             "domain://acme-host",
-            &expected,
+            &resolution,
             "participation-request://rpr_z1",
             "admit",
             1,
@@ -5706,13 +6260,13 @@ mod participation_tests {
         // Spoofing the expected authority_id onto the foreign key invalidates the grant's own
         // signature/key binding and is also refused.
         let mut spoofed = foreign_grant;
-        spoofed["authority_id"] = json!(expected);
-        assert!(authorize_decision_for_expected_authority(
+        spoofed["authority_id"] = json!(resolution.authority_id);
+        assert!(authorize_decision_for_resolution(
             &json!({ "wallet_approval_grant": spoofed }),
             Gov::Host,
             "outcome-room://or_z1",
             "domain://acme-host",
-            &expected,
+            &resolution,
             "participation-request://rpr_z1",
             "admit",
             1,
@@ -5739,8 +6293,18 @@ mod participation_tests {
         );
         // And it binds the operation + required authority (host vs participant differ).
         assert_ne!(
-            decision_policy_hash(Gov::Host, "outcome-room://or_z1", "domain://acme-host"),
-            decision_policy_hash(Gov::Participant, "outcome-room://or_z1", "worker://w"),
+            decision_policy_hash(
+                Gov::Host,
+                "outcome-room://or_z1",
+                "domain://acme-host",
+                "admit"
+            ),
+            decision_policy_hash(
+                Gov::Participant,
+                "outcome-room://or_z1",
+                "worker://w",
+                "withdraw"
+            ),
             "host and participant governance derive distinct policies"
         );
         // Governance split: withdraw is the participant's; evaluate/reject/admit are the host's.

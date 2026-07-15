@@ -345,9 +345,10 @@ async fn async_main() -> anyhow::Result<()> {
     // #72 round 10 — converge interrupted room admissions and transitions the same way.
     outcome_room_routes::complete_room_intents(&data_dir);
     // #74 — converge ungoverned participation submissions and already-terminal room-release
-    // tails AFTER the room completers. Governed decision intents remain quarantined until their
-    // signer can be reverified against a trusted identity-authority binding.
+    // tails AFTER the room completers, then re-resolve every governed intent against its pinned
+    // wallet.network coordinates before applying the sealed successor.
     room_participation_routes::complete_participation_intents(&data_dir);
+    room_participation_routes::complete_governed_participation_intents(&data_dir).await;
 
     let stream_frame_delay_ms = std::env::var("IOI_DETERMINISTIC_PROVIDER_STREAM_DELAY_MS")
         .ok()
