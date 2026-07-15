@@ -46,10 +46,7 @@ test("exports canonical wallet protocol version, methods, and fixtures", async (
   assert.equal(typeof protocol.assertPrincipalAuthorityResolutionReceipt, "function");
   assert.equal(typeof protocol.exchangeRouteSourceAdapter, "function");
   assert.equal(typeof protocol.tradeVenueSourceAdapter, "function");
-  assert.equal(
-    typeof protocol.buildCandidateEvidenceFromSourceAdapter,
-    "function",
-  );
+  assert.equal(typeof protocol.buildCandidateEvidenceFromSourceAdapter, "function");
   assert.equal(
     protocol.EXAMPLE_AUTHORITY_REVIEW.schema_version,
     protocol.WALLET_PROTOCOL_SCHEMA_VERSION,
@@ -86,14 +83,8 @@ test("checked-in schemas and OpenAPI are valid JSON with expected ids", async ()
   assert.ok(openapi.paths["/v1/authority/principal-bindings/revoke"]?.post);
   assert.ok(openapi.paths["/v1/authority/principal-bindings/resolve"]);
   assert.ok(openapi.paths["/v1/authority/principal-bindings/lookup"]?.post);
-  assert.equal(
-    openapi.paths["/v1/authority/principal-bindings/lookup"]?.get,
-    undefined,
-  );
-  assert.equal(
-    openapi.paths["/v1/authority/principal-bindings/{binding_ref}"],
-    undefined,
-  );
+  assert.equal(openapi.paths["/v1/authority/principal-bindings/lookup"]?.get, undefined);
+  assert.equal(openapi.paths["/v1/authority/principal-bindings/{binding_ref}"], undefined);
   assert.ok(openapi.paths["/v1/capability/leases"]);
   assert.ok(openapi.paths["/v1/capability/leases/{lease_id}/revoke"]);
   assert.ok(openapi.paths["/v1/exchange/intents"]);
@@ -117,18 +108,12 @@ test("fixture payloads preserve the wallet authority grammar", async () => {
     fixture.trade_intent.candidate_evidence[0].candidate_id,
     fixture.trade_intent.venue_candidate_id,
   );
-  assert.deepEqual(review.allowed_approval_modes, [
-    "one_shot_review",
-    "step_up_review",
-  ]);
+  assert.deepEqual(review.allowed_approval_modes, ["one_shot_review", "step_up_review"]);
   assert.equal(review.recommended_presentation_profile, "standard_wallet_review");
   assert.equal(review.policy_checks[0].result, "passed");
   assert.equal(review.policy_result, "requires_human");
   assert.match(fixture.capability_lease.capability_scope, /^scope:/);
-  assert.equal(
-    fixture.capability_lease_revocation.lease_id,
-    fixture.capability_lease.lease_id,
-  );
+  assert.equal(fixture.capability_lease_revocation.lease_id, fixture.capability_lease.lease_id);
   assert.equal(
     fixture.capability_lease_revocation.revocation_epoch,
     fixture.capability_lease.revocation_epoch + 1,
@@ -159,11 +144,7 @@ test("fixture payloads preserve the wallet authority grammar", async () => {
   );
   assert.deepEqual(
     fixture.principal_authority_resolution,
-    JSON.parse(
-      JSON.stringify(
-        protocol.EXAMPLE_PRINCIPAL_AUTHORITY_RESOLUTION_RECEIPT.resolution,
-      ),
-    ),
+    JSON.parse(JSON.stringify(protocol.EXAMPLE_PRINCIPAL_AUTHORITY_RESOLUTION_RECEIPT.resolution)),
   );
 });
 
@@ -175,22 +156,25 @@ test("principal authority proof and pinned resolution validation fail closed", a
   const receipt = protocol.EXAMPLE_PRINCIPAL_AUTHORITY_RESOLUTION_RECEIPT;
 
   assert.equal(
-    protocol.assertIssuePrincipalAuthorityBindingParams({ proof: active }).proof
-      .statement.status,
+    protocol.assertIssuePrincipalAuthorityBindingParams({ proof: active }).proof.statement.status,
     "active",
   );
   assert.equal(
     protocol.assertRevokePrincipalAuthorityBindingParams({
       predecessor_binding_ref: active.binding_ref,
       proof: revoked,
-    }).proof
-      .statement.binding_version,
+    }).proof.statement.binding_version,
     2,
   );
   assert.equal(
-    protocol.assertPrincipalAuthorityResolutionReceipt(request, receipt).resolution
-      .coordinates.binding_version,
+    protocol.assertPrincipalAuthorityResolutionReceipt(request, receipt).resolution.coordinates
+      .binding_version,
     1,
+  );
+  assert.deepEqual(
+    protocol.approvalAuthorityArtifactHash(receipt.resolution.approval_authority),
+    receipt.resolution.approval_authority_snapshot_hash,
+    "protocol JCS/SHA-256 must reproduce Rust ApprovalAuthority::artifact_hash()",
   );
   assert.equal(
     protocol.assertLookupPrincipalAuthorityBindingReceipt(
@@ -249,10 +233,7 @@ test("principal authority proof and pinned resolution validation fail closed", a
         statement: { ...revoked.statement, reason: undefined },
       }),
     (error) => {
-      assert.equal(
-        error.code,
-        "principal_authority_binding_revocation_reason_missing",
-      );
+      assert.equal(error.code, "principal_authority_binding_revocation_reason_missing");
       return true;
     },
   );
@@ -267,10 +248,7 @@ test("principal authority proof and pinned resolution validation fail closed", a
         },
       }),
     (error) => {
-      assert.equal(
-        error.code,
-        "principal_authority_binding_predecessor_hash_mismatch",
-      );
+      assert.equal(error.code, "principal_authority_binding_predecessor_hash_mismatch");
       return true;
     },
   );
@@ -334,6 +312,58 @@ test("principal authority proof and pinned resolution validation fail closed", a
 
   assert.throws(
     () =>
+      protocol.assertPrincipalAuthorityResolutionReceipt(
+        { ...request, required_scope: "room_participation.reject" },
+        {
+          ...receipt,
+          resolution: {
+            ...receipt.resolution,
+            required_scope: "room_participation.reject",
+            matched_scope: "room_participation.reject",
+            approval_authority: {
+              ...receipt.resolution.approval_authority,
+              scope_allowlist: [
+                ...receipt.resolution.approval_authority.scope_allowlist,
+                "room_participation.reject",
+              ],
+            },
+          },
+        },
+      ),
+    (error) => {
+      assert.equal(error.code, "principal_authority_snapshot_hash_mismatch");
+      return true;
+    },
+  );
+
+  for (const approval_authority of [
+    {
+      ...receipt.resolution.approval_authority,
+      expires_at: receipt.resolution.approval_authority.expires_at + 1,
+    },
+    {
+      ...receipt.resolution.approval_authority,
+      revoked: true,
+    },
+  ]) {
+    assert.throws(
+      () =>
+        protocol.assertPrincipalAuthorityResolutionReceipt(request, {
+          ...receipt,
+          resolution: {
+            ...receipt.resolution,
+            approval_authority,
+          },
+        }),
+      (error) => {
+        assert.equal(error.code, "principal_authority_snapshot_hash_mismatch");
+        return true;
+      },
+    );
+  }
+
+  assert.throws(
+    () =>
       protocol.assertPrincipalAuthorityResolutionReceipt(request, {
         ...receipt,
         resolution: {
@@ -342,6 +372,10 @@ test("principal authority proof and pinned resolution validation fail closed", a
             ...receipt.resolution.approval_authority,
             scope_allowlist: [],
           },
+          approval_authority_snapshot_hash: protocol.approvalAuthorityArtifactHash({
+            ...receipt.resolution.approval_authority,
+            scope_allowlist: [],
+          }),
         },
       }),
     (error) => {
@@ -391,17 +425,15 @@ test("candidate evidence validators fail closed for stale or mismatched exchange
   const protocol = await import("../dist/index.js");
 
   assert.equal(
-    protocol.assertExchangeIntentCandidateEvidence(
-      protocol.EXAMPLE_EXCHANGE_INTENT,
-      { now: "2026-06-17T00:00:30.000Z" },
-    ).intent_id,
+    protocol.assertExchangeIntentCandidateEvidence(protocol.EXAMPLE_EXCHANGE_INTENT, {
+      now: "2026-06-17T00:00:30.000Z",
+    }).intent_id,
     "intent:exchange-example",
   );
   assert.equal(
-    protocol.assertTradeIntentCandidateEvidence(
-      protocol.EXAMPLE_TRADE_INTENT,
-      { now: "2026-06-17T00:05:00.000Z" },
-    ).intent_id,
+    protocol.assertTradeIntentCandidateEvidence(protocol.EXAMPLE_TRADE_INTENT, {
+      now: "2026-06-17T00:05:00.000Z",
+    }).intent_id,
     "intent:trade-example",
   );
 
@@ -437,10 +469,9 @@ test("candidate evidence validators fail closed for stale or mismatched exchange
 
   assert.throws(
     () =>
-      protocol.assertExchangeIntentCandidateEvidence(
-        protocol.EXAMPLE_EXCHANGE_INTENT,
-        { now: "2026-06-17T00:02:00.000Z" },
-      ),
+      protocol.assertExchangeIntentCandidateEvidence(protocol.EXAMPLE_EXCHANGE_INTENT, {
+        now: "2026-06-17T00:02:00.000Z",
+      }),
     (error) => {
       assert.equal(error.code, "candidate_evidence_expired");
       return true;

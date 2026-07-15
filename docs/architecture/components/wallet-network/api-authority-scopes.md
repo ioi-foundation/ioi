@@ -411,9 +411,11 @@ Resolution may be unpinned or may require exact immutable coordinates:
 The resolution receipt returns those coordinates, `required_scope`, the exact
 matched allowlist entry, the complete `ApprovalAuthority` snapshot, its exact
 authority id/public key/signature suite, `approval_authority_snapshot_hash`,
-resolve time, and the mutation audit event id/hash. Downstream consumers must
-recompute the complete snapshot hash, enforce the matched operation scope, and
-verify the governed grant against that snapshot; signer identity alone never
+resolve time, and the mutation audit event id/hash. The
+`@ioi/wallet-protocol` receipt validator and `@ioi/wallet-sdk` client recompute
+the exact Rust-compatible `serde_jcs` plus SHA-256 snapshot hash and byte-compare
+it before evaluating any matched scope. Downstream consumers must also verify
+the governed grant against that exact snapshot; signer identity alone never
 authorizes an operation. `expected_coordinates`, lookup
 `expected_binding_hash`, predecessor coordinates, expiry, and reason are omitted
 when absent, matching the Rust ABI.
@@ -428,9 +430,11 @@ ambiguous, malformed, or pin-mismatched state returns a typed refusal. There is
 no fallback to local login, organization roles, session identity, caller fields,
 copied receipt fields, or trust on first use.
 
-Durable governed intents must retain the complete signed grant and the exact
-binding ref/version/hash returned here. Boot recovery reverifies both artifacts;
-it must not reconstruct authority from grant fields alone.
+Durable governed intents must retain the complete signed grant, complete
+authority snapshot, frozen snapshot hash, required and matched operation scope,
+and exact binding ref/version/hash returned here. Admission and boot recovery
+reverify that complete tuple; they must not reconstruct authority from grant
+fields or signer identity alone.
 
 ## Authority Scope Request API
 

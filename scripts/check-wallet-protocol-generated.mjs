@@ -39,10 +39,10 @@ const rustPolicy = assertFile("crates/types/src/app/wallet_network/policy.rs", [
   "pub struct VaultAuditEvent",
 ]);
 
-const rustSecretInjection = assertFile(
-  "crates/types/src/app/wallet_network/secret_injection.rs",
-  ["pub struct SecretInjectionRequest", "pub struct SecretInjectionGrant"],
-);
+const rustSecretInjection = assertFile("crates/types/src/app/wallet_network/secret_injection.rs", [
+  "pub struct SecretInjectionRequest",
+  "pub struct SecretInjectionGrant",
+]);
 
 const rustPrincipalAuthority = assertFile(
   "crates/types/src/app/wallet_network/principal_authority.rs",
@@ -93,6 +93,17 @@ const protocolValidation = assertFile("packages/wallet-protocol/src/validation.t
   "assertPrincipalAuthorityBindingProof",
   "assertPrincipalAuthorityResolutionReceipt",
   "principal_authority_resolution_pin_mismatch",
+  "principal_authority_snapshot_hash_mismatch",
+]);
+
+assertFile("packages/wallet-protocol/src/principal-authority-hash.ts", [
+  "approvalAuthorityArtifactHash",
+  "canonicalApprovalAuthority",
+  "SHA256_ROUND_CONSTANTS",
+]);
+
+assertFile("packages/wallet-protocol/src/index.ts", [
+  'export * from "./principal-authority-hash.js"',
 ]);
 
 const protocolMethods = assertFile("packages/wallet-protocol/src/methods.ts", [
@@ -123,11 +134,7 @@ for (const kernelMethod of [
   assertIncludes("packages/wallet-protocol/src/methods.ts", protocolMethods, kernelMethod);
 }
 
-for (const objectName of [
-  "SessionLease",
-  "WalletApprovalDecision",
-  "SecretInjectionGrant",
-]) {
+for (const objectName of ["SessionLease", "WalletApprovalDecision", "SecretInjectionGrant"]) {
   const rustSources = `${rustSession}\n${rustPolicy}\n${rustSecretInjection}`;
   assertIncludes("wallet Rust type anchors", rustSources, objectName);
 }
@@ -150,11 +157,7 @@ for (const objectName of [
   "PrincipalAuthorityBindingCoordinates",
   "PrincipalAuthorityResolutionV1",
 ]) {
-  assertIncludes(
-    "wallet Rust principal authority anchors",
-    rustPrincipalAuthority,
-    objectName,
-  );
+  assertIncludes("wallet Rust principal authority anchors", rustPrincipalAuthority, objectName);
 }
 
 for (const validationExport of [
@@ -163,7 +166,11 @@ for (const validationExport of [
   "exchange_intent_candidate_evidence_mismatch",
   "trade_intent_candidate_evidence_mismatch",
 ]) {
-  assertIncludes("packages/wallet-protocol/src/validation.ts", protocolValidation, validationExport);
+  assertIncludes(
+    "packages/wallet-protocol/src/validation.ts",
+    protocolValidation,
+    validationExport,
+  );
 }
 
 const schemaFiles = [
@@ -227,10 +234,7 @@ if (!fixtures.capability_lease?.capability_scope?.startsWith("scope:")) {
   throw new Error("wallet protocol fixtures must include a scoped capability lease");
 }
 
-if (
-  fixtures.capability_lease_revocation?.lease_id !==
-  fixtures.capability_lease.lease_id
-) {
+if (fixtures.capability_lease_revocation?.lease_id !== fixtures.capability_lease.lease_id) {
   throw new Error("wallet protocol fixtures must include capability lease revocation");
 }
 
@@ -308,7 +312,9 @@ for (const text of [
 
 const hypervisorPackage = readJson("apps/hypervisor/package.json");
 if (hypervisorPackage.dependencies["@ioi/wallet-sdk"] !== "*") {
-  throw new Error("@ioi/hypervisor-app must import wallet product semantics through @ioi/wallet-sdk");
+  throw new Error(
+    "@ioi/hypervisor-app must import wallet product semantics through @ioi/wallet-sdk",
+  );
 }
 
 console.log("wallet protocol packaging conformance passed");

@@ -14,10 +14,9 @@ import type {
   TradeIntent,
   WalletProtocolBytes,
 } from "./types.js";
+import { approvalAuthorityArtifactHash } from "./principal-authority-hash.js";
 
-export const EXECUTABLE_COVERAGE_STATES: readonly RiskCoverageState[] = [
-  "assessed",
-] as const;
+export const EXECUTABLE_COVERAGE_STATES: readonly RiskCoverageState[] = ["assessed"] as const;
 
 const INTENT_CANDIDATE_EVIDENCE_MISSING_CODES = {
   exchange: "exchange_intent_candidate_evidence_missing",
@@ -182,16 +181,8 @@ export function assertPrincipalAuthorityBindingProof(
     }
   } else {
     assertBindingRef(statement.previous_binding_ref, "previous_binding_ref");
-    assertBytes32(
-      statement.previous_binding_hash,
-      "previous_binding_hash",
-      true,
-    );
-    if (
-      !statement.previous_binding_ref.endsWith(
-        bytesToHex(statement.previous_binding_hash),
-      )
-    ) {
+    assertBytes32(statement.previous_binding_hash, "previous_binding_hash", true);
+    if (!statement.previous_binding_ref.endsWith(bytesToHex(statement.previous_binding_hash))) {
       throwPrincipalAuthorityValidation(
         "principal_authority_binding_predecessor_hash_mismatch",
         "Previous principal authority binding ref must contain the exact previous binding hash.",
@@ -207,19 +198,14 @@ export function assertPrincipalAuthorityBindingProof(
   }
   if (
     statement.expires_at_ms !== undefined &&
-    (!positiveInteger(statement.expires_at_ms) ||
-      statement.expires_at_ms <= statement.signed_at_ms)
+    (!positiveInteger(statement.expires_at_ms) || statement.expires_at_ms <= statement.signed_at_ms)
   ) {
     throwPrincipalAuthorityValidation(
       "principal_authority_binding_expiry_invalid",
       "Principal authority expires_at_ms must be later than signed_at_ms.",
     );
   }
-  assertBytes32(
-    statement.issuer_root_account_id,
-    "issuer_root_account_id",
-    true,
-  );
+  assertBytes32(statement.issuer_root_account_id, "issuer_root_account_id", true);
   if (
     statement.reason !== undefined &&
     (!nonEmptyString(statement.reason) || statement.reason.trim() !== statement.reason)
@@ -325,35 +311,43 @@ export function assertPrincipalAuthorityResolution(
   }
   assertBytes32(authority.authority_id, "approval_authority.authority_id", true);
   assertBytes(authority.public_key, "approval_authority.public_key");
-  if (!Number.isInteger(authority.signature_suite)) {
+  if (
+    !Number.isSafeInteger(authority.signature_suite) ||
+    authority.signature_suite < -2_147_483_648 ||
+    authority.signature_suite > 2_147_483_647
+  ) {
     throwPrincipalAuthorityValidation(
       "principal_authority_snapshot_invalid",
       "Approval authority snapshot signature_suite must be an integer.",
     );
   }
-  if (!positiveInteger(authority.expires_at) || authority.revoked) {
+  if (!positiveInteger(authority.expires_at) || typeof authority.revoked !== "boolean") {
     throwPrincipalAuthorityValidation(
-      "principal_authority_snapshot_inactive",
-      "Approval authority snapshot must be unrevoked with a positive expiry.",
+      "principal_authority_snapshot_invalid",
+      "Approval authority snapshot must carry a safe positive expiry and boolean revocation state.",
     );
   }
-  if (!Array.isArray(authority.scope_allowlist) || authority.scope_allowlist.length === 0) {
+  if (!Array.isArray(authority.scope_allowlist)) {
     throwPrincipalAuthorityValidation(
-      "principal_authority_scope_denied",
-      "Approval authority snapshot scope_allowlist must not be empty.",
+      "principal_authority_snapshot_invalid",
+      "Approval authority snapshot scope_allowlist must be an array.",
     );
   }
   for (const scope of authority.scope_allowlist) {
-    if (!nonEmptyString(scope)) {
+    if (typeof scope !== "string") {
       throwPrincipalAuthorityValidation(
         "principal_authority_snapshot_invalid",
-        "Approval authority scope entries must be non-empty.",
+        "Approval authority scope entries must be strings.",
       );
     }
   }
   assertBytes32(resolution.authority_id, "authority_id", true);
   assertBytes(resolution.authority_public_key, "authority_public_key");
-  if (!Number.isInteger(resolution.authority_signature_suite)) {
+  if (
+    !Number.isSafeInteger(resolution.authority_signature_suite) ||
+    resolution.authority_signature_suite < -2_147_483_648 ||
+    resolution.authority_signature_suite > 2_147_483_647
+  ) {
     throwPrincipalAuthorityValidation(
       "principal_authority_signature_suite_invalid",
       "Principal authority signature suite must be an integer COSE algorithm id.",
@@ -369,6 +363,30 @@ export function assertPrincipalAuthorityResolution(
       "Complete approval authority snapshot must match the resolved signer tuple.",
     );
   }
+  assertBytes32(
+    resolution.approval_authority_snapshot_hash,
+    "approval_authority_snapshot_hash",
+    true,
+  );
+  const computedSnapshotHash = approvalAuthorityArtifactHash(authority);
+  if (!bytesEqual(computedSnapshotHash, resolution.approval_authority_snapshot_hash)) {
+    throwPrincipalAuthorityValidation(
+      "principal_authority_snapshot_hash_mismatch",
+      "Complete approval authority snapshot does not match its frozen Rust-compatible JCS/SHA-256 hash.",
+    );
+  }
+  if (authority.revoked) {
+    throwPrincipalAuthorityValidation(
+      "principal_authority_snapshot_inactive",
+      "Approval authority snapshot is revoked.",
+    );
+  }
+  if (authority.scope_allowlist.length === 0) {
+    throwPrincipalAuthorityValidation(
+      "principal_authority_scope_denied",
+      "Approval authority snapshot scope_allowlist must not be empty.",
+    );
+  }
   if (
     !authority.scope_allowlist.includes(resolution.matched_scope) ||
     !scopePatternMatches(resolution.matched_scope, resolution.required_scope)
@@ -378,11 +396,6 @@ export function assertPrincipalAuthorityResolution(
       "Matched scope must be an exact snapshot allowlist entry that covers required_scope.",
     );
   }
-  assertBytes32(
-    resolution.approval_authority_snapshot_hash,
-    "approval_authority_snapshot_hash",
-    true,
-  );
   if (!positiveInteger(resolution.resolved_at_ms)) {
     throwPrincipalAuthorityValidation(
       "principal_authority_resolution_timestamp_invalid",
@@ -395,16 +408,8 @@ export function assertPrincipalAuthorityResolution(
       "Approval authority snapshot is expired at resolution time.",
     );
   }
-  assertBytes32(
-    resolution.mutation_audit_event_id,
-    "mutation_audit_event_id",
-    true,
-  );
-  assertBytes32(
-    resolution.mutation_audit_event_hash,
-    "mutation_audit_event_hash",
-    true,
-  );
+  assertBytes32(resolution.mutation_audit_event_id, "mutation_audit_event_id", true);
+  assertBytes32(resolution.mutation_audit_event_hash, "mutation_audit_event_hash", true);
   return resolution;
 }
 
@@ -533,19 +538,15 @@ function assertIntentCandidateEvidence({
   if (!Array.isArray(evidence) || evidence.length === 0) {
     throwValidationError({
       code: INTENT_CANDIDATE_EVIDENCE_MISSING_CODES[domain],
-      message:
-        "Exchange and trade intents must bind the candidate evidence they approve.",
+      message: "Exchange and trade intents must bind the candidate evidence they approve.",
       details: { expected_candidate_id: expectedCandidateId },
     });
   }
-  const matching = evidence.find(
-    (candidate) => candidate.candidate_id === expectedCandidateId,
-  );
+  const matching = evidence.find((candidate) => candidate.candidate_id === expectedCandidateId);
   if (!matching) {
     throwValidationError({
       code: INTENT_CANDIDATE_EVIDENCE_MISMATCH_CODES[domain],
-      message:
-        "Intent candidate evidence must include the exact selected candidate id.",
+      message: "Intent candidate evidence must include the exact selected candidate id.",
       details: {
         expected_candidate_id: expectedCandidateId,
         candidate_ids: evidence.map((candidate) => candidate.candidate_id),
@@ -614,11 +615,7 @@ function assertCandidateEvidenceNotExpired(
     });
   }
   const nowMs =
-    now instanceof Date
-      ? now.getTime()
-      : typeof now === "string"
-        ? Date.parse(now)
-        : Date.now();
+    now instanceof Date ? now.getTime() : typeof now === "string" ? Date.parse(now) : Date.now();
   if (Number.isFinite(nowMs) && expiresAtMs <= nowMs) {
     throwValidationError({
       code: "candidate_evidence_expired",
