@@ -7,10 +7,10 @@ brokerage, payment, exchange, exposure, protection, receipt, wallet authority
 client, and revocation APIs.
 Supersedes: older wallet authority API wording when it conflicts with `scope:*` authority grants.
 Superseded by: none.
-Last alignment pass: 2026-07-11.
+Last alignment pass: 2026-07-14.
 Doctrine status: reference
-Implementation status: partial (authority-client seams and lease APIs live; guardian/shard surfaces planned)
-Last implementation audit: 2026-07-05
+Implementation status: partial (authority-client seams, lease APIs, and portable principal-to-approval-authority binding resolution live; guardian/shard surfaces planned)
+Last implementation audit: 2026-07-14
 
 ## Purpose
 
@@ -299,6 +299,142 @@ QR or push delivery is not authority by itself. The guardian surface must render
 the exact action and sign or approve the bound request hash. The agent never
 receives OTP values, biometric results, provider tokens, raw key shards, raw
 session material, or guardian secrets.
+
+## Principal-to-Approval-Authority Binding API
+
+This API is the wallet.network-owned identity-to-authority bridge for governed
+runtime decisions. It does not authenticate a local user and it does not infer
+authority from product roles. It resolves a canonical portable principal to the
+exact registered `ApprovalAuthority` key allowed to sign for that principal.
+
+```http
+POST /v1/authority/principal-bindings
+POST /v1/authority/principal-bindings/revoke
+POST /v1/authority/principal-bindings/resolve
+POST /v1/authority/principal-bindings/lookup
+```
+
+The corresponding wallet service methods are:
+
+```text
+issue_principal_authority_binding@v1
+revoke_principal_authority_binding@v1
+resolve_principal_authority@v1
+lookup_principal_authority_binding@v1
+```
+
+Issue and revoke accept a complete `PrincipalAuthorityBindingProofV1`. Only the
+initialized wallet control root may author those signed append-only versions.
+Resolution and proof lookup require an initialized, registered wallet authority
+client. The legacy uninitialized-wallet compatibility path is never authority
+for this object family.
+
+Canonical principal refs are exactly one of:
+
+```text
+^(worker|service|org|domain)://<canonical-segment>(/<canonical-segment>)*$
+^agentgres://domain/<canonical-segment>(/<canonical-segment>)*$
+```
+
+Each segment starts and ends with an ASCII letter or digit; internal characters
+may also be `.`, `_`, `-`, `~`, `:`, or `@`. Leading, trailing, and doubled
+slashes are invalid.
+
+The immutable proof shape is below; byte arrays are abbreviated only for
+readability here, while the checked-in fixtures carry all bytes:
+
+```json
+{
+  "schema_version": 1,
+  "statement": {
+    "schema_version": 1,
+    "principal_ref": "agentgres://domain/acme.example",
+    "authority_kind": "approval",
+    "binding_version": 1,
+    "status": "active",
+    "authority_id": [11, 11, "... exactly 32 bytes"],
+    "authority_public_key": [12, 12, "..."],
+    "authority_signature_suite": -8,
+    "approval_authority_snapshot_hash": [13, 13, "... exactly 32 bytes"],
+    "signed_at_ms": 1781286400000,
+    "expires_at_ms": 1812822400000,
+    "issuer_root_account_id": [14, 14, "... exactly 32 bytes"]
+  },
+  "statement_hash": [15, 15, "... exactly 32 bytes"],
+  "issuer_signature_proof": {
+    "suite": -8,
+    "public_key": [14, 14, "..."],
+    "signature": [16, 16, "..."]
+  },
+  "binding_ref": "wallet.network://principal-authority-binding/<64-lowercase-hex-binding-hash>",
+  "binding_hash": [17, 17, "... exactly 32 bytes"]
+}
+```
+
+Version 1 has no predecessor. Every later version binds the exact previous
+binding ref and hash. The revoke request repeats that predecessor ref in its
+body, and the service requires byte-for-byte agreement with both the proof and
+the current head. Revocation is a new `revoked` version with a trimmed, nonempty
+reason; it never edits the active proof in place. Version 4095 is the final
+active version and version 4096 is reserved for terminal revocation.
+
+The mutable head is only a current-version pointer and carries the mutation
+audit sequence plus event id/hash. Every accepted version also writes a separate
+immutable index entry keyed by the exact principal hash and version. Resolution
+requires the head to match that indexed ref/version/hash/status/audit tuple and
+requires the next-version index slot to be absent. Restoring an authentic old
+head together with its authentic old mutable mutation marker therefore refuses
+whenever a later indexed version remains.
+
+This rollback guarantee is relative to the currently committed wallet state
+root. Preventing rollback of the complete state database, including every
+immutable index entry, is the responsibility of the ledger/finality layer that
+anchors and selects wallet state roots. The resolver does not claim to detect a
+wholesale rollback to an older externally accepted state root.
+
+Resolution may be unpinned or may require exact immutable coordinates:
+
+```json
+{
+  "request_id": [22, 22, "... exactly 32 nonzero bytes"],
+  "principal_ref": "agentgres://domain/acme.example",
+  "authority_kind": "approval",
+  "required_scope": "room_participation.admit",
+  "expected_coordinates": {
+    "binding_ref": "wallet.network://principal-authority-binding/<64-lowercase-hex-binding-hash>",
+    "binding_version": 1,
+    "binding_hash": [17, 17, "... exactly 32 bytes"]
+  }
+}
+```
+
+The resolution receipt returns those coordinates, `required_scope`, the exact
+matched allowlist entry, the complete `ApprovalAuthority` snapshot, its exact
+authority id/public key/signature suite, `approval_authority_snapshot_hash`,
+resolve time, and the mutation audit event id/hash. The
+`@ioi/wallet-protocol` receipt validator and `@ioi/wallet-sdk` client recompute
+the exact Rust-compatible `serde_jcs` plus SHA-256 snapshot hash and byte-compare
+it before evaluating any matched scope. Downstream consumers must also verify
+the governed grant against that exact snapshot; signer identity alone never
+authorizes an operation. `expected_coordinates`, lookup
+`expected_binding_hash`, predecessor coordinates, expiry, and reason are omitted
+when absent, matching the Rust ABI.
+
+The resolver verifies control-root signature, statement/binding hashes,
+predecessor lineage, immutable version index, current head, active status,
+expiry, audit commitment, required operation scope through the canonical
+authority matcher, and the current ApprovalAuthority registry entry. Registry
+revocation, expiry, key/suite/snapshot drift, empty scope, or scope mismatch
+invalidates resolution. Missing, stale, foreign,
+ambiguous, malformed, or pin-mismatched state returns a typed refusal. There is
+no fallback to local login, organization roles, session identity, caller fields,
+copied receipt fields, or trust on first use.
+
+Durable governed intents must retain the complete signed grant, complete
+authority snapshot, frozen snapshot hash, required and matched operation scope,
+and exact binding ref/version/hash returned here. Admission and boot recovery
+reverify that complete tuple; they must not reconstruct authority from grant
+fields or signer identity alone.
 
 ## Authority Scope Request API
 

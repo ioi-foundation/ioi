@@ -29,6 +29,10 @@ export const WALLET_NETWORK_KERNEL_METHODS = [
   "record_approval@v1",
   "register_approval_authority@v1",
   "revoke_approval_authority@v1",
+  "issue_principal_authority_binding@v1",
+  "revoke_principal_authority_binding@v1",
+  "resolve_principal_authority@v1",
+  "lookup_principal_authority_binding@v1",
   "consume_approval_grant@v1",
   "panic_stop@v1",
 ] as const;
@@ -44,6 +48,10 @@ export const WALLET_NETWORK_PROTOCOL_METHODS = {
   createTradeIntent: "wallet.trade.intent.create",
   createReceipt: "wallet.receipt.create",
   listReceipts: "wallet.receipt.list",
+  issuePrincipalAuthorityBinding: "issue_principal_authority_binding@v1",
+  revokePrincipalAuthorityBinding: "revoke_principal_authority_binding@v1",
+  resolvePrincipalAuthority: "resolve_principal_authority@v1",
+  lookupPrincipalAuthorityBinding: "lookup_principal_authority_binding@v1",
 } as const;
 
 export type WalletNetworkProtocolMethod =

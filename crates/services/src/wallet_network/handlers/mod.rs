@@ -5,5 +5,6 @@ pub(super) mod channel;
 pub(super) mod client_auth;
 pub(super) mod connectors;
 pub(super) mod identity;
+pub(super) mod principal_authority;
 pub(super) mod secrets;
 pub(super) mod session;

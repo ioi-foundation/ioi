@@ -967,6 +967,10 @@ pub fn default_service_policies() -> BTreeMap<String, ServicePolicy> {
         "record_approval@v1",
         "register_approval_authority@v1",
         "revoke_approval_authority@v1",
+        "issue_principal_authority_binding@v1",
+        "revoke_principal_authority_binding@v1",
+        "resolve_principal_authority@v1",
+        "lookup_principal_authority_binding@v1",
         "consume_approval_grant@v1",
         "panic_stop@v1",
     ] {

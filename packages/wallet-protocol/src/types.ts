@@ -234,3 +234,132 @@ export interface WalletReceipt {
   readonly created_at: string;
   readonly signatures: readonly string[];
 }
+
+/** Canonical byte-array representation used by the Rust wallet.network ABI. */
+export type WalletProtocolBytes = readonly number[];
+
+/** The authority family currently bindable to a portable principal. */
+export type PrincipalAuthorityKind = "approval";
+
+/** Lifecycle state carried by each immutable binding version. */
+export type PrincipalAuthorityBindingStatus = "active" | "revoked";
+
+/** Root-signed immutable statement for one principal-authority binding version. */
+export interface PrincipalAuthorityBindingStatementV1 {
+  readonly schema_version: 1;
+  readonly principal_ref: string;
+  readonly authority_kind: PrincipalAuthorityKind;
+  readonly binding_version: number;
+  readonly status: PrincipalAuthorityBindingStatus;
+  readonly authority_id: WalletProtocolBytes;
+  readonly authority_public_key: WalletProtocolBytes;
+  readonly authority_signature_suite: number;
+  readonly approval_authority_snapshot_hash: WalletProtocolBytes;
+  readonly previous_binding_ref?: string;
+  readonly previous_binding_hash?: WalletProtocolBytes;
+  readonly signed_at_ms: number;
+  readonly expires_at_ms?: number;
+  readonly issuer_root_account_id: WalletProtocolBytes;
+  readonly reason?: string;
+}
+
+/** Cryptographic proof emitted by the wallet control root. */
+export interface WalletSignatureProof {
+  readonly suite: number;
+  readonly public_key: WalletProtocolBytes;
+  readonly signature: WalletProtocolBytes;
+}
+
+/** Complete immutable proof for one principal-authority binding version. */
+export interface PrincipalAuthorityBindingProofV1 {
+  readonly schema_version: 1;
+  readonly statement: PrincipalAuthorityBindingStatementV1;
+  readonly statement_hash: WalletProtocolBytes;
+  readonly issuer_signature_proof: WalletSignatureProof;
+  readonly binding_ref: string;
+  readonly binding_hash: WalletProtocolBytes;
+}
+
+/** Stable coordinates retained by governed intents for exact boot-time replay. */
+export interface PrincipalAuthorityBindingCoordinates {
+  readonly binding_ref: string;
+  readonly binding_version: number;
+  readonly binding_hash: WalletProtocolBytes;
+}
+
+/** Mutable current-head pointer over append-only immutable binding proofs. */
+export interface PrincipalAuthorityBindingHeadV1 {
+  readonly schema_version: 1;
+  readonly principal_ref: string;
+  readonly authority_kind: PrincipalAuthorityKind;
+  readonly coordinates: PrincipalAuthorityBindingCoordinates;
+  readonly status: PrincipalAuthorityBindingStatus;
+  readonly updated_at_ms: number;
+  readonly mutation_audit_seq: number;
+  readonly mutation_audit_event_id: WalletProtocolBytes;
+  readonly mutation_audit_event_hash: WalletProtocolBytes;
+}
+
+/** Verified resolution result returned for a portable principal. */
+export interface PrincipalAuthorityResolutionV1 {
+  readonly schema_version: 1;
+  readonly principal_ref: string;
+  readonly authority_kind: PrincipalAuthorityKind;
+  readonly coordinates: PrincipalAuthorityBindingCoordinates;
+  readonly required_scope: string;
+  readonly matched_scope: string;
+  readonly approval_authority: ApprovalAuthoritySnapshot;
+  readonly authority_id: WalletProtocolBytes;
+  readonly authority_public_key: WalletProtocolBytes;
+  readonly authority_signature_suite: number;
+  readonly approval_authority_snapshot_hash: WalletProtocolBytes;
+  readonly resolved_at_ms: number;
+  readonly mutation_audit_event_id: WalletProtocolBytes;
+  readonly mutation_audit_event_hash: WalletProtocolBytes;
+}
+
+export interface IssuePrincipalAuthorityBindingParams {
+  readonly proof: PrincipalAuthorityBindingProofV1;
+}
+
+export interface RevokePrincipalAuthorityBindingParams {
+  readonly predecessor_binding_ref: string;
+  readonly proof: PrincipalAuthorityBindingProofV1;
+}
+
+export interface ResolvePrincipalAuthorityParams {
+  readonly request_id: WalletProtocolBytes;
+  readonly principal_ref: string;
+  readonly authority_kind: PrincipalAuthorityKind;
+  readonly required_scope: string;
+  readonly expected_coordinates?: PrincipalAuthorityBindingCoordinates;
+}
+
+export interface PrincipalAuthorityResolutionReceipt {
+  readonly request_id: WalletProtocolBytes;
+  readonly resolved_at_ms: number;
+  readonly resolution: PrincipalAuthorityResolutionV1;
+}
+
+export interface LookupPrincipalAuthorityBindingParams {
+  readonly request_id: WalletProtocolBytes;
+  readonly binding_ref: string;
+  readonly expected_binding_hash?: WalletProtocolBytes;
+}
+
+export interface LookupPrincipalAuthorityBindingReceipt {
+  readonly request_id: WalletProtocolBytes;
+  readonly fetched_at_ms: number;
+  readonly proof: PrincipalAuthorityBindingProofV1;
+}
+
+/** Complete ApprovalAuthority registry artifact frozen by the binding snapshot hash. */
+export interface ApprovalAuthoritySnapshot {
+  readonly schema_version: number;
+  readonly authority_id: WalletProtocolBytes;
+  readonly public_key: WalletProtocolBytes;
+  readonly signature_suite: number;
+  readonly expires_at: number;
+  readonly revoked: boolean;
+  readonly scope_allowlist: readonly string[];
+}

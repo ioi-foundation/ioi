@@ -30,6 +30,102 @@
         }
       }
     },
+    "/v1/authority/principal-bindings": {
+      "post": {
+        "operationId": "issuePrincipalAuthorityBinding",
+        "summary": "Append a wallet control-root-signed principal-to-approval-authority binding version.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/IssuePrincipalAuthorityBindingParams" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Immutable principal authority binding proof accepted.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/PrincipalAuthorityBindingProofV1" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/authority/principal-bindings/revoke": {
+      "post": {
+        "operationId": "revokePrincipalAuthorityBinding",
+        "summary": "Append a root-signed revoked successor without mutating prior proof versions.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/RevokePrincipalAuthorityBindingParams" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Immutable revoked successor proof accepted.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/PrincipalAuthorityBindingProofV1" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/authority/principal-bindings/resolve": {
+      "post": {
+        "operationId": "resolvePrincipalAuthority",
+        "summary": "Resolve a portable principal to a currently active approval authority, optionally pinned to exact immutable coordinates.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/ResolvePrincipalAuthorityParams" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Verified principal authority resolution receipt.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/PrincipalAuthorityResolutionReceipt" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/authority/principal-bindings/lookup": {
+      "post": {
+        "operationId": "lookupPrincipalAuthorityBinding",
+        "summary": "Produce an audited receipt for one immutable binding proof supplied by canonical ref in the body.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/LookupPrincipalAuthorityBindingParams" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Immutable principal authority binding proof receipt.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/LookupPrincipalAuthorityBindingReceipt" }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/capability/leases": {
       "post": {
         "operationId": "issueCapabilityLease",
@@ -154,6 +250,100 @@
       },
       "TradeIntent": {
         "$ref": "../schemas/trade-intent.schema.json"
+      },
+      "PrincipalAuthorityBindingProofV1": {
+        "$ref": "../schemas/principal-authority-binding-proof.schema.json"
+      },
+      "PrincipalAuthorityResolutionV1": {
+        "$ref": "../schemas/principal-authority-resolution.schema.json"
+      },
+      "WalletBytes32": {
+        "type": "array",
+        "minItems": 32,
+        "maxItems": 32,
+        "items": { "type": "integer", "minimum": 0, "maximum": 255 }
+      },
+      "PrincipalAuthorityBindingRef": {
+        "type": "string",
+        "pattern": "^wallet\\.network://principal-authority-binding/[0-9a-f]{64}$"
+      },
+      "PrincipalAuthorityBindingCoordinates": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["binding_ref", "binding_version", "binding_hash"],
+        "properties": {
+          "binding_ref": { "$ref": "#/components/schemas/PrincipalAuthorityBindingRef" },
+          "binding_version": { "type": "integer", "minimum": 1 },
+          "binding_hash": { "$ref": "#/components/schemas/WalletBytes32" }
+        }
+      },
+      "IssuePrincipalAuthorityBindingParams": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["proof"],
+        "properties": {
+          "proof": { "$ref": "#/components/schemas/PrincipalAuthorityBindingProofV1" }
+        }
+      },
+      "RevokePrincipalAuthorityBindingParams": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["predecessor_binding_ref", "proof"],
+        "properties": {
+          "predecessor_binding_ref": { "$ref": "#/components/schemas/PrincipalAuthorityBindingRef" },
+          "proof": { "$ref": "#/components/schemas/PrincipalAuthorityBindingProofV1" }
+        }
+      },
+      "ResolvePrincipalAuthorityParams": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["request_id", "principal_ref", "authority_kind", "required_scope"],
+        "properties": {
+          "request_id": { "$ref": "#/components/schemas/WalletBytes32" },
+          "principal_ref": {
+            "type": "string",
+            "maxLength": 300,
+            "pattern": "^((worker|service|org|domain)://|agentgres://domain/)[A-Za-z0-9]([A-Za-z0-9._~:@-]*[A-Za-z0-9])?(/[A-Za-z0-9]([A-Za-z0-9._~:@-]*[A-Za-z0-9])?)*$"
+          },
+          "authority_kind": { "const": "approval" },
+          "required_scope": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256,
+            "pattern": "^[a-z0-9][a-z0-9._:-]*$"
+          },
+          "expected_coordinates": { "$ref": "#/components/schemas/PrincipalAuthorityBindingCoordinates" }
+        }
+      },
+      "PrincipalAuthorityResolutionReceipt": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["request_id", "resolved_at_ms", "resolution"],
+        "properties": {
+          "request_id": { "$ref": "#/components/schemas/WalletBytes32" },
+          "resolved_at_ms": { "type": "integer", "minimum": 1 },
+          "resolution": { "$ref": "#/components/schemas/PrincipalAuthorityResolutionV1" }
+        }
+      },
+      "LookupPrincipalAuthorityBindingParams": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["request_id", "binding_ref"],
+        "properties": {
+          "request_id": { "$ref": "#/components/schemas/WalletBytes32" },
+          "binding_ref": { "$ref": "#/components/schemas/PrincipalAuthorityBindingRef" },
+          "expected_binding_hash": { "$ref": "#/components/schemas/WalletBytes32" }
+        }
+      },
+      "LookupPrincipalAuthorityBindingReceipt": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["request_id", "fetched_at_ms", "proof"],
+        "properties": {
+          "request_id": { "$ref": "#/components/schemas/WalletBytes32" },
+          "fetched_at_ms": { "type": "integer", "minimum": 1 },
+          "proof": { "$ref": "#/components/schemas/PrincipalAuthorityBindingProofV1" }
+        }
       }
     }
   }

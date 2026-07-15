@@ -1,0 +1,102 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.ioi.network/wallet/principal-authority-resolution.schema.json",
+  "title": "PrincipalAuthorityResolutionV1",
+  "description": "A verified current wallet.network authority resolution with exact immutable binding coordinates.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "principal_ref",
+    "authority_kind",
+    "coordinates",
+    "required_scope",
+    "matched_scope",
+    "approval_authority",
+    "authority_id",
+    "authority_public_key",
+    "authority_signature_suite",
+    "approval_authority_snapshot_hash",
+    "resolved_at_ms",
+    "mutation_audit_event_id",
+    "mutation_audit_event_hash"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "principal_ref": {
+      "type": "string",
+      "maxLength": 300,
+      "pattern": "^((worker|service|org|domain)://|agentgres://domain/)[A-Za-z0-9]([A-Za-z0-9._~:@-]*[A-Za-z0-9])?(/[A-Za-z0-9]([A-Za-z0-9._~:@-]*[A-Za-z0-9])?)*$"
+    },
+    "authority_kind": { "const": "approval" },
+    "coordinates": { "$ref": "#/$defs/coordinates" },
+    "required_scope": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "pattern": "^[a-z0-9][a-z0-9._:-]*$"
+    },
+    "matched_scope": { "type": "string", "minLength": 1 },
+    "approval_authority": { "$ref": "#/$defs/approvalAuthority" },
+    "authority_id": { "$ref": "#/$defs/bytes32" },
+    "authority_public_key": { "$ref": "#/$defs/bytes" },
+    "authority_signature_suite": { "type": "integer" },
+    "approval_authority_snapshot_hash": { "$ref": "#/$defs/bytes32" },
+    "resolved_at_ms": { "type": "integer", "minimum": 1 },
+    "mutation_audit_event_id": { "$ref": "#/$defs/bytes32" },
+    "mutation_audit_event_hash": { "$ref": "#/$defs/bytes32" }
+  },
+  "$defs": {
+    "byte": { "type": "integer", "minimum": 0, "maximum": 255 },
+    "bytes": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/byte" }
+    },
+    "bytes32": {
+      "type": "array",
+      "minItems": 32,
+      "maxItems": 32,
+      "items": { "$ref": "#/$defs/byte" }
+    },
+    "coordinates": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["binding_ref", "binding_version", "binding_hash"],
+      "properties": {
+        "binding_ref": {
+          "type": "string",
+          "pattern": "^wallet\\.network://principal-authority-binding/[0-9a-f]{64}$"
+        },
+        "binding_version": { "type": "integer", "minimum": 1 },
+        "binding_hash": { "$ref": "#/$defs/bytes32" }
+      }
+    },
+    "approvalAuthority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "authority_id",
+        "public_key",
+        "signature_suite",
+        "expires_at",
+        "revoked",
+        "scope_allowlist"
+      ],
+      "properties": {
+        "schema_version": { "const": 1 },
+        "authority_id": { "$ref": "#/$defs/bytes32" },
+        "public_key": { "$ref": "#/$defs/bytes" },
+        "signature_suite": { "type": "integer" },
+        "expires_at": { "type": "integer", "minimum": 1 },
+        "revoked": { "const": false },
+        "scope_allowlist": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    }
+  }
+}

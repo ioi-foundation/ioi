@@ -48,6 +48,11 @@ test("SDK source imports wallet semantics from the protocol package", async () =
   const clientSource = await read("src/client.ts");
   assert.match(clientSource, /WALLET_NETWORK_PROTOCOL_METHODS/);
   assert.match(clientSource, /revokeCapabilityLease/);
+  assert.match(clientSource, /issuePrincipalAuthorityBinding/);
+  assert.match(clientSource, /revokePrincipalAuthorityBinding/);
+  assert.match(clientSource, /resolvePrincipalAuthority/);
+  assert.match(clientSource, /lookupPrincipalAuthorityBinding/);
+  assert.match(clientSource, /assertPrincipalAuthorityResolutionReceipt/);
 
   const routeSourcesSource = await read("src/route-sources.ts");
   assert.match(routeSourcesSource, /buildCandidateEvidenceFromSourceAdapter/);
@@ -60,6 +65,147 @@ test("SDK source imports wallet semantics from the protocol package", async () =
   assert.match(routeSourcesSource, /DECENTRALIZED_TRADE_VENUE_ADAPTER_ID/);
   assert.match(routeSourcesSource, /assertCandidateEvidenceExecutable/);
   assert.match(routeSourcesSource, /candidate_source_only/);
+});
+
+test("SDK binds principal authority calls to exact wallet.network methods and pins", async () => {
+  const sdk = await import("../dist/index.js");
+  const calls = [];
+  const client = new sdk.WalletNetworkClient({
+    async request(method, body) {
+      calls.push({ method, body });
+      if (method === "issue_principal_authority_binding@v1") {
+        return body.proof;
+      }
+      if (method === "revoke_principal_authority_binding@v1") {
+        return body.proof;
+      }
+      if (method === "resolve_principal_authority@v1") {
+        return sdk.EXAMPLE_PRINCIPAL_AUTHORITY_RESOLUTION_RECEIPT;
+      }
+      if (method === "lookup_principal_authority_binding@v1") {
+        return sdk.EXAMPLE_LOOKUP_PRINCIPAL_AUTHORITY_BINDING_RECEIPT;
+      }
+      throw new Error(`unexpected method ${method}`);
+    },
+  });
+
+  const issued = await client.issuePrincipalAuthorityBinding(
+    sdk.EXAMPLE_ISSUE_PRINCIPAL_AUTHORITY_BINDING_PARAMS,
+  );
+  const revoked = await client.revokePrincipalAuthorityBinding(
+    sdk.EXAMPLE_REVOKE_PRINCIPAL_AUTHORITY_BINDING_PARAMS,
+  );
+  const resolved = await client.resolvePrincipalAuthority(
+    sdk.EXAMPLE_RESOLVE_PRINCIPAL_AUTHORITY_PARAMS,
+  );
+  const fetched = await client.lookupPrincipalAuthorityBinding(
+    sdk.EXAMPLE_LOOKUP_PRINCIPAL_AUTHORITY_BINDING_PARAMS,
+  );
+
+  assert.equal(issued.statement.status, "active");
+  assert.equal(revoked.statement.status, "revoked");
+  assert.equal(resolved.resolution.coordinates.binding_ref, issued.binding_ref);
+  assert.equal(fetched.proof.binding_hash[0], 9);
+  assert.deepEqual(
+    calls.map((call) => call.method),
+    [
+      "issue_principal_authority_binding@v1",
+      "revoke_principal_authority_binding@v1",
+      "resolve_principal_authority@v1",
+      "lookup_principal_authority_binding@v1",
+    ],
+  );
+
+  await assert.rejects(
+    () =>
+      client.resolvePrincipalAuthority({
+        ...sdk.EXAMPLE_RESOLVE_PRINCIPAL_AUTHORITY_PARAMS,
+        expected_coordinates: {
+          ...sdk.EXAMPLE_RESOLVE_PRINCIPAL_AUTHORITY_PARAMS.expected_coordinates,
+          binding_version: 99,
+        },
+      }),
+    (error) => {
+      assert.equal(error.code, "principal_authority_resolution_pin_mismatch");
+      return true;
+    },
+  );
+
+  const alteredAuthorityClient = new sdk.WalletNetworkClient({
+    async request(method, body) {
+      assert.equal(method, "issue_principal_authority_binding@v1");
+      return {
+        ...body.proof,
+        statement: {
+          ...body.proof.statement,
+          authority_id: Array(32).fill(42),
+        },
+      };
+    },
+  });
+  await assert.rejects(
+    () =>
+      alteredAuthorityClient.issuePrincipalAuthorityBinding(
+        sdk.EXAMPLE_ISSUE_PRINCIPAL_AUTHORITY_BINDING_PARAMS,
+      ),
+    (error) => {
+      assert.equal(error.code, "principal_authority_binding_response_mismatch");
+      return true;
+    },
+  );
+});
+
+test("SDK refuses scope, expiry, and revocation snapshot tampering under a frozen hash", async () => {
+  const sdk = await import("../dist/index.js");
+  const baseRequest = sdk.EXAMPLE_RESOLVE_PRINCIPAL_AUTHORITY_PARAMS;
+  const baseReceipt = sdk.EXAMPLE_PRINCIPAL_AUTHORITY_RESOLUTION_RECEIPT;
+
+  async function expectSnapshotTamperRefused(request, resolution) {
+    const client = new sdk.WalletNetworkClient({
+      async request(method) {
+        assert.equal(method, "resolve_principal_authority@v1");
+        return { ...baseReceipt, resolution };
+      },
+    });
+    await assert.rejects(
+      () => client.resolvePrincipalAuthority(request),
+      (error) => {
+        assert.equal(error.code, "principal_authority_snapshot_hash_mismatch");
+        return true;
+      },
+    );
+  }
+
+  const escalatedScope = "room_participation.reject";
+  await expectSnapshotTamperRefused(
+    { ...baseRequest, required_scope: escalatedScope },
+    {
+      ...baseReceipt.resolution,
+      required_scope: escalatedScope,
+      matched_scope: escalatedScope,
+      approval_authority: {
+        ...baseReceipt.resolution.approval_authority,
+        scope_allowlist: [
+          ...baseReceipt.resolution.approval_authority.scope_allowlist,
+          escalatedScope,
+        ],
+      },
+    },
+  );
+  await expectSnapshotTamperRefused(baseRequest, {
+    ...baseReceipt.resolution,
+    approval_authority: {
+      ...baseReceipt.resolution.approval_authority,
+      expires_at: baseReceipt.resolution.approval_authority.expires_at + 1,
+    },
+  });
+  await expectSnapshotTamperRefused(baseRequest, {
+    ...baseReceipt.resolution,
+    approval_authority: {
+      ...baseReceipt.resolution.approval_authority,
+      revoked: true,
+    },
+  });
 });
 
 test("SDK dist keeps protocol package imports instead of embedding protocol truth", async () => {
@@ -202,9 +348,7 @@ test("SDK exposes first-party decentralized.exchange and trade candidate clients
                   : "evidence://decentralized.trade/venue/1",
               ],
               risk_labels: isExchange ? ["No Bridge"] : ["Venue Risk"],
-              claims: isExchange
-                ? { route_source_count: "3" }
-                : { market: "ETH-PERP" },
+              claims: isExchange ? { route_source_count: "3" } : { market: "ETH-PERP" },
             },
           ],
         };
@@ -250,14 +394,8 @@ test("SDK exposes first-party decentralized.exchange and trade candidate clients
       ],
     ],
   );
-  assert.equal(
-    routeEvidence[0].candidate_id,
-    "route-candidate:decentralized-exchange/usdc-eth",
-  );
-  assert.equal(
-    venueEvidence[0].candidate_id,
-    "venue-candidate:decentralized-trade/eth-perp",
-  );
+  assert.equal(routeEvidence[0].candidate_id, "route-candidate:decentralized-exchange/usdc-eth");
+  assert.equal(venueEvidence[0].candidate_id, "venue-candidate:decentralized-trade/eth-perp");
 });
 
 test("SDK HTTP candidate source client rejects evidence from the wrong adapter", async () => {

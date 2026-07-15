@@ -1,0 +1,126 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.ioi.network/wallet/principal-authority-binding-proof.schema.json",
+  "title": "PrincipalAuthorityBindingProofV1",
+  "description": "A root-signed immutable wallet.network binding from a portable principal to an exact ApprovalAuthority snapshot.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "statement",
+    "statement_hash",
+    "issuer_signature_proof",
+    "binding_ref",
+    "binding_hash"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "statement": { "$ref": "#/$defs/statement" },
+    "statement_hash": { "$ref": "#/$defs/bytes32" },
+    "issuer_signature_proof": { "$ref": "#/$defs/signatureProof" },
+    "binding_ref": {
+      "type": "string",
+      "pattern": "^wallet\\.network://principal-authority-binding/[0-9a-f]{64}$"
+    },
+    "binding_hash": { "$ref": "#/$defs/bytes32" }
+  },
+  "$defs": {
+    "byte": { "type": "integer", "minimum": 0, "maximum": 255 },
+    "bytes": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/byte" }
+    },
+    "bytes32": {
+      "type": "array",
+      "minItems": 32,
+      "maxItems": 32,
+      "items": { "$ref": "#/$defs/byte" }
+    },
+    "principalRef": {
+      "type": "string",
+      "maxLength": 300,
+      "pattern": "^((worker|service|org|domain)://|agentgres://domain/)[A-Za-z0-9]([A-Za-z0-9._~:@-]*[A-Za-z0-9])?(/[A-Za-z0-9]([A-Za-z0-9._~:@-]*[A-Za-z0-9])?)*$"
+    },
+    "coordinatesRef": {
+      "type": "string",
+      "pattern": "^wallet\\.network://principal-authority-binding/[0-9a-f]{64}$"
+    },
+    "statement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "principal_ref",
+        "authority_kind",
+        "binding_version",
+        "status",
+        "authority_id",
+        "authority_public_key",
+        "authority_signature_suite",
+        "approval_authority_snapshot_hash",
+        "signed_at_ms",
+        "issuer_root_account_id"
+      ],
+      "properties": {
+        "schema_version": { "const": 1 },
+        "principal_ref": { "$ref": "#/$defs/principalRef" },
+        "authority_kind": { "const": "approval" },
+        "binding_version": { "type": "integer", "minimum": 1, "maximum": 4096 },
+        "status": { "enum": ["active", "revoked"] },
+        "authority_id": { "$ref": "#/$defs/bytes32" },
+        "authority_public_key": { "$ref": "#/$defs/bytes" },
+        "authority_signature_suite": { "type": "integer" },
+        "approval_authority_snapshot_hash": { "$ref": "#/$defs/bytes32" },
+        "previous_binding_ref": { "$ref": "#/$defs/coordinatesRef" },
+        "previous_binding_hash": { "$ref": "#/$defs/bytes32" },
+        "signed_at_ms": { "type": "integer", "minimum": 1 },
+        "expires_at_ms": { "type": "integer", "minimum": 1 },
+        "issuer_root_account_id": { "$ref": "#/$defs/bytes32" },
+        "reason": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^\\S(?:[\\s\\S]*\\S)?$"
+        }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "binding_version": { "const": 1 } } },
+          "then": {
+            "not": {
+              "anyOf": [
+                { "required": ["previous_binding_ref"] },
+                { "required": ["previous_binding_hash"] }
+              ]
+            }
+          },
+          "else": {
+            "required": ["previous_binding_ref", "previous_binding_hash"]
+          }
+        },
+        {
+          "if": { "properties": { "status": { "const": "revoked" } } },
+          "then": {
+            "required": ["reason"]
+          }
+        },
+        {
+          "if": { "properties": { "status": { "const": "active" } } },
+          "then": {
+            "properties": { "binding_version": { "maximum": 4095 } }
+          }
+        }
+      ]
+    },
+    "signatureProof": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["suite", "public_key", "signature"],
+      "properties": {
+        "suite": { "type": "integer" },
+        "public_key": { "$ref": "#/$defs/bytes" },
+        "signature": { "$ref": "#/$defs/bytes" }
+      }
+    }
+  }
+}

@@ -103,10 +103,37 @@ pub(super) fn ensure_wallet_client_role(
     ctx: &TxContext<'_>,
     required_role: WalletAuthRole,
 ) -> Result<(), TransactionError> {
+    ensure_wallet_client_role_with_initialization_mode(state, ctx, required_role, false)
+}
+
+/// Authorize a wallet client only after the control root has been initialized.
+///
+/// Unlike [`ensure_wallet_client_role`], this helper never enters the legacy
+/// compatibility mode for an uninitialized wallet. Principal-to-authority
+/// binding lookups are security-sensitive evidence reads: an absent root must
+/// remain an explicit refusal rather than making an arbitrary caller trusted.
+pub(super) fn ensure_initialized_wallet_client_role(
+    state: &dyn StateAccess,
+    ctx: &TxContext<'_>,
+    required_role: WalletAuthRole,
+) -> Result<(), TransactionError> {
+    ensure_wallet_client_role_with_initialization_mode(state, ctx, required_role, true)
+}
+
+fn ensure_wallet_client_role_with_initialization_mode(
+    state: &dyn StateAccess,
+    ctx: &TxContext<'_>,
+    required_role: WalletAuthRole,
+    require_initialized_root: bool,
+) -> Result<(), TransactionError> {
     let Some(root) = load_control_root(state)? else {
+        if require_initialized_root {
+            return Err(TransactionError::UnauthorizedByCredentials);
+        }
         // Compatibility mode for legacy/uninitialized local state.
         return Ok(());
     };
+    validate_root_record(&root)?;
     if root.account_id == ctx.signer_account_id.0 {
         return Ok(());
     }
@@ -137,6 +164,12 @@ pub(crate) fn authorize_wallet_method(
 ) -> Result<(), TransactionError> {
     match method {
         "configure_control_root@v1" => Ok(()),
+        "issue_principal_authority_binding@v1" | "revoke_principal_authority_binding@v1" => {
+            ensure_control_root_signer(state, ctx)
+        }
+        "resolve_principal_authority@v1" | "lookup_principal_authority_binding@v1" => {
+            ensure_initialized_wallet_client_role(state, ctx, WalletAuthRole::Capability)
+        }
         "register_client@v1"
         | "revoke_client@v1"
         | "get_client@v1"

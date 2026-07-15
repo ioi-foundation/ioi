@@ -751,6 +751,20 @@ impl ApprovalAuthority {
         }
         Ok(())
     }
+
+    /// Canonical content hash of this exact mutable registry artifact.
+    ///
+    /// Principal-authority bindings freeze this hash so a later key, suite, expiry, scope, or
+    /// revocation change cannot silently inherit an older root-signed binding.
+    pub fn artifact_hash(&self) -> Result<[u8; 32], ActionHashError> {
+        let canonical = serde_jcs::to_vec(self)
+            .map_err(|error| ActionHashError::Canonicalization(error.to_string()))?;
+        let digest =
+            Sha256::digest(&canonical).map_err(|error| ActionHashError::Hash(error.to_string()))?;
+        let mut out = [0u8; 32];
+        out.copy_from_slice(digest.as_ref());
+        Ok(out)
+    }
 }
 
 #[derive(Debug, Serialize)]

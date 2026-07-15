@@ -99,6 +99,14 @@ pub enum VaultAuditEventKind {
     InterceptionObserved,
     /// A policy approval decision was recorded.
     ApprovalDecided,
+    /// A root-signed principal-to-approval-authority binding version was appended.
+    PrincipalAuthorityBindingIssued,
+    /// A root-signed revocation successor was appended to a principal binding chain.
+    PrincipalAuthorityBindingRevoked,
+    /// A current principal authority was resolved with its exact immutable coordinates.
+    PrincipalAuthorityBindingResolved,
+    /// An immutable principal-authority binding proof was fetched as historical evidence.
+    PrincipalAuthorityBindingFetched,
     /// An emergency stop/revocation event occurred.
     EmergencyStop,
     /// A connector operation executed under lease authority.

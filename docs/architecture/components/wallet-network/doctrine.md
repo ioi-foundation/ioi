@@ -4,12 +4,14 @@ Status: canonical architecture authority.
 Canonical owner: this file for wallet.network authority doctrine; wallet product, exchange, route-source, exposure, protection, approval-inbox, and receipt doctrine lives in [`product-exchange-risk.md`](./product-exchange-risk.md); low-level scope APIs live in [`wallet-network-api-and-authority-scopes.md`](./api-authority-scopes.md).
 Supersedes: older generic capability-grant wording when it conflicts with `scope:*` authority grants.
 Superseded by: none.
-Last alignment pass: 2026-07-11.
+Last alignment pass: 2026-07-14.
 Doctrine status: canonical
-Implementation status: partial (capability-lease authority, sealed credentials, and approval gates live in the daemon; guardian surfaces, key shards, and MPC vault planned)
+Implementation status: partial (capability-lease authority, sealed credentials, approval gates, and the principal-to-approval-authority resolver live in the wallet service; guardian surfaces, key shards, and MPC vault planned)
 Implementation refs:
   - `crates/node/src/bin/hypervisor_daemon_routes/`
-Last implementation audit: 2026-07-05
+  - `crates/types/src/app/wallet_network/principal_authority.rs`
+  - `crates/services/src/wallet_network/handlers/principal_authority.rs`
+Last implementation audit: 2026-07-14
 
 ## Canonical Definition
 
@@ -184,6 +186,7 @@ wallet.network owns:
 - MPC, threshold, hardware-backed, or organization key shards;
 - low-assurance access-point bindings and step-up challenge policy;
 - agent/app/domain authority grants;
+- root-signed, versioned, revocable principal-to-approval-authority bindings;
 - root secrets;
 - API keys;
 - OAuth refresh tokens;
@@ -436,6 +439,50 @@ scoped grant, denial receipt, revocation epoch, or authority receipt.
 - high-value compute and production environments;
 - policy widening;
 - institutional autonomy.
+
+## Portable Principal-to-Authority Binding
+
+wallet.network exclusively owns the portable binding from a declared principal
+to the exact approval authority allowed to sign governed decisions for that
+principal. The canonical principal grammar is deliberately narrow:
+
+```text
+worker://<path>
+service://<path>
+org://<path>
+domain://<path>
+agentgres://domain/<path>
+```
+
+`<path>` contains one or more nonempty slash-separated ASCII segments. Each
+segment starts and ends with a letter or digit; internal characters may also be
+`.`, `_`, `-`, `~`, `:`, or `@`. Leading, trailing, or doubled slashes, query
+strings, fragments, wildcards, percent encoding, alternate schemes,
+whitespace, and caller-chosen aliases are not canonical principal identity.
+
+Each `PrincipalAuthorityBindingProofV1` is an immutable, wallet control-root
+signed version. Its signed statement binds the canonical principal ref, the
+exact `ApprovalAuthority` id/public key/signature suite, the hash of that
+authority snapshot, predecessor ref/hash, lifecycle status, issue/expiry time,
+and control-root issuer. A stable mutable head may point at the current version
+and binds the exact mutation audit sequence/id/hash; it must never replace or
+rewrite an immutable proof. Rotation appends a new active version. Revocation
+appends a revoked successor with a reason.
+
+Resolution returns the exact `binding_ref`, `binding_version`, and
+`binding_hash` together with the resolved key, suite, authority id, snapshot
+hash, and mutation audit commitment. A caller may pin all three coordinates.
+Missing, malformed, stale, expired, revoked, ambiguous, hash-mismatched, or
+key-drifted bindings fail typed-unavailable. Resolution never falls back to a
+local login, Hypervisor session identity, organization role, request caller
+field, trust-on-first-use key, or copied grant field.
+
+Governed durable intents must retain the complete signed approval grant plus
+the binding ref, version, and hash used to authorize it. Restart recovery must
+reverify the grant signature, immutable binding proof, current binding head,
+authority snapshot, and revocation/expiry posture before reconstructing the
+exact successor. A copied `authority_id`, public key, or decision receipt is
+not sufficient authorization evidence.
 
 ## wallet.network Authority Surfaces
 
@@ -944,6 +991,10 @@ IOI L1 settles public/economic commitments
    only when the agent needs on-chain execution power.
 8. High-risk on-chain actions require wallet.network step-up and/or
    smart-account module enforcement.
+9. Principal-authority rollback resistance is relative to the externally
+   selected wallet state root; ledger finality must prevent wholesale rollback
+   of the complete state root, while the resolver detects coupled mutable-head
+   rollback inside the selected root through immutable per-version indexes.
 
 ## One-Line Doctrine
 
