@@ -568,3 +568,71 @@ fn verify_hybrid_signature(
 
     account_id_from_key_material(SignatureSuite::HYBRID_ED25519_ML_DSA_44, &proof.public_key)
 }
+
+/// Verify a portable wallet signature proof and return the account id derived
+/// from the exact suite/public-key tuple that signed `message`.
+///
+/// This deliberately supports only suites with complete verification paths in
+/// the wallet service. An unknown or partially implemented suite is a typed
+/// refusal, never a structural-only success.
+pub(super) fn verify_wallet_signature_proof(
+    proof: &SignatureProof,
+    message: &[u8],
+    context: &str,
+) -> Result<[u8; 32], TransactionError> {
+    if proof.public_key.is_empty() || proof.signature.is_empty() {
+        return Err(TransactionError::Invalid(format!(
+            "principal_authority_binding_proof_invalid: {context} requires non-empty public key and signature"
+        )));
+    }
+
+    match proof.suite {
+        SignatureSuite::ED25519 => {
+            let public_key = Ed25519PublicKey::from_bytes(&proof.public_key).map_err(|error| {
+                TransactionError::Invalid(format!(
+                    "principal_authority_binding_proof_invalid: {context} invalid ed25519 public key: {error}"
+                ))
+            })?;
+            let signature = Ed25519Signature::from_bytes(&proof.signature).map_err(|error| {
+                TransactionError::Invalid(format!(
+                    "principal_authority_binding_proof_invalid: {context} invalid ed25519 signature: {error}"
+                ))
+            })?;
+            public_key.verify(message, &signature).map_err(|error| {
+                TransactionError::Invalid(format!(
+                    "principal_authority_binding_proof_invalid: {context} ed25519 verification failed: {error}"
+                ))
+            })?;
+            account_id_from_key_material(proof.suite, &proof.public_key)
+        }
+        SignatureSuite::ML_DSA_44 => {
+            let public_key = MldsaPublicKey::from_bytes(&proof.public_key).map_err(|error| {
+                TransactionError::Invalid(format!(
+                    "principal_authority_binding_proof_invalid: {context} invalid ml-dsa public key: {error}"
+                ))
+            })?;
+            let signature = MldsaSignature::from_bytes(&proof.signature).map_err(|error| {
+                TransactionError::Invalid(format!(
+                    "principal_authority_binding_proof_invalid: {context} invalid ml-dsa signature: {error}"
+                ))
+            })?;
+            public_key.verify(message, &signature).map_err(|error| {
+                TransactionError::Invalid(format!(
+                    "principal_authority_binding_proof_invalid: {context} ml-dsa verification failed: {error}"
+                ))
+            })?;
+            account_id_from_key_material(proof.suite, &proof.public_key)
+        }
+        SignatureSuite::HYBRID_ED25519_ML_DSA_44 => {
+            verify_hybrid_signature(proof, message, context).map_err(|error| {
+                TransactionError::Invalid(format!(
+                    "principal_authority_binding_proof_invalid: {error}"
+                ))
+            })
+        }
+        unsupported => Err(TransactionError::Invalid(format!(
+            "principal_authority_binding_signature_suite_unsupported: {context} suite {} is unsupported",
+            unsupported.0
+        ))),
+    }
+}

@@ -6,16 +6,18 @@ use ioi_api::state::StateAccess;
 use ioi_api::transaction::context::TxContext;
 use ioi_types::app::wallet_network::{
     ConnectorAuthExportParams, ConnectorAuthGetParams, ConnectorAuthImportParams,
-    ConnectorAuthListParams, ConnectorAuthUpsertParams, MailConnectorEnsureBindingParams,
-    MailConnectorGetParams, MailConnectorUpsertParams, MailDeleteSpamParams, MailListRecentParams,
-    MailReadLatestParams, MailReplyParams, MailboxTotalCountParams, OwnerAnchor,
-    SecretInjectionGrant, SecretInjectionRequestRecord, SessionChannelClose,
-    SessionChannelDelegationRules, SessionChannelOpenAck, SessionChannelOpenConfirm,
-    SessionChannelOpenInit, SessionChannelOpenTry, SessionChannelOrdering, SessionGrant,
-    SessionLease, SessionLeaseMode, SessionReceiptCommit, SessionReceiptCommitDirection,
-    VaultIdentity, VaultPolicyRule, VaultSecretRecord, WalletApprovalDecision,
-    WalletConfigureControlRootParams, WalletGetClientParams, WalletInterceptionContext,
-    WalletListClientsParams, WalletRegisterClientParams, WalletRevokeClientParams,
+    ConnectorAuthListParams, ConnectorAuthUpsertParams, GetPrincipalAuthorityBindingParams,
+    IssuePrincipalAuthorityBindingParams, MailConnectorEnsureBindingParams, MailConnectorGetParams,
+    MailConnectorUpsertParams, MailDeleteSpamParams, MailListRecentParams, MailReadLatestParams,
+    MailReplyParams, MailboxTotalCountParams, OwnerAnchor, ResolvePrincipalAuthorityParams,
+    RevokePrincipalAuthorityBindingParams, SecretInjectionGrant, SecretInjectionRequestRecord,
+    SessionChannelClose, SessionChannelDelegationRules, SessionChannelOpenAck,
+    SessionChannelOpenConfirm, SessionChannelOpenInit, SessionChannelOpenTry,
+    SessionChannelOrdering, SessionGrant, SessionLease, SessionLeaseMode, SessionReceiptCommit,
+    SessionReceiptCommitDirection, VaultIdentity, VaultPolicyRule, VaultSecretRecord,
+    WalletApprovalDecision, WalletConfigureControlRootParams, WalletGetClientParams,
+    WalletInterceptionContext, WalletListClientsParams, WalletRegisterClientParams,
+    WalletRevokeClientParams,
 };
 use ioi_types::app::{action::ApprovalAuthority, ActionTarget};
 use ioi_types::codec;
@@ -227,6 +229,29 @@ impl BlockchainService for WalletNetworkService {
                 let request: WalletConfigureControlRootParams =
                     codec::from_bytes_canonical(params)?;
                 handlers::client_auth::configure_control_root(state, ctx, request)
+            }
+            "issue_principal_authority_binding@v1" => {
+                let request: IssuePrincipalAuthorityBindingParams =
+                    codec::from_bytes_canonical(params)?;
+                handlers::principal_authority::issue_principal_authority_binding(
+                    state, ctx, request,
+                )
+            }
+            "revoke_principal_authority_binding@v1" => {
+                let request: RevokePrincipalAuthorityBindingParams =
+                    codec::from_bytes_canonical(params)?;
+                handlers::principal_authority::revoke_principal_authority_binding(
+                    state, ctx, request,
+                )
+            }
+            "resolve_principal_authority@v1" => {
+                let request: ResolvePrincipalAuthorityParams = codec::from_bytes_canonical(params)?;
+                handlers::principal_authority::resolve_principal_authority(state, ctx, request)
+            }
+            "get_principal_authority_binding@v1" => {
+                let request: GetPrincipalAuthorityBindingParams =
+                    codec::from_bytes_canonical(params)?;
+                handlers::principal_authority::get_principal_authority_binding(state, ctx, request)
             }
             "register_client@v1" => {
                 let request: WalletRegisterClientParams = codec::from_bytes_canonical(params)?;

@@ -2,9 +2,22 @@ import {
   type AuthorityReview,
   type CapabilityLease,
   type CapabilityLeaseRevocation,
+  type GetPrincipalAuthorityBindingParams,
+  type GetPrincipalAuthorityBindingReceipt,
+  type IssuePrincipalAuthorityBindingParams,
+  type PrincipalAuthorityBindingProofV1,
+  type PrincipalAuthorityResolutionReceipt,
+  type ResolvePrincipalAuthorityParams,
+  type RevokePrincipalAuthorityBindingParams,
   type WalletNetworkProtocolMethod,
   type WalletReceipt,
+  WalletProtocolValidationError,
   WALLET_NETWORK_PROTOCOL_METHODS,
+  assertGetPrincipalAuthorityBindingReceipt,
+  assertIssuePrincipalAuthorityBindingParams,
+  assertPrincipalAuthorityBindingProof,
+  assertPrincipalAuthorityResolutionReceipt,
+  assertRevokePrincipalAuthorityBindingParams,
 } from "@ioi/wallet-protocol";
 
 export interface WalletNetworkTransport {
@@ -44,10 +57,110 @@ export class WalletNetworkClient {
     );
   }
 
+  async issuePrincipalAuthorityBinding(
+    request: IssuePrincipalAuthorityBindingParams,
+  ): Promise<PrincipalAuthorityBindingProofV1> {
+    assertIssuePrincipalAuthorityBindingParams(request);
+    const proof = await this.#transport.request<PrincipalAuthorityBindingProofV1>(
+      WALLET_NETWORK_PROTOCOL_METHODS.issuePrincipalAuthorityBinding,
+      request,
+    );
+    const accepted = assertIssuePrincipalAuthorityBindingParams({ proof }).proof;
+    assertAcceptedBindingMatchesRequest(request.proof, accepted);
+    return accepted;
+  }
+
+  async revokePrincipalAuthorityBinding(
+    request: RevokePrincipalAuthorityBindingParams,
+  ): Promise<PrincipalAuthorityBindingProofV1> {
+    assertRevokePrincipalAuthorityBindingParams(request);
+    const proof = await this.#transport.request<PrincipalAuthorityBindingProofV1>(
+      WALLET_NETWORK_PROTOCOL_METHODS.revokePrincipalAuthorityBinding,
+      request,
+    );
+    const accepted = assertRevokePrincipalAuthorityBindingParams({ proof }).proof;
+    assertAcceptedBindingMatchesRequest(request.proof, accepted);
+    return accepted;
+  }
+
+  async resolvePrincipalAuthority(
+    request: ResolvePrincipalAuthorityParams,
+  ): Promise<PrincipalAuthorityResolutionReceipt> {
+    const receipt =
+      await this.#transport.request<PrincipalAuthorityResolutionReceipt>(
+        WALLET_NETWORK_PROTOCOL_METHODS.resolvePrincipalAuthority,
+        request,
+      );
+    return assertPrincipalAuthorityResolutionReceipt(request, receipt);
+  }
+
+  async getPrincipalAuthorityBinding(
+    request: GetPrincipalAuthorityBindingParams,
+  ): Promise<GetPrincipalAuthorityBindingReceipt> {
+    const receipt =
+      await this.#transport.request<GetPrincipalAuthorityBindingReceipt>(
+        WALLET_NETWORK_PROTOCOL_METHODS.getPrincipalAuthorityBinding,
+        request,
+      );
+    return assertGetPrincipalAuthorityBindingReceipt(request, receipt);
+  }
+
   createReceipt(receipt: WalletReceipt): Promise<WalletReceipt> {
     return this.#transport.request(
       WALLET_NETWORK_PROTOCOL_METHODS.createReceipt,
       receipt,
     );
   }
+}
+
+function assertAcceptedBindingMatchesRequest(
+  requested: PrincipalAuthorityBindingProofV1,
+  accepted: PrincipalAuthorityBindingProofV1,
+) {
+  assertPrincipalAuthorityBindingProof(accepted);
+  if (!jsonValuesEqual(requested, accepted)) {
+    throw new WalletProtocolValidationError({
+      code: "principal_authority_binding_response_mismatch",
+      message:
+        "wallet.network returned a different immutable binding proof than the one submitted.",
+    });
+  }
+}
+
+function jsonValuesEqual(left: unknown, right: unknown): boolean {
+  if (left === right) {
+    return true;
+  }
+  if (Array.isArray(left) || Array.isArray(right)) {
+    return (
+      Array.isArray(left) &&
+      Array.isArray(right) &&
+      left.length === right.length &&
+      left.every((value, index) => jsonValuesEqual(value, right[index]))
+    );
+  }
+  if (
+    left === null ||
+    right === null ||
+    typeof left !== "object" ||
+    typeof right !== "object"
+  ) {
+    return false;
+  }
+  const leftRecord = left as Readonly<Record<string, unknown>>;
+  const rightRecord = right as Readonly<Record<string, unknown>>;
+  const leftKeys = Object.keys(leftRecord)
+    .filter((key) => leftRecord[key] !== undefined)
+    .sort();
+  const rightKeys = Object.keys(rightRecord)
+    .filter((key) => rightRecord[key] !== undefined)
+    .sort();
+  return (
+    leftKeys.length === rightKeys.length &&
+    leftKeys.every(
+      (key, index) =>
+        key === rightKeys[index] &&
+        jsonValuesEqual(leftRecord[key], rightRecord[key]),
+    )
+  );
 }

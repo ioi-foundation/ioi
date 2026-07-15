@@ -22,6 +22,18 @@ fn wallet_network_policy_exposes_policy_rule_upsert() {
         Some(&MethodPermission::User),
         "wallet_network ActiveServiceMeta must advertise approval authority revocation",
     );
+    for method in [
+        "issue_principal_authority_binding@v1",
+        "revoke_principal_authority_binding@v1",
+        "resolve_principal_authority@v1",
+        "get_principal_authority_binding@v1",
+    ] {
+        assert_eq!(
+            wallet.methods.get(method),
+            Some(&MethodPermission::User),
+            "wallet_network ActiveServiceMeta must advertise {method}",
+        );
+    }
 }
 
 #[test]

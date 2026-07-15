@@ -24,6 +24,15 @@ pub(super) const INTERCEPTION_PREFIX: &[u8] = b"interception::";
 pub(super) const APPROVAL_PREFIX: &[u8] = b"approval::";
 pub(super) const APPROVAL_CONSUMPTION_PREFIX: &[u8] = b"approval_consumption::";
 pub(super) const APPROVAL_AUTHORITY_PREFIX: &[u8] = b"approval_authority::";
+pub(super) const PRINCIPAL_AUTHORITY_BINDING_PREFIX: &[u8] = b"principal_authority_binding::";
+pub(super) const PRINCIPAL_AUTHORITY_BINDING_HEAD_PREFIX: &[u8] =
+    b"principal_authority_binding_head::";
+pub(super) const PRINCIPAL_AUTHORITY_LATEST_MUTATION_PREFIX: &[u8] =
+    b"principal_authority_latest_mutation::";
+pub(super) const PRINCIPAL_AUTHORITY_RESOLUTION_RECEIPT_PREFIX: &[u8] =
+    b"principal_authority_resolution_receipt::";
+pub(super) const PRINCIPAL_AUTHORITY_GET_RECEIPT_PREFIX: &[u8] =
+    b"principal_authority_get_receipt::";
 pub(super) const CHANNEL_PREFIX: &[u8] = b"channel::";
 pub(super) const CHANNEL_KEY_STATE_PREFIX: &[u8] = b"channel_key_state::";
 pub(super) const LEASE_PREFIX: &[u8] = b"lease::";
@@ -127,6 +136,48 @@ pub(super) fn approval_consumption_key(request_hash: &[u8; 32]) -> Vec<u8> {
 
 pub(super) fn approval_authority_key(authority_id: &[u8; 32]) -> Vec<u8> {
     [APPROVAL_AUTHORITY_PREFIX, authority_id.as_slice()].concat()
+}
+
+/// Content-addressed immutable principal-authority binding proof.
+pub(super) fn principal_authority_binding_key(binding_hash: &[u8; 32]) -> Vec<u8> {
+    [PRINCIPAL_AUTHORITY_BINDING_PREFIX, binding_hash.as_slice()].concat()
+}
+
+/// Current binding head for the exact canonical principal-ref bytes.
+///
+/// The caller hashes the exact validated ref and the stored head repeats the
+/// principal ref, so a collision or relocated record is detected during load.
+pub(super) fn principal_authority_binding_head_key(principal_ref_hash: &[u8; 32]) -> Vec<u8> {
+    [
+        PRINCIPAL_AUTHORITY_BINDING_HEAD_PREFIX,
+        principal_ref_hash.as_slice(),
+    ]
+    .concat()
+}
+
+/// Wallet-owned latest-mutation commitment for one exact principal-ref hash.
+pub(super) fn principal_authority_latest_mutation_key(principal_ref_hash: &[u8; 32]) -> Vec<u8> {
+    [
+        PRINCIPAL_AUTHORITY_LATEST_MUTATION_PREFIX,
+        principal_ref_hash.as_slice(),
+    ]
+    .concat()
+}
+
+pub(super) fn principal_authority_resolution_receipt_key(request_id: &[u8; 32]) -> Vec<u8> {
+    [
+        PRINCIPAL_AUTHORITY_RESOLUTION_RECEIPT_PREFIX,
+        request_id.as_slice(),
+    ]
+    .concat()
+}
+
+pub(super) fn principal_authority_get_receipt_key(request_id: &[u8; 32]) -> Vec<u8> {
+    [
+        PRINCIPAL_AUTHORITY_GET_RECEIPT_PREFIX,
+        request_id.as_slice(),
+    ]
+    .concat()
 }
 
 pub(super) fn channel_key(channel_id: &[u8; 32]) -> Vec<u8> {

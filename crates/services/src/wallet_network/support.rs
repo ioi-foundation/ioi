@@ -61,6 +61,116 @@ pub(super) fn append_audit_event(
     Ok(event)
 }
 
+/// Append an audit event and caller-provided state records in one state batch.
+///
+/// Security-sensitive transitions use this to keep their immutable record,
+/// current-head pointer, and audit-chain advance in the same storage commit.
+/// The closure runs after the event id/hash are known so records may bind them
+/// without a second mutation or a circular hash dependency.
+pub(super) fn append_audit_event_with_records<F>(
+    state: &mut dyn StateAccess,
+    ctx: &TxContext<'_>,
+    kind: VaultAuditEventKind,
+    metadata: BTreeMap<String, String>,
+    build_records: F,
+) -> Result<VaultAuditEvent, TransactionError>
+where
+    F: FnOnce(&VaultAuditEvent) -> Result<Vec<(Vec<u8>, Vec<u8>)>, TransactionError>,
+{
+    let seq: u64 = load_typed(state, AUDIT_NEXT_SEQ_KEY)?.unwrap_or(0);
+    let prev_hash: [u8; 32] = load_typed(state, AUDIT_HEAD_HASH_KEY)?.unwrap_or([0u8; 32]);
+    let timestamp_ms = block_timestamp_ms(ctx);
+
+    let event_hash = hash_audit_material(&prev_hash, seq, timestamp_ms, &kind, &metadata)?;
+    let mut event_id_material = Vec::with_capacity(40);
+    event_id_material.extend_from_slice(&seq.to_le_bytes());
+    event_id_material.extend_from_slice(&event_hash);
+    let event_id = hash_bytes(&event_id_material)?;
+
+    let mut event_metadata = metadata;
+    event_metadata.insert("seq".to_string(), seq.to_string());
+    event_metadata.insert("prev_hash".to_string(), hex::encode(prev_hash));
+
+    let event = VaultAuditEvent {
+        event_id,
+        kind,
+        timestamp_ms,
+        event_hash,
+        metadata: event_metadata,
+    };
+    let mut inserts = build_records(&event)?;
+    inserts.push((audit_key(seq), codec::to_bytes_canonical(&event)?));
+    inserts.push((
+        AUDIT_NEXT_SEQ_KEY.to_vec(),
+        codec::to_bytes_canonical(&seq.saturating_add(1))?,
+    ));
+    inserts.push((
+        AUDIT_HEAD_HASH_KEY.to_vec(),
+        codec::to_bytes_canonical(&event_hash)?,
+    ));
+    state.batch_apply(&inserts, &[])?;
+    Ok(event)
+}
+
+/// Recompute the canonical hash/id of a stored audit event at its exact
+/// sequence key. This verifies the event's local chain commitment without
+/// mutating or broadening the legacy append path.
+pub(super) fn verify_audit_event_at_seq(
+    event: &VaultAuditEvent,
+    seq: u64,
+) -> Result<(), TransactionError> {
+    if event.metadata.get("seq").map(String::as_str) != Some(seq.to_string().as_str()) {
+        return Err(TransactionError::Invalid(
+            "wallet_audit_event_invalid: event sequence metadata does not match its state key"
+                .to_string(),
+        ));
+    }
+    let prev_hash_hex = event.metadata.get("prev_hash").ok_or_else(|| {
+        TransactionError::Invalid(
+            "wallet_audit_event_invalid: event is missing prev_hash metadata".to_string(),
+        )
+    })?;
+    let prev_hash_bytes = hex::decode(prev_hash_hex).map_err(|error| {
+        TransactionError::Invalid(format!(
+            "wallet_audit_event_invalid: prev_hash is not canonical hex: {error}"
+        ))
+    })?;
+    if prev_hash_bytes.len() != 32 || prev_hash_hex.len() != 64 {
+        return Err(TransactionError::Invalid(
+            "wallet_audit_event_invalid: prev_hash must be exactly 32 bytes".to_string(),
+        ));
+    }
+    let mut prev_hash = [0u8; 32];
+    prev_hash.copy_from_slice(&prev_hash_bytes);
+
+    let mut hash_metadata = event.metadata.clone();
+    hash_metadata.remove("seq");
+    hash_metadata.remove("prev_hash");
+    let expected_hash = hash_audit_material(
+        &prev_hash,
+        seq,
+        event.timestamp_ms,
+        &event.kind,
+        &hash_metadata,
+    )?;
+    if event.event_hash != expected_hash {
+        return Err(TransactionError::Invalid(
+            "wallet_audit_event_invalid: event_hash does not match canonical event material"
+                .to_string(),
+        ));
+    }
+    let mut event_id_material = Vec::with_capacity(40);
+    event_id_material.extend_from_slice(&seq.to_le_bytes());
+    event_id_material.extend_from_slice(&expected_hash);
+    if event.event_id != hash_bytes(&event_id_material)? {
+        return Err(TransactionError::Invalid(
+            "wallet_audit_event_invalid: event_id does not match sequence and event_hash"
+                .to_string(),
+        ));
+    }
+    Ok(())
+}
+
 fn hash_audit_material(
     prev_hash: &[u8; 32],
     seq: u64,

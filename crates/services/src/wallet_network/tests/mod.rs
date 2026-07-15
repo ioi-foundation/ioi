@@ -483,4 +483,5 @@ mod connector_auth;
 mod connector_config;
 mod delegation;
 mod mail_operations;
+mod principal_authority;
 mod replay_and_receipts;

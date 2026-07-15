@@ -9,6 +9,8 @@ pub mod connector_auth;
 pub mod mail_connector;
 /// Policy interception, approval decisions, and audit events.
 pub mod policy;
+/// Root-signed, append-only portable-principal authority bindings.
+pub mod principal_authority;
 /// Secret handoff requests, attestation, and grants.
 pub mod secret_injection;
 /// Session grants, leases, and receipt commitment artifacts.
@@ -22,6 +24,7 @@ pub use client_auth::*;
 pub use connector_auth::*;
 pub use mail_connector::*;
 pub use policy::*;
+pub use principal_authority::*;
 pub use secret_injection::*;
 pub use session::*;
 pub use session_channel::*;

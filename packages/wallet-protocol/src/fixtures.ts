@@ -3,6 +3,13 @@ import {
   type CapabilityLease,
   type CapabilityLeaseRevocation,
   type ExchangeIntent,
+  type GetPrincipalAuthorityBindingParams,
+  type GetPrincipalAuthorityBindingReceipt,
+  type IssuePrincipalAuthorityBindingParams,
+  type PrincipalAuthorityBindingProofV1,
+  type PrincipalAuthorityResolutionReceipt,
+  type ResolvePrincipalAuthorityParams,
+  type RevokePrincipalAuthorityBindingParams,
   type TradeIntent,
   type WalletReceipt,
   WALLET_PROTOCOL_SCHEMA_VERSION,
@@ -161,4 +168,146 @@ export const EXAMPLE_WALLET_RECEIPT: WalletReceipt = {
   agentgres_ref: "agentgres://operation/wallet-exchange-example",
   created_at: "2026-06-17T00:02:00.000Z",
   signatures: ["sig:hybrid-example"],
+};
+
+const exampleBytes32 = (byte: number) =>
+  Array.from({ length: 32 }, () => byte);
+const bytesFromHex = (hex: string) =>
+  Array.from({ length: hex.length / 2 }, (_, index) =>
+    Number.parseInt(hex.slice(index * 2, index * 2 + 2), 16),
+  );
+
+const EXAMPLE_ROOT_PUBLIC_KEY = bytesFromHex(
+  "ea4a6c63e29c520abef5507b132ec5f9954776aebebe7b92421eea691446d22c",
+);
+const EXAMPLE_ROOT_ACCOUNT_ID = bytesFromHex(
+  "6dfba71ea8318d9935bb13ae4ac945748a8a1d24aa7009e7f830b19ba01b1fe9",
+);
+const EXAMPLE_AUTHORITY_PUBLIC_KEY = bytesFromHex(
+  "fd1724385aa0c75b64fb78cd602fa1d991fdebf76b13c58ed702eac835e9f618",
+);
+const EXAMPLE_AUTHORITY_ID = bytesFromHex(
+  "db4f41937a0134a86113ca371f212e1671264ca30dc0f2957d44e21a51192cee",
+);
+const EXAMPLE_AUTHORITY_SNAPSHOT_HASH = bytesFromHex(
+  "d009e819160193b7280e7b41952538faa500cdf63f471848db57754c2f424b1f",
+);
+const EXAMPLE_ACTIVE_BINDING_HASH = bytesFromHex(
+  "09e239e362356cd33b08c2052e3c118a9be222aad9734d5f70e127062fe37734",
+);
+const EXAMPLE_ACTIVE_BINDING_REF =
+  "wallet.network://principal-authority-binding/09e239e362356cd33b08c2052e3c118a9be222aad9734d5f70e127062fe37734";
+const EXAMPLE_REVOKED_BINDING_HASH = bytesFromHex(
+  "fe5aab67f8c918750eed91225c9081760df290c8294e89a09fcd03c6c5131ad7",
+);
+const EXAMPLE_REVOKED_BINDING_REF =
+  "wallet.network://principal-authority-binding/fe5aab67f8c918750eed91225c9081760df290c8294e89a09fcd03c6c5131ad7";
+
+export const EXAMPLE_PRINCIPAL_AUTHORITY_BINDING_PROOF: PrincipalAuthorityBindingProofV1 = {
+  schema_version: 1,
+  statement: {
+    schema_version: 1,
+    principal_ref: "agentgres://domain/acme.example",
+    authority_kind: "approval",
+    binding_version: 1,
+    status: "active",
+    authority_id: EXAMPLE_AUTHORITY_ID,
+    authority_public_key: EXAMPLE_AUTHORITY_PUBLIC_KEY,
+    authority_signature_suite: -8,
+    approval_authority_snapshot_hash: EXAMPLE_AUTHORITY_SNAPSHOT_HASH,
+    signed_at_ms: 1_781_286_400_000,
+    expires_at_ms: 1_812_822_400_000,
+    issuer_root_account_id: EXAMPLE_ROOT_ACCOUNT_ID,
+  },
+  statement_hash: bytesFromHex(
+    "0cd4768791b00098107022562059dc46329729b3e81ea5764bd64635ee07fdd8",
+  ),
+  issuer_signature_proof: {
+    suite: -8,
+    public_key: EXAMPLE_ROOT_PUBLIC_KEY,
+    signature: bytesFromHex(
+      "6f6a13185686751e8005152bf205bec04108efb32b923a5fed3bc7c1ffe510ad86731f05c77d77898574a119e1f623563a698b1968c83b2ad0a9f183ff23c105",
+    ),
+  },
+  binding_ref: EXAMPLE_ACTIVE_BINDING_REF,
+  binding_hash: EXAMPLE_ACTIVE_BINDING_HASH,
+};
+
+export const EXAMPLE_PRINCIPAL_AUTHORITY_REVOCATION_PROOF: PrincipalAuthorityBindingProofV1 = {
+  schema_version: 1,
+  statement: {
+    ...EXAMPLE_PRINCIPAL_AUTHORITY_BINDING_PROOF.statement,
+    binding_version: 2,
+    status: "revoked",
+    previous_binding_ref: EXAMPLE_ACTIVE_BINDING_REF,
+    previous_binding_hash: EXAMPLE_ACTIVE_BINDING_HASH,
+    signed_at_ms: 1_781_372_800_000,
+    expires_at_ms: undefined,
+    reason: "Approval authority rotated by the wallet control root.",
+  },
+  statement_hash: bytesFromHex(
+    "415fb07342e20ff3e54082915521fd9bc40eabdbb6b2920c4f5fd0e9c95ed3a0",
+  ),
+  issuer_signature_proof: {
+    suite: -8,
+    public_key: EXAMPLE_ROOT_PUBLIC_KEY,
+    signature: bytesFromHex(
+      "73f5a60b6610debb58c287b4427fd143b35962dd3ff3e3e446004f281a309c8c44d867ec424768f50a72cef3f1f5d9c5cec2a22c3a58c8f5a18c14504b791b0a",
+    ),
+  },
+  binding_ref: EXAMPLE_REVOKED_BINDING_REF,
+  binding_hash: EXAMPLE_REVOKED_BINDING_HASH,
+};
+
+export const EXAMPLE_ISSUE_PRINCIPAL_AUTHORITY_BINDING_PARAMS: IssuePrincipalAuthorityBindingParams = {
+  proof: EXAMPLE_PRINCIPAL_AUTHORITY_BINDING_PROOF,
+};
+
+export const EXAMPLE_REVOKE_PRINCIPAL_AUTHORITY_BINDING_PARAMS: RevokePrincipalAuthorityBindingParams = {
+  proof: EXAMPLE_PRINCIPAL_AUTHORITY_REVOCATION_PROOF,
+};
+
+export const EXAMPLE_RESOLVE_PRINCIPAL_AUTHORITY_PARAMS: ResolvePrincipalAuthorityParams = {
+  request_id: exampleBytes32(22),
+  principal_ref: EXAMPLE_PRINCIPAL_AUTHORITY_BINDING_PROOF.statement.principal_ref,
+  authority_kind: "approval",
+  expected_coordinates: {
+    binding_ref: EXAMPLE_ACTIVE_BINDING_REF,
+    binding_version: 1,
+    binding_hash: EXAMPLE_ACTIVE_BINDING_HASH,
+  },
+};
+
+export const EXAMPLE_PRINCIPAL_AUTHORITY_RESOLUTION_RECEIPT: PrincipalAuthorityResolutionReceipt = {
+  request_id: EXAMPLE_RESOLVE_PRINCIPAL_AUTHORITY_PARAMS.request_id,
+  resolved_at_ms: 1_781_286_400_100,
+  resolution: {
+    schema_version: 1,
+    principal_ref: EXAMPLE_RESOLVE_PRINCIPAL_AUTHORITY_PARAMS.principal_ref,
+    authority_kind: "approval",
+    coordinates: EXAMPLE_RESOLVE_PRINCIPAL_AUTHORITY_PARAMS.expected_coordinates!,
+    authority_id: EXAMPLE_PRINCIPAL_AUTHORITY_BINDING_PROOF.statement.authority_id,
+    authority_public_key:
+      EXAMPLE_PRINCIPAL_AUTHORITY_BINDING_PROOF.statement.authority_public_key,
+    authority_signature_suite:
+      EXAMPLE_PRINCIPAL_AUTHORITY_BINDING_PROOF.statement.authority_signature_suite,
+    approval_authority_snapshot_hash:
+      EXAMPLE_PRINCIPAL_AUTHORITY_BINDING_PROOF.statement
+        .approval_authority_snapshot_hash,
+    resolved_at_ms: 1_781_286_400_100,
+    mutation_audit_event_id: exampleBytes32(23),
+    mutation_audit_event_hash: exampleBytes32(24),
+  },
+};
+
+export const EXAMPLE_GET_PRINCIPAL_AUTHORITY_BINDING_PARAMS: GetPrincipalAuthorityBindingParams = {
+  request_id: exampleBytes32(25),
+  binding_ref: EXAMPLE_ACTIVE_BINDING_REF,
+  expected_binding_hash: EXAMPLE_ACTIVE_BINDING_HASH,
+};
+
+export const EXAMPLE_GET_PRINCIPAL_AUTHORITY_BINDING_RECEIPT: GetPrincipalAuthorityBindingReceipt = {
+  request_id: EXAMPLE_GET_PRINCIPAL_AUTHORITY_BINDING_PARAMS.request_id,
+  fetched_at_ms: 1_781_286_400_200,
+  proof: EXAMPLE_PRINCIPAL_AUTHORITY_BINDING_PROOF,
 };
