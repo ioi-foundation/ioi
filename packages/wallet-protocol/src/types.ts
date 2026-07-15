@@ -306,6 +306,9 @@ export interface PrincipalAuthorityResolutionV1 {
   readonly principal_ref: string;
   readonly authority_kind: PrincipalAuthorityKind;
   readonly coordinates: PrincipalAuthorityBindingCoordinates;
+  readonly required_scope: string;
+  readonly matched_scope: string;
+  readonly approval_authority: ApprovalAuthoritySnapshot;
   readonly authority_id: WalletProtocolBytes;
   readonly authority_public_key: WalletProtocolBytes;
   readonly authority_signature_suite: number;
@@ -320,6 +323,7 @@ export interface IssuePrincipalAuthorityBindingParams {
 }
 
 export interface RevokePrincipalAuthorityBindingParams {
+  readonly predecessor_binding_ref: string;
   readonly proof: PrincipalAuthorityBindingProofV1;
 }
 
@@ -327,6 +331,7 @@ export interface ResolvePrincipalAuthorityParams {
   readonly request_id: WalletProtocolBytes;
   readonly principal_ref: string;
   readonly authority_kind: PrincipalAuthorityKind;
+  readonly required_scope: string;
   readonly expected_coordinates?: PrincipalAuthorityBindingCoordinates;
 }
 
@@ -336,14 +341,25 @@ export interface PrincipalAuthorityResolutionReceipt {
   readonly resolution: PrincipalAuthorityResolutionV1;
 }
 
-export interface GetPrincipalAuthorityBindingParams {
+export interface LookupPrincipalAuthorityBindingParams {
   readonly request_id: WalletProtocolBytes;
   readonly binding_ref: string;
   readonly expected_binding_hash?: WalletProtocolBytes;
 }
 
-export interface GetPrincipalAuthorityBindingReceipt {
+export interface LookupPrincipalAuthorityBindingReceipt {
   readonly request_id: WalletProtocolBytes;
   readonly fetched_at_ms: number;
   readonly proof: PrincipalAuthorityBindingProofV1;
+}
+
+/** Complete ApprovalAuthority registry artifact frozen by the binding snapshot hash. */
+export interface ApprovalAuthoritySnapshot {
+  readonly schema_version: number;
+  readonly authority_id: WalletProtocolBytes;
+  readonly public_key: WalletProtocolBytes;
+  readonly signature_suite: number;
+  readonly expires_at: number;
+  readonly revoked: boolean;
+  readonly scope_allowlist: readonly string[];
 }

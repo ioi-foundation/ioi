@@ -309,9 +309,9 @@ exact registered `ApprovalAuthority` key allowed to sign for that principal.
 
 ```http
 POST /v1/authority/principal-bindings
-POST /v1/authority/principal-bindings/{binding_ref}/revoke
+POST /v1/authority/principal-bindings/revoke
 POST /v1/authority/principal-bindings/resolve
-GET  /v1/authority/principal-bindings/{binding_ref}
+POST /v1/authority/principal-bindings/lookup
 ```
 
 The corresponding wallet service methods are:
@@ -320,7 +320,7 @@ The corresponding wallet service methods are:
 issue_principal_authority_binding@v1
 revoke_principal_authority_binding@v1
 resolve_principal_authority@v1
-get_principal_authority_binding@v1
+lookup_principal_authority_binding@v1
 ```
 
 Issue and revoke accept a complete `PrincipalAuthorityBindingProofV1`. Only the
@@ -372,10 +372,25 @@ readability here, while the checked-in fixtures carry all bytes:
 ```
 
 Version 1 has no predecessor. Every later version binds the exact previous
-binding ref and hash. Revocation is a new `revoked` version with a trimmed,
-nonempty reason; it never edits the active proof in place. The mutable head is
-only a current-version pointer and carries the mutation audit sequence plus
-event id/hash so the service can reverify the exact audit record.
+binding ref and hash. The revoke request repeats that predecessor ref in its
+body, and the service requires byte-for-byte agreement with both the proof and
+the current head. Revocation is a new `revoked` version with a trimmed, nonempty
+reason; it never edits the active proof in place. Version 4095 is the final
+active version and version 4096 is reserved for terminal revocation.
+
+The mutable head is only a current-version pointer and carries the mutation
+audit sequence plus event id/hash. Every accepted version also writes a separate
+immutable index entry keyed by the exact principal hash and version. Resolution
+requires the head to match that indexed ref/version/hash/status/audit tuple and
+requires the next-version index slot to be absent. Restoring an authentic old
+head together with its authentic old mutable mutation marker therefore refuses
+whenever a later indexed version remains.
+
+This rollback guarantee is relative to the currently committed wallet state
+root. Preventing rollback of the complete state database, including every
+immutable index entry, is the responsibility of the ledger/finality layer that
+anchors and selects wallet state roots. The resolver does not claim to detect a
+wholesale rollback to an older externally accepted state root.
 
 Resolution may be unpinned or may require exact immutable coordinates:
 
@@ -384,6 +399,7 @@ Resolution may be unpinned or may require exact immutable coordinates:
   "request_id": [22, 22, "... exactly 32 nonzero bytes"],
   "principal_ref": "agentgres://domain/acme.example",
   "authority_kind": "approval",
+  "required_scope": "room_participation.admit",
   "expected_coordinates": {
     "binding_ref": "wallet.network://principal-authority-binding/<64-lowercase-hex-binding-hash>",
     "binding_version": 1,
@@ -392,16 +408,22 @@ Resolution may be unpinned or may require exact immutable coordinates:
 }
 ```
 
-The resolution receipt returns those coordinates, exact authority id/public
-key/signature suite, `approval_authority_snapshot_hash`, resolve time, and the
-mutation audit event id/hash. `expected_coordinates`, lookup
+The resolution receipt returns those coordinates, `required_scope`, the exact
+matched allowlist entry, the complete `ApprovalAuthority` snapshot, its exact
+authority id/public key/signature suite, `approval_authority_snapshot_hash`,
+resolve time, and the mutation audit event id/hash. Downstream consumers must
+recompute the complete snapshot hash, enforce the matched operation scope, and
+verify the governed grant against that snapshot; signer identity alone never
+authorizes an operation. `expected_coordinates`, lookup
 `expected_binding_hash`, predecessor coordinates, expiry, and reason are omitted
 when absent, matching the Rust ABI.
 
 The resolver verifies control-root signature, statement/binding hashes,
-predecessor lineage, current head, active status, expiry, audit commitment, and
-the current ApprovalAuthority registry entry. Registry revocation, expiry, or
-key/suite/snapshot drift invalidates resolution. Missing, stale, foreign,
+predecessor lineage, immutable version index, current head, active status,
+expiry, audit commitment, required operation scope through the canonical
+authority matcher, and the current ApprovalAuthority registry entry. Registry
+revocation, expiry, key/suite/snapshot drift, empty scope, or scope mismatch
+invalidates resolution. Missing, stale, foreign,
 ambiguous, malformed, or pin-mismatched state returns a typed refusal. There is
 no fallback to local login, organization roles, session identity, caller fields,
 copied receipt fields, or trust on first use.

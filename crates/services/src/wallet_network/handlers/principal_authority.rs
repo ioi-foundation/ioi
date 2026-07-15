@@ -1,11 +1,12 @@
+use crate::agentic::runtime::kernel::approval::{ApprovalScopeContext, AuthorityScopeMatcher};
 use crate::wallet_network::handlers::client_auth::{
     ensure_control_root_signer, ensure_initialized_wallet_client_role, load_control_root,
     WalletAuthRole,
 };
 use crate::wallet_network::keys::{
     audit_key, principal_authority_binding_head_key, principal_authority_binding_key,
-    principal_authority_get_receipt_key, principal_authority_latest_mutation_key,
-    principal_authority_resolution_receipt_key,
+    principal_authority_latest_mutation_key, principal_authority_lookup_receipt_key,
+    principal_authority_resolution_receipt_key, principal_authority_version_index_key,
 };
 use crate::wallet_network::support::{
     append_audit_event_with_records, base_audit_metadata, block_timestamp_ms, hash_bytes,
@@ -18,8 +19,8 @@ use ioi_api::state::StateAccess;
 use ioi_api::transaction::context::TxContext;
 use ioi_types::app::action::ApprovalAuthority;
 use ioi_types::app::wallet_network::{
-    validate_principal_authority_ref, GetPrincipalAuthorityBindingParams,
-    GetPrincipalAuthorityBindingReceipt, IssuePrincipalAuthorityBindingParams,
+    validate_principal_authority_ref, IssuePrincipalAuthorityBindingParams,
+    LookupPrincipalAuthorityBindingParams, LookupPrincipalAuthorityBindingReceipt,
     PrincipalAuthorityBindingCoordinates, PrincipalAuthorityBindingHeadV1,
     PrincipalAuthorityBindingProofV1, PrincipalAuthorityBindingStatus, PrincipalAuthorityKind,
     PrincipalAuthorityResolutionReceipt, PrincipalAuthorityResolutionV1,
@@ -34,6 +35,7 @@ use parity_scale_codec::{Decode, Encode};
 use std::collections::{BTreeMap, BTreeSet};
 
 const MAX_BINDING_CHAIN_DEPTH: u64 = 4_096;
+const MAX_ACTIVE_BINDING_VERSION: u64 = MAX_BINDING_CHAIN_DEPTH - 1;
 
 /// Wallet-owned O(1) proof of the latest mutation for one exact principal.
 /// It is committed in the same state batch as the proof, head, and audit event.
@@ -51,6 +53,21 @@ struct PrincipalAuthorityLatestMutationV1 {
     mutation_audit_event_hash: [u8; 32],
 }
 
+/// Immutable coordinates for one principal chain version. Unlike the mutable
+/// head and latest-mutation marker, prior entries are never rewritten.
+#[derive(Debug, Clone, PartialEq, Eq, Encode, Decode)]
+struct PrincipalAuthorityVersionIndexV1 {
+    schema_version: u16,
+    principal_ref_hash: [u8; 32],
+    principal_ref: String,
+    authority_kind: PrincipalAuthorityKind,
+    coordinates: PrincipalAuthorityBindingCoordinates,
+    status: PrincipalAuthorityBindingStatus,
+    mutation_audit_seq: u64,
+    mutation_audit_event_id: [u8; 32],
+    mutation_audit_event_hash: [u8; 32],
+}
+
 fn invalid(code: &str, detail: impl AsRef<str>) -> TransactionError {
     TransactionError::Invalid(format!("{code}: {}", detail.as_ref()))
 }
@@ -62,6 +79,49 @@ fn validate_binding_chain_depth(binding_version: u64) -> Result<(), TransactionE
             format!(
                 "binding version {binding_version} exceeds the verification bound {MAX_BINDING_CHAIN_DEPTH}"
             ),
+        ));
+    }
+    Ok(())
+}
+
+fn validate_binding_version_status(
+    binding_version: u64,
+    status: PrincipalAuthorityBindingStatus,
+) -> Result<(), TransactionError> {
+    validate_binding_chain_depth(binding_version)?;
+    if status == PrincipalAuthorityBindingStatus::Active
+        && binding_version > MAX_ACTIVE_BINDING_VERSION
+    {
+        return Err(invalid(
+            "principal_authority_terminal_revocation_reserved",
+            format!(
+                "binding version {MAX_BINDING_CHAIN_DEPTH} is reserved for terminal revocation"
+            ),
+        ));
+    }
+    Ok(())
+}
+
+fn validate_required_scope(required_scope: &str) -> Result<(), TransactionError> {
+    let bytes = required_scope.as_bytes();
+    if required_scope.is_empty()
+        || required_scope.len() > 256
+        || required_scope != required_scope.trim()
+        || required_scope != required_scope.to_ascii_lowercase()
+        || !required_scope.is_ascii()
+        || required_scope.bytes().any(|byte| byte.is_ascii_control())
+        || !bytes
+            .first()
+            .is_some_and(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit())
+        || !bytes.iter().all(|byte| {
+            byte.is_ascii_lowercase()
+                || byte.is_ascii_digit()
+                || matches!(byte, b'.' | b'_' | b':' | b'-')
+        })
+    {
+        return Err(invalid(
+            "principal_authority_required_scope_invalid",
+            "required_scope must be an exact lowercase ASCII operation label",
         ));
     }
     Ok(())
@@ -153,6 +213,93 @@ fn expected_latest_mutation(
         mutation_audit_event_id: head.mutation_audit_event_id,
         mutation_audit_event_hash: head.mutation_audit_event_hash,
     }
+}
+
+fn expected_version_index(
+    principal_ref_hash: [u8; 32],
+    head: &PrincipalAuthorityBindingHeadV1,
+) -> PrincipalAuthorityVersionIndexV1 {
+    PrincipalAuthorityVersionIndexV1 {
+        schema_version: PRINCIPAL_AUTHORITY_BINDING_SCHEMA_VERSION,
+        principal_ref_hash,
+        principal_ref: head.principal_ref.clone(),
+        authority_kind: head.authority_kind,
+        coordinates: head.coordinates.clone(),
+        status: head.status,
+        mutation_audit_seq: head.mutation_audit_seq,
+        mutation_audit_event_id: head.mutation_audit_event_id,
+        mutation_audit_event_hash: head.mutation_audit_event_hash,
+    }
+}
+
+fn load_version_index(
+    state: &dyn StateAccess,
+    principal_ref_hash: [u8; 32],
+    binding_version: u64,
+) -> Result<Option<PrincipalAuthorityVersionIndexV1>, TransactionError> {
+    let key = principal_authority_version_index_key(&principal_ref_hash, binding_version);
+    let Some(bytes) = state.get(&key)? else {
+        return Ok(None);
+    };
+    let index = codec::from_bytes_canonical(&bytes).map_err(|error| {
+        invalid(
+            "principal_authority_version_index_malformed",
+            error.to_string(),
+        )
+    })?;
+    Ok(Some(index))
+}
+
+fn validate_version_index_head(
+    state: &dyn StateAccess,
+    principal_ref_hash: [u8; 32],
+    head: &PrincipalAuthorityBindingHeadV1,
+) -> Result<(), TransactionError> {
+    let index = load_version_index(state, principal_ref_hash, head.coordinates.binding_version)?
+        .ok_or_else(|| {
+            invalid(
+                "principal_authority_version_index_missing",
+                "current head has no immutable version-index entry",
+            )
+        })?;
+    if index.schema_version != PRINCIPAL_AUTHORITY_BINDING_SCHEMA_VERSION
+        || index.principal_ref_hash != principal_ref_hash
+        || index.principal_ref != head.principal_ref
+    {
+        return Err(invalid(
+            "principal_authority_version_index_relocated",
+            "version-index entry belongs to a different principal key or ref",
+        ));
+    }
+    if index != expected_version_index(principal_ref_hash, head) {
+        return Err(invalid(
+            "principal_authority_version_index_mismatch",
+            "current head does not exactly match its immutable version-index entry",
+        ));
+    }
+    let next_version = head
+        .coordinates
+        .binding_version
+        .checked_add(1)
+        .ok_or_else(|| {
+            invalid(
+                "principal_authority_binding_version_overflow",
+                "version overflow",
+            )
+        })?;
+    if state
+        .get(&principal_authority_version_index_key(
+            &principal_ref_hash,
+            next_version,
+        ))?
+        .is_some()
+    {
+        return Err(invalid(
+            "principal_authority_binding_head_rolled_back",
+            "a later immutable version-index entry exists for this principal",
+        ));
+    }
+    Ok(())
 }
 
 fn validate_latest_mutation_commitment(
@@ -299,6 +446,15 @@ fn load_head(
                 "latest-mutation commitment survives without its current head",
             ));
         }
+        if state
+            .get(&principal_authority_version_index_key(&principal_hash, 1))?
+            .is_some()
+        {
+            return Err(invalid(
+                "principal_authority_version_index_orphaned",
+                "immutable version-index history survives without its current head",
+            ));
+        }
         return Ok(None);
     };
     let head: PrincipalAuthorityBindingHeadV1 =
@@ -327,7 +483,9 @@ fn load_head(
         ));
     }
     validate_coordinates(&head.coordinates)?;
+    validate_binding_version_status(head.coordinates.binding_version, head.status)?;
     validate_latest_mutation_commitment(state, principal_hash, &head)?;
+    validate_version_index_head(state, principal_hash, &head)?;
     validate_head_audit_commitment(state, &head)?;
     Ok(Some(head))
 }
@@ -499,6 +657,7 @@ fn validate_proof(
     now_ms: u64,
     require_active_authority: bool,
 ) -> Result<ApprovalAuthority, TransactionError> {
+    validate_binding_version_status(proof.statement.binding_version, proof.statement.status)?;
     validate_principal_authority_ref(&proof.statement.principal_ref).map_err(|error| {
         invalid(
             "principal_authority_principal_ref_invalid",
@@ -664,6 +823,14 @@ fn commit_binding(
     let proof_key = principal_authority_binding_key(&proof.binding_hash);
     let head_key = principal_authority_binding_head_key(&principal_hash);
     let latest_mutation_key = principal_authority_latest_mutation_key(&principal_hash);
+    let version_index_key =
+        principal_authority_version_index_key(&principal_hash, proof.statement.binding_version);
+    if state.get(&version_index_key)?.is_some() {
+        return Err(invalid(
+            "principal_authority_version_index_immutable_conflict",
+            "binding version-index slot already exists and cannot be overwritten",
+        ));
+    }
     let mut metadata = base_audit_metadata(ctx);
     metadata.extend(audit_metadata(proof));
     let updated_at_ms = block_timestamp_ms(ctx);
@@ -690,12 +857,17 @@ fn commit_binding(
             mutation_audit_event_hash: event.event_hash,
         };
         let latest_mutation = expected_latest_mutation(principal_hash, &head);
+        let version_index = expected_version_index(principal_hash, &head);
         Ok(vec![
             (proof_key, codec::to_bytes_canonical(proof)?),
             (head_key, codec::to_bytes_canonical(&head)?),
             (
                 latest_mutation_key,
                 codec::to_bytes_canonical(&latest_mutation)?,
+            ),
+            (
+                version_index_key,
+                codec::to_bytes_canonical(&version_index)?,
             ),
         ])
     })?;
@@ -749,6 +921,14 @@ pub(crate) fn revoke_principal_authority_binding(
 ) -> Result<(), TransactionError> {
     ensure_control_root_signer(state, ctx)?;
     let proof = params.proof;
+    if proof.statement.previous_binding_ref.as_deref()
+        != Some(params.predecessor_binding_ref.as_str())
+    {
+        return Err(invalid(
+            "principal_authority_binding_predecessor_mismatch",
+            "request predecessor_binding_ref does not exactly match the revocation proof",
+        ));
+    }
     if proof.statement.status != PrincipalAuthorityBindingStatus::Revoked {
         return Err(invalid(
             "principal_authority_binding_revoke_status_invalid",
@@ -778,6 +958,12 @@ pub(crate) fn revoke_principal_authority_binding(
     validate_binding_chain(state, &prior, &root)?;
     if exact_replay(state, &proof, Some(&head))? {
         return Ok(());
+    }
+    if head.coordinates.binding_ref != params.predecessor_binding_ref {
+        return Err(invalid(
+            "principal_authority_binding_cas_failed",
+            "request predecessor_binding_ref is not the exact current head",
+        ));
     }
     if head.status != PrincipalAuthorityBindingStatus::Active {
         return Err(invalid(
@@ -814,6 +1000,7 @@ pub(crate) fn resolve_principal_authority(
             "only approval authority bindings are supported in v1",
         ));
     }
+    validate_required_scope(&params.required_scope)?;
     let receipt_key = principal_authority_resolution_receipt_key(&params.request_id);
     if state.get(&receipt_key)?.is_some() {
         return Err(invalid(
@@ -846,11 +1033,30 @@ pub(crate) fn resolve_principal_authority(
     let root = load_control_root(state)?.ok_or(TransactionError::UnauthorizedByCredentials)?;
     validate_binding_chain(state, &proof, &root)?;
     let authority = validate_proof(state, &proof, now_ms, true)?;
+    let scope_context = ApprovalScopeContext::new(params.required_scope.clone());
+    let scope_decision = AuthorityScopeMatcher::evaluate(&authority, &scope_context);
+    if !scope_decision.allowed {
+        return Err(invalid(
+            "principal_authority_scope_denied",
+            scope_decision
+                .reason
+                .unwrap_or_else(|| "approval authority does not allow required_scope".to_string()),
+        ));
+    }
+    let matched_scope = scope_decision.matched_scope.ok_or_else(|| {
+        invalid(
+            "principal_authority_scope_match_invalid",
+            "canonical scope matcher allowed resolution without a matched allowlist entry",
+        )
+    })?;
     let resolution = PrincipalAuthorityResolutionV1 {
         schema_version: PRINCIPAL_AUTHORITY_BINDING_SCHEMA_VERSION,
         principal_ref: head.principal_ref.clone(),
         authority_kind: head.authority_kind,
         coordinates: head.coordinates.clone(),
+        required_scope: params.required_scope.clone(),
+        matched_scope,
+        approval_authority: authority.clone(),
         authority_id: authority.authority_id,
         authority_public_key: authority.public_key,
         authority_signature_suite: authority.signature_suite,
@@ -859,6 +1065,7 @@ pub(crate) fn resolve_principal_authority(
         mutation_audit_event_id: head.mutation_audit_event_id,
         mutation_audit_event_hash: head.mutation_audit_event_hash,
     };
+    let matched_scope = resolution.matched_scope.clone();
     let receipt = PrincipalAuthorityResolutionReceipt {
         request_id: params.request_id,
         resolved_at_ms: now_ms,
@@ -866,6 +1073,8 @@ pub(crate) fn resolve_principal_authority(
     };
     let mut metadata = base_audit_metadata(ctx);
     metadata.insert("principal_ref".to_string(), params.principal_ref);
+    metadata.insert("required_scope".to_string(), params.required_scope);
+    metadata.insert("matched_scope".to_string(), matched_scope);
     metadata.insert(
         "binding_ref".to_string(),
         head.coordinates.binding_ref.clone(),
@@ -889,29 +1098,48 @@ mod boundary_tests {
     use super::*;
 
     #[test]
-    fn chain_depth_refuses_the_first_version_resolution_cannot_verify() {
-        validate_binding_chain_depth(MAX_BINDING_CHAIN_DEPTH)
-            .expect("the maximum resolvable binding version remains admissible");
-        let error = validate_binding_chain_depth(MAX_BINDING_CHAIN_DEPTH + 1)
-            .expect_err("the first unresolvable binding version must fail before commit");
+    fn final_chain_slot_is_reserved_for_terminal_revocation() {
+        validate_binding_version_status(
+            MAX_ACTIVE_BINDING_VERSION,
+            PrincipalAuthorityBindingStatus::Active,
+        )
+        .expect("the final active binding version remains admissible");
+        validate_binding_version_status(
+            MAX_BINDING_CHAIN_DEPTH,
+            PrincipalAuthorityBindingStatus::Revoked,
+        )
+        .expect("the final chain slot admits terminal revocation");
+        let active_error = validate_binding_version_status(
+            MAX_BINDING_CHAIN_DEPTH,
+            PrincipalAuthorityBindingStatus::Active,
+        )
+        .expect_err("the final slot must not become an active binding");
+        assert!(active_error
+            .to_string()
+            .contains("terminal_revocation_reserved"));
+        let error = validate_binding_version_status(
+            MAX_BINDING_CHAIN_DEPTH + 1,
+            PrincipalAuthorityBindingStatus::Revoked,
+        )
+        .expect_err("the first unresolvable binding version must fail before commit");
         assert!(error
             .to_string()
             .contains("principal_authority_binding_chain_too_deep"));
     }
 }
 
-pub(crate) fn get_principal_authority_binding(
+pub(crate) fn lookup_principal_authority_binding(
     state: &mut dyn StateAccess,
     ctx: &TxContext<'_>,
-    params: GetPrincipalAuthorityBindingParams,
+    params: LookupPrincipalAuthorityBindingParams,
 ) -> Result<(), TransactionError> {
     ensure_initialized_wallet_client_role(state, ctx, WalletAuthRole::Capability)?;
     ensure_nonzero_request_id(&params.request_id)?;
-    let receipt_key = principal_authority_get_receipt_key(&params.request_id);
+    let receipt_key = principal_authority_lookup_receipt_key(&params.request_id);
     if state.get(&receipt_key)?.is_some() {
         return Err(invalid(
             "principal_authority_request_id_replay",
-            "get request_id has already been used",
+            "lookup request_id has already been used",
         ));
     }
     let binding_hash = binding_hash_from_ref(&params.binding_ref)?;
@@ -939,12 +1167,12 @@ pub(crate) fn get_principal_authority_binding(
     }
     let root = load_control_root(state)?.ok_or(TransactionError::UnauthorizedByCredentials)?;
     validate_root_signature(&proof, &root)?;
-    let receipt = GetPrincipalAuthorityBindingReceipt {
+    let receipt = LookupPrincipalAuthorityBindingReceipt {
         request_id: params.request_id,
         fetched_at_ms: block_timestamp_ms(ctx),
         proof,
     };
-    // Historical get is evidence retrieval, not active resolution. It does not
+    // Historical lookup is evidence retrieval, not active resolution. It does not
     // treat the proof as current authority and does not require the underlying
     // ApprovalAuthority to remain active.
     let mut metadata = base_audit_metadata(ctx);

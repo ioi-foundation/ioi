@@ -51,7 +51,7 @@ test("SDK source imports wallet semantics from the protocol package", async () =
   assert.match(clientSource, /issuePrincipalAuthorityBinding/);
   assert.match(clientSource, /revokePrincipalAuthorityBinding/);
   assert.match(clientSource, /resolvePrincipalAuthority/);
-  assert.match(clientSource, /getPrincipalAuthorityBinding/);
+  assert.match(clientSource, /lookupPrincipalAuthorityBinding/);
   assert.match(clientSource, /assertPrincipalAuthorityResolutionReceipt/);
 
   const routeSourcesSource = await read("src/route-sources.ts");
@@ -82,8 +82,8 @@ test("SDK binds principal authority calls to exact wallet.network methods and pi
       if (method === "resolve_principal_authority@v1") {
         return sdk.EXAMPLE_PRINCIPAL_AUTHORITY_RESOLUTION_RECEIPT;
       }
-      if (method === "get_principal_authority_binding@v1") {
-        return sdk.EXAMPLE_GET_PRINCIPAL_AUTHORITY_BINDING_RECEIPT;
+      if (method === "lookup_principal_authority_binding@v1") {
+        return sdk.EXAMPLE_LOOKUP_PRINCIPAL_AUTHORITY_BINDING_RECEIPT;
       }
       throw new Error(`unexpected method ${method}`);
     },
@@ -98,8 +98,8 @@ test("SDK binds principal authority calls to exact wallet.network methods and pi
   const resolved = await client.resolvePrincipalAuthority(
     sdk.EXAMPLE_RESOLVE_PRINCIPAL_AUTHORITY_PARAMS,
   );
-  const fetched = await client.getPrincipalAuthorityBinding(
-    sdk.EXAMPLE_GET_PRINCIPAL_AUTHORITY_BINDING_PARAMS,
+  const fetched = await client.lookupPrincipalAuthorityBinding(
+    sdk.EXAMPLE_LOOKUP_PRINCIPAL_AUTHORITY_BINDING_PARAMS,
   );
 
   assert.equal(issued.statement.status, "active");
@@ -115,7 +115,7 @@ test("SDK binds principal authority calls to exact wallet.network methods and pi
       "issue_principal_authority_binding@v1",
       "revoke_principal_authority_binding@v1",
       "resolve_principal_authority@v1",
-      "get_principal_authority_binding@v1",
+      "lookup_principal_authority_binding@v1",
     ],
   );
 

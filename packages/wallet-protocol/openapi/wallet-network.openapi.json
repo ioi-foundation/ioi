@@ -54,18 +54,10 @@
         }
       }
     },
-    "/v1/authority/principal-bindings/{binding_ref}/revoke": {
+    "/v1/authority/principal-bindings/revoke": {
       "post": {
         "operationId": "revokePrincipalAuthorityBinding",
         "summary": "Append a root-signed revoked successor without mutating prior proof versions.",
-        "parameters": [
-          {
-            "name": "binding_ref",
-            "in": "path",
-            "required": true,
-            "schema": { "$ref": "#/components/schemas/PrincipalAuthorityBindingRef" }
-          }
-        ],
         "requestBody": {
           "required": true,
           "content": {
@@ -110,23 +102,15 @@
         }
       }
     },
-    "/v1/authority/principal-bindings/{binding_ref}": {
-      "get": {
-        "operationId": "getPrincipalAuthorityBinding",
-        "summary": "Fetch one immutable binding proof by canonical binding ref with an optional exact hash pin.",
-        "parameters": [
-          {
-            "name": "binding_ref",
-            "in": "path",
-            "required": true,
-            "schema": { "$ref": "#/components/schemas/PrincipalAuthorityBindingRef" }
-          }
-        ],
+    "/v1/authority/principal-bindings/lookup": {
+      "post": {
+        "operationId": "lookupPrincipalAuthorityBinding",
+        "summary": "Produce an audited receipt for one immutable binding proof supplied by canonical ref in the body.",
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/GetPrincipalAuthorityBindingParams" }
+              "schema": { "$ref": "#/components/schemas/LookupPrincipalAuthorityBindingParams" }
             }
           }
         },
@@ -135,7 +119,7 @@
             "description": "Immutable principal authority binding proof receipt.",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/GetPrincipalAuthorityBindingReceipt" }
+                "schema": { "$ref": "#/components/schemas/LookupPrincipalAuthorityBindingReceipt" }
               }
             }
           }
@@ -304,15 +288,16 @@
       "RevokePrincipalAuthorityBindingParams": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["proof"],
+        "required": ["predecessor_binding_ref", "proof"],
         "properties": {
+          "predecessor_binding_ref": { "$ref": "#/components/schemas/PrincipalAuthorityBindingRef" },
           "proof": { "$ref": "#/components/schemas/PrincipalAuthorityBindingProofV1" }
         }
       },
       "ResolvePrincipalAuthorityParams": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["request_id", "principal_ref", "authority_kind"],
+        "required": ["request_id", "principal_ref", "authority_kind", "required_scope"],
         "properties": {
           "request_id": { "$ref": "#/components/schemas/WalletBytes32" },
           "principal_ref": {
@@ -321,6 +306,12 @@
             "pattern": "^((worker|service|org|domain)://|agentgres://domain/)[A-Za-z0-9]([A-Za-z0-9._~:@-]*[A-Za-z0-9])?(/[A-Za-z0-9]([A-Za-z0-9._~:@-]*[A-Za-z0-9])?)*$"
           },
           "authority_kind": { "const": "approval" },
+          "required_scope": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256,
+            "pattern": "^[a-z0-9][a-z0-9._:-]*$"
+          },
           "expected_coordinates": { "$ref": "#/components/schemas/PrincipalAuthorityBindingCoordinates" }
         }
       },
@@ -334,7 +325,7 @@
           "resolution": { "$ref": "#/components/schemas/PrincipalAuthorityResolutionV1" }
         }
       },
-      "GetPrincipalAuthorityBindingParams": {
+      "LookupPrincipalAuthorityBindingParams": {
         "type": "object",
         "additionalProperties": false,
         "required": ["request_id", "binding_ref"],
@@ -344,7 +335,7 @@
           "expected_binding_hash": { "$ref": "#/components/schemas/WalletBytes32" }
         }
       },
-      "GetPrincipalAuthorityBindingReceipt": {
+      "LookupPrincipalAuthorityBindingReceipt": {
         "type": "object",
         "additionalProperties": false,
         "required": ["request_id", "fetched_at_ms", "proof"],

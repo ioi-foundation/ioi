@@ -3,8 +3,8 @@ import {
   type CapabilityLease,
   type CapabilityLeaseRevocation,
   type ExchangeIntent,
-  type GetPrincipalAuthorityBindingParams,
-  type GetPrincipalAuthorityBindingReceipt,
+  type LookupPrincipalAuthorityBindingParams,
+  type LookupPrincipalAuthorityBindingReceipt,
   type IssuePrincipalAuthorityBindingParams,
   type PrincipalAuthorityBindingProofV1,
   type PrincipalAuthorityResolutionReceipt,
@@ -264,6 +264,7 @@ export const EXAMPLE_ISSUE_PRINCIPAL_AUTHORITY_BINDING_PARAMS: IssuePrincipalAut
 };
 
 export const EXAMPLE_REVOKE_PRINCIPAL_AUTHORITY_BINDING_PARAMS: RevokePrincipalAuthorityBindingParams = {
+  predecessor_binding_ref: EXAMPLE_ACTIVE_BINDING_REF,
   proof: EXAMPLE_PRINCIPAL_AUTHORITY_REVOCATION_PROOF,
 };
 
@@ -271,6 +272,7 @@ export const EXAMPLE_RESOLVE_PRINCIPAL_AUTHORITY_PARAMS: ResolvePrincipalAuthori
   request_id: exampleBytes32(22),
   principal_ref: EXAMPLE_PRINCIPAL_AUTHORITY_BINDING_PROOF.statement.principal_ref,
   authority_kind: "approval",
+  required_scope: "room_participation.admit",
   expected_coordinates: {
     binding_ref: EXAMPLE_ACTIVE_BINDING_REF,
     binding_version: 1,
@@ -286,6 +288,17 @@ export const EXAMPLE_PRINCIPAL_AUTHORITY_RESOLUTION_RECEIPT: PrincipalAuthorityR
     principal_ref: EXAMPLE_RESOLVE_PRINCIPAL_AUTHORITY_PARAMS.principal_ref,
     authority_kind: "approval",
     coordinates: EXAMPLE_RESOLVE_PRINCIPAL_AUTHORITY_PARAMS.expected_coordinates!,
+    required_scope: EXAMPLE_RESOLVE_PRINCIPAL_AUTHORITY_PARAMS.required_scope,
+    matched_scope: "room_participation.admit",
+    approval_authority: {
+      schema_version: 1,
+      authority_id: EXAMPLE_AUTHORITY_ID,
+      public_key: EXAMPLE_AUTHORITY_PUBLIC_KEY,
+      signature_suite: -8,
+      expires_at: 1_900_000_000_000,
+      revoked: false,
+      scope_allowlist: ["room_participation.admit"],
+    },
     authority_id: EXAMPLE_PRINCIPAL_AUTHORITY_BINDING_PROOF.statement.authority_id,
     authority_public_key:
       EXAMPLE_PRINCIPAL_AUTHORITY_BINDING_PROOF.statement.authority_public_key,
@@ -300,14 +313,14 @@ export const EXAMPLE_PRINCIPAL_AUTHORITY_RESOLUTION_RECEIPT: PrincipalAuthorityR
   },
 };
 
-export const EXAMPLE_GET_PRINCIPAL_AUTHORITY_BINDING_PARAMS: GetPrincipalAuthorityBindingParams = {
+export const EXAMPLE_LOOKUP_PRINCIPAL_AUTHORITY_BINDING_PARAMS: LookupPrincipalAuthorityBindingParams = {
   request_id: exampleBytes32(25),
   binding_ref: EXAMPLE_ACTIVE_BINDING_REF,
   expected_binding_hash: EXAMPLE_ACTIVE_BINDING_HASH,
 };
 
-export const EXAMPLE_GET_PRINCIPAL_AUTHORITY_BINDING_RECEIPT: GetPrincipalAuthorityBindingReceipt = {
-  request_id: EXAMPLE_GET_PRINCIPAL_AUTHORITY_BINDING_PARAMS.request_id,
+export const EXAMPLE_LOOKUP_PRINCIPAL_AUTHORITY_BINDING_RECEIPT: LookupPrincipalAuthorityBindingReceipt = {
+  request_id: EXAMPLE_LOOKUP_PRINCIPAL_AUTHORITY_BINDING_PARAMS.request_id,
   fetched_at_ms: 1_781_286_400_200,
   proof: EXAMPLE_PRINCIPAL_AUTHORITY_BINDING_PROOF,
 };

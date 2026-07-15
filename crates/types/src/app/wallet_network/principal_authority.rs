@@ -573,6 +573,12 @@ pub struct PrincipalAuthorityResolutionV1 {
     pub authority_kind: PrincipalAuthorityKind,
     /// Exact immutable coordinates verified as current.
     pub coordinates: PrincipalAuthorityBindingCoordinates,
+    /// Exact operation scope the caller required.
+    pub required_scope: String,
+    /// Exact ApprovalAuthority allowlist entry matched by the canonical matcher.
+    pub matched_scope: String,
+    /// Complete registered authority snapshot whose hash is frozen in the binding proof.
+    pub approval_authority: ApprovalAuthority,
     /// Resolved approval-authority identifier.
     pub authority_id: [u8; 32],
     /// Resolved approval-authority public key.
@@ -599,6 +605,8 @@ pub struct IssuePrincipalAuthorityBindingParams {
 /// Request to append a revoked successor to a binding chain.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Encode, Decode)]
 pub struct RevokePrincipalAuthorityBindingParams {
+    /// Exact current binding ref that the revocation proof must name as its predecessor.
+    pub predecessor_binding_ref: String,
     /// Complete root-signed immutable revocation proof.
     pub proof: PrincipalAuthorityBindingProofV1,
 }
@@ -612,6 +620,8 @@ pub struct ResolvePrincipalAuthorityParams {
     pub principal_ref: String,
     /// Requested authority family.
     pub authority_kind: PrincipalAuthorityKind,
+    /// Exact operation scope that the resolved ApprovalAuthority must allow.
+    pub required_scope: String,
     /// Optional coordinates that must still be the exact current head.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub expected_coordinates: Option<PrincipalAuthorityBindingCoordinates>,
@@ -630,7 +640,7 @@ pub struct PrincipalAuthorityResolutionReceipt {
 
 /// Request to retrieve one immutable proof by content-addressed ref.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Encode, Decode)]
-pub struct GetPrincipalAuthorityBindingParams {
+pub struct LookupPrincipalAuthorityBindingParams {
     /// Nonzero id used to commit a single lookup receipt.
     pub request_id: [u8; 32],
     /// Canonical immutable binding reference.
@@ -642,7 +652,7 @@ pub struct GetPrincipalAuthorityBindingParams {
 
 /// Durable receipt containing one immutable binding proof lookup.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Encode, Decode)]
-pub struct GetPrincipalAuthorityBindingReceipt {
+pub struct LookupPrincipalAuthorityBindingReceipt {
     /// Lookup request identifier.
     pub request_id: [u8; 32],
     /// Wallet lookup timestamp in milliseconds.
@@ -796,6 +806,7 @@ mod tests {
             request_id: [22; 32],
             principal_ref: active.statement.principal_ref.clone(),
             authority_kind: active.statement.authority_kind,
+            required_scope: "room_participation.admit".to_string(),
             expected_coordinates: Some(active.coordinates()),
         };
         let resolution = PrincipalAuthorityResolutionV1 {
@@ -803,6 +814,9 @@ mod tests {
             principal_ref: active.statement.principal_ref.clone(),
             authority_kind: active.statement.authority_kind,
             coordinates: active.coordinates(),
+            required_scope: request.required_scope.clone(),
+            matched_scope: "room_participation.admit".to_string(),
+            approval_authority: authority.clone(),
             authority_id: active.statement.authority_id,
             authority_public_key: active.statement.authority_public_key.clone(),
             authority_signature_suite: active.statement.authority_signature_suite,

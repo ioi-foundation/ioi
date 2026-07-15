@@ -187,6 +187,7 @@
     "request_id": [22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22],
     "principal_ref": "agentgres://domain/acme.example",
     "authority_kind": "approval",
+    "required_scope": "room_participation.admit",
     "expected_coordinates": {
       "binding_ref": "wallet.network://principal-authority-binding/09e239e362356cd33b08c2052e3c118a9be222aad9734d5f70e127062fe37734",
       "binding_version": 1,
@@ -201,6 +202,17 @@
       "binding_ref": "wallet.network://principal-authority-binding/09e239e362356cd33b08c2052e3c118a9be222aad9734d5f70e127062fe37734",
       "binding_version": 1,
       "binding_hash": [9, 226, 57, 227, 98, 53, 108, 211, 59, 8, 194, 5, 46, 60, 17, 138, 155, 226, 34, 170, 217, 115, 77, 95, 112, 225, 39, 6, 47, 227, 119, 52]
+    },
+    "required_scope": "room_participation.admit",
+    "matched_scope": "room_participation.admit",
+    "approval_authority": {
+      "schema_version": 1,
+      "authority_id": [219, 79, 65, 147, 122, 1, 52, 168, 97, 19, 202, 55, 31, 33, 46, 22, 113, 38, 76, 163, 13, 192, 242, 149, 125, 68, 226, 26, 81, 25, 44, 238],
+      "public_key": [253, 23, 36, 56, 90, 160, 199, 91, 100, 251, 120, 205, 96, 47, 161, 217, 145, 253, 235, 247, 107, 19, 197, 142, 215, 2, 234, 200, 53, 233, 246, 24],
+      "signature_suite": -8,
+      "expires_at": 1900000000000,
+      "revoked": false,
+      "scope_allowlist": ["room_participation.admit"]
     },
     "authority_id": [219, 79, 65, 147, 122, 1, 52, 168, 97, 19, 202, 55, 31, 33, 46, 22, 113, 38, 76, 163, 13, 192, 242, 149, 125, 68, 226, 26, 81, 25, 44, 238],
     "authority_public_key": [253, 23, 36, 56, 90, 160, 199, 91, 100, 251, 120, 205, 96, 47, 161, 217, 145, 253, 235, 247, 107, 19, 197, 142, 215, 2, 234, 200, 53, 233, 246, 24],

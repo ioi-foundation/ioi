@@ -24,7 +24,7 @@ test("exports canonical wallet protocol version, methods, and fixtures", async (
     "issue_principal_authority_binding@v1",
     "revoke_principal_authority_binding@v1",
     "resolve_principal_authority@v1",
-    "get_principal_authority_binding@v1",
+    "lookup_principal_authority_binding@v1",
   ]) {
     assert.ok(protocol.WALLET_NETWORK_KERNEL_METHODS.includes(method));
   }
@@ -83,11 +83,17 @@ test("checked-in schemas and OpenAPI are valid JSON with expected ids", async ()
   assert.equal(openapi.openapi, "3.1.0");
   assert.ok(openapi.paths["/v1/authority/reviews"]);
   assert.ok(openapi.paths["/v1/authority/principal-bindings"]);
-  assert.ok(
-    openapi.paths["/v1/authority/principal-bindings/{binding_ref}/revoke"],
-  );
+  assert.ok(openapi.paths["/v1/authority/principal-bindings/revoke"]?.post);
   assert.ok(openapi.paths["/v1/authority/principal-bindings/resolve"]);
-  assert.ok(openapi.paths["/v1/authority/principal-bindings/{binding_ref}"]);
+  assert.ok(openapi.paths["/v1/authority/principal-bindings/lookup"]?.post);
+  assert.equal(
+    openapi.paths["/v1/authority/principal-bindings/lookup"]?.get,
+    undefined,
+  );
+  assert.equal(
+    openapi.paths["/v1/authority/principal-bindings/{binding_ref}"],
+    undefined,
+  );
   assert.ok(openapi.paths["/v1/capability/leases"]);
   assert.ok(openapi.paths["/v1/capability/leases/{lease_id}/revoke"]);
   assert.ok(openapi.paths["/v1/exchange/intents"]);
@@ -174,7 +180,10 @@ test("principal authority proof and pinned resolution validation fail closed", a
     "active",
   );
   assert.equal(
-    protocol.assertRevokePrincipalAuthorityBindingParams({ proof: revoked }).proof
+    protocol.assertRevokePrincipalAuthorityBindingParams({
+      predecessor_binding_ref: active.binding_ref,
+      proof: revoked,
+    }).proof
       .statement.binding_version,
     2,
   );
@@ -184,9 +193,9 @@ test("principal authority proof and pinned resolution validation fail closed", a
     1,
   );
   assert.equal(
-    protocol.assertGetPrincipalAuthorityBindingReceipt(
-      protocol.EXAMPLE_GET_PRINCIPAL_AUTHORITY_BINDING_PARAMS,
-      protocol.EXAMPLE_GET_PRINCIPAL_AUTHORITY_BINDING_RECEIPT,
+    protocol.assertLookupPrincipalAuthorityBindingReceipt(
+      protocol.EXAMPLE_LOOKUP_PRINCIPAL_AUTHORITY_BINDING_PARAMS,
+      protocol.EXAMPLE_LOOKUP_PRINCIPAL_AUTHORITY_BINDING_RECEIPT,
     ).proof.binding_ref,
     active.binding_ref,
   );
@@ -268,12 +277,12 @@ test("principal authority proof and pinned resolution validation fail closed", a
 
   assert.throws(
     () =>
-      protocol.assertGetPrincipalAuthorityBindingReceipt(
+      protocol.assertLookupPrincipalAuthorityBindingReceipt(
         {
-          ...protocol.EXAMPLE_GET_PRINCIPAL_AUTHORITY_BINDING_PARAMS,
+          ...protocol.EXAMPLE_LOOKUP_PRINCIPAL_AUTHORITY_BINDING_PARAMS,
           expected_binding_hash: Array(32).fill(99),
         },
-        protocol.EXAMPLE_GET_PRINCIPAL_AUTHORITY_BINDING_RECEIPT,
+        protocol.EXAMPLE_LOOKUP_PRINCIPAL_AUTHORITY_BINDING_RECEIPT,
       ),
     (error) => {
       assert.equal(error.code, "principal_authority_binding_request_pin_mismatch");
@@ -307,6 +316,72 @@ test("principal authority proof and pinned resolution validation fail closed", a
       ),
     (error) => {
       assert.equal(error.code, "principal_authority_resolution_pin_mismatch");
+      return true;
+    },
+  );
+
+  assert.throws(
+    () =>
+      protocol.assertRevokePrincipalAuthorityBindingParams({
+        predecessor_binding_ref: revoked.binding_ref,
+        proof: revoked,
+      }),
+    (error) => {
+      assert.equal(error.code, "principal_authority_binding_predecessor_mismatch");
+      return true;
+    },
+  );
+
+  assert.throws(
+    () =>
+      protocol.assertPrincipalAuthorityResolutionReceipt(request, {
+        ...receipt,
+        resolution: {
+          ...receipt.resolution,
+          approval_authority: {
+            ...receipt.resolution.approval_authority,
+            scope_allowlist: [],
+          },
+        },
+      }),
+    (error) => {
+      assert.equal(error.code, "principal_authority_scope_denied");
+      return true;
+    },
+  );
+
+  assert.throws(
+    () =>
+      protocol.assertPrincipalAuthorityResolutionReceipt(
+        { ...request, required_scope: "room_participation.reject" },
+        receipt,
+      ),
+    (error) => {
+      assert.equal(error.code, "principal_authority_resolution_principal_mismatch");
+      return true;
+    },
+  );
+
+  assert.throws(
+    () =>
+      protocol.assertPrincipalAuthorityResolutionReceipt(
+        { ...request, required_scope: "*" },
+        receipt,
+      ),
+    (error) => {
+      assert.equal(error.code, "principal_authority_required_scope_invalid");
+      return true;
+    },
+  );
+
+  assert.throws(
+    () =>
+      protocol.assertPrincipalAuthorityBindingProof({
+        ...active,
+        statement: { ...active.statement, binding_version: 4096 },
+      }),
+    (error) => {
+      assert.equal(error.code, "principal_authority_terminal_revocation_reserved");
       return true;
     },
   );

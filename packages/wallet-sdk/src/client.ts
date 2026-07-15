@@ -2,8 +2,8 @@ import {
   type AuthorityReview,
   type CapabilityLease,
   type CapabilityLeaseRevocation,
-  type GetPrincipalAuthorityBindingParams,
-  type GetPrincipalAuthorityBindingReceipt,
+  type LookupPrincipalAuthorityBindingParams,
+  type LookupPrincipalAuthorityBindingReceipt,
   type IssuePrincipalAuthorityBindingParams,
   type PrincipalAuthorityBindingProofV1,
   type PrincipalAuthorityResolutionReceipt,
@@ -13,7 +13,7 @@ import {
   type WalletReceipt,
   WalletProtocolValidationError,
   WALLET_NETWORK_PROTOCOL_METHODS,
-  assertGetPrincipalAuthorityBindingReceipt,
+  assertLookupPrincipalAuthorityBindingReceipt,
   assertIssuePrincipalAuthorityBindingParams,
   assertPrincipalAuthorityBindingProof,
   assertPrincipalAuthorityResolutionReceipt,
@@ -78,7 +78,10 @@ export class WalletNetworkClient {
       WALLET_NETWORK_PROTOCOL_METHODS.revokePrincipalAuthorityBinding,
       request,
     );
-    const accepted = assertRevokePrincipalAuthorityBindingParams({ proof }).proof;
+    const accepted = assertRevokePrincipalAuthorityBindingParams({
+      predecessor_binding_ref: request.predecessor_binding_ref,
+      proof,
+    }).proof;
     assertAcceptedBindingMatchesRequest(request.proof, accepted);
     return accepted;
   }
@@ -94,15 +97,15 @@ export class WalletNetworkClient {
     return assertPrincipalAuthorityResolutionReceipt(request, receipt);
   }
 
-  async getPrincipalAuthorityBinding(
-    request: GetPrincipalAuthorityBindingParams,
-  ): Promise<GetPrincipalAuthorityBindingReceipt> {
+  async lookupPrincipalAuthorityBinding(
+    request: LookupPrincipalAuthorityBindingParams,
+  ): Promise<LookupPrincipalAuthorityBindingReceipt> {
     const receipt =
-      await this.#transport.request<GetPrincipalAuthorityBindingReceipt>(
-        WALLET_NETWORK_PROTOCOL_METHODS.getPrincipalAuthorityBinding,
+      await this.#transport.request<LookupPrincipalAuthorityBindingReceipt>(
+        WALLET_NETWORK_PROTOCOL_METHODS.lookupPrincipalAuthorityBinding,
         request,
       );
-    return assertGetPrincipalAuthorityBindingReceipt(request, receipt);
+    return assertLookupPrincipalAuthorityBindingReceipt(request, receipt);
   }
 
   createReceipt(receipt: WalletReceipt): Promise<WalletReceipt> {

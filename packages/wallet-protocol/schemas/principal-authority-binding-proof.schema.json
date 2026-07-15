@@ -66,7 +66,7 @@
         "schema_version": { "const": 1 },
         "principal_ref": { "$ref": "#/$defs/principalRef" },
         "authority_kind": { "const": "approval" },
-        "binding_version": { "type": "integer", "minimum": 1 },
+        "binding_version": { "type": "integer", "minimum": 1, "maximum": 4096 },
         "status": { "enum": ["active", "revoked"] },
         "authority_id": { "$ref": "#/$defs/bytes32" },
         "authority_public_key": { "$ref": "#/$defs/bytes" },
@@ -102,6 +102,12 @@
           "if": { "properties": { "status": { "const": "revoked" } } },
           "then": {
             "required": ["reason"]
+          }
+        },
+        {
+          "if": { "properties": { "status": { "const": "active" } } },
+          "then": {
+            "properties": { "binding_version": { "maximum": 4095 } }
           }
         }
       ]

@@ -1,15 +1,15 @@
 use super::*;
 use crate::wallet_network::keys::{
     approval_authority_key, audit_key, principal_authority_binding_head_key,
-    principal_authority_binding_key, principal_authority_get_receipt_key,
-    principal_authority_latest_mutation_key, principal_authority_resolution_receipt_key,
-    AUDIT_NEXT_SEQ_KEY, CONTROL_ROOT_KEY,
+    principal_authority_binding_key, principal_authority_latest_mutation_key,
+    principal_authority_lookup_receipt_key, principal_authority_resolution_receipt_key,
+    principal_authority_version_index_key, AUDIT_NEXT_SEQ_KEY, CONTROL_ROOT_KEY,
 };
 use crate::wallet_network::support::{hash_bytes, store_typed};
 use ioi_api::services::BlockchainService;
 use ioi_types::app::wallet_network::{
-    GetPrincipalAuthorityBindingParams, GetPrincipalAuthorityBindingReceipt,
-    IssuePrincipalAuthorityBindingParams, PrincipalAuthorityBindingCoordinates,
+    IssuePrincipalAuthorityBindingParams, LookupPrincipalAuthorityBindingParams,
+    LookupPrincipalAuthorityBindingReceipt, PrincipalAuthorityBindingCoordinates,
     PrincipalAuthorityBindingHeadV1, PrincipalAuthorityBindingProofV1,
     PrincipalAuthorityBindingStatementV1, PrincipalAuthorityBindingStatus, PrincipalAuthorityKind,
     PrincipalAuthorityResolutionReceipt, ResolvePrincipalAuthorityParams,
@@ -179,6 +179,7 @@ fn resolve(
             request_id,
             principal_ref: principal_ref.to_string(),
             authority_kind: PrincipalAuthorityKind::Approval,
+            required_scope: "wallet_network.approval".to_string(),
             expected_coordinates,
         },
     )
@@ -383,6 +384,24 @@ fn binding_rotation_stale_cas_revocation_and_historical_get_are_fail_closed() {
         Some(second.coordinates()),
     )
     .expect("current coordinates resolve");
+    let resolution_receipt: PrincipalAuthorityResolutionReceipt = load_typed(
+        &state,
+        &principal_authority_resolution_receipt_key(&[0x22; 32]),
+    )
+    .expect("load resolution receipt")
+    .expect("resolution receipt");
+    assert_eq!(
+        resolution_receipt.resolution.required_scope,
+        "wallet_network.approval"
+    );
+    assert_eq!(
+        resolution_receipt.resolution.matched_scope,
+        "wallet_network.approval"
+    );
+    assert_eq!(
+        resolution_receipt.resolution.approval_authority,
+        second_authority.authority
+    );
 
     let revoked = signed_binding(
         &root,
@@ -391,12 +410,27 @@ fn binding_rotation_stale_cas_revocation_and_historical_get_are_fail_closed() {
         PrincipalAuthorityBindingStatus::Revoked,
         Some(&second),
     );
+    let predecessor_mismatch = call(
+        &service,
+        &mut state,
+        root.record.account_id,
+        "revoke_principal_authority_binding@v1",
+        &RevokePrincipalAuthorityBindingParams {
+            predecessor_binding_ref: first.binding_ref.clone(),
+            proof: revoked.clone(),
+        },
+    )
+    .expect_err("request predecessor must exactly agree with the proof");
+    assert!(predecessor_mismatch
+        .to_string()
+        .contains("binding_predecessor_mismatch"));
     call(
         &service,
         &mut state,
         root.record.account_id,
         "revoke_principal_authority_binding@v1",
         &RevokePrincipalAuthorityBindingParams {
+            predecessor_binding_ref: second.binding_ref.clone(),
             proof: revoked.clone(),
         },
     )
@@ -416,18 +450,18 @@ fn binding_rotation_stale_cas_revocation_and_historical_get_are_fail_closed() {
         &service,
         &mut state,
         root.record.account_id,
-        "get_principal_authority_binding@v1",
-        &GetPrincipalAuthorityBindingParams {
+        "lookup_principal_authority_binding@v1",
+        &LookupPrincipalAuthorityBindingParams {
             request_id: [0x24; 32],
             binding_ref: first.binding_ref.clone(),
             expected_binding_hash: Some(first.binding_hash),
         },
     )
     .expect("historical proof remains readable");
-    let get_receipt: GetPrincipalAuthorityBindingReceipt =
-        load_typed(&state, &principal_authority_get_receipt_key(&[0x24; 32]))
-            .expect("load get receipt")
-            .expect("get receipt");
+    let get_receipt: LookupPrincipalAuthorityBindingReceipt =
+        load_typed(&state, &principal_authority_lookup_receipt_key(&[0x24; 32]))
+            .expect("load lookup receipt")
+            .expect("lookup receipt");
     assert_eq!(get_receipt.proof, first);
     assert_eq!(
         state.get(&first_key).expect("read first after lifecycle"),
@@ -444,6 +478,89 @@ fn binding_rotation_stale_cas_revocation_and_historical_get_are_fail_closed() {
     .expect("head");
     assert_eq!(head.coordinates, revoked.coordinates());
     assert_eq!(head.status, PrincipalAuthorityBindingStatus::Revoked);
+    assert!(state
+        .get(&principal_authority_version_index_key(&principal_hash, 3))
+        .expect("read immutable revocation index")
+        .is_some());
+}
+
+#[test]
+fn resolution_is_operation_scoped_and_refuses_empty_or_foreign_scope() {
+    let service = WalletNetworkService;
+    let mut state = MockState::default();
+    let root = new_binding_root();
+    let mut approver = new_approval_signer();
+    approver.authority.scope_allowlist.clear();
+    configure_root(&service, &mut state, &root);
+    register_authority(&service, &mut state, &root, &approver.authority);
+    let proof = signed_binding(
+        &root,
+        "service://scope-denied",
+        &approver.authority,
+        PrincipalAuthorityBindingStatus::Active,
+        None,
+    );
+    issue(&service, &mut state, &root, &proof).expect("scope-empty authority may be bound");
+
+    let empty_scope_error = resolve(
+        &service,
+        &mut state,
+        root.record.account_id,
+        [0x25; 32],
+        "service://scope-denied",
+        Some(proof.coordinates()),
+    )
+    .expect_err("an empty scope allowlist authorizes no operation");
+    assert!(empty_scope_error
+        .to_string()
+        .contains("principal_authority_scope_denied"));
+
+    let mut scoped_approver = new_approval_signer();
+    scoped_approver.authority.scope_allowlist = vec!["room_participation.admit".to_string()];
+    register_authority(&service, &mut state, &root, &scoped_approver.authority);
+    let scoped = signed_binding(
+        &root,
+        "service://scope-bound",
+        &scoped_approver.authority,
+        PrincipalAuthorityBindingStatus::Active,
+        None,
+    );
+    issue(&service, &mut state, &root, &scoped).expect("scope-bound authority");
+    let foreign_scope_error = call(
+        &service,
+        &mut state,
+        root.record.account_id,
+        "resolve_principal_authority@v1",
+        &ResolvePrincipalAuthorityParams {
+            request_id: [0x26; 32],
+            principal_ref: "service://scope-bound".to_string(),
+            authority_kind: PrincipalAuthorityKind::Approval,
+            required_scope: "room_participation.reject".to_string(),
+            expected_coordinates: Some(scoped.coordinates()),
+        },
+    )
+    .expect_err("foreign operation scope must not resolve");
+    assert!(foreign_scope_error
+        .to_string()
+        .contains("principal_authority_scope_denied"));
+
+    let wildcard_request_error = call(
+        &service,
+        &mut state,
+        root.record.account_id,
+        "resolve_principal_authority@v1",
+        &ResolvePrincipalAuthorityParams {
+            request_id: [0x27; 32],
+            principal_ref: "service://scope-bound".to_string(),
+            authority_kind: PrincipalAuthorityKind::Approval,
+            required_scope: "*".to_string(),
+            expected_coordinates: Some(scoped.coordinates()),
+        },
+    )
+    .expect_err("required_scope must name an exact operation, not a wildcard");
+    assert!(wildcard_request_error
+        .to_string()
+        .contains("required_scope_invalid"));
 }
 
 #[test]
@@ -754,6 +871,11 @@ fn latest_mutation_commitment_refuses_old_missing_malformed_and_relocated_heads(
     let first_head: PrincipalAuthorityBindingHeadV1 = load_typed(&state, &head_key)
         .expect("load v1 head")
         .expect("v1 head");
+    let latest_mutation_key = principal_authority_latest_mutation_key(&principal_hash);
+    let first_latest_mutation_bytes = state
+        .get(&latest_mutation_key)
+        .expect("read v1 latest mutation")
+        .expect("v1 latest mutation");
 
     let second = signed_binding(
         &root,
@@ -766,11 +888,58 @@ fn latest_mutation_commitment_refuses_old_missing_malformed_and_relocated_heads(
     let second_head: PrincipalAuthorityBindingHeadV1 = load_typed(&state, &head_key)
         .expect("load v2 head")
         .expect("v2 head");
-    let latest_mutation_key = principal_authority_latest_mutation_key(&principal_hash);
     let latest_mutation_bytes = state
         .get(&latest_mutation_key)
         .expect("read latest mutation")
         .expect("latest mutation");
+
+    store_typed(&mut state, &head_key, &first_head).expect("restore authentic v1 head");
+    ioi_api::state::StateAccess::insert(
+        &mut state,
+        &latest_mutation_key,
+        &first_latest_mutation_bytes,
+    )
+    .expect("restore authentic v1 latest mutation");
+    let coupled_rollback_error = resolve(
+        &service,
+        &mut state,
+        root.record.account_id,
+        [0x44; 32],
+        principal_ref,
+        None,
+    )
+    .expect_err("restoring both authentic mutable v1 records must still fail closed");
+    assert!(coupled_rollback_error
+        .to_string()
+        .contains("binding_head_rolled_back"));
+    assert!(state
+        .get(&principal_authority_resolution_receipt_key(&[0x44; 32]))
+        .expect("read coupled rollback receipt")
+        .is_none());
+    store_typed(&mut state, &head_key, &second_head).expect("restore current v2 head");
+    ioi_api::state::StateAccess::insert(&mut state, &latest_mutation_key, &latest_mutation_bytes)
+        .expect("restore current latest mutation");
+    let second_index_key = principal_authority_version_index_key(&principal_hash, 2);
+    let second_index_bytes = state
+        .get(&second_index_key)
+        .expect("read v2 index")
+        .expect("v2 index");
+    ioi_api::state::StateAccess::insert(&mut state, &second_index_key, &[0xff, 0x00])
+        .expect("store malformed v2 index");
+    let malformed_index_error = resolve(
+        &service,
+        &mut state,
+        root.record.account_id,
+        [0x4c; 32],
+        principal_ref,
+        Some(second.coordinates()),
+    )
+    .expect_err("malformed immutable index must fail closed");
+    assert!(malformed_index_error
+        .to_string()
+        .contains("version_index_malformed"));
+    ioi_api::state::StateAccess::insert(&mut state, &second_index_key, &second_index_bytes)
+        .expect("restore v2 index");
 
     ioi_api::state::StateAccess::delete(&mut state, &head_key).expect("delete current head");
     let orphaned_commitment_error = resolve(
@@ -954,7 +1123,7 @@ fn lookup_request_ids_are_no_clobber_and_historical_get_is_audited_atomically() 
     let seq_before_get: u64 = load_typed(&state, AUDIT_NEXT_SEQ_KEY)
         .expect("load audit seq")
         .expect("audit seq");
-    let get_params = GetPrincipalAuthorityBindingParams {
+    let get_params = LookupPrincipalAuthorityBindingParams {
         request_id: get_request_id,
         binding_ref: proof.binding_ref.clone(),
         expected_binding_hash: Some(proof.binding_hash),
@@ -963,11 +1132,11 @@ fn lookup_request_ids_are_no_clobber_and_historical_get_is_audited_atomically() 
         &service,
         &mut state,
         root.record.account_id,
-        "get_principal_authority_binding@v1",
+        "lookup_principal_authority_binding@v1",
         &get_params,
     )
     .expect("first historical get");
-    let get_key = principal_authority_get_receipt_key(&get_request_id);
+    let get_key = principal_authority_lookup_receipt_key(&get_request_id);
     let get_bytes = state.get(&get_key).expect("read get").expect("get receipt");
     let get_event: VaultAuditEvent = load_typed(&state, &audit_key(seq_before_get))
         .expect("load get audit event")
@@ -984,7 +1153,7 @@ fn lookup_request_ids_are_no_clobber_and_historical_get_is_audited_atomically() 
         &service,
         &mut state,
         root.record.account_id,
-        "get_principal_authority_binding@v1",
+        "lookup_principal_authority_binding@v1",
         &get_params,
     )
     .expect_err("get request id must be single use");

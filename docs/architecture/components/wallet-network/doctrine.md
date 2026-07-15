@@ -991,6 +991,10 @@ IOI L1 settles public/economic commitments
    only when the agent needs on-chain execution power.
 8. High-risk on-chain actions require wallet.network step-up and/or
    smart-account module enforcement.
+9. Principal-authority rollback resistance is relative to the externally
+   selected wallet state root; ledger finality must prevent wholesale rollback
+   of the complete state root, while the resolver detects coupled mutable-head
+   rollback inside the selected root through immutable per-version indexes.
 
 ## One-Line Doctrine
 

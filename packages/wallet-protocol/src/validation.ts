@@ -1,8 +1,8 @@
 import type {
   CandidateEvidence,
   ExchangeIntent,
-  GetPrincipalAuthorityBindingParams,
-  GetPrincipalAuthorityBindingReceipt,
+  LookupPrincipalAuthorityBindingParams,
+  LookupPrincipalAuthorityBindingReceipt,
   IssuePrincipalAuthorityBindingParams,
   PrincipalAuthorityBindingCoordinates,
   PrincipalAuthorityBindingProofV1,
@@ -143,6 +143,18 @@ export function assertPrincipalAuthorityBindingProof(
       "Principal authority binding status must be active or revoked.",
     );
   }
+  if (statement.binding_version > 4_096) {
+    throwPrincipalAuthorityValidation(
+      "principal_authority_binding_chain_too_deep",
+      "Principal authority binding version exceeds the v1 verification bound.",
+    );
+  }
+  if (statement.status === "active" && statement.binding_version === 4_096) {
+    throwPrincipalAuthorityValidation(
+      "principal_authority_terminal_revocation_reserved",
+      "Principal authority binding version 4096 is reserved for terminal revocation.",
+    );
+  }
 
   assertBytes32(statement.authority_id, "authority_id", true);
   assertBytes(statement.authority_public_key, "authority_public_key");
@@ -269,6 +281,13 @@ export function assertRevokePrincipalAuthorityBindingParams(
       "Revoke principal authority binding requires a revoked successor proof.",
     );
   }
+  assertBindingRef(request.predecessor_binding_ref, "predecessor_binding_ref");
+  if (proof.statement.previous_binding_ref !== request.predecessor_binding_ref) {
+    throwPrincipalAuthorityValidation(
+      "principal_authority_binding_predecessor_mismatch",
+      "Revocation request predecessor_binding_ref must exactly match the proof predecessor.",
+    );
+  }
   return request;
 }
 
@@ -290,12 +309,73 @@ export function assertPrincipalAuthorityResolution(
     );
   }
   assertCoordinates(resolution.coordinates);
+  assertRequiredScope(resolution.required_scope);
+  if (!nonEmptyString(resolution.matched_scope)) {
+    throwPrincipalAuthorityValidation(
+      "principal_authority_scope_match_invalid",
+      "Principal authority resolution matched_scope must name an authority allowlist entry.",
+    );
+  }
+  const authority = resolution.approval_authority;
+  if (authority.schema_version !== 1) {
+    throwPrincipalAuthorityValidation(
+      "principal_authority_snapshot_invalid",
+      "Approval authority snapshot must use schema version 1.",
+    );
+  }
+  assertBytes32(authority.authority_id, "approval_authority.authority_id", true);
+  assertBytes(authority.public_key, "approval_authority.public_key");
+  if (!Number.isInteger(authority.signature_suite)) {
+    throwPrincipalAuthorityValidation(
+      "principal_authority_snapshot_invalid",
+      "Approval authority snapshot signature_suite must be an integer.",
+    );
+  }
+  if (!positiveInteger(authority.expires_at) || authority.revoked) {
+    throwPrincipalAuthorityValidation(
+      "principal_authority_snapshot_inactive",
+      "Approval authority snapshot must be unrevoked with a positive expiry.",
+    );
+  }
+  if (!Array.isArray(authority.scope_allowlist) || authority.scope_allowlist.length === 0) {
+    throwPrincipalAuthorityValidation(
+      "principal_authority_scope_denied",
+      "Approval authority snapshot scope_allowlist must not be empty.",
+    );
+  }
+  for (const scope of authority.scope_allowlist) {
+    if (!nonEmptyString(scope)) {
+      throwPrincipalAuthorityValidation(
+        "principal_authority_snapshot_invalid",
+        "Approval authority scope entries must be non-empty.",
+      );
+    }
+  }
   assertBytes32(resolution.authority_id, "authority_id", true);
   assertBytes(resolution.authority_public_key, "authority_public_key");
   if (!Number.isInteger(resolution.authority_signature_suite)) {
     throwPrincipalAuthorityValidation(
       "principal_authority_signature_suite_invalid",
       "Principal authority signature suite must be an integer COSE algorithm id.",
+    );
+  }
+  if (
+    !bytesEqual(authority.authority_id, resolution.authority_id) ||
+    !bytesEqual(authority.public_key, resolution.authority_public_key) ||
+    authority.signature_suite !== resolution.authority_signature_suite
+  ) {
+    throwPrincipalAuthorityValidation(
+      "principal_authority_snapshot_mismatch",
+      "Complete approval authority snapshot must match the resolved signer tuple.",
+    );
+  }
+  if (
+    !authority.scope_allowlist.includes(resolution.matched_scope) ||
+    !scopePatternMatches(resolution.matched_scope, resolution.required_scope)
+  ) {
+    throwPrincipalAuthorityValidation(
+      "principal_authority_scope_match_invalid",
+      "Matched scope must be an exact snapshot allowlist entry that covers required_scope.",
     );
   }
   assertBytes32(
@@ -307,6 +387,12 @@ export function assertPrincipalAuthorityResolution(
     throwPrincipalAuthorityValidation(
       "principal_authority_resolution_timestamp_invalid",
       "Principal authority resolved_at_ms must be a positive integer.",
+    );
+  }
+  if (authority.expires_at < resolution.resolved_at_ms) {
+    throwPrincipalAuthorityValidation(
+      "principal_authority_snapshot_expired",
+      "Approval authority snapshot is expired at resolution time.",
     );
   }
   assertBytes32(
@@ -339,6 +425,7 @@ export function assertPrincipalAuthorityResolutionReceipt(
       "Principal authority requests may currently resolve only approval authority.",
     );
   }
+  assertRequiredScope(request.required_scope);
   if (request.expected_coordinates !== undefined) {
     assertCoordinates(request.expected_coordinates);
   }
@@ -364,7 +451,8 @@ export function assertPrincipalAuthorityResolutionReceipt(
   }
   if (
     resolution.principal_ref !== request.principal_ref ||
-    resolution.authority_kind !== request.authority_kind
+    resolution.authority_kind !== request.authority_kind ||
+    resolution.required_scope !== request.required_scope
   ) {
     throwPrincipalAuthorityValidation(
       "principal_authority_resolution_principal_mismatch",
@@ -384,10 +472,10 @@ export function assertPrincipalAuthorityResolutionReceipt(
 }
 
 /** Validates an immutable-proof lookup receipt against its request pin. */
-export function assertGetPrincipalAuthorityBindingReceipt(
-  request: GetPrincipalAuthorityBindingParams,
-  receipt: GetPrincipalAuthorityBindingReceipt,
-): GetPrincipalAuthorityBindingReceipt {
+export function assertLookupPrincipalAuthorityBindingReceipt(
+  request: LookupPrincipalAuthorityBindingParams,
+  receipt: LookupPrincipalAuthorityBindingReceipt,
+): LookupPrincipalAuthorityBindingReceipt {
   assertBytes32(request.request_id, "request_id", true);
   assertBindingRef(request.binding_ref, "binding_ref");
   if (request.expected_binding_hash !== undefined) {
@@ -545,6 +633,37 @@ function assertCandidateEvidenceNotExpired(
 
 function nonEmptyString(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0;
+}
+
+function assertRequiredScope(requiredScope: string) {
+  if (
+    typeof requiredScope !== "string" ||
+    requiredScope.length === 0 ||
+    requiredScope.length > 256 ||
+    requiredScope !== requiredScope.trim() ||
+    requiredScope !== requiredScope.toLowerCase() ||
+    !/^[a-z0-9][a-z0-9._:-]*$/.test(requiredScope)
+  ) {
+    throwPrincipalAuthorityValidation(
+      "principal_authority_required_scope_invalid",
+      "Principal authority required_scope must be canonical lowercase ASCII.",
+    );
+  }
+}
+
+function scopePatternMatches(rawPattern: string, requiredScope: string) {
+  const pattern = rawPattern.trim().toLowerCase();
+  if (pattern === "*" || pattern === requiredScope) return true;
+  if (pattern.endsWith("::*")) {
+    return requiredScope.startsWith(`${pattern.slice(0, -3)}::`);
+  }
+  if (pattern.endsWith(":*")) {
+    return requiredScope.startsWith(`${pattern.slice(0, -2)}:`);
+  }
+  if (pattern.endsWith("*")) {
+    return requiredScope.startsWith(pattern.slice(0, -1));
+  }
+  return false;
 }
 
 function assertPortablePrincipalRef(principalRef: string) {

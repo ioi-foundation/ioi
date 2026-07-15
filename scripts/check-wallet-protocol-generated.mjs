@@ -63,7 +63,7 @@ const rustService = assertFile("crates/services/src/wallet_network/mod.rs", [
   "issue_principal_authority_binding@v1",
   "revoke_principal_authority_binding@v1",
   "resolve_principal_authority@v1",
-  "get_principal_authority_binding@v1",
+  "lookup_principal_authority_binding@v1",
 ]);
 
 const protocolTypes = assertFile("packages/wallet-protocol/src/types.ts", [
@@ -80,6 +80,8 @@ const protocolTypes = assertFile("packages/wallet-protocol/src/types.ts", [
   "scope:",
   "PrincipalAuthorityBindingProofV1",
   "PrincipalAuthorityResolutionV1",
+  "required_scope",
+  "approval_authority",
   "expected_coordinates",
 ]);
 
@@ -103,7 +105,7 @@ const protocolMethods = assertFile("packages/wallet-protocol/src/methods.ts", [
   "issue_principal_authority_binding@v1",
   "revoke_principal_authority_binding@v1",
   "resolve_principal_authority@v1",
-  "get_principal_authority_binding@v1",
+  "lookup_principal_authority_binding@v1",
 ]);
 
 for (const kernelMethod of [
@@ -115,7 +117,7 @@ for (const kernelMethod of [
   "issue_principal_authority_binding@v1",
   "revoke_principal_authority_binding@v1",
   "resolve_principal_authority@v1",
-  "get_principal_authority_binding@v1",
+  "lookup_principal_authority_binding@v1",
 ]) {
   assertIncludes("crates/services/src/wallet_network/mod.rs", rustService, kernelMethod);
   assertIncludes("packages/wallet-protocol/src/methods.ts", protocolMethods, kernelMethod);
@@ -195,9 +197,9 @@ for (const path of [
   "/v1/trade/intents",
   "/v1/receipts",
   "/v1/authority/principal-bindings",
-  "/v1/authority/principal-bindings/{binding_ref}/revoke",
+  "/v1/authority/principal-bindings/revoke",
   "/v1/authority/principal-bindings/resolve",
-  "/v1/authority/principal-bindings/{binding_ref}",
+  "/v1/authority/principal-bindings/lookup",
 ]) {
   if (!openapi.paths[path]) {
     throw new Error(`OpenAPI contract must include ${path}`);
@@ -298,7 +300,7 @@ for (const text of [
   "issuePrincipalAuthorityBinding",
   "revokePrincipalAuthorityBinding",
   "resolvePrincipalAuthority",
-  "getPrincipalAuthorityBinding",
+  "lookupPrincipalAuthorityBinding",
   "assertPrincipalAuthorityResolutionReceipt",
 ]) {
   assertIncludes("packages/wallet-sdk/src/client.ts", walletSdkClient, text);

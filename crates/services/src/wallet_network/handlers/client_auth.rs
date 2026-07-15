@@ -167,7 +167,7 @@ pub(crate) fn authorize_wallet_method(
         "issue_principal_authority_binding@v1" | "revoke_principal_authority_binding@v1" => {
             ensure_control_root_signer(state, ctx)
         }
-        "resolve_principal_authority@v1" | "get_principal_authority_binding@v1" => {
+        "resolve_principal_authority@v1" | "lookup_principal_authority_binding@v1" => {
             ensure_initialized_wallet_client_role(state, ctx, WalletAuthRole::Capability)
         }
         "register_client@v1"

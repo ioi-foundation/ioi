@@ -32,7 +32,7 @@ export const WALLET_NETWORK_KERNEL_METHODS = [
   "issue_principal_authority_binding@v1",
   "revoke_principal_authority_binding@v1",
   "resolve_principal_authority@v1",
-  "get_principal_authority_binding@v1",
+  "lookup_principal_authority_binding@v1",
   "consume_approval_grant@v1",
   "panic_stop@v1",
 ] as const;
@@ -51,7 +51,7 @@ export const WALLET_NETWORK_PROTOCOL_METHODS = {
   issuePrincipalAuthorityBinding: "issue_principal_authority_binding@v1",
   revokePrincipalAuthorityBinding: "revoke_principal_authority_binding@v1",
   resolvePrincipalAuthority: "resolve_principal_authority@v1",
-  getPrincipalAuthorityBinding: "get_principal_authority_binding@v1",
+  lookupPrincipalAuthorityBinding: "lookup_principal_authority_binding@v1",
 } as const;
 
 export type WalletNetworkProtocolMethod =

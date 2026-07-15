@@ -29,10 +29,12 @@ pub(super) const PRINCIPAL_AUTHORITY_BINDING_HEAD_PREFIX: &[u8] =
     b"principal_authority_binding_head::";
 pub(super) const PRINCIPAL_AUTHORITY_LATEST_MUTATION_PREFIX: &[u8] =
     b"principal_authority_latest_mutation::";
+pub(super) const PRINCIPAL_AUTHORITY_VERSION_INDEX_PREFIX: &[u8] =
+    b"principal_authority_version_index::";
 pub(super) const PRINCIPAL_AUTHORITY_RESOLUTION_RECEIPT_PREFIX: &[u8] =
     b"principal_authority_resolution_receipt::";
-pub(super) const PRINCIPAL_AUTHORITY_GET_RECEIPT_PREFIX: &[u8] =
-    b"principal_authority_get_receipt::";
+pub(super) const PRINCIPAL_AUTHORITY_LOOKUP_RECEIPT_PREFIX: &[u8] =
+    b"principal_authority_lookup_receipt::";
 pub(super) const CHANNEL_PREFIX: &[u8] = b"channel::";
 pub(super) const CHANNEL_KEY_STATE_PREFIX: &[u8] = b"channel_key_state::";
 pub(super) const LEASE_PREFIX: &[u8] = b"lease::";
@@ -164,6 +166,18 @@ pub(super) fn principal_authority_latest_mutation_key(principal_ref_hash: &[u8; 
     .concat()
 }
 
+/// Immutable version-coordinate index for one principal chain version.
+pub(super) fn principal_authority_version_index_key(
+    principal_ref_hash: &[u8; 32],
+    binding_version: u64,
+) -> Vec<u8> {
+    let mut key = Vec::with_capacity(PRINCIPAL_AUTHORITY_VERSION_INDEX_PREFIX.len() + 40);
+    key.extend_from_slice(PRINCIPAL_AUTHORITY_VERSION_INDEX_PREFIX);
+    key.extend_from_slice(principal_ref_hash);
+    key.extend_from_slice(&binding_version.to_be_bytes());
+    key
+}
+
 pub(super) fn principal_authority_resolution_receipt_key(request_id: &[u8; 32]) -> Vec<u8> {
     [
         PRINCIPAL_AUTHORITY_RESOLUTION_RECEIPT_PREFIX,
@@ -172,9 +186,9 @@ pub(super) fn principal_authority_resolution_receipt_key(request_id: &[u8; 32]) 
     .concat()
 }
 
-pub(super) fn principal_authority_get_receipt_key(request_id: &[u8; 32]) -> Vec<u8> {
+pub(super) fn principal_authority_lookup_receipt_key(request_id: &[u8; 32]) -> Vec<u8> {
     [
-        PRINCIPAL_AUTHORITY_GET_RECEIPT_PREFIX,
+        PRINCIPAL_AUTHORITY_LOOKUP_RECEIPT_PREFIX,
         request_id.as_slice(),
     ]
     .concat()
