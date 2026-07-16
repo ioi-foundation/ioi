@@ -3878,6 +3878,10 @@ OutcomeRoomEnvelope:
     - participant-lease://...
   participation_request_refs:
     - participation-request://...
+  resource_offer_refs:
+    - resource-offer://...
+  capability_offer_refs:
+    - capability-offer://...
   frontier_item_refs:
     - frontier://...
   attempt_refs:
@@ -4067,6 +4071,51 @@ CapabilityOfferEnvelope:
   status: offered | eligible | allocated | suspended | withdrawn | revoked
 ```
 
+When a participant advertises an `ai://...` or `package://...` descriptor but a
+frontier needs a generic capability coordinate, the hosted matcher may derive
+the reversible alias `capability://advertised/<scheme>/<tail>`. The alias is
+valid only while the underlying participant advertisement remains admitted; it
+is not a new credential or a trust-on-first-use capability.
+
+Eligibility matching is evidence admission, not allocation or execution
+authority. The receipt freezes every input coordinate a later claim must
+revalidate:
+
+```yaml
+WorkEligibilityMatchReceipt:
+  receipt_ref: receipt://...
+  outcome_room_ref: outcome-room://...
+  frontier_item_ref: frontier://...
+  frontier_revision: integer
+  frontier_control_hash: hash
+  participant_ref: participant-lease://...
+  participant_revision: integer
+  participant_control_hash: hash
+  resource_offers:
+    - offer_ref: resource-offer://...
+      revision: integer
+      control_hash: hash
+  capability_offers:
+    - offer_ref: capability-offer://...
+      revision: integer
+      control_hash: hash
+  context_lease_refs:
+    - context_lease://...
+  authority_resource_compute_data_budget_and_tool_lease_refs:
+    - grant://... | resource-lease://... | compute://... |
+      view://... | budget://... | tool-lease://...
+  requirement_coverage:
+    - requirement_ref: canonical ref
+      matched_exactly: true
+  allocation_created: false
+  execution_authority_granted: false
+  claim_created: false
+  authority_grant_id: grant://...
+  principal_authority_binding: required
+  effect_hash: hash
+  output_hash: hash
+```
+
 ## WorkFrontierItemEnvelope
 
 The work frontier is the room's claimable graph of questions, problems,
@@ -4113,6 +4162,7 @@ WorkClaimLeaseEnvelope:
   outcome_room_ref: outcome-room://...
   frontier_item_ref: frontier://...
   claimant_ref: participant-lease://... | worker://... | agent://... | org://...
+  eligibility_match_receipt_ref: receipt://... | null
   bounded_scope_ref: task://... | task_brief://... | policy://...
   context_lease_refs:
     - context_lease://...
