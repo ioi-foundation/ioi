@@ -12,6 +12,9 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../
 const seeds = new Map([
   ["domain://acme-host", "07".repeat(32)],
   ["worker://independent-alloy-lab", "09".repeat(32)],
+  ["worker://replication-lab-two", "0a".repeat(32)],
+  ["worker://replication-lab-three", "0b".repeat(32)],
+  ["worker://frontier-only-lab", "0c".repeat(32)],
 ]);
 
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -160,7 +163,7 @@ export async function startRealWalletNetworkPrincipalAuthorityFixture() {
       // The in-process one-validator fixture intentionally executes and commits every lookup;
       // leave production's five-second default untouched, but do not make the positive held bar
       // flaky when the debug cluster is saturated by the full lifecycle journey.
-      IOI_WALLET_NETWORK_RESOLUTION_TIMEOUT_MS: "30000",
+      IOI_WALLET_NETWORK_RESOLUTION_TIMEOUT_MS: "180000",
       IOI_HYPERVISOR_GOVERNED_REPLAY_TIMEOUT_MS: "45000",
     },
     mint(principalRef, policyHash, requestHash) {
