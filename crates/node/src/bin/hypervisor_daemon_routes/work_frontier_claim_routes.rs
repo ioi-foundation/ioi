@@ -684,6 +684,15 @@ fn load_claim(data_dir: &str, id_or_tail: &str) -> Result<Option<Value>, String>
     load_record(data_dir, CLAIM_DIR, tail, canonical_claim_tail)
 }
 
+/// Strict WorkClaim resolver for downstream provenance planes. The claim owner retains storage
+/// key, schema, and identity validation; callers never read claim files directly.
+pub(crate) fn load_claim_strict(
+    data_dir: &str,
+    id_or_tail: &str,
+) -> Result<Option<Value>, String> {
+    load_claim(data_dir, id_or_tail)
+}
+
 fn consume_intent(data_dir: &str, tail: &str) -> Result<(), VErr> {
     let directory = match super::durable_fs::open_family_dir_pinned(data_dir, INTENT_DIR) {
         Ok(directory) => directory,
@@ -2442,6 +2451,11 @@ fn refuse_mutations_if_reserved(
     }
     for reference in refs {
         super::resource_capability_offer_routes::refuse_external_mutation_if_reserved(
+            data_dir,
+            reference,
+            code,
+        )?;
+        super::attempt_finding_routes::refuse_external_mutation_if_reserved(
             data_dir,
             reference,
             code,

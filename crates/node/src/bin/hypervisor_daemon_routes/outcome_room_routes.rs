@@ -85,6 +85,8 @@ const BACKLINK_OPS: &[(&str, &str, &str)] = &[
     ("frontier_item_bound", "frontier_item_refs", "frontier"),
     ("resource_offer_bound", "resource_offer_refs", "resource-offer"),
     ("capability_offer_bound", "capability_offer_refs", "capability-offer"),
+    ("attempt_bound", "attempt_refs", "attempt"),
+    ("finding_bound", "finding_refs", "finding"),
 ];
 const BACKLINK_NOTE: &str = "an admitted backlink transition — the room's object list gains one canonical ref; the object record itself is its own plane's truth";
 
@@ -1644,6 +1646,11 @@ fn mutate_room(
         &room_id,
         "outcome_room_mutation_in_flight",
     )?;
+    super::attempt_finding_routes::refuse_external_mutation_if_reserved(
+        data_dir,
+        &room_id,
+        "outcome_room_mutation_in_flight",
+    )?;
     let Some(prior) = load_room(data_dir, &room_id) else {
         return Err(verr("outcome_room_not_found", format!("no admitted room '{room_id}'")));
     };
@@ -1707,7 +1714,7 @@ pub(crate) fn bind_room_backlink_room_locked(
     op: &str,
     bound_ref: &str,
 ) -> Result<(Value, Value), VErr> {
-    bind_room_backlink_room_locked_impl(data_dir, room_ref, op, bound_ref, None, None)
+    bind_room_backlink_room_locked_impl(data_dir, room_ref, op, bound_ref, None, None, None)
 }
 
 /// Work-intent replay reaches the room owner seam while its own room reservation is necessarily
@@ -1725,6 +1732,7 @@ pub(crate) fn bind_room_backlink_room_locked_for_work_intent(
         op,
         bound_ref,
         Some(intent_tail),
+        None,
         None,
     )
 }
@@ -1744,7 +1752,19 @@ pub(crate) fn bind_room_backlink_room_locked_for_offer_intent(
         bound_ref,
         None,
         Some(intent_tail),
+        None,
     )
+}
+
+/// Attempt/Finding replay reaches the room seam while its own room reservation is durable.
+pub(crate) fn bind_room_backlink_room_locked_for_attempt_finding_intent(
+    data_dir: &str,
+    room_ref: &str,
+    op: &str,
+    bound_ref: &str,
+    intent_tail: &str,
+) -> Result<(Value, Value), VErr> {
+    bind_room_backlink_room_locked_impl(data_dir, room_ref, op, bound_ref, None, None, Some(intent_tail))
 }
 
 fn bind_room_backlink_room_locked_impl(
@@ -1754,6 +1774,7 @@ fn bind_room_backlink_room_locked_impl(
     bound_ref: &str,
     ignored_work_intent_tail: Option<&str>,
     ignored_offer_intent_tail: Option<&str>,
+    ignored_attempt_finding_intent_tail: Option<&str>,
 ) -> Result<(Value, Value), VErr> {
     match (ignored_work_intent_tail, ignored_offer_intent_tail) {
         (Some(intent_tail), _) => {
@@ -1769,7 +1790,7 @@ fn bind_room_backlink_room_locked_impl(
             room_ref,
             "outcome_room_mutation_in_flight",
         )?,
-        (None, None) => super::work_frontier_claim_routes::refuse_external_mutation_if_reserved(
+        (None, None) => super::work_frontier_claim_routes::refuse_external_mutation_if_work_reserved(
             data_dir,
             room_ref,
             "outcome_room_mutation_in_flight",
@@ -1788,6 +1809,14 @@ fn bind_room_backlink_room_locked_impl(
             data_dir,
             room_ref,
             "outcome_room_mutation_in_flight",
+        )?,
+    }
+    match ignored_attempt_finding_intent_tail {
+        Some(intent_tail) => super::attempt_finding_routes::refuse_external_mutation_if_reserved_except(
+            data_dir, room_ref, "outcome_room_mutation_in_flight", intent_tail,
+        )?,
+        None => super::attempt_finding_routes::refuse_external_mutation_if_reserved(
+            data_dir, room_ref, "outcome_room_mutation_in_flight",
         )?,
     }
     let Some((_, field, scheme)) = BACKLINK_OPS.iter().find(|(o, _, _)| *o == op) else {
@@ -1937,6 +1966,13 @@ pub(crate) async fn handle_outcome_room_transition(
             };
             return err(status, error);
         }
+        if let Err(error) = super::attempt_finding_routes::refuse_room_close_if_blocked_locked(
+            &st.data_dir,
+            &format!("outcome-room://{id}"),
+        ) {
+            let status = if error.0.contains("registry_unreadable") || error.0.contains("intent_unreadable") { StatusCode::INTERNAL_SERVER_ERROR } else { StatusCode::CONFLICT };
+            return err(status, error);
+        }
     }
     let result = mutate_room(&st.data_dir, &id, &body, &transition, |room| {
         let from = s(room, "status", "");
@@ -1963,7 +1999,7 @@ pub(crate) async fn handle_outcome_room_transition(
     match result {
         Ok((room, receipt)) => (StatusCode::OK, Json(json!({ "outcome_room": room, "outcome_room_receipt": receipt }))),
         Err(e) if e.0 == "outcome_room_not_found" => err(StatusCode::NOT_FOUND, e),
-        Err(e) if e.0 == "outcome_room_revision_conflict" || e.0.ends_with("_in_flight") || e.0 == "outcome_room_close_blocked_frontier_claims" || e.0 == "outcome_room_close_blocked_offers" => err(StatusCode::CONFLICT, e),
+        Err(e) if e.0 == "outcome_room_revision_conflict" || e.0.ends_with("_in_flight") || e.0 == "outcome_room_close_blocked_frontier_claims" || e.0 == "outcome_room_close_blocked_offers" || e.0 == "outcome_room_close_blocked_attempts_findings" => err(StatusCode::CONFLICT, e),
         Err(e) if e.0.ends_with("_persist_failed") || e.0.ends_with("_pending_convergence") || e.0.ends_with("_durability_unconfirmed") || e.0.ends_with("_unreadable") || e.0 == "outcome_room_rollback_failed" => err(StatusCode::INTERNAL_SERVER_ERROR, e),
         Err(e) => err(StatusCode::BAD_REQUEST, e),
     }
@@ -2005,6 +2041,14 @@ pub(crate) async fn handle_outcome_room_attach_goal_run(
         } else {
             StatusCode::CONFLICT
         };
+        return err(status, error);
+    }
+    if let Err(error) = super::attempt_finding_routes::refuse_external_mutation_if_reserved(
+        &st.data_dir,
+        &room_id,
+        "outcome_room_mutation_in_flight",
+    ) {
+        let status = if error.0.contains("unreadable") { StatusCode::INTERNAL_SERVER_ERROR } else { StatusCode::CONFLICT };
         return err(status, error);
     }
     let Some(prior_run) = read_record_dir(&st.data_dir, GOAL_RUN_DIR)

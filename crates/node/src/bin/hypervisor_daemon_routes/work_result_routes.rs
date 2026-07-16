@@ -90,7 +90,88 @@ const SENSITIVE_KEY_FRAGMENTS: &[&str] = &[
 /// without it, two concurrent admissions read the same WorkResult snapshot and the second
 /// truncating write loses the first's backlink. Held across SYNCHRONOUS file I/O only — no
 /// .await ever executes under this lock.
-static DELTA_ADMISSION_LOCK: Mutex<()> = Mutex::new(());
+pub(crate) static DELTA_ADMISSION_LOCK: Mutex<()> = Mutex::new(());
+
+/// Strict WorkResult point loader for later provenance planes. Unlike the legacy list helper,
+/// this distinguishes absence from an occupied unreadable/malformed/identity-mismatched slot.
+pub(crate) fn load_work_result_strict(
+    data_dir: &str,
+    result_ref: &str,
+) -> Result<Option<Value>, String> {
+    let tail = result_ref
+        .strip_prefix("work-result://")
+        .ok_or_else(|| "WorkResult ref must be work-result://...".to_string())?;
+    if tail.is_empty()
+        || tail.len() > 120
+        || !tail
+            .chars()
+            .all(|character| character.is_ascii_alphanumeric() || matches!(character, '_' | '-'))
+    {
+        return Err("WorkResult ref has a noncanonical storage key".into());
+    }
+    let directory = match super::durable_fs::open_family_dir_pinned(data_dir, RESULT_DIR) {
+        Ok(directory) => directory,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(error) => return Err(format!("WorkResult registry cannot be pinned ({error})")),
+    };
+    let bytes = match super::durable_fs::read_slot_strict(&directory, &format!("{tail}.json")) {
+        Ok(None) => return Ok(None),
+        Ok(Some((_file, bytes))) => bytes,
+        Err(error) => return Err(format!("WorkResult slot '{tail}' is unreadable ({error})")),
+    };
+    let record: Value = serde_json::from_slice(&bytes)
+        .map_err(|error| format!("WorkResult slot '{tail}' is malformed ({error})"))?;
+    if record.get("schema_version").and_then(Value::as_str) != Some(RESULT_SCHEMA)
+        || record.get("work_result_id").and_then(Value::as_str) != Some(result_ref)
+    {
+        return Err(format!("WorkResult slot '{tail}' fails storage-key/schema identity binding"));
+    }
+    Ok(Some(record))
+}
+
+/// Strict OutcomeDelta point loader for provenance consumers. The WorkResult plane remains the
+/// storage owner: callers receive absence distinctly from unreadable, malformed, or relocated
+/// canonical evidence and never scan this family themselves.
+pub(crate) fn load_outcome_delta_strict(
+    data_dir: &str,
+    delta_ref: &str,
+) -> Result<Option<Value>, String> {
+    let tail = delta_ref
+        .strip_prefix("outcome-delta://")
+        .ok_or_else(|| "OutcomeDelta ref must be outcome-delta://...".to_string())?;
+    if tail.is_empty()
+        || tail.len() > 120
+        || !tail
+            .chars()
+            .all(|character| character.is_ascii_alphanumeric() || matches!(character, '_' | '-'))
+    {
+        return Err("OutcomeDelta ref has a noncanonical storage key".into());
+    }
+    let directory = match super::durable_fs::open_family_dir_pinned(data_dir, DELTA_DIR) {
+        Ok(directory) => directory,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(error) => return Err(format!("OutcomeDelta registry cannot be pinned ({error})")),
+    };
+    let bytes = match super::durable_fs::read_slot_strict(&directory, &format!("{tail}.json")) {
+        Ok(None) => return Ok(None),
+        Ok(Some((_file, bytes))) => bytes,
+        Err(error) => {
+            return Err(format!(
+                "OutcomeDelta slot '{tail}' is unreadable ({error})"
+            ))
+        }
+    };
+    let record: Value = serde_json::from_slice(&bytes)
+        .map_err(|error| format!("OutcomeDelta slot '{tail}' is malformed ({error})"))?;
+    if record.get("schema_version").and_then(Value::as_str) != Some(DELTA_SCHEMA)
+        || record.get("outcome_delta_id").and_then(Value::as_str) != Some(delta_ref)
+    {
+        return Err(format!(
+            "OutcomeDelta slot '{tail}' fails storage-key/schema identity binding"
+        ));
+    }
+    Ok(Some(record))
+}
 
 const REF_MAX: usize = 300;
 const LIST_MAX: usize = 64;
@@ -821,6 +902,17 @@ pub(crate) async fn handle_outcome_delta_create(
         Ok(r) => r,
         Err(e) => return err400(e),
     };
+    let bound_result_ref = s(&prior_result, "work_result_id", "");
+    if let Err((code, message)) =
+        super::attempt_finding_routes::refuse_external_mutation_if_reserved(
+            &st.data_dir,
+            &bound_result_ref,
+            "work_result_mutation_in_flight",
+        )
+    {
+        let status = if code.contains("unreadable") { StatusCode::INTERNAL_SERVER_ERROR } else { StatusCode::CONFLICT };
+        return (status, Json(json!({"error":{"code":code,"message":message}})));
+    }
     let id_tail = format!("od_{:x}", nanos());
     let outcome_delta_id = format!("outcome-delta://{id_tail}");
     let now = iso_now();

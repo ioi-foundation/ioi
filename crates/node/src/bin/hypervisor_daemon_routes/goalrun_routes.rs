@@ -122,6 +122,13 @@ pub(crate) fn update_goal_run_guarded(
             format!("no durable GoalRun record '{goal_run_id}'"),
         ));
     };
+    let goal_ref = fresh.get("goal_ref").and_then(Value::as_str).unwrap_or("");
+    super::attempt_finding_routes::refuse_external_mutation_if_reserved(
+        data_dir,
+        goal_ref,
+        "goal_run_mutation_in_flight",
+    )
+    .map_err(|(code, message)| (code, message))?;
     expect(&fresh)?;
     if let Some(obj) = fresh.as_object_mut() {
         mutate(obj);
@@ -517,6 +524,57 @@ fn kernel_err(
 
 pub(crate) fn load_goal_run(st: &DaemonState, goal_run_id: &str) -> Option<Value> {
     load(st, GOAL_RUN_KIND, goal_run_id)
+}
+
+/// Strict GoalRun resolver by its canonical `goal://` coordinate. Every registry slot is read
+/// through the pinned/no-follow boundary so unreadable, malformed, or identity-swapped state is
+/// uncertainty rather than absence.
+pub(crate) fn load_goal_run_strict(
+    data_dir: &str,
+    goal_ref: &str,
+) -> Result<Option<Value>, String> {
+    if !goal_ref
+        .strip_prefix("goal://")
+        .is_some_and(|tail| !tail.is_empty() && tail.len() <= 160 && !tail.contains(".."))
+    {
+        return Err("GoalRun ref must be a bounded canonical goal:// identity".into());
+    }
+    let directory = match super::durable_fs::open_family_dir_pinned(data_dir, GOAL_RUN_KIND) {
+        Ok(directory) => directory,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(error) => return Err(format!("GoalRun registry cannot be pinned ({error})")),
+    };
+    let names = super::durable_fs::enumerate_pinned(&directory)
+        .map_err(|error| format!("GoalRun registry cannot be enumerated ({error})"))?;
+    let mut found = None;
+    for name in names {
+        let Some(tail) = name.strip_suffix(".json") else { continue; };
+        if tail.is_empty()
+            || tail.len() > 160
+            || !tail
+                .chars()
+                .all(|character| character.is_ascii_alphanumeric() || matches!(character, '_' | '-'))
+        {
+            continue;
+        }
+        let bytes = match super::durable_fs::read_slot_strict(&directory, &name) {
+            Ok(Some((_file, bytes))) => bytes,
+            Ok(None) => return Err(format!("GoalRun slot '{name}' vanished after enumeration")),
+            Err(error) => return Err(format!("GoalRun slot '{name}' is unreadable ({error})")),
+        };
+        let record: Value = serde_json::from_slice(&bytes)
+            .map_err(|error| format!("GoalRun slot '{name}' is malformed ({error})"))?;
+        if record.get("goal_run_id").and_then(Value::as_str) != Some(tail) {
+            return Err(format!("GoalRun slot '{name}' fails storage-key identity binding"));
+        }
+        if record.get("goal_ref").and_then(Value::as_str) == Some(goal_ref) {
+            if found.is_some() {
+                return Err(format!("GoalRun ref '{goal_ref}' resolves more than once"));
+            }
+            found = Some(record);
+        }
+    }
+    Ok(found)
 }
 
 fn load(st: &DaemonState, kind: &str, goal_run_id: &str) -> Option<Value> {

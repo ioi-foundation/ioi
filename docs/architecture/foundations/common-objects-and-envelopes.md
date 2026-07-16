@@ -4200,6 +4200,19 @@ and superseded work. A non-winning attempt remains durable when it contributes
 information, reproduction evidence, debugging, integrity findings, resources,
 review, or synthesis.
 
+Hosted Attempt admission freezes the exact room-control, frontier, active claim,
+participant-lease, and GoalRun coordinates that authorized the declaration. The
+record hashes and revisions are historical evidence, not a requirement that
+mutable claim, participant, or frontier state remain byte-identical forever.
+Attempt creation and participant-governed work transitions still re-resolve the
+same identities and require the exact claim to be active/current; later host
+admission, supersession, Finding admission, and Finding lifecycle may use the
+immutable historical identities after claim completion or release. Submitted
+OutcomeDelta refs must be exact plane-owned backlinks of the submitted
+WorkResult and must independently resolve to that same result, room, and goal.
+The Attempt record is provenance over an already admitted GoalRun; creating or
+transitioning it does not launch work or grant execution authority.
+
 ```yaml
 AttemptEnvelope:
   attempt_id: attempt://...
@@ -4208,6 +4221,12 @@ AttemptEnvelope:
   frontier_item_ref: frontier://... | null
   work_claim_ref: work-claim://... | null
   participant_ref: participant-lease://... | worker://... | agent://...
+  bound_coordinates:
+    outcome_room: { record_ref: outcome-room://..., host_domain_ref: domain://..., control_hash: hash }
+    frontier_item: { record_ref: frontier://..., outcome_room_ref: outcome-room://..., revision: integer, record_hash: hash }
+    work_claim: { record_ref: work-claim://..., outcome_room_ref: outcome-room://..., frontier_item_ref: frontier://..., claimant_ref: participant-lease://..., revision: integer, record_hash: hash }
+    participant_lease: { record_ref: participant-lease://..., outcome_room_ref: outcome-room://..., principal_ref: worker://... | agent://..., revision: integer, record_hash: hash }
+    goal_run: { record_ref: goal://..., outcome_room_ref: outcome-room://..., updated_at: timestamp | null, record_hash: hash }
   declared_method_and_hypothesis_refs:
     - method://... | finding://... | artifact://...
   parent_and_derivation_refs:
@@ -4246,10 +4265,29 @@ provenance-bearing assertion; it does not make the proposition universally
 true. Findings therefore preserve uncertainty, applicability, contradiction,
 time, and dispute state.
 
+A hosted Finding freezes its exact admitted Attempt, WorkResult, historical
+participant identity, and optional same-room predecessor Finding coordinates
+together with evidence and proof refs. Fresh Finding creation requires that exact
+participant lease to be active at authorization and commit, but does not require
+an active/current claim. Once admitted, host-governed Finding lifecycle uses the
+historical identity coordinates after participant retirement, revocation, or
+other inactivity; mutable participant records need not remain byte-identical.
+`supersedes_ref` must strictly resolve to a Finding in the same room; a merely
+syntactic or cross-room predecessor never establishes lineage. `admitted` is
+still an admission state, not acceptance or a verifier verdict.
+
 ```yaml
 FindingEnvelope:
   finding_id: finding://...
   outcome_room_ref: outcome-room://... | null
+  attempt_ref: attempt://...
+  work_result_ref: work-result://...
+  participant_ref: participant-lease://...
+  bound_coordinates:
+    attempt: { record_ref: attempt://..., outcome_room_ref: outcome-room://..., participant_ref: participant-lease://..., work_result_ref: work-result://..., revision: integer, record_hash: hash }
+    work_result: { record_ref: work-result://..., outcome_room_ref: outcome-room://..., goal_run_ref: goal://..., goal_ref: goal://..., updated_at: timestamp | null, record_hash: hash }
+    participant_lease: { record_ref: participant-lease://..., outcome_room_ref: outcome-room://..., principal_ref: worker://... | agent://..., revision: integer, record_hash: hash }
+    supersedes_finding: { record_ref: finding://..., outcome_room_ref: outcome-room://..., revision: integer, record_hash: hash } | null
   proposition: string
   finding_kind:
     hypothesis | observation | claim | negative_result | integrity_incident |
@@ -4260,6 +4298,8 @@ FindingEnvelope:
   source_and_observation_context_refs:
     - attempt://... | observation://... | participant-lease://... | domain://...
   supporting_evidence_refs:
+    - evidence://... | artifact://... | receipt://...
+  proof_refs:
     - evidence://... | artifact://... | receipt://...
   contradicting_evidence_refs:
     - evidence://... | artifact://... | finding://...
