@@ -1,3 +1,5 @@
+#![recursion_limit = "256"]
+
 //! Hypervisor Daemon — the Rust true-north HTTP edge for the Hypervisor App.
 //!
 //! Phase 5 of the real-environment-and-harness-execution master guide: stand up
@@ -48,6 +50,8 @@ mod room_participation_routes;
 mod governed_authority;
 #[path = "hypervisor_daemon_routes/work_frontier_claim_routes.rs"]
 mod work_frontier_claim_routes;
+#[path = "hypervisor_daemon_routes/resource_capability_offer_routes.rs"]
+mod resource_capability_offer_routes;
 #[path = "hypervisor_daemon_routes/wallet_network_capability_client.rs"]
 mod wallet_network_capability_client;
 #[path = "hypervisor_daemon_routes/goalrun_routes.rs"]
@@ -2024,6 +2028,53 @@ async fn async_main() -> anyhow::Result<()> {
             axum::routing::post(work_frontier_claim_routes::handle_claim_transition),
         )
         .route(
+            "/v1/hypervisor/resource-offers",
+            axum::routing::get(resource_capability_offer_routes::handle_resource_list)
+                .post(resource_capability_offer_routes::handle_resource_create),
+        )
+        .route(
+            "/v1/hypervisor/resource-offers/overview",
+            axum::routing::get(resource_capability_offer_routes::handle_resource_overview),
+        )
+        .route(
+            "/v1/hypervisor/resource-offers/:id",
+            axum::routing::get(resource_capability_offer_routes::handle_resource_get),
+        )
+        .route(
+            "/v1/hypervisor/resource-offers/:id/transition",
+            axum::routing::post(resource_capability_offer_routes::handle_resource_transition),
+        )
+        .route(
+            "/v1/hypervisor/capability-offers",
+            axum::routing::get(resource_capability_offer_routes::handle_capability_list)
+                .post(resource_capability_offer_routes::handle_capability_create),
+        )
+        .route(
+            "/v1/hypervisor/capability-offers/overview",
+            axum::routing::get(resource_capability_offer_routes::handle_capability_overview),
+        )
+        .route(
+            "/v1/hypervisor/capability-offers/:id",
+            axum::routing::get(resource_capability_offer_routes::handle_capability_get),
+        )
+        .route(
+            "/v1/hypervisor/capability-offers/:id/transition",
+            axum::routing::post(resource_capability_offer_routes::handle_capability_transition),
+        )
+        .route(
+            "/v1/hypervisor/work-eligibility-matches",
+            axum::routing::get(resource_capability_offer_routes::handle_match_list)
+                .post(resource_capability_offer_routes::handle_match_create),
+        )
+        .route(
+            "/v1/hypervisor/work-eligibility-matches/overview",
+            axum::routing::get(resource_capability_offer_routes::handle_match_overview),
+        )
+        .route(
+            "/v1/hypervisor/work-eligibility-matches/:id",
+            axum::routing::get(resource_capability_offer_routes::handle_match_get),
+        )
+        .route(
             "/v1/hypervisor/placement/resolve",
             post(orchestration_routes::handle_placement_resolve),
         )
@@ -2929,6 +2980,10 @@ async fn async_main() -> anyhow::Result<()> {
                         governed_max_intents,
                     ),
                     work_frontier_claim_routes::complete_governed_frontier_claim_intents(
+                        &governed_data_dir,
+                        governed_max_intents,
+                    ),
+                    resource_capability_offer_routes::complete_governed_offer_intents(
                         &governed_data_dir,
                         governed_max_intents,
                     ),

@@ -19,6 +19,9 @@ use serde_json::{json, Value};
 
 use super::{iso_now, persist_record, read_record_dir, DaemonState};
 
+/// Inventory writers serialize with participant-backed ResourceOffer admission/matching.
+pub(crate) static RESOURCE_MUTATION_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
 fn nanos() -> u128 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -80,6 +83,9 @@ pub(crate) async fn handle_pool_create(
     State(st): State<Arc<DaemonState>>,
     Json(body): Json<Value>,
 ) -> Json<Value> {
+    let _guard = RESOURCE_MUTATION_LOCK
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
     let id = body
         .get("pool_id")
         .and_then(|v| v.as_str())

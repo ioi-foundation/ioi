@@ -582,7 +582,7 @@ async function run({ includeFaults = true } = {}) {
       }),
       expected_revision: leases[0].revision,
     });
-    ok("ELIGIBILITY: unproven frontier requirements are typed unavailable with zero claim mutation", requirementsCreate.response.status === 201 && eligibilityRefusal.status === 501 && eligibilityRefusal.body.error?.code === "work_claim_eligibility_unavailable" && names(dataDir, "work-claim-leases").length === claimsBeforeEligibility, `${eligibilityRefusal.status}/${eligibilityRefusal.body.error?.code}`);
+    ok("ELIGIBILITY: requirement-bearing frontier requires a receipted match with zero claim mutation", requirementsCreate.response.status === 201 && eligibilityRefusal.status === 422 && eligibilityRefusal.body.error?.code === "work_claim_eligibility_receipt_required" && names(dataDir, "work-claim-leases").length === claimsBeforeEligibility, `${eligibilityRefusal.status}/${eligibilityRefusal.body.error?.code}`);
 
     const otherRoomCreate = await call("POST", "/v1/hypervisor/outcome-rooms", { ...ROOM, objective_ref: "goal://cross-room-refusal", objective: "Cross-room refusal fixture." });
     const otherRoom = otherRoomCreate.body.outcome_room;

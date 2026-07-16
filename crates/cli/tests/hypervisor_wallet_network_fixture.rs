@@ -129,6 +129,9 @@ fn approval_authority(seed: &[u8; 32]) -> Result<ApprovalAuthority> {
             "room_participation.*".to_string(),
             "work_frontier.*".to_string(),
             "work_claim.*".to_string(),
+            "resource_offer.*".to_string(),
+            "capability_offer.*".to_string(),
+            "work_eligibility.*".to_string(),
         ],
     )
 }

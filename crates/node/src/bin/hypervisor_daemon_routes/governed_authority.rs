@@ -553,7 +553,7 @@ pub(crate) async fn reauthorize_sealed_receipt(
     op: &str,
     revision: u64,
     effect: &Value,
-) -> Result<(), String> {
+) -> Result<u64, String> {
     let sealed = sealed_evidence(receipt);
     if sealed.wallet_approval_grant.is_null() || !sealed.authority_binding.is_object() {
         return Err("the governed intent does not retain its complete signed grant and authority binding tuple".into());
@@ -618,7 +618,7 @@ pub(crate) async fn reauthorize_sealed_receipt(
     if live.evidence != sealed {
         return Err("the reverified grant and resolution do not reconstruct the exact sealed authority tuple".into());
     }
-    Ok(())
+    Ok(live.resolved_at_ms)
 }
 
 pub(crate) fn validate_sealed_effect(
