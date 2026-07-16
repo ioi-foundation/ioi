@@ -4267,8 +4267,11 @@ time, and dispute state.
 
 A hosted Finding freezes its exact admitted Attempt, WorkResult, historical
 participant identity, and optional same-room predecessor Finding coordinates
-together with evidence and proof refs. Its creation and lifecycle do not require
-the original claim or participant record to remain live or byte-identical.
+together with evidence and proof refs. Fresh Finding creation requires that exact
+participant lease to be active at authorization and commit, but does not require
+an active/current claim. Once admitted, host-governed Finding lifecycle uses the
+historical identity coordinates after participant retirement, revocation, or
+other inactivity; mutable participant records need not remain byte-identical.
 `supersedes_ref` must strictly resolve to a Finding in the same room; a merely
 syntactic or cross-room predecessor never establishes lineage. `admitted` is
 still an admission state, not acceptance or a verifier verdict.

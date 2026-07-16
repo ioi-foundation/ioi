@@ -1759,6 +1759,7 @@ fn resolve_finding_dependencies(
     declaration: &Value,
     require_admitted_attempt: bool,
     require_open_room: bool,
+    require_active_participant: bool,
 ) -> Result<FindingDependencies, VErr> {
     let room_ref = s(declaration, "outcome_room_ref", "");
     let attempt_ref = s(declaration, "attempt_ref", "");
@@ -1814,6 +1815,12 @@ fn resolve_finding_dependencies(
         return Err(verr(
             "finding_coordinate_mismatch",
             "Finding participant identity differs from the Attempt's historical participant",
+        ));
+    }
+    if require_active_participant && s(&participant, "status", "") != "active" {
+        return Err(verr(
+            "finding_participant_not_active",
+            "fresh Finding admission requires the exact participant lease to be active; no active/current claim is required",
         ));
     }
     let supersedes = match declaration.get("supersedes_ref") {
@@ -2330,11 +2337,11 @@ pub(crate) async fn handle_finding_create(
         .and_then(Value::as_str)
         .unwrap_or("")
         .to_string();
-    let dependencies = match resolve_finding_dependencies(&state.data_dir, &declaration, true, true)
-    {
-        Ok(value) => value,
-        Err(error) => return classify(error),
-    };
+    let dependencies =
+        match resolve_finding_dependencies(&state.data_dir, &declaration, true, true, true) {
+            Ok(value) => value,
+            Err(error) => return classify(error),
+        };
     let coordinates = match finding_coordinates(
         &dependencies.attempt,
         &dependencies.result,
@@ -2390,7 +2397,9 @@ pub(crate) async fn handle_finding_create(
     let _plane = ATTEMPT_FINDING_LOCK
         .lock()
         .unwrap_or_else(|p| p.into_inner());
-    if let Err(error) = resolve_finding_dependencies(&state.data_dir, &declaration, true, true) {
+    if let Err(error) =
+        resolve_finding_dependencies(&state.data_dir, &declaration, true, true, true)
+    {
         return classify(error);
     }
     let mut reserved = vec![
@@ -2524,10 +2533,11 @@ pub(crate) async fn handle_finding_transition(
     };
     let room_ref = s(&prior, "outcome_room_ref", "");
     let subject_ref = s(&prior, "finding_id", "");
-    let dependencies = match resolve_finding_dependencies(&state.data_dir, &prior, false, false) {
-        Ok(value) => value,
-        Err(error) => return classify(error),
-    };
+    let dependencies =
+        match resolve_finding_dependencies(&state.data_dir, &prior, false, false, false) {
+            Ok(value) => value,
+            Err(error) => return classify(error),
+        };
     let host = s(&dependencies.room, "host_domain_ref", "");
     if host.is_empty() {
         return classify(verr(
@@ -2587,7 +2597,8 @@ pub(crate) async fn handle_finding_transition(
             "Finding changed during authorization",
         ));
     }
-    if let Err(error) = resolve_finding_dependencies(&state.data_dir, &current, false, false) {
+    if let Err(error) = resolve_finding_dependencies(&state.data_dir, &current, false, false, false)
+    {
         return classify(error);
     }
     let attempt_ref = s(&current, "attempt_ref", "");
@@ -3394,6 +3405,7 @@ fn validate_replay_coordinates(data_dir: &str, intent: &Value) -> Result<(), VEr
         resolve_finding_dependencies(
             data_dir,
             finding,
+            kind == "finding_create",
             kind == "finding_create",
             kind == "finding_create",
         )?;

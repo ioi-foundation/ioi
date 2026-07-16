@@ -283,6 +283,15 @@ async function run() {
     });
     ok("FINDING: host admission is live while acceptance/verdict stays typed unavailable", findingAdmitted.response.status === 200 && findingAdmitted.response.body.finding?.status === "admitted" && unavailable.status === 501 && unavailable.body.error?.code === "finding_verdict_unavailable", `${findingAdmitted.response.status}/${unavailable.status}/${unavailable.body.error?.code}`);
 
+    const revokedFindingInput = findingBody(roomRef, attempt.attempt_id, workResult.work_result_id, lease.participant_lease_id, {
+      proposition: "A revoked participant must not be able to mint this fresh Finding.",
+      supporting_evidence_refs: ["evidence://post-revocation-attempt"],
+    });
+    const revokedFindingChallenge = await call("POST", "/v1/hypervisor/findings", revokedFindingInput);
+    const revokedFindingApproval = revokedFindingChallenge.body.error?.approval;
+    if (!revokedFindingApproval?.policy_hash || !revokedFindingApproval?.request_hash) throw new Error(`fresh Finding did not challenge while participant was active: ${JSON.stringify(revokedFindingChallenge)}`);
+    const revokedFindingGrant = resolver.mint(lease.participant_ref, revokedFindingApproval.policy_hash, revokedFindingApproval.request_hash);
+
     const attemptBytes = readFileSync(join(dataDir, "attempts", `${attemptTail}.json`), "utf8");
     const findingBytes = readFileSync(join(dataDir, "findings", `${findingTail}.json`), "utf8");
     await plane.stop();
@@ -301,24 +310,40 @@ async function run() {
       dataDir,
     });
     call = (method, path, body) => jsonCall(plane.daemonUrl, method, path, body);
-    const pendingArchive = await governed(call, resolver, "domain://acme-host", `/v1/hypervisor/findings/${findingTail}/transition`, {
-      transition: "archive", expected_revision: findingAdmitted.response.body.finding.revision,
+    const pendingSupersede = await governed(call, resolver, "domain://acme-host", `/v1/hypervisor/findings/${findingTail}/transition`, {
+      transition: "supersede", expected_revision: findingAdmitted.response.body.finding.revision,
     });
     const intentName = names(dataDir, "attempt-finding-intents")[0];
     const sealedIntent = intentName ? JSON.parse(readFileSync(join(dataDir, "attempt-finding-intents", intentName), "utf8")) : null;
     const participantTail = lease.participant_lease_id.replace("participant-lease://", "");
     const participantPath = join(dataDir, "room-participant-leases", `${participantTail}.json`);
     const participantBeforeReservation = readFileSync(participantPath, "utf8");
-    const liveParticipant = JSON.parse(participantBeforeReservation);
+    const activeParticipant = JSON.parse(participantBeforeReservation);
     const reservedSleep = await governed(call, resolver, lease.participant_ref, `/v1/hypervisor/room-participant-leases/${participantTail}/transition`, {
-      transition: "sleep", expected_revision: liveParticipant.revision,
+      transition: "sleep", expected_revision: activeParticipant.revision,
     });
-    ok("RESERVATION: pending Finding intent blocks participant mutation byte-stably", pendingArchive.response.status === 500 && reservedSleep.response.status === 409 && reservedSleep.response.body.error?.code === "participant_lease_mutation_in_flight" && readFileSync(participantPath, "utf8") === participantBeforeReservation, `${pendingArchive.response.status}/${reservedSleep.response.status}/${reservedSleep.response.body.error?.code}`);
+    ok("RESERVATION: pending Finding intent blocks participant mutation byte-stably", pendingSupersede.response.status === 500 && reservedSleep.response.status === 409 && reservedSleep.response.body.error?.code === "participant_lease_mutation_in_flight" && readFileSync(participantPath, "utf8") === participantBeforeReservation, `${pendingSupersede.response.status}/${reservedSleep.response.status}/${reservedSleep.response.body.error?.code}`);
     await plane.stop();
     plane = await startIsolatedPlane({ serve: false, env: resolver.env, dataDir });
     call = (method, path, body) => jsonCall(plane.daemonUrl, method, path, body);
-    const convergedArchive = await poll(call, `/v1/hypervisor/findings/${findingTail}`, (value) => value.status === 200 && value.body.finding?.status === "archived");
-    ok("DURABILITY: one restart reauthorizes and converges the sealed successor byte-exactly", convergedArchive.status === 200 && JSON.stringify(convergedArchive.body.finding) === JSON.stringify(sealedIntent?.final_finding) && names(dataDir, "attempt-finding-intents").length === 0);
+    const convergedSupersede = await poll(call, `/v1/hypervisor/findings/${findingTail}`, (value) => value.status === 200 && value.body.finding?.status === "superseded");
+    ok("DURABILITY: one restart reauthorizes and converges the sealed successor byte-exactly", convergedSupersede.status === 200 && JSON.stringify(convergedSupersede.body.finding) === JSON.stringify(sealedIntent?.final_finding) && names(dataDir, "attempt-finding-intents").length === 0);
+
+    const participantBeforeRevoke = (await call("GET", `/v1/hypervisor/room-participant-leases/${participantTail}`)).body.participant_lease;
+    const revoked = await governed(call, resolver, "domain://acme-host", `/v1/hypervisor/room-participant-leases/${participantTail}/transition`, {
+      transition: "revoke", expected_revision: participantBeforeRevoke.revision,
+    });
+    const findingsBeforeRevokedCreate = names(dataDir, "findings");
+    const receiptsBeforeRevokedCreate = names(dataDir, "attempt-finding-receipts");
+    const intentsBeforeRevokedCreate = names(dataDir, "attempt-finding-intents");
+    const revokedCreate = await call("POST", "/v1/hypervisor/findings", {
+      ...revokedFindingInput, wallet_approval_grant: revokedFindingGrant,
+    });
+    const revokedCreateZeroMutation = JSON.stringify(names(dataDir, "findings")) === JSON.stringify(findingsBeforeRevokedCreate) && JSON.stringify(names(dataDir, "attempt-finding-receipts")) === JSON.stringify(receiptsBeforeRevokedCreate) && JSON.stringify(names(dataDir, "attempt-finding-intents")) === JSON.stringify(intentsBeforeRevokedCreate);
+    const archivedAfterRevoke = await governed(call, resolver, "domain://acme-host", `/v1/hypervisor/findings/${findingTail}/transition`, {
+      transition: "archive", expected_revision: convergedSupersede.body.finding.revision,
+    });
+    ok("PARTICIPATION: signed fresh Finding refuses after revoke while historical host archive remains live", revoked.response.status === 200 && revoked.response.body.participant_lease?.status === "revoked" && revokedCreate.status === 409 && revokedCreate.body.error?.code === "finding_participant_not_active" && revokedCreateZeroMutation && archivedAfterRevoke.response.status === 200 && archivedAfterRevoke.response.body.finding?.status === "archived", `${revoked.response.status}/${revoked.response.body.participant_lease?.status}; ${revokedCreate.status}/${revokedCreate.body.error?.code}; archive=${archivedAfterRevoke.response.status}/${archivedAfterRevoke.response.body.finding?.status}`);
 
     ok("BOUNDARY: provenance admission grants no execution authority and historical claim release remains claim-owned", releasedBeforeFinding.response.body.work_claim?.status === "released" && admitted.response.body.attempt?.execution_authority_granted !== true);
 
