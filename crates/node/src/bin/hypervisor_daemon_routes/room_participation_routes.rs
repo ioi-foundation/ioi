@@ -4126,6 +4126,15 @@ pub(crate) async fn handle_participant_lease_transition(
     let gov = lease_op_gov(&transition);
     let room_ref = s(&prior, "outcome_room_ref", "");
     let subject_ref = s(&prior, "participant_lease_id", "");
+    if let Err(error) =
+        super::work_frontier_claim_routes::refuse_external_mutation_if_reserved(
+            &st.data_dir,
+            &subject_ref,
+            "participant_lease_mutation_in_flight",
+        )
+    {
+        return classify(error);
+    }
     let revision = prior.get("revision").and_then(Value::as_u64).unwrap_or(0);
     let required_authority = match gov {
         Gov::Host => match rooms::resolve_room_host(&st.data_dir, &room_ref) {
@@ -4170,6 +4179,15 @@ pub(crate) async fn handle_participant_lease_transition(
         None
     };
     let _guard = PARTICIPATION_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    if let Err(error) =
+        super::work_frontier_claim_routes::refuse_external_mutation_if_reserved(
+            &st.data_dir,
+            &subject_ref,
+            "participant_lease_mutation_in_flight",
+        )
+    {
+        return classify(error);
+    }
     if let Some(prepared) = prepared_claim {
         let plan = match plan_record_transition(
             &st.data_dir,

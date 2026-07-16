@@ -10,7 +10,7 @@
 //! files: it calls their owner seams while holding the fixed lock order
 //! participation -> frontier/claim -> room. All wallet awaits happen before synchronous locks.
 
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeSet, HashMap, HashSet};
 use std::sync::{Arc, Mutex, OnceLock};
 
 use axum::extract::{Path as AxumPath, Query, State};
@@ -723,6 +723,9 @@ fn scan_intents(data_dir: &str) -> Result<Vec<(String, Value)>, String> {
                 "canonical intent '{name}' fails storage-key or hash binding"
             ));
         }
+        validate_touched_refs(&intent).map_err(|message| {
+            format!("canonical intent '{name}' has an invalid mutation footprint ({message})")
+        })?;
         intents.push((tail.to_string(), intent));
     }
     Ok(intents)
@@ -736,13 +739,116 @@ fn without_field(value: &Value, field: &str) -> Value {
     clone
 }
 
+fn reconstructed_touched_refs(intent: &Value) -> Result<Vec<String>, String> {
+    let kind = intent
+        .get("kind")
+        .and_then(Value::as_str)
+        .ok_or_else(|| "intent lacks kind while reconstructing touched refs".to_string())?;
+    let mut touched = BTreeSet::new();
+    if let Some(final_claim) = intent.get("final_claim").filter(|value| !value.is_null()) {
+        let claim_ref = final_claim
+            .get("work_claim_id")
+            .and_then(Value::as_str)
+            .ok_or_else(|| {
+                "final claim lacks work_claim_id while reconstructing touched refs".to_string()
+            })?;
+        if !canonical_claim_ref(claim_ref) {
+            return Err("final claim contributes a noncanonical touched ref".into());
+        }
+        touched.insert(claim_ref.to_string());
+    }
+    if let Some(final_frontier) = intent
+        .get("final_frontier")
+        .filter(|value| !value.is_null())
+    {
+        let frontier_ref = final_frontier
+            .get("frontier_item_id")
+            .and_then(Value::as_str)
+            .ok_or_else(|| {
+                "final frontier lacks frontier_item_id while reconstructing touched refs"
+                    .to_string()
+            })?;
+        if !canonical_frontier_ref(frontier_ref) {
+            return Err("final frontier contributes a noncanonical touched ref".into());
+        }
+        touched.insert(frontier_ref.to_string());
+    }
+    if intent
+        .get("final_participant")
+        .is_some_and(|value| !value.is_null())
+    {
+        let participant_ref = intent
+            .get("participant_ref")
+            .and_then(Value::as_str)
+            .ok_or_else(|| {
+                "participant successor lacks participant_ref while reconstructing touched refs"
+                    .to_string()
+            })?;
+        if !participant_ref
+            .strip_prefix("participant-lease://rpl_")
+            .is_some_and(|tail| {
+                !tail.is_empty()
+                    && tail.chars().all(|character| {
+                        character.is_ascii_digit() || matches!(character, 'a'..='f')
+                    })
+            })
+        {
+            return Err("participant successor contributes a noncanonical touched ref".into());
+        }
+        touched.insert(participant_ref.to_string());
+    }
+    if kind == "frontier_create"
+        || intent
+            .get("release_terminal_room_slot")
+            .and_then(Value::as_bool)
+            == Some(true)
+    {
+        let room_ref = intent
+            .get("room_ref")
+            .and_then(Value::as_str)
+            .ok_or_else(|| {
+                "room mutation lacks room_ref while reconstructing touched refs".to_string()
+            })?;
+        if !ref_ok(room_ref, &["outcome-room"]) {
+            return Err("room mutation contributes a noncanonical touched ref".into());
+        }
+        touched.insert(room_ref.to_string());
+    }
+    if touched.is_empty() {
+        return Err("intent reconstructs an empty touched_refs set".into());
+    }
+    Ok(touched.into_iter().collect())
+}
+
+fn validate_touched_refs(intent: &Value) -> Result<(), String> {
+    let sealed = intent
+        .get("touched_refs")
+        .and_then(Value::as_array)
+        .ok_or_else(|| "intent lacks canonical touched_refs".to_string())?;
+    let sealed: Option<Vec<String>> = sealed
+        .iter()
+        .map(|value| value.as_str().map(str::to_string))
+        .collect();
+    let sealed = sealed.ok_or_else(|| "intent touched_refs contains a non-string".to_string())?;
+    let reconstructed = reconstructed_touched_refs(intent)?;
+    if sealed != reconstructed {
+        return Err(
+            "intent touched_refs does not equal its reconstructed mutation footprint".into(),
+        );
+    }
+    Ok(())
+}
+
 fn seal_intent(mut intent: Value, tail: &str) -> Value {
+    let touched_refs = reconstructed_touched_refs(&intent)
+        .expect("frontier/claim intent builder must produce a canonical mutation footprint");
     let object = intent.as_object_mut().expect("intent object");
     object.insert("schema_version".into(), json!(INTENT_SCHEMA));
     object.insert(
         "intent_id".into(),
         json!(format!("work-frontier-claim-intent://{tail}")),
     );
+    object.insert("touched_refs".into(), json!(touched_refs));
     let hash = record_output_hash(&intent, &[]);
     intent
         .as_object_mut()
@@ -1466,6 +1572,7 @@ fn validate_intent_coordinates(intent: &Value, tail: &str) -> Result<(), String>
     {
         return Err("intent fails canonical storage-key or content-hash binding".into());
     }
+    validate_touched_refs(intent)?;
     let room_ref = intent
         .get("room_ref")
         .and_then(Value::as_str)
@@ -2129,11 +2236,12 @@ fn complete_intent_locked(data_dir: &str, tail: &str, intent: &Value) -> Result<
     if kind == "frontier_create" {
         let room_ref = intent_string(intent, "room_ref")?;
         let subject_ref = intent_string(intent, "subject_ref")?;
-        match rooms::bind_room_backlink_room_locked(
+        match rooms::bind_room_backlink_room_locked_for_work_intent(
             data_dir,
             room_ref,
             "frontier_item_bound",
             subject_ref,
+            tail,
         ) {
             Ok(_) => {}
             Err((code, _)) if code == "outcome_room_backlink_already_bound" => {}
@@ -2236,11 +2344,12 @@ fn complete_intent_locked(data_dir: &str, tail: &str, intent: &Value) -> Result<
                 "terminal room release requires a terminal participant with no current claim",
             ));
         }
-        match rooms::bind_room_backlink_room_locked(
+        match rooms::bind_room_backlink_room_locked_for_work_intent(
             data_dir,
             intent_string(intent, "room_ref")?,
             "participant_lease_released",
             participant_ref,
+            tail,
         ) {
             Ok(_) => {}
             Err((code, _)) if code == "outcome_room_backlink_already_bound" => {}
@@ -2284,11 +2393,72 @@ fn persist_and_complete_intent_locked(
     })
 }
 
-fn intent_reserves_subject(data_dir: &str, subject_ref: &str) -> Result<bool, VErr> {
-    Ok(scan_intents(data_dir)
+fn pending_intent_overlap(
+    data_dir: &str,
+    refs: &[&str],
+    ignored_intent_tail: Option<&str>,
+) -> Result<Option<(String, String)>, VErr> {
+    let refs: HashSet<&str> = refs.iter().copied().collect();
+    for (tail, intent) in scan_intents(data_dir)
         .map_err(|message| verr("work_frontier_claim_intent_unreadable", message))?
-        .iter()
-        .any(|(_, intent)| intent.get("subject_ref").and_then(Value::as_str) == Some(subject_ref)))
+    {
+        if ignored_intent_tail == Some(tail.as_str()) {
+            continue;
+        }
+        let touched = intent
+            .get("touched_refs")
+            .and_then(Value::as_array)
+            .ok_or_else(|| {
+                verr(
+                    "work_frontier_claim_intent_unreadable",
+                    format!("intent '{tail}' lacks reconstructed touched_refs"),
+                )
+            })?;
+        if let Some(overlap) = touched
+            .iter()
+            .filter_map(Value::as_str)
+            .find(|reference| refs.contains(reference))
+        {
+            return Ok(Some((tail, overlap.to_string())));
+        }
+    }
+    Ok(None)
+}
+
+fn refuse_mutations_if_reserved(
+    data_dir: &str,
+    refs: &[&str],
+    code: &str,
+    ignored_intent_tail: Option<&str>,
+) -> Result<(), VErr> {
+    if let Some((tail, overlap)) = pending_intent_overlap(data_dir, refs, ignored_intent_tail)? {
+        return Err(verr(
+            code,
+            format!("record '{overlap}' is reserved by pending frontier/claim intent '{tail}'"),
+        ));
+    }
+    Ok(())
+}
+
+/// Cross-plane owner seam. Callers hold their owner lock; work-intent creation cannot race the
+/// check because it must acquire that owner lock before making its own intent durable.
+pub(crate) fn refuse_external_mutation_if_reserved(
+    data_dir: &str,
+    record_ref: &str,
+    code: &str,
+) -> Result<(), VErr> {
+    refuse_mutations_if_reserved(data_dir, &[record_ref], code, None)
+}
+
+/// Replay-only variant for an owner seam reached by the intent that reserved the record. Every
+/// other pending intent remains a conflict; callers cannot use this to bypass another intent.
+pub(crate) fn refuse_external_mutation_if_reserved_except(
+    data_dir: &str,
+    record_ref: &str,
+    code: &str,
+    ignored_intent_tail: &str,
+) -> Result<(), VErr> {
+    refuse_mutations_if_reserved(data_dir, &[record_ref], code, Some(ignored_intent_tail))
 }
 
 fn effective_live_claims(
@@ -2543,12 +2713,15 @@ pub(crate) async fn handle_frontier_create(
         Ok(record) => record.is_some(),
         Err(message) => return classify(verr("work_frontier_claim_registry_unreadable", message)),
     };
-    if frontier_occupied
-        || match intent_reserves_subject(&state.data_dir, &frontier_ref) {
-            Ok(reserved) => reserved,
-            Err(error) => return classify(error),
-        }
-    {
+    if let Err(error) = refuse_mutations_if_reserved(
+        &state.data_dir,
+        &[&frontier_ref, &room_ref],
+        "work_frontier_claim_mutation_in_flight",
+        None,
+    ) {
+        return classify(error);
+    }
+    if frontier_occupied {
         return classify(verr(
             "work_frontier_claim_conflict",
             format!("frontier declaration already exists as '{frontier_ref}'"),
@@ -2752,14 +2925,13 @@ pub(crate) async fn handle_frontier_transition(
     ) {
         return classify(error);
     }
-    if match intent_reserves_subject(&state.data_dir, &subject_ref) {
-        Ok(value) => value,
-        Err(error) => return classify(error),
-    } {
-        return classify(verr(
-            "work_frontier_claim_mutation_in_flight",
-            "frontier item has a pending durable intent",
-        ));
+    if let Err(error) = refuse_mutations_if_reserved(
+        &state.data_dir,
+        &[&subject_ref],
+        "work_frontier_claim_mutation_in_flight",
+        None,
+    ) {
+        return classify(error);
     }
     let live = match effective_live_claims(&state.data_dir, Some(&subject_ref), None) {
         Ok(claims) => claims,
@@ -2981,6 +3153,14 @@ pub(crate) async fn handle_claim_acquire(
             "frontier claimability, policy, or dependency control changed during authorization",
         ));
     }
+    if let Err(error) = refuse_mutations_if_reserved(
+        &state.data_dir,
+        &[&claim_ref, &frontier_ref, &participant_ref],
+        "work_frontier_claim_mutation_in_flight",
+        None,
+    ) {
+        return classify(error);
+    }
     if let Err(error) = require_claim_eligibility_provable(&current_frontier) {
         return classify(error);
     }
@@ -3044,11 +3224,7 @@ pub(crate) async fn handle_claim_acquire(
         Ok(record) => record.is_some(),
         Err(message) => return classify(verr("work_frontier_claim_registry_unreadable", message)),
     };
-    if match intent_reserves_subject(&state.data_dir, &claim_ref) {
-        Ok(value) => value,
-        Err(error) => return classify(error),
-    } || claim_occupied
-    {
+    if claim_occupied {
         return classify(verr(
             "work_claim_conflict",
             format!("claim '{claim_ref}' already exists"),
@@ -3437,12 +3613,6 @@ pub(crate) fn build_participant_terminal_claim_intent_locked(
         .get("revision")
         .and_then(Value::as_u64)
         .unwrap_or(0);
-    if intent_reserves_subject(data_dir, &claim_ref)? {
-        return Err(verr(
-            "work_frontier_claim_mutation_in_flight",
-            "current claim already has a pending durable transaction",
-        ));
-    }
     let current_claim = load_claim(data_dir, &claim_ref)
         .map_err(|message| verr("work_frontier_claim_registry_unreadable", message))?
         .ok_or_else(|| {
@@ -3475,6 +3645,23 @@ pub(crate) fn build_participant_terminal_claim_intent_locked(
         ));
     }
     let frontier_ref = s(&current_claim, "frontier_item_ref", "");
+    let mut mutation_refs = vec![
+        claim_ref.as_str(),
+        frontier_ref.as_str(),
+        prepared.participant_ref.as_str(),
+    ];
+    if matches!(
+        s(terminal_participant, "status", "").as_str(),
+        "retired" | "revoked"
+    ) {
+        mutation_refs.push(prepared.room_ref.as_str());
+    }
+    refuse_mutations_if_reserved(
+        data_dir,
+        &mutation_refs,
+        "work_frontier_claim_mutation_in_flight",
+        None,
+    )?;
     let current_frontier = load_frontier(data_dir, &frontier_ref)
         .map_err(|message| verr("work_frontier_claim_registry_unreadable", message))?
         .ok_or_else(|| {
@@ -3749,14 +3936,19 @@ pub(crate) async fn handle_claim_transition(
     ) {
         return classify(error);
     }
-    if match intent_reserves_subject(&state.data_dir, &claim_ref) {
-        Ok(value) => value,
-        Err(error) => return classify(error),
-    } {
-        return classify(verr(
-            "work_frontier_claim_mutation_in_flight",
-            "claim has a pending durable intent",
-        ));
+    let frontier_ref = s(&current_claim, "frontier_item_ref", "");
+    let mut mutation_refs = vec![claim_ref.as_str()];
+    if releases_binding {
+        mutation_refs.push(frontier_ref.as_str());
+        mutation_refs.push(participant_ref.as_str());
+    }
+    if let Err(error) = refuse_mutations_if_reserved(
+        &state.data_dir,
+        &mutation_refs,
+        "work_frontier_claim_mutation_in_flight",
+        None,
+    ) {
+        return classify(error);
     }
     if governance == Governance::Participant
         && op != "release"
@@ -3773,7 +3965,6 @@ pub(crate) async fn handle_claim_transition(
             "wallet.network committed time has not reached claim expiry",
         ));
     }
-    let frontier_ref = s(&current_claim, "frontier_item_ref", "");
     let current_frontier = match load_frontier(&state.data_dir, &frontier_ref) {
         Ok(Some(record)) => record,
         Ok(None) => {
@@ -4424,6 +4615,34 @@ mod frontier_claim_tests {
     fn frontier_create_intent_reconstructs_and_coupled_tamper_refuses() {
         let (tail, intent, _) = sealed_frontier_create("outcome-room://or_ab", 1_800_000_000_000);
         validate_sealed_intent(&intent, &tail).unwrap();
+        assert_eq!(
+            intent["touched_refs"],
+            json!([
+                intent["subject_ref"].as_str().unwrap(),
+                "outcome-room://or_ab",
+            ])
+        );
+        let directory = temp_dir("room-reservation");
+        let data_dir = directory.to_str().unwrap();
+        persist_record(data_dir, INTENT_DIR, &tail, &intent).unwrap();
+        assert_eq!(
+            refuse_external_mutation_if_reserved(
+                data_dir,
+                "outcome-room://or_ab",
+                "outcome_room_mutation_in_flight",
+            )
+            .unwrap_err()
+            .0,
+            "outcome_room_mutation_in_flight"
+        );
+        refuse_external_mutation_if_reserved_except(
+            data_dir,
+            "outcome-room://or_ab",
+            "outcome_room_mutation_in_flight",
+            &tail,
+        )
+        .unwrap();
+        std::fs::remove_dir_all(directory).unwrap();
 
         let mut tampered = intent.clone();
         tampered["final_frontier"]["objective"] = json!("scope escalated after sealing");
@@ -4432,6 +4651,14 @@ mod frontier_claim_tests {
             &[]
         ));
         assert!(validate_sealed_intent(&tampered, &tail).is_err());
+
+        let mut footprint_tampered = intent;
+        footprint_tampered["touched_refs"] = json!(["outcome-room://or_ab"]);
+        footprint_tampered["intent_hash"] = json!(record_output_hash(
+            &without_field(&footprint_tampered, "intent_hash"),
+            &[]
+        ));
+        assert!(validate_sealed_intent(&footprint_tampered, &tail).is_err());
     }
 
     #[test]
@@ -4562,6 +4789,33 @@ mod frontier_claim_tests {
             &intent_tail,
         );
         validate_sealed_intent(&acquire_intent, &intent_tail).unwrap();
+        assert_eq!(
+            acquire_intent["touched_refs"],
+            json!([
+                frontier_ref,
+                participant["participant_lease_id"].as_str().unwrap(),
+                claim_ref,
+            ])
+        );
+        let directory = temp_dir("aggregate-reservations");
+        let data_dir = directory.to_str().unwrap();
+        persist_record(data_dir, INTENT_DIR, &intent_tail, &acquire_intent).unwrap();
+        for reserved_ref in acquire_intent["touched_refs"].as_array().unwrap() {
+            assert!(
+                pending_intent_overlap(data_dir, &[reserved_ref.as_str().unwrap()], None)
+                    .unwrap()
+                    .is_some()
+            );
+        }
+        assert!(pending_intent_overlap(data_dir, &[room], None)
+            .unwrap()
+            .is_none());
+        assert!(
+            pending_intent_overlap(data_dir, &[&claim_ref], Some(&intent_tail))
+                .unwrap()
+                .is_none()
+        );
+        std::fs::remove_dir_all(directory).unwrap();
         assert_eq!(claimed["status"], json!("claimed"));
         assert_eq!(claimed["active_claim_refs"].as_array().unwrap().len(), 1);
         let completed =

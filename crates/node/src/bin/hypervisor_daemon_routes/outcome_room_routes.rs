@@ -1623,6 +1623,11 @@ fn mutate_room(
     mutate: impl FnOnce(&mut Value) -> Result<Value, VErr>, // returns bound facts
 ) -> Result<(Value, Value), VErr> {
     let room_id = format!("outcome-room://{room_tail}");
+    super::work_frontier_claim_routes::refuse_external_mutation_if_reserved(
+        data_dir,
+        &room_id,
+        "outcome_room_mutation_in_flight",
+    )?;
     let Some(prior) = load_room(data_dir, &room_id) else {
         return Err(verr("outcome_room_not_found", format!("no admitted room '{room_id}'")));
     };
@@ -1686,6 +1691,49 @@ pub(crate) fn bind_room_backlink_room_locked(
     op: &str,
     bound_ref: &str,
 ) -> Result<(Value, Value), VErr> {
+    bind_room_backlink_room_locked_impl(data_dir, room_ref, op, bound_ref, None)
+}
+
+/// Work-intent replay reaches the room owner seam while its own room reservation is necessarily
+/// still durable. Ignore only that sealed intent; a different overlapping intent still refuses.
+pub(crate) fn bind_room_backlink_room_locked_for_work_intent(
+    data_dir: &str,
+    room_ref: &str,
+    op: &str,
+    bound_ref: &str,
+    intent_tail: &str,
+) -> Result<(Value, Value), VErr> {
+    bind_room_backlink_room_locked_impl(
+        data_dir,
+        room_ref,
+        op,
+        bound_ref,
+        Some(intent_tail),
+    )
+}
+
+fn bind_room_backlink_room_locked_impl(
+    data_dir: &str,
+    room_ref: &str,
+    op: &str,
+    bound_ref: &str,
+    ignored_work_intent_tail: Option<&str>,
+) -> Result<(Value, Value), VErr> {
+    match ignored_work_intent_tail {
+        Some(intent_tail) => {
+            super::work_frontier_claim_routes::refuse_external_mutation_if_reserved_except(
+                data_dir,
+                room_ref,
+                "outcome_room_mutation_in_flight",
+                intent_tail,
+            )?
+        }
+        None => super::work_frontier_claim_routes::refuse_external_mutation_if_reserved(
+            data_dir,
+            room_ref,
+            "outcome_room_mutation_in_flight",
+        )?,
+    }
     let Some((_, field, scheme)) = BACKLINK_OPS.iter().find(|(o, _, _)| *o == op) else {
         return Err(verr("outcome_room_backlink_op_invalid", format!("unknown backlink op '{op}'")));
     };
@@ -1838,7 +1886,7 @@ pub(crate) async fn handle_outcome_room_transition(
         Ok((room, receipt)) => (StatusCode::OK, Json(json!({ "outcome_room": room, "outcome_room_receipt": receipt }))),
         Err(e) if e.0 == "outcome_room_not_found" => err(StatusCode::NOT_FOUND, e),
         Err(e) if e.0 == "outcome_room_revision_conflict" || e.0.ends_with("_in_flight") || e.0 == "outcome_room_close_blocked_frontier_claims" => err(StatusCode::CONFLICT, e),
-        Err(e) if e.0.ends_with("_persist_failed") || e.0.ends_with("_pending_convergence") || e.0.ends_with("_durability_unconfirmed") || e.0 == "outcome_room_rollback_failed" => err(StatusCode::INTERNAL_SERVER_ERROR, e),
+        Err(e) if e.0.ends_with("_persist_failed") || e.0.ends_with("_pending_convergence") || e.0.ends_with("_durability_unconfirmed") || e.0.ends_with("_unreadable") || e.0 == "outcome_room_rollback_failed" => err(StatusCode::INTERNAL_SERVER_ERROR, e),
         Err(e) => err(StatusCode::BAD_REQUEST, e),
     }
 }
@@ -1867,6 +1915,20 @@ pub(crate) async fn handle_outcome_room_attach_goal_run(
     let room_id = format!("outcome-room://{id}");
     // ROOM-SCOPE critical section: resolution through finalization under the one room lock.
     let _guard = ROOM_MUTATION_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    if let Err(error) =
+        super::work_frontier_claim_routes::refuse_external_mutation_if_reserved(
+            &st.data_dir,
+            &room_id,
+            "outcome_room_mutation_in_flight",
+        )
+    {
+        let status = if error.0.contains("unreadable") {
+            StatusCode::INTERNAL_SERVER_ERROR
+        } else {
+            StatusCode::CONFLICT
+        };
+        return err(status, error);
+    }
     let Some(prior_run) = read_record_dir(&st.data_dir, GOAL_RUN_DIR)
         .into_iter()
         .find(|r| r.get("goal_run_id").and_then(|v| v.as_str()) == Some(run_file_id.as_str())) else {
