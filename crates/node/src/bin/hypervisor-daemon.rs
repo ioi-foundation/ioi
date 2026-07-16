@@ -52,6 +52,8 @@ mod governed_authority;
 mod work_frontier_claim_routes;
 #[path = "hypervisor_daemon_routes/resource_capability_offer_routes.rs"]
 mod resource_capability_offer_routes;
+#[path = "hypervisor_daemon_routes/attempt_finding_routes.rs"]
+mod attempt_finding_routes;
 #[path = "hypervisor_daemon_routes/wallet_network_capability_client.rs"]
 mod wallet_network_capability_client;
 #[path = "hypervisor_daemon_routes/goalrun_routes.rs"]
@@ -2075,6 +2077,40 @@ async fn async_main() -> anyhow::Result<()> {
             axum::routing::get(resource_capability_offer_routes::handle_match_get),
         )
         .route(
+            "/v1/hypervisor/attempts",
+            axum::routing::get(attempt_finding_routes::handle_attempt_list)
+                .post(attempt_finding_routes::handle_attempt_create),
+        )
+        .route(
+            "/v1/hypervisor/attempts/overview",
+            axum::routing::get(attempt_finding_routes::handle_attempt_overview),
+        )
+        .route(
+            "/v1/hypervisor/attempts/:id",
+            axum::routing::get(attempt_finding_routes::handle_attempt_get),
+        )
+        .route(
+            "/v1/hypervisor/attempts/:id/transition",
+            axum::routing::post(attempt_finding_routes::handle_attempt_transition),
+        )
+        .route(
+            "/v1/hypervisor/findings",
+            axum::routing::get(attempt_finding_routes::handle_finding_list)
+                .post(attempt_finding_routes::handle_finding_create),
+        )
+        .route(
+            "/v1/hypervisor/findings/overview",
+            axum::routing::get(attempt_finding_routes::handle_finding_overview),
+        )
+        .route(
+            "/v1/hypervisor/findings/:id",
+            axum::routing::get(attempt_finding_routes::handle_finding_get),
+        )
+        .route(
+            "/v1/hypervisor/findings/:id/transition",
+            axum::routing::post(attempt_finding_routes::handle_finding_transition),
+        )
+        .route(
             "/v1/hypervisor/placement/resolve",
             post(orchestration_routes::handle_placement_resolve),
         )
@@ -2984,6 +3020,10 @@ async fn async_main() -> anyhow::Result<()> {
                         governed_max_intents,
                     ),
                     resource_capability_offer_routes::complete_governed_offer_intents(
+                        &governed_data_dir,
+                        governed_max_intents,
+                    ),
+                    attempt_finding_routes::complete_governed_attempt_finding_intents(
                         &governed_data_dir,
                         governed_max_intents,
                     ),
