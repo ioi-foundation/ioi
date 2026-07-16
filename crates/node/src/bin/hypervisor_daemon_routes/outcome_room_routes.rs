@@ -83,6 +83,8 @@ const BACKLINK_OPS: &[(&str, &str, &str)] = &[
     ("participant_lease_bound", "participant_lease_refs", "participant-lease"),
     ("participant_lease_released", "released_participant_lease_refs", "participant-lease"),
     ("frontier_item_bound", "frontier_item_refs", "frontier"),
+    ("resource_offer_bound", "resource_offer_refs", "resource-offer"),
+    ("capability_offer_bound", "capability_offer_refs", "capability-offer"),
 ];
 const BACKLINK_NOTE: &str = "an admitted backlink transition — the room's object list gains one canonical ref; the object record itself is its own plane's truth";
 
@@ -96,6 +98,16 @@ fn backlink_ref_ok(value: &str, scheme: &str) -> bool {
                         .chars()
                         .all(|c| c.is_ascii_digit() || matches!(c, 'a'..='f'))
             });
+    }
+    if scheme == "resource-offer" {
+        return value
+            .strip_prefix("resource-offer://rof_")
+            .is_some_and(|tail| tail.len() == 64 && tail.chars().all(|c| c.is_ascii_digit() || matches!(c, 'a'..='f')));
+    }
+    if scheme == "capability-offer" {
+        return value
+            .strip_prefix("capability-offer://cof_")
+            .is_some_and(|tail| tail.len() == 64 && tail.chars().all(|c| c.is_ascii_digit() || matches!(c, 'a'..='f')));
     }
     ref_scheme_ok(value, &[scheme])
 }
@@ -371,7 +383,7 @@ const ROOM_PLANE_OWNED_FIELDS: &[&str] = &[
     "schema_version", "runtimeTruthSource", "outcome_room_id", "created_at", "updated_at",
     "status", "revision", "status_history", "admission_receipt_ref", "admission_and_replay_refs",
     "member_goal_run_refs", "participant_lease_refs", "participation_request_refs",
-    "frontier_item_refs", "attempt_refs", "finding_refs", "verifier_challenge_refs",
+    "resource_offer_refs", "capability_offer_refs", "frontier_item_refs", "attempt_refs", "finding_refs", "verifier_challenge_refs",
     "discussion_projection_refs", "contribution_refs", "participant_state_bundle_refs",
 ];
 
@@ -1429,6 +1441,8 @@ fn validate_room_create(body: &Value) -> Result<Value, VErr> {
         ("participant_lease_refs", "outcome_room_participants_unavailable", "RoomParticipantLease is build step 3"),
         ("participation_request_refs", "outcome_room_participation_unavailable", "RoomParticipationRequest is build step 3"),
         ("frontier_item_refs", "outcome_room_frontier_unavailable", "WorkFrontierItem is build step 3"),
+        ("resource_offer_refs", "outcome_room_resource_offers_plane_owned", "ResourceOffer backlinks are admitted by their owning plane"),
+        ("capability_offer_refs", "outcome_room_capability_offers_plane_owned", "CapabilityOffer backlinks are admitted by their owning plane"),
         ("attempt_refs", "outcome_room_attempts_unavailable", "the Attempt plane is build step 3"),
         ("finding_refs", "outcome_room_findings_unavailable", "the Finding plane is build step 3"),
         ("verifier_challenge_refs", "outcome_room_challenges_unavailable", "the VerifierChallenge plane is build step 3"),
@@ -1486,6 +1500,8 @@ fn validate_room_create(body: &Value) -> Result<Value, VErr> {
         "participant_lease_refs": [],
         "released_participant_lease_refs": [],
         "participation_request_refs": [],
+        "resource_offer_refs": [],
+        "capability_offer_refs": [],
         "frontier_item_refs": [],
         "attempt_refs": [],
         "finding_refs": [],
@@ -1691,7 +1707,7 @@ pub(crate) fn bind_room_backlink_room_locked(
     op: &str,
     bound_ref: &str,
 ) -> Result<(Value, Value), VErr> {
-    bind_room_backlink_room_locked_impl(data_dir, room_ref, op, bound_ref, None)
+    bind_room_backlink_room_locked_impl(data_dir, room_ref, op, bound_ref, None, None)
 }
 
 /// Work-intent replay reaches the room owner seam while its own room reservation is necessarily
@@ -1709,6 +1725,25 @@ pub(crate) fn bind_room_backlink_room_locked_for_work_intent(
         op,
         bound_ref,
         Some(intent_tail),
+        None,
+    )
+}
+
+/// Offer-intent replay reaches the room owner seam while its own room reservation is durable.
+pub(crate) fn bind_room_backlink_room_locked_for_offer_intent(
+    data_dir: &str,
+    room_ref: &str,
+    op: &str,
+    bound_ref: &str,
+    intent_tail: &str,
+) -> Result<(Value, Value), VErr> {
+    bind_room_backlink_room_locked_impl(
+        data_dir,
+        room_ref,
+        op,
+        bound_ref,
+        None,
+        Some(intent_tail),
     )
 }
 
@@ -1718,9 +1753,10 @@ fn bind_room_backlink_room_locked_impl(
     op: &str,
     bound_ref: &str,
     ignored_work_intent_tail: Option<&str>,
+    ignored_offer_intent_tail: Option<&str>,
 ) -> Result<(Value, Value), VErr> {
-    match ignored_work_intent_tail {
-        Some(intent_tail) => {
+    match (ignored_work_intent_tail, ignored_offer_intent_tail) {
+        (Some(intent_tail), _) => {
             super::work_frontier_claim_routes::refuse_external_mutation_if_reserved_except(
                 data_dir,
                 room_ref,
@@ -1728,7 +1764,27 @@ fn bind_room_backlink_room_locked_impl(
                 intent_tail,
             )?
         }
-        None => super::work_frontier_claim_routes::refuse_external_mutation_if_reserved(
+        (None, Some(_)) => super::work_frontier_claim_routes::refuse_external_mutation_if_work_reserved(
+            data_dir,
+            room_ref,
+            "outcome_room_mutation_in_flight",
+        )?,
+        (None, None) => super::work_frontier_claim_routes::refuse_external_mutation_if_reserved(
+            data_dir,
+            room_ref,
+            "outcome_room_mutation_in_flight",
+        )?,
+    }
+    match ignored_offer_intent_tail {
+        Some(intent_tail) => {
+            super::resource_capability_offer_routes::refuse_external_mutation_if_reserved_except(
+                data_dir,
+                room_ref,
+                "outcome_room_mutation_in_flight",
+                intent_tail,
+            )?
+        }
+        None => super::resource_capability_offer_routes::refuse_external_mutation_if_reserved(
             data_dir,
             room_ref,
             "outcome_room_mutation_in_flight",
@@ -1835,6 +1891,15 @@ pub(crate) async fn handle_outcome_room_transition(
     // Fixed cross-plane order for terminal room lifecycle: frontier/claim -> room. The new plane
     // never writes this room file; this owner route asks its read-only blocker seam while both
     // aggregates are serialized.
+    let _offer_guard = if matches!(transition.as_str(), "close" | "archive") {
+        Some(
+            super::resource_capability_offer_routes::OFFER_MATCH_LOCK
+                .lock()
+                .unwrap_or_else(|poisoned| poisoned.into_inner()),
+        )
+    } else {
+        None
+    };
     let _frontier_guard = if matches!(transition.as_str(), "close" | "archive") {
         Some(
             super::work_frontier_claim_routes::FRONTIER_CLAIM_LOCK
@@ -1846,6 +1911,19 @@ pub(crate) async fn handle_outcome_room_transition(
     };
     let _guard = ROOM_MUTATION_LOCK.lock().unwrap_or_else(|p| p.into_inner());
     if matches!(transition.as_str(), "close" | "archive") {
+        if let Err(error) = super::resource_capability_offer_routes::refuse_room_close_if_blocked_locked(
+            &st.data_dir,
+            &format!("outcome-room://{id}"),
+        ) {
+            let status = if error.0.contains("registry_unreadable")
+                || error.0.contains("intent_unreadable")
+            {
+                StatusCode::INTERNAL_SERVER_ERROR
+            } else {
+                StatusCode::CONFLICT
+            };
+            return err(status, error);
+        }
         if let Err(error) = super::work_frontier_claim_routes::refuse_room_close_if_blocked_locked(
             &st.data_dir,
             &format!("outcome-room://{id}"),
@@ -1885,7 +1963,7 @@ pub(crate) async fn handle_outcome_room_transition(
     match result {
         Ok((room, receipt)) => (StatusCode::OK, Json(json!({ "outcome_room": room, "outcome_room_receipt": receipt }))),
         Err(e) if e.0 == "outcome_room_not_found" => err(StatusCode::NOT_FOUND, e),
-        Err(e) if e.0 == "outcome_room_revision_conflict" || e.0.ends_with("_in_flight") || e.0 == "outcome_room_close_blocked_frontier_claims" => err(StatusCode::CONFLICT, e),
+        Err(e) if e.0 == "outcome_room_revision_conflict" || e.0.ends_with("_in_flight") || e.0 == "outcome_room_close_blocked_frontier_claims" || e.0 == "outcome_room_close_blocked_offers" => err(StatusCode::CONFLICT, e),
         Err(e) if e.0.ends_with("_persist_failed") || e.0.ends_with("_pending_convergence") || e.0.ends_with("_durability_unconfirmed") || e.0.ends_with("_unreadable") || e.0 == "outcome_room_rollback_failed" => err(StatusCode::INTERNAL_SERVER_ERROR, e),
         Err(e) => err(StatusCode::BAD_REQUEST, e),
     }

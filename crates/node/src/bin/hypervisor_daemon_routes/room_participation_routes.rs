@@ -3014,6 +3014,9 @@ async fn complete_live_transition_intent(
         return Err("transition slot changed after authority re-resolution".into());
     }
     if let Some((work_tail, work_intent)) = coupled_work {
+        let _offer_guard = super::resource_capability_offer_routes::OFFER_MATCH_LOCK
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
         let _frontier_guard = super::work_frontier_claim_routes::FRONTIER_CLAIM_LOCK
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner());

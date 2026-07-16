@@ -3,12 +3,15 @@
 //! `WorkFrontierItem` is the room's claimable shared-work graph. `WorkClaimLease` is a bounded,
 //! participant-owned lease on one item; it is not ambient authority and it never implies result
 //! acceptance. Hosted admission only: wallet.network authenticates each host/participant
-//! decision through the exact #74 CallService/TLS/root-proof boundary. Federated/AIIP admission,
-//! offers, attempts, findings, verifier acceptance, and reassignment remain typed unavailable.
+//! decision through the exact #74 CallService/TLS/root-proof boundary. Requirement-bearing claims
+//! consume exact ResourceOffer/CapabilityOffer eligibility receipts; those receipts confer neither
+//! allocation nor execution authority. Federated/AIIP admission, attempts, findings, verifier
+//! acceptance, and reassignment remain typed unavailable.
 //!
 //! Cross-plane ownership is strict. This module never writes OutcomeRoom or RoomParticipantLease
-//! files: it calls their owner seams while holding the fixed lock order
-//! participation -> frontier/claim -> room. All wallet awaits happen before synchronous locks.
+//! files: it calls their owner seams while holding the fixed lock order participation -> resource
+//! inventory -> offer/match -> frontier/claim -> room. All wallet awaits happen before synchronous
+//! locks.
 
 use std::collections::{BTreeSet, HashMap, HashSet};
 use std::sync::{Arc, Mutex, OnceLock};
@@ -132,8 +135,8 @@ const CLAIM_AUTHORITY: AuthorityContract = AuthorityContract {
     participant_label: "participant_claimant",
 };
 
-/// Fixed lock order: participation -> frontier/claim -> room. Public for the room close and
-/// participation terminal orchestration entrypoints; callers never await while holding it.
+/// Fixed lock order: participation -> resource inventory -> offer/match -> frontier/claim -> room.
+/// Public for the owner-plane orchestration entrypoints; callers never await while holding it.
 pub(crate) static FRONTIER_CLAIM_LOCK: Mutex<()> = Mutex::new(());
 static TEST_ACQUIRE_BARRIERS: OnceLock<
     tokio::sync::Mutex<HashMap<String, Arc<tokio::sync::Barrier>>>,
@@ -158,6 +161,7 @@ fn classify(error: VErr) -> (StatusCode, Json<Value>) {
     let status = if code.ends_with("_not_found") {
         StatusCode::NOT_FOUND
     } else if code.contains("stale_revision")
+        || code.contains("eligibility_stale")
         || code.contains("conflict")
         || code.contains("capacity")
         || code.contains("current_claim")
@@ -579,7 +583,22 @@ fn validate_record_identity(family: &str, tail: &str, record: &Value) -> Result<
             || !record
                 .get("claimant_ref")
                 .and_then(Value::as_str)
-                .is_some_and(|value| ref_ok(value, &["participant-lease"])))
+                .is_some_and(|value| ref_ok(value, &["participant-lease"]))
+            || record
+                .get("eligibility_match_receipt_ref")
+                .is_some_and(|value| {
+                    !value.is_null()
+                        && !value.as_str().is_some_and(|reference| {
+                            reference
+                                .strip_prefix("receipt://wem_")
+                                .is_some_and(|tail| {
+                                    tail.len() == 64
+                                        && tail.chars().all(|c| {
+                                            c.is_ascii_digit() || matches!(c, 'a'..='f')
+                                        })
+                                })
+                        })
+                }))
     {
         return Err(format!(
             "slot '{family}/{tail}' has malformed claim coordinates"
@@ -648,6 +667,13 @@ fn scan_records(
 fn load_frontier(data_dir: &str, id_or_tail: &str) -> Result<Option<Value>, String> {
     let tail = id_or_tail.strip_prefix("frontier://").unwrap_or(id_or_tail);
     load_record(data_dir, FRONTIER_DIR, tail, canonical_frontier_tail)
+}
+
+pub(crate) fn load_frontier_strict(
+    data_dir: &str,
+    id_or_tail: &str,
+) -> Result<Option<Value>, String> {
+    load_frontier(data_dir, id_or_tail)
 }
 
 fn load_claim(data_dir: &str, id_or_tail: &str) -> Result<Option<Value>, String> {
@@ -883,6 +909,7 @@ fn claim_declaration_from_record(record: &Value) -> Value {
         "outcome_room_ref": record.get("outcome_room_ref").cloned().unwrap_or(Value::Null),
         "frontier_item_ref": record.get("frontier_item_ref").cloned().unwrap_or(Value::Null),
         "claimant_ref": record.get("claimant_ref").cloned().unwrap_or(Value::Null),
+        "eligibility_match_receipt_ref": record.get("eligibility_match_receipt_ref").cloned().unwrap_or(Value::Null),
         "bounded_scope_ref": record.get("bounded_scope_ref").cloned().unwrap_or(Value::Null),
         "context_lease_refs": record.get("context_lease_refs").cloned().unwrap_or(Value::Null),
         "authority_resource_compute_data_budget_and_tool_lease_refs": record.get("authority_resource_compute_data_budget_and_tool_lease_refs").cloned().unwrap_or(Value::Null),
@@ -1104,6 +1131,7 @@ fn validate_claim_acquire(body: &Value) -> Result<Value, VErr> {
             "outcome_room_ref",
             "frontier_item_ref",
             "claimant_ref",
+            "eligibility_match_receipt_ref",
             "bounded_scope_ref",
             "context_lease_refs",
             "authority_resource_compute_data_budget_and_tool_lease_refs",
@@ -1137,6 +1165,7 @@ fn validate_claim_acquire(body: &Value) -> Result<Value, VErr> {
         "outcome_room_ref": required_ref(body, "outcome_room_ref", &["outcome-room"] )?,
         "frontier_item_ref": required_ref(body, "frontier_item_ref", &["frontier"] )?,
         "claimant_ref": required_ref(body, "claimant_ref", &["participant-lease"] )?,
+        "eligibility_match_receipt_ref": optional_ref(body, "eligibility_match_receipt_ref", &["receipt"] )?,
         "bounded_scope_ref": required_ref(body, "bounded_scope_ref", &["task", "task_brief", "policy"] )?,
         "context_lease_refs": ref_list(body, "context_lease_refs", &["context_lease"] )?,
         "authority_resource_compute_data_budget_and_tool_lease_refs": ref_list(body, "authority_resource_compute_data_budget_and_tool_lease_refs", &["grant", "resource-lease", "compute", "view", "budget", "tool-lease"] )?,
@@ -1210,6 +1239,7 @@ fn seal_claim(
         "outcome_room_ref": declaration.get("outcome_room_ref").cloned().unwrap_or(Value::Null),
         "frontier_item_ref": declaration.get("frontier_item_ref").cloned().unwrap_or(Value::Null),
         "claimant_ref": declaration.get("claimant_ref").cloned().unwrap_or(Value::Null),
+        "eligibility_match_receipt_ref": declaration.get("eligibility_match_receipt_ref").cloned().unwrap_or(Value::Null),
         "bounded_scope_ref": declaration.get("bounded_scope_ref").cloned().unwrap_or(Value::Null),
         "context_lease_refs": declaration.get("context_lease_refs").cloned().unwrap_or(json!([])),
         "authority_resource_compute_data_budget_and_tool_lease_refs": declaration.get("authority_resource_compute_data_budget_and_tool_lease_refs").cloned().unwrap_or(json!([])),
@@ -1317,7 +1347,7 @@ fn derive_frontier_status(active_count: usize, duplication_policy: &str) -> &'st
 /// Stable claim-admission control fingerprint. Concurrent claims may change only derived status,
 /// claim refs, history, revision, and timestamps; host lifecycle/policy/dependency changes alter
 /// this hash and make an already-authorized claim stale before mutation.
-fn frontier_claim_control_hash(frontier: &Value) -> String {
+pub(crate) fn frontier_claim_control_hash(frontier: &Value) -> String {
     let mut control = frontier.clone();
     if let Some(object) = control.as_object_mut() {
         if object
@@ -2146,34 +2176,6 @@ fn dependencies_ready(records: &[(String, Value)], frontier: &Value) -> Result<(
     Ok(())
 }
 
-fn require_claim_eligibility_provable(frontier: &Value) -> Result<(), VErr> {
-    let capability_requirements = frontier
-        .get("required_capability_refs")
-        .and_then(Value::as_array)
-        .ok_or_else(|| {
-            verr(
-                "work_frontier_claim_registry_unreadable",
-                "frontier required_capability_refs is not a canonical list",
-            )
-        })?;
-    let context_requirements = frontier
-        .get("required_context_resource_authority_and_evidence_refs")
-        .and_then(Value::as_array)
-        .ok_or_else(|| {
-            verr(
-                "work_frontier_claim_registry_unreadable",
-                "frontier required context/resource/authority/evidence refs are not a canonical list",
-            )
-        })?;
-    if !capability_requirements.is_empty() || !context_requirements.is_empty() {
-        return Err(verr(
-            "work_claim_eligibility_unavailable",
-            "frontier eligibility requirements cannot be proven until the offer/matching admission plane exists; caller-declared claim refs are not eligibility evidence",
-        ));
-    }
-    Ok(())
-}
-
 fn live_claim_status(status: &str) -> bool {
     matches!(status, "active" | "waiting")
 }
@@ -2437,6 +2439,13 @@ fn refuse_mutations_if_reserved(
             format!("record '{overlap}' is reserved by pending frontier/claim intent '{tail}'"),
         ));
     }
+    for reference in refs {
+        super::resource_capability_offer_routes::refuse_external_mutation_if_reserved(
+            data_dir,
+            reference,
+            code,
+        )?;
+    }
     Ok(())
 }
 
@@ -2448,6 +2457,23 @@ pub(crate) fn refuse_external_mutation_if_reserved(
     code: &str,
 ) -> Result<(), VErr> {
     refuse_mutations_if_reserved(data_dir, &[record_ref], code, None)
+}
+
+/// Room replay for a different plane can ignore that plane's own reservation while still
+/// refusing every pending frontier/claim intent. This helper deliberately does not inspect
+/// offer intents; the offer owner seam performs its exact self-intent exception separately.
+pub(crate) fn refuse_external_mutation_if_work_reserved(
+    data_dir: &str,
+    record_ref: &str,
+    code: &str,
+) -> Result<(), VErr> {
+    if let Some((tail, overlap)) = pending_intent_overlap(data_dir, &[record_ref], None)? {
+        return Err(verr(
+            code,
+            format!("record '{overlap}' is reserved by pending frontier/claim intent '{tail}'"),
+        ));
+    }
+    Ok(())
 }
 
 /// Replay-only variant for an owner seam reached by the intent that reserved the record. Every
@@ -2666,6 +2692,9 @@ pub(crate) async fn handle_frontier_create(
         Err(challenge) => return challenge,
     };
 
+    let _offer_guard = super::resource_capability_offer_routes::OFFER_MATCH_LOCK
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
     let _frontier_guard = FRONTIER_CLAIM_LOCK
         .lock()
         .unwrap_or_else(|poisoned| poisoned.into_inner());
@@ -2900,6 +2929,9 @@ pub(crate) async fn handle_frontier_transition(
         Ok(authorized) => authorized,
         Err(challenge) => return challenge,
     };
+    let _offer_guard = super::resource_capability_offer_routes::OFFER_MATCH_LOCK
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
     let _frontier_guard = FRONTIER_CLAIM_LOCK
         .lock()
         .unwrap_or_else(|poisoned| poisoned.into_inner());
@@ -3064,8 +3096,19 @@ pub(crate) async fn handle_claim_acquire(
             "participant already has a current claim",
         ));
     }
-    if let Err(error) = require_claim_eligibility_provable(&frontier) {
-        return classify(error);
+    let eligibility_receipt_ref = declaration
+        .get("eligibility_match_receipt_ref")
+        .and_then(Value::as_str);
+    if let Err(response) = super::resource_capability_offer_routes::reauthorize_eligibility_for_claim(
+        &state.data_dir,
+        eligibility_receipt_ref,
+        &frontier,
+        &participant,
+        &declaration,
+    )
+    .await
+    {
+        return response;
     }
     let participant_authority = s(&participant, "participant_ref", "");
     let claim_material = json!({
@@ -3101,6 +3144,12 @@ pub(crate) async fn handle_claim_acquire(
     )
     .await;
     let _participant_guard = participation::PARTICIPATION_LOCK
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    let _resource_guard = super::resource_routes::RESOURCE_MUTATION_LOCK
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    let _offer_guard = super::resource_capability_offer_routes::OFFER_MATCH_LOCK
         .lock()
         .unwrap_or_else(|poisoned| poisoned.into_inner());
     let _frontier_guard = FRONTIER_CLAIM_LOCK
@@ -3161,7 +3210,13 @@ pub(crate) async fn handle_claim_acquire(
     ) {
         return classify(error);
     }
-    if let Err(error) = require_claim_eligibility_provable(&current_frontier) {
+    if let Err(error) = super::resource_capability_offer_routes::validate_eligibility_for_claim_locked(
+        &state.data_dir,
+        eligibility_receipt_ref,
+        &current_frontier,
+        &current_participant,
+        &declaration,
+    ) {
         return classify(error);
     }
     if !matches!(
@@ -3895,6 +3950,9 @@ pub(crate) async fn handle_claim_transition(
     let _participant_guard = participation::PARTICIPATION_LOCK
         .lock()
         .unwrap_or_else(|poisoned| poisoned.into_inner());
+    let _offer_guard = super::resource_capability_offer_routes::OFFER_MATCH_LOCK
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
     let _frontier_guard = FRONTIER_CLAIM_LOCK
         .lock()
         .unwrap_or_else(|poisoned| poisoned.into_inner());
@@ -4234,6 +4292,9 @@ pub(crate) async fn complete_governed_frontier_claim_intents(data_dir: &str, max
         }
 
         let _participant_guard = participation::PARTICIPATION_LOCK
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        let _offer_guard = super::resource_capability_offer_routes::OFFER_MATCH_LOCK
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner());
         let _frontier_guard = FRONTIER_CLAIM_LOCK
@@ -4909,16 +4970,24 @@ mod frontier_claim_tests {
     }
 
     #[test]
-    fn requirements_remain_claim_ineligible_until_matching_is_admitted() {
-        let required = validate_frontier_create(&frontier_body("outcome-room://or_ab")).unwrap();
-        assert_eq!(
-            require_claim_eligibility_provable(&required).unwrap_err().0,
-            "work_claim_eligibility_unavailable"
-        );
-        let mut requirement_free = required;
-        requirement_free["required_capability_refs"] = json!([]);
-        requirement_free["required_context_resource_authority_and_evidence_refs"] = json!([]);
-        require_claim_eligibility_provable(&requirement_free).unwrap();
+    fn claim_declaration_pins_the_eligibility_match_receipt() {
+        let body = json!({
+            "outcome_room_ref": "outcome-room://or_ab",
+            "frontier_item_ref": format!("frontier://wfi_{}", "ab".repeat(32)),
+            "claimant_ref": "participant-lease://rpl_ab",
+            "eligibility_match_receipt_ref": format!("receipt://wem_{}", "cd".repeat(32)),
+            "bounded_scope_ref": "task://bounded",
+            "context_lease_refs": [],
+            "authority_resource_compute_data_budget_and_tool_lease_refs": [],
+            "duplicate_work_policy": "exclusive",
+            "heartbeat_ref": null,
+            "ttl_seconds": 60,
+            "coordination_topology": "hosted_admission"
+        });
+        let declaration = validate_claim_acquire(&body).unwrap();
+        assert_eq!(declaration["eligibility_match_receipt_ref"], body["eligibility_match_receipt_ref"]);
+        let record = seal_claim(&declaration, &format!("wcl_{}", "ef".repeat(32)), &format!("receipt://wcr_{}", "01".repeat(32)), 1_800_000_000_000).unwrap();
+        assert_eq!(claim_declaration_from_record(&record)["eligibility_match_receipt_ref"], body["eligibility_match_receipt_ref"]);
     }
 
     #[test]
