@@ -168,12 +168,15 @@ async function run() {
 
     const admitPath = `/v1/hypervisor/room-participation-requests/${requestTail}/admit`;
     const admit = await challengeAndGrant(plane, resolver, "domain://acme-host", admitPath, { ...VALID_ADMIT, expected_revision: 2 });
+    const swappedAdmit = await jd("POST", admitPath, { ...VALID_ADMIT, admitted_role: "reviewer", expected_revision: 2, wallet_approval_grant: admit.grant });
+    const requestAfterSwap = await jd("GET", `/v1/hypervisor/room-participation-requests/${requestTail}`);
+    ok("ADMIT: same-revision grant refuses swapped admission parameters", swappedAdmit.status === 403 && swappedAdmit.body.error?.code === "room_participation_host_authority_required" && requestAfterSwap.body.participation_request?.revision === 2 && !requestAfterSwap.body.participation_request?.participant_lease_ref, `${swappedAdmit.status}/${swappedAdmit.body.error?.code}/${requestAfterSwap.body.participation_request?.revision}`);
     const admitted = await jd("POST", admitPath, { ...VALID_ADMIT, expected_revision: 2, wallet_approval_grant: admit.grant });
     const lease = admitted.body.participant_lease;
     const leaseTail = String(lease?.participant_lease_id).replace("participant-lease://", "");
     const authorityEvidence = admitted.body.participation_request_receipt;
     ok("ADMIT: request and bounded lease land together", admitted.status === 200 && admitted.body.participation_request?.status === "admitted" && lease?.status === "active", `${admitted.status}/${lease?.status}`);
-    ok("ADMIT: evidence retains signed grant, root-signed proof, and full pinned tuple", !!authorityEvidence?.wallet_approval_grant?.approver_sig && authorityEvidence?.principal_authority_binding?.required_scope === "room_participation.admit" && authorityEvidence?.principal_authority_binding?.coordinates?.binding_version === 1 && Array.isArray(authorityEvidence?.principal_authority_binding?.approval_authority_snapshot_hash) && Array.isArray(authorityEvidence?.principal_authority_binding?.binding_proof?.issuer_signature_proof?.signature), JSON.stringify(authorityEvidence?.principal_authority_binding || {}));
+    ok("ADMIT: evidence retains signed grant, root-signed proof, and full pinned effect tuple", !!authorityEvidence?.wallet_approval_grant?.approver_sig && authorityEvidence?.principal_authority_binding?.required_scope === "room_participation.admit" && authorityEvidence?.principal_authority_binding?.coordinates?.binding_version === 1 && Array.isArray(authorityEvidence?.principal_authority_binding?.approval_authority_snapshot_hash) && Array.isArray(authorityEvidence?.principal_authority_binding?.binding_proof?.issuer_signature_proof?.signature) && typeof authorityEvidence?.effect_hash === "string" && authorityEvidence?.authorized_effect?.admit_params?.admitted_role === "implementer", JSON.stringify(authorityEvidence?.principal_authority_binding || {}));
 
     const leasePath = `/v1/hypervisor/room-participant-leases/${leaseTail}/transition`;
     const sleep = await challengeAndGrant(plane, resolver, "worker://independent-alloy-lab", leasePath, { transition: "sleep", expected_revision: 1 });

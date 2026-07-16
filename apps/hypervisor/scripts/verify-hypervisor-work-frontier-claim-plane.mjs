@@ -3,7 +3,7 @@
 // CallService fixture through Hypervisor's signed capability client and pinned TLS/root proof.
 
 import { mintApprovalGrant } from "../../../scripts/lib/mint-approval-grant.mjs";
-import { cpSync, mkdtempSync, readFileSync, readdirSync, rmSync } from "node:fs";
+import { cpSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -75,8 +75,8 @@ const requestBody = (roomRef, principal) => ({
 
 const frontierBody = (roomRef, overrides = {}) => ({
   outcome_room_ref: roomRef, item_kind: "task", objective: "Implement one bounded frontier unit.",
-  dependency_refs: [], related_attempt_and_finding_refs: [], required_capability_refs: ["capability://repo-write"],
-  required_context_resource_authority_and_evidence_refs: ["scope:repo.write", "resource://worktree"],
+  dependency_refs: [], related_attempt_and_finding_refs: [], required_capability_refs: [],
+  required_context_resource_authority_and_evidence_refs: [],
   expected_value: 10, uncertainty: 0.2, priority: 100,
   duplication_policy: "exclusive", claimability: "open", max_concurrency: 1,
   expires_at: null, stop_condition_ref: "policy://done", coordination_topology: "hosted_admission",
@@ -85,8 +85,8 @@ const frontierBody = (roomRef, overrides = {}) => ({
 
 const claimBody = (roomRef, frontierRef, participantRef, overrides = {}) => ({
   outcome_room_ref: roomRef, frontier_item_ref: frontierRef, claimant_ref: participantRef,
-  bounded_scope_ref: "task://frontier-unit", context_lease_refs: ["context_lease://room-context"],
-  authority_resource_compute_data_budget_and_tool_lease_refs: ["grant://repo", "tool-lease://shell"],
+  bounded_scope_ref: "task://frontier-unit", context_lease_refs: [],
+  authority_resource_compute_data_budget_and_tool_lease_refs: [],
   duplicate_work_policy: "exclusive", heartbeat_ref: null, ttl_seconds: 600,
   coordination_topology: "hosted_admission", ...overrides,
 });
@@ -106,6 +106,11 @@ async function governed(call, resolver, principal, path, body) {
   const grant = resolver.mint(principal, approval.policy_hash, approval.request_hash);
   const response = await call("POST", path, { ...body, wallet_approval_grant: grant });
   return { challenge, response, grant };
+}
+
+function challengedSubject(response, scheme) {
+  const message = String(response.body.error?.message || "");
+  return message.match(new RegExp(`'(${scheme}://[^']+)'`))?.[1] || null;
 }
 
 async function admitParticipant(call, resolver, roomRef, principal) {
@@ -129,14 +134,15 @@ async function terminalParticipantWithClaim(call, resolver, lease, transition, c
   const path = `/v1/hypervisor/room-participant-leases/${leaseTail}/transition`;
   const body = { transition, expected_revision: lease.revision, work_claim_expected_revision: claimRevision };
   const first = await call("POST", path, body);
+  const authority = transition === "retire" ? lease.participant_ref : "domain://acme-host";
   const participationGrant = resolver.mint(
-    transition === "retire" ? lease.participant_ref : "domain://acme-host",
+    authority,
     first.body.error.approval.policy_hash,
     first.body.error.approval.request_hash,
   );
   const second = await call("POST", path, { ...body, wallet_approval_grant: participationGrant });
   const workGrant = resolver.mint(
-    transition === "retire" ? lease.participant_ref : "domain://acme-host",
+    authority,
     second.body.error.approval.policy_hash,
     second.body.error.approval.request_hash,
   );
@@ -315,7 +321,22 @@ async function run({ includeFaults = true } = {}) {
     let mainFrontier = created.body.frontier_item;
     const mainTail = mainFrontier.frontier_item_id.replace("frontier://", "");
     ok("FRONTIER: host creates canonical item and room backlink", created.status === 201 && /^frontier:\/\/wfi_[0-9a-f]{64}$/.test(mainFrontier.frontier_item_id) && mainFrontier.status === "open", `${created.status}/${mainFrontier.frontier_item_id}`);
-    ok("FRONTIER: receipt retains exact scope/hash/snapshot coordinates", created.body.frontier_receipt?.principal_authority_binding?.required_scope === "work_frontier.create" && created.body.frontier_receipt?.authority_resolved_at_ms === mainFrontier.created_at_ms, `${created.body.frontier_receipt?.principal_authority_binding?.required_scope}/${created.body.frontier_receipt?.principal_authority_binding?.coordinates?.binding_version}`);
+    ok("FRONTIER: receipt retains exact scope/hash/snapshot/effect coordinates", created.body.frontier_receipt?.principal_authority_binding?.required_scope === "work_frontier.create" && created.body.frontier_receipt?.authority_resolved_at_ms === mainFrontier.created_at_ms && typeof created.body.frontier_receipt?.effect_hash === "string" && created.body.frontier_receipt?.authorized_effect?.declaration?.objective === createInput.objective, `${created.body.frontier_receipt?.principal_authority_binding?.required_scope}/${created.body.frontier_receipt?.principal_authority_binding?.coordinates?.binding_version}`);
+
+    currentRoom = (await call("GET", `/v1/hypervisor/outcome-rooms/${roomTail}`)).body.outcome_room;
+    const unreadableFrontierInput = { ...frontierBody(roomRef, { objective: "Occupied unreadable frontier slot." }), expected_revision: currentRoom.revision };
+    const unreadableFrontierChallenge = await call("POST", createPath, unreadableFrontierInput);
+    const unreadableFrontierRef = challengedSubject(unreadableFrontierChallenge, "frontier");
+    const unreadableFrontierSlot = join(dataDir, "work-frontier-items", `${unreadableFrontierRef?.replace("frontier://", "")}.json`);
+    const roomSlot = join(dataDir, "outcome-room-registry", `${roomTail}.json`);
+    const roomBeforeUnreadableFrontier = readFileSync(roomSlot, "utf8");
+    const frontierIntentsBefore = names(dataDir, "work-frontier-claim-intents").length;
+    const frontierReceiptsBefore = names(dataDir, "work-frontier-claim-receipts").length;
+    if (unreadableFrontierRef) mkdirSync(unreadableFrontierSlot, { recursive: true });
+    const unreadableFrontierGrant = resolver.mint("domain://acme-host", unreadableFrontierChallenge.body.error.approval.policy_hash, unreadableFrontierChallenge.body.error.approval.request_hash);
+    const unreadableFrontier = await call("POST", createPath, { ...unreadableFrontierInput, wallet_approval_grant: unreadableFrontierGrant });
+    if (unreadableFrontierRef) rmSync(unreadableFrontierSlot, { recursive: true, force: true });
+    ok("STORAGE: occupied unreadable frontier slot returns typed uncertainty with zero mutation", unreadableFrontier.status === 500 && unreadableFrontier.body.error?.code === "work_frontier_claim_registry_unreadable" && readFileSync(roomSlot, "utf8") === roomBeforeUnreadableFrontier && names(dataDir, "work-frontier-claim-intents").length === frontierIntentsBefore && names(dataDir, "work-frontier-claim-receipts").length === frontierReceiptsBefore, `${unreadableFrontier.status}/${unreadableFrontier.body.error?.code}`);
 
     const scopeRefusal = await governed(call, resolver, scopeLimitedLease.participant_ref, "/v1/hypervisor/work-claim-leases", {
       ...claimBody(roomRef, mainFrontier.frontier_item_id, scopeLimitedLease.participant_lease_id),
@@ -323,6 +344,26 @@ async function run({ includeFaults = true } = {}) {
     });
     const noScopeMutation = await call("GET", "/v1/hypervisor/work-claim-leases");
     ok("AUTHORITY: real wallet resolver refuses an authentic signer without work-claim scope", scopeRefusal.response.status === 403 && scopeRefusal.response.body.error?.code === "work_claim_authority_resolution_refused" && (noScopeMutation.body.work_claims || []).length === 0, `${scopeRefusal.response.status}/${scopeRefusal.response.body.error?.code}`);
+
+    currentRoom = (await call("GET", `/v1/hypervisor/outcome-rooms/${roomTail}`)).body.outcome_room;
+    const requirementsCreate = await governed(call, resolver, "domain://acme-host", createPath, {
+      ...frontierBody(roomRef, {
+        objective: "Require offer and context matching before claim admission.",
+        required_capability_refs: ["capability://repo-write"],
+        required_context_resource_authority_and_evidence_refs: ["scope:repo.write", "resource://worktree"],
+      }),
+      expected_revision: currentRoom.revision,
+    });
+    const requirementsFrontier = requirementsCreate.response.body.frontier_item;
+    const claimsBeforeEligibility = names(dataDir, "work-claim-leases").length;
+    const eligibilityRefusal = await call("POST", "/v1/hypervisor/work-claim-leases", {
+      ...claimBody(roomRef, requirementsFrontier.frontier_item_id, leases[0].participant_lease_id, {
+        context_lease_refs: ["context_lease://caller-declared"],
+        authority_resource_compute_data_budget_and_tool_lease_refs: ["grant://caller-declared", "tool-lease://caller-declared"],
+      }),
+      expected_revision: leases[0].revision,
+    });
+    ok("ELIGIBILITY: unproven frontier requirements are typed unavailable with zero claim mutation", requirementsCreate.response.status === 201 && eligibilityRefusal.status === 501 && eligibilityRefusal.body.error?.code === "work_claim_eligibility_unavailable" && names(dataDir, "work-claim-leases").length === claimsBeforeEligibility, `${eligibilityRefusal.status}/${eligibilityRefusal.body.error?.code}`);
 
     const otherRoomCreate = await call("POST", "/v1/hypervisor/outcome-rooms", { ...ROOM, objective_ref: "goal://cross-room-refusal", objective: "Cross-room refusal fixture." });
     const otherRoom = otherRoomCreate.body.outcome_room;
@@ -355,6 +396,23 @@ async function run({ includeFaults = true } = {}) {
 
     const acquirePath = "/v1/hypervisor/work-claim-leases";
     const firstClaimInput = { ...claimBody(roomRef, mainFrontier.frontier_item_id, leases[0].participant_lease_id), expected_revision: mainFrontier.revision };
+    const malformedClaimChallenge = await call("POST", acquirePath, firstClaimInput);
+    const malformedClaimRef = challengedSubject(malformedClaimChallenge, "work-claim");
+    const malformedClaimSlot = join(dataDir, "work-claim-leases", `${malformedClaimRef?.replace("work-claim://", "")}.json`);
+    const frontierSlot = join(dataDir, "work-frontier-items", `${mainTail}.json`);
+    const participantSlot = join(dataDir, "room-participant-leases", `${leases[0].participant_lease_id.replace("participant-lease://", "")}.json`);
+    const frontierBeforeMalformedClaim = readFileSync(frontierSlot, "utf8");
+    const participantBeforeMalformedClaim = readFileSync(participantSlot, "utf8");
+    const claimIntentsBefore = names(dataDir, "work-frontier-claim-intents").length;
+    const claimReceiptsBefore = names(dataDir, "work-frontier-claim-receipts").length;
+    if (malformedClaimRef) {
+      mkdirSync(join(dataDir, "work-claim-leases"), { recursive: true });
+      writeFileSync(malformedClaimSlot, "{not-json\n");
+    }
+    const malformedClaimGrant = resolver.mint(leases[0].participant_ref, malformedClaimChallenge.body.error.approval.policy_hash, malformedClaimChallenge.body.error.approval.request_hash);
+    const malformedClaim = await call("POST", acquirePath, { ...firstClaimInput, wallet_approval_grant: malformedClaimGrant });
+    if (malformedClaimRef) rmSync(malformedClaimSlot, { force: true });
+    ok("STORAGE: malformed occupied claim slot returns typed uncertainty with zero cross-plane mutation", malformedClaim.status === 500 && malformedClaim.body.error?.code === "work_frontier_claim_registry_unreadable" && readFileSync(frontierSlot, "utf8") === frontierBeforeMalformedClaim && readFileSync(participantSlot, "utf8") === participantBeforeMalformedClaim && names(dataDir, "work-frontier-claim-intents").length === claimIntentsBefore && names(dataDir, "work-frontier-claim-receipts").length === claimReceiptsBefore, `${malformedClaim.status}/${malformedClaim.body.error?.code}`);
     const firstAcquire = await governed(call, resolver, leases[0].participant_ref, acquirePath, firstClaimInput);
     let firstClaim = firstAcquire.response.body.work_claim;
     ok("CLAIM: participant acquires canonical bounded lease", firstAcquire.response.status === 201 && /^work-claim:\/\/wcl_[0-9a-f]{64}$/.test(firstClaim?.work_claim_id) && firstClaim?.status === "active", `${firstAcquire.response.status}/${firstClaim?.work_claim_id}`);
@@ -364,16 +422,35 @@ async function run({ includeFaults = true } = {}) {
 
     const firstClaimTail = firstClaim.work_claim_id.replace("work-claim://", "");
     const firstTransitionPath = `/v1/hypervisor/work-claim-leases/${firstClaimTail}/transition`;
-    const heartbeat = await governed(call, resolver, leases[0].participant_ref, firstTransitionPath, { transition: "heartbeat", heartbeat_ref: "heartbeat://one", expected_revision: 1 });
-    firstClaim = heartbeat.response.body.work_claim;
-    const renew = await governed(call, resolver, leases[0].participant_ref, firstTransitionPath, { transition: "renew", ttl_seconds: 900, expected_revision: 2 });
-    firstClaim = renew.response.body.work_claim;
-    ok("CLAIM: heartbeat and bounded renewal advance lineage", heartbeat.response.status === 200 && renew.response.status === 200 && firstClaim.renewal_count === 1 && firstClaim.revision === 3, `${heartbeat.response.status}/${renew.response.status}/${firstClaim.revision}`);
-    const released = await governed(call, resolver, leases[0].participant_ref, firstTransitionPath, { transition: "release", reason: "switch to a clean reclaim", expected_revision: 3 });
-    mainFrontier = released.response.body.frontier_item;
-    ok("CLAIM: release clears participant and preserves historical claim ref", released.response.body.work_claim?.status === "released" && released.response.body.participant_lease?.current_claim_ref === null && mainFrontier.active_claim_refs.length === 0 && mainFrontier.claim_refs.includes(firstClaim.work_claim_id), `${released.response.status}/${released.response.body.work_claim?.status}`);
+    const heartbeatBody = { transition: "heartbeat", heartbeat_ref: "heartbeat://one", expected_revision: 1 };
+    const heartbeatChallenge = await call("POST", firstTransitionPath, heartbeatBody);
+    const heartbeatGrant = resolver.mint(leases[0].participant_ref, heartbeatChallenge.body.error.approval.policy_hash, heartbeatChallenge.body.error.approval.request_hash);
+    const heartbeatSwap = await call("POST", firstTransitionPath, { ...heartbeatBody, heartbeat_ref: "heartbeat://swapped", wallet_approval_grant: heartbeatGrant });
+    const claimAfterHeartbeatSwap = (await call("GET", `/v1/hypervisor/work-claim-leases/${firstClaimTail}`)).body.work_claim;
+    ok("AUTHORITY EFFECT: heartbeat body swap refuses at the same revision", heartbeatSwap.status === 403 && heartbeatSwap.body.error?.code === "work_claim_participant_authority_required" && claimAfterHeartbeatSwap.revision === 1, `${heartbeatSwap.status}/${heartbeatSwap.body.error?.code}/${claimAfterHeartbeatSwap.revision}`);
+    const heartbeat = await call("POST", firstTransitionPath, { ...heartbeatBody, wallet_approval_grant: heartbeatGrant });
+    firstClaim = heartbeat.body.work_claim;
 
-    const leaseAfterRelease = released.response.body.participant_lease;
+    const renewBody = { transition: "renew", ttl_seconds: 30, expected_revision: 2 };
+    const renewChallenge = await call("POST", firstTransitionPath, renewBody);
+    const renewGrant = resolver.mint(leases[0].participant_ref, renewChallenge.body.error.approval.policy_hash, renewChallenge.body.error.approval.request_hash);
+    const renewSwap = await call("POST", firstTransitionPath, { ...renewBody, ttl_seconds: 86_400, wallet_approval_grant: renewGrant });
+    const claimAfterRenewSwap = (await call("GET", `/v1/hypervisor/work-claim-leases/${firstClaimTail}`)).body.work_claim;
+    ok("AUTHORITY EFFECT: renewal TTL body swap refuses at the same revision", renewSwap.status === 403 && renewSwap.body.error?.code === "work_claim_participant_authority_required" && claimAfterRenewSwap.revision === 2, `${renewSwap.status}/${renewSwap.body.error?.code}/${claimAfterRenewSwap.revision}`);
+    const renew = await call("POST", firstTransitionPath, { ...renewBody, wallet_approval_grant: renewGrant });
+    firstClaim = renew.body.work_claim;
+    ok("CLAIM: heartbeat and bounded renewal advance lineage", heartbeat.status === 200 && renew.status === 200 && firstClaim.renewal_count === 1 && firstClaim.revision === 3, `${heartbeat.status}/${renew.status}/${firstClaim.revision}`);
+    const releaseBody = { transition: "release", reason: "switch to a clean reclaim", expected_revision: 3 };
+    const releaseChallenge = await call("POST", firstTransitionPath, releaseBody);
+    const releaseGrant = resolver.mint(leases[0].participant_ref, releaseChallenge.body.error.approval.policy_hash, releaseChallenge.body.error.approval.request_hash);
+    const reasonSwap = await call("POST", firstTransitionPath, { ...releaseBody, reason: "swapped release reason", wallet_approval_grant: releaseGrant });
+    const claimAfterReasonSwap = (await call("GET", `/v1/hypervisor/work-claim-leases/${firstClaimTail}`)).body.work_claim;
+    ok("AUTHORITY EFFECT: terminal reason body swap refuses at the same revision", reasonSwap.status === 403 && reasonSwap.body.error?.code === "work_claim_participant_authority_required" && claimAfterReasonSwap.revision === 3, `${reasonSwap.status}/${reasonSwap.body.error?.code}/${claimAfterReasonSwap.revision}`);
+    const released = await call("POST", firstTransitionPath, { ...releaseBody, wallet_approval_grant: releaseGrant });
+    mainFrontier = released.body.frontier_item;
+    ok("CLAIM: release clears participant and preserves historical claim ref", released.body.work_claim?.status === "released" && released.body.participant_lease?.current_claim_ref === null && mainFrontier.active_claim_refs.length === 0 && mainFrontier.claim_refs.includes(firstClaim.work_claim_id), `${released.status}/${released.body.work_claim?.status}`);
+
+    const leaseAfterRelease = released.body.participant_lease;
     const staleGrant = await call("POST", acquirePath, {
       ...claimBody(roomRef, mainFrontier.frontier_item_id, leaseAfterRelease.participant_lease_id),
       expected_revision: leaseAfterRelease.revision,
@@ -478,17 +555,22 @@ async function run({ includeFaults = true } = {}) {
     const replicationWinners = replicationResponses.filter((response) => response.status === 201).map((response) => response.body.work_claim);
     ok("CONCURRENCY: bounded replication admits exactly max_concurrency", replicationWinners.length === 2 && replicationResponses.filter((response) => response.status === 409).length === 1, replicationResponses.map((response) => response.status).join(","));
 
+    // Host quarantine with a live claim performs the separately scoped claim quarantine first,
+    // retains the room slot, and ends participant-governed access immediately.
+    const quarantinedClaim = replicationWinners[0];
+    const quarantineLease = (await call("GET", `/v1/hypervisor/room-participant-leases/${quarantinedClaim.claimant_ref.replace("participant-lease://", "")}`)).body.participant_lease;
+    const quarantined = await terminalParticipantWithClaim(call, resolver, quarantineLease, "quarantine", quarantinedClaim.revision);
+    const quarantinedMutation = await call("POST", `/v1/hypervisor/work-claim-leases/${quarantinedClaim.work_claim_id.replace("work-claim://", "")}/transition`, { transition: "heartbeat", heartbeat_ref: "heartbeat://after-quarantine", expected_revision: quarantined.body.released_work_claim?.revision });
+    const roomAfterQuarantine = (await call("GET", `/v1/hypervisor/outcome-rooms/${roomTail}`)).body.outcome_room;
+    ok("QUARANTINE: host atomically quarantines the live claim and clears participant access", quarantined.status === 200 && quarantined.body.participant_lease?.status === "quarantined" && quarantined.body.participant_lease?.current_claim_ref === null && quarantined.body.released_work_claim?.status === "quarantined" && (roomAfterQuarantine.participant_lease_refs || []).includes(quarantineLease.participant_lease_id) && quarantinedMutation.status >= 400, `${quarantined.status}/${quarantined.body.released_work_claim?.status}/${quarantinedMutation.status}`);
+    replicated = quarantined.body.frontier_item;
+
     // Host revocation with a live claim performs the separately scoped claim revocation first.
-    const revokedClaim = replicationWinners[0];
+    const revokedClaim = replicationWinners[1];
     let revokeLease = (await call("GET", `/v1/hypervisor/room-participant-leases/${revokedClaim.claimant_ref.replace("participant-lease://", "")}`)).body.participant_lease;
     const revoked = await terminalParticipantWithClaim(call, resolver, revokeLease, "revoke", revokedClaim.revision);
     ok("TERMINAL: host revocation clears its live claim before room slot", revoked.status === 200 && revoked.body.participant_lease?.status === "revoked" && revoked.body.participant_lease?.current_claim_ref === null && revoked.body.released_work_claim?.status === "revoked", `${revoked.status}/${revoked.body.released_work_claim?.status}`);
     replicated = revoked.body.frontier_item;
-
-    const otherReplicatedClaim = replicationWinners[1];
-    const otherLease = leases.find((lease) => lease.participant_lease_id === otherReplicatedClaim.claimant_ref);
-    const otherRelease = await governed(call, resolver, otherLease.participant_ref, `/v1/hypervisor/work-claim-leases/${otherReplicatedClaim.work_claim_id.replace("work-claim://", "")}/transition`, { transition: "release", reason: "replication cleanup", expected_revision: 1 });
-    replicated = otherRelease.response.body.frontier_item;
 
     await plane.stop();
     await resolver.stop();
@@ -497,7 +579,7 @@ async function run({ includeFaults = true } = {}) {
     call = (method, path, body) => jsonCall(plane.daemonUrl, method, path, body);
 
     // Participant retirement with a live claim proves the symmetric automatic release.
-    let retireLease = leases.find((lease) => lease.participant_lease_id !== revokedClaim.claimant_ref && lease.participant_lease_id !== otherReplicatedClaim.claimant_ref);
+    let retireLease = leases.find((lease) => lease.participant_lease_id !== revokedClaim.claimant_ref && lease.participant_lease_id !== quarantinedClaim.claimant_ref);
     retireLease = (await call("GET", `/v1/hypervisor/room-participant-leases/${retireLease.participant_lease_id.replace("participant-lease://", "")}`)).body.participant_lease;
     const retirementAcquire = await governed(call, resolver, retireLease.participant_ref, acquirePath, { ...claimBody(roomRef, exclusive.frontier_item_id, retireLease.participant_lease_id), expected_revision: retireLease.revision });
     const retirementClaim = retirementAcquire.response.body.work_claim;
@@ -523,10 +605,12 @@ async function run({ includeFaults = true } = {}) {
     ok("ROOM: close refuses while unresolved frontier work remains", blockedRoomClose.status === 409 && blockedRoomClose.body.error?.code === "outcome_room_close_blocked_frontier_claims", `${blockedRoomClose.status}/${blockedRoomClose.body.error?.code}`);
     const closeFrontier = async (frontier) => governed(call, resolver, "domain://acme-host", `/v1/hypervisor/work-frontier-items/${frontier.frontier_item_id.replace("frontier://", "")}/transition`, { transition: "close", expected_revision: frontier.revision });
     const mainClosed = await closeFrontier(mainFrontier);
+    const requirementsClosed = await closeFrontier(requirementsFrontier);
     const dependentClosed = await closeFrontier(dependent);
     const exclusiveClosed = await closeFrontier(exclusive);
     const replicatedClosed = await closeFrontier(replicated);
-    ok("FRONTIER: host closes all unresolved items after claims clear", [mainClosed, dependentClosed, exclusiveClosed, replicatedClosed].every((entry) => entry.response.status === 200 && entry.response.body.frontier_item?.status === "closed"), [mainClosed, dependentClosed, exclusiveClosed, replicatedClosed].map((entry) => entry.response.status).join(","));
+    const frontierClosures = [mainClosed, requirementsClosed, dependentClosed, exclusiveClosed, replicatedClosed];
+    ok("FRONTIER: host closes all unresolved items after claims clear", frontierClosures.every((entry) => entry.response.status === 200 && entry.response.body.frontier_item?.status === "closed"), frontierClosures.map((entry) => entry.response.status).join(","));
     const roomBeforeClose = (await call("GET", `/v1/hypervisor/outcome-rooms/${roomTail}`)).body.outcome_room;
     const roomClosed = await call("POST", `/v1/hypervisor/outcome-rooms/${roomTail}/transition`, { transition: "close", expected_revision: roomBeforeClose.revision });
     ok("ROOM: close succeeds only after frontier, claims, and participants resolve", roomClosed.status === 200 && roomClosed.body.outcome_room?.status === "closed", `${roomClosed.status}/${roomClosed.body.outcome_room?.status}/${roomClosed.body.error?.code || ""}`);
