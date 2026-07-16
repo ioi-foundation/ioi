@@ -575,7 +575,7 @@ const HISTORY_MAX: usize = 100;
 /// PARTICIPATION_LOCK is acquired BEFORE the room plane's ROOM_MUTATION_LOCK; callers either hold
 /// both across a cross-plane finalizer or use the room-owned locking seam after taking this lock.
 /// No path ever takes them in the reverse order, and no .await runs under either lock.
-static PARTICIPATION_LOCK: Mutex<()> = Mutex::new(());
+pub(crate) static PARTICIPATION_LOCK: Mutex<()> = Mutex::new(());
 
 fn nanos() -> u128 {
     SystemTime::now()
@@ -888,6 +888,154 @@ fn load_lease(data_dir: &str, tail: &str) -> Result<Option<Value>, String> {
             "lease slot '{tail}' has an identity that does not match its storage key"
         )),
     }
+}
+
+/// Strict participant-lease resolver for later room object planes. The participant plane owns
+/// both the storage-key check and the envelope validation; callers never read lease files
+/// directly. `Ok(None)` means definitively absent, while unreadable/mismatched state is `Err`.
+pub(crate) fn resolve_participant_lease_strict(
+    data_dir: &str,
+    lease_ref: &str,
+) -> Result<Option<Value>, String> {
+    let tail = lease_ref
+        .strip_prefix("participant-lease://")
+        .ok_or_else(|| "participant lease ref must be participant-lease://rpl_<hex>".to_string())?;
+    load_lease(data_dir, tail)
+}
+
+/// Construct the only participant-owned current-claim successor. The claim plane may coordinate
+/// the transaction, but it never authors participant bytes itself. Binding requires an active
+/// lease with no current claim; release requires the exact current claim and preserves lineage.
+pub(crate) fn participant_current_claim_successor(
+    prior: &Value,
+    claim_ref: &str,
+    receipt_ref: &str,
+    now: &str,
+    bind: bool,
+) -> Result<Value, VErr> {
+    if !claim_ref
+        .strip_prefix("work-claim://wcl_")
+        .is_some_and(|tail| {
+            tail.len() == 64
+                && tail
+                    .chars()
+                    .all(|c| c.is_ascii_digit() || matches!(c, 'a'..='f'))
+        })
+    {
+        return Err(verr(
+            "participant_lease_current_claim_ref_invalid",
+            "current claim must be canonical work-claim://wcl_<64 lowercase hex>",
+        ));
+    }
+    if pending_intent(prior).is_some() {
+        return Err(verr(
+            "participant_lease_mutation_in_flight",
+            "the participant lease carries a pending participation intent",
+        ));
+    }
+    let current = prior
+        .get("current_claim_ref")
+        .and_then(Value::as_str)
+        .unwrap_or("");
+    if bind {
+        if s(prior, "status", "") != "active" {
+            return Err(verr(
+                "participant_lease_not_active",
+                "only an active participant lease may bind a current work claim",
+            ));
+        }
+        if !current.is_empty() {
+            return Err(verr(
+                "participant_lease_current_claim_conflict",
+                format!("participant already holds current claim '{current}'"),
+            ));
+        }
+    } else if current != claim_ref {
+        return Err(verr(
+            "participant_lease_current_claim_mismatch",
+            format!("participant current claim is '{current}', not '{claim_ref}'"),
+        ));
+    }
+    let mut final_lease = prior.clone();
+    let prior_revision = prior.get("revision").and_then(Value::as_u64).unwrap_or(0);
+    if let Some(object) = final_lease.as_object_mut() {
+        object.insert(
+            "current_claim_ref".into(),
+            if bind { json!(claim_ref) } else { Value::Null },
+        );
+        object.insert("revision".into(), json!(prior_revision + 1));
+        object.insert("updated_at".into(), json!(now));
+        let mut trail = object
+            .get("admission_and_replay_refs")
+            .and_then(Value::as_array)
+            .cloned()
+            .unwrap_or_default();
+        trail.push(json!(receipt_ref));
+        object.insert("admission_and_replay_refs".into(), Value::Array(trail));
+        let op = if bind { "bind_current_claim" } else { "release_current_claim" };
+        let mut history = object
+            .get("status_history")
+            .and_then(Value::as_array)
+            .cloned()
+            .unwrap_or_default();
+        history.push(json!({
+            "op": op,
+            "at": now,
+            "receipt_ref": receipt_ref,
+            "revision": prior_revision + 1,
+            "work_claim_ref": claim_ref,
+        }));
+        if history.len() > HISTORY_MAX {
+            let drop_n = history.len() - HISTORY_MAX;
+            history.drain(0..drop_n);
+        }
+        object.insert("status_history".into(), Value::Array(history));
+        if !bind {
+            let mut releases = object
+                .get("exit_and_claim_release_refs")
+                .and_then(Value::as_array)
+                .cloned()
+                .unwrap_or_default();
+            releases.push(json!(receipt_ref));
+            object.insert("exit_and_claim_release_refs".into(), Value::Array(releases));
+        }
+    }
+    Ok(final_lease)
+}
+
+/// Persist an exact participant-owned current-claim successor while the caller holds
+/// `PARTICIPATION_LOCK`. Existing final bytes are idempotent; any foreign successor refuses.
+pub(crate) fn persist_participant_claim_successor_locked(
+    data_dir: &str,
+    lease_ref: &str,
+    prior: &Value,
+    final_lease: &Value,
+) -> Result<(), VErr> {
+    let tail = lease_ref
+        .strip_prefix("participant-lease://")
+        .ok_or_else(|| verr("participant_lease_ref_invalid", "lease ref must be canonical"))?;
+    let current = load_lease(data_dir, tail)
+        .map_err(|message| verr("participant_lease_registry_unreadable", message))?
+        .ok_or_else(|| verr("participant_lease_not_found", format!("no participant lease '{lease_ref}'")))?;
+    if current == *final_lease {
+        return Ok(());
+    }
+    if current != *prior {
+        return Err(verr(
+            "participant_lease_current_claim_conflict",
+            "participant lease no longer equals the sealed prior or successor",
+        ));
+    }
+    persist_atomic(data_dir, LEASE_DIR, tail, final_lease).map_err(|failure| {
+        if failure.visible() {
+            verr(
+                "participant_lease_claim_stamp_pending_convergence",
+                failure.detail(),
+            )
+        } else {
+            verr("participant_lease_claim_stamp_persist_failed", failure.detail())
+        }
+    })
 }
 
 /// Which durable intent (if any) is pending on a plane record — EVERY mutator refuses while one
@@ -1733,6 +1881,77 @@ fn finalize_record_transition(
     if let Err(f) = persist_atomic(data_dir, family, tail, updated) {
         return Err(verr("room_participation_transition_pending_convergence", format!("the terminal transition write is {}; the DURABLE intent and receipt are retained, but boot will not apply them without replay-verifiable identity-bound authority", f.detail())));
     }
+    Ok(())
+}
+
+/// Compound participant terminalization: persist the participation transition intent first,
+/// embed the exact separately authorized work-claim intent in it, then materialize that work
+/// intent before the participant can become terminal. Any crash therefore leaves at least one
+/// authenticated durable predecessor from which both successors can be reconstructed.
+#[allow(clippy::too_many_arguments)]
+fn finalize_record_transition_with_work_claim(
+    data_dir: &str,
+    family: &str,
+    tail: &str,
+    plan: &RecordTransitionPlan,
+    work_intent_tail: &str,
+    work_intent: &Value,
+) -> Result<(), VErr> {
+    let mut carrying = plan.prior.clone();
+    carrying.as_object_mut().expect("object").insert(
+        "transition_intent".into(),
+        json!({
+            "op": plan.receipt.get("op").cloned().unwrap_or(Value::Null),
+            "final_record": plan.updated,
+            "final_record_hash": record_output_hash(&plan.updated, &[]),
+            "receipt_id": plan.receipt_id,
+            "receipt": plan.receipt,
+            "receipt_hash": record_output_hash(&plan.receipt, &[]),
+            "at": plan.updated.get("updated_at").cloned().unwrap_or(Value::Null),
+            "coupled_work_claim_intent_tail": work_intent_tail,
+            "coupled_work_claim_intent": work_intent,
+            "coupled_work_claim_intent_hash": record_output_hash(work_intent, &[]),
+        }),
+    );
+    persist_atomic(data_dir, family, tail, &carrying).map_err(|failure| {
+        let code = if failure.visible() {
+            "room_participation_transition_pending_convergence"
+        } else {
+            "room_participation_persist_failed"
+        };
+        verr(
+            code,
+            format!(
+                "the compound participant/work-claim intent is {}; no untracked terminal participant was admitted",
+                failure.detail()
+            ),
+        )
+    })?;
+
+    super::work_frontier_claim_routes::persist_embedded_intent_locked(
+        data_dir,
+        work_intent_tail,
+        work_intent,
+    )
+    .map_err(|(_, message)| {
+        verr(
+            "participant_lease_claim_release_pending_convergence",
+            format!("the participation intent is durable but its embedded work-claim intent is pending ({message})"),
+        )
+    })?;
+
+    persist_receipt(data_dir, &plan.receipt_id, &plan.receipt).map_err(|(_, message)| {
+        verr(
+            "room_participation_transition_pending_convergence",
+            format!("the compound intents are durable but the participation receipt is pending ({message})"),
+        )
+    })?;
+    persist_atomic(data_dir, family, tail, &plan.updated).map_err(|failure| {
+        verr(
+            "room_participation_transition_pending_convergence",
+            format!("the compound intents and receipt are durable but the terminal participant write is {}", failure.detail()),
+        )
+    })?;
     Ok(())
 }
 
@@ -2648,6 +2867,23 @@ async fn complete_live_transition_intent(
     let intent = carrying
         .get("transition_intent")
         .ok_or_else(|| "transition intent vanished".to_string())?;
+    let coupled_work = match (
+        intent
+            .get("coupled_work_claim_intent_tail")
+            .and_then(Value::as_str),
+        intent.get("coupled_work_claim_intent"),
+    ) {
+        (None, None) => None,
+        (Some(work_tail), Some(work_intent))
+            if intent
+                .get("coupled_work_claim_intent_hash")
+                .and_then(Value::as_str)
+                == Some(record_output_hash(work_intent, &[]).as_str()) =>
+        {
+            Some((work_tail.to_string(), work_intent.clone()))
+        }
+        _ => return Err("transition intent carries an incomplete or mismatched work-claim intent".into()),
+    };
     let is_request = family == REQUEST_DIR;
     let (final_record, receipt_id, receipt) = validate_transition_intent(
         intent,
@@ -2722,6 +2958,28 @@ async fn complete_live_transition_intent(
     .ok_or_else(|| "transition slot vanished before convergence".to_string())?;
     if current != *carrying {
         return Err("transition slot changed after authority re-resolution".into());
+    }
+    if let Some((work_tail, work_intent)) = coupled_work {
+        let _frontier_guard = super::work_frontier_claim_routes::FRONTIER_CLAIM_LOCK
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        let _room_guard = rooms::ROOM_MUTATION_LOCK
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        super::work_frontier_claim_routes::persist_embedded_intent_locked(
+            data_dir,
+            &work_tail,
+            &work_intent,
+        )
+        .map_err(|error| error.1)?;
+        persist_receipt(data_dir, &receipt_id, &receipt)
+            .map_err(|(code, message)| format!("{code}: {message}"))?;
+        persist_atomic(data_dir, family, tail, &final_record)
+            .map_err(|failure| format!("terminal transition write is {}", failure.detail()))?;
+        // The independently reauthorizing work completer owns claim/frontier/stamp convergence
+        // and the final room-slot release. Persisting it before this terminal write closes the
+        // crash window without widening participation authority into work-claim authority.
+        return Ok(());
     }
     persist_receipt(data_dir, &receipt_id, &receipt)
         .map_err(|(code, message)| format!("{code}: {message}"))?;
@@ -3244,6 +3502,45 @@ fn transition_record(
     code_ns: &str,
     auth: &DecisionAuthority,
 ) -> Result<(Value, Value), VErr> {
+    transition_record_with_terminal_release(
+        data_dir,
+        family,
+        tail,
+        body,
+        op,
+        allowed_from,
+        to_status,
+        id_prefix,
+        receipt_prefix,
+        note,
+        code_ns,
+        auth,
+        true,
+    )
+}
+
+struct RecordTransitionPlan {
+    prior: Value,
+    updated: Value,
+    receipt_id: String,
+    receipt: Value,
+}
+
+#[allow(clippy::too_many_arguments)]
+fn plan_record_transition(
+    data_dir: &str,
+    family: &str,
+    tail: &str,
+    body: &Value,
+    op: &str,
+    allowed_from: &[&str],
+    to_status: &str,
+    id_prefix: &str,
+    receipt_prefix: &str,
+    note: &str,
+    code_ns: &str,
+    auth: &DecisionAuthority,
+) -> Result<RecordTransitionPlan, VErr> {
     let (loader, nf_code, unreadable_code): (
         fn(&str, &str) -> Result<Option<Value>, String>,
         &str,
@@ -3264,15 +3561,11 @@ fn transition_record(
     let prior = match loader(data_dir, tail) {
         Ok(Some(prior)) => prior,
         Ok(None) => return Err(verr(nf_code, format!("no record '{tail}'"))),
-        Err(e) => return Err(verr(unreadable_code, e)),
+        Err(error) => return Err(verr(unreadable_code, error)),
     };
     if let Some((field, code)) = pending_intent(&prior) {
         return Err(verr(code, format!("a durable {field} is pending on this record — governed replay is quarantined until its authority can be reverified")));
     }
-    // LEASE transitions RE-RESOLVE the room (#74 review finding 2): a lease may not be mutated
-    // once its room is no longer open — the room-close interlock keeps a live lease's room open,
-    // so this is belt-and-suspenders against any window, and it refuses typed rather than
-    // mutating a lease inside a closed room.
     if family == LEASE_DIR {
         let room_ref = s(&prior, "outcome_room_ref", "");
         match rooms::resolve_open_room(data_dir, &room_ref) {
@@ -3292,19 +3585,18 @@ fn transition_record(
     }
     let current_rev = prior.get("revision").and_then(Value::as_u64).unwrap_or(0);
     check_expected_revision(body, current_rev)
-        .map_err(|(_, m)| verr(&format!("{code_ns}_revision_conflict"), m))?;
+        .map_err(|(_, message)| verr(&format!("{code_ns}_revision_conflict"), message))?;
     let now = iso_now();
     let receipt_id = format!("{receipt_prefix}_{:x}", nanos());
     let record_id = format!("{id_prefix}{tail}");
     let receipt_ref = json!(format!("receipt://{receipt_id}"));
-    let now_v = json!(now);
     let updated = apply_transition(
         &prior,
         "transition_intent",
         op,
         to_status,
         &receipt_ref,
-        &now_v,
+        &json!(now),
         op == "revoke",
     );
     let receipt = build_decision_receipt(
@@ -3326,14 +3618,52 @@ fn transition_record(
         &now,
         auth,
     );
+    Ok(RecordTransitionPlan {
+        prior,
+        updated,
+        receipt_id,
+        receipt,
+    })
+}
+
+#[allow(clippy::too_many_arguments)]
+fn transition_record_with_terminal_release(
+    data_dir: &str,
+    family: &str,
+    tail: &str,
+    body: &Value,
+    op: &str,
+    allowed_from: &[&str],
+    to_status: &str,
+    id_prefix: &str,
+    receipt_prefix: &str,
+    note: &str,
+    code_ns: &str,
+    auth: &DecisionAuthority,
+    release_terminal_room_slot: bool,
+) -> Result<(Value, Value), VErr> {
+    let plan = plan_record_transition(
+        data_dir,
+        family,
+        tail,
+        body,
+        op,
+        allowed_from,
+        to_status,
+        id_prefix,
+        receipt_prefix,
+        note,
+        code_ns,
+        auth,
+    )?;
     finalize_record_transition(
         data_dir,
         family,
         tail,
-        &prior,
-        &updated,
-        &receipt_id,
-        &receipt,
+        &plan.prior,
+        &plan.updated,
+        &plan.receipt_id,
+        &plan.receipt,
     )?;
     // A lease reaching a TERMINAL state (revoked/retired) releases its room slot (#74 review
     // finding 2), through the room-owned seam — the room's live-lease set shrinks by one, so a
@@ -3341,10 +3671,13 @@ fn transition_record(
     // completer re-drives it). The lease transition may already be durable, but the HTTP
     // operation is not complete until this second plane converges: return typed pending rather
     // than falsely reporting 200.
-    if family == LEASE_DIR && matches!(to_status, "revoked" | "retired") {
-        ensure_lease_released(data_dir, &updated)?;
+    if release_terminal_room_slot
+        && family == LEASE_DIR
+        && matches!(to_status, "revoked" | "retired")
+    {
+        ensure_lease_released(data_dir, &plan.updated)?;
     }
-    Ok((updated, receipt))
+    Ok((plan.updated, plan.receipt))
 }
 
 /// Release a terminal lease's room slot through the room-owned seam (#74 finding 2). Idempotent:
@@ -3357,6 +3690,18 @@ fn ensure_lease_released(data_dir: &str, lease: &Value) -> Result<(), VErr> {
         return Err(verr(
             "participant_lease_release_pending_convergence",
             "the terminal lease is missing its room or lease identity — its room slot cannot be released automatically",
+        ));
+    }
+    if lease
+        .get("current_claim_ref")
+        .is_some_and(|claim| !claim.is_null())
+    {
+        return Err(verr(
+            "participant_lease_claim_release_pending_convergence",
+            format!(
+                "terminal lease '{lease_id}' still carries current claim '{}'; the claim must converge before its room slot can be released",
+                s(lease, "current_claim_ref", "")
+            ),
         ));
     }
     match rooms::bind_room_backlink(data_dir, &room_ref, "participant_lease_released", &lease_id) {
@@ -3743,8 +4088,89 @@ pub(crate) async fn handle_participant_lease_transition(
         Ok(a) => a,
         Err(challenge) => return challenge,
     };
+    // Terminal participation is a compound governed operation when a current work claim exists.
+    // Resolve BOTH grants before reacquiring synchronous locks; the work-claim grant has its own
+    // scope and exact claim revision and is never inferred from room-participation authority.
+    let prepared_claim = if matches!(transition.as_str(), "retire" | "revoke") {
+        match super::work_frontier_claim_routes::prepare_participant_terminal_claim(
+            &st.data_dir,
+            &prior,
+            &transition,
+            &body,
+        )
+        .await
+        {
+            Ok(prepared) => prepared,
+            Err(response) => return response,
+        }
+    } else {
+        None
+    };
     let _guard = PARTICIPATION_LOCK.lock().unwrap_or_else(|p| p.into_inner());
-    match transition_record(
+    if let Some(prepared) = prepared_claim {
+        let plan = match plan_record_transition(
+            &st.data_dir,
+            LEASE_DIR,
+            &id,
+            &body,
+            transition.as_str(),
+            allowed_from,
+            to_status,
+            "participant-lease://",
+            "rlt",
+            LEASE_TRANSITION_NOTE,
+            "participant_lease",
+            &auth,
+        ) {
+            Ok(plan) => plan,
+            Err(error) => return classify(error),
+        };
+        let _frontier_guard = super::work_frontier_claim_routes::FRONTIER_CLAIM_LOCK
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        let _room_guard = rooms::ROOM_MUTATION_LOCK
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        let (work_intent_tail, work_intent) =
+            match super::work_frontier_claim_routes::build_participant_terminal_claim_intent_locked(
+                &st.data_dir,
+                prepared,
+                &plan.updated,
+            ) {
+                Ok(value) => value,
+                Err(error) => return classify(error),
+            };
+        if let Err(error) = finalize_record_transition_with_work_claim(
+            &st.data_dir,
+            LEASE_DIR,
+            &id,
+            &plan,
+            &work_intent_tail,
+            &work_intent,
+        ) {
+            return classify(error);
+        }
+        if let Err(error) =
+            super::work_frontier_claim_routes::complete_embedded_intent_locked(
+                &st.data_dir,
+                &work_intent_tail,
+                &work_intent,
+            )
+        {
+            return classify(error);
+        }
+        return (
+            StatusCode::OK,
+            Json(json!({
+                "participant_lease": work_intent.get("final_participant").cloned().unwrap_or(Value::Null),
+                "participant_lease_receipt": plan.receipt,
+                "released_work_claim": work_intent.get("final_claim").cloned().unwrap_or(Value::Null),
+                "frontier_item": work_intent.get("final_frontier").cloned().unwrap_or(Value::Null),
+                "work_claim_receipt": work_intent.get("receipt").cloned().unwrap_or(Value::Null),
+            })),
+        );
+    }
+    match transition_record_with_terminal_release(
         &st.data_dir,
         LEASE_DIR,
         &id,
@@ -3757,11 +4183,20 @@ pub(crate) async fn handle_participant_lease_transition(
         LEASE_TRANSITION_NOTE,
         "participant_lease",
         &auth,
+        false,
     ) {
-        Ok((record, receipt)) => (
-            StatusCode::OK,
-            Json(json!({ "participant_lease": record, "participant_lease_receipt": receipt })),
-        ),
+        Ok((record, receipt)) => {
+            let response = json!({
+                "participant_lease": record,
+                "participant_lease_receipt": receipt,
+            });
+            if matches!(transition.as_str(), "retire" | "revoke") {
+                if let Err(error) = ensure_lease_released(&st.data_dir, &record) {
+                    return classify(error);
+                }
+            }
+            (StatusCode::OK, Json(response))
+        }
         Err(e) => classify(e),
     }
 }
