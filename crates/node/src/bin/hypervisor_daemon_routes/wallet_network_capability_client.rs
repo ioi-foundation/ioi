@@ -38,7 +38,7 @@ const RECEIPT_PREFIX: &[u8] = b"principal_authority_resolution_receipt::";
 const BINDING_PREFIX: &[u8] = b"principal_authority_binding::";
 const DEFAULT_TIMEOUT_MS: u64 = 5_000;
 const MIN_TIMEOUT_MS: u64 = 250;
-const MAX_TIMEOUT_MS: u64 = 30_000;
+const MAX_TIMEOUT_MS: u64 = 180_000;
 
 static TRANSACTION_LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
 

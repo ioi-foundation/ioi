@@ -44,6 +44,10 @@ mod state_machine_routes;
 mod durable_fs;
 #[path = "hypervisor_daemon_routes/room_participation_routes.rs"]
 mod room_participation_routes;
+#[path = "hypervisor_daemon_routes/governed_authority.rs"]
+mod governed_authority;
+#[path = "hypervisor_daemon_routes/work_frontier_claim_routes.rs"]
+mod work_frontier_claim_routes;
 #[path = "hypervisor_daemon_routes/wallet_network_capability_client.rs"]
 mod wallet_network_capability_client;
 #[path = "hypervisor_daemon_routes/goalrun_routes.rs"]
@@ -1986,6 +1990,40 @@ async fn async_main() -> anyhow::Result<()> {
             axum::routing::post(room_participation_routes::handle_participant_lease_transition),
         )
         .route(
+            "/v1/hypervisor/work-frontier-items",
+            axum::routing::get(work_frontier_claim_routes::handle_frontier_list)
+                .post(work_frontier_claim_routes::handle_frontier_create),
+        )
+        .route(
+            "/v1/hypervisor/work-frontier-items/overview",
+            axum::routing::get(work_frontier_claim_routes::handle_frontier_overview),
+        )
+        .route(
+            "/v1/hypervisor/work-frontier-items/:id",
+            axum::routing::get(work_frontier_claim_routes::handle_frontier_get),
+        )
+        .route(
+            "/v1/hypervisor/work-frontier-items/:id/transition",
+            axum::routing::post(work_frontier_claim_routes::handle_frontier_transition),
+        )
+        .route(
+            "/v1/hypervisor/work-claim-leases",
+            axum::routing::get(work_frontier_claim_routes::handle_claim_list)
+                .post(work_frontier_claim_routes::handle_claim_acquire),
+        )
+        .route(
+            "/v1/hypervisor/work-claim-leases/overview",
+            axum::routing::get(work_frontier_claim_routes::handle_claim_overview),
+        )
+        .route(
+            "/v1/hypervisor/work-claim-leases/:id",
+            axum::routing::get(work_frontier_claim_routes::handle_claim_get),
+        )
+        .route(
+            "/v1/hypervisor/work-claim-leases/:id/transition",
+            axum::routing::post(work_frontier_claim_routes::handle_claim_transition),
+        )
+        .route(
             "/v1/hypervisor/placement/resolve",
             post(orchestration_routes::handle_placement_resolve),
         )
@@ -2884,16 +2922,32 @@ async fn async_main() -> anyhow::Result<()> {
     let governed_pass = async move {
         if tokio::time::timeout(
             std::time::Duration::from_millis(governed_timeout_ms),
-            room_participation_routes::complete_governed_participation_intents(
-                &governed_data_dir,
-                governed_max_intents,
-            ),
+            async {
+                tokio::join!(
+                    room_participation_routes::complete_governed_participation_intents(
+                        &governed_data_dir,
+                        governed_max_intents,
+                    ),
+                    work_frontier_claim_routes::complete_governed_frontier_claim_intents(
+                        &governed_data_dir,
+                        governed_max_intents,
+                    ),
+                );
+                // A participation terminal intent can materialize its separately authorized
+                // work-claim intent during the joined pass. Re-scan once in the same bounded
+                // post-readiness pass so one boot can clear the claim and then the room slot.
+                work_frontier_claim_routes::complete_governed_frontier_claim_intents(
+                    &governed_data_dir,
+                    governed_max_intents,
+                )
+                .await;
+            },
         )
         .await
         .is_err()
         {
             eprintln!(
-                "participation governed completer: bounded pass timed out after {governed_timeout_ms} ms; remaining intents retained"
+                "governed completers: bounded pass timed out after {governed_timeout_ms} ms; remaining intents retained"
             );
         }
     };

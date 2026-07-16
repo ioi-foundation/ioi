@@ -36,6 +36,9 @@ use parity_scale_codec::Encode;
 
 const HOST_SEED: [u8; 32] = [0x07; 32];
 const PARTICIPANT_SEED: [u8; 32] = [0x09; 32];
+const PARTICIPANT_TWO_SEED: [u8; 32] = [0x0a; 32];
+const PARTICIPANT_THREE_SEED: [u8; 32] = [0x0b; 32];
+const SCOPE_LIMITED_PARTICIPANT_SEED: [u8; 32] = [0x0c; 32];
 const ROOT_SEED: [u8; 32] = [0x41; 32];
 const CAPABILITY_SEED: [u8; 32] = [0x31; 32];
 const EXPIRES_AT_MS: u64 = 1_850_000_000_000;
@@ -120,6 +123,20 @@ async fn submit<P: Encode>(
 }
 
 fn approval_authority(seed: &[u8; 32]) -> Result<ApprovalAuthority> {
+    approval_authority_with_scopes(
+        seed,
+        vec![
+            "room_participation.*".to_string(),
+            "work_frontier.*".to_string(),
+            "work_claim.*".to_string(),
+        ],
+    )
+}
+
+fn approval_authority_with_scopes(
+    seed: &[u8; 32],
+    scope_allowlist: Vec<String>,
+) -> Result<ApprovalAuthority> {
     let signer = keypair(seed)?;
     let public_key = signer.public_key().to_bytes();
     Ok(ApprovalAuthority {
@@ -129,7 +146,7 @@ fn approval_authority(seed: &[u8; 32]) -> Result<ApprovalAuthority> {
         signature_suite: SignatureSuite::ED25519,
         expires_at: EXPIRES_AT_MS,
         revoked: false,
-        scope_allowlist: vec!["room_participation.*".to_string()],
+        scope_allowlist,
     })
 }
 
@@ -254,7 +271,27 @@ async fn wallet_network_principal_authority_fixture() -> Result<()> {
         .await?;
 
         let host_authority = approval_authority(&HOST_SEED)?;
-        let participant_authority = approval_authority(&PARTICIPANT_SEED)?;
+        let participant_bindings = [
+            (
+                "worker://independent-alloy-lab",
+                approval_authority(&PARTICIPANT_SEED)?,
+            ),
+            (
+                "worker://replication-lab-two",
+                approval_authority(&PARTICIPANT_TWO_SEED)?,
+            ),
+            (
+                "worker://replication-lab-three",
+                approval_authority(&PARTICIPANT_THREE_SEED)?,
+            ),
+            (
+                "worker://frontier-only-lab",
+                approval_authority_with_scopes(
+                    &SCOPE_LIMITED_PARTICIPANT_SEED,
+                    vec!["work_frontier.*".to_string()],
+                )?,
+            ),
+        ];
         submit(
             &rpc_addr,
             &root,
@@ -266,44 +303,47 @@ async fn wallet_network_principal_authority_fixture() -> Result<()> {
             },
         )
         .await?;
+        let mut nonce = 3;
+        for (_, authority) in &participant_bindings {
+            submit(
+                &rpc_addr,
+                &root,
+                chain_id,
+                nonce,
+                "register_approval_authority@v1",
+                &RegisterApprovalAuthorityParams {
+                    authority: authority.clone(),
+                },
+            )
+            .await?;
+            nonce += 1;
+        }
         submit(
             &rpc_addr,
             &root,
             chain_id,
-            3,
-            "register_approval_authority@v1",
-            &RegisterApprovalAuthorityParams {
-                authority: participant_authority.clone(),
-            },
-        )
-        .await?;
-        submit(
-            &rpc_addr,
-            &root,
-            chain_id,
-            4,
+            nonce,
             "issue_principal_authority_binding@v1",
             &IssuePrincipalAuthorityBindingParams {
                 proof: signed_binding(&root, &root_record, "domain://acme-host", &host_authority)?,
             },
         )
         .await?;
-        submit(
-            &rpc_addr,
-            &root,
-            chain_id,
-            5,
-            "issue_principal_authority_binding@v1",
-            &IssuePrincipalAuthorityBindingParams {
-                proof: signed_binding(
-                    &root,
-                    &root_record,
-                    "worker://independent-alloy-lab",
-                    &participant_authority,
-                )?,
-            },
-        )
-        .await?;
+        nonce += 1;
+        for (principal_ref, authority) in &participant_bindings {
+            submit(
+                &rpc_addr,
+                &root,
+                chain_id,
+                nonce,
+                "issue_principal_authority_binding@v1",
+                &IssuePrincipalAuthorityBindingParams {
+                    proof: signed_binding(&root, &root_record, principal_ref, authority)?,
+                },
+            )
+            .await?;
+            nonce += 1;
+        }
 
         std::env::set_var("IOI_GUARDIAN_KEY_PASS", "hypervisor-held-bar");
         let capability_key_path = fixture_dir.join("hypervisor-capability.key");

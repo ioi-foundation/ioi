@@ -82,8 +82,23 @@ const BACKLINK_OPS: &[(&str, &str, &str)] = &[
     ("participation_request_bound", "participation_request_refs", "participation-request"),
     ("participant_lease_bound", "participant_lease_refs", "participant-lease"),
     ("participant_lease_released", "released_participant_lease_refs", "participant-lease"),
+    ("frontier_item_bound", "frontier_item_refs", "frontier"),
 ];
 const BACKLINK_NOTE: &str = "an admitted backlink transition — the room's object list gains one canonical ref; the object record itself is its own plane's truth";
+
+fn backlink_ref_ok(value: &str, scheme: &str) -> bool {
+    if scheme == "frontier" {
+        return value
+            .strip_prefix("frontier://wfi_")
+            .is_some_and(|tail| {
+                tail.len() == 64
+                    && tail
+                        .chars()
+                        .all(|c| c.is_ascii_digit() || matches!(c, 'a'..='f'))
+            });
+    }
+    ref_scheme_ok(value, &[scheme])
+}
 
 const SENSITIVE_KEY_FRAGMENTS: &[&str] = &[
     "password", "secret", "credential", "authorization", "privatekey", "apikey", "token",
@@ -546,7 +561,7 @@ fn validate_transition_intent(intent: &Value, prior: &Value, room_id: &str, room
 fn validate_backlink_intent(_intent: &Value, prior: &Value, room_id: &str, field: &str, scheme: &str, receipt: &Value, final_room: &Value, intent_receipt_id: &str) -> Result<(), String> {
     let op = receipt.get("op").and_then(Value::as_str).unwrap_or("");
     let bound_ref = receipt.pointer("/bound_facts/bound_ref").and_then(Value::as_str).unwrap_or("").to_string();
-    if !ref_scheme_ok(&bound_ref, &[scheme]) {
+    if !backlink_ref_ok(&bound_ref, scheme) {
         return Err("backlink bound ref is not canonical for the op".into());
     }
     if prior.get("status").and_then(Value::as_str) != Some("open") {
@@ -1608,6 +1623,11 @@ fn mutate_room(
     mutate: impl FnOnce(&mut Value) -> Result<Value, VErr>, // returns bound facts
 ) -> Result<(Value, Value), VErr> {
     let room_id = format!("outcome-room://{room_tail}");
+    super::work_frontier_claim_routes::refuse_external_mutation_if_reserved(
+        data_dir,
+        &room_id,
+        "outcome_room_mutation_in_flight",
+    )?;
     let Some(prior) = load_room(data_dir, &room_id) else {
         return Err(verr("outcome_room_not_found", format!("no admitted room '{room_id}'")));
     };
@@ -1671,10 +1691,53 @@ pub(crate) fn bind_room_backlink_room_locked(
     op: &str,
     bound_ref: &str,
 ) -> Result<(Value, Value), VErr> {
+    bind_room_backlink_room_locked_impl(data_dir, room_ref, op, bound_ref, None)
+}
+
+/// Work-intent replay reaches the room owner seam while its own room reservation is necessarily
+/// still durable. Ignore only that sealed intent; a different overlapping intent still refuses.
+pub(crate) fn bind_room_backlink_room_locked_for_work_intent(
+    data_dir: &str,
+    room_ref: &str,
+    op: &str,
+    bound_ref: &str,
+    intent_tail: &str,
+) -> Result<(Value, Value), VErr> {
+    bind_room_backlink_room_locked_impl(
+        data_dir,
+        room_ref,
+        op,
+        bound_ref,
+        Some(intent_tail),
+    )
+}
+
+fn bind_room_backlink_room_locked_impl(
+    data_dir: &str,
+    room_ref: &str,
+    op: &str,
+    bound_ref: &str,
+    ignored_work_intent_tail: Option<&str>,
+) -> Result<(Value, Value), VErr> {
+    match ignored_work_intent_tail {
+        Some(intent_tail) => {
+            super::work_frontier_claim_routes::refuse_external_mutation_if_reserved_except(
+                data_dir,
+                room_ref,
+                "outcome_room_mutation_in_flight",
+                intent_tail,
+            )?
+        }
+        None => super::work_frontier_claim_routes::refuse_external_mutation_if_reserved(
+            data_dir,
+            room_ref,
+            "outcome_room_mutation_in_flight",
+        )?,
+    }
     let Some((_, field, scheme)) = BACKLINK_OPS.iter().find(|(o, _, _)| *o == op) else {
         return Err(verr("outcome_room_backlink_op_invalid", format!("unknown backlink op '{op}'")));
     };
-    if !ref_scheme_ok(bound_ref, &[scheme]) {
+    if !backlink_ref_ok(bound_ref, scheme) {
         return Err(verr("outcome_room_backlink_ref_invalid", format!("backlink ref must be {scheme}://… (got '{bound_ref}')")));
     }
     let Some(room_tail) = room_ref.strip_prefix("outcome-room://").map(str::to_string) else {
@@ -1769,7 +1832,34 @@ pub(crate) async fn handle_outcome_room_transition(
     let Some((_, allowed_from, to_status)) = TRANSITIONS.iter().find(|(t, _, _)| *t == transition) else {
         return err(StatusCode::BAD_REQUEST, verr("outcome_room_transition_invalid", format!("unknown transition '{transition}' — step-2 lifecycle: [{}]", TRANSITIONS.iter().map(|(t, _, _)| *t).collect::<Vec<_>>().join("|"))));
     };
+    // Fixed cross-plane order for terminal room lifecycle: frontier/claim -> room. The new plane
+    // never writes this room file; this owner route asks its read-only blocker seam while both
+    // aggregates are serialized.
+    let _frontier_guard = if matches!(transition.as_str(), "close" | "archive") {
+        Some(
+            super::work_frontier_claim_routes::FRONTIER_CLAIM_LOCK
+                .lock()
+                .unwrap_or_else(|poisoned| poisoned.into_inner()),
+        )
+    } else {
+        None
+    };
     let _guard = ROOM_MUTATION_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    if matches!(transition.as_str(), "close" | "archive") {
+        if let Err(error) = super::work_frontier_claim_routes::refuse_room_close_if_blocked_locked(
+            &st.data_dir,
+            &format!("outcome-room://{id}"),
+        ) {
+            let status = if error.0.contains("registry_unreadable")
+                || error.0.contains("intent_unreadable")
+            {
+                StatusCode::INTERNAL_SERVER_ERROR
+            } else {
+                StatusCode::CONFLICT
+            };
+            return err(status, error);
+        }
+    }
     let result = mutate_room(&st.data_dir, &id, &body, &transition, |room| {
         let from = s(room, "status", "");
         if !allowed_from.contains(&from.as_str()) {
@@ -1795,8 +1885,8 @@ pub(crate) async fn handle_outcome_room_transition(
     match result {
         Ok((room, receipt)) => (StatusCode::OK, Json(json!({ "outcome_room": room, "outcome_room_receipt": receipt }))),
         Err(e) if e.0 == "outcome_room_not_found" => err(StatusCode::NOT_FOUND, e),
-        Err(e) if e.0 == "outcome_room_revision_conflict" || e.0.ends_with("_in_flight") => err(StatusCode::CONFLICT, e),
-        Err(e) if e.0.ends_with("_persist_failed") || e.0.ends_with("_pending_convergence") || e.0.ends_with("_durability_unconfirmed") || e.0 == "outcome_room_rollback_failed" => err(StatusCode::INTERNAL_SERVER_ERROR, e),
+        Err(e) if e.0 == "outcome_room_revision_conflict" || e.0.ends_with("_in_flight") || e.0 == "outcome_room_close_blocked_frontier_claims" => err(StatusCode::CONFLICT, e),
+        Err(e) if e.0.ends_with("_persist_failed") || e.0.ends_with("_pending_convergence") || e.0.ends_with("_durability_unconfirmed") || e.0.ends_with("_unreadable") || e.0 == "outcome_room_rollback_failed" => err(StatusCode::INTERNAL_SERVER_ERROR, e),
         Err(e) => err(StatusCode::BAD_REQUEST, e),
     }
 }
@@ -1825,6 +1915,20 @@ pub(crate) async fn handle_outcome_room_attach_goal_run(
     let room_id = format!("outcome-room://{id}");
     // ROOM-SCOPE critical section: resolution through finalization under the one room lock.
     let _guard = ROOM_MUTATION_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    if let Err(error) =
+        super::work_frontier_claim_routes::refuse_external_mutation_if_reserved(
+            &st.data_dir,
+            &room_id,
+            "outcome_room_mutation_in_flight",
+        )
+    {
+        let status = if error.0.contains("unreadable") {
+            StatusCode::INTERNAL_SERVER_ERROR
+        } else {
+            StatusCode::CONFLICT
+        };
+        return err(status, error);
+    }
     let Some(prior_run) = read_record_dir(&st.data_dir, GOAL_RUN_DIR)
         .into_iter()
         .find(|r| r.get("goal_run_id").and_then(|v| v.as_str()) == Some(run_file_id.as_str())) else {
@@ -2340,7 +2444,17 @@ mod outcome_room_tests {
         let (code, _) = bind_room_backlink(data_dir, "outcome-room://or_91", "participation_request_bound", "participation-request://rpr_91").unwrap_err();
         assert_eq!(code, "outcome_room_backlink_already_bound");
         let (code, _) = bind_room_backlink(data_dir, "outcome-room://or_91", "frontier_item_bound", "frontier://x").unwrap_err();
-        assert_eq!(code, "outcome_room_backlink_op_invalid");
+        assert_eq!(code, "outcome_room_backlink_ref_invalid");
+        let frontier_ref = format!("frontier://wfi_{}", "a".repeat(64));
+        let (frontier_bound, frontier_receipt) = bind_room_backlink(
+            data_dir,
+            "outcome-room://or_91",
+            "frontier_item_bound",
+            &frontier_ref,
+        )
+        .unwrap();
+        assert_eq!(frontier_bound["frontier_item_refs"], json!([frontier_ref]));
+        assert_eq!(frontier_receipt["op"], json!("frontier_item_bound"));
         let (code, _) = bind_room_backlink(data_dir, "outcome-room://or_91", "participant_lease_bound", "participation-request://wrong-scheme").unwrap_err();
         assert_eq!(code, "outcome_room_backlink_ref_invalid");
         let (_i2, mut closed, _rid2, _rcpt2) = canonical_admission("or_92");
