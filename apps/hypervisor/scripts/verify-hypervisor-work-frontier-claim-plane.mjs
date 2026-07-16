@@ -22,6 +22,19 @@ const names = (dir, family) => {
   try { return readdirSync(join(dir, family)).filter((name) => name.endsWith(".json")).sort(); }
   catch { return []; }
 };
+const mutationSnapshot = (dir) => JSON.stringify([
+  "work-frontier-items",
+  "work-claim-leases",
+  "work-frontier-claim-intents",
+  "work-frontier-claim-receipts",
+  "room-participant-leases",
+  "room-participation-receipts",
+  "outcome-room-registry",
+  "outcome-room-registry-receipts",
+].map((family) => [
+  family,
+  names(dir, family).map((name) => [name, readFileSync(join(dir, family, name), "utf8")]),
+]));
 
 async function pollJson(call, accept, timeoutMs = 60_000) {
   const deadline = Date.now() + timeoutMs;
@@ -149,6 +162,209 @@ async function terminalParticipantWithClaim(call, resolver, lease, transition, c
   return call("POST", path, {
     ...body, wallet_approval_grant: participationGrant, work_claim_wallet_approval_grant: workGrant,
   });
+}
+
+async function runAggregateReservationInterleavingLanes(resolver) {
+  const dataDir = mkdtempSync(join(tmpdir(), "ioi-work-frontier-reservations-"));
+  let plane;
+  try {
+    plane = await startIsolatedPlane({ serve: false, env: resolver.env, dataDir });
+    let call = (method, path, body) => jsonCall(plane.daemonUrl, method, path, body);
+    const room = (await call("POST", "/v1/hypervisor/outcome-rooms", {
+      ...ROOM,
+      objective_ref: "goal://aggregate-reservations",
+      objective: "Prove aggregate reservations survive receipt faults.",
+    })).body.outcome_room;
+    const leaseA = await admitParticipant(call, resolver, room.outcome_room_id, "worker://independent-alloy-lab");
+    const leaseB = await admitParticipant(call, resolver, room.outcome_room_id, "worker://replication-lab-two");
+    const roomLive = (await call("GET", `/v1/hypervisor/outcome-rooms/${room.outcome_room_id.replace("outcome-room://", "")}`)).body.outcome_room;
+    const frontierInput = {
+      ...frontierBody(room.outcome_room_id, {
+        objective: "Replicated aggregate reservation fixture.",
+        duplication_policy: "independent_replication_required",
+        max_concurrency: 2,
+      }),
+      expected_revision: roomLive.revision,
+    };
+    const frontier = (await governed(
+      call,
+      resolver,
+      "domain://acme-host",
+      "/v1/hypervisor/work-frontier-items",
+      frontierInput,
+    )).response.body.frontier_item;
+    const acquireAInput = {
+      ...claimBody(room.outcome_room_id, frontier.frontier_item_id, leaseA.participant_lease_id, {
+        duplicate_work_policy: "independent_replication",
+      }),
+      expected_revision: leaseA.revision,
+    };
+    const acquireAChallenge = await call("POST", "/v1/hypervisor/work-claim-leases", acquireAInput);
+    const acquireAGrant = resolver.mint(
+      leaseA.participant_ref,
+      acquireAChallenge.body.error.approval.policy_hash,
+      acquireAChallenge.body.error.approval.request_hash,
+    );
+    await plane.stop();
+    plane = await startIsolatedPlane({
+      serve: false,
+      env: { ...resolver.env, IOI_TEST_FORCE_DIRSYNC_UNCONFIRMED: "work-frontier-claim-receipts" },
+      dataDir,
+    });
+    call = (method, path, body) => jsonCall(plane.daemonUrl, method, path, body);
+    const pendingA = await call("POST", "/v1/hypervisor/work-claim-leases", {
+      ...acquireAInput,
+      wallet_approval_grant: acquireAGrant,
+    });
+    const pendingIntentName = names(dataDir, "work-frontier-claim-intents")[0];
+    const pendingIntent = pendingIntentName
+      ? JSON.parse(readFileSync(join(dataDir, "work-frontier-claim-intents", pendingIntentName), "utf8"))
+      : null;
+    ok(
+      "RESERVATION: receipt-faulted acquisition seals claim, frontier, and participant refs",
+      pendingA.status === 500
+        && pendingIntent?.touched_refs?.length === 3
+        && pendingIntent.touched_refs.includes(pendingIntent.subject_ref)
+        && pendingIntent.touched_refs.includes(frontier.frontier_item_id)
+        && pendingIntent.touched_refs.includes(leaseA.participant_lease_id),
+      `${pendingA.status}/${pendingA.body.error?.code || "no-code"}/refs=${pendingIntent?.touched_refs?.length || 0}`,
+    );
+    if (!pendingIntent) {
+      throw new Error(`receipt-faulted acquisition did not retain an intent: ${JSON.stringify(pendingA)}`);
+    }
+    const beforeRefusals = mutationSnapshot(dataDir);
+    const acquireB = await governed(
+      call,
+      resolver,
+      leaseB.participant_ref,
+      "/v1/hypervisor/work-claim-leases",
+      {
+        ...claimBody(room.outcome_room_id, frontier.frontier_item_id, leaseB.participant_lease_id, {
+          duplicate_work_policy: "independent_replication",
+        }),
+        expected_revision: leaseB.revision,
+      },
+    );
+    const suspendA = await governed(
+      call,
+      resolver,
+      "domain://acme-host",
+      `/v1/hypervisor/room-participant-leases/${leaseA.participant_lease_id.replace("participant-lease://", "")}/transition`,
+      { transition: "suspend", expected_revision: leaseA.revision },
+    );
+    const blockFrontier = await governed(
+      call,
+      resolver,
+      "domain://acme-host",
+      `/v1/hypervisor/work-frontier-items/${frontier.frontier_item_id.replace("frontier://", "")}/transition`,
+      { transition: "block", expected_revision: frontier.revision },
+    );
+    const afterRefusals = mutationSnapshot(dataDir);
+    ok(
+      "RESERVATION: competing acquisition and participant suspension refuse in flight",
+      acquireB.response.status === 409
+        && acquireB.response.body.error?.code === "work_frontier_claim_mutation_in_flight"
+        && suspendA.response.status === 409
+        && suspendA.response.body.error?.code === "participant_lease_mutation_in_flight",
+      `${acquireB.response.status}/${suspendA.response.status}`,
+    );
+    ok(
+      "RESERVATION: frontier mutation refuses and all blocked interleavings are zero-mutation",
+      blockFrontier.response.status === 409
+        && blockFrontier.response.body.error?.code === "work_frontier_claim_mutation_in_flight"
+        && beforeRefusals === afterRefusals,
+      `${blockFrontier.response.status}/bytes=${beforeRefusals === afterRefusals}`,
+    );
+    process.kill(plane.daemonPid, "SIGKILL");
+    await plane.stop();
+    plane = await startIsolatedPlane({ serve: false, env: resolver.env, dataDir });
+    call = (method, path, body) => jsonCall(plane.daemonUrl, method, path, body);
+    const claimA = await pollJson(
+      () => call("GET", `/v1/hypervisor/work-claim-leases/${pendingIntent.subject_ref.replace("work-claim://", "")}`),
+      (response) => response.status === 200 && response.body.work_claim?.status === "active",
+    );
+    const acquireBPostReplay = await governed(
+      call,
+      resolver,
+      leaseB.participant_ref,
+      "/v1/hypervisor/work-claim-leases",
+      {
+        ...claimBody(room.outcome_room_id, frontier.frontier_item_id, leaseB.participant_lease_id, {
+          duplicate_work_policy: "independent_replication",
+        }),
+        expected_revision: leaseB.revision,
+      },
+    );
+    const claimB = acquireBPostReplay.response.body.work_claim;
+    ok(
+      "REPLAY: acquisition A converges before acquisition B enters replicated capacity",
+      claimA.status === 200
+        && names(dataDir, "work-frontier-claim-intents").length === 0
+        && acquireBPostReplay.response.status === 201
+        && claimB?.status === "active",
+      `${claimA.status}/${acquireBPostReplay.response.status}`,
+    );
+
+    const claimARecord = claimA.body.work_claim;
+    const releaseAInput = { transition: "release", reason: "terminal reservation A", expected_revision: claimARecord.revision };
+    const releaseBInput = { transition: "release", reason: "terminal reservation B", expected_revision: claimB.revision };
+    const claimAPath = `/v1/hypervisor/work-claim-leases/${claimARecord.work_claim_id.replace("work-claim://", "")}/transition`;
+    const claimBPath = `/v1/hypervisor/work-claim-leases/${claimB.work_claim_id.replace("work-claim://", "")}/transition`;
+    const releaseAChallenge = await call("POST", claimAPath, releaseAInput);
+    const releaseBChallenge = await call("POST", claimBPath, releaseBInput);
+    const releaseAGrant = resolver.mint(leaseA.participant_ref, releaseAChallenge.body.error.approval.policy_hash, releaseAChallenge.body.error.approval.request_hash);
+    const releaseBGrant = resolver.mint(leaseB.participant_ref, releaseBChallenge.body.error.approval.policy_hash, releaseBChallenge.body.error.approval.request_hash);
+    await plane.stop();
+    plane = await startIsolatedPlane({
+      serve: false,
+      env: { ...resolver.env, IOI_TEST_FORCE_DIRSYNC_UNCONFIRMED: "work-frontier-claim-receipts" },
+      dataDir,
+    });
+    call = (method, path, body) => jsonCall(plane.daemonUrl, method, path, body);
+    const pendingReleaseA = await call("POST", claimAPath, { ...releaseAInput, wallet_approval_grant: releaseAGrant });
+    const terminalIntentName = names(dataDir, "work-frontier-claim-intents")[0];
+    const beforeTerminalB = mutationSnapshot(dataDir);
+    const blockedReleaseB = await call("POST", claimBPath, { ...releaseBInput, wallet_approval_grant: releaseBGrant });
+    const afterTerminalB = mutationSnapshot(dataDir);
+    ok(
+      "RESERVATION: one replicated claim terminal intent reserves the shared frontier from the other",
+      pendingReleaseA.status === 500
+        && !!terminalIntentName
+        && blockedReleaseB.status === 409
+        && blockedReleaseB.body.error?.code === "work_frontier_claim_mutation_in_flight"
+        && beforeTerminalB === afterTerminalB,
+      `${pendingReleaseA.status}/${blockedReleaseB.status}/bytes=${beforeTerminalB === afterTerminalB}`,
+    );
+    process.kill(plane.daemonPid, "SIGKILL");
+    await plane.stop();
+    plane = await startIsolatedPlane({ serve: false, env: resolver.env, dataDir });
+    call = (method, path, body) => jsonCall(plane.daemonUrl, method, path, body);
+    const releasedA = await pollJson(
+      () => call("GET", claimAPath.replace("/transition", "")),
+      (response) => response.status === 200 && response.body.work_claim?.status === "released",
+    );
+    const releasedB = await governed(call, resolver, leaseB.participant_ref, claimBPath, releaseBInput);
+    ok(
+      "REPLAY: replicated terminal A converges, then terminal B succeeds",
+      releasedA.status === 200
+        && names(dataDir, "work-frontier-claim-intents").length === 0
+        && releasedB.response.status === 200
+        && releasedB.response.body.work_claim?.status === "released",
+      `${releasedA.status}/${releasedB.response.status}`,
+    );
+  } finally {
+    if (plane) await plane.stop();
+    rmSync(dataDir, { recursive: true, force: true });
+  }
+}
+
+async function runAggregateReservationInterleavingSuite() {
+  const resolver = await startRealWalletNetworkPrincipalAuthorityFixture();
+  try {
+    await runAggregateReservationInterleavingLanes(resolver);
+  } finally {
+    await resolver.stop();
+  }
 }
 
 async function runDurabilityFaultLanes() {
@@ -280,6 +496,9 @@ async function runDurabilityFaultLanes() {
       if (terminalPlane) await terminalPlane.stop();
       rmSync(terminalDir, { recursive: true, force: true });
     }
+    await resolver.stop();
+    resolver = await startRealWalletNetworkPrincipalAuthorityFixture();
+    await runAggregateReservationInterleavingLanes(resolver);
   } finally {
     if (basePlane) await basePlane.stop();
     await resolver.stop();
@@ -631,9 +850,11 @@ async function run({ includeFaults = true } = {}) {
   }
 }
 
-const verifierRun = process.argv.includes("--faults-only")
-  ? runDurabilityFaultLanes()
-  : run({ includeFaults: !process.argv.includes("--main-only") });
+const verifierRun = process.argv.includes("--reservations-only")
+  ? runAggregateReservationInterleavingSuite()
+  : process.argv.includes("--faults-only")
+    ? runDurabilityFaultLanes()
+    : run({ includeFaults: !process.argv.includes("--main-only") });
 
 verifierRun.then(() => {
   const failed = results.filter((result) => !result.pass);
