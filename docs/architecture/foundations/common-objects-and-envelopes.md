@@ -4079,7 +4079,13 @@ is not a new credential or a trust-on-first-use capability.
 
 Eligibility matching is evidence admission, not allocation or execution
 authority. The receipt freezes every input coordinate a later claim must
-revalidate:
+revalidate. Offer-side requirements are constraints that require independent
+proof; they never count as evidence of their own satisfaction. Until the owner
+plane can resolve a `scope:*`, `context-profile://...`, `policy://...`, or other
+offer prerequisite, matching refuses typed-unavailable. Claim admission
+recomputes the exact prerequisite coverage and rechecks resource-offer expiry
+against freshly committed wallet.network `resolved_at_ms` immediately before
+linearization:
 
 ```yaml
 WorkEligibilityMatchReceipt:
@@ -4107,6 +4113,12 @@ WorkEligibilityMatchReceipt:
   requirement_coverage:
     - requirement_ref: canonical ref
       matched_exactly: true
+  offer_prerequisite_coverage:
+    - offer_ref: resource-offer://... | capability-offer://...
+      prerequisite_refs:
+        - scope:* | policy://... | context-profile://... | canonical ref
+      proof_refs:
+        - grant://... | context-lease://... | receipt://... | canonical ref
   allocation_created: false
   execution_authority_granted: false
   claim_created: false

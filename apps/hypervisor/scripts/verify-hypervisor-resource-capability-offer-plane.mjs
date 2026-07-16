@@ -82,7 +82,7 @@ const resourceOfferBody = (roomRef, participantRef, overrides = {}) => ({
   outcome_room_ref: roomRef, provider_or_participant_ref: participantRef,
   resource_profile_ref: "resource://pool/offer-pool", capacity_and_availability_ref: "capacity://pool/offer-pool",
   locality_and_custody_refs: ["region://local"], trust_and_assurance_refs: ["evidence://ev-ab"],
-  cost_ref: null, eligible_work_classes: ["task"], policy_constraint_refs: ["policy://no-pii"],
+  cost_ref: null, eligible_work_classes: ["task"], policy_constraint_refs: [],
   allocation_policy_ref: "policy://allocation-v1", queue_preemption_and_fairness_policy_ref: "policy://fair-v1",
   expires_at: null, coordination_topology: "hosted_admission", expected_revision: 0, ...overrides,
 });

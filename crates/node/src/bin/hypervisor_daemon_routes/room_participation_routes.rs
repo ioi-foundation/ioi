@@ -493,6 +493,7 @@ async fn reauthorize_sealed_receipt(
         effect,
     )
     .await
+    .map(|_| ())
 }
 
 /// Canonical vocabularies (envelopes, verbatim).

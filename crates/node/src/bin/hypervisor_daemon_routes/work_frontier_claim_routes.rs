@@ -162,6 +162,7 @@ fn classify(error: VErr) -> (StatusCode, Json<Value>) {
         StatusCode::NOT_FOUND
     } else if code.contains("stale_revision")
         || code.contains("eligibility_stale")
+        || code.contains("eligibility_offer_expired")
         || code.contains("conflict")
         || code.contains("capacity")
         || code.contains("current_claim")
@@ -3099,17 +3100,19 @@ pub(crate) async fn handle_claim_acquire(
     let eligibility_receipt_ref = declaration
         .get("eligibility_match_receipt_ref")
         .and_then(Value::as_str);
-    if let Err(response) = super::resource_capability_offer_routes::reauthorize_eligibility_for_claim(
-        &state.data_dir,
-        eligibility_receipt_ref,
-        &frontier,
-        &participant,
-        &declaration,
-    )
-    .await
-    {
-        return response;
-    }
+    let eligibility_resolved_at_ms =
+        match super::resource_capability_offer_routes::reauthorize_eligibility_for_claim(
+            &state.data_dir,
+            eligibility_receipt_ref,
+            &frontier,
+            &participant,
+            &declaration,
+        )
+        .await
+        {
+            Ok(resolved_at_ms) => resolved_at_ms,
+            Err(response) => return response,
+        };
     let participant_authority = s(&participant, "participant_ref", "");
     let claim_material = json!({
         "declaration": declaration,
@@ -3135,6 +3138,9 @@ pub(crate) async fn handle_claim_acquire(
         Ok(authorized) => authorized,
         Err(challenge) => return challenge,
     };
+    let claim_check_at_ms = eligibility_resolved_at_ms
+        .map(|resolved_at_ms| resolved_at_ms.max(authorized.resolved_at_ms))
+        .unwrap_or(authorized.resolved_at_ms);
     test_acquire_barrier(
         &frontier_ref,
         frontier
@@ -3216,6 +3222,7 @@ pub(crate) async fn handle_claim_acquire(
         &current_frontier,
         &current_participant,
         &declaration,
+        Some(claim_check_at_ms),
     ) {
         return classify(error);
     }

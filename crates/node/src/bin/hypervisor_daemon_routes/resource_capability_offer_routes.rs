@@ -1010,6 +1010,33 @@ fn validate_resource_backing_snapshot(
     }
     Ok(())
 }
+
+fn resource_offer_expired_at(offer: &Value, resolved_at_ms: u64) -> Result<bool, VErr> {
+    let Some(value) = offer.get("expires_at") else {
+        return Err(verr(
+            "work_claim_eligibility_offer_unreadable",
+            "resource offer lacks expires_at",
+        ));
+    };
+    let Value::String(expires_at) = value else {
+        return if value.is_null() {
+            Ok(false)
+        } else {
+            Err(verr(
+                "work_claim_eligibility_offer_unreadable",
+                "resource offer expires_at is not RFC3339 or null",
+            ))
+        };
+    };
+    let expires = OffsetDateTime::parse(expires_at, &Rfc3339).map_err(|_| {
+        verr(
+            "work_claim_eligibility_offer_unreadable",
+            "resource offer expires_at is malformed",
+        )
+    })?;
+    Ok(expires.unix_timestamp_nanos() / 1_000_000 <= i128::from(resolved_at_ms))
+}
+
 fn verify_capability_backing(participant: &Value, declaration: &Value) -> Result<(), VErr> {
     let advertised = union_fields(
         participant,
@@ -1170,7 +1197,7 @@ fn collect_match_coverage(
     resources: &[Value],
     capabilities: &[Value],
     claim_refs: &[String],
-) -> Result<(Vec<Value>, Vec<String>), VErr> {
+) -> Result<(Vec<Value>, Vec<Value>, Vec<String>), VErr> {
     let mut resource_provided = BTreeSet::new();
     for offer in resources {
         for field in ["resource_profile_ref", "capacity_and_availability_ref"] {
@@ -1178,11 +1205,7 @@ fn collect_match_coverage(
                 resource_provided.insert(v.to_string());
             }
         }
-        for field in [
-            "locality_and_custody_refs",
-            "trust_and_assurance_refs",
-            "policy_constraint_refs",
-        ] {
+        for field in ["locality_and_custody_refs", "trust_and_assurance_refs"] {
             resource_provided.extend(array_strings(offer, field));
         }
     }
@@ -1210,6 +1233,28 @@ fn collect_match_coverage(
     participant_provided.extend(claim_refs.iter().cloned());
     let mut coverage = Vec::new();
     let mut unsupported = Vec::new();
+    let mut offer_prerequisite_coverage = Vec::new();
+    for offer in resources {
+        let prerequisites = array_strings(offer, "policy_constraint_refs");
+        unsupported.extend(prerequisites.iter().cloned());
+        offer_prerequisite_coverage.push(json!({
+            "offer_ref": offer.get("resource_offer_id").cloned().unwrap_or(Value::Null),
+            "prerequisite_refs": prerequisites,
+            "proof_refs": []
+        }));
+    }
+    for offer in capabilities {
+        let prerequisites = array_strings(offer, "authority_and_context_requirements");
+        unsupported.extend(prerequisites.iter().cloned());
+        offer_prerequisite_coverage.push(json!({
+            "offer_ref": offer.get("capability_offer_id").cloned().unwrap_or(Value::Null),
+            "prerequisite_refs": prerequisites,
+            "proof_refs": []
+        }));
+    }
+    if !unsupported.is_empty() {
+        return Ok((Vec::new(), offer_prerequisite_coverage, unsupported));
+    }
     for requirement in array_strings(frontier, "required_capability_refs") {
         if capability_provided.contains(&requirement) {
             coverage.push(json!({"requirement_ref":requirement,"matched_exactly":true}));
@@ -1237,7 +1282,7 @@ fn collect_match_coverage(
             return Err(verr("work_eligibility_requirements_unmatched",format!("required ref '{requirement}' is not proven by the selected participant-backed offers/evidence")));
         }
     }
-    Ok((coverage, unsupported))
+    Ok((coverage, offer_prerequisite_coverage, unsupported))
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -2449,7 +2494,7 @@ pub(crate) async fn handle_match_create(
     }
     let mut claim_refs = context_refs.clone();
     claim_refs.extend(authority_refs.clone());
-    let (coverage, unsupported) = match collect_match_coverage(
+    let (coverage, offer_prerequisite_coverage, unsupported) = match collect_match_coverage(
         &frontier,
         &participant,
         &resources,
@@ -2460,9 +2505,15 @@ pub(crate) async fn handle_match_create(
         Err(e) => return classify(e),
     };
     if !unsupported.is_empty() {
-        return classify(verr("work_eligibility_requirement_proof_unavailable",format!("requirements [{}] need a resolvable scope/context proof plane; matching refuses caller assertions",unsupported.join(", "))));
+        return classify(verr(
+            "work_eligibility_requirement_proof_unavailable",
+            format!(
+                "offer/frontier prerequisites [{}] need a resolvable policy/scope/context proof plane; matching refuses caller assertions",
+                unsupported.join(", ")
+            ),
+        ));
     }
-    let tuple = json!({"outcome_room_ref":room_ref,"frontier_item_ref":frontier_ref,"frontier_revision":revision,"frontier_control_hash":work::frontier_claim_control_hash(&frontier),"participant_ref":participant_ref,"participant_revision":participant.get("revision").cloned().unwrap_or(Value::Null),"participant_control_hash":participant_control_hash(&participant),"resource_offers":offer_coordinates(&resources,"resource_offer_id"),"capability_offers":offer_coordinates(&capabilities,"capability_offer_id"),"context_lease_refs":context_refs,"authority_resource_compute_data_budget_and_tool_lease_refs":authority_refs,"requirement_coverage":coverage,"allocation_created":false,"execution_authority_granted":false,"claim_created":false});
+    let tuple = json!({"outcome_room_ref":room_ref,"frontier_item_ref":frontier_ref,"frontier_revision":revision,"frontier_control_hash":work::frontier_claim_control_hash(&frontier),"participant_ref":participant_ref,"participant_revision":participant.get("revision").cloned().unwrap_or(Value::Null),"participant_control_hash":participant_control_hash(&participant),"resource_offers":offer_coordinates(&resources,"resource_offer_id"),"capability_offers":offer_coordinates(&capabilities,"capability_offer_id"),"context_lease_refs":context_refs,"authority_resource_compute_data_budget_and_tool_lease_refs":authority_refs,"requirement_coverage":coverage,"offer_prerequisite_coverage":offer_prerequisite_coverage,"allocation_created":false,"execution_authority_granted":false,"claim_created":false});
     let match_tail = deterministic_tail(
         "wem_",
         &json!({"domain":"hypervisor.work-eligibility-match.identity.v1","tuple":tuple}),
@@ -2577,24 +2628,19 @@ pub(crate) async fn handle_match_create(
         Ok(None) => {}
         Err(error) => return classify(error),
     }
-    if let Some(expires) = resources
-        .iter()
-        .filter_map(|offer| offer.get("expires_at").and_then(Value::as_str))
-        .map(|value| OffsetDateTime::parse(value, &Rfc3339))
-        .find(|parsed| {
-            parsed
-                .as_ref()
-                .map(|at| {
-                    at.unix_timestamp_nanos() / 1_000_000 <= i128::from(authorized.resolved_at_ms)
-                })
-                .unwrap_or(true)
-        })
-    {
-        let _ = expires;
-        return classify(verr(
-            "work_eligibility_offer_expired",
-            "a selected resource offer is expired at wallet.network committed time",
-        ));
+    for offer in &resources {
+        match resource_offer_expired_at(offer, authorized.resolved_at_ms) {
+            Ok(true) => {
+                return classify(verr(
+                    "work_eligibility_offer_expired",
+                    "a selected resource offer is expired at wallet.network committed time",
+                ))
+            }
+            Ok(false) => {}
+            Err((_, message)) => {
+                return classify(verr("work_eligibility_offer_registry_unreadable", message))
+            }
+        }
     }
     let receipt=match build_receipt(&match_tail,MATCH_RECEIPT_SCHEMA,"WorkEligibilityMatchReceipt",&match_ref,"match",tuple.clone(),vec![json!(room_ref),json!(frontier_ref),json!(participant_ref)],&tuple,"a host-admitted exact eligibility match; it creates no allocation, execution authority, or claim",&authorized){Ok(v)=>v,Err(e)=>return classify(e)};
     let intent_tail = fresh_tail(
@@ -2626,6 +2672,7 @@ pub(crate) fn validate_eligibility_for_claim_locked(
     frontier: &Value,
     participant: &Value,
     claim_declaration: &Value,
+    resolved_at_ms: Option<u64>,
 ) -> Result<(), VErr> {
     let capability = array_strings(frontier, "required_capability_refs");
     let other = array_strings(
@@ -2725,6 +2772,8 @@ pub(crate) fn validate_eligibility_for_claim_locked(
             "claim lease refs differ from the matched eligibility tuple",
         ));
     }
+    let mut resources = Vec::new();
+    let mut capabilities = Vec::new();
     for (field, resource) in [("resource_offers", true), ("capability_offers", false)] {
         let coords = facts.get(field).and_then(Value::as_array).ok_or_else(|| {
             verr(
@@ -2769,33 +2818,56 @@ pub(crate) fn validate_eligibility_for_claim_locked(
             }
             if resource {
                 validate_resource_backing_snapshot(data_dir, participant, &offer)?;
+                if resolved_at_ms
+                    .map(|now| resource_offer_expired_at(&offer, now))
+                    .transpose()?
+                    .unwrap_or(false)
+                {
+                    return Err(verr(
+                        "work_claim_eligibility_offer_expired",
+                        "matched resource offer expired before claim linearization at wallet.network committed time",
+                    ));
+                }
+                resources.push(offer);
+            } else {
+                capabilities.push(offer);
             }
         }
     }
-    let coverage = facts
-        .get("requirement_coverage")
-        .and_then(Value::as_array)
-        .ok_or_else(|| {
-            verr(
-                "work_claim_eligibility_receipt_unreadable",
-                "receipt lacks requirement coverage",
-            )
-        })?;
-    let covered: BTreeSet<String> = coverage
-        .iter()
-        .filter(|entry| entry.get("matched_exactly") == Some(&Value::Bool(true)))
-        .filter_map(|entry| {
-            entry
-                .get("requirement_ref")
-                .and_then(Value::as_str)
-                .map(ToOwned::to_owned)
-        })
-        .collect();
-    let required: BTreeSet<String> = capability.into_iter().chain(other).collect();
-    if covered != required {
+    let mut claim_refs = array_strings(claim_declaration, "context_lease_refs");
+    claim_refs.extend(array_strings(
+        claim_declaration,
+        "authority_resource_compute_data_budget_and_tool_lease_refs",
+    ));
+    let (expected_coverage, expected_offer_prerequisite_coverage, unsupported) =
+        collect_match_coverage(
+            frontier,
+            participant,
+            &resources,
+            &capabilities,
+            &claim_refs,
+        )?;
+    if !unsupported.is_empty() {
+        return Err(verr(
+            "work_claim_eligibility_requirement_proof_unavailable",
+            format!(
+                "offer/frontier prerequisites [{}] remain unsupported at claim admission",
+                unsupported.join(", ")
+            ),
+        ));
+    }
+    if facts.get("requirement_coverage") != Some(&Value::Array(expected_coverage)) {
         return Err(verr(
             "work_claim_eligibility_receipt_invalid",
-            "receipt coverage is not the exact frontier requirement set",
+            "receipt requirement coverage does not recompute exactly",
+        ));
+    }
+    if facts.get("offer_prerequisite_coverage")
+        != Some(&Value::Array(expected_offer_prerequisite_coverage))
+    {
+        return Err(verr(
+            "work_claim_eligibility_receipt_invalid",
+            "receipt offer-prerequisite coverage does not recompute exactly",
         ));
     }
     Ok(())
@@ -2807,18 +2879,19 @@ pub(crate) async fn reauthorize_eligibility_for_claim(
     frontier: &Value,
     participant: &Value,
     claim_declaration: &Value,
-) -> Result<(), (StatusCode, Json<Value>)> {
+) -> Result<Option<u64>, (StatusCode, Json<Value>)> {
     if let Err(error) = validate_eligibility_for_claim_locked(
         data_dir,
         receipt_ref,
         frontier,
         participant,
         claim_declaration,
+        None,
     ) {
         return Err(classify(error));
     }
     let Some(reference) = receipt_ref else {
-        return Ok(());
+        return Ok(None);
     };
     let receipt = match load_match_receipt(data_dir, reference) {
         Ok(Some(v)) => v,
@@ -2866,6 +2939,7 @@ pub(crate) async fn reauthorize_eligibility_for_claim(
         &effect,
     )
     .await
+    .map(Some)
     .map_err(|message| {
         classify(verr(
             "work_claim_eligibility_reauthorization_refused",
@@ -3211,11 +3285,13 @@ mod offer_match_tests {
     fn matching_covers_exact_requirements_and_refuses_unprovable_scope() {
         let participant = participant();
         let frontier = frontier();
-        let capability = json!({"capability_descriptor_refs":["ai://cap-ab"],"model_harness_tool_and_connector_refs":[]});
-        let (coverage, unsupported) =
+        let capability = json!({"capability_offer_id":format!("capability-offer://cof_{}","33".repeat(32)),"capability_descriptor_refs":["ai://cap-ab"],"model_harness_tool_and_connector_refs":[],"authority_and_context_requirements":[]});
+        let (coverage, offer_prerequisites, unsupported) =
             collect_match_coverage(&frontier, &participant, &[], &[capability.clone()], &[])
                 .unwrap();
         assert_eq!(coverage.len(), 2);
+        assert_eq!(offer_prerequisites.len(), 1);
+        assert_eq!(offer_prerequisites[0]["prerequisite_refs"], json!([]));
         assert!(unsupported.is_empty());
         assert_eq!(
             collect_match_coverage(&frontier, &participant, &[], &[], &[])
@@ -3225,9 +3301,47 @@ mod offer_match_tests {
         );
         let mut scoped = frontier;
         scoped["required_context_resource_authority_and_evidence_refs"] = json!(["scope:execute"]);
-        let (_, unsupported) =
+        let (_, _, unsupported) =
             collect_match_coverage(&scoped, &participant, &[], &[capability], &[]).unwrap();
         assert_eq!(unsupported, vec!["scope:execute"]);
+    }
+
+    #[test]
+    fn offer_prerequisites_are_constraints_never_proof() {
+        let participant = participant();
+        let mut frontier = frontier();
+        frontier["required_context_resource_authority_and_evidence_refs"] =
+            json!(["policy://no-pii"]);
+        let resource = json!({
+            "resource_offer_id": format!("resource-offer://rof_{}", "55".repeat(32)),
+            "resource_profile_ref": "runtime://rt-ab",
+            "capacity_and_availability_ref": "capacity://cap-ab",
+            "locality_and_custody_refs": [],
+            "trust_and_assurance_refs": [],
+            "policy_constraint_refs": ["policy://no-pii"]
+        });
+        let capability = json!({
+            "capability_offer_id": format!("capability-offer://cof_{}", "66".repeat(32)),
+            "capability_descriptor_refs": ["ai://cap-ab"],
+            "model_harness_tool_and_connector_refs": [],
+            "authority_and_context_requirements": ["scope:unresolved-capability-authority"]
+        });
+        let (coverage, offer_prerequisites, unsupported) =
+            collect_match_coverage(&frontier, &participant, &[resource], &[capability], &[])
+                .unwrap();
+        assert!(coverage.is_empty());
+        assert_eq!(offer_prerequisites.len(), 2);
+        assert_eq!(
+            unsupported,
+            vec!["policy://no-pii", "scope:unresolved-capability-authority"]
+        );
+    }
+
+    #[test]
+    fn resource_offer_expiry_uses_authenticated_wallet_time() {
+        let offer = json!({"expires_at":"1970-01-01T00:00:02.000Z"});
+        assert!(!resource_offer_expired_at(&offer, 1_999).unwrap());
+        assert!(resource_offer_expired_at(&offer, 2_000).unwrap());
     }
 
     #[test]
@@ -3260,7 +3374,7 @@ mod offer_match_tests {
         .unwrap();
         persist_record(data_dir, CAPABILITY_DIR, &offer_tail, &offer).unwrap();
         let coverage = json!([{"requirement_ref":"ai://cap-ab","matched_exactly":true},{"requirement_ref":"evidence://ev-ab","matched_exactly":true}]);
-        let facts = json!({"outcome_room_ref":"outcome-room://or_ab","frontier_item_ref":frontier["frontier_item_id"],"frontier_revision":frontier["revision"],"frontier_control_hash":work::frontier_claim_control_hash(&frontier),"participant_ref":participant["participant_lease_id"],"participant_revision":participant["revision"],"participant_control_hash":participant_control_hash(&participant),"resource_offers":[],"capability_offers":offer_coordinates(&[offer.clone()],"capability_offer_id"),"context_lease_refs":[],"authority_resource_compute_data_budget_and_tool_lease_refs":[],"requirement_coverage":coverage,"allocation_created":false,"execution_authority_granted":false,"claim_created":false});
+        let facts = json!({"outcome_room_ref":"outcome-room://or_ab","frontier_item_ref":frontier["frontier_item_id"],"frontier_revision":frontier["revision"],"frontier_control_hash":work::frontier_claim_control_hash(&frontier),"participant_ref":participant["participant_lease_id"],"participant_revision":participant["revision"],"participant_control_hash":participant_control_hash(&participant),"resource_offers":[],"capability_offers":offer_coordinates(&[offer.clone()],"capability_offer_id"),"context_lease_refs":[],"authority_resource_compute_data_budget_and_tool_lease_refs":[],"requirement_coverage":coverage,"offer_prerequisite_coverage":[{"offer_ref":offer["capability_offer_id"],"prerequisite_refs":[],"proof_refs":[]}],"allocation_created":false,"execution_authority_granted":false,"claim_created":false});
         let tail = deterministic_tail(
             "wem_",
             &json!({"domain":"hypervisor.work-eligibility-match.identity.v1","tuple":facts}),
@@ -3280,6 +3394,7 @@ mod offer_match_tests {
             &frontier,
             &participant,
             &claim,
+            Some(1_800_000_000_000),
         )
         .unwrap();
         let mut stale_offer = offer;
@@ -3291,7 +3406,8 @@ mod offer_match_tests {
                 Some(&reference),
                 &frontier,
                 &participant,
-                &claim
+                &claim,
+                Some(1_800_000_000_000)
             )
             .unwrap_err()
             .0,
