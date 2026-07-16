@@ -169,7 +169,10 @@ fn classify(error: VErr) -> (StatusCode, Json<Value>) {
         StatusCode::CONFLICT
     } else if code.contains("unavailable") {
         StatusCode::NOT_IMPLEMENTED
-    } else if code.contains("pending_convergence") || code.contains("unreadable") {
+    } else if code.contains("pending_convergence")
+        || code.contains("unreadable")
+        || code.contains("persist_failed")
+    {
         StatusCode::INTERNAL_SERVER_ERROR
     } else {
         StatusCode::UNPROCESSABLE_ENTITY
@@ -1419,6 +1422,8 @@ fn sealed_authorized(receipt: &Value) -> Result<AuthorizedDecision, String> {
 }
 
 fn validate_receipt_exact(
+    contract: AuthorityContract,
+    expected_effect: &Value,
     receipt_tail: &str,
     schema: &str,
     receipt_type: &str,
@@ -1430,6 +1435,7 @@ fn validate_receipt_exact(
     note: &str,
     receipt: &Value,
 ) -> Result<(), String> {
+    governed::validate_sealed_effect(contract, receipt, expected_effect)?;
     let authorized = sealed_authorized(receipt)?;
     let expected = build_receipt(
         receipt_tail,
@@ -1571,6 +1577,8 @@ fn validate_sealed_intent(intent: &Value, tail: &str) -> Result<(), String> {
                 return Err("frontier-create sealed successors do not reconstruct".into());
             }
             validate_receipt_exact(
+                FRONTIER_AUTHORITY,
+                &frontier_create_effect(&declaration, revision_before),
                 receipt_tail,
                 FRONTIER_RECEIPT_SCHEMA,
                 "WorkFrontierMutationReceipt",
@@ -1612,6 +1620,8 @@ fn validate_sealed_intent(intent: &Value, tail: &str) -> Result<(), String> {
                 return Err("frontier transition successor does not reconstruct".into());
             }
             validate_receipt_exact(
+                FRONTIER_AUTHORITY,
+                &frontier_transition_effect(op, revision_before),
                 receipt_tail,
                 FRONTIER_RECEIPT_SCHEMA,
                 "WorkFrontierMutationReceipt",
@@ -1717,6 +1727,8 @@ fn validate_sealed_intent(intent: &Value, tail: &str) -> Result<(), String> {
                 return Err("claim-acquire successors do not reconstruct byte-exactly".into());
             }
             validate_receipt_exact(
+                CLAIM_AUTHORITY,
+                &claim_acquire_effect(&declaration, revision_before),
                 receipt_tail,
                 CLAIM_RECEIPT_SCHEMA,
                 "WorkClaimLeaseReceipt",
@@ -1765,11 +1777,38 @@ fn validate_sealed_intent(intent: &Value, tail: &str) -> Result<(), String> {
             {
                 return Err("claim transition coordinates are inconsistent".into());
             }
-            let transition_body = json!({
-                "reason": final_claim.get("release_or_reassignment_reason").cloned().unwrap_or(Value::Null),
-                "heartbeat_ref": final_claim.get("heartbeat_ref").cloned().unwrap_or(Value::Null),
-                "ttl_seconds": final_claim.get("ttl_seconds").cloned().unwrap_or(Value::Null),
-            });
+            let mut transition_body = json!({});
+            let transition_fields = transition_body
+                .as_object_mut()
+                .expect("transition reconstruction body");
+            if op == "renew" {
+                transition_fields.insert(
+                    "ttl_seconds".into(),
+                    final_claim
+                        .get("ttl_seconds")
+                        .cloned()
+                        .unwrap_or(Value::Null),
+                );
+            } else if op == "heartbeat" {
+                transition_fields.insert(
+                    "heartbeat_ref".into(),
+                    final_claim
+                        .get("heartbeat_ref")
+                        .cloned()
+                        .unwrap_or(Value::Null),
+                );
+            } else if matches!(
+                op,
+                "release" | "complete" | "expire" | "quarantine" | "revoke"
+            ) {
+                transition_fields.insert(
+                    "reason".into(),
+                    final_claim
+                        .get("release_or_reassignment_reason")
+                        .cloned()
+                        .unwrap_or(Value::Null),
+                );
+            }
             let expected_claim = transition_claim(
                 prior_claim,
                 op,
@@ -1782,6 +1821,8 @@ fn validate_sealed_intent(intent: &Value, tail: &str) -> Result<(), String> {
             if expected_claim != *final_claim {
                 return Err("claim transition successor does not reconstruct".into());
             }
+            let expected_effect = claim_transition_effect(op, revision_before, &transition_body)
+                .map_err(|(_, message)| message)?;
             let participant_ref = s(prior_claim, "claimant_ref", "");
             let frontier_ref = s(prior_claim, "frontier_item_ref", "");
             if releases_binding {
@@ -1872,6 +1913,8 @@ fn validate_sealed_intent(intent: &Value, tail: &str) -> Result<(), String> {
                 );
             }
             validate_receipt_exact(
+                CLAIM_AUTHORITY,
+                &expected_effect,
                 receipt_tail,
                 CLAIM_RECEIPT_SCHEMA,
                 "WorkClaimLeaseReceipt",
@@ -1992,6 +2035,34 @@ fn dependencies_ready(records: &[(String, Value)], frontier: &Value) -> Result<(
                 format!("dependency '{dependency}' is not a closed same-room predecessor"),
             ));
         }
+    }
+    Ok(())
+}
+
+fn require_claim_eligibility_provable(frontier: &Value) -> Result<(), VErr> {
+    let capability_requirements = frontier
+        .get("required_capability_refs")
+        .and_then(Value::as_array)
+        .ok_or_else(|| {
+            verr(
+                "work_frontier_claim_registry_unreadable",
+                "frontier required_capability_refs is not a canonical list",
+            )
+        })?;
+    let context_requirements = frontier
+        .get("required_context_resource_authority_and_evidence_refs")
+        .and_then(Value::as_array)
+        .ok_or_else(|| {
+            verr(
+                "work_frontier_claim_registry_unreadable",
+                "frontier required context/resource/authority/evidence refs are not a canonical list",
+            )
+        })?;
+    if !capability_requirements.is_empty() || !context_requirements.is_empty() {
+        return Err(verr(
+            "work_claim_eligibility_unavailable",
+            "frontier eligibility requirements cannot be proven until the offer/matching admission plane exists; caller-declared claim refs are not eligibility evidence",
+        ));
     }
     Ok(())
 }
@@ -2407,6 +2478,7 @@ pub(crate) async fn handle_frontier_create(
     let host_ref = s(&room, "host_domain_ref", "");
     let frontier_tail = deterministic_tail("wfi_", &declaration);
     let frontier_ref = format!("frontier://{frontier_tail}");
+    let effect = frontier_create_effect(&declaration, room_revision);
     let authorized = match governed::authorize_decision(
         FRONTIER_AUTHORITY,
         &body,
@@ -2416,6 +2488,7 @@ pub(crate) async fn handle_frontier_create(
         &frontier_ref,
         "create",
         room_revision,
+        &effect,
     )
     .await
     {
@@ -2466,10 +2539,11 @@ pub(crate) async fn handle_frontier_create(
             format!("room frontier is bounded at {ROOM_FRONTIER_MAX} items"),
         ));
     }
-    if load_frontier(&state.data_dir, &frontier_tail)
-        .ok()
-        .flatten()
-        .is_some()
+    let frontier_occupied = match load_frontier(&state.data_dir, &frontier_tail) {
+        Ok(record) => record.is_some(),
+        Err(message) => return classify(verr("work_frontier_claim_registry_unreadable", message)),
+    };
+    if frontier_occupied
         || match intent_reserves_subject(&state.data_dir, &frontier_ref) {
             Ok(reserved) => reserved,
             Err(error) => return classify(error),
@@ -2636,6 +2710,7 @@ pub(crate) async fn handle_frontier_transition(
         }
     };
     let subject_ref = s(&prior, "frontier_item_id", "");
+    let effect = frontier_transition_effect(&op, revision);
     let authorized = match governed::authorize_decision(
         FRONTIER_AUTHORITY,
         &body,
@@ -2645,6 +2720,7 @@ pub(crate) async fn handle_frontier_transition(
         &subject_ref,
         &op,
         revision,
+        &effect,
     )
     .await
     {
@@ -2816,6 +2892,9 @@ pub(crate) async fn handle_claim_acquire(
             "participant already has a current claim",
         ));
     }
+    if let Err(error) = require_claim_eligibility_provable(&frontier) {
+        return classify(error);
+    }
     let participant_authority = s(&participant, "participant_ref", "");
     let claim_material = json!({
         "declaration": declaration,
@@ -2824,6 +2903,7 @@ pub(crate) async fn handle_claim_acquire(
     });
     let claim_tail = deterministic_tail("wcl_", &claim_material);
     let claim_ref = format!("work-claim://{claim_tail}");
+    let effect = claim_acquire_effect(&declaration, participant_revision);
     let authorized = match governed::authorize_decision(
         CLAIM_AUTHORITY,
         &body,
@@ -2833,6 +2913,7 @@ pub(crate) async fn handle_claim_acquire(
         &claim_ref,
         "acquire",
         participant_revision,
+        &effect,
     )
     .await
     {
@@ -2900,6 +2981,9 @@ pub(crate) async fn handle_claim_acquire(
             "frontier claimability, policy, or dependency control changed during authorization",
         ));
     }
+    if let Err(error) = require_claim_eligibility_provable(&current_frontier) {
+        return classify(error);
+    }
     if !matches!(
         s(&current_frontier, "status", "").as_str(),
         "open" | "claimed" | "replicating"
@@ -2956,13 +3040,14 @@ pub(crate) async fn handle_claim_acquire(
             "participant already has a completed or pending live claim",
         ));
     }
+    let claim_occupied = match load_claim(&state.data_dir, &claim_ref) {
+        Ok(record) => record.is_some(),
+        Err(message) => return classify(verr("work_frontier_claim_registry_unreadable", message)),
+    };
     if match intent_reserves_subject(&state.data_dir, &claim_ref) {
         Ok(value) => value,
         Err(error) => return classify(error),
-    } || load_claim(&state.data_dir, &claim_ref)
-        .ok()
-        .flatten()
-        .is_some()
+    } || claim_occupied
     {
         return classify(verr(
             "work_claim_conflict",
@@ -3106,6 +3191,91 @@ fn claim_transition_contract(
     }
 }
 
+fn frontier_create_effect(declaration: &Value, room_revision: u64) -> Value {
+    json!({
+        "declaration": declaration,
+        "expected_revision": room_revision,
+    })
+}
+
+fn frontier_transition_effect(op: &str, revision: u64) -> Value {
+    json!({
+        "transition": op,
+        "expected_revision": revision,
+    })
+}
+
+fn claim_acquire_effect(declaration: &Value, participant_revision: u64) -> Value {
+    json!({
+        "declaration": declaration,
+        "expected_revision": participant_revision,
+    })
+}
+
+fn claim_transition_effect(op: &str, revision: u64, body: &Value) -> Result<Value, VErr> {
+    for (field, admitted_op) in [("ttl_seconds", "renew"), ("heartbeat_ref", "heartbeat")] {
+        if op != admitted_op && body.get(field).is_some_and(|value| !value.is_null()) {
+            return Err(verr(
+                "work_claim_field_not_admitted_for_transition",
+                format!("'{field}' is admitted only for transition '{admitted_op}'"),
+            ));
+        }
+    }
+    let terminal = matches!(
+        op,
+        "release" | "complete" | "expire" | "quarantine" | "revoke"
+    );
+    if !terminal && body.get("reason").is_some_and(|value| !value.is_null()) {
+        return Err(verr(
+            "work_claim_field_not_admitted_for_transition",
+            "'reason' is admitted only for a terminal claim transition",
+        ));
+    }
+    let mut effect = json!({
+        "transition": op,
+        "expected_revision": revision,
+    });
+    let object = effect.as_object_mut().expect("effect object");
+    if op == "renew" {
+        let ttl_seconds = body
+            .get("ttl_seconds")
+            .and_then(Value::as_u64)
+            .ok_or_else(|| verr("work_claim_ttl_required", "renew requires ttl_seconds"))?;
+        if !(CLAIM_TTL_MIN_SECONDS..=CLAIM_TTL_MAX_SECONDS).contains(&ttl_seconds) {
+            return Err(verr(
+                "work_claim_ttl_invalid",
+                "renew ttl_seconds is out of bounds",
+            ));
+        }
+        object.insert("ttl_seconds".into(), json!(ttl_seconds));
+    }
+    if op == "heartbeat" {
+        object.insert(
+            "heartbeat_ref".into(),
+            optional_ref(body, "heartbeat_ref", &["heartbeat", "receipt"])?
+                .map(Value::String)
+                .unwrap_or(Value::Null),
+        );
+    }
+    if matches!(
+        op,
+        "release" | "complete" | "expire" | "quarantine" | "revoke"
+    ) {
+        object.insert(
+            "reason".into(),
+            Value::String(
+                bounded_string(body, "reason", REASON_MAX, true)?.ok_or_else(|| {
+                    verr(
+                        "work_claim_reason_required",
+                        "terminal transition requires reason",
+                    )
+                })?,
+            ),
+        );
+    }
+    Ok(effect)
+}
+
 fn claim_expired_at(claim: &Value, wallet_time_ms: u64) -> bool {
     claim
         .get("expires_at_ms")
@@ -3134,7 +3304,7 @@ pub(crate) async fn prepare_participant_terminal_claim(
     participant_transition: &str,
     body: &Value,
 ) -> Result<Option<PreparedParticipantTerminalClaim>, (StatusCode, Json<Value>)> {
-    if !matches!(participant_transition, "retire" | "revoke") {
+    if !matches!(participant_transition, "retire" | "revoke" | "quarantine") {
         return Ok(None);
     }
     let Some(claim_ref) = participant.get("current_claim_ref").and_then(Value::as_str) else {
@@ -3206,11 +3376,27 @@ pub(crate) async fn prepare_participant_terminal_claim(
                     format!("room host for '{room_ref}' does not resolve"),
                 )));
             };
-            ("revoke", "revoked", Governance::Host, host)
+            if participant_transition == "quarantine" {
+                ("quarantine", "quarantined", Governance::Host, host)
+            } else {
+                ("revoke", "revoked", Governance::Host, host)
+            }
         };
+    let reason = match effect_op {
+        "release" => "participant retired; current claim released before room-slot release",
+        "quarantine" => "room host quarantined participant; current claim quarantined before future access ended",
+        _ => "room host revoked participant; current claim revoked before room-slot release",
+    };
     let grant_body = json!({
         "wallet_approval_grant": body.get("work_claim_wallet_approval_grant").cloned().unwrap_or(Value::Null),
     });
+    let effect_body = json!({
+        "transition": effect_op,
+        "expected_revision": claim_revision,
+        "reason": reason,
+    });
+    let effect =
+        claim_transition_effect(effect_op, claim_revision, &effect_body).map_err(classify)?;
     let authorized = governed::authorize_decision(
         CLAIM_AUTHORITY,
         &grant_body,
@@ -3220,6 +3406,7 @@ pub(crate) async fn prepare_participant_terminal_claim(
         claim_ref,
         effect_op,
         claim_revision,
+        &effect,
     )
     .await?;
     Ok(Some(PreparedParticipantTerminalClaim {
@@ -3279,7 +3466,7 @@ pub(crate) fn build_participant_terminal_claim_intent_locked(
         || s(terminal_participant, "participant_lease_id", "") != prepared.participant_ref
         || !matches!(
             s(terminal_participant, "status", "").as_str(),
-            "retired" | "revoked"
+            "retired" | "revoked" | "quarantined"
         )
     {
         return Err(verr(
@@ -3304,10 +3491,10 @@ pub(crate) fn build_participant_terminal_claim_intent_locked(
         prepared.authorized.resolved_at_ms,
     );
     let receipt_ref = format!("receipt://{receipt_tail}");
-    let reason = if prepared.effect_op == "release" {
-        "participant retired; current claim released before room-slot release"
-    } else {
-        "room host revoked participant; current claim revoked before room-slot release"
+    let reason = match prepared.effect_op {
+        "release" => "participant retired; current claim released before room-slot release",
+        "quarantine" => "room host quarantined participant; current claim quarantined before future access ended",
+        _ => "room host revoked participant; current claim revoked before room-slot release",
     };
     let final_claim = transition_claim(
         &current_claim,
@@ -3377,7 +3564,7 @@ pub(crate) fn build_participant_terminal_claim_intent_locked(
             "prior_claim": current_claim, "final_claim": final_claim,
             "participant_ref": prepared.participant_ref,
             "prior_participant": terminal_participant, "final_participant": final_participant,
-            "release_terminal_room_slot": true,
+            "release_terminal_room_slot": matches!(s(terminal_participant, "status", "").as_str(), "retired" | "revoked"),
         }),
         &intent_tail,
     );
@@ -3479,6 +3666,12 @@ pub(crate) async fn handle_claim_transition(
         Ok(record) => record,
         Err(error) => return classify(error),
     };
+    if governance == Governance::Participant && s(&participant, "status", "") != "active" {
+        return classify(verr(
+            "work_frontier_claim_participant_not_active",
+            "participant-governed claim mutations require an active participant lease",
+        ));
+    }
     let required_authority = match governance {
         Governance::Participant => s(&participant, "participant_ref", ""),
         Governance::Host => match rooms::resolve_room_host(&state.data_dir, &room_ref) {
@@ -3492,6 +3685,10 @@ pub(crate) async fn handle_claim_transition(
         },
     };
     let claim_ref = s(&prior_claim, "work_claim_id", "");
+    let effect = match claim_transition_effect(&op, revision, &body) {
+        Ok(effect) => effect,
+        Err(error) => return classify(error),
+    };
     let authorized = match governed::authorize_decision(
         CLAIM_AUTHORITY,
         &body,
@@ -3501,6 +3698,7 @@ pub(crate) async fn handle_claim_transition(
         &claim_ref,
         &op,
         revision,
+        &effect,
     )
     .await
     {
@@ -3520,15 +3718,17 @@ pub(crate) async fn handle_claim_transition(
         if let Err(error) = resolve_room_open_strict(&state.data_dir, &room_ref) {
             return classify(error);
         }
-    } else if rooms::resolve_room_strict(&state.data_dir, &room_ref)
-        .ok()
-        .flatten()
-        .is_none()
-    {
-        return classify(verr(
-            "work_frontier_claim_room_not_found",
-            format!("room '{room_ref}' does not resolve"),
-        ));
+    } else {
+        match rooms::resolve_room_strict(&state.data_dir, &room_ref) {
+            Ok(Some(_)) => {}
+            Ok(None) => {
+                return classify(verr(
+                    "work_frontier_claim_room_not_found",
+                    format!("room '{room_ref}' does not resolve"),
+                ))
+            }
+            Err(message) => return classify(verr("work_frontier_claim_room_unreadable", message)),
+        }
     }
     let current_claim = match load_claim(&state.data_dir, &id) {
         Ok(Some(record)) => record,
@@ -3588,6 +3788,12 @@ pub(crate) async fn handle_claim_transition(
         Ok(record) => record,
         Err(error) => return classify(error),
     };
+    if governance == Governance::Participant && s(&current_participant, "status", "") != "active" {
+        return classify(verr(
+            "work_frontier_claim_participant_not_active",
+            "participant became inactive while claim authority resolved",
+        ));
+    }
     let receipt_tail =
         new_receipt_tail("wcr_", &claim_ref, &op, revision, authorized.resolved_at_ms);
     let receipt_ref = format!("receipt://{receipt_tail}");
@@ -3828,6 +4034,7 @@ pub(crate) async fn complete_governed_frontier_claim_intents(data_dir: &str, max
             subject_ref,
             op,
             revision,
+            receipt.get("authorized_effect").unwrap_or(&Value::Null),
         )
         .await
         {
@@ -4075,13 +4282,16 @@ mod frontier_claim_tests {
         directory
     }
 
-    fn authorized(ms: u64) -> AuthorizedDecision {
+    fn authorized(ms: u64, contract: AuthorityContract, effect: Value) -> AuthorizedDecision {
+        let effect_hash = governed::decision_effect_hash(contract, &effect);
         AuthorizedDecision {
             evidence: governed::DecisionEvidence {
                 acting_authority_id: json!("wallet://authority_test"),
                 grant_ref: "wallet.network://grant/approval/test".into(),
                 policy_hash: format!("sha256:{}", "11".repeat(32)),
                 request_hash: format!("sha256:{}", "22".repeat(32)),
+                effect_hash,
+                authorized_effect: effect,
                 wallet_approval_grant: json!({ "signed": "test" }),
                 authority_binding: json!({
                     "principal_ref": "domain://host",
@@ -4134,7 +4344,11 @@ mod frontier_claim_tests {
         let declaration = validate_frontier_create(&frontier_body(room)).unwrap();
         let frontier_tail = deterministic_tail("wfi_", &declaration);
         let frontier_ref = format!("frontier://{frontier_tail}");
-        let auth = authorized(ms);
+        let auth = authorized(
+            ms,
+            FRONTIER_AUTHORITY,
+            frontier_create_effect(&declaration, 1),
+        );
         let receipt_tail = format!("wfr_{}", "cd".repeat(32));
         let receipt_ref = format!("receipt://{receipt_tail}");
         let final_frontier = seal_frontier(&declaration, &frontier_tail, &receipt_ref, ms).unwrap();
@@ -4321,7 +4535,14 @@ mod frontier_claim_tests {
             ],
             &claim,
             CLAIM_NOTE,
-            &authorized(ms),
+            &authorized(
+                ms,
+                CLAIM_AUTHORITY,
+                claim_acquire_effect(
+                    &claim_declaration,
+                    participant["revision"].as_u64().unwrap(),
+                ),
+            ),
         )
         .unwrap();
         let intent_tail = format!("wci_{}", "04".repeat(32));
@@ -4394,5 +4615,104 @@ mod frontier_claim_tests {
             "work_frontier_claim_stale_revision"
         );
         expected_revision(&json!({ "expected_revision": 7 }), 7).unwrap();
+    }
+
+    #[test]
+    fn governed_effects_refuse_body_swaps_at_the_same_revision() {
+        for (op, requested_body, swapped_body) in [
+            (
+                "renew",
+                json!({ "transition": "renew", "ttl_seconds": 30, "expected_revision": 7 }),
+                json!({ "transition": "renew", "ttl_seconds": 86_400, "expected_revision": 7 }),
+            ),
+            (
+                "heartbeat",
+                json!({ "transition": "heartbeat", "heartbeat_ref": "heartbeat://requested", "expected_revision": 7 }),
+                json!({ "transition": "heartbeat", "heartbeat_ref": "heartbeat://swapped", "expected_revision": 7 }),
+            ),
+            (
+                "release",
+                json!({ "transition": "release", "reason": "requested reason", "expected_revision": 7 }),
+                json!({ "transition": "release", "reason": "swapped reason", "expected_revision": 7 }),
+            ),
+        ] {
+            let requested = claim_transition_effect(op, 7, &requested_body).unwrap();
+            let swapped = claim_transition_effect(op, 7, &swapped_body).unwrap();
+            let sealed = json!({
+                "effect_hash": governed::decision_effect_hash(CLAIM_AUTHORITY, &requested),
+                "authorized_effect": requested,
+                "wallet_approval_grant": { "signed": true },
+                "principal_authority_binding": { "binding_version": 1 },
+            });
+            governed::validate_sealed_effect(
+                CLAIM_AUTHORITY,
+                &sealed,
+                sealed.get("authorized_effect").unwrap(),
+            )
+            .unwrap();
+            assert!(governed::validate_sealed_effect(CLAIM_AUTHORITY, &sealed, &swapped).is_err());
+        }
+    }
+
+    #[test]
+    fn requirements_remain_claim_ineligible_until_matching_is_admitted() {
+        let required = validate_frontier_create(&frontier_body("outcome-room://or_ab")).unwrap();
+        assert_eq!(
+            require_claim_eligibility_provable(&required).unwrap_err().0,
+            "work_claim_eligibility_unavailable"
+        );
+        let mut requirement_free = required;
+        requirement_free["required_capability_refs"] = json!([]);
+        requirement_free["required_context_resource_authority_and_evidence_refs"] = json!([]);
+        require_claim_eligibility_provable(&requirement_free).unwrap();
+    }
+
+    #[test]
+    fn occupied_unreadable_and_malformed_slots_are_never_absent() {
+        let directory = temp_dir("strict-slots");
+        let data_dir = directory.to_str().unwrap();
+        let frontier_tail = format!("wfi_{}", "31".repeat(32));
+        let frontier_slot = directory
+            .join(FRONTIER_DIR)
+            .join(format!("{frontier_tail}.json"));
+        std::fs::create_dir_all(&frontier_slot).unwrap();
+        assert!(load_frontier(data_dir, &frontier_tail).is_err());
+
+        let claim_tail = format!("wcl_{}", "32".repeat(32));
+        let claim_family = directory.join(CLAIM_DIR);
+        std::fs::create_dir_all(&claim_family).unwrap();
+        std::fs::write(
+            claim_family.join(format!("{claim_tail}.json")),
+            b"{not-json",
+        )
+        .unwrap();
+        assert!(load_claim(data_dir, &claim_tail).is_err());
+        assert!(names_for_test(data_dir, INTENT_DIR).is_empty());
+        assert!(names_for_test(data_dir, RECEIPT_DIR).is_empty());
+        std::fs::remove_dir_all(directory).unwrap();
+    }
+
+    fn names_for_test(data_dir: &str, family: &str) -> Vec<String> {
+        std::fs::read_dir(std::path::Path::new(data_dir).join(family))
+            .map(|entries| {
+                entries
+                    .filter_map(Result::ok)
+                    .filter_map(|entry| entry.file_name().into_string().ok())
+                    .collect()
+            })
+            .unwrap_or_default()
+    }
+
+    #[test]
+    fn persistence_failures_are_server_uncertainty() {
+        let (status, Json(body)) = classify(verr(
+            "work_frontier_claim_persist_failed",
+            "initial intent write did not become durable",
+        ));
+        assert_eq!(status, StatusCode::INTERNAL_SERVER_ERROR);
+        assert_eq!(
+            body.pointer("/error/code").and_then(Value::as_str),
+            Some("work_frontier_claim_persist_failed")
+        );
     }
 }

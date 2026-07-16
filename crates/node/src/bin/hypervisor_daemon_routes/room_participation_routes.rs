@@ -256,7 +256,9 @@ fn decision_request_hash(
     op: &str,
     revision: u64,
     required_authority: &str,
+    effect: &Value,
 ) -> String {
+    let effect_hash = governed::decision_effect_hash(ROOM_AUTHORITY, effect);
     governed::decision_request_hash(
         ROOM_AUTHORITY,
         gov.into(),
@@ -264,7 +266,23 @@ fn decision_request_hash(
         op,
         revision,
         required_authority,
+        &effect_hash,
     )
+}
+
+fn transition_decision_effect(op: &str, revision: u64) -> Value {
+    json!({
+        "transition": op,
+        "expected_revision": revision,
+    })
+}
+
+fn admit_decision_effect(params: &Value, revision: u64) -> Value {
+    json!({
+        "transition": "admit",
+        "expected_revision": revision,
+        "admit_params": params,
+    })
 }
 
 /// The proven authority for one gated decision — sealed into the receipt so a replay reconstructs
@@ -275,6 +293,8 @@ struct DecisionAuthority {
     grant_ref: String,
     policy_hash: String,
     request_hash: String,
+    effect_hash: String,
+    authorized_effect: Value,
     wallet_approval_grant: Value,
     authority_binding: Value,
 }
@@ -294,6 +314,7 @@ fn authorize_decision_for_resolution(
     subject_ref: &str,
     op: &str,
     revision: u64,
+    effect: &Value,
 ) -> Result<DecisionAuthority, (StatusCode, Json<Value>)> {
     governed::authorize_decision_for_resolution(
         ROOM_AUTHORITY,
@@ -305,12 +326,15 @@ fn authorize_decision_for_resolution(
         subject_ref,
         op,
         revision,
+        effect,
     )
     .map(|authorized| DecisionAuthority {
         acting_authority_id: authorized.evidence.acting_authority_id,
         grant_ref: authorized.evidence.grant_ref,
         policy_hash: authorized.evidence.policy_hash,
         request_hash: authorized.evidence.request_hash,
+        effect_hash: authorized.evidence.effect_hash,
+        authorized_effect: authorized.evidence.authorized_effect,
         wallet_approval_grant: authorized.evidence.wallet_approval_grant,
         authority_binding: authorized.evidence.authority_binding,
     })
@@ -328,6 +352,7 @@ async fn authorize_decision(
     subject_ref: &str,
     op: &str,
     revision: u64,
+    effect: &Value,
 ) -> Result<DecisionAuthority, (StatusCode, Json<Value>)> {
     governed::authorize_decision(
         ROOM_AUTHORITY,
@@ -338,6 +363,7 @@ async fn authorize_decision(
         subject_ref,
         op,
         revision,
+        effect,
     )
     .await
     .map(|authorized| DecisionAuthority {
@@ -345,6 +371,8 @@ async fn authorize_decision(
         grant_ref: authorized.evidence.grant_ref,
         policy_hash: authorized.evidence.policy_hash,
         request_hash: authorized.evidence.request_hash,
+        effect_hash: authorized.evidence.effect_hash,
+        authorized_effect: authorized.evidence.authorized_effect,
         wallet_approval_grant: authorized.evidence.wallet_approval_grant,
         authority_binding: authorized.evidence.authority_binding,
     })
@@ -387,6 +415,8 @@ fn build_decision_receipt(
         obj.insert("authority_grant_id".into(), json!(auth.grant_ref));
         obj.insert("policy_hash".into(), json!(auth.policy_hash));
         obj.insert("input_hash".into(), json!(auth.request_hash));
+        obj.insert("effect_hash".into(), json!(auth.effect_hash));
+        obj.insert("authorized_effect".into(), auth.authorized_effect.clone());
         obj.insert(
             "wallet_approval_grant".into(),
             auth.wallet_approval_grant.clone(),
@@ -421,6 +451,15 @@ fn sealed_authority(receipt: &Value) -> DecisionAuthority {
             .and_then(Value::as_str)
             .unwrap_or("")
             .to_string(),
+        effect_hash: receipt
+            .get("effect_hash")
+            .and_then(Value::as_str)
+            .unwrap_or("")
+            .to_string(),
+        authorized_effect: receipt
+            .get("authorized_effect")
+            .cloned()
+            .unwrap_or(Value::Null),
         wallet_approval_grant: receipt
             .get("wallet_approval_grant")
             .cloned()
@@ -440,6 +479,7 @@ async fn reauthorize_sealed_receipt(
     subject_ref: &str,
     op: &str,
     revision: u64,
+    effect: &Value,
 ) -> Result<(), String> {
     governed::reauthorize_sealed_receipt(
         ROOM_AUTHORITY,
@@ -450,6 +490,7 @@ async fn reauthorize_sealed_receipt(
         subject_ref,
         op,
         revision,
+        effect,
     )
     .await
 }
@@ -2384,6 +2425,11 @@ fn validate_transition_intent(
         return Err("transition not admitted from prior status".into());
     }
     let prior_rev = prior.get("revision").and_then(Value::as_u64).unwrap_or(0);
+    governed::validate_sealed_effect(
+        ROOM_AUTHORITY,
+        &receipt,
+        &transition_decision_effect(op, prior_rev),
+    )?;
     let receipt_ref = receipt.get("receipt_ref").cloned().unwrap_or(Value::Null);
     if receipt_ref.as_str() != Some(format!("receipt://{receipt_id}").as_str()) {
         return Err("receipt ref vs intent tail".into());
@@ -2543,6 +2589,9 @@ fn validate_admit_intent(
         .get("revision")
         .and_then(Value::as_u64)
         .unwrap_or(0);
+    let admit_effect = admit_decision_effect(&params, prior_rev);
+    governed::validate_sealed_effect(ROOM_AUTHORITY, &lease_receipt, &admit_effect)?;
+    governed::validate_sealed_effect(ROOM_AUTHORITY, &request_receipt, &admit_effect)?;
     let request_receipt_ref = json!(format!("receipt://{request_receipt_id}"));
     let mut expected_request = apply_transition(
         prior_request,
@@ -2588,6 +2637,8 @@ fn validate_admit_intent(
         "authority_grant_id",
         "policy_hash",
         "input_hash",
+        "effect_hash",
+        "authorized_effect",
     ] {
         if lease_receipt.get(field) != request_receipt.get(field) {
             return Err("admit receipts carry inconsistent authority".into());
@@ -2945,6 +2996,9 @@ async fn complete_live_transition_intent(
         &subject_ref,
         op,
         revision,
+        receipt
+            .get("authorized_effect")
+            .unwrap_or(&Value::Null),
     )
     .await?;
 
@@ -3023,6 +3077,9 @@ async fn complete_live_admit_intent(
         &s(prior, "participation_request_id", ""),
         "admit",
         prior.get("revision").and_then(Value::as_u64).unwrap_or(0),
+        request_receipt
+            .get("authorized_effect")
+            .unwrap_or(&Value::Null),
     )
     .await?;
 
@@ -3447,6 +3504,7 @@ pub(crate) async fn handle_participation_request_transition(
         Gov::Participant => s(&prior, "requested_by_ref", ""),
     };
     drop(_guard);
+    let effect = transition_decision_effect(&transition, revision);
     let auth = match authorize_decision(
         &body,
         gov,
@@ -3455,6 +3513,7 @@ pub(crate) async fn handle_participation_request_transition(
         &subject_ref,
         &transition,
         revision,
+        &effect,
     )
     .await
     {
@@ -3804,6 +3863,7 @@ pub(crate) async fn handle_participation_request_admit(
     let host_authority = s(&room, "host_domain_ref", "");
     drop(room_scope);
     drop(_guard);
+    let effect = admit_decision_effect(&params, current_rev);
     let auth = match authorize_decision(
         &body,
         Gov::Host,
@@ -3812,6 +3872,7 @@ pub(crate) async fn handle_participation_request_admit(
         &request_id,
         "admit",
         current_rev,
+        &effect,
     )
     .await
     {
@@ -4074,6 +4135,7 @@ pub(crate) async fn handle_participant_lease_transition(
         Gov::Participant => s(&prior, "participant_ref", ""),
     };
     drop(_guard);
+    let effect = transition_decision_effect(&transition, revision);
     let auth = match authorize_decision(
         &body,
         gov,
@@ -4082,6 +4144,7 @@ pub(crate) async fn handle_participant_lease_transition(
         &subject_ref,
         &transition,
         revision,
+        &effect,
     )
     .await
     {
@@ -4091,7 +4154,7 @@ pub(crate) async fn handle_participant_lease_transition(
     // Terminal participation is a compound governed operation when a current work claim exists.
     // Resolve BOTH grants before reacquiring synchronous locks; the work-claim grant has its own
     // scope and exact claim revision and is never inferred from room-participation authority.
-    let prepared_claim = if matches!(transition.as_str(), "retire" | "revoke") {
+    let prepared_claim = if matches!(transition.as_str(), "retire" | "revoke" | "quarantine") {
         match super::work_frontier_claim_routes::prepare_participant_terminal_claim(
             &st.data_dir,
             &prior,
@@ -4253,6 +4316,8 @@ mod participation_tests {
             grant_ref: "wallet.network://grant/approval/testgranthash".to_string(),
             policy_hash: "sha256:testpolicyhash".to_string(),
             request_hash: "sha256:testrequesthash".to_string(),
+            effect_hash: "sha256:testeffecthash".to_string(),
+            authorized_effect: Value::Null,
             wallet_approval_grant: Value::Null,
             authority_binding: Value::Null,
         }
@@ -6315,6 +6380,7 @@ mod participation_tests {
     #[test]
     fn decision_authority_requires_identity_binding_and_refuses_same_hash_foreign_signer() {
         let dir = temp_dir("authority-binding");
+        let effect = json!({ "admit_params": { "admitted_role": "implementer" }, "expected_revision": 1, "transition": "admit" });
         let policy_hash = decision_policy_hash(
             Gov::Host,
             "outcome-room://or_z1",
@@ -6327,6 +6393,7 @@ mod participation_tests {
             "admit",
             1,
             "domain://acme-host",
+            &effect,
         );
         let bound_grant = signed_grant(7, &policy_hash, &request_hash);
         let foreign_grant = signed_grant(8, &policy_hash, &request_hash);
@@ -6369,6 +6436,19 @@ mod participation_tests {
             resolution,
         };
         assert!(authorize_decision_for_resolution(
+            &json!({ "wallet_approval_grant": bound_grant.clone() }),
+            Gov::Host,
+            "outcome-room://or_z1",
+            "domain://acme-host",
+            &verified_resolution,
+            "participation-request://rpr_z1",
+            "admit",
+            1,
+            &effect,
+        )
+        .is_ok());
+        let swapped_effect = json!({ "admit_params": { "admitted_role": "verifier" }, "expected_revision": 1, "transition": "admit" });
+        assert!(authorize_decision_for_resolution(
             &json!({ "wallet_approval_grant": bound_grant }),
             Gov::Host,
             "outcome-room://or_z1",
@@ -6377,8 +6457,9 @@ mod participation_tests {
             "participation-request://rpr_z1",
             "admit",
             1,
+            &swapped_effect,
         )
-        .is_ok());
+        .is_err(), "an admit grant cannot authorize different normalized admit parameters");
         let (foreign_status, foreign_body) = authorize_decision_for_resolution(
             &json!({ "wallet_approval_grant": foreign_grant.clone() }),
             Gov::Host,
@@ -6388,6 +6469,7 @@ mod participation_tests {
             "participation-request://rpr_z1",
             "admit",
             1,
+            &effect,
         )
         .unwrap_err();
         assert_eq!(foreign_status, StatusCode::FORBIDDEN);
@@ -6408,6 +6490,7 @@ mod participation_tests {
             "participation-request://rpr_z1",
             "admit",
             1,
+            &effect,
         )
         .is_err());
         // The request hash BINDS the revision — a grant for rev 1 cannot authorize rev 2 (replay).
@@ -6417,6 +6500,7 @@ mod participation_tests {
             "admit",
             1,
             "domain://acme-host",
+            &effect,
         );
         let rh2 = decision_request_hash(
             Gov::Host,
@@ -6424,6 +6508,7 @@ mod participation_tests {
             "admit",
             2,
             "domain://acme-host",
+            &effect,
         );
         assert_ne!(
             rh1, rh2,

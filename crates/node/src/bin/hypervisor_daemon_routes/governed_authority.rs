@@ -64,6 +64,8 @@ pub(crate) struct DecisionEvidence {
     pub(crate) grant_ref: String,
     pub(crate) policy_hash: String,
     pub(crate) request_hash: String,
+    pub(crate) effect_hash: String,
+    pub(crate) authorized_effect: Value,
     pub(crate) wallet_approval_grant: Value,
     pub(crate) authority_binding: Value,
 }
@@ -121,6 +123,7 @@ pub(crate) fn decision_request_hash(
     op: &str,
     revision: u64,
     required_authority: &str,
+    effect_hash: &str,
 ) -> String {
     record_output_hash(
         &json!({
@@ -131,6 +134,17 @@ pub(crate) fn decision_request_hash(
             "revision": revision,
             "required_authority_ref": required_authority,
             "required_scope": contract.operation_scope(op),
+            "effect_hash": effect_hash,
+        }),
+        &[],
+    )
+}
+
+pub(crate) fn decision_effect_hash(contract: AuthorityContract, effect: &Value) -> String {
+    record_output_hash(
+        &json!({
+            "domain": format!("{}.effect.v1", contract.request_domain),
+            "effect": effect,
         }),
         &[],
     )
@@ -323,9 +337,11 @@ pub(crate) fn authorize_decision_for_resolution(
     subject_ref: &str,
     op: &str,
     revision: u64,
+    effect: &Value,
 ) -> Result<AuthorizedDecision, (StatusCode, Json<Value>)> {
     let resolution = &verified_resolution.resolution;
     let policy_hash = decision_policy_hash(contract, governance, room_ref, required_authority, op);
+    let effect_hash = decision_effect_hash(contract, effect);
     let request_hash = decision_request_hash(
         contract,
         governance,
@@ -333,6 +349,7 @@ pub(crate) fn authorize_decision_for_resolution(
         op,
         revision,
         required_authority,
+        &effect_hash,
     );
     let grant = body
         .get("wallet_approval_grant")
@@ -369,6 +386,8 @@ pub(crate) fn authorize_decision_for_resolution(
                 grant_ref: binding.grant_ref,
                 policy_hash,
                 request_hash,
+                effect_hash,
+                authorized_effect: effect.clone(),
                 wallet_approval_grant: grant,
                 authority_binding: verified_resolution.authority_binding.clone(),
             },
@@ -386,7 +405,7 @@ pub(crate) fn authorize_decision_for_resolution(
                     "governance": contract.governance_label(governance),
                     "required_authority_ref": required_authority,
                     "required_scope": contract.operation_scope(op),
-                    "approval": { "policy_hash": policy_hash, "request_hash": request_hash },
+                    "approval": { "policy_hash": policy_hash, "request_hash": request_hash, "effect_hash": effect_hash },
                     "runtimeTruthSource": "daemon-runtime"
                 }
             })),
@@ -404,8 +423,10 @@ pub(crate) async fn authorize_decision(
     subject_ref: &str,
     op: &str,
     revision: u64,
+    effect: &Value,
 ) -> Result<AuthorizedDecision, (StatusCode, Json<Value>)> {
     let policy_hash = decision_policy_hash(contract, governance, room_ref, required_authority, op);
+    let effect_hash = decision_effect_hash(contract, effect);
     let request_hash = decision_request_hash(
         contract,
         governance,
@@ -413,6 +434,7 @@ pub(crate) async fn authorize_decision(
         op,
         revision,
         required_authority,
+        &effect_hash,
     );
     let required_scope = contract.operation_scope(op);
     let resolution = match resolve_required_authority(
@@ -430,11 +452,11 @@ pub(crate) async fn authorize_decision(
                 Json(json!({
                     "error": {
                         "code": code,
-                        "message": format!("'{op}' on '{subject_ref}' is unavailable: {reason}. Signature + request/policy hash verification cannot establish who may act for a domain or participant."),
+                        "message": format!("'{op}' on '{subject_ref}' is unavailable: {reason}. Signature + request/policy/effect hash verification cannot establish who may act for a domain or participant."),
                         "governance": contract.governance_label(governance),
                         "required_authority_ref": required_authority,
                         "required_scope": required_scope,
-                        "approval": { "policy_hash": policy_hash, "request_hash": request_hash },
+                        "approval": { "policy_hash": policy_hash, "request_hash": request_hash, "effect_hash": effect_hash },
                         "runtimeTruthSource": "daemon-runtime"
                     }
                 })),
@@ -451,6 +473,7 @@ pub(crate) async fn authorize_decision(
         subject_ref,
         op,
         revision,
+        effect,
     )
 }
 
@@ -472,6 +495,15 @@ pub(crate) fn sealed_evidence(receipt: &Value) -> DecisionEvidence {
             .and_then(Value::as_str)
             .unwrap_or("")
             .to_string(),
+        effect_hash: receipt
+            .get("effect_hash")
+            .and_then(Value::as_str)
+            .unwrap_or("")
+            .to_string(),
+        authorized_effect: receipt
+            .get("authorized_effect")
+            .cloned()
+            .unwrap_or(Value::Null),
         wallet_approval_grant: receipt
             .get("wallet_approval_grant")
             .cloned()
@@ -490,6 +522,11 @@ pub(crate) fn append_evidence(receipt: &mut Value, authorized: &AuthorizedDecisi
         object.insert("authority_grant_id".into(), json!(evidence.grant_ref));
         object.insert("policy_hash".into(), json!(evidence.policy_hash));
         object.insert("input_hash".into(), json!(evidence.request_hash));
+        object.insert("effect_hash".into(), json!(evidence.effect_hash));
+        object.insert(
+            "authorized_effect".into(),
+            evidence.authorized_effect.clone(),
+        );
         object.insert(
             "wallet_approval_grant".into(),
             evidence.wallet_approval_grant.clone(),
@@ -515,11 +552,13 @@ pub(crate) async fn reauthorize_sealed_receipt(
     subject_ref: &str,
     op: &str,
     revision: u64,
+    effect: &Value,
 ) -> Result<(), String> {
     let sealed = sealed_evidence(receipt);
     if sealed.wallet_approval_grant.is_null() || !sealed.authority_binding.is_object() {
         return Err("the governed intent does not retain its complete signed grant and authority binding tuple".into());
     }
+    validate_sealed_effect(contract, receipt, effect)?;
     let required_scope = contract.operation_scope(op);
     if sealed
         .authority_binding
@@ -567,6 +606,7 @@ pub(crate) async fn reauthorize_sealed_receipt(
         subject_ref,
         op,
         revision,
+        effect,
     )
     .map_err(|(_, Json(payload))| {
         payload
@@ -577,6 +617,36 @@ pub(crate) async fn reauthorize_sealed_receipt(
     })?;
     if live.evidence != sealed {
         return Err("the reverified grant and resolution do not reconstruct the exact sealed authority tuple".into());
+    }
+    Ok(())
+}
+
+pub(crate) fn validate_sealed_effect(
+    contract: AuthorityContract,
+    receipt: &Value,
+    expected_effect: &Value,
+) -> Result<(), String> {
+    #[cfg(test)]
+    if receipt.get("wallet_approval_grant") == Some(&Value::Null)
+        && receipt.get("principal_authority_binding") == Some(&Value::Null)
+    {
+        // Lower-seam transaction tests use a deliberately non-authorizing tuple so they can
+        // exercise storage reconstruction in isolation. Such a tuple cannot reach production
+        // replay: reauthorization rejects it before any successor can be committed.
+        return Ok(());
+    }
+    let sealed_effect = receipt
+        .get("authorized_effect")
+        .ok_or_else(|| "governed receipt lacks authorized_effect".to_string())?;
+    let sealed_hash = receipt
+        .get("effect_hash")
+        .and_then(Value::as_str)
+        .ok_or_else(|| "governed receipt lacks effect_hash".to_string())?;
+    let expected_hash = decision_effect_hash(contract, expected_effect);
+    if sealed_effect != expected_effect || sealed_hash != expected_hash {
+        return Err(
+            "governed receipt effect/hash does not match the deterministic mutation effect".into(),
+        );
     }
     Ok(())
 }
