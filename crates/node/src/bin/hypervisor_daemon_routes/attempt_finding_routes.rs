@@ -601,7 +601,7 @@ fn validate_touched(intent: &Value) -> Result<Vec<String>, String> {
     if values != sorted {
         return Err("intent touched_refs is not exact sorted unique data".into());
     }
-    let reconstructed: BTreeSet<String> = [
+    let mut reconstructed: BTreeSet<String> = [
         "subject_ref",
         "room_ref",
         "frontier_ref",
@@ -610,12 +610,22 @@ fn validate_touched(intent: &Value) -> Result<Vec<String>, String> {
         "goal_run_ref",
         "attempt_ref",
         "work_result_ref",
+        "supersedes_ref",
     ]
     .iter()
     .filter_map(|field| intent.get(field).and_then(Value::as_str))
     .filter(|value| !value.is_empty())
     .map(ToOwned::to_owned)
     .collect();
+    if let Some(delta_refs) = intent.get("outcome_delta_refs").and_then(Value::as_array) {
+        reconstructed.extend(
+            delta_refs
+                .iter()
+                .filter_map(Value::as_str)
+                .filter(|value| !value.is_empty())
+                .map(ToOwned::to_owned),
+        );
+    }
     if values != reconstructed.into_iter().collect::<Vec<_>>() {
         return Err("intent touched_refs differs from reconstructed aggregate set".into());
     }
@@ -778,6 +788,15 @@ fn coordinate(reference: &str, record: &Value) -> Value {
     })
 }
 
+fn coordinate_with_identity(reference: &str, record: &Value, identity: &[(&str, String)]) -> Value {
+    let mut value = coordinate(reference, record);
+    let object = value.as_object_mut().expect("coordinate object");
+    for (field, field_value) in identity {
+        object.insert((*field).to_string(), json!(field_value));
+    }
+    value
+}
+
 fn room_coordinate(reference: &str, room: &Value) -> Value {
     let mut control = room.clone();
     if let Some(object) = control.as_object_mut() {
@@ -805,6 +824,7 @@ fn room_coordinate(reference: &str, room: &Value) -> Value {
     }
     json!({
         "record_ref": reference,
+        "host_domain_ref": s(room, "host_domain_ref", ""),
         "control_hash": record_output_hash(&control, &[]),
     })
 }
@@ -818,16 +838,65 @@ struct AttemptDependencies {
     goal_run: Value,
 }
 
-fn resolve_attempt_dependencies(
+fn validate_bound_coordinate_identities(attempt: &Value) -> Result<(), VErr> {
+    let coordinates = attempt.get("bound_coordinates").ok_or_else(|| {
+        verr(
+            "attempt_coordinate_invalid",
+            "Attempt lacks immutable historical dependency coordinates",
+        )
+    })?;
+    let expected = [
+        ("outcome_room", "outcome_room_ref"),
+        ("frontier_item", "frontier_item_ref"),
+        ("work_claim", "work_claim_ref"),
+        ("participant_lease", "participant_ref"),
+        ("goal_run", "goal_run_ref"),
+    ];
+    for (coordinate_name, record_field) in expected {
+        if coordinates
+            .pointer(&format!("/{coordinate_name}/record_ref"))
+            .and_then(Value::as_str)
+            != attempt.get(record_field).and_then(Value::as_str)
+        {
+            return Err(verr(
+                "attempt_coordinate_mismatch",
+                format!("historical coordinate '{coordinate_name}' differs from '{record_field}'"),
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn resolve_attempt_dependencies_with_posture(
     data_dir: &str,
     declaration: &Value,
+    require_active_current: bool,
+    require_open_room: bool,
 ) -> Result<AttemptDependencies, VErr> {
+    validate_bound_coordinate_identities(declaration).or_else(|error| {
+        if declaration.get("bound_coordinates").is_none() {
+            Ok(())
+        } else {
+            Err(error)
+        }
+    })?;
     let room_ref = s(declaration, "outcome_room_ref", "");
     let frontier_ref = s(declaration, "frontier_item_ref", "");
     let claim_ref = s(declaration, "work_claim_ref", "");
     let participant_ref = s(declaration, "participant_ref", "");
     let goal_run_ref = s(declaration, "goal_run_ref", "");
-    let room = resolve_open_room(data_dir, &room_ref)?;
+    let room = if require_open_room {
+        resolve_open_room(data_dir, &room_ref)?
+    } else {
+        rooms::resolve_room_strict(data_dir, &room_ref)
+            .map_err(|message| verr("attempt_finding_room_registry_unreadable", message))?
+            .ok_or_else(|| {
+                verr(
+                    "attempt_finding_room_not_found",
+                    format!("no room '{room_ref}'"),
+                )
+            })?
+    };
     let frontier = frontier_strict(data_dir, &frontier_ref)?;
     let claim = claim_strict(data_dir, &claim_ref)?;
     let participant = participant_strict(data_dir, &participant_ref)?;
@@ -848,18 +917,62 @@ fn resolve_attempt_dependencies(
     }
     if s(&claim, "frontier_item_ref", "") != frontier_ref
         || s(&claim, "claimant_ref", "") != participant_ref
-        || participant.get("current_claim_ref").and_then(Value::as_str) != Some(claim_ref.as_str())
     {
         return Err(verr(
             "attempt_coordinate_mismatch",
-            "claim must be the participant's current claim for the exact frontier",
+            "claim identity must bind the exact declared frontier and participant",
         ));
     }
-    if s(&claim, "status", "") != "active" || s(&participant, "status", "") != "active" {
+    if require_active_current
+        && (participant.get("current_claim_ref").and_then(Value::as_str)
+            != Some(claim_ref.as_str())
+            || s(&claim, "status", "") != "active"
+            || s(&participant, "status", "") != "active")
+    {
         return Err(verr(
             "attempt_participant_or_claim_not_active",
-            "Attempt mutations require an active participant and active current claim",
+            "participant-governed work requires an active participant and its exact active current claim",
         ));
+    }
+    if let Some(coordinates) = declaration.get("bound_coordinates") {
+        let frozen_host = coordinates
+            .pointer("/outcome_room/host_domain_ref")
+            .and_then(Value::as_str);
+        let frozen_frontier_room = coordinates
+            .pointer("/frontier_item/outcome_room_ref")
+            .and_then(Value::as_str);
+        let frozen_claim_room = coordinates
+            .pointer("/work_claim/outcome_room_ref")
+            .and_then(Value::as_str);
+        let frozen_claim_frontier = coordinates
+            .pointer("/work_claim/frontier_item_ref")
+            .and_then(Value::as_str);
+        let frozen_claimant = coordinates
+            .pointer("/work_claim/claimant_ref")
+            .and_then(Value::as_str);
+        let frozen_participant_room = coordinates
+            .pointer("/participant_lease/outcome_room_ref")
+            .and_then(Value::as_str);
+        let frozen_principal = coordinates
+            .pointer("/participant_lease/principal_ref")
+            .and_then(Value::as_str);
+        let frozen_goal_room = coordinates
+            .pointer("/goal_run/outcome_room_ref")
+            .and_then(Value::as_str);
+        if frozen_host != room.get("host_domain_ref").and_then(Value::as_str)
+            || frozen_frontier_room != Some(room_ref.as_str())
+            || frozen_claim_room != Some(room_ref.as_str())
+            || frozen_claim_frontier != Some(frontier_ref.as_str())
+            || frozen_claimant != Some(participant_ref.as_str())
+            || frozen_participant_room != Some(room_ref.as_str())
+            || frozen_principal != participant.get("participant_ref").and_then(Value::as_str)
+            || frozen_goal_room != Some(room_ref.as_str())
+        {
+            return Err(verr(
+                "attempt_coordinate_mismatch",
+                "immutable historical identity coordinates differ from the declared room, claim, participant, or GoalRun",
+            ));
+        }
     }
     Ok(AttemptDependencies {
         room,
@@ -870,13 +983,43 @@ fn resolve_attempt_dependencies(
     })
 }
 
+fn resolve_attempt_dependencies(
+    data_dir: &str,
+    declaration: &Value,
+) -> Result<AttemptDependencies, VErr> {
+    resolve_attempt_dependencies_with_posture(data_dir, declaration, true, true)
+}
+
 fn dependency_coordinates(declaration: &Value, dependencies: &AttemptDependencies) -> Value {
     json!({
         "outcome_room": room_coordinate(&s(declaration, "outcome_room_ref", ""), &dependencies.room),
-        "frontier_item": coordinate(&s(declaration, "frontier_item_ref", ""), &dependencies.frontier),
-        "work_claim": coordinate(&s(declaration, "work_claim_ref", ""), &dependencies.claim),
-        "participant_lease": coordinate(&s(declaration, "participant_ref", ""), &dependencies.participant),
-        "goal_run": coordinate(&s(declaration, "goal_run_ref", ""), &dependencies.goal_run),
+        "frontier_item": coordinate_with_identity(
+            &s(declaration, "frontier_item_ref", ""),
+            &dependencies.frontier,
+            &[("outcome_room_ref", s(&dependencies.frontier, "outcome_room_ref", ""))],
+        ),
+        "work_claim": coordinate_with_identity(
+            &s(declaration, "work_claim_ref", ""),
+            &dependencies.claim,
+            &[
+                ("outcome_room_ref", s(&dependencies.claim, "outcome_room_ref", "")),
+                ("frontier_item_ref", s(&dependencies.claim, "frontier_item_ref", "")),
+                ("claimant_ref", s(&dependencies.claim, "claimant_ref", "")),
+            ],
+        ),
+        "participant_lease": coordinate_with_identity(
+            &s(declaration, "participant_ref", ""),
+            &dependencies.participant,
+            &[
+                ("outcome_room_ref", s(&dependencies.participant, "outcome_room_ref", "")),
+                ("principal_ref", s(&dependencies.participant, "participant_ref", "")),
+            ],
+        ),
+        "goal_run": coordinate_with_identity(
+            &s(declaration, "goal_run_ref", ""),
+            &dependencies.goal_run,
+            &[("outcome_room_ref", s(&dependencies.goal_run, "outcome_room_ref", ""))],
+        ),
     })
 }
 
@@ -1286,7 +1429,7 @@ fn seal_intent(mut intent: Value, tail: &str) -> Value {
         "intent_id".into(),
         json!(format!("attempt-finding-intent://{tail}")),
     );
-    let touched: BTreeSet<String> = [
+    let mut touched: BTreeSet<String> = [
         "subject_ref",
         "room_ref",
         "frontier_ref",
@@ -1295,12 +1438,22 @@ fn seal_intent(mut intent: Value, tail: &str) -> Value {
         "goal_run_ref",
         "attempt_ref",
         "work_result_ref",
+        "supersedes_ref",
     ]
     .iter()
     .filter_map(|field| object.get(*field).and_then(Value::as_str))
     .filter(|value| !value.is_empty())
     .map(ToOwned::to_owned)
     .collect();
+    if let Some(delta_refs) = object.get("outcome_delta_refs").and_then(Value::as_array) {
+        touched.extend(
+            delta_refs
+                .iter()
+                .filter_map(Value::as_str)
+                .filter(|value| !value.is_empty())
+                .map(ToOwned::to_owned),
+        );
+    }
     object.insert("touched_refs".into(), json!(touched));
     let hash = record_output_hash(&intent, &[]);
     intent
@@ -1445,15 +1598,15 @@ fn dependency_refs_from_attempt(attempt: &Value) -> [String; 5] {
 fn validate_attempt_coordinates(
     data_dir: &str,
     attempt: &Value,
+    require_active_current: bool,
+    require_open_room: bool,
 ) -> Result<AttemptDependencies, VErr> {
-    let dependencies = resolve_attempt_dependencies(data_dir, attempt)?;
-    if attempt.get("bound_coordinates") != Some(&dependency_coordinates(attempt, &dependencies)) {
-        return Err(verr(
-            "attempt_coordinate_changed",
-            "one or more frozen Attempt dependency coordinates changed",
-        ));
-    }
-    Ok(dependencies)
+    resolve_attempt_dependencies_with_posture(
+        data_dir,
+        attempt,
+        require_active_current,
+        require_open_room,
+    )
 }
 
 fn validate_work_result_for_attempt(result: &Value, attempt: &Value) -> Result<(), VErr> {
@@ -1469,11 +1622,277 @@ fn validate_work_result_for_attempt(result: &Value, attempt: &Value) -> Result<(
     Ok(())
 }
 
-fn finding_coordinates(attempt: &Value, result: &Value, participant: &Value) -> Value {
-    json!({
-        "attempt": coordinate(&s(attempt, "attempt_id", ""), attempt),
-        "work_result": coordinate(&s(result, "work_result_id", ""), result),
-        "participant_lease": coordinate(&s(participant, "participant_lease_id", ""), participant),
+fn outcome_delta_strict(data_dir: &str, delta_ref: &str) -> Result<Value, VErr> {
+    super::work_result_routes::load_outcome_delta_strict(data_dir, delta_ref)
+        .map_err(|message| verr("attempt_finding_outcome_delta_registry_unreadable", message))?
+        .ok_or_else(|| {
+            verr(
+                "attempt_outcome_delta_not_found",
+                format!("no OutcomeDelta '{delta_ref}'"),
+            )
+        })
+}
+
+fn validate_outcome_deltas_for_attempt(
+    data_dir: &str,
+    result: &Value,
+    attempt: &Value,
+    delta_refs: &[String],
+) -> Result<Value, VErr> {
+    let result_ref = s(result, "work_result_id", "");
+    let room_ref = s(attempt, "outcome_room_ref", "");
+    let result_goal = s(result, "goal_ref", "");
+    let backlinks = result
+        .get("outcome_delta_refs")
+        .and_then(Value::as_array)
+        .ok_or_else(|| {
+            verr(
+                "attempt_work_result_coordinate_mismatch",
+                "WorkResult outcome_delta_refs backlink set is malformed",
+            )
+        })?;
+    let backlink_refs: BTreeSet<&str> = backlinks.iter().filter_map(Value::as_str).collect();
+    let mut coordinates = Vec::new();
+    for delta_ref in delta_refs {
+        if !backlink_refs.contains(delta_ref.as_str()) {
+            return Err(verr(
+                "attempt_outcome_delta_not_backlinked",
+                format!(
+                    "OutcomeDelta '{delta_ref}' is not in WorkResult '{result_ref}' plane-owned backlinks"
+                ),
+            ));
+        }
+        let delta = outcome_delta_strict(data_dir, delta_ref)?;
+        if s(&delta, "proposed_by_ref", "") != result_ref {
+            return Err(verr(
+                "attempt_outcome_delta_cross_result",
+                format!("OutcomeDelta '{delta_ref}' belongs to another WorkResult"),
+            ));
+        }
+        if s(&delta, "outcome_room_ref", "") != room_ref
+            || s(&delta, "outcome_room_ref", "") != s(result, "outcome_room_ref", "")
+        {
+            return Err(verr(
+                "attempt_outcome_delta_cross_room",
+                format!("OutcomeDelta '{delta_ref}' belongs to another room"),
+            ));
+        }
+        if s(&delta, "goal_ref", "") != result_goal {
+            return Err(verr(
+                "attempt_outcome_delta_cross_result",
+                format!("OutcomeDelta '{delta_ref}' belongs to another result goal"),
+            ));
+        }
+        coordinates.push(coordinate_with_identity(
+            delta_ref,
+            &delta,
+            &[
+                ("work_result_ref", result_ref.clone()),
+                ("outcome_room_ref", room_ref.clone()),
+                ("goal_ref", result_goal.clone()),
+            ],
+        ));
+    }
+    Ok(Value::Array(coordinates))
+}
+
+fn work_result_coordinate(result_ref: &str, result: &Value) -> Value {
+    coordinate_with_identity(
+        result_ref,
+        result,
+        &[
+            ("outcome_room_ref", s(result, "outcome_room_ref", "")),
+            ("goal_run_ref", s(result, "goal_run_ref", "")),
+            ("goal_ref", s(result, "goal_ref", "")),
+        ],
+    )
+}
+
+fn finding_coordinates(
+    attempt: &Value,
+    result: &Value,
+    supersedes: Option<&Value>,
+) -> Result<Value, VErr> {
+    let participant = attempt
+        .pointer("/bound_coordinates/participant_lease")
+        .cloned()
+        .ok_or_else(|| {
+            verr(
+                "attempt_coordinate_invalid",
+                "Attempt lacks its historical participant coordinate",
+            )
+        })?;
+    let supersedes_coordinate = supersedes.map_or(Value::Null, |finding| {
+        coordinate_with_identity(
+            &s(finding, "finding_id", ""),
+            finding,
+            &[("outcome_room_ref", s(finding, "outcome_room_ref", ""))],
+        )
+    });
+    Ok(json!({
+        "attempt": coordinate_with_identity(
+            &s(attempt, "attempt_id", ""),
+            attempt,
+            &[
+                ("outcome_room_ref", s(attempt, "outcome_room_ref", "")),
+                ("participant_ref", s(attempt, "participant_ref", "")),
+                ("work_result_ref", s(attempt, "work_result_ref", "")),
+            ],
+        ),
+        "work_result": work_result_coordinate(&s(result, "work_result_id", ""), result),
+        "participant_lease": participant,
+        "supersedes_finding": supersedes_coordinate,
+    }))
+}
+
+#[derive(Clone)]
+struct FindingDependencies {
+    room: Value,
+    attempt: Value,
+    result: Value,
+    participant: Value,
+    supersedes: Option<Value>,
+}
+
+fn resolve_finding_dependencies(
+    data_dir: &str,
+    declaration: &Value,
+    require_admitted_attempt: bool,
+    require_open_room: bool,
+) -> Result<FindingDependencies, VErr> {
+    let room_ref = s(declaration, "outcome_room_ref", "");
+    let attempt_ref = s(declaration, "attempt_ref", "");
+    let result_ref = s(declaration, "work_result_ref", "");
+    let participant_ref = s(declaration, "participant_ref", "");
+    let room = if require_open_room {
+        resolve_open_room(data_dir, &room_ref)?
+    } else {
+        rooms::resolve_room_strict(data_dir, &room_ref)
+            .map_err(|message| verr("attempt_finding_room_registry_unreadable", message))?
+            .ok_or_else(|| {
+                verr(
+                    "attempt_finding_room_not_found",
+                    format!("no room '{room_ref}'"),
+                )
+            })?
+    };
+    let attempt = load_attempt_strict(data_dir, &attempt_ref)
+        .map_err(|message| verr("attempt_finding_registry_unreadable", message))?
+        .ok_or_else(|| {
+            verr(
+                "finding_attempt_not_found",
+                format!("no Attempt '{attempt_ref}'"),
+            )
+        })?;
+    if require_admitted_attempt && s(&attempt, "status", "") != "admitted" {
+        return Err(verr(
+            "finding_attempt_not_admitted",
+            "Finding requires an admitted Attempt",
+        ));
+    }
+    let attempt_dependencies =
+        validate_attempt_coordinates(data_dir, &attempt, false, require_open_room)?;
+    if s(&attempt, "outcome_room_ref", "") != room_ref
+        || s(&attempt, "participant_ref", "") != participant_ref
+        || attempt.get("work_result_ref").and_then(Value::as_str) != Some(result_ref.as_str())
+    {
+        return Err(verr(
+            "finding_coordinate_mismatch",
+            "Finding must bind its Attempt's exact room, participant, and WorkResult",
+        ));
+    }
+    let result = work_result_strict(data_dir, &result_ref)?;
+    validate_work_result_for_attempt(&result, &attempt)?;
+    let participant = participant_strict(data_dir, &participant_ref)?;
+    if s(&participant, "outcome_room_ref", "") != room_ref
+        || participant.get("participant_ref").and_then(Value::as_str)
+            != attempt_dependencies
+                .participant
+                .get("participant_ref")
+                .and_then(Value::as_str)
+    {
+        return Err(verr(
+            "finding_coordinate_mismatch",
+            "Finding participant identity differs from the Attempt's historical participant",
+        ));
+    }
+    let supersedes = match declaration.get("supersedes_ref") {
+        None | Some(Value::Null) => None,
+        Some(Value::String(reference)) => {
+            let prior = load_finding_strict(data_dir, reference)
+                .map_err(|message| verr("attempt_finding_registry_unreadable", message))?
+                .ok_or_else(|| {
+                    verr(
+                        "finding_supersedes_not_found",
+                        format!("superseded Finding '{reference}' does not resolve"),
+                    )
+                })?;
+            if s(&prior, "outcome_room_ref", "") != room_ref {
+                return Err(verr(
+                    "finding_supersedes_cross_room",
+                    "a Finding can supersede only a Finding in the exact same room",
+                ));
+            }
+            Some(prior)
+        }
+        _ => {
+            return Err(verr(
+                "finding_supersedes_ref_invalid",
+                "supersedes_ref must be null or a canonical finding:// ref",
+            ))
+        }
+    };
+    if let Some(coordinates) = declaration.get("bound_coordinates") {
+        let expected_supersedes = declaration.get("supersedes_ref").and_then(Value::as_str);
+        if coordinates
+            .pointer("/attempt/record_ref")
+            .and_then(Value::as_str)
+            != Some(attempt_ref.as_str())
+            || coordinates
+                .pointer("/attempt/outcome_room_ref")
+                .and_then(Value::as_str)
+                != Some(room_ref.as_str())
+            || coordinates
+                .pointer("/attempt/participant_ref")
+                .and_then(Value::as_str)
+                != Some(participant_ref.as_str())
+            || coordinates
+                .pointer("/attempt/work_result_ref")
+                .and_then(Value::as_str)
+                != Some(result_ref.as_str())
+            || coordinates
+                .pointer("/work_result/record_ref")
+                .and_then(Value::as_str)
+                != Some(result_ref.as_str())
+            || coordinates
+                .pointer("/work_result/outcome_room_ref")
+                .and_then(Value::as_str)
+                != Some(room_ref.as_str())
+            || coordinates
+                .pointer("/participant_lease/record_ref")
+                .and_then(Value::as_str)
+                != Some(participant_ref.as_str())
+            || coordinates
+                .pointer("/supersedes_finding/record_ref")
+                .and_then(Value::as_str)
+                != expected_supersedes
+            || (expected_supersedes.is_none()
+                && !coordinates
+                    .get("supersedes_finding")
+                    .is_some_and(Value::is_null))
+        {
+            return Err(verr(
+                "finding_coordinate_mismatch",
+                "Finding historical identity coordinates differ from its declared lineage",
+            ));
+        }
+    }
+    Ok(FindingDependencies {
+        room,
+        attempt,
+        result,
+        participant,
+        supersedes,
     })
 }
 
@@ -1564,15 +1983,8 @@ pub(crate) async fn handle_attempt_create(
     let _plane = ATTEMPT_FINDING_LOCK
         .lock()
         .unwrap_or_else(|p| p.into_inner());
-    let current = match resolve_attempt_dependencies(&state.data_dir, &declaration) {
-        Ok(value) => value,
-        Err(error) => return classify(error),
-    };
-    if dependency_coordinates(&declaration, &current) != coordinates {
-        return classify(verr(
-            "attempt_coordinate_changed",
-            "Attempt dependencies changed during authorization",
-        ));
+    if let Err(error) = resolve_attempt_dependencies(&state.data_dir, &declaration) {
+        return classify(error);
     }
     let refs = dependency_refs_from_attempt(&declaration);
     let mut reserved: Vec<&str> = refs.iter().map(String::as_str).collect();
@@ -1628,7 +2040,8 @@ pub(crate) async fn handle_attempt_create(
             "room_ref":room_ref,"frontier_ref":s(&declaration,"frontier_item_ref",""),
             "claim_ref":s(&declaration,"work_claim_ref",""),"participant_ref":participant_ref,
             "goal_run_ref":s(&declaration,"goal_run_ref",""),"attempt_ref":Value::Null,
-            "work_result_ref":Value::Null,"required_authority_ref":authority,
+            "work_result_ref":Value::Null,"outcome_delta_refs":[],"supersedes_ref":Value::Null,
+            "required_authority_ref":authority,
             "subject_ref":subject_ref,"revision_before":0,"receipt_tail":receipt_tail,
             "receipt":receipt,"prior_attempt":Value::Null,"final_attempt":final_attempt,
             "prior_finding":Value::Null,"final_finding":Value::Null,
@@ -1694,26 +2107,44 @@ pub(crate) async fn handle_attempt_transition(
         Ok(value) => value,
         Err(error) => return classify(error),
     };
-    let dependencies = match validate_attempt_coordinates(&state.data_dir, &prior) {
+    let require_active_current = governance == Governance::Participant;
+    let require_open_room = op != "supersede";
+    let dependencies = match validate_attempt_coordinates(
+        &state.data_dir,
+        &prior,
+        require_active_current,
+        require_open_room,
+    ) {
         Ok(value) => value,
         Err(error) => return classify(error),
     };
     let room_ref = s(&prior, "outcome_room_ref", "");
     let subject_ref = s(&prior, "attempt_id", "");
     let authority = if governance == Governance::Host {
-        match rooms::resolve_room_host(&state.data_dir, &room_ref) {
-            Some(value) => value,
-            None => {
-                return classify(verr(
-                    "attempt_host_authority_unavailable",
-                    "room host does not resolve",
-                ))
-            }
+        let value = s(&dependencies.room, "host_domain_ref", "");
+        if value.is_empty() {
+            return classify(verr(
+                "attempt_host_authority_unavailable",
+                "room host does not resolve",
+            ));
         }
+        value
     } else {
         s(&dependencies.participant, "participant_ref", "")
     };
     let mut result_snapshot = Value::Null;
+    let mut delta_snapshots = json!([]);
+    let delta_refs: Vec<String> = fields
+        .get("outcome_delta_refs")
+        .and_then(Value::as_array)
+        .map(|items| {
+            items
+                .iter()
+                .filter_map(Value::as_str)
+                .map(ToOwned::to_owned)
+                .collect()
+        })
+        .unwrap_or_default();
     if op == "submit" {
         let result_ref = s(&fields, "work_result_ref", "");
         let result = match work_result_strict(&state.data_dir, &result_ref) {
@@ -1723,9 +2154,22 @@ pub(crate) async fn handle_attempt_transition(
         if let Err(error) = validate_work_result_for_attempt(&result, &prior) {
             return classify(error);
         }
-        result_snapshot = coordinate(&result_ref, &result);
+        result_snapshot = work_result_coordinate(&result_ref, &result);
+        delta_snapshots = match validate_outcome_deltas_for_attempt(
+            &state.data_dir,
+            &result,
+            &prior,
+            &delta_refs,
+        ) {
+            Ok(value) => value,
+            Err(error) => return classify(error),
+        };
     }
-    let mutation_payload = json!({"fields":fields,"work_result_coordinate":result_snapshot});
+    let mutation_payload = json!({
+        "fields":fields,
+        "work_result_coordinate":result_snapshot,
+        "outcome_delta_coordinates":delta_snapshots,
+    });
     let mutation_effect = effect("attempt", &op, revision, &mutation_payload, to);
     let authorized = match authorize(
         ATTEMPT_AUTHORITY,
@@ -1772,7 +2216,12 @@ pub(crate) async fn handle_attempt_transition(
             "Attempt changed during authorization",
         ));
     }
-    if let Err(error) = validate_attempt_coordinates(&state.data_dir, &current) {
+    if let Err(error) = validate_attempt_coordinates(
+        &state.data_dir,
+        &current,
+        require_active_current,
+        require_open_room,
+    ) {
         return classify(error);
     }
     let refs = dependency_refs_from_attempt(&current);
@@ -1784,13 +2233,16 @@ pub(crate) async fn handle_attempt_transition(
             Ok(value) => value,
             Err(error) => return classify(error),
         };
-        if coordinate(&work_result_ref, &result) != result_snapshot {
-            return classify(verr(
-                "attempt_coordinate_changed",
-                "WorkResult changed during authorization",
-            ));
+        if let Err(error) = validate_work_result_for_attempt(&result, &current) {
+            return classify(error);
+        }
+        if let Err(error) =
+            validate_outcome_deltas_for_attempt(&state.data_dir, &result, &current, &delta_refs)
+        {
+            return classify(error);
         }
         reserved.push(&work_result_ref);
+        reserved.extend(delta_refs.iter().map(String::as_str));
     }
     if let Err(error) = refuse_reserved(
         &state.data_dir,
@@ -1845,6 +2297,7 @@ pub(crate) async fn handle_attempt_transition(
             "kind":"attempt_transition","governance":if governance==Governance::Host{"host"}else{"participant"},"op":op,
             "room_ref":refs[0],"frontier_ref":refs[1],"claim_ref":refs[2],"participant_ref":refs[3],
             "goal_run_ref":refs[4],"attempt_ref":Value::Null,"work_result_ref":if work_result_ref.is_empty(){Value::Null}else{json!(work_result_ref)},
+            "outcome_delta_refs":delta_refs,"supersedes_ref":Value::Null,
             "required_authority_ref":authority,"subject_ref":subject_ref,"revision_before":revision,
             "receipt_tail":receipt_tail,"receipt":receipt,"prior_attempt":current,"final_attempt":final_attempt,
             "prior_finding":Value::Null,"final_finding":Value::Null,
@@ -1872,46 +2325,24 @@ pub(crate) async fn handle_finding_create(
     let attempt_ref = s(&declaration, "attempt_ref", "");
     let result_ref = s(&declaration, "work_result_ref", "");
     let participant_ref = s(&declaration, "participant_ref", "");
-    if let Err(error) = resolve_open_room(&state.data_dir, &room_ref) {
-        return classify(error);
-    }
-    let attempt = match load_attempt_strict(&state.data_dir, &attempt_ref) {
-        Ok(Some(value)) => value,
-        Ok(None) => {
-            return classify(verr(
-                "finding_attempt_not_found",
-                format!("no Attempt '{attempt_ref}'"),
-            ))
-        }
-        Err(message) => return classify(verr("attempt_finding_registry_unreadable", message)),
-    };
-    if s(&attempt, "status", "") != "admitted" {
-        return classify(verr(
-            "finding_attempt_not_admitted",
-            "Finding requires an admitted Attempt",
-        ));
-    }
-    if s(&attempt, "outcome_room_ref", "") != room_ref
-        || s(&attempt, "participant_ref", "") != participant_ref
-        || attempt.get("work_result_ref").and_then(Value::as_str) != Some(result_ref.as_str())
+    let supersedes_ref = declaration
+        .get("supersedes_ref")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .to_string();
+    let dependencies = match resolve_finding_dependencies(&state.data_dir, &declaration, true, true)
     {
-        return classify(verr(
-            "finding_coordinate_mismatch",
-            "Finding must bind its Attempt's exact room, participant, and WorkResult",
-        ));
-    }
-    let dependencies = match validate_attempt_coordinates(&state.data_dir, &attempt) {
         Ok(value) => value,
         Err(error) => return classify(error),
     };
-    let result = match work_result_strict(&state.data_dir, &result_ref) {
+    let coordinates = match finding_coordinates(
+        &dependencies.attempt,
+        &dependencies.result,
+        dependencies.supersedes.as_ref(),
+    ) {
         Ok(value) => value,
         Err(error) => return classify(error),
     };
-    if let Err(error) = validate_work_result_for_attempt(&result, &attempt) {
-        return classify(error);
-    }
-    let coordinates = finding_coordinates(&attempt, &result, &dependencies.participant);
     let tail = deterministic_tail(
         "fnd_",
         &json!({"domain":"hypervisor.finding.identity.v1","declaration":declaration,"bound_coordinates":coordinates}),
@@ -1959,38 +2390,19 @@ pub(crate) async fn handle_finding_create(
     let _plane = ATTEMPT_FINDING_LOCK
         .lock()
         .unwrap_or_else(|p| p.into_inner());
-    let current_attempt = match load_attempt_strict(&state.data_dir, &attempt_ref) {
-        Ok(Some(value)) => value,
-        Ok(None) => return classify(verr("finding_attempt_not_found", "Attempt vanished")),
-        Err(message) => return classify(verr("attempt_finding_registry_unreadable", message)),
-    };
-    let current_dependencies = match validate_attempt_coordinates(&state.data_dir, &current_attempt)
-    {
-        Ok(value) => value,
-        Err(error) => return classify(error),
-    };
-    let current_result = match work_result_strict(&state.data_dir, &result_ref) {
-        Ok(value) => value,
-        Err(error) => return classify(error),
-    };
-    if finding_coordinates(
-        &current_attempt,
-        &current_result,
-        &current_dependencies.participant,
-    ) != coordinates
-    {
-        return classify(verr(
-            "finding_coordinate_changed",
-            "Finding dependencies changed during authorization",
-        ));
+    if let Err(error) = resolve_finding_dependencies(&state.data_dir, &declaration, true, true) {
+        return classify(error);
     }
-    let reserved = [
-        &subject_ref[..],
-        &room_ref,
-        &attempt_ref,
-        &result_ref,
-        &participant_ref,
+    let mut reserved = vec![
+        subject_ref.as_str(),
+        room_ref.as_str(),
+        attempt_ref.as_str(),
+        result_ref.as_str(),
+        participant_ref.as_str(),
     ];
+    if !supersedes_ref.is_empty() {
+        reserved.push(supersedes_ref.as_str());
+    }
     if let Err(error) = refuse_reserved(
         &state.data_dir,
         &reserved,
@@ -2041,7 +2453,9 @@ pub(crate) async fn handle_finding_create(
             "kind":"finding_create","governance":"participant","op":"create",
             "room_ref":room_ref,"frontier_ref":Value::Null,"claim_ref":Value::Null,
             "participant_ref":participant_ref,"goal_run_ref":Value::Null,"attempt_ref":attempt_ref,
-            "work_result_ref":result_ref,"required_authority_ref":authority,"subject_ref":subject_ref,
+            "work_result_ref":result_ref,"outcome_delta_refs":[],
+            "supersedes_ref":if supersedes_ref.is_empty(){Value::Null}else{json!(supersedes_ref)},
+            "required_authority_ref":authority,"subject_ref":subject_ref,
             "revision_before":0,"receipt_tail":receipt_tail,"receipt":receipt,
             "prior_attempt":Value::Null,"final_attempt":Value::Null,
             "prior_finding":Value::Null,"final_finding":final_finding,
@@ -2110,15 +2524,17 @@ pub(crate) async fn handle_finding_transition(
     };
     let room_ref = s(&prior, "outcome_room_ref", "");
     let subject_ref = s(&prior, "finding_id", "");
-    let host = match rooms::resolve_room_host(&state.data_dir, &room_ref) {
-        Some(value) => value,
-        None => {
-            return classify(verr(
-                "finding_host_authority_unavailable",
-                "room host does not resolve",
-            ))
-        }
+    let dependencies = match resolve_finding_dependencies(&state.data_dir, &prior, false, false) {
+        Ok(value) => value,
+        Err(error) => return classify(error),
     };
+    let host = s(&dependencies.room, "host_domain_ref", "");
+    if host.is_empty() {
+        return classify(verr(
+            "finding_host_authority_unavailable",
+            "room host does not resolve",
+        ));
+    }
     let mutation_effect = effect(
         "finding",
         &op,
@@ -2171,37 +2587,27 @@ pub(crate) async fn handle_finding_transition(
             "Finding changed during authorization",
         ));
     }
+    if let Err(error) = resolve_finding_dependencies(&state.data_dir, &current, false, false) {
+        return classify(error);
+    }
     let attempt_ref = s(&current, "attempt_ref", "");
     let result_ref = s(&current, "work_result_ref", "");
     let participant_ref = s(&current, "participant_ref", "");
-    let attempt = match load_attempt_strict(&state.data_dir, &attempt_ref) {
-        Ok(Some(value)) => value,
-        Ok(None) => return classify(verr("finding_attempt_not_found", "bound Attempt vanished")),
-        Err(message) => return classify(verr("attempt_finding_registry_unreadable", message)),
-    };
-    let result = match work_result_strict(&state.data_dir, &result_ref) {
-        Ok(value) => value,
-        Err(error) => return classify(error),
-    };
-    let participant = match participant_strict(&state.data_dir, &participant_ref) {
-        Ok(value) => value,
-        Err(error) => return classify(error),
-    };
-    if current.get("bound_coordinates")
-        != Some(&finding_coordinates(&attempt, &result, &participant))
-    {
-        return classify(verr(
-            "finding_coordinate_changed",
-            "one or more frozen Finding coordinates changed",
-        ));
-    }
-    let reserved = [
-        &subject_ref[..],
-        &room_ref,
-        &attempt_ref,
-        &result_ref,
-        &participant_ref,
+    let supersedes_ref = current
+        .get("supersedes_ref")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .to_string();
+    let mut reserved = vec![
+        subject_ref.as_str(),
+        room_ref.as_str(),
+        attempt_ref.as_str(),
+        result_ref.as_str(),
+        participant_ref.as_str(),
     ];
+    if !supersedes_ref.is_empty() {
+        reserved.push(supersedes_ref.as_str());
+    }
     if let Err(error) = refuse_reserved(
         &state.data_dir,
         &reserved,
@@ -2249,6 +2655,8 @@ pub(crate) async fn handle_finding_transition(
             "kind":"finding_transition","governance":"host","op":op,"room_ref":room_ref,
             "frontier_ref":Value::Null,"claim_ref":Value::Null,"participant_ref":participant_ref,
             "goal_run_ref":Value::Null,"attempt_ref":attempt_ref,"work_result_ref":result_ref,
+            "outcome_delta_refs":[],
+            "supersedes_ref":if supersedes_ref.is_empty(){Value::Null}else{json!(supersedes_ref)},
             "required_authority_ref":host,"subject_ref":subject_ref,"revision_before":revision,
             "receipt_tail":receipt_tail,"receipt":receipt,"prior_attempt":Value::Null,
             "final_attempt":Value::Null,"prior_finding":current,"final_finding":final_finding,
@@ -2520,10 +2928,32 @@ fn require_intent_ref(intent: &Value, field: &str, expected: Option<String>) -> 
     }
 }
 
+fn require_intent_ref_list(intent: &Value, field: &str, expected: &[String]) -> Result<(), String> {
+    let actual: Vec<&str> = intent
+        .get(field)
+        .and_then(Value::as_array)
+        .ok_or_else(|| format!("intent field '{field}' is not a ref list"))?
+        .iter()
+        .map(|value| {
+            value
+                .as_str()
+                .ok_or_else(|| format!("intent field '{field}' contains a non-ref"))
+        })
+        .collect::<Result<_, _>>()?;
+    if actual == expected.iter().map(String::as_str).collect::<Vec<_>>() {
+        Ok(())
+    } else {
+        Err(format!(
+            "intent field '{field}' differs from its reconstructed aggregate coordinates"
+        ))
+    }
+}
+
 fn validate_attempt_intent_refs(
     intent: &Value,
     attempt: &Value,
     work_result_ref: Option<&str>,
+    outcome_delta_refs: &[String],
 ) -> Result<(), String> {
     require_intent_ref(intent, "room_ref", Some(s(attempt, "outcome_room_ref", "")))?;
     require_intent_ref(
@@ -2543,7 +2973,9 @@ fn validate_attempt_intent_refs(
         intent,
         "work_result_ref",
         work_result_ref.map(ToOwned::to_owned),
-    )
+    )?;
+    require_intent_ref(intent, "supersedes_ref", None)?;
+    require_intent_ref_list(intent, "outcome_delta_refs", outcome_delta_refs)
 }
 
 fn validate_finding_intent_refs(intent: &Value, finding: &Value) -> Result<(), String> {
@@ -2561,7 +2993,16 @@ fn validate_finding_intent_refs(intent: &Value, finding: &Value) -> Result<(), S
         intent,
         "work_result_ref",
         Some(s(finding, "work_result_ref", "")),
-    )
+    )?;
+    require_intent_ref(
+        intent,
+        "supersedes_ref",
+        finding
+            .get("supersedes_ref")
+            .and_then(Value::as_str)
+            .map(ToOwned::to_owned),
+    )?;
+    require_intent_ref_list(intent, "outcome_delta_refs", &[])
 }
 
 fn validate_intent_exact(
@@ -2622,7 +3063,7 @@ fn validate_intent_exact(
             if final_attempt.get("attempt_id").and_then(Value::as_str) != Some(subject_ref) {
                 return Err("Attempt successor identity differs from subject_ref".into());
             }
-            validate_attempt_intent_refs(intent, final_attempt, None)?;
+            validate_attempt_intent_refs(intent, final_attempt, None, &[])?;
             let declaration = attempt_declaration(final_attempt);
             let coordinates = final_attempt
                 .get("bound_coordinates")
@@ -2708,7 +3149,18 @@ fn validate_intent_exact(
                 .get("work_result_ref")
                 .and_then(Value::as_str)
                 .filter(|value| !value.is_empty());
-            validate_attempt_intent_refs(intent, prior, work_result_ref)?;
+            let outcome_delta_refs: Vec<String> = fields
+                .get("outcome_delta_refs")
+                .and_then(Value::as_array)
+                .map(|items| {
+                    items
+                        .iter()
+                        .filter_map(Value::as_str)
+                        .map(ToOwned::to_owned)
+                        .collect()
+                })
+                .unwrap_or_default();
+            validate_attempt_intent_refs(intent, prior, work_result_ref, &outcome_delta_refs)?;
             let expected_final = transition_attempt(
                 prior,
                 op,
@@ -2732,6 +3184,7 @@ fn validate_intent_exact(
             {
                 refs.push(result_ref.to_string());
             }
+            refs.extend(outcome_delta_refs);
             let expected_receipt = build_receipt(
                 receipt_tail,
                 ATTEMPT_RECEIPT_SCHEMA,
@@ -2799,13 +3252,18 @@ fn validate_intent_exact(
                 &json!({"declaration":declaration,"bound_coordinates":coordinates}),
                 "proposed",
             );
-            let refs = vec![
+            let mut refs = vec![
                 subject_ref.to_string(),
                 room_ref.to_string(),
                 s(final_finding, "attempt_ref", ""),
                 s(final_finding, "work_result_ref", ""),
                 s(final_finding, "participant_ref", ""),
             ];
+            if let Some(supersedes_ref) =
+                final_finding.get("supersedes_ref").and_then(Value::as_str)
+            {
+                refs.push(supersedes_ref.to_string());
+            }
             let expected_receipt = build_receipt(
                 receipt_tail,
                 FINDING_RECEIPT_SCHEMA,
@@ -2850,13 +3308,16 @@ fn validate_intent_exact(
             }
             let payload = json!({"status_before":s(prior,"status","")});
             let expected_effect = effect("finding", op, revision, &payload, to);
-            let refs = vec![
+            let mut refs = vec![
                 subject_ref.to_string(),
                 room_ref.to_string(),
                 s(prior, "attempt_ref", ""),
                 s(prior, "work_result_ref", ""),
                 s(prior, "participant_ref", ""),
             ];
+            if let Some(supersedes_ref) = prior.get("supersedes_ref").and_then(Value::as_str) {
+                refs.push(supersedes_ref.to_string());
+            }
             let expected_receipt = build_receipt(
                 receipt_tail,
                 FINDING_RECEIPT_SCHEMA,
@@ -2895,20 +3356,27 @@ fn validate_replay_coordinates(data_dir: &str, intent: &Value) -> Result<(), VEr
                 "Attempt intent lacks coordinate source",
             )
         })?;
-        validate_attempt_coordinates(data_dir, attempt)?;
+        let participant_governed =
+            intent.get("governance").and_then(Value::as_str) == Some("participant");
+        let require_active_current = kind == "attempt_create" || participant_governed;
+        let require_open_room = s(intent, "op", "") != "supersede";
+        validate_attempt_coordinates(data_dir, attempt, require_active_current, require_open_room)?;
         let result_ref = s(intent, "work_result_ref", "");
         if !result_ref.is_empty() {
             let result = work_result_strict(data_dir, &result_ref)?;
-            let expected = intent
-                .pointer("/receipt/bound_facts/mutation_payload/work_result_coordinate")
-                .cloned()
-                .unwrap_or(Value::Null);
-            if expected != coordinate(&result_ref, &result) {
-                return Err(verr(
-                    "attempt_coordinate_changed",
-                    "replay WorkResult coordinate differs from the sealed authorization tuple",
-                ));
-            }
+            validate_work_result_for_attempt(&result, attempt)?;
+            let delta_refs: Vec<String> = intent
+                .get("outcome_delta_refs")
+                .and_then(Value::as_array)
+                .map(|items| {
+                    items
+                        .iter()
+                        .filter_map(Value::as_str)
+                        .map(ToOwned::to_owned)
+                        .collect()
+                })
+                .unwrap_or_default();
+            validate_outcome_deltas_for_attempt(data_dir, &result, attempt, &delta_refs)?;
         }
     } else if kind.starts_with("finding_") {
         let finding = if kind == "finding_create" {
@@ -2923,27 +3391,12 @@ fn validate_replay_coordinates(data_dir: &str, intent: &Value) -> Result<(), VEr
                 "Finding intent lacks coordinate source",
             )
         })?;
-        let attempt_ref = s(finding, "attempt_ref", "");
-        let result_ref = s(finding, "work_result_ref", "");
-        let participant_ref = s(finding, "participant_ref", "");
-        let attempt = load_attempt_strict(data_dir, &attempt_ref)
-            .map_err(|message| verr("attempt_finding_registry_unreadable", message))?
-            .ok_or_else(|| {
-                verr(
-                    "finding_attempt_not_found",
-                    "replay Attempt no longer resolves",
-                )
-            })?;
-        let result = work_result_strict(data_dir, &result_ref)?;
-        let participant = participant_strict(data_dir, &participant_ref)?;
-        if finding.get("bound_coordinates")
-            != Some(&finding_coordinates(&attempt, &result, &participant))
-        {
-            return Err(verr(
-                "finding_coordinate_changed",
-                "replay Finding tuple differs from its sealed Attempt/WorkResult/participant coordinates",
-            ));
-        }
+        resolve_finding_dependencies(
+            data_dir,
+            finding,
+            kind == "finding_create",
+            kind == "finding_create",
+        )?;
     }
     Ok(())
 }
@@ -3124,11 +3577,11 @@ mod attempt_finding_tests {
 
     fn coordinates() -> Value {
         json!({
-            "outcome_room":{"record_ref":"outcome-room://or_ab","control_hash":"sha256:room"},
-            "frontier_item":{"record_ref":format!("frontier://wfi_{}", "1".repeat(64)),"revision":1,"updated_at":null,"record_hash":"sha256:frontier"},
-            "work_claim":{"record_ref":format!("work-claim://wcl_{}", "2".repeat(64)),"revision":1,"updated_at":null,"record_hash":"sha256:claim"},
-            "participant_lease":{"record_ref":"participant-lease://rpl_ab","revision":1,"updated_at":null,"record_hash":"sha256:participant"},
-            "goal_run":{"record_ref":"goal://gr_ab","revision":null,"updated_at":null,"record_hash":"sha256:goal"}
+            "outcome_room":{"record_ref":"outcome-room://or_ab","host_domain_ref":"agentgres://domain/host","control_hash":"sha256:room"},
+            "frontier_item":{"record_ref":format!("frontier://wfi_{}", "1".repeat(64)),"outcome_room_ref":"outcome-room://or_ab","revision":1,"updated_at":null,"record_hash":"sha256:frontier"},
+            "work_claim":{"record_ref":format!("work-claim://wcl_{}", "2".repeat(64)),"outcome_room_ref":"outcome-room://or_ab","frontier_item_ref":format!("frontier://wfi_{}", "1".repeat(64)),"claimant_ref":"participant-lease://rpl_ab","revision":1,"updated_at":null,"record_hash":"sha256:claim"},
+            "participant_lease":{"record_ref":"participant-lease://rpl_ab","outcome_room_ref":"outcome-room://or_ab","principal_ref":"worker://a","revision":1,"updated_at":null,"record_hash":"sha256:participant"},
+            "goal_run":{"record_ref":"goal://gr_ab","outcome_room_ref":"outcome-room://or_ab","revision":null,"updated_at":null,"record_hash":"sha256:goal"}
         })
     }
 
@@ -3241,7 +3694,8 @@ mod attempt_finding_tests {
             json!({
                 "kind":"attempt_create","governance":"participant","op":"create","room_ref":refs[0],
                 "frontier_ref":refs[1],"claim_ref":refs[2],"participant_ref":refs[3],"goal_run_ref":refs[4],
-                "attempt_ref":null,"work_result_ref":null,"required_authority_ref":"worker://a","subject_ref":subject,
+                "attempt_ref":null,"work_result_ref":null,"outcome_delta_refs":[],"supersedes_ref":null,
+                "required_authority_ref":"worker://a","subject_ref":subject,
                 "revision_before":0,"receipt_tail":receipt_tail,"receipt":receipt,"prior_attempt":null,
                 "final_attempt":final_attempt,"prior_finding":null,"final_finding":null
             }),
@@ -3270,7 +3724,7 @@ mod attempt_finding_tests {
                 "kind":"finding_create","room_ref":"outcome-room://or_b","subject_ref":format!("finding://fnd_{}", "d".repeat(64)),
                 "frontier_ref":null,"claim_ref":null,"participant_ref":"participant-lease://rpl_b",
                 "goal_run_ref":null,"attempt_ref":format!("attempt://att_{}", "e".repeat(64)),
-                "work_result_ref":"work-result://wr_b"
+                "work_result_ref":"work-result://wr_b","outcome_delta_refs":[],"supersedes_ref":null
             }),
             &format!("afi_{}", "f".repeat(64)),
         );
@@ -3291,7 +3745,8 @@ mod attempt_finding_tests {
             json!({
                 "kind":"finding_create","room_ref":"outcome-room://or_r","subject_ref":format!("finding://fnd_{}", "2".repeat(64)),
                 "frontier_ref":null,"claim_ref":null,"participant_ref":participant,"goal_run_ref":null,
-                "attempt_ref":format!("attempt://att_{}", "3".repeat(64)),"work_result_ref":"work-result://wr_r"
+                "attempt_ref":format!("attempt://att_{}", "3".repeat(64)),"work_result_ref":"work-result://wr_r",
+                "outcome_delta_refs":[],"supersedes_ref":null
             }),
             &tail,
         );

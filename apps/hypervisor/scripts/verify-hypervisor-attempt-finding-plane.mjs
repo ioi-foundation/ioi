@@ -169,21 +169,100 @@ async function run() {
     ok("ATTEMPT: participant admits canonical exact-coordinate draft", created.status === 201 && /^attempt:\/\/att_[0-9a-f]{64}$/.test(attempt?.attempt_id) && attempt?.bound_coordinates?.goal_run?.record_ref === "goal://gr_attempt_finding", `${created.status}/${created.body.error?.code || "ok"}`);
 
     const attemptTail = attempt.attempt_id.replace("attempt://", "");
+    const heartbeated = await governed(call, resolver, lease.participant_ref, `/v1/hypervisor/work-claim-leases/${claim.work_claim_id.replace("work-claim://", "")}/transition`, {
+      transition: "heartbeat", heartbeat_ref: "heartbeat://attempt-created", expected_revision: claim.revision,
+    });
+    const currentClaim = heartbeated.response.body.work_claim;
     const started = await governed(call, resolver, lease.participant_ref, `/v1/hypervisor/attempts/${attemptTail}/transition`, {
       transition: "start", expected_revision: attempt.revision,
     });
-    const submitted = await governed(call, resolver, lease.participant_ref, `/v1/hypervisor/attempts/${attemptTail}/transition`, {
+    ok("HISTORY: claim heartbeat after Attempt creation does not invalidate participant start", heartbeated.response.status === 200 && started.response.status === 200, `${heartbeated.response.status}/${started.response.status}/${started.response.body.error?.code || "ok"}`);
+
+    const otherResultAdmission = await call("POST", "/v1/hypervisor/work-results", {
+      goal_ref: "goal://gr_attempt_finding", goal_run_ref: "goal://gr_attempt_finding",
+      outcome_room_ref: roomRef, result_profile: "research", outcome_class: "negative",
+      status: "completed", uncertainty: 0.4, supporting_evidence_refs: ["evidence://other-attempt-output"],
+      artifact_receipt_and_trace_refs: ["receipt://other-work-result-admission"], reproduction_state: "unreviewed",
+    });
+    const otherWorkResult = otherResultAdmission.body.work_result;
+    const primaryDeltaAdmission = await call("POST", "/v1/hypervisor/outcome-deltas", {
+      goal_ref: "goal://gr_attempt_finding", outcome_room_ref: roomRef, delta_kind: "update",
+      target_ref: frontier.frontier_item_id, proposed_by_ref: workResult.work_result_id,
+    });
+    const otherDeltaAdmission = await call("POST", "/v1/hypervisor/outcome-deltas", {
+      goal_ref: "goal://gr_attempt_finding", outcome_room_ref: roomRef, delta_kind: "update",
+      target_ref: frontier.frontier_item_id, proposed_by_ref: otherWorkResult.work_result_id,
+    });
+    const primaryDelta = primaryDeltaAdmission.body.outcome_delta;
+    const otherDelta = otherDeltaAdmission.body.outcome_delta;
+    if (!primaryDelta || !otherDelta) throw new Error(JSON.stringify({ primaryDeltaAdmission, otherDeltaAdmission }));
+
+    const submitBase = {
       transition: "submit", expected_revision: started.response.body.attempt.revision,
-      outcome_class: "negative", work_result_ref: workResult.work_result_id, outcome_delta_refs: [],
+      outcome_class: "negative", work_result_ref: workResult.work_result_id,
       artifact_evidence_and_receipt_refs: ["evidence://attempt-output", "receipt://work-result-admission"],
       reproduction_state: "unreviewed",
+    };
+    const attemptBeforeBadDeltas = readFileSync(join(dataDir, "attempts", `${attemptTail}.json`), "utf8");
+    const receiptsBeforeBadDeltas = names(dataDir, "attempt-finding-receipts");
+    const ghostDelta = await governed(call, resolver, lease.participant_ref, `/v1/hypervisor/attempts/${attemptTail}/transition`, {
+      ...submitBase, outcome_delta_refs: [`outcome-delta://od_${"f".repeat(64)}`],
+    });
+    const primaryResultPath = join(dataDir, "work-result-registry", `${workResult.work_result_id.replace("work-result://", "")}.json`);
+    const primaryResultBytes = readFileSync(primaryResultPath, "utf8");
+    const poisonedBacklink = JSON.parse(primaryResultBytes);
+    poisonedBacklink.outcome_delta_refs = [...poisonedBacklink.outcome_delta_refs, otherDelta.outcome_delta_id];
+    writeFileSync(primaryResultPath, JSON.stringify(poisonedBacklink));
+    const crossResultDelta = await governed(call, resolver, lease.participant_ref, `/v1/hypervisor/attempts/${attemptTail}/transition`, {
+      ...submitBase, outcome_delta_refs: [otherDelta.outcome_delta_id],
+    });
+    writeFileSync(primaryResultPath, primaryResultBytes);
+    ok("OUTCOME DELTA: ghost and cross-result evidence refuse with zero Attempt, WorkResult, or receipt mutation", ghostDelta.response.status === 422 && ghostDelta.response.body.error?.code === "attempt_outcome_delta_not_backlinked" && crossResultDelta.response.status === 422 && crossResultDelta.response.body.error?.code === "attempt_outcome_delta_cross_result" && readFileSync(join(dataDir, "attempts", `${attemptTail}.json`), "utf8") === attemptBeforeBadDeltas && readFileSync(primaryResultPath, "utf8") === primaryResultBytes && JSON.stringify(names(dataDir, "attempt-finding-receipts")) === JSON.stringify(receiptsBeforeBadDeltas), `${ghostDelta.response.status}/${ghostDelta.response.body.error?.code}; ${crossResultDelta.response.status}/${crossResultDelta.response.body.error?.code}`);
+    const submitted = await governed(call, resolver, lease.participant_ref, `/v1/hypervisor/attempts/${attemptTail}/transition`, {
+      ...submitBase, outcome_delta_refs: [primaryDelta.outcome_delta_id],
     });
     const admitted = await governed(call, resolver, "domain://acme-host", `/v1/hypervisor/attempts/${attemptTail}/transition`, {
       transition: "admit", expected_revision: submitted.response.body.attempt.revision,
     });
     ok("ATTEMPT: start -> submit -> host admission preserves negative evidence", started.response.status === 200 && submitted.response.status === 200 && admitted.response.status === 200 && admitted.response.body.attempt?.status === "admitted" && admitted.response.body.attempt?.outcome_class === "negative", `${started.response.status}/${submitted.response.status}/${admitted.response.status}`);
 
+    const releasedBeforeFinding = await governed(call, resolver, lease.participant_ref, `/v1/hypervisor/work-claim-leases/${claim.work_claim_id.replace("work-claim://", "")}/transition`, {
+      transition: "release", reason: "work submitted for historical provenance", expected_revision: currentClaim.revision,
+    });
+    ok("HISTORY: claim release after host admission preserves the immutable Attempt lineage", releasedBeforeFinding.response.status === 200 && releasedBeforeFinding.response.body.work_claim?.status === "released", `${releasedBeforeFinding.response.status}/${releasedBeforeFinding.response.body.error?.code || "ok"}`);
+
     const findingInput = findingBody(roomRef, attempt.attempt_id, workResult.work_result_id, lease.participant_lease_id);
+    const findingsBeforeBadLineage = names(dataDir, "findings");
+    const receiptsBeforeBadLineage = names(dataDir, "attempt-finding-receipts");
+    const nonexistentSupersession = await call("POST", "/v1/hypervisor/findings", {
+      ...findingInput, supersedes_ref: `finding://fnd_${"e".repeat(64)}`,
+    });
+    const secondRoom = (await call("POST", "/v1/hypervisor/outcome-rooms", { ...ROOM, objective_ref: "goal://cross-room-lineage", objective: "Cross-room negative lineage fixture." })).body.outcome_room;
+    const crossRoomFindingRef = `finding://fnd_${"c".repeat(64)}`;
+    const crossRoomFindingTail = crossRoomFindingRef.replace("finding://", "");
+    const crossRoomFinding = {
+      ...JSON.parse(JSON.stringify({
+        schema_version: "ioi.hypervisor.finding-envelope.v1", finding_id: crossRoomFindingRef,
+        outcome_room_ref: secondRoom.outcome_room_id, attempt_ref: attempt.attempt_id,
+        work_result_ref: workResult.work_result_id, participant_ref: lease.participant_lease_id,
+        proposition: "Canonical cross-room lineage fixture.", finding_kind: "negative_result",
+        confidence_or_uncertainty: 0.5, valid_time: null, supporting_evidence_refs: [],
+        contradicting_evidence_refs: [], proof_refs: [], applicability_and_counterexample_refs: [],
+        provenance_ontology_and_mapping_refs: [], proposed_effect_refs: [], supersedes_ref: null,
+        coordination_topology: "hosted_admission", status: "proposed", revision: 1,
+        created_at: "2027-01-01T00:00:00Z", updated_at: "2027-01-01T00:00:00Z",
+        runtimeTruthSource: "daemon-runtime",
+      })),
+    };
+    mkdirSync(join(dataDir, "findings"), { recursive: true });
+    writeFileSync(join(dataDir, "findings", `${crossRoomFindingTail}.json`), JSON.stringify(crossRoomFinding));
+    const lineageFixtureNames = names(dataDir, "findings");
+    const crossRoomSupersession = await call("POST", "/v1/hypervisor/findings", {
+      ...findingInput, supersedes_ref: crossRoomFindingRef,
+    });
+    ok("FINDING LINEAGE: nonexistent and canonical cross-room supersession refuse with zero mutation", nonexistentSupersession.status === 404 && nonexistentSupersession.body.error?.code === "finding_supersedes_not_found" && crossRoomSupersession.status === 422 && crossRoomSupersession.body.error?.code === "finding_supersedes_cross_room" && JSON.stringify(names(dataDir, "findings")) === JSON.stringify(lineageFixtureNames) && JSON.stringify(names(dataDir, "attempt-finding-receipts")) === JSON.stringify(receiptsBeforeBadLineage), `${nonexistentSupersession.status}/${nonexistentSupersession.body.error?.code}; ${crossRoomSupersession.status}/${crossRoomSupersession.body.error?.code}`);
+    rmSync(join(dataDir, "findings", `${crossRoomFindingTail}.json`), { force: true });
+    if (JSON.stringify(names(dataDir, "findings")) !== JSON.stringify(findingsBeforeBadLineage)) throw new Error("cross-room Finding fixture cleanup failed");
     const findingChallenge = await call("POST", "/v1/hypervisor/findings", findingInput);
     const findingGrant = resolver.mint(lease.participant_ref, findingChallenge.body.error.approval.policy_hash, findingChallenge.body.error.approval.request_hash);
     const findingSwap = await call("POST", "/v1/hypervisor/findings", {
@@ -193,7 +272,7 @@ async function run() {
     ok("AUTHORITY: Finding uncertainty/proof swap refuses with zero mutation", findingSwap.status === 403 && names(dataDir, "findings").length === 0, `${findingSwap.status}/${findingSwap.body.error?.code}`);
     const proposed = await call("POST", "/v1/hypervisor/findings", { ...findingInput, wallet_approval_grant: findingGrant });
     const finding = proposed.body.finding;
-    ok("FINDING: proposal freezes Attempt, WorkResult, uncertainty, evidence, and proof refs", proposed.status === 201 && /^finding:\/\/fnd_[0-9a-f]{64}$/.test(finding?.finding_id) && finding?.bound_coordinates?.attempt?.record_ref === attempt.attempt_id && finding?.proof_refs?.length === 1, `${proposed.status}/${proposed.body.error?.code || "ok"}`);
+    ok("FINDING: proposal after claim release freezes historical Attempt, WorkResult, uncertainty, evidence, and proof refs", proposed.status === 201 && /^finding:\/\/fnd_[0-9a-f]{64}$/.test(finding?.finding_id) && finding?.bound_coordinates?.attempt?.record_ref === attempt.attempt_id && finding?.proof_refs?.length === 1, `${proposed.status}/${proposed.body.error?.code || "ok"}`);
 
     const findingTail = finding.finding_id.replace("finding://", "");
     const findingAdmitted = await governed(call, resolver, "domain://acme-host", `/v1/hypervisor/findings/${findingTail}/transition`, {
@@ -227,23 +306,21 @@ async function run() {
     });
     const intentName = names(dataDir, "attempt-finding-intents")[0];
     const sealedIntent = intentName ? JSON.parse(readFileSync(join(dataDir, "attempt-finding-intents", intentName), "utf8")) : null;
-    const claimPath = join(dataDir, "work-claim-leases", `${claim.work_claim_id.replace("work-claim://", "")}.json`);
-    const claimBeforeReservation = readFileSync(claimPath, "utf8");
-    const reservedRelease = await governed(call, resolver, lease.participant_ref, `/v1/hypervisor/work-claim-leases/${claim.work_claim_id.replace("work-claim://", "")}/transition`, {
-      transition: "release", reason: "must wait for provenance convergence", expected_revision: claim.revision,
+    const participantTail = lease.participant_lease_id.replace("participant-lease://", "");
+    const participantPath = join(dataDir, "room-participant-leases", `${participantTail}.json`);
+    const participantBeforeReservation = readFileSync(participantPath, "utf8");
+    const liveParticipant = JSON.parse(participantBeforeReservation);
+    const reservedSleep = await governed(call, resolver, lease.participant_ref, `/v1/hypervisor/room-participant-leases/${participantTail}/transition`, {
+      transition: "sleep", expected_revision: liveParticipant.revision,
     });
-    ok("RESERVATION: pending Finding intent blocks participant/claim mutation byte-stably", pendingArchive.response.status === 500 && reservedRelease.response.status === 409 && reservedRelease.response.body.error?.code === "work_frontier_claim_mutation_in_flight" && readFileSync(claimPath, "utf8") === claimBeforeReservation, `${pendingArchive.response.status}/${reservedRelease.response.status}/${reservedRelease.response.body.error?.code}`);
+    ok("RESERVATION: pending Finding intent blocks participant mutation byte-stably", pendingArchive.response.status === 500 && reservedSleep.response.status === 409 && reservedSleep.response.body.error?.code === "participant_lease_mutation_in_flight" && readFileSync(participantPath, "utf8") === participantBeforeReservation, `${pendingArchive.response.status}/${reservedSleep.response.status}/${reservedSleep.response.body.error?.code}`);
     await plane.stop();
     plane = await startIsolatedPlane({ serve: false, env: resolver.env, dataDir });
     call = (method, path, body) => jsonCall(plane.daemonUrl, method, path, body);
     const convergedArchive = await poll(call, `/v1/hypervisor/findings/${findingTail}`, (value) => value.status === 200 && value.body.finding?.status === "archived");
     ok("DURABILITY: one restart reauthorizes and converges the sealed successor byte-exactly", convergedArchive.status === 200 && JSON.stringify(convergedArchive.body.finding) === JSON.stringify(sealedIntent?.final_finding) && names(dataDir, "attempt-finding-intents").length === 0);
 
-    const currentClaim = (await call("GET", `/v1/hypervisor/work-claim-leases/${claim.work_claim_id.replace("work-claim://", "")}`)).body.work_claim;
-    const releaseWhileNoIntent = await governed(call, resolver, lease.participant_ref, `/v1/hypervisor/work-claim-leases/${claim.work_claim_id.replace("work-claim://", "")}/transition`, {
-      transition: "release", reason: "provenance admitted", expected_revision: currentClaim.revision,
-    });
-    ok("BOUNDARY: provenance admission grants no execution authority and claim release remains claim-owned", releaseWhileNoIntent.response.status === 200 && releaseWhileNoIntent.response.body.work_claim?.status === "released" && admitted.response.body.attempt?.execution_authority_granted !== true, `${releaseWhileNoIntent.response.status}/${releaseWhileNoIntent.response.body.error?.code || "ok"}`);
+    ok("BOUNDARY: provenance admission grants no execution authority and historical claim release remains claim-owned", releasedBeforeFinding.response.body.work_claim?.status === "released" && admitted.response.body.attempt?.execution_authority_granted !== true);
 
     const overview = await call("GET", "/v1/hypervisor/attempts/overview");
     ok("OVERVIEW: contract names hosted admission and absent acceptance/execution authority honestly", overview.status === 200 && overview.body.execution_authority === "not_provided" && overview.body.acceptance_authority === "not_provided" && overview.body.federated_admission === "typed_unavailable");
