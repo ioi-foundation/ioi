@@ -23,6 +23,7 @@ import * as ontologyManagerModule from "../surfaces/ontology-manager/index.mjs";
 import * as objectExplorerModule from "../surfaces/object-explorer/index.mjs";
 import * as approvalsModule from "../surfaces/approvals/index.mjs";
 import * as sourcesModule from "../surfaces/sources/index.mjs";
+import * as missionsModule from "../surfaces/missions/index.mjs";
 
 // Capability model (operational wave): `capabilities` is the AUTHORITY-derived set of acts the
 // surface genuinely supports today (never inferred from pixel certification or daemon_wired);
@@ -46,6 +47,7 @@ export const EMBEDDED_SHELL_STATES = ["ported_rail_only", "native_single_rail"];
 export const INTERACTION_PARITY_STATES = ["none", "atlas_verified"];
 
 export const SURFACES = [
+  { slug: "missions", owner: "Missions", title: "Missions", icon: missionsModule.MISSIONS_APP_ICON_URI, route: "/__ioi/missions", verifier: "scripts/verify-hypervisor-app-parity-missions.mjs", certification: "n/a", capabilities: ["browse", "filter", "select", "inspect", "proof"], operational_state: "read_only_by_contract", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
   { slug: "pipeline", owner: "Data", title: "Pipeline Builder", icon: PIPELINE_APP_ICON_URI, route: "/__ioi/pipeline", verifier: "scripts/verify-hypervisor-app-parity-pipeline.mjs", certification: "pixel-certifications/pipeline.json", capabilities: ["browse", "select", "inspect", "create", "transition", "execute", "proof"], operational_state: "workflow_complete", embedded_shell_state: "native_single_rail", interaction_parity_state: "atlas_verified" },
   { slug: "sources", owner: "Data", title: "Data Connection", icon: SRC_APP_TILE_URI, route: "/__ioi/data/sources", verifier: "scripts/verify-hypervisor-app-parity-sources.mjs", certification: "pixel-certifications/sources.json", capabilities: ["browse", "select", "create"], operational_state: "act", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
   { slug: "schema", owner: "Ontology", title: "Ontology Manager", icon: ONTOLOGY_APP_ICON_URI, route: "/__ioi/ontology/manager", verifier: "scripts/verify-hypervisor-app-parity-ontology-manager.mjs", certification: "pixel-certifications/schema.json", capabilities: ["browse", "filter", "select", "inspect", "create", "update", "proof"], operational_state: "act", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
@@ -138,6 +140,7 @@ bindSurface("schema", ontologyManagerModule);
 bindSurface("explorer", objectExplorerModule);
 bindSurface("approvals", approvalsModule);
 bindSurface("sources", sourcesModule);
+bindSurface("missions", missionsModule);
 
 // Test-only fault surface (NEVER without the runtime-test flag): gives the action-runtime
 // verifier a module whose action THROWS (route isolation proof) and one that claims success

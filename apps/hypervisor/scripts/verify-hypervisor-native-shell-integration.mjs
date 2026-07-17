@@ -13,8 +13,8 @@
 //   3. EMBED PERSISTENCE — embed=1 survives in-app links, row onclicks, GET forms, action PRG
 //      redirects, refresh, and cross-application semantic links (lineage/vertex/work-ledger
 //      thread it too, so a chain re-entering a registry surface stays embedded).
-//   4. STANDALONE UNTOUCHED — direct bare routes render the complete certified reference shell
-//      (global rail present, no embed rewrite); pixel-certification artifacts stay byte-identical.
+//   4. STANDALONE UNTOUCHED — direct bare routes render the complete registered shell
+//      (global rail present, no embed rewrite); existing pixel-certification artifacts stay byte-identical.
 //   5. SUITE — the Applications estate + launcher catalogs route Ontology to the Manager
 //      (owner surface), never to the /__ioi/odk substrate (which stays linked from within).
 //   6. CONTRACT MODEL — every registry surface declares capabilities + operational_state +
@@ -40,6 +40,7 @@ const page = (url) => fetch(url).then(async (r) => ({ status: r.status, text: aw
 
 // App-local navigation/chrome that must SURVIVE embedding (per-surface landmark).
 const LOCAL_NAV = {
+  missions: ".ms-main",
   pipeline: ".pb-main", sources: ".src-tabs", schema: ".og-arail", explorer: ".oe-tabbar",
   approvals: ".ap-main", incidents: ".in-main", models: ".mc-main", listings: ".mk-main",
   designer: ".dsg-main", machinery: ".mch-main", monitors: ".mon-main", changes: ".chg-main",
@@ -65,13 +66,13 @@ async function run() {
   ok("operational state is not inferred from parity: certified non-extracted surfaces stay browse/act, never inspect+", SURFACES.filter((s) => !boundSurface(s.route, "GET")).every((s) => ["shell", "browse", "act"].includes(s.operational_state)));
   ok("embeddable routes = every registry surface + the semantic-plane thread routes", (() => { const r = embeddableRoutes(); return SURFACES.every((s) => r.has(s.route)) && EMBED_THREAD_ROUTES.every((t) => r.has(t)); })(), `${embeddableRoutes().size} routes`);
 
-  // 4. Standalone bare routes keep the complete certified reference shell — ALL 13.
+  // 4. Standalone bare routes keep the complete registered shell — ALL 14.
   for (const s of SURFACES) {
     const p = await page(`${SERVE}${s.route}`);
-    ok(`standalone ${s.route} keeps the certified reference shell (global rail present, no embed rewrite)`, p.status === 200 && p.text.includes('<aside class="og-grail') && !p.text.includes(".og-grail{display:none"));
+    ok(`standalone ${s.route} keeps the registered shell (global rail present, no embed rewrite)`, p.status === 200 && p.text.includes('<aside class="og-grail') && !p.text.includes(".og-grail{display:none"));
   }
 
-  // 2+3 (static). Embedded render: STRUCTURAL rail removal + app-local nav + universal threading — ALL 13.
+  // 2+3 (static). Embedded render: STRUCTURAL rail removal + app-local nav + universal threading — ALL 14.
   for (const s of SURFACES) {
     const p = await page(`${SERVE}${s.route}?embed=1`);
     const bad = unthreadedLinks(p.text);

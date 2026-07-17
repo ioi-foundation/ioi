@@ -21,6 +21,7 @@ import { SURFACES, boundSurface, surfaceBySlug } from "./surface-registry.mjs";
 import * as pipeline from "../surfaces/pipeline/index.mjs";
 import * as ontologyManager from "../surfaces/ontology-manager/index.mjs";
 import * as objectExplorer from "../surfaces/object-explorer/index.mjs";
+import * as missions from "../surfaces/missions/index.mjs";
 import { escHtml, parseSelection, selectionQuery, inspectorShell, trayShell, disabledCommand, proofLink, semanticMask } from "../surfaces/kit.mjs";
 import { ONTOLOGY_CONTEXT_KEYS, parseOntologyContext, ontologyContextQuery, managerLink, explorerLink, objectTypeLink, objectSetLink, managerResourceLink, sourcesLink, provenanceReceiptLink, semanticBreadcrumb, semanticInspectorShell, disabledSemanticAction, formatRef } from "../surfaces/ontology-context.mjs";
 
@@ -60,7 +61,29 @@ async function run() {
   ok("serve aliases the kit escaper (no duplicate definition)", serveSrc.includes("const CX_ESC = escHtml") && !serveSrc.includes('replace(/&/g, "&amp;").replace(/</g'));
   ok("registry lists pipeline exactly once", SURFACES.filter((s) => s.slug === "pipeline").length === 1);
 
-  // 4. Interaction kit units.
+  // 4. MISSIONS MODULE — contract-pulled, daemon-backed, and intentionally read-only.
+  const missionsReg = surfaceBySlug("missions");
+  ok("missions: module exports the read-only surface contract",
+    typeof missions.load === "function" && typeof missions.render === "function"
+      && Array.isArray(missions.actions) && missions.actions.length === 0
+      && typeof missions.handleAction === "undefined");
+  ok("missions: module meta agrees with the honest non-certified registry entry",
+    !!missionsReg && missions.meta.slug === missionsReg.slug && missions.meta.route === missionsReg.route
+      && missions.meta.verifier === missionsReg.verifier && missions.meta.certification === "n/a"
+      && missionsReg.operational_state === "read_only_by_contract");
+  const missionsHit = boundSurface("/__ioi/missions", "GET");
+  ok("missions: registry binds the module (identity, not a copy)",
+    !!missionsHit && missionsHit.impl.render === missions.render && missionsHit.impl.load === missions.load);
+  const missionsCtx = { url: new URL("http://x/__ioi/missions"), daemon: "http://127.0.0.1:1", embed: true };
+  const missionsModel = await missions.load(missionsCtx);
+  const missionsHtml = missions.render(missionsModel, missionsCtx);
+  ok("missions: dead daemon stays an honest unavailable projection with no mutation form",
+    Object.values(missionsModel).every((entry) => entry.ok === false && entry.rows.length === 0)
+      && missionsHtml.includes('data-missions-work-graph="hosted"')
+      && missionsHtml.includes("Counts for this plane are not treated as zero")
+      && !/<form\b/i.test(missionsHtml));
+  ok("serve no longer defines the extracted Missions renderer", !serveSrc.includes("function renderMissions"));
+
   // 5. ONTOLOGY MODULES (the #59 extraction) — same contract, same hygiene, both certified ports.
   const ONTOLOGY_MODULES = [
     { mod: ontologyManager, slug: "schema", route: "/__ioi/ontology/manager", title: "<title>Ontology Manager</title>", marks: ["Discover", "Object types", "og-grail"] },

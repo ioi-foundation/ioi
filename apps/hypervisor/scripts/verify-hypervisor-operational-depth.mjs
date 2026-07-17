@@ -2,7 +2,7 @@
 // OPERATIONAL-DEPTH ATLAS verifier (#68) — the committed atlas
 // (application-operational-depth.json) is honest and agrees with the live registry, and the
 // operational-state gate cannot be inflated:
-//   1. MEMBERSHIP — the atlas covers EXACTLY the 13 registry surfaces; each row's route + current
+//   1. MEMBERSHIP — the atlas covers EXACTLY the 14 registry surfaces; each row's route + current
 //      classification equals the registry's, so the atlas can never drift from the code.
 //   2. TAXONOMY — every reference control carries exactly one of the six operational-depth
 //      outcomes; disabled_missing_authority / unsupported_reference_session / reference_data_only
@@ -22,7 +22,7 @@
 //   5. NAMED CONTROLS — the positive + act controls are pinned: pipeline=workflow_complete,
 //      schema+approvals=act, and the NEGATIVE CONTROL — a browse-only surface promoted to a
 //      higher state makes the registry invariant THROW (the gate refuses an inflated status).
-//   6. SINGLE RAIL — all 13 stay native_single_rail; certs unaffected (audit-only PR).
+//   6. SINGLE RAIL — all 14 stay native_single_rail; existing certs unaffected.
 //   7. SEQUENCE SUPERSESSION (#70 canon convergence) — the atlas is immutable AUDIT EVIDENCE:
 //      the 5-factor scoring evidence is intact, but NO active PR-numbered surface queue exists
 //      (no `queue`, no `pr` assignments, no `estate-closure`); the ranking declares
@@ -67,7 +67,7 @@ async function run() {
   // 1. MEMBERSHIP.
   const atlasSlugs = Object.keys(rows).sort();
   const regSlugs = SURFACES.map((s) => s.slug).sort();
-  ok("atlas covers EXACTLY the 13 registry surfaces (no extra, none missing)", JSON.stringify(atlasSlugs) === JSON.stringify(regSlugs), `atlas ${atlasSlugs.length} / registry ${regSlugs.length}`);
+  ok("atlas covers EXACTLY the 14 registry surfaces (no extra, none missing)", JSON.stringify(atlasSlugs) === JSON.stringify(regSlugs), `atlas ${atlasSlugs.length} / registry ${regSlugs.length}`);
   for (const s of SURFACES) {
     const r = rows[s.slug];
     if (!r) { ok(`${s.slug}: atlas row present`, false); continue; }
@@ -137,14 +137,14 @@ async function run() {
   }
 
   // 6. SINGLE RAIL + capability vocab.
-  ok("all 13 surfaces retain native_single_rail (audit-only PR; container contract intact)", SURFACES.every((s) => s.embedded_shell_state === "native_single_rail"));
+  ok("all 14 surfaces retain native_single_rail (container contract intact)", SURFACES.every((s) => s.embedded_shell_state === "native_single_rail"));
   ok("every atlas capability is a member of the registry capability vocabulary", Object.values(rows).every((r) => (r.current.capabilities || []).every((c) => CAPABILITIES.includes(c))));
   ok("every atlas operational_state is a member of the registry state vocabulary", Object.values(rows).every((r) => OPERATIONAL_STATES.includes(r.current.operational_state)));
 
   // 7. SEQUENCE SUPERSESSION — audit evidence intact; the active queue is retired; the canon
   // (canon-to-code-delta.md) owns what happens next.
   const FACTORS = ["existing_authority_available", "user_workflow_value", "cross_application_leverage", "missing_contract_cost", "authority_security_risk"];
-  const unfinished = SURFACES.filter((s) => !["workflow_complete", "act"].includes(s.operational_state)).map((s) => s.slug);
+  const unfinished = SURFACES.filter((s) => !["workflow_complete", "act", "read_only_by_contract"].includes(s.operational_state)).map((s) => s.slug);
   ok("scoring EVIDENCE preserved: every audited surface scored on all 5 factors", Array.isArray(rank.scored) && rank.scored.length >= 10 && rank.scored.every((e) => FACTORS.every((f) => Number.isInteger(e.ranking_inputs && e.ranking_inputs[f]))));
   ok("NO ACTIVE SURFACE QUEUE exists: no `queue` field, no PR-number assignments, no estate-closure terminal entry", !("queue" in rank) && !JSON.stringify(rank).includes("estate-closure") && (rank.evidence_order || []).every((e) => !("pr" in e)) && (rank.scored || []).every((e) => !("pr" in e)), `${(rank.evidence_order || []).length} evidence-ranked surfaces`);
   ok("the atlas DECLARES its implementation sequence superseded by the canon", rank.implementation_sequence_status === "superseded_by_canon" && String(rank.superseded_by || "").includes("docs/architecture/_meta/canon-to-code-delta.md") && /audit evidence/i.test(rank.sequence_note || ""));
@@ -158,7 +158,7 @@ async function run() {
   })(), `${(rank.evidence_order || []).length} entries`);
 
   // The superseding canon: every unfinished surface appears EXACTLY ONCE in the deferred
-  // application-UX backlog, and the contract-first build sequence remains canonical.
+  // application-UX backlog, while contract-complete read-only surfaces remain out of that queue.
   const deltaDoc = readFileSync(join(APP, "..", "..", "docs", "architecture", "_meta", "canon-to-code-delta.md"), "utf8");
   const backlog = deltaDoc.split("## Deferred application-UX backlog")[1] || "";
   const BACKLOG_ROW = { changes: "| Changes", monitors: "| Monitors", models: "| Models", designer: "| Designer", incidents: "| Incidents", machinery: "| Machinery", evalsuites: "| Evalsuites", explorer: "| Explorer", listings: "| Marketplace" };
@@ -167,10 +167,17 @@ async function run() {
   const horizons = readFileSync(join(APP, "..", "..", "docs", "architecture", "_meta", "execution-horizons.md"), "utf8");
   ok("the contract-first build sequence remains canonical (8 ordered steps; closure = working proof, no PR numbers)", horizons.includes("## The build sequence (contract-first)") && /8\. Two-sovereign-node conformance proof/.test(horizons) && /Completion is not forced into an arbitrary PR\s+number|not forced into an arbitrary PR number/.test(horizons.replace(/\n/g, " ")) && deltaDoc.includes("execution-horizons.md#the-build-sequence-contract-first"));
 
-  // FALSE-CLAIM GUARDS (#70 review): the exact overstatements caught in review must not return.
+  // FALSE-CLAIM GUARDS: merged build-step-3 objects must remain honestly partial, while unrelated
+  // precedent-only rows must never be promoted by proximity.
   const row = (name) => (deltaDoc.split("\n").find((l) => l.startsWith(`| \`${name}\` |`)) || "");
-  ok("`Finding` row: eval-suite plane is DECLARATION-ONLY precedent (no verdict plane) and the row is not started", row("Finding").includes("not started") && !row("Finding").includes("evaluation verdict records") && /no run\/execute endpoint, no scoring, no verdict|DECLARATION-ONLY/.test(row("Finding")));
-  for (const obj of ["Attempt", "OntologyVersion", "SemanticMappingDecision", "ProvenanceAssertion"]) {
+  ok("`Attempt` and `Finding` rows record merged hosted lifecycles without inventing acceptance, verdict, or execution authority",
+    [row("Attempt"), row("Finding")].every((record) => record.includes("partial and merged"))
+      && row("Attempt").includes("execution authority")
+      && /acceptance\/verdict|acceptance and verdict/.test(row("Finding")));
+  ok("`VerifierChallenge` row records merged lifecycle while keeping acceptance, verdict, settlement, execution, and federation unavailable",
+    row("VerifierChallenge").includes("partial and merged")
+      && ["acceptance", "verdict", "settlement", "execution", "federation"].every((term) => row("VerifierChallenge").includes(term)));
+  for (const obj of ["OntologyVersion", "SemanticMappingDecision", "ProvenanceAssertion"]) {
     ok(`\`${obj}\` row: not started with an explicitly LABELED implementation precedent (a precedent is never partial)`, row(obj).includes("not started") && !/\| partial/.test(row(obj)) && /implementation precedent/i.test(row(obj)));
   }
   ok("no held-stack work is described as landed/shipped (delta doc + atlas)", !/already-landed/i.test(deltaDoc) && !/shipped state/.test(deltaDoc) && /held stack/.test(deltaDoc) && /not yet\s+merged to master/i.test(deltaDoc.replace(/\n/g, " ")) && !JSON.stringify(atlas).includes("LANDED"));

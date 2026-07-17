@@ -1,6 +1,6 @@
 {
   "schema_version": "ioi.hypervisor.operational-depth-atlas.v1",
-  "generated_from": "operational-depth exploration workflow (13 per-surface agents, live reference SPA + IOI embedded + daemon cross-check)",
+  "generated_from": "operational-depth exploration workflow (13 reference surfaces plus the contract-pulled Missions projection, local capture + IOI embedded + daemon cross-check)",
   "base_commit": "19d732ff2 (#67)",
   "doctrine": "daemon_wired and shell-pixel certification prove the surface renders reference-faithfully over honest daemon truth — they DO NOT imply operational completeness. Operational depth is a separate axis: a surface is operational only when its PRIMARY reference workflow (intent → durable result) is reachable through real daemon authority, not merely when its landing shell is certified. This atlas audits that axis; a splash or empty-onboarding state is never the workflow.",
   "outcome_taxonomy": {
@@ -12,6 +12,163 @@
     "reference_data_only": "the reference's verbatim capture chrome / example content, display-only"
   },
   "surfaces": {
+    "missions": {
+      "slug": "missions",
+      "owner": "Missions",
+      "title": "Missions",
+      "reference_route": "http://localhost:9225/__apps/jobs + http://localhost:9225/__apps/incidents",
+      "ioi_route": "/__ioi/missions",
+      "primary_workflow": "Read-only operational inspection of the merged hosted OutcomeRoom graph: filter and select a room, then inspect its exact participant, frontier, claim, offer/match, Attempt, Finding, WorkResult, and VerifierChallenge relationships with links into proof. The surface intentionally has no mutation path; authority remains in the daemon owner planes.",
+      "reference_reached_states": [
+        "jobs/builds table baseline",
+        "incidents/remediation inbox baseline",
+        "hosted room selected with exact graph-coordinate inspector",
+        "honest empty and per-plane unavailable states"
+      ],
+      "landing_vs_workflow_note": "The legacy jobs and incidents captures remain secondary layout baselines. The operational workflow is the IOI-native hosted graph inspector over daemon truth. Read-only-by-contract is complete for this projection: mutations, acceptance, verdict, settlement, execution, and federation are not hidden controls waiting to be wired.",
+      "current": {
+        "capabilities": [
+          "browse",
+          "filter",
+          "select",
+          "inspect",
+          "proof"
+        ],
+        "operational_state": "read_only_by_contract"
+      },
+      "reference_control_census": [
+        {
+          "id": "hdr.refresh",
+          "region": "header",
+          "label": "Refresh daemon projection",
+          "reference": "refresh the current jobs/issues view",
+          "outcome": "daemon_read",
+          "binding": "href:/__ioi/missions with stable room/status query",
+          "implemented": true
+        },
+        {
+          "id": "summary.graph-counts",
+          "region": "summary",
+          "label": "Hosted graph counts",
+          "reference": "jobs/issues aggregate counts",
+          "outcome": "daemon_read",
+          "binding": "GET OutcomeRoom/frontier/claim/Attempt/Finding/VerifierChallenge collections",
+          "implemented": true
+        },
+        {
+          "id": "filter.room-status",
+          "region": "filter",
+          "label": "Room status tabs",
+          "reference": "status lane filters",
+          "outcome": "local_view_interaction",
+          "binding": "href:?status=<exact daemon enum>",
+          "implemented": true
+        },
+        {
+          "id": "room.select",
+          "region": "room-list",
+          "label": "Select mission room",
+          "reference": "select a job or issue row",
+          "outcome": "local_view_interaction",
+          "binding": "href:?room=<OutcomeRoom identity>",
+          "implemented": true
+        },
+        {
+          "id": "room.inspect-graph",
+          "region": "inspector",
+          "label": "Inspect hosted work graph",
+          "reference": "job/issue detail",
+          "outcome": "daemon_read",
+          "binding": "exact same-room relationships across merged owner-plane records",
+          "implemented": true
+        },
+        {
+          "id": "room.proof",
+          "region": "inspector",
+          "label": "Open proof stream",
+          "reference": "job/issue evidence link",
+          "outcome": "daemon_read",
+          "binding": "href:/__ioi/work-ledger",
+          "implemented": true
+        },
+        {
+          "id": "reference.create-incident",
+          "region": "reference-workflow",
+          "label": "Create or assign incident",
+          "reference": "issues New/assign controls",
+          "outcome": "unsupported_reference_session",
+          "reason": "incidents in this projection are derived records; no incident-authoring product contract",
+          "implemented": false
+        },
+        {
+          "id": "reference.edit-job",
+          "region": "reference-workflow",
+          "label": "Edit job or build definition",
+          "reference": "build definition authoring",
+          "outcome": "unsupported_reference_session",
+          "reason": "the hosted graph projection has no job-definition authoring contract",
+          "implemented": false
+        },
+        {
+          "id": "reference.board",
+          "region": "reference-workflow",
+          "label": "Board or Kanban view",
+          "reference": "alternate board layout",
+          "outcome": "reference_data_only",
+          "reason": "board layout is outside the read-only hosted graph contract",
+          "implemented": false
+        },
+        {
+          "id": "reference.sla",
+          "region": "reference-workflow",
+          "label": "SLA and escalation policy",
+          "reference": "issue SLA controls",
+          "outcome": "reference_data_only",
+          "reason": "SLA and escalation policy have no owner plane in this surface contract",
+          "implemented": false
+        }
+      ],
+      "implemented_control_census": [
+        "hdr.refresh",
+        "summary.graph-counts",
+        "filter.room-status",
+        "room.select",
+        "room.inspect-graph",
+        "room.proof"
+      ],
+      "existing_daemon": {
+        "routes": [
+          "GET /v1/hypervisor/outcome-rooms",
+          "GET /v1/hypervisor/room-participation-requests",
+          "GET /v1/hypervisor/room-participant-leases",
+          "GET /v1/hypervisor/work-frontier-items",
+          "GET /v1/hypervisor/work-claim-leases",
+          "GET /v1/hypervisor/resource-offers",
+          "GET /v1/hypervisor/capability-offers",
+          "GET /v1/hypervisor/work-eligibility-matches",
+          "GET /v1/hypervisor/attempts",
+          "GET /v1/hypervisor/findings",
+          "GET /v1/hypervisor/work-results",
+          "GET /v1/hypervisor/verifier-challenges"
+        ],
+        "actions": [],
+        "receipts": [
+          "owner-plane receipts remain linked through the proof stream; the Missions projection emits none"
+        ]
+      },
+      "missing_authority_contracts": [
+        "acceptance and verdict authority",
+        "settlement authority",
+        "execution authority",
+        "federated room authority"
+      ],
+      "security_credential_implications": "Read-only daemon collection requests only. No wallet grant, signer, credential, action form, or mutation route is exposed by the surface.",
+      "recommended_next_pr": null,
+      "classification_confidence": "high",
+      "blockers": [],
+      "screenshots": [],
+      "is_operational": true
+    },
     "pipeline": {
       "slug": "pipeline",
       "owner": "Data",
