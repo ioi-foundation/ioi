@@ -31,6 +31,41 @@ const APP = join(HERE, "..");
 const results = [];
 const ok = (name, cond, detail) => { results.push({ name, pass: !!cond, detail: detail || "" }); };
 
+const MISSION_COLLECTIONS = {
+  "/v1/hypervisor/outcome-rooms": "outcome_rooms",
+  "/v1/hypervisor/room-participation-requests": "participation_requests",
+  "/v1/hypervisor/room-participant-leases": "participant_leases",
+  "/v1/hypervisor/work-frontier-items": "frontier_items",
+  "/v1/hypervisor/work-claim-leases": "work_claims",
+  "/v1/hypervisor/resource-offers": "resource_offers",
+  "/v1/hypervisor/capability-offers": "capability_offers",
+  "/v1/hypervisor/work-eligibility-matches": "eligibility_match_receipts",
+  "/v1/hypervisor/attempts": "attempts",
+  "/v1/hypervisor/findings": "findings",
+  "/v1/hypervisor/work-results": "work_results",
+  "/v1/hypervisor/verifier-challenges": "verifier_challenges",
+  "/v1/hypervisor/goal-runs": "goal_runs",
+};
+
+function missionsFixtureFetch(overrides = {}) {
+  return async (rawUrl) => {
+    const pathname = new URL(rawUrl).pathname;
+    const override = overrides[pathname] || {};
+    const status = override.status || 200;
+    let body = override.body;
+    if (body === undefined && pathname === "/v1/hypervisor/operations") {
+      body = { runs: { total: 0, recent: [], failures: [] } };
+    }
+    if (body === undefined && MISSION_COLLECTIONS[pathname]) {
+      body = { [MISSION_COLLECTIONS[pathname]]: [] };
+    }
+    return new Response(JSON.stringify(body || {}), {
+      status,
+      headers: { "content-type": "application/json" },
+    });
+  };
+}
+
 async function run() {
   // 1. Contract + identity agreement.
   ok("pipeline module exports the surface contract", typeof pipeline.load === "function" && typeof pipeline.render === "function" && Array.isArray(pipeline.actions) && pipeline.meta && typeof pipeline.meta === "object");
@@ -70,7 +105,8 @@ async function run() {
   ok("missions: module meta agrees with the honest non-certified registry entry",
     !!missionsReg && missions.meta.slug === missionsReg.slug && missions.meta.route === missionsReg.route
       && missions.meta.verifier === missionsReg.verifier && missions.meta.certification === "n/a"
-      && missionsReg.operational_state === "read_only_by_contract");
+      && missionsReg.operational_state === "read_only_by_contract"
+      && missionsReg.catalog_evidence?.schema === "ioi.hypervisor.catalog-contract-evidence.v1");
   const missionsHit = boundSurface("/__ioi/missions", "GET");
   ok("missions: registry binds the module (identity, not a copy)",
     !!missionsHit && missionsHit.impl.render === missions.render && missionsHit.impl.load === missions.load);
@@ -82,6 +118,70 @@ async function run() {
       && missionsHtml.includes('data-missions-work-graph="hosted"')
       && missionsHtml.includes("Counts for this plane are not treated as zero")
       && !/<form\b/i.test(missionsHtml));
+  const fixtureRoom = {
+    outcome_room_id: "outcome-room://or_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    objective: "Partial-outage mission",
+    status: "open",
+    room_mode: "hosted",
+  };
+  const partialCtx = {
+    ...missionsCtx,
+    url: new URL(`http://x/__ioi/missions?room=${encodeURIComponent(fixtureRoom.outcome_room_id)}`),
+    fetch: missionsFixtureFetch({
+      "/v1/hypervisor/outcome-rooms": { body: { outcome_rooms: [fixtureRoom] } },
+      "/v1/hypervisor/room-participant-leases": { status: 503, body: { error: { code: "participants_unavailable" } } },
+      "/v1/hypervisor/work-frontier-items": { status: 503, body: { error: { code: "frontier_unavailable" } } },
+      "/v1/hypervisor/work-claim-leases": { status: 503, body: { error: { code: "claims_unavailable" } } },
+      "/v1/hypervisor/resource-offers": { status: 503, body: { error: { code: "offers_unavailable" } } },
+      "/v1/hypervisor/capability-offers": { status: 503, body: { error: { code: "capabilities_unavailable" } } },
+      "/v1/hypervisor/work-eligibility-matches": { status: 503, body: { error: { code: "matches_unavailable" } } },
+      "/v1/hypervisor/verifier-challenges": { status: 503, body: { error: { code: "challenges_unavailable" } } },
+    }),
+  };
+  const partialModel = await missions.load(partialCtx);
+  const partialHtml = missions.render(partialModel, partialCtx);
+  ok("missions: partial child-plane outage renders unknown at every dependent room/list/supply metric",
+    partialHtml.includes('data-missions-frontier="unknown"')
+      && partialHtml.includes('data-missions-live-claims="unknown"')
+      && partialHtml.includes('data-missions-unresolved-challenges="unknown"')
+      && partialHtml.includes("<b>—</b> work <b>—</b> claims <em>— blockers</em>")
+      && partialHtml.includes('data-missions-metric="active-participants" data-value="unknown"')
+      && partialHtml.includes('data-missions-metric="frontier-items" data-value="unknown"')
+      && partialHtml.includes('data-missions-metric="live-claims" data-value="unknown"')
+      && partialHtml.includes('data-missions-metric="challenge-blockers" data-value="unknown"')
+      && partialHtml.includes('data-missions-metric="resource-offers" data-value="unknown"')
+      && partialHtml.includes('data-missions-metric="capability-offers" data-value="unknown"')
+      && partialHtml.includes('data-missions-metric="receipted-matches" data-value="unknown"'));
+  const malformedCtx = {
+    ...missionsCtx,
+    fetch: missionsFixtureFetch({
+      "/v1/hypervisor/outcome-rooms": { body: { outcome_rooms: { not: "an array" } } },
+    }),
+  };
+  const malformedModel = await missions.load(malformedCtx);
+  const malformedHtml = missions.render(malformedModel, malformedCtx);
+  ok("missions: malformed 200 collection fails closed as plane_payload_invalid without crashing",
+    malformedModel.rooms.ok === false && malformedModel.rooms.status === 200
+      && malformedModel.rooms.code === "plane_payload_invalid"
+      && malformedHtml.includes('data-missions-rooms="unknown"')
+      && malformedHtml.includes("Room list unavailable")
+      && !malformedHtml.includes("No rooms in this view"));
+  const cappedGoalRuns = Array.from({ length: 60 }, (_, index) => ({
+    goal_run_id: `goal-run-${index}`,
+    normalized_goal: `Goal ${index}`,
+    blockers: [{ reason_code: `blocked-${index}` }],
+  }));
+  const cappedCtx = {
+    ...missionsCtx,
+    fetch: missionsFixtureFetch({
+      "/v1/hypervisor/goal-runs": { body: { goal_runs: cappedGoalRuns } },
+    }),
+  };
+  const cappedHtml = missions.render(await missions.load(cappedCtx), cappedCtx);
+  ok("missions: blocker cap is deterministic and disclosed as showing first 50 of 60",
+    cappedHtml.includes("showing first 50 of 60")
+      && cappedHtml.includes("/__ioi/run-timeline/goal-run/goal-run-49")
+      && !cappedHtml.includes("/__ioi/run-timeline/goal-run/goal-run-50"));
   ok("serve no longer defines the extracted Missions renderer", !serveSrc.includes("function renderMissions"));
 
   // 5. ONTOLOGY MODULES (the #59 extraction) — same contract, same hygiene, both certified ports.

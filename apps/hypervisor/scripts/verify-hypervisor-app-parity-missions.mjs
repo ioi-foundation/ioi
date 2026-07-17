@@ -216,7 +216,7 @@ async function run() {
 
   // 5. NO SILENT CAP — if the blocker table is capped, the heading says so.
   const shown = failures.length + Math.min(blocked.length, 50);
-  ok("no silent truncation: a capped incident table declares 'showing first N'", shown >= incidentCount ? true : new RegExp(`showing first ${shown}`).test(t), `${shown}/${incidentCount}`);
+  ok("no silent truncation: a capped incident table declares 'showing first N of M'", shown >= incidentCount ? true : new RegExp(`showing first ${shown} of ${incidentCount}`).test(t), `${shown}/${incidentCount}`);
 
   // 6. Owner discoverability.
   ok("Missions links its substrate (Operations) + proof (Provenance) surfaces first-class", t.includes("/__ioi/operations") && t.includes("/__ioi/work-ledger"));

@@ -36,6 +36,14 @@
         ],
         "operational_state": "read_only_by_contract"
       },
+      "catalog_evidence": {
+        "schema": "ioi.hypervisor.catalog-contract-evidence.v1",
+        "artifact": "application-operational-depth.json",
+        "evidence_key": "missions",
+        "module": "surfaces/missions/index.mjs",
+        "verifier": "scripts/verify-hypervisor-app-parity-missions.mjs",
+        "status": "verified"
+      },
       "reference_control_census": [
         {
           "id": "hdr.refresh",
