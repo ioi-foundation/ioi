@@ -913,6 +913,16 @@ pub(crate) async fn handle_outcome_delta_create(
         let status = if code.contains("unreadable") { StatusCode::INTERNAL_SERVER_ERROR } else { StatusCode::CONFLICT };
         return (status, Json(json!({"error":{"code":code,"message":message}})));
     }
+    if let Err((code, message)) =
+        super::verifier_challenge_routes::refuse_external_mutation_if_reserved(
+            &st.data_dir,
+            &bound_result_ref,
+            "work_result_mutation_in_flight",
+        )
+    {
+        let status = if code.contains("unreadable") { StatusCode::INTERNAL_SERVER_ERROR } else { StatusCode::CONFLICT };
+        return (status, Json(json!({"error":{"code":code,"message":message}})));
+    }
     let id_tail = format!("od_{:x}", nanos());
     let outcome_delta_id = format!("outcome-delta://{id_tail}");
     let now = iso_now();

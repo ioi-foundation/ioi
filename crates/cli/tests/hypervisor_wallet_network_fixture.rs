@@ -134,6 +134,7 @@ fn approval_authority(seed: &[u8; 32]) -> Result<ApprovalAuthority> {
             "work_eligibility.*".to_string(),
             "attempt.*".to_string(),
             "finding.*".to_string(),
+            "verifier_challenge.*".to_string(),
         ],
     )
 }

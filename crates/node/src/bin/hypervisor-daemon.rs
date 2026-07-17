@@ -54,6 +54,8 @@ mod work_frontier_claim_routes;
 mod resource_capability_offer_routes;
 #[path = "hypervisor_daemon_routes/attempt_finding_routes.rs"]
 mod attempt_finding_routes;
+#[path = "hypervisor_daemon_routes/verifier_challenge_routes.rs"]
+mod verifier_challenge_routes;
 #[path = "hypervisor_daemon_routes/wallet_network_capability_client.rs"]
 mod wallet_network_capability_client;
 #[path = "hypervisor_daemon_routes/goalrun_routes.rs"]
@@ -2111,6 +2113,23 @@ async fn async_main() -> anyhow::Result<()> {
             axum::routing::post(attempt_finding_routes::handle_finding_transition),
         )
         .route(
+            "/v1/hypervisor/verifier-challenges",
+            axum::routing::get(verifier_challenge_routes::handle_list)
+                .post(verifier_challenge_routes::handle_create),
+        )
+        .route(
+            "/v1/hypervisor/verifier-challenges/overview",
+            axum::routing::get(verifier_challenge_routes::handle_overview),
+        )
+        .route(
+            "/v1/hypervisor/verifier-challenges/:id",
+            axum::routing::get(verifier_challenge_routes::handle_get),
+        )
+        .route(
+            "/v1/hypervisor/verifier-challenges/:id/transition",
+            axum::routing::post(verifier_challenge_routes::handle_transition),
+        )
+        .route(
             "/v1/hypervisor/placement/resolve",
             post(orchestration_routes::handle_placement_resolve),
         )
@@ -3024,6 +3043,10 @@ async fn async_main() -> anyhow::Result<()> {
                         governed_max_intents,
                     ),
                     attempt_finding_routes::complete_governed_attempt_finding_intents(
+                        &governed_data_dir,
+                        governed_max_intents,
+                    ),
+                    verifier_challenge_routes::complete_governed_verifier_challenge_intents(
                         &governed_data_dir,
                         governed_max_intents,
                     ),
