@@ -10,9 +10,9 @@
 //   2. STATIC GATE — the no-undef lint (eslint.config.mjs) passes over the serve runtime set
 //      (serve + transitively imported local modules) AND the concatenated augmentation bundle,
 //      and the gate has TEETH (a planted dangling-identifier fixture must fail it).
-//   3. REGISTRY — surface-registry.mjs agrees 1:1 with the parity matrix's certified seeds
-//      (slug, route, certification artifact), its verifier files exist, the app catalog reads
-//      registry presentation, and the pipeline pilot actually serves through the registry mount.
+//   3. REGISTRY — surface-registry.mjs covers every parity matrix certified seed and permits only
+//      explicit read-only-by-contract additions beyond that evidence set; verifier files exist,
+//      the app catalog reads registry presentation, and modules serve through the registry mount.
 //
 // Usage: node apps/hypervisor/scripts/verify-hypervisor-app-runtime-safety.mjs
 // Exit 0 = all assertions pass; exit 1 = one or more failed.
@@ -69,7 +69,11 @@ async function run() {
   const certified = (matrix.seeds || []).filter((s) => s.shell_pixel_certified && s.candidate_surface);
   const regBySlug = new Map(SURFACES.map((s) => [s.slug, s]));
   ok("registry covers every certified seed", certified.every((s) => regBySlug.has(s.slug)), `${SURFACES.length} registry vs ${certified.length} certified`);
-  ok("registry invents no surfaces beyond the matrix", SURFACES.length === certified.length);
+  const certifiedSlugs = new Set(certified.map((s) => s.slug));
+  const contractReadOnly = SURFACES.filter((s) => !certifiedSlugs.has(s.slug));
+  ok("registry additions beyond certified seeds are explicit read-only-by-contract surfaces",
+    contractReadOnly.every((s) => s.operational_state === "read_only_by_contract" && s.certification === "n/a"),
+    contractReadOnly.map((s) => s.slug).join(",") || "none");
   ok("registry routes match matrix candidate surfaces", certified.every((s) => regBySlug.get(s.slug)?.route === s.candidate_surface.split("?")[0]));
   ok("registry certification paths match matrix artifacts", certified.every((s) => regBySlug.get(s.slug)?.certification === s.shell_pixel_certification_artifact));
   ok("registry entries carry owner + title + icon", SURFACES.every((s) => s.owner && s.title && s.icon));
@@ -78,6 +82,8 @@ async function run() {
   // 2. Catalog reads registry presentation; pipeline serves through the registry mount.
   const cat = JSON.parse((await sGet("/__ioi/api/applications")).text);
   ok("catalog titles come from the registry", (cat.apps || []).every((a) => regBySlug.get(a.slug)?.title === a.title), `${(cat.apps || []).length} catalog apps`);
+  ok("catalog includes every certified and read-only-by-contract registry surface",
+    SURFACES.every((surface) => (cat.apps || []).some((app) => app.slug === surface.slug && app.route === surface.route)));
   const pipe = await sGet("/__ioi/pipeline");
   ok("pipeline serves through the registry mount", pipe.status === 200 && pipe.text.includes("<title>Pipeline Builder</title>") && pipe.text.includes("Pipeline outputs"), `status ${pipe.status}`);
   const boomLive = await sGet("/__ioi/__test/boom");

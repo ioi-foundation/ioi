@@ -36,6 +36,7 @@
 import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import * as missionsSurface from "../surfaces/missions/index.mjs";
 
 const SERVE = (process.env.IOI_HYPERVISOR_SERVE_URL || "http://127.0.0.1:4173").replace(/\/$/, "");
 const DAEMON = (process.env.IOI_HYPERVISOR_DAEMON_URL || "http://127.0.0.1:8765").replace(/\/$/, "");
@@ -45,6 +46,68 @@ const results = [];
 const ok = (name, cond, detail) => { results.push({ name, pass: !!cond, detail: detail || "" }); };
 const jd = async (p) => fetch(`${DAEMON}${p}`).then((r) => r.json()).catch(() => ({}));
 const page = (url) => fetch(url).then(async (r) => ({ status: r.status, text: await r.text() })).catch(() => ({ status: 0, text: "" }));
+const plane = (rows = [], payload = {}) => ({ ok: true, status: 200, code: "", rows, payload });
+
+function renderRelationshipProbe() {
+  const roomA = "outcome-room://or_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+  const roomB = "outcome-room://or_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+  const frontierA = "frontier://wfi_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+  const frontierB = "frontier://wfi_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+  const claimA = "work-claim://wcl_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+  const claimB = "work-claim://wcl_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+  const attemptA = "attempt://att_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+  const attemptB = "attempt://att_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+  const challengeA = "verifier-challenge://vc_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+  const challengeB = "verifier-challenge://vc_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+  const model = {
+    rooms: plane([
+      { outcome_room_id: roomA, objective: "Audit the lunar relay", status: "open", room_mode: "hosted", revision: 3 },
+      { outcome_room_id: roomB, objective: "Unrelated room", status: "open", room_mode: "hosted", revision: 1 },
+    ]),
+    requests: plane([]),
+    participants: plane([
+      { outcome_room_ref: roomA, participant_lease_id: "participant-lease://pl_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", participant_ref: "principal://alice", status: "active" },
+    ]),
+    frontier: plane([
+      { outcome_room_ref: roomA, frontier_item_id: frontierA, title: "Validate telemetry", status: "ready", max_concurrency: 1 },
+      { outcome_room_ref: roomB, frontier_item_id: frontierB, title: "Cross-room frontier sentinel", status: "ready", max_concurrency: 1 },
+    ]),
+    claims: plane([
+      { outcome_room_ref: roomA, work_claim_id: claimA, frontier_item_ref: frontierA, status: "active" },
+      { outcome_room_ref: roomB, work_claim_id: claimB, frontier_item_ref: frontierB, status: "active" },
+    ]),
+    resourceOffers: plane([]),
+    capabilityOffers: plane([]),
+    matches: plane([]),
+    attempts: plane([
+      { outcome_room_ref: roomA, attempt_id: attemptA, status: "submitted", work_result_ref: "work-result://wr_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" },
+      { outcome_room_ref: roomB, attempt_id: attemptB, status: "submitted", work_result_ref: "work-result://wr_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" },
+    ]),
+    findings: plane([]),
+    results: plane([]),
+    challenges: plane([
+      { outcome_room_ref: roomA, verifier_challenge_id: challengeA, challenged_ref: attemptA, challenge_kind: "evidence", status: "investigating" },
+      { outcome_room_ref: roomB, verifier_challenge_id: challengeB, challenged_ref: attemptB, challenge_kind: "evidence", status: "investigating" },
+    ]),
+    goalRuns: plane([]),
+    operations: plane([], { runs: { total: 0, recent: [], failures: [] } }),
+  };
+  return {
+    html: missionsSurface.render(model, {
+      url: new URL(`http://missions.test/__ioi/missions?room=${encodeURIComponent(roomA)}`),
+      embed: true,
+    }),
+    roomA,
+    frontierA,
+    frontierB,
+    claimA,
+    claimB,
+    attemptA,
+    attemptB,
+    challengeA,
+    challengeB,
+  };
+}
 
 async function run() {
   const up = await fetch(`${DAEMON}/v1/hypervisor/operations`).then((r) => r.ok).catch(() => false);
@@ -75,11 +138,70 @@ async function run() {
   const grAll = (await jd("/v1/hypervisor/goal-runs")).goal_runs || [];
   const blocked = grAll.filter((r) => Array.isArray(r.blockers) && r.blockers.length);
   const incidentCount = failures.length + blocked.length;
+  const roomPlane = await jd("/v1/hypervisor/outcome-rooms");
+  const frontierPlane = await jd("/v1/hypervisor/work-frontier-items");
+  const claimPlane = await jd("/v1/hypervisor/work-claim-leases");
+  const attemptPlane = await jd("/v1/hypervisor/attempts");
+  const findingPlane = await jd("/v1/hypervisor/findings");
+  const challengePlane = await jd("/v1/hypervisor/verifier-challenges");
+  const rooms = roomPlane.outcome_rooms || [];
+  const frontier = frontierPlane.frontier_items || [];
+  const claims = claimPlane.work_claims || [];
+  const attempts = attemptPlane.attempts || [];
+  const findings = findingPlane.findings || [];
+  const challenges = challengePlane.verifier_challenges || [];
+  const liveClaims = claims.filter((claim) => ["proposed", "active", "waiting"].includes(claim.status));
+  const unresolvedChallenges = challenges.filter((challenge) => ["proposed", "admitted", "investigating", "upheld", "rule_changed", "reverifying"].includes(challenge.status));
 
   // 2. IOI surface = the table/list grammar.
   const m = await page(`${SERVE}/__ioi/missions`);
   const t = m.text;
   ok("IOI /__ioi/missions renders the Missions grammar (title + run queue + incident inbox)", m.status === 200 && /<h1[^>]*>Missions/.test(t) && /id="missions-queue"/.test(t) && /id="missions-incidents"/.test(t));
+  ok("Missions is the hosted work-graph workspace, not only the legacy run queue",
+    /Hosted work graph/.test(t) && /data-missions-work-graph="hosted"/.test(t)
+      && /Mission rooms/.test(t)
+      && (rooms.length === 0 || (/Frontier and claims/.test(t)
+        && /Participation/.test(t) && /Attempts, Findings, and WorkResults/.test(t)
+        && /Verifier challenges/.test(t))));
+  ok("hosted graph summary counts equal daemon truth exactly",
+    t.includes(`data-missions-rooms="${rooms.length}"`)
+      && t.includes(`data-missions-frontier="${frontier.length}"`)
+      && t.includes(`data-missions-live-claims="${liveClaims.length}"`)
+      && t.includes(`data-missions-attempts="${attempts.length}"`)
+      && t.includes(`data-missions-findings="${findings.length}"`)
+      && t.includes(`data-missions-unresolved-challenges="${unresolvedChallenges.length}"`),
+    `${rooms.length}/${frontier.length}/${liveClaims.length}/${attempts.length}/${findings.length}/${unresolvedChallenges.length}`);
+  const sampleRoom = rooms.find((room) => room.status === "open") || rooms[0];
+  if (sampleRoom) {
+    const selectedPage = await page(`${SERVE}/__ioi/missions?room=${encodeURIComponent(sampleRoom.outcome_room_id)}`);
+    const selectedText = selectedPage.text;
+    const roomFrontier = frontier.filter((record) => record.outcome_room_ref === sampleRoom.outcome_room_id);
+    const roomClaims = claims.filter((record) => record.outcome_room_ref === sampleRoom.outcome_room_id);
+    const roomChallenges = challenges.filter((record) => record.outcome_room_ref === sampleRoom.outcome_room_id);
+    ok("room selection is refresh-stable and resolves the exact OutcomeRoom coordinate",
+      selectedPage.status === 200
+        && selectedText.includes(`data-missions-selected-room="${sampleRoom.outcome_room_id}"`)
+        && selectedText.includes(sampleRoom.objective || sampleRoom.objective_ref || "__missing_objective__"),
+      sampleRoom.outcome_room_id);
+    ok("selected room projects only its frontier, claims, and challenge relationship",
+      roomFrontier.every((record) => selectedText.includes(record.frontier_item_id))
+        && roomClaims.every((record) => selectedText.includes(record.frontier_item_ref))
+        && roomChallenges.every((record) => selectedText.includes(record.verifier_challenge_id)));
+  } else {
+    ok("empty OutcomeRoom registry renders an honest no-room state", /No rooms in this view/.test(t));
+    ok("empty room selection invents no graph relationship", /Select a mission room/.test(t));
+  }
+  const relationshipProbe = renderRelationshipProbe();
+  ok("two-room render binds the selected inspector to exact hosted graph coordinates",
+    relationshipProbe.html.includes(`data-missions-selected-room="${relationshipProbe.roomA}"`)
+      && relationshipProbe.html.includes(relationshipProbe.frontierA)
+      && relationshipProbe.html.includes(relationshipProbe.claimA)
+      && relationshipProbe.html.includes(relationshipProbe.attemptA)
+      && relationshipProbe.html.includes(relationshipProbe.challengeA)
+      && !relationshipProbe.html.includes(relationshipProbe.frontierB)
+      && !relationshipProbe.html.includes(relationshipProbe.claimB)
+      && !relationshipProbe.html.includes(relationshipProbe.attemptB)
+      && !relationshipProbe.html.includes(relationshipProbe.challengeB));
 
   // 3. Run queue = REAL (cross-check counts + newest run against the live daemon).
   ok("run-queue heading reflects the real recent/total run counts (no fabrication)", t.includes(`recent mission runs (${recent.length} of ${runs.total || 0})`));
@@ -107,6 +229,25 @@ async function run() {
   ok("unsupported reference lanes named (create/assign incidents · edit job defs · board views · SLA · comments)", /creating\/assigning incidents/.test(t) && /editing job\/build definitions/.test(t) && /board\/kanban views/.test(t) && /SLA/.test(t));
   ok("substrate/infra incidents (storage repair, provider failover) explicitly deferred to Operations", /storage repair, provider failover\) live in <a href="\/__ioi\/operations">Operations<\/a>/.test(t));
   ok("reference captures linked as secondary baselines; IOI surface brand-clean (no Palantir/Foundry)", t.includes("/__apps/jobs") && t.includes("/__apps/incidents") && !/\bPalantir\b/.test(t) && !/\bFoundry\b/.test(t));
+  ok("authority boundary is explicit and the surface exposes no action form",
+    /Hosted admission only/.test(t)
+      && /grants no acceptance, verdict, settlement, execution, or federation authority/.test(t)
+      && !/<form\b/i.test(t)
+      && !/method="post"/i.test(t));
+  const registry = spawnSync("node", ["--input-type=module", "-e",
+    `import { surfaceBySlug, boundActionRoute } from ${JSON.stringify(path.join(here, "surface-registry.mjs"))}; const s=surfaceBySlug("missions"); console.log(JSON.stringify({state:s?.operational_state,capabilities:s?.capabilities,action:!!boundActionRoute("/__ioi/missions/room/transition","POST")}));`
+  ], { encoding: "utf8" });
+  const registration = JSON.parse(registry.stdout || "{}");
+  ok("surface registry declares Missions read-only-by-contract with no action dispatch",
+    registry.status === 0 && registration.state === "read_only_by_contract"
+      && registration.capabilities?.includes("inspect") && registration.capabilities?.includes("proof")
+      && registration.action === false);
+  const embedded = await page(`${SERVE}/__ioi/missions?embed=1`);
+  ok("native application embedding keeps one platform rail and the Missions local workspace",
+    embedded.status === 200
+      && embedded.text.includes('class="ms-main"')
+      && !embedded.text.includes('<aside class="og-grail')
+      && embedded.text.includes("embed=1"));
 }
 
 run().then(() => {
