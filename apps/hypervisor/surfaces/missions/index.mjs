@@ -23,25 +23,51 @@ export const meta = {
   certification: "n/a",
 };
 
-async function readPlane(daemon, path, key) {
+const unavailablePlane = (status, code) => ({
+  ok: false,
+  status,
+  code,
+  rows: [],
+  payload: null,
+});
+
+async function readCollection(fetchImpl, daemon, path, key) {
   try {
-    const response = await fetch(`${daemon}${path}`);
-    const payload = await response.json().catch(() => ({}));
+    const response = await fetchImpl(`${daemon}${path}`);
+    const payload = await response.json().catch(() => null);
     if (!response.ok) {
-      return {
-        ok: false,
-        status: response.status,
-        code: payload?.error?.code || "plane_unavailable",
-        rows: [],
-      };
+      return unavailablePlane(response.status, payload?.error?.code || "plane_unavailable");
     }
-    return { ok: true, status: response.status, code: "", rows: payload?.[key] || [], payload };
+    if (!Array.isArray(payload?.[key])) {
+      return unavailablePlane(response.status, "plane_payload_invalid");
+    }
+    return { ok: true, status: response.status, code: "", rows: payload[key], payload };
   } catch {
-    return { ok: false, status: 0, code: "daemon_unavailable", rows: [] };
+    return unavailablePlane(0, "daemon_unavailable");
+  }
+}
+
+async function readOperations(fetchImpl, daemon) {
+  try {
+    const response = await fetchImpl(`${daemon}/v1/hypervisor/operations`);
+    const payload = await response.json().catch(() => null);
+    if (!response.ok) {
+      return unavailablePlane(response.status, payload?.error?.code || "plane_unavailable");
+    }
+    if (!payload || typeof payload !== "object" || Array.isArray(payload)
+      || !payload.runs || typeof payload.runs !== "object" || Array.isArray(payload.runs)
+      || !Array.isArray(payload.runs.recent) || !Array.isArray(payload.runs.failures)
+      || !Number.isFinite(payload.runs.total)) {
+      return unavailablePlane(response.status, "plane_payload_invalid");
+    }
+    return { ok: true, status: response.status, code: "", rows: [], payload };
+  } catch {
+    return unavailablePlane(0, "daemon_unavailable");
   }
 }
 
 export async function load(ctx) {
+  const fetchImpl = ctx.fetch || globalThis.fetch;
   const specs = [
     ["rooms", "/v1/hypervisor/outcome-rooms", "outcome_rooms"],
     ["requests", "/v1/hypervisor/room-participation-requests", "participation_requests"],
@@ -57,9 +83,9 @@ export async function load(ctx) {
     ["challenges", "/v1/hypervisor/verifier-challenges", "verifier_challenges"],
     ["goalRuns", "/v1/hypervisor/goal-runs", "goal_runs"],
   ];
-  const values = await Promise.all(specs.map(([, path, key]) => readPlane(ctx.daemon, path, key)));
+  const values = await Promise.all(specs.map(([, path, key]) => readCollection(fetchImpl, ctx.daemon, path, key)));
   const model = Object.fromEntries(specs.map(([name], index) => [name, values[index]]));
-  model.operations = await readPlane(ctx.daemon, "/v1/hypervisor/operations", "__none__");
+  model.operations = await readOperations(fetchImpl, ctx.daemon);
   return model;
 }
 
@@ -94,8 +120,13 @@ function planeNotice(name, plane) {
   return `<div class="ms-plane-error" role="status"><b>${escHtml(name)}</b> unavailable — <code>${escHtml(plane.code)}</code>. Counts for this plane are not treated as zero.</div>`;
 }
 
+const planeCount = (plane, rows = plane.rows) => plane.ok ? rows.length : "—";
+const planeCountAttr = (plane, rows = plane.rows) => plane.ok ? rows.length : "unknown";
+
 function metric(label, count, tone = "") {
-  return `<div class="ms-metric ${tone}"><strong>${escHtml(String(count))}</strong><span>${escHtml(label)}</span></div>`;
+  const key = label.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+  const dataValue = count === "—" ? "unknown" : String(count);
+  return `<div class="ms-metric ${tone}" data-missions-metric="${escHtml(key)}" data-value="${escHtml(dataValue)}"><strong>${escHtml(String(count))}</strong><span>${escHtml(label)}</span></div>`;
 }
 
 function renderRoomList(rooms, selectedRef, status, model) {
@@ -103,6 +134,9 @@ function renderRoomList(rooms, selectedRef, status, model) {
     room: value(room, "outcome_room_id"),
     status: status === "all" ? "" : status,
   });
+  if (!model.rooms.ok) {
+    return `<div class="ms-empty"><b>Room list unavailable.</b><span>The OutcomeRoom registry could not be read; no empty-state inference was made.</span></div>`;
+  }
   if (!rooms.length) {
     return `<div class="ms-empty"><b>No rooms in this view.</b><span>The daemon returned no hosted OutcomeRoom records matching this status.</span></div>`;
   }
@@ -114,7 +148,7 @@ function renderRoomList(rooms, selectedRef, status, model) {
     return `<a role="listitem" class="ms-room-row${reference === selectedRef ? " selected" : ""}" href="${hrefFor(room)}" aria-current="${reference === selectedRef ? "page" : "false"}">
       <span class="ms-room-state">${statusPill(value(room, "status"))}</span>
       <span class="ms-room-copy"><strong>${escHtml(objective(room))}</strong><span>${escHtml(shortRef(reference))} · ${escHtml(value(room, "room_mode", "hosted room"))}</span></span>
-      <span class="ms-room-counts"><b>${frontier.length}</b> work <b>${claims.length}</b> claims ${challenges.length ? `<em>${challenges.length} blocked</em>` : ""}</span>
+      <span class="ms-room-counts"><b>${planeCount(model.frontier, frontier)}</b> work <b>${planeCount(model.claims, claims)}</b> claims ${model.challenges.ok ? (challenges.length ? `<em>${challenges.length} blocked</em>` : "") : "<em>— blockers</em>"}</span>
     </a>`;
   }).join("")}</div>`;
 }
@@ -223,12 +257,12 @@ function renderRoomDetail(room, model) {
       <div><span>Revision</span><strong>${escHtml(value(room, "revision", "—"))}</strong></div>
       <div><span>Updated</span><strong>${escHtml(timestamp(value(room, "updated_at")))}</strong></div>
     </div>
-    <div class="ms-room-metrics">${metric("active participants", activeParticipants.length)}${metric("frontier items", frontier.length)}${metric("live claims", liveClaims.length)}${metric("challenge blockers", blockers.length, blockers.length ? "attention" : "")}</div>
+    <div class="ms-room-metrics">${metric("active participants", planeCount(model.participants, activeParticipants))}${metric("frontier items", planeCount(model.frontier, frontier))}${metric("live claims", planeCount(model.claims, liveClaims))}${metric("challenge blockers", planeCount(model.challenges, blockers), blockers.length ? "attention" : "")}</div>
     <div class="ms-section"><div class="ms-section-title"><h3>Frontier and claims</h3><span>Admitted work and bounded concurrency</span></div>${renderFrontier(reference, model)}</div>
     <div class="ms-two-col">
       <div class="ms-section"><div class="ms-section-title"><h3>Participation</h3><span>Requests and current leases</span></div>${renderParticipants(reference, model)}</div>
       <div class="ms-section"><div class="ms-section-title"><h3>Eligibility supply</h3><span>Evidence matching, never allocation</span></div>
-        <div class="ms-supply">${metric("resource offers", resourceOffers.length)}${metric("capability offers", capabilityOffers.length)}${metric("receipted matches", matches.length)}</div>
+        <div class="ms-supply">${metric("resource offers", planeCount(model.resourceOffers, resourceOffers))}${metric("capability offers", planeCount(model.capabilityOffers, capabilityOffers))}${metric("receipted matches", planeCount(model.matches, matches))}</div>
         ${[model.resourceOffers, model.capabilityOffers, model.matches].some((plane) => !plane.ok) ? planeNotice("Offer / eligibility", [model.resourceOffers, model.capabilityOffers, model.matches].find((plane) => !plane.ok)) : ""}
       </div>
     </div>
@@ -252,9 +286,12 @@ function renderLegacyOperations(model) {
     ...failures.map((run) => ({ kind: "run failure", subject: run.name || run.execution_id, reason: run.status, time: run.finished_at || run.started_at, proof: run.timeline_ref })),
     ...blocked.slice(0, 50).map((run) => ({ kind: "blocker", subject: run.normalized_goal || run.goal_ref || run.goal_run_id, reason: run.blockers?.[0]?.reason_code, time: run.updated_at || run.created_at, proof: run.goal_run_id ? `/__ioi/run-timeline/goal-run/${encodeURIComponent(run.goal_run_id)}` : "" })),
   ];
+  const capDisclosure = incidentsReady && incidentRows.length < incidentCount
+    ? ` · showing first ${incidentRows.length} of ${incidentCount}`
+    : "";
   return `<div class="ms-legacy">
     <div class="ms-section"><div class="ms-section-title"><h3 id="missions-queue">Run queue</h3><span>${model.operations.ok ? `recent mission runs (${recent.length} of ${runs.total || 0})` : "run count unavailable"}</span></div>${model.operations.ok ? (runRows || `<div class="ms-empty compact"><b>No mission runs yet.</b><span>The daemon run queue is honestly empty.</span></div>`) : planeNotice("Operations run queue", model.operations)}</div>
-    <div class="ms-section"><div class="ms-section-title"><h3 id="missions-incidents">Incidents &amp; blockers</h3><span>run failures + mission blockers needing remediation (${incidentsReady ? incidentCount : "unknown"}) · <a href="/__ioi/missions/incidents">Open incident inbox</a></span></div>
+    <div class="ms-section"><div class="ms-section-title"><h3 id="missions-incidents">Incidents &amp; blockers</h3><span>run failures + mission blockers needing remediation (${incidentsReady ? incidentCount : "unknown"})${capDisclosure} · <a href="/__ioi/missions/incidents">Open incident inbox</a></span></div>
       ${!incidentsReady ? planeNotice("Mission incidents", !model.operations.ok ? model.operations : model.goalRuns) : incidentRows.length ? `<div class="ms-op-list">${incidentRows.map((incident) => `<div class="ms-op-row"><span><b>${escHtml(incident.kind)}</b><small>${escHtml(incident.subject || "—")}</small></span>${statusPill(incident.reason)}<time>${escHtml(timestamp(incident.time))}</time>${incident.proof ? proofLink({ href: incident.proof, label: "Proof", external: true }) : "<span>—</span>"}</div>`).join("")}</div>` : `<div class="ms-empty compact"><b>No incidents.</b><span>No failed mission runs and no blocked mission runs right now.</span></div>`}
     </div>
     <footer class="ms-contract"><b>Operational boundary.</b> Hosted admission only; this surface grants no acceptance, verdict, settlement, execution, or federation authority. Unsupported reference lanes — creating/assigning incidents, editing job/build definitions, board/kanban views, SLA and escalation policy, comments, and assignees — remain named gaps. Substrate/infra incidents (storage repair, provider failover) live in <a href="/__ioi/operations">Operations</a>. Reference captures remain secondary baselines: <a href="/__apps/jobs">Builds</a> · <a href="/__apps/incidents">Issues</a>.</footer>
@@ -276,13 +313,11 @@ export function render(model, ctx) {
   const selectedRef = selected ? value(selected, "outcome_room_id") : "";
   const liveClaims = model.claims.rows.filter((claim) => LIVE_CLAIM.has(value(claim, "status")));
   const unresolved = model.challenges.rows.filter((challenge) => UNRESOLVED_CHALLENGE.has(value(challenge, "status")));
-  const filters = ["all", ...statuses].map((entry) => `<a role="tab" aria-selected="${entry === status}" class="ms-filter${entry === status ? " active" : ""}" href="${selectionQuery(ROUTE, { status: entry === "all" ? "" : entry })}">${escHtml(entry)} <span>${entry === "all" ? allRooms.length : allRooms.filter((room) => value(room, "status") === entry).length}</span></a>`).join("");
+  const filters = ["all", ...statuses].map((entry) => `<a role="tab" aria-selected="${entry === status}" class="ms-filter${entry === status ? " active" : ""}" href="${selectionQuery(ROUTE, { status: entry === "all" ? "" : entry })}">${escHtml(entry)} <span>${planeCount(model.rooms, entry === "all" ? allRooms : allRooms.filter((room) => value(room, "status") === entry))}</span></a>`).join("");
   const selectionUrl = selectionQuery(ROUTE, { room: selectedRef, status: status === "all" ? "" : status });
   const globalRail = ctx.embed ? "" : ioiGlobalRailHtml({
     label: "Missions", href: ROUTE, iconUri: MISSIONS_APP_ICON_URI,
   });
-  const count = (plane, rows = plane.rows) => plane.ok ? rows.length : "—";
-  const countAttr = (plane, rows = plane.rows) => plane.ok ? rows.length : "unknown";
   const CSS = `
     :root{color-scheme:dark;--surface-base:28 28 28;--surface-01:22 21 21;--surface-03:31 31 31;--surface-hover:255 255 255;--content-primary:250 250 250;--content-secondary:163 163 163;--content-muted:115 115 115;--content-strong:212 212 212;--content-link:139 171 252;--content-negative:255 83 90;--border-base:64 64 64;--border-strong:82 82 82;--border-brand:94 138 253;--status-ok:108 255 100;--status-warn:254 154 91;--status-danger:255 83 90}
     @media(prefers-color-scheme:light){:root{color-scheme:light;--surface-base:250 250 250;--surface-01:255 255 255;--surface-03:245 245 245;--surface-hover:0 0 0;--content-primary:31 31 31;--content-secondary:82 82 82;--content-muted:115 115 115;--content-strong:64 64 64;--content-link:0 72 255;--content-negative:173 0 2;--border-base:225 225 225;--border-strong:212 212 212;--border-brand:47 105 253;--status-ok:28 125 44;--status-warn:154 82 12;--status-danger:173 0 2}}
@@ -301,12 +336,12 @@ export function render(model, ctx) {
     .ms-empty{display:flex;flex-direction:column;gap:4px;padding:22px;color:rgb(var(--content-muted))}.ms-empty.compact{padding:14px 0;border-top:1px solid rgb(var(--border-base))}.ms-empty b{color:rgb(var(--content-secondary));font-weight:500}.ms-plane-error{padding:11px 12px;border-left:2px solid rgb(var(--status-warn));background:rgb(var(--status-warn)/.06);color:rgb(var(--content-secondary));font-size:11px}.ms-op-row{display:grid;grid-template-columns:minmax(180px,1fr) 100px 120px 80px;align-items:center;gap:12px;padding:9px 0;border-bottom:1px solid rgb(var(--border-base))}.ms-op-row b,.ms-op-row small{display:block}.ms-op-row b{font-size:11px;font-weight:500}.ms-op-row small,.ms-op-row time{font-size:10px;color:rgb(var(--content-muted))}.ms-legacy{padding:0 28px 48px;border-top:1px solid rgb(var(--border-base))}
     @keyframes ms-enter{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}@media(max-width:980px){.ms-workspace{grid-template-columns:1fr}.ms-sidebar{border-right:0}.ms-detail{padding:22px 18px}.ms-facts{grid-template-columns:repeat(2,minmax(0,1fr))}.ms-two-col{grid-template-columns:1fr}.ms-summary{overflow:auto}.ms-evidence-head,.ms-evidence-row{grid-template-columns:minmax(150px,1fr) 90px 100px}.ms-evidence-head span:nth-child(3),.ms-evidence-row code{display:none}}@media(max-width:640px){.ms-top{padding:0 14px}.ms-title span{display:none}.ms-actions .ms-action:first-child{display:none}.ms-summary,.ms-tabs{padding-left:14px;padding-right:14px}.ms-detail-head{flex-direction:column}.ms-detail-actions{width:100%;justify-content:space-between}.ms-work-meta,.ms-claim-lineage{padding-left:0;flex-wrap:wrap}.ms-legacy{padding-left:18px;padding-right:18px}.ms-op-row{grid-template-columns:1fr auto}.ms-op-row time,.ms-op-row>a{display:none}}
   `;
-  return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Missions · Hypervisor</title><style>${CSS}</style></head><body><div class="ms-shell">${globalRail}<main class="ms-main" data-missions-work-graph="hosted" data-missions-rooms="${countAttr(model.rooms)}" data-missions-frontier="${countAttr(model.frontier)}" data-missions-live-claims="${countAttr(model.claims, liveClaims)}" data-missions-attempts="${countAttr(model.attempts)}" data-missions-findings="${countAttr(model.findings)}" data-missions-unresolved-challenges="${countAttr(model.challenges, unresolved)}">
+  return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Missions · Hypervisor</title><style>${CSS}</style></head><body><div class="ms-shell">${globalRail}<main class="ms-main" data-missions-work-graph="hosted" data-missions-rooms="${planeCountAttr(model.rooms)}" data-missions-frontier="${planeCountAttr(model.frontier)}" data-missions-live-claims="${planeCountAttr(model.claims, liveClaims)}" data-missions-attempts="${planeCountAttr(model.attempts)}" data-missions-findings="${planeCountAttr(model.findings)}" data-missions-unresolved-challenges="${planeCountAttr(model.challenges, unresolved)}">
     <header class="ms-top"><div class="ms-title"><h1>Missions</h1><span>Hosted work graph</span></div><div class="ms-actions"><a class="ms-action" href="/__ioi/operations">Operations substrate</a><a class="ms-action" href="/__ioi/work-ledger">Proof stream</a><a class="ms-action" href="${selectionUrl}" aria-label="Refresh mission data">Refresh</a></div></header>
-    <div class="ms-summary">${metric("rooms", count(model.rooms))}${metric("open", count(model.rooms, allRooms.filter((room) => value(room, "status") === "open")))}${metric("live claims", count(model.claims, liveClaims))}${metric("unresolved challenges", count(model.challenges, unresolved), unresolved.length ? "attention" : "")}${metric("attempts", count(model.attempts))}${metric("findings", count(model.findings))}</div>
+    <div class="ms-summary">${metric("rooms", planeCount(model.rooms))}${metric("open", planeCount(model.rooms, allRooms.filter((room) => value(room, "status") === "open")))}${metric("live claims", planeCount(model.claims, liveClaims))}${metric("unresolved challenges", planeCount(model.challenges, unresolved), unresolved.length ? "attention" : "")}${metric("attempts", planeCount(model.attempts))}${metric("findings", planeCount(model.findings))}</div>
     ${planeNotice("OutcomeRoom registry", model.rooms)}
     <nav class="ms-tabs" role="tablist" aria-label="Room status filters">${filters}</nav>
-    <div class="ms-workspace"><aside class="ms-sidebar"><div class="ms-sidebar-head"><span>Mission rooms</span><span>${rooms.length}</span></div>${renderRoomList(rooms, selectedRef, status, model)}</aside>${renderRoomDetail(selected, model)}</div>
+    <div class="ms-workspace"><aside class="ms-sidebar"><div class="ms-sidebar-head"><span>Mission rooms</span><span>${planeCount(model.rooms, rooms)}</span></div>${renderRoomList(rooms, selectedRef, status, model)}</aside>${renderRoomDetail(selected, model)}</div>
     ${renderLegacyOperations(model)}
   </main></div></body></html>`;
 }

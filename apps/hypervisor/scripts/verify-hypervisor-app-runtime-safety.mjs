@@ -21,7 +21,8 @@ import { spawn, spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync, readdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join, resolve } from "node:path";
-import { SURFACES } from "./surface-registry.mjs";
+import { SURFACES, boundSurface } from "./surface-registry.mjs";
+import { buildAppCatalog, contractCatalogAdmission } from "./app-catalog.mjs";
 
 const SERVE = (process.env.IOI_HYPERVISOR_SERVE_URL || "http://127.0.0.1:4173").replace(/\/$/, "");
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -66,14 +67,35 @@ function eslintRun(files) {
 async function run() {
   // 1. Registry ⇔ matrix agreement (code identity vs certification evidence, joined by slug).
   const matrix = JSON.parse(readFileSync(join(APP, "harvest-app-parity-matrix.json"), "utf8"));
+  const atlas = JSON.parse(readFileSync(join(APP, "application-operational-depth.json"), "utf8"));
   const certified = (matrix.seeds || []).filter((s) => s.shell_pixel_certified && s.candidate_surface);
   const regBySlug = new Map(SURFACES.map((s) => [s.slug, s]));
   ok("registry covers every certified seed", certified.every((s) => regBySlug.has(s.slug)), `${SURFACES.length} registry vs ${certified.length} certified`);
   const certifiedSlugs = new Set(certified.map((s) => s.slug));
   const contractReadOnly = SURFACES.filter((s) => !certifiedSlugs.has(s.slug));
-  ok("registry additions beyond certified seeds are explicit read-only-by-contract surfaces",
-    contractReadOnly.every((s) => s.operational_state === "read_only_by_contract" && s.certification === "n/a"),
+  ok("registry additions beyond certified seeds resolve committed contract evidence and a bound read-only module",
+    contractReadOnly.every((s) => contractCatalogAdmission(s, atlas).admitted),
     contractReadOnly.map((s) => s.slug).join(",") || "none");
+  const unproven = {
+    ...contractReadOnly[0],
+    slug: "__unproven_read_only",
+    title: "Unproven",
+    route: "/__ioi/__unproven-read-only",
+    catalog_evidence: {
+      ...contractReadOnly[0]?.catalog_evidence,
+      evidence_key: "__unproven_read_only",
+    },
+  };
+  const adversarialCatalog = buildAppCatalog({
+    matrix,
+    atlas,
+    surfaces: [...SURFACES, unproven],
+    resolveBinding: (route) => route === unproven.route
+      ? boundSurface(contractReadOnly[0].route, "GET")
+      : boundSurface(route, "GET"),
+  });
+  ok("negative control: a second self-labeled read-only surface cannot enter the catalog without exact evidence",
+    !adversarialCatalog.apps.some((app) => app.slug === unproven.slug));
   ok("registry routes match matrix candidate surfaces", certified.every((s) => regBySlug.get(s.slug)?.route === s.candidate_surface.split("?")[0]));
   ok("registry certification paths match matrix artifacts", certified.every((s) => regBySlug.get(s.slug)?.certification === s.shell_pixel_certification_artifact));
   ok("registry entries carry owner + title + icon", SURFACES.every((s) => s.owner && s.title && s.icon));
@@ -82,8 +104,14 @@ async function run() {
   // 2. Catalog reads registry presentation; pipeline serves through the registry mount.
   const cat = JSON.parse((await sGet("/__ioi/api/applications")).text);
   ok("catalog titles come from the registry", (cat.apps || []).every((a) => regBySlug.get(a.slug)?.title === a.title), `${(cat.apps || []).length} catalog apps`);
-  ok("catalog includes every certified and read-only-by-contract registry surface",
-    SURFACES.every((surface) => (cat.apps || []).some((app) => app.slug === surface.slug && app.route === surface.route)));
+  const admittedCatalogSlugs = new Set([
+    ...certified.map((surface) => surface.slug),
+    ...contractReadOnly.filter((surface) => contractCatalogAdmission(surface, atlas).admitted).map((surface) => surface.slug),
+  ]);
+  ok("catalog membership equals certified surfaces plus exact contract-evidence admissions",
+    (cat.apps || []).length === admittedCatalogSlugs.size
+      && (cat.apps || []).every((app) => admittedCatalogSlugs.has(app.slug))
+      && [...admittedCatalogSlugs].every((slug) => (cat.apps || []).some((app) => app.slug === slug)));
   const pipe = await sGet("/__ioi/pipeline");
   ok("pipeline serves through the registry mount", pipe.status === 200 && pipe.text.includes("<title>Pipeline Builder</title>") && pipe.text.includes("Pipeline outputs"), `status ${pipe.status}`);
   const boomLive = await sGet("/__ioi/__test/boom");
