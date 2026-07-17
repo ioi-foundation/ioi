@@ -133,6 +133,18 @@ fn canonical_receipt_tail(tail: &str) -> bool {
     canonical_tail(tail, "vcr_")
 }
 
+fn canonical_attempt_ref(reference: &str) -> bool {
+    reference
+        .strip_prefix("attempt://")
+        .is_some_and(|tail| canonical_tail(tail, "att_"))
+}
+
+fn canonical_finding_ref(reference: &str) -> bool {
+    reference
+        .strip_prefix("finding://")
+        .is_some_and(|tail| canonical_tail(tail, "fnd_"))
+}
+
 fn ref_ok(value: &str, prefixes: &[&str]) -> bool {
     value.len() <= REF_MAX
         && !value.chars().any(char::is_whitespace)
@@ -720,6 +732,37 @@ fn resolve_dependencies(
     let room_ref = s(declaration, "outcome_room_ref", "");
     let challenger_ref = s(declaration, "challenger_ref", "");
     let challenged_ref = s(declaration, "challenged_ref", "");
+    if (challenged_ref.starts_with("attempt://") && !canonical_attempt_ref(&challenged_ref))
+        || (challenged_ref.starts_with("finding://") && !canonical_finding_ref(&challenged_ref))
+    {
+        return Err(verr(
+            "verifier_challenge_target_invalid",
+            "challenged_ref must be attempt://att_<64 lowercase hex> or finding://fnd_<64 lowercase hex>",
+        ));
+    }
+    let affected_refs = declaration
+        .get("affected_attempt_refs")
+        .and_then(Value::as_array)
+        .ok_or_else(|| {
+            verr(
+                "verifier_challenge_affected_attempts_required",
+                "affected_attempt_refs is required",
+            )
+        })?;
+    for item in affected_refs {
+        let reference = item.as_str().ok_or_else(|| {
+            verr(
+                "verifier_challenge_affected_attempt_invalid",
+                "affected Attempt ref is not a string",
+            )
+        })?;
+        if !canonical_attempt_ref(reference) {
+            return Err(verr(
+                "verifier_challenge_affected_attempt_invalid",
+                "every affected Attempt must be attempt://att_<64 lowercase hex>",
+            ));
+        }
+    }
     let room = room_strict(data_dir, &room_ref, open)?;
     let challenger = participant_strict(data_dir, &challenger_ref, active)?;
     if s(&challenger, "outcome_room_ref", "") != room_ref {
@@ -776,15 +819,6 @@ fn resolve_dependencies(
             "challenged target belongs to another room",
         ));
     }
-    let affected_refs = declaration
-        .get("affected_attempt_refs")
-        .and_then(Value::as_array)
-        .ok_or_else(|| {
-            verr(
-                "verifier_challenge_affected_attempts_required",
-                "affected_attempt_refs is required",
-            )
-        })?;
     let mut attempts = Vec::new();
     for item in affected_refs {
         let reference = item.as_str().ok_or_else(|| {
@@ -818,19 +852,24 @@ fn resolve_dependencies(
             "the challenged Attempt, or Finding's bound Attempt, must be affected",
         ));
     }
-    let work_result = match &work_result_ref {
-        Some(reference) if !reference.is_empty() => Some(
-            super::work_result_routes::load_work_result_strict(data_dir, reference)
-                .map_err(|e| verr("verifier_challenge_work_result_unreadable", e))?
-                .ok_or_else(|| {
-                    verr(
-                        "verifier_challenge_work_result_not_found",
-                        format!("no WorkResult '{reference}'"),
-                    )
-                })?,
-        ),
-        _ => None,
-    };
+    let work_result_ref = work_result_ref
+        .filter(|reference| !reference.is_empty())
+        .ok_or_else(|| {
+            verr(
+                "verifier_challenge_work_result_required",
+                "challenged Attempt/Finding must bind an exact WorkResult",
+            )
+        })?;
+    let work_result = Some(
+        super::work_result_routes::load_work_result_strict(data_dir, &work_result_ref)
+            .map_err(|e| verr("verifier_challenge_work_result_unreadable", e))?
+            .ok_or_else(|| {
+                verr(
+                    "verifier_challenge_work_result_not_found",
+                    format!("no WorkResult '{work_result_ref}'"),
+                )
+            })?,
+    );
     if let Some(result) = &work_result {
         if s(result, "outcome_room_ref", "") != room_ref {
             return Err(verr(
@@ -845,7 +884,7 @@ fn resolve_dependencies(
         target,
         target_kind,
         bound_attempt_ref,
-        work_result_ref,
+        work_result_ref: Some(work_result_ref),
         attempts,
         work_result,
     })
@@ -934,6 +973,14 @@ fn validate_create(body: &Value) -> Result<Value, VErr> {
             "this challenge target owner resolver is not implemented",
         ));
     }
+    if (challenged.starts_with("attempt://") && !canonical_attempt_ref(&challenged))
+        || (challenged.starts_with("finding://") && !canonical_finding_ref(&challenged))
+    {
+        return Err(verr(
+            "verifier_challenge_target_invalid",
+            "challenged_ref must be attempt://att_<64 lowercase hex> or finding://fnd_<64 lowercase hex>",
+        ));
+    }
     let kind = body
         .get("challenge_kind")
         .and_then(Value::as_str)
@@ -962,6 +1009,15 @@ fn validate_create(body: &Value) -> Result<Value, VErr> {
         &["rubric://", "verifier-path://"],
     )?;
     let affected = ref_list(body, "affected_attempt_refs", &["attempt://"], true)?;
+    if affected
+        .iter()
+        .any(|reference| !canonical_attempt_ref(reference))
+    {
+        return Err(verr(
+            "verifier_challenge_affected_attempt_invalid",
+            "every affected Attempt must be attempt://att_<64 lowercase hex>",
+        ));
+    }
     let reverification = body
         .get("reverification_required")
         .and_then(Value::as_bool)
@@ -1008,6 +1064,21 @@ fn validate_transition(body: &Value, op: &str) -> Result<Value, VErr> {
             &["rubric://", "verifier-path://"],
         )?;
         let affected = ref_list(body, "affected_attempt_refs", &["attempt://"], true)?;
+        if prior == proposed {
+            return Err(verr(
+                "verifier_challenge_rule_versions_identical",
+                "rule_changed requires distinct prior and proposed rule versions",
+            ));
+        }
+        if affected
+            .iter()
+            .any(|reference| !canonical_attempt_ref(reference))
+        {
+            return Err(verr(
+                "verifier_challenge_affected_attempt_invalid",
+                "every affected Attempt must be attempt://att_<64 lowercase hex>",
+            ));
+        }
         if body.get("reverification_required").and_then(Value::as_bool) != Some(true) {
             return Err(verr(
                 "verifier_challenge_rule_change_reverification_required",
@@ -1023,8 +1094,33 @@ fn validate_transition(body: &Value, op: &str) -> Result<Value, VErr> {
     }
 }
 
-fn transition_contract(op: &str, from: &str) -> Result<(Governance, &'static str), VErr> {
-    match (op, from) {
+fn transition_contract(
+    prior: &Value,
+    op: &str,
+    fields: &Value,
+) -> Result<(Governance, &'static str), VErr> {
+    let from = s(prior, "status", "");
+    if op == "rule_changed"
+        && fields.get("prior_rule_version_ref") == fields.get("proposed_rule_version_ref")
+    {
+        return Err(verr(
+            "verifier_challenge_rule_versions_identical",
+            "rule_changed requires distinct prior and proposed rule versions",
+        ));
+    }
+    if op == "resolve"
+        && prior
+            .get("reverification_required")
+            .and_then(Value::as_bool)
+            == Some(true)
+        && from != "reverifying"
+    {
+        return Err(verr(
+            "verifier_challenge_reverification_incomplete",
+            "a challenge requiring re-verification must enter reverifying before resolve",
+        ));
+    }
+    match (op, from.as_str()) {
         ("admit", "proposed") => Ok((Governance::Host, "admitted")),
         ("investigate", "admitted") => Ok((Governance::Host, "investigating")),
         ("uphold", "admitted" | "investigating") => Ok((Governance::Host, "upheld")),
@@ -1274,6 +1370,33 @@ fn complete_intent_locked(data_dir: &str, tail: &str, intent: &Value) -> Result<
             Err((code, _)) if code == "outcome_room_backlink_already_bound" => {}
             Err(error) => return Err(error),
         }
+        let result_ref = s(intent, "work_result_ref", "");
+        let prior_result = intent
+            .get("prior_work_result")
+            .filter(|value| !value.is_null())
+            .ok_or_else(|| {
+                verr(
+                    "verifier_challenge_intent_unreadable",
+                    "create intent lacks sealed prior WorkResult",
+                )
+            })?;
+        let final_result = intent
+            .get("final_work_result")
+            .filter(|value| !value.is_null())
+            .ok_or_else(|| {
+                verr(
+                    "verifier_challenge_intent_unreadable",
+                    "create intent lacks sealed successor WorkResult",
+                )
+            })?;
+        super::work_result_routes::bind_verifier_challenge_locked(
+            data_dir,
+            &result_ref,
+            &subject,
+            prior_result,
+            final_result,
+            tail,
+        )?;
     }
     persist_receipt(data_dir, receipt_tail, receipt)?;
     persist_successor(
@@ -1452,6 +1575,28 @@ pub(crate) async fn handle_create(
         Ok(value) => value,
         Err(error) => return classify(error),
     };
+    let prior_work_result = dependencies
+        .work_result
+        .as_ref()
+        .expect("resolved challenge dependency requires WorkResult")
+        .clone();
+    let result_ref = dependencies
+        .work_result_ref
+        .as_deref()
+        .expect("resolved challenge dependency requires WorkResult");
+    let result_updated_at = match ms_to_rfc3339(authorized.resolved_at_ms) {
+        Ok(value) => value,
+        Err(error) => return classify(error),
+    };
+    let final_work_result = match super::work_result_routes::verifier_challenge_backlink_successor(
+        &prior_work_result,
+        result_ref,
+        &subject,
+        &result_updated_at,
+    ) {
+        Ok(value) => value,
+        Err(error) => return classify(error),
+    };
     let intent_tail = fresh_tail("vci_", &subject, "create", 0, authorized.resolved_at_ms);
     let intent = seal_intent(
         json!({"kind":"create","governance":"participant","op":"create",
@@ -1459,7 +1604,8 @@ pub(crate) async fn handle_create(
         "work_result_ref":dependencies.work_result_ref,"challenger_ref":s(&declaration,"challenger_ref",""),
         "affected_attempt_refs":declaration.get("affected_attempt_refs"),"required_authority_ref":authority,
         "subject_ref":subject,"revision_before":0,"receipt_tail":receipt_tail,"receipt":receipt,
-        "prior_challenge":Value::Null,"final_challenge":final_challenge}),
+        "prior_challenge":Value::Null,"final_challenge":final_challenge,
+        "prior_work_result":prior_work_result,"final_work_result":final_work_result}),
         &intent_tail,
     );
     match persist_and_complete_locked(&state.data_dir, &intent_tail, &intent) {
@@ -1505,7 +1651,7 @@ pub(crate) async fn handle_transition(
     if let Err(error) = expected_revision(&body, revision) {
         return classify(error);
     }
-    let (governance, to) = match transition_contract(&op, &s(&prior, "status", "")) {
+    let (governance, to) = match transition_contract(&prior, &op, &fields) {
         Ok(value) => value,
         Err(error) => return classify(error),
     };
@@ -1659,7 +1805,8 @@ pub(crate) async fn handle_transition(
         "work_result_ref":dependencies.work_result_ref,"challenger_ref":s(&final_challenge,"challenger_ref",""),
         "affected_attempt_refs":final_challenge.get("affected_attempt_refs"),"required_authority_ref":authority,
         "subject_ref":subject,"revision_before":revision,"receipt_tail":receipt_tail,"receipt":receipt,
-        "prior_challenge":prior,"final_challenge":final_challenge}),
+        "prior_challenge":prior,"final_challenge":final_challenge,
+        "prior_work_result":Value::Null,"final_work_result":Value::Null}),
         &intent_tail,
     );
     match persist_and_complete_locked(&state.data_dir, &intent_tail, &intent) {
@@ -1773,23 +1920,118 @@ pub(crate) async fn handle_overview(
 
 pub(crate) fn refuse_acceptance_if_unresolved(
     data_dir: &str,
-    challenged_ref: &str,
+    subject_ref: &str,
 ) -> Result<(), VErr> {
+    let mut relationship_refs = BTreeSet::from([subject_ref.to_string()]);
+    let mut attempt_refs = BTreeSet::new();
+    let mut work_result_refs = BTreeSet::new();
+    if subject_ref.starts_with("attempt://") {
+        let attempt = provenance::load_attempt_strict(data_dir, subject_ref)
+            .map_err(|message| {
+                verr(
+                    "verifier_challenge_acceptance_relationship_unreadable",
+                    message,
+                )
+            })?
+            .ok_or_else(|| {
+                verr(
+                    "verifier_challenge_acceptance_relationship_unreadable",
+                    format!("Attempt '{subject_ref}' vanished during acceptance"),
+                )
+            })?;
+        attempt_refs.insert(subject_ref.to_string());
+        let result_ref = s(&attempt, "work_result_ref", "");
+        if result_ref.is_empty() {
+            return Err(verr(
+                "verifier_challenge_acceptance_relationship_unreadable",
+                "Attempt lacks its bound WorkResult identity",
+            ));
+        }
+        relationship_refs.insert(result_ref.clone());
+        work_result_refs.insert(result_ref);
+    } else if subject_ref.starts_with("finding://") {
+        let finding = provenance::load_finding_strict(data_dir, subject_ref)
+            .map_err(|message| {
+                verr(
+                    "verifier_challenge_acceptance_relationship_unreadable",
+                    message,
+                )
+            })?
+            .ok_or_else(|| {
+                verr(
+                    "verifier_challenge_acceptance_relationship_unreadable",
+                    format!("Finding '{subject_ref}' vanished during acceptance"),
+                )
+            })?;
+        let attempt_ref = s(&finding, "attempt_ref", "");
+        let result_ref = s(&finding, "work_result_ref", "");
+        if !canonical_attempt_ref(&attempt_ref) || result_ref.is_empty() {
+            return Err(verr(
+                "verifier_challenge_acceptance_relationship_unreadable",
+                "Finding lacks its canonical bound Attempt or WorkResult identity",
+            ));
+        }
+        let attempt = provenance::load_attempt_strict(data_dir, &attempt_ref)
+            .map_err(|message| {
+                verr(
+                    "verifier_challenge_acceptance_relationship_unreadable",
+                    message,
+                )
+            })?
+            .ok_or_else(|| {
+                verr(
+                    "verifier_challenge_acceptance_relationship_unreadable",
+                    format!("Finding's bound Attempt '{attempt_ref}' is absent"),
+                )
+            })?;
+        if s(&attempt, "work_result_ref", "") != result_ref
+            || s(&attempt, "outcome_room_ref", "") != s(&finding, "outcome_room_ref", "")
+        {
+            return Err(verr(
+                "verifier_challenge_acceptance_relationship_unreadable",
+                "Finding, Attempt, and WorkResult coordinates are inconsistent",
+            ));
+        }
+        relationship_refs.insert(attempt_ref.clone());
+        relationship_refs.insert(result_ref.clone());
+        attempt_refs.insert(attempt_ref);
+        work_result_refs.insert(result_ref);
+    }
+    for result_ref in &work_result_refs {
+        let result = super::work_result_routes::load_work_result_strict(data_dir, result_ref)
+            .map_err(|message| {
+                verr(
+                    "verifier_challenge_acceptance_relationship_unreadable",
+                    message,
+                )
+            })?
+            .ok_or_else(|| {
+                verr(
+                    "verifier_challenge_acceptance_relationship_unreadable",
+                    format!("bound WorkResult '{result_ref}' is absent"),
+                )
+            })?;
+        relationship_refs.insert(s(&result, "work_result_id", ""));
+    }
     let blockers: Vec<String> = scan_records(data_dir)
         .map_err(|e| verr("verifier_challenge_registry_unreadable", e))?
         .into_iter()
         .filter(|record| {
-            let directly_challenged = s(record, "challenged_ref", "") == challenged_ref;
-            let affected_attempt = challenged_ref.starts_with("attempt://")
-                && record
-                    .get("affected_attempt_refs")
-                    .and_then(Value::as_array)
-                    .is_some_and(|items| {
-                        items
-                            .iter()
-                            .any(|item| item.as_str() == Some(challenged_ref))
-                    });
-            (directly_challenged || affected_attempt)
+            let directly_challenged = relationship_refs.contains(&s(record, "challenged_ref", ""));
+            let affected_attempt = record
+                .get("affected_attempt_refs")
+                .and_then(Value::as_array)
+                .is_some_and(|items| {
+                    items
+                        .iter()
+                        .filter_map(Value::as_str)
+                        .any(|reference| attempt_refs.contains(reference))
+                });
+            let bound_work_result = record
+                .pointer("/frozen_coordinates/work_result/record_ref")
+                .and_then(Value::as_str)
+                .is_some_and(|reference| work_result_refs.contains(reference));
+            (directly_challenged || affected_attempt || bound_work_result)
                 && UNRESOLVED.contains(&s(record, "status", "").as_str())
         })
         .map(|record| s(&record, "verifier_challenge_id", ""))
@@ -1798,16 +2040,17 @@ pub(crate) fn refuse_acceptance_if_unresolved(
         .map_err(|e| verr("verifier_challenge_intent_unreadable", e))?
         .into_iter()
         .any(|(_, intent)| {
-            s(&intent, "challenged_ref", "") == challenged_ref
-                || (challenged_ref.starts_with("attempt://")
-                    && intent
-                        .get("affected_attempt_refs")
-                        .and_then(Value::as_array)
-                        .is_some_and(|items| {
-                            items
-                                .iter()
-                                .any(|item| item.as_str() == Some(challenged_ref))
-                        }))
+            relationship_refs.contains(&s(&intent, "challenged_ref", ""))
+                || intent
+                    .get("affected_attempt_refs")
+                    .and_then(Value::as_array)
+                    .is_some_and(|items| {
+                        items
+                            .iter()
+                            .filter_map(Value::as_str)
+                            .any(|reference| attempt_refs.contains(reference))
+                    })
+                || work_result_refs.contains(&s(&intent, "work_result_ref", ""))
         });
     if pending || !blockers.is_empty() {
         Err(verr(
@@ -1941,6 +2184,37 @@ fn reconstruct_intent(intent: &Value) -> Result<(Governance, Value, Value), Stri
     if actual_work_result != expected_work_result {
         return Err("intent WorkResult differs from its frozen successor coordinate".into());
     }
+    if op == "create" {
+        let result_ref =
+            actual_work_result.ok_or_else(|| "create intent lacks WorkResult ref".to_string())?;
+        let prior_result = intent
+            .get("prior_work_result")
+            .filter(|value| !value.is_null())
+            .ok_or_else(|| "create intent lacks prior WorkResult".to_string())?;
+        let final_result = intent
+            .get("final_work_result")
+            .filter(|value| !value.is_null())
+            .ok_or_else(|| "create intent lacks successor WorkResult".to_string())?;
+        let updated_at = ms_to_rfc3339(resolved_at_ms).map_err(|(_, message)| message)?;
+        let expected_result = super::work_result_routes::verifier_challenge_backlink_successor(
+            prior_result,
+            result_ref,
+            &subject,
+            &updated_at,
+        )
+        .map_err(|(_, message)| message)?;
+        if expected_result != *final_result {
+            return Err("create intent WorkResult successor does not reconstruct exactly".into());
+        }
+    } else if intent
+        .get("prior_work_result")
+        .is_some_and(|value| !value.is_null())
+        || intent
+            .get("final_work_result")
+            .is_some_and(|value| !value.is_null())
+    {
+        return Err("transition intent may not mutate WorkResult backlinks".into());
+    }
     let effect = if op == "create" {
         if governance != Governance::Participant || revision != 0 || prior.is_some() {
             return Err("create intent governance/prior/revision does not reconstruct".into());
@@ -1978,8 +2252,15 @@ fn reconstruct_intent(intent: &Value) -> Result<(Governance, Value, Value), Stri
         )
     } else {
         let prior = prior.ok_or_else(|| "transition intent lacks prior".to_string())?;
+        let fields = if op == "rule_changed" {
+            json!({"prior_rule_version_ref":final_record.get("prior_rule_version_ref"),
+            "proposed_rule_version_ref":final_record.get("proposed_rule_version_ref"),"affected_attempt_refs":final_record.get("affected_attempt_refs"),
+            "reverification_required":final_record.get("reverification_required")})
+        } else {
+            json!({})
+        };
         let (expected_governance, to) =
-            transition_contract(&op, &s(prior, "status", "")).map_err(|(_, message)| message)?;
+            transition_contract(prior, &op, &fields).map_err(|(_, message)| message)?;
         if governance != expected_governance
             || revision != prior.get("revision").and_then(Value::as_u64).unwrap_or(0)
             || prior.get("verifier_challenge_id").and_then(Value::as_str) != Some(subject.as_str())
@@ -1989,13 +2270,6 @@ fn reconstruct_intent(intent: &Value) -> Result<(Governance, Value, Value), Stri
                     .into(),
             );
         }
-        let fields = if op == "rule_changed" {
-            json!({"prior_rule_version_ref":final_record.get("prior_rule_version_ref"),
-            "proposed_rule_version_ref":final_record.get("proposed_rule_version_ref"),"affected_attempt_refs":final_record.get("affected_attempt_refs"),
-            "reverification_required":final_record.get("reverification_required")})
-        } else {
-            json!({})
-        };
         let expected_final =
             transition_record(prior, &op, to, &fields, &receipt_ref, resolved_at_ms)
                 .map_err(|(_, message)| message)?;
@@ -2206,19 +2480,37 @@ mod verifier_challenge_tests {
 
     #[test]
     fn lifecycle_is_exact_and_creates_no_verdict() {
+        let proposed = json!({"status":"proposed","reverification_required":false});
+        let investigating = json!({"status":"investigating","reverification_required":false});
+        let reverifying = json!({"status":"reverifying","reverification_required":true});
         assert_eq!(
-            transition_contract("admit", "proposed").unwrap().1,
+            transition_contract(&proposed, "admit", &json!({}))
+                .unwrap()
+                .1,
             "admitted"
         );
         assert_eq!(
-            transition_contract("uphold", "investigating").unwrap().1,
+            transition_contract(&investigating, "uphold", &json!({}))
+                .unwrap()
+                .1,
             "upheld"
         );
         assert_eq!(
-            transition_contract("resolve", "reverifying").unwrap().1,
+            transition_contract(&reverifying, "resolve", &json!({}))
+                .unwrap()
+                .1,
             "resolved"
         );
-        assert!(transition_contract("resolve", "proposed").is_err());
+        assert!(transition_contract(&proposed, "resolve", &json!({})).is_err());
+        for status in ["upheld", "rejected", "rule_changed"] {
+            let required = json!({"status":status,"reverification_required":true});
+            assert_eq!(
+                transition_contract(&required, "resolve", &json!({}))
+                    .unwrap_err()
+                    .0,
+                "verifier_challenge_reverification_incomplete"
+            );
+        }
         let mutation = effect("uphold", 3, &json!({}), "upheld");
         assert_eq!(mutation["verdict_created"], json!(false));
         assert_eq!(mutation["acceptance_created"], json!(false));
@@ -2237,6 +2529,12 @@ mod verifier_challenge_tests {
         );
         value["reverification_required"] = json!(true);
         assert!(validate_transition(&value, "rule_changed").is_ok());
+        value["proposed_rule_version_ref"] = json!("rubric://v1");
+        assert_eq!(
+            validate_transition(&value, "rule_changed").unwrap_err().0,
+            "verifier_challenge_rule_versions_identical"
+        );
+        value["proposed_rule_version_ref"] = json!("rubric://v2");
         value
             .as_object_mut()
             .unwrap()
@@ -2244,6 +2542,24 @@ mod verifier_challenge_tests {
         assert_eq!(
             validate_transition(&value, "rule_changed").unwrap_err().0,
             "verifier_challenge_ref_required"
+        );
+    }
+
+    #[test]
+    fn supported_graph_refs_are_exact_before_storage_access() {
+        for challenged_ref in ["attempt://bad", "finding://bad"] {
+            let mut value = body();
+            value["challenged_ref"] = json!(challenged_ref);
+            assert_eq!(
+                validate_create(&value).unwrap_err().0,
+                "verifier_challenge_target_invalid"
+            );
+        }
+        let mut value = body();
+        value["affected_attempt_refs"] = json!(["attempt://bad"]);
+        assert_eq!(
+            validate_create(&value).unwrap_err().0,
+            "verifier_challenge_affected_attempt_invalid"
         );
     }
 
@@ -2327,6 +2643,62 @@ mod verifier_challenge_tests {
             "schema_version":RECORD_SCHEMA,"verifier_challenge_id":format!("verifier-challenge://vc_{}", "8".repeat(64)),
             "revision":1,"status":"proposed"})).unwrap()).unwrap();
         assert!(load_record(dir.to_str().unwrap(), &tail).is_err());
+        std::fs::remove_dir_all(dir).ok();
+    }
+
+    #[test]
+    fn attempt_challenge_blocks_acceptance_of_its_derived_finding() {
+        let dir = temp_dir("derived-finding-interlock");
+        let data_dir = dir.to_str().unwrap();
+        let attempt_tail = format!("att_{}", "a".repeat(64));
+        let attempt_ref = format!("attempt://{attempt_tail}");
+        let finding_tail = format!("fnd_{}", "b".repeat(64));
+        let finding_ref = format!("finding://{finding_tail}");
+        let challenge_tail = format!("vc_{}", "c".repeat(64));
+        let challenge_ref = format!("verifier-challenge://{challenge_tail}");
+        let result_ref = "work-result://wr_interlock";
+        persist_record(
+            data_dir,
+            provenance::ATTEMPT_DIR,
+            &attempt_tail,
+            &json!({"schema_version":"ioi.hypervisor.attempt-envelope.v1",
+            "attempt_id":attempt_ref,"revision":4,"outcome_room_ref":"outcome-room://or_a",
+            "work_result_ref":result_ref}),
+        )
+        .unwrap();
+        persist_record(
+            data_dir,
+            provenance::FINDING_DIR,
+            &finding_tail,
+            &json!({"schema_version":"ioi.hypervisor.finding-envelope.v1",
+            "finding_id":finding_ref,"revision":2,"outcome_room_ref":"outcome-room://or_a",
+            "attempt_ref":attempt_ref,"work_result_ref":result_ref}),
+        )
+        .unwrap();
+        persist_record(
+            data_dir,
+            super::super::work_result_routes::RESULT_DIR,
+            "wr_interlock",
+            &json!({"schema_version":"ioi.hypervisor.work-result.v1",
+            "work_result_id":result_ref,"challenge_refs":[challenge_ref]}),
+        )
+        .unwrap();
+        let unresolved = json!({"schema_version":RECORD_SCHEMA,
+            "verifier_challenge_id":challenge_ref,"revision":1,"status":"proposed",
+            "challenged_ref":attempt_ref,"affected_attempt_refs":[attempt_ref],
+            "frozen_coordinates":{"work_result":{"record_ref":result_ref}}});
+        persist_record(data_dir, RECORD_DIR, &challenge_tail, &unresolved).unwrap();
+        assert_eq!(
+            refuse_acceptance_if_unresolved(data_dir, &finding_ref)
+                .unwrap_err()
+                .0,
+            "verifier_challenge_acceptance_unresolved"
+        );
+        let mut resolved = unresolved;
+        resolved["status"] = json!("resolved");
+        resolved["revision"] = json!(2);
+        persist_record(data_dir, RECORD_DIR, &challenge_tail, &resolved).unwrap();
+        refuse_acceptance_if_unresolved(data_dir, &finding_ref).unwrap();
         std::fs::remove_dir_all(dir).ok();
     }
 

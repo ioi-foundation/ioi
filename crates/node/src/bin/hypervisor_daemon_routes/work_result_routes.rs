@@ -16,11 +16,11 @@
 //!   `scope:*`, `harness_profile:*`, `agent_harness_adapter:*`, and `encrypted_ref`); a raw
 //!   string is never a ref. `goal_ref` must be a `goal://` identity.
 //! - FUTURE-PLANE fields are named gaps, fail-closed: non-empty `outcome_room_ref`,
-//!   `work_claim_ref`, `attempt_ref`, `finding_refs`, `acceptance_ref`, `challenge_refs`, and
+//!   `work_claim_ref`, `attempt_ref`, `finding_refs`, `acceptance_ref`, and
 //!   `superseded_by_ref` refuse with per-field unavailable codes until their planes exist
 //!   (build steps 2-3) — callers cannot forge assurance or relationship state.
-//!   `outcome_delta_refs` is PLANE-OWNED: the delta admission registers the backlink
-//!   atomically; callers may never supply it.
+//!   `outcome_delta_refs` and `challenge_refs` are PLANE-OWNED: their owner-plane admissions
+//!   register backlinks atomically; callers may never supply either list.
 //! - BINDING invariants resolve RECORDS, not booleans: an OutcomeDelta binds an EXISTING
 //!   WorkResult with the SAME `goal_ref` (cross-goal refuses typed, zero mutation); a
 //!   `supersedes_work_result_ref` must resolve to an existing SAME-GOAL result.
@@ -127,6 +127,144 @@ pub(crate) fn load_work_result_strict(
         return Err(format!("WorkResult slot '{tail}' fails storage-key/schema identity binding"));
     }
     Ok(Some(record))
+}
+
+fn canonical_verifier_challenge_ref(reference: &str) -> bool {
+    reference
+        .strip_prefix("verifier-challenge://vc_")
+        .is_some_and(|tail| {
+            tail.len() == 64
+                && tail
+                    .chars()
+                    .all(|character| character.is_ascii_digit() || matches!(character, 'a'..='f'))
+        })
+}
+
+/// Pure WorkResult-owned successor planner for a VerifierChallenge backlink. The challenge plane
+/// seals both the exact prior and this exact successor in its durable intent; replay never derives
+/// a successor from mutable current state.
+pub(crate) fn verifier_challenge_backlink_successor(
+    prior: &Value,
+    result_ref: &str,
+    challenge_ref: &str,
+    updated_at: &str,
+) -> Result<Value, (String, String)> {
+    if prior.get("schema_version").and_then(Value::as_str) != Some(RESULT_SCHEMA)
+        || prior.get("work_result_id").and_then(Value::as_str) != Some(result_ref)
+    {
+        return Err(verr(
+            "work_result_challenge_backlink_identity_mismatch",
+            "sealed WorkResult prior does not match its schema and identity",
+        ));
+    }
+    if !canonical_verifier_challenge_ref(challenge_ref) {
+        return Err(verr(
+            "work_result_challenge_ref_invalid",
+            "VerifierChallenge backlink must be verifier-challenge://vc_<64 lowercase hex>",
+        ));
+    }
+    let refs = prior
+        .get("challenge_refs")
+        .and_then(Value::as_array)
+        .ok_or_else(|| {
+            verr(
+                "work_result_challenge_backlink_invalid",
+                "WorkResult challenge_refs is not a plane-owned list",
+            )
+        })?;
+    if refs.len() >= 128 {
+        return Err(verr(
+            "work_result_challenge_backlink_capacity",
+            "WorkResult challenge_refs reached its hard bound",
+        ));
+    }
+    if refs.iter().any(|item| item.as_str() == Some(challenge_ref)) {
+        return Err(verr(
+            "work_result_challenge_backlink_already_bound",
+            "VerifierChallenge is already bound to this WorkResult",
+        ));
+    }
+    let mut next = prior.clone();
+    let object = next.as_object_mut().expect("validated WorkResult object");
+    let mut next_refs: Vec<String> = refs
+        .iter()
+        .filter_map(Value::as_str)
+        .map(ToOwned::to_owned)
+        .collect();
+    next_refs.push(challenge_ref.to_string());
+    next_refs.sort();
+    next_refs.dedup();
+    object.insert("challenge_refs".into(), json!(next_refs));
+    object.insert("updated_at".into(), json!(updated_at));
+    Ok(next)
+}
+
+/// WorkResult-owned, lock-required backlink seam. The caller holds DELTA_ADMISSION_LOCK and
+/// passes the exact intent tail so only that intent's reservation is bypassed. Current bytes must
+/// equal the sealed prior or sealed successor; every other state refuses without mutation.
+pub(crate) fn bind_verifier_challenge_locked(
+    data_dir: &str,
+    result_ref: &str,
+    challenge_ref: &str,
+    prior: &Value,
+    successor: &Value,
+    intent_tail: &str,
+) -> Result<Value, (String, String)> {
+    let updated_at = successor
+        .get("updated_at")
+        .and_then(Value::as_str)
+        .ok_or_else(|| {
+            verr(
+                "work_result_challenge_backlink_invalid",
+                "sealed WorkResult successor lacks updated_at",
+            )
+        })?;
+    let expected =
+        verifier_challenge_backlink_successor(prior, result_ref, challenge_ref, updated_at)?;
+    if expected != *successor {
+        return Err(verr(
+            "work_result_challenge_backlink_invalid",
+            "sealed WorkResult successor does not reconstruct exactly",
+        ));
+    }
+    let current = load_work_result_strict(data_dir, result_ref)
+        .map_err(|message| verr("work_result_challenge_backlink_unreadable", message))?
+        .ok_or_else(|| {
+            verr(
+                "work_result_challenge_backlink_not_found",
+                format!("no WorkResult '{result_ref}'"),
+            )
+        })?;
+    if current == *successor {
+        return Ok(current);
+    }
+    if current != *prior {
+        return Err(verr(
+            "work_result_challenge_backlink_conflict",
+            "WorkResult equals neither the sealed prior nor sealed successor",
+        ));
+    }
+    super::verifier_challenge_routes::refuse_external_mutation_if_reserved_except(
+        data_dir,
+        result_ref,
+        "work_result_mutation_in_flight",
+        intent_tail,
+    )?;
+    let tail = result_ref
+        .strip_prefix("work-result://")
+        .ok_or_else(|| {
+            verr(
+                "work_result_challenge_backlink_identity_mismatch",
+                "WorkResult ref has the wrong scheme",
+            )
+        })?;
+    persist_result_atomic(data_dir, tail, successor).map_err(|error| {
+        verr(
+            "work_result_challenge_backlink_persist_failed",
+            format!("WorkResult challenge backlink persist failed ({error})"),
+        )
+    })?;
+    Ok(successor.clone())
 }
 
 /// Strict OutcomeDelta point loader for provenance consumers. The WorkResult plane remains the
@@ -594,10 +732,14 @@ fn validate_work_result(
     future_plane_scalar(body, "acceptance_ref", "work_result_acceptance_unavailable", "acceptance authority is build step 3; admission never implies acceptance")?;
     future_plane_scalar(body, "superseded_by_ref", "work_result_superseded_by_unavailable", "supersession-by arrives with the later result/delta that supersedes this one — it is never self-declared at admission")?;
     future_plane_list(body, "finding_refs", "work_result_finding_refs_unavailable", "the Finding plane is build step 3")?;
-    future_plane_list(body, "challenge_refs", "work_result_challenge_refs_unavailable", "the VerifierChallenge plane is build step 3")?;
-    // outcome_delta_refs is PLANE-OWNED: the delta admission registers the backlink atomically.
+    // OutcomeDelta and VerifierChallenge backlinks are plane-owned and land through their owner
+    // seams. Even an empty caller-provided list is forbidden: absence, not a caller assertion,
+    // selects the canonical empty admission state.
     if body.get("outcome_delta_refs").map(|v| !v.is_null()).unwrap_or(false) {
         return Err(verr("work_result_outcome_delta_refs_plane_owned", "`outcome_delta_refs` is plane-owned — the OutcomeDelta admission registers the backlink atomically; callers never supply it"));
+    }
+    if body.get("challenge_refs").map(|v| !v.is_null()).unwrap_or(false) {
+        return Err(verr("work_result_challenge_refs_plane_owned", "`challenge_refs` is plane-owned — VerifierChallenge admission registers the backlink through the WorkResult owner seam; callers never supply it"));
     }
     let result_profile = vocab_required(body, "result_profile", RESULT_PROFILES, "work_result_profile_invalid")?;
     let outcome_class = vocab_required(body, "outcome_class", OUTCOME_CLASSES, "work_result_outcome_class_invalid")?;
@@ -825,7 +967,7 @@ pub(crate) async fn handle_work_results_overview(State(st): State<Arc<DaemonStat
             "results and deltas are ADMITTED DECLARATIONS with durable receipts — acceptance, verification, adjudication, and settlement are the assurance-ladder rungs above admission and are NOT implied (a receipt is not proof of correctness)",
             "outcome-delta evaluation/admission/rollback TRANSITIONS are not wired: status is plane-owned at `proposed` until the room/acceptance authority of build steps 2-3 exists",
             "attempt://, finding://, and participant-lease:// proposers are named gaps (build step 3) — today a delta binds an admitted, SAME-GOAL work-result://",
-            "outcome_room_ref is LIVE (build step 2): it must resolve to an OPEN hosted room, and a delta's room must exactly equal its bound result's room; the remaining future-plane fields (work_claim_ref, attempt_ref, finding_refs, acceptance_ref, challenge_refs, superseded_by_ref) refuse non-empty values with per-field unavailable codes until build step 3; outcome_delta_refs is plane-owned and registered atomically by delta admission"
+            "outcome_room_ref is LIVE (build step 2): it must resolve to an OPEN hosted room, and a delta's room must exactly equal its bound result's room; the remaining future-plane fields (work_claim_ref, attempt_ref, finding_refs, acceptance_ref, superseded_by_ref) refuse non-empty values with per-field unavailable codes until their owners land; outcome_delta_refs and challenge_refs are plane-owned and registered atomically by their owner seams"
         ],
         "runtimeTruthSource": "daemon-runtime"
     }))
@@ -1052,7 +1194,7 @@ mod work_result_tests {
             ("acceptance_ref", json!("acceptance://ghost"), "work_result_acceptance_unavailable"),
             ("superseded_by_ref", json!("work-result://future"), "work_result_superseded_by_unavailable"),
             ("finding_refs", json!(["finding://ghost"]), "work_result_finding_refs_unavailable"),
-            ("challenge_refs", json!(["verifier-challenge://ghost"]), "work_result_challenge_refs_unavailable"),
+            ("challenge_refs", json!(["verifier-challenge://ghost"]), "work_result_challenge_refs_plane_owned"),
             ("outcome_delta_refs", json!(["outcome-delta://ghost"]), "work_result_outcome_delta_refs_plane_owned"),
         ];
         for (key, val, code) in cases {
@@ -1060,6 +1202,66 @@ mod work_result_tests {
             b[key] = val;
             assert_eq!(validate_work_result(&b, &no_resolve, &no_room).unwrap_err().0, code, "field: {key}");
         }
+    }
+
+    #[test]
+    fn verifier_challenge_backlink_is_plane_owned_and_exact() {
+        let mut caller = valid_result_body();
+        caller["challenge_refs"] = json!([]);
+        assert_eq!(
+            validate_work_result(&caller, &no_resolve, &no_room)
+                .unwrap_err()
+                .0,
+            "work_result_challenge_refs_plane_owned"
+        );
+
+        let dir = temp_dir("challenge-backlink");
+        let data_dir = dir.to_str().unwrap();
+        let result_ref = "work-result://wr_challenge";
+        let challenge_ref = format!("verifier-challenge://vc_{}", "a".repeat(64));
+        let prior = json!({
+            "schema_version":RESULT_SCHEMA,
+            "work_result_id":result_ref,
+            "challenge_refs":[],
+            "updated_at":"2026-01-01T00:00:00Z"
+        });
+        persist_record(data_dir, RESULT_DIR, "wr_challenge", &prior).unwrap();
+        let successor = verifier_challenge_backlink_successor(
+            &prior,
+            result_ref,
+            &challenge_ref,
+            "2026-01-02T00:00:00Z",
+        )
+        .unwrap();
+        let applied = bind_verifier_challenge_locked(
+            data_dir,
+            result_ref,
+            &challenge_ref,
+            &prior,
+            &successor,
+            "vci_test",
+        )
+        .unwrap();
+        assert_eq!(applied, successor);
+        assert_eq!(
+            load_work_result_strict(data_dir, result_ref)
+                .unwrap()
+                .unwrap()["challenge_refs"],
+            json!([challenge_ref])
+        );
+        assert_eq!(
+            bind_verifier_challenge_locked(
+                data_dir,
+                result_ref,
+                &format!("verifier-challenge://vc_{}", "a".repeat(64)),
+                &prior,
+                &successor,
+                "vci_test",
+            )
+            .unwrap(),
+            successor
+        );
+        std::fs::remove_dir_all(dir).ok();
     }
 
     #[test]

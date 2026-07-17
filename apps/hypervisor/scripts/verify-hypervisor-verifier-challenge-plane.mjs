@@ -130,7 +130,9 @@ async function run() {
     ok("SETUP: production room, active participant, WorkResult, Attempt, and Finding coordinates exist",
       roomRef && lease.status === "active" && workResult && attemptRef && findingRef);
 
-    const input = challengeBody(roomRef, lease.participant_lease_id, findingRef, [attemptRef]);
+    const input = challengeBody(roomRef, lease.participant_lease_id, findingRef, [attemptRef], {
+      reverification_required: true,
+    });
     const secondRoom = (await call("POST", "/v1/hypervisor/outcome-rooms", {
       ...ROOM, objective_ref: "goal://verifier-challenge-cross-room", objective: "Cross-room challenge refusal fixture.",
     })).body.outcome_room;
@@ -142,6 +144,9 @@ async function run() {
       ...input, challenged_ref: `attempt://att_${"7".repeat(64)}`, affected_attempt_refs: [`attempt://att_${"7".repeat(64)}`],
     });
     const malformed = await call("POST", "/v1/hypervisor/verifier-challenges", { ...input, challenged_ref: "attempt://bad" });
+    const malformedAffected = await call("POST", "/v1/hypervisor/verifier-challenges", {
+      ...input, affected_attempt_refs: ["attempt://bad"],
+    });
     const crossRoom = await call("POST", "/v1/hypervisor/verifier-challenges", { ...input, outcome_room_ref: secondRoom.outcome_room_id });
     const relocatedTail = `att_${"6".repeat(64)}`;
     writeFileSync(join(dataDir, "attempts", `${relocatedTail}.json`), JSON.stringify({
@@ -154,10 +159,11 @@ async function run() {
     });
     rmSync(join(dataDir, "attempts", `${relocatedTail}.json`));
     ok("TARGETS: unsupported, missing, malformed, relocated, and cross-room targets refuse with zero mutation",
-      unsupported.status === 501 && ghost.status === 404 && malformed.status === 500 && relocated.status === 500
+      unsupported.status === 501 && ghost.status === 404 && malformed.status === 422
+      && malformedAffected.status === 422 && relocated.status === 500
       && crossRoom.status === 422 && JSON.stringify(negativeBaseline) === JSON.stringify([
         names(dataDir, "verifier-challenges"), names(dataDir, "verifier-challenge-receipts"), names(dataDir, "verifier-challenge-intents"),
-      ]), `${unsupported.status}/${ghost.status}/${malformed.status}/${relocated.status}/${crossRoom.status}`);
+      ]), `${unsupported.status}/${ghost.status}/${malformed.status}/${malformedAffected.status}/${relocated.status}/${crossRoom.status}`);
     const missing = await call("POST", "/v1/hypervisor/verifier-challenges", input);
     if (!missing.body.error?.approval) throw new Error(`VerifierChallenge did not reach authority: ${JSON.stringify(missing)}`);
     const grant = resolver.mint(lease.participant_ref, missing.body.error.approval.policy_hash, missing.body.error.approval.request_hash);
@@ -175,18 +181,20 @@ async function run() {
     const created = await call("POST", "/v1/hypervisor/verifier-challenges", { ...input, wallet_approval_grant: grant });
     const challenge = created.body.verifier_challenge;
     const tail = challenge?.verifier_challenge_id?.replace("verifier-challenge://", "");
-    ok("CREATE: participant admits canonical Finding challenge with frozen target, WorkResult, and affected Attempt",
+    const linkedResult = (await call("GET", `/v1/hypervisor/work-results/${workResult.work_result_id.replace("work-result://", "")}`)).body.work_result;
+    ok("CREATE: participant admits canonical Finding challenge with frozen target, WorkResult, affected Attempt, and owner backlink",
       created.status === 201 && /^vc_[0-9a-f]{64}$/.test(tail)
       && challenge.frozen_coordinates?.challenged_target?.kind === "finding"
       && challenge.frozen_coordinates?.work_result?.record_ref === workResult.work_result_id
-      && challenge.frozen_coordinates?.bound_attempt_ref === attemptRef,
+      && challenge.frozen_coordinates?.bound_attempt_ref === attemptRef
+      && JSON.stringify(linkedResult.challenge_refs) === JSON.stringify([challenge.verifier_challenge_id]),
       `${created.status}/${created.body.error?.code || "ok"}`);
     const replayedCreate = await call("POST", "/v1/hypervisor/verifier-challenges", { ...input, wallet_approval_grant: grant });
     const staleAdmit = await call("POST", `/v1/hypervisor/verifier-challenges/${tail}/transition`, {
       transition: "admit", expected_revision: 0,
     });
     ok("CONCURRENCY: replayed create grant and stale transition revision refuse",
-      replayedCreate.status === 409 && replayedCreate.body.error?.code === "verifier_challenge_conflict"
+      replayedCreate.status === 403 && replayedCreate.body.error?.code === "verifier_challenge_participant_authority_required"
       && staleAdmit.status === 409,
       `${replayedCreate.status}/${replayedCreate.body.error?.code}; ${staleAdmit.status}/${staleAdmit.body.error?.code}`);
 
@@ -200,28 +208,46 @@ async function run() {
     await plane.stop();
     plane = await startIsolatedPlane({ serve: false, env: { ...resolver.env, IOI_TEST_FORCE_DIRSYNC_UNCONFIRMED: "verifier-challenge-receipts" }, dataDir });
     call = (method, path, body) => jsonCall(plane.daemonUrl, method, path, body);
-    const pendingAdmit = await governed(call, resolver, "domain://acme-host", `/v1/hypervisor/verifier-challenges/${tail}/transition`, {
-      transition: "admit", expected_revision: challenge.revision,
-    });
+    const pendingCreate = await governed(call, resolver, lease.participant_ref, "/v1/hypervisor/verifier-challenges",
+      challengeBody(roomRef, lease.participant_lease_id, secondAttemptRef, [secondAttemptRef], {
+        challenge_kind: "mapping", challenge_evidence_refs: ["evidence://receipt-fault"],
+      }));
     const crashIntentName = names(dataDir, "verifier-challenge-intents")[0];
     const crashSealed = crashIntentName ? JSON.parse(readFileSync(join(dataDir, "verifier-challenge-intents", crashIntentName), "utf8")) : null;
-    ok("DURABILITY: receipt fault returns typed pending convergence and retains complete sealed intent",
-      pendingAdmit.response.status === 500 && crashSealed?.receipt?.wallet_approval_grant && crashSealed?.touched_refs?.includes(attemptRef),
-      `${pendingAdmit.response.status}/${pendingAdmit.response.body.error?.code}`);
+    const crashTail = crashSealed?.final_challenge?.verifier_challenge_id?.replace("verifier-challenge://", "");
+    ok("DURABILITY: create receipt fault retains exact challenge, room, WorkResult, Attempt, and authority successors",
+      pendingCreate.response.status === 500 && crashSealed?.receipt?.wallet_approval_grant
+      && crashSealed?.final_work_result?.challenge_refs?.includes(crashSealed?.final_challenge?.verifier_challenge_id)
+      && crashSealed?.touched_refs?.includes(secondAttemptRef)
+      && crashSealed?.touched_refs?.includes(workResult.work_result_id)
+      && crashSealed?.touched_refs?.includes(roomRef),
+      `${pendingCreate.response.status}/${pendingCreate.response.body.error?.code}`);
     process.kill(plane.daemonPid, "SIGKILL");
     await delay(300);
     await plane.stop();
     plane = await startIsolatedPlane({ serve: false, env: { ...resolver.env, IOI_HYPERVISOR_GOVERNED_REPLAY_TIMEOUT_MS: "60000" }, dataDir });
     call = (method, path, body) => jsonCall(plane.daemonUrl, method, path, body);
-    const crashConverged = await poll(call, `/v1/hypervisor/verifier-challenges/${tail}`,
-      (value) => value.status === 200 && value.body.verifier_challenge?.status === "admitted", 90_000);
-    const crashRecordPath = join(dataDir, "verifier-challenges", `${tail}.json`);
+    const crashConverged = await poll(call, `/v1/hypervisor/verifier-challenges/${crashTail}`,
+      (value) => value.status === 200 && value.body.verifier_challenge?.status === "proposed", 90_000);
+    const crashRecordPath = join(dataDir, "verifier-challenges", `${crashTail}.json`);
+    const workResultPath = join(dataDir, "work-result-registry", `${workResult.work_result_id.replace("work-result://", "")}.json`);
     const crashBytesExact = readFileSync(crashRecordPath, "utf8") === JSON.stringify(crashSealed?.final_challenge, null, 2);
-    ok("DURABILITY: SIGKILL plus one restart converges the exact sealed successor",
-      crashConverged.status === 200 && crashBytesExact && names(dataDir, "verifier-challenge-intents").length === 0,
-      `${crashConverged.status}/${crashConverged.body.error?.code || crashConverged.body.verifier_challenge?.status}; bytes=${crashBytesExact}; intents=${names(dataDir, "verifier-challenge-intents").length}`);
+    const workResultBytesExact = readFileSync(workResultPath, "utf8") === JSON.stringify(crashSealed?.final_work_result, null, 2);
+    ok("DURABILITY: SIGKILL plus one restart converges exact challenge and WorkResult backlink successors",
+      crashConverged.status === 200 && crashBytesExact && workResultBytesExact
+      && names(dataDir, "verifier-challenge-intents").length === 0,
+      `${crashConverged.status}/${crashConverged.body.error?.code || crashConverged.body.verifier_challenge?.status}; challenge=${crashBytesExact}; workResult=${workResultBytesExact}; intents=${names(dataDir, "verifier-challenge-intents").length}`);
+    const clearedFaultedCreate = await governed(call, resolver, lease.participant_ref,
+      `/v1/hypervisor/verifier-challenges/${crashTail}/transition`,
+      { transition: "withdraw", expected_revision: crashConverged.body.verifier_challenge.revision });
+    const admitted = await governed(call, resolver, "domain://acme-host", `/v1/hypervisor/verifier-challenges/${tail}/transition`, {
+      transition: "admit", expected_revision: challenge.revision,
+    });
+    ok("DURABILITY: converged faulted creation can clear and the original lifecycle remains writable",
+      clearedFaultedCreate.response.status === 200 && admitted.response.status === 200,
+      `${clearedFaultedCreate.response.status}/${admitted.response.status}`);
 
-    let current = crashConverged.body.verifier_challenge;
+    let current = admitted.response.body.verifier_challenge;
     for (const [transition, expected] of [["investigate", "investigating"], ["uphold", "upheld"]]) {
       const moved = await governed(call, resolver, "domain://acme-host", `/v1/hypervisor/verifier-challenges/${tail}/transition`, {
         transition, expected_revision: current.revision,
@@ -235,6 +261,30 @@ async function run() {
     });
     ok("RULE CHANGE: omitted rule versions refuse before mutation", omitted.response.status === 422,
       `${omitted.response.status}/${omitted.response.body.error?.code}`);
+    const beforeLifecycleBypass = {
+      challenge: readFileSync(join(dataDir, "verifier-challenges", `${tail}.json`), "utf8"),
+      receipts: names(dataDir, "verifier-challenge-receipts"),
+      intents: names(dataDir, "verifier-challenge-intents"),
+    };
+    const earlyResolve = await governed(call, resolver, "domain://acme-host",
+      `/v1/hypervisor/verifier-challenges/${tail}/transition`,
+      { transition: "resolve", expected_revision: current.revision });
+    const identicalRules = await governed(call, resolver, "domain://acme-host",
+      `/v1/hypervisor/verifier-challenges/${tail}/transition`, {
+        transition: "rule_changed", expected_revision: current.revision,
+        prior_rule_version_ref: "rubric://same", proposed_rule_version_ref: "rubric://same",
+        affected_attempt_refs: [attemptRef], reverification_required: true,
+      });
+    const lifecycleBypassZeroMutation = beforeLifecycleBypass.challenge === readFileSync(join(dataDir, "verifier-challenges", `${tail}.json`), "utf8")
+      && JSON.stringify(beforeLifecycleBypass.receipts) === JSON.stringify(names(dataDir, "verifier-challenge-receipts"))
+      && JSON.stringify(beforeLifecycleBypass.intents) === JSON.stringify(names(dataDir, "verifier-challenge-intents"));
+    ok("LIFECYCLE: upheld required-reverification and identical-rule bypasses refuse with zero mutation",
+      earlyResolve.response.status === 422
+      && earlyResolve.response.body.error?.code === "verifier_challenge_reverification_incomplete"
+      && identicalRules.response.status === 422
+      && identicalRules.response.body.error?.code === "verifier_challenge_rule_versions_identical"
+      && lifecycleBypassZeroMutation,
+      `${earlyResolve.response.status}/${earlyResolve.response.body.error?.code}; ${identicalRules.response.status}/${identicalRules.response.body.error?.code}; zero=${lifecycleBypassZeroMutation}`);
     const substituted = await call("POST", `/v1/hypervisor/verifier-challenges/${tail}/transition`, {
       transition: "rule_changed", expected_revision: current.revision,
       prior_rule_version_ref: "rubric://v1", proposed_rule_version_ref: "rubric://v2",
@@ -249,6 +299,15 @@ async function run() {
       affected_attempt_refs: [attemptRef], reverification_required: true,
     });
     current = ruleChanged.response.body.verifier_challenge;
+    const beforeRuleResolve = readFileSync(join(dataDir, "verifier-challenges", `${tail}.json`), "utf8");
+    const ruleResolve = await governed(call, resolver, "domain://acme-host",
+      `/v1/hypervisor/verifier-challenges/${tail}/transition`,
+      { transition: "resolve", expected_revision: current.revision });
+    ok("LIFECYCLE: rule_changed cannot resolve before begin_reverification",
+      ruleResolve.response.status === 422
+      && ruleResolve.response.body.error?.code === "verifier_challenge_reverification_incomplete"
+      && beforeRuleResolve === readFileSync(join(dataDir, "verifier-challenges", `${tail}.json`), "utf8"),
+      `${ruleResolve.response.status}/${ruleResolve.response.body.error?.code}`);
     const reverifying = await governed(call, resolver, "domain://acme-host", `/v1/hypervisor/verifier-challenges/${tail}/transition`, {
       transition: "begin_reverification", expected_revision: current.revision,
     });
@@ -281,10 +340,21 @@ async function run() {
       challengeBody(roomRef, lease.participant_lease_id, attemptRef, [attemptRef], { challenge_kind: "metric", challenge_evidence_refs: ["evidence://metric-negative"] }));
     let negativeRecord = negative.response.body.verifier_challenge;
     const negativeTail = negativeRecord.verifier_challenge_id.replace("verifier-challenge://", "");
+    const derivedFindingBlocked = await call("POST", `/v1/hypervisor/findings/${findingRef.replace("finding://", "")}/transition`, {
+      transition: "accept", expected_revision: 4,
+    });
     const negativeAdmit = await governed(call, resolver, "domain://acme-host", `/v1/hypervisor/verifier-challenges/${negativeTail}/transition`, { transition: "admit", expected_revision: negativeRecord.revision });
     negativeRecord = negativeAdmit.response.body.verifier_challenge;
     const rejected = await governed(call, resolver, "domain://acme-host", `/v1/hypervisor/verifier-challenges/${negativeTail}/transition`, { transition: "reject", expected_revision: negativeRecord.revision });
-    ok("NEGATIVE: host can reject an admitted challenge", rejected.response.status === 200 && rejected.response.body.verifier_challenge?.status === "rejected");
+    const derivedFindingCleared = await call("POST", `/v1/hypervisor/findings/${findingRef.replace("finding://", "")}/transition`, {
+      transition: "accept", expected_revision: 4,
+    });
+    ok("INTERLOCK: Attempt challenge blocks its derived Finding until rejection restores the existing 501",
+      derivedFindingBlocked.status === 409
+      && derivedFindingBlocked.body.error?.code === "verifier_challenge_acceptance_unresolved"
+      && rejected.response.status === 200 && rejected.response.body.verifier_challenge?.status === "rejected"
+      && derivedFindingCleared.status === 501 && derivedFindingCleared.body.error?.code === "finding_verdict_unavailable",
+      `${derivedFindingBlocked.status}/${rejected.response.status}/${derivedFindingCleared.status}`);
 
     const withdrawnCreated = await governed(call, resolver, lease.participant_ref, "/v1/hypervisor/verifier-challenges",
       challengeBody(roomRef, lease.participant_lease_id, findingRef, [attemptRef], { challenge_kind: "mapping", challenge_evidence_refs: ["evidence://withdrawn"] }));
