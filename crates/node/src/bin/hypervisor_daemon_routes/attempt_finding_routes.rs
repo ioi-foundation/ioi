@@ -102,6 +102,7 @@ fn classify(error: VErr) -> (StatusCode, Json<Value>) {
         || code.contains("in_flight")
         || code.contains("not_active")
         || code.contains("not_open")
+        || code.contains("unresolved")
         || code.contains("coordinate_changed")
     {
         StatusCode::CONFLICT
@@ -2110,6 +2111,15 @@ pub(crate) async fn handle_attempt_transition(
     if let Err(error) = expected_revision(&body, revision) {
         return classify(error);
     }
+    let subject_ref = s(&prior, "attempt_id", "");
+    if op == "accept" {
+        if let Err(error) = super::verifier_challenge_routes::refuse_acceptance_if_unresolved(
+            &state.data_dir,
+            &subject_ref,
+        ) {
+            return classify(error);
+        }
+    }
     let (governance, to) = match attempt_transition_contract(&op, &s(&prior, "status", "")) {
         Ok(value) => value,
         Err(error) => return classify(error),
@@ -2126,7 +2136,6 @@ pub(crate) async fn handle_attempt_transition(
         Err(error) => return classify(error),
     };
     let room_ref = s(&prior, "outcome_room_ref", "");
-    let subject_ref = s(&prior, "attempt_id", "");
     let authority = if governance == Governance::Host {
         let value = s(&dependencies.room, "host_domain_ref", "");
         if value.is_empty() {
@@ -2256,6 +2265,13 @@ pub(crate) async fn handle_attempt_transition(
         &reserved,
         "attempt_finding_mutation_in_flight",
         None,
+    ) {
+        return classify(error);
+    }
+    if let Err(error) = super::verifier_challenge_routes::refuse_external_mutation_if_reserved(
+        &state.data_dir,
+        &subject_ref,
+        "attempt_finding_mutation_in_flight",
     ) {
         return classify(error);
     }
@@ -2527,12 +2543,20 @@ pub(crate) async fn handle_finding_transition(
     if let Err(error) = expected_revision(&body, revision) {
         return classify(error);
     }
+    let subject_ref = s(&prior, "finding_id", "");
+    if op == "accept" {
+        if let Err(error) = super::verifier_challenge_routes::refuse_acceptance_if_unresolved(
+            &state.data_dir,
+            &subject_ref,
+        ) {
+            return classify(error);
+        }
+    }
     let to = match finding_transition_contract(&op, &s(&prior, "status", "")) {
         Ok(value) => value,
         Err(error) => return classify(error),
     };
     let room_ref = s(&prior, "outcome_room_ref", "");
-    let subject_ref = s(&prior, "finding_id", "");
     let dependencies =
         match resolve_finding_dependencies(&state.data_dir, &prior, false, false, false) {
             Ok(value) => value,
@@ -2624,6 +2648,13 @@ pub(crate) async fn handle_finding_transition(
         &reserved,
         "attempt_finding_mutation_in_flight",
         None,
+    ) {
+        return classify(error);
+    }
+    if let Err(error) = super::verifier_challenge_routes::refuse_external_mutation_if_reserved(
+        &state.data_dir,
+        &subject_ref,
+        "attempt_finding_mutation_in_flight",
     ) {
         return classify(error);
     }

@@ -87,6 +87,11 @@ const BACKLINK_OPS: &[(&str, &str, &str)] = &[
     ("capability_offer_bound", "capability_offer_refs", "capability-offer"),
     ("attempt_bound", "attempt_refs", "attempt"),
     ("finding_bound", "finding_refs", "finding"),
+    (
+        "verifier_challenge_bound",
+        "verifier_challenge_refs",
+        "verifier-challenge",
+    ),
 ];
 const BACKLINK_NOTE: &str = "an admitted backlink transition — the room's object list gains one canonical ref; the object record itself is its own plane's truth";
 
@@ -110,6 +115,16 @@ fn backlink_ref_ok(value: &str, scheme: &str) -> bool {
         return value
             .strip_prefix("capability-offer://cof_")
             .is_some_and(|tail| tail.len() == 64 && tail.chars().all(|c| c.is_ascii_digit() || matches!(c, 'a'..='f')));
+    }
+    if scheme == "verifier-challenge" {
+        return value
+            .strip_prefix("verifier-challenge://vc_")
+            .is_some_and(|tail| {
+                tail.len() == 64
+                    && tail
+                        .chars()
+                        .all(|c| c.is_ascii_digit() || matches!(c, 'a'..='f'))
+            });
     }
     ref_scheme_ok(value, &[scheme])
 }
@@ -1651,6 +1666,11 @@ fn mutate_room(
         &room_id,
         "outcome_room_mutation_in_flight",
     )?;
+    super::verifier_challenge_routes::refuse_external_mutation_if_reserved(
+        data_dir,
+        &room_id,
+        "outcome_room_mutation_in_flight",
+    )?;
     let Some(prior) = load_room(data_dir, &room_id) else {
         return Err(verr("outcome_room_not_found", format!("no admitted room '{room_id}'")));
     };
@@ -1714,7 +1734,7 @@ pub(crate) fn bind_room_backlink_room_locked(
     op: &str,
     bound_ref: &str,
 ) -> Result<(Value, Value), VErr> {
-    bind_room_backlink_room_locked_impl(data_dir, room_ref, op, bound_ref, None, None, None)
+    bind_room_backlink_room_locked_impl(data_dir, room_ref, op, bound_ref, None, None, None, None)
 }
 
 /// Work-intent replay reaches the room owner seam while its own room reservation is necessarily
@@ -1732,6 +1752,7 @@ pub(crate) fn bind_room_backlink_room_locked_for_work_intent(
         op,
         bound_ref,
         Some(intent_tail),
+        None,
         None,
         None,
     )
@@ -1753,6 +1774,7 @@ pub(crate) fn bind_room_backlink_room_locked_for_offer_intent(
         None,
         Some(intent_tail),
         None,
+        None,
     )
 }
 
@@ -1764,7 +1786,35 @@ pub(crate) fn bind_room_backlink_room_locked_for_attempt_finding_intent(
     bound_ref: &str,
     intent_tail: &str,
 ) -> Result<(Value, Value), VErr> {
-    bind_room_backlink_room_locked_impl(data_dir, room_ref, op, bound_ref, None, None, Some(intent_tail))
+    bind_room_backlink_room_locked_impl(
+        data_dir,
+        room_ref,
+        op,
+        bound_ref,
+        None,
+        None,
+        Some(intent_tail),
+        None,
+    )
+}
+
+pub(crate) fn bind_room_backlink_room_locked_for_verifier_challenge_intent(
+    data_dir: &str,
+    room_ref: &str,
+    op: &str,
+    bound_ref: &str,
+    intent_tail: &str,
+) -> Result<(Value, Value), VErr> {
+    bind_room_backlink_room_locked_impl(
+        data_dir,
+        room_ref,
+        op,
+        bound_ref,
+        None,
+        None,
+        None,
+        Some(intent_tail),
+    )
 }
 
 fn bind_room_backlink_room_locked_impl(
@@ -1775,6 +1825,7 @@ fn bind_room_backlink_room_locked_impl(
     ignored_work_intent_tail: Option<&str>,
     ignored_offer_intent_tail: Option<&str>,
     ignored_attempt_finding_intent_tail: Option<&str>,
+    ignored_verifier_challenge_intent_tail: Option<&str>,
 ) -> Result<(Value, Value), VErr> {
     match (ignored_work_intent_tail, ignored_offer_intent_tail) {
         (Some(intent_tail), _) => {
@@ -1816,6 +1867,19 @@ fn bind_room_backlink_room_locked_impl(
             data_dir, room_ref, "outcome_room_mutation_in_flight", intent_tail,
         )?,
         None => super::attempt_finding_routes::refuse_external_mutation_if_reserved(
+            data_dir, room_ref, "outcome_room_mutation_in_flight",
+        )?,
+    }
+    match ignored_verifier_challenge_intent_tail {
+        Some(intent_tail) => {
+            super::verifier_challenge_routes::refuse_external_mutation_if_reserved_except(
+                data_dir,
+                room_ref,
+                "outcome_room_mutation_in_flight",
+                intent_tail,
+            )?
+        }
+        None => super::verifier_challenge_routes::refuse_external_mutation_if_reserved(
             data_dir, room_ref, "outcome_room_mutation_in_flight",
         )?,
     }
@@ -1973,6 +2037,13 @@ pub(crate) async fn handle_outcome_room_transition(
             let status = if error.0.contains("registry_unreadable") || error.0.contains("intent_unreadable") { StatusCode::INTERNAL_SERVER_ERROR } else { StatusCode::CONFLICT };
             return err(status, error);
         }
+        if let Err(error) = super::verifier_challenge_routes::refuse_room_close_if_blocked_locked(
+            &st.data_dir,
+            &format!("outcome-room://{id}"),
+        ) {
+            let status = if error.0.contains("registry_unreadable") || error.0.contains("intent_unreadable") { StatusCode::INTERNAL_SERVER_ERROR } else { StatusCode::CONFLICT };
+            return err(status, error);
+        }
     }
     let result = mutate_room(&st.data_dir, &id, &body, &transition, |room| {
         let from = s(room, "status", "");
@@ -1999,7 +2070,7 @@ pub(crate) async fn handle_outcome_room_transition(
     match result {
         Ok((room, receipt)) => (StatusCode::OK, Json(json!({ "outcome_room": room, "outcome_room_receipt": receipt }))),
         Err(e) if e.0 == "outcome_room_not_found" => err(StatusCode::NOT_FOUND, e),
-        Err(e) if e.0 == "outcome_room_revision_conflict" || e.0.ends_with("_in_flight") || e.0 == "outcome_room_close_blocked_frontier_claims" || e.0 == "outcome_room_close_blocked_offers" || e.0 == "outcome_room_close_blocked_attempts_findings" => err(StatusCode::CONFLICT, e),
+        Err(e) if e.0 == "outcome_room_revision_conflict" || e.0.ends_with("_in_flight") || e.0 == "outcome_room_close_blocked_frontier_claims" || e.0 == "outcome_room_close_blocked_offers" || e.0 == "outcome_room_close_blocked_attempts_findings" || e.0 == "outcome_room_close_blocked_verifier_challenges" => err(StatusCode::CONFLICT, e),
         Err(e) if e.0.ends_with("_persist_failed") || e.0.ends_with("_pending_convergence") || e.0.ends_with("_durability_unconfirmed") || e.0.ends_with("_unreadable") || e.0 == "outcome_room_rollback_failed" => err(StatusCode::INTERNAL_SERVER_ERROR, e),
         Err(e) => err(StatusCode::BAD_REQUEST, e),
     }
@@ -2044,6 +2115,14 @@ pub(crate) async fn handle_outcome_room_attach_goal_run(
         return err(status, error);
     }
     if let Err(error) = super::attempt_finding_routes::refuse_external_mutation_if_reserved(
+        &st.data_dir,
+        &room_id,
+        "outcome_room_mutation_in_flight",
+    ) {
+        let status = if error.0.contains("unreadable") { StatusCode::INTERNAL_SERVER_ERROR } else { StatusCode::CONFLICT };
+        return err(status, error);
+    }
+    if let Err(error) = super::verifier_challenge_routes::refuse_external_mutation_if_reserved(
         &st.data_dir,
         &room_id,
         "outcome_room_mutation_in_flight",

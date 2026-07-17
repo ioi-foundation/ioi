@@ -115,7 +115,7 @@ async function run() {
       ["acceptance_ref", "acceptance://ghost", "work_result_acceptance_unavailable"],
       ["superseded_by_ref", "work-result://future", "work_result_superseded_by_unavailable"],
       ["finding_refs", ["finding://ghost"], "work_result_finding_refs_unavailable"],
-      ["challenge_refs", ["verifier-challenge://ghost"], "work_result_challenge_refs_unavailable"],
+      ["challenge_refs", ["verifier-challenge://ghost"], "work_result_challenge_refs_plane_owned"],
       ["outcome_delta_refs", ["outcome-delta://ghost"], "work_result_outcome_delta_refs_plane_owned"],
     ];
     for (const [field, val, code] of FUTURE) {
