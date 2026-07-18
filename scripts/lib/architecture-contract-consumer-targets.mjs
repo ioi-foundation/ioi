@@ -2,9 +2,9 @@ export const ARCHITECTURE_CONTRACT_CONSUMER_TARGETS = Object.freeze([
   Object.freeze({
     kind: "typescript_projection",
     path: "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
-    consumer_path: "scripts/test-architecture-contract-projections.mjs",
+    consumer_path: "packages/hypervisor-workbench/src/index.ts",
     consumer_marker:
-      'from "../packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts";',
+      'export * from "./runtime/architecture-contracts";',
   }),
   Object.freeze({
     kind: "rust_projection",

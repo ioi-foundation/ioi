@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { fromMarkdown } from "mdast-util-from-markdown";
 
 function markdownFilesUnder(directory) {
   return fs.readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
@@ -54,57 +55,156 @@ function localTarget(rawTarget) {
   };
 }
 
+function sourceText(markdown, node) {
+  const start = node.position?.start?.offset;
+  const end = node.position?.end?.offset;
+  return Number.isInteger(start) && Number.isInteger(end)
+    ? markdown.slice(start, end)
+    : "";
+}
+
+function escapedAt(source, index) {
+  let backslashes = 0;
+  for (let cursor = index - 1; cursor >= 0 && source[cursor] === "\\"; cursor -= 1) {
+    backslashes += 1;
+  }
+  return backslashes % 2 === 1;
+}
+
+function closingBracket(source, opening) {
+  let depth = 0;
+  for (let index = opening; index < source.length; index += 1) {
+    if (escapedAt(source, index)) continue;
+    if (source[index] === "[") depth += 1;
+    if (source[index] === "]") {
+      depth -= 1;
+      if (depth === 0) return index;
+    }
+  }
+  return -1;
+}
+
 function normalizedReferenceLabel(label) {
   return label.trim().replace(/\s+/gu, " ").toLowerCase();
 }
 
-function referenceDefinitions(markdown) {
-  const definitions = new Map();
-  const definitionPattern =
-    /^[ \t]{0,3}\[([^\]\n]+)\]:[ \t]*(<[^>\n]+>|\S+)(?:[ \t]+(?:"[^"\n]*"|'[^'\n]*'|\([^)\n]*\)))?[ \t]*$/gmu;
-  for (const match of markdown.matchAll(definitionPattern)) {
-    const label = normalizedReferenceLabel(match[1]);
-    if (!definitions.has(label)) {
-      definitions.set(label, match[2]);
+function unresolvedReferencesInText(source) {
+  const unresolved = [];
+  for (let index = 0; index < source.length; index += 1) {
+    const image = source[index] === "!" && source[index + 1] === "[";
+    const opening = image ? index + 1 : index;
+    if (source[opening] !== "[" || escapedAt(source, opening)) continue;
+    const closing = closingBracket(source, opening);
+    if (closing === -1) continue;
+    const text = source.slice(opening + 1, closing);
+    let cursor = closing + 1;
+    while (cursor < source.length && /[ \t\r\n]/u.test(source[cursor])) {
+      cursor += 1;
     }
+    if (source[cursor] === "(") {
+      unresolved.push({
+        malformedLink: true,
+        display: source.slice(index, Math.min(source.length, cursor + 80)).trim(),
+      });
+      index = closing;
+      continue;
+    }
+    if (source[cursor] === "[") {
+      const labelClosing = closingBracket(source, cursor);
+      if (labelClosing === -1) {
+        unresolved.push({
+          malformedLink: true,
+          display: source.slice(index).trim(),
+        });
+        break;
+      }
+      const explicit = source.slice(cursor + 1, labelClosing);
+      const label = normalizedReferenceLabel(explicit || text);
+      unresolved.push({
+        missingDefinition: label,
+        display: source.slice(index, labelClosing + 1),
+      });
+      index = labelClosing;
+      continue;
+    }
+    const label = normalizedReferenceLabel(text);
+    if (
+      label &&
+      !label.startsWith("^") &&
+      !/^(?:x|-)$/iu.test(label)
+    ) {
+      unresolved.push({
+        missingDefinition: label,
+        display: source.slice(index, closing + 1),
+      });
+    }
+    index = closing;
   }
-  return definitions;
+  return unresolved;
 }
 
 function markdownLinks(markdown) {
-  const definitions = referenceDefinitions(markdown);
+  const tree = fromMarkdown(markdown);
+  const definitions = new Map();
   const links = [];
-  const linkPattern =
-    /!?\[([^\]\n]+)\](?:\(([^)\n]+)\)|\[([^\]\n]*)\])?/gu;
-  for (const match of markdown.matchAll(linkPattern)) {
-    const lineStart = markdown.lastIndexOf("\n", match.index - 1) + 1;
-    const before = markdown.slice(lineStart, match.index);
-    const after = markdown.slice(match.index + match[0].length);
-    if (/^[ \t]{0,3}$/u.test(before) && after.startsWith(":")) continue;
 
-    if (match[2] !== undefined) {
-      links.push({ target: match[2], display: match[2] });
-      continue;
+  function collectDefinitions(node) {
+    if (node.type === "definition" && !definitions.has(node.identifier)) {
+      definitions.set(node.identifier, node.url);
     }
+    for (const child of node.children ?? []) collectDefinitions(child);
+  }
+  collectDefinitions(tree);
 
-    const explicitReference = match[3] !== undefined;
-    const label = normalizedReferenceLabel(
-      explicitReference && match[3] !== "" ? match[3] : match[1],
-    );
-    if (!definitions.has(label)) {
-      if (explicitReference) {
+  function collectLinks(node, insideLink = false) {
+    if (node.type === "link" || node.type === "image") {
+      links.push({
+        target: node.url,
+        display: sourceText(markdown, node) || node.url,
+      });
+      return;
+    }
+    if (node.type === "linkReference" || node.type === "imageReference") {
+      const target = definitions.get(node.identifier);
+      if (target === undefined) {
         links.push({
-          missingDefinition: label,
-          display: match[0],
+          missingDefinition: node.identifier,
+          display: sourceText(markdown, node),
+        });
+      } else {
+        links.push({
+          target,
+          display: sourceText(markdown, node),
         });
       }
-      continue;
+      return;
     }
-    links.push({
-      target: definitions.get(label),
-      display: match[0],
-    });
+    if (
+      node.type === "text" &&
+      !insideLink
+    ) {
+      links.push(
+        ...unresolvedReferencesInText(sourceText(markdown, node)),
+      );
+    }
+    if (
+      node.type === "code" ||
+      node.type === "inlineCode" ||
+      node.type === "definition" ||
+      node.type === "html"
+    ) {
+      return;
+    }
+    for (const child of node.children ?? []) {
+      collectLinks(
+        child,
+        insideLink ||
+          node.type === "link" ||
+          node.type === "linkReference",
+      );
+    }
   }
+  collectLinks(tree);
   return links;
 }
 
@@ -121,6 +221,12 @@ export function checkConformanceDocsIntegrity({
     const content = fs.readFileSync(file, "utf8");
     const relativeFile = path.relative(root, file);
     for (const link of markdownLinks(content)) {
+      if (link.malformedLink) {
+        failures.push(
+          `${relativeFile} has malformed Markdown link syntax: ${link.display}`,
+        );
+        continue;
+      }
       if (link.missingDefinition) {
         failures.push(
           `${relativeFile} has missing reference definition: ${link.display}`,

@@ -6,15 +6,16 @@ import { fileURLToPath } from "node:url";
 const scriptPath = fileURLToPath(import.meta.url);
 const root = path.resolve(path.dirname(scriptPath), "..");
 
+const PINNED_RUNTIME_ACTION_GENERATOR_CHECK = Object.freeze({
+  id: "runtime-action-generator-check",
+  command: process.execPath,
+  args: Object.freeze([
+    "scripts/generate-runtime-action-contracts.mjs",
+    "--check",
+  ]),
+});
+
 export const PRE_NEXT_LEG_COMMANDS = Object.freeze([
-  Object.freeze({
-    id: "runtime-action-generator-check",
-    command: process.execPath,
-    args: Object.freeze([
-      "scripts/generate-runtime-action-contracts.mjs",
-      "--check",
-    ]),
-  }),
   Object.freeze({
     id: "runtime-action-generator-regressions",
     command: process.execPath,
@@ -65,7 +66,10 @@ export function runPreNextLeg({
   commands = PRE_NEXT_LEG_COMMANDS,
   runCommand = spawnSync,
 } = {}) {
-  for (const command of commands) {
+  for (const command of [
+    PINNED_RUNTIME_ACTION_GENERATOR_CHECK,
+    ...commands,
+  ]) {
     const result = runCommand(command.command, [...command.args], {
       cwd,
       env: process.env,

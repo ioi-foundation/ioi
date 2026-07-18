@@ -5920,7 +5920,7 @@ pub(crate) async fn handle_artifact_availability_incident_admission(
 }
 
 /// POST /v1/hypervisor/harness-session-terminal-attachments — admit a client PTY attach (pure
-/// kernel planner: validates the daemon-admitted spawn + readiness records and composes the
+/// kernel planner: validates caller-supplied spawn + readiness records and composes the
 /// client-attach contract + transcript projection). 202 + record, or {error:{code,message,
 /// details}} with status (400 field-shape / 403 spawn-or-readiness boundary).
 pub(crate) async fn handle_harness_session_terminal_attach_admission(

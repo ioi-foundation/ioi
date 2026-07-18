@@ -8,10 +8,6 @@ import { fileURLToPath } from "node:url";
 import Ajv2020 from "ajv/dist/2020.js";
 import addFormats from "ajv-formats";
 import {
-  ARCHITECTURE_CONTRACT_CONSUMER_TARGETS,
-  ARCHITECTURE_CONTRACT_CONSUMER_TARGET_BY_KIND,
-} from "./lib/architecture-contract-consumer-targets.mjs";
-import {
   ARCHITECTURE_CONTRACT_ASSERTION_KEYWORDS,
   ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES,
   ARCHITECTURE_CONTRACT_FIXTURES,
@@ -24,9 +20,18 @@ import {
   architectureContractInvariantErrors,
   architectureContractSchemaDocument,
   validateArchitectureContract,
-} from "../packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts";
+} from "../packages/hypervisor-workbench/src/runtime/architecture-contracts.ts";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const CANONICAL_TYPESCRIPT_TARGET =
+  "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts";
+const CANONICAL_TYPESCRIPT_BARREL =
+  "packages/hypervisor-workbench/src/runtime/architecture-contracts.ts";
+const CANONICAL_TYPESCRIPT_PUBLIC_INDEX =
+  "packages/hypervisor-workbench/src/index.ts";
+const CANONICAL_RUST_TARGET =
+  "crates/types/src/app/generated/architecture_contracts.rs";
+const CANONICAL_RUST_MODULE_ROOT = "crates/types/src/app/mod.rs";
 assert.equal(ARCHITECTURE_CONTRACT_PORTABLE_INTEGER_MINIMUM, 0);
 assert.equal(
   ARCHITECTURE_CONTRACT_PORTABLE_INTEGER_MAXIMUM,
@@ -270,6 +275,46 @@ for (const [dateTime, expected] of [
   );
 }
 
+{
+  const sparse = authorityKeySetWithNotBeforeValues(1, 2);
+  delete sparse.keys[0];
+  const validateWithAjv = ajvValidator(authorityKeySetContract);
+  assert.equal(validateWithAjv(sparse), false, "Ajv rejects a sparse array hole");
+  assert.equal(
+    validateArchitectureContract(authorityKeySetContract, sparse).ok,
+    false,
+    "generated TypeScript validator must inspect every sparse array index",
+  );
+}
+
+{
+  const contractId = "schema://ioi/foundations/receipt-envelope/v1";
+  const plain = JSON.parse(
+    fs.readFileSync(
+      path.join(
+        root,
+        "docs/architecture/_meta/schemas/fixtures/receipt-envelope-v1/positive-minimal.json",
+      ),
+      "utf8",
+    ),
+  );
+  const inherited = Object.assign(
+    Object.create({ inherited_unknown_property: true }),
+    plain,
+  );
+  const validateWithAjv = ajvValidator(contractId);
+  assert.equal(
+    validateWithAjv(inherited),
+    false,
+    "configured Ajv rejects inherited enumerable additional properties",
+  );
+  assert.equal(
+    validateArchitectureContract(contractId, inherited).ok,
+    false,
+    "generated TypeScript validator must match Ajv inherited-property semantics",
+  );
+}
+
 for (const requiredDifferential of [
   "differential:portable-integer-boundary",
   "differential:portable-integer-over-bound",
@@ -419,9 +464,9 @@ function runTypeScriptCompileRegression(source, expectedSuccess) {
         "--target",
         "ES2022",
         "--module",
-        "NodeNext",
+        "ESNext",
         "--moduleResolution",
-        "NodeNext",
+        "Bundler",
         "--allowImportingTsExtensions",
         sourcePath,
       ],
@@ -438,15 +483,7 @@ function runTypeScriptCompileRegression(source, expectedSuccess) {
 }
 
 const generatedTypePath = path
-  .join(
-    root,
-    "packages",
-    "hypervisor-workbench",
-    "src",
-    "runtime",
-    "generated",
-    "architecture-contracts.ts",
-  )
+  .join(root, CANONICAL_TYPESCRIPT_BARREL)
   .replaceAll("\\", "/");
 runTypeScriptCompileRegression(
   `import type { AuthorityGrantEnvelopeV1, AuthorityGrantEnvelopeV2 } from ${JSON.stringify(generatedTypePath)};\n` +
@@ -474,42 +511,44 @@ const registry = JSON.parse(
 );
 for (const contract of registry.contracts) {
   for (const target of contract.generated_targets) {
-    const consumer =
-      ARCHITECTURE_CONTRACT_CONSUMER_TARGET_BY_KIND.get(target.kind);
-    assert.ok(consumer, `${contract.contract_id}: unknown consumer target kind`);
+    const canonicalPath = new Map([
+      ["typescript_projection", CANONICAL_TYPESCRIPT_TARGET],
+      ["rust_projection", CANONICAL_RUST_TARGET],
+    ]).get(target.kind);
+    assert.ok(
+      canonicalPath,
+      `${contract.contract_id}: unknown consumer target kind`,
+    );
     assert.equal(
       target.path,
-      consumer.path,
+      canonicalPath,
       `${contract.contract_id}: registry target is redirected away from its consumer`,
     );
   }
 }
-for (const consumer of ARCHITECTURE_CONTRACT_CONSUMER_TARGETS) {
-  assert.match(
-    fs.readFileSync(path.join(root, consumer.consumer_path), "utf8"),
-    new RegExp(
-      consumer.consumer_marker.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&"),
-      "u",
-    ),
-    `${consumer.kind}: canonical consumer binding is missing`,
-  );
-}
+assert.match(
+  fs.readFileSync(path.join(root, CANONICAL_TYPESCRIPT_PUBLIC_INDEX), "utf8"),
+  /export \* from "\.\/runtime\/architecture-contracts";/u,
+  "public TypeScript index must export the architecture-contract barrel",
+);
+assert.match(
+  fs.readFileSync(path.join(root, CANONICAL_TYPESCRIPT_BARREL), "utf8"),
+  /export \* from "\.\/generated\/architecture-contracts\.ts";/u,
+  "TypeScript barrel must export the canonical generated projection",
+);
+assert.match(
+  fs.readFileSync(path.join(root, CANONICAL_RUST_MODULE_ROOT), "utf8"),
+  /pub mod generated \{[\s\S]*pub mod architecture_contracts;/u,
+  "Rust app module must bind the canonical generated projection",
+);
 assert.equal(
   generatedTypePath,
-  path.join(
-    root,
-    ARCHITECTURE_CONTRACT_CONSUMER_TARGET_BY_KIND.get(
-      "typescript_projection",
-    ).path,
-  ),
-  "TypeScript compile regression must import the canonical consumer target",
+  path.join(root, CANONICAL_TYPESCRIPT_BARREL),
+  "TypeScript compile regression must import the canonical public barrel",
 );
 const generatedTargetPaths = [
-  ...new Set(
-    registry.contracts.flatMap((contract) =>
-      contract.generated_targets.map((target) => target.path),
-    ),
-  ),
+  CANONICAL_TYPESCRIPT_TARGET,
+  CANONICAL_RUST_TARGET,
 ];
 const generatedTargetBytes = new Map(
   generatedTargetPaths.map((targetPath) => [
@@ -518,8 +557,12 @@ const generatedTargetBytes = new Map(
   ]),
 );
 for (const rejectedArgs of [
+  [],
   ["--chekc"],
   ["--help"],
+  ["--help", "--bogus"],
+  ["--write", "--check"],
+  ["--write", "--write"],
   ["--check", "--self-test"],
   ["--check", "--check"],
   ["--self-test", "--self-test"],
@@ -536,7 +579,7 @@ for (const rejectedArgs of [
   );
   assert.match(
     rejected.stderr,
-    /Supported invocations are bare generation, --check, or --self-test/u,
+    /Supported invocations are exactly --write, --check, or --self-test/u,
   );
   for (const [targetPath, before] of generatedTargetBytes) {
     assert.deepEqual(
@@ -547,7 +590,28 @@ for (const rejectedArgs of [
   }
 }
 
-function runRejectedRegistryProbe(id, mutate, expectedMessage, outsideName = null) {
+function copyCanonicalConsumerBindings(temporaryRoot) {
+  for (const relativePath of [
+    CANONICAL_TYPESCRIPT_PUBLIC_INDEX,
+    CANONICAL_TYPESCRIPT_BARREL,
+    CANONICAL_RUST_MODULE_ROOT,
+    "scripts/test-architecture-contract-projections.mjs",
+  ]) {
+    const target = path.join(temporaryRoot, relativePath);
+    fs.mkdirSync(path.dirname(target), { recursive: true });
+    fs.copyFileSync(path.join(root, relativePath), target);
+  }
+}
+
+function runRejectedRegistryProbe(
+  id,
+  mutate,
+  expectedMessage,
+  outsideName = null,
+  mutateManifest = null,
+  prepareProbe = null,
+  verifyProbe = null,
+) {
   const temporaryParent = fs.mkdtempSync(
     path.join(os.tmpdir(), "ioi-architecture-target-regression-"),
   );
@@ -558,7 +622,12 @@ function runRejectedRegistryProbe(id, mutate, expectedMessage, outsideName = nul
   );
   try {
     fs.mkdirSync(path.join(temporaryRoot, "scripts/lib"), { recursive: true });
-    fs.mkdirSync(temporarySchemaRoot, { recursive: true });
+    fs.mkdirSync(path.dirname(temporarySchemaRoot), { recursive: true });
+    fs.cpSync(
+      path.join(root, "docs/architecture/_meta/schemas"),
+      temporarySchemaRoot,
+      { recursive: true },
+    );
     fs.copyFileSync(
       path.join(root, "scripts/generate-architecture-contracts.mjs"),
       path.join(temporaryRoot, "scripts/generate-architecture-contracts.mjs"),
@@ -568,6 +637,7 @@ function runRejectedRegistryProbe(id, mutate, expectedMessage, outsideName = nul
       path.join(temporaryRoot, "scripts/check-architecture-contracts.mjs"),
     );
     for (const helper of [
+      "architecture-contract-consumer-bindings.mjs",
       "architecture-contract-consumer-targets.mjs",
       "repository-path-boundary.mjs",
     ]) {
@@ -576,6 +646,7 @@ function runRejectedRegistryProbe(id, mutate, expectedMessage, outsideName = nul
         path.join(temporaryRoot, "scripts/lib", helper),
       );
     }
+    copyCanonicalConsumerBindings(temporaryRoot);
     fs.copyFileSync(
       path.join(root, "rust-toolchain.toml"),
       path.join(temporaryRoot, "rust-toolchain.toml"),
@@ -585,6 +656,16 @@ function runRejectedRegistryProbe(id, mutate, expectedMessage, outsideName = nul
       path.join(temporaryRoot, "node_modules"),
       "dir",
     );
+    if (mutateManifest) {
+      const manifestPath = path.join(
+        temporaryRoot,
+        "scripts/lib/architecture-contract-consumer-targets.mjs",
+      );
+      fs.writeFileSync(
+        manifestPath,
+        mutateManifest(fs.readFileSync(manifestPath, "utf8")),
+      );
+    }
     const attackedRegistry = structuredClone(registry);
     mutate(attackedRegistry);
     fs.writeFileSync(
@@ -594,6 +675,7 @@ function runRejectedRegistryProbe(id, mutate, expectedMessage, outsideName = nul
       ),
       `${JSON.stringify(attackedRegistry, null, 2)}\n`,
     );
+    const probeState = prepareProbe?.({ temporaryParent, temporaryRoot });
     for (const [label, invocation] of [
       [
         "generator",
@@ -622,6 +704,12 @@ function runRejectedRegistryProbe(id, mutate, expectedMessage, outsideName = nul
           `${id}: ${label} wrote outside its repository root`,
         );
       }
+      verifyProbe?.({
+        label,
+        probeState,
+        temporaryParent,
+        temporaryRoot,
+      });
     }
   } finally {
     fs.rmSync(temporaryParent, { force: true, recursive: true });
@@ -644,6 +732,71 @@ runRejectedRegistryProbe(
       "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts-copy.ts";
   },
   /must match canonical typescript_projection consumer/u,
+);
+runRejectedRegistryProbe(
+  "joint registry and consumer-manifest redirection",
+  (attacked) => {
+    for (const contract of attacked.contracts) {
+      for (const target of contract.generated_targets) {
+        target.path =
+          target.kind === "typescript_projection"
+            ? "packages/hypervisor-workbench/src/runtime/generated/alternate-architecture-contracts.ts"
+            : "crates/types/src/app/generated/alternate_architecture_contracts.rs";
+      }
+    }
+  },
+  /declaration manifest differs from independently pinned canonical consumers|must match canonical (?:typescript|rust)_projection consumer/u,
+  null,
+  (manifest) =>
+    manifest
+      .replaceAll(
+        CANONICAL_TYPESCRIPT_TARGET,
+        "packages/hypervisor-workbench/src/runtime/generated/alternate-architecture-contracts.ts",
+      )
+      .replaceAll(
+        CANONICAL_RUST_TARGET,
+        "crates/types/src/app/generated/alternate_architecture_contracts.rs",
+      ),
+  ({ temporaryRoot }) => {
+    const staleBytes = Buffer.from(
+      "intentionally stale canonical consumed projection\n",
+    );
+    for (const relativePath of [
+      CANONICAL_TYPESCRIPT_TARGET,
+      CANONICAL_RUST_TARGET,
+    ]) {
+      const target = path.join(temporaryRoot, relativePath);
+      fs.mkdirSync(path.dirname(target), { recursive: true });
+      fs.writeFileSync(target, staleBytes);
+    }
+    for (const [canonical, alternate] of [
+      [
+        CANONICAL_TYPESCRIPT_TARGET,
+        "packages/hypervisor-workbench/src/runtime/generated/alternate-architecture-contracts.ts",
+      ],
+      [
+        CANONICAL_RUST_TARGET,
+        "crates/types/src/app/generated/alternate_architecture_contracts.rs",
+      ],
+    ]) {
+      const target = path.join(temporaryRoot, alternate);
+      fs.mkdirSync(path.dirname(target), { recursive: true });
+      fs.copyFileSync(path.join(root, canonical), target);
+    }
+    return staleBytes;
+  },
+  ({ label, probeState: staleBytes, temporaryRoot }) => {
+    for (const relativePath of [
+      CANONICAL_TYPESCRIPT_TARGET,
+      CANONICAL_RUST_TARGET,
+    ]) {
+      assert.deepEqual(
+        fs.readFileSync(path.join(temporaryRoot, relativePath)),
+        staleBytes,
+        `joint redirection: ${label} changed stale canonical consumer ${relativePath}`,
+      );
+    }
+  },
 );
 runRejectedRegistryProbe(
   "unknown generated target kind",
@@ -669,7 +822,7 @@ runRejectedRegistryProbe(
   /duplicate generated target kind typescript_projection/u,
 );
 
-function runSymlinkBoundaryProbe(id, setup) {
+function runSymlinkBoundaryProbe(id, setup, generatorMode = "--check") {
   const temporaryParent = fs.mkdtempSync(
     path.join(os.tmpdir(), "ioi-architecture-symlink-regression-"),
   );
@@ -695,6 +848,7 @@ function runSymlinkBoundaryProbe(id, setup) {
       );
     }
     for (const helper of [
+      "architecture-contract-consumer-bindings.mjs",
       "architecture-contract-consumer-targets.mjs",
       "repository-path-boundary.mjs",
     ]) {
@@ -703,6 +857,7 @@ function runSymlinkBoundaryProbe(id, setup) {
         path.join(temporaryRoot, "scripts/lib", helper),
       );
     }
+    copyCanonicalConsumerBindings(temporaryRoot);
     fs.copyFileSync(
       path.join(root, "rust-toolchain.toml"),
       path.join(temporaryRoot, "rust-toolchain.toml"),
@@ -720,7 +875,7 @@ function runSymlinkBoundaryProbe(id, setup) {
     for (const [label, invocation] of [
       [
         "generator",
-        ["scripts/generate-architecture-contracts.mjs", "--check"],
+        ["scripts/generate-architecture-contracts.mjs", generatorMode],
       ],
       ["checker", ["scripts/check-architecture-contracts.mjs"]],
     ]) {
@@ -735,7 +890,7 @@ function runSymlinkBoundaryProbe(id, setup) {
       );
       assert.match(
         `${rejected.stdout}\n${rejected.stderr}`,
-        /resolves outside .* boundary through a symlink/u,
+        /symlink component|resolves outside .* boundary through a symlink/u,
         `${id}: ${label}`,
       );
       assertOutsideUnchanged(`${id}: ${label}`);
@@ -762,6 +917,35 @@ runSymlinkBoundaryProbe(
     return (at) =>
       assert.equal(fs.readFileSync(sentinel, "utf8"), expected, at);
   },
+);
+
+runSymlinkBoundaryProbe(
+  "dangling final generated target symlink",
+  ({ temporaryParent, temporaryRoot }) => {
+    const outside = path.join(
+      temporaryParent,
+      "outside-dangling-architecture-contracts.ts",
+    );
+    const generatedTarget = path.join(
+      temporaryRoot,
+      CANONICAL_TYPESCRIPT_TARGET,
+    );
+    fs.mkdirSync(path.dirname(generatedTarget), { recursive: true });
+    fs.symlinkSync(outside, generatedTarget, "file");
+    return (at) => {
+      assert.equal(
+        fs.existsSync(outside),
+        false,
+        `${at}: dangling final symlink created an external target`,
+      );
+      assert.equal(
+        fs.lstatSync(generatedTarget).isSymbolicLink(),
+        true,
+        `${at}: dangling final symlink was replaced`,
+      );
+    };
+  },
+  "--write",
 );
 
 for (const [id, relativePath] of [

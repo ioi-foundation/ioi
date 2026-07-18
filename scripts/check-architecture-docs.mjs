@@ -229,6 +229,7 @@ if (
     "README.md must describe aiagent.xyz as ontology-bound digital and embodied workers, not portable digital workers only.",
   );
 }
+
 if (!index.includes("ontology-bound digital and embodied workers")) {
   fail("README.md must describe aiagent.xyz as ontology-bound digital and embodied workers.");
 }
@@ -489,6 +490,69 @@ const currentHarnessRustCorpus = allFiles(
   .map((file) => fs.readFileSync(file, "utf8"))
   .join("\n");
 
+const harnessMigrationRow = hypervisorKernelMigrationMatrix
+  .split(/\r?\n/u)
+  .find((line) => line.startsWith("| `runtime-harness` |"));
+const harnessDeltaRow = canonToCodeDelta
+  .split(/\r?\n/u)
+  .find((line) => line.startsWith("| `HarnessSessionExecutionChain` "));
+for (const [label, row, facts] of [
+  [
+    "_meta/hypervisor-kernel-substrate-migration-matrix.md runtime-harness",
+    harnessMigrationRow,
+    [
+      "pure planners over caller-provided proof refs",
+      "No typed `HarnessSessionLaunch` producer existed",
+      "independently loaded a session",
+      "Recipe -> Binding -> Launch -> Spawn -> Readiness -> TerminalAttach",
+      "Rust did not author or durably admit",
+    ],
+  ],
+  [
+    "_meta/canon-to-code-delta.md HarnessSessionExecutionChain",
+    harnessDeltaRow,
+    [
+      "pure planners over caller-provided proof refs",
+      "No typed `HarnessSessionLaunch` producer",
+      "independently loads a session",
+      "no end-to-end canonical chain consumption",
+      "route/body marker checks reject a fabricated live-chain claim",
+    ],
+  ],
+]) {
+  if (!row) {
+    fail(`${label} row is missing.`);
+    continue;
+  }
+  for (const fact of facts) {
+    if (!row.includes(fact)) {
+      fail(`${label} must preserve source-audited harness fact: ${fact}.`);
+    }
+  }
+}
+
+const modelMountTerminalRow = hypervisorKernelMigrationMatrix
+  .split(/\r?\n/u)
+  .find((line) =>
+    line.startsWith(
+      "| `model-mounting/route-invocation-result-inventory-conversation` |",
+    ),
+  );
+for (const fact of [
+  "neither called `plan_route_control`",
+  "not `admit_invocation`, `plan_invocation_authority`, or `admit_provider_result`",
+  "accepted-receipt head/transition planners were uncalled",
+  "inventory was hand-authored because the canonical inventory planner was incompatible",
+  "Conversation state was directly persisted/read",
+  "`plan_conversation_state` was uncalled",
+]) {
+  if (!modelMountTerminalRow?.includes(fact)) {
+    fail(
+      `_meta/hypervisor-kernel-substrate-migration-matrix.md must preserve source-audited model-mount terminal fact: ${fact}.`,
+    );
+  }
+}
+
 function matrixRow(prefix) {
   return implementationMatrix
     .split(/\r?\n/u)
@@ -497,7 +561,7 @@ function matrixRow(prefix) {
 
 function topLevelRustFunction(source, name) {
   const declaration = new RegExp(
-    `^(?:pub(?:\\([^)]*\\))?\\s+)?async\\s+fn\\s+${name}\\b`,
+    `^(?:pub(?:\\([^)]*\\))?\\s+)?(?:async\\s+)?fn\\s+${name}\\b`,
     "mu",
   );
   const match = declaration.exec(source);
@@ -524,6 +588,369 @@ function requireRowFacts(prefix, facts) {
     }
   }
   return row;
+}
+
+function mountedRouteMatches(source, routePath, handler) {
+  const escapedPath = routePath.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
+  return new RegExp(
+    `\\.route\\(\\s*"${escapedPath}"[\\s\\S]{0,240}\\b${handler}\\b`,
+    "u",
+  ).test(source);
+}
+
+const criticalImplementationSourceAssertions = [
+  {
+    row: "RuntimeModelRouteSelection`",
+    paths: [
+      "crates/node/src/bin/hypervisor-daemon.rs",
+      "crates/services/src/agentic/runtime/kernel/model_mount/route_control.rs",
+    ],
+    facts: [
+      "mounted direct-handler compatibility behavior; canonical planner unmounted",
+      "Neither handler calls `plan_route_control`",
+    ],
+    mounts: [
+      ["/v1/model-mount/routes", "handle_routes_create"],
+      ["/v1/model-mount/routes/:id/test", "handle_route_test"],
+    ],
+    functions: [
+      {
+        source: hypervisorDaemonRoutes,
+        name: "handle_routes_create",
+        required: ["authorize(", "persist_record(", '"model-routes"'],
+        forbidden: [".plan_route_control("],
+      },
+      {
+        source: hypervisorDaemonRoutes,
+        name: "handle_route_test",
+        required: ["route_selection(", "build_route_decision("],
+        forbidden: [".plan_route_control(", "persist_record("],
+      },
+    ],
+  },
+  {
+    row: "ModelRouteControl`",
+    paths: [
+      "crates/node/src/bin/hypervisor-daemon.rs",
+      "crates/services/src/agentic/runtime/kernel/model_mount/route_control.rs",
+    ],
+    facts: [
+      "partial direct-handler implementation; canonical planner unmounted",
+      "`plan_route_control` is not called",
+    ],
+    mounts: [
+      ["/v1/model-mount/routes", "handle_routes_create"],
+      ["/v1/model-mount/routes/:id/test", "handle_route_test"],
+    ],
+    functions: [
+      {
+        source: hypervisorDaemonRoutes,
+        name: "handle_routes_create",
+        required: ["persist_record(", '"model-routes"'],
+        forbidden: [".plan_route_control("],
+      },
+      {
+        source: hypervisorDaemonRoutes,
+        name: "handle_route_test",
+        required: ["route_selection(", "build_route_decision("],
+        forbidden: [".plan_route_control("],
+      },
+    ],
+  },
+  {
+    row: "ModelInvocationControl`",
+    paths: [
+      "crates/node/src/bin/hypervisor-daemon.rs",
+      "crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs",
+      "crates/services/src/agentic/runtime/kernel/model_mount/invocation_authority.rs",
+    ],
+    facts: [
+      "partial mounted provider-execution path; canonical invocation authority/admission unmounted",
+      "neither `admit_invocation` nor `plan_invocation_authority`",
+    ],
+    mounts: [["/v1/model-mount/native-local", "handle_native_local"]],
+    functions: [
+      {
+        source: hypervisorDaemonRoutes,
+        name: "invoke_native_local",
+        required: [".admit_provider_execution(", ".invoke_provider("],
+        forbidden: [".admit_invocation(", ".plan_invocation_authority("],
+      },
+    ],
+  },
+  {
+    row: "ModelProviderResult`",
+    paths: [
+      "crates/node/src/bin/hypervisor-daemon.rs",
+      "crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs",
+      "crates/services/src/agentic/runtime/kernel/model_mount/provider_result.rs",
+    ],
+    facts: [
+      "partial execution output; canonical provider-result admission unmounted",
+      "never calls `admit_provider_result`",
+    ],
+    mounts: [["/v1/model-mount/native-local", "handle_native_local"]],
+    functions: [
+      {
+        source: hypervisorDaemonRoutes,
+        name: "invoke_native_local",
+        required: [".invoke_provider("],
+        forbidden: [".admit_provider_result("],
+      },
+    ],
+  },
+  {
+    row: "ModelProviderLifecycle`",
+    paths: [
+      "crates/node/src/bin/hypervisor-daemon.rs",
+      "crates/services/src/agentic/runtime/kernel/model_mount/lifecycle/provider.rs",
+    ],
+    facts: [
+      "mounted partial canonical planner",
+      "`lifecycle/provider.rs`",
+    ],
+    mounts: [["/v1/model-mount/instances/load", "handle_instances_load"]],
+    functions: [
+      {
+        source: hypervisorDaemonRoutes,
+        name: "instance_real_load",
+        required: [".plan_provider_lifecycle(", "persist_record("],
+        forbidden: [],
+      },
+    ],
+  },
+  {
+    row: "ModelLifecycleReceiptControl`",
+    paths: [
+      "crates/node/src/bin/hypervisor-daemon.rs",
+      "crates/services/src/agentic/runtime/kernel/model_mount/accepted_receipt.rs",
+    ],
+    facts: [
+      "partial direct receipt behavior; canonical accepted-receipt planner unmounted",
+      "neither `plan_accepted_receipt_head` nor `plan_accepted_receipt_transition`",
+    ],
+    mounts: [["/v1/responses", "handle_responses"]],
+    functions: [
+      {
+        source: hypervisorDaemonRoutes,
+        name: "persist_invocation_receipt",
+        required: ['"model_invocation"', 'persist_record(&st.data_dir, "receipts"'],
+        forbidden: [
+          ".plan_accepted_receipt_head(",
+          ".plan_accepted_receipt_transition(",
+        ],
+      },
+    ],
+  },
+  {
+    row: "ModelProviderInventory`",
+    paths: [
+      "crates/node/src/bin/hypervisor-daemon.rs",
+      "crates/services/src/agentic/runtime/kernel/model_mount/lifecycle/inventory.rs",
+    ],
+    facts: [
+      "partial hand-authored seed/projection; canonical inventory planner unmounted and incompatible",
+      "never calls `plan_provider_inventory`",
+    ],
+    functions: [
+      {
+        source: hypervisorDaemonRoutes,
+        name: "seed_catalog",
+        required: [
+          "Hand-author the native provider's model inventory",
+          '"model-provider-inventory"',
+          "persist_record(",
+        ],
+        forbidden: [".plan_provider_inventory("],
+      },
+    ],
+  },
+  {
+    row: "ModelConversationStateControl`",
+    paths: [
+      "crates/node/src/bin/hypervisor-daemon.rs",
+      "crates/services/src/agentic/runtime/kernel/model_mount/conversation.rs",
+      "crates/services/src/agentic/runtime/kernel/model_mount/read_projection/conversation.rs",
+    ],
+    facts: [
+      "partial direct persistence/projection; canonical conversation planner unmounted",
+      "never calls `plan_conversation_state`",
+    ],
+    mounts: [["/v1/responses", "handle_responses"]],
+    functions: [
+      {
+        source: hypervisorDaemonRoutes,
+        name: "store_conversation",
+        required: ["persist_record(", '"model-conversations"'],
+        forbidden: [".plan_conversation_state("],
+      },
+    ],
+  },
+  {
+    row: "HypervisorSessionLaunchRecipe`",
+    paths: [
+      "crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs",
+      "crates/services/src/agentic/runtime/kernel/runtime_hypervisor_session_launch_recipe_admission.rs",
+      "crates/services/src/agentic/runtime/kernel/runtime_harness_session_binding_admission.rs",
+    ],
+    facts: [
+      "planner-only admissions plus an independent host-spawn lane; canonical chain partial/unmounted",
+      "caller-provided",
+      "No typed `HarnessSessionLaunch` producer exists",
+      "does not consume the recipe/binding admission outputs as one launch chain",
+      "Recipe -> Binding -> Launch -> Spawn -> Readiness -> TerminalAttach",
+    ],
+    mounts: [
+      [
+        "/v1/hypervisor/session-launch-recipe-admissions",
+        "handle_session_launch_recipe_admission",
+      ],
+      [
+        "/v1/hypervisor/harness-session-binding-admissions",
+        "handle_harness_session_binding_admission",
+      ],
+      ["/v1/hypervisor/sessions/:id/execute", "handle_session_execute"],
+    ],
+    functions: [
+      {
+        source: hypervisorLifecycleRoutes,
+        name: "handle_session_launch_recipe_admission",
+        required: ["admit_hypervisor_session_launch_recipe("],
+        forbidden: ["persist_record(", "State("],
+      },
+      {
+        source: hypervisorLifecycleRoutes,
+        name: "handle_harness_session_binding_admission",
+        required: ["admit_harness_session_binding("],
+        forbidden: ["persist_record(", "State("],
+      },
+      {
+        source: hypervisorLifecycleRoutes,
+        name: "handle_session_execute",
+        required: [
+          "load_session_record(",
+          "execute_authority_gate(",
+          "run_host_spawn_lane(",
+        ],
+        forbidden: [
+          "admit_hypervisor_session_launch_recipe(",
+          "admit_harness_session_binding(",
+          "HarnessSessionLaunch",
+        ],
+      },
+    ],
+  },
+  {
+    row: "HarnessSessionSpawn`",
+    paths: [
+      "crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs",
+      "crates/services/src/agentic/runtime/kernel/runtime_harness_session_terminal_attach_admission.rs",
+    ],
+    facts: [
+      "consumer-only/partial",
+      "caller-supplied `session_spawn` and `session_readiness`",
+      "does not author or durably admit those input records",
+      "no end-to-end Recipe -> Binding -> Launch -> Spawn -> Readiness -> TerminalAttach consumption",
+    ],
+    mounts: [
+      [
+        "/v1/hypervisor/harness-session-terminal-attachments",
+        "handle_harness_session_terminal_attach_admission",
+      ],
+    ],
+    functions: [
+      {
+        source: hypervisorLifecycleRoutes,
+        name: "handle_harness_session_terminal_attach_admission",
+        required: ["admit_harness_session_terminal_attach("],
+        forbidden: ["persist_record(", "State("],
+      },
+    ],
+  },
+  {
+    row: "RuntimeMcpControl`",
+    paths: [
+      "crates/node/src/bin/hypervisor-daemon.rs",
+      "crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs",
+    ],
+    facts: [
+      "`/v1/model-mount/mcp/invoke`",
+      "performs no MCP transport call",
+      "falsely returns `result.status: \"executed\"`",
+    ],
+    mounts: [["/v1/model-mount/mcp/invoke", "handle_mcp_invoke"]],
+    functions: [
+      {
+        source: hypervisorDaemonRoutes,
+        name: "handle_mcp_invoke",
+        required: [
+          "authorize(",
+          'persist_record(&st.data_dir, "receipts"',
+          '"status": "executed"',
+        ],
+        forbidden: [
+          "execute_runtime_mcp_live_backend",
+          "McpLiveBackend",
+          "tools/call",
+        ],
+      },
+    ],
+  },
+];
+
+for (const assertion of criticalImplementationSourceAssertions) {
+  const row = requireRowFacts(assertion.row, assertion.facts);
+  for (const sourcePath of assertion.paths) {
+    if (row && !row.includes(`\`${sourcePath}\``)) {
+      fail(
+        `_meta/implementation-matrix.md ${assertion.row} must bind owning source ${sourcePath}.`,
+      );
+    }
+  }
+  for (const [routePath, handler] of assertion.mounts ?? []) {
+    if (!mountedRouteMatches(hypervisorDaemonRoutes, routePath, handler)) {
+      fail(
+        `_meta/implementation-matrix.md ${assertion.row} expects ${routePath} to mount ${handler}.`,
+      );
+    }
+  }
+  for (const functionAssertion of assertion.functions ?? []) {
+    const body = topLevelRustFunction(
+      functionAssertion.source,
+      functionAssertion.name,
+    );
+    for (const marker of functionAssertion.required) {
+      if (!body.includes(marker)) {
+        fail(
+          `${functionAssertion.name} is missing critical implementation marker ${marker}.`,
+        );
+      }
+    }
+    for (const marker of functionAssertion.forbidden) {
+      if (body.includes(marker)) {
+        fail(
+          `${functionAssertion.name} unexpectedly contains unmounted marker ${marker}.`,
+        );
+      }
+    }
+  }
+}
+
+for (const unmountedDaemonCall of [
+  ".plan_route_control(",
+  ".admit_invocation(",
+  ".plan_invocation_authority(",
+  ".admit_provider_result(",
+  ".plan_accepted_receipt_head(",
+  ".plan_accepted_receipt_transition(",
+  ".plan_provider_inventory(",
+  ".plan_conversation_state(",
+]) {
+  if (hypervisorDaemonRoutes.includes(unmountedDaemonCall)) {
+    fail(
+      `Critical model-mount status must be re-audited: hypervisor-daemon.rs now calls ${unmountedDaemonCall}.`,
+    );
+  }
 }
 
 function requireMountedModelRoute(routePath, handler) {
@@ -718,14 +1145,6 @@ requireRowFacts("RuntimeMcpControl`", [
   "falsely returns `result.status: \"executed\"`",
 ]);
 
-requireRowFacts("HypervisorSessionLaunchRecipe`", [
-  "real wallet-gated host-spawn execution lane",
-  "does not emit the canonical typed `HarnessSessionSpawn` or `HarnessSessionReadiness` records",
-]);
-requireRowFacts("HarnessSessionSpawn`", [
-  "accepts caller-supplied `session_spawn` and `session_readiness` records",
-  "does not author or durably admit those two input record types",
-]);
 requireRowFacts("HarnessContainerLanePlan`", [
   "not implemented",
   "no canonical container-lane plan or receipt type is authored",
@@ -744,10 +1163,11 @@ if (
   ) ||
   !harnessTerminalAttachAdmission.includes(
     'request.get("session_readiness")',
-  )
+  ) ||
+  currentHarnessRustCorpus.includes("HarnessSessionLaunch")
 ) {
   fail(
-    "Harness implementation status must remain bound to the mounted binding/host-spawn paths and caller-supplied terminal-attach records.",
+    "Harness implementation status must remain bound to pure recipe/binding planners, the independent host-spawn path, caller-supplied terminal-attach records, and an absent typed HarnessSessionLaunch producer.",
   );
 }
 for (const absentType of [
@@ -2040,53 +2460,13 @@ if (/generic result\s+profiles[^.]{0,160}\bplanned\b/i.test(architectureWhitepap
   fail("whitepaper.tex must not restore generic WorkResult profiles to planned status.");
 }
 
-for (const required of [
-  "Status: non-doctrinal implementation migration and evidence guide.",
-  "Canonical owner: none. Architecture doctrine remains with the subject owners",
-  "Doctrine status: reference",
-  "It owns no architecture doctrine and is not a release or work sequencer.",
-  "daemon doctrine, not this guide, defines the boundary",
-  "| Canon doc | Owner-defined boundary |",
-  "Migration method:",
-  "## Part I: Current Rust Baseline and Historical Split-Brain Evidence",
-  "The deleted `packages/runtime-daemon` package, its stores, and `RuntimeContextPolicyCore` are not live fallbacks.",
-  "This guide publishes no `WorkflowModuleGraph` schema.",
-  "This guide publishes no `RuntimeImprovementProposal`.",
-  "canonical `UpgradeProposalEnvelope` revision and target-owner proposal path",
-]) {
-  if (!normalizeWhitespace(hypervisorKernelMigrationGuide).includes(required)) {
-    fail(
-      `_meta/hypervisor-kernel-substrate-unification-master-guide.md must remain a non-doctrinal migration/evidence reference: ${required}.`,
-    );
-  }
-}
-for (const forbidden of ["| Canon doc | Current doctrine |", "Migration doctrine:"]) {
-  if (hypervisorKernelMigrationGuide.includes(forbidden)) {
-    fail(
-      `_meta/hypervisor-kernel-substrate-unification-master-guide.md must not present migration guidance as doctrine: ${forbidden}.`,
-    );
-  }
-}
-for (const forbidden of [
-  /^WorkflowModuleGraph:\s*$/mu,
-  /^RuntimeImprovementProposal:\s*$/mu,
-  /Automations as primary owner/u,
-  /This part defines how runtime learning becomes governable/u,
-  /### Where the split brain lives/u,
-]) {
-  if (forbidden.test(hypervisorKernelMigrationGuide)) {
-    fail(
-      `_meta/hypervisor-kernel-substrate-unification-master-guide.md restores competing doctrine or stale live status: ${forbidden}.`,
-    );
-  }
-}
 if (
   !normalizeWhitespace(architectureDocClasses).includes(
-    "The two `_meta` migration artifacts (the non-doctrinal migration/evidence guide and implementation ledger) remain in place as reference and status artifacts",
+    "The two `_meta` migration artifacts remain in place only as structurally bounded `archived terminal record / non-actionable` provenance",
   )
 ) {
   fail(
-    "_meta/doc-classes.md must classify the Hypervisor migration guide and ledger as non-doctrinal reference/status artifacts.",
+    "_meta/doc-classes.md must classify both retired sequencers as structurally bounded archived terminal records.",
   );
 }
 for (const [rel, content] of archivedHypervisorMigrationLedgers) {
@@ -2111,8 +2491,8 @@ for (const required of [
 }
 for (const required of [
   "| Daemon Step/Module execution ABI, invocation/result binding, backend-neutral admission order, and no-peer-runtime boundary |",
-  "| Hypervisor kernel-substrate migration sequencing and evidence, route-family cleanup ledger, Rust-core extraction status, JS-facade retirement evidence, and terminal conformance tracking |",
-  "these meta artifacts do not own daemon, Step/Module, Workflow Compositor, HarnessProfile, authority, custody, or operational-truth doctrine and do not sequence releases",
+  "| Archived Hypervisor kernel-substrate sequencing, cleanup, retirement, and terminal-conformance provenance |",
+  "every statement below each archived record’s whole-document boundary is historical provenance and MUST NOT direct current work",
 ]) {
   if (!sourceMap.includes(required)) {
     fail(`_meta/source-of-truth-map.md must keep doctrine with subject owners: ${required}.`);
@@ -2129,10 +2509,9 @@ for (const line of implementationMatrix.split(/\r?\n/)) {
     if (canonicalOwnerCell.includes(nonDoctrinalOwner)) {
       if (
         concept === "`HypervisorKernelSubstrateMigration`" &&
-        nonDoctrinalOwner ===
-          "hypervisor-kernel-substrate-migration-matrix.md" &&
-        line.includes("non-doctrinal migration/status evidence") &&
-        line.includes("may not define daemon doctrine")
+        line.includes("Canonical owner: none") &&
+        line.includes("archived terminal provenance") &&
+        line.includes("archived records may not direct work")
       ) {
         continue;
       }

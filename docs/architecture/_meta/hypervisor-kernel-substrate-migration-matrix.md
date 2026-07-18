@@ -1,29 +1,45 @@
 # Hypervisor Kernel Substrate Migration Matrix
 
-Status: compact non-doctrinal implementation migration ledger.
-Canonical owner: this file tracks implementation status/evidence for the
-Hypervisor kernel substrate unification migration only; architecture doctrine
-remains owned by the subject docs and applicable ADRs.
-Supersedes: ad hoc split-brain status notes for this migration when they
-conflict with the route-family owner map below.
-Superseded by: none.
+Status: archived terminal record / non-actionable migration provenance.
+Canonical owner: none. This preserved record owns no current implementation
+status, doctrine, sequencing, or work direction.
+Supersedes: nothing current; historical relationships are preserved below.
+Superseded by: [`implementation-matrix.md`](./implementation-matrix.md) for
+current status, [`../components/daemon-runtime/doctrine.md`](../components/daemon-runtime/doctrine.md)
+for daemon doctrine, and [`canon-to-code-delta.md`](./canon-to-code-delta.md)
+for current implementation deltas.
 Last alignment pass: 2026-07-18.
-Doctrine status: reference
-Implementation status: partial (live migration ledger)
-Implementation refs:
-  - `crates/node/src/bin/hypervisor-daemon.rs`
+Doctrine status: archived
+Implementation status: n/a (archived terminal record)
 Last implementation audit: 2026-07-18
 Last historical matrix pruning pass: 2026-07-05. The prior per-cut pruning narration
 (the 2026-05/06 slice history) is archived verbatim at
 [`../_archive/change-ledgers/hypervisor-kernel-substrate-migration-cut-log.md`](../_archive/change-ledgers/hypervisor-kernel-substrate-migration-cut-log.md);
-this Status block records macro state only.
+this Status block records historical macro state only.
 
-## Purpose
+## Archived Terminal Record Boundary
 
-This matrix is the live implementation ledger paired with the non-doctrinal
+> **Whole-document boundary: archived terminal record / non-actionable.**
+> Everything below this boundary, including every imperative, current-state
+> verb, route claim, sprint reference, maintenance rule, “next cut,” `daemon_js`,
+> `mcp-manager`, `live Node/JS`, and “wrap then delete” statement, is preserved
+> solely as historical provenance and MUST NOT direct current work. Current
+> implementation decisions must use
+> [`implementation-matrix.md`](./implementation-matrix.md), daemon
+> [`doctrine.md`](../components/daemon-runtime/doctrine.md), and
+> [`canon-to-code-delta.md`](./canon-to-code-delta.md), checked against the
+> mounted source call graph.
+
+The 2026-07-18 route-family table below is retained as the final audit snapshot
+of this retired sequencer. Its corrected mount classifications are evidence of
+what was observed at archive time, not an active queue or authority.
+
+## Historical Purpose
+
+This matrix was the implementation ledger paired with the non-doctrinal
 migration reference
 [`hypervisor-kernel-substrate-unification-master-guide.md`](./hypervisor-kernel-substrate-unification-master-guide.md).
-It keeps each route family honest about current live authority, target owner,
+It recorded each route family’s then-observed authority, target owner,
 truth path, conformance tier, and cleanup condition.
 
 This file is no longer a per-slice evidence archive. Per-slice archaeology made
@@ -63,14 +79,15 @@ historical JavaScript client cannot certify a route.
 
 | Route family | Current live status | Owner boundary | Honest remaining gap |
 | --- | --- | --- | --- |
-| `model-mounting/provider-artifact` | `/v1/model-mount/providers`, artifact import, and endpoint mount are Rust-mounted. Provider writes call `plan_provider_control`; non-dry-run artifact import and endpoint mount call `plan_artifact_endpoint`. Their records declare wallet authority and cTEE custody, but the live routes do not prove a cTEE material adapter. | Model Router subject; wallet.network authority; cTEE protected custody; daemon effect boundary; Agentgres record truth. | Prove live cTEE material handling/outbound injection and bind every direct compatibility branch to the same admitted record path. |
+| `model-mounting/provider-artifact` | `/v1/model-mount/providers`, artifact import, and endpoint mount were Rust-mounted. Provider writes called `plan_provider_control`; non-dry-run artifact import and endpoint mount called `plan_artifact_endpoint`. Native-local instance load also called the canonical provider-lifecycle planner in `model_mount/lifecycle/provider.rs`. Their records declared wallet authority and cTEE custody, but the mounted routes did not prove a cTEE material adapter. | Model Router subject; wallet.network authority; cTEE protected custody; daemon effect boundary; Agentgres record truth. | Historical gap: live cTEE material handling/outbound injection and full admitted-record convergence were not proven. |
+| `model-mounting/route-invocation-result-inventory-conversation` | Route creation directly persisted caller-shaped records and route testing directly built selection/decision output; neither called `plan_route_control`. Native-local execution called `admit_provider_execution` plus `invoke_provider` / `invoke_provider_stream`, but not `admit_invocation`, `plan_invocation_authority`, or `admit_provider_result`. Estimate/invocation receipts were hand-authored; accepted-receipt head/transition planners were uncalled. Native fixture provider inventory was hand-authored because the canonical inventory planner was incompatible with the required item refs. Conversation state was directly persisted/read; `plan_conversation_state` was uncalled. Canonical planner files for those uncalled contracts were declared-unmounted substrate, not current behavior. | Model Router subject; daemon execution/effect boundary; wallet authority where mounted; Agentgres truth only where an actual admitted persistence path existed. | Historical gap: planner-backed route, invocation-authority, provider-result, accepted-receipt, provider-inventory, and conversation-state contracts lacked mounted end-to-end call paths. |
 | `model-mounting/tokenizer-vault-receipt-gate` | Tokenize/count/context-fit, vault, and workflow receipt-gate routes are mounted direct handlers in `hypervisor-daemon.rs`. They do not call the similarly named `tokenizer.rs`, `vault_control.rs`, or `receipt_gate.rs` planners. Vault is hash-only/in-memory with restart rebind, not cTEE; receipt-gate performs a narrow route-id comparison and has no request authority gate. | Model Router subject; wallet authority where mounted handlers call `authorize`; cTEE owns any protected vault custody. | Bind the planners and durable admission only if these compatibility handlers are promoted; otherwise keep their limited behavior explicit. |
 | `model-mounting/storage-download` | Catalog import, download/cancel, cleanup, and artifact delete are wallet-gated direct Rust handlers. They materialize fixture/local bytes and records; they do not call `storage_control.rs`, run a hosted catalog-provider transfer, or prove cTEE custody. | Model Router subject; wallet.network authority; cTEE custody for protected/hosted material. | Mount bounded hosted transport and storage-control/custody evidence before claiming a live downloader. |
 | `model-mounting/catalog-provider` | No `/v1/model-mount/catalog/providers*` server route or catalog-provider planner call is mounted. Rust planner/projection modules exist, and SDK/Workbench route builders target the absent routes; neither is positive implementation evidence. | Model Router subject; wallet.network authority; cTEE provider-material custody; Agentgres durable record truth. | Add server routes and end-to-end positive/negative conformance before describing config/OAuth/material control as implemented. |
 | `model-mounting/mcp-invoke` | `/v1/model-mount/mcp/invoke` is mounted, authorizes a capability, writes a receipt, and returns `status: executed`, but calls no MCP transport/backend. The status is false current behavior, not live execution. | Daemon execution boundary; connector/tool semantics; wallet authority. | A contract correction must return an honest non-executed state or perform an admitted, contained backend invocation with receipt/replay proof. |
 | `model-mounting/mcp-workflow` | No public model-mount MCP workflow route or production caller exists on current master. `RuntimeKernelService::plan_model_mount_mcp_workflow`, the read projector, and `RuntimeAgentService::execute_runtime_mcp_live_backend` are unmounted substrate plus unit tests; deleted JS callers cannot execute them. | Any future route crosses the daemon execution boundary, connector/tool semantics, and wallet/cTEE authority/custody boundaries. | Keep the substrate classified as unmounted until a mounted caller proves containment, execution, receipt/state-root binding, admission/replay, and stable clients. |
 | `runtime-mcp-control-discovery` | Rust mounts thread MCP import/control/status/validation/tool-search; compatibility discovery `/v1/mcp`, `/v1/mcp/servers`, `/v1/mcp/tools`, `/v1/mcp/resources`, and `/v1/mcp/prompts` remain mounted. No thread live serve/invoke route is mounted. | Daemon runtime, connector/tool semantics, wallet authority. | Keep discovery classified; mount live serve/invoke only with containment, authority, execution, receipts, and replay. |
-| `runtime-harness` | Harness binding admission and wallet-gated host-spawn execution are live. Terminal-attach admission validates caller-supplied spawn/readiness records; Rust does not author those canonical records. No `HarnessContainerLanePlan` or `HarnessContainerLaneReceipt` producer exists. | Daemon runtime with HarnessProfile and Hypervisor client-shape owners. | Add typed durable spawn/readiness and container-plan/receipt producers before claiming those contracts. |
+| `runtime-harness` | Recipe and binding endpoints were pure planners over caller-provided proof refs and returned records without daemon persistence. No typed `HarnessSessionLaunch` producer existed. Host execution independently loaded a session, applied its wallet gate, and spawned; it did not consume recipe/binding admission outputs as an end-to-end chain. Terminal attach consumed caller-supplied Spawn/Readiness records, which Rust did not author or durably admit. No canonical Recipe -> Binding -> Launch -> Spawn -> Readiness -> TerminalAttach consumption, `HarnessContainerLanePlan`, or `HarnessContainerLaneReceipt` producer existed. | Daemon runtime with HarnessProfile and Hypervisor client-shape owners. | Historical gap: durable predecessor consumption and typed Launch/Spawn/Readiness/container producers were absent. |
 
 ### Historical pre-retirement route-family snapshot
 

@@ -52,8 +52,8 @@
     "validate:model-mounting:closeout:local": "node scripts/validate-model-mounting-closeout.mjs --allow-live-skips",
     "check:runtime-layout": "node scripts/check-runtime-layout.mjs",
     "check:hypervisor-code-editor-adapter-host-paths": "node scripts/check-hypervisor-code-editor-adapter-host-paths.mjs",
-    "generate:runtime-action-contracts": "node scripts/generate-runtime-action-contracts.mjs",
-    "generate:architecture-contracts": "node scripts/generate-architecture-contracts.mjs",
+    "generate:runtime-action-contracts": "node scripts/generate-runtime-action-contracts.mjs --write",
+    "generate:architecture-contracts": "node scripts/generate-architecture-contracts.mjs --write",
     "check:architecture-contracts": "node scripts/check-architecture-contracts.mjs",
     "test:architecture-contract-projections": "node --experimental-strip-types scripts/test-architecture-contract-projections.mjs",
     "check:architecture-contract-bar": "node scripts/generate-architecture-contracts.mjs --check && npm run check:architecture-contracts && npm run test:architecture-contract-projections && node --test scripts/test-architecture-docs-integrity.mjs && cargo test --locked -p ioi-types architecture_contracts",
@@ -78,6 +78,7 @@
     "@types/react-dom": "^18.3.1",
     "ajv": "^8.20.0",
     "ajv-formats": "^3.0.1",
+    "mdast-util-from-markdown": "^2.0.2",
     "playwright": "^1.60.0",
     "prettier": "^3.2.5",
     "typescript": "^5.3.3"

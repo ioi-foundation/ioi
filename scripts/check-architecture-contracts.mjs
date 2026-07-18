@@ -8,11 +8,48 @@ import Ajv2020 from "ajv/dist/2020.js";
 import addFormats from "ajv-formats";
 import {
   ARCHITECTURE_CONTRACT_CONSUMER_TARGETS,
-  ARCHITECTURE_CONTRACT_CONSUMER_TARGET_BY_KIND,
 } from "./lib/architecture-contract-consumer-targets.mjs";
+import { architectureContractConsumerBindingFailures } from "./lib/architecture-contract-consumer-bindings.mjs";
 import { safeRepositoryPath } from "./lib/repository-path-boundary.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const PINNED_CONSUMER_TARGETS = Object.freeze([
+  Object.freeze({
+    kind: "typescript_projection",
+    path: "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+    consumer_path: "packages/hypervisor-workbench/src/index.ts",
+    consumer_marker: 'export * from "./runtime/architecture-contracts";',
+    typescript_bindings: Object.freeze([
+      Object.freeze({
+        binding_kind: "exports",
+        consumer_path: "packages/hypervisor-workbench/src/index.ts",
+        module_specifier: "./runtime/architecture-contracts",
+      }),
+      Object.freeze({
+        binding_kind: "exports",
+        consumer_path:
+          "packages/hypervisor-workbench/src/runtime/architecture-contracts.ts",
+        module_specifier: "./generated/architecture-contracts.ts",
+      }),
+      Object.freeze({
+        binding_kind: "imports",
+        consumer_path: "scripts/test-architecture-contract-projections.mjs",
+        module_specifier:
+          "../packages/hypervisor-workbench/src/runtime/architecture-contracts.ts",
+      }),
+    ]),
+  }),
+  Object.freeze({
+    kind: "rust_projection",
+    path: "crates/types/src/app/generated/architecture_contracts.rs",
+    consumer_path: "crates/types/src/app/mod.rs",
+    consumer_marker: "pub mod architecture_contracts;",
+    module_root_path: "crates/types/src/app/mod.rs",
+  }),
+]);
+const PINNED_CONSUMER_TARGET_BY_KIND = new Map(
+  PINNED_CONSUMER_TARGETS.map((target) => [target.kind, target]),
+);
 const schemaRoot = path.join(root, "docs", "architecture", "_meta", "schemas");
 const registryPath = safeRepositoryPath({
   root,
@@ -25,7 +62,7 @@ const failures = [];
 const fixturePaths = new Set();
 const generatedTargetPaths = new Map();
 const supportedGeneratedTargetKinds = new Set(
-  ARCHITECTURE_CONTRACT_CONSUMER_TARGETS.map((target) => target.kind),
+  PINNED_CONSUMER_TARGETS.map((target) => target.kind),
 );
 const portableCanonicalDateTimePattern =
   "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$";
@@ -138,7 +175,7 @@ function preflightGeneratedTargets(registryDocument) {
         continue;
       }
       const consumerTarget =
-        ARCHITECTURE_CONTRACT_CONSUMER_TARGET_BY_KIND.get(target.kind);
+        PINNED_CONSUMER_TARGET_BY_KIND.get(target.kind);
       if (target.path !== consumerTarget.path) {
         fail(
           `${targetAt}: generated target path must match canonical ${target.kind} consumer ${consumerTarget.path}`,
@@ -627,26 +664,36 @@ for (const contract of registry.contracts ?? []) {
   }
 }
 
-for (const consumer of ARCHITECTURE_CONTRACT_CONSUMER_TARGETS) {
-  let consumerPath = null;
-  try {
-    consumerPath = safeRepositoryPath({
-      root,
-      relativePath: consumer.consumer_path,
-      at: `${consumer.kind}: consumer binding`,
-      mustExist: true,
-    });
-  } catch (error) {
-    fail(error instanceof Error ? error.message : String(error));
-  }
-  if (
-    consumerPath &&
-    !fs.readFileSync(consumerPath, "utf8").includes(consumer.consumer_marker)
-  ) {
-    fail(
-      `${consumer.kind}: ${consumer.consumer_path} does not bind ${consumer.path}`,
-    );
-  }
+const declaredConsumerTargets = ARCHITECTURE_CONTRACT_CONSUMER_TARGETS.map(
+  ({ kind, path: targetPath, consumer_path, consumer_marker }) => ({
+    kind,
+    path: targetPath,
+    consumer_path,
+    consumer_marker,
+  }),
+);
+const expectedConsumerTargets = PINNED_CONSUMER_TARGETS.map(
+  ({ kind, path: targetPath, consumer_path, consumer_marker }) => ({
+    kind,
+    path: targetPath,
+    consumer_path,
+    consumer_marker,
+  }),
+);
+if (
+  JSON.stringify(declaredConsumerTargets) !==
+  JSON.stringify(expectedConsumerTargets)
+) {
+  fail(
+    "Architecture contract consumer declaration manifest differs from independently pinned canonical consumers",
+  );
+}
+for (const failure of architectureContractConsumerBindingFailures({
+  root,
+  targets: PINNED_CONSUMER_TARGETS,
+  safeRepositoryPath,
+})) {
+  fail(failure);
 }
 
 const generated = spawnSync(
