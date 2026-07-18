@@ -35,7 +35,8 @@ import { CHG_APP_TILE_URI } from "./changes-assets.mjs";
 import { EVL_APP_TILE_URI, EVL_HERO_URI } from "./evalsuites-assets.mjs";
 import { appCatalog } from "./app-catalog.mjs";
 import { bindSurface, boundSurface, boundActionRoute, embeddableRoutes } from "./surface-registry.mjs";
-import { escHtml } from "../surfaces/kit.mjs";
+import { canonicalTimelineRef, escHtml } from "../surfaces/kit.mjs";
+import { readJsonWithDeadline } from "../surfaces/plane-read.mjs";
 import { managerLink, managerResourceLink, objectSetLink, sourcesLink, pipelineNodeLink, lineageLink as semLineageLink, vertexLink as semVertexLink, provenanceReceiptLink, provenanceSetLink, semanticBreadcrumb } from "../surfaces/ontology-context.mjs";
 import { ioiGlobalRailHtml, IOI_GRAIL_CSS } from "../surfaces/chrome.mjs";
 import { mintTestGrant, awaitingWalletAuthority } from "./lib/wallet-authority.mjs";
@@ -225,6 +226,76 @@ const REF_SERVER = join(HERE, "..", "product-ui", "server.cjs");
 const PORT = Number(process.env.PORT || 4173);
 const PRODUCT_UI_PORT = Number(process.env.PRODUCT_UI_PORT || 9301);
 const DAEMON = (process.env.IOI_HYPERVISOR_DAEMON_URL || "http://127.0.0.1:8765").replace(/\/$/, "");
+const OPERATIONS_PLANE_TIMEOUT_MS = 3_000;
+const unavailableOperationsPlane = (code, status = 0) => ({
+  __ioi_plane_unavailable: true,
+  __ioi_code: code || "plane_unavailable",
+  __ioi_status: status,
+});
+const operationsObject = (value) => !!value && typeof value === "object" && !Array.isArray(value);
+const operationsArrays = (payload, fields) => fields.every((field) => Array.isArray(payload[field]));
+const operationsPlanePayloadValid = (path, payload) => {
+  if (!operationsObject(payload)) return false;
+  switch (path) {
+    case "/v1/hypervisor/operations":
+      return operationsObject(payload.scheduler)
+        && operationsObject(payload.runs)
+        && operationsObject(payload.webhooks)
+        && operationsArrays(payload.scheduler, ["automations"])
+        && operationsArrays(payload.runs, ["recent", "failures"])
+        && operationsArrays(payload.webhooks, ["recent"]);
+    case "/v1/hypervisor/auth/policy":
+      return typeof payload.deployment_auth_posture === "string"
+        && typeof payload.effective_enforced === "boolean"
+        && typeof payload.exposed === "boolean";
+    case "/v1/hypervisor/providers":
+      return operationsArrays(payload, ["accounts", "providers"]);
+    case "/v1/hypervisor/provider-receipts":
+      return operationsArrays(payload, ["receipts"]);
+    case "/v1/hypervisor/provider-spend/reconciliation":
+      return operationsArrays(payload, ["rows", "incomplete_teardown_warnings"])
+        && operationsObject(payload.budget)
+        && operationsObject(payload.estimated_open_exposure_rate)
+        && operationsObject(payload.teardown_finalized);
+    case "/v1/hypervisor/storage-backends":
+      return operationsArrays(payload, ["backends"]);
+    case "/v1/hypervisor/storage-incidents":
+      return operationsArrays(payload, ["incidents", "repair_receipts"]);
+    case "/v1/hypervisor/akash-deployments":
+      return operationsArrays(payload, ["deployments", "leases", "redeploy_plans"]);
+    case "/v1/hypervisor/failover/runs":
+      return operationsArrays(payload, ["runs"]);
+    case "/v1/hypervisor/failover/plans":
+      return operationsArrays(payload, ["plans"]);
+    case "/v1/hypervisor/goal-runs":
+      return operationsArrays(payload, ["goal_runs"]);
+    case "/v1/hypervisor/work-ledger":
+      return operationsArrays(payload, ["entries"]);
+    default:
+      return false;
+  }
+};
+
+async function readOperationsPlane(path) {
+  try {
+    const { response, payload } = await readJsonWithDeadline(
+      fetch,
+      `${DAEMON}${path}`,
+      OPERATIONS_PLANE_TIMEOUT_MS,
+    );
+    if (!response.ok) {
+      return unavailableOperationsPlane(payload?.error?.code || "plane_unavailable", response.status);
+    }
+    if (!operationsPlanePayloadValid(path, payload)) {
+      return unavailableOperationsPlane("plane_payload_invalid", response.status);
+    }
+    return payload;
+  } catch (error) {
+    return unavailableOperationsPlane(
+      error?.code === "plane_timeout" ? "plane_timeout" : "daemon_unavailable",
+    );
+  }
+}
 
 // The browser-facing origin, honoring a reverse tunnel (localhost.run / cloudflared set
 // x-forwarded-proto/host). OAuth providers like Slack require an HTTPS redirect, so we must build
@@ -240,6 +311,12 @@ function publicBase(req) {
 // service accounts); Org/User Settings > Integrations are thin projections; MCP is one type inside.
 // Agents consume only scoped leases — credentials are sealed in the daemon, never exposed.
 const CX_ESC = escHtml; // canonical escaper lives in surfaces/kit.mjs — one definition estate-wide
+function timelineLink(reference, label = "timeline ↗") {
+  const href = canonicalTimelineRef(reference);
+  return href
+    ? `<a href="${CX_ESC(href)}" target="_blank" rel="noopener">${CX_ESC(label)}</a>`
+    : "—";
+}
 function connectionCategory(c) {
   if (c.kind === "mcp") return "MCP servers";
   if (["slack", "discord", "teams", "email"].includes(c.service)) return "Communication channels";
@@ -830,7 +907,7 @@ function renderHome(ops, ledger, sessions, approvals, failoverRuns) {
     ...fails.slice(0, 6).map((r) => `<tr>
       <td>✖ run <b>${CX_ESC(r.name || r.automation_id || "")}</b><div style="color:#878a93;font-size:11px;margin-top:1px">${CX_ESC(r.project_id || "—")} · ${CX_ESC(r.finished_at || "")}</div></td>
       <td><span class="pill warn">failed</span></td>
-      <td>${r.timeline_ref ? `<a href="${r.timeline_ref}" target="_blank" rel="noopener">timeline ↗</a>` : "—"}</td>
+      <td>${timelineLink(r.timeline_ref)}</td>
       <td><a href="/__ioi/operations">remediate →</a></td>
     </tr>`),
   ].join("");
@@ -854,7 +931,7 @@ function renderHome(ops, ledger, sessions, approvals, failoverRuns) {
       <td>▶ <b>${CX_ESC(r.name || r.automation_id || "")}</b><div style="color:#878a93;font-size:11px;margin-top:1px">${CX_ESC(r.project_id || "—")} · started ${CX_ESC(r.started_at || "")}</div></td>
       <td><span class="pill ok">running</span></td>
       <td>—</td>
-      <td>${r.timeline_ref ? `<a href="${r.timeline_ref}" target="_blank" rel="noopener">timeline ↗</a>` : "—"} · <a href="/__ioi/operations">operations →</a></td>
+      <td>${timelineLink(r.timeline_ref)} · <a href="/__ioi/operations">operations →</a></td>
     </tr>`;
   const resumeRows = [...running.slice(0, 4).map(runRow), ...(sessList || []).slice(0, 6).map(sessRow)].join("");
   const resumeBody = resumeRows ? `<table><thead><tr><th>Work</th><th>State</th><th>Binding</th><th>Open</th></tr></thead><tbody>${resumeRows}</tbody></table>` : "";
@@ -987,7 +1064,7 @@ function renderEvaluations(suites, suiteOv, subjects, foundryEvalSpecs, feedback
       : omBoundaryNote(`<b>No eval suites declared yet</b> — declare one above. A suite is an inert declaration (subject scope · admissibility · candidate handoffs); it never scores or executes. This library reads the real daemon eval-suite contract; nothing is fabricated.`));
 
   // Assessment subjects in scope — REAL Missions execution truth (mission runs / failures / blockers).
-  const subjRow = (kind, label, when, proof) => `<tr><td><span class="pill muted" style="margin:0">${CX_ESC(kind)}</span></td><td>${CX_ESC(label)}</td><td class="sub" style="margin:0">${CX_ESC(when || "")}</td><td>${proof ? `<a href="${CX_ESC(proof)}" target="_blank" rel="noopener">proof ↗</a>` : "—"}</td></tr>`;
+  const subjRow = (kind, label, when, proof) => `<tr><td><span class="pill muted" style="margin:0">${CX_ESC(kind)}</span></td><td>${CX_ESC(label)}</td><td class="sub" style="margin:0">${CX_ESC(when || "")}</td><td>${timelineLink(proof, "proof ↗")}</td></tr>`;
   const subjRows = [
     ...missionRuns.slice(0, 6).map((r) => subjRow("mission_run", r.name || r.execution_id || "—", r.started_at, r.timeline_ref)),
     ...failedRuns.slice(0, 6).map((r) => subjRow("failed_run", r.name || r.execution_id || "—", r.finished_at, r.timeline_ref)),
@@ -1174,9 +1251,10 @@ function renderProvenanceLineage(entries) {
     : node.automation_name || node.listing_id || node.subject_ref || node.domain_app_ref || node.id || node.kind;
   const edgeList = EDGE.filter(([k]) => node[k]).map(([k, label, href]) => {
     const val = String(node[k]);
-    const target = k === "timeline_ref" ? val : (k === "run_ref" && node.timeline_ref) ? node.timeline_ref : href;
+    const target = k === "timeline_ref" ? canonicalTimelineRef(val)
+      : (k === "run_ref" && node.timeline_ref) ? canonicalTimelineRef(node.timeline_ref) : href;
     const cell = target
-      ? `<a href="${target}"${/^\/__ioi\/run-timeline/.test(target) ? ' target="_blank" rel="noopener"' : ""}>${CX_ESC(val)} ↗</a>`
+      ? `<a href="${CX_ESC(target)}"${/^\/__ioi\/run-timeline/.test(target) ? ' target="_blank" rel="noopener"' : ""}>${CX_ESC(val)} ↗</a>`
       : `<code>${CX_ESC(val)}</code>`;
     return `<li><span class="pill muted">${CX_ESC(label)}</span> ${cell}</li>`;
   }).join("");
@@ -1197,7 +1275,9 @@ function renderWorkLedger(entries, scopedProject, selCtx) {
     try { const u = new URL(c.source_contact.endpoint); c.source_contact.endpoint = `${u.protocol}//${u.host}/…`; } catch { c.source_contact.endpoint = "(endpoint redacted)"; }
     return c;
   };
-  entries = (entries || []).map(wlRedact);
+  entries = (entries || []).map(wlRedact).map((entry) => entry && typeof entry === "object"
+    ? { ...entry, timeline_ref: canonicalTimelineRef(entry.timeline_ref) }
+    : entry);
   // #64 §9: odk_materialization entries are ADDRESSABLE — by receipt ref (?receipt=) or by the
   // exact object set (?objectSet=); an unmatched selection renders an honest note, never a
   // substituted entry.
@@ -1321,11 +1401,11 @@ function renderWorkLedger(entries, scopedProject, selCtx) {
       if(e.kill_switch_ref){links+=bl('Kill switch',e.kill_switch_ref,'/__ioi/governance');}
       if(e.subject_ref){links+=bl('Subject',e.subject_ref,'/__ioi/governance');}
       if(e.receipt_ref){links+=bl('Receipt',e.receipt_ref,'/__ioi/work-ledger');}
-      if(e.timeline_ref){links+='<li>Run Timeline: <a href="'+e.timeline_ref+'" target="_blank" rel="noopener">open ↗</a></li>';}
+      if(e.timeline_ref){links+='<li>Run Timeline: <a href="'+wesc(e.timeline_ref)+'" target="_blank" rel="noopener">open ↗</a></li>';}
       if(links){h+='<h4>Backlinks</h4><ul class="wlbl">'+links+'</ul>';}
       var arts=(e.step_results||[]).filter(function(s){return s&&(s.kind==='proposal'||(s.output&&(s.output.command||s.output.file_changed)));});
       h+='<h4>Artifacts</h4>'+(arts.length?('<ul>'+arts.map(function(s){return '<li>'+wesc(s.kind||'step')+': '+wesc(JSON.stringify(s.output).slice(0,140))+'</li>';}).join('')+'</ul>'):'<div class="sub" style="margin:0">—</div>');
-      if(e.timeline_ref){h+='<p><a class="act ghost" href="'+e.timeline_ref+'" target="_blank" rel="noopener">Open Run Timeline ↗</a></p>';}
+      if(e.timeline_ref){h+='<p><a class="act ghost" href="'+wesc(e.timeline_ref)+'" target="_blank" rel="noopener">Open Run Timeline ↗</a></p>';}
       h+='<details><summary class="sub" style="cursor:pointer">Raw JSON (advanced)</summary><pre>'+wesc(JSON.stringify(e,null,2))+'</pre></details>';
       document.getElementById('wl-drawer').innerHTML=h;
       document.querySelectorAll('.wlrow').forEach(function(r){r.classList.toggle('selrow',r.dataset.i==String(i));});
@@ -1339,13 +1419,54 @@ function renderWorkLedger(entries, scopedProject, selCtx) {
 // substrate (scheduler · run health · needs-attention · webhook health). Real records only;
 // drilldowns into Automation detail / Work Ledger / Run Timeline. No fake incidents/cost/capacity.
 function renderOperations(ops, authpol, prov, provReceipts, spendRecon, storageBackends, storageIncidents, akashDepin, failoverRuns, failoverPlans, goalRuns, ledgerEntries) {
+  const isUnavailable = (plane) => !!plane?.__ioi_plane_unavailable;
+  const planeInputs = [
+    ["operations", ops],
+    ["auth-policy", authpol],
+    ["providers", prov],
+    ["provider-receipts", provReceipts],
+    ["spend-reconciliation", spendRecon],
+    ["storage-backends", storageBackends],
+    ["storage-incidents", storageIncidents],
+    ["depin", akashDepin],
+    ["failover-runs", failoverRuns],
+    ["failover-plans", failoverPlans],
+    ["goal-runs", goalRuns],
+    ["work-ledger", ledgerEntries],
+  ];
+  const unavailableKeys = planeInputs.filter(([, plane]) => isUnavailable(plane)).map(([key]) => key);
+  const availabilityNotice = unavailableKeys.length
+    ? `<div class="empty" id="ops-plane-unavailable" data-operations-unavailable="${CX_ESC(unavailableKeys.join(","))}"><b>Some Operations projections are unavailable.</b> ${CX_ESC(unavailableKeys.join(", "))} did not answer within the bounded read or returned invalid data. Values from those planes are unknown, not zero.</div>`
+    : "";
+  const operationsUnavailable = isUnavailable(ops);
+  const authUnavailable = isUnavailable(authpol);
+  const providersUnavailable = isUnavailable(prov);
+  const providerReceiptsUnavailable = isUnavailable(provReceipts);
+  const spendUnavailable = isUnavailable(spendRecon);
+  const storageBackendsUnavailable = isUnavailable(storageBackends);
+  const storageIncidentsUnavailable = isUnavailable(storageIncidents);
+  const depinUnavailable = isUnavailable(akashDepin);
+  const failoverRunsUnavailable = isUnavailable(failoverRuns);
+  const failoverPlansUnavailable = isUnavailable(failoverPlans);
+  const goalRunsUnavailable = isUnavailable(goalRuns);
+  const ledgerUnavailable = isUnavailable(ledgerEntries);
   ops = ops || {};
   authpol = authpol || {};
   prov = prov || {};
   provReceipts = provReceipts || {};
   spendRecon = spendRecon || {};
+  goalRuns = Array.isArray(goalRuns) ? goalRuns : (goalRuns?.goal_runs || []);
+  ledgerEntries = Array.isArray(ledgerEntries) ? ledgerEntries : (ledgerEntries?.entries || []);
   const sch = ops.scheduler || { automations: [] };
-  const runs = ops.runs || {};
+  const rawRuns = ops.runs || {};
+  const cleanRun = (run) => run && typeof run === "object"
+    ? { ...run, timeline_ref: canonicalTimelineRef(run.timeline_ref) }
+    : run;
+  const runs = {
+    ...rawRuns,
+    recent: Array.isArray(rawRuns.recent) ? rawRuns.recent.map(cleanRun) : [],
+    failures: Array.isArray(rawRuns.failures) ? rawRuns.failures.map(cleanRun) : [],
+  };
   const wh = ops.webhooks || {};
   const enc = encodeURIComponent;
   const schedHuman = (s) => {
@@ -1362,7 +1483,9 @@ function renderOperations(ops, authpol, prov, provReceipts, spendRecon, storageB
     const en = a.enabled !== false;
     return `<tr><td><a href="/__ioi/automations/${enc(a.automation_id)}">${CX_ESC(a.name || a.automation_id)}</a></td><td>${CX_ESC(a.project_id || "—")}</td><td><span class="pill ${en ? "ok" : "muted"}">${en ? "active" : "paused"}</span></td><td>${schedHuman(a.schedule_spec)}</td><td>${CX_ESC(a.next_run_at || "—")}</td><td>${CX_ESC(a.last_run_at || "—")}</td><td>${CX_ESC(String(a.max_concurrency || 1))} · ${CX_ESC(a.failure_policy || "continue")}</td></tr>`;
   }).join("");
-  const schedSection = (sch.automations || []).length
+  const schedSection = operationsUnavailable
+    ? `<div class="empty">Scheduler projection unavailable — schedule state is unknown.</div>`
+    : (sch.automations || []).length
     ? `<table><thead><tr><th>Automation</th><th>Project</th><th>State</th><th>Schedule</th><th>Next run</th><th>Last run</th><th>Concurrency · on-fail</th></tr></thead><tbody>${schedRows}</tbody></table>`
     : `<div class="empty">No scheduled automations yet. Add a time/cron schedule to an automation to populate scheduler health.</div>`;
   // ---- Jobs — one queue over EVERY execution kind (40-job-tracker graft). The reference job
@@ -1375,7 +1498,7 @@ function renderOperations(ops, authpol, prov, provReceipts, spendRecon, storageB
   (runs.recent || []).forEach((r) => jobs.push({
     type: "automation", name: r.name || r.automation_id || "run", id: r.execution_id || "",
     project: r.project_id || "—", status: r.status || "", at: r.started_at || "",
-    proof: r.timeline_ref ? `<a href="${r.timeline_ref}" target="_blank" rel="noopener">timeline ↗</a>` : "—",
+    proof: timelineLink(r.timeline_ref),
   }));
   (goalRuns || []).forEach((g) => jobs.push({
     type: "ioi-agent", name: `coordination · ${String(g.normalized_goal || "goal").slice(0, 44)}`, id: g.goal_run_id || "",
@@ -1420,8 +1543,14 @@ function renderOperations(ops, authpol, prov, provReceipts, spendRecon, storageB
       <td>${CX_ESC(j.at)}</td>
       <td>${j.proof}</td>
     </tr>`).join("");
+  const jobsIncomplete = operationsUnavailable || goalRunsUnavailable || ledgerUnavailable || failoverRunsUnavailable;
+  const jobsIncompleteNote = jobsIncomplete
+    ? `<div class="empty compact">One or more job projections are unavailable; this is a partial list, not a complete count.</div>`
+    : "";
   const jobsSection = jobs.length
-    ? `${jobsChips}<table><thead><tr><th>Job</th><th>Type</th><th>Project</th><th>Status</th><th>When</th><th>Proof</th></tr></thead><tbody id="jobs-body">${jobRows}</tbody></table><div class="empty" id="jobs-empty" style="display:none">No jobs of this type yet.</div>`
+    ? `${jobsIncompleteNote}${jobsChips}<table><thead><tr><th>Job</th><th>Type</th><th>Project</th><th>Status</th><th>When</th><th>Proof</th></tr></thead><tbody id="jobs-body">${jobRows}</tbody></table><div class="empty" id="jobs-empty" style="display:none">No jobs of this type in the available projections.</div>`
+    : jobsIncomplete
+      ? `<div class="empty">Job projections are incomplete — no empty-state claim is made.</div>`
     : `<div class="empty">No jobs yet — automation runs, harness executions, IOI Agent coordination, and failover recovery land here as they happen.</div>`;
   const jobsScript = `<script>
     function jobsChip(b){
@@ -1443,35 +1572,45 @@ function renderOperations(ops, authpol, prov, provReceipts, spendRecon, storageB
   };
   // Run health
   const runStat = `<div style="display:flex;gap:6px;flex-wrap:wrap;margin:0 0 12px">${stat("muted", "total " + (runs.total || 0))}${stat("ok", "done " + (runs.done || 0))}${stat("warn", "failed " + (runs.failed || 0))}${stat("muted", "running " + (runs.running || 0))}</div>`;
-  const runSection = (runs.total || 0)
-    ? runStat + `<table><thead><tr><th>Automation · run</th><th>Project</th><th>Status</th><th>Started</th></tr></thead><tbody>${(runs.recent || []).map((r) => opRunRow(r, "recent")).join("")}</tbody></table>`
-    : `<div class="empty">No runs yet. Run an automation to populate run health.</div>`;
+  const runSection = operationsUnavailable
+    ? `<div class="empty">Run-health projection unavailable — totals and current status are unknown.</div>`
+    : (runs.total || 0)
+      ? runStat + `<table><thead><tr><th>Automation · run</th><th>Project</th><th>Status</th><th>Started</th></tr></thead><tbody>${(runs.recent || []).map((r) => opRunRow(r, "recent")).join("")}</tbody></table>`
+      : `<div class="empty">No runs yet. Run an automation to populate run health.</div>`;
   // Needs attention (failures)
-  const attnSection = (runs.failures || []).length
-    ? `<table><thead><tr><th>Automation · run</th><th>Project</th><th>Status</th><th>Started</th></tr></thead><tbody>${runs.failures.map((r) => opRunRow(r, "failure")).join("")}</tbody></table>`
-    : `<div class="empty">Nothing needs attention — no failed runs.</div>`;
+  const attnSection = operationsUnavailable
+    ? `<div class="empty">Failure projection unavailable — attention posture is unknown.</div>`
+    : (runs.failures || []).length
+      ? `<table><thead><tr><th>Automation · run</th><th>Project</th><th>Status</th><th>Started</th></tr></thead><tbody>${runs.failures.map((r) => opRunRow(r, "failure")).join("")}</tbody></table>`
+      : `<div class="empty">Nothing needs attention — no failed runs.</div>`;
   // Webhook health
   const reasons = wh.rejections_by_reason || {};
   const reasonPills = Object.keys(reasons).map((k) => stat("warn", CX_ESC(k) + " " + reasons[k])).join(" ");
   const whStat = `<div style="display:flex;gap:6px;flex-wrap:wrap;margin:0 0 12px">${stat("ok", "accepted " + (wh.accepted || 0))}${stat("warn", "rejected " + (wh.rejected || 0))} ${reasonPills}</div>`;
   const whRow = (e) => `<tr><td>${CX_ESC(e.automation_id || "—")}</td><td><span class="pill ${e.accepted ? "ok" : "warn"}">${e.accepted ? "accepted" : "rejected"}</span></td><td>${CX_ESC(e.reason || "")}</td><td><code>${CX_ESC((e.payload_hash || "").slice(0, 18))}</code></td><td>${CX_ESC(e.received_at || "")}</td></tr>`;
-  const whSection = ((wh.accepted || 0) + (wh.rejected || 0))
-    ? whStat + `<table><thead><tr><th>Automation</th><th>Result</th><th>Reason</th><th>Payload</th><th>Received</th></tr></thead><tbody>${(wh.recent || []).map(whRow).join("")}</tbody></table>`
-    : `<div class="empty">No webhook triggers yet. Enable a webhook on an automation to populate webhook health.</div>`;
+  const whSection = operationsUnavailable
+    ? `<div class="empty">Webhook-health projection unavailable — accepted and rejected counts are unknown.</div>`
+    : ((wh.accepted || 0) + (wh.rejected || 0))
+      ? whStat + `<table><thead><tr><th>Automation</th><th>Result</th><th>Reason</th><th>Payload</th><th>Received</th></tr></thead><tbody>${(wh.recent || []).map(whRow).join("")}</tbody></table>`
+      : `<div class="empty">No webhook triggers yet. Enable a webhook on an automation to populate webhook health.</div>`;
   // Provider health — BYO ProviderAccount posture (preflight verdicts) + the crossing receipt
   // trail. Spend transparency is stated in-surface: BYO provider spend is customer-borne, never
   // hidden markup. Real records only (daemon /providers + /provider-receipts).
   const provAccounts = prov.accounts || [];
   const provStatusPill = (s) => (s === "available" || s === "credential_verified") ? "ok" : s === "revoked" ? "warn" : "muted";
   const provRows = provAccounts.map((a) => `<tr><td>${CX_ESC(a.display_name || "—")}<div style="color:#878a93;font-size:11px;margin-top:1px"><code>${CX_ESC(a.account_ref || "")}</code></div></td><td><span class="pill muted">${CX_ESC(a.kind || "")}</span></td><td><span class="pill ${provStatusPill(a.status)}">${CX_ESC(a.status || "")}</span><div style="color:#878a93;font-size:11px;margin-top:1px">${CX_ESC(a.reason || "")}</div></td><td><span class="pill muted">customer-borne spend</span></td></tr>`).join("");
-  const provTable = provAccounts.length
-    ? `<table><thead><tr><th>Provider account</th><th>Kind</th><th>Health · preflight</th><th>Spend</th></tr></thead><tbody>${provRows}</tbody></table>`
-    : `<div class="empty">No BYO provider accounts yet. Add one under Environments → Provider accounts to run governed work on your own nodes.</div>`;
+  const provTable = providersUnavailable
+    ? `<div class="empty">Provider-account projection unavailable — account and preflight posture is unknown.</div>`
+    : provAccounts.length
+      ? `<table><thead><tr><th>Provider account</th><th>Kind</th><th>Health · preflight</th><th>Spend</th></tr></thead><tbody>${provRows}</tbody></table>`
+      : `<div class="empty">No BYO provider accounts yet. Add one under Environments → Provider accounts to run governed work on your own nodes.</div>`;
   const prcs = (provReceipts.receipts || []).slice(0, 8);
   const prcRows = prcs.map((r) => `<tr><td><code>${CX_ESC(r.op || "")}</code></td><td>${CX_ESC(r.provider || "")}</td><td><span class="pill ${r.outcome === "ok" ? "ok" : "warn"}">${CX_ESC(r.outcome || "")}</span></td><td><code style="font-size:10.5px">${CX_ESC(r.account_ref || r.environment_ref || "—")}</code></td><td>${CX_ESC(r.at || "")}</td><td><a href="/__ioi/work-ledger" title="provider crossings in the proof stream">ledger →</a></td></tr>`).join("");
-  const prcTable = prcs.length
-    ? `<table><thead><tr><th>Op</th><th>Provider</th><th>Outcome</th><th>Target</th><th>At</th><th>Proof</th></tr></thead><tbody>${prcRows}</tbody></table>`
-    : `<div class="empty">No provider receipts yet — every provider crossing (success or failure) writes one.</div>`;
+  const prcTable = providerReceiptsUnavailable
+    ? `<div class="empty">Provider-receipt projection unavailable — crossing evidence is unknown.</div>`
+    : prcs.length
+      ? `<table><thead><tr><th>Op</th><th>Provider</th><th>Outcome</th><th>Target</th><th>At</th><th>Proof</th></tr></thead><tbody>${prcRows}</tbody></table>`
+      : `<div class="empty">No provider receipts yet — every provider crossing (success or failure) writes one.</div>`;
   const srB = spendRecon.budget || {};
   const srWarn = spendRecon.incomplete_teardown_warnings || [];
   const srRows = (spendRecon.rows || []).slice(-8).reverse().map((e) => `<tr>
@@ -1482,19 +1621,21 @@ function renderOperations(ops, authpol, prov, provReceipts, spendRecon, storageB
       <td>${CX_ESC(e.teardown_state || "")}</td>
       <td>${(e.receipt_refs || []).length} receipt(s)</td>
     </tr>`).join("");
-  const spendSection = `<div id="ops-spend-recon"><h3 style="margin:14px 0 8px">Provider spend reconciliation</h3>
-    <p class="sub" style="margin:-2px 0 8px;text-transform:none;letter-spacing:0">${CX_ESC(spendRecon.spend_rule || "customer-borne provider spend — estimates over receipts, never a bill")}</p>
-    <div style="display:flex;gap:6px;flex-wrap:wrap;margin:0 0 8px">
-      <span class="pill ${srB.exists ? "ok" : "muted"}">headroom ${CX_ESC(String(srB.remaining_headroom ?? "—"))}</span>
-      <span class="pill muted">reserved (open estimates) ${CX_ESC(String(srB.reserved_open_estimates ?? 0))}</span>
-      <span class="pill muted">actual spent ${CX_ESC(String(srB.spent ?? 0))}</span>
-      <span class="pill ${(spendRecon.estimated_open_exposure_rate || {}).open_count ? "warn" : "muted"}">open exposures ${CX_ESC(String((spendRecon.estimated_open_exposure_rate || {}).open_count ?? 0))}</span>
-      <span class="pill muted">finalized ${CX_ESC(String((spendRecon.teardown_finalized || {}).count ?? 0))}</span>
-      ${srWarn.length ? `<span class="pill warn">⚠ incomplete teardowns ${srWarn.length}</span>` : ""}
-    </div>
-    ${srWarn.map((w) => `<div class="sub" style="margin:0 0 6px;color:#e2b93d;text-transform:none;letter-spacing:0">⚠ ${CX_ESC(w.exposure_ref || "")} — ${CX_ESC(w.warning || "")}</div>`).join("")}
-    ${srRows ? `<table><thead><tr><th>Exposure</th><th>Provider</th><th>Status</th><th>Rate (estimate)</th><th>Teardown</th><th>Evidence</th></tr></thead><tbody>${srRows}</tbody></table>` : `<div class="empty">No spend exposures yet — a quote-backed metered create opens one; teardown closes it.</div>`}
-  </div>`;
+  const spendSection = spendUnavailable
+    ? `<div id="ops-spend-recon"><h3 style="margin:14px 0 8px">Provider spend reconciliation</h3><div class="empty">Spend-reconciliation projection unavailable — headroom, exposure, and finalized totals are unknown.</div></div>`
+    : `<div id="ops-spend-recon"><h3 style="margin:14px 0 8px">Provider spend reconciliation</h3>
+      <p class="sub" style="margin:-2px 0 8px;text-transform:none;letter-spacing:0">${CX_ESC(spendRecon.spend_rule || "customer-borne provider spend — estimates over receipts, never a bill")}</p>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin:0 0 8px">
+        <span class="pill ${srB.exists ? "ok" : "muted"}">headroom ${CX_ESC(String(srB.remaining_headroom ?? "—"))}</span>
+        <span class="pill muted">reserved (open estimates) ${CX_ESC(String(srB.reserved_open_estimates ?? 0))}</span>
+        <span class="pill muted">actual spent ${CX_ESC(String(srB.spent ?? 0))}</span>
+        <span class="pill ${(spendRecon.estimated_open_exposure_rate || {}).open_count ? "warn" : "muted"}">open exposures ${CX_ESC(String((spendRecon.estimated_open_exposure_rate || {}).open_count ?? 0))}</span>
+        <span class="pill muted">finalized ${CX_ESC(String((spendRecon.teardown_finalized || {}).count ?? 0))}</span>
+        ${srWarn.length ? `<span class="pill warn">⚠ incomplete teardowns ${srWarn.length}</span>` : ""}
+      </div>
+      ${srWarn.map((w) => `<div class="sub" style="margin:0 0 6px;color:#e2b93d;text-transform:none;letter-spacing:0">⚠ ${CX_ESC(w.exposure_ref || "")} — ${CX_ESC(w.warning || "")}</div>`).join("")}
+      ${srRows ? `<table><thead><tr><th>Exposure</th><th>Provider</th><th>Status</th><th>Rate (estimate)</th><th>Teardown</th><th>Evidence</th></tr></thead><tbody>${srRows}</tbody></table>` : `<div class="empty">No spend exposures yet — a quote-backed metered create opens one; teardown closes it.</div>`}
+    </div>`;
   // Storage backend health — archive/CAS byte custody posture (backends, objects, incidents).
   const stB = (storageBackends || {}).backends || [];
   const stInc = ((storageIncidents || {}).incidents || []).filter((i) => i.status === "open");
@@ -1502,9 +1643,11 @@ function renderOperations(ops, authpol, prov, provReceipts, spendRecon, storageB
   const stRows = stB.map((b) => `<tr><td>${CX_ESC(b.display_name || "—")}<div style="color:#878a93;font-size:11px;margin-top:1px"><code>${CX_ESC(b.account_ref || "")}</code></div></td><td><span class="pill muted">${CX_ESC(b.kind || "")}</span></td><td><span class="pill ${(b.health || {}).state === "available" ? "ok" : (b.health || {}).state === "impaired" ? "warn" : "muted"}">${CX_ESC((b.health || {}).state || b.status || "")}</span></td><td>${CX_ESC(String((b.health || {}).objects ?? 0))} object(s)</td><td>${(b.health || {}).open_incidents ? `<span class="pill warn">⚠ ${(b.health || {}).open_incidents}</span>` : `<span class="pill muted">0</span>`}</td></tr>`).join("");
   const stIncRows = stInc.map((i) => `<div class="sub" style="margin:0 0 6px;color:#e2b93d;text-transform:none;letter-spacing:0">⚠ ${CX_ESC(i.kind || "")} — <code style="font-size:10.5px">${CX_ESC(i.archive_ref || "")}</code> ${CX_ESC((i.detail || "").slice(0, 120))}</div>`).join("");
   const stRepRows = stRep.map((r) => `<div class="sub" style="margin:0 0 4px;text-transform:none;letter-spacing:0">${r.outcome === "repaired" ? "✔" : "✖"} repair ${CX_ESC(r.outcome || "")} — <code style="font-size:10.5px">${CX_ESC(r.archive_ref || "")}</code></div>`).join("");
+  const storageIncomplete = storageBackendsUnavailable || storageIncidentsUnavailable;
   const storageSection = `<div id="ops-storage-backends"><h3 style="margin:14px 0 8px">Storage backend health</h3>
     <p class="sub" style="margin:-2px 0 8px;text-transform:none;letter-spacing:0">${CX_ESC((storageBackends || {}).custody_rule || "storage backends hold payload bytes; they do not own operational truth — daemon-admitted sha256 state roots remain restore truth")}</p>
-    ${stRows ? `<table><thead><tr><th>Backend</th><th>Kind</th><th>Health</th><th>Archives</th><th>Open incidents</th></tr></thead><tbody>${stRows}</tbody></table>` : `<div class="empty">No storage backends yet. Add one (local_disk · cas · ipfs · filecoin) to export sealed archive bytes off-daemon.</div>`}
+    ${storageIncomplete ? `<div class="empty compact">One or more storage projections are unavailable; rendered custody records are partial and missing values are unknown.</div>` : ""}
+    ${stRows ? `<table><thead><tr><th>Backend</th><th>Kind</th><th>Health</th><th>Archives</th><th>Open incidents</th></tr></thead><tbody>${stRows}</tbody></table>` : storageBackendsUnavailable ? `<div class="empty">Storage-backend inventory unavailable — no empty-state claim is made.</div>` : `<div class="empty">No storage backends yet. Add one (local_disk · cas · ipfs · filecoin) to export sealed archive bytes off-daemon.</div>`}
     ${stIncRows}${stRepRows}
   </div>`;
   // DePIN posture (Akash) — deployments/bids/leases/endpoints from daemon records.
@@ -1516,11 +1659,13 @@ function renderOperations(ops, authpol, prov, provReceipts, spendRecon, storageB
     const lastEvent = (d.events || []).slice(-1)[0] || {};
     return `<tr><td><code style="font-size:10.5px">${CX_ESC(d.deployment_ref || "")}</code><div style="color:#878a93;font-size:11px;margin-top:1px">${CX_ESC(d.environment_ref || "")}</div></td><td><span class="pill ${d.status === "running" ? "ok" : d.status === "torn_down" ? "muted" : "warn"}">${CX_ESC(d.status || "")}</span></td><td><span class="pill ${lease.state === "open" ? "warn" : "muted"}">${CX_ESC(lease.state || "—")}</span> $${CX_ESC(String(lease.usd_per_hour ?? "?"))}/hr</td><td>${CX_ESC((lastEvent.kind || "—"))}</td></tr>`;
   };
-  const akSection = akDeps.length ? `<div id="ops-akash-depin"><h3 style="margin:14px 0 8px">DePIN deployments (Akash)</h3>
-    <p class="sub" style="margin:-2px 0 8px;text-transform:none;letter-spacing:0">${CX_ESC((akashDepin || {}).custody_rule || "")}</p>
-    <table><thead><tr><th>Deployment</th><th>Status</th><th>Lease</th><th>Last event</th></tr></thead><tbody>${akDeps.slice(0, 8).map(akRow).join("")}</tbody></table>
-    ${akPlans.length ? `<div class="sub" style="margin:6px 0 0;text-transform:none;letter-spacing:0">${akPlans.length} redeploy plan(s) — restore admits only by daemon state_root</div>` : ""}
-  </div>` : "";
+  const akSection = depinUnavailable
+    ? `<div id="ops-akash-depin"><h3 style="margin:14px 0 8px">DePIN deployments (Akash)</h3><div class="empty">DePIN projection unavailable — deployment and lease posture is unknown.</div></div>`
+    : akDeps.length ? `<div id="ops-akash-depin"><h3 style="margin:14px 0 8px">DePIN deployments (Akash)</h3>
+      <p class="sub" style="margin:-2px 0 8px;text-transform:none;letter-spacing:0">${CX_ESC((akashDepin || {}).custody_rule || "")}</p>
+      <table><thead><tr><th>Deployment</th><th>Status</th><th>Lease</th><th>Last event</th></tr></thead><tbody>${akDeps.slice(0, 8).map(akRow).join("")}</tbody></table>
+      ${akPlans.length ? `<div class="sub" style="margin:6px 0 0;text-transform:none;letter-spacing:0">${akPlans.length} redeploy plan(s) — restore admits only by daemon state_root</div>` : ""}
+    </div>` : "";
   const foRuns = (failoverRuns || {}).runs || [];
   const foRow = (r) => {
     const repl = r.replacement || {};
@@ -1532,9 +1677,11 @@ function renderOperations(ops, authpol, prov, provReceipts, spendRecon, storageB
   const foTriggered = foPlansAll.filter((p) => p.trigger_state === "triggered").length;
   const foAuto = (foRuns.some((r) => r.triggered_by) || foArmed || foTriggered)
     ? `<p class="sub" style="margin:-2px 0 8px;text-transform:none;letter-spacing:0">Auto-trigger posture: ${foArmed} armed · ${foTriggered} triggered — detection is evidence-cited and a triggered run parks at the wallet gate (never automatic authority).</p>` : "";
-  const foSection = (foRuns.length || foArmed || foTriggered) ? `<div id="ops-failover"><h3 style="margin:14px 0 8px">Cross-provider failover runs</h3>${foAuto}
+  const failoverIncomplete = failoverRunsUnavailable || failoverPlansUnavailable;
+  const foSection = (foRuns.length || foArmed || foTriggered || failoverIncomplete) ? `<div id="ops-failover"><h3 style="margin:14px 0 8px">Cross-provider failover runs</h3>${foAuto}
     <p class="sub" style="margin:-2px 0 8px;text-transform:none;letter-spacing:0">Named failure → placement decision → wallet-gated replacement create → state_root-validated restore → old teardown. Restore admits only by daemon-admitted state roots; provider-native ids stay evidence.</p>
-    <table><thead><tr><th>Run</th><th>Condition</th><th>Class move</th><th>Status</th><th>State root</th></tr></thead><tbody>${foRuns.slice(0, 8).map(foRow).join("")}</tbody></table>
+    ${failoverIncomplete ? `<div class="empty compact">One or more failover projections are unavailable; run and trigger posture is partial, not empty.</div>` : ""}
+    ${foRuns.length ? `<table><thead><tr><th>Run</th><th>Condition</th><th>Class move</th><th>Status</th><th>State root</th></tr></thead><tbody>${foRuns.slice(0, 8).map(foRow).join("")}</tbody></table>` : ""}
   </div>` : "";
   const provSection = `<div id="ops-provider-health"><h2>Provider health</h2><p class="sub" style="margin:-4px 0 10px">BYO provider accounts and their preflight posture. ${CX_ESC(prov.spend_rule || "BYO provider spend is customer-borne; the hypervisor records, governs, estimates, and reconciles — never hidden markup")}.</p>${provTable}${spendSection}${storageSection}${akSection}${foSection}<h3 style="margin:14px 0 8px">Recent provider receipts</h3>${prcTable}</div>`;
   // Scheduler records keyed by automation_id, with the schedule pre-humanized server-side so the
@@ -1543,7 +1690,7 @@ function renderOperations(ops, authpol, prov, provReceipts, spendRecon, storageB
   for (const a of sch.automations || []) autosById[a.automation_id] = { ...a, schedule_human: schedHuman(a.schedule_spec).replace(/<[^>]*>/g, "") };
   const drawer = `<div class="wldrawer" id="ops-drawer"><div class="sub" style="margin:0">Select a run to inspect its status detail, scheduler posture, proof, and remediation.</div></div>`;
   const script = `<script>
-    var OPS_RUNS=${JSON.stringify(opRuns)};var OPS_AUTOS=${JSON.stringify(autosById)};
+    var OPS_RUNS=${JSON.stringify(opRuns).replace(/</g, "\\u003c")};var OPS_AUTOS=${JSON.stringify(autosById).replace(/</g, "\\u003c")};
     function opsEsc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
     function opsRow(k,v){return v?'<div class="wlk">'+opsEsc(k)+'</div><div class="wlv">'+v+'</div>':'';}
     document.querySelectorAll('.oprow').forEach(function(tr){tr.addEventListener('click',function(){
@@ -1555,7 +1702,7 @@ function renderOperations(ops, authpol, prov, provReceipts, spendRecon, storageB
       var h='<h3>'+opsEsc(r.name||r.automation_id)+' <span class="pill '+(r.status==='done'?'ok':r.status==='failed'?'warn':'muted')+'">'+opsEsc(r.status||'')+'</span></h3>';
       h+='<h4>Run</h4><div class="wlgrid">'+opsRow('Execution','<code>'+opsEsc(r.execution_id)+'</code>')+opsRow('Automation','<a href="/__ioi/automations/'+encodeURIComponent(r.automation_id)+'">'+opsEsc(r.automation_id)+'</a>')+opsRow('Project',opsEsc(r.project_id))+opsRow('Started',opsEsc(r.started_at))+opsRow('Finished',opsEsc(r.finished_at))+opsRow('Duration',opsEsc(dur))+'</div>';
       h+='<h4>Scheduler posture</h4>'+(a?('<div class="wlgrid">'+opsRow('State','<span class="pill '+(a.enabled!==false?'ok':'muted')+'">'+(a.enabled!==false?'active':'paused')+'</span>')+opsRow('Schedule',opsEsc(a.schedule_human))+opsRow('Next run',opsEsc(a.next_run_at))+opsRow('Last run',opsEsc(a.last_run_at))+opsRow('Concurrency',opsEsc(String(a.max_concurrency||1)))+opsRow('On failure',opsEsc(a.failure_policy||'continue'))+'</div>'):'<div class="sub" style="margin:0">No schedule — this automation runs on manual/webhook triggers only.</div>');
-      h+='<h4>Proof</h4><div class="wlgrid">'+opsRow('Run Timeline',r.timeline_ref?('<a href="'+r.timeline_ref+'" target="_blank" rel="noopener">open transcript ↗</a>'):'—')+opsRow('Ledger','<a href="/__ioi/work-ledger">proof stream →</a>')+'</div>';
+      h+='<h4>Proof</h4><div class="wlgrid">'+opsRow('Run Timeline',r.timeline_ref?('<a href="'+opsEsc(r.timeline_ref)+'" target="_blank" rel="noopener">open transcript ↗</a>'):'—')+opsRow('Ledger','<a href="/__ioi/work-ledger">proof stream →</a>')+'</div>';
       h+='<h4>Remediation</h4><div style="display:flex;gap:8px;flex-wrap:wrap">';
       h+='<form class="inline" method="post" action="/__ioi/automations/'+encodeURIComponent(r.automation_id)+'/run?back=ops"><button class="act" type="submit">▶ Re-run now</button></form>';
       if(a){h+=(a.enabled!==false)?'<form class="inline" method="post" action="/__ioi/automations/'+encodeURIComponent(r.automation_id)+'/pause?back=ops"><button class="act ghost" type="submit">⏸ Pause schedule</button></form>':'<form class="inline" method="post" action="/__ioi/automations/'+encodeURIComponent(r.automation_id)+'/resume?back=ops"><button class="act" type="submit">▶ Resume schedule</button></form>';}
@@ -1571,11 +1718,23 @@ function renderOperations(ops, authpol, prov, provReceipts, spendRecon, storageB
   (ledgerEntries || []).forEach((e) => { const k = e.kind || "?"; waKinds[k] = (waKinds[k] || 0) + 1; });
   const waTotal = runs.total || 0;
   const waFailRate = waTotal ? Math.round(((runs.failed || 0) / waTotal) * 100) : 0;
+  const runFunnel = operationsUnavailable
+    ? `<div class="empty compact">Run funnel unavailable — totals and failure rate are unknown.</div>`
+    : `<div class="chips" style="margin:0 0 8px"><span class="chiplabel">run funnel</span><span class="pill muted">total ${waTotal}</span><span class="pill ok">done ${runs.done || 0}</span><span class="pill warn">failed ${runs.failed || 0}</span><span class="pill muted">running ${runs.running || 0}</span><span class="pill ${waFailRate > 20 ? "warn" : "muted"}">failure rate ${waFailRate}%</span></div>`;
+  const ledgerKinds = ledgerUnavailable
+    ? `<div class="empty compact">Work-ledger projection unavailable — kind distribution is unknown.</div>`
+    : `<div class="chips" style="margin:0 0 8px"><span class="chiplabel">ledger kinds</span>${Object.entries(waKinds).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([k, n]) => `<span class="pill muted">${CX_ESC(k)} ${n}</span>`).join("") || `<span class="sub" style="margin:0">no entries yet</span>`}</div>`;
+  const improvementPosture = operationsUnavailable
+    ? `Run-failure posture is unavailable, so no improvement-candidate claim is made.`
+    : (runs.failed || 0) > 0
+      ? `${runs.failed} failed run${runs.failed > 1 ? "s are" : " is an"} improvement candidate${runs.failed > 1 ? "s" : ""} — mine them in <a href="/__ioi/agent-studio">Studio →</a>`
+      : "No failed runs — nothing to mine right now.";
   const workAnalytics = `<div id="ops-work-analytics"><h2>Work Analytics <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— funnels over the proof stream; deeper latency percentiles are not recorded yet (named gap)</span></h2>
-    <div class="chips" style="margin:0 0 8px"><span class="chiplabel">run funnel</span><span class="pill muted">total ${waTotal}</span><span class="pill ok">done ${runs.done || 0}</span><span class="pill warn">failed ${runs.failed || 0}</span><span class="pill muted">running ${runs.running || 0}</span><span class="pill ${waFailRate > 20 ? "warn" : "muted"}">failure rate ${waFailRate}%</span></div>
-    <div class="chips" style="margin:0 0 8px"><span class="chiplabel">ledger kinds</span>${Object.entries(waKinds).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([k, n]) => `<span class="pill muted">${CX_ESC(k)} ${n}</span>`).join("") || `<span class="sub" style="margin:0">no entries yet</span>`}</div>
-    <p class="sub" style="margin:4px 0 0">${(runs.failed || 0) > 0 ? `${runs.failed} failed run${runs.failed > 1 ? "s are" : " is an"} improvement candidate${runs.failed > 1 ? "s" : ""} — mine them in <a href="/__ioi/agent-studio">Studio →</a>` : "No failed runs — nothing to mine right now."} · capture operator judgment in <a href="/__ioi/feedback">Feedback &amp; Annotations →</a></p></div>`;
+    ${runFunnel}
+    ${ledgerKinds}
+    <p class="sub" style="margin:4px 0 0">${improvementPosture} · capture operator judgment in <a href="/__ioi/feedback">Feedback &amp; Annotations →</a></p></div>`;
   const inner = `<h1>Operations</h1><p class="sub">Substrate &amp; infrastructure — scheduler health, providers, placement/failover, storage custody, capacity, spend. Select an automation run to inspect and act on it in place. Suite/run work — the mission run queue + incident inbox — lives in <a href="/__ioi/missions">Missions →</a>. <a href="/__ioi/work-ledger">Open Provenance →</a></p>
+    ${availabilityNotice}
     <div id="ops-jobs"><h2>Jobs <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— automation runs · harness executions · IOI Agent coordination · failover recovery, newest first</span></h2>${jobsSection}${jobsScript}</div>
     ${workAnalytics}
     <h2>Scheduler</h2>${schedSection}
@@ -1587,7 +1746,9 @@ function renderOperations(ops, authpol, prov, provReceipts, spendRecon, storageB
     ${provSection}${script}`;
   const posture = authpol.deployment_auth_posture || "";
   const rtNote = (authpol.rollout_trust || {}).note || "";
-  const postureStrip = posture ? `<div class="card" style="display:block;margin:0 0 14px" id="ops-auth-posture"><b>Auth posture</b> <span class="pill ${posture === "authenticated_managed" ? "ok" : posture === "exposed_untrusted" ? "warn" : "muted"}">${CX_ESC(posture)}</span> · enforcement ${authpol.effective_enforced ? `<span class="pill ok">enforced</span>` : `<span class="pill muted">not enforced</span>`} · exposed ${authpol.exposed ? `<span class="pill warn">yes</span>` : `<span class="pill muted">no</span>`}<div class="sub" style="margin:4px 0 0;text-transform:none;letter-spacing:0">${CX_ESC(rtNote)} · <a href="/__ioi/governance">Governance →</a></div></div>` : "";
+  const postureStrip = authUnavailable
+    ? `<div class="card" style="display:block;margin:0 0 14px" id="ops-auth-posture"><b>Auth posture</b> <span class="pill muted">unknown</span><div class="sub" style="margin:4px 0 0;text-transform:none;letter-spacing:0">Authentication-policy projection unavailable; enforcement and exposure are not inferred. · <a href="/__ioi/governance">Governance →</a></div></div>`
+    : posture ? `<div class="card" style="display:block;margin:0 0 14px" id="ops-auth-posture"><b>Auth posture</b> <span class="pill ${posture === "authenticated_managed" ? "ok" : posture === "exposed_untrusted" ? "warn" : "muted"}">${CX_ESC(posture)}</span> · enforcement ${authpol.effective_enforced ? `<span class="pill ok">enforced</span>` : `<span class="pill muted">not enforced</span>`} · exposed ${authpol.exposed ? `<span class="pill warn">yes</span>` : `<span class="pill muted">no</span>`}<div class="sub" style="margin:4px 0 0;text-transform:none;letter-spacing:0">${CX_ESC(rtNote)} · <a href="/__ioi/governance">Governance →</a></div></div>` : "";
   return automationsShell("Operations", postureStrip + inner);
 }
 
@@ -4597,7 +4758,7 @@ function renderIncidentsPort(ops, goalRuns, lane) {
   const failureIncident = (r) => ({
     kind: "Run failure", id: r.execution_id || "", title: `${r.status || "failed"} · ${r.name || r.execution_id || "run"}`,
     created: r.started_at || "", updated: r.finished_at || r.started_at || "",
-    closed: false, proof: r.timeline_ref || "/__ioi/work-ledger", detail: r.project_id || "",
+    closed: false, proof: canonicalTimelineRef(r.timeline_ref) || "/__ioi/work-ledger", detail: r.project_id || "",
   });
   const incidents = gr.filter((r) => Array.isArray(r.blockers) && r.blockers.length).map(blockerIncident)
     .concat(failures.map(failureIncident));
@@ -8151,21 +8312,21 @@ async function handleEstateRequest(req, res, body) {
     }
     if (pathname === "/__ioi/operations" && req.method === "GET") {
       const [r, authpol, prov, provReceipts, spendRecon, storageB, storageInc, akashDepin, failoverRuns, failoverPlans2, goalRunsRes, ledgerRes] = await Promise.all([
-        fetch(`${DAEMON}/v1/hypervisor/operations`).then((x) => x.json()).catch(() => ({})),
-        fetch(`${DAEMON}/v1/hypervisor/auth/policy`).then((x) => x.json()).catch(() => ({})),
-        fetch(`${DAEMON}/v1/hypervisor/providers`).then((x) => x.json()).catch(() => ({})),
-        fetch(`${DAEMON}/v1/hypervisor/provider-receipts`).then((x) => x.json()).catch(() => ({})),
-        fetch(`${DAEMON}/v1/hypervisor/provider-spend/reconciliation`).then((x) => x.json()).catch(() => ({})),
-        fetch(`${DAEMON}/v1/hypervisor/storage-backends`).then((x) => x.json()).catch(() => ({})),
-        fetch(`${DAEMON}/v1/hypervisor/storage-incidents`).then((x) => x.json()).catch(() => ({})),
-        fetch(`${DAEMON}/v1/hypervisor/akash-deployments`).then((x) => x.json()).catch(() => ({})),
-        fetch(`${DAEMON}/v1/hypervisor/failover/runs`).then((x) => x.json()).catch(() => ({})),
-        fetch(`${DAEMON}/v1/hypervisor/failover/plans`).then((x) => x.json()).catch(() => ({})),
-        fetch(`${DAEMON}/v1/hypervisor/goal-runs`).then((x) => x.json()).catch(() => ({})),
-        fetch(`${DAEMON}/v1/hypervisor/work-ledger`).then((x) => x.json()).catch(() => ({})),
+        readOperationsPlane("/v1/hypervisor/operations"),
+        readOperationsPlane("/v1/hypervisor/auth/policy"),
+        readOperationsPlane("/v1/hypervisor/providers"),
+        readOperationsPlane("/v1/hypervisor/provider-receipts"),
+        readOperationsPlane("/v1/hypervisor/provider-spend/reconciliation"),
+        readOperationsPlane("/v1/hypervisor/storage-backends"),
+        readOperationsPlane("/v1/hypervisor/storage-incidents"),
+        readOperationsPlane("/v1/hypervisor/akash-deployments"),
+        readOperationsPlane("/v1/hypervisor/failover/runs"),
+        readOperationsPlane("/v1/hypervisor/failover/plans"),
+        readOperationsPlane("/v1/hypervisor/goal-runs"),
+        readOperationsPlane("/v1/hypervisor/work-ledger"),
       ]);
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
-      res.end(renderOperations(r, authpol, prov, provReceipts, spendRecon, storageB, storageInc, akashDepin, failoverRuns, failoverPlans2, goalRunsRes.goal_runs || [], ledgerRes.entries || []));
+      res.end(renderOperations(r, authpol, prov, provReceipts, spendRecon, storageB, storageInc, akashDepin, failoverRuns, failoverPlans2, goalRunsRes, ledgerRes));
       return;
     }
     // ---- Environments — substrate estate; reads the daemon env-summary projection (paged) + classes.
