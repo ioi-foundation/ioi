@@ -4,9 +4,9 @@ Status: canonical architecture authority.
 Canonical owner: this file for wallet.network authority doctrine; wallet product, exchange, route-source, exposure, protection, approval-inbox, and receipt doctrine lives in [`product-exchange-risk.md`](./product-exchange-risk.md); low-level scope APIs live in [`wallet-network-api-and-authority-scopes.md`](./api-authority-scopes.md).
 Supersedes: older generic capability-grant wording when it conflicts with `scope:*` authority grants.
 Superseded by: none.
-Last alignment pass: 2026-07-17.
+Last alignment pass: 2026-07-18.
 Doctrine status: canonical
-Implementation status: partial (capability-lease authority, sealed credentials, approval gates, and the principal-to-approval-authority resolver are live; embedded account/factor/passkey/recovery APIs, guardian surfaces, key shards, and MPC vault are planned)
+Implementation status: partial (capability-lease authority, sealed credentials, approval gates, and the principal-to-approval-authority resolver are live; embedded account/factor/passkey/recovery APIs, guardian surfaces, key shards, and MPC vault are planned; the closed approval-ceremony context, review/effect-admission receipt profiles, context-bound v3 grant, and WalletReceipt v2 are target successor contracts)
 Implementation refs:
   - `crates/node/src/bin/hypervisor_daemon_routes/`
   - `crates/types/src/app/wallet_network/principal_authority.rs`
@@ -169,15 +169,20 @@ Continue with Apple / Google / Microsoft / GitHub / enterprise SSO / passkey
   -> establish an ordinary low-risk product session; authentication grants no
      consequential authority
   -> a product or agent proposes one consequential action
-  -> wallet.network derives an exact authority review bound to the principal,
-     acting subject, resources, destination, budget, policy, risk, expiry,
-     product session, origin, and request hash
-  -> an enrolled platform passkey performs local user verification through
-     Face ID, Touch ID, Windows Hello, device PIN, or equivalent; no biometric
-     sample or template leaves the device
+  -> wallet.network derives separate commitments to the immutable authority
+     request, canonical reviewed representation, single-use approval ceremony,
+     and exact effect, batch, or standing authorization subject
+  -> an enrolled authority client presents the canonical review under a
+     declared presentation-evidence profile
+  -> a passkey or other admitted AuthFactor authenticates the fresh ceremony;
+     Face ID, Touch ID, Windows Hello, device PIN, or equivalent may perform
+     local user verification, and no biometric sample or template leaves the
+     device
   -> wallet.network issues a scoped, expiring, revocable AuthorityGrant or
-     CapabilityLease bound to that exact review and revocation epoch
-  -> Hypervisor Daemon revalidates admission at the effect boundary and
+     CapabilityLease bound to the request, review, ceremony, authorization
+     subject, resolved approval authority, and revocation epoch
+  -> Hypervisor Daemon derives the actual effect at its policy-enforcement
+     point, verifies equality, membership, or standing constraints, and
      executes or refuses
   -> WalletReceipt plus Agentgres effect/evidence records make the decision and
      result inspectable, replayable, challengeable, and revocable where possible
@@ -194,9 +199,12 @@ The calling product or deployment identity plane owns the product session.
 wallet.network binds that session ref and origin into the exact authority
 request and review without creating a second session lifecycle. Before this
 journey is claimable as portable end-to-end authority, the target
-`AuthorityGrantEnvelope` v3 successor must sign the exact request-body hash,
-principal, product-session/origin binding, factor/guardian posture, review
-receipt, and approval-evidence root; immutable v1/v2 contracts are not silently
+`AuthorityGrantEnvelope` v3 successor must sign the exact authority-request
+body hash, reviewed-representation hash, approval-ceremony context hash,
+authorization subject, principal, product-session/origin binding, satisfied
+factor/guardian posture, complete principal-authority resolution coordinates
+and snapshot whenever portable-principal authority is claimed, review receipt,
+and typed approval-evidence root; immutable v1/v2 contracts are not silently
 extended.
 
 Self-hosted, offline, air-gapped, and sovereign deployments may use
@@ -204,6 +212,126 @@ deployment-local identity and another locally permitted authority provider.
 They retain the same authentication-versus-authority separation and
 effect-boundary admission rule without being forced through a hosted
 wallet.network login.
+
+## Exact-Action Evidence Separation
+
+The exact-action path contains four distinct commitments:
+
+```yaml
+authority_request_body_hash: sha256:...
+reviewed_representation_hash: sha256:...
+approval_ceremony_context_ref: approval-ceremony-context://...
+approval_ceremony_context_hash: sha256:...
+authorization_subject:
+  kind: exact_effect | batch_manifest | standing_envelope
+  subject_ref: effect://... | artifact://... | policy://...
+  subject_hash: sha256:...
+  validation_profile_ref: schema://... | policy://...
+```
+
+`authority_request_body_hash` commits the immutable machine authority request.
+`reviewed_representation_hash` commits the canonical, application-defined
+semantic representation presented for approval, including its required
+disclosures; it is not a hash of incidental pixels or layout.
+`approval_ceremony_context_hash` is the domain-separated JCS hash of the closed
+`ApprovalCeremonyContextEnvelope`. It commits the request and representation
+hashes, principal, acting subject, product session, origin, authorization
+subject, required factor/guardian posture, policy decision, single-use random
+nonce, expiry, revocation posture, and the exact wallet.network
+principal-authority resolution artifact used by the ceremony when the
+principal falls under the portable binding contract.
+`authorization_subject` states what later execution must prove:
+
+- `exact_effect` requires equality with the daemon-derived canonical effect
+  payload hash;
+- `batch_manifest` requires membership in the committed manifest under the
+  named validation profile; and
+- `standing_envelope` requires the concrete effect to satisfy every committed
+  scope, resource, destination, budget, call-count, time, and policy constraint.
+
+These commitments prove different facts and must not be collapsed:
+
+```text
+AuthorityReviewReceipt
+  records the canonical reviewed representation, decision, and presentation
+  evidence accepted under policy plus one hash-bound satisfaction evaluation
+  for every required factor or guardian posture ref
+
+AuthFactor / WebAuthn assertion evidence
+  authenticates the credential ceremony, challenge, RP/origin posture, and
+  observed UP/UV facts required by policy
+
+AuthorityGrantEnvelope v3
+  signs the request, review, ceremony, posture-satisfaction profile/root,
+  authorization subject, typed approval-evidence root, and any required
+  resolved authority snapshot and coordinates
+
+AuthorityEffectAdmissionReceipt
+  binds the daemon-derived actual effect, equality/membership/constraint proof,
+  fresh trusted-time and revocation evidence, and the pre-invocation admission
+  decision
+
+execution/effect receipts
+  bind only the invocation and effect facts their profiles declare
+```
+
+The closed ceremony context, `AuthorityReviewReceiptV1`, context-bound
+`AuthorityGrantEnvelope` v3, `AuthorityEffectAdmissionReceiptV1`, and target
+`WalletReceipt` v2 are successor contracts. Current registered v1/v2 grants,
+the current WalletReceipt v1, and generic execution receipts remain unchanged
+and do not by themselves establish the end-to-end exact-action proof.
+
+A WebAuthn assertion can be evidence in an application consent or approval
+ceremony when its fresh server challenge is bound to
+`approval_ceremony_context_hash`. It remains distinct from presentation
+evidence and does not independently prove that an application-defined
+representation was displayed, displayed correctly, or understood. Likewise, a
+surface statement that it rendered a review does not authenticate the user, and
+a daemon execution receipt does not prove that the executed effect was approved
+unless the request, review, ceremony, grant, authorization subject, resolved
+authority when required, and actual effect are linked and revalidated.
+
+Presentation evidence is declared through a versioned
+`presentation_evidence_profile_ref` plus immutable evidence refs. Its assurance
+is not a two-tier label. Policy evaluates the orthogonal facts the selected
+profile records:
+
+```yaml
+presentation_evidence:
+  presentation_evidence_profile_ref: policy://wallet/presentation/...
+  presentation_evidence_refs:
+    - receipt://...
+    - artifact://...
+    - attestation://...
+  dimensions:
+    operator_and_surface: object
+    content_binding: object
+    request_vs_effect_binding: object
+    enrollment_and_attestation: object
+    user_presence_and_verification: object
+    freshness_and_replay: object
+    proposer_independence: object
+```
+
+An ordinary embedded browser surface may provide a policy-accepted semantic
+presentation receipt without claiming a trusted display. A separately enrolled
+or attested authority client may support stronger statements only for the exact
+facts its evidence proves. No presentation profile, AuthFactor, device class,
+or attestation upgrades comprehension into a cryptographic fact.
+
+Interaction mode (`interactive` or `noninteractive_policy`) and authentication
+posture (`baseline` or `step_up`) are independent. A step-up review remains an
+interactive ceremony with stronger required authentication; it is not a third
+interaction mode. Required posture, satisfied posture, and actual evidence are
+also distinct: every requirement receives exactly one wallet-derived
+`satisfied`, `unsatisfied`, or `unknown` evaluation, and approval requires all
+evaluations to be satisfied.
+
+`edit-and-approve` always creates a successor authority request, review,
+representation hash, authorization-subject commitment, and approval ceremony.
+The predecessor challenge and assertion cannot authorize the edited successor.
+For noninteractive or after-the-fact execution under a standing envelope,
+receipts must say that the envelope, not the individual effect, was reviewed.
 
 ## Boundary Statement
 
@@ -411,10 +539,12 @@ LowAssuranceAccessPoint
   decryption keys, or durable authority.
 
 GuardianSurface
-  A high-assurance surface that can render an exact action, bind the request
-  hash, and sign or approve the challenge. Examples: enrolled mobile device,
-  passkey device, hardware key, local CLI signer, enterprise approval surface,
-  or trusted Hypervisor/wallet app.
+  An enrolled authority-client and presentation surface that can produce the
+  presentation evidence required by policy and submit an approval or denial.
+  It composes with one or more AuthFactors; a generic passkey or hardware
+  credential is an AuthFactor, not a GuardianSurface by itself. Examples:
+  enrolled mobile or desktop authority clients, local CLI signer surfaces,
+  enterprise approval surfaces, and trusted Hypervisor/wallet apps.
 
 KeyShard
   Actual MPC, threshold, hardware-backed, or organization quorum key material.
@@ -443,8 +573,10 @@ secure-enclave credential under an enrolled-device policy; the resulting
 cryptographic assertion, not the biometric, crosses the boundary.
 
 Out-of-band guardian approval should be available for high-risk actions. A QR,
-push, or CLI challenge is only a transport; the security property comes from the
-guardian surface displaying and signing the exact:
+push, or CLI challenge is only a transport. The enrolled authority client
+produces presentation evidence for the exact review, and the separately
+admitted AuthFactor or organization approval mechanism authenticates the bound
+ceremony. Together they bind:
 
 ```text
 subject
@@ -454,7 +586,10 @@ budget or amount
 expiry
 risk class
 policy hash
-request hash
+authority request body hash
+reviewed representation hash
+approval ceremony context hash
+authorization subject ref and hash
 ```
 
 The agent never receives provider tokens, OTP values, raw biometric samples or
@@ -485,10 +620,12 @@ grant, denial receipt, revocation epoch, or authority receipt.
 
 ### Level 3: Out-of-Band Guardian
 
-- enrolled external device;
-- QR, push, or CLI challenge over exact request hash;
-- hardware key;
-- local CLI signer;
+- enrolled external GuardianSurface authority client;
+- QR, push, or CLI transport for a challenge bound to the approval ceremony
+  context;
+- hardware-key or passkey AuthFactor composed with that surface where policy
+  requires it;
+- local CLI signer surface;
 - enterprise approval surface;
 - persistent agent authority;
 - funds, secrets, deploys, policy widening, and declassification.
@@ -573,11 +710,13 @@ preserves consequential authority.
   grants remain revoked or quarantined until the user or organization
   re-establishes the required factors and explicitly reauthorizes them.
 
-A passkey is an `AuthFactor`. It satisfies a GuardianSurface policy only when
-the enrolled surface renders the exact action and the signed assertion is bound
-to the exact request or challenge hash. Authentication and recovery produce
-posture evidence; only the resulting `AuthorityGrant` or `CapabilityLease`
-conveys machine power (`INV-3`).
+A passkey is an `AuthFactor`, not a presentation surface. A policy may require an
+enrolled GuardianSurface to produce presentation evidence and a passkey to
+authenticate the separately bound approval ceremony. The resulting review
+receipt records which surface and presentation-evidence profile were accepted;
+the AuthFactor evidence records the WebAuthn ceremony facts. Authentication and
+recovery produce posture evidence; only the resulting `AuthorityGrant` or
+`CapabilityLease` conveys machine power (`INV-3`).
 
 ## wallet.network Authority Surfaces
 
@@ -590,9 +729,12 @@ intent
 -> simulation / evidence
 -> risk and eligibility labels
 -> policy
+-> canonical reviewed representation and presentation evidence
 -> step-up or denial
+-> approval ceremony evidence
 -> scoped grant / lease
 -> execution handoff
+-> daemon-derived effect binding and admission
 -> receipt
 -> revocation path
 ```
@@ -1126,7 +1268,9 @@ profiles select external services such as IOI L1
 1. Agents never receive raw root secrets.
 2. Apps and runtimes are authority clients, not key custodians.
 3. Policy widening requires step-up.
-4. Sensitive actions bind to exact request hash, policy hash, scope, expiry, and revocation epoch.
+4. Sensitive actions bind the exact authority-request body, reviewed
+   representation, approval-ceremony context, authorization subject, policy,
+   scope, expiry, and revocation epoch.
 5. Panic/revocation must kill active grants.
 6. BYOK keys live in wallet.network, not workflow node configs.
 7. Agent execution accounts are not default for every agent; they are required
@@ -1137,6 +1281,17 @@ profiles select external services such as IOI L1
    selected wallet state root; ledger finality must prevent wholesale rollback
    of the complete state root, while the resolver detects coupled mutable-head
    rollback inside the selected root through immutable per-version indexes.
+10. The principal-authority binding ref, version, hash, complete
+    `ApprovalAuthority` snapshot and hash, required and matched scope, and
+    mutation-audit coordinates remain linked to the grant and durable replay
+    evidence.
+11. WebAuthn assertion evidence, presentation evidence, and daemon execution
+    evidence must not be substituted for one another.
+12. `exact_effect` approval requires daemon-derived hash equality;
+    `batch_manifest` requires membership proof; `standing_envelope` requires
+    complete constraint validation.
+13. Editing any reviewed consequential field creates a successor request,
+    review, and approval ceremony and invalidates predecessor approval evidence.
 
 ## One-Line Doctrine
 

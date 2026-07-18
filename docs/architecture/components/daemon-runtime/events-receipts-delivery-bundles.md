@@ -4,9 +4,9 @@ Status: canonical low-level reference.
 Canonical owner: this file for runtime events, receipts, delivery bundles, trace bundles, and quality records.
 Supersedes: overlapping event/receipt examples in plans/specs when event, trace, or receipt fields conflict.
 Superseded by: none.
-Last alignment pass: 2026-07-17.
+Last alignment pass: 2026-07-18.
 Doctrine status: canonical
-Implementation status: mixed (receipts/events live across existing owner planes; `ReceiptCheckpoint` v1, `ReceiptProofBundle` v1, managed-work billing ledger-bundle, dispute-rail-bundle, and `PhysicalActionExecutionReceipt` v1 have registered schemas, invariants, fixtures, and generated projections; portable cryptographic proof verification/CLI support, managed-work billing and dispute kernels, physical execution production, daemon/Agentgres production billing/dispute/physical/checkpoint emission, supplier-statement resolution, evidence adjudication, remedy/bond execution receipts, cross-plane information-flow events, OutcomeRoom/collective-pursuit receipt families, full bounded-improvement Campaign receipts, embodied graph activation and action-chunk lineage, spacetime reservation, physical segment commitments, and delivery-bundle settlement remain planned)
+Implementation status: mixed (receipts/events live across existing owner planes; `ReceiptCheckpoint` v1, `ReceiptProofBundle` v1, managed-work billing ledger-bundle, dispute-rail-bundle, and `PhysicalActionExecutionReceipt` v1 have registered schemas, invariants, fixtures, and generated projections; portable cryptographic proof verification/CLI support, exact-action review/effect-admission receipt profiles, managed-work billing and dispute kernels, physical execution production, daemon/Agentgres production billing/dispute/physical/checkpoint emission, supplier-statement resolution, evidence adjudication, remedy/bond execution receipts, cross-plane information-flow events, OutcomeRoom/collective-pursuit receipt families, full bounded-improvement Campaign receipts, embodied graph activation and action-chunk lineage, spacetime reservation, physical segment commitments, and delivery-bundle settlement remain planned)
 Last implementation audit: 2026-07-18
 
 ## Purpose
@@ -665,6 +665,8 @@ run.cancelled
 ```text
 PolicyDecisionReceipt
 ApprovalReceipt
+AuthorityReviewReceipt
+AuthorityEffectAdmissionReceipt
 ModelInvocationReceipt
 LearningEgressReceipt
 InformationFlowDecisionReceipt
@@ -851,6 +853,397 @@ WorkspaceRestoreReceipt
 DiagnosticsRepairReceipt
 JobReceipt
 ```
+
+## Authority Review Receipt
+
+`AuthorityReviewReceiptV1` is a portable wrapper around the exact registered
+closed `ReceiptEnvelope` v1. It records the wallet/policy boundary's decision
+over one exact request and review representation while keeping presentation
+evidence, authenticator ceremony evidence, principal-authority resolution,
+grant issuance, effect admission, and execution as separate facts.
+
+This section is target doctrine. Current master has no registered
+`AuthorityReviewReceipt` schema, generated projection, production emitter, or
+v3 grant verifier. Those must land together in a later machine-contract cut;
+this profile does not silently extend an existing receipt or grant version.
+
+```yaml
+AuthorityReviewReceiptV1:
+  schema_version: 1
+  receipt_envelope: ReceiptEnvelopeV1
+  body:
+    authority_review_ref: review://...
+    authority_review_body_hash: sha256:...
+    authority_request_ref: authority-request://...
+    authority_request_body_hash: sha256:...
+    principal_ref:
+      principal://... | wallet://... | org://... | worker://... | service://... |
+      domain://... | agentgres://domain/...
+    product_session_ref: session://... | null
+    origin_binding_ref: origin-binding://... | origin://... | null
+    acting_subject_ref: system://... | agent://... | worker://... | runtime://...
+    decision_actor_ref: wallet://... | policy://... | system://... | org://...
+    authorization_subject:
+      kind: exact_effect | batch_manifest | standing_envelope
+      subject_ref: effect://... | artifact://... | policy://...
+      subject_hash: sha256:...
+      validation_profile_ref: schema://... | policy://...
+    reviewed_representation_hash: sha256:...
+    presentation_surface_ref: wallet-client://... | guardian://... | surface://...
+    presentation_evidence_profile_ref: policy://... | schema://...
+    presentation_evidence_refs: []
+    presentation_dimensions:
+      operator_and_surface: object
+      content_binding: object
+      request_vs_effect_binding: object
+      enrollment_and_attestation: object
+      user_presence_and_verification: object
+      freshness_and_replay: object
+      proposer_independence: object
+    approval_ceremony_context_ref: approval-ceremony-context://...
+    approval_ceremony_context_hash: sha256:...
+    approval_ceremony_evidence_refs: []
+    required_auth_factor_posture_refs: []
+    required_guardian_surface_refs: []
+    satisfied_auth_factor_refs: []
+    satisfied_guardian_surface_refs: []
+    posture_satisfaction_profile_ref: policy://... | schema://...
+    posture_satisfaction_evaluations:
+      - requirement_ref: policy://... | auth_factor://... | guardian://...
+        requirement_kind: auth_factor | guardian_surface
+        satisfied_by_refs: []
+        evidence_refs: []
+        evaluation_profile_ref: policy://... | schema://...
+        decision: satisfied | unsatisfied | unknown
+    posture_satisfaction_root: sha256:...
+    auth_factor_evidence_refs: []
+    principal_authority_resolution_ref: artifact://... | null
+    principal_authority_resolution_hash: sha256:... | null
+    policy_decision_receipt_ref: receipt://...
+    policy_decision_receipt_hash: sha256:...
+    policy_hash: sha256:...
+    risk_classes: []
+    interaction_mode: interactive | noninteractive_policy
+    authentication_posture: baseline | step_up
+    receipt_timing: before_effect | after_effect
+    decision: approved | denied | edit_required | expired
+    predecessor_authority_review_ref: review://... | null
+    predecessor_authority_review_body_hash: sha256:... | null
+    predecessor_authority_request_ref: authority-request://... | null
+    predecessor_authority_request_body_hash: sha256:... | null
+    predecessor_authority_review_receipt_ref: receipt://... | null
+    predecessor_authority_review_receipt_hash: sha256:... | null
+    reviewed_at: timestamp
+    expires_at: timestamp
+  body_hash: sha256:...
+  receipt_hash: sha256:...
+```
+
+`receipt_envelope` is the registered `ReceiptEnvelope` v1 byte shape without
+added fields. Its complete profile mapping is:
+
+```yaml
+receipt_envelope:
+  receipt_id: the wrapper's canonical receipt:// identity
+  receipt_type: authority_review
+  receipt_profile_ref: schema://ioi/receipt/authority-review/v1
+  attested_boundary_fact_refs: exact_sorted_unique(
+    every non-null body ref matching ReceiptEnvelopeV1.$defs.canonicalRef)
+  claim_scope_ref: schema://ioi/receipt/authority-review/v1
+  run_id: null
+  task_id: null
+  actor_id: body.decision_actor_ref
+  input_hash: body.authority_request_body_hash
+  output_hash: body_hash
+  policy_hash: body.policy_hash
+  authority_grant_id: null
+  primitive_capabilities: []
+  authority_scopes: []
+  artifact_refs: exact_sorted_unique(all artifact:// refs named by body)
+  evidence_bundle_refs: exact_sorted_unique(
+    all evidence://, assurance-evidence://, or artifact:// evidence refs named by body)
+  verification_ref: body.policy_decision_receipt_ref
+  acceptance_ref: null
+  adjudication_ref: null
+  settlement_ref: null
+  timestamp: body.reviewed_at
+  signature: null
+  public_commitment_ref: null
+```
+
+The resolved request must match the body's request ref/hash. Empty base
+capability/scope arrays are deliberate: the review receipt binds requested
+authority through its request hash but does not claim that the review boundary
+exercised the requested effect authority. Ref arrays are lexicographically
+sorted, deduplicated, and closed; a `receipt://` evidence ref remains in
+`attested_boundary_fact_refs` but cannot be coerced into the v1
+`evidence_bundle_refs` grammar.
+`authority_review_body_hash` is the closed, domain-separated immutable
+review-preparation hash defined by the shared object canon; it does not include
+the ceremony context, evidence, mutable status, decision, or resulting grant
+refs.
+The embedded v1 `signature` is null for this wrapper; otherwise a signature
+over the wrapper hash would make the preimage circular. Any portable signature
+profile is a separately registered successor that signs `receipt_hash`.
+
+`posture_satisfaction_evaluations` is sorted by
+`(requirement_kind, requirement_ref)`; every nested ref array is sorted and
+unique. Every required factor/guardian ref appears exactly once and no
+unrequired ref appears. An `auth_factor` entry's `requirement_ref` belongs only
+to `required_auth_factor_posture_refs`, and every `satisfied_by_ref` uses
+`auth_factor://`. A `guardian_surface` entry's `requirement_ref` belongs only
+to `required_guardian_surface_refs`, and every `satisfied_by_ref` uses
+`guardian://`; cross-kind satisfaction is invalid. `satisfied_auth_factor_refs` and
+`satisfied_guardian_surface_refs` are exact projections of entries whose
+decision is `satisfied`, never independent caller claims. An `approved`
+decision requires every evaluation to be `satisfied`; denied, edit-required,
+and expired receipts preserve `unsatisfied` or `unknown` outcomes rather than
+dropping them. The root is:
+
+```text
+SHA-256(
+  "IOI-POSTURE-SATISFACTION-ROOT-V1\0" ||
+  UTF8(posture_satisfaction_profile_ref) || "\0" ||
+  RFC8785_JCS(posture_satisfaction_evaluations)
+)
+```
+
+The wrapper hashes are domain separated:
+
+```text
+body_hash =
+  SHA-256("IOI-AUTHORITY-REVIEW-BODY-V1\0" || RFC8785_JCS(body))
+
+receipt_hash =
+  SHA-256(
+    "IOI-AUTHORITY-REVIEW-RECEIPT-V1\0" ||
+    RFC8785_JCS({schema_version, receipt_envelope, body_hash})
+  )
+```
+
+The presentation-evidence profile independently declares the presentation
+operator/control boundary, exact representation binding, request/effect
+linkage, enrollment and attestation evidence, UP/UV posture, freshness/replay
+handling, and independence from the proposing client. Those dimensions remain
+orthogonal: an independent surface is not trusted merely because it is
+independent, and a same-client surface is not weak merely because it is
+same-client. Evidence refs support only the dimensions their selected profile
+and underlying evidence actually establish.
+
+This receipt proves that the named wallet/policy boundary reached the recorded
+decision over the committed request, representation, subject, context,
+any principal-authority resolution required by the portable principal contract,
+and evidence. It does not by itself prove browser pixels, human perception or
+comprehension, biometric identity, natural-person identity, device custody,
+grant issuance, daemon invocation, external-world outcome, or effect
+correctness. A WebAuthn assertion may prove the enrolled credential, challenge,
+RP/origin context, signature, and required UP/UV/backup flags; it does not
+independently prove which application-defined action representation was shown
+or understood.
+
+`requested_auth_factor_posture_refs` and `requested_guardian_surface_refs` on
+the authority request are requested posture. The ceremony context records the
+policy-derived required posture. Only `satisfied_auth_factor_refs`,
+`satisfied_guardian_surface_refs`, and their wallet-minted ceremony evidence
+record observed participation. The required posture, satisfied posture,
+context ref/hash, and policy-decision ref/hash must agree through the review
+receipt and target grant. The referenced principal-authority artifact, when
+required, is the exact registered `PrincipalAuthorityResolutionV1` object; a
+lossy projection is inadmissible.
+
+Edit-and-approve creates a successor request, review, representation, context,
+and challenge. The successor receipt points backward to the predecessor
+request, review, and review receipt with their hashes; no immutable predecessor
+is rewritten to point forward. No predecessor receipt or assertion authorizes
+changed bytes.
+
+The receipt does not carry a single `approval_mode` enum. Authorization
+cardinality comes from `authorization_subject.kind`; `interaction_mode`,
+`authentication_posture`, receipt timing, and decision are independent axes.
+Product recipes such as
+one-shot, batch, session-envelope, step-up, silent-within-policy, denied, and
+after-the-fact map onto those axes without changing their meaning.
+An `after_effect` review receipt is retrospective evidence only and cannot
+authorize the completed effect; that effect must resolve an earlier admitted
+grant or standing envelope and its own effect-admission receipt.
+
+## Authority Effect Admission Receipt
+
+`AuthorityEffectAdmissionReceiptV1` is the target policy-enforcement-point
+evidence that closes the review-to-effect gap. Current master has no registered
+schema, generated projection, production emitter, or verifier for this profile.
+
+```yaml
+AuthorityEffectAdmissionReceiptV1:
+  schema_version: 1
+  receipt_envelope: ReceiptEnvelopeV1
+  body:
+    policy_enforcement_point_ref: runtime://...
+    authorization_subject:
+      kind: exact_effect | batch_manifest | standing_envelope
+      subject_ref: effect://... | artifact://... | policy://...
+      subject_hash: sha256:...
+      validation_profile_ref: schema://... | policy://...
+    authority_grant_ref: grant://...
+    authority_grant_hash: sha256:...
+    authority_review_receipt_ref: receipt://...
+    authority_review_receipt_hash: sha256:...
+    approval_ceremony_context_ref: approval-ceremony-context://...
+    approval_ceremony_context_hash: sha256:...
+    principal_authority_resolution_ref: artifact://... | null
+    principal_authority_resolution_hash: sha256:... | null
+    principal_authority_revalidation_receipt_ref: receipt://... | null
+    principal_authority_revalidation_receipt_hash: sha256:... | null
+    trusted_time_evidence_status: verified | not_evaluated | unavailable | invalid | stale
+    trusted_time_receipt_ref: receipt://... | null
+    trusted_time_receipt_hash: sha256:... | null
+    trusted_time_observed_at: timestamp | null
+    revocation_evidence_status: verified | not_evaluated | unavailable | invalid | stale
+    revocation_snapshot_ref: revocation-snapshot://... | null
+    revocation_snapshot_hash: sha256:... | null
+    revocation_epoch: integer | null
+    actual_effect_ref: effect://...
+    actual_effect_hash: sha256:...
+    decision_profile_ref: policy://... | schema://...
+    policy_hash: sha256:...
+    proof_kind: exact_equality | batch_membership | standing_constraint
+    membership_proof_ref: evidence://... | receipt://... | null
+    membership_proof_hash: sha256:... | null
+    standing_evaluation_ref: evidence://... | receipt://... | null
+    standing_evaluation_hash: sha256:... | null
+    decision: admitted | refused | unknown
+    refusal_code: string | null
+    invoker_called: boolean
+    invoker_receipt_ref: receipt://... | null
+    effect_receipt_ref: receipt://... | null
+    decided_at: timestamp
+  body_hash: sha256:...
+  receipt_hash: sha256:...
+```
+
+This wrapper uses the same exact `ReceiptEnvelope` v1 base. Its complete profile
+mapping is:
+
+```yaml
+receipt_envelope:
+  receipt_id: the wrapper's canonical receipt:// identity
+  receipt_type: authority_effect_admission
+  receipt_profile_ref: schema://ioi/receipt/authority-effect-admission/v1
+  attested_boundary_fact_refs: exact_sorted_unique(
+    every non-null body ref matching ReceiptEnvelopeV1.$defs.canonicalRef)
+  claim_scope_ref: schema://ioi/receipt/authority-effect-admission/v1
+  run_id: null
+  task_id: null
+  actor_id: body.policy_enforcement_point_ref
+  input_hash: body.authority_grant_hash
+  output_hash: body_hash
+  policy_hash: body.policy_hash
+  authority_grant_id: body.authority_grant_ref
+  primitive_capabilities: exact_sorted_unique(
+    resolved_authority_grant.primitive_capability_constraints)
+  authority_scopes: exact_sorted_unique(
+    resolved_authority_grant.authority_scopes)
+  artifact_refs: exact_sorted_unique(all artifact:// refs named by body)
+  evidence_bundle_refs: exact_sorted_unique(
+    all evidence://, assurance-evidence://, or artifact:// evidence refs named by body)
+  verification_ref: body.principal_authority_revalidation_receipt_ref
+    when non-null, otherwise body.authority_review_receipt_ref
+  acceptance_ref: null
+  adjudication_ref: null
+  settlement_ref: null
+  timestamp: body.decided_at
+  signature: null
+  public_commitment_ref: null
+```
+
+The resolved grant must match `authority_grant_ref` and
+`authority_grant_hash` before capabilities or scopes are copied. Ref arrays use
+the same lexicographically sorted, unique, closed construction as the review
+profile.
+The embedded v1 `signature` is likewise null; any portable signature signs the
+completed wrapper hash under a separately registered profile.
+
+Its hashes are:
+
+```text
+body_hash =
+  SHA-256(
+    "IOI-AUTHORITY-EFFECT-ADMISSION-BODY-V1\0" || RFC8785_JCS(body)
+  )
+
+receipt_hash =
+  SHA-256(
+    "IOI-AUTHORITY-EFFECT-ADMISSION-RECEIPT-V1\0" ||
+    RFC8785_JCS({schema_version, receipt_envelope, body_hash})
+  )
+```
+
+`authority_grant_hash` is the target v3 grant's canonical body hash:
+
+```text
+SHA-256(
+  "IOI-AUTHORITY-GRANT-ENVELOPE-V3\0" ||
+  RFC8785_JCS(the exact closed v3 grant body excluding body_hash and signature)
+)
+```
+
+Once v3 is registered, the PEP verifies its signature over that body hash;
+copied grant fields or signer identity do not substitute for the exact grant
+bytes.
+
+The authorization-subject/proof matrix is exact:
+
+| subject kind | subject ref | required proof kind | membership proof | standing evaluation |
+|---|---|---|---|---|
+| `exact_effect` | `effect://` | `exact_equality` | both fields null | both fields null |
+| `batch_manifest` | `artifact://` | `batch_membership` | ref and hash non-null | both fields null |
+| `standing_envelope` | `policy://` | `standing_constraint` | both fields null | ref and hash non-null |
+
+Exact-effect admission additionally requires
+`actual_effect_hash == authorization_subject.subject_hash`. Batch admission
+requires a valid membership proof under the subject's named validation profile.
+Standing admission requires a complete constraint evaluation under that
+profile. Any kind/proof/nullability mismatch refuses.
+
+This v1 profile is persisted before invocation. Every v1 receipt therefore sets
+`invoker_called: false`, `invoker_receipt_ref: null`, and
+`effect_receipt_ref: null`, including an admitted decision; the later invoker
+and effect receipts point back to this immutable admission receipt. A
+post-invocation unknown belongs in reconciliation or incident evidence, never
+in a rewritten admission receipt. No review receipt, grant, or generic
+tool-execution receipt substitutes for this typed admission evidence.
+`refusal_code` is null exactly when `decision == admitted`; refused and unknown
+decisions carry a non-empty typed code.
+
+The evidence-status/nullability matrix is exact:
+
+| status | ref/hash pair | observed time or epoch | decision |
+|---|---|---|---|
+| `verified` | non-null, valid, and matching | non-null | may support `admitted` |
+| `not_evaluated` | both null | null | `refused` or `unknown` only |
+| `unavailable` | both null | null | `refused` or `unknown` only |
+| `invalid` | non-null capture of the rejected evidence | null only when the invalid evidence has no parseable value; otherwise the observed value | `refused` or `unknown` only |
+| `stale` | non-null, valid, and matching | non-null stale value | `refused` or `unknown` only |
+
+An admitted decision requires both statuses to be `verified`, both ref/hash
+pairs to be valid, a non-null trusted observed time and revocation epoch, and
+policy-fresh evidence. No non-verified state can support admission.
+`not_evaluated` is permitted only after the actual effect has been
+canonicalized and an independent earlier PEP gate has already made that
+evidence unnecessary; its typed refusal code names that gate. `unavailable`
+means acquisition was attempted but yielded no evidence. `invalid` preserves
+the acquired evidence ref/hash even when its value is unparseable, while
+`stale` preserves the parsed value that failed freshness. This makes every
+pre-invocation refusal representable without manufacturing evidence.
+
+When the grant claims portable-principal authority, the PEP also re-resolves
+the principal, requires the exact artifact/hash committed by the ceremony and
+grant, verifies current binding/snapshot/scope/expiry/revocation posture, and
+binds the revalidation receipt. Both principal resolution pairs are null for
+nonportable account-local principals. Every refused or unknown result is
+durable before the invoker boundary; failure to obtain or validate any required
+evidence fails closed with `invoker_called: false` and the corresponding
+evidence status.
 
 ## Information-Flow Decision Receipts
 
@@ -2159,7 +2552,7 @@ secrets, provider tokens, or private payloads.
 {
   "receipt_id": "receipt://authority_client_123",
   "receipt_type": "authority_client_registration | authority_client_use | authority_client_denial | authority_client_revocation | authority_client_rotation | authority_client_quarantine | mcp_gateway_profile_quarantine | blast_radius_report",
-  "authority_client_ref": "wallet_client://...",
+  "authority_client_ref": "wallet-client://...",
   "gateway_profile_ref": "mcp_gateway://... | null",
   "origin_binding_ref": "origin://... | null",
   "grant_refs": ["grant://..."],
@@ -2173,7 +2566,7 @@ secrets, provider tokens, or private payloads.
   "anomaly_state": "clean | watch | origin_mismatch | expired_use | scope_excess | suspicious_frequency | policy_denied | leaked | compromised",
   "action": "allow | deny | revoke | rotate | quarantine | release",
   "quarantine_advisory_ref": "quarantine_advisory://... | null",
-  "replacement_client_ref": "wallet_client://... | null",
+  "replacement_client_ref": "wallet-client://... | null",
   "status": "recorded | blocked | rotated | revoked | quarantined"
 }
 ```

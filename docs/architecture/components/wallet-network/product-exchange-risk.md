@@ -9,7 +9,7 @@ Supersedes: wallet product, swap, trade, risk-center, and route-authority
 language embedded only in prototypes or supporting product notes when it
 conflicts with this file.
 Superseded by: none.
-Last alignment pass: 2026-07-17.
+Last alignment pass: 2026-07-18.
 Doctrine status: canonical
 Implementation status: planned (exchange/trade/prediction product design; SDK candidate-source seams exist, no live exchange or trade surface)
 Last implementation audit: 2026-07-05
@@ -273,14 +273,39 @@ Canonical invariant:
 > **The Wallet authority pipeline is reusable infrastructure. The Wallet
 > console is one presentation of that pipeline, not the universal dapp UI.**
 
-Every presentation profile renders the same review contract at the density
-appropriate to its user. The contract binds the authenticated principal,
-acting subject, product session and origin, action, resources and destination,
-budget or amount, policy and risk, expiry, exact request hash, qualifying
-AuthFactor and GuardianSurface posture, and resulting grant, denial, and
-receipt. A compact card may hide protocol jargon; it may not omit or weaken
-the facts needed to understand the consequence or prevent cross-principal,
-cross-session, cross-origin, or changed-request replay.
+Every presentation profile projects the same canonical semantic disclosure
+document at the density appropriate to its user. Layout, explanatory copy, and
+pixel arrangement may vary; the required consequential facts and
+`reviewed_representation_hash` may not. The review contract separately binds
+the authenticated principal, acting subject, product session and origin,
+immutable request body, authorization subject, action, resources and
+destination, budget or amount, policy and risk, expiry, selected presentation
+surface and evidence profile, satisfied AuthFactor and GuardianSurface posture,
+exact principal-authority resolution when portable-principal authority is
+claimed, ceremony evidence, and resulting grant, denial, and receipt. A compact
+card may hide protocol jargon; it may not omit or weaken facts needed to
+understand the consequence or prevent cross-principal, cross-session,
+cross-origin, changed-request, changed-review, changed-authority, or
+changed-effect replay.
+
+Presentation evidence is profile-qualified rather than a single assurance
+ladder. A profile declares independently:
+
+- who operates the presentation surface and under which enrollment or
+  attestation evidence;
+- whether the exact canonical representation is bound;
+- whether the evidence is request-bound, exact-effect-bound, batch-bound, or
+  standing-envelope-bound;
+- which user-presence or user-verification posture was observed;
+- freshness and replay protections; and
+- whether the presentation path is independent from the proposing client.
+
+Independence alone is not stronger: an independently operated surface with an
+unbound content channel can be weaker than a same-client surface with an
+admitted presentation mechanism that commits the exact representation. A plain
+WebAuthn assertion remains separately inspectable authenticator evidence; by
+itself it does not give wallet.network independently verifiable evidence that
+the application-defined representation was displayed or understood.
 
 ### Approval Modes
 
@@ -289,22 +314,27 @@ preserve authority while reducing modal fatigue:
 
 ```text
 one_shot_review
-  Approve or deny exactly one consequential action.
+  Approve or deny exactly one consequential action. Final admission requires
+  equality between the approved exact-effect commitment and the daemon-computed
+  actual effect hash.
 
 session_envelope
   Allow repeated actions inside explicit caps, resources, TTL, and revocation
   epoch.
 
 batch_review
-  Approve or deny many similar actions under one policy result and receipt
-  bundle.
+  Approve or deny a committed manifest of similar actions under one policy
+  result. Each later effect requires membership and constraint verification;
+  it is not represented as individually human-reviewed.
 
 silent_within_policy
   Execute low-risk pre-authorized actions without interrupting the user, while
-  still producing receipts.
+  still producing receipts and proving compliance with the standing envelope.
 
 after_the_fact_receipt
-  Surface receipt after an action already allowed by an active session envelope.
+  Surface receipt after an action already allowed by an active session or
+  standing envelope. It must not claim that the individual effect received a
+  one-shot human review.
 
 step_up_review
   Require stronger authentication or human approval when an action exceeds the
@@ -317,6 +347,40 @@ denied
 
 Approval modes must be policy-derived. Apps may request a mode, but
 wallet.network decides whether that mode is allowed.
+
+These names are product review recipes, not one wire enum. They map onto
+orthogonal contract axes:
+
+```text
+one_shot_review
+  authorization_subject=exact_effect, interaction_mode=interactive,
+  authentication_posture=baseline,
+  receipt_timing=before_effect
+batch_review
+  authorization_subject=batch_manifest, interaction_mode=interactive,
+  authentication_posture=baseline,
+  receipt_timing=before_effect
+session_envelope
+  authorization_subject=standing_envelope, interaction_mode=interactive,
+  authentication_posture=baseline,
+  receipt_timing=before_effect
+silent_within_policy
+  authorization_subject=standing_envelope,
+  interaction_mode=noninteractive_policy, authentication_posture=baseline,
+  receipt_timing=before_effect
+step_up_review
+  interaction_mode=interactive, authentication_posture=step_up
+after_the_fact_receipt
+  activity_receipt_timing=after_effect under a previously admitted standing envelope
+denied
+  decision=denied
+```
+
+Authorization cardinality, interaction mode, authentication posture, receipt
+timing, and decision remain separately bound so a UI recipe cannot inflate the
+evidence it actually has. Step-up is compatible with an interactive ceremony;
+it is not an alternative interaction mode. An after-the-fact activity receipt
+never retroactively becomes the authority review that admitted the effect.
 
 ### Risk Coverage and Eligibility
 
@@ -917,17 +981,48 @@ simulation hash.
 
 ### WalletReceipt
 
-Wallet receipts are human-readable and machine-verifiable.
+Wallet receipts are human-readable and machine-verifiable for the exact fields
+and evidence links they bind. The registered closed
+`ioi.wallet.protocol.v1` shape remains unchanged and includes the required
+`request_hash`; it does not contain the successor fields below. A wallet receipt
+is not automatically proof that
+a user saw or understood particular pixels, that an external-world result is
+correct, or that an effect was individually reviewed when authority came from a
+batch or standing envelope.
+
+The following is a target v2 product projection. It requires a new registered
+schema, fixtures, generated projections, producer, and verifier:
 
 ```rust
-struct WalletReceipt {
+struct TargetWalletReceiptV2 {
+    schema_version: "ioi.wallet.protocol.v2",
     receipt_id: ReceiptId,
     receipt_type: ReceiptType,
     initiator_id: PrincipalId,
     account_id: AccountId,
     action_summary: String,
 
-    request_hash: Hash,
+    authority_request_body_hash: Hash,
+    reviewed_representation_hash: Option<Hash>,
+    presentation_evidence_profile_ref: Option<PolicyRef>,
+    presentation_evidence_refs: Vec<EvidenceRef>,
+    approval_ceremony_context_ref: Option<ApprovalCeremonyContextRef>,
+    approval_ceremony_context_hash: Option<Hash>,
+    authority_review_receipt_ref: Option<ReceiptRef>,
+    authority_review_receipt_hash: Option<Hash>,
+    authorization_subject: Option<AuthorizationSubjectCommitment>,
+    principal_authority_resolution_ref: Option<EvidenceRef>,
+    principal_authority_resolution_hash: Option<Hash>,
+    policy_decision_receipt_ref: Option<ReceiptRef>,
+    policy_decision_receipt_hash: Option<Hash>,
+    required_auth_factor_posture_refs: Vec<PolicyRef>,
+    required_guardian_surface_refs: Vec<GuardianSurfaceRef>,
+    satisfied_auth_factor_refs: Vec<AuthFactorRef>,
+    satisfied_guardian_surface_refs: Vec<GuardianSurfaceRef>,
+    posture_satisfaction_profile_ref: PolicyRef,
+    posture_satisfaction_root: Hash,
+    interaction_mode: InteractionMode,
+    authentication_posture: AuthenticationPosture,
     policy_hash: Hash,
     grant_id: Option<Hash>,
     lease_id: Option<Hash>,
@@ -938,6 +1033,9 @@ struct WalletReceipt {
     simulation_hash: Option<Hash>,
 
     execution_refs: Vec<ExecutionRef>,
+    actual_effect_hashes: Vec<Hash>,
+    authority_effect_admission_receipt_refs: Vec<ReceiptRef>,
+    effect_receipt_refs: Vec<ReceiptRef>,
     agentgres_ref: Option<AgentgresRef>,
     ioi_commitment: Option<L1CommitmentRef>,
 
@@ -945,6 +1043,21 @@ struct WalletReceipt {
     signatures: HybridSignatureBlock
 }
 ```
+
+An end-to-end exact-action claim requires a verifiable chain from the immutable
+authority request through the canonical reviewed representation, qualified
+presentation and authenticator evidence, resolved approval authority, authority
+grant, daemon-computed actual effect, and execution or refusal receipt. The
+resolved approval-authority link is required whenever portable-principal
+authority is claimed. A receipt lacking one of its required links remains valid
+only for the narrower facts it actually records. One-shot receipts require
+exact-effect equality; batch receipts identify the approved manifest and
+membership evidence; standing-envelope receipts identify the admitted
+constraint evaluation. Silent and after-the-fact modes never acquire a
+human-review claim by presentation wording. The target
+`authority_effect_admission_receipt_refs` point to the typed PEP evidence; a
+current v1 `execution_ref` or generic tool receipt does not prove that
+comparison.
 
 User-facing receipt types include:
 
