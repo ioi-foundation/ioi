@@ -8,17 +8,40 @@ import { fileURLToPath } from "node:url";
 import Ajv2020 from "ajv/dist/2020.js";
 import addFormats from "ajv-formats";
 import {
+  ARCHITECTURE_CONTRACT_CONSUMER_TARGETS,
+  ARCHITECTURE_CONTRACT_CONSUMER_TARGET_BY_KIND,
+} from "./lib/architecture-contract-consumer-targets.mjs";
+import {
   ARCHITECTURE_CONTRACT_ASSERTION_KEYWORDS,
   ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES,
   ARCHITECTURE_CONTRACT_FIXTURES,
   ARCHITECTURE_CONTRACT_MUTATIONS,
+  ARCHITECTURE_CONTRACT_ORACLE_PROFILE,
   ARCHITECTURE_CONTRACT_PATTERN_SOURCES,
+  ARCHITECTURE_CONTRACT_PORTABLE_DATE_TIME_PATTERN,
+  ARCHITECTURE_CONTRACT_PORTABLE_INTEGER_MAXIMUM,
+  ARCHITECTURE_CONTRACT_PORTABLE_INTEGER_MINIMUM,
   architectureContractInvariantErrors,
   architectureContractSchemaDocument,
   validateArchitectureContract,
 } from "../packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+assert.equal(ARCHITECTURE_CONTRACT_PORTABLE_INTEGER_MINIMUM, 0);
+assert.equal(
+  ARCHITECTURE_CONTRACT_PORTABLE_INTEGER_MAXIMUM,
+  Number.MAX_SAFE_INTEGER,
+);
+assert.equal(
+  ARCHITECTURE_CONTRACT_ORACLE_PROFILE,
+  "ajv-2020-12-plus-portable-invariants-and-canonical-rfc3339",
+);
+assert.equal(
+  new RegExp(ARCHITECTURE_CONTRACT_PORTABLE_DATE_TIME_PATTERN, "u").test(
+    "2025-01-01T23:59:60Z",
+  ),
+  true,
+);
 const ajv = new Ajv2020({
   allErrors: true,
   strict: true,
@@ -213,11 +236,16 @@ for (const numericEqualityCase of [
   );
 }
 
-const strictDateTimeContract =
+const canonicalDateTimeContract =
   "schema://ioi/foundations/authority-grant-envelope/v1";
-for (const invalidDateTime of [
-  "2025-01-01T24:59:60+01:00",
-  "2025-01-01T23:60:60+00:01",
+for (const [dateTime, expected] of [
+  ["2025-01-01T23:59:60Z", true],
+  ["2025-01-02T00:59:60+01:00", true],
+  ["2025-01-01 23:59:59Z", false],
+  ["2025-01-01T23:59:59+0100", false],
+  ["2025-01-01T23:59:59+01", false],
+  ["2025-01-01T24:59:60+01:00", false],
+  ["2025-01-01T23:60:60+00:01", false],
 ]) {
   const value = JSON.parse(
     fs.readFileSync(
@@ -228,17 +256,37 @@ for (const invalidDateTime of [
       "utf8",
     ),
   );
-  value.constraints.expires_at = invalidDateTime;
-  const validateWithAjv = ajvValidator(strictDateTimeContract);
+  value.constraints.expires_at = dateTime;
+  const validateWithAjv = ajvValidator(canonicalDateTimeContract);
   assert.equal(
     validateWithAjv(value),
-    true,
-    `${invalidDateTime}: documents the ajv-formats leap-second clock-range quirk`,
+    expected,
+    `${dateTime}: Ajv canonical RFC3339 profile`,
   );
   assert.equal(
-    validateArchitectureContract(strictDateTimeContract, value).ok,
-    true,
-    `${invalidDateTime}: generated TypeScript must share the ajv-formats leap-second oracle`,
+    validateArchitectureContract(canonicalDateTimeContract, value).ok,
+    expected,
+    `${dateTime}: generated TypeScript canonical RFC3339 profile`,
+  );
+}
+
+for (const requiredDifferential of [
+  "differential:portable-integer-boundary",
+  "differential:portable-integer-over-bound",
+  "differential:portable-integer-over-u64",
+  "differential:portable-integer-negative",
+  "differential:portable-integer-integral-decimal",
+  "differential:canonical-leap-second-z",
+  "differential:canonical-leap-second-offset",
+  "differential:noncanonical-space-separator",
+  "differential:noncanonical-compact-offset",
+  "differential:noncanonical-hour-offset",
+]) {
+  assert.ok(
+    ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES.some(
+      (candidate) => candidate.id === requiredDifferential,
+    ),
+    `missing differential regression ${requiredDifferential}`,
   );
 }
 
@@ -279,6 +327,7 @@ function runLiveAjvToRustDifferential() {
         "--locked",
         "-p",
         "ioi-types",
+        "--lib",
         "app::generated::architecture_contracts::tests::live_ajv_differential_corpus_matches_rust_validator_and_deserializer",
         "--",
         "--exact",
@@ -293,14 +342,62 @@ function runLiveAjvToRustDifferential() {
         maxBuffer: 10 * 1024 * 1024,
       },
     );
+    assertOneRustTestRan(rustDifferential, "live Ajv-to-Rust differential");
+
+    const renamedFilter = spawnSync(
+      "cargo",
+      [
+        "test",
+        "--locked",
+        "-p",
+        "ioi-types",
+        "--lib",
+        "app::generated::architecture_contracts::tests::renamed_or_missing_differential_test",
+        "--",
+        "--exact",
+      ],
+      {
+        cwd: root,
+        encoding: "utf8",
+        env: {
+          ...process.env,
+          IOI_ARCHITECTURE_CONTRACT_AJV_ORACLE: oraclePath,
+        },
+        maxBuffer: 10 * 1024 * 1024,
+      },
+    );
     assert.equal(
-      rustDifferential.status,
+      renamedFilter.status,
       0,
-      `live Ajv-to-Rust differential failed:\n${rustDifferential.stdout}\n${rustDifferential.stderr}`,
+      "Cargo changed its zero-match behavior; update the launcher regression",
+    );
+    assert.throws(
+      () => assertOneRustTestRan(renamedFilter, "renamed Rust differential"),
+      /did not execute exactly one passing Rust test/u,
+      "a nonexistent Rust differential filter must fail the launcher",
     );
   } finally {
     fs.rmSync(temporaryDirectory, { force: true, recursive: true });
   }
+}
+
+function assertOneRustTestRan(result, label) {
+  const output = `${result.stdout}\n${result.stderr}`;
+  assert.equal(
+    result.status,
+    0,
+    `${label} failed:\n${output}`,
+  );
+  assert.match(
+    output,
+    /running 1 test[\s\S]*test result: ok\. 1 passed; 0 failed;/u,
+    `${label} did not execute exactly one passing Rust test:\n${output}`,
+  );
+  assert.doesNotMatch(
+    output,
+    /running 0 tests/u,
+    `${label} matched zero Rust tests`,
+  );
 }
 
 runLiveAjvToRustDifferential();
@@ -375,6 +472,38 @@ const registry = JSON.parse(
     "utf8",
   ),
 );
+for (const contract of registry.contracts) {
+  for (const target of contract.generated_targets) {
+    const consumer =
+      ARCHITECTURE_CONTRACT_CONSUMER_TARGET_BY_KIND.get(target.kind);
+    assert.ok(consumer, `${contract.contract_id}: unknown consumer target kind`);
+    assert.equal(
+      target.path,
+      consumer.path,
+      `${contract.contract_id}: registry target is redirected away from its consumer`,
+    );
+  }
+}
+for (const consumer of ARCHITECTURE_CONTRACT_CONSUMER_TARGETS) {
+  assert.match(
+    fs.readFileSync(path.join(root, consumer.consumer_path), "utf8"),
+    new RegExp(
+      consumer.consumer_marker.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&"),
+      "u",
+    ),
+    `${consumer.kind}: canonical consumer binding is missing`,
+  );
+}
+assert.equal(
+  generatedTypePath,
+  path.join(
+    root,
+    ARCHITECTURE_CONTRACT_CONSUMER_TARGET_BY_KIND.get(
+      "typescript_projection",
+    ).path,
+  ),
+  "TypeScript compile regression must import the canonical consumer target",
+);
 const generatedTargetPaths = [
   ...new Set(
     registry.contracts.flatMap((contract) =>
@@ -428,7 +557,7 @@ function runRejectedRegistryProbe(id, mutate, expectedMessage, outsideName = nul
     "docs/architecture/_meta/schemas",
   );
   try {
-    fs.mkdirSync(path.join(temporaryRoot, "scripts"), { recursive: true });
+    fs.mkdirSync(path.join(temporaryRoot, "scripts/lib"), { recursive: true });
     fs.mkdirSync(temporarySchemaRoot, { recursive: true });
     fs.copyFileSync(
       path.join(root, "scripts/generate-architecture-contracts.mjs"),
@@ -437,6 +566,19 @@ function runRejectedRegistryProbe(id, mutate, expectedMessage, outsideName = nul
     fs.copyFileSync(
       path.join(root, "scripts/check-architecture-contracts.mjs"),
       path.join(temporaryRoot, "scripts/check-architecture-contracts.mjs"),
+    );
+    for (const helper of [
+      "architecture-contract-consumer-targets.mjs",
+      "repository-path-boundary.mjs",
+    ]) {
+      fs.copyFileSync(
+        path.join(root, "scripts/lib", helper),
+        path.join(temporaryRoot, "scripts/lib", helper),
+      );
+    }
+    fs.copyFileSync(
+      path.join(root, "rust-toolchain.toml"),
+      path.join(temporaryRoot, "rust-toolchain.toml"),
     );
     fs.symlinkSync(
       path.join(root, "node_modules"),
@@ -492,8 +634,16 @@ runRejectedRegistryProbe(
     attacked.contracts[0].generated_targets[0].path =
       "../ioi-pr81-outside-generated.ts";
   },
-  /generated target path escapes/u,
+  /must match canonical typescript_projection consumer|path escapes/u,
   "ioi-pr81-outside-generated.ts",
+);
+runRejectedRegistryProbe(
+  "redirected in-repository generated target",
+  (attacked) => {
+    attacked.contracts[0].generated_targets[0].path =
+      "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts-copy.ts";
+  },
+  /must match canonical typescript_projection consumer/u,
 );
 runRejectedRegistryProbe(
   "unknown generated target kind",
@@ -519,6 +669,129 @@ runRejectedRegistryProbe(
   /duplicate generated target kind typescript_projection/u,
 );
 
+function runSymlinkBoundaryProbe(id, setup) {
+  const temporaryParent = fs.mkdtempSync(
+    path.join(os.tmpdir(), "ioi-architecture-symlink-regression-"),
+  );
+  const temporaryRoot = path.join(temporaryParent, "repo");
+  const temporarySchemaRoot = path.join(
+    temporaryRoot,
+    "docs/architecture/_meta/schemas",
+  );
+  try {
+    fs.mkdirSync(path.join(temporaryRoot, "scripts/lib"), { recursive: true });
+    fs.cpSync(
+      path.join(root, "docs/architecture/_meta/schemas"),
+      temporarySchemaRoot,
+      { recursive: true },
+    );
+    for (const script of [
+      "generate-architecture-contracts.mjs",
+      "check-architecture-contracts.mjs",
+    ]) {
+      fs.copyFileSync(
+        path.join(root, "scripts", script),
+        path.join(temporaryRoot, "scripts", script),
+      );
+    }
+    for (const helper of [
+      "architecture-contract-consumer-targets.mjs",
+      "repository-path-boundary.mjs",
+    ]) {
+      fs.copyFileSync(
+        path.join(root, "scripts/lib", helper),
+        path.join(temporaryRoot, "scripts/lib", helper),
+      );
+    }
+    fs.copyFileSync(
+      path.join(root, "rust-toolchain.toml"),
+      path.join(temporaryRoot, "rust-toolchain.toml"),
+    );
+    fs.symlinkSync(
+      path.join(root, "node_modules"),
+      path.join(temporaryRoot, "node_modules"),
+      "dir",
+    );
+    const assertOutsideUnchanged = setup({
+      temporaryParent,
+      temporaryRoot,
+      temporarySchemaRoot,
+    });
+    for (const [label, invocation] of [
+      [
+        "generator",
+        ["scripts/generate-architecture-contracts.mjs", "--check"],
+      ],
+      ["checker", ["scripts/check-architecture-contracts.mjs"]],
+    ]) {
+      const rejected = spawnSync(process.execPath, invocation, {
+        cwd: temporaryRoot,
+        encoding: "utf8",
+      });
+      assert.notEqual(
+        rejected.status,
+        0,
+        `${id}: ${label} accepted an external symlink`,
+      );
+      assert.match(
+        `${rejected.stdout}\n${rejected.stderr}`,
+        /resolves outside .* boundary through a symlink/u,
+        `${id}: ${label}`,
+      );
+      assertOutsideUnchanged(`${id}: ${label}`);
+    }
+  } finally {
+    fs.rmSync(temporaryParent, { force: true, recursive: true });
+  }
+}
+
+runSymlinkBoundaryProbe(
+  "generated target parent symlink",
+  ({ temporaryParent, temporaryRoot }) => {
+    const outside = path.join(temporaryParent, "outside-generated");
+    const sentinel = path.join(outside, "architecture-contracts.ts");
+    const expected = "external-target-sentinel\n";
+    fs.mkdirSync(outside, { recursive: true });
+    fs.writeFileSync(sentinel, expected);
+    const runtime = path.join(
+      temporaryRoot,
+      "packages/hypervisor-workbench/src/runtime",
+    );
+    fs.mkdirSync(runtime, { recursive: true });
+    fs.symlinkSync(outside, path.join(runtime, "generated"), "dir");
+    return (at) =>
+      assert.equal(fs.readFileSync(sentinel, "utf8"), expected, at);
+  },
+);
+
+for (const [id, relativePath] of [
+  ["schema ref symlink", "receipt-envelope.v1.schema.json"],
+  [
+    "invariant ref symlink",
+    "invariants/receipt-envelope.v1.invariants.json",
+  ],
+  [
+    "fixture ref symlink",
+    "fixtures/receipt-envelope-v1/positive-minimal.json",
+  ],
+]) {
+  runSymlinkBoundaryProbe(
+    id,
+    ({ temporaryParent, temporarySchemaRoot }) => {
+      const target = path.join(temporarySchemaRoot, relativePath);
+      const outside = path.join(
+        temporaryParent,
+        `outside-${relativePath.replaceAll("/", "-")}`,
+      );
+      const expected = fs.readFileSync(target);
+      fs.writeFileSync(outside, expected);
+      fs.rmSync(target);
+      fs.symlinkSync(outside, target, "file");
+      return (at) => assert.deepEqual(fs.readFileSync(outside), expected, at);
+    },
+  );
+}
+
 const generatorSelfTest = spawnSync(
   process.execPath,
   ["scripts/generate-architecture-contracts.mjs", "--self-test"],
@@ -540,7 +813,7 @@ console.log(
       differential_cases: ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES.length,
       assertion_keywords: ARCHITECTURE_CONTRACT_ASSERTION_KEYWORDS.length,
       pattern_sources: ARCHITECTURE_CONTRACT_PATTERN_SOURCES.length,
-      oracle: "ajv-2020-12-plus-portable-invariants",
+      oracle: ARCHITECTURE_CONTRACT_ORACLE_PROFILE,
       rust_oracle: "live-ajv-subprocess",
     },
     null,

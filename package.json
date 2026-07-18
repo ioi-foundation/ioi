@@ -70,7 +70,7 @@
     "typecheck": "npm run typecheck --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present",
     "check:architecture-docs": "node scripts/check-architecture-docs.mjs",
-    "check:pre-next-leg": "node scripts/generate-runtime-action-contracts.mjs --check && npm run check:architecture-contract-bar && npm run check:architecture-docs && npm run check:conformance-docs && node scripts/check-pre-next-leg-readiness.mjs && npm run check:runtime-layout"
+    "check:pre-next-leg": "node scripts/check-pre-next-leg.mjs"
   },
   "devDependencies": {
     "@playwright/test": "^1.60.0",

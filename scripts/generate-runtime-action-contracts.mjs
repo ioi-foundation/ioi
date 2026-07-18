@@ -3,6 +3,23 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+function parseCliMode(args) {
+  if (args.length === 0) return "generate";
+  if (args.length === 1 && args[0] === "--check") return "check";
+  throw new Error(
+    `Unsupported runtime-action generator arguments: ${JSON.stringify(args)}. ` +
+      "Supported invocations are bare generation or --check.",
+  );
+}
+
+let cliMode;
+try {
+  cliMode = parseCliMode(process.argv.slice(2));
+} catch (error) {
+  console.error(error instanceof Error ? error.message : String(error));
+  process.exit(2);
+}
+
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const schemaPath = path.join(
   root,
@@ -75,7 +92,7 @@ ${documentedRustArray("RUNTIME_ACTION_COMPLETION_VERIFICATION_KINDS", schema.com
 
 fs.mkdirSync(path.dirname(tsPath), { recursive: true });
 fs.mkdirSync(path.dirname(rustPath), { recursive: true });
-if (process.argv.includes("--check")) {
+if (cliMode === "check") {
   const mismatches = [];
   if (!fs.existsSync(tsPath) || fs.readFileSync(tsPath, "utf8") !== ts) {
     mismatches.push(path.relative(root, tsPath));

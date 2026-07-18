@@ -27,22 +27,35 @@ try {
 }
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const {
+  ARCHITECTURE_CONTRACT_CONSUMER_TARGETS,
+  ARCHITECTURE_CONTRACT_CONSUMER_TARGET_BY_KIND,
+} = await import("./lib/architecture-contract-consumer-targets.mjs");
+const { safeRepositoryPath } = await import(
+  "./lib/repository-path-boundary.mjs"
+);
 const schemaRoot = path.join(root, "docs", "architecture", "_meta", "schemas");
-const SUPPORTED_TARGET_KINDS = new Set([
-  "typescript_projection",
-  "rust_projection",
-]);
-const registryPath = path.join(
-  schemaRoot,
+const SUPPORTED_TARGET_KINDS = new Set(
+  ARCHITECTURE_CONTRACT_CONSUMER_TARGETS.map((target) => target.kind),
+);
+const registryPath = safeSchemaPath(
   "architecture-contract-registry.v1.json",
+  "architecture contract registry",
 );
 const registry = readJson(registryPath);
 const declaredTargets = validateGeneratedTargets(registry);
 const contracts = registry.contracts.map((entry) => ({
   entry,
-  schema: readJson(path.join(schemaRoot, entry.schema_ref)),
+  schema: readJson(
+    safeSchemaPath(entry.schema_ref, `${entry.contract_id}: schema_ref`),
+  ),
   invariants: entry.cross_field_invariant_refs.map((ref) =>
-    readJson(path.join(schemaRoot, ref.path)),
+    readJson(
+      safeSchemaPath(
+        ref.path,
+        `${entry.contract_id}: invariant ${ref.invariant_id}`,
+      ),
+    ),
   ),
 }));
 
@@ -88,9 +101,23 @@ const RUST_ECMA_WHITESPACE_CLASS =
   "\\u{0009}-\\u{000D}\\u{0020}\\u{00A0}\\u{1680}" +
   "\\u{2000}-\\u{200A}\\u{2028}\\u{2029}\\u{202F}\\u{205F}" +
   "\\u{3000}\\u{FEFF}";
+const PORTABLE_INTEGER_MINIMUM = 0;
+const PORTABLE_INTEGER_MAXIMUM = Number.MAX_SAFE_INTEGER;
+const PORTABLE_CANONICAL_DATE_TIME_PATTERN =
+  "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$";
 
 function readJson(filePath) {
   return JSON.parse(fs.readFileSync(filePath, "utf8"));
+}
+
+function safeSchemaPath(relativePath, at) {
+  return safeRepositoryPath({
+    root,
+    boundaryRoot: schemaRoot,
+    relativePath,
+    at,
+    mustExist: true,
+  });
 }
 
 function codePointCompare(left, right) {
@@ -129,35 +156,11 @@ function projectionSymbol(entry) {
 }
 
 function safeGeneratedTargetPath(targetPath, at) {
-  if (
-    typeof targetPath !== "string" ||
-    targetPath.length === 0 ||
-    targetPath.includes("\\") ||
-    path.isAbsolute(targetPath) ||
-    path.win32.isAbsolute(targetPath)
-  ) {
-    throw new Error(`${at}: generated target path must be a repository-relative POSIX path`);
-  }
-  const normalized = path.posix.normalize(targetPath);
-  if (
-    normalized !== targetPath ||
-    normalized === "." ||
-    normalized === ".." ||
-    normalized.startsWith("../")
-  ) {
-    throw new Error(`${at}: generated target path escapes or is not normalized: ${targetPath}`);
-  }
-  const absolute = path.resolve(root, targetPath);
-  const relative = path.relative(root, absolute);
-  if (
-    relative.length === 0 ||
-    relative === ".." ||
-    relative.startsWith(`..${path.sep}`) ||
-    path.isAbsolute(relative)
-  ) {
-    throw new Error(`${at}: generated target path escapes the repository: ${targetPath}`);
-  }
-  return absolute;
+  return safeRepositoryPath({
+    root,
+    relativePath: targetPath,
+    at,
+  });
 }
 
 function validateGeneratedTargets(registryDocument) {
@@ -180,6 +183,13 @@ function validateGeneratedTargets(registryDocument) {
       }
       if (!SUPPORTED_TARGET_KINDS.has(target.kind)) {
         throw new Error(`${targetAt}: unknown generated target kind ${JSON.stringify(target.kind)}`);
+      }
+      const consumerTarget =
+        ARCHITECTURE_CONTRACT_CONSUMER_TARGET_BY_KIND.get(target.kind);
+      if (target.path !== consumerTarget.path) {
+        throw new Error(
+          `${targetAt}: generated target path must match canonical ${target.kind} consumer ${consumerTarget.path}`,
+        );
       }
       if (seenKinds.has(target.kind)) {
         throw new Error(`${at}: duplicate generated target kind ${target.kind}`);
@@ -370,6 +380,28 @@ function inventorySchemaKeywords(schema, at) {
       }
       registeredPatternTranslations.set(value, translated);
     }
+  }
+  if (schema.type === "integer") {
+    if (
+      !Number.isSafeInteger(schema.minimum) ||
+      !Number.isSafeInteger(schema.maximum) ||
+      schema.minimum < PORTABLE_INTEGER_MINIMUM ||
+      schema.maximum > PORTABLE_INTEGER_MAXIMUM ||
+      schema.minimum > schema.maximum
+    ) {
+      throw new Error(
+        `${at}: integer schemas must declare a semantic minimum/maximum within the portable unsigned JS-safe domain ` +
+          `${PORTABLE_INTEGER_MINIMUM}..${PORTABLE_INTEGER_MAXIMUM}`,
+      );
+    }
+  }
+  if (
+    schema.format === "date-time" &&
+    schema.pattern !== PORTABLE_CANONICAL_DATE_TIME_PATTERN
+  ) {
+    throw new Error(
+      `${at}: date-time schemas must declare the portable canonical RFC3339 pattern ${PORTABLE_CANONICAL_DATE_TIME_PATTERN}`,
+    );
   }
 
   for (const keyword of ["$defs", "properties"]) {
@@ -854,7 +886,10 @@ function generatorInvariantErrors(contract, value) {
 }
 
 function mutationValue(definition) {
-  const fixturePath = path.join(schemaRoot, definition.fixture);
+  const fixturePath = safeSchemaPath(
+    definition.fixture,
+    `mutation ${definition.id}: source fixture`,
+  );
   const sourceValue = readJson(fixturePath);
   const patch = definition.patch ?? definition.buildPatch?.(sourceValue);
   if (
@@ -907,7 +942,14 @@ function differentialCorpus() {
     source_fixture_path: fixture.path,
     mutation_id: null,
     value_json: null,
-    value: readJson(path.join(root, fixture.path)),
+    value: readJson(
+      safeRepositoryPath({
+        root,
+        relativePath: fixture.path,
+        at: `differential ${fixture.path}`,
+        mustExist: true,
+      }),
+    ),
   }));
   for (const definition of mutationDefinitions) {
     const { value } = mutationValue(definition);
@@ -921,9 +963,9 @@ function differentialCorpus() {
     });
   }
 
-  const authorityTimestampPath = path.join(
-    schemaRoot,
+  const authorityTimestampPath = safeSchemaPath(
     "fixtures/authority-grant-envelope-v2/positive-root.json",
+    "authority timestamp differential fixture",
   );
   const authorityTimestamp = fs.readFileSync(authorityTimestampPath, "utf8");
   cases.push({
@@ -939,9 +981,35 @@ function differentialCorpus() {
     ),
   });
 
-  const proofIndexPath = path.join(
-    schemaRoot,
+  const authorityV1Path = safeSchemaPath(
+    "fixtures/authority-grant-envelope-v1/positive-active.json",
+    "portable integer differential fixture",
+  );
+  const authorityV1 = fs.readFileSync(authorityV1Path, "utf8");
+  for (const [id, rendered] of [
+    ["portable-integer-boundary", "9007199254740991"],
+    ["portable-integer-over-bound", "9007199254740992"],
+    ["portable-integer-over-u64", "18446744073709551616"],
+    ["portable-integer-negative", "-1"],
+    ["portable-integer-integral-decimal", "1.0"],
+  ]) {
+    cases.push({
+      id: `differential:${id}`,
+      contract_id: "schema://ioi/foundations/authority-grant-envelope/v1",
+      source_fixture_path: null,
+      mutation_id: null,
+      value_json: replaceOnce(
+        authorityV1,
+        '"revocation_epoch": 7',
+        `"revocation_epoch": ${rendered}`,
+        `${id} differential`,
+      ),
+    });
+  }
+
+  const proofIndexPath = safeSchemaPath(
     "fixtures/receipt-proof-bundle-v1/positive-offline.json",
+    "proof-index differential fixture",
   );
   const proofIndex = fs.readFileSync(proofIndexPath, "utf8");
   cases.push({
@@ -958,14 +1026,19 @@ function differentialCorpus() {
   });
 
   const leapSecondFixture = readJson(
-    path.join(
-      schemaRoot,
+    safeSchemaPath(
       "fixtures/authority-grant-envelope-v1/positive-active.json",
+      "date-time profile differential fixture",
     ),
   );
   for (const [id, dateTime] of [
-    ["leap-second-offset-hour-normalization", "2025-01-01T24:59:60+01:00"],
-    ["leap-second-offset-minute-normalization", "2025-01-01T23:60:60+00:01"],
+    ["canonical-leap-second-z", "2025-01-01T23:59:60Z"],
+    ["canonical-leap-second-offset", "2025-01-02T00:59:60+01:00"],
+    ["noncanonical-space-separator", "2025-01-01 23:59:59Z"],
+    ["noncanonical-compact-offset", "2025-01-01T23:59:59+0100"],
+    ["noncanonical-hour-offset", "2025-01-01T23:59:59+01"],
+    ["noncanonical-hour-24-leap", "2025-01-01T24:59:60+01:00"],
+    ["noncanonical-minute-60-leap", "2025-01-01T23:60:60+00:01"],
   ]) {
     const value = structuredClone(leapSecondFixture);
     value.constraints.expires_at = dateTime;
@@ -1072,6 +1145,11 @@ function renderTypescript() {
 ${interfaces}
 
 export const ARCHITECTURE_CONTRACT_REGISTRY_VERSION = ${JSON.stringify(registry.registry_version)} as const;
+
+export const ARCHITECTURE_CONTRACT_PORTABLE_INTEGER_MINIMUM = ${PORTABLE_INTEGER_MINIMUM} as const;
+export const ARCHITECTURE_CONTRACT_PORTABLE_INTEGER_MAXIMUM = ${PORTABLE_INTEGER_MAXIMUM} as const;
+export const ARCHITECTURE_CONTRACT_PORTABLE_DATE_TIME_PATTERN = ${JSON.stringify(PORTABLE_CANONICAL_DATE_TIME_PATTERN)} as const;
+export const ARCHITECTURE_CONTRACT_ORACLE_PROFILE = "ajv-2020-12-plus-portable-invariants-and-canonical-rfc3339" as const;
 
 export const ARCHITECTURE_CONTRACT_FIXTURES = ${JSON.stringify(fixtureMetadata(), null, 2)} as const;
 
@@ -1508,26 +1586,25 @@ function rustStructsFor(entry, schema) {
                 `    pub ${rustName}: ${fieldType},`,
             )
             .join("\n");
-          if (nameHint === topName) {
-            const assignments = fields
-              .map(({ fieldType, jsonName, required, rustName }) =>
-                required
-                  ? `            ${rustName}: serde_json::from_value::<${fieldType}>(
+          const assignments = fields
+            .map(({ fieldType, jsonName, required, rustName }) =>
+              required
+                ? `            ${rustName}: serde_json::from_value::<${fieldType}>(
                 object
                     .remove(${rustString(jsonName)})
                     .ok_or_else(|| serde::de::Error::missing_field(${rustString(jsonName)}))?,
             )
             .map_err(serde::de::Error::custom)?,`
-                  : `            ${rustName}: match object.remove(${rustString(jsonName)}) {
+                : `            ${rustName}: match object.remove(${rustString(jsonName)}) {
                 Some(field_value) => serde_json::from_value::<${fieldType}>(field_value)
                     .map_err(serde::de::Error::custom)?,
                 None => None,
             },`,
-              )
-              .join("\n");
-            definitions.set(
-              nameHint,
-              `#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+            )
+            .join("\n");
+          definitions.set(
+            nameHint,
+            `#[derive(Debug, Clone, PartialEq, serde::Serialize)]
 pub struct ${nameHint} {
 ${publicFields}
 }
@@ -1538,7 +1615,11 @@ impl<'de> serde::Deserialize<'de> for ${nameHint} {
         D: serde::Deserializer<'de>,
     {
         let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
-        validate_projection_schema(${rustString(entry.contract_id)}, &value)
+        validate_projection_subschema(
+            ${rustString(entry.contract_id)},
+            ${rustRaw(node)},
+            &value,
+        )
             .map_err(serde::de::Error::custom)?;
         let mut object = value
             .as_object()
@@ -1549,13 +1630,7 @@ ${assignments}
         })
     }
 }`,
-            );
-          } else {
-            definitions.set(
-              nameHint,
-              `#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]\n#[serde(deny_unknown_fields)]\npub struct ${nameHint} {\n${publicFields}\n}`,
-            );
-          }
+          );
         }
         return nameHint;
       }
@@ -1676,6 +1751,11 @@ use serde_json::Value;
 use std::cmp::Ordering;
 
 pub const ARCHITECTURE_CONTRACT_REGISTRY_VERSION: &str = ${JSON.stringify(registry.registry_version)};
+pub const ARCHITECTURE_CONTRACT_PORTABLE_INTEGER_MINIMUM: u64 = ${PORTABLE_INTEGER_MINIMUM};
+pub const ARCHITECTURE_CONTRACT_PORTABLE_INTEGER_MAXIMUM: u64 = ${PORTABLE_INTEGER_MAXIMUM};
+pub const ARCHITECTURE_CONTRACT_PORTABLE_DATE_TIME_PATTERN: &str = ${rustString(PORTABLE_CANONICAL_DATE_TIME_PATTERN)};
+pub const ARCHITECTURE_CONTRACT_ORACLE_PROFILE: &str =
+    "ajv-2020-12-plus-portable-invariants-and-canonical-rfc3339";
 
 pub const ARCHITECTURE_CONTRACT_ASSERTION_KEYWORDS: &[&str] = &[
 ${[...usedSchemaKeywords].sort(codePointCompare).map((keyword) => `    ${rustString(keyword)},`).join("\n")}
@@ -1712,7 +1792,12 @@ impl<'de> serde::Deserialize<'de> for ArchitectureContractInteger {
         let number = value
             .as_number()
             .and_then(json_number_as_u64)
-            .ok_or_else(|| serde::de::Error::custom("expected an integral JSON number in u64 range"))?;
+            .filter(|number| *number <= ARCHITECTURE_CONTRACT_PORTABLE_INTEGER_MAXIMUM)
+            .ok_or_else(|| {
+                serde::de::Error::custom(
+                    "expected an integral JSON number in the portable unsigned JS-safe domain",
+                )
+            })?;
         Ok(Self(number))
     }
 }
@@ -2230,6 +2315,21 @@ fn validate_projection_schema(contract_id: &str, value: &Value) -> Result<(), St
     validate_node(&schema, &schema, value, "$")
 }
 
+fn validate_projection_subschema(
+    contract_id: &str,
+    subschema_text: &str,
+    value: &Value,
+) -> Result<(), String> {
+    let root_text = CONTRACT_SCHEMAS
+        .iter()
+        .find_map(|(id, schema)| (*id == contract_id).then_some(*schema))
+        .ok_or_else(|| format!("unknown contract: {contract_id}"))?;
+    let root: Value = serde_json::from_str(root_text).map_err(|error| error.to_string())?;
+    let subschema: Value =
+        serde_json::from_str(subschema_text).map_err(|error| error.to_string())?;
+    validate_node(&root, &subschema, value, "$")
+}
+
 pub fn validate_architecture_contract(contract_id: &str, value: &Value) -> Result<(), String> {
     let invariant_text = CONTRACT_INVARIANTS
         .iter()
@@ -2513,19 +2613,28 @@ ${parseArms},
             value
         };
 
-        let distinct_large = with_not_before_numbers(
-            "9007199254740992",
-            "9007199254740993",
+        let distinct_portable_boundary = with_not_before_numbers(
+            "9007199254740990",
+            "9007199254740991",
         );
         assert!(
-            validate_schema_only(CONTRACT_ID, &distinct_large).is_ok(),
-            "distinct exact integers above 2^53 remain unique",
-        );
-        assert!(
-            validate_architecture_contract(CONTRACT_ID, &distinct_large)
-                .and_then(|_| parse_projection(CONTRACT_ID, &distinct_large))
+            validate_schema_only(CONTRACT_ID, &distinct_portable_boundary)
                 .is_ok(),
-            "registered Rust validator and projection accept distinct exact integers",
+            "adjacent exact integers at the portable boundary remain unique",
+        );
+        assert!(
+            validate_architecture_contract(
+                CONTRACT_ID,
+                &distinct_portable_boundary,
+            )
+                .and_then(|_| {
+                    parse_projection(
+                        CONTRACT_ID,
+                        &distinct_portable_boundary,
+                    )
+                })
+                .is_ok(),
+            "registered Rust validator and projection accept distinct portable integers",
         );
 
         let equal_integer_decimal = with_not_before_numbers("1", "1.0");
@@ -2538,33 +2647,40 @@ ${parseArms},
             &serde_json::from_str("1.0").expect("decimal JSON number"),
         ));
         assert!(!json_schema_equal(
-            &serde_json::from_str("9007199254740992")
-                .expect("first large JSON number"),
-            &serde_json::from_str("9007199254740993")
-                .expect("second large JSON number"),
+            &serde_json::from_str("9007199254740990")
+                .expect("first portable JSON number"),
+            &serde_json::from_str("9007199254740991")
+                .expect("second portable JSON number"),
         ));
     }
 
     #[test]
-    fn ajv_formats_leap_second_profile_is_shared_by_rust_projection() {
+    fn canonical_rfc3339_profile_is_shared_by_rust_projection() {
         const CONTRACT_ID: &str =
             "schema://ioi/foundations/authority-grant-envelope/v1";
         const FIXTURE_PATH: &str =
             "docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v1/positive-active.json";
-        for invalid in [
-            "2025-01-01T24:59:60+01:00",
-            "2025-01-01T23:60:60+00:01",
+        for (candidate, expected) in [
+            ("2025-01-01T23:59:60Z", true),
+            ("2025-01-02T00:59:60+01:00", true),
+            ("2025-01-01 23:59:59Z", false),
+            ("2025-01-01T23:59:59+0100", false),
+            ("2025-01-01T23:59:59+01", false),
+            ("2025-01-01T24:59:60+01:00", false),
+            ("2025-01-01T23:60:60+00:01", false),
         ] {
             let mut value = fixture_value(FIXTURE_PATH);
             value["constraints"]["expires_at"] =
-                Value::String(invalid.to_owned());
-            assert!(
+                Value::String(candidate.to_owned());
+            assert_eq!(
                 validate_schema_only(CONTRACT_ID, &value).is_ok(),
-                "Rust validator diverged from the ajv-formats leap-second oracle for {invalid}",
+                expected,
+                "Rust validator diverged from the portable canonical RFC3339 oracle for {candidate}",
             );
-            assert!(
+            assert_eq!(
                 parse_projection(CONTRACT_ID, &value).is_ok(),
-                "direct Rust projection diverged from the ajv-formats leap-second oracle for {invalid}",
+                expected,
+                "direct Rust projection diverged from the portable canonical RFC3339 oracle for {candidate}",
             );
         }
     }
@@ -2604,6 +2720,52 @@ ${parseArms},
                 mutation.id,
             );
         }
+    }
+
+    #[test]
+    fn nested_public_projection_deserialization_preserves_nullability() {
+        let physical = fixture_value(
+            "docs/architecture/_meta/schemas/fixtures/physical-action-execution-receipt-v1/positive-committed.json",
+        );
+        let mut receipt_envelope = physical["receipt_envelope"].clone();
+        serde_json::from_value::<PhysicalActionExecutionReceiptV1ReceiptEnvelope>(
+            receipt_envelope.clone(),
+        )
+        .expect("nested required-nullable projection accepts a present value");
+        receipt_envelope["claim_scope_ref"] = Value::Null;
+        serde_json::from_value::<PhysicalActionExecutionReceiptV1ReceiptEnvelope>(
+            receipt_envelope.clone(),
+        )
+        .expect("nested required-nullable projection accepts explicit null");
+        receipt_envelope
+            .as_object_mut()
+            .expect("receipt envelope is an object")
+            .remove("claim_scope_ref");
+        assert!(
+            serde_json::from_value::<PhysicalActionExecutionReceiptV1ReceiptEnvelope>(
+                receipt_envelope,
+            )
+            .is_err(),
+            "nested required-nullable projection accepted a missing field",
+        );
+
+        let authority = fixture_value(
+            "docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v1/positive-active.json",
+        );
+        let mut constraints = authority["constraints"].clone();
+        serde_json::from_value::<AuthorityGrantEnvelopeV1Constraints>(constraints.clone())
+            .expect("nested optional-non-nullable projection accepts a present value");
+        constraints
+            .as_object_mut()
+            .expect("constraints are an object")
+            .remove("max_calls");
+        serde_json::from_value::<AuthorityGrantEnvelopeV1Constraints>(constraints.clone())
+            .expect("nested optional-non-nullable projection accepts absence");
+        constraints["max_calls"] = Value::Null;
+        assert!(
+            serde_json::from_value::<AuthorityGrantEnvelopeV1Constraints>(constraints).is_err(),
+            "nested optional-non-nullable projection accepted explicit null",
+        );
     }
 
     #[test]
@@ -2706,6 +2868,50 @@ function runGeneratorCapabilityRegressions() {
     );
   }
 
+  for (const [id, schema] of [
+    ["unbounded", { type: "integer", minimum: 0 }],
+    [
+      "over-domain",
+      {
+        type: "integer",
+        minimum: 0,
+        maximum: PORTABLE_INTEGER_MAXIMUM + 1,
+      },
+    ],
+    ["negative-domain", { type: "integer", minimum: -1, maximum: 1 }],
+  ]) {
+    let rejected = false;
+    try {
+      inventorySchemaKeywords(schema, `generator-regression.integer.${id}`);
+    } catch (error) {
+      rejected =
+        error instanceof Error &&
+        error.message.includes("portable unsigned JS-safe domain");
+    }
+    if (!rejected) {
+      throw new Error(
+        `Generator regression: ${id} integer schema did not fail closed`,
+      );
+    }
+  }
+
+  let rejectedNonCanonicalDateTime = false;
+  try {
+    inventorySchemaKeywords(
+      { type: "string", format: "date-time" },
+      "generator-regression.date-time",
+    );
+  } catch (error) {
+    rejectedNonCanonicalDateTime =
+      error instanceof Error &&
+      error.message.includes("portable canonical RFC3339 pattern");
+  }
+  if (!rejectedNonCanonicalDateTime) {
+    throw new Error(
+      "Generator regression: date-time schema without the canonical portable pattern did not fail closed",
+    );
+  }
+
   let rejectedUnsupportedPattern = false;
   try {
     inventorySchemaKeywords(
@@ -2776,23 +2982,27 @@ for (const target of declaredTargets) {
       `${target.contractId}: rendered ${target.kind} target lacks ${target.symbol}`,
     );
   }
-  const existing = outputsByPath.get(target.absolutePath);
+  const existing = outputsByPath.get(target.path);
   if (existing !== undefined && existing !== content) {
     throw new Error(
       `Generated target path ${target.path} is assigned incompatible target kinds`,
     );
   }
-  outputsByPath.set(target.absolutePath, content);
+  outputsByPath.set(target.path, content);
 }
 const outputs = [...outputsByPath.entries()].sort(([left], [right]) =>
-  codePointCompare(path.relative(root, left), path.relative(root, right)),
+  codePointCompare(left, right),
 );
 const check = cliMode === "check";
 const mismatches = [];
-for (const [filePath, content] of outputs) {
+for (const [targetPath, content] of outputs) {
+  const filePath = safeGeneratedTargetPath(
+    targetPath,
+    `generated target ${targetPath}`,
+  );
   if (check) {
     if (!fs.existsSync(filePath) || fs.readFileSync(filePath, "utf8") !== content) {
-      mismatches.push(path.relative(root, filePath));
+      mismatches.push(targetPath);
     }
   } else {
     fs.mkdirSync(path.dirname(filePath), { recursive: true });

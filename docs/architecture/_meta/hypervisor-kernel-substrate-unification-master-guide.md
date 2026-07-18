@@ -6,14 +6,14 @@ terminal conformance for convergence of the Hypervisor daemon with the existing
 Rust/WASM kernel/workload substrate.
 Canonical owner: none. Architecture doctrine remains with the subject owners in
 [`source-of-truth-map.md`](./source-of-truth-map.md) and the applicable ADRs.
-Last alignment pass: 2026-07-11.
+Last alignment pass: 2026-07-18.
 Doctrine status: reference
 Implementation status: partial (the JS runtime daemon was retired and deleted 2026-06-23 — `1b68cca12`; Part I's split-brain evidence is preserved as PRE-RETIREMENT history; remaining route-family state in the migration matrix)
 Implementation refs:
   - `crates/node/src/bin/hypervisor-daemon.rs`
   - `crates/node/src/bin/hypervisor_daemon_routes/`
-Last implementation audit: 2026-07-12
-Last pruning alignment: 2026-06-12. The migration matrix is now a compact macro
+Last implementation audit: 2026-07-18
+Last historical pruning alignment: 2026-06-12. The migration matrix is now a compact macro
 ledger; future guide updates should steer macro authority cuts instead of
 per-slice evidence accumulation.
 
@@ -24,8 +24,8 @@ This guide has three jobs:
 1. Restate the owner-defined target only as needed to interpret migration
    evidence for Hypervisor, the daemon, the Rust/WASM substrate, Agentgres,
    wallet.network, cTEE, Hypervisor Core, clients, and application surfaces.
-2. Give implementers enough low-level structure to migrate the current repo
-   without creating another split brain.
+2. Preserve enough low-level structure to interpret migration evidence without
+   recreating the retired split brain.
 3. Record evidence and terminal conformance criteria for the implementation
    migration.
 
@@ -43,11 +43,11 @@ Read it by role:
 | Reader | Start here | Then read |
 | --- | --- | --- |
 | System architect | Subject owners and ADRs | Use this guide only for migration evidence |
-| Runtime implementer | Migration Baseline | Part III, Part IV, Part VII |
-| Developer Workspace / workflow implementer | Migration Baseline | Part V, Part VI, Part VII |
-| Agentgres / receipt implementer | Migration Baseline | Part III, Part IV |
-| cTEE / private workspace implementer | Migration Baseline | Part II, Part III, Part VII |
-| Migration lead | Migration Baseline | Part VII, Part VIII, Part IX |
+| Runtime implementer | Subject owner and compact migration matrix | Part III and Part IV as migration-reference evidence |
+| Developer Workspace / workflow implementer | Subject owner and compact migration matrix | Part V and Part VI as migration-reference evidence |
+| Agentgres / receipt implementer | Subject owner and compact migration matrix | Part III and Part IV as migration-reference evidence |
+| cTEE / private workspace implementer | Subject owner and compact migration matrix | Part II and Part III as migration-reference evidence |
+| Migration reviewer | Compact migration matrix | Part VIII and Part IX as evidence/anti-pattern context; Part VII is historical only |
 
 The document is layered from high level to low level:
 
@@ -58,7 +58,7 @@ Migration Baseline
   -> Step/Module ABI
   -> truth, receipts, replay, and projections
   -> workflow compositor and Improvement Proposal Plane
-  -> migration program and anti-patterns
+  -> historical migration program and anti-pattern evidence
 ```
 
 Nothing here should be read as a request to create a second runtime beside the
@@ -189,7 +189,11 @@ Agentgres + receipts + artifact refs + state roots
 This part separates current Rust source evidence from the pre-retirement
 Node/JS split-brain record. Statements explicitly labeled historical describe
 the deleted runtime daemon and must not be read as current implementation
-status.
+status. Every `Slice` paragraph and every mention in Part I of
+`packages/runtime-daemon`, `mcp-manager.mjs`, or the Step/Module bridge is a
+historical snapshot even when its preserved wording uses present tense. Only
+the current-source/current-product subsections below and the compact migration
+matrix may certify current implementation.
 
 ### Current repo evidence
 
@@ -2747,8 +2751,8 @@ derives session cards from admitted `events/*.jsonl`, public managed-session
 control calls `plan_runtime_managed_session_control` with runtime `state_dir`,
 Rust replays the selected current session before planning, rejects JS-supplied
 control candidates, and the route admits only the Rust-authored
-`managed_session.controlled` runtime event. JS remains a request/admission
-client for this route family; durable managed-session record storage beyond
+`managed_session.controlled` runtime event. At that historical snapshot JS
+remained a request/admission client for this route family; durable managed-session record storage beyond
 runtime-event replay, wallet/cTEE session authority, command transport
 retirement, and stable protocol APIs remain non-terminal.
 A later workspace-change positive API cut supersedes the workspace-change half
@@ -2758,8 +2762,8 @@ derives review cards from admitted `events/*.jsonl`, public workspace-change
 accept/reject/rollback control calls `plan_runtime_workspace_change_control`,
 Rust replays the selected current change before transition validation, rejects
 JS-supplied control candidates, and the route admits only the Rust-authored
-`workspace_change.controlled` runtime event. JS remains a request/admission
-client for this route family; durable workspace-change record storage beyond
+`workspace_change.controlled` runtime event. At that historical snapshot JS
+remained a request/admission client for this route family; durable workspace-change record storage beyond
 runtime-event replay, wallet/workspace rollback authority, command transport
 retirement, and stable protocol APIs remain non-terminal.
 Slice 954 retired the remaining runtime bridge thread-control JS dispatch path;
@@ -3985,17 +3989,23 @@ proves that no candidate becomes live before:
 - wallet.network/governance approval is recorded if authority, privacy, cost, or external effect changes;
 - Agentgres commits the accepted operation.
 
-## Part VII: Migration Program
+## Part VII: Historical Migration Program (retired 2026-06-23)
 
-This part is the implementation migration, not a pre-migration plan. Carrying
-out the master guide means completing this program through terminal conformance.
+> **Historical and non-actionable.** Part VII preserves the pre-retirement
+> migration program, file lists, phases, commands, objectives, and acceptance
+> criteria as evidence. Its imperative verbs and deleted
+> `packages/runtime-daemon`, `mcp-manager.mjs`, Step/Module bridge, and old
+> sprint references are not current instructions. Do not recreate or edit
+> those retired paths. Current status is the compact, source-backed inventory in
+> the migration matrix; any new implementation direction comes from the
+> applicable subject owner, not this historical program.
 
-The program keeps the migration staged, testable, and reviewable: inventory
+The historical program kept the migration staged, testable, and reviewable: inventory
 first, ABI second, bridge third, one shadowed tool fourth, then receipts,
 compositor, cTEE, packages, the Improvement Proposal Plane, Rust core, facade
 retirement, and full conformance.
 
-### Current sprint lane
+### Historical sprint lane
 
 The current lane is Rust substrate migration, not doctrine expansion. The
 latest wired conformance tiers pass for the currently migrated surface, but the
@@ -4003,7 +4013,7 @@ terminal condition is still open. Sprint work should therefore prioritize macro
 authority cuts that turn current Rust bridge/admission primitives and
 fail-closed JS facades into positive Rust daemon-core APIs.
 
-Current sprint objective:
+Historical sprint objective (non-actionable):
 
 - route each remaining live daemon route family through Rust core ownership for
   authority, StepModuleRouter dispatch, receipt/state-root binding, Agentgres
@@ -4022,7 +4032,7 @@ This lane should not promote planned HypervisorOS, custody-proof, private
 operator, or marketplace lifecycle concepts into implementation claims unless a
 slice actually wires the code path, receipts, and conformance guard. Those items
 remain important long-term cleanup or product/runtime evolution targets; the
-current sprint is the route-family migration and facade retirement needed to
+historical sprint was the route-family migration and facade retirement intended to
 finish the master guide.
 
 ### Terminal condition
@@ -4310,7 +4320,7 @@ Objective:
 Create an exact live/substrate/canon inventory so future work does not argue
 from vibes.
 
-Implementation work:
+Historical implementation work (non-actionable):
 
 - Build a source-of-truth table for daemon JS tools, Rust agentic runtime kernel
   primitives, workload IPC endpoints, WASM service entrypoints, model-mounting
@@ -4320,7 +4330,7 @@ Implementation work:
 - Confirm naming uses Hypervisor, Workflow Compositor, HarnessProfile, and
   Default Harness Profile only as the reference/fallback profile.
 
-Likely files/modules:
+Historical file/module snapshot (retired paths are evidence only):
 
 - `docs/architecture/_meta/source-of-truth-map.md`
 - `docs/architecture/_meta/implementation-matrix.md`
@@ -4355,7 +4365,7 @@ Acceptance criteria:
 Objective:
 Define the shared ABI before migrating execution.
 
-Implementation work:
+Historical implementation work (non-actionable):
 
 - Add `StepModuleInvocation` and `StepModuleResult` schemas.
 - Map existing JS runtime events into ABI wrappers.
@@ -4364,7 +4374,7 @@ Implementation work:
 - Define how receipt refs, artifact refs, state roots, authority refs, context
   context cell refs, and workflow projection metadata bind.
 
-Likely files/modules:
+Historical file/module snapshot (retired paths are evidence only):
 
 - `crates/services/src/agentic/runtime/kernel/invocation.rs`
 - `crates/services/src/agentic/runtime/harness.rs`
@@ -4398,7 +4408,7 @@ Objective:
 Let the Node daemon call the Rust workload/control plane without losing daemon
 authority ownership.
 
-Implementation work:
+Historical implementation work (non-actionable):
 
 - Add `StepModuleRunner` interface in `packages/runtime-daemon`.
 - Add `RustWorkloadStepModuleRunner` using a command bridge first, then direct
@@ -4421,7 +4431,7 @@ closed in the runtime-daemon StepModule runner, including the formerly accepted
 history only; the current daemon edge is live Rust workload execution by
 construction, or no execution.
 
-Likely files/modules:
+Historical file/module snapshot (retired paths are evidence only):
 
 - `packages/runtime-daemon/src/runtime-profile.mjs` as the runtime-profile helper; the bridge-named `runtime-api-bridge.mjs` module is deleted and must not return as compatibility scaffolding
 - `packages/runtime-daemon/src/runtime-route-handlers.mjs`
@@ -4463,14 +4473,14 @@ Recommended first candidates:
 2. `lsp.diagnostics` as evidence-producing verifier.
 3. `test.run` as workload job if command sandboxing is ready.
 
-Implementation work:
+Historical implementation work (non-actionable):
 
 - Build a WASM service module or Rust workload job for the selected tool.
 - Route JS daemon invocation through `StepModuleRunner` in shadow mode.
 - Compare daemon-native result to Rust/WASM result.
 - Promote to gated/live only after divergence is understood.
 
-Likely files/modules:
+Historical file/module snapshot (retired paths are evidence only):
 
 - `packages/runtime-daemon/src/coding-tools.mjs`
 - `crates/vm/wasm/src/lib.rs`
@@ -4505,14 +4515,14 @@ Objective:
 Make daemon-native and workload-backed steps converge into Agentgres operation
 and state-root semantics.
 
-Implementation work:
+Historical implementation work (non-actionable):
 
 - Add `state_root_before`, `state_root_after`, `expected_heads`, and
   `projection_watermark` to step/module result records where applicable.
 - Bind JS receipt refs to Agentgres operation refs.
 - Define when daemon-local state is cache/projection versus admitted truth.
 
-Likely files/modules:
+Historical file/module snapshot (retired paths are evidence only):
 
 - `packages/runtime-daemon/src/threads/thread-replay.mjs`
 - `packages/runtime-daemon/src/runtime-event-envelopes.mjs`
@@ -4547,7 +4557,7 @@ Objective:
 Make Automations and its contextual Developer Workspace/Foundry compositor
 views display the same substrate the daemon executes.
 
-Implementation work:
+Historical implementation work (non-actionable):
 
 - Add module backend, execution mode, state-root, receipt, artifact, custody,
   and authority metadata to workflow node projections.
@@ -4555,7 +4565,7 @@ Implementation work:
 - Add cTEE/custody badges and declassification gates.
 - Add receipt timeline and replay links per node.
 
-Likely files/modules:
+Historical file/module snapshot (retired paths are evidence only):
 
 - the current `hypervisor-workbench` package name is an implementation alias
   during the Developer Workspace migration;
@@ -4590,7 +4600,7 @@ Objective:
 Route private workspace actions through the shared ABI while preserving
 no-plaintext-custody invariants.
 
-Implementation work:
+Historical implementation work (non-actionable):
 
 - Add `privacy_profile`, `plaintext_policy`, `custody_proof_ref`,
   `leakage_profile_ref`, and declassification refs to the ABI.
@@ -4608,7 +4618,7 @@ capability_exit
 - Bind wallet.network authority view to declassification and capability exits.
 - Emit custody receipts.
 
-Likely files/modules:
+Historical file/module snapshot (retired paths are evidence only):
 
 - `docs/architecture/components/daemon-runtime/private-workspace-ctee.md`
 - `packages/runtime-daemon/src/model-mounting/*`
@@ -4644,14 +4654,14 @@ Objective:
 Make aiagent.xyz workers and sas.xyz service outcomes run through the same
 step/module ABI.
 
-Implementation work:
+Historical implementation work (non-actionable):
 
 - Map WorkerPackage and ServicePackage manifests to module graph nodes.
 - Route package steps through daemon gates and Rust/WASM/workload/AIIP backends.
 - Record delivery/evidence/verification receipts.
 - Keep marketplace listing/contracting separate from authority grants.
 
-Likely files/modules:
+Historical file/module snapshot (retired paths are evidence only):
 
 - `docs/architecture/domains/aiagent-xyz/*`
 - `docs/architecture/domains/sas-xyz/*`
@@ -4686,7 +4696,7 @@ Objective:
 Allow the runtime to improve skills, modules, workflows, routes, schemas, and
 policies safely.
 
-Implementation work:
+Historical implementation work (non-actionable):
 
 - Add runtime improvement proposal objects.
 - Add trace-mining candidate generation.
@@ -4694,7 +4704,7 @@ Implementation work:
 - Add approval and Agentgres commit path.
 - Add IDE proposal review and rollback view.
 
-Likely files/modules:
+Historical file/module snapshot (retired paths are evidence only):
 
 - `crates/services/src/agentic/runtime/kernel/plan.rs`
 - `crates/services/src/agentic/evolution.rs`
@@ -4729,7 +4739,7 @@ Objective:
 Move the proven hot-path daemon responsibilities into a Rust daemon core while
 preserving the product/API facade and avoiding a disruptive rewrite.
 
-Implementation work:
+Historical implementation work (non-actionable):
 
 - Create a Rust `hypervisor-daemon-core` crate or equivalent module boundary
   inside the existing Rust workspace.
@@ -4758,7 +4768,7 @@ tools/invoke
 - Keep IDE and SDK product behavior coherent while moving the implementation
   below them; do not preserve obsolete response shapes for legacy callers.
 
-Likely files/modules:
+Historical file/module snapshot (retired paths are evidence only):
 
 - new Rust core boundary under `crates/*` once named;
 - `packages/runtime-daemon/src/runtime-route-handlers.mjs`;
@@ -4811,7 +4821,7 @@ Objective:
 Remove JS/TS from authoritative daemon runtime paths after Rust core route-family
 parity is proven.
 
-Implementation work:
+Historical implementation work (non-actionable):
 
 - For each migrated route family, replace JS implementation ownership with a
   stable Rust core API.
@@ -4824,7 +4834,7 @@ Implementation work:
 - Update docs and source-of-truth maps so `packages/runtime-daemon` no longer
   reads as the canonical daemon implementation for migrated responsibilities.
 
-Likely files/modules:
+Historical file/module snapshot (retired paths are evidence only):
 
 - `packages/runtime-daemon/src/*` route families that have Rust-core parity;
 - new Rust daemon core API modules;
@@ -4866,7 +4876,7 @@ Acceptance criteria:
 Objective:
 Prove the unified substrate end to end.
 
-Implementation work:
+Historical implementation work (non-actionable):
 
 - Create conformance tests for ABI coverage, authority gates, receipts, replay,
   state roots, cTEE custody, workflow projections, package invocation, and

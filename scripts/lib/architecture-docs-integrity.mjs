@@ -449,6 +449,138 @@ function implementationMatrixRows(content) {
   });
 }
 
+export const IMPLEMENTATION_MATRIX_CROSS_BOUNDARY_OWNERS = new Map([
+  [
+    "`ModelWeightCustodyProfile`",
+    [
+      "model-router/doctrine.md",
+      "daemon-runtime/private-workspace-ctee.md",
+      "foundations/common-objects-and-envelopes.md",
+    ],
+  ],
+  [
+    "`ModelTokenizerControl`",
+    ["model-router/doctrine.md", "wallet-network/doctrine.md"],
+  ],
+  [
+    "`ModelProviderControl`",
+    [
+      "model-router/doctrine.md",
+      "wallet-network/doctrine.md",
+      "daemon-runtime/private-workspace-ctee.md",
+    ],
+  ],
+  [
+    "`ModelArtifactStorageControl`",
+    [
+      "model-router/doctrine.md",
+      "wallet-network/doctrine.md",
+      "daemon-runtime/private-workspace-ctee.md",
+    ],
+  ],
+  [
+    "`ModelCatalogDownloadControl`",
+    [
+      "model-router/doctrine.md",
+      "wallet-network/doctrine.md",
+      "daemon-runtime/private-workspace-ctee.md",
+    ],
+  ],
+  [
+    "`ModelCatalogProviderControl`",
+    [
+      "model-router/doctrine.md",
+      "wallet-network/doctrine.md",
+      "daemon-runtime/private-workspace-ctee.md",
+    ],
+  ],
+  [
+    "`ModelCapabilityTokenControl`",
+    ["model-router/doctrine.md", "wallet-network/doctrine.md"],
+  ],
+  [
+    "`ModelVaultControl`",
+    [
+      "model-router/doctrine.md",
+      "wallet-network/doctrine.md",
+      "daemon-runtime/private-workspace-ctee.md",
+    ],
+  ],
+  [
+    "`RuntimeAgentgresStateCacheControl`",
+    ["daemon-runtime/doctrine.md", "agentgres/doctrine.md"],
+  ],
+  [
+    "`RuntimeThreadMemoryControl`",
+    [
+      "daemon-runtime/doctrine.md",
+      "daemon-runtime/portable-memory-vault.md",
+      "agentgres/doctrine.md",
+    ],
+  ],
+  [
+    "`RuntimeWorkspaceTrustControl`",
+    [
+      "daemon-runtime/doctrine.md",
+      "daemon-runtime/private-workspace-ctee.md",
+    ],
+  ],
+  [
+    "`RuntimeManagedSessionControl`",
+    ["daemon-runtime/doctrine.md", "hypervisor/core-clients-surfaces.md"],
+  ],
+  [
+    "`RuntimeSkillHookRegistryControl`",
+    [
+      "foundations/common-objects-and-envelopes.md",
+      "daemon-runtime/doctrine.md",
+      "connectors-tools/contracts.md",
+    ],
+  ],
+  [
+    "`RuntimeRepositoryWorkflowProjectionControl`",
+    ["daemon-runtime/doctrine.md", "hypervisor/core-clients-surfaces.md"],
+  ],
+  [
+    "`RuntimeToolCatalogProjectionControl`",
+    ["daemon-runtime/doctrine.md", "connectors-tools/contracts.md"],
+  ],
+  [
+    "`RuntimeCodingToolGovernanceControl`",
+    ["daemon-runtime/doctrine.md", "wallet-network/doctrine.md"],
+  ],
+  [
+    "`RuntimeComputerUseInvocationControl`",
+    ["daemon-runtime/doctrine.md", "wallet-network/doctrine.md"],
+  ],
+  [
+    "`RuntimeApprovalControl`",
+    ["daemon-runtime/doctrine.md", "wallet-network/doctrine.md"],
+  ],
+  [
+    "`RuntimeStudioIntentFrameControl`",
+    ["daemon-runtime/doctrine.md", "hypervisor/core-clients-surfaces.md"],
+  ],
+  [
+    "`RuntimeWorkflowEditControl`",
+    ["daemon-runtime/doctrine.md", "hypervisor/core-clients-surfaces.md"],
+  ],
+  [
+    "`RuntimeMcpControl`",
+    [
+      "daemon-runtime/doctrine.md",
+      "connectors-tools/contracts.md",
+      "wallet-network/doctrine.md",
+    ],
+  ],
+]);
+
+function ownerTargets(ownerCell) {
+  return [...ownerCell.matchAll(/\]\(([^)]+\.md)\)/gu)].map((match) =>
+    match[1].replace(/^\.\.\/(?:components\/)?/u, ""),
+  );
+}
+
 export function checkImplementationMatrixEvidence({
   root,
   matrixFile,
@@ -459,6 +591,10 @@ export function checkImplementationMatrixEvidence({
   for (const stale of [
     ["deleted JavaScript daemon path", /packages\/runtime-daemon/u],
     ["deleted Step/Module bridge path", /ioi[_-]step_module_bridge/u],
+    [
+      "unrelated model-route registry evidence for model-mount behavior",
+      /hypervisor_daemon_routes\/model_routes\.rs/u,
+    ],
     ["stale live JavaScript-remains claim", /\b(?:JS|JavaScript)\s+remains?\b/iu],
   ]) {
     if (stale[1].test(content)) {
@@ -488,56 +624,34 @@ export function checkImplementationMatrixEvidence({
         );
       }
     }
+    if (
+      /^`Model/u.test(cells[0]) &&
+      /\b(?:current Rust|mounted|unmounted Rust substrate)\b/iu.test(cells[2]) &&
+      /model[_-]mount/iu.test(`${cells[2]} ${cells[4]}`) &&
+      !cells[4].includes("crates/node/src/bin/hypervisor-daemon.rs")
+    ) {
+      failures.push(
+        `${rel}:${line} must anchor current or route-absence model-mount status in crates/node/src/bin/hypervisor-daemon.rs.`,
+      );
+    }
   }
 
   const byConcept = new Map(rows.map(({ cells }) => [cells[0], cells]));
-  const requiredOwners = new Map([
-    [
-      "`ModelCapabilityTokenControl`",
-      ["model-router/doctrine.md", "wallet-network/doctrine.md"],
-    ],
-    [
-      "`ModelVaultControl`",
-      [
-        "model-router/doctrine.md",
-        "wallet-network/doctrine.md",
-        "daemon-runtime/private-workspace-ctee.md",
-      ],
-    ],
-    [
-      "`RuntimeThreadMemoryControl`",
-      [
-        "daemon-runtime/doctrine.md",
-        "daemon-runtime/portable-memory-vault.md",
-        "agentgres/doctrine.md",
-      ],
-    ],
-    [
-      "`RuntimeManagedSessionControl`",
-      ["daemon-runtime/doctrine.md", "hypervisor/core-clients-surfaces.md"],
-    ],
-    [
-      "`RuntimeWorkflowEditControl`",
-      ["daemon-runtime/doctrine.md", "hypervisor/core-clients-surfaces.md"],
-    ],
-    [
-      "`RuntimeSkillHookRegistryControl`",
-      [
-        "foundations/common-objects-and-envelopes.md",
-        "daemon-runtime/doctrine.md",
-        "connectors-tools/contracts.md",
-      ],
-    ],
-  ]);
-  for (const [concept, ownerFragments] of requiredOwners) {
+  for (const [concept, expectedOwners] of IMPLEMENTATION_MATRIX_CROSS_BOUNDARY_OWNERS) {
     const row = byConcept.get(concept);
     if (!row) {
       failures.push(`${rel} is missing owner-audited row ${concept}.`);
       continue;
     }
-    for (const fragment of ownerFragments) {
-      if (!row[1].includes(fragment)) {
-        failures.push(`${rel} ${concept} is missing owner boundary ${fragment}.`);
+    const actualOwners = ownerTargets(row[1]);
+    for (const expected of expectedOwners) {
+      if (!actualOwners.includes(expected)) {
+        failures.push(`${rel} ${concept} is missing owner boundary ${expected}.`);
+      }
+    }
+    for (const actual of actualOwners) {
+      if (!expectedOwners.includes(actual)) {
+        failures.push(`${rel} ${concept} has unexpected owner boundary ${actual}.`);
       }
     }
   }
@@ -556,6 +670,42 @@ export function checkImplementationMatrixEvidence({
     );
   }
 
+  return failures;
+}
+
+const RETIRED_RUNTIME_PATHS = [
+  /packages\/runtime-daemon/u,
+  /mcp-manager\.mjs/u,
+  /ioi[_-]step[_-]module[_-]bridge/u,
+  /ioi-step-module-bridge/u,
+];
+
+export function checkRetiredRuntimePathHonesty(rel, content) {
+  const failures = [];
+  let levelTwoHeading = "";
+  const lines = content.split(/\r?\n/u);
+  for (let index = 0; index < lines.length; index += 1) {
+    const heading = lines[index].match(/^##\s+(.+)$/u);
+    if (heading) levelTwoHeading = heading[1];
+    if (!RETIRED_RUNTIME_PATHS.some((pattern) => pattern.test(lines[index]))) {
+      continue;
+    }
+    const context = [
+      levelTwoHeading,
+      lines[index - 1] ?? "",
+      lines[index],
+      lines[index + 1] ?? "",
+    ].join(" ");
+    if (
+      !/\b(?:historical|history|retired|deleted|former|pre-retirement|non-actionable|must not (?:return|exist|recreate)|do not (?:restore|recreate|execute|cite)|no longer|not (?:live|current))\b/iu.test(
+        context,
+      )
+    ) {
+      failures.push(
+        `${rel}:${index + 1} mentions a retired runtime/bridge path outside an explicit historical or retired context.`,
+      );
+    }
+  }
   return failures;
 }
 
@@ -619,5 +769,17 @@ export function checkArchitectureIntegrity({ root, architectureRoot, markdownFil
       content: contentsByFile.get(implementationMatrixFile) ?? "",
     }),
   );
+  for (const rel of [
+    "docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md",
+    "docs/architecture/_meta/hypervisor-kernel-substrate-unification-master-guide.md",
+  ]) {
+    const file = path.join(root, rel);
+    failures.push(
+      ...checkRetiredRuntimePathHonesty(
+        rel,
+        contentsByFile.get(file) ?? fs.readFileSync(file, "utf8"),
+      ),
+    );
+  }
   return failures;
 }
