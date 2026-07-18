@@ -31,14 +31,115 @@ const unavailablePlane = (status, code) => ({
   payload: null,
 });
 
-async function readCollection(fetchImpl, daemon, path, key) {
+const isRecord = (value) => !!value && typeof value === "object" && !Array.isArray(value);
+const nonEmptyString = (value) => typeof value === "string" && value.trim().length > 0;
+const fieldMatches = (record, field, pattern) => nonEmptyString(record[field]) && pattern.test(record[field]);
+const optionalFieldMatches = (record, field, pattern) => record[field] == null || fieldMatches(record, field, pattern);
+const everyArrayEntry = (values, validator) => Array.isArray(values) && values.every(validator);
+
+const ROOM_REF = /^outcome-room:\/\/or_[0-9a-f]+$/;
+const REQUEST_REF = /^participation-request:\/\/rpr_[0-9a-f]+$/;
+const PARTICIPANT_REF = /^participant-lease:\/\/rpl_[0-9a-f]+$/;
+const FRONTIER_REF = /^frontier:\/\/wfi_[0-9a-f]{64}$/;
+const CLAIM_REF = /^work-claim:\/\/wcl_[0-9a-f]{64}$/;
+const RESOURCE_OFFER_REF = /^resource-offer:\/\/rof_[0-9a-f]{64}$/;
+const CAPABILITY_OFFER_REF = /^capability-offer:\/\/cof_[0-9a-f]{64}$/;
+const MATCH_RECEIPT_REF = /^receipt:\/\/wem_[0-9a-f]{64}$/;
+const ATTEMPT_REF = /^attempt:\/\/att_[0-9a-f]{64}$/;
+const FINDING_REF = /^finding:\/\/fnd_[0-9a-f]{64}$/;
+const WORK_RESULT_REF = /^work-result:\/\/wr_[0-9a-f]+$/;
+const CHALLENGE_REF = /^verifier-challenge:\/\/vc_[0-9a-f]{64}$/;
+
+const roomBound = (record) => fieldMatches(record, "outcome_room_ref", ROOM_REF);
+const hasStatus = (record) => nonEmptyString(record.status);
+const rowValidators = {
+  outcome_rooms: (row) => isRecord(row)
+    && fieldMatches(row, "outcome_room_id", ROOM_REF)
+    && hasStatus(row)
+    && (nonEmptyString(row.objective) || nonEmptyString(row.objective_ref)),
+  participation_requests: (row) => isRecord(row)
+    && fieldMatches(row, "participation_request_id", REQUEST_REF)
+    && roomBound(row)
+    && nonEmptyString(row.requested_by_ref)
+    && hasStatus(row),
+  participant_leases: (row) => isRecord(row)
+    && fieldMatches(row, "participant_lease_id", PARTICIPANT_REF)
+    && roomBound(row)
+    && nonEmptyString(row.participant_ref)
+    && hasStatus(row),
+  frontier_items: (row) => isRecord(row)
+    && fieldMatches(row, "frontier_item_id", FRONTIER_REF)
+    && roomBound(row)
+    && hasStatus(row),
+  work_claims: (row) => isRecord(row)
+    && fieldMatches(row, "work_claim_id", CLAIM_REF)
+    && fieldMatches(row, "frontier_item_ref", FRONTIER_REF)
+    && fieldMatches(row, "claimant_ref", PARTICIPANT_REF)
+    && roomBound(row)
+    && hasStatus(row),
+  resource_offers: (row) => isRecord(row)
+    && fieldMatches(row, "resource_offer_id", RESOURCE_OFFER_REF)
+    && fieldMatches(row, "provider_participant_lease_ref", PARTICIPANT_REF)
+    && roomBound(row)
+    && hasStatus(row),
+  capability_offers: (row) => isRecord(row)
+    && fieldMatches(row, "capability_offer_id", CAPABILITY_OFFER_REF)
+    && fieldMatches(row, "provider_participant_lease_ref", PARTICIPANT_REF)
+    && roomBound(row)
+    && hasStatus(row),
+  eligibility_match_receipts: (row) => isRecord(row)
+    && fieldMatches(row, "receipt_id", MATCH_RECEIPT_REF)
+    && row.receipt_ref === row.receipt_id
+    && row.receipt_type === "WorkEligibilityMatchReceipt"
+    && isRecord(row.bound_facts)
+    && fieldMatches(row.bound_facts, "outcome_room_ref", ROOM_REF)
+    && fieldMatches(row.bound_facts, "frontier_item_ref", FRONTIER_REF)
+    && fieldMatches(row.bound_facts, "participant_ref", PARTICIPANT_REF),
+  attempts: (row) => isRecord(row)
+    && fieldMatches(row, "attempt_id", ATTEMPT_REF)
+    && fieldMatches(row, "frontier_item_ref", FRONTIER_REF)
+    && fieldMatches(row, "work_claim_ref", CLAIM_REF)
+    && fieldMatches(row, "participant_ref", PARTICIPANT_REF)
+    && roomBound(row)
+    && nonEmptyString(row.goal_run_ref)
+    && hasStatus(row),
+  findings: (row) => isRecord(row)
+    && fieldMatches(row, "finding_id", FINDING_REF)
+    && fieldMatches(row, "attempt_ref", ATTEMPT_REF)
+    && fieldMatches(row, "work_result_ref", WORK_RESULT_REF)
+    && fieldMatches(row, "participant_ref", PARTICIPANT_REF)
+    && roomBound(row)
+    && hasStatus(row),
+  work_results: (row) => isRecord(row)
+    && fieldMatches(row, "work_result_id", WORK_RESULT_REF)
+    && optionalFieldMatches(row, "outcome_room_ref", ROOM_REF)
+    && nonEmptyString(row.goal_ref)
+    && hasStatus(row),
+  verifier_challenges: (row) => isRecord(row)
+    && fieldMatches(row, "verifier_challenge_id", CHALLENGE_REF)
+    && roomBound(row)
+    && (fieldMatches(row, "challenged_ref", ATTEMPT_REF) || fieldMatches(row, "challenged_ref", FINDING_REF))
+    && row.affected_attempt_refs?.length > 0
+    && everyArrayEntry(row.affected_attempt_refs, (reference) => nonEmptyString(reference) && ATTEMPT_REF.test(reference))
+    && hasStatus(row),
+  goal_runs: (row) => isRecord(row)
+    && nonEmptyString(row.goal_run_id)
+    && hasStatus(row)
+    && (row.blockers === undefined || everyArrayEntry(row.blockers, (blocker) => isRecord(blocker) && nonEmptyString(blocker.reason_code))),
+};
+
+const operationRunValid = (row) => isRecord(row)
+  && nonEmptyString(row.execution_id)
+  && hasStatus(row);
+
+async function readCollection(fetchImpl, daemon, path, key, validateRow) {
   try {
     const response = await fetchImpl(`${daemon}${path}`);
     const payload = await response.json().catch(() => null);
     if (!response.ok) {
       return unavailablePlane(response.status, payload?.error?.code || "plane_unavailable");
     }
-    if (!Array.isArray(payload?.[key])) {
+    if (!Array.isArray(payload?.[key]) || !payload[key].every(validateRow)) {
       return unavailablePlane(response.status, "plane_payload_invalid");
     }
     return { ok: true, status: response.status, code: "", rows: payload[key], payload };
@@ -57,6 +158,7 @@ async function readOperations(fetchImpl, daemon) {
     if (!payload || typeof payload !== "object" || Array.isArray(payload)
       || !payload.runs || typeof payload.runs !== "object" || Array.isArray(payload.runs)
       || !Array.isArray(payload.runs.recent) || !Array.isArray(payload.runs.failures)
+      || !payload.runs.recent.every(operationRunValid) || !payload.runs.failures.every(operationRunValid)
       || !Number.isFinite(payload.runs.total)) {
       return unavailablePlane(response.status, "plane_payload_invalid");
     }
@@ -83,7 +185,7 @@ export async function load(ctx) {
     ["challenges", "/v1/hypervisor/verifier-challenges", "verifier_challenges"],
     ["goalRuns", "/v1/hypervisor/goal-runs", "goal_runs"],
   ];
-  const values = await Promise.all(specs.map(([, path, key]) => readCollection(fetchImpl, ctx.daemon, path, key)));
+  const values = await Promise.all(specs.map(([, path, key]) => readCollection(fetchImpl, ctx.daemon, path, key, rowValidators[key])));
   const model = Object.fromEntries(specs.map(([name], index) => [name, values[index]]));
   model.operations = await readOperations(fetchImpl, ctx.daemon);
   return model;

@@ -160,15 +160,58 @@ async function run() {
   };
   const malformedModel = await missions.load(malformedCtx);
   const malformedHtml = missions.render(malformedModel, malformedCtx);
-  ok("missions: malformed 200 collection fails closed as plane_payload_invalid without crashing",
+  const malformedRoomRowModel = await missions.load({
+    ...missionsCtx,
+    fetch: missionsFixtureFetch({
+      "/v1/hypervisor/outcome-rooms": { body: { outcome_rooms: [{}] } },
+    }),
+  });
+  const malformedRoomRowHtml = missions.render(malformedRoomRowModel, missionsCtx);
+  const mixedRoomRowModel = await missions.load({
+    ...missionsCtx,
+    fetch: missionsFixtureFetch({
+      "/v1/hypervisor/outcome-rooms": { body: { outcome_rooms: [fixtureRoom, {}] } },
+    }),
+  });
+  const mixedRoomRowHtml = missions.render(mixedRoomRowModel, missionsCtx);
+  const malformedGoalRunModel = await missions.load({
+    ...missionsCtx,
+    fetch: missionsFixtureFetch({
+      "/v1/hypervisor/goal-runs": { body: { goal_runs: [null] } },
+    }),
+  });
+  const malformedGoalRunHtml = missions.render(malformedGoalRunModel, missionsCtx);
+  const malformedOperationRunModel = await missions.load({
+    ...missionsCtx,
+    fetch: missionsFixtureFetch({
+      "/v1/hypervisor/operations": { body: { runs: { total: 1, recent: [null], failures: [] } } },
+    }),
+  });
+  const malformedOperationRunHtml = missions.render(malformedOperationRunModel, missionsCtx);
+  ok("missions: malformed collection and exact invalid-row probes fail closed as plane_payload_invalid without crashing or invented rows",
     malformedModel.rooms.ok === false && malformedModel.rooms.status === 200
       && malformedModel.rooms.code === "plane_payload_invalid"
       && malformedHtml.includes('data-missions-rooms="unknown"')
       && malformedHtml.includes("Room list unavailable")
-      && !malformedHtml.includes("No rooms in this view"));
+      && !malformedHtml.includes("No rooms in this view")
+      && malformedRoomRowModel.rooms.ok === false
+      && malformedRoomRowModel.rooms.code === "plane_payload_invalid"
+      && malformedRoomRowHtml.includes('data-missions-rooms="unknown"')
+      && !malformedRoomRowHtml.includes("Untitled mission")
+      && mixedRoomRowModel.rooms.ok === false
+      && mixedRoomRowModel.rooms.rows.length === 0
+      && mixedRoomRowModel.rooms.code === "plane_payload_invalid"
+      && !mixedRoomRowHtml.includes(fixtureRoom.objective)
+      && malformedGoalRunModel.goalRuns.ok === false
+      && malformedGoalRunModel.goalRuns.code === "plane_payload_invalid"
+      && malformedGoalRunHtml.includes("Mission incidents</b> unavailable")
+      && malformedOperationRunModel.operations.ok === false
+      && malformedOperationRunModel.operations.code === "plane_payload_invalid"
+      && malformedOperationRunHtml.includes("Operations run queue</b> unavailable"));
   const cappedGoalRuns = Array.from({ length: 60 }, (_, index) => ({
     goal_run_id: `goal-run-${index}`,
     normalized_goal: `Goal ${index}`,
+    status: "blocked",
     blockers: [{ reason_code: `blocked-${index}` }],
   }));
   const cappedCtx = {
