@@ -6,6 +6,7 @@ const node = (...args) => ["node", args];
 
 const TIERS = {
   docs: [
+    npmRun("check:architecture-contract-bar"),
     npmRun("check:architecture-docs"),
     node("scripts/check-pre-next-leg-readiness.mjs"),
   ],

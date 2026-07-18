@@ -21,6 +21,49 @@ const contracts = registry.contracts.map((entry) => ({
   ),
 }));
 
+const SCHEMA_METADATA_KEYWORDS = new Set([
+  "$defs",
+  "$id",
+  "$schema",
+  "description",
+  "title",
+  "x-ioi-schema-version",
+]);
+const SCHEMA_SEMANTIC_KEYWORDS = new Set([
+  "$ref",
+  "additionalProperties",
+  "allOf",
+  "anyOf",
+  "const",
+  "contains",
+  "else",
+  "enum",
+  "format",
+  "if",
+  "items",
+  "maximum",
+  "maxItems",
+  "minimum",
+  "minItems",
+  "minLength",
+  "oneOf",
+  "pattern",
+  "properties",
+  "required",
+  "then",
+  "type",
+  "uniqueItems",
+]);
+const SUPPORTED_SCHEMA_KEYWORDS = new Set([
+  ...SCHEMA_METADATA_KEYWORDS,
+  ...SCHEMA_SEMANTIC_KEYWORDS,
+]);
+const registeredPatternTranslations = new Map();
+const RUST_ECMA_WHITESPACE_CLASS =
+  "\\u{0009}-\\u{000D}\\u{0020}\\u{00A0}\\u{1680}" +
+  "\\u{2000}-\\u{200A}\\u{2028}\\u{2029}\\u{202F}\\u{205F}" +
+  "\\u{3000}\\u{FEFF}";
+
 const tsPath = path.join(
   root,
   "packages",
@@ -78,6 +121,202 @@ function resolveLocalRef(rootSchema, ref) {
     .reduce((value, part) => value?.[part], rootSchema);
 }
 
+function isPlainObject(value) {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function assertSchemaObject(value, at) {
+  if (!isPlainObject(value)) {
+    throw new Error(
+      `${at}: boolean and non-object JSON Schemas are unsupported by architecture projections`,
+    );
+  }
+}
+
+function rustEcmaPattern(pattern, at) {
+  if (
+    typeof pattern !== "string" ||
+    !pattern.startsWith("^") ||
+    !pattern.endsWith("$") ||
+    /[^\x20-\x7e]/u.test(pattern)
+  ) {
+    throw new Error(
+      `${at}: patterns must use the anchored ASCII architecture-contract subset`,
+    );
+  }
+  try {
+    new RegExp(pattern, "u");
+  } catch (error) {
+    throw new Error(`${at}: invalid ECMA-262 pattern: ${error.message}`);
+  }
+
+  const grammarProbe = pattern
+    .replaceAll("[^\\s]", "X")
+    .replaceAll("\\S", "X");
+  if (grammarProbe.includes("\\")) {
+    throw new Error(
+      `${at}: unsupported ECMA-262 escape; only out-of-class \\S and [^\\s] are supported`,
+    );
+  }
+  let inClass = false;
+  let groupDepth = 0;
+  for (let index = 1; index < grammarProbe.length - 1; index += 1) {
+    const character = grammarProbe[index];
+    if (character === "[") {
+      if (inClass) throw new Error(`${at}: nested character classes are unsupported`);
+      inClass = true;
+      continue;
+    }
+    if (character === "]") {
+      if (!inClass) throw new Error(`${at}: unmatched character-class close`);
+      inClass = false;
+      continue;
+    }
+    if (inClass) continue;
+    if (character === ".") {
+      throw new Error(`${at}: ECMA wildcard semantics are unsupported`);
+    }
+    if (character === "^" || character === "$") {
+      throw new Error(`${at}: internal anchors are unsupported`);
+    }
+    if (character === "(") {
+      if (grammarProbe.slice(index, index + 3) !== "(?:") {
+        throw new Error(`${at}: only non-capturing groups are supported`);
+      }
+      groupDepth += 1;
+      continue;
+    }
+    if (character === ")") {
+      groupDepth -= 1;
+      if (groupDepth < 0) throw new Error(`${at}: unmatched group close`);
+      continue;
+    }
+    if (
+      character === "?" &&
+      grammarProbe.slice(index - 1, index + 2) !== "(?:"
+    ) {
+      throw new Error(`${at}: unsupported question-mark construct`);
+    }
+  }
+  if (inClass || groupDepth !== 0) {
+    throw new Error(`${at}: unterminated character class or group`);
+  }
+
+  return pattern
+    .replaceAll("[^\\s]", `[^${RUST_ECMA_WHITESPACE_CLASS}]`)
+    .replaceAll("\\S", `[^${RUST_ECMA_WHITESPACE_CLASS}]`);
+}
+
+function inventorySchemaKeywords(schema, at) {
+  assertSchemaObject(schema, at);
+  const inventory = new Set();
+  for (const [keyword, value] of Object.entries(schema)) {
+    if (!SUPPORTED_SCHEMA_KEYWORDS.has(keyword)) {
+      throw new Error(
+        `${at}: unsupported JSON Schema keyword ${JSON.stringify(keyword)}; ` +
+          "architecture contract generation fails closed until both validators and projections implement it",
+      );
+    }
+    if (SCHEMA_SEMANTIC_KEYWORDS.has(keyword)) inventory.add(keyword);
+    if (keyword === "$ref") {
+      if (typeof value !== "string" || !value.startsWith("#/")) {
+        throw new Error(`${at}.$ref: only local references are supported`);
+      }
+    } else if (keyword === "type") {
+      if (
+        typeof value !== "string" ||
+        !["null", "string", "integer", "number", "boolean", "array", "object"].includes(
+          value,
+        )
+      ) {
+        throw new Error(`${at}.type: unsupported type declaration`);
+      }
+    } else if (keyword === "format" && value !== "date-time") {
+      throw new Error(`${at}.format: unsupported format ${JSON.stringify(value)}`);
+    } else if (
+      ["minimum", "maximum", "minLength", "minItems", "maxItems"].includes(
+        keyword,
+      ) &&
+      (typeof value !== "number" || !Number.isFinite(value))
+    ) {
+      throw new Error(`${at}.${keyword}: expected a finite number`);
+    } else if (keyword === "uniqueItems" && typeof value !== "boolean") {
+      throw new Error(`${at}.uniqueItems: expected a boolean`);
+    } else if (
+      keyword === "additionalProperties" &&
+      typeof value !== "boolean"
+    ) {
+      throw new Error(
+        `${at}.additionalProperties: schema-valued additionalProperties is unsupported`,
+      );
+    } else if (
+      keyword === "required" &&
+      !Array.isArray(value)
+    ) {
+      throw new Error(`${at}.${keyword}: expected an array`);
+    } else if (
+      keyword === "enum" &&
+      (!Array.isArray(value) ||
+        value.length === 0 ||
+        !value.every((candidate) => typeof candidate === "string"))
+    ) {
+      throw new Error(
+        `${at}.enum: architecture projections currently require a non-empty string enum`,
+      );
+    } else if (keyword === "const" && typeof value !== "string") {
+      throw new Error(
+        `${at}.const: architecture projections currently require a string const`,
+      );
+    } else if (keyword === "pattern") {
+      const translated = rustEcmaPattern(value, `${at}.pattern`);
+      const existing = registeredPatternTranslations.get(value);
+      if (existing !== undefined && existing !== translated) {
+        throw new Error(`${at}.pattern: non-deterministic Rust translation`);
+      }
+      registeredPatternTranslations.set(value, translated);
+    }
+  }
+
+  for (const keyword of ["$defs", "properties"]) {
+    const values = schema[keyword];
+    if (values === undefined) continue;
+    if (!isPlainObject(values)) {
+      throw new Error(`${at}.${keyword}: expected an object of schemas`);
+    }
+    for (const [name, child] of Object.entries(values)) {
+      for (const used of inventorySchemaKeywords(
+        child,
+        `${at}.${keyword}.${name}`,
+      )) {
+        inventory.add(used);
+      }
+    }
+  }
+  for (const keyword of ["items", "contains", "if", "then", "else"]) {
+    const child = schema[keyword];
+    if (child === undefined) continue;
+    for (const used of inventorySchemaKeywords(child, `${at}.${keyword}`)) {
+      inventory.add(used);
+    }
+  }
+  for (const keyword of ["allOf", "anyOf", "oneOf"]) {
+    const children = schema[keyword];
+    if (children === undefined) continue;
+    if (!Array.isArray(children) || children.length === 0) {
+      throw new Error(`${at}.${keyword}: expected a non-empty schema array`);
+    }
+    for (const [index, child] of children.entries()) {
+      for (const used of inventorySchemaKeywords(
+        child,
+        `${at}.${keyword}[${index}]`,
+      )) {
+        inventory.add(used);
+      }
+    }
+  }
+  return inventory;
+}
+
 function indent(text, spaces) {
   const prefix = " ".repeat(spaces);
   return text
@@ -86,16 +325,64 @@ function indent(text, spaces) {
     .join("\n");
 }
 
+function closedStringValues(schema, rootSchema) {
+  if (schema.$ref) {
+    return closedStringValues(resolveLocalRef(rootSchema, schema.$ref), rootSchema);
+  }
+  if (typeof schema.const === "string") return [schema.const];
+  if (
+    Array.isArray(schema.enum) &&
+    schema.enum.length > 0 &&
+    schema.enum.every((value) => typeof value === "string")
+  ) {
+    return [...new Set(schema.enum)];
+  }
+  const union = schema.oneOf ?? schema.anyOf;
+  if (!union) return null;
+  const branchValues = union.map((branch) =>
+    closedStringValues(branch, rootSchema),
+  );
+  if (branchValues.some((values) => values === null)) return null;
+  return [...new Set(branchValues.flat())];
+}
+
+function tsLiteralType(value) {
+  if (
+    value === null ||
+    typeof value === "string" ||
+    typeof value === "number" ||
+    typeof value === "boolean"
+  ) {
+    return JSON.stringify(value);
+  }
+  if (Array.isArray(value)) {
+    return `[${value.map(tsLiteralType).join(", ")}]`;
+  }
+  if (isPlainObject(value)) {
+    return `{ ${Object.entries(value)
+      .map(([key, child]) => `${JSON.stringify(key)}: ${tsLiteralType(child)}`)
+      .join("; ")} }`;
+  }
+  throw new Error(`Unsupported JSON literal in TypeScript projection: ${value}`);
+}
+
 function tsType(schema, rootSchema, depth = 0) {
   if (schema.$ref) {
     return tsType(resolveLocalRef(rootSchema, schema.$ref), rootSchema, depth);
+  }
+  if (Object.hasOwn(schema, "const")) {
+    return tsLiteralType(schema.const);
+  }
+  const closedStrings = closedStringValues(schema, rootSchema);
+  if (closedStrings !== null) {
+    return closedStrings.map((value) => JSON.stringify(value)).join(" | ");
   }
   const union = schema.oneOf ?? schema.anyOf;
   if (union) {
     return union.map((branch) => tsType(branch, rootSchema, depth)).join(" | ");
   }
   if (schema.enum) {
-    return schema.enum.map((value) => JSON.stringify(value)).join(" | ");
+    return schema.enum.map(tsLiteralType).join(" | ");
   }
   switch (schema.type) {
     case "string":
@@ -131,6 +418,7 @@ function fixtureMetadata() {
       contract_id: entry.contract_id,
       path: `docs/architecture/_meta/schemas/${fixturePath}`,
       expected: "accept",
+      expected_schema_accept: true,
       expected_failure: null,
       expected_rule_id: null,
     })),
@@ -138,10 +426,261 @@ function fixtureMetadata() {
       contract_id: entry.contract_id,
       path: `docs/architecture/_meta/schemas/${fixture.path}`,
       expected: "reject",
+      expected_schema_accept: fixture.expected_failure !== "schema",
       expected_failure: fixture.expected_failure,
       expected_rule_id: fixture.expected_rule_id ?? null,
     })),
   ]);
+}
+
+const mutationDefinitions = [
+  {
+    id: "type-number-for-string",
+    contractId: "schema://ioi/foundations/receipt-envelope/v1",
+    fixture: "fixtures/receipt-envelope-v1/positive-assured.json",
+    keywords: ["type", "properties"],
+    patch: { operation: "set", pointer: "/timestamp", value: 42 },
+  },
+  {
+    id: "required-property-removed",
+    contractId: "schema://ioi/foundations/receipt-envelope/v1",
+    fixture: "fixtures/receipt-envelope-v1/positive-assured.json",
+    keywords: ["required"],
+    patch: { operation: "remove", pointer: "/actor_id" },
+  },
+  {
+    id: "additional-property-injected",
+    contractId: "schema://ioi/foundations/receipt-envelope/v1",
+    fixture: "fixtures/receipt-envelope-v1/positive-assured.json",
+    keywords: ["additionalProperties"],
+    patch: { operation: "set", pointer: "/unregistered_field", value: true },
+  },
+  {
+    id: "referenced-pattern-violated",
+    contractId: "schema://ioi/foundations/receipt-envelope/v1",
+    fixture: "fixtures/receipt-envelope-v1/positive-assured.json",
+    keywords: ["$ref", "pattern"],
+    patch: {
+      operation: "set",
+      pointer: "/receipt_profile_ref",
+      value: "not-a-schema-ref",
+    },
+  },
+  {
+    id: "ecma-whitespace-byte-order-mark-rejected",
+    contractId: "schema://ioi/foundations/receipt-envelope/v1",
+    fixture: "fixtures/receipt-envelope-v1/positive-assured.json",
+    keywords: ["pattern"],
+    patch: {
+      operation: "set",
+      pointer: "/receipt_profile_ref",
+      value: "schema://ioi/test/\uFEFF",
+    },
+  },
+  {
+    id: "ecma-non-whitespace-next-line-accepted",
+    contractId: "schema://ioi/foundations/receipt-envelope/v1",
+    fixture: "fixtures/receipt-envelope-v1/positive-assured.json",
+    keywords: ["pattern"],
+    ajvExpectedAccept: true,
+    patch: {
+      operation: "set",
+      pointer: "/receipt_profile_ref",
+      value: "schema://ioi/test/\u0085",
+    },
+  },
+  {
+    id: "nullable-any-of-violated",
+    contractId: "schema://ioi/foundations/receipt-envelope/v1",
+    fixture: "fixtures/receipt-envelope-v1/positive-assured.json",
+    keywords: ["anyOf"],
+    patch: { operation: "set", pointer: "/claim_scope_ref", value: 42 },
+  },
+  {
+    id: "unicode-aware-min-length-violated",
+    contractId:
+      "schema://ioi/components/connectors-tools/runtime-tool-contract/v1",
+    fixture: "fixtures/runtime-tool-contract-v1/positive-declared-egress.json",
+    keywords: ["minLength"],
+    patch: { operation: "set", pointer: "/display_name", value: "" },
+  },
+  {
+    id: "closed-enum-violated-with-raw-string-sentinel",
+    contractId: "schema://ioi/foundations/authority-grant-envelope/v1",
+    fixture: "fixtures/authority-grant-envelope-v1/positive-active.json",
+    keywords: ["enum"],
+    directProjectionRejection: true,
+    patch: {
+      operation: "set",
+      pointer: "/status",
+      value: 'retired"###schema-controlled',
+    },
+  },
+  {
+    id: "minimum-violated",
+    contractId: "schema://ioi/foundations/authority-grant-envelope/v1",
+    fixture: "fixtures/authority-grant-envelope-v1/positive-active.json",
+    keywords: ["minimum"],
+    patch: { operation: "set", pointer: "/revocation_epoch", value: -1 },
+  },
+  {
+    id: "array-items-schema-violated",
+    contractId: "schema://ioi/foundations/authority-grant-envelope/v1",
+    fixture: "fixtures/authority-grant-envelope-v1/positive-active.json",
+    keywords: ["items"],
+    patch: { operation: "set", pointer: "/authority_scopes", value: [42] },
+  },
+  {
+    id: "deep-unique-items-key-order-duplicate",
+    contractId: "schema://ioi/foundations/authority-key-set/v1",
+    fixture: "fixtures/authority-key-set-v1/positive-active.json",
+    keywords: ["uniqueItems"],
+    buildPatch(value) {
+      const original = value.keys[0];
+      const reverseKeyOrder = Object.fromEntries(
+        Object.entries(original).reverse(),
+      );
+      return {
+        operation: "set",
+        pointer: "/keys",
+        value: [original, reverseKeyOrder],
+      };
+    },
+  },
+  {
+    id: "impossible-rfc3339-calendar-date",
+    contractId: "schema://ioi/foundations/authority-grant-envelope/v1",
+    fixture: "fixtures/authority-grant-envelope-v1/positive-active.json",
+    keywords: ["format"],
+    patch: {
+      operation: "set",
+      pointer: "/constraints/expires_at",
+      value: "2025-02-30T00:00:00Z",
+    },
+  },
+  {
+    id: "closed-const-violated",
+    contractId: "schema://ioi/foundations/authority-grant-envelope/v2",
+    fixture: "fixtures/authority-grant-envelope-v2/positive-root.json",
+    keywords: ["const"],
+    directProjectionRejection: true,
+    patch: {
+      operation: "set",
+      pointer: "/schema_version",
+      value: "ioi.foundations.authority-grant-envelope.v999",
+    },
+  },
+  {
+    id: "one-of-violated",
+    contractId: "schema://ioi/foundations/authority-grant-envelope/v2",
+    fixture: "fixtures/authority-grant-envelope-v2/positive-root.json",
+    keywords: ["oneOf"],
+    patch: { operation: "set", pointer: "/parent_grant", value: 42 },
+  },
+  {
+    id: "maximum-safe-integer-violated",
+    contractId:
+      "schema://ioi/foundations/managed-work-billing-ledger-bundle/v1",
+    fixture:
+      "fixtures/managed-work-billing-ledger-bundle-v1/positive-complete.json",
+    keywords: ["maximum"],
+    patch: {
+      operation: "set",
+      pointer: "/plan/included_work_credits/units",
+      value: 9_007_199_254_740_992,
+    },
+  },
+  {
+    id: "minimum-array-size-violated",
+    contractId: "schema://ioi/foundations/authority-grant-envelope/v1",
+    fixture: "fixtures/authority-grant-envelope-v1/positive-active.json",
+    keywords: ["minItems"],
+    patch: { operation: "set", pointer: "/resources", value: [] },
+  },
+  {
+    id: "type-less-if-then-max-items-violated",
+    contractId:
+      "schema://ioi/foundations/physical-action-execution-receipt/v1",
+    fixture:
+      "fixtures/physical-action-execution-receipt-v1/positive-committed.json",
+    keywords: ["allOf", "if", "then", "maxItems"],
+    patch: {
+      operation: "set",
+      pointer: "/body/outcome_normalization_error_codes",
+      value: ["unexpected_error"],
+    },
+  },
+  {
+    id: "nested-all-of-contains-member-missing",
+    contractId: "schema://ioi/foundations/dispute-rail-bundle/v1",
+    fixture:
+      "fixtures/dispute-rail-bundle-v1/positive-marketplace-resolution.json",
+    keywords: ["contains"],
+    patch: {
+      operation: "set",
+      pointer: "/resolution/required_receipt_kinds",
+      value: [
+        "dispute_resolution",
+        "dispute_remedy_execution",
+      ],
+    },
+  },
+];
+
+function mutationCorpus() {
+  return mutationDefinitions.map((definition) => {
+    const fixturePath = path.join(schemaRoot, definition.fixture);
+    const sourceValue = readJson(fixturePath);
+    const patch = definition.patch ?? definition.buildPatch?.(sourceValue);
+    if (
+      !isPlainObject(patch) ||
+      !["set", "remove"].includes(patch.operation) ||
+      typeof patch.pointer !== "string" ||
+      !patch.pointer.startsWith("/") ||
+      (patch.operation === "set" && !Object.hasOwn(patch, "value"))
+    ) {
+      throw new Error(`Invalid mutation patch ${definition.id}`);
+    }
+    return {
+      id: definition.id,
+      contract_id: definition.contractId,
+      source_fixture_path: `docs/architecture/_meta/schemas/${definition.fixture}`,
+      covered_keywords: definition.keywords,
+      ajv_expected_accept: definition.ajvExpectedAccept === true,
+      direct_projection_rejection:
+        definition.directProjectionRejection === true,
+      patch,
+    };
+  });
+}
+
+const usedSchemaKeywords = new Set();
+for (const { entry, schema } of contracts) {
+  for (const keyword of inventorySchemaKeywords(
+    schema,
+    `schema:${entry.contract_id}`,
+  )) {
+    usedSchemaKeywords.add(keyword);
+  }
+}
+const mutationCoveredKeywords = new Set(
+  mutationDefinitions.flatMap((definition) => definition.keywords),
+);
+const uncoveredMutationKeywords = [...usedSchemaKeywords].filter(
+  (keyword) => !mutationCoveredKeywords.has(keyword),
+);
+if (uncoveredMutationKeywords.length > 0) {
+  throw new Error(
+    `Architecture contract mutation corpus does not cover used semantic keywords: ${uncoveredMutationKeywords.sort().join(", ")}`,
+  );
+}
+const staleMutationKeywords = [...mutationCoveredKeywords].filter(
+  (keyword) => !usedSchemaKeywords.has(keyword),
+);
+if (staleMutationKeywords.length > 0) {
+  throw new Error(
+    `Architecture contract mutation corpus claims unused semantic keywords: ${staleMutationKeywords.sort().join(", ")}`,
+  );
 }
 
 function renderTypescript() {
@@ -163,6 +702,7 @@ function renderTypescript() {
   const schemaHashes = Object.fromEntries(
     contracts.map(({ entry, schema }) => [entry.contract_id, schemaHash(schema)]),
   );
+  const mutations = mutationCorpus();
   const wrappers = contracts
     .map(
       ({ entry }) => `export function validate${projectionSymbol(entry)}(
@@ -181,6 +721,26 @@ export const ARCHITECTURE_CONTRACT_REGISTRY_VERSION = ${JSON.stringify(registry.
 
 export const ARCHITECTURE_CONTRACT_FIXTURES = ${JSON.stringify(fixtureMetadata(), null, 2)} as const;
 
+export type ArchitectureContractMutation = {
+  id: string;
+  contract_id: string;
+  source_fixture_path: string;
+  covered_keywords: string[];
+  ajv_expected_accept: boolean;
+  direct_projection_rejection: boolean;
+  patch: {
+    operation: "set" | "remove";
+    pointer: string;
+    value?: unknown;
+  };
+};
+
+export const ARCHITECTURE_CONTRACT_MUTATIONS: ReadonlyArray<ArchitectureContractMutation> = ${JSON.stringify(mutations, null, 2)};
+
+export const ARCHITECTURE_CONTRACT_ASSERTION_KEYWORDS = ${JSON.stringify([...usedSchemaKeywords].sort(), null, 2)} as const;
+
+export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = ${JSON.stringify([...registeredPatternTranslations.keys()].sort(), null, 2)} as const;
+
 export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = ${JSON.stringify(schemaHashes, null, 2)} as const;
 
 type JsonObject = Record<string, unknown>;
@@ -193,8 +753,94 @@ export function architectureContractSchemaHash(contractId: string): string | nul
   return (ARCHITECTURE_CONTRACT_SCHEMA_HASHES as Record<string, string>)[contractId] ?? null;
 }
 
+export function architectureContractSchemaDocument(contractId: string): JsonObject | null {
+  return CONTRACT_SCHEMAS[contractId] ?? null;
+}
+
 function isObject(value: unknown): value is JsonObject {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function jsonSchemaEqual(left: unknown, right: unknown): boolean {
+  if (Object.is(left, right)) return true;
+  if (typeof left === "number" && typeof right === "number") {
+    return left === right;
+  }
+  if (Array.isArray(left) && Array.isArray(right)) {
+    return (
+      left.length === right.length &&
+      left.every((value, index) => jsonSchemaEqual(value, right[index]))
+    );
+  }
+  if (isObject(left) && isObject(right)) {
+    const leftKeys = Object.keys(left);
+    const rightKeys = Object.keys(right);
+    return (
+      leftKeys.length === rightKeys.length &&
+      leftKeys.every(
+        (key) =>
+          Object.prototype.hasOwnProperty.call(right, key) &&
+          jsonSchemaEqual(left[key], right[key]),
+      )
+    );
+  }
+  return false;
+}
+
+function isLeapYear(year: number): boolean {
+  return year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+}
+
+function isRfc3339DateTime(value: string): boolean {
+  const match = /^(\\d{4})-(\\d{2})-(\\d{2})[Tt](\\d{2}):(\\d{2}):(\\d{2}(?:\\.\\d+)?)(Z|z|([+-])(\\d{2}):(\\d{2}))$/u.exec(
+    value,
+  );
+  if (!match) return false;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const hour = Number(match[4]);
+  const minute = Number(match[5]);
+  const second = Number(match[6]);
+  const zoneSign = match[8] === "-" ? -1 : 1;
+  const zoneHour = Number(match[9] ?? 0);
+  const zoneMinute = Number(match[10] ?? 0);
+  const monthDays = [
+    0,
+    31,
+    isLeapYear(year) ? 29 : 28,
+    31,
+    30,
+    31,
+    30,
+    31,
+    31,
+    30,
+    31,
+    30,
+    31,
+  ];
+  if (
+    month < 1 ||
+    month > 12 ||
+    day < 1 ||
+    day > monthDays[month] ||
+    hour > 23 ||
+    minute > 59 ||
+    zoneHour > 23 ||
+    zoneMinute > 59
+  ) {
+    return false;
+  }
+  if (second < 60) return true;
+  const utcMinute = minute - zoneMinute * zoneSign;
+  const utcHour =
+    hour - zoneHour * zoneSign - (utcMinute < 0 ? 1 : 0);
+  return (
+    (utcHour === 23 || utcHour === -1) &&
+    (utcMinute === 59 || utcMinute === -1) &&
+    second < 61
+  );
 }
 
 function resolveRef(root: JsonObject, ref: string): JsonObject | null {
@@ -211,7 +857,9 @@ function resolveRef(root: JsonObject, ref: string): JsonObject | null {
 function schemaMatches(root: JsonObject, schema: JsonObject, value: unknown, at: string): string[] {
   if (typeof schema.$ref === "string") {
     const resolved = resolveRef(root, schema.$ref);
-    return resolved ? schemaMatches(root, resolved, value, at) : [at + ": unresolved $ref"];
+    if (!resolved) return [at + ": unresolved $ref"];
+    const errors = schemaMatches(root, resolved, value, at);
+    if (errors.length > 0) return errors;
   }
   if (Array.isArray(schema.allOf)) {
     for (const branch of schema.allOf) {
@@ -237,58 +885,82 @@ function schemaMatches(root: JsonObject, schema: JsonObject, value: unknown, at:
       ).length;
       const valid = keyword === "oneOf" ? matches === 1 : matches > 0;
       if (!valid) return [at + ": failed " + keyword];
-      break;
     }
   }
-  if (Array.isArray(schema.enum) && !schema.enum.some((candidate) => Object.is(candidate, value))) {
+  if (Array.isArray(schema.enum) && !schema.enum.some((candidate) => jsonSchemaEqual(candidate, value))) {
     return [at + ": value is outside enum"];
   }
-  if ("const" in schema && !Object.is(schema.const, value)) {
+  if ("const" in schema && !jsonSchemaEqual(schema.const, value)) {
     return [at + ": value does not match const"];
   }
   const type = schema.type;
   if (type === "null" && value !== null) return [at + ": expected null"];
-  if (type === "string") {
-    if (typeof value !== "string") return [at + ": expected string"];
-    if (typeof schema.minLength === "number" && value.length < schema.minLength) {
+  if (type === "string" && typeof value !== "string") return [at + ": expected string"];
+  if (
+    (type === "number" || type === "integer") &&
+    (typeof value !== "number" || !Number.isFinite(value))
+  ) {
+    return [at + ": expected number"];
+  }
+  if (type === "integer" && !Number.isInteger(value)) {
+    return [at + ": expected integer"];
+  }
+  if (type === "boolean" && typeof value !== "boolean") return [at + ": expected boolean"];
+  if (type === "array" && !Array.isArray(value)) return [at + ": expected array"];
+  if (type === "object" && !isObject(value)) return [at + ": expected object"];
+  if (typeof value === "string") {
+    if (typeof schema.minLength === "number" && [...value].length < schema.minLength) {
       return [at + ": string shorter than minLength"];
     }
     if (typeof schema.pattern === "string" && !new RegExp(schema.pattern, "u").test(value)) {
       return [at + ": string failed pattern"];
     }
     if (schema.format === "date-time") {
-      const zoned = /(?:Z|[+-]\\d{2}:\\d{2})$/.test(value);
-      if (!value.includes("T") || !zoned || Number.isNaN(Date.parse(value))) {
+      if (!isRfc3339DateTime(value)) {
         return [at + ": invalid date-time"];
       }
     }
   }
-  if (type === "number" || type === "integer") {
-    if (typeof value !== "number" || !Number.isFinite(value)) return [at + ": expected number"];
-    if (type === "integer" && !Number.isInteger(value)) return [at + ": expected integer"];
+  if (typeof value === "number" && Number.isFinite(value)) {
     if (typeof schema.minimum === "number" && value < schema.minimum) {
       return [at + ": number below minimum"];
     }
+    if (typeof schema.maximum === "number" && value > schema.maximum) {
+      return [at + ": number above maximum"];
+    }
   }
-  if (type === "boolean" && typeof value !== "boolean") return [at + ": expected boolean"];
-  if (type === "array") {
-    if (!Array.isArray(value)) return [at + ": expected array"];
+  if (Array.isArray(value)) {
     if (typeof schema.minItems === "number" && value.length < schema.minItems) {
       return [at + ": array shorter than minItems"];
     }
     if (typeof schema.maxItems === "number" && value.length > schema.maxItems) {
       return [at + ": array longer than maxItems"];
     }
-    if (schema.uniqueItems === true && new Set(value.map((item) => JSON.stringify(item))).size !== value.length) {
-      return [at + ": array items are not unique"];
+    if (schema.uniqueItems === true) {
+      for (let index = 0; index < value.length; index += 1) {
+        if (
+          value
+            .slice(0, index)
+            .some((candidate) => jsonSchemaEqual(candidate, value[index]))
+        ) {
+          return [at + ": array items are not unique"];
+        }
+      }
     }
     if (isObject(schema.items)) {
       const errors = value.flatMap((item, index) => schemaMatches(root, schema.items as JsonObject, item, at + "[" + index + "]"));
       if (errors.length > 0) return errors;
     }
+    if (
+      isObject(schema.contains) &&
+      !value.some(
+        (item) => schemaMatches(root, schema.contains as JsonObject, item, at).length === 0,
+      )
+    ) {
+      return [at + ": array has no item matching contains"];
+    }
   }
-  if (type === "object") {
-    if (!isObject(value)) return [at + ": expected object"];
+  if (isObject(value)) {
     const properties = isObject(schema.properties) ? schema.properties : {};
     const required = Array.isArray(schema.required) ? schema.required : [];
     const missing = required.filter((name) => typeof name === "string" && !(name in value));
@@ -366,11 +1038,18 @@ function invariantErrors(contractId: string, rules: Array<JsonObject>, value: un
   });
 }
 
+export function architectureContractInvariantErrors(
+  contractId: string,
+  value: unknown,
+): string[] {
+  return invariantErrors(contractId, CONTRACT_INVARIANTS[contractId] ?? [], value);
+}
+
 export function validateArchitectureContract(contractId: string, value: unknown): ValidationResult {
   const schema = CONTRACT_SCHEMAS[contractId];
   if (!schema) return { ok: false, errors: ["unknown contract: " + contractId] };
   const errors = schemaMatches(schema, schema, value, "$");
-  if (errors.length === 0) errors.push(...invariantErrors(contractId, CONTRACT_INVARIANTS[contractId] ?? [], value));
+  if (errors.length === 0) errors.push(...architectureContractInvariantErrors(contractId, value));
   return { ok: errors.length === 0, errors };
 }
 
@@ -391,12 +1070,44 @@ function rustStructsFor(entry, schema) {
   function rustFieldName(name) {
     return name === "ref" ? "r#ref" : name;
   }
+  function rustVariantName(value, index, used) {
+    const words = value
+      .split(/[^A-Za-z0-9]+/u)
+      .filter(Boolean)
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1));
+    let candidate = words.join("") || "Value";
+    if (/^[0-9]/u.test(candidate)) candidate = `Value${candidate}`;
+    if (used.has(candidate)) candidate = `${candidate}Value${index + 1}`;
+    used.add(candidate);
+    return candidate;
+  }
+  function rustClosedStringEnum(nameHint, values) {
+    if (!definitions.has(nameHint)) {
+      const usedVariants = new Set();
+      const variants = values.map((value, index) => {
+        const variant = rustVariantName(value, index, usedVariants);
+        return `    #[serde(rename = ${rustString(value)})]\n    ${variant},`;
+      });
+      definitions.set(
+        nameHint,
+        `#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]\npub enum ${nameHint} {\n${variants.join("\n")}\n}`,
+      );
+    }
+    return nameHint;
+  }
   function rustType(node, rootSchema, nameHint) {
     if (node.$ref) return rustType(resolveLocalRef(rootSchema, node.$ref), rootSchema, nameHint);
     const nullable = nullableBranch(node, rootSchema);
     if (nullable) return `Option<${rustType(nullable, rootSchema, nameHint)}>`;
-    if (node.oneOf || node.anyOf) return "serde_json::Value";
-    if (node.enum) return "String";
+    const closedStrings = closedStringValues(node, rootSchema);
+    if (closedStrings !== null) {
+      return rustClosedStringEnum(nameHint, closedStrings);
+    }
+    if (node.oneOf || node.anyOf) {
+      throw new Error(
+        `${entry.contract_id}:${nameHint}: Rust projection cannot represent this union exactly`,
+      );
+    }
     switch (node.type) {
       case "string":
         return "String";
@@ -439,8 +1150,18 @@ function rustStructsFor(entry, schema) {
   return [...definitions.values()].join("\n\n");
 }
 
+function rustRawText(value) {
+  let hashes = "#";
+  while (value.includes(`"${hashes}`)) hashes += "#";
+  return `r${hashes}"${value}"${hashes}`;
+}
+
 function rustRaw(value) {
-  return `r###"${JSON.stringify(value)}"###`;
+  return rustRawText(JSON.stringify(value));
+}
+
+function rustString(value) {
+  return rustRawText(value);
 }
 
 function renderRust() {
@@ -453,6 +1174,13 @@ function renderRust() {
   const invariantEntries = contracts
     .map(({ entry, invariants }) =>
       `    (${JSON.stringify(entry.contract_id)}, ${rustRaw(invariants.flatMap((profile) => profile.rules))}),`,
+    )
+    .join("\n");
+  const patternTranslationEntries = [...registeredPatternTranslations]
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(
+      ([ecmaPattern, rustPattern]) =>
+        `    (${rustString(ecmaPattern)}, ${rustString(rustPattern)}),`,
     )
     .join("\n");
   const schemaHashEntries = contracts
@@ -468,6 +1196,7 @@ function renderRust() {
         contract_id: ${JSON.stringify(fixture.contract_id)},
         path: ${JSON.stringify(fixture.path)},
         expected_accept: ${fixture.expected === "accept"},
+        expected_schema_accept: ${fixture.expected_schema_accept},
         expected_failure: ${fixture.expected_failure === null ? "None" : `Some(${JSON.stringify(fixture.expected_failure)})`},
         expected_rule_id: ${fixture.expected_rule_id === null ? "None" : `Some(${JSON.stringify(fixture.expected_rule_id)})`},
     },`,
@@ -479,6 +1208,22 @@ function renderRust() {
         `    (${JSON.stringify(fixture.path)}, include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", ${JSON.stringify(fixture.path)}))),`,
     )
     .join("\n");
+  const mutations = mutationCorpus();
+  const mutationEntries = mutations
+    .map(
+      (mutation) => `    ArchitectureContractMutation {
+        id: ${rustString(mutation.id)},
+        contract_id: ${rustString(mutation.contract_id)},
+        source_fixture_path: ${rustString(mutation.source_fixture_path)},
+        covered_keywords: &[${mutation.covered_keywords.map(rustString).join(", ")}],
+        ajv_expected_accept: ${mutation.ajv_expected_accept},
+        direct_projection_rejection: ${mutation.direct_projection_rejection},
+        patch_operation: ${rustString(mutation.patch.operation)},
+        patch_pointer: ${rustString(mutation.patch.pointer)},
+        patch_value_json: ${Object.hasOwn(mutation.patch, "value") ? `Some(${rustRaw(mutation.patch.value)})` : "None"},
+    },`,
+    )
+    .join("\n");
   const parseArms = contracts
     .map(
       ({ entry }) => `        ${JSON.stringify(entry.contract_id)} => {
@@ -488,15 +1233,21 @@ function renderRust() {
         }`,
     )
     .join(",\n");
+  const rawStringRegressionSchema = rustRaw({
+    const: 'schema-controlled"###literal',
+  });
 
   return `//! Generated by scripts/generate-architecture-contracts.mjs. Do not edit.
 #![allow(missing_docs)]
 
 use regex::Regex;
 use serde_json::Value;
-use std::collections::HashSet;
 
 pub const ARCHITECTURE_CONTRACT_REGISTRY_VERSION: &str = ${JSON.stringify(registry.registry_version)};
+
+pub const ARCHITECTURE_CONTRACT_ASSERTION_KEYWORDS: &[&str] = &[
+${[...usedSchemaKeywords].sort().map((keyword) => `    ${rustString(keyword)},`).join("\n")}
+];
 
 pub const ARCHITECTURE_CONTRACT_SCHEMA_HASHES: &[(&str, &str)] = &[
 ${schemaHashEntries}
@@ -515,6 +1266,7 @@ pub struct GoldenFixture {
     pub contract_id: &'static str,
     pub path: &'static str,
     pub expected_accept: bool,
+    pub expected_schema_accept: bool,
     pub expected_failure: Option<&'static str>,
     pub expected_rule_id: Option<&'static str>,
 }
@@ -523,12 +1275,33 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
 ${fixtureEntries}
 ];
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ArchitectureContractMutation {
+    pub id: &'static str,
+    pub contract_id: &'static str,
+    pub source_fixture_path: &'static str,
+    pub covered_keywords: &'static [&'static str],
+    pub ajv_expected_accept: bool,
+    pub direct_projection_rejection: bool,
+    pub patch_operation: &'static str,
+    pub patch_pointer: &'static str,
+    pub patch_value_json: Option<&'static str>,
+}
+
+pub const ARCHITECTURE_CONTRACT_MUTATIONS: &[ArchitectureContractMutation] = &[
+${mutationEntries}
+];
+
 const CONTRACT_SCHEMAS: &[(&str, &str)] = &[
 ${schemaEntries}
 ];
 
 const CONTRACT_INVARIANTS: &[(&str, &str)] = &[
 ${invariantEntries}
+];
+
+const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
+${patternTranslationEntries}
 ];
 
 fn resolve_ref<'a>(root: &'a Value, reference: &str) -> Option<&'a Value> {
@@ -540,7 +1313,13 @@ fn type_matches(expected: &str, value: &Value) -> bool {
     match expected {
         "null" => value.is_null(),
         "string" => value.is_string(),
-        "integer" => value.as_u64().is_some(),
+        "integer" => {
+            value.as_i64().is_some()
+                || value.as_u64().is_some()
+                || value
+                    .as_f64()
+                    .is_some_and(|number| number.is_finite() && number.fract() == 0.0)
+        }
         "number" => value.is_number(),
         "boolean" => value.is_boolean(),
         "array" => value.is_array(),
@@ -549,11 +1328,141 @@ fn type_matches(expected: &str, value: &Value) -> bool {
     }
 }
 
+fn normalized_json_number(number: &serde_json::Number) -> (bool, String, i32) {
+    let rendered = number.to_string();
+    let (negative, unsigned) = rendered
+        .strip_prefix('-')
+        .map_or((false, rendered.as_str()), |unsigned| (true, unsigned));
+    let (mantissa, explicit_exponent) = unsigned
+        .split_once(['e', 'E'])
+        .map_or((unsigned, 0_i32), |(mantissa, exponent)| {
+            (
+                mantissa,
+                exponent
+                    .parse::<i32>()
+                    .expect("serde_json rendered a valid number exponent"),
+            )
+        });
+    let (whole, fraction) = mantissa
+        .split_once('.')
+        .map_or((mantissa, ""), |(whole, fraction)| (whole, fraction));
+    let mut digits = format!("{whole}{fraction}")
+        .trim_start_matches('0')
+        .to_owned();
+    if digits.is_empty() {
+        return (false, "0".to_owned(), 0);
+    }
+    let mut decimal_exponent = explicit_exponent - fraction.len() as i32;
+    while digits.ends_with('0') {
+        digits.pop();
+        decimal_exponent += 1;
+    }
+    (negative, digits, decimal_exponent)
+}
+
+fn json_schema_equal(left: &Value, right: &Value) -> bool {
+    match (left, right) {
+        (Value::Null, Value::Null) => true,
+        (Value::Bool(left), Value::Bool(right)) => left == right,
+        (Value::Number(left), Value::Number(right)) => {
+            normalized_json_number(left) == normalized_json_number(right)
+        }
+        (Value::String(left), Value::String(right)) => left == right,
+        (Value::Array(left), Value::Array(right)) => {
+            left.len() == right.len()
+                && left
+                    .iter()
+                    .zip(right)
+                    .all(|(left, right)| json_schema_equal(left, right))
+        }
+        (Value::Object(left), Value::Object(right)) => {
+            left.len() == right.len()
+                && left.iter().all(|(key, left)| {
+                    right
+                        .get(key)
+                        .is_some_and(|right| json_schema_equal(left, right))
+                })
+        }
+        _ => false,
+    }
+}
+
+fn is_leap_year(year: u32) -> bool {
+    year % 4 == 0 && (year % 100 != 0 || year % 400 == 0)
+}
+
+fn is_rfc3339_date_time(text: &str) -> bool {
+    let regex = Regex::new(
+        r"(?i)^(\\d{4})-(\\d{2})-(\\d{2})t(\\d{2}):(\\d{2}):(\\d{2}(?:\\.\\d+)?)(z|([+-])(\\d{2}):(\\d{2}))$",
+    )
+    .expect("generated RFC3339 regex is valid");
+    let Some(captures) = regex.captures(text) else {
+        return false;
+    };
+    let parse = |index| {
+        captures
+            .get(index)
+            .and_then(|value| value.as_str().parse::<u32>().ok())
+    };
+    let (Some(year), Some(month), Some(day), Some(hour), Some(minute)) =
+        (parse(1), parse(2), parse(3), parse(4), parse(5))
+    else {
+        return false;
+    };
+    let Some(second) = captures
+        .get(6)
+        .and_then(|value| value.as_str().parse::<f64>().ok())
+    else {
+        return false;
+    };
+    let zone_sign = if captures.get(8).is_some_and(|value| value.as_str() == "-") {
+        -1_i32
+    } else {
+        1_i32
+    };
+    let zone_hour = parse(9).unwrap_or(0);
+    let zone_minute = parse(10).unwrap_or(0);
+    let month_days = [
+        0,
+        31,
+        if is_leap_year(year) { 29 } else { 28 },
+        31,
+        30,
+        31,
+        30,
+        31,
+        31,
+        30,
+        31,
+        30,
+        31,
+    ];
+    if !(1..=12).contains(&month)
+        || day == 0
+        || day > month_days[month as usize]
+        || hour > 23
+        || minute > 59
+        || zone_hour > 23
+        || zone_minute > 59
+    {
+        return false;
+    }
+    if second < 60.0 {
+        return true;
+    }
+    let utc_minute = minute as i32 - zone_minute as i32 * zone_sign;
+    let utc_hour =
+        hour as i32 - zone_hour as i32 * zone_sign - i32::from(utc_minute < 0);
+    (utc_hour == 23 || utc_hour == -1)
+        && (utc_minute == 59 || utc_minute == -1)
+        && second < 61.0
+}
+
 fn validate_node(root: &Value, schema: &Value, value: &Value, at: &str) -> Result<(), String> {
     if let Some(reference) = schema.get("$ref").and_then(Value::as_str) {
         let resolved = resolve_ref(root, reference)
             .ok_or_else(|| format!("{at}: unresolved $ref {reference}"))?;
-        return validate_node(root, resolved, value, at);
+        validate_node(root, resolved, value, at)?;
     }
     if let Some(branches) = schema.get("allOf").and_then(Value::as_array) {
         for branch in branches {
@@ -580,16 +1489,18 @@ fn validate_node(root: &Value, schema: &Value, value: &Value, at: &str) -> Resul
             if !valid {
                 return Err(format!("{at}: failed {keyword}"));
             }
-            break;
         }
     }
     if let Some(values) = schema.get("enum").and_then(Value::as_array) {
-        if !values.contains(value) {
+        if !values
+            .iter()
+            .any(|candidate| json_schema_equal(candidate, value))
+        {
             return Err(format!("{at}: value is outside enum"));
         }
     }
     if let Some(expected) = schema.get("const") {
-        if expected != value {
+        if !json_schema_equal(expected, value) {
             return Err(format!("{at}: value does not match const"));
         }
     }
@@ -606,17 +1517,18 @@ fn validate_node(root: &Value, schema: &Value, value: &Value, at: &str) -> Resul
             }
         }
         if let Some(pattern) = schema.get("pattern").and_then(Value::as_str) {
-            let regex = Regex::new(pattern).map_err(|error| format!("invalid schema regex: {error}"))?;
+            let translated = CONTRACT_PATTERN_TRANSLATIONS
+                .iter()
+                .find_map(|(ecma, rust)| (*ecma == pattern).then_some(*rust))
+                .ok_or_else(|| format!("unsupported ECMA-262 schema pattern: {pattern}"))?;
+            let regex = Regex::new(translated)
+                .map_err(|error| format!("invalid translated schema regex: {error}"))?;
             if !regex.is_match(text) {
                 return Err(format!("{at}: string failed pattern"));
             }
         }
         if schema.get("format").and_then(Value::as_str) == Some("date-time") {
-            let zoned = text.ends_with('Z')
-                || text
-                    .rsplit_once(['+', '-'])
-                    .is_some_and(|(_, zone)| zone.len() == 5 && zone.as_bytes().get(2) == Some(&b':'));
-            if !text.contains('T') || !zoned {
+            if !is_rfc3339_date_time(text) {
                 return Err(format!("{at}: invalid date-time"));
             }
         }
@@ -624,6 +1536,11 @@ fn validate_node(root: &Value, schema: &Value, value: &Value, at: &str) -> Resul
     if let Some(minimum) = schema.get("minimum").and_then(Value::as_f64) {
         if value.as_f64().is_some_and(|number| number < minimum) {
             return Err(format!("{at}: number below minimum"));
+        }
+    }
+    if let Some(maximum) = schema.get("maximum").and_then(Value::as_f64) {
+        if value.as_f64().is_some_and(|number| number > maximum) {
+            return Err(format!("{at}: number above maximum"));
         }
     }
     if let Some(items) = value.as_array() {
@@ -638,14 +1555,26 @@ fn validate_node(root: &Value, schema: &Value, value: &Value, at: &str) -> Resul
             }
         }
         if schema.get("uniqueItems").and_then(Value::as_bool) == Some(true) {
-            let unique: HashSet<String> = items.iter().map(Value::to_string).collect();
-            if unique.len() != items.len() {
-                return Err(format!("{at}: array items are not unique"));
+            for (index, item) in items.iter().enumerate() {
+                if items[..index]
+                    .iter()
+                    .any(|candidate| json_schema_equal(candidate, item))
+                {
+                    return Err(format!("{at}: array items are not unique"));
+                }
             }
         }
         if let Some(item_schema) = schema.get("items") {
             for (index, item) in items.iter().enumerate() {
                 validate_node(root, item_schema, item, &format!("{at}[{index}]"))?;
+            }
+        }
+        if let Some(contains_schema) = schema.get("contains") {
+            if !items
+                .iter()
+                .any(|item| validate_node(root, contains_schema, item, at).is_ok())
+            {
+                return Err(format!("{at}: array has no item matching contains"));
             }
         }
     }
@@ -785,16 +1714,72 @@ pub fn validate_architecture_contract(contract_id: &str, value: &Value) -> Resul
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::collections::BTreeSet;
 
     const FIXTURE_BODIES: &[(&str, &str)] = &[
 ${fixtureBodies}
     ];
+    const RAW_STRING_DELIMITER_REGRESSION_SCHEMA: &str = ${rawStringRegressionSchema};
 
     fn parse_projection(contract_id: &str, value: &Value) -> Result<(), String> {
         match contract_id {
 ${parseArms},
             _ => Err(format!("unknown projection: {contract_id}")),
         }
+    }
+
+    fn validate_schema_only(contract_id: &str, value: &Value) -> Result<(), String> {
+        let schema_text = CONTRACT_SCHEMAS
+            .iter()
+            .find_map(|(id, schema)| (*id == contract_id).then_some(*schema))
+            .ok_or_else(|| format!("unknown contract: {contract_id}"))?;
+        let schema: Value =
+            serde_json::from_str(schema_text).map_err(|error| error.to_string())?;
+        validate_node(&schema, &schema, value, "$")
+    }
+
+    fn mutation_value(mutation: &ArchitectureContractMutation) -> Value {
+        let body = FIXTURE_BODIES
+            .iter()
+            .find_map(|(path, body)| {
+                (*path == mutation.source_fixture_path).then_some(*body)
+            })
+            .expect("mutation source fixture is generated");
+        let mut value: Value =
+            serde_json::from_str(body).expect("mutation source fixture contains JSON");
+        let (parent_pointer, encoded_name) = mutation
+            .patch_pointer
+            .rsplit_once('/')
+            .expect("mutation uses a JSON pointer");
+        let name = encoded_name.replace("~1", "/").replace("~0", "~");
+        let object = value
+            .pointer_mut(parent_pointer)
+            .and_then(Value::as_object_mut)
+            .expect("mutation pointer parent is an object");
+        match mutation.patch_operation {
+            "set" => {
+                let replacement = serde_json::from_str(
+                    mutation
+                        .patch_value_json
+                        .expect("set mutation has a replacement"),
+                )
+                .expect("mutation replacement contains JSON");
+                object.insert(name, replacement);
+            }
+            "remove" => {
+                object.remove(&name).expect("removed mutation field exists");
+            }
+            operation => panic!("unsupported mutation operation {operation}"),
+        }
+        value
+    }
+
+    fn fixture_value(path: &str) -> Value {
+        let body = FIXTURE_BODIES
+            .iter()
+            .find_map(|(candidate, body)| (*candidate == path).then_some(*body))
+            .expect("fixture body is generated");
+        serde_json::from_str(body).expect("fixture contains JSON")
     }
 
     #[test]
@@ -805,6 +1790,14 @@ ${parseArms},
                 .find_map(|(path, body)| (*path == fixture.path).then_some(*body))
                 .expect("fixture body is generated");
             let value: Value = serde_json::from_str(body).expect("fixture contains JSON");
+            let schema_result = validate_schema_only(fixture.contract_id, &value);
+            assert_eq!(
+                schema_result.is_ok(),
+                fixture.expected_schema_accept,
+                "fixture {} expected_schema_accept={} schema_result={schema_result:?}",
+                fixture.path,
+                fixture.expected_schema_accept,
+            );
             let result = validate_architecture_contract(fixture.contract_id, &value)
                 .and_then(|_| parse_projection(fixture.contract_id, &value));
             assert_eq!(
@@ -818,6 +1811,158 @@ ${parseArms},
                 assert!(error.contains(expected_rule), "{}: {error}", fixture.path);
             }
         }
+    }
+
+    #[test]
+    fn adversarial_mutations_match_ajv_expectations_and_cover_every_keyword() {
+        let expected_keywords = ARCHITECTURE_CONTRACT_ASSERTION_KEYWORDS
+            .iter()
+            .copied()
+            .collect::<BTreeSet<_>>();
+        let covered_keywords = ARCHITECTURE_CONTRACT_MUTATIONS
+            .iter()
+            .flat_map(|mutation| mutation.covered_keywords.iter().copied())
+            .collect::<BTreeSet<_>>();
+        assert_eq!(covered_keywords, expected_keywords);
+
+        for mutation in ARCHITECTURE_CONTRACT_MUTATIONS {
+            let value = mutation_value(mutation);
+            let schema_result = validate_schema_only(mutation.contract_id, &value);
+            assert_eq!(
+                schema_result.is_ok(),
+                mutation.ajv_expected_accept,
+                "mutation {} from {} expected Ajv acceptance={} result={schema_result:?}",
+                mutation.id,
+                mutation.source_fixture_path,
+                mutation.ajv_expected_accept,
+            );
+            let contract_result = validate_architecture_contract(mutation.contract_id, &value);
+            assert_eq!(
+                contract_result.is_ok(),
+                mutation.ajv_expected_accept,
+                "mutation {} contract result={contract_result:?}",
+                mutation.id,
+            );
+        }
+    }
+
+    #[test]
+    fn exact_json_number_equality_preserves_unique_items_semantics() {
+        const CONTRACT_ID: &str =
+            "schema://ioi/foundations/authority-key-set/v1";
+        const FIXTURE_PATH: &str =
+            "docs/architecture/_meta/schemas/fixtures/authority-key-set-v1/positive-active.json";
+
+        let with_not_before_numbers = |first: &str, second: &str| {
+            let mut value = fixture_value(FIXTURE_PATH);
+            let key = value["keys"][0].clone();
+            let mut first_key = key.clone();
+            first_key["not_before"] =
+                serde_json::from_str(first).expect("first exact JSON number");
+            let mut second_key = key;
+            second_key["not_before"] =
+                serde_json::from_str(second).expect("second exact JSON number");
+            value["keys"] = Value::Array(vec![first_key, second_key]);
+            value
+        };
+
+        let distinct_large = with_not_before_numbers(
+            "9007199254740992",
+            "9007199254740993",
+        );
+        assert!(
+            validate_schema_only(CONTRACT_ID, &distinct_large).is_ok(),
+            "distinct exact integers above 2^53 remain unique",
+        );
+        assert!(
+            validate_architecture_contract(CONTRACT_ID, &distinct_large)
+                .and_then(|_| parse_projection(CONTRACT_ID, &distinct_large))
+                .is_ok(),
+            "registered Rust validator and projection accept distinct exact integers",
+        );
+
+        let equal_integer_decimal = with_not_before_numbers("1", "1.0");
+        assert!(
+            validate_schema_only(CONTRACT_ID, &equal_integer_decimal).is_err(),
+            "JSON numbers 1 and 1.0 are mathematically equal for uniqueItems",
+        );
+        assert!(json_schema_equal(
+            &serde_json::from_str("1").expect("integer JSON number"),
+            &serde_json::from_str("1.0").expect("decimal JSON number"),
+        ));
+        assert!(!json_schema_equal(
+            &serde_json::from_str("9007199254740992")
+                .expect("first large JSON number"),
+            &serde_json::from_str("9007199254740993")
+                .expect("second large JSON number"),
+        ));
+    }
+
+    #[test]
+    fn strict_rfc3339_rejects_invalid_leap_second_clock_fields() {
+        const CONTRACT_ID: &str =
+            "schema://ioi/foundations/authority-grant-envelope/v1";
+        const FIXTURE_PATH: &str =
+            "docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v1/positive-active.json";
+        for invalid in [
+            "2025-01-01T24:59:60+01:00",
+            "2025-01-01T23:60:60+00:01",
+        ] {
+            let mut value = fixture_value(FIXTURE_PATH);
+            value["constraints"]["expires_at"] =
+                Value::String(invalid.to_owned());
+            assert!(
+                validate_schema_only(CONTRACT_ID, &value).is_err(),
+                "strict RFC3339 accepted {invalid}",
+            );
+        }
+    }
+
+    #[test]
+    fn registered_ecma_pattern_translations_compile_and_match_whitespace() {
+        assert_eq!(
+            CONTRACT_PATTERN_TRANSLATIONS.len(),
+            ${registeredPatternTranslations.size},
+        );
+        for (ecma, translated) in CONTRACT_PATTERN_TRANSLATIONS {
+            Regex::new(translated)
+                .unwrap_or_else(|error| panic!("{ecma}: {error}"));
+        }
+        let translated = CONTRACT_PATTERN_TRANSLATIONS
+            .iter()
+            .find_map(|(ecma, translated)| {
+                (*ecma == r"^schema://[^\\s]+$").then_some(*translated)
+            })
+            .expect("registered schema-ref pattern is translated");
+        let regex = Regex::new(translated).expect("translated pattern compiles");
+        assert!(!regex.is_match("schema://ioi/test/\\u{feff}"));
+        assert!(regex.is_match("schema://ioi/test/\\u{0085}"));
+    }
+
+    #[test]
+    fn closed_literal_projections_reject_invalid_values_directly() {
+        for mutation in ARCHITECTURE_CONTRACT_MUTATIONS
+            .iter()
+            .filter(|mutation| mutation.direct_projection_rejection)
+        {
+            let value = mutation_value(mutation);
+            let result = parse_projection(mutation.contract_id, &value);
+            assert!(
+                result.is_err(),
+                "closed literal mutation {} deserialized directly",
+                mutation.id,
+            );
+        }
+    }
+
+    #[test]
+    fn dynamic_raw_string_delimiter_survives_schema_controlled_hashes() {
+        let schema: Value = serde_json::from_str(RAW_STRING_DELIMITER_REGRESSION_SCHEMA)
+            .expect("dynamic raw literal contains JSON");
+        assert_eq!(
+            schema["const"],
+            Value::String("schema-controlled\\\"###literal".to_owned()),
+        );
     }
 }
 `;
@@ -850,6 +1995,71 @@ function formatRust(source) {
   } finally {
     fs.rmSync(temporaryDirectory, { force: true, recursive: true });
   }
+}
+
+function runGeneratorCapabilityRegressions() {
+  let rejectedUnsupportedAssertion = false;
+  try {
+    inventorySchemaKeywords(
+      { type: "string", maxLength: 1 },
+      "generator-regression.unsupported",
+    );
+  } catch (error) {
+    rejectedUnsupportedAssertion =
+      error instanceof Error &&
+      error.message.includes("unsupported JSON Schema keyword");
+  }
+  if (!rejectedUnsupportedAssertion) {
+    throw new Error(
+      "Generator regression: unsupported assertion keyword did not fail closed",
+    );
+  }
+
+  let rejectedUnsupportedPattern = false;
+  try {
+    inventorySchemaKeywords(
+      { type: "string", pattern: "^.$" },
+      "generator-regression.unsupported-pattern",
+    );
+  } catch (error) {
+    rejectedUnsupportedPattern =
+      error instanceof Error &&
+      error.message.includes("wildcard semantics are unsupported");
+  }
+  if (!rejectedUnsupportedPattern) {
+    throw new Error(
+      "Generator regression: unsupported ECMA-262 pattern did not fail closed",
+    );
+  }
+  const whitespaceTranslation = rustEcmaPattern(
+    "^schema://[^\\s]+$",
+    "generator-regression.ecma-whitespace",
+  );
+  if (
+    !whitespaceTranslation.includes("\\u{FEFF}") ||
+    whitespaceTranslation.includes("\\u{0085}")
+  ) {
+    throw new Error(
+      "Generator regression: ECMA-262 whitespace translation drifted",
+    );
+  }
+
+  const rawLiteral = rustRaw({
+    const: 'schema-controlled"###literal',
+  });
+  if (!rawLiteral.startsWith('r####"') || !rawLiteral.endsWith('"####')) {
+    throw new Error(
+      "Generator regression: Rust raw-string delimiter was not expanded dynamically",
+    );
+  }
+}
+
+runGeneratorCapabilityRegressions();
+if (process.argv.includes("--self-test")) {
+  console.log(
+    `Architecture contract generator self-test passed (${usedSchemaKeywords.size} semantic keywords).`,
+  );
+  process.exit(0);
 }
 
 const outputs = [
