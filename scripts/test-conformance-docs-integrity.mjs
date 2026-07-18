@@ -121,6 +121,25 @@ test("attestation assurance broken links fail the conformance docs tier", () => 
 
     fs.writeFileSync(
       assurance,
+      "# Attestation Assurance\n\n- [x] Complete\n- [-] In progress\n",
+    );
+    assert.deepEqual(
+      checkConformanceDocsIntegrity({ root }),
+      [],
+      "checkbox syntax is exempt only at the start of a list item",
+    );
+
+    fs.writeFileSync(
+      assurance,
+      "# Attestation Assurance\n\nSee [x] for evidence. See [-] for status.\n",
+    );
+    assert.deepEqual(checkConformanceDocsIntegrity({ root }), [
+      "docs/conformance/hypervisor-core/attestation-assurance.md has missing reference definition: [x]",
+      "docs/conformance/hypervisor-core/attestation-assurance.md has missing reference definition: [-]",
+    ]);
+
+    fs.writeFileSync(
+      assurance,
       [
         "# Attestation Assurance",
         "",

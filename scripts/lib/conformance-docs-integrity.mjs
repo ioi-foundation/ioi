@@ -88,7 +88,7 @@ function normalizedReferenceLabel(label) {
   return label.trim().replace(/\s+/gu, " ").toLowerCase();
 }
 
-function unresolvedReferencesInText(source) {
+function unresolvedReferencesInText(source, { taskListMarker = false } = {}) {
   const unresolved = [];
   for (let index = 0; index < source.length; index += 1) {
     const image = source[index] === "!" && source[index + 1] === "[";
@@ -128,10 +128,16 @@ function unresolvedReferencesInText(source) {
       continue;
     }
     const label = normalizedReferenceLabel(text);
+    const isTaskListMarker =
+      taskListMarker &&
+      opening === 0 &&
+      closing === 2 &&
+      /^(?:x|-)$/iu.test(label) &&
+      (source.length === closing + 1 || /\s/u.test(source[closing + 1]));
     if (
       label &&
       !label.startsWith("^") &&
-      !/^(?:x|-)$/iu.test(label)
+      !isTaskListMarker
     ) {
       unresolved.push({
         missingDefinition: label,
@@ -156,7 +162,7 @@ function markdownLinks(markdown) {
   }
   collectDefinitions(tree);
 
-  function collectLinks(node, insideLink = false) {
+  function collectLinks(node, insideLink = false, ancestors = []) {
     if (node.type === "link" || node.type === "image") {
       links.push({
         target: node.url,
@@ -183,8 +189,17 @@ function markdownLinks(markdown) {
       node.type === "text" &&
       !insideLink
     ) {
+      const paragraph = ancestors.at(-1);
+      const listItem = ancestors.at(-2);
+      const taskListMarker =
+        paragraph?.type === "paragraph" &&
+        listItem?.type === "listItem" &&
+        listItem.children?.[0] === paragraph &&
+        paragraph.children?.[0] === node;
       links.push(
-        ...unresolvedReferencesInText(sourceText(markdown, node)),
+        ...unresolvedReferencesInText(sourceText(markdown, node), {
+          taskListMarker,
+        }),
       );
     }
     if (
@@ -201,6 +216,7 @@ function markdownLinks(markdown) {
         insideLink ||
           node.type === "link" ||
           node.type === "linkReference",
+        [...ancestors, node],
       );
     }
   }

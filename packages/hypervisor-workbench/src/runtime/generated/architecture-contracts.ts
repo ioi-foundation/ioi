@@ -6808,7 +6808,7 @@ function schemaMatches(root: JsonObject, schema: JsonObject, value: unknown, at:
     if (schema.additionalProperties === false) {
       const unknown: string[] = [];
       for (const name in value) {
-        if (!(name in properties)) unknown.push(name);
+        if (!Object.prototype.hasOwnProperty.call(properties, name)) unknown.push(name);
       }
       if (unknown.length > 0) return [at + ": unknown " + unknown.join(", ")];
     }
