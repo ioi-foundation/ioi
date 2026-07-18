@@ -1067,6 +1067,20 @@ export const ARCHITECTURE_CONTRACT_MUTATIONS: ReadonlyArray<ArchitectureContract
     }
   },
   {
+    "id": "required-nullable-claim-scope-missing",
+    "contract_id": "schema://ioi/foundations/receipt-envelope/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/receipt-envelope-v1/positive-minimal.json",
+    "covered_keywords": [
+      "required"
+    ],
+    "ajv_expected_accept": false,
+    "direct_projection_rejection": true,
+    "patch": {
+      "operation": "remove",
+      "pointer": "/claim_scope_ref"
+    }
+  },
+  {
     "id": "additional-property-injected",
     "contract_id": "schema://ioi/foundations/receipt-envelope/v1",
     "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/receipt-envelope-v1/positive-assured.json",
@@ -1140,6 +1154,22 @@ export const ARCHITECTURE_CONTRACT_MUTATIONS: ReadonlyArray<ArchitectureContract
       "operation": "set",
       "pointer": "/claim_scope_ref",
       "value": 42
+    }
+  },
+  {
+    "id": "optional-non-nullable-input-hash-null",
+    "contract_id": "schema://ioi/foundations/receipt-envelope/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/receipt-envelope-v1/positive-minimal.json",
+    "covered_keywords": [
+      "type",
+      "$ref"
+    ],
+    "ajv_expected_accept": false,
+    "direct_projection_rejection": true,
+    "patch": {
+      "operation": "set",
+      "pointer": "/input_hash",
+      "value": null
     }
   },
   {
@@ -1348,6 +1378,528 @@ export const ARCHITECTURE_CONTRACT_MUTATIONS: ReadonlyArray<ArchitectureContract
         "dispute_remedy_execution"
       ]
     }
+  }
+];
+
+export type ArchitectureContractDifferentialCase = {
+  id: string;
+  contract_id: string;
+  source_fixture_path: string | null;
+  mutation_id: string | null;
+  value_json: string | null;
+};
+
+export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<ArchitectureContractDifferentialCase> = [
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/receipt-envelope-v1/positive-minimal.json",
+    "contract_id": "schema://ioi/foundations/receipt-envelope/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/receipt-envelope-v1/positive-minimal.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/receipt-envelope-v1/positive-assured.json",
+    "contract_id": "schema://ioi/foundations/receipt-envelope/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/receipt-envelope-v1/positive-assured.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/receipt-envelope-v1/negative-bad-profile-ref.json",
+    "contract_id": "schema://ioi/foundations/receipt-envelope/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/receipt-envelope-v1/negative-bad-profile-ref.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/receipt-envelope-v1/negative-empty-boundary-facts.json",
+    "contract_id": "schema://ioi/foundations/receipt-envelope/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/receipt-envelope-v1/negative-empty-boundary-facts.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/receipt-envelope-v1/negative-unknown-field.json",
+    "contract_id": "schema://ioi/foundations/receipt-envelope/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/receipt-envelope-v1/negative-unknown-field.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/physical-action-execution-receipt-v1/positive-committed.json",
+    "contract_id": "schema://ioi/foundations/physical-action-execution-receipt/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/physical-action-execution-receipt-v1/positive-committed.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/physical-action-execution-receipt-v1/negative-flat-unbundled.json",
+    "contract_id": "schema://ioi/foundations/physical-action-execution-receipt/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/physical-action-execution-receipt-v1/negative-flat-unbundled.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/physical-action-execution-receipt-v1/negative-envelope-input-hash-mismatch.json",
+    "contract_id": "schema://ioi/foundations/physical-action-execution-receipt/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/physical-action-execution-receipt-v1/negative-envelope-input-hash-mismatch.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/physical-action-execution-receipt-v1/negative-committed-missing-dispatch-evidence.json",
+    "contract_id": "schema://ioi/foundations/physical-action-execution-receipt/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/physical-action-execution-receipt-v1/negative-committed-missing-dispatch-evidence.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v1/positive-active.json",
+    "contract_id": "schema://ioi/foundations/authority-grant-envelope/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v1/positive-active.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v1/positive-revoked.json",
+    "contract_id": "schema://ioi/foundations/authority-grant-envelope/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v1/positive-revoked.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v1/negative-empty-capabilities.json",
+    "contract_id": "schema://ioi/foundations/authority-grant-envelope/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v1/negative-empty-capabilities.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v1/negative-legacy-alias-write.json",
+    "contract_id": "schema://ioi/foundations/authority-grant-envelope/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v1/negative-legacy-alias-write.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v1/negative-status.json",
+    "contract_id": "schema://ioi/foundations/authority-grant-envelope/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v1/negative-status.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v1/negative-unknown-constraint.json",
+    "contract_id": "schema://ioi/foundations/authority-grant-envelope/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v1/negative-unknown-constraint.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v2/positive-root.json",
+    "contract_id": "schema://ioi/foundations/authority-grant-envelope/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v2/positive-root.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v2/positive-attenuated-child.json",
+    "contract_id": "schema://ioi/foundations/authority-grant-envelope/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v2/positive-attenuated-child.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v2/negative-empty-capabilities.json",
+    "contract_id": "schema://ioi/foundations/authority-grant-envelope/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v2/negative-empty-capabilities.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v2/negative-signature-key-mismatch.json",
+    "contract_id": "schema://ioi/foundations/authority-grant-envelope/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v2/negative-signature-key-mismatch.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v2/negative-stale-schema-hash.json",
+    "contract_id": "schema://ioi/foundations/authority-grant-envelope/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v2/negative-stale-schema-hash.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v2/negative-padded-signature.json",
+    "contract_id": "schema://ioi/foundations/authority-grant-envelope/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v2/negative-padded-signature.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/authority-key-set-v1/positive-active.json",
+    "contract_id": "schema://ioi/foundations/authority-key-set/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/authority-key-set-v1/positive-active.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/authority-key-set-v1/positive-delegator.json",
+    "contract_id": "schema://ioi/foundations/authority-key-set/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/authority-key-set-v1/positive-delegator.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/authority-key-set-v1/negative-padded-public-key.json",
+    "contract_id": "schema://ioi/foundations/authority-key-set/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/authority-key-set-v1/negative-padded-public-key.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/authority-key-set-v1/negative-empty-validity-window.json",
+    "contract_id": "schema://ioi/foundations/authority-key-set/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/authority-key-set-v1/negative-empty-validity-window.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/authority-revocation-snapshot-v1/positive-current.json",
+    "contract_id": "schema://ioi/foundations/authority-revocation-snapshot/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/authority-revocation-snapshot-v1/positive-current.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/authority-revocation-snapshot-v1/positive-delegator-current.json",
+    "contract_id": "schema://ioi/foundations/authority-revocation-snapshot/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/authority-revocation-snapshot-v1/positive-delegator-current.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/authority-revocation-snapshot-v1/negative-wrong-domain.json",
+    "contract_id": "schema://ioi/foundations/authority-revocation-snapshot/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/authority-revocation-snapshot-v1/negative-wrong-domain.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/receipt-checkpoint-v1/positive-current.json",
+    "contract_id": "schema://ioi/foundations/receipt-checkpoint/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/receipt-checkpoint-v1/positive-current.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/receipt-checkpoint-v1/positive-previous.json",
+    "contract_id": "schema://ioi/foundations/receipt-checkpoint/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/receipt-checkpoint-v1/positive-previous.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/receipt-checkpoint-v1/negative-wrong-domain.json",
+    "contract_id": "schema://ioi/foundations/receipt-checkpoint/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/receipt-checkpoint-v1/negative-wrong-domain.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/receipt-checkpoint-v1/negative-stale-schema-hash.json",
+    "contract_id": "schema://ioi/foundations/receipt-checkpoint/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/receipt-checkpoint-v1/negative-stale-schema-hash.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/receipt-checkpoint-v1/negative-signature-key-mismatch.json",
+    "contract_id": "schema://ioi/foundations/receipt-checkpoint/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/receipt-checkpoint-v1/negative-signature-key-mismatch.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/receipt-proof-bundle-v1/positive-offline.json",
+    "contract_id": "schema://ioi/foundations/receipt-proof-bundle/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/receipt-proof-bundle-v1/positive-offline.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/receipt-proof-bundle-v1/negative-wrong-domain.json",
+    "contract_id": "schema://ioi/foundations/receipt-proof-bundle/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/receipt-proof-bundle-v1/negative-wrong-domain.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/receipt-proof-bundle-v1/negative-stale-schema-hash.json",
+    "contract_id": "schema://ioi/foundations/receipt-proof-bundle/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/receipt-proof-bundle-v1/negative-stale-schema-hash.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/receipt-proof-bundle-v1/negative-leaf-index-mismatch.json",
+    "contract_id": "schema://ioi/foundations/receipt-proof-bundle/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/receipt-proof-bundle-v1/negative-leaf-index-mismatch.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/information-flow-label-v1/positive-public-verified.json",
+    "contract_id": "schema://ioi/foundations/information-flow-label/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/information-flow-label-v1/positive-public-verified.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/information-flow-label-v1/positive-private-untrusted.json",
+    "contract_id": "schema://ioi/foundations/information-flow-label/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/information-flow-label-v1/positive-private-untrusted.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/information-flow-label-v1/negative-missing-instruction-authority.json",
+    "contract_id": "schema://ioi/foundations/information-flow-label/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/information-flow-label-v1/negative-missing-instruction-authority.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/runtime-tool-contract-v1/positive-declared-egress.json",
+    "contract_id": "schema://ioi/components/connectors-tools/runtime-tool-contract/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/runtime-tool-contract-v1/positive-declared-egress.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/runtime-tool-contract-v1/negative-missing-destination-declaration.json",
+    "contract_id": "schema://ioi/components/connectors-tools/runtime-tool-contract/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/runtime-tool-contract-v1/negative-missing-destination-declaration.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/managed-work-billing-ledger-bundle-v1/positive-complete.json",
+    "contract_id": "schema://ioi/foundations/managed-work-billing-ledger-bundle/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/managed-work-billing-ledger-bundle-v1/positive-complete.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/managed-work-billing-ledger-bundle-v1/negative-floating-credit-units.json",
+    "contract_id": "schema://ioi/foundations/managed-work-billing-ledger-bundle/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/managed-work-billing-ledger-bundle-v1/negative-floating-credit-units.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/dispute-rail-bundle-v1/positive-marketplace-resolution.json",
+    "contract_id": "schema://ioi/foundations/dispute-rail-bundle/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/dispute-rail-bundle-v1/positive-marketplace-resolution.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/dispute-rail-bundle-v1/negative-value-unit-substitution.json",
+    "contract_id": "schema://ioi/foundations/dispute-rail-bundle/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/dispute-rail-bundle-v1/negative-value-unit-substitution.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/declassification-approval-v1/positive-exact-binding.json",
+    "contract_id": "schema://ioi/foundations/declassification-approval/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/declassification-approval-v1/positive-exact-binding.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/declassification-approval-v1/negative-missing-reviewed-representation-hash.json",
+    "contract_id": "schema://ioi/foundations/declassification-approval/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/declassification-approval-v1/negative-missing-reviewed-representation-hash.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "mutation:type-number-for-string",
+    "contract_id": "schema://ioi/foundations/receipt-envelope/v1",
+    "source_fixture_path": null,
+    "mutation_id": "type-number-for-string",
+    "value_json": null
+  },
+  {
+    "id": "mutation:required-property-removed",
+    "contract_id": "schema://ioi/foundations/receipt-envelope/v1",
+    "source_fixture_path": null,
+    "mutation_id": "required-property-removed",
+    "value_json": null
+  },
+  {
+    "id": "mutation:required-nullable-claim-scope-missing",
+    "contract_id": "schema://ioi/foundations/receipt-envelope/v1",
+    "source_fixture_path": null,
+    "mutation_id": "required-nullable-claim-scope-missing",
+    "value_json": null
+  },
+  {
+    "id": "mutation:additional-property-injected",
+    "contract_id": "schema://ioi/foundations/receipt-envelope/v1",
+    "source_fixture_path": null,
+    "mutation_id": "additional-property-injected",
+    "value_json": null
+  },
+  {
+    "id": "mutation:referenced-pattern-violated",
+    "contract_id": "schema://ioi/foundations/receipt-envelope/v1",
+    "source_fixture_path": null,
+    "mutation_id": "referenced-pattern-violated",
+    "value_json": null
+  },
+  {
+    "id": "mutation:ecma-whitespace-byte-order-mark-rejected",
+    "contract_id": "schema://ioi/foundations/receipt-envelope/v1",
+    "source_fixture_path": null,
+    "mutation_id": "ecma-whitespace-byte-order-mark-rejected",
+    "value_json": null
+  },
+  {
+    "id": "mutation:ecma-non-whitespace-next-line-accepted",
+    "contract_id": "schema://ioi/foundations/receipt-envelope/v1",
+    "source_fixture_path": null,
+    "mutation_id": "ecma-non-whitespace-next-line-accepted",
+    "value_json": null
+  },
+  {
+    "id": "mutation:nullable-any-of-violated",
+    "contract_id": "schema://ioi/foundations/receipt-envelope/v1",
+    "source_fixture_path": null,
+    "mutation_id": "nullable-any-of-violated",
+    "value_json": null
+  },
+  {
+    "id": "mutation:optional-non-nullable-input-hash-null",
+    "contract_id": "schema://ioi/foundations/receipt-envelope/v1",
+    "source_fixture_path": null,
+    "mutation_id": "optional-non-nullable-input-hash-null",
+    "value_json": null
+  },
+  {
+    "id": "mutation:unicode-aware-min-length-violated",
+    "contract_id": "schema://ioi/components/connectors-tools/runtime-tool-contract/v1",
+    "source_fixture_path": null,
+    "mutation_id": "unicode-aware-min-length-violated",
+    "value_json": null
+  },
+  {
+    "id": "mutation:closed-enum-violated-with-raw-string-sentinel",
+    "contract_id": "schema://ioi/foundations/authority-grant-envelope/v1",
+    "source_fixture_path": null,
+    "mutation_id": "closed-enum-violated-with-raw-string-sentinel",
+    "value_json": null
+  },
+  {
+    "id": "mutation:minimum-violated",
+    "contract_id": "schema://ioi/foundations/authority-grant-envelope/v1",
+    "source_fixture_path": null,
+    "mutation_id": "minimum-violated",
+    "value_json": null
+  },
+  {
+    "id": "mutation:array-items-schema-violated",
+    "contract_id": "schema://ioi/foundations/authority-grant-envelope/v1",
+    "source_fixture_path": null,
+    "mutation_id": "array-items-schema-violated",
+    "value_json": null
+  },
+  {
+    "id": "mutation:deep-unique-items-key-order-duplicate",
+    "contract_id": "schema://ioi/foundations/authority-key-set/v1",
+    "source_fixture_path": null,
+    "mutation_id": "deep-unique-items-key-order-duplicate",
+    "value_json": null
+  },
+  {
+    "id": "mutation:impossible-rfc3339-calendar-date",
+    "contract_id": "schema://ioi/foundations/authority-grant-envelope/v1",
+    "source_fixture_path": null,
+    "mutation_id": "impossible-rfc3339-calendar-date",
+    "value_json": null
+  },
+  {
+    "id": "mutation:closed-const-violated",
+    "contract_id": "schema://ioi/foundations/authority-grant-envelope/v2",
+    "source_fixture_path": null,
+    "mutation_id": "closed-const-violated",
+    "value_json": null
+  },
+  {
+    "id": "mutation:one-of-violated",
+    "contract_id": "schema://ioi/foundations/authority-grant-envelope/v2",
+    "source_fixture_path": null,
+    "mutation_id": "one-of-violated",
+    "value_json": null
+  },
+  {
+    "id": "mutation:maximum-safe-integer-violated",
+    "contract_id": "schema://ioi/foundations/managed-work-billing-ledger-bundle/v1",
+    "source_fixture_path": null,
+    "mutation_id": "maximum-safe-integer-violated",
+    "value_json": null
+  },
+  {
+    "id": "mutation:minimum-array-size-violated",
+    "contract_id": "schema://ioi/foundations/authority-grant-envelope/v1",
+    "source_fixture_path": null,
+    "mutation_id": "minimum-array-size-violated",
+    "value_json": null
+  },
+  {
+    "id": "mutation:type-less-if-then-max-items-violated",
+    "contract_id": "schema://ioi/foundations/physical-action-execution-receipt/v1",
+    "source_fixture_path": null,
+    "mutation_id": "type-less-if-then-max-items-violated",
+    "value_json": null
+  },
+  {
+    "id": "mutation:nested-all-of-contains-member-missing",
+    "contract_id": "schema://ioi/foundations/dispute-rail-bundle/v1",
+    "source_fixture_path": null,
+    "mutation_id": "nested-all-of-contains-member-missing",
+    "value_json": null
+  },
+  {
+    "id": "differential:authority-timestamp-integral-decimal",
+    "contract_id": "schema://ioi/foundations/authority-grant-envelope/v2",
+    "source_fixture_path": null,
+    "mutation_id": null,
+    "value_json": "{\n  \"schema_version\": \"ioi.foundations.authority-grant-envelope.v2\",\n  \"envelope_type\": \"ioi.authority-grant\",\n  \"signature_domain\": \"ioi.authority-grant-envelope.v2\",\n  \"schema_hash\": \"sha256:2bb599d9a4fb74dec01ad34e6237277fa01ed0aa98d102be39dfe1ea66ad052c\",\n  \"authority_grant_id\": \"grant://acme/repo-auditor/2\",\n  \"request_id\": \"authority-request://acme/repo-auditor/2\",\n  \"issuer_id\": \"wallet://acme/security\",\n  \"issuer_key_set_ref\": \"keyset://acme/security/4\",\n  \"issuer_key_set_version\": 4,\n  \"issuer_key_id\": \"key://acme/security/ed25519-4\",\n  \"holder_id\": \"system://acme/delegator\",\n  \"holder_key_id\": \"key://acme/delegator/ed25519-1\",\n  \"audience\": \"runtime://acme/hypervisor/node-7\",\n  \"issued_at\": 1784203200.0,\n  \"not_before\": 1784203200,\n  \"expires_at\": 1784289600,\n  \"parent_grant\": null,\n  \"authority_scopes\": [\n    \"scope:repo.read\",\n    \"scope:repo.write\"\n  ],\n  \"primitive_capability_constraints\": [\n    \"prim:fs.read\",\n    \"prim:fs.write\"\n  ],\n  \"resources\": [\n    \"agentgres://project/hypervisor/source\",\n    \"agentgres://project/hypervisor/source/src\"\n  ],\n  \"attenuating_caveats\": [],\n  \"risk_restrictions\": {\n    \"allowed_risk_classes\": [\n      \"read\",\n      \"draft\"\n    ],\n    \"max_budget_microusd\": 10000000,\n    \"max_calls\": 100,\n    \"approval_required_for\": [\n      \"secret_export\"\n    ]\n  },\n  \"revocation_epoch\": 7,\n  \"body_hash\": \"sha256:1cb1754a47d624efd29717b210773b0c3be5d8c9d60b255fc656fddee5e11c96\",\n  \"signature_suite\": \"ed25519\",\n  \"signature_key_id\": \"key://acme/security/ed25519-4\",\n  \"signature\": \"maOqb4ZoJ231trhjheA8z2ADYLSW4gOx-CJvpadrhR_8PF3kQ1RbcOAgmmIsbwc-xZunocrhnTzrZZPMtCIdBg\"\n}\n"
+  },
+  {
+    "id": "differential:proof-index-integral-decimal-equality",
+    "contract_id": "schema://ioi/foundations/receipt-proof-bundle/v1",
+    "source_fixture_path": null,
+    "mutation_id": null,
+    "value_json": "{\n  \"schema_version\": \"ioi.foundations.receipt-proof-bundle.v1\",\n  \"bundle_type\": \"ioi.receipt-proof-bundle\",\n  \"manifest_domain\": \"ioi.receipt-proof-bundle-manifest.v1\",\n  \"bundle_schema_hash\": \"sha256:9eb674c09903e10a1b3a85df3c33615afb7e958547b0141628655453c1cc2879\",\n  \"manifest_hash\": \"sha256:e99b823b8972c4807ef88ea530d4e35d1781a7be238965cd88e3eefc0a2a038b\",\n  \"manifest_signature_suite\": \"ed25519\",\n  \"manifest_signature_key_id\": \"key://acme/security/ed25519-4\",\n  \"manifest_signature\": \"50XUkaXhTHaqBTE6SkN_PfnudDbouYA_IFg0yns7YgE6zSCmrrS--SJuKe1V32wULp_7ECvhTX3aXJRUzAT9Cw\",\n  \"bundle_id\": \"proof://acme/audit-log/4/receipt-1\",\n  \"receipt_contract_id\": \"schema://ioi/foundations/receipt-envelope/v1\",\n  \"receipt_schema_hash\": \"sha256:07129784ee34ab5d05dbc469490063e058a2c7568510df5be6e60e9c4ab4a8e1\",\n  \"receipt_body_hash_profile\": \"ioi.receipt-envelope-jcs-sha256.v1\",\n  \"receipt\": {\n    \"receipt_id\": \"receipt://run-43/delivery-7\",\n    \"receipt_type\": \"delivery.accepted\",\n    \"receipt_profile_ref\": \"schema://ioi/receipts/delivery-accepted/v1\",\n    \"attested_boundary_fact_refs\": [\n      \"artifact://sha256/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"\n    ],\n    \"claim_scope_ref\": \"schema://ioi/delivery/acceptance/v1\",\n    \"run_id\": \"run://43\",\n    \"task_id\": \"task://deliver-7\",\n    \"actor_id\": \"runtime://worker-2\",\n    \"input_hash\": \"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\n    \"output_hash\": \"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\n    \"policy_hash\": \"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\n    \"authority_grant_id\": \"grant://delivery-7\",\n    \"primitive_capabilities\": [\n      \"prim:fs.read\"\n    ],\n    \"authority_scopes\": [\n      \"scope:artifact.deliver\"\n    ],\n    \"artifact_refs\": [\n      \"artifact://sha256/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"\n    ],\n    \"evidence_bundle_refs\": [\n      \"evidence://delivery-7\"\n    ],\n    \"verification_ref\": \"verifier-path://delivery/default/v1\",\n    \"acceptance_ref\": \"acceptance://delivery-7\",\n    \"adjudication_ref\": null,\n    \"settlement_ref\": \"settlement://delivery-7\",\n    \"timestamp\": \"2026-07-16T12:05:00Z\",\n    \"signature\": \"legacy-signature-placeholder\",\n    \"public_commitment_ref\": \"commitment://delivery-7\"\n  },\n  \"receipt_body_hash\": \"sha256:26235f9318d765e5db6a07604252991fa2d0080fa799e7f8ee0aa60bf860e878\",\n  \"leaf\": {\n    \"algorithm\": \"ioi.receipt-hash-chain-jcs-sha256.v1\",\n    \"domain\": \"ioi.receipt-accumulator-leaf.v1\",\n    \"leaf_index\": 1.0,\n    \"leaf_hash\": \"sha256:3106fb2cf30ba8a026bbee76b6417ae1cb83a0699470a86ca066d3ee7aee415e\"\n  },\n  \"inclusion_proof\": {\n    \"profile\": \"ioi.receipt-hash-chain-inclusion.v1\",\n    \"leaf_index\": 1,\n    \"prefix_root\": \"sha256:460db93cda9696e422ac7c713c2164899bdadb73e3ea3b0c16cdc64ce3f369b0\",\n    \"suffix_leaf_hashes\": [\n      \"sha256:afea425012150fea14923cf80c17910a3646fc55c64e4d26b9cd53de2e7acfaa\",\n      \"sha256:2027b71d4dbb2160d9b8a3470c416f1fa87314068dc2e93d0328f91df92c279f\"\n    ]\n  },\n  \"checkpoint\": {\n    \"schema_version\": \"ioi.foundations.receipt-checkpoint.v1\",\n    \"checkpoint_type\": \"ioi.receipt-checkpoint\",\n    \"signature_domain\": \"ioi.receipt-checkpoint.v1\",\n    \"schema_hash\": \"sha256:41e1b5ea5794e534cf9aba7bf4558c2fa26815e5c9b3cfd3ffdb99eb4706d0df\",\n    \"checkpoint_id\": \"receipt-checkpoint://acme/audit-log/4\",\n    \"receipt_log_id\": \"receipt-log://acme/audit-log\",\n    \"accumulator_algorithm\": \"ioi.receipt-hash-chain-jcs-sha256.v1\",\n    \"receipt_body_hash_profile\": \"ioi.receipt-envelope-jcs-sha256.v1\",\n    \"receipt_contract_id\": \"schema://ioi/foundations/receipt-envelope/v1\",\n    \"receipt_schema_hash\": \"sha256:07129784ee34ab5d05dbc469490063e058a2c7568510df5be6e60e9c4ab4a8e1\",\n    \"accumulator_size\": 4,\n    \"accumulator_root\": \"sha256:a80a2341d4c1ba4de8047edef681c8b77c8494198c8f0c6f3763f6594c23e5ab\",\n    \"previous_checkpoint_ref\": \"receipt-checkpoint://acme/audit-log/2\",\n    \"previous_checkpoint_hash\": \"sha256:0bb941cdfd91654e8c7c53575444d5ad4d9474de7454a12c0520af2b2a49ba83\",\n    \"previous_accumulator_size\": 2,\n    \"previous_accumulator_root\": \"sha256:352831248cff9098cbdba9a6792a17227868988358abc028697639dac80cf54d\",\n    \"issuer_id\": \"wallet://acme/security\",\n    \"issuer_key_set_ref\": \"keyset://acme/security/4\",\n    \"issuer_key_set_version\": 4,\n    \"issuer_key_id\": \"key://acme/security/ed25519-4\",\n    \"issued_at\": 1784203300,\n    \"build_identity_ref\": \"build://ioi/hypervisor-daemon/fixture-2026-07-16\",\n    \"policy_posture_ref\": \"policy://acme/receipt-checkpoint/default\",\n    \"body_hash\": \"sha256:6a40cf01bb7d68413083f165fbe34b6fa5fb92987156198190b0997e13ccd398\",\n    \"signature_suite\": \"ed25519\",\n    \"signature_key_id\": \"key://acme/security/ed25519-4\",\n    \"signature\": \"2YmJcKolLbbOqbFrGf6QYeXKDjxFKFsSb0bPP6AzfQZbIqwCShQKm9cUSGcZ8ama7HaxaqfIVzZpogSVnktrCw\"\n  },\n  \"previous_checkpoint\": {\n    \"schema_version\": \"ioi.foundations.receipt-checkpoint.v1\",\n    \"checkpoint_type\": \"ioi.receipt-checkpoint\",\n    \"signature_domain\": \"ioi.receipt-checkpoint.v1\",\n    \"schema_hash\": \"sha256:41e1b5ea5794e534cf9aba7bf4558c2fa26815e5c9b3cfd3ffdb99eb4706d0df\",\n    \"checkpoint_id\": \"receipt-checkpoint://acme/audit-log/2\",\n    \"receipt_log_id\": \"receipt-log://acme/audit-log\",\n    \"accumulator_algorithm\": \"ioi.receipt-hash-chain-jcs-sha256.v1\",\n    \"receipt_body_hash_profile\": \"ioi.receipt-envelope-jcs-sha256.v1\",\n    \"receipt_contract_id\": \"schema://ioi/foundations/receipt-envelope/v1\",\n    \"receipt_schema_hash\": \"sha256:07129784ee34ab5d05dbc469490063e058a2c7568510df5be6e60e9c4ab4a8e1\",\n    \"accumulator_size\": 2,\n    \"accumulator_root\": \"sha256:352831248cff9098cbdba9a6792a17227868988358abc028697639dac80cf54d\",\n    \"previous_checkpoint_ref\": null,\n    \"previous_checkpoint_hash\": null,\n    \"previous_accumulator_size\": null,\n    \"previous_accumulator_root\": null,\n    \"issuer_id\": \"wallet://acme/security\",\n    \"issuer_key_set_ref\": \"keyset://acme/security/4\",\n    \"issuer_key_set_version\": 4,\n    \"issuer_key_id\": \"key://acme/security/ed25519-4\",\n    \"issued_at\": 1784203240,\n    \"build_identity_ref\": \"build://ioi/hypervisor-daemon/fixture-2026-07-16\",\n    \"policy_posture_ref\": \"policy://acme/receipt-checkpoint/default\",\n    \"body_hash\": \"sha256:ffbba18526ca57f325f69831819a0c8e74b7d835fcf33413c17dba6ccf39bc00\",\n    \"signature_suite\": \"ed25519\",\n    \"signature_key_id\": \"key://acme/security/ed25519-4\",\n    \"signature\": \"vEyfYScqYA2RxllOdr8IGxkj99lom13W2fSKRUHDIkX4uHD7Q_JjcCjgIIWDs_X06F5aAQAlbiXIxQUd9cEhBg\"\n  },\n  \"consistency_proof\": {\n    \"profile\": \"ioi.receipt-hash-chain-consistency.v1\",\n    \"from_size\": 2,\n    \"from_root\": \"sha256:352831248cff9098cbdba9a6792a17227868988358abc028697639dac80cf54d\",\n    \"extension_leaf_hashes\": [\n      \"sha256:afea425012150fea14923cf80c17910a3646fc55c64e4d26b9cd53de2e7acfaa\",\n      \"sha256:2027b71d4dbb2160d9b8a3470c416f1fa87314068dc2e93d0328f91df92c279f\"\n    ]\n  },\n  \"trusted_input_refs\": {\n    \"key_set_ref\": \"keyset://acme/security/4\",\n    \"key_set_version\": 4,\n    \"revocation_snapshot_ref\": \"snapshot://acme/security/revocations/8\",\n    \"revocation_epoch\": 8\n  },\n  \"verification_instructions\": {\n    \"profile\": \"ioi.receipt-proof-verification.v1\",\n    \"steps\": [\n      \"Validate registered closed schemas and schema hashes.\",\n      \"Recompute the manifest and exact ReceiptEnvelope RFC 8785 JCS SHA-256 hashes.\",\n      \"Recompute the indexed leaf and hash-chain inclusion root.\",\n      \"Verify the current and previous checkpoint Ed25519 signatures against trusted local inputs.\",\n      \"Recompute append-only consistency from the previous checkpoint root.\"\n    ],\n    \"offline_required_inputs\": [\n      \"trusted_key_set\",\n      \"signed_revocation_snapshot\",\n      \"trusted_time\"\n    ]\n  }\n}\n"
+  },
+  {
+    "id": "differential:leap-second-offset-hour-normalization",
+    "contract_id": "schema://ioi/foundations/authority-grant-envelope/v1",
+    "source_fixture_path": null,
+    "mutation_id": null,
+    "value_json": "{\"authority_grant_id\":\"grant://acme/repo-auditor/7\",\"request_id\":\"authority-request://acme/repo-auditor/7\",\"issuer_id\":\"wallet://acme/security\",\"subject_id\":\"agent://repo-auditor\",\"authority_scopes\":[\"scope:repo.read\"],\"primitive_capability_constraints\":[\"prim:fs.read\"],\"resources\":[\"agentgres://project/hypervisor/source\"],\"constraints\":{\"max_budget_usd\":10,\"expires_at\":\"2025-01-01T24:59:60+01:00\",\"max_calls\":100,\"approval_required_for\":[\"external_message\"]},\"revocation_epoch\":7,\"status\":\"active\"}"
+  },
+  {
+    "id": "differential:leap-second-offset-minute-normalization",
+    "contract_id": "schema://ioi/foundations/authority-grant-envelope/v1",
+    "source_fixture_path": null,
+    "mutation_id": null,
+    "value_json": "{\"authority_grant_id\":\"grant://acme/repo-auditor/7\",\"request_id\":\"authority-request://acme/repo-auditor/7\",\"issuer_id\":\"wallet://acme/security\",\"subject_id\":\"agent://repo-auditor\",\"authority_scopes\":[\"scope:repo.read\"],\"primitive_capability_constraints\":[\"prim:fs.read\"],\"resources\":[\"agentgres://project/hypervisor/source\"],\"constraints\":{\"max_budget_usd\":10,\"expires_at\":\"2025-01-01T23:60:60+00:01\",\"max_calls\":100,\"approval_required_for\":[\"external_message\"]},\"revocation_epoch\":7,\"status\":\"active\"}"
   }
 ];
 
@@ -5980,14 +6532,12 @@ function isRfc3339DateTime(value: string): boolean {
     month > 12 ||
     day < 1 ||
     day > monthDays[month] ||
-    hour > 23 ||
-    minute > 59 ||
     zoneHour > 23 ||
     zoneMinute > 59
   ) {
     return false;
   }
-  if (second < 60) return true;
+  if (hour <= 23 && minute <= 59 && second < 60) return true;
   const utcMinute = minute - zoneMinute * zoneSign;
   const utcHour =
     hour - zoneHour * zoneSign - (utcMinute < 0 ? 1 : 0);
@@ -6171,7 +6721,7 @@ function invariantErrors(contractId: string, rules: Array<JsonObject>, value: un
           ? candidate.length > 0
           : typeof candidate === "string" && candidate.length > 0);
     } else if (operator === "fields_equal" && Array.isArray(expression.paths) && expression.paths.length === 2) {
-      valid = Object.is(
+      valid = jsonSchemaEqual(
         valueAtPath(value, expression.paths[0]),
         valueAtPath(value, expression.paths[1]),
       );

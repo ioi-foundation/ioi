@@ -15,6 +15,11 @@ const registryPath = path.join(
 );
 const failures = [];
 const fixturePaths = new Set();
+const generatedTargetPaths = new Map();
+const supportedGeneratedTargetKinds = new Set([
+  "typescript_projection",
+  "rust_projection",
+]);
 
 function fail(message) {
   failures.push(message);
@@ -33,13 +38,60 @@ function isObject(value) {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+function codePointCompare(left, right) {
+  const leftPoints = [...left].map((character) => character.codePointAt(0));
+  const rightPoints = [...right].map((character) => character.codePointAt(0));
+  const length = Math.min(leftPoints.length, rightPoints.length);
+  for (let index = 0; index < length; index += 1) {
+    if (leftPoints[index] !== rightPoints[index]) {
+      return leftPoints[index] - rightPoints[index];
+    }
+  }
+  return leftPoints.length - rightPoints.length;
+}
+
 function canonicalJson(value) {
   if (value === null || typeof value !== "object") return JSON.stringify(value);
   if (Array.isArray(value)) return `[${value.map(canonicalJson).join(",")}]`;
   return `{${Object.keys(value)
-    .sort()
+    .sort(codePointCompare)
     .map((key) => `${JSON.stringify(key)}:${canonicalJson(value[key])}`)
     .join(",")}}`;
+}
+
+function safeGeneratedTargetPath(targetPath, at) {
+  if (
+    typeof targetPath !== "string" ||
+    targetPath.length === 0 ||
+    targetPath.includes("\\") ||
+    path.isAbsolute(targetPath) ||
+    path.win32.isAbsolute(targetPath)
+  ) {
+    fail(`${at}: generated target path must be a repository-relative POSIX path`);
+    return null;
+  }
+  const normalized = path.posix.normalize(targetPath);
+  if (
+    normalized !== targetPath ||
+    normalized === "." ||
+    normalized === ".." ||
+    normalized.startsWith("../")
+  ) {
+    fail(`${at}: generated target path escapes or is not normalized: ${targetPath}`);
+    return null;
+  }
+  const absolute = path.resolve(root, targetPath);
+  const relative = path.relative(root, absolute);
+  if (
+    relative.length === 0 ||
+    relative === ".." ||
+    relative.startsWith(`..${path.sep}`) ||
+    path.isAbsolute(relative)
+  ) {
+    fail(`${at}: generated target path escapes the repository: ${targetPath}`);
+    return null;
+  }
+  return absolute;
 }
 
 function schemaHash(schema) {
@@ -49,6 +101,61 @@ function schemaHash(schema) {
 function contractVersion(contractId) {
   const match = contractId.match(/\/v([1-9][0-9]*)$/u);
   return match ? Number.parseInt(match[1], 10) : null;
+}
+
+function preflightGeneratedTargets(registryDocument) {
+  if (!Array.isArray(registryDocument?.contracts)) {
+    fail("registry: contract pilot must contain a contracts array");
+    return;
+  }
+  for (const contract of registryDocument.contracts) {
+    const contractId = contract?.contract_id ?? "unknown";
+    const at = `${contractId}: generated_targets`;
+    if (!Array.isArray(contract?.generated_targets)) {
+      fail(`${at} must be an array`);
+      continue;
+    }
+    const version =
+      typeof contract.contract_id === "string"
+        ? contractVersion(contract.contract_id)
+        : null;
+    const expectedSymbol =
+      typeof contract.canonical_name === "string" && version !== null
+        ? `${contract.canonical_name}V${version}`
+        : null;
+    const seenKinds = new Set();
+    const seenDefinitions = new Set();
+    for (const [index, target] of contract.generated_targets.entries()) {
+      const targetAt = `${at}[${index}]`;
+      if (!isObject(target)) {
+        fail(`${targetAt} must be an object`);
+        continue;
+      }
+      if (!supportedGeneratedTargetKinds.has(target.kind)) {
+        fail(`${targetAt}: unknown generated target kind ${target.kind}`);
+        continue;
+      }
+      if (seenKinds.has(target.kind)) {
+        fail(`${at}: duplicate generated target kind ${target.kind}`);
+      }
+      seenKinds.add(target.kind);
+      if (expectedSymbol === null || target.symbol !== expectedSymbol) {
+        fail(`${targetAt}: generated target symbol must be ${expectedSymbol ?? "derivable"}`);
+      }
+      const definition = `${target.kind}\u0000${target.path}\u0000${target.symbol}`;
+      if (seenDefinitions.has(definition)) {
+        fail(`${at}: duplicate generated target definition`);
+      }
+      seenDefinitions.add(definition);
+      const absolute = safeGeneratedTargetPath(target.path, targetAt);
+      if (absolute) generatedTargetPaths.set(target, absolute);
+    }
+    for (const kind of supportedGeneratedTargetKinds) {
+      if (!seenKinds.has(kind)) {
+        fail(`${at}: missing required generated target kind ${kind}`);
+      }
+    }
+  }
 }
 
 function collectRefs(value, at = "$") {
@@ -225,7 +332,6 @@ function checkRegistryMetadata(registry) {
     ) {
       fail(`${contract.contract_id}: invalid canonical encoding profile ref`);
     }
-    const expectedSymbol = `${contract.canonical_name}V${contractVersion(contract.contract_id)}`;
     if (
       !isObject(contract.evolution) ||
       !Object.hasOwn(contract.evolution, "successor_of") ||
@@ -252,11 +358,6 @@ function checkRegistryMetadata(registry) {
       }
       if (!['none', 'canonical_body_changed', 'signature_preimage_changed'].includes(contract.evolution.hash_impact)) {
         fail(`${contract.contract_id}: invalid hash impact`);
-      }
-    }
-    for (const target of contract.generated_targets ?? []) {
-      if (target.symbol !== expectedSymbol) {
-        fail(`${contract.contract_id}: generated target symbol must be ${expectedSymbol}`);
       }
     }
     if (!contract.canonical_owner_ref.startsWith("canon://")) {
@@ -305,6 +406,11 @@ function checkRegistryMetadata(registry) {
 
 const registry = readJson(registryPath);
 if (!registry) process.exit(1);
+preflightGeneratedTargets(registry);
+if (failures.length > 0) {
+  console.error(failures.join("\n"));
+  process.exit(1);
+}
 checkRegistryMetadata(registry);
 
 const ajv = new Ajv2020({ allErrors: true, strict: true, validateFormats: true });
@@ -438,11 +544,11 @@ for (const contract of registry.contracts ?? []) {
     if (!aliasFixture) fail(`${contract.contract_id}: alias ${alias.alias} has no write-rejection fixture`);
   }
 
-  for (const target of contract.generated_targets) {
-    const targetPath = path.join(root, target.path);
-    if (!["typescript_projection", "rust_projection"].includes(target.kind)) {
-      fail(`${contract.contract_id}: unsupported generated target ${target.kind}`);
-    }
+  for (const target of Array.isArray(contract.generated_targets)
+    ? contract.generated_targets
+    : []) {
+    const targetPath = generatedTargetPaths.get(target);
+    if (!targetPath) continue;
     if (!fs.existsSync(targetPath)) {
       fail(`${contract.contract_id}: missing generated target ${target.path}`);
     } else if (!fs.readFileSync(targetPath, "utf8").includes(target.symbol)) {
