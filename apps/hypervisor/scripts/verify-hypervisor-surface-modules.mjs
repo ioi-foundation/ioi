@@ -22,7 +22,7 @@ import * as pipeline from "../surfaces/pipeline/index.mjs";
 import * as ontologyManager from "../surfaces/ontology-manager/index.mjs";
 import * as objectExplorer from "../surfaces/object-explorer/index.mjs";
 import * as missions from "../surfaces/missions/index.mjs";
-import { escHtml, parseSelection, selectionQuery, inspectorShell, trayShell, disabledCommand, proofLink, semanticMask } from "../surfaces/kit.mjs";
+import { canonicalTimelineRef, escHtml, parseSelection, selectionQuery, inspectorShell, trayShell, disabledCommand, proofLink, semanticMask } from "../surfaces/kit.mjs";
 import { ONTOLOGY_CONTEXT_KEYS, parseOntologyContext, ontologyContextQuery, managerLink, explorerLink, objectTypeLink, objectSetLink, managerResourceLink, sourcesLink, provenanceReceiptLink, semanticBreadcrumb, semanticInspectorShell, disabledSemanticAction, formatRef } from "../surfaces/ontology-context.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -95,6 +95,17 @@ async function run() {
   ok("serve no longer defines the global rail", !serveSrc.includes("function ioiGlobalRailHtml") && !serveSrc.includes("const IOI_GRAIL_CSS"));
   ok("serve aliases the kit escaper (no duplicate definition)", serveSrc.includes("const CX_ESC = escHtml") && !serveSrc.includes('replace(/&/g, "&amp;").replace(/</g'));
   ok("registry lists pipeline exactly once", SURFACES.filter((s) => s.slug === "pipeline").length === 1);
+  const validTimeline = "/__ioi/run-timeline/goal-run/gr_deadbeef";
+  ok("kit: timeline navigation accepts only exact internal non-traversing paths",
+    canonicalTimelineRef(validTimeline) === validTimeline
+      && [
+        "javascript:alert(1)",
+        "/__ioi/run-timeline/../governance",
+        "/__ioi/run-timeline/%2e%2e/governance",
+        "/__ioi/run-timeline/gr_deadbeef?return=/__ioi/governance",
+        "/__ioi/run-timeline/gr_deadbeef#fragment",
+        "//ioi.local/__ioi/run-timeline/gr_deadbeef",
+      ].every((reference) => canonicalTimelineRef(reference) === ""));
 
   // 4. MISSIONS MODULE — contract-pulled, daemon-backed, and intentionally read-only.
   const missionsReg = surfaceBySlug("missions");
@@ -208,6 +219,386 @@ async function run() {
       && malformedOperationRunModel.operations.ok === false
       && malformedOperationRunModel.operations.code === "plane_payload_invalid"
       && malformedOperationRunHtml.includes("Operations run queue</b> unavailable"));
+  const timeoutStartedAt = Date.now();
+  const timeoutModel = await missions.load({
+    ...missionsCtx,
+    planeTimeoutMs: 25,
+    fetch: async (rawUrl, init) => {
+      if (new URL(rawUrl).pathname === "/v1/hypervisor/work-frontier-items") {
+        return new Promise(() => {
+          init?.signal?.addEventListener("abort", () => {}, { once: true });
+        });
+      }
+      return missionsFixtureFetch()(rawUrl, init);
+    },
+  });
+  ok("missions: a never-resolving child plane is bounded and becomes an honest timeout, not a hung route",
+    Date.now() - timeoutStartedAt < 500
+      && timeoutModel.frontier.ok === false
+      && timeoutModel.frontier.code === "plane_timeout",
+    `${Date.now() - timeoutStartedAt}ms/${timeoutModel.frontier.code}`);
+  const bodyTimeoutStartedAt = Date.now();
+  const bodyTimeoutModel = await missions.load({
+    ...missionsCtx,
+    planeTimeoutMs: 25,
+    fetch: async (rawUrl, init) => {
+      if (new URL(rawUrl).pathname === "/v1/hypervisor/work-frontier-items") {
+        return {
+          ok: true,
+          status: 200,
+          json: () => new Promise(() => {
+            init?.signal?.addEventListener("abort", () => {}, { once: true });
+          }),
+        };
+      }
+      return missionsFixtureFetch()(rawUrl, init);
+    },
+  });
+  ok("missions: the same deadline bounds a response body that stalls after headers",
+    Date.now() - bodyTimeoutStartedAt < 500
+      && bodyTimeoutModel.frontier.ok === false
+      && bodyTimeoutModel.frontier.code === "plane_timeout",
+    `${Date.now() - bodyTimeoutStartedAt}ms/${bodyTimeoutModel.frontier.code}`);
+  const unsafeTimelineModel = await missions.load({
+    ...missionsCtx,
+    fetch: missionsFixtureFetch({
+      "/v1/hypervisor/operations": {
+        body: {
+          runs: {
+            total: 1,
+            recent: [{ execution_id: "exec-safe-shape", status: "failed", timeline_ref: "javascript:alert(document.domain)" }],
+            failures: [],
+          },
+        },
+      },
+    }),
+  });
+  const unsafeTimelineHtml = missions.render(unsafeTimelineModel, missionsCtx);
+  ok("missions: operation proof links accept only canonical run-timeline paths",
+    unsafeTimelineModel.operations.ok === false
+      && unsafeTimelineModel.operations.code === "plane_payload_invalid"
+      && !unsafeTimelineHtml.includes("javascript:")
+      && !unsafeTimelineHtml.includes("alert(document.domain)"));
+  const validRoomRef = fixtureRoom.outcome_room_id;
+  const validRequestRef = "participation-request://rpr_ab";
+  const validParticipantRef = "participant-lease://rpl_ab";
+  const validFrontierRef = `frontier://wfi_${"1".repeat(64)}`;
+  const validClaimRef = `work-claim://wcl_${"2".repeat(64)}`;
+  const validGoalRunId = `gr_${"6".repeat(32)}`;
+  const validGoalRef = `goal://${validGoalRunId}`;
+  const validResultRef = "work-result://wr_ab";
+  const validAttemptRef = `attempt://att_${"3".repeat(64)}`;
+  const validFindingRef = `finding://fnd_${"4".repeat(64)}`;
+  const validChallengeRef = `verifier-challenge://vc_${"5".repeat(64)}`;
+  const validRoom = {
+    ...fixtureRoom,
+    participation_request_refs: [validRequestRef],
+    participant_lease_refs: [validParticipantRef],
+    released_participant_lease_refs: [],
+    frontier_item_refs: [validFrontierRef],
+    resource_offer_refs: [],
+    capability_offer_refs: [],
+    attempt_refs: [validAttemptRef],
+    finding_refs: [validFindingRef],
+    verifier_challenge_refs: [validChallengeRef],
+    member_goal_run_refs: [validGoalRef],
+  };
+  const validGraphModel = await missions.load({
+    ...missionsCtx,
+    fetch: missionsFixtureFetch({
+      "/v1/hypervisor/outcome-rooms": { body: { outcome_rooms: [validRoom] } },
+      "/v1/hypervisor/room-participation-requests": {
+        body: {
+          participation_requests: [{
+            participation_request_id: validRequestRef,
+            outcome_room_ref: validRoomRef,
+            requested_by_ref: "worker://valid-operator",
+            participant_lease_ref: validParticipantRef,
+            status: "admitted",
+          }],
+        },
+      },
+      "/v1/hypervisor/room-participant-leases": {
+        body: {
+          participant_leases: [{
+            participant_lease_id: validParticipantRef,
+            outcome_room_ref: validRoomRef,
+            participant_ref: "worker://valid-operator",
+            join_request_ref: validRequestRef,
+            current_claim_ref: validClaimRef,
+            status: "active",
+          }],
+        },
+      },
+      "/v1/hypervisor/work-frontier-items": {
+        body: {
+          frontier_items: [{
+            frontier_item_id: validFrontierRef,
+            outcome_room_ref: validRoomRef,
+            claim_refs: [validClaimRef],
+            active_claim_refs: [validClaimRef],
+            status: "claimed",
+          }],
+        },
+      },
+      "/v1/hypervisor/work-claim-leases": {
+        body: {
+          work_claims: [{
+            work_claim_id: validClaimRef,
+            outcome_room_ref: validRoomRef,
+            frontier_item_ref: validFrontierRef,
+            claimant_ref: validParticipantRef,
+            status: "active",
+          }],
+        },
+      },
+      "/v1/hypervisor/goal-runs": {
+        body: {
+          goal_runs: [{
+            goal_run_id: validGoalRunId,
+            goal_ref: validGoalRef,
+            outcome_room_ref: validRoomRef,
+            status: "active",
+          }],
+        },
+      },
+      "/v1/hypervisor/work-results": {
+        body: {
+          work_results: [{
+            work_result_id: validResultRef,
+            goal_ref: validGoalRef,
+            goal_run_ref: validGoalRef,
+            outcome_room_ref: validRoomRef,
+            challenge_refs: [validChallengeRef],
+            status: "completed",
+          }],
+        },
+      },
+      "/v1/hypervisor/attempts": {
+        body: {
+          attempts: [{
+            attempt_id: validAttemptRef,
+            outcome_room_ref: validRoomRef,
+            frontier_item_ref: validFrontierRef,
+            work_claim_ref: validClaimRef,
+            participant_ref: validParticipantRef,
+            goal_run_ref: validGoalRef,
+            work_result_ref: validResultRef,
+            status: "admitted",
+          }],
+        },
+      },
+      "/v1/hypervisor/findings": {
+        body: {
+          findings: [{
+            finding_id: validFindingRef,
+            outcome_room_ref: validRoomRef,
+            attempt_ref: validAttemptRef,
+            work_result_ref: validResultRef,
+            participant_ref: validParticipantRef,
+            supersedes_ref: null,
+            status: "proposed",
+          }],
+        },
+      },
+      "/v1/hypervisor/verifier-challenges": {
+        body: {
+          verifier_challenges: [{
+            verifier_challenge_id: validChallengeRef,
+            outcome_room_ref: validRoomRef,
+            challenger_ref: validParticipantRef,
+            challenged_ref: validFindingRef,
+            affected_attempt_refs: [validAttemptRef],
+            status: "proposed",
+          }],
+        },
+      },
+    }),
+  });
+  const validGraphHtml = missions.render(validGraphModel, {
+    ...missionsCtx,
+    url: new URL(`http://x/__ioi/missions?room=${encodeURIComponent(validRoomRef)}`),
+  });
+  ok("missions: a complete owner-plane-consistent graph remains fully inspectable",
+    ["rooms", "requests", "participants", "frontier", "claims", "attempts", "findings", "results", "challenges", "goalRuns"]
+      .every((name) => validGraphModel[name].ok)
+      && [validFrontierRef, validClaimRef, validAttemptRef, validFindingRef, validChallengeRef]
+        .every((reference) => validGraphHtml.includes(reference)));
+  const orphanRequestRef = "participation-request://rpr_cd";
+  const orphanBacklinkModel = await missions.load({
+    ...missionsCtx,
+    fetch: missionsFixtureFetch({
+      "/v1/hypervisor/outcome-rooms": {
+        body: {
+          outcome_rooms: [{
+            ...fixtureRoom,
+            participation_request_refs: [],
+            participant_lease_refs: [],
+            released_participant_lease_refs: [],
+            frontier_item_refs: [],
+            resource_offer_refs: [],
+            capability_offer_refs: [],
+            attempt_refs: [],
+            finding_refs: [],
+            verifier_challenge_refs: [],
+            member_goal_run_refs: [],
+          }],
+        },
+      },
+      "/v1/hypervisor/room-participation-requests": {
+        body: {
+          participation_requests: [{
+            participation_request_id: orphanRequestRef,
+            outcome_room_ref: validRoomRef,
+            requested_by_ref: "worker://orphan",
+            participant_lease_ref: null,
+            status: "submitted",
+          }],
+        },
+      },
+    }),
+  });
+  ok("missions: a child record absent from its room-owned backlink is not presented as admitted graph truth",
+    orphanBacklinkModel.requests.ok === false
+      && orphanBacklinkModel.requests.code === "plane_payload_invalid"
+      && orphanBacklinkModel.requests.rows.length === 0);
+  const danglingFrontierRef = `frontier://wfi_${"9".repeat(64)}`;
+  const danglingOwnerBacklinkModel = await missions.load({
+    ...missionsCtx,
+    fetch: missionsFixtureFetch({
+      "/v1/hypervisor/outcome-rooms": {
+        body: {
+          outcome_rooms: [{
+            ...fixtureRoom,
+            participation_request_refs: [],
+            participant_lease_refs: [],
+            released_participant_lease_refs: [],
+            frontier_item_refs: [danglingFrontierRef],
+            resource_offer_refs: [],
+            capability_offer_refs: [],
+            attempt_refs: [],
+            finding_refs: [],
+            verifier_challenge_refs: [],
+            member_goal_run_refs: [],
+          }],
+        },
+      },
+      "/v1/hypervisor/work-frontier-items": { body: { frontier_items: [] } },
+    }),
+  });
+  ok("missions: a room-owned backlink absent from its child plane makes that child plane unknown, not zero",
+    danglingOwnerBacklinkModel.rooms.ok
+      && danglingOwnerBacklinkModel.frontier.ok === false
+      && danglingOwnerBacklinkModel.frontier.code === "plane_payload_invalid"
+      && danglingOwnerBacklinkModel.frontier.rows.length === 0);
+  const shapedAttemptRef = `attempt://att_${"a".repeat(64)}`;
+  const unresolvedAttemptModel = await missions.load({
+    ...missionsCtx,
+    fetch: missionsFixtureFetch({
+      "/v1/hypervisor/outcome-rooms": { body: { outcome_rooms: [fixtureRoom] } },
+      "/v1/hypervisor/attempts": {
+        body: {
+          attempts: [{
+            attempt_id: shapedAttemptRef,
+            outcome_room_ref: fixtureRoom.outcome_room_id,
+            frontier_item_ref: `frontier://wfi_${"b".repeat(64)}`,
+            work_claim_ref: `work-claim://wcl_${"c".repeat(64)}`,
+            participant_ref: "participant-lease://rpl_ab",
+            goal_run_ref: "goal://missing-run",
+            work_result_ref: null,
+            status: "draft",
+          }],
+        },
+      },
+    }),
+  });
+  const unresolvedAttemptHtml = missions.render(unresolvedAttemptModel, missionsCtx);
+  ok("missions: a shaped but non-resolving Attempt invalidates the whole Attempt plane",
+    unresolvedAttemptModel.attempts.ok === false
+      && unresolvedAttemptModel.attempts.code === "plane_payload_invalid"
+      && unresolvedAttemptModel.attempts.rows.length === 0
+      && !unresolvedAttemptHtml.includes(shapedAttemptRef));
+  const roomB = {
+    outcome_room_id: "outcome-room://or_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    objective: "Cross-room sentinel",
+    status: "open",
+    room_mode: "hosted",
+    participation_request_refs: [],
+    participant_lease_refs: [],
+    released_participant_lease_refs: [],
+    frontier_item_refs: [`frontier://wfi_${"e".repeat(64)}`],
+    resource_offer_refs: [],
+    capability_offer_refs: [],
+    attempt_refs: [],
+    finding_refs: [],
+    verifier_challenge_refs: [],
+    member_goal_run_refs: [],
+  };
+  const requestA = {
+    participation_request_id: "participation-request://rpr_ab",
+    outcome_room_ref: fixtureRoom.outcome_room_id,
+    requested_by_ref: "worker://claimant",
+    participant_lease_ref: "participant-lease://rpl_ab",
+    status: "admitted",
+  };
+  const crossRoomClaimRef = `work-claim://wcl_${"d".repeat(64)}`;
+  const participantA = {
+    participant_lease_id: "participant-lease://rpl_ab",
+    outcome_room_ref: fixtureRoom.outcome_room_id,
+    participant_ref: requestA.requested_by_ref,
+    join_request_ref: requestA.participation_request_id,
+    current_claim_ref: crossRoomClaimRef,
+    status: "active",
+  };
+  const roomA = {
+    ...fixtureRoom,
+    participation_request_refs: [requestA.participation_request_id],
+    participant_lease_refs: [participantA.participant_lease_id],
+    released_participant_lease_refs: [],
+    frontier_item_refs: [],
+    resource_offer_refs: [],
+    capability_offer_refs: [],
+    attempt_refs: [],
+    finding_refs: [],
+    verifier_challenge_refs: [],
+    member_goal_run_refs: [],
+  };
+  const crossRoomModel = await missions.load({
+    ...missionsCtx,
+    fetch: missionsFixtureFetch({
+      "/v1/hypervisor/outcome-rooms": { body: { outcome_rooms: [roomA, roomB] } },
+      "/v1/hypervisor/room-participation-requests": { body: { participation_requests: [requestA] } },
+      "/v1/hypervisor/room-participant-leases": { body: { participant_leases: [participantA] } },
+      "/v1/hypervisor/work-frontier-items": {
+        body: {
+          frontier_items: [{
+            frontier_item_id: `frontier://wfi_${"e".repeat(64)}`,
+            outcome_room_ref: roomB.outcome_room_id,
+            claim_refs: [crossRoomClaimRef],
+            active_claim_refs: [crossRoomClaimRef],
+            status: "claimed",
+          }],
+        },
+      },
+      "/v1/hypervisor/work-claim-leases": {
+        body: {
+          work_claims: [{
+            work_claim_id: crossRoomClaimRef,
+            outcome_room_ref: fixtureRoom.outcome_room_id,
+            frontier_item_ref: `frontier://wfi_${"e".repeat(64)}`,
+            claimant_ref: participantA.participant_lease_id,
+            status: "active",
+          }],
+        },
+      },
+    }),
+  });
+  const crossRoomHtml = missions.render(crossRoomModel, missionsCtx);
+  ok("missions: a cross-room Claim invalidates the whole Claim plane without partial rows",
+    crossRoomModel.claims.ok === false
+      && crossRoomModel.claims.code === "plane_payload_invalid"
+      && crossRoomModel.claims.rows.length === 0
+      && !crossRoomHtml.includes(crossRoomClaimRef));
   const cappedGoalRuns = Array.from({ length: 60 }, (_, index) => ({
     goal_run_id: `goal-run-${index}`,
     normalized_goal: `Goal ${index}`,

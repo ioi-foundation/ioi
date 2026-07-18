@@ -62,7 +62,7 @@ function renderRelationshipProbe() {
   const model = {
     rooms: plane([
       { outcome_room_id: roomA, objective: "Audit the lunar relay", status: "open", room_mode: "hosted", revision: 3 },
-      { outcome_room_id: roomB, objective: "Unrelated room", status: "open", room_mode: "hosted", revision: 1 },
+      { outcome_room_id: roomB, objective: "Unrelated room", status: "closed", room_mode: "hosted", revision: 1 },
     ]),
     requests: plane([]),
     participants: plane([
@@ -92,11 +92,15 @@ function renderRelationshipProbe() {
     goalRuns: plane([]),
     operations: plane([], { runs: { total: 0, recent: [], failures: [] } }),
   };
+  const renderWith = (query) => missionsSurface.render(model, {
+    url: new URL(`http://missions.test/__ioi/missions${query}`),
+    embed: true,
+  });
   return {
-    html: missionsSurface.render(model, {
-      url: new URL(`http://missions.test/__ioi/missions?room=${encodeURIComponent(roomA)}`),
-      embed: true,
-    }),
+    html: renderWith(`?room=${encodeURIComponent(roomA)}`),
+    unknownHtml: renderWith(`?room=${encodeURIComponent("outcome-room://or_cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc")}`),
+    filteredHtml: renderWith(`?status=closed&room=${encodeURIComponent(roomA)}`),
+    defaultHtml: renderWith(""),
     roomA,
     frontierA,
     frontierB,
@@ -202,6 +206,16 @@ async function run() {
       && !relationshipProbe.html.includes(relationshipProbe.claimB)
       && !relationshipProbe.html.includes(relationshipProbe.attemptB)
       && !relationshipProbe.html.includes(relationshipProbe.challengeB));
+  ok("explicit unknown room selection fails closed instead of inspecting the first room",
+    relationshipProbe.unknownHtml.includes('data-missions-selection-error="room_not_found"')
+      && !relationshipProbe.unknownHtml.includes(`data-missions-selected-room="${relationshipProbe.roomA}"`)
+      && relationshipProbe.unknownHtml.includes("No different room was selected"));
+  ok("explicit room outside the active status filter fails closed instead of escaping the filter",
+    relationshipProbe.filteredHtml.includes('data-missions-selection-error="room_filter_mismatch"')
+      && !relationshipProbe.filteredHtml.includes(`data-missions-selected-room="${relationshipProbe.roomA}"`)
+      && relationshipProbe.filteredHtml.includes("outside this status view"));
+  ok("the bare route still selects the first open room for the normal operator landing",
+    relationshipProbe.defaultHtml.includes(`data-missions-selected-room="${relationshipProbe.roomA}"`));
 
   // 3. Run queue = REAL (cross-check counts + newest run against the live daemon).
   ok("run-queue heading reflects the real recent/total run counts (no fabrication)", t.includes(`recent mission runs (${recent.length} of ${runs.total || 0})`));

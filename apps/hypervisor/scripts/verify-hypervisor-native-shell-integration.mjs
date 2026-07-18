@@ -11,7 +11,7 @@
 //      removed STRUCTURALLY (no hidden duplicate navigation tree — the .og-grail element does not
 //      exist), the shell collapses with no residual rail column, and app-LOCAL navigation stays.
 //   3. EMBED PERSISTENCE — embed=1 survives in-app links, row onclicks, GET forms, action PRG
-//      redirects, refresh, and cross-application semantic links (lineage/vertex/work-ledger
+//      redirects, refresh, and cross-application links (lineage/vertex/work-ledger/operations
 //      thread it too, so a chain re-entering a registry surface stays embedded).
 //   4. STANDALONE UNTOUCHED — direct bare routes render the complete registered shell
 //      (global rail present, no embed rewrite); existing pixel-certification artifacts stay byte-identical.
@@ -64,7 +64,7 @@ async function run() {
   ok("every operational surface (beyond shell) is native_single_rail when embedded (#65 admission rule)", SURFACES.every((s) => s.operational_state === "shell" || s.embedded_shell_state === "native_single_rail"));
   ok("extracted interactive modules declare their earned state (pipeline=workflow_complete since #67, explorer=inspect, schema=act since #63)", SURFACES.find((s) => s.slug === "pipeline").operational_state === "workflow_complete" && SURFACES.find((s) => s.slug === "explorer").operational_state === "inspect" && SURFACES.find((s) => s.slug === "schema").operational_state === "act");
   ok("operational state is not inferred from parity: certified non-extracted surfaces stay browse/act, never inspect+", SURFACES.filter((s) => !boundSurface(s.route, "GET")).every((s) => ["shell", "browse", "act"].includes(s.operational_state)));
-  ok("embeddable routes = every registry surface + the semantic-plane thread routes", (() => { const r = embeddableRoutes(); return SURFACES.every((s) => r.has(s.route)) && EMBED_THREAD_ROUTES.every((t) => r.has(t)); })(), `${embeddableRoutes().size} routes`);
+  ok("embeddable routes = every registry surface + the generic embedded thread routes", (() => { const r = embeddableRoutes(); return SURFACES.every((s) => r.has(s.route)) && EMBED_THREAD_ROUTES.every((t) => r.has(t)); })(), `${embeddableRoutes().size} routes`);
 
   // 4. Standalone bare routes keep the complete registered shell — ALL 14.
   for (const s of SURFACES) {
@@ -79,11 +79,11 @@ async function run() {
     const localMark = LOCAL_NAV[s.slug] ? p.text.includes(LOCAL_NAV[s.slug].slice(1)) : true;
     ok(`embedded ${s.route} removes the ported global rail STRUCTURALLY, keeps app-local chrome, threads embed through every embeddable link`, p.status === 200 && !p.text.includes('<aside class="og-grail') && localMark && bad.length === 0, bad.length ? `unthreaded: ${bad.slice(0, 3).join(" ")}` : LOCAL_NAV[s.slug]);
   }
-  // 3. Cross-application semantic surfaces thread embed too (no ported rail of their own).
+  // 3. Non-registry cross-application surfaces thread embed too (no ported rail of their own).
   for (const r of EMBED_THREAD_ROUTES) {
     const p = await page(`${SERVE}${r}?embed=1`);
     const bad = unthreadedLinks(p.text);
-    ok(`semantic surface ${r} threads embed=1 through its embeddable links (journey stays embedded)`, p.status === 200 && !p.text.includes('<aside class="og-grail') && bad.length === 0, bad.length ? `unthreaded: ${bad.slice(0, 3).join(" ")}` : "");
+    ok(`embedded thread route ${r} threads embed=1 through its embeddable links (journey stays embedded)`, p.status === 200 && !p.text.includes('<aside class="og-grail') && bad.length === 0, bad.length ? `unthreaded: ${bad.slice(0, 3).join(" ")}` : "");
   }
   // 3. GET forms carry the embed field (explorer filter form is the canonical case).
   const ee = await page(`${SERVE}/__ioi/ontology/explorer?embed=1`);
@@ -156,6 +156,43 @@ async function run() {
           await pg.locator("#ioi-open-app").count() === 1 && src.includes(`${s.route}?embed=1`) && await rail.isVisible() && !!shape && shape.grails === 0 && shape.firstLeft === 0 && localVisible,
           `src=${src} shape=${JSON.stringify(shape)}`);
       }
+
+      // Missions is registry-owned; Operations is a generic embedded thread route. Drive the
+      // production anchors in both directions and prove the native slot contract at every stop.
+      const embeddedSlotState = async (frame) => {
+        let url = null;
+        try { url = frame ? new URL(frame.url()) : null; } catch { /* failed state is reported below */ }
+        return {
+          route: url ? url.pathname : "",
+          embed: url ? url.searchParams.get("embed") : "",
+          slots: await pg.locator("#ioi-open-app").count(),
+          iframes: await pg.locator("#ioi-open-app iframe").count(),
+          nativeRail: await rail.isVisible().catch(() => false),
+          grails: frame ? await frame.locator(".og-grail").count().catch(() => -1) : -1,
+        };
+      };
+      const keepsEmbeddedSlot = (state, route) => state.route === route && state.embed === "1"
+        && state.slots === 1 && state.iframes === 1 && state.nativeRail && state.grails === 0;
+
+      await pg.click('a[href="#applications"]');
+      await pg.waitForSelector('.ioi-mrow[data-href="/__ioi/missions"]', { timeout: 15000 });
+      await pg.click('.ioi-mrow[data-href="/__ioi/missions"]');
+      let missionsFrame = await frameFor("/__ioi/missions", ".ms-main");
+      const launchedMissions = await embeddedSlotState(missionsFrame);
+      ok("Applications → Missions: embed=1, singular slot, native rail visible, zero .og-grail elements",
+        keepsEmbeddedSlot(launchedMissions, "/__ioi/missions"), JSON.stringify(launchedMissions));
+
+      if (missionsFrame) await missionsFrame.locator('a.ms-action[href^="/__ioi/operations"][href*="embed=1"]').click();
+      const operationsFrame = await frameFor("/__ioi/operations", "#ops-jobs");
+      const reachedOperations = await embeddedSlotState(operationsFrame);
+      ok("Missions → Operations: embed=1 persists, singular slot remains, native rail stays visible, zero .og-grail elements",
+        keepsEmbeddedSlot(reachedOperations, "/__ioi/operations"), JSON.stringify(reachedOperations));
+
+      if (operationsFrame) await operationsFrame.locator('a[href^="/__ioi/missions"][href*="embed=1"]').first().click();
+      missionsFrame = await frameFor("/__ioi/missions", ".ms-main");
+      const returnedMissions = await embeddedSlotState(missionsFrame);
+      ok("Operations → Missions: embed=1 persists, singular slot remains, native rail stays visible, zero .og-grail elements",
+        keepsEmbeddedSlot(returnedMissions, "/__ioi/missions"), JSON.stringify(returnedMissions));
 
       // #65 regression: Pipeline from the catalog — in-app node selection + refresh keep embed.
       await pg.click('a[href="#applications"]');

@@ -4,13 +4,15 @@
 // participation, offer/match, Attempt/Finding, WorkResult, and VerifierChallenge records without
 // minting acceptance, verdict, settlement, execution, or federation authority.
 import { ioiGlobalRailHtml, IOI_GRAIL_CSS } from "../chrome.mjs";
-import { escHtml, proofLink, selectionQuery } from "../kit.mjs";
+import { canonicalTimelineRef, escHtml, proofLink, selectionQuery } from "../kit.mjs";
+import { readJsonWithDeadline } from "../plane-read.mjs";
 
 const ROUTE = "/__ioi/missions";
+const DEFAULT_PLANE_TIMEOUT_MS = 3_000;
 const UNRESOLVED_CHALLENGE = new Set([
   "proposed", "admitted", "investigating", "upheld", "rule_changed", "reverifying",
 ]);
-const LIVE_CLAIM = new Set(["proposed", "active", "waiting"]);
+const LIVE_CLAIM = new Set(["active", "waiting"]);
 
 export const MISSIONS_APP_ICON_URI = `data:image/svg+xml,${encodeURIComponent(
   '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="2.4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>',
@@ -36,6 +38,8 @@ const nonEmptyString = (value) => typeof value === "string" && value.trim().leng
 const fieldMatches = (record, field, pattern) => nonEmptyString(record[field]) && pattern.test(record[field]);
 const optionalFieldMatches = (record, field, pattern) => record[field] == null || fieldMatches(record, field, pattern);
 const everyArrayEntry = (values, validator) => Array.isArray(values) && values.every(validator);
+const optionalRefArray = (record, field, pattern) => record[field] === undefined
+  || everyArrayEntry(record[field], (reference) => nonEmptyString(reference) && pattern.test(reference));
 
 const ROOM_REF = /^outcome-room:\/\/or_[0-9a-f]+$/;
 const REQUEST_REF = /^participation-request:\/\/rpr_[0-9a-f]+$/;
@@ -49,6 +53,8 @@ const ATTEMPT_REF = /^attempt:\/\/att_[0-9a-f]{64}$/;
 const FINDING_REF = /^finding:\/\/fnd_[0-9a-f]{64}$/;
 const WORK_RESULT_REF = /^work-result:\/\/wr_[0-9a-f]+$/;
 const CHALLENGE_REF = /^verifier-challenge:\/\/vc_[0-9a-f]{64}$/;
+const GOAL_REF = /^goal:\/\/(?!.*\.\.)[^\s?#]{1,160}$/;
+const GOAL_RUN_ID = /^[A-Za-z0-9_-]{1,160}$/;
 
 const roomBound = (record) => fieldMatches(record, "outcome_room_ref", ROOM_REF);
 const hasStatus = (record) => nonEmptyString(record.status);
@@ -56,26 +62,46 @@ const rowValidators = {
   outcome_rooms: (row) => isRecord(row)
     && fieldMatches(row, "outcome_room_id", ROOM_REF)
     && hasStatus(row)
-    && (nonEmptyString(row.objective) || nonEmptyString(row.objective_ref)),
+    && (nonEmptyString(row.objective) || nonEmptyString(row.objective_ref))
+    && optionalRefArray(row, "participation_request_refs", REQUEST_REF)
+    && optionalRefArray(row, "participant_lease_refs", PARTICIPANT_REF)
+    && optionalRefArray(row, "released_participant_lease_refs", PARTICIPANT_REF)
+    && optionalRefArray(row, "frontier_item_refs", FRONTIER_REF)
+    && optionalRefArray(row, "resource_offer_refs", RESOURCE_OFFER_REF)
+    && optionalRefArray(row, "capability_offer_refs", CAPABILITY_OFFER_REF)
+    && optionalRefArray(row, "attempt_refs", ATTEMPT_REF)
+    && optionalRefArray(row, "finding_refs", FINDING_REF)
+    && optionalRefArray(row, "verifier_challenge_refs", CHALLENGE_REF)
+    && optionalRefArray(row, "member_goal_run_refs", GOAL_REF)
+    && (!Array.isArray(row.released_participant_lease_refs)
+      || row.released_participant_lease_refs.every((reference) => row.participant_lease_refs?.includes(reference))),
   participation_requests: (row) => isRecord(row)
     && fieldMatches(row, "participation_request_id", REQUEST_REF)
     && roomBound(row)
     && nonEmptyString(row.requested_by_ref)
+    && optionalFieldMatches(row, "participant_lease_ref", PARTICIPANT_REF)
     && hasStatus(row),
   participant_leases: (row) => isRecord(row)
     && fieldMatches(row, "participant_lease_id", PARTICIPANT_REF)
     && roomBound(row)
     && nonEmptyString(row.participant_ref)
+    && fieldMatches(row, "join_request_ref", REQUEST_REF)
+    && optionalFieldMatches(row, "current_claim_ref", CLAIM_REF)
     && hasStatus(row),
   frontier_items: (row) => isRecord(row)
     && fieldMatches(row, "frontier_item_id", FRONTIER_REF)
     && roomBound(row)
+    && optionalRefArray(row, "claim_refs", CLAIM_REF)
+    && optionalRefArray(row, "active_claim_refs", CLAIM_REF)
+    && (!Array.isArray(row.active_claim_refs)
+      || row.active_claim_refs.every((reference) => row.claim_refs?.includes(reference)))
     && hasStatus(row),
   work_claims: (row) => isRecord(row)
     && fieldMatches(row, "work_claim_id", CLAIM_REF)
     && fieldMatches(row, "frontier_item_ref", FRONTIER_REF)
     && fieldMatches(row, "claimant_ref", PARTICIPANT_REF)
     && roomBound(row)
+    && optionalFieldMatches(row, "eligibility_match_receipt_ref", MATCH_RECEIPT_REF)
     && hasStatus(row),
   resource_offers: (row) => isRecord(row)
     && fieldMatches(row, "resource_offer_id", RESOURCE_OFFER_REF)
@@ -101,7 +127,8 @@ const rowValidators = {
     && fieldMatches(row, "work_claim_ref", CLAIM_REF)
     && fieldMatches(row, "participant_ref", PARTICIPANT_REF)
     && roomBound(row)
-    && nonEmptyString(row.goal_run_ref)
+    && fieldMatches(row, "goal_run_ref", GOAL_REF)
+    && optionalFieldMatches(row, "work_result_ref", WORK_RESULT_REF)
     && hasStatus(row),
   findings: (row) => isRecord(row)
     && fieldMatches(row, "finding_id", FINDING_REF)
@@ -109,33 +136,40 @@ const rowValidators = {
     && fieldMatches(row, "work_result_ref", WORK_RESULT_REF)
     && fieldMatches(row, "participant_ref", PARTICIPANT_REF)
     && roomBound(row)
+    && optionalFieldMatches(row, "supersedes_ref", FINDING_REF)
     && hasStatus(row),
   work_results: (row) => isRecord(row)
     && fieldMatches(row, "work_result_id", WORK_RESULT_REF)
     && optionalFieldMatches(row, "outcome_room_ref", ROOM_REF)
-    && nonEmptyString(row.goal_ref)
+    && fieldMatches(row, "goal_ref", GOAL_REF)
+    && optionalFieldMatches(row, "goal_run_ref", GOAL_REF)
+    && optionalRefArray(row, "challenge_refs", CHALLENGE_REF)
     && hasStatus(row),
   verifier_challenges: (row) => isRecord(row)
     && fieldMatches(row, "verifier_challenge_id", CHALLENGE_REF)
     && roomBound(row)
+    && fieldMatches(row, "challenger_ref", PARTICIPANT_REF)
     && (fieldMatches(row, "challenged_ref", ATTEMPT_REF) || fieldMatches(row, "challenged_ref", FINDING_REF))
     && row.affected_attempt_refs?.length > 0
     && everyArrayEntry(row.affected_attempt_refs, (reference) => nonEmptyString(reference) && ATTEMPT_REF.test(reference))
     && hasStatus(row),
   goal_runs: (row) => isRecord(row)
-    && nonEmptyString(row.goal_run_id)
+    && fieldMatches(row, "goal_run_id", GOAL_RUN_ID)
+    && optionalFieldMatches(row, "goal_ref", GOAL_REF)
+    && optionalFieldMatches(row, "outcome_room_ref", ROOM_REF)
+    && (!row.outcome_room_ref || fieldMatches(row, "goal_ref", GOAL_REF))
     && hasStatus(row)
     && (row.blockers === undefined || everyArrayEntry(row.blockers, (blocker) => isRecord(blocker) && nonEmptyString(blocker.reason_code))),
 };
 
 const operationRunValid = (row) => isRecord(row)
   && nonEmptyString(row.execution_id)
-  && hasStatus(row);
+  && hasStatus(row)
+  && (row.timeline_ref == null || canonicalTimelineRef(row.timeline_ref) !== "");
 
-async function readCollection(fetchImpl, daemon, path, key, validateRow) {
+async function readCollection(fetchImpl, daemon, path, key, validateRow, timeoutMs) {
   try {
-    const response = await fetchImpl(`${daemon}${path}`);
-    const payload = await response.json().catch(() => null);
+    const { response, payload } = await readJsonWithDeadline(fetchImpl, `${daemon}${path}`, timeoutMs);
     if (!response.ok) {
       return unavailablePlane(response.status, payload?.error?.code || "plane_unavailable");
     }
@@ -143,15 +177,14 @@ async function readCollection(fetchImpl, daemon, path, key, validateRow) {
       return unavailablePlane(response.status, "plane_payload_invalid");
     }
     return { ok: true, status: response.status, code: "", rows: payload[key], payload };
-  } catch {
-    return unavailablePlane(0, "daemon_unavailable");
+  } catch (error) {
+    return unavailablePlane(0, error?.code === "plane_timeout" ? "plane_timeout" : "daemon_unavailable");
   }
 }
 
-async function readOperations(fetchImpl, daemon) {
+async function readOperations(fetchImpl, daemon, timeoutMs) {
   try {
-    const response = await fetchImpl(`${daemon}/v1/hypervisor/operations`);
-    const payload = await response.json().catch(() => null);
+    const { response, payload } = await readJsonWithDeadline(fetchImpl, `${daemon}/v1/hypervisor/operations`, timeoutMs);
     if (!response.ok) {
       return unavailablePlane(response.status, payload?.error?.code || "plane_unavailable");
     }
@@ -163,13 +196,250 @@ async function readOperations(fetchImpl, daemon) {
       return unavailablePlane(response.status, "plane_payload_invalid");
     }
     return { ok: true, status: response.status, code: "", rows: [], payload };
-  } catch {
-    return unavailablePlane(0, "daemon_unavailable");
+  } catch (error) {
+    return unavailablePlane(0, error?.code === "plane_timeout" ? "plane_timeout" : "daemon_unavailable");
   }
+}
+
+const indexBy = (plane, field) => new Map(plane.rows.map((row) => [row[field], row]));
+const hasUniqueKeys = (plane, field) => new Set(plane.rows.map((row) => row[field])).size === plane.rows.length;
+const optionalRef = (record, field) => record[field] == null ? "" : String(record[field]);
+const sameRoom = (record, roomReference) => roomRef(record) === roomReference;
+const listIncludes = (record, field, reference) => Array.isArray(record?.[field])
+  && record[field].includes(reference);
+
+function validateModelRelationships(model) {
+  const indexes = {
+    rooms: indexBy(model.rooms, "outcome_room_id"),
+    requests: indexBy(model.requests, "participation_request_id"),
+    participants: indexBy(model.participants, "participant_lease_id"),
+    frontier: indexBy(model.frontier, "frontier_item_id"),
+    claims: indexBy(model.claims, "work_claim_id"),
+    resourceOffers: indexBy(model.resourceOffers, "resource_offer_id"),
+    capabilityOffers: indexBy(model.capabilityOffers, "capability_offer_id"),
+    matches: indexBy(model.matches, "receipt_id"),
+    attempts: indexBy(model.attempts, "attempt_id"),
+    findings: indexBy(model.findings, "finding_id"),
+    results: indexBy(model.results, "work_result_id"),
+    challenges: indexBy(model.challenges, "verifier_challenge_id"),
+    goalRuns: new Map(model.goalRuns.rows.filter((row) => row.goal_ref).map((row) => [row.goal_ref, row])),
+  };
+  const roomOwns = (roomReference, field, reference) => {
+    const room = indexes.rooms.get(roomReference);
+    return !!room && listIncludes(room, field, reference);
+  };
+  const roomBacklinksResolve = (field, index) => model.rooms.rows.every((room) =>
+    !Array.isArray(room[field]) || room[field].every((reference) => index.has(reference)));
+  const recordBacklinksResolve = (records, field, index) => records.every((record) =>
+    record[field] == null || (Array.isArray(record[field])
+      ? record[field].every((reference) => index.has(reference))
+      : index.has(record[field])));
+  const checks = [
+    ["rooms", [], () => hasUniqueKeys(model.rooms, "outcome_room_id")],
+    ["requests", ["rooms", "participants"], () => hasUniqueKeys(model.requests, "participation_request_id")
+      && roomBacklinksResolve("participation_request_refs", indexes.requests)
+      && model.requests.rows.every((request) => {
+        const requestRef = request.participation_request_id;
+        const leaseRef = optionalRef(request, "participant_lease_ref");
+        if (!roomOwns(request.outcome_room_ref, "participation_request_refs", requestRef)) return false;
+        if (!leaseRef) return request.status !== "admitted";
+        const lease = indexes.participants.get(leaseRef);
+        return PARTICIPANT_REF.test(leaseRef)
+          && !!lease
+          && sameRoom(lease, request.outcome_room_ref)
+          && lease.join_request_ref === requestRef
+          && lease.participant_ref === request.requested_by_ref;
+      })],
+    ["participants", ["rooms", "requests"], () => hasUniqueKeys(model.participants, "participant_lease_id")
+      && roomBacklinksResolve("participant_lease_refs", indexes.participants)
+      && roomBacklinksResolve("released_participant_lease_refs", indexes.participants)
+      && model.participants.rows.every((participant) => {
+        const request = indexes.requests.get(participant.join_request_ref);
+        return roomOwns(participant.outcome_room_ref, "participant_lease_refs", participant.participant_lease_id)
+          && !!request
+          && sameRoom(request, participant.outcome_room_ref)
+          && request.requested_by_ref === participant.participant_ref
+          && request.participant_lease_ref === participant.participant_lease_id;
+      })],
+    ["frontier", ["rooms"], () => hasUniqueKeys(model.frontier, "frontier_item_id")
+      && roomBacklinksResolve("frontier_item_refs", indexes.frontier)
+      && model.frontier.rows.every((item) => roomOwns(
+        item.outcome_room_ref,
+        "frontier_item_refs",
+        item.frontier_item_id,
+      ))],
+    ["claims", ["rooms", "frontier", "participants"], () => hasUniqueKeys(model.claims, "work_claim_id")
+      && model.frontier.rows.every((item) =>
+        recordBacklinksResolve([item], "claim_refs", indexes.claims)
+        && recordBacklinksResolve([item], "active_claim_refs", indexes.claims))
+      && recordBacklinksResolve(model.participants.rows, "current_claim_ref", indexes.claims)
+      && model.claims.rows.every((claim) => {
+        const frontier = indexes.frontier.get(claim.frontier_item_ref);
+        const participant = indexes.participants.get(claim.claimant_ref);
+        const claimIsLive = LIVE_CLAIM.has(claim.status);
+        const matchRef = optionalRef(claim, "eligibility_match_receipt_ref");
+        const match = matchRef ? indexes.matches.get(matchRef) : null;
+        return indexes.rooms.has(claim.outcome_room_ref)
+          && !!frontier && sameRoom(frontier, claim.outcome_room_ref)
+          && !!participant && sameRoom(participant, claim.outcome_room_ref)
+          && listIncludes(frontier, "claim_refs", claim.work_claim_id)
+          && listIncludes(frontier, "active_claim_refs", claim.work_claim_id) === claimIsLive
+          && (participant.current_claim_ref === claim.work_claim_id) === claimIsLive
+          && (!matchRef || (model.matches.ok
+            && MATCH_RECEIPT_REF.test(matchRef)
+            && !!match
+            && match.bound_facts?.outcome_room_ref === claim.outcome_room_ref
+            && match.bound_facts?.frontier_item_ref === claim.frontier_item_ref
+            && match.bound_facts?.participant_ref === claim.claimant_ref));
+      })],
+    ["resourceOffers", ["rooms", "participants"], () => hasUniqueKeys(model.resourceOffers, "resource_offer_id")
+      && roomBacklinksResolve("resource_offer_refs", indexes.resourceOffers)
+      && model.resourceOffers.rows.every((offer) => {
+        const participant = indexes.participants.get(offer.provider_participant_lease_ref);
+        return roomOwns(offer.outcome_room_ref, "resource_offer_refs", offer.resource_offer_id)
+          && !!participant && sameRoom(participant, offer.outcome_room_ref);
+      })],
+    ["capabilityOffers", ["rooms", "participants"], () => hasUniqueKeys(model.capabilityOffers, "capability_offer_id")
+      && roomBacklinksResolve("capability_offer_refs", indexes.capabilityOffers)
+      && model.capabilityOffers.rows.every((offer) => {
+        const participant = indexes.participants.get(offer.provider_participant_lease_ref);
+        return roomOwns(offer.outcome_room_ref, "capability_offer_refs", offer.capability_offer_id)
+          && !!participant && sameRoom(participant, offer.outcome_room_ref);
+      })],
+    ["matches", ["rooms", "frontier", "participants", "resourceOffers", "capabilityOffers"], () => hasUniqueKeys(model.matches, "receipt_id")
+      && model.matches.rows.every((receipt) => {
+        const facts = receipt.bound_facts;
+        if (!Array.isArray(facts.resource_offers) || !Array.isArray(facts.capability_offers)) return false;
+        const frontier = indexes.frontier.get(facts.frontier_item_ref);
+        const participant = indexes.participants.get(facts.participant_ref);
+        const offerCoordinates = [
+          ...(Array.isArray(facts.resource_offers) ? facts.resource_offers.map((coordinate) => ["resourceOffers", coordinate]) : []),
+          ...(Array.isArray(facts.capability_offers) ? facts.capability_offers.map((coordinate) => ["capabilityOffers", coordinate]) : []),
+        ];
+        return indexes.rooms.has(facts.outcome_room_ref)
+          && !!frontier && sameRoom(frontier, facts.outcome_room_ref)
+          && !!participant && sameRoom(participant, facts.outcome_room_ref)
+          && offerCoordinates.every(([family, coordinate]) => {
+            const offer = isRecord(coordinate) ? indexes[family].get(coordinate.offer_ref) : null;
+            return !!offer
+              && sameRoom(offer, facts.outcome_room_ref)
+              && offer.provider_participant_lease_ref === facts.participant_ref;
+          });
+      })],
+    ["goalRuns", ["rooms"], () => hasUniqueKeys(model.goalRuns, "goal_run_id")
+      && roomBacklinksResolve("member_goal_run_refs", indexes.goalRuns)
+      && model.goalRuns.rows.every((run) => !run.outcome_room_ref || (
+        run.goal_ref === `goal://${run.goal_run_id}`
+        && roomOwns(run.outcome_room_ref, "member_goal_run_refs", run.goal_ref)
+      ))
+      && model.goalRuns.rows.filter((run) => run.goal_ref).length === indexes.goalRuns.size],
+    ["results", ["rooms", "goalRuns"], () => hasUniqueKeys(model.results, "work_result_id")
+      && (!model.challenges.ok
+        || recordBacklinksResolve(model.results.rows, "challenge_refs", indexes.challenges))
+      && model.results.rows.every((result) => {
+        if (!result.outcome_room_ref) return true;
+        if (!indexes.rooms.has(result.outcome_room_ref)) return false;
+        const goalRunRef = optionalRef(result, "goal_run_ref");
+        if (!goalRunRef) return true;
+        const run = indexes.goalRuns.get(goalRunRef);
+        return !!run && run.outcome_room_ref === result.outcome_room_ref;
+      })],
+    ["attempts", ["rooms", "frontier", "claims", "participants", "goalRuns", "results"], () => hasUniqueKeys(model.attempts, "attempt_id")
+      && roomBacklinksResolve("attempt_refs", indexes.attempts)
+      && model.attempts.rows.every((attempt) => {
+        const frontier = indexes.frontier.get(attempt.frontier_item_ref);
+        const claim = indexes.claims.get(attempt.work_claim_ref);
+        const participant = indexes.participants.get(attempt.participant_ref);
+        const run = indexes.goalRuns.get(attempt.goal_run_ref);
+        const resultRef = optionalRef(attempt, "work_result_ref");
+        const result = resultRef ? indexes.results.get(resultRef) : null;
+        return indexes.rooms.has(attempt.outcome_room_ref)
+          && roomOwns(attempt.outcome_room_ref, "attempt_refs", attempt.attempt_id)
+          && !!frontier && sameRoom(frontier, attempt.outcome_room_ref)
+          && !!claim && sameRoom(claim, attempt.outcome_room_ref)
+          && claim.frontier_item_ref === attempt.frontier_item_ref
+          && claim.claimant_ref === attempt.participant_ref
+          && !!participant && sameRoom(participant, attempt.outcome_room_ref)
+          && !!run && run.outcome_room_ref === attempt.outcome_room_ref
+          && (!resultRef || (!!result
+            && result.outcome_room_ref === attempt.outcome_room_ref
+            && result.goal_run_ref === attempt.goal_run_ref));
+      })],
+    ["findings", ["rooms", "attempts", "participants", "results"], () => hasUniqueKeys(model.findings, "finding_id")
+      && roomBacklinksResolve("finding_refs", indexes.findings)
+      && model.findings.rows.every((finding) => {
+        const attempt = indexes.attempts.get(finding.attempt_ref);
+        const participant = indexes.participants.get(finding.participant_ref);
+        const result = indexes.results.get(finding.work_result_ref);
+        const supersedesRef = optionalRef(finding, "supersedes_ref");
+        const supersedes = supersedesRef ? indexes.findings.get(supersedesRef) : null;
+        return indexes.rooms.has(finding.outcome_room_ref)
+          && roomOwns(finding.outcome_room_ref, "finding_refs", finding.finding_id)
+          && !!attempt && sameRoom(attempt, finding.outcome_room_ref)
+          && attempt.participant_ref === finding.participant_ref
+          && attempt.work_result_ref === finding.work_result_ref
+          && !!participant && sameRoom(participant, finding.outcome_room_ref)
+          && !!result && result.outcome_room_ref === finding.outcome_room_ref
+          && (!supersedesRef || (!!supersedes && sameRoom(supersedes, finding.outcome_room_ref)));
+      })],
+    ["challenges", ["rooms", "participants", "attempts", "findings", "results"], () => hasUniqueKeys(model.challenges, "verifier_challenge_id")
+      && roomBacklinksResolve("verifier_challenge_refs", indexes.challenges)
+      && model.challenges.rows.every((challenge) => {
+        const participant = indexes.participants.get(challenge.challenger_ref);
+        const targetAttempt = indexes.attempts.get(challenge.challenged_ref);
+        const targetFinding = indexes.findings.get(challenge.challenged_ref);
+        const boundAttemptRef = targetAttempt?.attempt_id || targetFinding?.attempt_ref || "";
+        const target = targetAttempt || targetFinding;
+        const resultRef = target?.work_result_ref || "";
+        const result = indexes.results.get(resultRef);
+        return indexes.rooms.has(challenge.outcome_room_ref)
+          && roomOwns(challenge.outcome_room_ref, "verifier_challenge_refs", challenge.verifier_challenge_id)
+          && !!participant && sameRoom(participant, challenge.outcome_room_ref)
+          && !!target && sameRoom(target, challenge.outcome_room_ref)
+          && challenge.affected_attempt_refs.includes(boundAttemptRef)
+          && challenge.affected_attempt_refs.every((reference) => {
+            const attempt = indexes.attempts.get(reference);
+            return !!attempt && sameRoom(attempt, challenge.outcome_room_ref);
+          })
+          && !!result && result.outcome_room_ref === challenge.outcome_room_ref
+          && listIncludes(result, "challenge_refs", challenge.verifier_challenge_id);
+      })],
+  ];
+  const invalidPayloads = [];
+  for (const [name, dependencies, validator] of checks) {
+    const plane = model[name];
+    if (!plane.ok) continue;
+    if (dependencies.every((dependency) => model[dependency].ok) && !validator()) {
+      invalidPayloads.push(name);
+    }
+  }
+  for (const name of invalidPayloads) {
+    model[name] = unavailablePlane(model[name].status, "plane_payload_invalid");
+  }
+  let propagated;
+  do {
+    propagated = false;
+    for (const [name, dependencies] of checks) {
+      const plane = model[name];
+      if (!plane.ok || plane.rows.length === 0) continue;
+      if (dependencies.some((dependency) => !model[dependency].ok)) {
+        model[name] = unavailablePlane(plane.status, "plane_dependency_unavailable");
+        propagated = true;
+      }
+    }
+  } while (propagated);
+  for (const plane of Object.values(model)) {
+    if (!plane.ok) plane.rows = [];
+  }
+  return model;
 }
 
 export async function load(ctx) {
   const fetchImpl = ctx.fetch || globalThis.fetch;
+  const requestedTimeout = Number(ctx.planeTimeoutMs);
+  const timeoutMs = Number.isFinite(requestedTimeout) && requestedTimeout > 0
+    ? Math.min(Math.floor(requestedTimeout), 30_000)
+    : DEFAULT_PLANE_TIMEOUT_MS;
   const specs = [
     ["rooms", "/v1/hypervisor/outcome-rooms", "outcome_rooms"],
     ["requests", "/v1/hypervisor/room-participation-requests", "participation_requests"],
@@ -185,10 +455,13 @@ export async function load(ctx) {
     ["challenges", "/v1/hypervisor/verifier-challenges", "verifier_challenges"],
     ["goalRuns", "/v1/hypervisor/goal-runs", "goal_runs"],
   ];
-  const values = await Promise.all(specs.map(([, path, key]) => readCollection(fetchImpl, ctx.daemon, path, key, rowValidators[key])));
+  const [values, operations] = await Promise.all([
+    Promise.all(specs.map(([, path, key]) => readCollection(fetchImpl, ctx.daemon, path, key, rowValidators[key], timeoutMs))),
+    readOperations(fetchImpl, ctx.daemon, timeoutMs),
+  ]);
   const model = Object.fromEntries(specs.map(([name], index) => [name, values[index]]));
-  model.operations = await readOperations(fetchImpl, ctx.daemon);
-  return model;
+  model.operations = operations;
+  return validateModelRelationships(model);
 }
 
 const roomRef = (record) => String(record?.outcome_room_ref || "");
@@ -334,9 +607,19 @@ function renderChallenges(reference, model) {
   }).join("")}<p class="ms-boundary">${unresolved.length ? `${unresolved.length} unresolved challenge${unresolved.length === 1 ? "" : "s"} block room close and affected acceptance paths.` : "All challenge interlocks are cleared."} This surface displays the interlock; it does not create acceptance or verdict authority.</p></div>`;
 }
 
-function renderRoomDetail(room, model) {
+function renderRoomDetail(room, model, selectionProblem = null) {
   if (!room) {
-    return `<section class="ms-detail empty-detail"><div><b>Select a mission room</b><span>Choose a room to inspect its admitted work graph and proof posture.</span></div></section>`;
+    const title = selectionProblem?.code === "room_filter_mismatch"
+      ? "Selected room is outside this status view"
+      : selectionProblem?.code === "room_not_found"
+        ? "Selected room was not found"
+        : "Select a mission room";
+    const detail = selectionProblem?.code === "room_filter_mismatch"
+      ? "No different room was selected. Change the status filter or choose a visible room."
+      : selectionProblem?.code === "room_not_found"
+        ? "No different room was selected. Choose a room from the current daemon registry."
+        : "Choose a room to inspect its admitted work graph and proof posture.";
+    return `<section class="ms-detail empty-detail"${selectionProblem ? ` data-missions-selection-error="${selectionProblem.code}" role="status"` : ""}><div><b>${title}</b><span>${detail}</span></div></section>`;
   }
   const reference = value(room, "outcome_room_id");
   const participants = byRoom(model.participants, reference);
@@ -383,9 +666,12 @@ function renderLegacyOperations(model) {
   const blocked = goalRuns.filter((run) => Array.isArray(run.blockers) && run.blockers.length);
   const incidentCount = failures.length + blocked.length;
   const incidentsReady = model.operations.ok && model.goalRuns.ok;
-  const runRows = recent.map((run) => `<div class="ms-op-row"><span><b>${escHtml(run.name || run.execution_id || "mission run")}</b><small>${escHtml(shortRef(run.project_id || ""))}</small></span>${statusPill(run.status)}<time>${escHtml(timestamp(run.started_at))}</time>${run.timeline_ref ? proofLink({ href: run.timeline_ref, label: "Timeline", external: true }) : "<span>—</span>"}</div>`).join("");
+  const runRows = recent.map((run) => {
+    const timeline = canonicalTimelineRef(run.timeline_ref);
+    return `<div class="ms-op-row"><span><b>${escHtml(run.name || run.execution_id || "mission run")}</b><small>${escHtml(shortRef(run.project_id || ""))}</small></span>${statusPill(run.status)}<time>${escHtml(timestamp(run.started_at))}</time>${timeline ? proofLink({ href: timeline, label: "Timeline", external: true }) : "<span>—</span>"}</div>`;
+  }).join("");
   const incidentRows = [
-    ...failures.map((run) => ({ kind: "run failure", subject: run.name || run.execution_id, reason: run.status, time: run.finished_at || run.started_at, proof: run.timeline_ref })),
+    ...failures.map((run) => ({ kind: "run failure", subject: run.name || run.execution_id, reason: run.status, time: run.finished_at || run.started_at, proof: canonicalTimelineRef(run.timeline_ref) })),
     ...blocked.slice(0, 50).map((run) => ({ kind: "blocker", subject: run.normalized_goal || run.goal_ref || run.goal_run_id, reason: run.blockers?.[0]?.reason_code, time: run.updated_at || run.created_at, proof: run.goal_run_id ? `/__ioi/run-timeline/goal-run/${encodeURIComponent(run.goal_run_id)}` : "" })),
   ];
   const capDisclosure = incidentsReady && incidentRows.length < incidentCount
@@ -407,11 +693,17 @@ export function render(model, ctx) {
   const status = requestedStatus === "all" || statuses.includes(requestedStatus) ? requestedStatus : "all";
   const rooms = status === "all" ? allRooms : allRooms.filter((room) => value(room, "status") === status);
   const requestedRoom = ctx.url.searchParams.get("room") || "";
-  const selected = rooms.find((room) => value(room, "outcome_room_id") === requestedRoom)
-    || allRooms.find((room) => value(room, "outcome_room_id") === requestedRoom)
-    || rooms.find((room) => value(room, "status") === "open")
-    || rooms[0]
-    || null;
+  const exactRequestedRoom = requestedRoom
+    ? allRooms.find((room) => value(room, "outcome_room_id") === requestedRoom)
+    : null;
+  const selectionProblem = requestedRoom && !exactRequestedRoom
+    ? { code: "room_not_found" }
+    : requestedRoom && !rooms.includes(exactRequestedRoom)
+      ? { code: "room_filter_mismatch" }
+      : null;
+  const selected = requestedRoom
+    ? (selectionProblem ? null : exactRequestedRoom)
+    : rooms.find((room) => value(room, "status") === "open") || rooms[0] || null;
   const selectedRef = selected ? value(selected, "outcome_room_id") : "";
   const liveClaims = model.claims.rows.filter((claim) => LIVE_CLAIM.has(value(claim, "status")));
   const unresolved = model.challenges.rows.filter((challenge) => UNRESOLVED_CHALLENGE.has(value(challenge, "status")));
@@ -443,7 +735,7 @@ export function render(model, ctx) {
     <div class="ms-summary">${metric("rooms", planeCount(model.rooms))}${metric("open", planeCount(model.rooms, allRooms.filter((room) => value(room, "status") === "open")))}${metric("live claims", planeCount(model.claims, liveClaims))}${metric("unresolved challenges", planeCount(model.challenges, unresolved), unresolved.length ? "attention" : "")}${metric("attempts", planeCount(model.attempts))}${metric("findings", planeCount(model.findings))}</div>
     ${planeNotice("OutcomeRoom registry", model.rooms)}
     <nav class="ms-tabs" role="tablist" aria-label="Room status filters">${filters}</nav>
-    <div class="ms-workspace"><aside class="ms-sidebar"><div class="ms-sidebar-head"><span>Mission rooms</span><span>${planeCount(model.rooms, rooms)}</span></div>${renderRoomList(rooms, selectedRef, status, model)}</aside>${renderRoomDetail(selected, model)}</div>
+    <div class="ms-workspace"><aside class="ms-sidebar"><div class="ms-sidebar-head"><span>Mission rooms</span><span>${planeCount(model.rooms, rooms)}</span></div>${renderRoomList(rooms, selectedRef, status, model)}</aside>${renderRoomDetail(selected, model, selectionProblem)}</div>
     ${renderLegacyOperations(model)}
   </main></div></body></html>`;
 }

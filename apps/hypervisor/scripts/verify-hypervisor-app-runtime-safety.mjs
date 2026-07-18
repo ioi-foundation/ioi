@@ -18,6 +18,7 @@
 // Exit 0 = all assertions pass; exit 1 = one or more failed.
 
 import { spawn, spawnSync } from "node:child_process";
+import { createServer } from "node:http";
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync, readdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join, resolve } from "node:path";
@@ -31,6 +32,8 @@ const ROOT = join(APP, "..", "..");
 const ARTIFACTS = join(APP, ".artifacts");
 const FAULT_PORT = 4604;
 const FAULT_UI_PORT = 9404;
+const OPERATIONS_FAULT_PORT = 4605;
+const OPERATIONS_FAULT_UI_PORT = 9405;
 
 const results = [];
 const ok = (name, cond, detail) => { results.push({ name, pass: !!cond, detail: detail || "" }); };
@@ -62,6 +65,86 @@ function eslintRun(files) {
     ...files,
   ], { cwd: ROOT, encoding: "utf8" });
   return { code: r.status, out: `${r.stdout || ""}${r.stderr || ""}` };
+}
+
+async function startHostileOperationsDaemon() {
+  const maliciousTimeline = '"><img src=x onerror="document.body.dataset.pwned=1">';
+  const sockets = new Set();
+  const server = createServer((req, res) => {
+    const pathname = new URL(req.url || "/", "http://x").pathname;
+    if (pathname === "/v1/hypervisor/auth/policy") {
+      res.writeHead(200, { "content-type": "application/json" });
+      res.write('{"partial":');
+      return;
+    }
+    if (pathname === "/v1/hypervisor/providers") return;
+    const emptyPlanes = {
+      "/v1/hypervisor/provider-receipts": { receipts: [] },
+      "/v1/hypervisor/provider-spend/reconciliation": {
+        rows: [],
+        incomplete_teardown_warnings: [],
+        budget: {},
+        estimated_open_exposure_rate: {},
+        teardown_finalized: {},
+      },
+      "/v1/hypervisor/storage-backends": { backends: {} },
+      "/v1/hypervisor/storage-incidents": { incidents: [], repair_receipts: [] },
+      "/v1/hypervisor/akash-deployments": { deployments: [], leases: [], redeploy_plans: [] },
+      "/v1/hypervisor/failover/runs": { runs: [] },
+      "/v1/hypervisor/failover/plans": { plans: [] },
+      "/v1/hypervisor/goal-runs": { goal_runs: [] },
+      "/v1/hypervisor/work-ledger": { entries: [] },
+    };
+    const payload = pathname === "/v1/hypervisor/operations"
+      ? {
+          scheduler: { automations: [] },
+          runs: {
+            total: 2,
+            done: 0,
+            failed: 1,
+            running: 1,
+            recent: [
+              {
+                execution_id: "exec_safe",
+                automation_id: "automation_safe",
+                name: "Safe run",
+                project_id: "project:test",
+                status: "running",
+                started_at: "2026-07-18T00:00:00Z",
+                timeline_ref: "/__ioi/run-timeline/exec_safe",
+              },
+              {
+                execution_id: "exec_injected",
+                automation_id: "automation_injected",
+                name: '</script><img src=x onerror="document.body.dataset.namePwned=1">',
+                project_id: "project:test",
+                status: "failed",
+                started_at: "2026-07-18T00:00:01Z",
+                finished_at: "2026-07-18T00:00:02Z",
+                timeline_ref: maliciousTimeline,
+              },
+            ],
+            failures: [],
+          },
+          webhooks: { accepted: 0, rejected: 0, recent: [] },
+        }
+      : emptyPlanes[pathname] || {};
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(JSON.stringify(payload));
+  });
+  server.on("connection", (socket) => {
+    sockets.add(socket);
+    socket.on("close", () => sockets.delete(socket));
+  });
+  await new Promise((resolveListen) => server.listen(0, "127.0.0.1", resolveListen));
+  return {
+    base: `http://127.0.0.1:${server.address().port}`,
+    maliciousTimeline,
+    async close() {
+      for (const socket of sockets) socket.destroy();
+      await new Promise((resolveClose) => server.close(resolveClose));
+    },
+  };
 }
 
 async function run() {
@@ -146,7 +229,63 @@ async function run() {
     child.kill("SIGTERM");
   }
 
-  // 4. Static no-undef gate over the derived runtime set + the shipped augmentation bundle.
+  // 4. Operations owner boundary: hostile timeline data cannot become markup, and a daemon lane
+  // that stalls before headers or during body parsing cannot hang the embedded route.
+  const hostileDaemon = await startHostileOperationsDaemon();
+  const operationsChild = spawn(process.execPath, [join(HERE, "serve-product-ui.mjs")], {
+    env: {
+      ...process.env,
+      PORT: String(OPERATIONS_FAULT_PORT),
+      PRODUCT_UI_PORT: String(OPERATIONS_FAULT_UI_PORT),
+      IOI_HYPERVISOR_DAEMON_URL: hostileDaemon.base,
+    },
+    stdio: "ignore",
+  });
+  try {
+    const base = `http://127.0.0.1:${OPERATIONS_FAULT_PORT}`;
+    let up = null;
+    for (let i = 0; i < 30 && !up; i++) {
+      await new Promise((r) => setTimeout(r, 250));
+      up = await sGet("/__ioi/applications", base).catch(() => null);
+    }
+    ok("hostile-daemon serve reachable", !!up && up.status === 200, up ? `status ${up.status}` : "never came up");
+    const startedAt = Date.now();
+    const operations = await fetch(`${base}/__ioi/operations?embed=1`, {
+      signal: AbortSignal.timeout(7_000),
+    }).then(async (response) => ({ status: response.status, text: await response.text() })).catch(() => null);
+    const elapsed = Date.now() - startedAt;
+    ok("Operations returns within its bounded deadline when header and body lanes stall",
+      !!operations && operations.status === 200 && elapsed < 6_000 && operations.text.includes("<h1>Operations</h1>"),
+      operations ? `${operations.status} in ${elapsed}ms` : `no response after ${elapsed}ms`);
+    ok("Operations preserves a canonical internal timeline link",
+      !!operations && operations.text.includes('href="/__ioi/run-timeline/exec_safe"'));
+    ok("Operations drops a hostile daemon timeline ref instead of emitting executable markup",
+      !!operations
+        && !operations.text.includes(hostileDaemon.maliciousTimeline)
+        && !operations.text.includes("<img src=x")
+        && !operations.text.includes("document.body.dataset.pwned")
+        && !operations.text.includes('</script><img src=x onerror="document.body.dataset.namePwned=1">'));
+    ok("Operations names unavailable projections and preserves unknown-not-zero semantics",
+      !!operations
+        && operations.text.includes('data-operations-unavailable="auth-policy,providers,storage-backends"')
+        && operations.text.includes("unknown, not zero")
+        && operations.text.includes("Authentication-policy projection unavailable")
+        && operations.text.includes("Provider-account projection unavailable")
+        && operations.text.includes("Storage-backend inventory unavailable"));
+    ok("Operations never turns unavailable provider or malformed storage planes into empty-state claims",
+      !!operations
+        && !operations.text.includes("No BYO provider accounts yet")
+        && !operations.text.includes("No storage backends yet"));
+    const sibling = await sGet("/__ioi/applications", base).catch(() => null);
+    ok("estate remains available after bounded Operations degradation",
+      !!sibling && sibling.status === 200 && operationsChild.exitCode === null,
+      sibling ? `status ${sibling.status}` : "serve exited");
+  } finally {
+    operationsChild.kill("SIGTERM");
+    await hostileDaemon.close();
+  }
+
+  // 5. Static no-undef gate over the derived runtime set + the shipped augmentation bundle.
   const files = runtimeSet();
   ok("runtime set derived (serve + transitive imports)", files.length >= 14, `${files.length} modules`);
   const lint = eslintRun(files);

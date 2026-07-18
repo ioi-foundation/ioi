@@ -16,6 +16,20 @@
 // serve and every surface module alias this).
 export const escHtml = (s) => String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
+const TIMELINE_COMPONENT = /^[A-Za-z0-9._~-]+$/;
+
+// Daemon-owned timeline refs are navigable only when they name an exact internal timeline path.
+// Keep this stricter than generic URL parsing: parsing would normalize traversal before validation.
+export function canonicalTimelineRef(reference) {
+  if (typeof reference !== "string" || reference.length === 0 || reference.length > 512) return "";
+  const prefix = "/__ioi/run-timeline/";
+  if (!reference.startsWith(prefix)) return "";
+  const components = reference.slice(prefix.length).split("/");
+  if (!components.length || components.some((component) =>
+    !TIMELINE_COMPONENT.test(component) || component === "." || component === "..")) return "";
+  return reference;
+}
+
 // Read the selection state carried by a URL: only the requested keys, only non-empty values.
 export function parseSelection(url, keys) {
   const out = {};

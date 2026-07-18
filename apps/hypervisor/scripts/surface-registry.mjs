@@ -99,11 +99,11 @@ export function boundSurface(pathname, method) {
 
 // Routes that support the embedded render mode (`embed=1`) — EVERY registry surface (native
 // container contract #65: flat handlers render embedded through the serve choke point, modules
-// through ctx.embed) plus the native semantic-plane surfaces the cross-application journey
-// traverses (they ship no ported rail; threading embed through them keeps a chain that re-enters
+// through ctx.embed) plus the non-registry estate surfaces that cross-application journeys
+// traverse (they ship no ported rail; threading embed through them keeps a chain that re-enters
 // a registry surface embedded). The embed rewrite threads the flag only through links that land
 // on one of these routes.
-export const EMBED_THREAD_ROUTES = ["/__ioi/lineage", "/__ioi/vertex", "/__ioi/work-ledger"];
+export const EMBED_THREAD_ROUTES = ["/__ioi/lineage", "/__ioi/vertex", "/__ioi/work-ledger", "/__ioi/operations"];
 export function embeddableRoutes() {
   return new Set([...SURFACES.map((s) => s.route), ...EMBED_THREAD_ROUTES]);
 }
