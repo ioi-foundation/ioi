@@ -2,7 +2,7 @@
   "schema_version": "ioi.foundations.authority-grant-envelope.v2",
   "envelope_type": "ioi.authority-grant",
   "signature_domain": "ioi.authority-grant-envelope.v2",
-  "schema_hash": "sha256:2bb599d9a4fb74dec01ad34e6237277fa01ed0aa98d102be39dfe1ea66ad052c",
+  "schema_hash": "sha256:5d702231006db3551371f3d5f581532292c6a616c30c314b331ae747adfc219e",
   "authority_grant_id": "grant://acme/repo-auditor/2",
   "request_id": "authority-request://acme/repo-auditor/2",
   "issuer_id": "wallet://acme/security",

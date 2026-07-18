@@ -32,6 +32,9 @@ function githubAnchors(markdown) {
 
 function localTarget(rawTarget) {
   let target = rawTarget.trim();
+  if (!target.startsWith("<")) {
+    target = target.split(/\s+/u, 1)[0];
+  }
   if (target.startsWith("<") && target.endsWith(">")) {
     target = target.slice(1, -1);
   }
@@ -51,6 +54,60 @@ function localTarget(rawTarget) {
   };
 }
 
+function normalizedReferenceLabel(label) {
+  return label.trim().replace(/\s+/gu, " ").toLowerCase();
+}
+
+function referenceDefinitions(markdown) {
+  const definitions = new Map();
+  const definitionPattern =
+    /^[ \t]{0,3}\[([^\]\n]+)\]:[ \t]*(<[^>\n]+>|\S+)(?:[ \t]+(?:"[^"\n]*"|'[^'\n]*'|\([^)\n]*\)))?[ \t]*$/gmu;
+  for (const match of markdown.matchAll(definitionPattern)) {
+    const label = normalizedReferenceLabel(match[1]);
+    if (!definitions.has(label)) {
+      definitions.set(label, match[2]);
+    }
+  }
+  return definitions;
+}
+
+function markdownLinks(markdown) {
+  const definitions = referenceDefinitions(markdown);
+  const links = [];
+  const linkPattern =
+    /!?\[([^\]\n]+)\](?:\(([^)\n]+)\)|\[([^\]\n]*)\])?/gu;
+  for (const match of markdown.matchAll(linkPattern)) {
+    const lineStart = markdown.lastIndexOf("\n", match.index - 1) + 1;
+    const before = markdown.slice(lineStart, match.index);
+    const after = markdown.slice(match.index + match[0].length);
+    if (/^[ \t]{0,3}$/u.test(before) && after.startsWith(":")) continue;
+
+    if (match[2] !== undefined) {
+      links.push({ target: match[2], display: match[2] });
+      continue;
+    }
+
+    const explicitReference = match[3] !== undefined;
+    const label = normalizedReferenceLabel(
+      explicitReference && match[3] !== "" ? match[3] : match[1],
+    );
+    if (!definitions.has(label)) {
+      if (explicitReference) {
+        links.push({
+          missingDefinition: label,
+          display: match[0],
+        });
+      }
+      continue;
+    }
+    links.push({
+      target: definitions.get(label),
+      display: match[0],
+    });
+  }
+  return links;
+}
+
 export function checkConformanceDocsIntegrity({
   root,
   conformanceRoot = path.join(root, "docs", "conformance"),
@@ -60,17 +117,22 @@ export function checkConformanceDocsIntegrity({
     return ["docs/conformance is missing"];
   }
   const markdownFiles = markdownFilesUnder(conformanceRoot);
-  const markdownLinkPattern = /\[[^\]]+\]\(([^)\n]+)\)/gu;
   for (const file of markdownFiles) {
     const content = fs.readFileSync(file, "utf8");
     const relativeFile = path.relative(root, file);
-    for (const match of content.matchAll(markdownLinkPattern)) {
+    for (const link of markdownLinks(content)) {
+      if (link.missingDefinition) {
+        failures.push(
+          `${relativeFile} has missing reference definition: ${link.display}`,
+        );
+        continue;
+      }
       let target;
       try {
-        target = localTarget(match[1]);
+        target = localTarget(link.target);
       } catch (error) {
         failures.push(
-          `${relativeFile} has an invalid encoded link ${match[1]}: ${error.message}`,
+          `${relativeFile} has an invalid encoded link ${link.display}: ${error.message}`,
         );
         continue;
       }
@@ -84,11 +146,11 @@ export function checkConformanceDocsIntegrity({
         relativeTarget.startsWith(`..${path.sep}`) ||
         path.isAbsolute(relativeTarget)
       ) {
-        failures.push(`${relativeFile} links outside the repository: ${match[1]}`);
+        failures.push(`${relativeFile} links outside the repository: ${link.display}`);
         continue;
       }
       if (!fs.existsSync(resolved)) {
-        failures.push(`${relativeFile} has broken local link: ${match[1]}`);
+        failures.push(`${relativeFile} has broken local link: ${link.display}`);
         continue;
       }
       if (
@@ -99,7 +161,7 @@ export function checkConformanceDocsIntegrity({
           target.anchor.toLowerCase(),
         )
       ) {
-        failures.push(`${relativeFile} has broken local anchor: ${match[1]}`);
+        failures.push(`${relativeFile} has broken local anchor: ${link.display}`);
       }
     }
   }

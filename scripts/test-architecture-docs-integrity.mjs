@@ -6,11 +6,13 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import {
+  IMPLEMENTATION_MATRIX_CROSS_BOUNDARY_OWNERS,
   checkImplementationRefs,
   checkImplementationMatrixEvidence,
   checkOwnerMetadata,
   checkOwningRegistryDuplicates,
   checkRecencyPrecedence,
+  checkRetiredRuntimePathHonesty,
   checkSchemaIdentities,
   checkSchemeRegistry,
   checkStatusMetadata,
@@ -58,33 +60,19 @@ test("implementation matrix rejects stale evidence and enforces cross-boundary o
   );
   const row = (concept, owners, current = "current Rust implementation") =>
     `| \`${concept}\` | ${owners} | ${current} | keep | \`scripts/check-runtime-layout.mjs\` | guard |`;
-  const daemon =
-    "[daemon](../components/daemon-runtime/doctrine.md)";
-  const client =
-    "[client](../components/hypervisor/core-clients-surfaces.md)";
-  const model =
-    "[model](../components/model-router/doctrine.md)";
-  const wallet =
-    "[wallet](../components/wallet-network/doctrine.md)";
-  const ctee =
-    "[ctee](../components/daemon-runtime/private-workspace-ctee.md)";
-  const memory =
-    "[memory](../components/daemon-runtime/portable-memory-vault.md)";
-  const agentgres =
-    "[agentgres](../components/agentgres/doctrine.md)";
-  const shared =
-    "[shared](../foundations/common-objects-and-envelopes.md)";
-  const connector =
-    "[connector](../components/connectors-tools/contracts.md)";
+  const ownerLink = (fragment) => {
+    const target = fragment.startsWith("foundations/")
+      ? `../${fragment}`
+      : `../components/${fragment}`;
+    return `[owner](${target})`;
+  };
   const valid = [
-    row("ModelCapabilityTokenControl", `${model}, ${wallet}`),
-    row("ModelVaultControl", `${model}, ${wallet}, ${ctee}`),
-    row("RuntimeThreadMemoryControl", `${daemon}, ${memory}, ${agentgres}`),
-    row("RuntimeManagedSessionControl", `${daemon}, ${client}`),
-    row("RuntimeWorkflowEditControl", `${daemon}, ${client}`),
-    row(
-      "RuntimeSkillHookRegistryControl",
-      `${shared}, ${daemon}, ${connector}`,
+    ...[...IMPLEMENTATION_MATRIX_CROSS_BOUNDARY_OWNERS].map(
+      ([concept, owners]) =>
+        row(
+          concept.slice(1, -1),
+          owners.map((owner) => ownerLink(owner)).join(", "),
+        ),
     ),
     row(
       "HypervisorKernelSubstrateMigration",
@@ -104,8 +92,8 @@ test("implementation matrix rejects stale evidence and enforces cross-boundary o
       root,
       matrixFile,
       content: valid.replace(
-        "scripts/check-runtime-layout.mjs",
-        "scripts/missing-current-evidence.mjs",
+        "`scripts/check-runtime-layout.mjs`",
+        "`scripts/missing-current-evidence.mjs`",
       ),
     }).join("\n"),
     /missing current-evidence path/u,
@@ -122,7 +110,16 @@ test("implementation matrix rejects stale evidence and enforces cross-boundary o
     checkImplementationMatrixEvidence({
       root,
       matrixFile,
-      content: valid.replace(`${model}, ${wallet}`, model),
+      content: valid.replace(
+        row(
+          "ModelCapabilityTokenControl",
+          `${ownerLink("model-router/doctrine.md")}, ${ownerLink("wallet-network/doctrine.md")}`,
+        ),
+        row(
+          "ModelCapabilityTokenControl",
+          ownerLink("model-router/doctrine.md"),
+        ),
+      ),
     }).join("\n"),
     /ModelCapabilityTokenControl.*wallet-network\/doctrine\.md/u,
   );
@@ -132,10 +129,40 @@ test("implementation matrix rejects stale evidence and enforces cross-boundary o
       matrixFile,
       content: valid.replace(
         "[status](./hypervisor-kernel-substrate-migration-matrix.md)",
-        daemon,
+        ownerLink("daemon-runtime/doctrine.md"),
       ),
     }).join("\n"),
     /classify HypervisorKernelSubstrateMigration/u,
+  );
+});
+
+test("retired runtime and bridge paths require explicit historical context", () => {
+  const active =
+    "## Current Work\n\nImplement `packages/runtime-daemon/src/new-route.mjs` next.\n";
+  assert.match(
+    checkRetiredRuntimePathHonesty("guide.md", active).join("\n"),
+    /outside an explicit historical or retired context/u,
+  );
+  assert.deepEqual(
+    checkRetiredRuntimePathHonesty(
+      "guide.md",
+      "## Historical Migration Program\n\nImplement `packages/runtime-daemon/src/old-route.mjs` next.\n",
+    ),
+    [],
+  );
+  assert.deepEqual(
+    checkRetiredRuntimePathHonesty(
+      "matrix.md",
+      "## Current Status\n\nThe former `mcp-manager.mjs` is retired and must not return.\n",
+    ),
+    [],
+  );
+  assert.match(
+    checkRetiredRuntimePathHonesty(
+      "matrix.md",
+      "## Current Status\n\nAdd a new `ioi-step-module-bridge` operation.\n",
+    ).join("\n"),
+    /outside an explicit historical or retired context/u,
   );
 });
 

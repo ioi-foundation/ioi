@@ -6,20 +6,29 @@ import { createHash } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import Ajv2020 from "ajv/dist/2020.js";
 import addFormats from "ajv-formats";
+import {
+  ARCHITECTURE_CONTRACT_CONSUMER_TARGETS,
+  ARCHITECTURE_CONTRACT_CONSUMER_TARGET_BY_KIND,
+} from "./lib/architecture-contract-consumer-targets.mjs";
+import { safeRepositoryPath } from "./lib/repository-path-boundary.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const schemaRoot = path.join(root, "docs", "architecture", "_meta", "schemas");
-const registryPath = path.join(
-  schemaRoot,
-  "architecture-contract-registry.v1.json",
-);
+const registryPath = safeRepositoryPath({
+  root,
+  boundaryRoot: schemaRoot,
+  relativePath: "architecture-contract-registry.v1.json",
+  at: "architecture contract registry",
+  mustExist: true,
+});
 const failures = [];
 const fixturePaths = new Set();
 const generatedTargetPaths = new Map();
-const supportedGeneratedTargetKinds = new Set([
-  "typescript_projection",
-  "rust_projection",
-]);
+const supportedGeneratedTargetKinds = new Set(
+  ARCHITECTURE_CONTRACT_CONSUMER_TARGETS.map((target) => target.kind),
+);
+const portableCanonicalDateTimePattern =
+  "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$";
 
 function fail(message) {
   failures.push(message);
@@ -60,38 +69,31 @@ function canonicalJson(value) {
 }
 
 function safeGeneratedTargetPath(targetPath, at) {
-  if (
-    typeof targetPath !== "string" ||
-    targetPath.length === 0 ||
-    targetPath.includes("\\") ||
-    path.isAbsolute(targetPath) ||
-    path.win32.isAbsolute(targetPath)
-  ) {
-    fail(`${at}: generated target path must be a repository-relative POSIX path`);
+  try {
+    return safeRepositoryPath({
+      root,
+      relativePath: targetPath,
+      at,
+    });
+  } catch (error) {
+    fail(error instanceof Error ? error.message : String(error));
     return null;
   }
-  const normalized = path.posix.normalize(targetPath);
-  if (
-    normalized !== targetPath ||
-    normalized === "." ||
-    normalized === ".." ||
-    normalized.startsWith("../")
-  ) {
-    fail(`${at}: generated target path escapes or is not normalized: ${targetPath}`);
+}
+
+function safeSchemaPath(relativePath, at) {
+  try {
+    return safeRepositoryPath({
+      root,
+      boundaryRoot: schemaRoot,
+      relativePath,
+      at,
+      mustExist: true,
+    });
+  } catch (error) {
+    fail(error instanceof Error ? error.message : String(error));
     return null;
   }
-  const absolute = path.resolve(root, targetPath);
-  const relative = path.relative(root, absolute);
-  if (
-    relative.length === 0 ||
-    relative === ".." ||
-    relative.startsWith(`..${path.sep}`) ||
-    path.isAbsolute(relative)
-  ) {
-    fail(`${at}: generated target path escapes the repository: ${targetPath}`);
-    return null;
-  }
-  return absolute;
 }
 
 function schemaHash(schema) {
@@ -135,6 +137,13 @@ function preflightGeneratedTargets(registryDocument) {
         fail(`${targetAt}: unknown generated target kind ${target.kind}`);
         continue;
       }
+      const consumerTarget =
+        ARCHITECTURE_CONTRACT_CONSUMER_TARGET_BY_KIND.get(target.kind);
+      if (target.path !== consumerTarget.path) {
+        fail(
+          `${targetAt}: generated target path must match canonical ${target.kind} consumer ${consumerTarget.path}`,
+        );
+      }
       if (seenKinds.has(target.kind)) {
         fail(`${at}: duplicate generated target kind ${target.kind}`);
       }
@@ -169,6 +178,37 @@ function collectRefs(value, at = "$") {
       collectRefs(item, `${at}.${key}`),
     ),
   ];
+}
+
+function checkPortableSchemaProfiles(value, at = "$") {
+  if (Array.isArray(value)) {
+    for (const [index, item] of value.entries()) {
+      checkPortableSchemaProfiles(item, `${at}[${index}]`);
+    }
+    return;
+  }
+  if (!isObject(value)) return;
+  if (
+    value.type === "integer" &&
+    (!Number.isSafeInteger(value.minimum) ||
+      !Number.isSafeInteger(value.maximum) ||
+      value.minimum < 0 ||
+      value.maximum > Number.MAX_SAFE_INTEGER ||
+      value.minimum > value.maximum)
+  ) {
+    fail(
+      `${at}: integer schema is outside the portable unsigned JS-safe domain`,
+    );
+  }
+  if (
+    value.format === "date-time" &&
+    value.pattern !== portableCanonicalDateTimePattern
+  ) {
+    fail(`${at}: date-time schema lacks the portable canonical RFC3339 pattern`);
+  }
+  for (const [key, item] of Object.entries(value)) {
+    checkPortableSchemaProfiles(item, `${at}.${key}`);
+  }
 }
 
 function resolvePointer(value, ref) {
@@ -365,10 +405,18 @@ function checkRegistryMetadata(registry) {
     } else {
       const owner = contract.canonical_owner_ref.slice("canon://".length);
       const [ownerFile, anchor] = owner.split("#", 2);
-      const ownerPath = path.join(root, ownerFile);
-      if (!fs.existsSync(ownerPath)) {
-        fail(`${contract.contract_id}: missing canonical owner ${ownerFile}`);
-      } else if (!markdownAnchorExists(ownerPath, anchor)) {
+      let ownerPath = null;
+      try {
+        ownerPath = safeRepositoryPath({
+          root,
+          relativePath: ownerFile,
+          at: `${contract.contract_id}: canonical owner`,
+          mustExist: true,
+        });
+      } catch (error) {
+        fail(error instanceof Error ? error.message : String(error));
+      }
+      if (ownerPath && !markdownAnchorExists(ownerPath, anchor)) {
         fail(`${contract.contract_id}: missing canonical owner anchor #${anchor}`);
       }
     }
@@ -418,9 +466,14 @@ ajv.addKeyword({ keyword: "x-ioi-schema-version", schemaType: "string" });
 addFormats(ajv);
 
 for (const contract of registry.contracts ?? []) {
-  const schemaPath = path.join(schemaRoot, contract.schema_ref);
+  const schemaPath = safeSchemaPath(
+    contract.schema_ref,
+    `${contract.contract_id}: schema_ref`,
+  );
+  if (!schemaPath) continue;
   const schema = readJson(schemaPath);
   if (!schema) continue;
+  checkPortableSchemaProfiles(schema, `schema:${contract.contract_id}`);
   if (schema.$schema !== "https://json-schema.org/draft/2020-12/schema") {
     fail(`${contract.contract_id}: schema is not 2020-12`);
   }
@@ -451,7 +504,11 @@ for (const contract of registry.contracts ?? []) {
 
   const invariantProfiles = [];
   for (const invariantRef of contract.cross_field_invariant_refs) {
-    const invariantPath = path.join(schemaRoot, invariantRef.path);
+    const invariantPath = safeSchemaPath(
+      invariantRef.path,
+      `${contract.contract_id}: invariant ${invariantRef.invariant_id}`,
+    );
+    if (!invariantPath) continue;
     const profile = readJson(invariantPath);
     if (!profile) continue;
     invariantProfiles.push(profile);
@@ -490,7 +547,11 @@ for (const contract of registry.contracts ?? []) {
     expected: "reject",
   }));
   for (const fixture of [...positivePaths, ...negativePaths]) {
-    const fixturePath = path.join(schemaRoot, fixture.path);
+    const fixturePath = safeSchemaPath(
+      fixture.path,
+      `${contract.contract_id}: fixture`,
+    );
+    if (!fixturePath) continue;
     if (fixturePaths.has(fixture.path)) fail(`registry: duplicate fixture ${fixture.path}`);
     fixturePaths.add(fixture.path);
     const value = readJson(fixturePath);
@@ -538,7 +599,12 @@ for (const contract of registry.contracts ?? []) {
       fail(`${contract.contract_id}: alias ${alias.alias} is not read-only`);
     }
     const aliasFixture = contract.negative_fixture_refs.some((fixture) => {
-      const value = readJson(path.join(schemaRoot, fixture.path));
+      const fixturePath = safeSchemaPath(
+        fixture.path,
+        `${contract.contract_id}: compatibility fixture`,
+      );
+      if (!fixturePath) return false;
+      const value = readJson(fixturePath);
       return isObject(value) && Object.hasOwn(value, alias.alias);
     });
     if (!aliasFixture) fail(`${contract.contract_id}: alias ${alias.alias} has no write-rejection fixture`);
@@ -547,13 +613,39 @@ for (const contract of registry.contracts ?? []) {
   for (const target of Array.isArray(contract.generated_targets)
     ? contract.generated_targets
     : []) {
-    const targetPath = generatedTargetPaths.get(target);
+    if (!generatedTargetPaths.has(target)) continue;
+    const targetPath = safeGeneratedTargetPath(
+      target.path,
+      `${contract.contract_id}: generated target read`,
+    );
     if (!targetPath) continue;
     if (!fs.existsSync(targetPath)) {
       fail(`${contract.contract_id}: missing generated target ${target.path}`);
     } else if (!fs.readFileSync(targetPath, "utf8").includes(target.symbol)) {
       fail(`${contract.contract_id}: generated target lacks symbol ${target.symbol}`);
     }
+  }
+}
+
+for (const consumer of ARCHITECTURE_CONTRACT_CONSUMER_TARGETS) {
+  let consumerPath = null;
+  try {
+    consumerPath = safeRepositoryPath({
+      root,
+      relativePath: consumer.consumer_path,
+      at: `${consumer.kind}: consumer binding`,
+      mustExist: true,
+    });
+  } catch (error) {
+    fail(error instanceof Error ? error.message : String(error));
+  }
+  if (
+    consumerPath &&
+    !fs.readFileSync(consumerPath, "utf8").includes(consumer.consumer_marker)
+  ) {
+    fail(
+      `${consumer.kind}: ${consumer.consumer_path} does not bind ${consumer.path}`,
+    );
   }
 }
 

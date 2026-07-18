@@ -474,6 +474,292 @@ const hypervisorLifecycleRoutes = fs.readFileSync(
   ),
   "utf8",
 );
+const harnessTerminalAttachAdmission = fs.readFileSync(
+  path.join(
+    root,
+    "crates/services/src/agentic/runtime/kernel/runtime_harness_session_terminal_attach_admission.rs",
+  ),
+  "utf8",
+);
+const currentHarnessRustCorpus = allFiles(
+  path.join(root, "crates/services/src/agentic/runtime"),
+)
+  .concat(allFiles(path.join(root, "crates/node/src/bin")))
+  .filter((file) => file.endsWith(".rs"))
+  .map((file) => fs.readFileSync(file, "utf8"))
+  .join("\n");
+
+function matrixRow(prefix) {
+  return implementationMatrix
+    .split(/\r?\n/u)
+    .find((line) => line.startsWith(`| \`${prefix}`));
+}
+
+function topLevelRustFunction(source, name) {
+  const declaration = new RegExp(
+    `^(?:pub(?:\\([^)]*\\))?\\s+)?async\\s+fn\\s+${name}\\b`,
+    "mu",
+  );
+  const match = declaration.exec(source);
+  if (!match) {
+    fail(`Current Rust source is missing expected handler ${name}.`);
+    return "";
+  }
+  const tail = source.slice(match.index + match[0].length);
+  const next = tail.search(
+    /^\s*(?:(?:pub(?:\([^)]*\))?\s+)?async\s+fn|(?:pub(?:\([^)]*\))?\s+)?fn)\s+[A-Za-z0-9_]+\b/mu,
+  );
+  return next < 0 ? tail : tail.slice(0, next);
+}
+
+function requireRowFacts(prefix, facts) {
+  const row = matrixRow(prefix);
+  if (!row) {
+    fail(`_meta/implementation-matrix.md missing source-audited row ${prefix}.`);
+    return "";
+  }
+  for (const fact of facts) {
+    if (!row.includes(fact)) {
+      fail(`_meta/implementation-matrix.md ${prefix} missing honest status fact: ${fact}.`);
+    }
+  }
+  return row;
+}
+
+function requireMountedModelRoute(routePath, handler) {
+  const escapedPath = routePath.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
+  const pattern = new RegExp(
+    `\\.route\\(\\s*"${escapedPath}"[\\s\\S]{0,180}\\b${handler}\\b`,
+    "u",
+  );
+  if (!pattern.test(hypervisorDaemonRoutes)) {
+    fail(
+      `crates/node/src/bin/hypervisor-daemon.rs must mount ${routePath} through ${handler} for the source-backed matrix status.`,
+    );
+  }
+}
+
+for (const [routePath, handler] of [
+  ["/v1/model-mount/tokens/tokenize", "handle_tokenize"],
+  ["/v1/model-mount/tokens/count", "handle_token_count"],
+  ["/v1/model-mount/context/fit", "handle_context_fit"],
+  ["/v1/model-mount/providers", "handle_provider_set"],
+  ["/v1/model-mount/artifacts/import", "handle_artifacts_import"],
+  ["/v1/model-mount/artifacts/:id", "handle_artifact_delete"],
+  ["/v1/model-mount/catalog/import-url", "handle_catalog_import_url"],
+  ["/v1/model-mount/downloads", "handle_downloads"],
+  ["/v1/model-mount/downloads/:id/cancel", "handle_download_cancel"],
+  ["/v1/model-mount/storage/cleanup", "handle_storage_cleanup"],
+  ["/v1/model-mount/vault/refs", "handle_vault_set"],
+  ["/v1/model-mount/workflows/receipt-gate", "handle_receipt_gate"],
+  ["/v1/model-mount/mcp/invoke", "handle_mcp_invoke"],
+]) {
+  requireMountedModelRoute(routePath, handler);
+}
+
+const tokenizerHandlers = [
+  "handle_tokenize",
+  "handle_token_count",
+  "handle_context_fit",
+].map((name) => topLevelRustFunction(hypervisorDaemonRoutes, name)).join("\n");
+if (
+  !tokenizerHandlers.includes("split_whitespace") ||
+  !tokenizerHandlers.includes("authorize(") ||
+  /plan_tokenizer/u.test(tokenizerHandlers)
+) {
+  fail(
+    "Mounted tokenizer handlers must remain wallet-authorized direct whitespace behavior and must not be certified by the unbound tokenizer planner.",
+  );
+}
+requireRowFacts("ModelTokenizerControl`", [
+  "mounted direct Rust compatibility implementation",
+  "whitespace",
+  "do not call `model_mount/tokenizer.rs`",
+]);
+
+const providerHandler = topLevelRustFunction(
+  hypervisorDaemonRoutes,
+  "handle_provider_set",
+);
+if (
+  !providerHandler.includes("authorize(") ||
+  !providerHandler.includes(".plan_provider_control(") ||
+  !providerHandler.includes("secret_ref_hash")
+) {
+  fail(
+    "Mounted provider control status must be backed by wallet authorization, plan_provider_control, and hash-only secret binding.",
+  );
+}
+requireRowFacts("ModelProviderControl`", [
+  "calls `plan_provider_control`",
+  "does not prove a live cTEE material adapter",
+]);
+
+const artifactImportHandler = topLevelRustFunction(
+  hypervisorDaemonRoutes,
+  "handle_artifacts_import",
+);
+const artifactDeleteHandler = topLevelRustFunction(
+  hypervisorDaemonRoutes,
+  "handle_artifact_delete",
+);
+if (
+  !artifactImportHandler.includes(".plan_artifact_endpoint(") ||
+  /plan_storage_control/u.test(
+    `${artifactImportHandler}\n${artifactDeleteHandler}`,
+  )
+) {
+  fail(
+    "Mounted artifact import/delete status must distinguish the artifact-endpoint planner from the unbound storage-control planner.",
+  );
+}
+requireRowFacts("ModelArtifactStorageControl`", [
+  "call `plan_artifact_endpoint`",
+  "artifact deletion are direct daemon handlers",
+  "`storage_control.rs` is not the implementation",
+]);
+
+const storageDownloadHandlers = [
+  "handle_catalog_import_url",
+  "handle_downloads",
+  "handle_download_cancel",
+  "handle_storage_cleanup",
+  "handle_artifact_delete",
+].map((name) => topLevelRustFunction(hypervisorDaemonRoutes, name)).join("\n");
+if (
+  !storageDownloadHandlers.includes("fixture") ||
+  !storageDownloadHandlers.includes("authorize(") ||
+  /plan_storage_control/u.test(storageDownloadHandlers)
+) {
+  fail(
+    "Mounted catalog/download/storage handlers must remain source-classified as wallet-gated direct fixture/local behavior, not storage-control planner execution.",
+  );
+}
+requireRowFacts("ModelCatalogDownloadControl`", [
+  "fixture-only direct Rust implementation",
+  "do not call `storage_control.rs`",
+  "do not",
+  "prove cTEE custody",
+]);
+
+if (
+  hypervisorDaemonRoutes.includes("/v1/model-mount/catalog/providers") ||
+  hypervisorDaemonRoutes.includes("plan_catalog_provider_control")
+) {
+  fail(
+    "Catalog-provider control can no longer be classified as unmounted; update implementation status and conformance.",
+  );
+}
+requireRowFacts("ModelCatalogProviderControl`", [
+  "unmounted Rust substrate",
+  "mounts no `/v1/model-mount/catalog/providers*` route",
+  "calls no catalog-provider planner",
+  "not functioning implementation evidence",
+]);
+
+const receiptGateHandler = topLevelRustFunction(
+  hypervisorDaemonRoutes,
+  "handle_receipt_gate",
+);
+if (
+  receiptGateHandler.includes("authorize(") ||
+  receiptGateHandler.includes("plan_receipt_gate")
+) {
+  fail(
+    "Receipt-gate matrix status must be revised if the mounted handler gains authority or planner binding.",
+  );
+}
+requireRowFacts("ModelReceiptGateControl`", [
+  "does not authorize the request",
+  "call `receipt_gate.rs`",
+]);
+
+const vaultHandlers = [
+  "handle_vault_set",
+  "handle_vault_list",
+  "handle_vault_rm",
+  "handle_vault_get_meta",
+  "handle_vault_status",
+  "handle_vault_health",
+  "handle_vault_health_latest",
+].map((name) => topLevelRustFunction(hypervisorDaemonRoutes, name)).join("\n");
+if (
+  !vaultHandlers.includes("authorize(") ||
+  /plan_vault_control/u.test(vaultHandlers)
+) {
+  fail(
+    "Mounted vault routes must remain source-classified as direct wallet-gated hash/in-memory behavior, not vault planner or cTEE custody.",
+  );
+}
+requireRowFacts("ModelVaultControl`", [
+  "do not call `vault_control.rs`",
+  "do not use a live cTEE custody adapter",
+]);
+
+const modelMountMcpInvoke = topLevelRustFunction(
+  hypervisorDaemonRoutes,
+  "handle_mcp_invoke",
+);
+if (
+  !modelMountMcpInvoke.includes('\"status\": \"executed\"') ||
+  !modelMountMcpInvoke.includes("persist_record(") ||
+  !modelMountMcpInvoke.includes("authorize(") ||
+  /execute_runtime_mcp_live_backend|McpLiveBackend|tools\/call/u.test(
+    modelMountMcpInvoke,
+  )
+) {
+  fail(
+    "Model-mount MCP invoke honesty assertion no longer matches the mounted receipt-only handler; inspect behavior before changing canon.",
+  );
+}
+requireRowFacts("RuntimeMcpControl`", [
+  "`/v1/model-mount/mcp/invoke`",
+  "performs no MCP transport call",
+  "falsely returns `result.status: \"executed\"`",
+]);
+
+requireRowFacts("HypervisorSessionLaunchRecipe`", [
+  "real wallet-gated host-spawn execution lane",
+  "does not emit the canonical typed `HarnessSessionSpawn` or `HarnessSessionReadiness` records",
+]);
+requireRowFacts("HarnessSessionSpawn`", [
+  "accepts caller-supplied `session_spawn` and `session_readiness` records",
+  "does not author or durably admit those two input record types",
+]);
+requireRowFacts("HarnessContainerLanePlan`", [
+  "not implemented",
+  "no canonical container-lane plan or receipt type is authored",
+]);
+if (
+  !hypervisorDaemonRoutes.includes(
+    '"/v1/hypervisor/harness-session-binding-admissions"',
+  ) ||
+  !hypervisorDaemonRoutes.includes(
+    '"/v1/hypervisor/harness-session-terminal-attachments"',
+  ) ||
+  !hypervisorDaemonRoutes.includes('"/v1/hypervisor/sessions/:id/execute"') ||
+  !hypervisorLifecycleRoutes.includes("run_host_spawn_lane(") ||
+  !harnessTerminalAttachAdmission.includes(
+    'request.get("session_spawn")',
+  ) ||
+  !harnessTerminalAttachAdmission.includes(
+    'request.get("session_readiness")',
+  )
+) {
+  fail(
+    "Harness implementation status must remain bound to the mounted binding/host-spawn paths and caller-supplied terminal-attach records.",
+  );
+}
+for (const absentType of [
+  "HarnessContainerLanePlan",
+  "HarnessContainerLaneReceipt",
+]) {
+  if (currentHarnessRustCorpus.includes(absentType)) {
+    fail(
+      `Harness matrix says ${absentType} is absent, but current Rust now names it; audit producer behavior and update status deliberately.`,
+    );
+  }
+}
 
 const mountedTopLevelMcpDiscoveryRoutes = [
   ["get", "/v1/mcp", "handle_mcp_discover_status"],
@@ -592,11 +878,7 @@ const mcpStatusRows = [
     "_meta/hypervisor-kernel-substrate-migration-matrix.md",
     hypervisorKernelMigrationMatrix
       .split(/\r?\n/)
-      .find((line) =>
-        line.startsWith(
-          "| Runtime MCP registry/control and discovery positive API |",
-        ),
-      ),
+      .find((line) => line.startsWith("| `runtime-mcp-control-discovery` |")),
   ],
 ];
 for (const [rel, row] of mcpStatusRows) {
@@ -1879,7 +2161,7 @@ for (const [subject, owner] of [
   ],
   [
     "`RuntimeAgentgresStateCacheControl`",
-    "[`agentgres-state-substrate.md`](../components/agentgres/doctrine.md)",
+    "[`ioi-cli-daemon-runtime.md`](../components/daemon-runtime/doctrine.md), [`agentgres-state-substrate.md`](../components/agentgres/doctrine.md)",
   ],
   [
     "`RuntimeRepositoryWorkflowProjectionControl`",

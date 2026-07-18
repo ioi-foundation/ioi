@@ -634,6 +634,11 @@ export type DeclassificationApprovalV1 = {
 
 export const ARCHITECTURE_CONTRACT_REGISTRY_VERSION = "ioi.architecture-contract-registry.v1" as const;
 
+export const ARCHITECTURE_CONTRACT_PORTABLE_INTEGER_MINIMUM = 0 as const;
+export const ARCHITECTURE_CONTRACT_PORTABLE_INTEGER_MAXIMUM = 9007199254740991 as const;
+export const ARCHITECTURE_CONTRACT_PORTABLE_DATE_TIME_PATTERN = "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$" as const;
+export const ARCHITECTURE_CONTRACT_ORACLE_PROFILE = "ajv-2020-12-plus-portable-invariants-and-canonical-rfc3339" as const;
+
 export const ARCHITECTURE_CONTRACT_FIXTURES = [
   {
     "contract_id": "schema://ioi/foundations/receipt-envelope/v1",
@@ -1878,24 +1883,94 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
     "contract_id": "schema://ioi/foundations/authority-grant-envelope/v2",
     "source_fixture_path": null,
     "mutation_id": null,
-    "value_json": "{\n  \"schema_version\": \"ioi.foundations.authority-grant-envelope.v2\",\n  \"envelope_type\": \"ioi.authority-grant\",\n  \"signature_domain\": \"ioi.authority-grant-envelope.v2\",\n  \"schema_hash\": \"sha256:2bb599d9a4fb74dec01ad34e6237277fa01ed0aa98d102be39dfe1ea66ad052c\",\n  \"authority_grant_id\": \"grant://acme/repo-auditor/2\",\n  \"request_id\": \"authority-request://acme/repo-auditor/2\",\n  \"issuer_id\": \"wallet://acme/security\",\n  \"issuer_key_set_ref\": \"keyset://acme/security/4\",\n  \"issuer_key_set_version\": 4,\n  \"issuer_key_id\": \"key://acme/security/ed25519-4\",\n  \"holder_id\": \"system://acme/delegator\",\n  \"holder_key_id\": \"key://acme/delegator/ed25519-1\",\n  \"audience\": \"runtime://acme/hypervisor/node-7\",\n  \"issued_at\": 1784203200.0,\n  \"not_before\": 1784203200,\n  \"expires_at\": 1784289600,\n  \"parent_grant\": null,\n  \"authority_scopes\": [\n    \"scope:repo.read\",\n    \"scope:repo.write\"\n  ],\n  \"primitive_capability_constraints\": [\n    \"prim:fs.read\",\n    \"prim:fs.write\"\n  ],\n  \"resources\": [\n    \"agentgres://project/hypervisor/source\",\n    \"agentgres://project/hypervisor/source/src\"\n  ],\n  \"attenuating_caveats\": [],\n  \"risk_restrictions\": {\n    \"allowed_risk_classes\": [\n      \"read\",\n      \"draft\"\n    ],\n    \"max_budget_microusd\": 10000000,\n    \"max_calls\": 100,\n    \"approval_required_for\": [\n      \"secret_export\"\n    ]\n  },\n  \"revocation_epoch\": 7,\n  \"body_hash\": \"sha256:1cb1754a47d624efd29717b210773b0c3be5d8c9d60b255fc656fddee5e11c96\",\n  \"signature_suite\": \"ed25519\",\n  \"signature_key_id\": \"key://acme/security/ed25519-4\",\n  \"signature\": \"maOqb4ZoJ231trhjheA8z2ADYLSW4gOx-CJvpadrhR_8PF3kQ1RbcOAgmmIsbwc-xZunocrhnTzrZZPMtCIdBg\"\n}\n"
+    "value_json": "{\n  \"schema_version\": \"ioi.foundations.authority-grant-envelope.v2\",\n  \"envelope_type\": \"ioi.authority-grant\",\n  \"signature_domain\": \"ioi.authority-grant-envelope.v2\",\n  \"schema_hash\": \"sha256:5d702231006db3551371f3d5f581532292c6a616c30c314b331ae747adfc219e\",\n  \"authority_grant_id\": \"grant://acme/repo-auditor/2\",\n  \"request_id\": \"authority-request://acme/repo-auditor/2\",\n  \"issuer_id\": \"wallet://acme/security\",\n  \"issuer_key_set_ref\": \"keyset://acme/security/4\",\n  \"issuer_key_set_version\": 4,\n  \"issuer_key_id\": \"key://acme/security/ed25519-4\",\n  \"holder_id\": \"system://acme/delegator\",\n  \"holder_key_id\": \"key://acme/delegator/ed25519-1\",\n  \"audience\": \"runtime://acme/hypervisor/node-7\",\n  \"issued_at\": 1784203200.0,\n  \"not_before\": 1784203200,\n  \"expires_at\": 1784289600,\n  \"parent_grant\": null,\n  \"authority_scopes\": [\n    \"scope:repo.read\",\n    \"scope:repo.write\"\n  ],\n  \"primitive_capability_constraints\": [\n    \"prim:fs.read\",\n    \"prim:fs.write\"\n  ],\n  \"resources\": [\n    \"agentgres://project/hypervisor/source\",\n    \"agentgres://project/hypervisor/source/src\"\n  ],\n  \"attenuating_caveats\": [],\n  \"risk_restrictions\": {\n    \"allowed_risk_classes\": [\n      \"read\",\n      \"draft\"\n    ],\n    \"max_budget_microusd\": 10000000,\n    \"max_calls\": 100,\n    \"approval_required_for\": [\n      \"secret_export\"\n    ]\n  },\n  \"revocation_epoch\": 7,\n  \"body_hash\": \"sha256:1cb1754a47d624efd29717b210773b0c3be5d8c9d60b255fc656fddee5e11c96\",\n  \"signature_suite\": \"ed25519\",\n  \"signature_key_id\": \"key://acme/security/ed25519-4\",\n  \"signature\": \"maOqb4ZoJ231trhjheA8z2ADYLSW4gOx-CJvpadrhR_8PF3kQ1RbcOAgmmIsbwc-xZunocrhnTzrZZPMtCIdBg\"\n}\n"
+  },
+  {
+    "id": "differential:portable-integer-boundary",
+    "contract_id": "schema://ioi/foundations/authority-grant-envelope/v1",
+    "source_fixture_path": null,
+    "mutation_id": null,
+    "value_json": "{\n  \"authority_grant_id\": \"grant://acme/repo-auditor/7\",\n  \"request_id\": \"authority-request://acme/repo-auditor/7\",\n  \"issuer_id\": \"wallet://acme/security\",\n  \"subject_id\": \"agent://repo-auditor\",\n  \"authority_scopes\": [\"scope:repo.read\"],\n  \"primitive_capability_constraints\": [\"prim:fs.read\"],\n  \"resources\": [\"agentgres://project/hypervisor/source\"],\n  \"constraints\": {\n    \"max_budget_usd\": 10,\n    \"expires_at\": \"2026-08-01T00:00:00Z\",\n    \"max_calls\": 100,\n    \"approval_required_for\": [\"external_message\"]\n  },\n  \"revocation_epoch\": 9007199254740991,\n  \"status\": \"active\"\n}\n"
+  },
+  {
+    "id": "differential:portable-integer-over-bound",
+    "contract_id": "schema://ioi/foundations/authority-grant-envelope/v1",
+    "source_fixture_path": null,
+    "mutation_id": null,
+    "value_json": "{\n  \"authority_grant_id\": \"grant://acme/repo-auditor/7\",\n  \"request_id\": \"authority-request://acme/repo-auditor/7\",\n  \"issuer_id\": \"wallet://acme/security\",\n  \"subject_id\": \"agent://repo-auditor\",\n  \"authority_scopes\": [\"scope:repo.read\"],\n  \"primitive_capability_constraints\": [\"prim:fs.read\"],\n  \"resources\": [\"agentgres://project/hypervisor/source\"],\n  \"constraints\": {\n    \"max_budget_usd\": 10,\n    \"expires_at\": \"2026-08-01T00:00:00Z\",\n    \"max_calls\": 100,\n    \"approval_required_for\": [\"external_message\"]\n  },\n  \"revocation_epoch\": 9007199254740992,\n  \"status\": \"active\"\n}\n"
+  },
+  {
+    "id": "differential:portable-integer-over-u64",
+    "contract_id": "schema://ioi/foundations/authority-grant-envelope/v1",
+    "source_fixture_path": null,
+    "mutation_id": null,
+    "value_json": "{\n  \"authority_grant_id\": \"grant://acme/repo-auditor/7\",\n  \"request_id\": \"authority-request://acme/repo-auditor/7\",\n  \"issuer_id\": \"wallet://acme/security\",\n  \"subject_id\": \"agent://repo-auditor\",\n  \"authority_scopes\": [\"scope:repo.read\"],\n  \"primitive_capability_constraints\": [\"prim:fs.read\"],\n  \"resources\": [\"agentgres://project/hypervisor/source\"],\n  \"constraints\": {\n    \"max_budget_usd\": 10,\n    \"expires_at\": \"2026-08-01T00:00:00Z\",\n    \"max_calls\": 100,\n    \"approval_required_for\": [\"external_message\"]\n  },\n  \"revocation_epoch\": 18446744073709551616,\n  \"status\": \"active\"\n}\n"
+  },
+  {
+    "id": "differential:portable-integer-negative",
+    "contract_id": "schema://ioi/foundations/authority-grant-envelope/v1",
+    "source_fixture_path": null,
+    "mutation_id": null,
+    "value_json": "{\n  \"authority_grant_id\": \"grant://acme/repo-auditor/7\",\n  \"request_id\": \"authority-request://acme/repo-auditor/7\",\n  \"issuer_id\": \"wallet://acme/security\",\n  \"subject_id\": \"agent://repo-auditor\",\n  \"authority_scopes\": [\"scope:repo.read\"],\n  \"primitive_capability_constraints\": [\"prim:fs.read\"],\n  \"resources\": [\"agentgres://project/hypervisor/source\"],\n  \"constraints\": {\n    \"max_budget_usd\": 10,\n    \"expires_at\": \"2026-08-01T00:00:00Z\",\n    \"max_calls\": 100,\n    \"approval_required_for\": [\"external_message\"]\n  },\n  \"revocation_epoch\": -1,\n  \"status\": \"active\"\n}\n"
+  },
+  {
+    "id": "differential:portable-integer-integral-decimal",
+    "contract_id": "schema://ioi/foundations/authority-grant-envelope/v1",
+    "source_fixture_path": null,
+    "mutation_id": null,
+    "value_json": "{\n  \"authority_grant_id\": \"grant://acme/repo-auditor/7\",\n  \"request_id\": \"authority-request://acme/repo-auditor/7\",\n  \"issuer_id\": \"wallet://acme/security\",\n  \"subject_id\": \"agent://repo-auditor\",\n  \"authority_scopes\": [\"scope:repo.read\"],\n  \"primitive_capability_constraints\": [\"prim:fs.read\"],\n  \"resources\": [\"agentgres://project/hypervisor/source\"],\n  \"constraints\": {\n    \"max_budget_usd\": 10,\n    \"expires_at\": \"2026-08-01T00:00:00Z\",\n    \"max_calls\": 100,\n    \"approval_required_for\": [\"external_message\"]\n  },\n  \"revocation_epoch\": 1.0,\n  \"status\": \"active\"\n}\n"
   },
   {
     "id": "differential:proof-index-integral-decimal-equality",
     "contract_id": "schema://ioi/foundations/receipt-proof-bundle/v1",
     "source_fixture_path": null,
     "mutation_id": null,
-    "value_json": "{\n  \"schema_version\": \"ioi.foundations.receipt-proof-bundle.v1\",\n  \"bundle_type\": \"ioi.receipt-proof-bundle\",\n  \"manifest_domain\": \"ioi.receipt-proof-bundle-manifest.v1\",\n  \"bundle_schema_hash\": \"sha256:9eb674c09903e10a1b3a85df3c33615afb7e958547b0141628655453c1cc2879\",\n  \"manifest_hash\": \"sha256:e99b823b8972c4807ef88ea530d4e35d1781a7be238965cd88e3eefc0a2a038b\",\n  \"manifest_signature_suite\": \"ed25519\",\n  \"manifest_signature_key_id\": \"key://acme/security/ed25519-4\",\n  \"manifest_signature\": \"50XUkaXhTHaqBTE6SkN_PfnudDbouYA_IFg0yns7YgE6zSCmrrS--SJuKe1V32wULp_7ECvhTX3aXJRUzAT9Cw\",\n  \"bundle_id\": \"proof://acme/audit-log/4/receipt-1\",\n  \"receipt_contract_id\": \"schema://ioi/foundations/receipt-envelope/v1\",\n  \"receipt_schema_hash\": \"sha256:07129784ee34ab5d05dbc469490063e058a2c7568510df5be6e60e9c4ab4a8e1\",\n  \"receipt_body_hash_profile\": \"ioi.receipt-envelope-jcs-sha256.v1\",\n  \"receipt\": {\n    \"receipt_id\": \"receipt://run-43/delivery-7\",\n    \"receipt_type\": \"delivery.accepted\",\n    \"receipt_profile_ref\": \"schema://ioi/receipts/delivery-accepted/v1\",\n    \"attested_boundary_fact_refs\": [\n      \"artifact://sha256/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"\n    ],\n    \"claim_scope_ref\": \"schema://ioi/delivery/acceptance/v1\",\n    \"run_id\": \"run://43\",\n    \"task_id\": \"task://deliver-7\",\n    \"actor_id\": \"runtime://worker-2\",\n    \"input_hash\": \"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\n    \"output_hash\": \"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\n    \"policy_hash\": \"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\n    \"authority_grant_id\": \"grant://delivery-7\",\n    \"primitive_capabilities\": [\n      \"prim:fs.read\"\n    ],\n    \"authority_scopes\": [\n      \"scope:artifact.deliver\"\n    ],\n    \"artifact_refs\": [\n      \"artifact://sha256/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"\n    ],\n    \"evidence_bundle_refs\": [\n      \"evidence://delivery-7\"\n    ],\n    \"verification_ref\": \"verifier-path://delivery/default/v1\",\n    \"acceptance_ref\": \"acceptance://delivery-7\",\n    \"adjudication_ref\": null,\n    \"settlement_ref\": \"settlement://delivery-7\",\n    \"timestamp\": \"2026-07-16T12:05:00Z\",\n    \"signature\": \"legacy-signature-placeholder\",\n    \"public_commitment_ref\": \"commitment://delivery-7\"\n  },\n  \"receipt_body_hash\": \"sha256:26235f9318d765e5db6a07604252991fa2d0080fa799e7f8ee0aa60bf860e878\",\n  \"leaf\": {\n    \"algorithm\": \"ioi.receipt-hash-chain-jcs-sha256.v1\",\n    \"domain\": \"ioi.receipt-accumulator-leaf.v1\",\n    \"leaf_index\": 1.0,\n    \"leaf_hash\": \"sha256:3106fb2cf30ba8a026bbee76b6417ae1cb83a0699470a86ca066d3ee7aee415e\"\n  },\n  \"inclusion_proof\": {\n    \"profile\": \"ioi.receipt-hash-chain-inclusion.v1\",\n    \"leaf_index\": 1,\n    \"prefix_root\": \"sha256:460db93cda9696e422ac7c713c2164899bdadb73e3ea3b0c16cdc64ce3f369b0\",\n    \"suffix_leaf_hashes\": [\n      \"sha256:afea425012150fea14923cf80c17910a3646fc55c64e4d26b9cd53de2e7acfaa\",\n      \"sha256:2027b71d4dbb2160d9b8a3470c416f1fa87314068dc2e93d0328f91df92c279f\"\n    ]\n  },\n  \"checkpoint\": {\n    \"schema_version\": \"ioi.foundations.receipt-checkpoint.v1\",\n    \"checkpoint_type\": \"ioi.receipt-checkpoint\",\n    \"signature_domain\": \"ioi.receipt-checkpoint.v1\",\n    \"schema_hash\": \"sha256:41e1b5ea5794e534cf9aba7bf4558c2fa26815e5c9b3cfd3ffdb99eb4706d0df\",\n    \"checkpoint_id\": \"receipt-checkpoint://acme/audit-log/4\",\n    \"receipt_log_id\": \"receipt-log://acme/audit-log\",\n    \"accumulator_algorithm\": \"ioi.receipt-hash-chain-jcs-sha256.v1\",\n    \"receipt_body_hash_profile\": \"ioi.receipt-envelope-jcs-sha256.v1\",\n    \"receipt_contract_id\": \"schema://ioi/foundations/receipt-envelope/v1\",\n    \"receipt_schema_hash\": \"sha256:07129784ee34ab5d05dbc469490063e058a2c7568510df5be6e60e9c4ab4a8e1\",\n    \"accumulator_size\": 4,\n    \"accumulator_root\": \"sha256:a80a2341d4c1ba4de8047edef681c8b77c8494198c8f0c6f3763f6594c23e5ab\",\n    \"previous_checkpoint_ref\": \"receipt-checkpoint://acme/audit-log/2\",\n    \"previous_checkpoint_hash\": \"sha256:0bb941cdfd91654e8c7c53575444d5ad4d9474de7454a12c0520af2b2a49ba83\",\n    \"previous_accumulator_size\": 2,\n    \"previous_accumulator_root\": \"sha256:352831248cff9098cbdba9a6792a17227868988358abc028697639dac80cf54d\",\n    \"issuer_id\": \"wallet://acme/security\",\n    \"issuer_key_set_ref\": \"keyset://acme/security/4\",\n    \"issuer_key_set_version\": 4,\n    \"issuer_key_id\": \"key://acme/security/ed25519-4\",\n    \"issued_at\": 1784203300,\n    \"build_identity_ref\": \"build://ioi/hypervisor-daemon/fixture-2026-07-16\",\n    \"policy_posture_ref\": \"policy://acme/receipt-checkpoint/default\",\n    \"body_hash\": \"sha256:6a40cf01bb7d68413083f165fbe34b6fa5fb92987156198190b0997e13ccd398\",\n    \"signature_suite\": \"ed25519\",\n    \"signature_key_id\": \"key://acme/security/ed25519-4\",\n    \"signature\": \"2YmJcKolLbbOqbFrGf6QYeXKDjxFKFsSb0bPP6AzfQZbIqwCShQKm9cUSGcZ8ama7HaxaqfIVzZpogSVnktrCw\"\n  },\n  \"previous_checkpoint\": {\n    \"schema_version\": \"ioi.foundations.receipt-checkpoint.v1\",\n    \"checkpoint_type\": \"ioi.receipt-checkpoint\",\n    \"signature_domain\": \"ioi.receipt-checkpoint.v1\",\n    \"schema_hash\": \"sha256:41e1b5ea5794e534cf9aba7bf4558c2fa26815e5c9b3cfd3ffdb99eb4706d0df\",\n    \"checkpoint_id\": \"receipt-checkpoint://acme/audit-log/2\",\n    \"receipt_log_id\": \"receipt-log://acme/audit-log\",\n    \"accumulator_algorithm\": \"ioi.receipt-hash-chain-jcs-sha256.v1\",\n    \"receipt_body_hash_profile\": \"ioi.receipt-envelope-jcs-sha256.v1\",\n    \"receipt_contract_id\": \"schema://ioi/foundations/receipt-envelope/v1\",\n    \"receipt_schema_hash\": \"sha256:07129784ee34ab5d05dbc469490063e058a2c7568510df5be6e60e9c4ab4a8e1\",\n    \"accumulator_size\": 2,\n    \"accumulator_root\": \"sha256:352831248cff9098cbdba9a6792a17227868988358abc028697639dac80cf54d\",\n    \"previous_checkpoint_ref\": null,\n    \"previous_checkpoint_hash\": null,\n    \"previous_accumulator_size\": null,\n    \"previous_accumulator_root\": null,\n    \"issuer_id\": \"wallet://acme/security\",\n    \"issuer_key_set_ref\": \"keyset://acme/security/4\",\n    \"issuer_key_set_version\": 4,\n    \"issuer_key_id\": \"key://acme/security/ed25519-4\",\n    \"issued_at\": 1784203240,\n    \"build_identity_ref\": \"build://ioi/hypervisor-daemon/fixture-2026-07-16\",\n    \"policy_posture_ref\": \"policy://acme/receipt-checkpoint/default\",\n    \"body_hash\": \"sha256:ffbba18526ca57f325f69831819a0c8e74b7d835fcf33413c17dba6ccf39bc00\",\n    \"signature_suite\": \"ed25519\",\n    \"signature_key_id\": \"key://acme/security/ed25519-4\",\n    \"signature\": \"vEyfYScqYA2RxllOdr8IGxkj99lom13W2fSKRUHDIkX4uHD7Q_JjcCjgIIWDs_X06F5aAQAlbiXIxQUd9cEhBg\"\n  },\n  \"consistency_proof\": {\n    \"profile\": \"ioi.receipt-hash-chain-consistency.v1\",\n    \"from_size\": 2,\n    \"from_root\": \"sha256:352831248cff9098cbdba9a6792a17227868988358abc028697639dac80cf54d\",\n    \"extension_leaf_hashes\": [\n      \"sha256:afea425012150fea14923cf80c17910a3646fc55c64e4d26b9cd53de2e7acfaa\",\n      \"sha256:2027b71d4dbb2160d9b8a3470c416f1fa87314068dc2e93d0328f91df92c279f\"\n    ]\n  },\n  \"trusted_input_refs\": {\n    \"key_set_ref\": \"keyset://acme/security/4\",\n    \"key_set_version\": 4,\n    \"revocation_snapshot_ref\": \"snapshot://acme/security/revocations/8\",\n    \"revocation_epoch\": 8\n  },\n  \"verification_instructions\": {\n    \"profile\": \"ioi.receipt-proof-verification.v1\",\n    \"steps\": [\n      \"Validate registered closed schemas and schema hashes.\",\n      \"Recompute the manifest and exact ReceiptEnvelope RFC 8785 JCS SHA-256 hashes.\",\n      \"Recompute the indexed leaf and hash-chain inclusion root.\",\n      \"Verify the current and previous checkpoint Ed25519 signatures against trusted local inputs.\",\n      \"Recompute append-only consistency from the previous checkpoint root.\"\n    ],\n    \"offline_required_inputs\": [\n      \"trusted_key_set\",\n      \"signed_revocation_snapshot\",\n      \"trusted_time\"\n    ]\n  }\n}\n"
+    "value_json": "{\n  \"schema_version\": \"ioi.foundations.receipt-proof-bundle.v1\",\n  \"bundle_type\": \"ioi.receipt-proof-bundle\",\n  \"manifest_domain\": \"ioi.receipt-proof-bundle-manifest.v1\",\n  \"bundle_schema_hash\": \"sha256:24be22eada0a71ee53c4e5e4ac9184399d11492fa2bda8a9f66f5ac6c689b034\",\n  \"manifest_hash\": \"sha256:e99b823b8972c4807ef88ea530d4e35d1781a7be238965cd88e3eefc0a2a038b\",\n  \"manifest_signature_suite\": \"ed25519\",\n  \"manifest_signature_key_id\": \"key://acme/security/ed25519-4\",\n  \"manifest_signature\": \"50XUkaXhTHaqBTE6SkN_PfnudDbouYA_IFg0yns7YgE6zSCmrrS--SJuKe1V32wULp_7ECvhTX3aXJRUzAT9Cw\",\n  \"bundle_id\": \"proof://acme/audit-log/4/receipt-1\",\n  \"receipt_contract_id\": \"schema://ioi/foundations/receipt-envelope/v1\",\n  \"receipt_schema_hash\": \"sha256:76d2ce07623700a3d25e31f5bb131006e3d638559ec4338b09843674e5e51edc\",\n  \"receipt_body_hash_profile\": \"ioi.receipt-envelope-jcs-sha256.v1\",\n  \"receipt\": {\n    \"receipt_id\": \"receipt://run-43/delivery-7\",\n    \"receipt_type\": \"delivery.accepted\",\n    \"receipt_profile_ref\": \"schema://ioi/receipts/delivery-accepted/v1\",\n    \"attested_boundary_fact_refs\": [\n      \"artifact://sha256/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"\n    ],\n    \"claim_scope_ref\": \"schema://ioi/delivery/acceptance/v1\",\n    \"run_id\": \"run://43\",\n    \"task_id\": \"task://deliver-7\",\n    \"actor_id\": \"runtime://worker-2\",\n    \"input_hash\": \"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\n    \"output_hash\": \"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\n    \"policy_hash\": \"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\n    \"authority_grant_id\": \"grant://delivery-7\",\n    \"primitive_capabilities\": [\n      \"prim:fs.read\"\n    ],\n    \"authority_scopes\": [\n      \"scope:artifact.deliver\"\n    ],\n    \"artifact_refs\": [\n      \"artifact://sha256/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"\n    ],\n    \"evidence_bundle_refs\": [\n      \"evidence://delivery-7\"\n    ],\n    \"verification_ref\": \"verifier-path://delivery/default/v1\",\n    \"acceptance_ref\": \"acceptance://delivery-7\",\n    \"adjudication_ref\": null,\n    \"settlement_ref\": \"settlement://delivery-7\",\n    \"timestamp\": \"2026-07-16T12:05:00Z\",\n    \"signature\": \"legacy-signature-placeholder\",\n    \"public_commitment_ref\": \"commitment://delivery-7\"\n  },\n  \"receipt_body_hash\": \"sha256:26235f9318d765e5db6a07604252991fa2d0080fa799e7f8ee0aa60bf860e878\",\n  \"leaf\": {\n    \"algorithm\": \"ioi.receipt-hash-chain-jcs-sha256.v1\",\n    \"domain\": \"ioi.receipt-accumulator-leaf.v1\",\n    \"leaf_index\": 1.0,\n    \"leaf_hash\": \"sha256:3106fb2cf30ba8a026bbee76b6417ae1cb83a0699470a86ca066d3ee7aee415e\"\n  },\n  \"inclusion_proof\": {\n    \"profile\": \"ioi.receipt-hash-chain-inclusion.v1\",\n    \"leaf_index\": 1,\n    \"prefix_root\": \"sha256:460db93cda9696e422ac7c713c2164899bdadb73e3ea3b0c16cdc64ce3f369b0\",\n    \"suffix_leaf_hashes\": [\n      \"sha256:afea425012150fea14923cf80c17910a3646fc55c64e4d26b9cd53de2e7acfaa\",\n      \"sha256:2027b71d4dbb2160d9b8a3470c416f1fa87314068dc2e93d0328f91df92c279f\"\n    ]\n  },\n  \"checkpoint\": {\n    \"schema_version\": \"ioi.foundations.receipt-checkpoint.v1\",\n    \"checkpoint_type\": \"ioi.receipt-checkpoint\",\n    \"signature_domain\": \"ioi.receipt-checkpoint.v1\",\n    \"schema_hash\": \"sha256:65d68f598f638e62e1e5cfa41f3e7b3e4525401ef7c81b85dd3f56a1fb6a976b\",\n    \"checkpoint_id\": \"receipt-checkpoint://acme/audit-log/4\",\n    \"receipt_log_id\": \"receipt-log://acme/audit-log\",\n    \"accumulator_algorithm\": \"ioi.receipt-hash-chain-jcs-sha256.v1\",\n    \"receipt_body_hash_profile\": \"ioi.receipt-envelope-jcs-sha256.v1\",\n    \"receipt_contract_id\": \"schema://ioi/foundations/receipt-envelope/v1\",\n    \"receipt_schema_hash\": \"sha256:76d2ce07623700a3d25e31f5bb131006e3d638559ec4338b09843674e5e51edc\",\n    \"accumulator_size\": 4,\n    \"accumulator_root\": \"sha256:a80a2341d4c1ba4de8047edef681c8b77c8494198c8f0c6f3763f6594c23e5ab\",\n    \"previous_checkpoint_ref\": \"receipt-checkpoint://acme/audit-log/2\",\n    \"previous_checkpoint_hash\": \"sha256:0bb941cdfd91654e8c7c53575444d5ad4d9474de7454a12c0520af2b2a49ba83\",\n    \"previous_accumulator_size\": 2,\n    \"previous_accumulator_root\": \"sha256:352831248cff9098cbdba9a6792a17227868988358abc028697639dac80cf54d\",\n    \"issuer_id\": \"wallet://acme/security\",\n    \"issuer_key_set_ref\": \"keyset://acme/security/4\",\n    \"issuer_key_set_version\": 4,\n    \"issuer_key_id\": \"key://acme/security/ed25519-4\",\n    \"issued_at\": 1784203300,\n    \"build_identity_ref\": \"build://ioi/hypervisor-daemon/fixture-2026-07-16\",\n    \"policy_posture_ref\": \"policy://acme/receipt-checkpoint/default\",\n    \"body_hash\": \"sha256:6a40cf01bb7d68413083f165fbe34b6fa5fb92987156198190b0997e13ccd398\",\n    \"signature_suite\": \"ed25519\",\n    \"signature_key_id\": \"key://acme/security/ed25519-4\",\n    \"signature\": \"2YmJcKolLbbOqbFrGf6QYeXKDjxFKFsSb0bPP6AzfQZbIqwCShQKm9cUSGcZ8ama7HaxaqfIVzZpogSVnktrCw\"\n  },\n  \"previous_checkpoint\": {\n    \"schema_version\": \"ioi.foundations.receipt-checkpoint.v1\",\n    \"checkpoint_type\": \"ioi.receipt-checkpoint\",\n    \"signature_domain\": \"ioi.receipt-checkpoint.v1\",\n    \"schema_hash\": \"sha256:65d68f598f638e62e1e5cfa41f3e7b3e4525401ef7c81b85dd3f56a1fb6a976b\",\n    \"checkpoint_id\": \"receipt-checkpoint://acme/audit-log/2\",\n    \"receipt_log_id\": \"receipt-log://acme/audit-log\",\n    \"accumulator_algorithm\": \"ioi.receipt-hash-chain-jcs-sha256.v1\",\n    \"receipt_body_hash_profile\": \"ioi.receipt-envelope-jcs-sha256.v1\",\n    \"receipt_contract_id\": \"schema://ioi/foundations/receipt-envelope/v1\",\n    \"receipt_schema_hash\": \"sha256:76d2ce07623700a3d25e31f5bb131006e3d638559ec4338b09843674e5e51edc\",\n    \"accumulator_size\": 2,\n    \"accumulator_root\": \"sha256:352831248cff9098cbdba9a6792a17227868988358abc028697639dac80cf54d\",\n    \"previous_checkpoint_ref\": null,\n    \"previous_checkpoint_hash\": null,\n    \"previous_accumulator_size\": null,\n    \"previous_accumulator_root\": null,\n    \"issuer_id\": \"wallet://acme/security\",\n    \"issuer_key_set_ref\": \"keyset://acme/security/4\",\n    \"issuer_key_set_version\": 4,\n    \"issuer_key_id\": \"key://acme/security/ed25519-4\",\n    \"issued_at\": 1784203240,\n    \"build_identity_ref\": \"build://ioi/hypervisor-daemon/fixture-2026-07-16\",\n    \"policy_posture_ref\": \"policy://acme/receipt-checkpoint/default\",\n    \"body_hash\": \"sha256:ffbba18526ca57f325f69831819a0c8e74b7d835fcf33413c17dba6ccf39bc00\",\n    \"signature_suite\": \"ed25519\",\n    \"signature_key_id\": \"key://acme/security/ed25519-4\",\n    \"signature\": \"vEyfYScqYA2RxllOdr8IGxkj99lom13W2fSKRUHDIkX4uHD7Q_JjcCjgIIWDs_X06F5aAQAlbiXIxQUd9cEhBg\"\n  },\n  \"consistency_proof\": {\n    \"profile\": \"ioi.receipt-hash-chain-consistency.v1\",\n    \"from_size\": 2,\n    \"from_root\": \"sha256:352831248cff9098cbdba9a6792a17227868988358abc028697639dac80cf54d\",\n    \"extension_leaf_hashes\": [\n      \"sha256:afea425012150fea14923cf80c17910a3646fc55c64e4d26b9cd53de2e7acfaa\",\n      \"sha256:2027b71d4dbb2160d9b8a3470c416f1fa87314068dc2e93d0328f91df92c279f\"\n    ]\n  },\n  \"trusted_input_refs\": {\n    \"key_set_ref\": \"keyset://acme/security/4\",\n    \"key_set_version\": 4,\n    \"revocation_snapshot_ref\": \"snapshot://acme/security/revocations/8\",\n    \"revocation_epoch\": 8\n  },\n  \"verification_instructions\": {\n    \"profile\": \"ioi.receipt-proof-verification.v1\",\n    \"steps\": [\n      \"Validate registered closed schemas and schema hashes.\",\n      \"Recompute the manifest and exact ReceiptEnvelope RFC 8785 JCS SHA-256 hashes.\",\n      \"Recompute the indexed leaf and hash-chain inclusion root.\",\n      \"Verify the current and previous checkpoint Ed25519 signatures against trusted local inputs.\",\n      \"Recompute append-only consistency from the previous checkpoint root.\"\n    ],\n    \"offline_required_inputs\": [\n      \"trusted_key_set\",\n      \"signed_revocation_snapshot\",\n      \"trusted_time\"\n    ]\n  }\n}\n"
   },
   {
-    "id": "differential:leap-second-offset-hour-normalization",
+    "id": "differential:canonical-leap-second-z",
+    "contract_id": "schema://ioi/foundations/authority-grant-envelope/v1",
+    "source_fixture_path": null,
+    "mutation_id": null,
+    "value_json": "{\"authority_grant_id\":\"grant://acme/repo-auditor/7\",\"request_id\":\"authority-request://acme/repo-auditor/7\",\"issuer_id\":\"wallet://acme/security\",\"subject_id\":\"agent://repo-auditor\",\"authority_scopes\":[\"scope:repo.read\"],\"primitive_capability_constraints\":[\"prim:fs.read\"],\"resources\":[\"agentgres://project/hypervisor/source\"],\"constraints\":{\"max_budget_usd\":10,\"expires_at\":\"2025-01-01T23:59:60Z\",\"max_calls\":100,\"approval_required_for\":[\"external_message\"]},\"revocation_epoch\":7,\"status\":\"active\"}"
+  },
+  {
+    "id": "differential:canonical-leap-second-offset",
+    "contract_id": "schema://ioi/foundations/authority-grant-envelope/v1",
+    "source_fixture_path": null,
+    "mutation_id": null,
+    "value_json": "{\"authority_grant_id\":\"grant://acme/repo-auditor/7\",\"request_id\":\"authority-request://acme/repo-auditor/7\",\"issuer_id\":\"wallet://acme/security\",\"subject_id\":\"agent://repo-auditor\",\"authority_scopes\":[\"scope:repo.read\"],\"primitive_capability_constraints\":[\"prim:fs.read\"],\"resources\":[\"agentgres://project/hypervisor/source\"],\"constraints\":{\"max_budget_usd\":10,\"expires_at\":\"2025-01-02T00:59:60+01:00\",\"max_calls\":100,\"approval_required_for\":[\"external_message\"]},\"revocation_epoch\":7,\"status\":\"active\"}"
+  },
+  {
+    "id": "differential:noncanonical-space-separator",
+    "contract_id": "schema://ioi/foundations/authority-grant-envelope/v1",
+    "source_fixture_path": null,
+    "mutation_id": null,
+    "value_json": "{\"authority_grant_id\":\"grant://acme/repo-auditor/7\",\"request_id\":\"authority-request://acme/repo-auditor/7\",\"issuer_id\":\"wallet://acme/security\",\"subject_id\":\"agent://repo-auditor\",\"authority_scopes\":[\"scope:repo.read\"],\"primitive_capability_constraints\":[\"prim:fs.read\"],\"resources\":[\"agentgres://project/hypervisor/source\"],\"constraints\":{\"max_budget_usd\":10,\"expires_at\":\"2025-01-01 23:59:59Z\",\"max_calls\":100,\"approval_required_for\":[\"external_message\"]},\"revocation_epoch\":7,\"status\":\"active\"}"
+  },
+  {
+    "id": "differential:noncanonical-compact-offset",
+    "contract_id": "schema://ioi/foundations/authority-grant-envelope/v1",
+    "source_fixture_path": null,
+    "mutation_id": null,
+    "value_json": "{\"authority_grant_id\":\"grant://acme/repo-auditor/7\",\"request_id\":\"authority-request://acme/repo-auditor/7\",\"issuer_id\":\"wallet://acme/security\",\"subject_id\":\"agent://repo-auditor\",\"authority_scopes\":[\"scope:repo.read\"],\"primitive_capability_constraints\":[\"prim:fs.read\"],\"resources\":[\"agentgres://project/hypervisor/source\"],\"constraints\":{\"max_budget_usd\":10,\"expires_at\":\"2025-01-01T23:59:59+0100\",\"max_calls\":100,\"approval_required_for\":[\"external_message\"]},\"revocation_epoch\":7,\"status\":\"active\"}"
+  },
+  {
+    "id": "differential:noncanonical-hour-offset",
+    "contract_id": "schema://ioi/foundations/authority-grant-envelope/v1",
+    "source_fixture_path": null,
+    "mutation_id": null,
+    "value_json": "{\"authority_grant_id\":\"grant://acme/repo-auditor/7\",\"request_id\":\"authority-request://acme/repo-auditor/7\",\"issuer_id\":\"wallet://acme/security\",\"subject_id\":\"agent://repo-auditor\",\"authority_scopes\":[\"scope:repo.read\"],\"primitive_capability_constraints\":[\"prim:fs.read\"],\"resources\":[\"agentgres://project/hypervisor/source\"],\"constraints\":{\"max_budget_usd\":10,\"expires_at\":\"2025-01-01T23:59:59+01\",\"max_calls\":100,\"approval_required_for\":[\"external_message\"]},\"revocation_epoch\":7,\"status\":\"active\"}"
+  },
+  {
+    "id": "differential:noncanonical-hour-24-leap",
     "contract_id": "schema://ioi/foundations/authority-grant-envelope/v1",
     "source_fixture_path": null,
     "mutation_id": null,
     "value_json": "{\"authority_grant_id\":\"grant://acme/repo-auditor/7\",\"request_id\":\"authority-request://acme/repo-auditor/7\",\"issuer_id\":\"wallet://acme/security\",\"subject_id\":\"agent://repo-auditor\",\"authority_scopes\":[\"scope:repo.read\"],\"primitive_capability_constraints\":[\"prim:fs.read\"],\"resources\":[\"agentgres://project/hypervisor/source\"],\"constraints\":{\"max_budget_usd\":10,\"expires_at\":\"2025-01-01T24:59:60+01:00\",\"max_calls\":100,\"approval_required_for\":[\"external_message\"]},\"revocation_epoch\":7,\"status\":\"active\"}"
   },
   {
-    "id": "differential:leap-second-offset-minute-normalization",
+    "id": "differential:noncanonical-minute-60-leap",
     "contract_id": "schema://ioi/foundations/authority-grant-envelope/v1",
     "source_fixture_path": null,
     "mutation_id": null,
@@ -1940,6 +2015,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:system|user|wallet|org|project|domain|worker|agent|service|provider|policy|governance|runtime)://[^\\s]+$",
   "^(?:system|wallet|org|policy)://[^\\s]+$",
   "^(?:verifier-path|verification|receipt)://[^\\s]+$",
+  "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$",
   "^[A-Z]{3}$",
   "^[A-Za-z0-9_-]{43}$",
   "^[A-Za-z0-9_-]{86}$",
@@ -1999,19 +2075,19 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
 ] as const;
 
 export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
-  "schema://ioi/foundations/receipt-envelope/v1": "sha256:07129784ee34ab5d05dbc469490063e058a2c7568510df5be6e60e9c4ab4a8e1",
-  "schema://ioi/foundations/physical-action-execution-receipt/v1": "sha256:7f8f0030e0edf3ab031a8cb7897c4d52cfc0e1220e9fc341ed21b15e2cf9cbe6",
-  "schema://ioi/foundations/authority-grant-envelope/v1": "sha256:5e79d5e422fa87b1d61dad176d8072c744f74c851b68df1caf8ca9b6bb09e112",
-  "schema://ioi/foundations/authority-grant-envelope/v2": "sha256:2bb599d9a4fb74dec01ad34e6237277fa01ed0aa98d102be39dfe1ea66ad052c",
-  "schema://ioi/foundations/authority-key-set/v1": "sha256:bb51d56502f4d98a5ee61106838aafeef692e5aac8f85a244f9deb6364a258ff",
-  "schema://ioi/foundations/authority-revocation-snapshot/v1": "sha256:772c65eaa3924029fcf56491cf1d86c0c8c51260ccd7fd024990fef101a6c9cd",
-  "schema://ioi/foundations/receipt-checkpoint/v1": "sha256:41e1b5ea5794e534cf9aba7bf4558c2fa26815e5c9b3cfd3ffdb99eb4706d0df",
-  "schema://ioi/foundations/receipt-proof-bundle/v1": "sha256:9eb674c09903e10a1b3a85df3c33615afb7e958547b0141628655453c1cc2879",
-  "schema://ioi/foundations/information-flow-label/v1": "sha256:122a43b20389156c6e329c953bb8646b1c8dd96ec1ec8fd7977a15d0b3cf97c9",
-  "schema://ioi/components/connectors-tools/runtime-tool-contract/v1": "sha256:d49924bba309ca7ce25f43920c5d2e291204377f0e29d80406bee3ec56db35af",
+  "schema://ioi/foundations/receipt-envelope/v1": "sha256:76d2ce07623700a3d25e31f5bb131006e3d638559ec4338b09843674e5e51edc",
+  "schema://ioi/foundations/physical-action-execution-receipt/v1": "sha256:b6a77eae69259a122ccf374a885071b07e4497095aecbcebaecab9e566855e5a",
+  "schema://ioi/foundations/authority-grant-envelope/v1": "sha256:9f8a2e183e7bb02cdb02274c59b06c0dda1abe293e4c377c80aaccbf9fee5796",
+  "schema://ioi/foundations/authority-grant-envelope/v2": "sha256:5d702231006db3551371f3d5f581532292c6a616c30c314b331ae747adfc219e",
+  "schema://ioi/foundations/authority-key-set/v1": "sha256:ea66e12fa2584b1769d15c70f886a1e7b2c844a3220c13f8c3d6a0231969ec6c",
+  "schema://ioi/foundations/authority-revocation-snapshot/v1": "sha256:53bab792fe1cc9dca5e6f21765d327c325fff91c17d149bb1de6d1ce6e0ce8c3",
+  "schema://ioi/foundations/receipt-checkpoint/v1": "sha256:65d68f598f638e62e1e5cfa41f3e7b3e4525401ef7c81b85dd3f56a1fb6a976b",
+  "schema://ioi/foundations/receipt-proof-bundle/v1": "sha256:24be22eada0a71ee53c4e5e4ac9184399d11492fa2bda8a9f66f5ac6c689b034",
+  "schema://ioi/foundations/information-flow-label/v1": "sha256:acf2831bf594c3589bc56419e9736174e2aa9a120e2c7b257940df7fea36a1db",
+  "schema://ioi/components/connectors-tools/runtime-tool-contract/v1": "sha256:ac6c0e6bb9b6ec06a1162e4d84b676b2c96bbc9527e50836c04162d788b5f924",
   "schema://ioi/foundations/managed-work-billing-ledger-bundle/v1": "sha256:deea4ddad84b377612579947f8c7fecca276962ccbba1cc1fd9232ab3d58d5f2",
   "schema://ioi/foundations/dispute-rail-bundle/v1": "sha256:9397106bbed6d24ce8c9c7c1a8123160102aae677d024636b89ace67d25ae340",
-  "schema://ioi/foundations/declassification-approval/v1": "sha256:070eb8f8dff36e0ef29e638c85f0d264ba90d58f46f7205613b12ea649e5ebd2"
+  "schema://ioi/foundations/declassification-approval/v1": "sha256:6b94c87e2891c4389886ad9f8d2f0492ca18e699fb57db5af83c2a21e9817efe"
 } as const;
 
 type JsonObject = Record<string, unknown>;
@@ -2187,8 +2263,7 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         ]
       },
       "timestamp": {
-        "type": "string",
-        "format": "date-time"
+        "$ref": "#/$defs/canonicalDateTime"
       },
       "signature": {
         "description": "Legacy opaque signature string. Cut 2 owns a future portable signing envelope.",
@@ -2214,6 +2289,11 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       }
     },
     "$defs": {
+      "canonicalDateTime": {
+        "type": "string",
+        "format": "date-time",
+        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+      },
       "canonicalRef": {
         "type": "string",
         "pattern": "^[a-z][a-z0-9-]*(?:://|:)[^\\s]+$"
@@ -2323,6 +2403,11 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       }
     },
     "$defs": {
+      "canonicalDateTime": {
+        "type": "string",
+        "format": "date-time",
+        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+      },
       "receiptEnvelope": {
         "type": "object",
         "additionalProperties": false,
@@ -2489,8 +2574,7 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
             ]
           },
           "timestamp": {
-            "type": "string",
-            "format": "date-time"
+            "$ref": "#/$defs/canonicalDateTime"
           },
           "signature": {
             "anyOf": [
@@ -2617,7 +2701,8 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
           },
           "active_writer_fencing_epoch": {
             "type": "integer",
-            "minimum": 0
+            "minimum": 0,
+            "maximum": 9007199254740991
           },
           "active_writer_fencing_token_hash": {
             "$ref": "#/$defs/sha256Hash"
@@ -2710,8 +2795,7 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
             ]
           },
           "executed_at": {
-            "type": "string",
-            "format": "date-time"
+            "$ref": "#/$defs/canonicalDateTime"
           },
           "incident_refs": {
             "type": "array",
@@ -3143,12 +3227,12 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
             "minimum": 0
           },
           "expires_at": {
-            "type": "string",
-            "format": "date-time"
+            "$ref": "#/$defs/canonicalDateTime"
           },
           "max_calls": {
             "type": "integer",
-            "minimum": 1
+            "minimum": 1,
+            "maximum": 9007199254740991
           },
           "approval_required_for": {
             "type": "array",
@@ -3162,7 +3246,8 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       },
       "revocation_epoch": {
         "type": "integer",
-        "minimum": 0
+        "minimum": 0,
+        "maximum": 9007199254740991
       },
       "status": {
         "enum": [
@@ -3173,6 +3258,11 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       }
     },
     "$defs": {
+      "canonicalDateTime": {
+        "type": "string",
+        "format": "date-time",
+        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+      },
       "grantRef": {
         "type": "string",
         "pattern": "^grant://[^\\s]+$"
@@ -3267,7 +3357,8 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       },
       "issuer_key_set_version": {
         "type": "integer",
-        "minimum": 1
+        "minimum": 1,
+        "maximum": 9007199254740991
       },
       "issuer_key_id": {
         "$ref": "#/$defs/keyRef"
@@ -3283,15 +3374,18 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       },
       "issued_at": {
         "type": "integer",
-        "minimum": 0
+        "minimum": 0,
+        "maximum": 9007199254740991
       },
       "not_before": {
         "type": "integer",
-        "minimum": 0
+        "minimum": 0,
+        "maximum": 9007199254740991
       },
       "expires_at": {
         "type": "integer",
-        "minimum": 0
+        "minimum": 0,
+        "maximum": 9007199254740991
       },
       "parent_grant": {
         "oneOf": [
@@ -3369,11 +3463,13 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
           },
           "max_budget_microusd": {
             "type": "integer",
-            "minimum": 0
+            "minimum": 0,
+            "maximum": 9007199254740991
           },
           "max_calls": {
             "type": "integer",
-            "minimum": 1
+            "minimum": 1,
+            "maximum": 9007199254740991
           },
           "approval_required_for": {
             "type": "array",
@@ -3387,7 +3483,8 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       },
       "revocation_epoch": {
         "type": "integer",
-        "minimum": 0
+        "minimum": 0,
+        "maximum": 9007199254740991
       },
       "body_hash": {
         "$ref": "#/$defs/sha256Hash"
@@ -3506,15 +3603,18 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       },
       "version": {
         "type": "integer",
-        "minimum": 1
+        "minimum": 1,
+        "maximum": 9007199254740991
       },
       "issued_at": {
         "type": "integer",
-        "minimum": 0
+        "minimum": 0,
+        "maximum": 9007199254740991
       },
       "expires_at": {
         "type": "integer",
-        "minimum": 0
+        "minimum": 0,
+        "maximum": 9007199254740991
       },
       "keys": {
         "type": "array",
@@ -3543,11 +3643,13 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
             },
             "not_before": {
               "type": "integer",
-              "minimum": 0
+              "minimum": 0,
+              "maximum": 9007199254740991
             },
             "expires_at": {
               "type": "integer",
-              "minimum": 0
+              "minimum": 0,
+              "maximum": 9007199254740991
             },
             "status": {
               "enum": [
@@ -3623,19 +3725,23 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       },
       "issuer_key_set_version": {
         "type": "integer",
-        "minimum": 1
+        "minimum": 1,
+        "maximum": 9007199254740991
       },
       "epoch": {
         "type": "integer",
-        "minimum": 0
+        "minimum": 0,
+        "maximum": 9007199254740991
       },
       "issued_at": {
         "type": "integer",
-        "minimum": 0
+        "minimum": 0,
+        "maximum": 9007199254740991
       },
       "expires_at": {
         "type": "integer",
-        "minimum": 0
+        "minimum": 0,
+        "maximum": 9007199254740991
       },
       "revoked_grant_refs": {
         "type": "array",
@@ -3768,7 +3874,8 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       },
       "accumulator_size": {
         "type": "integer",
-        "minimum": 1
+        "minimum": 1,
+        "maximum": 9007199254740991
       },
       "accumulator_root": {
         "$ref": "#/$defs/sha256Hash"
@@ -3797,7 +3904,8 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         "anyOf": [
           {
             "type": "integer",
-            "minimum": 1
+            "minimum": 1,
+            "maximum": 9007199254740991
           },
           {
             "type": "null"
@@ -3822,14 +3930,16 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       },
       "issuer_key_set_version": {
         "type": "integer",
-        "minimum": 1
+        "minimum": 1,
+        "maximum": 9007199254740991
       },
       "issuer_key_id": {
         "$ref": "#/$defs/keyRef"
       },
       "issued_at": {
         "type": "integer",
-        "minimum": 0
+        "minimum": 0,
+        "maximum": 9007199254740991
       },
       "build_identity_ref": {
         "$ref": "#/$defs/buildRef"
@@ -3981,7 +4091,8 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
           },
           "leaf_index": {
             "type": "integer",
-            "minimum": 0
+            "minimum": 0,
+            "maximum": 9007199254740991
           },
           "leaf_hash": {
             "$ref": "#/$defs/sha256Hash"
@@ -4003,7 +4114,8 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
           },
           "leaf_index": {
             "type": "integer",
-            "minimum": 0
+            "minimum": 0,
+            "maximum": 9007199254740991
           },
           "prefix_root": {
             "$ref": "#/$defs/sha256Hash"
@@ -4044,7 +4156,8 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
           },
           "from_size": {
             "type": "integer",
-            "minimum": 0
+            "minimum": 0,
+            "maximum": 9007199254740991
           },
           "from_root": {
             "$ref": "#/$defs/sha256Hash"
@@ -4072,14 +4185,16 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
           },
           "key_set_version": {
             "type": "integer",
-            "minimum": 1
+            "minimum": 1,
+            "maximum": 9007199254740991
           },
           "revocation_snapshot_ref": {
             "$ref": "#/$defs/snapshotRef"
           },
           "revocation_epoch": {
             "type": "integer",
-            "minimum": 0
+            "minimum": 0,
+            "maximum": 9007199254740991
           }
         }
       },
@@ -4275,7 +4390,8 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         "properties": {
           "max_seconds": {
             "type": "integer",
-            "minimum": 0
+            "minimum": 0,
+            "maximum": 9007199254740991
           },
           "disposition": {
             "enum": [
@@ -4424,11 +4540,13 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         "properties": {
           "default_ms": {
             "type": "integer",
-            "minimum": 1
+            "minimum": 1,
+            "maximum": 9007199254740991
           },
           "max_ms": {
             "type": "integer",
-            "minimum": 1
+            "minimum": 1,
+            "maximum": 9007199254740991
           }
         }
       },
@@ -5905,12 +6023,10 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         "minLength": 1
       },
       "issued_at": {
-        "type": "string",
-        "format": "date-time"
+        "$ref": "#/$defs/canonicalDateTime"
       },
       "expires_at": {
-        "type": "string",
-        "format": "date-time"
+        "$ref": "#/$defs/canonicalDateTime"
       },
       "status": {
         "enum": [
@@ -5926,6 +6042,11 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       }
     },
     "$defs": {
+      "canonicalDateTime": {
+        "type": "string",
+        "format": "date-time",
+        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+      },
       "hash": {
         "type": "string",
         "pattern": "^sha256:[0-9a-f]{64}$"

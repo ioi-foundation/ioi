@@ -91,6 +91,10 @@ const githubCiWorkflow = read(".github/workflows/ci.yml");
 const architectureContractGenerator = read(
   "scripts/generate-architecture-contracts.mjs",
 );
+const preNextLegSource = read("scripts/check-pre-next-leg.mjs");
+const preNextLegGateRegressionSource = read(
+  "scripts/test-pre-next-leg-gates.mjs",
+);
 const rustToolchain = read("rust-toolchain.toml");
 const rustHypervisorDaemonSource = read(
   "crates/node/src/bin/hypervisor-daemon.rs",
@@ -1081,12 +1085,27 @@ assert(
     "node --test scripts/test-architecture-docs-integrity.mjs",
     "cargo test --locked -p ioi-types architecture_contracts",
     ].join(" && ") &&
-    packageJson.scripts["check:pre-next-leg"]
-      ?.split(" && ")
-      .includes("npm run check:architecture-contract-bar") &&
-    packageJson.scripts["check:pre-next-leg"]
-      ?.split(" && ")
-      .includes("npm run check:conformance-docs") &&
+    packageJson.scripts["check:pre-next-leg"] ===
+      "node scripts/check-pre-next-leg.mjs" &&
+    preNextLegSource.includes('"architecture-contract-bar"') &&
+    preNextLegSource.includes(
+      'args: Object.freeze(["run", "check:architecture-contract-bar"])',
+    ) &&
+    preNextLegSource.includes('"conformance-docs"') &&
+    preNextLegSource.includes(
+      'args: Object.freeze(["run", "check:conformance-docs"])',
+    ) &&
+    preNextLegSource.includes('"compositor"') &&
+    preNextLegSource.includes(
+      'args: Object.freeze(["run", "hypervisor-conformance:compositor"])',
+    ) &&
+    preNextLegSource.includes('"runtime-layout"') &&
+    preNextLegGateRegressionSource.includes(
+      'step.id === "compositor" ? 23 : 0',
+    ) &&
+    preNextLegGateRegressionSource.includes(
+      'assert.equal(seen.includes("runtime-layout"), false)',
+    ) &&
     /docs:\s*\[\s*npmRun\("check:architecture-contract-bar"\),/u.test(
       hypervisorConformanceSource,
     ) &&
