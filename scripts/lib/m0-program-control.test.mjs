@@ -8,16 +8,27 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 
 import {
+  atomicWriteFileSync,
   assertUniqueIdentities,
+  attachRustHandlerDefinitions,
+  buildRustFunctionIndex,
   discoverAxumRoutes,
+  discoverJsOutboundCalls,
   discoverJsStorageMutations,
   discoverJsSystemEffects,
+  discoverProtoServiceNames,
   discoverRustMatchServiceMethods,
+  discoverRustServiceInterfaceMethods,
+  discoverTonicServiceRegistrations,
+  discoverWalletServiceMethods,
+  rustModuleSourceMap,
 } from "./m0-program-control.mjs";
 import {
   EVIDENCE_DIR,
   PG_IDS,
+  README_FILE,
   assertRenderedArtifactsCurrent,
+  buildM0Fingerprint,
   createInitialReview,
   discoverRepositorySurface,
   loadM0Sources,
@@ -113,6 +124,273 @@ test("structured discovery finds every literal Axum method and route identity", 
   }
 });
 
+test("Axum discovery resolves aliases, on filters, and any handlers", () => {
+  const root = temporaryRepository({
+    "handlers.rs": `
+      pub async fn shared_handler() {}
+      pub async fn any_handler() {}
+    `,
+    "routes.rs": `
+      use crate::handlers::shared_handler as aliased_handler;
+      fn app() {
+        Router::new()
+          .route(
+            "/v1/mixed",
+            get(aliased_handler).on(MethodFilter::POST, aliased_handler),
+          )
+          .route("/v1/any", any(handlers::any_handler));
+      }
+    `,
+  });
+  try {
+    const relativePaths = ["routes.rs", "handlers.rs"];
+    const entries = attachRustHandlerDefinitions({
+      repoRoot: root,
+      entries: discoverAxumRoutes({
+        repoRoot: root,
+        relativePath: "routes.rs",
+        surface: "fixture",
+      }),
+      functionIndex: buildRustFunctionIndex({ repoRoot: root, relativePaths }),
+      defaultSourceFile: "routes.rs",
+      moduleSourceFiles: rustModuleSourceMap(relativePaths),
+    });
+    assert.deepEqual(entries.map((entry) => entry.method), ["GET", "POST", "ANY"]);
+    assert.ok(entries.every((entry) => (
+      entry.handler_resolution === "transitive_function_closure"
+    )));
+    assert.deepEqual(
+      entries.map((entry) => entry.handler_source_file),
+      ["handlers.rs", "handlers.rs", "handlers.rs"],
+    );
+  } finally {
+    fs.rmSync(root, { force: true, recursive: true });
+  }
+});
+
+test("unsupported Axum registration forms fail discovery explicitly", () => {
+  const fixtures = [
+    ['Router::new().route_service("/x", service)', /route_service/u],
+    ['Router::new().nest("/x", nested)', /nest/u],
+    ["Router::new().fallback(handler)", /fallback/u],
+    [
+      "Router::new().method_not_allowed_fallback(handler)",
+      /method_not_allowed_fallback/u,
+    ],
+    ["Router::new().route(path, get(handler))", /path is not one literal/u],
+    [
+      'Router::new().route("/x", on(dynamic_filter, handler))',
+      /unsupported dynamic Axum method filter/u,
+    ],
+    [
+      'Router::new().route("/x", get_service(service))',
+      /unsupported Axum service router/u,
+    ],
+    [
+      'Router::route(router, "/x", get(handler))',
+      /unsupported associated Axum route registration/u,
+    ],
+  ];
+  for (const [source, pattern] of fixtures) {
+    const root = temporaryRepository({ "routes.rs": `fn app() { ${source}; }` });
+    try {
+      assert.throws(
+        () => discoverAxumRoutes({
+          repoRoot: root,
+          relativePath: "routes.rs",
+          surface: "fixture",
+        }),
+        pattern,
+      );
+    } finally {
+      fs.rmSync(root, { force: true, recursive: true });
+    }
+  }
+});
+
+test("transitive Rust effects change unchanged GET classification and freshness", () => {
+  const readHelper = `
+    pub async fn status() { ensure_state(); }
+    fn ensure_state() { read_record(); }
+  `;
+  const persistHelper = `
+    pub async fn status() { ensure_state(); }
+    fn ensure_state() { persist_record(); }
+    fn persist_record() { std::fs::write("state.json", "{}"); }
+  `;
+  const root = temporaryRepository({
+    [README_FILE]: "fixture evidence boundary\n",
+    "helpers.rs": readHelper,
+    "routes.rs": `
+      use crate::helpers::status as aliased_status;
+      fn app() {
+        Router::new().route("/status", get(aliased_status));
+      }
+    `,
+  });
+  const discover = () => {
+    const relativePaths = ["routes.rs", "helpers.rs"];
+    return attachRustHandlerDefinitions({
+      repoRoot: root,
+      entries: discoverAxumRoutes({
+        repoRoot: root,
+        relativePath: "routes.rs",
+        surface: "hypervisor-daemon",
+      }),
+      functionIndex: buildRustFunctionIndex({ repoRoot: root, relativePaths }),
+      defaultSourceFile: "routes.rs",
+      moduleSourceFiles: rustModuleSourceMap(relativePaths),
+    });
+  };
+  try {
+    const readEntries = discover();
+    const readClassification = createInitialReview(root, readEntries)
+      .entries[0].classification;
+    const readFingerprint = buildM0Fingerprint(
+      root,
+      readEntries,
+      { fixture: "review" },
+      { fixture: "program" },
+    );
+
+    fs.writeFileSync(path.join(root, "helpers.rs"), persistHelper);
+    const persistEntries = discover();
+    const persistClassification = createInitialReview(root, persistEntries)
+      .entries[0].classification;
+    const persistFingerprint = buildM0Fingerprint(
+      root,
+      persistEntries,
+      { fixture: "review" },
+      { fixture: "program" },
+    );
+
+    assert.equal(readClassification, "read_only");
+    assert.equal(persistClassification, "consequential");
+    assert.deepEqual(readEntries[0].handler_effect_calls, []);
+    assert.deepEqual(persistEntries[0].handler_effect_calls, [
+      "persist_record",
+      "std::fs::write",
+    ]);
+    assert.equal(
+      readEntries[0].source_anchor.sha256,
+      persistEntries[0].source_anchor.sha256,
+    );
+    assert.notEqual(
+      readEntries[0].handler_anchor.sha256,
+      persistEntries[0].handler_anchor.sha256,
+    );
+    assert.notEqual(readFingerprint, persistFingerprint);
+  } finally {
+    fs.rmSync(root, { force: true, recursive: true });
+  }
+});
+
+test("unresolved and ambiguous effect-relevant Rust helpers fail closed", () => {
+  const fixtures = [
+    {
+      files: {
+        "helpers.rs": "fn unrelated() {}",
+        "routes.rs": `
+          fn handler() { helpers::ensure_state(); }
+          fn app() { Router::new().route("/x", get(handler)); }
+        `,
+      },
+      expected: /unresolved effect-relevant Rust helper/u,
+    },
+    {
+      files: {
+        "routes.rs": `
+          fn handler() { write_state(); }
+          fn app() { Router::new().route("/x", get(handler)); }
+        `,
+      },
+      expected: /unresolved effect-relevant Rust helper write_state/u,
+    },
+    {
+      files: {
+        "routes.rs": `
+          fn handler() { persist(); }
+          fn app() { Router::new().route("/x", get(handler)); }
+        `,
+      },
+      expected: /unresolved effect-relevant Rust helper persist/u,
+    },
+    {
+      files: {
+        "a.rs": "fn ensure_state() {}",
+        "b.rs": "fn ensure_state() {}",
+        "routes.rs": `
+          fn handler() { crate::ensure_state(); }
+          fn app() { Router::new().route("/x", get(handler)); }
+        `,
+      },
+      expected: /ambiguous effect-relevant Rust helper/u,
+    },
+  ];
+  for (const fixture of fixtures) {
+    const root = temporaryRepository(fixture.files);
+    try {
+      const relativePaths = Object.keys(fixture.files);
+      const entries = attachRustHandlerDefinitions({
+        repoRoot: root,
+        entries: discoverAxumRoutes({
+          repoRoot: root,
+          relativePath: "routes.rs",
+          surface: "fixture",
+        }),
+        functionIndex: buildRustFunctionIndex({ repoRoot: root, relativePaths }),
+        defaultSourceFile: "routes.rs",
+        moduleSourceFiles: rustModuleSourceMap(relativePaths),
+      });
+      assert.match(entries[0].handler_resolution, fixture.expected);
+      assert.equal(entries[0].handler_anchor, null);
+    } finally {
+      fs.rmSync(root, { force: true, recursive: true });
+    }
+  }
+});
+
+test("duplicate Rust module names fail helper resolution explicitly", () => {
+  assert.throws(
+    () => rustModuleSourceMap([
+      "first/shared.rs",
+      "second/shared.rs",
+    ]),
+    /ambiguous Rust module shared/u,
+  );
+});
+
+test("external Rust method effects stay distinct from unresolved helpers", () => {
+  const root = temporaryRepository({
+    "routes.rs": `
+      fn handler() {
+        client().send();
+        command().spawn();
+        external.read();
+      }
+      fn app() { Router::new().route("/x", get(handler)); }
+    `,
+  });
+  try {
+    const relativePaths = ["routes.rs"];
+    const entries = attachRustHandlerDefinitions({
+      repoRoot: root,
+      entries: discoverAxumRoutes({
+        repoRoot: root,
+        relativePath: "routes.rs",
+        surface: "fixture",
+      }),
+      functionIndex: buildRustFunctionIndex({ repoRoot: root, relativePaths }),
+      defaultSourceFile: "routes.rs",
+      moduleSourceFiles: rustModuleSourceMap(relativePaths),
+    });
+    assert.equal(entries[0].handler_resolution, "transitive_function_closure");
+    assert.deepEqual(entries[0].handler_effect_calls, [".send", ".spawn"]);
+  } finally {
+    fs.rmSync(root, { force: true, recursive: true });
+  }
+});
+
 test("Rust service discovery stops the last literal arm before the wildcard", () => {
   const root = temporaryRepository({
     "service.rs": `
@@ -148,6 +426,134 @@ test("Rust service discovery stops the last literal arm before the wildcard", ()
   }
 });
 
+test("Rust dispatch selects the intended qualified trait and captures or-patterns", () => {
+  const root = temporaryRepository({
+    "service.rs": `
+      impl crate::traits::BlockchainService for DecoyService {
+        fn id(&self) -> &str { "decoy" }
+        async fn handle_service_call(&self, method: &str) {
+          match method { "decoy@v1" => decoy(), _ => unsupported() }
+        }
+      }
+
+      impl crate::traits::BlockchainService for WalletNetworkService {
+        fn id(&self) -> &str { "wallet_network" }
+        async fn handle_service_call(&self, method: &str) {
+          let selected = method;
+          let decoy = || { match method { "shadow@v1" => shadow(), _ => other() } };
+          match selected {
+            "first@v1" | "second@v1" => handlers::persist(request),
+            _ => unsupported(),
+          }
+        }
+      }
+    `,
+  });
+  try {
+    const entries = discoverWalletServiceMethods({
+      repoRoot: root,
+      relativePath: "service.rs",
+    });
+    assert.deepEqual(entries.map((entry) => entry.service_method), [
+      "first@v1",
+      "second@v1",
+    ]);
+    assert.ok(entries.every((entry) => entry.handler === "handlers::persist"));
+  } finally {
+    fs.rmSync(root, { force: true, recursive: true });
+  }
+});
+
+test("qualified service-interface macros enumerate every marked method", () => {
+  const root = temporaryRepository({
+    "service.rs": `
+      #[ioi_macros::service_interface(id = "fixture")]
+      impl FixtureService {
+        #[ioi_macros::method]
+        async fn persist_value(&self) { state.insert(key, value); }
+      }
+    `,
+  });
+  try {
+    const entries = discoverRustServiceInterfaceMethods({
+      repoRoot: root,
+      relativePath: "service.rs",
+      expectedServiceId: "fixture",
+      activeState: "fixture",
+    });
+    assert.deepEqual(entries.map((entry) => entry.service_method), [
+      "persist_value@v1",
+    ]);
+    assert.ok(entries[0].handler_call_sequence.includes("state.insert"));
+  } finally {
+    fs.rmSync(root, { force: true, recursive: true });
+  }
+});
+
+test("service-interface method attribute variants fail discovery explicitly", () => {
+  const root = temporaryRepository({
+    "service.rs": `
+      #[service_interface(id = "fixture")]
+      impl FixtureService {
+        #[method(version = 2)]
+        async fn persist_value(&self) { state.insert(key, value); }
+      }
+    `,
+  });
+  try {
+    assert.throws(
+      () => discoverRustServiceInterfaceMethods({
+        repoRoot: root,
+        relativePath: "service.rs",
+        expectedServiceId: "fixture",
+        activeState: "fixture",
+      }),
+      /unsupported method attribute form/u,
+    );
+  } finally {
+    fs.rmSync(root, { force: true, recursive: true });
+  }
+});
+
+test("proto services and tonic mounts enumerate additions and reject dynamic mounts", () => {
+  const root = temporaryRepository({
+    "api.proto": `
+      syntax = "proto3";
+      service Existing { rpc Read (Request) returns (Reply); }
+      service AddedPublic { rpc Mutate (Request) returns (Reply); }
+    `,
+    "mount.rs": `
+      fn serve() {
+        Server::builder()
+          .add_service(ExistingServer::new(existing))
+          .add_service(AddedPublicServer::with_interceptor(added, auth));
+      }
+    `,
+    "dynamic.rs": `
+      fn serve() { Server::builder().add_service(selected_service); }
+    `,
+  });
+  try {
+    assert.deepEqual(discoverProtoServiceNames({
+      repoRoot: root,
+      relativePath: "api.proto",
+    }), ["AddedPublic", "Existing"]);
+    assert.deepEqual(discoverTonicServiceRegistrations({
+      repoRoot: root,
+      relativePath: "mount.rs",
+    }), ["AddedPublic", "Existing"]);
+    assert.throws(
+      () => discoverTonicServiceRegistrations({
+        repoRoot: root,
+        relativePath: "dynamic.rs",
+      }),
+      /exactly one literal generated service constructor/u,
+    );
+  } finally {
+    fs.rmSync(root, { force: true, recursive: true });
+  }
+});
+
 test("JavaScript discovery finds process, filesystem, and all-key storage effects", () => {
   const root = temporaryRepository({
     "effect.mjs": `
@@ -174,6 +580,194 @@ test("JavaScript discovery finds process, filesystem, and all-key storage effect
     assert.equal(storage[0].storage_key_expression, "<all-keys>");
   } finally {
     fs.rmSync(root, { force: true, recursive: true });
+  }
+});
+
+test("JavaScript AST discovery resolves aliases, options, templates, and nesting", () => {
+  const root = temporaryRepository({
+    "effect.mjs": `
+      import { fetch as importedFetch } from "undici";
+      import { writeFileSync as esmPersist } from "node:fs";
+      import { spawn as launch } from "node:child_process";
+      import { exit as terminate } from "node:process";
+      const { writeFileSync: cjsPersist } = require("node:fs");
+      const fsNamespace = require("node:fs");
+      const renamePersist = fsNamespace.renameSync;
+      const send = fetch;
+      const method = "POST";
+      const options = { method };
+
+      function nestedEffect() {
+        esmPersist("esm.json", "{}");
+        cjsPersist("cjs.json", "{}");
+        renamePersist("before", "after");
+        launch("fixture");
+        terminate(1);
+        importedFetch("/imported", { method: "POST" });
+        return send?.("/aliased", options);
+      }
+
+      function unresolved(url, dynamicOptions) {
+        return fetch(url, dynamicOptions);
+      }
+
+      const mutatedOptions = { method: "POST" };
+      const mutatedAlias = mutatedOptions;
+      mutatedAlias.method = dynamicMethod;
+      fetch("/mutated-alias", mutatedOptions);
+
+      const assignedOptions = { method: "POST" };
+      Object.assign(assignedOptions, { method: dynamicMethod });
+      fetch("/object-assign", assignedOptions);
+
+      const spreadOptions = { method: "POST", ...dynamicOptions };
+      fetch("/dynamic-spread", spreadOptions);
+
+      const generatedScript = \`
+        <script>
+          fetch("/generated", { method: "POST" });
+        </script>
+      \`;
+    `,
+  });
+  try {
+    const outbound = discoverJsOutboundCalls({
+      repoRoot: root,
+      relativePaths: ["effect.mjs"],
+      surface: "fixture",
+      activeState: "fixture",
+    });
+    assert.deepEqual(
+      outbound.map((entry) => [entry.method, entry.path]),
+      [
+        ["POST", "/imported"],
+        ["POST", "/aliased"],
+        ["DYNAMIC(dynamicOptions.method)", "url"],
+        ["DYNAMIC(mutatedOptions.method)", "/mutated-alias"],
+        ["DYNAMIC(assignedOptions.method)", "/object-assign"],
+        ["DYNAMIC(spreadOptions.method)", "/dynamic-spread"],
+        ["POST", "/generated"],
+      ],
+    );
+    const unresolvedEntry = outbound.find((entry) => (
+      entry.method.startsWith("DYNAMIC")
+    ));
+    assert.equal(
+      createInitialReview(root, [unresolvedEntry]).entries[0].classification,
+      "consequential",
+    );
+
+    const system = discoverJsSystemEffects({
+      repoRoot: root,
+      relativePaths: ["effect.mjs"],
+    });
+    const nested = system.find((entry) => entry.source_symbol === "nestedEffect");
+    assert.deepEqual(nested.handler_call_sequence, [
+      "writeFileSync",
+      "writeFileSync",
+      "renameSync",
+      "spawn",
+      "process.exit",
+    ]);
+  } finally {
+    fs.rmSync(root, { force: true, recursive: true });
+  }
+});
+
+test("JavaScript dynamic computed effect members fail discovery explicitly", () => {
+  const root = temporaryRepository({
+    "effect.mjs": `
+      import * as fs from "node:fs";
+      function persist(name) { fs[name]?.("receipt.json", "{}"); }
+    `,
+  });
+  try {
+    assert.throws(
+      () => discoverJsSystemEffects({
+        repoRoot: root,
+        relativePaths: ["effect.mjs"],
+      }),
+      /unsupported dynamic computed JavaScript effect member/u,
+    );
+  } finally {
+    fs.rmSync(root, { force: true, recursive: true });
+  }
+});
+
+test("current shorthand wrappers stay dynamic and generated POSTs stay discovered", () => {
+  const reviewByIdentity = new Map(
+    createInitialReview(repoRoot, discoveredEntries).entries.map((entry) => (
+      [entry.identity, entry]
+    )),
+  );
+  const shorthandLocations = new Set([
+    "apps/hypervisor/surfaces/ontology-manager/index.mjs:81",
+    "apps/hypervisor/surfaces/pipeline/index.mjs:111",
+    "apps/hypervisor/scripts/ioi-agent-runs.mjs:219",
+    "apps/hypervisor/scripts/ioi-agent-runs.mjs:320",
+    "apps/hypervisor/scripts/ioi-agent-runs.mjs:418",
+    "apps/hypervisor/scripts/serve-product-ui.mjs:8429",
+    "apps/hypervisor/scripts/serve-product-ui.mjs:9907",
+    "apps/hypervisor/scripts/ioi-api-adapter.mjs:68",
+  ]);
+  const shorthandEntries = discoveredEntries.filter((entry) => (
+    shorthandLocations.has(`${entry.source_file}:${entry.source_anchor.line}`)
+  ));
+  assert.equal(shorthandEntries.length, shorthandLocations.size);
+  assert.ok(shorthandEntries.every((entry) => entry.method === "DYNAMIC(method)"));
+  assert.ok(shorthandEntries.every((entry) => (
+    reviewByIdentity.get(entry.identity).classification === "consequential"
+  )));
+
+  const generatedPosts = new Set([
+    "/__ioi/automations/__IOI_TEMPLATE_EXPRESSION_0__/patch",
+    "/api/ioi.v1.AgentService/SendToAgentExecution",
+    "f.post",
+  ]);
+  for (const target of generatedPosts) {
+    assert.ok(discoveredEntries.some((entry) => (
+      entry.kind === "js_outbound"
+      && entry.method === "POST"
+      && entry.path === target
+    )), `missing generated POST ${target}`);
+  }
+});
+
+test("read-convergence GET helpers remain genuinely read-only", () => {
+  const reviewByIdentity = new Map(reviewLock.entries.map((entry) => (
+    [entry.identity, entry]
+  )));
+  const entries = discoveredEntries.filter((entry) => (
+    (entry.handler_call_sequence ?? []).some((call) => (
+      call.endsWith("ensure_read_converged")
+    ))
+  ));
+  assert.equal(entries.length, 16);
+  assert.ok(entries.every((entry) => (
+    entry.handler_effect_calls.length === 0
+    && reviewByIdentity.get(entry.identity).classification === "read_only"
+  )));
+});
+
+test("proven stateful GETs are consequential after transitive review", () => {
+  const identities = [
+    "http:hypervisor-daemon:GET /v1/hypervisor/auth/bootstrap-status",
+    "http:hypervisor-daemon:GET /v1/hypervisor/auth/whoami",
+    "http:hypervisor-daemon:GET /v1/hypervisor/principals",
+    "http:hypervisor-daemon:GET /v1/hypervisor/ioi-agent/launch-policies",
+    "http:hypervisor-daemon:GET /v1/hypervisor/ioi-agent/launch-policies/:id",
+    "http:hypervisor-daemon:GET /v1/hypervisor/cloud-candidates/placement-advisory",
+    "http:hypervisor-daemon:GET /v1/hypervisor/placement/preview",
+    "http:hypervisor-daemon:GET /v1/hypervisor/placement/venues",
+  ];
+  const reviewByIdentity = new Map(reviewLock.entries.map((entry) => (
+    [entry.identity, entry]
+  )));
+  for (const identity of identities) {
+    const discovered = discoveredEntries.find((entry) => entry.identity === identity);
+    assert.ok(discovered, `missing ${identity}`);
+    assert.ok(discovered.handler_effect_calls.length > 0, `no effect for ${identity}`);
+    assert.equal(reviewByIdentity.get(identity).classification, "consequential");
   }
 });
 
@@ -269,6 +863,17 @@ test("stale anchors, unsafe defaults, and heuristic review provenance fail close
     ),
     /not in reviewed state|heuristic or unresolved review provenance/u,
   );
+
+  const badDiscovery = structuredClone(discoveredEntries);
+  const badReview = structuredClone(reviewLock);
+  badDiscovery[0].handler_resolution =
+    "effect_reachability_error:fixture unresolved helper";
+  badReview.entries[0].handler_resolution =
+    "effect_reachability_error:fixture unresolved helper";
+  assert.throws(
+    () => validateReviewLock(repoRoot, badDiscovery, badReview),
+    /unresolved handler resolution/u,
+  );
 });
 
 test("false terminal claims fail without leaf, gates, evidence, and recovery proof", () => {
@@ -334,6 +939,99 @@ test("stale generated artifacts fail before consumption", () => {
   } finally {
     fs.rmSync(root, { force: true, recursive: true });
   }
+});
+
+test("README tampering changes the fingerprint and fails the read-only check", () => {
+  const absolutePath = path.join(repoRoot, README_FILE);
+  const original = fs.readFileSync(absolutePath);
+  const stat = fs.statSync(absolutePath);
+  const originalFingerprint = buildM0Fingerprint(
+    repoRoot,
+    discoveredEntries,
+    reviewLock,
+    programSource,
+  );
+  try {
+    fs.writeFileSync(
+      absolutePath,
+      Buffer.concat([original, Buffer.from("\nfixture tamper\n")]),
+    );
+    const tamperedFingerprint = buildM0Fingerprint(
+      repoRoot,
+      discoveredEntries,
+      reviewLock,
+      programSource,
+    );
+    assert.notEqual(tamperedFingerprint, originalFingerprint);
+    const result = spawnSync(process.execPath, [cli, "--check"], {
+      cwd: repoRoot,
+      encoding: "utf8",
+    });
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /stale generated artifact/u);
+  } finally {
+    fs.writeFileSync(absolutePath, original);
+    fs.utimesSync(absolutePath, stat.atime, stat.mtime);
+  }
+});
+
+test("atomic writes clean temporary siblings after a failed replacement", () => {
+  const root = temporaryRepository({ "target": "original\n" });
+  try {
+    assert.throws(
+      () => atomicWriteFileSync(
+        path.join(root, "target"),
+        "replacement\n",
+        { exclusive: true },
+      ),
+      /EEXIST/u,
+    );
+    assert.equal(fs.readFileSync(path.join(root, "target"), "utf8"), "original\n");
+    assert.deepEqual(
+      fs.readdirSync(root).filter((name) => name.endsWith(".tmp")),
+      [],
+    );
+
+    const directoryTarget = path.join(root, "directory-target");
+    fs.mkdirSync(directoryTarget);
+    assert.throws(
+      () => atomicWriteFileSync(directoryTarget, "replacement\n"),
+      /EISDIR|ENOTEMPTY|EEXIST/u,
+    );
+    assert.deepEqual(
+      fs.readdirSync(root).filter((name) => name.endsWith(".tmp")),
+      [],
+    );
+  } finally {
+    fs.rmSync(root, { force: true, recursive: true });
+  }
+});
+
+test("a second --write preserves every evidence byte and mtime", () => {
+  const beforeCheck = hashEvidenceTree();
+  const check = spawnSync(process.execPath, [cli, "--check"], {
+    cwd: repoRoot,
+    encoding: "utf8",
+  });
+  assert.equal(check.status, 0, `${check.stdout}\n${check.stderr}`);
+  assert.deepEqual(hashEvidenceTree(), beforeCheck);
+
+  const first = spawnSync(process.execPath, [cli, "--write"], {
+    cwd: repoRoot,
+    encoding: "utf8",
+  });
+  assert.equal(first.status, 0, `${first.stdout}\n${first.stderr}`);
+  assert.match(first.stdout, /0 file\(s\) written/u);
+  assert.deepEqual(hashEvidenceTree(), beforeCheck);
+
+  const beforeSecond = hashEvidenceTree();
+  const second = spawnSync(process.execPath, [cli, "--write"], {
+    cwd: repoRoot,
+    encoding: "utf8",
+  });
+  assert.equal(second.status, 0, `${second.stdout}\n${second.stderr}`);
+  assert.match(second.stdout, /0 file\(s\) written/u);
+  assert.deepEqual(hashEvidenceTree(), beforeSecond);
 });
 
 test("--check accepts current artifacts and remains read-only", () => {

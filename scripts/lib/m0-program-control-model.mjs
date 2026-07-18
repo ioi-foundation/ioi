@@ -12,11 +12,14 @@ import {
   discoverLiteralCalls,
   discoverProtoService,
   discoverJsSystemEffects,
+  discoverProtoServiceNames,
   discoverRustFunctions,
   discoverRustMatchServiceMethods,
   discoverRustServiceInterfaceMethods,
   discoverSwitchCases,
+  discoverTonicServiceRegistrations,
   discoverWalletServiceMethods,
+  javascriptSourceHasEffects,
   lexSource,
   readRepoFile,
   rustModuleSourceMap,
@@ -27,6 +30,7 @@ import {
 export const EVIDENCE_DIR = "docs/evidence/m0-program-control";
 export const REVIEW_FILE = `${EVIDENCE_DIR}/reviewed-entry-lock.json`;
 export const PROGRAM_SOURCE_FILE = `${EVIDENCE_DIR}/program-control-source.json`;
+export const README_FILE = `${EVIDENCE_DIR}/README.md`;
 export const AS_OF_DATE = "2026-07-18";
 
 export const GENERATED_ARTIFACT_FILES = [
@@ -41,7 +45,15 @@ export const GENERATED_ARTIFACT_FILES = [
   "manifest.json",
 ];
 
-const MUTATING_HTTP_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
+const MUTATING_HTTP_METHODS = new Set([
+  "ANY",
+  "CONNECT",
+  "DELETE",
+  "PATCH",
+  "POST",
+  "PUT",
+  "TRACE",
+]);
 const ENTRY_CLASSIFICATIONS = new Set([
   "consequential",
   "read_only",
@@ -100,7 +112,8 @@ const CANON_BASIS_FILES = [
 
 const DISCOVERY_COVERAGE = Object.freeze({
   axum_route_registry: Object.freeze({
-    pattern: /\.route\s*\(/u,
+    pattern:
+      /(?:\.|::)(?:fallback|fallback_service|merge|method_not_allowed_fallback|nest|nest_service|route|route_service)\s*\(/u,
     suffix: ".rs",
     root: "crates",
     files: Object.freeze({
@@ -117,13 +130,16 @@ const DISCOVERY_COVERAGE = Object.freeze({
     }),
   }),
   blockchain_service_implementation: Object.freeze({
-    pattern: /impl\s+BlockchainService\s+for/u,
+    pattern:
+      /impl(?:\s*<[^>{}]+>)?\s+(?:[A-Za-z_][A-Za-z0-9_]*::)*BlockchainService\s+for/u,
     suffix: ".rs",
     root: "crates",
     files: Object.freeze({
       "crates/consensus/src/service.rs": "enumerated native service",
       "crates/execution/src/runtime_service/mod.rs":
         "enumerated manifest-defined dynamic service wildcard",
+      "crates/macros/src/lib.rs":
+        "service_interface expansion source; generated registries are enumerated and macro-bound",
       "crates/plugins/ibc-service/src/core/registry.rs": "enumerated native service",
       "crates/services/src/agentic/leakage.rs": "enumerated native service",
       "crates/services/src/agentic/runtime/service/mod.rs": "enumerated native service",
@@ -149,6 +165,19 @@ const DISCOVERY_COVERAGE = Object.freeze({
         "enumerated unmounted compatibility contract",
       "crates/ipc/proto/public/v1/public.proto":
         "enumerated mounted public API registry",
+    }),
+  }),
+  tonic_service_registration: Object.freeze({
+    pattern: /\.add_service\s*\(/u,
+    suffix: ".rs",
+    root: "crates",
+    files: Object.freeze({
+      "crates/node/src/bin/guardian.rs":
+        "enumerated conditional Guardian gRPC registry",
+      "crates/validator/src/standard/orchestration/lifecycle.rs":
+        "enumerated mounted public API registry",
+      "crates/validator/src/standard/workload/ipc/mod.rs":
+        "enumerated mounted internal workload RPC registries",
     }),
   }),
   rust_listener_or_server_source: Object.freeze({
@@ -197,7 +226,8 @@ const DISCOVERY_COVERAGE = Object.freeze({
     }),
   }),
   service_interface_registry: Object.freeze({
-    pattern: /#\s*\[\s*service_interface/u,
+    pattern:
+      /#\s*\[\s*(?:[A-Za-z_][A-Za-z0-9_]*::)*service_interface/u,
     suffix: ".rs",
     root: "crates",
     files: Object.freeze({
@@ -275,6 +305,14 @@ const JS_SYSTEM_EFFECT_ACTIONS = Object.freeze({
     path: "/api/ioi.v1.UserService/SetPreference",
     active_state: "standing_serve_product_ui_compatibility_surface",
   }),
+  "js-system-effect:apps/hypervisor/scripts/serve-product-ui.mjs#module_scope_line_6433":
+    Object.freeze({
+      surface: "hypervisor-product-ui-process",
+      operation: "PROCESS_EXIT product-ui reference bundle unavailable",
+      method: "PROCESS_EXIT",
+      path: "serve-product-ui process",
+      active_state: "standing_serve_product_ui_startup_failure",
+    }),
   "js-system-effect:apps/hypervisor/scripts/serve-product-ui.mjs#module_scope_line_6437":
     Object.freeze({
       surface: "hypervisor-product-ui-process",
@@ -283,6 +321,14 @@ const JS_SYSTEM_EFFECT_ACTIONS = Object.freeze({
       path: "REF_SERVER",
       active_state: "standing_serve_product_ui_startup",
     }),
+  "js-system-effect:apps/hypervisor/scripts/serve-product-ui.mjs#module_scope_line_6441":
+    Object.freeze({
+      surface: "hypervisor-product-ui-process",
+      operation: "PROCESS_EXIT propagate product-ui reference server exit",
+      method: "PROCESS_EXIT",
+      path: "serve-product-ui process",
+      active_state: "standing_serve_product_ui_child_exit_handler",
+    }),
   "js-system-effect:apps/hypervisor/scripts/serve-product-ui.mjs#module_scope_line_6442":
     Object.freeze({
       surface: "hypervisor-product-ui-process",
@@ -290,6 +336,30 @@ const JS_SYSTEM_EFFECT_ACTIONS = Object.freeze({
       method: "SIGINT",
       path: "productUi child",
       active_state: "standing_serve_product_ui_signal_handler",
+    }),
+  "js-system-effect:apps/hypervisor/scripts/serve-product-ui.mjs#waitForMirror":
+    Object.freeze({
+      surface: "hypervisor-product-ui-process",
+      operation: "PROCESS_EXIT product-ui reference server startup timeout",
+      method: "PROCESS_EXIT",
+      path: "serve-product-ui process",
+      active_state: "standing_serve_product_ui_startup_probe_failure",
+    }),
+  "js-system-effect:scripts/hypervisor-app-dev-replay-server.mjs#module_scope_line_3701":
+    Object.freeze({
+      surface: "hypervisor-dev-replay",
+      operation: "PROCESS_EXIT development replay startup failure",
+      method: "PROCESS_EXIT",
+      path: "hypervisor dev replay process",
+      active_state: "development_replay_cli_failure",
+    }),
+  "js-system-effect:scripts/hypervisor-app-dev-replay-server.mjs#shutdown":
+    Object.freeze({
+      surface: "hypervisor-dev-replay",
+      operation: "PROCESS_EXIT development replay signal shutdown",
+      method: "PROCESS_EXIT",
+      path: "hypervisor dev replay process",
+      active_state: "development_replay_signal_handler",
     }),
   "js-system-effect:apps/hypervisor/scripts/serve-product-ui.mjs#module_scope_line_6443":
     Object.freeze({
@@ -318,10 +388,44 @@ const JS_SYSTEM_EFFECT_ACTIONS = Object.freeze({
 
 const ROUTE_DIRECTORY = "crates/node/src/bin/hypervisor_daemon_routes";
 const DAEMON_FILE = "crates/node/src/bin/hypervisor-daemon.rs";
+const WALLET_DIRECTORY = "crates/services/src/wallet_network";
 const WALLET_FILE = "crates/services/src/wallet_network/mod.rs";
-const WALLET_HANDLER_DIRECTORY = "crates/services/src/wallet_network/handlers";
 const PUBLIC_PROTO = "crates/ipc/proto/public/v1/public.proto";
 const GUARDIAN_PROTO = "crates/ipc/proto/control/v1/control.proto";
+
+const PROTO_SERVICE_INVENTORY = Object.freeze({
+  "crates/ipc/proto/blockchain/v1/blockchain.proto": Object.freeze([
+    "ChainControl",
+    "ContractControl",
+    "StakingControl",
+    "StateQuery",
+    "SystemControl",
+  ]),
+  "crates/ipc/proto/control/v1/control.proto": Object.freeze([
+    "GuardianControl",
+    "WorkloadControl",
+  ]),
+  "crates/ipc/proto/model_mount/v1/model_mount.proto": Object.freeze([
+    "ModelMountService",
+  ]),
+  "crates/ipc/proto/public/v1/public.proto": Object.freeze([
+    "PublicApi",
+  ]),
+});
+
+const TONIC_SERVICE_MOUNTS = Object.freeze({
+  "crates/node/src/bin/guardian.rs": Object.freeze(["GuardianControl"]),
+  "crates/validator/src/standard/orchestration/lifecycle.rs":
+    Object.freeze(["PublicApi"]),
+  "crates/validator/src/standard/workload/ipc/mod.rs": Object.freeze([
+    "ChainControl",
+    "ContractControl",
+    "StakingControl",
+    "StateQuery",
+    "SystemControl",
+    "WorkloadControl",
+  ]),
+});
 
 function listFiles(repoRoot, relativeDirectory, suffix) {
   return fs.readdirSync(path.join(repoRoot, relativeDirectory))
@@ -474,10 +578,10 @@ function activeJavaScriptEffectSources(repoRoot) {
     ...productUiFiles,
     "scripts/hypervisor-app-dev-replay-server.mjs",
   ])].sort();
-  const effectPattern =
-    /(?:\bfetch\s*\(|\bdaemon\s*\(|\.(?:request|sendBeacon)\s*\(|\b(?:EventSource|WebSocket)\s*\(|\binvoke(?:\s*<[^;>{}]+>)?\s*\(|(?:localStorage|sessionStorage)\.(?:setItem|removeItem|clear)\s*\(|\b(?:appendFile|appendFileSync|copyFile|copyFileSync|createWriteStream|exec|execFile|execFileSync|execSync|fork|mkdir|mkdirSync|rename|renameSync|rm|rmSync|rmdir|rmdirSync|spawn|spawnSync|unlink|unlinkSync|writeFile|writeFileSync)\s*\(|\.kill\s*\()/u;
   return candidates.filter((relativePath) => (
-    effectPattern.test(readRepoFile(repoRoot, relativePath).source)
+    /\binvoke(?:\s*<[^;>{}]+>)?\s*\(/u
+      .test(readRepoFile(repoRoot, relativePath).source)
+    || javascriptSourceHasEffects({ repoRoot, relativePath })
   ));
 }
 
@@ -516,6 +620,20 @@ function assertRepositoryDiscoveryCoverage(repoRoot) {
     activeJavaScriptServerSources(repoRoot),
     Object.keys(ACTIVE_JAVASCRIPT_SERVER_SOURCE_COVERAGE).sort(),
   );
+  for (const [relativePath, services] of Object.entries(PROTO_SERVICE_INVENTORY)) {
+    assertExactCoverageSet(
+      `proto_service_inventory:${relativePath}`,
+      discoverProtoServiceNames({ repoRoot, relativePath }),
+      [...services],
+    );
+  }
+  for (const [relativePath, services] of Object.entries(TONIC_SERVICE_MOUNTS)) {
+    assertExactCoverageSet(
+      `tonic_service_mounts:${relativePath}`,
+      discoverTonicServiceRegistrations({ repoRoot, relativePath }),
+      [...services],
+    );
+  }
 }
 
 function snakeCase(value) {
@@ -736,14 +854,18 @@ export function discoverRepositorySurface(repoRoot) {
     `${ROUTE_DIRECTORY}/lifecycle_routes.rs`,
   );
 
-  const walletHandlerFiles = listFilesRecursive(
+  const walletSourceFiles = listFilesRecursive(
     repoRoot,
-    WALLET_HANDLER_DIRECTORY,
+    WALLET_DIRECTORY,
     ".rs",
-  );
+  ).filter((relativePath) => (
+    relativePath !== WALLET_FILE
+    && !relativePath.includes("/tests/")
+    && !relativePath.endsWith("/tests.rs")
+  ));
   const walletFunctionIndex = buildRustFunctionIndex({
     repoRoot,
-    relativePaths: [WALLET_FILE, ...walletHandlerFiles],
+    relativePaths: [WALLET_FILE, ...walletSourceFiles],
   });
   const wallet = attachRustHandlerDefinitions({
     repoRoot,
@@ -753,7 +875,7 @@ export function discoverRepositorySurface(repoRoot) {
     }),
     functionIndex: walletFunctionIndex,
     defaultSourceFile: WALLET_FILE,
-    moduleSourceFiles: rustModuleSourceMap(walletHandlerFiles),
+    moduleSourceFiles: rustModuleSourceMap(walletSourceFiles),
   });
 
   const literalBlockchainServiceSpecs = [
@@ -829,12 +951,24 @@ export function discoverRepositorySurface(repoRoot) {
       activeState: "unmounted_fail_closed_legacy_boundary",
     },
   ];
+  const macroDefinitionAnchor = sha256(
+    readRepoFile(repoRoot, "crates/macros/src/lib.rs").source,
+  );
   const macroBlockchainServices = macroBlockchainServiceSpecs.flatMap((spec) => (
     discoverRustServiceInterfaceMethods({
       repoRoot,
       ...spec,
     })
-  ));
+  )).map((entry) => ({
+    ...entry,
+    handler_anchor: {
+      ...entry.handler_anchor,
+      sha256: sha256(
+        `${entry.handler_anchor.sha256}:${macroDefinitionAnchor}`,
+      ),
+    },
+    macro_definition_anchor_sha256: macroDefinitionAnchor,
+  }));
 
   const publicHandlerFiles = [
     "crates/validator/src/standard/orchestration/grpc_public.rs",
@@ -982,13 +1116,9 @@ export function discoverRepositorySurface(repoRoot) {
 
   const jsStorage = discoverJsStorageMutations({
     repoRoot,
-    relativePaths: sourceFilesMatching(
-      repoRoot,
-      applicationSourceFiles.filter((relativePath) => (
-        relativePath.startsWith("apps/hypervisor/src/")
-      )),
-      /(?:localStorage|sessionStorage)\.(?:setItem|removeItem|clear)\s*\(/u,
-    ),
+    relativePaths: applicationSourceFiles.filter((relativePath) => (
+      relativePath.startsWith("apps/hypervisor/src/")
+    )),
     surface: "hypervisor-app-local-storage",
     activeState: "active_hypervisor_browser_compatibility_state",
   }).map((entry) => ({
@@ -1002,13 +1132,9 @@ export function discoverRepositorySurface(repoRoot) {
   }));
   const otherJsStorage = discoverJsStorageMutations({
     repoRoot,
-    relativePaths: sourceFilesMatching(
-      repoRoot,
-      applicationSourceFiles.filter((relativePath) => (
-        !relativePath.startsWith("apps/hypervisor/src/")
-      )),
-      /(?:localStorage|sessionStorage)\.(?:setItem|removeItem|clear)\s*\(/u,
-    ),
+    relativePaths: applicationSourceFiles.filter((relativePath) => (
+      !relativePath.startsWith("apps/hypervisor/src/")
+    )),
     surface: "other-js-app-local-storage",
     activeState: "active_application_browser_compatibility_state",
   }).map((entry) => ({
@@ -1061,38 +1187,26 @@ export function discoverRepositorySurface(repoRoot) {
   ));
   const hypervisorDevOutbound = discoverJsOutboundCalls({
     repoRoot,
-    relativePaths: sourceFilesMatching(
-      repoRoot,
-      hypervisorDevSourceFiles,
-      /(?:\bfetch\s*\(|\bdaemon\s*\(|\.request\s*\()/u,
-    ),
+    relativePaths: hypervisorDevSourceFiles,
     surface: "hypervisor-app-dev-outbound",
     activeState: "vite_development_only",
   });
 
   const hypervisorAppOutbound = discoverJsOutboundCalls({
     repoRoot,
-    relativePaths: sourceFilesMatching(
-      repoRoot,
-      applicationSourceFiles.filter((relativePath) => (
-        relativePath.startsWith("apps/hypervisor/src/")
-        && !hypervisorDevSourceFiles.includes(relativePath)
-      )),
-      /(?:\bfetch\s*\(|\bdaemon\s*\(|\.request\s*\()/u,
-    ),
+    relativePaths: applicationSourceFiles.filter((relativePath) => (
+      relativePath.startsWith("apps/hypervisor/src/")
+      && !hypervisorDevSourceFiles.includes(relativePath)
+    )),
     surface: "hypervisor-app-outbound",
     activeState: "active_hypervisor_application",
   });
 
   const otherAppOutbound = discoverJsOutboundCalls({
     repoRoot,
-    relativePaths: sourceFilesMatching(
-      repoRoot,
-      applicationSourceFiles.filter((relativePath) => (
-        !relativePath.startsWith("apps/hypervisor/src/")
-      )),
-      /(?:\bfetch\s*\(|\bdaemon\s*\(|\.request\s*\()/u,
-    ),
+    relativePaths: applicationSourceFiles.filter((relativePath) => (
+      !relativePath.startsWith("apps/hypervisor/src/")
+    )),
     surface: "other-js-app-outbound",
     activeState: "active_application",
   });
@@ -1414,14 +1528,8 @@ function ownerForEntry(entry) {
   };
 }
 
-const DIRECT_EFFECT_CALL = /(?:^|::|\.)(?:persist(?:_|$)|persist_record$|persist_env$|persist_availability_locked$|persist_runnability_locked$|write(?:_|$)|write_all$|writeFileSync$|remove_record$|remove_file$|remove_dir_all$|create_dir(?:_all)?$|rename$|save(?:_|$)|store(?:_|$)|store_typed$|append(?:_|$)|append_audit_event(?:_with_records)?$|state\.insert$|state\.delete$|admit_and_persist|apply_workspace_patch$|Command::new$|spawn$|send$|try_send$|submit_ibc_messages$|set_secret$|provision_with_domain$|perform_sign$|sync_all$|register_service$|ensure_(?:seed|default_space)$)/u;
+const DIRECT_EFFECT_CALL = /(?:^|::|\.)(?:persist(?:_|$)|persist_record$|persist_env$|persist_availability_locked$|persist_runnability_locked$|write(?:_|$)|write_all$|writeFileSync$|remove_record$|remove_file$|remove_dir_all$|create_dir(?:_all)?$|rename$|save(?:_|$)|store(?:_|$)|store_typed$|append(?:_|$)|append_audit_event(?:_with_records)?$|state\.insert$|state\.delete$|state\.batch_apply$|admit_and_persist|apply_workspace_patch$|Command::new$|spawn$|send$|try_send$|submit_ibc_messages$|set_secret$|provision_with_domain$|perform_sign$|sync_all$|register_service$)/u;
 const WALLET_EFFECT_CALL = /^(?:store_typed|append_audit_event(?:_with_records)?|commit_binding|state\.(?:insert|delete|batch_apply)|provider\.(?:read_latest|list_recent|mailbox_total_count|delete_spam|send_reply))$/u;
-
-const MACRO_GENERATED_GET_MUTATIONS = new Set([
-  "http:hypervisor-daemon:GET /v1/hypervisor/automation-affinities",
-  "http:hypervisor-daemon:GET /v1/hypervisor/memory-entries",
-  "http:hypervisor-daemon:GET /v1/hypervisor/skill-entries",
-]);
 
 const PLAN_ONLY_HTTP_IDENTITIES = new Set([
   "http:hypervisor-daemon:POST /v1/hypervisor/authority/evaluate",
@@ -1431,7 +1539,8 @@ const PLAN_ONLY_HTTP_IDENTITIES = new Set([
 ]);
 
 function directEffectCalls(entry) {
-  return (entry.handler_call_sequence ?? []).filter((call) => DIRECT_EFFECT_CALL.test(call));
+  return entry.handler_effect_calls
+    ?? (entry.handler_call_sequence ?? []).filter((call) => DIRECT_EFFECT_CALL.test(call));
 }
 
 function uniqueInOrder(values) {
@@ -1653,7 +1762,6 @@ function initialClassification(entry, devCaseCommands) {
 
   if (entry.method === "GET") {
     return directEffectCalls(entry).length > 0
-      || MACRO_GENERATED_GET_MUTATIONS.has(entry.identity)
       ? "consequential"
       : "read_only";
   }
@@ -2666,7 +2774,18 @@ export function createInitialReview(repoRoot, discoveredEntries) {
         "lease-authenticated raw editor proxy",
         "development replay command and actual I/O boundaries",
       ],
-      mutation_methods: ["POST", "PUT", "PATCH", "DELETE", "RPC", "service_method"],
+      mutation_methods: [
+        "ANY",
+        "CONNECT",
+        "DELETE",
+        "DYNAMIC",
+        "PATCH",
+        "POST",
+        "PUT",
+        "RPC",
+        "TRACE",
+        "service_method",
+      ],
       rule: "Every discovered identity is listed below; no classification is inherited by a new identity.",
     },
     entries,
@@ -3755,7 +3874,7 @@ export function validateReviewLock(repoRoot, discoveredEntries, reviewLock) {
     );
     addError(
       errors,
-      !["unresolved", "ambiguous"].includes(reviewed.handler_resolution),
+      !/(?:unresolved|ambiguous|error)/iu.test(reviewed.handler_resolution),
       `${label} has unresolved handler resolution ${reviewed.handler_resolution}`,
     );
 
@@ -4306,10 +4425,20 @@ function artifactEnvelope(fingerprint, artifact, body) {
   };
 }
 
-function buildFingerprint(discoveredEntries, reviewLock, programSource) {
+export function buildM0Fingerprint(
+  repoRoot,
+  discoveredEntries,
+  reviewLock,
+  programSource,
+) {
+  const readmeSource = fs.readFileSync(path.join(repoRoot, README_FILE), "utf8");
   return sha256(stableStringify({
     discovered_entries: discoveredEntries,
     program_source: programSource,
+    readme: {
+      path: README_FILE,
+      sha256: sha256(readmeSource),
+    },
     reviewed_entry_lock: reviewLock,
   }));
 }
@@ -4326,7 +4455,12 @@ export function buildM0Artifacts(
     reviewLock,
     programSource,
   );
-  const fingerprint = buildFingerprint(discoveredEntries, reviewLock, programSource);
+  const fingerprint = buildM0Fingerprint(
+    repoRoot,
+    discoveredEntries,
+    reviewLock,
+    programSource,
+  );
   const reviewedEntries = discoveredEntries.map((discovered) => ({
     ...discovered,
     ...reviewByIdentity.get(discovered.identity),
@@ -4430,7 +4564,7 @@ export function buildM0Artifacts(
       state: "closed_current",
     },
     {
-      path: `${EVIDENCE_DIR}/README.md`,
+      path: README_FILE,
       role: "human consumption and M0 claim boundary",
       state: "closed_current",
     },
@@ -4526,7 +4660,7 @@ export function buildM0Artifacts(
   const rendered = new Map(
     [...documents].map(([name, document]) => [name, stableStringify(document)]),
   );
-  const sourceFiles = [REVIEW_FILE, PROGRAM_SOURCE_FILE].map((relativePath) => {
+  const sourceFiles = [REVIEW_FILE, PROGRAM_SOURCE_FILE, README_FILE].map((relativePath) => {
     const source = fs.readFileSync(path.join(repoRoot, relativePath), "utf8");
     return {
       path: relativePath,
