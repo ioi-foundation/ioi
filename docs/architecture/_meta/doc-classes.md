@@ -75,9 +75,9 @@ only when the generated output is necessary public evidence.
 `docs/architecture/_archive/` is the exception lane: verbatim historical
 extractions (change ledgers, build logs, former specs) live there with
 `Doctrine status: archived` and are never authority. The two `_meta`
-migration artifacts (master guide, migration matrix) remain in place as
-live migration owners; their per-slice history has been moved to
-`_archive/change-ledgers/`.
+migration artifacts (the non-doctrinal migration/evidence guide and
+implementation ledger) remain in place as reference and status artifacts;
+their per-slice history has been moved to `_archive/change-ledgers/`.
 
 ## Canonical Owner Shape
 

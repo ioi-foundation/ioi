@@ -4,8 +4,8 @@ Status: archived change ledger (verbatim extraction).
 Doctrine status: archived
 Implementation status: n/a (historical record)
 Archived from: `docs/architecture/_meta/hypervisor-kernel-substrate-unification-master-guide.md` on 2026-07-05.
-Canonical owner: `docs/architecture/_meta/hypervisor-kernel-substrate-unification-master-guide.md` (live doctrine); this file is history, not authority.
-Superseded by: the canonical owner doc. Git history retains the original placement.
+Canonical owner: none; this file is history, not authority. Subject doctrine remains with the owners in `docs/architecture/_meta/source-of-truth-map.md`.
+Superseded by: the non-doctrinal migration/evidence guide and implementation ledger. Git history retains the original placement.
 
 ---
 

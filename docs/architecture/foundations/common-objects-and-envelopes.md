@@ -2511,14 +2511,14 @@ state and assurance claims.
 ## AIIP and Bounded Execution Domain Envelopes
 
 AIIP is the interoperation protocol for handoffs between independently governed
-autonomous systems. Local GoalRun/HarnessInvocation, member-node, and
-embodied-unit routing uses native L0 GoalRun, RuntimeAssignment, lease,
-state/evidence, and Embodied
-Runtime contracts rather than AIIP. Internal and external paths may reuse common
-typed work, authority, idempotency, evidence, and receipt conventions without
-collapsing their sovereignty boundary. Consequential AIIP packets must compile
-into typed envelopes with policy, authority, receipt, recovery, and declared
-settlement semantics.
+autonomous systems identified by distinct admitted `system_id` values. Local
+GoalRun/HarnessInvocation, installed-Worker, member-node, and embodied-unit
+routing uses native L0 GoalRun, RuntimeAssignment, lease, state/evidence, and
+Embodied Runtime contracts rather than AIIP. Internal and external paths may
+reuse common typed work, authority, idempotency, evidence, and receipt
+conventions without collapsing their sovereignty boundary. Consequential AIIP
+packets must compile into typed envelopes with policy, authority, receipt,
+recovery, and declared settlement semantics.
 
 This file owns the canonical field-level `AIIPChannelEnvelope` and
 `AIIPEnvelope` schemas because they are shared boundary objects. The AIIP owner,
@@ -2623,6 +2623,10 @@ The retired `local_microharness` discriminator may be accepted only by an
 explicit compatibility adapter and must normalize to `local_runtime` before
 admission. A GoalRunProfile or HarnessProfile is not itself an execution
 domain; the admitted local runtime/domain executing its invocations is.
+Likewise, a local or installed Worker, process, node, robot, or domain object
+does not become an AIIP peer merely by having a distinct runtime endpoint. It
+acts behind an independently governed System identity; routing within the same
+`system_id` remains L0.
 
 Robot fleets, robot controllers, drones, vehicles, facility systems, IoT
 actuators, and other embodied domains are allowed bounded execution domains,
@@ -2653,9 +2657,20 @@ and receipts.
 ```yaml
 AIIPChannelEnvelope:
   channel_id: aiip://channel/...
-  system_id_from: system://... | domain://...
-  system_id_to: system://... | domain://...
-  profile: local | installed_worker | marketplace_worker | outcome_service | autonomous_system | collaborative_pursuit | enterprise
+  system_id_from: system://...
+  system_id_to: system://... # required to differ from system_id_from
+  endpoint_channel_enrollments:
+    - system_id: system://... # exactly system_id_from
+      governance_boundary_ref: constitution://... | policy://...
+      operational_truth_ref: agentgres://...
+      channel_enrollment_decision_ref: decision://...
+      channel_enrollment_receipt_ref: receipt://...
+    - system_id: system://... # exactly system_id_to
+      governance_boundary_ref: constitution://... | policy://...
+      operational_truth_ref: agentgres://...
+      channel_enrollment_decision_ref: decision://...
+      channel_enrollment_receipt_ref: receipt://...
+  profile: marketplace_worker | outcome_service | autonomous_system | collaborative_pursuit | enterprise
   transport: in_process | daemon_ipc | unix_socket | local_http | grpc | json_rpc | nats | https | queue | chain_relay
   external_protocol_binding_ref: aiip-binding://... | null
   schema_version: ioi.aiip-channel.v1
@@ -2673,6 +2688,14 @@ AIIPChannelEnvelope:
   status: opening | active | paused | closing | closed | disputed
 ```
 
+The two endpoint enrollment entries are mandatory, distinct, and exact: each
+independently governed System admits its own participation in this channel
+through its governance and truth paths. `in_process`, `daemon_ipc`,
+`unix_socket`, and `local_http` remain legal AIIP transports only under that
+two-System condition; use of the same transports inside one System is L0.
+These endpoint channel enrollments are separate from the optional
+`party_network_enrollment_refs` that select IOI Network services.
+
 ```yaml
 AIIPEnvelope:
   schema_version: ioi.aiip-envelope.v1
@@ -2685,8 +2708,8 @@ AIIPEnvelope:
     authority_query | authority_grant | receipt_commitment | delivery_update |
     acceptance_decision | settlement_intent | dispute | dispute_resolution |
     reputation_query
-  system_id_from: system://... | domain://...
-  system_id_to: system://... | domain://...
+  system_id_from: system://...
+  system_id_to: system://... # distinct from system_id_from and exact channel endpoints
   channel_id: aiip://channel/...
   external_protocol_binding_ref: aiip-binding://... | null
   sequence_or_nonce: string
@@ -2695,7 +2718,7 @@ AIIPEnvelope:
   correlation_ref:
     goal://... | task://... | outcome-room://... | collaboration://... | null
   timestamp_or_slot: string
-  profile: local | installed_worker | marketplace_worker | outcome_service |
+  profile: marketplace_worker | outcome_service |
     autonomous_system | collaborative_pursuit | enterprise
   policy_hash: hash
   authority_ref: optional grant://...

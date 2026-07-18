@@ -1,10 +1,13 @@
 # Hypervisor Kernel Substrate Unification Master Guide
 
-Status: implementation master guide.
-Canonical intent: resolve the current Hypervisor daemon and Rust/WASM kernel/workload split brain without introducing a new runtime beside the daemon.
-Primary owner candidate: architecture meta until promoted into component canon.
+Status: non-doctrinal implementation migration and evidence guide.
+Scope: migration sequencing, implementation evidence, route-family cleanup, and
+terminal conformance for convergence of the Hypervisor daemon with the existing
+Rust/WASM kernel/workload substrate.
+Canonical owner: none. Architecture doctrine remains with the subject owners in
+[`source-of-truth-map.md`](./source-of-truth-map.md) and the applicable ADRs.
 Last alignment pass: 2026-07-11.
-Doctrine status: canonical
+Doctrine status: reference
 Implementation status: partial (the JS runtime daemon was retired and deleted 2026-06-23 — `1b68cca12`; Part I's split-brain evidence is preserved as PRE-RETIREMENT history; remaining route-family state in the migration matrix)
 Implementation refs:
   - `crates/node/src/bin/hypervisor-daemon.rs`
@@ -18,28 +21,38 @@ per-slice evidence accumulation.
 
 This guide has three jobs:
 
-1. Give architects the clean target shape for Hypervisor, the daemon, the
-   Rust/WASM substrate, Agentgres, wallet.network, cTEE, Hypervisor Core,
-   first-class clients, and application surfaces.
+1. Restate the owner-defined target only as needed to interpret migration
+   evidence for Hypervisor, the daemon, the Rust/WASM substrate, Agentgres,
+   wallet.network, cTEE, Hypervisor Core, clients, and application surfaces.
 2. Give implementers enough low-level structure to migrate the current repo
    without creating another split brain.
-3. Define the completion contract for the implementation migration itself.
+3. Record evidence and terminal conformance criteria for the implementation
+   migration.
+
+It owns no architecture doctrine and is not a release or work sequencer.
+[`doctrine.md`](../components/daemon-runtime/doctrine.md) owns daemon execution
+and the Step/Module ABI; [`default-harness-profile.md`](../components/daemon-runtime/default-harness-profile.md)
+owns HarnessProfile semantics; [`core-clients-surfaces.md`](../components/hypervisor/core-clients-surfaces.md)
+owns Hypervisor Core and Workflow Compositor shape; Agentgres, wallet.network,
+and cTEE remain with their listed owners; ADR 0017 owns the no-duplicate-owner
+decision. If a summary below conflicts with an owner document or ADR, the owner
+wins and this guide must be corrected.
 
 Read it by role:
 
 | Reader | Start here | Then read |
 | --- | --- | --- |
-| System architect | One-Page Doctrine | Part I, Part II, Final Doctrine |
-| Runtime implementer | One-Page Doctrine | Part III, Part IV, Part VII |
-| Developer Workspace / workflow implementer | One-Page Doctrine | Part V, Part VI, Part VII |
-| Agentgres / receipt implementer | One-Page Doctrine | Part III, Part IV |
-| cTEE / private workspace implementer | One-Page Doctrine | Part II, Part III, Part VII |
-| Migration lead | One-Page Doctrine | Part VII, Part VIII, Part IX |
+| System architect | Subject owners and ADRs | Use this guide only for migration evidence |
+| Runtime implementer | Migration Baseline | Part III, Part IV, Part VII |
+| Developer Workspace / workflow implementer | Migration Baseline | Part V, Part VI, Part VII |
+| Agentgres / receipt implementer | Migration Baseline | Part III, Part IV |
+| cTEE / private workspace implementer | Migration Baseline | Part II, Part III, Part VII |
+| Migration lead | Migration Baseline | Part VII, Part VIII, Part IX |
 
 The document is layered from high level to low level:
 
 ```text
-One-Page Doctrine
+Migration Baseline
   -> current split brain
   -> target ownership model
   -> Step/Module ABI
@@ -50,20 +63,22 @@ One-Page Doctrine
 
 Nothing here should be read as a request to create a second runtime beside the
 daemon. The entire guide exists to converge the current product daemon and the
-existing Rust/WASM kernel/workload substrate into one authoritative execution
-architecture.
+existing Rust/WASM kernel/workload substrate toward the execution architecture
+defined by the subject owners.
 
-Completion of this guide means execution, not publication. The guide is
-complete only when the migration program has been carried through terminal
-conformance and the split brain no longer exists. There is no separate
-"future migration" after the master guide is carried out; anything after that is
-ordinary product/runtime evolution.
+The guide's terminal criteria are satisfied only when the migration evidence
+passes the owner-defined conformance bar and the split brain no longer exists.
+That statement records an implementation-evidence threshold; it does not let
+this guide admit releases, order work, or override later owner decisions.
 
 Historical slice notes below are retained only where they anchor existing
 conformance evidence. They are not scheduling doctrine. New migration work
 should update the compact matrix only when a macro authority boundary changes.
 
-## One-Page Doctrine
+## Migration Baseline
+
+This section is a non-normative synopsis of existing owner doctrine for reading
+the implementation evidence below.
 
 The long-term shape is not:
 
@@ -131,7 +146,7 @@ Selected HarnessProfile
         |
         v
 StepModuleRouter
-  canonical bridge from daemon loop steps to execution backends
+  daemon-owned bridge from daemon loop steps to execution backends
         |
         +-- daemon-native tool during migration
         +-- Rust/WASM service module
@@ -146,9 +161,9 @@ Agentgres + receipts + artifact refs + state roots
   admitted domain operational truth and replay/restore record ownership
 ```
 
-### Five invariants
+### Migration constraints
 
-| Invariant | Meaning |
+| Migration constraint | Owner-defined meaning applied to this migration |
 | --- | --- |
 | One execution owner | Hypervisor Daemon owns admission, enforcement, and execution semantics after applicable authorization. |
 | One directed-work surface | Workflow Compositor owns high-level workflow/service graph shape and step contracts. |
@@ -169,11 +184,12 @@ Agentgres + receipts + artifact refs + state roots
 | Truth substrate | receipts, evidence, restore/replay | Agentgres operations, refs, heads, state roots | admitted operational truth |
 | Settlement surface | marketplace/public/cross-domain proof when needed | L1/app-chain commitments by trigger | not default runtime settlement |
 
-## Part I: Current Split Brain
+## Part I: Current Rust Baseline and Historical Split-Brain Evidence
 
-This part establishes the present repo reality: what is live product runtime,
-what is lower protocol/kernel substrate, what exists only as canon target, and
-where the split brain actually lives.
+This part separates current Rust source evidence from the pre-retirement
+Node/JS split-brain record. Statements explicitly labeled historical describe
+the deleted runtime daemon and must not be read as current implementation
+status.
 
 ### Current repo evidence
 
@@ -192,21 +208,25 @@ The repo already contains a serious Rust kernel/workload substrate:
 | Agentic runtime kernel | `crates/services/src/agentic/runtime/kernel/*` defines shared bounded-runtime primitives, invocation envelopes, policy, capability, evidence, trace, settlement, and profile checks. | There is already Rust-side language for governed agent invocations. |
 | Harness projection adapter | `crates/services/src/agentic/runtime/harness.rs` says it lifts runtime kernels into stable workflow-addressable component frames and does not replace the live runtime executor. | This is a direct bridge hint: projection exists before full live execution migration. |
 
-At the time of the split-brain analysis the repo also contained extensive product-facing JS daemon infrastructure — since DELETED (2026-06-23, `1b68cca12`; the Rust daemon is the single runtime surface). Preserved as historical rationale:
+At the time of the split-brain analysis the repo also contained extensive
+product-facing JS daemon infrastructure. Commit `1b68cca12` deleted that
+package on 2026-06-23; none of the paths in the following table is current
+implementation evidence. They remain only as historical rationale for the
+migration:
 
-| Area | Current evidence | Architectural meaning |
+| Retired area | Historical evidence | Migration lesson |
 | --- | --- | --- |
 | Node daemon package | `packages/runtime-daemon/package.json` is `@ioi/runtime-daemon`, ESM, Node >= 18. | The live product daemon was still Node/JS at analysis time (retired 2026-06-23). |
 | HTTP daemon service | `packages/runtime-daemon/src/service/runtime-daemon-service.mjs` creates an HTTP server and local state dir under `.ioi/agentgres`. | Product runtime control was then HTTP/JS, not native workload IPC by default (retired). |
 | Tool dispatch | `packages/runtime-daemon/src/coding-tools.mjs` dispatches coding tools through JS functions such as `workspace.status`, `git.diff`, `file.apply_patch`, `test.run`, and `lsp.diagnostics`. | The then-live coding-agent step path was direct daemon-native JS tool execution (retired). |
-| Approval routes | `packages/runtime-daemon/src/runtime-route-handlers.mjs` exposes thread approvals, tool invocation, events, replay, trace, and inspect routes. | The daemon owns product UX/control surfaces. |
-| Runtime event envelopes | `packages/runtime-daemon/src/runtime-event-envelopes.mjs` maps runtime events into workflow-node, component-kind, receipt-ref, artifact-ref, policy-ref projections. | The daemon already has the projection vocabulary needed by the IDE. |
+| Approval routes | `packages/runtime-daemon/src/runtime-route-handlers.mjs` exposed thread approvals, tool invocation, events, replay, trace, and inspect routes. | These deleted JS handlers are migration history, not a current route surface. |
+| Runtime event envelopes | `packages/runtime-daemon/src/runtime-event-envelopes.mjs` mapped runtime events into workflow-node, component-kind, receipt-ref, artifact-ref, and policy-ref projections. | Useful projection concepts survived only where current Rust owners implement them; the deleted module owns nothing. |
 | Model mounting | `packages/runtime-daemon/src/model-mounting/*` stores model artifacts, routes, providers, instances, vault refs, receipts, and projections. | Model mounting was then product-daemon state, with Agentgres-like receipt/operation hooks (retired; Rust owns it now). |
 | Retired runtime-service command bridge | The old JS RuntimeAgentService command adapter, `RuntimeApiBridge` adapter surface, `runtime-api-bridge.mjs` module, `ioi-runtime-bridge` binary, bridge env policy overrides, and deleted runtime-service helper are retired. The daemon rejects `runtimeBridge` options. | Runtime-service execution must return through stable Rust daemon-core protocol/API ownership, not a revived Node command/env or binary bridge. |
 
 The architecture docs already name the intended boundaries:
 
-| Canon doc | Current doctrine |
+| Canon doc | Owner-defined boundary |
 | --- | --- |
 | `docs/architecture/components/daemon-runtime/default-harness-profile.md` | HarnessProfiles resolve scoped steps under daemon gates; Default Harness Profile is the reference scaffold/fallback. |
 | `docs/architecture/foundations/domain-kernels.md` | IOI kernel / L0 substrate creates and operates many domain kernels and governed chains. |
@@ -214,22 +234,24 @@ The architecture docs already name the intended boundaries:
 | `docs/architecture/components/daemon-runtime/private-workspace-ctee.md` | Private Workspace backed by cTEE is the daemon profile for no-plaintext-custody work on rented GPU nodes. |
 | `docs/architecture/components/wallet-network/doctrine.md` | wallet.network owns authority, secrets, approvals, decryption leases, cTEE authority view, and capability exit authorization. |
 
-### Live product runtime
+### Current product runtime
 
-Live product runtime today is primarily:
+Current product runtime is Rust:
 
 ```text
 Developer Workspace (`Workbench` current-code alias) / Hypervisor App/Web /
-Workflow Compositor surfaces
-  -> @ioi/runtime-daemon HTTP routes
-  -> JS state store / thread store / model-mounting store
-  -> JS direct tool dispatch for local coding tools
-  -> runtime event envelope projections
-  -> approvals, receipts, replay, trace, model routes
+Workflow Compositor projections and protocol clients
+  -> crates/node hypervisor-daemon Axum routes
+  -> Rust route owners under crates/node/src/bin/hypervisor_daemon_routes/
+  -> RuntimeKernelService and subject-specific Rust service/kernel modules
+  -> Agentgres-admitted records, receipts, replay, and owner projections
 ```
 
-This is good enough to ship product UX and prove user-facing workflows. It is
-not yet the final substrate for all serious autonomous work.
+The deleted `packages/runtime-daemon` package, its stores, and
+`RuntimeContextPolicyCore` are not live fallbacks. Current source still has
+partial and unmounted Rust building blocks, stale protocol clients, and
+route-family gaps; the migration matrix records those facts without treating
+deleted JS as the current runtime or claiming terminal convergence.
 
 ### Protocol/kernel substrate
 
@@ -265,10 +287,10 @@ These pieces are conceptually aligned but not fully wired end to end:
 | cTEE Private Workspace as concrete workload/module path | Implemented at the admission path: Rust validation/execution/admission/projection bundle, daemon runner, product/API route, SDK/IDE/CLI clients, and plaintext negative conformance exist. Deeper private workspace UI/replay remains product work. |
 | Improvement Proposal Plane for module/profile/schema/skill/memory changes | Implemented at the admission path: governed proposal admission requires eval/verifier receipts, approval, rollback, Agentgres binding, expected heads, and state roots; full review UI and live mutation commit remain product/runtime evolution. |
 
-### Where the split brain lives
+### Historical split-brain placement
 
-The split brain is not conceptual anymore. The doctrine is mostly correct. The
-split brain is implementation placement:
+The following diagram records the pre-retirement placement that motivated this
+migration. It is historical evidence, not current runtime topology:
 
 ```text
 Live product harness step:
@@ -278,8 +300,8 @@ Lower protocol step:
   Rust workload/control plane -> WASM service or workload job -> state root / receipt / block event
 ```
 
-The long-term fix is a stable daemon-to-kernel protocol surface, not a
-permanent bridge binary:
+The owner-defined end state that replaced that split is a stable
+daemon-to-kernel protocol surface, not a permanent bridge binary:
 
 ```text
 Daemon ActionProposal
@@ -300,7 +322,7 @@ transport must be a stable Rust daemon-core API surface with no independent
 execution authority, no compatibility-shim semantics, and no duplicate truth
 path.
 
-Current sprint note: Slices 924, 1232, and 1262 retired the
+Historical slice note: Slices 924, 1232, and 1262 retired the
 `IOI_STEP_MODULE_COMMAND_ARGS`/constructor-`args` selectors and then deleted the
 temporary runtime-daemon StepModule runner facade. The JS edge may no longer
 shape argv, select command/backend/env compatibility, or preserve runner
@@ -3310,12 +3332,13 @@ Agentgres admission, replay, projection, stable protocol APIs, and
 command-transport retirement remain required before the StepModule substrate
 reaches terminal pure Rust conformance.
 
-## Part II: Target Execution Model
+## Part II: Owner-Defined Target Execution Model
 
-This part defines the desired ownership shape. It says which layer owns each
-runtime responsibility, how the Rust/WASM substrate sits under the daemon, and
-why the mature end state is a Rust daemon core rather than a permanent JS
-execution substrate.
+This part restates the desired ownership shape from the subject owner documents
+for migration comparison. It records which implementation layer must converge,
+how the Rust/WASM substrate sits under the daemon, and why the mature end state
+is a Rust daemon core rather than a permanent JS execution substrate. It does
+not independently define those ownership boundaries.
 
 ### Unified stack
 
@@ -3336,7 +3359,7 @@ Selected HarnessProfile
   step-resolution adapter; Default Harness Profile is reference/fallback
 
 StepModuleRouter
-  canonical bridge from daemon steps to execution backends
+  daemon-owned bridge from daemon steps to execution backends
 
 Execution backends
   direct daemon-native tools
@@ -3421,7 +3444,7 @@ Hypervisor Product/API Facade
   projection shaping, and short-lived migration adapters
 ```
 
-Migration doctrine:
+Migration method:
 
 ```text
 Port by extraction, not by rewrite.
@@ -3522,17 +3545,19 @@ protocol APIs, the corresponding JS route should be removed or demoted into a
 non-authoritative client adapter. Do not preserve legacy shims merely to keep old
 callers alive.
 
-## Part III: Unified Step/Module Contract
+## Part III: Step/Module ABI Migration Reference
 
-This part is the implementation hinge. It defines the ABI that lets one
-daemon-owned loop step route to JS migration paths, Rust/WASM modules, workload
-jobs, model mounts, cTEE actions, verifiers, or external capability exits
-without changing the workflow graph or authority model.
+This part is the implementation hinge. It mirrors the daemon-owned Step/Module
+ABI from [`doctrine.md`](../components/daemon-runtime/doctrine.md#stepmodule-execution-abi)
+so migration evidence can compare implementations. The daemon doctrine, not
+this guide, defines the boundary that lets one daemon-owned loop step route to
+Rust/WASM modules, workload jobs, model mounts, cTEE actions, verifiers, or
+external capability exits without changing workflow or authority ownership.
 
 ### Purpose
 
-The Step/Module ABI is the canonical bridge between product-daemon loop steps and
-kernel/workload execution.
+The daemon-owned Step/Module ABI is the bridge between product-daemon loop
+steps and kernel/workload execution; this guide records its migration use.
 
 It must let a daemon step become any of these without changing the user-facing
 workflow graph:
@@ -3801,20 +3826,21 @@ If a daemon-native JS tool has no state-root backend yet, it must still produce
 a stable `input_hash`, `output_hash`, receipt ref, and projection record so it
 can be shadowed by a Rust/WASM module later.
 
-## Part V: Workflow Compositor as Control Plane
+## Part V: Workflow Compositor Migration Evidence
 
-This part keeps the Workflow Compositor out of the "pretty canvas only" trap.
-Automations owns reusable workflow/process authoring; Developer Workspace and
-Foundry consume the compositor contextually for code-bound and build/eval work.
-Every projection operates over the same module graph the daemon routes, the
-Rust/WASM backend executes, and Agentgres admits.
+This part summarizes migration evidence against the Workflow Compositor and
+`WorkflowTemplate` contract owned by
+[`core-clients-surfaces.md`](../components/hypervisor/core-clients-surfaces.md).
+It does not assign compositor ownership to Automations, Developer Workspace, or
+Foundry and does not define another workflow graph object.
 
 ### Compositor purpose
 
-The Workflow Compositor should not be only a canvas. It is an owner-bound visual
-control surface over the same module graph the daemon and kernel execute, with
-Automations as primary owner and Developer Workspace or Foundry as contextual
-consumers.
+The owner requires the Workflow Compositor to project an exact admitted
+`WorkflowTemplate` revision and its execution evidence rather than become an
+execution or truth owner. Automations may reference a template from
+`AutomationSpec`; Developer Workspace and Foundry may consume contextual
+projections. Those uses do not transfer compositor or graph-shape ownership.
 
 It should show:
 
@@ -3830,39 +3856,19 @@ It should show:
 - package/module candidate status;
 - upgrade proposals and eval gates.
 
-### Governable module graph
+### Governable graph evidence
 
-The compositor should model workflows as:
+This guide publishes no `WorkflowModuleGraph` schema. Migration evidence must
+instead bind the owner-defined immutable `WorkflowTemplate` revision/hash,
+typed nodes and edges, selected `HarnessProfile`, daemon-admitted backend and
+authority facts, custody posture, expected receipts, execution result refs, and
+Agentgres projection watermark. Any additional field belongs in the compositor
+owner before implementation uses it.
 
-```yaml
-WorkflowModuleGraph:
-  workflow_graph_id: workflow:...
-  profile: default-harness-profile
-  nodes:
-    - workflow_node_id: node:...
-      module_ref: module://...
-      component_kind: planner | tool | model | verifier | policy | output | receipt
-      backend_preference:
-        - rust_wasm
-        - daemon_js
-      authority_scopes_required:
-        - scope:...
-      primitive_capabilities_required:
-        - prim:...
-      custody_profile: public | redacted | private_workspace_ctee | tee_confidential
-      expected_receipts:
-        - ToolUseReceipt
-        - VerificationReceipt
-      execution_mode: projection | shadow | gated | live
-  edges:
-    - from: node:...
-      to: node:...
-      type: depends_on | verifies | informs | blocks | settles | emits
-```
+### Trace-to-candidate evidence
 
-### Trace-to-module conversion
-
-Successful traces should become candidates, not direct self-modifications:
+The owner-defined improvement path treats successful traces as candidates, not
+direct self-modifications:
 
 ```text
 successful repeated trace
@@ -3877,9 +3883,9 @@ successful repeated trace
   -> optional package publication
 ```
 
-### User-facing views
+### Migration-facing projection checks
 
-| View | Must display |
+| Projection check | Evidence expected by the subject owners |
 | --- | --- |
 | Graph view | module nodes, backend, status, dependencies, blockers. |
 | Authority view | `scope:*`, `prim:*`, approvals, grants, step-up requirements, revocation. |
@@ -3889,18 +3895,22 @@ successful repeated trace
 | Replay view | deterministic replay sources, artifact refs, state roots, projection watermarks. |
 | Package view | worker/service/module candidate, benchmark status, marketplace readiness. |
 
-## Part VI: Improvement Proposal Plane
+## Part VI: Improvement Migration Evidence
 
-This part defines how runtime learning becomes governable without becoming
-direct self-mutation. Traces, failures, corrections, evals, receipts, and human
-edits produce candidates and proposals; authority, evaluation, receipts, and
-Agentgres admission decide what becomes live.
+This part does not define an Improvement Proposal Plane or a proposal schema.
+It summarizes migration evidence against `UpgradeProposalEnvelope` in
+[`common-objects-and-envelopes.md`](../foundations/common-objects-and-envelopes.md),
+the bounded-improvement contracts in
+[`bounded-recursive-improvement.md`](../foundations/bounded-recursive-improvement.md),
+and their existing Improvement, Evaluation, Governance, authority, and
+Agentgres owners.
 
 ### Principle
 
-The runtime may improve skills, memory, workflow graphs, harness profiles,
-routes, verifiers, and modules, but only through the Improvement Proposal Plane
-and proposal-mediated governance.
+Runtime evidence may support proposed changes to skills, memory, workflow
+graphs, harness profiles, routes, verifiers, and modules. Only the
+owner-defined proposal, evaluation, authority, admission, activation, and
+rollback paths may make such a change live.
 
 Forbidden:
 
@@ -3919,9 +3929,9 @@ agent proposes improvement
   -> shadow/gated/live rollout follows policy
 ```
 
-### Improvement inputs
+### Evidence inputs
 
-The runtime can mine:
+The migration may demonstrate collection of:
 
 - run traces;
 - failed-run analyses;
@@ -3939,7 +3949,7 @@ The runtime can mine:
 - cTEE leakage/custody reports;
 - service delivery acceptance/dispute outcomes.
 
-### Candidate outputs
+### Candidate evidence categories
 
 | Candidate | Examples |
 | --- | --- |
@@ -3951,44 +3961,19 @@ The runtime can mine:
 | Prompt candidate | model pass prompt, output ownership prompt, verifier prompt. |
 | Route candidate | model mount route, worker package route, service package route. |
 
-### Proposal object
+### Proposal binding
 
-```yaml
-RuntimeImprovementProposal:
-  proposal_id: proposal://...
-  proposed_by: worker:... | runtime:... | user:...
-  target_kind:
-    skill | service_module | workflow_graph | policy | schema |
-    prompt | route | projection | verifier | package_manifest
-  target_ref: string
-  change_ref: artifact://...
-  evidence:
-    trace_refs:
-      - trace://...
-    receipt_refs:
-      - receipt://...
-    benchmark_refs:
-      - benchmark://...
-    failure_refs:
-      - failure://...
-  expected_effects:
-    safety: string
-    cost: string
-    latency: string
-    authority: string
-    privacy: string
-  rollout:
-    initial_mode: shadow
-    promotion_gate: gated
-    live_requires_approval: true
-  status:
-    drafted | simulated | verified | approved | rejected |
-    committed | shadow | gated | live | rolled_back
-```
+This guide publishes no `RuntimeImprovementProposal`. Implementation evidence
+must bind the canonical `UpgradeProposalEnvelope` revision and target-owner
+proposal path, with exact evidence, evaluation/verifier, authority, rollback,
+expected-head, Agentgres operation, and activation refs required by those
+owners. A missing target-owner resolver remains unavailable rather than
+creating a guide-local proposal type.
 
 ### Required gates
 
-No improvement proposal candidate becomes live until:
+The migration is not complete for an improvement path until owner conformance
+proves that no candidate becomes live before:
 
 - schema validation passes;
 - deterministic tests or simulation pass;
@@ -4967,14 +4952,15 @@ Reject these explicitly:
     project is still alpha.
 17. Hiding split-brain behavior behind fallback paths instead of deleting,
     demoting, or clearly naming them.
-18. Treating this master guide as a planning artifact that must be followed by a
-    separate implementation migration.
+18. Treating this reference guide as architecture doctrine, release authority,
+    or an autonomous sequencer instead of migration/evidence support for the
+    existing owners.
 
-## Part IX: First Concrete Win
+## Part IX: Reference First Concrete Win
 
-This part defines the smallest valuable implementation milestone. It should be
-possible to prove the migration shape with one current daemon tool before moving
-large route families or product surfaces.
+This historical reference milestone illustrated the smallest valuable proof of
+the migration shape; it does not order current work or override the live
+migration matrix.
 
 The first visible win should not be a massive rewrite. It should be:
 
@@ -4998,7 +4984,7 @@ Per-slice implementation narration (the current-lane notes and the
 `Slice 1 → Slice 1440` ledger) is archived verbatim at
 [`../_archive/change-ledgers/hypervisor-kernel-substrate-slice-ledger.md`](../_archive/change-ledgers/hypervisor-kernel-substrate-slice-ledger.md).
 
-This guide now ends at the milestone doctrine above. Current migration
+This guide now ends at the reference milestone and evidence baseline above. Current migration
 state lives in the migration matrix (route-family owner map, macro
 authority cut ledger, remaining terminal blockers); durable concept →
 owner → form status lives in

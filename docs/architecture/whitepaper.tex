@@ -5093,12 +5093,14 @@ bus, or a global room database. It moves delegated work,
 collaborative-pursuit updates, negotiated ontology and action profiles,
 authority leases, receipt commitments, delivery and acceptance state,
 settlement intents, reputation queries, dispute notices, and handoff finality
-between independently governed bounded execution domains: installed or
-marketplace worker domains, outcome services, robot fleets, enterprise runtimes,
-and peer autonomous systems. Same-system GoalRuns, HarnessInvocations, member
-nodes, and embodied units use native L0 assignment, lease, state/evidence, and
-Embodied Runtime contracts instead. Each sovereign domain retains its runtime,
-private context, and operational truth.
+between distinct independently governed systems: marketplace worker systems,
+outcome-service systems, robot-fleet systems, enterprise systems, and peer
+autonomous systems. A local or installed Worker participates through AIIP only
+when it acts behind its own independently governed System identity; same-system
+GoalRuns, HarnessInvocations, installed Workers, member nodes, and embodied
+units use native L0 assignment, lease, state/evidence, and Embodied Runtime
+contracts instead. Each sovereign system retains its runtime, private context,
+and operational truth.
 
 AIIP creates an option to interoperate, not demand for handoffs. A sovereign
 system uses it when another domain controls a complement that would be more
@@ -5179,6 +5181,14 @@ reputation updates, dispute windows, and only the public commitments selected by
 the participants' settlement/enrollment profiles. Shared common objects do not
 collapse the trust boundary. AIIP assumes neither consensus nor IOI L1.
 
+A transport address does not determine this boundary. \texttt{in\_process},
+\texttt{daemon\_ipc}, \texttt{unix\_socket}, or \texttt{local\_http} may carry
+AIIP only when the channel binds two distinct independently governed
+\texttt{system\_id} values and each endpoint binds its own admitted channel-
+enrollment decision and receipt. The same transports carry L0 when both
+endpoints belong to one System. Bilateral channel enrollment is distinct from
+optional IOI Network enrollment.
+
 \textbf{Standards bindings, not replacements.} A versioned
 \textbf{AIIPExternalProtocolBinding} composes AIIP with existing boundaries.
 A2A may carry remote Agent Cards, Tasks, Messages, status, context, and
@@ -5200,13 +5210,16 @@ authority, ontology/action semantics, operational evidence/replay, recovery,
 dispute, and lifecycle.
 
 The canonical AIIP object model distinguishes the transport binding from
-the work boundary. An \textbf{AIIPProfile} declares supported protocol
-features, transports, receipt obligations, settlement modes, authority planes,
-and payload classes. An \textbf{AIIPChannel} binds bounded execution domains
+the work boundary. An \textbf{AIIPProfile} declares supported cross-system
+protocol features, transports, receipt obligations, settlement modes,
+authority planes, and payload classes. An \textbf{AIIPChannel} binds two
+distinct independently governed and bilaterally enrolled System identities
 with ordering, replay protection, schema version, privacy posture, lease refs,
-and dispute windows. A \textbf{BoundedExecutionDomain} declares its manifest,
-capabilities, policy root, authority requirements, receipt schemas, state
-boundary, runtime profile, settlement behavior, and supported AIIP profiles.
+and dispute windows. A local transport does not weaken that requirement;
+same-System routing remains L0. A \textbf{BoundedExecutionDomain} declares its
+manifest, capabilities, policy root, authority requirements, receipt schemas,
+state boundary, runtime profile, settlement behavior, and supported AIIP
+profiles when it acts behind such an independently governed System endpoint.
 
 The field-level \textbf{AIIPEnvelope} in the common-envelope owner is the
 normative superset. No application or protocol profile may publish a reduced
@@ -5220,8 +5233,8 @@ competing envelope. It preserves packet and payload identity while binding:
 \item
   idempotency, causation, and correlation refs;
 \item
-  local, installed-worker, marketplace-worker, outcome-service,
-  autonomous-system, collaborative-pursuit, and enterprise profiles;
+  marketplace-worker, outcome-service, autonomous-system,
+  collaborative-pursuit, and enterprise profiles;
 \item
   policy and authority refs, MultiPartyCollaboration and OutcomeRoom refs,
   ontology, semantic-mapping, and action-schema profiles, restricted views,
@@ -6514,9 +6527,12 @@ and activation receipts remain authoritative. Pairing, verification, or a
 leaderboard win never grants release or network-governance authority.
 
 \textbf{Implementation status.} A narrow software-oriented two-implementer
-GoalRun create/start/reconcile path exists and remains partial; generic result
-profiles, wider role topology, generalized multi-harness orchestration, and
-OutcomeRoom binding remain planned. Multi-path attempt comparison is partial.
+GoalRun create/start/reconcile path exists and remains partial. Generic
+WorkResult admission is merged, and the hosted OutcomeRoom graph through
+participants, frontier/claims, offers, Attempts, Findings, OutcomeDelta, and
+VerifierChallenge is merged but partial. Wider role topology, generalized
+multi-harness and remaining orchestration, federation, acceptance/verdict, and
+settlement remain planned. Multi-path attempt comparison is partial.
 Thread forks, replay,
 counterfactual replay, and workspace snapshot/restore custody exist; the
 durable Agentgres branch and staged-effect objects above remain planned over
