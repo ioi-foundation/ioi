@@ -27,11 +27,11 @@ export type ReceiptEnvelopeV1 = {
 };
 
 export type PhysicalActionExecutionReceiptV1 = {
-  schema_version: unknown;
+  schema_version: "ioi.physical-action-execution-receipt.v1";
   receipt_envelope: {
       receipt_id: string;
-      receipt_type: unknown;
-      receipt_profile_ref: unknown;
+      receipt_type: "physical_action_execution";
+      receipt_profile_ref: "schema://ioi/foundations/physical-action-execution-receipt/v1";
       attested_boundary_fact_refs: Array<string>;
       claim_scope_ref: string | null;
       run_id: string | null;
@@ -129,9 +129,9 @@ export type AuthorityGrantEnvelopeV1 = {
 };
 
 export type AuthorityGrantEnvelopeV2 = {
-  schema_version: unknown;
-  envelope_type: unknown;
-  signature_domain: unknown;
+  schema_version: "ioi.foundations.authority-grant-envelope.v2";
+  envelope_type: "ioi.authority-grant";
+  signature_domain: "ioi.authority-grant-envelope.v2";
   schema_hash: string;
   authority_grant_id: string;
   request_id: string;
@@ -162,14 +162,14 @@ export type AuthorityGrantEnvelopeV2 = {
     };
   revocation_epoch: number;
   body_hash: string;
-  signature_suite: unknown;
+  signature_suite: "ed25519";
   signature_key_id: string;
   signature: string;
 };
 
 export type AuthorityKeySetV1 = {
-  schema_version: unknown;
-  key_set_type: unknown;
+  schema_version: "ioi.foundations.authority-key-set.v1";
+  key_set_type: "ioi.authority-key-set";
   key_set_id: string;
   issuer_id: string;
   version: number;
@@ -177,7 +177,7 @@ export type AuthorityKeySetV1 = {
   expires_at: number;
   keys: Array<{
         key_id: string;
-        signature_suite: unknown;
+        signature_suite: "ed25519";
         public_key: string;
         not_before: number;
         expires_at: number;
@@ -186,8 +186,8 @@ export type AuthorityKeySetV1 = {
 };
 
 export type AuthorityRevocationSnapshotV1 = {
-  schema_version: unknown;
-  snapshot_type: unknown;
+  schema_version: "ioi.foundations.authority-revocation-snapshot.v1";
+  snapshot_type: "ioi.authority-revocation-snapshot";
   snapshot_id: string;
   issuer_id: string;
   issuer_key_set_ref: string;
@@ -198,22 +198,22 @@ export type AuthorityRevocationSnapshotV1 = {
   revoked_grant_refs: Array<string>;
   revoked_key_ids: Array<string>;
   body_hash: string;
-  signature_domain: unknown;
-  signature_suite: unknown;
+  signature_domain: "ioi.authority-revocation-snapshot.v1";
+  signature_suite: "ed25519";
   signature_key_id: string;
   signature: string;
 };
 
 export type ReceiptCheckpointV1 = {
-  schema_version: unknown;
-  checkpoint_type: unknown;
-  signature_domain: unknown;
+  schema_version: "ioi.foundations.receipt-checkpoint.v1";
+  checkpoint_type: "ioi.receipt-checkpoint";
+  signature_domain: "ioi.receipt-checkpoint.v1";
   schema_hash: string;
   checkpoint_id: string;
   receipt_log_id: string;
-  accumulator_algorithm: unknown;
-  receipt_body_hash_profile: unknown;
-  receipt_contract_id: unknown;
+  accumulator_algorithm: "ioi.receipt-hash-chain-jcs-sha256.v1";
+  receipt_body_hash_profile: "ioi.receipt-envelope-jcs-sha256.v1";
+  receipt_contract_id: "schema://ioi/foundations/receipt-envelope/v1";
   receipt_schema_hash: string;
   accumulator_size: number;
   accumulator_root: string;
@@ -229,34 +229,34 @@ export type ReceiptCheckpointV1 = {
   build_identity_ref: string;
   policy_posture_ref: string;
   body_hash: string;
-  signature_suite: unknown;
+  signature_suite: "ed25519";
   signature_key_id: string;
   signature: string;
 };
 
 export type ReceiptProofBundleV1 = {
-  schema_version: unknown;
-  bundle_type: unknown;
-  manifest_domain: unknown;
+  schema_version: "ioi.foundations.receipt-proof-bundle.v1";
+  bundle_type: "ioi.receipt-proof-bundle";
+  manifest_domain: "ioi.receipt-proof-bundle-manifest.v1";
   bundle_schema_hash: string;
   manifest_hash: string;
-  manifest_signature_suite: unknown;
+  manifest_signature_suite: "ed25519";
   manifest_signature_key_id: string;
   manifest_signature: string;
   bundle_id: string;
-  receipt_contract_id: unknown;
+  receipt_contract_id: "schema://ioi/foundations/receipt-envelope/v1";
   receipt_schema_hash: string;
-  receipt_body_hash_profile: unknown;
+  receipt_body_hash_profile: "ioi.receipt-envelope-jcs-sha256.v1";
   receipt: Record<string, unknown>;
   receipt_body_hash: string;
   leaf: {
-      algorithm: unknown;
-      domain: unknown;
+      algorithm: "ioi.receipt-hash-chain-jcs-sha256.v1";
+      domain: "ioi.receipt-accumulator-leaf.v1";
       leaf_index: number;
       leaf_hash: string;
     };
   inclusion_proof: {
-      profile: unknown;
+      profile: "ioi.receipt-hash-chain-inclusion.v1";
       leaf_index: number;
       prefix_root: string;
       suffix_leaf_hashes: Array<string>;
@@ -264,7 +264,7 @@ export type ReceiptProofBundleV1 = {
   checkpoint: Record<string, unknown>;
   previous_checkpoint: Record<string, unknown> | null;
   consistency_proof: {
-      profile: unknown;
+      profile: "ioi.receipt-hash-chain-consistency.v1";
       from_size: number;
       from_root: string;
       extension_leaf_hashes: Array<string>;
@@ -276,14 +276,14 @@ export type ReceiptProofBundleV1 = {
       revocation_epoch: number;
     };
   verification_instructions: {
-      profile: unknown;
+      profile: "ioi.receipt-proof-verification.v1";
       steps: Array<string>;
       offline_required_inputs: Array<"trusted_key_set" | "signed_revocation_snapshot" | "trusted_time">;
     };
 };
 
 export type InformationFlowLabelV1 = {
-  schema_version: unknown;
+  schema_version: "ioi.foundations.information-flow-label.v1";
   label_ref: string;
   profile_ref: string;
   content_hash: string;
@@ -307,7 +307,7 @@ export type InformationFlowLabelV1 = {
 };
 
 export type RuntimeToolContractV1 = {
-  schema_version: unknown;
+  schema_version: "ioi.components.connectors-tools.runtime-tool-contract.v1";
   tool_id: string;
   revision_ref: string;
   predecessor_revision_ref?: string | null;
@@ -340,7 +340,7 @@ export type RuntimeToolContractV1 = {
 };
 
 export type ManagedWorkBillingLedgerBundleV1 = {
-  schema_version: unknown;
+  schema_version: "ioi.foundations.managed-work-billing-ledger-bundle.v1";
   bundle_ref: string;
   billing_account_ref: string;
   work_ref: string;
@@ -365,7 +365,7 @@ export type ManagedWorkBillingLedgerBundleV1 = {
       rate_card_ref: string;
       rate_card_body_hash: string;
       included_work_credits: {
-            unit: unknown;
+            unit: "micro_work_credit";
             units: number;
           };
       reset_policy: "non_resetting" | "monthly_expiring" | "contract_term_expiring";
@@ -380,11 +380,11 @@ export type ManagedWorkBillingLedgerBundleV1 = {
       plan_ref: string;
       plan_body_hash: string;
       estimated_work_credits: {
-            unit: unknown;
+            unit: "micro_work_credit";
             units: number;
           };
       required_hold: {
-            unit: unknown;
+            unit: "micro_work_credit";
             units: number;
           };
       overrun_policy: "block" | "exact_additional_hold";
@@ -401,7 +401,7 @@ export type ManagedWorkBillingLedgerBundleV1 = {
         hold_kind: "initial" | "exact_additional";
         overrun_decision_ref: string | null;
         amount: {
-                unit: unknown;
+                unit: "micro_work_credit";
                 units: number;
               };
         created_at_ms: number;
@@ -420,7 +420,7 @@ export type ManagedWorkBillingLedgerBundleV1 = {
         quantity_units: number;
         rate_work_credit_micro_units_per_meter_unit: number;
         charged_work_credits: {
-                unit: unknown;
+                unit: "micro_work_credit";
                 units: number;
               };
         commercial_posture: "managed" | "customer_byok" | "customer_byoa" | "customer_cloud" | "self_hosted" | "local";
@@ -443,20 +443,20 @@ export type ManagedWorkBillingLedgerBundleV1 = {
         quote_ref: string;
         usage_head_hash: string | null;
         held_work_credits: {
-                unit: unknown;
+                unit: "micro_work_credit";
                 units: number;
               };
         projected_work_credits: {
-                unit: unknown;
+                unit: "micro_work_credit";
                 units: number;
               };
         exact_overage_work_credits: {
-                unit: unknown;
+                unit: "micro_work_credit";
                 units: number;
               };
         decision: "block" | "exact_additional_hold";
         additional_hold_amount: {
-                unit: unknown;
+                unit: "micro_work_credit";
                 units: number;
               };
         created_at_ms: number;
@@ -469,7 +469,7 @@ export type ManagedWorkBillingLedgerBundleV1 = {
       usage_record_refs: Array<string>;
       hold_refs: Array<string>;
       debited_work_credits: {
-            unit: unknown;
+            unit: "micro_work_credit";
             units: number;
           };
       finalized_at_ms: number;
@@ -481,7 +481,7 @@ export type ManagedWorkBillingLedgerBundleV1 = {
         previous_adjustment_hash: string | null;
         adjustment_kind: "refund" | "writeoff";
         amount: {
-                unit: unknown;
+                unit: "micro_work_credit";
                 units: number;
               };
         reason_code: string;
@@ -494,7 +494,7 @@ export type ManagedWorkBillingLedgerBundleV1 = {
 };
 
 export type DisputeRailBundleV1 = {
-  schema_version: unknown;
+  schema_version: "ioi.foundations.dispute-rail-bundle.v1";
   bundle_ref: string;
   profile: {
       dispute_rail_profile_ref: string;
@@ -607,11 +607,11 @@ export type DisputeRailBundleV1 = {
       resolution_state: "proposed" | "admitted" | "appealed" | "superseded" | "execution_pending" | "executed" | "execution_failed";
     };
   exported_at_ms: number;
-  assurance_status: unknown;
+  assurance_status: "deterministic_admission_only";
 };
 
 export type DeclassificationApprovalV1 = {
-  schema_version: unknown;
+  schema_version: "ioi.foundations.declassification-approval.v1";
   approval_ref: string;
   issuer_ref: string;
   subject_ref: string;
@@ -619,7 +619,7 @@ export type DeclassificationApprovalV1 = {
   tool_contract_revision_ref: string;
   label_ref: string;
   label_content_hash: string;
-  decision: unknown;
+  decision: "allow";
   declassified_to: "public" | "internal" | "confidential";
   exact_effect_hash: string;
   exact_request_hash: string;
@@ -639,6 +639,7 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "contract_id": "schema://ioi/foundations/receipt-envelope/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/receipt-envelope-v1/positive-minimal.json",
     "expected": "accept",
+    "expected_schema_accept": true,
     "expected_failure": null,
     "expected_rule_id": null
   },
@@ -646,6 +647,7 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "contract_id": "schema://ioi/foundations/receipt-envelope/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/receipt-envelope-v1/positive-assured.json",
     "expected": "accept",
+    "expected_schema_accept": true,
     "expected_failure": null,
     "expected_rule_id": null
   },
@@ -653,6 +655,7 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "contract_id": "schema://ioi/foundations/receipt-envelope/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/receipt-envelope-v1/negative-bad-profile-ref.json",
     "expected": "reject",
+    "expected_schema_accept": false,
     "expected_failure": "schema",
     "expected_rule_id": null
   },
@@ -660,6 +663,7 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "contract_id": "schema://ioi/foundations/receipt-envelope/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/receipt-envelope-v1/negative-empty-boundary-facts.json",
     "expected": "reject",
+    "expected_schema_accept": true,
     "expected_failure": "invariant",
     "expected_rule_id": "receipt.boundary_fact.required"
   },
@@ -667,6 +671,7 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "contract_id": "schema://ioi/foundations/receipt-envelope/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/receipt-envelope-v1/negative-unknown-field.json",
     "expected": "reject",
+    "expected_schema_accept": false,
     "expected_failure": "schema",
     "expected_rule_id": null
   },
@@ -674,6 +679,7 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "contract_id": "schema://ioi/foundations/physical-action-execution-receipt/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/physical-action-execution-receipt-v1/positive-committed.json",
     "expected": "accept",
+    "expected_schema_accept": true,
     "expected_failure": null,
     "expected_rule_id": null
   },
@@ -681,6 +687,7 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "contract_id": "schema://ioi/foundations/physical-action-execution-receipt/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/physical-action-execution-receipt-v1/negative-flat-unbundled.json",
     "expected": "reject",
+    "expected_schema_accept": false,
     "expected_failure": "schema",
     "expected_rule_id": null
   },
@@ -688,6 +695,7 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "contract_id": "schema://ioi/foundations/physical-action-execution-receipt/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/physical-action-execution-receipt-v1/negative-envelope-input-hash-mismatch.json",
     "expected": "reject",
+    "expected_schema_accept": true,
     "expected_failure": "invariant",
     "expected_rule_id": "physical_action_execution.receipt.input_hash.matches_execution_request"
   },
@@ -695,6 +703,7 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "contract_id": "schema://ioi/foundations/physical-action-execution-receipt/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/physical-action-execution-receipt-v1/negative-committed-missing-dispatch-evidence.json",
     "expected": "reject",
+    "expected_schema_accept": true,
     "expected_failure": "invariant",
     "expected_rule_id": "physical_action_execution.dispatch.evidence.required_for_terminal_claim"
   },
@@ -702,6 +711,7 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "contract_id": "schema://ioi/foundations/authority-grant-envelope/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v1/positive-active.json",
     "expected": "accept",
+    "expected_schema_accept": true,
     "expected_failure": null,
     "expected_rule_id": null
   },
@@ -709,6 +719,7 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "contract_id": "schema://ioi/foundations/authority-grant-envelope/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v1/positive-revoked.json",
     "expected": "accept",
+    "expected_schema_accept": true,
     "expected_failure": null,
     "expected_rule_id": null
   },
@@ -716,6 +727,7 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "contract_id": "schema://ioi/foundations/authority-grant-envelope/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v1/negative-empty-capabilities.json",
     "expected": "reject",
+    "expected_schema_accept": true,
     "expected_failure": "invariant",
     "expected_rule_id": "authority_grant.capability.required"
   },
@@ -723,6 +735,7 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "contract_id": "schema://ioi/foundations/authority-grant-envelope/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v1/negative-legacy-alias-write.json",
     "expected": "reject",
+    "expected_schema_accept": false,
     "expected_failure": "schema",
     "expected_rule_id": null
   },
@@ -730,6 +743,7 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "contract_id": "schema://ioi/foundations/authority-grant-envelope/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v1/negative-status.json",
     "expected": "reject",
+    "expected_schema_accept": false,
     "expected_failure": "schema",
     "expected_rule_id": null
   },
@@ -737,6 +751,7 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "contract_id": "schema://ioi/foundations/authority-grant-envelope/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v1/negative-unknown-constraint.json",
     "expected": "reject",
+    "expected_schema_accept": false,
     "expected_failure": "schema",
     "expected_rule_id": null
   },
@@ -744,6 +759,7 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "contract_id": "schema://ioi/foundations/authority-grant-envelope/v2",
     "path": "docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v2/positive-root.json",
     "expected": "accept",
+    "expected_schema_accept": true,
     "expected_failure": null,
     "expected_rule_id": null
   },
@@ -751,6 +767,7 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "contract_id": "schema://ioi/foundations/authority-grant-envelope/v2",
     "path": "docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v2/positive-attenuated-child.json",
     "expected": "accept",
+    "expected_schema_accept": true,
     "expected_failure": null,
     "expected_rule_id": null
   },
@@ -758,6 +775,7 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "contract_id": "schema://ioi/foundations/authority-grant-envelope/v2",
     "path": "docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v2/negative-empty-capabilities.json",
     "expected": "reject",
+    "expected_schema_accept": true,
     "expected_failure": "invariant",
     "expected_rule_id": "authority_grant.capability.required"
   },
@@ -765,6 +783,7 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "contract_id": "schema://ioi/foundations/authority-grant-envelope/v2",
     "path": "docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v2/negative-signature-key-mismatch.json",
     "expected": "reject",
+    "expected_schema_accept": true,
     "expected_failure": "invariant",
     "expected_rule_id": "authority_grant.signature_key.matches_issuer_key"
   },
@@ -772,6 +791,7 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "contract_id": "schema://ioi/foundations/authority-grant-envelope/v2",
     "path": "docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v2/negative-stale-schema-hash.json",
     "expected": "reject",
+    "expected_schema_accept": true,
     "expected_failure": "invariant",
     "expected_rule_id": "authority_grant.schema_hash.matches_contract"
   },
@@ -779,6 +799,7 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "contract_id": "schema://ioi/foundations/authority-grant-envelope/v2",
     "path": "docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v2/negative-padded-signature.json",
     "expected": "reject",
+    "expected_schema_accept": false,
     "expected_failure": "schema",
     "expected_rule_id": null
   },
@@ -786,6 +807,7 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "contract_id": "schema://ioi/foundations/authority-key-set/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/authority-key-set-v1/positive-active.json",
     "expected": "accept",
+    "expected_schema_accept": true,
     "expected_failure": null,
     "expected_rule_id": null
   },
@@ -793,6 +815,7 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "contract_id": "schema://ioi/foundations/authority-key-set/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/authority-key-set-v1/positive-delegator.json",
     "expected": "accept",
+    "expected_schema_accept": true,
     "expected_failure": null,
     "expected_rule_id": null
   },
@@ -800,6 +823,7 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "contract_id": "schema://ioi/foundations/authority-key-set/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/authority-key-set-v1/negative-padded-public-key.json",
     "expected": "reject",
+    "expected_schema_accept": false,
     "expected_failure": "schema",
     "expected_rule_id": null
   },
@@ -807,6 +831,7 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "contract_id": "schema://ioi/foundations/authority-key-set/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/authority-key-set-v1/negative-empty-validity-window.json",
     "expected": "reject",
+    "expected_schema_accept": true,
     "expected_failure": "invariant",
     "expected_rule_id": "authority_key_set.issued_at.before_expiry"
   },
@@ -814,6 +839,7 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "contract_id": "schema://ioi/foundations/authority-revocation-snapshot/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/authority-revocation-snapshot-v1/positive-current.json",
     "expected": "accept",
+    "expected_schema_accept": true,
     "expected_failure": null,
     "expected_rule_id": null
   },
@@ -821,6 +847,7 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "contract_id": "schema://ioi/foundations/authority-revocation-snapshot/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/authority-revocation-snapshot-v1/positive-delegator-current.json",
     "expected": "accept",
+    "expected_schema_accept": true,
     "expected_failure": null,
     "expected_rule_id": null
   },
@@ -828,6 +855,7 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "contract_id": "schema://ioi/foundations/authority-revocation-snapshot/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/authority-revocation-snapshot-v1/negative-wrong-domain.json",
     "expected": "reject",
+    "expected_schema_accept": false,
     "expected_failure": "schema",
     "expected_rule_id": null
   },
@@ -835,6 +863,7 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "contract_id": "schema://ioi/foundations/receipt-checkpoint/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/receipt-checkpoint-v1/positive-current.json",
     "expected": "accept",
+    "expected_schema_accept": true,
     "expected_failure": null,
     "expected_rule_id": null
   },
@@ -842,6 +871,7 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "contract_id": "schema://ioi/foundations/receipt-checkpoint/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/receipt-checkpoint-v1/positive-previous.json",
     "expected": "accept",
+    "expected_schema_accept": true,
     "expected_failure": null,
     "expected_rule_id": null
   },
@@ -849,6 +879,7 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "contract_id": "schema://ioi/foundations/receipt-checkpoint/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/receipt-checkpoint-v1/negative-wrong-domain.json",
     "expected": "reject",
+    "expected_schema_accept": false,
     "expected_failure": "schema",
     "expected_rule_id": null
   },
@@ -856,6 +887,7 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "contract_id": "schema://ioi/foundations/receipt-checkpoint/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/receipt-checkpoint-v1/negative-stale-schema-hash.json",
     "expected": "reject",
+    "expected_schema_accept": true,
     "expected_failure": "invariant",
     "expected_rule_id": "receipt_checkpoint.schema_hash.matches_contract"
   },
@@ -863,6 +895,7 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "contract_id": "schema://ioi/foundations/receipt-checkpoint/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/receipt-checkpoint-v1/negative-signature-key-mismatch.json",
     "expected": "reject",
+    "expected_schema_accept": true,
     "expected_failure": "invariant",
     "expected_rule_id": "receipt_checkpoint.signature_key.matches_issuer_key"
   },
@@ -870,6 +903,7 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "contract_id": "schema://ioi/foundations/receipt-proof-bundle/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/receipt-proof-bundle-v1/positive-offline.json",
     "expected": "accept",
+    "expected_schema_accept": true,
     "expected_failure": null,
     "expected_rule_id": null
   },
@@ -877,6 +911,7 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "contract_id": "schema://ioi/foundations/receipt-proof-bundle/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/receipt-proof-bundle-v1/negative-wrong-domain.json",
     "expected": "reject",
+    "expected_schema_accept": false,
     "expected_failure": "schema",
     "expected_rule_id": null
   },
@@ -884,6 +919,7 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "contract_id": "schema://ioi/foundations/receipt-proof-bundle/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/receipt-proof-bundle-v1/negative-stale-schema-hash.json",
     "expected": "reject",
+    "expected_schema_accept": true,
     "expected_failure": "invariant",
     "expected_rule_id": "receipt_proof_bundle.schema_hash.matches_contract"
   },
@@ -891,6 +927,7 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "contract_id": "schema://ioi/foundations/receipt-proof-bundle/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/receipt-proof-bundle-v1/negative-leaf-index-mismatch.json",
     "expected": "reject",
+    "expected_schema_accept": true,
     "expected_failure": "invariant",
     "expected_rule_id": "receipt_proof_bundle.leaf_index.matches_inclusion"
   },
@@ -898,6 +935,7 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "contract_id": "schema://ioi/foundations/information-flow-label/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/information-flow-label-v1/positive-public-verified.json",
     "expected": "accept",
+    "expected_schema_accept": true,
     "expected_failure": null,
     "expected_rule_id": null
   },
@@ -905,6 +943,7 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "contract_id": "schema://ioi/foundations/information-flow-label/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/information-flow-label-v1/positive-private-untrusted.json",
     "expected": "accept",
+    "expected_schema_accept": true,
     "expected_failure": null,
     "expected_rule_id": null
   },
@@ -912,6 +951,7 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "contract_id": "schema://ioi/foundations/information-flow-label/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/information-flow-label-v1/negative-missing-instruction-authority.json",
     "expected": "reject",
+    "expected_schema_accept": false,
     "expected_failure": "schema",
     "expected_rule_id": null
   },
@@ -919,6 +959,7 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "contract_id": "schema://ioi/components/connectors-tools/runtime-tool-contract/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/runtime-tool-contract-v1/positive-declared-egress.json",
     "expected": "accept",
+    "expected_schema_accept": true,
     "expected_failure": null,
     "expected_rule_id": null
   },
@@ -926,6 +967,7 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "contract_id": "schema://ioi/components/connectors-tools/runtime-tool-contract/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/runtime-tool-contract-v1/negative-missing-destination-declaration.json",
     "expected": "reject",
+    "expected_schema_accept": false,
     "expected_failure": "schema",
     "expected_rule_id": null
   },
@@ -933,6 +975,7 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "contract_id": "schema://ioi/foundations/managed-work-billing-ledger-bundle/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/managed-work-billing-ledger-bundle-v1/positive-complete.json",
     "expected": "accept",
+    "expected_schema_accept": true,
     "expected_failure": null,
     "expected_rule_id": null
   },
@@ -940,6 +983,7 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "contract_id": "schema://ioi/foundations/managed-work-billing-ledger-bundle/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/managed-work-billing-ledger-bundle-v1/negative-floating-credit-units.json",
     "expected": "reject",
+    "expected_schema_accept": false,
     "expected_failure": "schema",
     "expected_rule_id": null
   },
@@ -947,6 +991,7 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "contract_id": "schema://ioi/foundations/dispute-rail-bundle/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/dispute-rail-bundle-v1/positive-marketplace-resolution.json",
     "expected": "accept",
+    "expected_schema_accept": true,
     "expected_failure": null,
     "expected_rule_id": null
   },
@@ -954,6 +999,7 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "contract_id": "schema://ioi/foundations/dispute-rail-bundle/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/dispute-rail-bundle-v1/negative-value-unit-substitution.json",
     "expected": "reject",
+    "expected_schema_accept": true,
     "expected_failure": "invariant",
     "expected_rule_id": "dispute_rail.value_unit.profile_dispute.unit_ref"
   },
@@ -961,6 +1007,7 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "contract_id": "schema://ioi/foundations/declassification-approval/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/declassification-approval-v1/positive-exact-binding.json",
     "expected": "accept",
+    "expected_schema_accept": true,
     "expected_failure": null,
     "expected_rule_id": null
   },
@@ -968,9 +1015,435 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "contract_id": "schema://ioi/foundations/declassification-approval/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/declassification-approval-v1/negative-missing-reviewed-representation-hash.json",
     "expected": "reject",
+    "expected_schema_accept": false,
     "expected_failure": "schema",
     "expected_rule_id": null
   }
+] as const;
+
+export type ArchitectureContractMutation = {
+  id: string;
+  contract_id: string;
+  source_fixture_path: string;
+  covered_keywords: string[];
+  ajv_expected_accept: boolean;
+  direct_projection_rejection: boolean;
+  patch: {
+    operation: "set" | "remove";
+    pointer: string;
+    value?: unknown;
+  };
+};
+
+export const ARCHITECTURE_CONTRACT_MUTATIONS: ReadonlyArray<ArchitectureContractMutation> = [
+  {
+    "id": "type-number-for-string",
+    "contract_id": "schema://ioi/foundations/receipt-envelope/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/receipt-envelope-v1/positive-assured.json",
+    "covered_keywords": [
+      "type",
+      "properties"
+    ],
+    "ajv_expected_accept": false,
+    "direct_projection_rejection": false,
+    "patch": {
+      "operation": "set",
+      "pointer": "/timestamp",
+      "value": 42
+    }
+  },
+  {
+    "id": "required-property-removed",
+    "contract_id": "schema://ioi/foundations/receipt-envelope/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/receipt-envelope-v1/positive-assured.json",
+    "covered_keywords": [
+      "required"
+    ],
+    "ajv_expected_accept": false,
+    "direct_projection_rejection": false,
+    "patch": {
+      "operation": "remove",
+      "pointer": "/actor_id"
+    }
+  },
+  {
+    "id": "additional-property-injected",
+    "contract_id": "schema://ioi/foundations/receipt-envelope/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/receipt-envelope-v1/positive-assured.json",
+    "covered_keywords": [
+      "additionalProperties"
+    ],
+    "ajv_expected_accept": false,
+    "direct_projection_rejection": false,
+    "patch": {
+      "operation": "set",
+      "pointer": "/unregistered_field",
+      "value": true
+    }
+  },
+  {
+    "id": "referenced-pattern-violated",
+    "contract_id": "schema://ioi/foundations/receipt-envelope/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/receipt-envelope-v1/positive-assured.json",
+    "covered_keywords": [
+      "$ref",
+      "pattern"
+    ],
+    "ajv_expected_accept": false,
+    "direct_projection_rejection": false,
+    "patch": {
+      "operation": "set",
+      "pointer": "/receipt_profile_ref",
+      "value": "not-a-schema-ref"
+    }
+  },
+  {
+    "id": "ecma-whitespace-byte-order-mark-rejected",
+    "contract_id": "schema://ioi/foundations/receipt-envelope/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/receipt-envelope-v1/positive-assured.json",
+    "covered_keywords": [
+      "pattern"
+    ],
+    "ajv_expected_accept": false,
+    "direct_projection_rejection": false,
+    "patch": {
+      "operation": "set",
+      "pointer": "/receipt_profile_ref",
+      "value": "schema://ioi/test/﻿"
+    }
+  },
+  {
+    "id": "ecma-non-whitespace-next-line-accepted",
+    "contract_id": "schema://ioi/foundations/receipt-envelope/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/receipt-envelope-v1/positive-assured.json",
+    "covered_keywords": [
+      "pattern"
+    ],
+    "ajv_expected_accept": true,
+    "direct_projection_rejection": false,
+    "patch": {
+      "operation": "set",
+      "pointer": "/receipt_profile_ref",
+      "value": "schema://ioi/test/"
+    }
+  },
+  {
+    "id": "nullable-any-of-violated",
+    "contract_id": "schema://ioi/foundations/receipt-envelope/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/receipt-envelope-v1/positive-assured.json",
+    "covered_keywords": [
+      "anyOf"
+    ],
+    "ajv_expected_accept": false,
+    "direct_projection_rejection": false,
+    "patch": {
+      "operation": "set",
+      "pointer": "/claim_scope_ref",
+      "value": 42
+    }
+  },
+  {
+    "id": "unicode-aware-min-length-violated",
+    "contract_id": "schema://ioi/components/connectors-tools/runtime-tool-contract/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/runtime-tool-contract-v1/positive-declared-egress.json",
+    "covered_keywords": [
+      "minLength"
+    ],
+    "ajv_expected_accept": false,
+    "direct_projection_rejection": false,
+    "patch": {
+      "operation": "set",
+      "pointer": "/display_name",
+      "value": ""
+    }
+  },
+  {
+    "id": "closed-enum-violated-with-raw-string-sentinel",
+    "contract_id": "schema://ioi/foundations/authority-grant-envelope/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v1/positive-active.json",
+    "covered_keywords": [
+      "enum"
+    ],
+    "ajv_expected_accept": false,
+    "direct_projection_rejection": true,
+    "patch": {
+      "operation": "set",
+      "pointer": "/status",
+      "value": "retired\"###schema-controlled"
+    }
+  },
+  {
+    "id": "minimum-violated",
+    "contract_id": "schema://ioi/foundations/authority-grant-envelope/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v1/positive-active.json",
+    "covered_keywords": [
+      "minimum"
+    ],
+    "ajv_expected_accept": false,
+    "direct_projection_rejection": false,
+    "patch": {
+      "operation": "set",
+      "pointer": "/revocation_epoch",
+      "value": -1
+    }
+  },
+  {
+    "id": "array-items-schema-violated",
+    "contract_id": "schema://ioi/foundations/authority-grant-envelope/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v1/positive-active.json",
+    "covered_keywords": [
+      "items"
+    ],
+    "ajv_expected_accept": false,
+    "direct_projection_rejection": false,
+    "patch": {
+      "operation": "set",
+      "pointer": "/authority_scopes",
+      "value": [
+        42
+      ]
+    }
+  },
+  {
+    "id": "deep-unique-items-key-order-duplicate",
+    "contract_id": "schema://ioi/foundations/authority-key-set/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/authority-key-set-v1/positive-active.json",
+    "covered_keywords": [
+      "uniqueItems"
+    ],
+    "ajv_expected_accept": false,
+    "direct_projection_rejection": false,
+    "patch": {
+      "operation": "set",
+      "pointer": "/keys",
+      "value": [
+        {
+          "key_id": "key://acme/security/ed25519-4",
+          "signature_suite": "ed25519",
+          "public_key": "QYRCACKVbJtP0yXai8KhMBh0XZLbov9WSlbETdIGRm4",
+          "not_before": 1784116800,
+          "expires_at": 1815652800,
+          "status": "active"
+        },
+        {
+          "status": "active",
+          "expires_at": 1815652800,
+          "not_before": 1784116800,
+          "public_key": "QYRCACKVbJtP0yXai8KhMBh0XZLbov9WSlbETdIGRm4",
+          "signature_suite": "ed25519",
+          "key_id": "key://acme/security/ed25519-4"
+        }
+      ]
+    }
+  },
+  {
+    "id": "impossible-rfc3339-calendar-date",
+    "contract_id": "schema://ioi/foundations/authority-grant-envelope/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v1/positive-active.json",
+    "covered_keywords": [
+      "format"
+    ],
+    "ajv_expected_accept": false,
+    "direct_projection_rejection": false,
+    "patch": {
+      "operation": "set",
+      "pointer": "/constraints/expires_at",
+      "value": "2025-02-30T00:00:00Z"
+    }
+  },
+  {
+    "id": "closed-const-violated",
+    "contract_id": "schema://ioi/foundations/authority-grant-envelope/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v2/positive-root.json",
+    "covered_keywords": [
+      "const"
+    ],
+    "ajv_expected_accept": false,
+    "direct_projection_rejection": true,
+    "patch": {
+      "operation": "set",
+      "pointer": "/schema_version",
+      "value": "ioi.foundations.authority-grant-envelope.v999"
+    }
+  },
+  {
+    "id": "one-of-violated",
+    "contract_id": "schema://ioi/foundations/authority-grant-envelope/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v2/positive-root.json",
+    "covered_keywords": [
+      "oneOf"
+    ],
+    "ajv_expected_accept": false,
+    "direct_projection_rejection": false,
+    "patch": {
+      "operation": "set",
+      "pointer": "/parent_grant",
+      "value": 42
+    }
+  },
+  {
+    "id": "maximum-safe-integer-violated",
+    "contract_id": "schema://ioi/foundations/managed-work-billing-ledger-bundle/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/managed-work-billing-ledger-bundle-v1/positive-complete.json",
+    "covered_keywords": [
+      "maximum"
+    ],
+    "ajv_expected_accept": false,
+    "direct_projection_rejection": false,
+    "patch": {
+      "operation": "set",
+      "pointer": "/plan/included_work_credits/units",
+      "value": 9007199254740992
+    }
+  },
+  {
+    "id": "minimum-array-size-violated",
+    "contract_id": "schema://ioi/foundations/authority-grant-envelope/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v1/positive-active.json",
+    "covered_keywords": [
+      "minItems"
+    ],
+    "ajv_expected_accept": false,
+    "direct_projection_rejection": false,
+    "patch": {
+      "operation": "set",
+      "pointer": "/resources",
+      "value": []
+    }
+  },
+  {
+    "id": "type-less-if-then-max-items-violated",
+    "contract_id": "schema://ioi/foundations/physical-action-execution-receipt/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/physical-action-execution-receipt-v1/positive-committed.json",
+    "covered_keywords": [
+      "allOf",
+      "if",
+      "then",
+      "maxItems"
+    ],
+    "ajv_expected_accept": false,
+    "direct_projection_rejection": false,
+    "patch": {
+      "operation": "set",
+      "pointer": "/body/outcome_normalization_error_codes",
+      "value": [
+        "unexpected_error"
+      ]
+    }
+  },
+  {
+    "id": "nested-all-of-contains-member-missing",
+    "contract_id": "schema://ioi/foundations/dispute-rail-bundle/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/dispute-rail-bundle-v1/positive-marketplace-resolution.json",
+    "covered_keywords": [
+      "contains"
+    ],
+    "ajv_expected_accept": false,
+    "direct_projection_rejection": false,
+    "patch": {
+      "operation": "set",
+      "pointer": "/resolution/required_receipt_kinds",
+      "value": [
+        "dispute_resolution",
+        "dispute_remedy_execution"
+      ]
+    }
+  }
+];
+
+export const ARCHITECTURE_CONTRACT_ASSERTION_KEYWORDS = [
+  "$ref",
+  "additionalProperties",
+  "allOf",
+  "anyOf",
+  "const",
+  "contains",
+  "enum",
+  "format",
+  "if",
+  "items",
+  "maxItems",
+  "maximum",
+  "minItems",
+  "minLength",
+  "minimum",
+  "oneOf",
+  "pattern",
+  "properties",
+  "required",
+  "then",
+  "type",
+  "uniqueItems"
+] as const;
+
+export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
+  "^(?:commitment|settlement|tx)://[^\\s]+$",
+  "^(?:decision|dispute)://[^\\s]+$",
+  "^(?:evidence|assurance-evidence|artifact)://[^\\s]+$",
+  "^(?:robot|drone|device|facility|facility-system|vehicle)://[^\\s]+$",
+  "^(?:robot|facility|vehicle|device|drone|actuator)://[^\\s]+$",
+  "^(?:schema|policy)://[^\\s]+$",
+  "^(?:system|agent|worker|runtime)://[^\\s]+$",
+  "^(?:system|agent|worker|runtime|wallet|org)://[^\\s]+$",
+  "^(?:system|user|wallet|org|project|domain|worker|agent|service|provider|policy|governance|runtime)://[^\\s]+$",
+  "^(?:system|wallet|org|policy)://[^\\s]+$",
+  "^(?:verifier-path|verification|receipt)://[^\\s]+$",
+  "^[A-Z]{3}$",
+  "^[A-Za-z0-9_-]{43}$",
+  "^[A-Za-z0-9_-]{86}$",
+  "^[A-Za-z0-9_.-]+$",
+  "^[a-z][a-z0-9+.-]*://\\S+$",
+  "^[a-z][a-z0-9-]*(?:://|:)[^\\s]+$",
+  "^[a-z][a-z0-9-]*://[^\\s]+$",
+  "^[a-z][a-z0-9._-]*$",
+  "^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*$",
+  "^[a-z][a-z0-9_]*$",
+  "^acceptance://[^\\s]+$",
+  "^action-schema://[^\\s]+$",
+  "^actuator://[^\\s]+$",
+  "^agentgres://operation/[^\\s]+$",
+  "^approval://[A-Za-z0-9._~:/-]+$",
+  "^artifact://[^\\s]+$",
+  "^assurance-evidence://[^\\s]+$",
+  "^authority-request://[^\\s]+$",
+  "^build://[^\\s]+$",
+  "^caveat://[^\\s]+$",
+  "^controller-binding://[^\\s]+$",
+  "^effect://[^\\s]+$",
+  "^embodied-resource-group-revision://[^\\s]+$",
+  "^embodied-runtime-graph-manifest://[^\\s]+$",
+  "^estop://[^\\s]+$",
+  "^grant://[A-Za-z0-9._~:/-]+$",
+  "^grant://[^\\s]+$",
+  "^ifc-label://[A-Za-z0-9._~:/-]+$",
+  "^incident://[^\\s]+$",
+  "^key://[^\\s]+$",
+  "^keyset://[^\\s]+$",
+  "^physical-action-admission:[^\\s]+$",
+  "^policy://[A-Za-z0-9._~:/-]+$",
+  "^policy://[^\\s]+$",
+  "^prim:[a-z0-9._-]+$",
+  "^prim:[a-z][a-z0-9._-]*$",
+  "^proof://[^\\s]+$",
+  "^receipt-checkpoint://[^\\s]+$",
+  "^receipt-log://[^\\s]+$",
+  "^receipt://[A-Za-z0-9._~:/-]+$",
+  "^receipt://[^\\s]+$",
+  "^resource-lease://[^\\s]+$",
+  "^run://[^\\s]+$",
+  "^safety://[^\\s]+$",
+  "^schema://[^\\s]+$",
+  "^scope:[a-z0-9._-]+$",
+  "^scope:[a-z][a-z0-9._-]*$",
+  "^sensor://[^\\s]+$",
+  "^settlement://[^\\s]+$",
+  "^sha256:[0-9a-f]{64}$",
+  "^sha256:[a-f0-9]{64}$",
+  "^snapshot://[^\\s]+$",
+  "^task://[^\\s]+$",
+  "^tool://[A-Za-z0-9._~:/-]+$",
+  "^tool://[A-Za-z0-9._~:/-]+/revision/[A-Za-z0-9._~-]+$",
+  "^zone://[^\\s]+$"
 ] as const;
 
 export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
@@ -5435,8 +5908,94 @@ export function architectureContractSchemaHash(contractId: string): string | nul
   return (ARCHITECTURE_CONTRACT_SCHEMA_HASHES as Record<string, string>)[contractId] ?? null;
 }
 
+export function architectureContractSchemaDocument(contractId: string): JsonObject | null {
+  return CONTRACT_SCHEMAS[contractId] ?? null;
+}
+
 function isObject(value: unknown): value is JsonObject {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function jsonSchemaEqual(left: unknown, right: unknown): boolean {
+  if (Object.is(left, right)) return true;
+  if (typeof left === "number" && typeof right === "number") {
+    return left === right;
+  }
+  if (Array.isArray(left) && Array.isArray(right)) {
+    return (
+      left.length === right.length &&
+      left.every((value, index) => jsonSchemaEqual(value, right[index]))
+    );
+  }
+  if (isObject(left) && isObject(right)) {
+    const leftKeys = Object.keys(left);
+    const rightKeys = Object.keys(right);
+    return (
+      leftKeys.length === rightKeys.length &&
+      leftKeys.every(
+        (key) =>
+          Object.prototype.hasOwnProperty.call(right, key) &&
+          jsonSchemaEqual(left[key], right[key]),
+      )
+    );
+  }
+  return false;
+}
+
+function isLeapYear(year: number): boolean {
+  return year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+}
+
+function isRfc3339DateTime(value: string): boolean {
+  const match = /^(\d{4})-(\d{2})-(\d{2})[Tt](\d{2}):(\d{2}):(\d{2}(?:\.\d+)?)(Z|z|([+-])(\d{2}):(\d{2}))$/u.exec(
+    value,
+  );
+  if (!match) return false;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const hour = Number(match[4]);
+  const minute = Number(match[5]);
+  const second = Number(match[6]);
+  const zoneSign = match[8] === "-" ? -1 : 1;
+  const zoneHour = Number(match[9] ?? 0);
+  const zoneMinute = Number(match[10] ?? 0);
+  const monthDays = [
+    0,
+    31,
+    isLeapYear(year) ? 29 : 28,
+    31,
+    30,
+    31,
+    30,
+    31,
+    31,
+    30,
+    31,
+    30,
+    31,
+  ];
+  if (
+    month < 1 ||
+    month > 12 ||
+    day < 1 ||
+    day > monthDays[month] ||
+    hour > 23 ||
+    minute > 59 ||
+    zoneHour > 23 ||
+    zoneMinute > 59
+  ) {
+    return false;
+  }
+  if (second < 60) return true;
+  const utcMinute = minute - zoneMinute * zoneSign;
+  const utcHour =
+    hour - zoneHour * zoneSign - (utcMinute < 0 ? 1 : 0);
+  return (
+    (utcHour === 23 || utcHour === -1) &&
+    (utcMinute === 59 || utcMinute === -1) &&
+    second < 61
+  );
 }
 
 function resolveRef(root: JsonObject, ref: string): JsonObject | null {
@@ -5453,7 +6012,9 @@ function resolveRef(root: JsonObject, ref: string): JsonObject | null {
 function schemaMatches(root: JsonObject, schema: JsonObject, value: unknown, at: string): string[] {
   if (typeof schema.$ref === "string") {
     const resolved = resolveRef(root, schema.$ref);
-    return resolved ? schemaMatches(root, resolved, value, at) : [at + ": unresolved $ref"];
+    if (!resolved) return [at + ": unresolved $ref"];
+    const errors = schemaMatches(root, resolved, value, at);
+    if (errors.length > 0) return errors;
   }
   if (Array.isArray(schema.allOf)) {
     for (const branch of schema.allOf) {
@@ -5479,58 +6040,82 @@ function schemaMatches(root: JsonObject, schema: JsonObject, value: unknown, at:
       ).length;
       const valid = keyword === "oneOf" ? matches === 1 : matches > 0;
       if (!valid) return [at + ": failed " + keyword];
-      break;
     }
   }
-  if (Array.isArray(schema.enum) && !schema.enum.some((candidate) => Object.is(candidate, value))) {
+  if (Array.isArray(schema.enum) && !schema.enum.some((candidate) => jsonSchemaEqual(candidate, value))) {
     return [at + ": value is outside enum"];
   }
-  if ("const" in schema && !Object.is(schema.const, value)) {
+  if ("const" in schema && !jsonSchemaEqual(schema.const, value)) {
     return [at + ": value does not match const"];
   }
   const type = schema.type;
   if (type === "null" && value !== null) return [at + ": expected null"];
-  if (type === "string") {
-    if (typeof value !== "string") return [at + ": expected string"];
-    if (typeof schema.minLength === "number" && value.length < schema.minLength) {
+  if (type === "string" && typeof value !== "string") return [at + ": expected string"];
+  if (
+    (type === "number" || type === "integer") &&
+    (typeof value !== "number" || !Number.isFinite(value))
+  ) {
+    return [at + ": expected number"];
+  }
+  if (type === "integer" && !Number.isInteger(value)) {
+    return [at + ": expected integer"];
+  }
+  if (type === "boolean" && typeof value !== "boolean") return [at + ": expected boolean"];
+  if (type === "array" && !Array.isArray(value)) return [at + ": expected array"];
+  if (type === "object" && !isObject(value)) return [at + ": expected object"];
+  if (typeof value === "string") {
+    if (typeof schema.minLength === "number" && [...value].length < schema.minLength) {
       return [at + ": string shorter than minLength"];
     }
     if (typeof schema.pattern === "string" && !new RegExp(schema.pattern, "u").test(value)) {
       return [at + ": string failed pattern"];
     }
     if (schema.format === "date-time") {
-      const zoned = /(?:Z|[+-]\d{2}:\d{2})$/.test(value);
-      if (!value.includes("T") || !zoned || Number.isNaN(Date.parse(value))) {
+      if (!isRfc3339DateTime(value)) {
         return [at + ": invalid date-time"];
       }
     }
   }
-  if (type === "number" || type === "integer") {
-    if (typeof value !== "number" || !Number.isFinite(value)) return [at + ": expected number"];
-    if (type === "integer" && !Number.isInteger(value)) return [at + ": expected integer"];
+  if (typeof value === "number" && Number.isFinite(value)) {
     if (typeof schema.minimum === "number" && value < schema.minimum) {
       return [at + ": number below minimum"];
     }
+    if (typeof schema.maximum === "number" && value > schema.maximum) {
+      return [at + ": number above maximum"];
+    }
   }
-  if (type === "boolean" && typeof value !== "boolean") return [at + ": expected boolean"];
-  if (type === "array") {
-    if (!Array.isArray(value)) return [at + ": expected array"];
+  if (Array.isArray(value)) {
     if (typeof schema.minItems === "number" && value.length < schema.minItems) {
       return [at + ": array shorter than minItems"];
     }
     if (typeof schema.maxItems === "number" && value.length > schema.maxItems) {
       return [at + ": array longer than maxItems"];
     }
-    if (schema.uniqueItems === true && new Set(value.map((item) => JSON.stringify(item))).size !== value.length) {
-      return [at + ": array items are not unique"];
+    if (schema.uniqueItems === true) {
+      for (let index = 0; index < value.length; index += 1) {
+        if (
+          value
+            .slice(0, index)
+            .some((candidate) => jsonSchemaEqual(candidate, value[index]))
+        ) {
+          return [at + ": array items are not unique"];
+        }
+      }
     }
     if (isObject(schema.items)) {
       const errors = value.flatMap((item, index) => schemaMatches(root, schema.items as JsonObject, item, at + "[" + index + "]"));
       if (errors.length > 0) return errors;
     }
+    if (
+      isObject(schema.contains) &&
+      !value.some(
+        (item) => schemaMatches(root, schema.contains as JsonObject, item, at).length === 0,
+      )
+    ) {
+      return [at + ": array has no item matching contains"];
+    }
   }
-  if (type === "object") {
-    if (!isObject(value)) return [at + ": expected object"];
+  if (isObject(value)) {
     const properties = isObject(schema.properties) ? schema.properties : {};
     const required = Array.isArray(schema.required) ? schema.required : [];
     const missing = required.filter((name) => typeof name === "string" && !(name in value));
@@ -5608,11 +6193,18 @@ function invariantErrors(contractId: string, rules: Array<JsonObject>, value: un
   });
 }
 
+export function architectureContractInvariantErrors(
+  contractId: string,
+  value: unknown,
+): string[] {
+  return invariantErrors(contractId, CONTRACT_INVARIANTS[contractId] ?? [], value);
+}
+
 export function validateArchitectureContract(contractId: string, value: unknown): ValidationResult {
   const schema = CONTRACT_SCHEMAS[contractId];
   if (!schema) return { ok: false, errors: ["unknown contract: " + contractId] };
   const errors = schemaMatches(schema, schema, value, "$");
-  if (errors.length === 0) errors.push(...invariantErrors(contractId, CONTRACT_INVARIANTS[contractId] ?? [], value));
+  if (errors.length === 0) errors.push(...architectureContractInvariantErrors(contractId, value));
   return { ok: errors.length === 0, errors };
 }
 

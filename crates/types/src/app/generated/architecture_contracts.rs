@@ -3,9 +3,33 @@
 
 use regex::Regex;
 use serde_json::Value;
-use std::collections::HashSet;
 
 pub const ARCHITECTURE_CONTRACT_REGISTRY_VERSION: &str = "ioi.architecture-contract-registry.v1";
+
+pub const ARCHITECTURE_CONTRACT_ASSERTION_KEYWORDS: &[&str] = &[
+    r#"$ref"#,
+    r#"additionalProperties"#,
+    r#"allOf"#,
+    r#"anyOf"#,
+    r#"const"#,
+    r#"contains"#,
+    r#"enum"#,
+    r#"format"#,
+    r#"if"#,
+    r#"items"#,
+    r#"maxItems"#,
+    r#"maximum"#,
+    r#"minItems"#,
+    r#"minLength"#,
+    r#"minimum"#,
+    r#"oneOf"#,
+    r#"pattern"#,
+    r#"properties"#,
+    r#"required"#,
+    r#"then"#,
+    r#"type"#,
+    r#"uniqueItems"#,
+];
 
 pub const ARCHITECTURE_CONTRACT_SCHEMA_HASHES: &[(&str, &str)] = &[
     (
@@ -99,19 +123,25 @@ pub struct ReceiptEnvelopeV1 {
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct PhysicalActionExecutionReceiptV1 {
-    pub schema_version: serde_json::Value,
+    pub schema_version: PhysicalActionExecutionReceiptV1SchemaVersion,
     pub receipt_envelope: PhysicalActionExecutionReceiptV1ReceiptEnvelope,
     pub body: PhysicalActionExecutionReceiptV1Body,
     pub body_hash: String,
     pub receipt_hash: String,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum PhysicalActionExecutionReceiptV1SchemaVersion {
+    #[serde(rename = r#"ioi.physical-action-execution-receipt.v1"#)]
+    IoiPhysicalActionExecutionReceiptV1,
+}
+
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct PhysicalActionExecutionReceiptV1ReceiptEnvelope {
     pub receipt_id: String,
-    pub receipt_type: serde_json::Value,
-    pub receipt_profile_ref: serde_json::Value,
+    pub receipt_type: PhysicalActionExecutionReceiptV1ReceiptEnvelopeReceiptType,
+    pub receipt_profile_ref: PhysicalActionExecutionReceiptV1ReceiptEnvelopeReceiptProfileRef,
     pub attested_boundary_fact_refs: Vec<String>,
     pub claim_scope_ref: Option<String>,
     pub run_id: Option<String>,
@@ -132,6 +162,18 @@ pub struct PhysicalActionExecutionReceiptV1ReceiptEnvelope {
     pub timestamp: String,
     pub signature: Option<String>,
     pub public_commitment_ref: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum PhysicalActionExecutionReceiptV1ReceiptEnvelopeReceiptType {
+    #[serde(rename = r#"physical_action_execution"#)]
+    PhysicalActionExecution,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum PhysicalActionExecutionReceiptV1ReceiptEnvelopeReceiptProfileRef {
+    #[serde(rename = r#"schema://ioi/foundations/physical-action-execution-receipt/v1"#)]
+    SchemaIoiFoundationsPhysicalActionExecutionReceiptV1,
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -163,26 +205,42 @@ pub struct PhysicalActionExecutionReceiptV1Body {
     pub preflight_receipt_refs: Vec<String>,
     pub sensor_evidence_receipt_refs: Vec<String>,
     pub controller_operation_ref: String,
-    pub dispatch_posture: String,
+    pub dispatch_posture: PhysicalActionExecutionReceiptV1BodyDispatchPosture,
     pub dispatch_evidence_receipt_refs: Vec<String>,
     pub controller_receipt_refs: Vec<String>,
     pub outcome_normalization_error_codes: Vec<String>,
-    pub effect_status: String,
+    pub effect_status: PhysicalActionExecutionReceiptV1BodyEffectStatus,
     pub state_root_before: String,
     pub state_root_after: Option<String>,
     pub previous_execution_receipt_hash: Option<String>,
     pub executed_at: String,
     pub incident_refs: Vec<String>,
-    pub reconciliation_state: String,
+    pub reconciliation_state: PhysicalActionExecutionReceiptV1BodyReconciliationState,
     pub agentgres_operation_refs: Vec<String>,
-    pub assurance_stage: String,
+    pub assurance_stage: PhysicalActionExecutionReceiptV1BodyAssuranceStage,
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct PhysicalActionExecutionReceiptV1BodyWorkSubject {
-    pub kind: String,
+    pub kind: PhysicalActionExecutionReceiptV1BodyWorkSubjectKind,
     pub r#ref: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum PhysicalActionExecutionReceiptV1BodyWorkSubjectKind {
+    #[serde(rename = r#"goal_run"#)]
+    GoalRun,
+    #[serde(rename = r#"automation_run"#)]
+    AutomationRun,
+    #[serde(rename = r#"work_item"#)]
+    WorkItem,
+    #[serde(rename = r#"work_claim"#)]
+    WorkClaim,
+    #[serde(rename = r#"service_order"#)]
+    ServiceOrder,
+    #[serde(rename = r#"physical_action_intent"#)]
+    PhysicalActionIntent,
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -198,6 +256,58 @@ pub struct PhysicalActionExecutionReceiptV1BodyResourceGroupBindingsItem {
     pub emergency_stop_authority_refs: Vec<String>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum PhysicalActionExecutionReceiptV1BodyDispatchPosture {
+    #[serde(rename = r#"not_dispatched_proven"#)]
+    NotDispatchedProven,
+    #[serde(rename = r#"dispatched_observed"#)]
+    DispatchedObserved,
+    #[serde(rename = r#"dispatch_ambiguous"#)]
+    DispatchAmbiguous,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum PhysicalActionExecutionReceiptV1BodyEffectStatus {
+    #[serde(rename = r#"committed"#)]
+    Committed,
+    #[serde(rename = r#"rejected"#)]
+    Rejected,
+    #[serde(rename = r#"unknown"#)]
+    Unknown,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum PhysicalActionExecutionReceiptV1BodyReconciliationState {
+    #[serde(rename = r#"confirmed"#)]
+    Confirmed,
+    #[serde(rename = r#"partially_confirmed"#)]
+    PartiallyConfirmed,
+    #[serde(rename = r#"ambiguous_effect"#)]
+    AmbiguousEffect,
+    #[serde(rename = r#"compensation_required"#)]
+    CompensationRequired,
+    #[serde(rename = r#"non_retryable"#)]
+    NonRetryable,
+    #[serde(rename = r#"failed"#)]
+    Failed,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum PhysicalActionExecutionReceiptV1BodyAssuranceStage {
+    #[serde(rename = r#"attested"#)]
+    Attested,
+    #[serde(rename = r#"evidenced"#)]
+    Evidenced,
+    #[serde(rename = r#"verified"#)]
+    Verified,
+    #[serde(rename = r#"accepted"#)]
+    Accepted,
+    #[serde(rename = r#"adjudicated"#)]
+    Adjudicated,
+    #[serde(rename = r#"settled"#)]
+    Settled,
+}
+
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AuthorityGrantEnvelopeV1 {
@@ -210,7 +320,7 @@ pub struct AuthorityGrantEnvelopeV1 {
     pub resources: Vec<String>,
     pub constraints: AuthorityGrantEnvelopeV1Constraints,
     pub revocation_epoch: u64,
-    pub status: String,
+    pub status: AuthorityGrantEnvelopeV1Status,
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -222,12 +332,22 @@ pub struct AuthorityGrantEnvelopeV1Constraints {
     pub approval_required_for: Vec<String>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AuthorityGrantEnvelopeV1Status {
+    #[serde(rename = r#"active"#)]
+    Active,
+    #[serde(rename = r#"expired"#)]
+    Expired,
+    #[serde(rename = r#"revoked"#)]
+    Revoked,
+}
+
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AuthorityGrantEnvelopeV2 {
-    pub schema_version: serde_json::Value,
-    pub envelope_type: serde_json::Value,
-    pub signature_domain: serde_json::Value,
+    pub schema_version: AuthorityGrantEnvelopeV2SchemaVersion,
+    pub envelope_type: AuthorityGrantEnvelopeV2EnvelopeType,
+    pub signature_domain: AuthorityGrantEnvelopeV2SignatureDomain,
     pub schema_hash: String,
     pub authority_grant_id: String,
     pub request_id: String,
@@ -249,9 +369,27 @@ pub struct AuthorityGrantEnvelopeV2 {
     pub risk_restrictions: AuthorityGrantEnvelopeV2RiskRestrictions,
     pub revocation_epoch: u64,
     pub body_hash: String,
-    pub signature_suite: serde_json::Value,
+    pub signature_suite: AuthorityGrantEnvelopeV2SignatureSuite,
     pub signature_key_id: String,
     pub signature: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AuthorityGrantEnvelopeV2SchemaVersion {
+    #[serde(rename = r#"ioi.foundations.authority-grant-envelope.v2"#)]
+    IoiFoundationsAuthorityGrantEnvelopeV2,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AuthorityGrantEnvelopeV2EnvelopeType {
+    #[serde(rename = r#"ioi.authority-grant"#)]
+    IoiAuthorityGrant,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AuthorityGrantEnvelopeV2SignatureDomain {
+    #[serde(rename = r#"ioi.authority-grant-envelope.v2"#)]
+    IoiAuthorityGrantEnvelopeV2,
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -265,17 +403,51 @@ pub struct AuthorityGrantEnvelopeV2ParentGrant {
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AuthorityGrantEnvelopeV2RiskRestrictions {
-    pub allowed_risk_classes: Vec<String>,
+    pub allowed_risk_classes: Vec<AuthorityGrantEnvelopeV2RiskRestrictionsAllowedRiskClassesItem>,
     pub max_budget_microusd: u64,
     pub max_calls: u64,
     pub approval_required_for: Vec<String>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AuthorityGrantEnvelopeV2RiskRestrictionsAllowedRiskClassesItem {
+    #[serde(rename = r#"read"#)]
+    Read,
+    #[serde(rename = r#"draft"#)]
+    Draft,
+    #[serde(rename = r#"external_message"#)]
+    ExternalMessage,
+    #[serde(rename = r#"commerce"#)]
+    Commerce,
+    #[serde(rename = r#"funds"#)]
+    Funds,
+    #[serde(rename = r#"trade"#)]
+    Trade,
+    #[serde(rename = r#"policy_widening"#)]
+    PolicyWidening,
+    #[serde(rename = r#"secret_export"#)]
+    SecretExport,
+    #[serde(rename = r#"declassification"#)]
+    Declassification,
+    #[serde(rename = r#"identity_change"#)]
+    IdentityChange,
+    #[serde(rename = r#"cloud_deploy"#)]
+    CloudDeploy,
+    #[serde(rename = r#"physical_action"#)]
+    PhysicalAction,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AuthorityGrantEnvelopeV2SignatureSuite {
+    #[serde(rename = r#"ed25519"#)]
+    Ed25519,
+}
+
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AuthorityKeySetV1 {
-    pub schema_version: serde_json::Value,
-    pub key_set_type: serde_json::Value,
+    pub schema_version: AuthorityKeySetV1SchemaVersion,
+    pub key_set_type: AuthorityKeySetV1KeySetType,
     pub key_set_id: String,
     pub issuer_id: String,
     pub version: u64,
@@ -284,22 +456,50 @@ pub struct AuthorityKeySetV1 {
     pub keys: Vec<AuthorityKeySetV1KeysItem>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AuthorityKeySetV1SchemaVersion {
+    #[serde(rename = r#"ioi.foundations.authority-key-set.v1"#)]
+    IoiFoundationsAuthorityKeySetV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AuthorityKeySetV1KeySetType {
+    #[serde(rename = r#"ioi.authority-key-set"#)]
+    IoiAuthorityKeySet,
+}
+
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AuthorityKeySetV1KeysItem {
     pub key_id: String,
-    pub signature_suite: serde_json::Value,
+    pub signature_suite: AuthorityKeySetV1KeysItemSignatureSuite,
     pub public_key: String,
     pub not_before: u64,
     pub expires_at: u64,
-    pub status: String,
+    pub status: AuthorityKeySetV1KeysItemStatus,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AuthorityKeySetV1KeysItemSignatureSuite {
+    #[serde(rename = r#"ed25519"#)]
+    Ed25519,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AuthorityKeySetV1KeysItemStatus {
+    #[serde(rename = r#"active"#)]
+    Active,
+    #[serde(rename = r#"retired"#)]
+    Retired,
+    #[serde(rename = r#"revoked"#)]
+    Revoked,
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AuthorityRevocationSnapshotV1 {
-    pub schema_version: serde_json::Value,
-    pub snapshot_type: serde_json::Value,
+    pub schema_version: AuthorityRevocationSnapshotV1SchemaVersion,
+    pub snapshot_type: AuthorityRevocationSnapshotV1SnapshotType,
     pub snapshot_id: String,
     pub issuer_id: String,
     pub issuer_key_set_ref: String,
@@ -310,24 +510,48 @@ pub struct AuthorityRevocationSnapshotV1 {
     pub revoked_grant_refs: Vec<String>,
     pub revoked_key_ids: Vec<String>,
     pub body_hash: String,
-    pub signature_domain: serde_json::Value,
-    pub signature_suite: serde_json::Value,
+    pub signature_domain: AuthorityRevocationSnapshotV1SignatureDomain,
+    pub signature_suite: AuthorityRevocationSnapshotV1SignatureSuite,
     pub signature_key_id: String,
     pub signature: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AuthorityRevocationSnapshotV1SchemaVersion {
+    #[serde(rename = r#"ioi.foundations.authority-revocation-snapshot.v1"#)]
+    IoiFoundationsAuthorityRevocationSnapshotV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AuthorityRevocationSnapshotV1SnapshotType {
+    #[serde(rename = r#"ioi.authority-revocation-snapshot"#)]
+    IoiAuthorityRevocationSnapshot,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AuthorityRevocationSnapshotV1SignatureDomain {
+    #[serde(rename = r#"ioi.authority-revocation-snapshot.v1"#)]
+    IoiAuthorityRevocationSnapshotV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AuthorityRevocationSnapshotV1SignatureSuite {
+    #[serde(rename = r#"ed25519"#)]
+    Ed25519,
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ReceiptCheckpointV1 {
-    pub schema_version: serde_json::Value,
-    pub checkpoint_type: serde_json::Value,
-    pub signature_domain: serde_json::Value,
+    pub schema_version: ReceiptCheckpointV1SchemaVersion,
+    pub checkpoint_type: ReceiptCheckpointV1CheckpointType,
+    pub signature_domain: ReceiptCheckpointV1SignatureDomain,
     pub schema_hash: String,
     pub checkpoint_id: String,
     pub receipt_log_id: String,
-    pub accumulator_algorithm: serde_json::Value,
-    pub receipt_body_hash_profile: serde_json::Value,
-    pub receipt_contract_id: serde_json::Value,
+    pub accumulator_algorithm: ReceiptCheckpointV1AccumulatorAlgorithm,
+    pub receipt_body_hash_profile: ReceiptCheckpointV1ReceiptBodyHashProfile,
+    pub receipt_contract_id: ReceiptCheckpointV1ReceiptContractId,
     pub receipt_schema_hash: String,
     pub accumulator_size: u64,
     pub accumulator_root: String,
@@ -343,26 +567,68 @@ pub struct ReceiptCheckpointV1 {
     pub build_identity_ref: String,
     pub policy_posture_ref: String,
     pub body_hash: String,
-    pub signature_suite: serde_json::Value,
+    pub signature_suite: ReceiptCheckpointV1SignatureSuite,
     pub signature_key_id: String,
     pub signature: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ReceiptCheckpointV1SchemaVersion {
+    #[serde(rename = r#"ioi.foundations.receipt-checkpoint.v1"#)]
+    IoiFoundationsReceiptCheckpointV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ReceiptCheckpointV1CheckpointType {
+    #[serde(rename = r#"ioi.receipt-checkpoint"#)]
+    IoiReceiptCheckpoint,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ReceiptCheckpointV1SignatureDomain {
+    #[serde(rename = r#"ioi.receipt-checkpoint.v1"#)]
+    IoiReceiptCheckpointV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ReceiptCheckpointV1AccumulatorAlgorithm {
+    #[serde(rename = r#"ioi.receipt-hash-chain-jcs-sha256.v1"#)]
+    IoiReceiptHashChainJcsSha256V1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ReceiptCheckpointV1ReceiptBodyHashProfile {
+    #[serde(rename = r#"ioi.receipt-envelope-jcs-sha256.v1"#)]
+    IoiReceiptEnvelopeJcsSha256V1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ReceiptCheckpointV1ReceiptContractId {
+    #[serde(rename = r#"schema://ioi/foundations/receipt-envelope/v1"#)]
+    SchemaIoiFoundationsReceiptEnvelopeV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ReceiptCheckpointV1SignatureSuite {
+    #[serde(rename = r#"ed25519"#)]
+    Ed25519,
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ReceiptProofBundleV1 {
-    pub schema_version: serde_json::Value,
-    pub bundle_type: serde_json::Value,
-    pub manifest_domain: serde_json::Value,
+    pub schema_version: ReceiptProofBundleV1SchemaVersion,
+    pub bundle_type: ReceiptProofBundleV1BundleType,
+    pub manifest_domain: ReceiptProofBundleV1ManifestDomain,
     pub bundle_schema_hash: String,
     pub manifest_hash: String,
-    pub manifest_signature_suite: serde_json::Value,
+    pub manifest_signature_suite: ReceiptProofBundleV1ManifestSignatureSuite,
     pub manifest_signature_key_id: String,
     pub manifest_signature: String,
     pub bundle_id: String,
-    pub receipt_contract_id: serde_json::Value,
+    pub receipt_contract_id: ReceiptProofBundleV1ReceiptContractId,
     pub receipt_schema_hash: String,
-    pub receipt_body_hash_profile: serde_json::Value,
+    pub receipt_body_hash_profile: ReceiptProofBundleV1ReceiptBodyHashProfile,
     pub receipt: serde_json::Value,
     pub receipt_body_hash: String,
     pub leaf: ReceiptProofBundleV1Leaf,
@@ -374,31 +640,91 @@ pub struct ReceiptProofBundleV1 {
     pub verification_instructions: ReceiptProofBundleV1VerificationInstructions,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ReceiptProofBundleV1SchemaVersion {
+    #[serde(rename = r#"ioi.foundations.receipt-proof-bundle.v1"#)]
+    IoiFoundationsReceiptProofBundleV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ReceiptProofBundleV1BundleType {
+    #[serde(rename = r#"ioi.receipt-proof-bundle"#)]
+    IoiReceiptProofBundle,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ReceiptProofBundleV1ManifestDomain {
+    #[serde(rename = r#"ioi.receipt-proof-bundle-manifest.v1"#)]
+    IoiReceiptProofBundleManifestV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ReceiptProofBundleV1ManifestSignatureSuite {
+    #[serde(rename = r#"ed25519"#)]
+    Ed25519,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ReceiptProofBundleV1ReceiptContractId {
+    #[serde(rename = r#"schema://ioi/foundations/receipt-envelope/v1"#)]
+    SchemaIoiFoundationsReceiptEnvelopeV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ReceiptProofBundleV1ReceiptBodyHashProfile {
+    #[serde(rename = r#"ioi.receipt-envelope-jcs-sha256.v1"#)]
+    IoiReceiptEnvelopeJcsSha256V1,
+}
+
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ReceiptProofBundleV1Leaf {
-    pub algorithm: serde_json::Value,
-    pub domain: serde_json::Value,
+    pub algorithm: ReceiptProofBundleV1LeafAlgorithm,
+    pub domain: ReceiptProofBundleV1LeafDomain,
     pub leaf_index: u64,
     pub leaf_hash: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ReceiptProofBundleV1LeafAlgorithm {
+    #[serde(rename = r#"ioi.receipt-hash-chain-jcs-sha256.v1"#)]
+    IoiReceiptHashChainJcsSha256V1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ReceiptProofBundleV1LeafDomain {
+    #[serde(rename = r#"ioi.receipt-accumulator-leaf.v1"#)]
+    IoiReceiptAccumulatorLeafV1,
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ReceiptProofBundleV1InclusionProof {
-    pub profile: serde_json::Value,
+    pub profile: ReceiptProofBundleV1InclusionProofProfile,
     pub leaf_index: u64,
     pub prefix_root: String,
     pub suffix_leaf_hashes: Vec<String>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ReceiptProofBundleV1InclusionProofProfile {
+    #[serde(rename = r#"ioi.receipt-hash-chain-inclusion.v1"#)]
+    IoiReceiptHashChainInclusionV1,
+}
+
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ReceiptProofBundleV1ConsistencyProof {
-    pub profile: serde_json::Value,
+    pub profile: ReceiptProofBundleV1ConsistencyProofProfile,
     pub from_size: u64,
     pub from_root: String,
     pub extension_leaf_hashes: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ReceiptProofBundleV1ConsistencyProofProfile {
+    #[serde(rename = r#"ioi.receipt-hash-chain-consistency.v1"#)]
+    IoiReceiptHashChainConsistencyV1,
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -413,49 +739,188 @@ pub struct ReceiptProofBundleV1TrustedInputRefs {
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ReceiptProofBundleV1VerificationInstructions {
-    pub profile: serde_json::Value,
+    pub profile: ReceiptProofBundleV1VerificationInstructionsProfile,
     pub steps: Vec<String>,
-    pub offline_required_inputs: Vec<String>,
+    pub offline_required_inputs:
+        Vec<ReceiptProofBundleV1VerificationInstructionsOfflineRequiredInputsItem>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ReceiptProofBundleV1VerificationInstructionsProfile {
+    #[serde(rename = r#"ioi.receipt-proof-verification.v1"#)]
+    IoiReceiptProofVerificationV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ReceiptProofBundleV1VerificationInstructionsOfflineRequiredInputsItem {
+    #[serde(rename = r#"trusted_key_set"#)]
+    TrustedKeySet,
+    #[serde(rename = r#"signed_revocation_snapshot"#)]
+    SignedRevocationSnapshot,
+    #[serde(rename = r#"trusted_time"#)]
+    TrustedTime,
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct InformationFlowLabelV1 {
-    pub schema_version: serde_json::Value,
+    pub schema_version: InformationFlowLabelV1SchemaVersion,
     pub label_ref: String,
     pub profile_ref: String,
     pub content_hash: String,
-    pub origin: String,
-    pub integrity: String,
-    pub confidentiality: String,
-    pub instruction_authority: String,
+    pub origin: InformationFlowLabelV1Origin,
+    pub integrity: InformationFlowLabelV1Integrity,
+    pub confidentiality: InformationFlowLabelV1Confidentiality,
+    pub instruction_authority: InformationFlowLabelV1InstructionAuthority,
     pub egress_policy: InformationFlowLabelV1EgressPolicy,
     pub purpose: String,
     pub retention: InformationFlowLabelV1Retention,
-    pub derivation_kind: String,
+    pub derivation_kind: InformationFlowLabelV1DerivationKind,
     pub derivation_parent_refs: Vec<String>,
     pub derivation_closure_refs: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum InformationFlowLabelV1SchemaVersion {
+    #[serde(rename = r#"ioi.foundations.information-flow-label.v1"#)]
+    IoiFoundationsInformationFlowLabelV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum InformationFlowLabelV1Origin {
+    #[serde(rename = r#"operator"#)]
+    Operator,
+    #[serde(rename = r#"admitted_artifact"#)]
+    AdmittedArtifact,
+    #[serde(rename = r#"external_untrusted"#)]
+    ExternalUntrusted,
+    #[serde(rename = r#"connector_output"#)]
+    ConnectorOutput,
+    #[serde(rename = r#"tool_output"#)]
+    ToolOutput,
+    #[serde(rename = r#"model_output"#)]
+    ModelOutput,
+    #[serde(rename = r#"memory_import"#)]
+    MemoryImport,
+    #[serde(rename = r#"unknown"#)]
+    Unknown,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum InformationFlowLabelV1Integrity {
+    #[serde(rename = r#"verified"#)]
+    Verified,
+    #[serde(rename = r#"admitted"#)]
+    Admitted,
+    #[serde(rename = r#"declared"#)]
+    Declared,
+    #[serde(rename = r#"untrusted"#)]
+    Untrusted,
+    #[serde(rename = r#"unknown"#)]
+    Unknown,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum InformationFlowLabelV1Confidentiality {
+    #[serde(rename = r#"public"#)]
+    Public,
+    #[serde(rename = r#"internal"#)]
+    Internal,
+    #[serde(rename = r#"confidential"#)]
+    Confidential,
+    #[serde(rename = r#"private"#)]
+    Private,
+    #[serde(rename = r#"restricted"#)]
+    Restricted,
+    #[serde(rename = r#"unknown"#)]
+    Unknown,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum InformationFlowLabelV1InstructionAuthority {
+    #[serde(rename = r#"authoritative"#)]
+    Authoritative,
+    #[serde(rename = r#"context_only"#)]
+    ContextOnly,
+    #[serde(rename = r#"none"#)]
+    None,
+    #[serde(rename = r#"untrusted"#)]
+    Untrusted,
+    #[serde(rename = r#"unknown"#)]
+    Unknown,
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct InformationFlowLabelV1EgressPolicy {
-    pub mode: String,
+    pub mode: InformationFlowLabelV1EgressPolicyMode,
     pub allowed_destination_patterns: Vec<String>,
-    pub allowed_data_classes: Vec<String>,
+    pub allowed_data_classes: Vec<InformationFlowLabelV1EgressPolicyAllowedDataClassesItem>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum InformationFlowLabelV1EgressPolicyMode {
+    #[serde(rename = r#"deny"#)]
+    Deny,
+    #[serde(rename = r#"allow_declared"#)]
+    AllowDeclared,
+    #[serde(rename = r#"declassification_required"#)]
+    DeclassificationRequired,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum InformationFlowLabelV1EgressPolicyAllowedDataClassesItem {
+    #[serde(rename = r#"public"#)]
+    Public,
+    #[serde(rename = r#"internal"#)]
+    Internal,
+    #[serde(rename = r#"confidential"#)]
+    Confidential,
+    #[serde(rename = r#"private"#)]
+    Private,
+    #[serde(rename = r#"restricted"#)]
+    Restricted,
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct InformationFlowLabelV1Retention {
     pub max_seconds: u64,
-    pub disposition: String,
+    pub disposition: InformationFlowLabelV1RetentionDisposition,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum InformationFlowLabelV1RetentionDisposition {
+    #[serde(rename = r#"delete"#)]
+    Delete,
+    #[serde(rename = r#"return_to_owner"#)]
+    ReturnToOwner,
+    #[serde(rename = r#"retain_under_policy"#)]
+    RetainUnderPolicy,
+    #[serde(rename = r#"unknown"#)]
+    Unknown,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum InformationFlowLabelV1DerivationKind {
+    #[serde(rename = r#"direct"#)]
+    Direct,
+    #[serde(rename = r#"join"#)]
+    Join,
+    #[serde(rename = r#"summarization"#)]
+    Summarization,
+    #[serde(rename = r#"model_substitution"#)]
+    ModelSubstitution,
+    #[serde(rename = r#"memory_import"#)]
+    MemoryImport,
+    #[serde(rename = r#"tool_output"#)]
+    ToolOutput,
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RuntimeToolContractV1 {
-    pub schema_version: serde_json::Value,
+    pub schema_version: RuntimeToolContractV1SchemaVersion,
     pub tool_id: String,
     pub revision_ref: String,
     pub predecessor_revision_ref: Option<String>,
@@ -467,18 +932,36 @@ pub struct RuntimeToolContractV1 {
     pub output_schema: Option<serde_json::Value>,
     pub risk_class: String,
     pub effect_class: String,
-    pub concurrency_class: Option<String>,
+    pub concurrency_class: Option<RuntimeToolContractV1ConcurrencyClass>,
     pub timeout: Option<RuntimeToolContractV1Timeout>,
     pub primitive_capabilities_required: Vec<String>,
     pub authority_scopes_required: Vec<String>,
     pub approval_required: bool,
     pub evidence_required: Vec<String>,
-    pub redaction_policy: Option<String>,
+    pub redaction_policy: Option<RuntimeToolContractV1RedactionPolicy>,
     pub owner: String,
-    pub data_class_allowlist: Vec<String>,
+    pub data_class_allowlist: Vec<RuntimeToolContractV1DataClassAllowlistItem>,
     pub egress_policy: RuntimeToolContractV1EgressPolicy,
     pub registry_lifecycle_ref: Option<String>,
-    pub registry_status: Option<String>,
+    pub registry_status: Option<RuntimeToolContractV1RegistryStatus>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum RuntimeToolContractV1SchemaVersion {
+    #[serde(rename = r#"ioi.components.connectors-tools.runtime-tool-contract.v1"#)]
+    IoiComponentsConnectorsToolsRuntimeToolContractV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum RuntimeToolContractV1ConcurrencyClass {
+    #[serde(rename = r#"safe_parallel"#)]
+    SafeParallel,
+    #[serde(rename = r#"resource_scoped"#)]
+    ResourceScoped,
+    #[serde(rename = r#"exclusive"#)]
+    Exclusive,
+    #[serde(rename = r#"serialized"#)]
+    Serialized,
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -488,17 +971,61 @@ pub struct RuntimeToolContractV1Timeout {
     pub max_ms: u64,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum RuntimeToolContractV1RedactionPolicy {
+    #[serde(rename = r#"redact_body"#)]
+    RedactBody,
+    #[serde(rename = r#"hash_only"#)]
+    HashOnly,
+    #[serde(rename = r#"full_private"#)]
+    FullPrivate,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum RuntimeToolContractV1DataClassAllowlistItem {
+    #[serde(rename = r#"public"#)]
+    Public,
+    #[serde(rename = r#"internal"#)]
+    Internal,
+    #[serde(rename = r#"confidential"#)]
+    Confidential,
+    #[serde(rename = r#"private"#)]
+    Private,
+    #[serde(rename = r#"restricted"#)]
+    Restricted,
+}
+
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RuntimeToolContractV1EgressPolicy {
-    pub default: String,
+    pub default: RuntimeToolContractV1EgressPolicyDefault,
     pub allowed_destination_patterns: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum RuntimeToolContractV1EgressPolicyDefault {
+    #[serde(rename = r#"deny"#)]
+    Deny,
+    #[serde(rename = r#"allow_declared"#)]
+    AllowDeclared,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum RuntimeToolContractV1RegistryStatus {
+    #[serde(rename = r#"draft"#)]
+    Draft,
+    #[serde(rename = r#"released"#)]
+    Released,
+    #[serde(rename = r#"deprecated"#)]
+    Deprecated,
+    #[serde(rename = r#"revoked"#)]
+    Revoked,
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ManagedWorkBillingLedgerBundleV1 {
-    pub schema_version: serde_json::Value,
+    pub schema_version: ManagedWorkBillingLedgerBundleV1SchemaVersion,
     pub bundle_ref: String,
     pub billing_account_ref: String,
     pub work_ref: String,
@@ -512,7 +1039,13 @@ pub struct ManagedWorkBillingLedgerBundleV1 {
     pub adjustments: Vec<ManagedWorkBillingLedgerBundleV1AdjustmentsItem>,
     pub ledger_head_hash: String,
     pub exported_at_ms: u64,
-    pub assurance_status: String,
+    pub assurance_status: ManagedWorkBillingLedgerBundleV1AssuranceStatus,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ManagedWorkBillingLedgerBundleV1SchemaVersion {
+    #[serde(rename = r#"ioi.foundations.managed-work-billing-ledger-bundle.v1"#)]
+    IoiFoundationsManagedWorkBillingLedgerBundleV1,
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -533,7 +1066,25 @@ pub struct ManagedWorkBillingLedgerBundleV1RateCard {
 pub struct ManagedWorkBillingLedgerBundleV1RateCardMeterRatesItem {
     pub meter_class: String,
     pub work_credit_micro_units_per_meter_unit: u64,
-    pub charge_component: String,
+    pub charge_component: ManagedWorkBillingLedgerBundleV1RateCardMeterRatesItemChargeComponent,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ManagedWorkBillingLedgerBundleV1RateCardMeterRatesItemChargeComponent {
+    #[serde(rename = r#"managed_model"#)]
+    ManagedModel,
+    #[serde(rename = r#"managed_runtime"#)]
+    ManagedRuntime,
+    #[serde(rename = r#"broker"#)]
+    Broker,
+    #[serde(rename = r#"participant"#)]
+    Participant,
+    #[serde(rename = r#"verifier"#)]
+    Verifier,
+    #[serde(rename = r#"ioi_managed_service"#)]
+    IoiManagedService,
+    #[serde(rename = r#"non_billable_telemetry"#)]
+    NonBillableTelemetry,
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -545,7 +1096,7 @@ pub struct ManagedWorkBillingLedgerBundleV1Plan {
     pub rate_card_ref: String,
     pub rate_card_body_hash: String,
     pub included_work_credits: ManagedWorkBillingLedgerBundleV1PlanIncludedWorkCredits,
-    pub reset_policy: String,
+    pub reset_policy: ManagedWorkBillingLedgerBundleV1PlanResetPolicy,
     pub issued_at_ms: u64,
     pub expires_at_ms: u64,
 }
@@ -553,8 +1104,24 @@ pub struct ManagedWorkBillingLedgerBundleV1Plan {
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ManagedWorkBillingLedgerBundleV1PlanIncludedWorkCredits {
-    pub unit: serde_json::Value,
+    pub unit: ManagedWorkBillingLedgerBundleV1PlanIncludedWorkCreditsUnit,
     pub units: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ManagedWorkBillingLedgerBundleV1PlanIncludedWorkCreditsUnit {
+    #[serde(rename = r#"micro_work_credit"#)]
+    MicroWorkCredit,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ManagedWorkBillingLedgerBundleV1PlanResetPolicy {
+    #[serde(rename = r#"non_resetting"#)]
+    NonResetting,
+    #[serde(rename = r#"monthly_expiring"#)]
+    MonthlyExpiring,
+    #[serde(rename = r#"contract_term_expiring"#)]
+    ContractTermExpiring,
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -568,9 +1135,10 @@ pub struct ManagedWorkBillingLedgerBundleV1Quote {
     pub plan_body_hash: String,
     pub estimated_work_credits: ManagedWorkBillingLedgerBundleV1QuoteEstimatedWorkCredits,
     pub required_hold: ManagedWorkBillingLedgerBundleV1QuoteRequiredHold,
-    pub overrun_policy: String,
+    pub overrun_policy: ManagedWorkBillingLedgerBundleV1QuoteOverrunPolicy,
     pub max_attempt_count: u64,
-    pub allowed_commercial_postures: Vec<String>,
+    pub allowed_commercial_postures:
+        Vec<ManagedWorkBillingLedgerBundleV1QuoteAllowedCommercialPosturesItem>,
     pub issued_at_ms: u64,
     pub expires_at_ms: u64,
 }
@@ -578,15 +1146,51 @@ pub struct ManagedWorkBillingLedgerBundleV1Quote {
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ManagedWorkBillingLedgerBundleV1QuoteEstimatedWorkCredits {
-    pub unit: serde_json::Value,
+    pub unit: ManagedWorkBillingLedgerBundleV1QuoteEstimatedWorkCreditsUnit,
     pub units: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ManagedWorkBillingLedgerBundleV1QuoteEstimatedWorkCreditsUnit {
+    #[serde(rename = r#"micro_work_credit"#)]
+    MicroWorkCredit,
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ManagedWorkBillingLedgerBundleV1QuoteRequiredHold {
-    pub unit: serde_json::Value,
+    pub unit: ManagedWorkBillingLedgerBundleV1QuoteRequiredHoldUnit,
     pub units: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ManagedWorkBillingLedgerBundleV1QuoteRequiredHoldUnit {
+    #[serde(rename = r#"micro_work_credit"#)]
+    MicroWorkCredit,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ManagedWorkBillingLedgerBundleV1QuoteOverrunPolicy {
+    #[serde(rename = r#"block"#)]
+    Block,
+    #[serde(rename = r#"exact_additional_hold"#)]
+    ExactAdditionalHold,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ManagedWorkBillingLedgerBundleV1QuoteAllowedCommercialPosturesItem {
+    #[serde(rename = r#"managed"#)]
+    Managed,
+    #[serde(rename = r#"customer_byok"#)]
+    CustomerByok,
+    #[serde(rename = r#"customer_byoa"#)]
+    CustomerByoa,
+    #[serde(rename = r#"customer_cloud"#)]
+    CustomerCloud,
+    #[serde(rename = r#"self_hosted"#)]
+    SelfHosted,
+    #[serde(rename = r#"local"#)]
+    Local,
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -596,19 +1200,43 @@ pub struct ManagedWorkBillingLedgerBundleV1HoldsItem {
     pub body_hash: String,
     pub quote_ref: String,
     pub idempotency_key: String,
-    pub hold_kind: String,
+    pub hold_kind: ManagedWorkBillingLedgerBundleV1HoldsItemHoldKind,
     pub overrun_decision_ref: Option<String>,
     pub amount: ManagedWorkBillingLedgerBundleV1HoldsItemAmount,
     pub created_at_ms: u64,
     pub expires_at_ms: u64,
-    pub status: String,
+    pub status: ManagedWorkBillingLedgerBundleV1HoldsItemStatus,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ManagedWorkBillingLedgerBundleV1HoldsItemHoldKind {
+    #[serde(rename = r#"initial"#)]
+    Initial,
+    #[serde(rename = r#"exact_additional"#)]
+    ExactAdditional,
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ManagedWorkBillingLedgerBundleV1HoldsItemAmount {
-    pub unit: serde_json::Value,
+    pub unit: ManagedWorkBillingLedgerBundleV1HoldsItemAmountUnit,
     pub units: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ManagedWorkBillingLedgerBundleV1HoldsItemAmountUnit {
+    #[serde(rename = r#"micro_work_credit"#)]
+    MicroWorkCredit,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ManagedWorkBillingLedgerBundleV1HoldsItemStatus {
+    #[serde(rename = r#"active"#)]
+    Active,
+    #[serde(rename = r#"consumed"#)]
+    Consumed,
+    #[serde(rename = r#"released"#)]
+    Released,
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -625,7 +1253,7 @@ pub struct ManagedWorkBillingLedgerBundleV1UsageRecordsItem {
     pub quantity_units: u64,
     pub rate_work_credit_micro_units_per_meter_unit: u64,
     pub charged_work_credits: ManagedWorkBillingLedgerBundleV1UsageRecordsItemChargedWorkCredits,
-    pub commercial_posture: String,
+    pub commercial_posture: ManagedWorkBillingLedgerBundleV1UsageRecordsItemCommercialPosture,
     pub cost_breakdown: ManagedWorkBillingLedgerBundleV1UsageRecordsItemCostBreakdown,
     pub coarse_ocu_projection: bool,
     pub occurred_at_ms: u64,
@@ -634,8 +1262,30 @@ pub struct ManagedWorkBillingLedgerBundleV1UsageRecordsItem {
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ManagedWorkBillingLedgerBundleV1UsageRecordsItemChargedWorkCredits {
-    pub unit: serde_json::Value,
+    pub unit: ManagedWorkBillingLedgerBundleV1UsageRecordsItemChargedWorkCreditsUnit,
     pub units: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ManagedWorkBillingLedgerBundleV1UsageRecordsItemChargedWorkCreditsUnit {
+    #[serde(rename = r#"micro_work_credit"#)]
+    MicroWorkCredit,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ManagedWorkBillingLedgerBundleV1UsageRecordsItemCommercialPosture {
+    #[serde(rename = r#"managed"#)]
+    Managed,
+    #[serde(rename = r#"customer_byok"#)]
+    CustomerByok,
+    #[serde(rename = r#"customer_byoa"#)]
+    CustomerByoa,
+    #[serde(rename = r#"customer_cloud"#)]
+    CustomerCloud,
+    #[serde(rename = r#"self_hosted"#)]
+    SelfHosted,
+    #[serde(rename = r#"local"#)]
+    Local,
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -648,7 +1298,18 @@ pub struct ManagedWorkBillingLedgerBundleV1UsageRecordsItemCostBreakdown {
     pub verifier_cost_minor: u64,
     pub ioi_fee_minor: u64,
     pub excluded_customer_borne_provider_cost_minor: u64,
-    pub supplier_reconciliation_state: String,
+    pub supplier_reconciliation_state:
+        ManagedWorkBillingLedgerBundleV1UsageRecordsItemCostBreakdownSupplierReconciliationState,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ManagedWorkBillingLedgerBundleV1UsageRecordsItemCostBreakdownSupplierReconciliationState {
+    #[serde(rename = r#"not_applicable"#)]
+    NotApplicable,
+    #[serde(rename = r#"estimated"#)]
+    Estimated,
+    #[serde(rename = r#"supplier_statement_reconciled"#)]
+    SupplierStatementReconciled,
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -663,7 +1324,7 @@ pub struct ManagedWorkBillingLedgerBundleV1OverrunDecisionsItem {
         ManagedWorkBillingLedgerBundleV1OverrunDecisionsItemProjectedWorkCredits,
     pub exact_overage_work_credits:
         ManagedWorkBillingLedgerBundleV1OverrunDecisionsItemExactOverageWorkCredits,
-    pub decision: String,
+    pub decision: ManagedWorkBillingLedgerBundleV1OverrunDecisionsItemDecision,
     pub additional_hold_amount:
         ManagedWorkBillingLedgerBundleV1OverrunDecisionsItemAdditionalHoldAmount,
     pub created_at_ms: u64,
@@ -672,29 +1333,61 @@ pub struct ManagedWorkBillingLedgerBundleV1OverrunDecisionsItem {
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ManagedWorkBillingLedgerBundleV1OverrunDecisionsItemHeldWorkCredits {
-    pub unit: serde_json::Value,
+    pub unit: ManagedWorkBillingLedgerBundleV1OverrunDecisionsItemHeldWorkCreditsUnit,
     pub units: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ManagedWorkBillingLedgerBundleV1OverrunDecisionsItemHeldWorkCreditsUnit {
+    #[serde(rename = r#"micro_work_credit"#)]
+    MicroWorkCredit,
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ManagedWorkBillingLedgerBundleV1OverrunDecisionsItemProjectedWorkCredits {
-    pub unit: serde_json::Value,
+    pub unit: ManagedWorkBillingLedgerBundleV1OverrunDecisionsItemProjectedWorkCreditsUnit,
     pub units: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ManagedWorkBillingLedgerBundleV1OverrunDecisionsItemProjectedWorkCreditsUnit {
+    #[serde(rename = r#"micro_work_credit"#)]
+    MicroWorkCredit,
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ManagedWorkBillingLedgerBundleV1OverrunDecisionsItemExactOverageWorkCredits {
-    pub unit: serde_json::Value,
+    pub unit: ManagedWorkBillingLedgerBundleV1OverrunDecisionsItemExactOverageWorkCreditsUnit,
     pub units: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ManagedWorkBillingLedgerBundleV1OverrunDecisionsItemExactOverageWorkCreditsUnit {
+    #[serde(rename = r#"micro_work_credit"#)]
+    MicroWorkCredit,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ManagedWorkBillingLedgerBundleV1OverrunDecisionsItemDecision {
+    #[serde(rename = r#"block"#)]
+    Block,
+    #[serde(rename = r#"exact_additional_hold"#)]
+    ExactAdditionalHold,
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ManagedWorkBillingLedgerBundleV1OverrunDecisionsItemAdditionalHoldAmount {
-    pub unit: serde_json::Value,
+    pub unit: ManagedWorkBillingLedgerBundleV1OverrunDecisionsItemAdditionalHoldAmountUnit,
     pub units: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ManagedWorkBillingLedgerBundleV1OverrunDecisionsItemAdditionalHoldAmountUnit {
+    #[serde(rename = r#"micro_work_credit"#)]
+    MicroWorkCredit,
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -713,8 +1406,14 @@ pub struct ManagedWorkBillingLedgerBundleV1FinalDebit {
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ManagedWorkBillingLedgerBundleV1FinalDebitDebitedWorkCredits {
-    pub unit: serde_json::Value,
+    pub unit: ManagedWorkBillingLedgerBundleV1FinalDebitDebitedWorkCreditsUnit,
     pub units: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ManagedWorkBillingLedgerBundleV1FinalDebitDebitedWorkCreditsUnit {
+    #[serde(rename = r#"micro_work_credit"#)]
+    MicroWorkCredit,
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -724,30 +1423,60 @@ pub struct ManagedWorkBillingLedgerBundleV1AdjustmentsItem {
     pub body_hash: String,
     pub final_debit_ref: String,
     pub previous_adjustment_hash: Option<String>,
-    pub adjustment_kind: String,
+    pub adjustment_kind: ManagedWorkBillingLedgerBundleV1AdjustmentsItemAdjustmentKind,
     pub amount: ManagedWorkBillingLedgerBundleV1AdjustmentsItemAmount,
     pub reason_code: String,
     pub evidence_refs: Vec<String>,
     pub created_at_ms: u64,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ManagedWorkBillingLedgerBundleV1AdjustmentsItemAdjustmentKind {
+    #[serde(rename = r#"refund"#)]
+    Refund,
+    #[serde(rename = r#"writeoff"#)]
+    Writeoff,
+}
+
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ManagedWorkBillingLedgerBundleV1AdjustmentsItemAmount {
-    pub unit: serde_json::Value,
+    pub unit: ManagedWorkBillingLedgerBundleV1AdjustmentsItemAmountUnit,
     pub units: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ManagedWorkBillingLedgerBundleV1AdjustmentsItemAmountUnit {
+    #[serde(rename = r#"micro_work_credit"#)]
+    MicroWorkCredit,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ManagedWorkBillingLedgerBundleV1AssuranceStatus {
+    #[serde(rename = r#"internal_event_log"#)]
+    InternalEventLog,
+    #[serde(rename = r#"supplier_partially_reconciled"#)]
+    SupplierPartiallyReconciled,
+    #[serde(rename = r#"supplier_reconciled"#)]
+    SupplierReconciled,
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct DisputeRailBundleV1 {
-    pub schema_version: serde_json::Value,
+    pub schema_version: DisputeRailBundleV1SchemaVersion,
     pub bundle_ref: String,
     pub profile: DisputeRailBundleV1Profile,
     pub dispute: DisputeRailBundleV1Dispute,
     pub resolution: DisputeRailBundleV1Resolution,
     pub exported_at_ms: u64,
-    pub assurance_status: serde_json::Value,
+    pub assurance_status: DisputeRailBundleV1AssuranceStatus,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum DisputeRailBundleV1SchemaVersion {
+    #[serde(rename = r#"ioi.foundations.dispute-rail-bundle.v1"#)]
+    IoiFoundationsDisputeRailBundleV1,
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -756,7 +1485,7 @@ pub struct DisputeRailBundleV1Profile {
     pub dispute_rail_profile_ref: String,
     pub profile_version: u64,
     pub profile_body_hash: String,
-    pub rail_kind: String,
+    pub rail_kind: DisputeRailBundleV1ProfileRailKind,
     pub value_unit: DisputeRailBundleV1ProfileValueUnit,
     pub ordinary_verification_funding_ref: Option<String>,
     pub challenger_bond_units: u64,
@@ -764,10 +1493,22 @@ pub struct DisputeRailBundleV1Profile {
     pub evidence_window_ms: u64,
     pub response_window_ms: u64,
     pub appeal_window_ms: u64,
-    pub evidence_unavailable_default: String,
-    pub respondent_timeout_default: String,
-    pub allowed_remedies: Vec<String>,
+    pub evidence_unavailable_default: DisputeRailBundleV1ProfileEvidenceUnavailableDefault,
+    pub respondent_timeout_default: DisputeRailBundleV1ProfileRespondentTimeoutDefault,
+    pub allowed_remedies: Vec<DisputeRailBundleV1ProfileAllowedRemediesItem>,
     pub outcome_rules: Vec<DisputeRailBundleV1ProfileOutcomeRulesItem>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum DisputeRailBundleV1ProfileRailKind {
+    #[serde(rename = r#"internal_review"#)]
+    InternalReview,
+    #[serde(rename = r#"marketplace_escrow"#)]
+    MarketplaceEscrow,
+    #[serde(rename = r#"aiip_dispute"#)]
+    AiipDispute,
+    #[serde(rename = r#"public_settlement"#)]
+    PublicSettlement,
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -781,13 +1522,99 @@ pub struct DisputeRailBundleV1ProfileValueUnit {
     pub decimals: u64,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum DisputeRailBundleV1ProfileEvidenceUnavailableDefault {
+    #[serde(rename = r#"challenger_upheld"#)]
+    ChallengerUpheld,
+    #[serde(rename = r#"respondent_upheld"#)]
+    RespondentUpheld,
+    #[serde(rename = r#"partial"#)]
+    Partial,
+    #[serde(rename = r#"no_fault"#)]
+    NoFault,
+    #[serde(rename = r#"escalated"#)]
+    Escalated,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum DisputeRailBundleV1ProfileRespondentTimeoutDefault {
+    #[serde(rename = r#"challenger_upheld"#)]
+    ChallengerUpheld,
+    #[serde(rename = r#"respondent_upheld"#)]
+    RespondentUpheld,
+    #[serde(rename = r#"partial"#)]
+    Partial,
+    #[serde(rename = r#"no_fault"#)]
+    NoFault,
+    #[serde(rename = r#"escalated"#)]
+    Escalated,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum DisputeRailBundleV1ProfileAllowedRemediesItem {
+    #[serde(rename = r#"none"#)]
+    None,
+    #[serde(rename = r#"refund"#)]
+    Refund,
+    #[serde(rename = r#"partial_refund"#)]
+    PartialRefund,
+    #[serde(rename = r#"payout"#)]
+    Payout,
+    #[serde(rename = r#"partial_payout"#)]
+    PartialPayout,
+    #[serde(rename = r#"slash"#)]
+    Slash,
+    #[serde(rename = r#"retry"#)]
+    Retry,
+    #[serde(rename = r#"revise"#)]
+    Revise,
+    #[serde(rename = r#"escalate"#)]
+    Escalate,
+}
+
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct DisputeRailBundleV1ProfileOutcomeRulesItem {
-    pub outcome: String,
-    pub remedy: String,
+    pub outcome: DisputeRailBundleV1ProfileOutcomeRulesItemOutcome,
+    pub remedy: DisputeRailBundleV1ProfileOutcomeRulesItemRemedy,
     pub maximum_remedy_bps_of_disputed_value: u64,
     pub bond_distribution: DisputeRailBundleV1ProfileOutcomeRulesItemBondDistribution,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum DisputeRailBundleV1ProfileOutcomeRulesItemOutcome {
+    #[serde(rename = r#"challenger_upheld"#)]
+    ChallengerUpheld,
+    #[serde(rename = r#"respondent_upheld"#)]
+    RespondentUpheld,
+    #[serde(rename = r#"partial"#)]
+    Partial,
+    #[serde(rename = r#"no_fault"#)]
+    NoFault,
+    #[serde(rename = r#"escalated"#)]
+    Escalated,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum DisputeRailBundleV1ProfileOutcomeRulesItemRemedy {
+    #[serde(rename = r#"none"#)]
+    None,
+    #[serde(rename = r#"refund"#)]
+    Refund,
+    #[serde(rename = r#"partial_refund"#)]
+    PartialRefund,
+    #[serde(rename = r#"payout"#)]
+    Payout,
+    #[serde(rename = r#"partial_payout"#)]
+    PartialPayout,
+    #[serde(rename = r#"slash"#)]
+    Slash,
+    #[serde(rename = r#"retry"#)]
+    Retry,
+    #[serde(rename = r#"revise"#)]
+    Revise,
+    #[serde(rename = r#"escalate"#)]
+    Escalate,
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -800,7 +1627,26 @@ pub struct DisputeRailBundleV1ProfileOutcomeRulesItemBondDistribution {
     pub verifier_funding_bps: u64,
     pub treasury_bps: u64,
     pub burn_bps: u64,
-    pub rounding_recipient: String,
+    pub rounding_recipient:
+        DisputeRailBundleV1ProfileOutcomeRulesItemBondDistributionRoundingRecipient,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum DisputeRailBundleV1ProfileOutcomeRulesItemBondDistributionRoundingRecipient {
+    #[serde(rename = r#"challenger_return"#)]
+    ChallengerReturn,
+    #[serde(rename = r#"respondent_return"#)]
+    RespondentReturn,
+    #[serde(rename = r#"challenger_award"#)]
+    ChallengerAward,
+    #[serde(rename = r#"respondent_award"#)]
+    RespondentAward,
+    #[serde(rename = r#"verifier_funding"#)]
+    VerifierFunding,
+    #[serde(rename = r#"treasury"#)]
+    Treasury,
+    #[serde(rename = r#"burn"#)]
+    Burn,
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -848,7 +1694,7 @@ pub struct DisputeRailBundleV1Resolution {
     pub dispute_rail_profile_ref: String,
     pub dispute_rail_profile_version: u64,
     pub dispute_rail_profile_body_hash: String,
-    pub rail_kind: String,
+    pub rail_kind: DisputeRailBundleV1ResolutionRailKind,
     pub value_unit: DisputeRailBundleV1ResolutionValueUnit,
     pub case_head_hash: String,
     pub request_hash: String,
@@ -858,16 +1704,28 @@ pub struct DisputeRailBundleV1Resolution {
     pub evidence_refs: Vec<String>,
     pub response_refs: Vec<String>,
     pub appeal_of_resolution_ref: Option<String>,
-    pub outcome: String,
-    pub remedy: String,
+    pub outcome: DisputeRailBundleV1ResolutionOutcome,
+    pub remedy: DisputeRailBundleV1ResolutionRemedy,
     pub remedy_units: u64,
     pub bond_pool_units: u64,
     pub bond_allocation: DisputeRailBundleV1ResolutionBondAllocation,
     pub used_evidence_unavailable_default: bool,
     pub used_respondent_timeout_default: bool,
     pub appeal_deadline_ms: u64,
-    pub required_receipt_kinds: Vec<String>,
-    pub resolution_state: String,
+    pub required_receipt_kinds: Vec<DisputeRailBundleV1ResolutionRequiredReceiptKindsItem>,
+    pub resolution_state: DisputeRailBundleV1ResolutionResolutionState,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum DisputeRailBundleV1ResolutionRailKind {
+    #[serde(rename = r#"internal_review"#)]
+    InternalReview,
+    #[serde(rename = r#"marketplace_escrow"#)]
+    MarketplaceEscrow,
+    #[serde(rename = r#"aiip_dispute"#)]
+    AiipDispute,
+    #[serde(rename = r#"public_settlement"#)]
+    PublicSettlement,
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -879,6 +1737,42 @@ pub struct DisputeRailBundleV1ResolutionValueUnit {
     pub unit_body_hash: String,
     pub atomic_unit_code: String,
     pub decimals: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum DisputeRailBundleV1ResolutionOutcome {
+    #[serde(rename = r#"challenger_upheld"#)]
+    ChallengerUpheld,
+    #[serde(rename = r#"respondent_upheld"#)]
+    RespondentUpheld,
+    #[serde(rename = r#"partial"#)]
+    Partial,
+    #[serde(rename = r#"no_fault"#)]
+    NoFault,
+    #[serde(rename = r#"escalated"#)]
+    Escalated,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum DisputeRailBundleV1ResolutionRemedy {
+    #[serde(rename = r#"none"#)]
+    None,
+    #[serde(rename = r#"refund"#)]
+    Refund,
+    #[serde(rename = r#"partial_refund"#)]
+    PartialRefund,
+    #[serde(rename = r#"payout"#)]
+    Payout,
+    #[serde(rename = r#"partial_payout"#)]
+    PartialPayout,
+    #[serde(rename = r#"slash"#)]
+    Slash,
+    #[serde(rename = r#"retry"#)]
+    Retry,
+    #[serde(rename = r#"revise"#)]
+    Revise,
+    #[serde(rename = r#"escalate"#)]
+    Escalate,
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -893,10 +1787,46 @@ pub struct DisputeRailBundleV1ResolutionBondAllocation {
     pub burn_units: u64,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum DisputeRailBundleV1ResolutionRequiredReceiptKindsItem {
+    #[serde(rename = r#"dispute_resolution"#)]
+    DisputeResolution,
+    #[serde(rename = r#"bond_distribution"#)]
+    BondDistribution,
+    #[serde(rename = r#"dispute_remedy_execution"#)]
+    DisputeRemedyExecution,
+    #[serde(rename = r#"dispute_escalation"#)]
+    DisputeEscalation,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum DisputeRailBundleV1ResolutionResolutionState {
+    #[serde(rename = r#"proposed"#)]
+    Proposed,
+    #[serde(rename = r#"admitted"#)]
+    Admitted,
+    #[serde(rename = r#"appealed"#)]
+    Appealed,
+    #[serde(rename = r#"superseded"#)]
+    Superseded,
+    #[serde(rename = r#"execution_pending"#)]
+    ExecutionPending,
+    #[serde(rename = r#"executed"#)]
+    Executed,
+    #[serde(rename = r#"execution_failed"#)]
+    ExecutionFailed,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum DisputeRailBundleV1AssuranceStatus {
+    #[serde(rename = r#"deterministic_admission_only"#)]
+    DeterministicAdmissionOnly,
+}
+
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct DeclassificationApprovalV1 {
-    pub schema_version: serde_json::Value,
+    pub schema_version: DeclassificationApprovalV1SchemaVersion,
     pub approval_ref: String,
     pub issuer_ref: String,
     pub subject_ref: String,
@@ -904,8 +1834,8 @@ pub struct DeclassificationApprovalV1 {
     pub tool_contract_revision_ref: String,
     pub label_ref: String,
     pub label_content_hash: String,
-    pub decision: serde_json::Value,
-    pub declassified_to: String,
+    pub decision: DeclassificationApprovalV1Decision,
+    pub declassified_to: DeclassificationApprovalV1DeclassifiedTo,
     pub exact_effect_hash: String,
     pub exact_request_hash: String,
     pub reviewed_representation_hash: String,
@@ -913,8 +1843,42 @@ pub struct DeclassificationApprovalV1 {
     pub purpose: String,
     pub issued_at: String,
     pub expires_at: String,
-    pub status: String,
+    pub status: DeclassificationApprovalV1Status,
     pub approval_receipt_ref: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum DeclassificationApprovalV1SchemaVersion {
+    #[serde(rename = r#"ioi.foundations.declassification-approval.v1"#)]
+    IoiFoundationsDeclassificationApprovalV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum DeclassificationApprovalV1Decision {
+    #[serde(rename = r#"allow"#)]
+    Allow,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum DeclassificationApprovalV1DeclassifiedTo {
+    #[serde(rename = r#"public"#)]
+    Public,
+    #[serde(rename = r#"internal"#)]
+    Internal,
+    #[serde(rename = r#"confidential"#)]
+    Confidential,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum DeclassificationApprovalV1Status {
+    #[serde(rename = r#"active"#)]
+    Active,
+    #[serde(rename = r#"consumed"#)]
+    Consumed,
+    #[serde(rename = r#"revoked"#)]
+    Revoked,
+    #[serde(rename = r#"expired"#)]
+    Expired,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -922,6 +1886,7 @@ pub struct GoldenFixture {
     pub contract_id: &'static str,
     pub path: &'static str,
     pub expected_accept: bool,
+    pub expected_schema_accept: bool,
     pub expected_failure: Option<&'static str>,
     pub expected_rule_id: Option<&'static str>,
 }
@@ -931,6 +1896,7 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
         contract_id: "schema://ioi/foundations/receipt-envelope/v1",
         path: "docs/architecture/_meta/schemas/fixtures/receipt-envelope-v1/positive-minimal.json",
         expected_accept: true,
+        expected_schema_accept: true,
         expected_failure: None,
         expected_rule_id: None,
     },
@@ -938,6 +1904,7 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
         contract_id: "schema://ioi/foundations/receipt-envelope/v1",
         path: "docs/architecture/_meta/schemas/fixtures/receipt-envelope-v1/positive-assured.json",
         expected_accept: true,
+        expected_schema_accept: true,
         expected_failure: None,
         expected_rule_id: None,
     },
@@ -945,6 +1912,7 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
         contract_id: "schema://ioi/foundations/receipt-envelope/v1",
         path: "docs/architecture/_meta/schemas/fixtures/receipt-envelope-v1/negative-bad-profile-ref.json",
         expected_accept: false,
+        expected_schema_accept: false,
         expected_failure: Some("schema"),
         expected_rule_id: None,
     },
@@ -952,6 +1920,7 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
         contract_id: "schema://ioi/foundations/receipt-envelope/v1",
         path: "docs/architecture/_meta/schemas/fixtures/receipt-envelope-v1/negative-empty-boundary-facts.json",
         expected_accept: false,
+        expected_schema_accept: true,
         expected_failure: Some("invariant"),
         expected_rule_id: Some("receipt.boundary_fact.required"),
     },
@@ -959,6 +1928,7 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
         contract_id: "schema://ioi/foundations/receipt-envelope/v1",
         path: "docs/architecture/_meta/schemas/fixtures/receipt-envelope-v1/negative-unknown-field.json",
         expected_accept: false,
+        expected_schema_accept: false,
         expected_failure: Some("schema"),
         expected_rule_id: None,
     },
@@ -966,6 +1936,7 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
         contract_id: "schema://ioi/foundations/physical-action-execution-receipt/v1",
         path: "docs/architecture/_meta/schemas/fixtures/physical-action-execution-receipt-v1/positive-committed.json",
         expected_accept: true,
+        expected_schema_accept: true,
         expected_failure: None,
         expected_rule_id: None,
     },
@@ -973,6 +1944,7 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
         contract_id: "schema://ioi/foundations/physical-action-execution-receipt/v1",
         path: "docs/architecture/_meta/schemas/fixtures/physical-action-execution-receipt-v1/negative-flat-unbundled.json",
         expected_accept: false,
+        expected_schema_accept: false,
         expected_failure: Some("schema"),
         expected_rule_id: None,
     },
@@ -980,6 +1952,7 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
         contract_id: "schema://ioi/foundations/physical-action-execution-receipt/v1",
         path: "docs/architecture/_meta/schemas/fixtures/physical-action-execution-receipt-v1/negative-envelope-input-hash-mismatch.json",
         expected_accept: false,
+        expected_schema_accept: true,
         expected_failure: Some("invariant"),
         expected_rule_id: Some("physical_action_execution.receipt.input_hash.matches_execution_request"),
     },
@@ -987,6 +1960,7 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
         contract_id: "schema://ioi/foundations/physical-action-execution-receipt/v1",
         path: "docs/architecture/_meta/schemas/fixtures/physical-action-execution-receipt-v1/negative-committed-missing-dispatch-evidence.json",
         expected_accept: false,
+        expected_schema_accept: true,
         expected_failure: Some("invariant"),
         expected_rule_id: Some("physical_action_execution.dispatch.evidence.required_for_terminal_claim"),
     },
@@ -994,6 +1968,7 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
         contract_id: "schema://ioi/foundations/authority-grant-envelope/v1",
         path: "docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v1/positive-active.json",
         expected_accept: true,
+        expected_schema_accept: true,
         expected_failure: None,
         expected_rule_id: None,
     },
@@ -1001,6 +1976,7 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
         contract_id: "schema://ioi/foundations/authority-grant-envelope/v1",
         path: "docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v1/positive-revoked.json",
         expected_accept: true,
+        expected_schema_accept: true,
         expected_failure: None,
         expected_rule_id: None,
     },
@@ -1008,6 +1984,7 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
         contract_id: "schema://ioi/foundations/authority-grant-envelope/v1",
         path: "docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v1/negative-empty-capabilities.json",
         expected_accept: false,
+        expected_schema_accept: true,
         expected_failure: Some("invariant"),
         expected_rule_id: Some("authority_grant.capability.required"),
     },
@@ -1015,6 +1992,7 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
         contract_id: "schema://ioi/foundations/authority-grant-envelope/v1",
         path: "docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v1/negative-legacy-alias-write.json",
         expected_accept: false,
+        expected_schema_accept: false,
         expected_failure: Some("schema"),
         expected_rule_id: None,
     },
@@ -1022,6 +2000,7 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
         contract_id: "schema://ioi/foundations/authority-grant-envelope/v1",
         path: "docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v1/negative-status.json",
         expected_accept: false,
+        expected_schema_accept: false,
         expected_failure: Some("schema"),
         expected_rule_id: None,
     },
@@ -1029,6 +2008,7 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
         contract_id: "schema://ioi/foundations/authority-grant-envelope/v1",
         path: "docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v1/negative-unknown-constraint.json",
         expected_accept: false,
+        expected_schema_accept: false,
         expected_failure: Some("schema"),
         expected_rule_id: None,
     },
@@ -1036,6 +2016,7 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
         contract_id: "schema://ioi/foundations/authority-grant-envelope/v2",
         path: "docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v2/positive-root.json",
         expected_accept: true,
+        expected_schema_accept: true,
         expected_failure: None,
         expected_rule_id: None,
     },
@@ -1043,6 +2024,7 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
         contract_id: "schema://ioi/foundations/authority-grant-envelope/v2",
         path: "docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v2/positive-attenuated-child.json",
         expected_accept: true,
+        expected_schema_accept: true,
         expected_failure: None,
         expected_rule_id: None,
     },
@@ -1050,6 +2032,7 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
         contract_id: "schema://ioi/foundations/authority-grant-envelope/v2",
         path: "docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v2/negative-empty-capabilities.json",
         expected_accept: false,
+        expected_schema_accept: true,
         expected_failure: Some("invariant"),
         expected_rule_id: Some("authority_grant.capability.required"),
     },
@@ -1057,6 +2040,7 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
         contract_id: "schema://ioi/foundations/authority-grant-envelope/v2",
         path: "docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v2/negative-signature-key-mismatch.json",
         expected_accept: false,
+        expected_schema_accept: true,
         expected_failure: Some("invariant"),
         expected_rule_id: Some("authority_grant.signature_key.matches_issuer_key"),
     },
@@ -1064,6 +2048,7 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
         contract_id: "schema://ioi/foundations/authority-grant-envelope/v2",
         path: "docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v2/negative-stale-schema-hash.json",
         expected_accept: false,
+        expected_schema_accept: true,
         expected_failure: Some("invariant"),
         expected_rule_id: Some("authority_grant.schema_hash.matches_contract"),
     },
@@ -1071,6 +2056,7 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
         contract_id: "schema://ioi/foundations/authority-grant-envelope/v2",
         path: "docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v2/negative-padded-signature.json",
         expected_accept: false,
+        expected_schema_accept: false,
         expected_failure: Some("schema"),
         expected_rule_id: None,
     },
@@ -1078,6 +2064,7 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
         contract_id: "schema://ioi/foundations/authority-key-set/v1",
         path: "docs/architecture/_meta/schemas/fixtures/authority-key-set-v1/positive-active.json",
         expected_accept: true,
+        expected_schema_accept: true,
         expected_failure: None,
         expected_rule_id: None,
     },
@@ -1085,6 +2072,7 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
         contract_id: "schema://ioi/foundations/authority-key-set/v1",
         path: "docs/architecture/_meta/schemas/fixtures/authority-key-set-v1/positive-delegator.json",
         expected_accept: true,
+        expected_schema_accept: true,
         expected_failure: None,
         expected_rule_id: None,
     },
@@ -1092,6 +2080,7 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
         contract_id: "schema://ioi/foundations/authority-key-set/v1",
         path: "docs/architecture/_meta/schemas/fixtures/authority-key-set-v1/negative-padded-public-key.json",
         expected_accept: false,
+        expected_schema_accept: false,
         expected_failure: Some("schema"),
         expected_rule_id: None,
     },
@@ -1099,6 +2088,7 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
         contract_id: "schema://ioi/foundations/authority-key-set/v1",
         path: "docs/architecture/_meta/schemas/fixtures/authority-key-set-v1/negative-empty-validity-window.json",
         expected_accept: false,
+        expected_schema_accept: true,
         expected_failure: Some("invariant"),
         expected_rule_id: Some("authority_key_set.issued_at.before_expiry"),
     },
@@ -1106,6 +2096,7 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
         contract_id: "schema://ioi/foundations/authority-revocation-snapshot/v1",
         path: "docs/architecture/_meta/schemas/fixtures/authority-revocation-snapshot-v1/positive-current.json",
         expected_accept: true,
+        expected_schema_accept: true,
         expected_failure: None,
         expected_rule_id: None,
     },
@@ -1113,6 +2104,7 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
         contract_id: "schema://ioi/foundations/authority-revocation-snapshot/v1",
         path: "docs/architecture/_meta/schemas/fixtures/authority-revocation-snapshot-v1/positive-delegator-current.json",
         expected_accept: true,
+        expected_schema_accept: true,
         expected_failure: None,
         expected_rule_id: None,
     },
@@ -1120,6 +2112,7 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
         contract_id: "schema://ioi/foundations/authority-revocation-snapshot/v1",
         path: "docs/architecture/_meta/schemas/fixtures/authority-revocation-snapshot-v1/negative-wrong-domain.json",
         expected_accept: false,
+        expected_schema_accept: false,
         expected_failure: Some("schema"),
         expected_rule_id: None,
     },
@@ -1127,6 +2120,7 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
         contract_id: "schema://ioi/foundations/receipt-checkpoint/v1",
         path: "docs/architecture/_meta/schemas/fixtures/receipt-checkpoint-v1/positive-current.json",
         expected_accept: true,
+        expected_schema_accept: true,
         expected_failure: None,
         expected_rule_id: None,
     },
@@ -1134,6 +2128,7 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
         contract_id: "schema://ioi/foundations/receipt-checkpoint/v1",
         path: "docs/architecture/_meta/schemas/fixtures/receipt-checkpoint-v1/positive-previous.json",
         expected_accept: true,
+        expected_schema_accept: true,
         expected_failure: None,
         expected_rule_id: None,
     },
@@ -1141,6 +2136,7 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
         contract_id: "schema://ioi/foundations/receipt-checkpoint/v1",
         path: "docs/architecture/_meta/schemas/fixtures/receipt-checkpoint-v1/negative-wrong-domain.json",
         expected_accept: false,
+        expected_schema_accept: false,
         expected_failure: Some("schema"),
         expected_rule_id: None,
     },
@@ -1148,6 +2144,7 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
         contract_id: "schema://ioi/foundations/receipt-checkpoint/v1",
         path: "docs/architecture/_meta/schemas/fixtures/receipt-checkpoint-v1/negative-stale-schema-hash.json",
         expected_accept: false,
+        expected_schema_accept: true,
         expected_failure: Some("invariant"),
         expected_rule_id: Some("receipt_checkpoint.schema_hash.matches_contract"),
     },
@@ -1155,6 +2152,7 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
         contract_id: "schema://ioi/foundations/receipt-checkpoint/v1",
         path: "docs/architecture/_meta/schemas/fixtures/receipt-checkpoint-v1/negative-signature-key-mismatch.json",
         expected_accept: false,
+        expected_schema_accept: true,
         expected_failure: Some("invariant"),
         expected_rule_id: Some("receipt_checkpoint.signature_key.matches_issuer_key"),
     },
@@ -1162,6 +2160,7 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
         contract_id: "schema://ioi/foundations/receipt-proof-bundle/v1",
         path: "docs/architecture/_meta/schemas/fixtures/receipt-proof-bundle-v1/positive-offline.json",
         expected_accept: true,
+        expected_schema_accept: true,
         expected_failure: None,
         expected_rule_id: None,
     },
@@ -1169,6 +2168,7 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
         contract_id: "schema://ioi/foundations/receipt-proof-bundle/v1",
         path: "docs/architecture/_meta/schemas/fixtures/receipt-proof-bundle-v1/negative-wrong-domain.json",
         expected_accept: false,
+        expected_schema_accept: false,
         expected_failure: Some("schema"),
         expected_rule_id: None,
     },
@@ -1176,6 +2176,7 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
         contract_id: "schema://ioi/foundations/receipt-proof-bundle/v1",
         path: "docs/architecture/_meta/schemas/fixtures/receipt-proof-bundle-v1/negative-stale-schema-hash.json",
         expected_accept: false,
+        expected_schema_accept: true,
         expected_failure: Some("invariant"),
         expected_rule_id: Some("receipt_proof_bundle.schema_hash.matches_contract"),
     },
@@ -1183,6 +2184,7 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
         contract_id: "schema://ioi/foundations/receipt-proof-bundle/v1",
         path: "docs/architecture/_meta/schemas/fixtures/receipt-proof-bundle-v1/negative-leaf-index-mismatch.json",
         expected_accept: false,
+        expected_schema_accept: true,
         expected_failure: Some("invariant"),
         expected_rule_id: Some("receipt_proof_bundle.leaf_index.matches_inclusion"),
     },
@@ -1190,6 +2192,7 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
         contract_id: "schema://ioi/foundations/information-flow-label/v1",
         path: "docs/architecture/_meta/schemas/fixtures/information-flow-label-v1/positive-public-verified.json",
         expected_accept: true,
+        expected_schema_accept: true,
         expected_failure: None,
         expected_rule_id: None,
     },
@@ -1197,6 +2200,7 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
         contract_id: "schema://ioi/foundations/information-flow-label/v1",
         path: "docs/architecture/_meta/schemas/fixtures/information-flow-label-v1/positive-private-untrusted.json",
         expected_accept: true,
+        expected_schema_accept: true,
         expected_failure: None,
         expected_rule_id: None,
     },
@@ -1204,6 +2208,7 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
         contract_id: "schema://ioi/foundations/information-flow-label/v1",
         path: "docs/architecture/_meta/schemas/fixtures/information-flow-label-v1/negative-missing-instruction-authority.json",
         expected_accept: false,
+        expected_schema_accept: false,
         expected_failure: Some("schema"),
         expected_rule_id: None,
     },
@@ -1211,6 +2216,7 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
         contract_id: "schema://ioi/components/connectors-tools/runtime-tool-contract/v1",
         path: "docs/architecture/_meta/schemas/fixtures/runtime-tool-contract-v1/positive-declared-egress.json",
         expected_accept: true,
+        expected_schema_accept: true,
         expected_failure: None,
         expected_rule_id: None,
     },
@@ -1218,6 +2224,7 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
         contract_id: "schema://ioi/components/connectors-tools/runtime-tool-contract/v1",
         path: "docs/architecture/_meta/schemas/fixtures/runtime-tool-contract-v1/negative-missing-destination-declaration.json",
         expected_accept: false,
+        expected_schema_accept: false,
         expected_failure: Some("schema"),
         expected_rule_id: None,
     },
@@ -1225,6 +2232,7 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
         contract_id: "schema://ioi/foundations/managed-work-billing-ledger-bundle/v1",
         path: "docs/architecture/_meta/schemas/fixtures/managed-work-billing-ledger-bundle-v1/positive-complete.json",
         expected_accept: true,
+        expected_schema_accept: true,
         expected_failure: None,
         expected_rule_id: None,
     },
@@ -1232,6 +2240,7 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
         contract_id: "schema://ioi/foundations/managed-work-billing-ledger-bundle/v1",
         path: "docs/architecture/_meta/schemas/fixtures/managed-work-billing-ledger-bundle-v1/negative-floating-credit-units.json",
         expected_accept: false,
+        expected_schema_accept: false,
         expected_failure: Some("schema"),
         expected_rule_id: None,
     },
@@ -1239,6 +2248,7 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
         contract_id: "schema://ioi/foundations/dispute-rail-bundle/v1",
         path: "docs/architecture/_meta/schemas/fixtures/dispute-rail-bundle-v1/positive-marketplace-resolution.json",
         expected_accept: true,
+        expected_schema_accept: true,
         expected_failure: None,
         expected_rule_id: None,
     },
@@ -1246,6 +2256,7 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
         contract_id: "schema://ioi/foundations/dispute-rail-bundle/v1",
         path: "docs/architecture/_meta/schemas/fixtures/dispute-rail-bundle-v1/negative-value-unit-substitution.json",
         expected_accept: false,
+        expected_schema_accept: true,
         expected_failure: Some("invariant"),
         expected_rule_id: Some("dispute_rail.value_unit.profile_dispute.unit_ref"),
     },
@@ -1253,6 +2264,7 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
         contract_id: "schema://ioi/foundations/declassification-approval/v1",
         path: "docs/architecture/_meta/schemas/fixtures/declassification-approval-v1/positive-exact-binding.json",
         expected_accept: true,
+        expected_schema_accept: true,
         expected_failure: None,
         expected_rule_id: None,
     },
@@ -1260,118 +2272,584 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
         contract_id: "schema://ioi/foundations/declassification-approval/v1",
         path: "docs/architecture/_meta/schemas/fixtures/declassification-approval-v1/negative-missing-reviewed-representation-hash.json",
         expected_accept: false,
+        expected_schema_accept: false,
         expected_failure: Some("schema"),
         expected_rule_id: None,
+    },
+];
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ArchitectureContractMutation {
+    pub id: &'static str,
+    pub contract_id: &'static str,
+    pub source_fixture_path: &'static str,
+    pub covered_keywords: &'static [&'static str],
+    pub ajv_expected_accept: bool,
+    pub direct_projection_rejection: bool,
+    pub patch_operation: &'static str,
+    pub patch_pointer: &'static str,
+    pub patch_value_json: Option<&'static str>,
+}
+
+pub const ARCHITECTURE_CONTRACT_MUTATIONS: &[ArchitectureContractMutation] = &[
+    ArchitectureContractMutation {
+        id: r#"type-number-for-string"#,
+        contract_id: r#"schema://ioi/foundations/receipt-envelope/v1"#,
+        source_fixture_path: r#"docs/architecture/_meta/schemas/fixtures/receipt-envelope-v1/positive-assured.json"#,
+        covered_keywords: &[r#"type"#, r#"properties"#],
+        ajv_expected_accept: false,
+        direct_projection_rejection: false,
+        patch_operation: r#"set"#,
+        patch_pointer: r#"/timestamp"#,
+        patch_value_json: Some(r#"42"#),
+    },
+    ArchitectureContractMutation {
+        id: r#"required-property-removed"#,
+        contract_id: r#"schema://ioi/foundations/receipt-envelope/v1"#,
+        source_fixture_path: r#"docs/architecture/_meta/schemas/fixtures/receipt-envelope-v1/positive-assured.json"#,
+        covered_keywords: &[r#"required"#],
+        ajv_expected_accept: false,
+        direct_projection_rejection: false,
+        patch_operation: r#"remove"#,
+        patch_pointer: r#"/actor_id"#,
+        patch_value_json: None,
+    },
+    ArchitectureContractMutation {
+        id: r#"additional-property-injected"#,
+        contract_id: r#"schema://ioi/foundations/receipt-envelope/v1"#,
+        source_fixture_path: r#"docs/architecture/_meta/schemas/fixtures/receipt-envelope-v1/positive-assured.json"#,
+        covered_keywords: &[r#"additionalProperties"#],
+        ajv_expected_accept: false,
+        direct_projection_rejection: false,
+        patch_operation: r#"set"#,
+        patch_pointer: r#"/unregistered_field"#,
+        patch_value_json: Some(r#"true"#),
+    },
+    ArchitectureContractMutation {
+        id: r#"referenced-pattern-violated"#,
+        contract_id: r#"schema://ioi/foundations/receipt-envelope/v1"#,
+        source_fixture_path: r#"docs/architecture/_meta/schemas/fixtures/receipt-envelope-v1/positive-assured.json"#,
+        covered_keywords: &[r#"$ref"#, r#"pattern"#],
+        ajv_expected_accept: false,
+        direct_projection_rejection: false,
+        patch_operation: r#"set"#,
+        patch_pointer: r#"/receipt_profile_ref"#,
+        patch_value_json: Some(r#""not-a-schema-ref""#),
+    },
+    ArchitectureContractMutation {
+        id: r#"ecma-whitespace-byte-order-mark-rejected"#,
+        contract_id: r#"schema://ioi/foundations/receipt-envelope/v1"#,
+        source_fixture_path: r#"docs/architecture/_meta/schemas/fixtures/receipt-envelope-v1/positive-assured.json"#,
+        covered_keywords: &[r#"pattern"#],
+        ajv_expected_accept: false,
+        direct_projection_rejection: false,
+        patch_operation: r#"set"#,
+        patch_pointer: r#"/receipt_profile_ref"#,
+        patch_value_json: Some(r#""schema://ioi/test/﻿""#),
+    },
+    ArchitectureContractMutation {
+        id: r#"ecma-non-whitespace-next-line-accepted"#,
+        contract_id: r#"schema://ioi/foundations/receipt-envelope/v1"#,
+        source_fixture_path: r#"docs/architecture/_meta/schemas/fixtures/receipt-envelope-v1/positive-assured.json"#,
+        covered_keywords: &[r#"pattern"#],
+        ajv_expected_accept: true,
+        direct_projection_rejection: false,
+        patch_operation: r#"set"#,
+        patch_pointer: r#"/receipt_profile_ref"#,
+        patch_value_json: Some(r#""schema://ioi/test/""#),
+    },
+    ArchitectureContractMutation {
+        id: r#"nullable-any-of-violated"#,
+        contract_id: r#"schema://ioi/foundations/receipt-envelope/v1"#,
+        source_fixture_path: r#"docs/architecture/_meta/schemas/fixtures/receipt-envelope-v1/positive-assured.json"#,
+        covered_keywords: &[r#"anyOf"#],
+        ajv_expected_accept: false,
+        direct_projection_rejection: false,
+        patch_operation: r#"set"#,
+        patch_pointer: r#"/claim_scope_ref"#,
+        patch_value_json: Some(r#"42"#),
+    },
+    ArchitectureContractMutation {
+        id: r#"unicode-aware-min-length-violated"#,
+        contract_id: r#"schema://ioi/components/connectors-tools/runtime-tool-contract/v1"#,
+        source_fixture_path: r#"docs/architecture/_meta/schemas/fixtures/runtime-tool-contract-v1/positive-declared-egress.json"#,
+        covered_keywords: &[r#"minLength"#],
+        ajv_expected_accept: false,
+        direct_projection_rejection: false,
+        patch_operation: r#"set"#,
+        patch_pointer: r#"/display_name"#,
+        patch_value_json: Some(r#""""#),
+    },
+    ArchitectureContractMutation {
+        id: r#"closed-enum-violated-with-raw-string-sentinel"#,
+        contract_id: r#"schema://ioi/foundations/authority-grant-envelope/v1"#,
+        source_fixture_path: r#"docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v1/positive-active.json"#,
+        covered_keywords: &[r#"enum"#],
+        ajv_expected_accept: false,
+        direct_projection_rejection: true,
+        patch_operation: r#"set"#,
+        patch_pointer: r#"/status"#,
+        patch_value_json: Some(r####""retired\"###schema-controlled""####),
+    },
+    ArchitectureContractMutation {
+        id: r#"minimum-violated"#,
+        contract_id: r#"schema://ioi/foundations/authority-grant-envelope/v1"#,
+        source_fixture_path: r#"docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v1/positive-active.json"#,
+        covered_keywords: &[r#"minimum"#],
+        ajv_expected_accept: false,
+        direct_projection_rejection: false,
+        patch_operation: r#"set"#,
+        patch_pointer: r#"/revocation_epoch"#,
+        patch_value_json: Some(r#"-1"#),
+    },
+    ArchitectureContractMutation {
+        id: r#"array-items-schema-violated"#,
+        contract_id: r#"schema://ioi/foundations/authority-grant-envelope/v1"#,
+        source_fixture_path: r#"docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v1/positive-active.json"#,
+        covered_keywords: &[r#"items"#],
+        ajv_expected_accept: false,
+        direct_projection_rejection: false,
+        patch_operation: r#"set"#,
+        patch_pointer: r#"/authority_scopes"#,
+        patch_value_json: Some(r#"[42]"#),
+    },
+    ArchitectureContractMutation {
+        id: r#"deep-unique-items-key-order-duplicate"#,
+        contract_id: r#"schema://ioi/foundations/authority-key-set/v1"#,
+        source_fixture_path: r#"docs/architecture/_meta/schemas/fixtures/authority-key-set-v1/positive-active.json"#,
+        covered_keywords: &[r#"uniqueItems"#],
+        ajv_expected_accept: false,
+        direct_projection_rejection: false,
+        patch_operation: r#"set"#,
+        patch_pointer: r#"/keys"#,
+        patch_value_json: Some(
+            r#"[{"key_id":"key://acme/security/ed25519-4","signature_suite":"ed25519","public_key":"QYRCACKVbJtP0yXai8KhMBh0XZLbov9WSlbETdIGRm4","not_before":1784116800,"expires_at":1815652800,"status":"active"},{"status":"active","expires_at":1815652800,"not_before":1784116800,"public_key":"QYRCACKVbJtP0yXai8KhMBh0XZLbov9WSlbETdIGRm4","signature_suite":"ed25519","key_id":"key://acme/security/ed25519-4"}]"#,
+        ),
+    },
+    ArchitectureContractMutation {
+        id: r#"impossible-rfc3339-calendar-date"#,
+        contract_id: r#"schema://ioi/foundations/authority-grant-envelope/v1"#,
+        source_fixture_path: r#"docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v1/positive-active.json"#,
+        covered_keywords: &[r#"format"#],
+        ajv_expected_accept: false,
+        direct_projection_rejection: false,
+        patch_operation: r#"set"#,
+        patch_pointer: r#"/constraints/expires_at"#,
+        patch_value_json: Some(r#""2025-02-30T00:00:00Z""#),
+    },
+    ArchitectureContractMutation {
+        id: r#"closed-const-violated"#,
+        contract_id: r#"schema://ioi/foundations/authority-grant-envelope/v2"#,
+        source_fixture_path: r#"docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v2/positive-root.json"#,
+        covered_keywords: &[r#"const"#],
+        ajv_expected_accept: false,
+        direct_projection_rejection: true,
+        patch_operation: r#"set"#,
+        patch_pointer: r#"/schema_version"#,
+        patch_value_json: Some(r#""ioi.foundations.authority-grant-envelope.v999""#),
+    },
+    ArchitectureContractMutation {
+        id: r#"one-of-violated"#,
+        contract_id: r#"schema://ioi/foundations/authority-grant-envelope/v2"#,
+        source_fixture_path: r#"docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v2/positive-root.json"#,
+        covered_keywords: &[r#"oneOf"#],
+        ajv_expected_accept: false,
+        direct_projection_rejection: false,
+        patch_operation: r#"set"#,
+        patch_pointer: r#"/parent_grant"#,
+        patch_value_json: Some(r#"42"#),
+    },
+    ArchitectureContractMutation {
+        id: r#"maximum-safe-integer-violated"#,
+        contract_id: r#"schema://ioi/foundations/managed-work-billing-ledger-bundle/v1"#,
+        source_fixture_path: r#"docs/architecture/_meta/schemas/fixtures/managed-work-billing-ledger-bundle-v1/positive-complete.json"#,
+        covered_keywords: &[r#"maximum"#],
+        ajv_expected_accept: false,
+        direct_projection_rejection: false,
+        patch_operation: r#"set"#,
+        patch_pointer: r#"/plan/included_work_credits/units"#,
+        patch_value_json: Some(r#"9007199254740992"#),
+    },
+    ArchitectureContractMutation {
+        id: r#"minimum-array-size-violated"#,
+        contract_id: r#"schema://ioi/foundations/authority-grant-envelope/v1"#,
+        source_fixture_path: r#"docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v1/positive-active.json"#,
+        covered_keywords: &[r#"minItems"#],
+        ajv_expected_accept: false,
+        direct_projection_rejection: false,
+        patch_operation: r#"set"#,
+        patch_pointer: r#"/resources"#,
+        patch_value_json: Some(r#"[]"#),
+    },
+    ArchitectureContractMutation {
+        id: r#"type-less-if-then-max-items-violated"#,
+        contract_id: r#"schema://ioi/foundations/physical-action-execution-receipt/v1"#,
+        source_fixture_path: r#"docs/architecture/_meta/schemas/fixtures/physical-action-execution-receipt-v1/positive-committed.json"#,
+        covered_keywords: &[r#"allOf"#, r#"if"#, r#"then"#, r#"maxItems"#],
+        ajv_expected_accept: false,
+        direct_projection_rejection: false,
+        patch_operation: r#"set"#,
+        patch_pointer: r#"/body/outcome_normalization_error_codes"#,
+        patch_value_json: Some(r#"["unexpected_error"]"#),
+    },
+    ArchitectureContractMutation {
+        id: r#"nested-all-of-contains-member-missing"#,
+        contract_id: r#"schema://ioi/foundations/dispute-rail-bundle/v1"#,
+        source_fixture_path: r#"docs/architecture/_meta/schemas/fixtures/dispute-rail-bundle-v1/positive-marketplace-resolution.json"#,
+        covered_keywords: &[r#"contains"#],
+        ajv_expected_accept: false,
+        direct_projection_rejection: false,
+        patch_operation: r#"set"#,
+        patch_pointer: r#"/resolution/required_receipt_kinds"#,
+        patch_value_json: Some(r#"["dispute_resolution","dispute_remedy_execution"]"#),
     },
 ];
 
 const CONTRACT_SCHEMAS: &[(&str, &str)] = &[
     (
         "schema://ioi/foundations/receipt-envelope/v1",
-        r###"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/receipt-envelope/v1","title":"ReceiptEnvelope","description":"Portable base envelope shared by registered IOI receipt profiles.","x-ioi-schema-version":"ioi.foundations.receipt-envelope.v1","type":"object","additionalProperties":false,"required":["receipt_id","receipt_type","receipt_profile_ref","attested_boundary_fact_refs","claim_scope_ref","run_id","task_id","actor_id","authority_grant_id","primitive_capabilities","authority_scopes","artifact_refs","evidence_bundle_refs","verification_ref","acceptance_ref","adjudication_ref","settlement_ref","timestamp","signature","public_commitment_ref"],"properties":{"receipt_id":{"$ref":"#/$defs/receiptRef"},"receipt_type":{"type":"string","pattern":"^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*$"},"receipt_profile_ref":{"$ref":"#/$defs/schemaRef"},"attested_boundary_fact_refs":{"type":"array","items":{"$ref":"#/$defs/canonicalRef"},"uniqueItems":true},"claim_scope_ref":{"anyOf":[{"$ref":"#/$defs/schemaOrPolicyRef"},{"type":"null"}]},"run_id":{"anyOf":[{"$ref":"#/$defs/runRef"},{"type":"null"}]},"task_id":{"anyOf":[{"$ref":"#/$defs/taskRef"},{"type":"null"}]},"actor_id":{"$ref":"#/$defs/protocolPrincipalOrRuntimeRef"},"input_hash":{"$ref":"#/$defs/hash"},"output_hash":{"$ref":"#/$defs/hash"},"policy_hash":{"$ref":"#/$defs/hash"},"authority_grant_id":{"anyOf":[{"$ref":"#/$defs/grantRef"},{"type":"null"}]},"primitive_capabilities":{"type":"array","items":{"$ref":"#/$defs/primitiveCapability"},"uniqueItems":true},"authority_scopes":{"type":"array","items":{"$ref":"#/$defs/authorityScope"},"uniqueItems":true},"artifact_refs":{"type":"array","items":{"$ref":"#/$defs/artifactRef"},"uniqueItems":true},"evidence_bundle_refs":{"type":"array","items":{"$ref":"#/$defs/evidenceRef"},"uniqueItems":true},"verification_ref":{"anyOf":[{"$ref":"#/$defs/verificationRef"},{"type":"null"}]},"acceptance_ref":{"anyOf":[{"$ref":"#/$defs/acceptanceRef"},{"type":"null"}]},"adjudication_ref":{"anyOf":[{"$ref":"#/$defs/adjudicationRef"},{"type":"null"}]},"settlement_ref":{"anyOf":[{"$ref":"#/$defs/settlementRef"},{"type":"null"}]},"timestamp":{"type":"string","format":"date-time"},"signature":{"description":"Legacy opaque signature string. Cut 2 owns a future portable signing envelope.","anyOf":[{"type":"string","minLength":1},{"type":"null"}]},"public_commitment_ref":{"anyOf":[{"$ref":"#/$defs/publicCommitmentRef"},{"type":"null"}]}},"$defs":{"canonicalRef":{"type":"string","pattern":"^[a-z][a-z0-9-]*(?:://|:)[^\\s]+$"},"receiptRef":{"type":"string","pattern":"^receipt://[^\\s]+$"},"schemaRef":{"type":"string","pattern":"^schema://[^\\s]+$"},"schemaOrPolicyRef":{"type":"string","pattern":"^(?:schema|policy)://[^\\s]+$"},"runRef":{"type":"string","pattern":"^run://[^\\s]+$"},"taskRef":{"type":"string","pattern":"^task://[^\\s]+$"},"grantRef":{"type":"string","pattern":"^grant://[^\\s]+$"},"protocolPrincipalOrRuntimeRef":{"type":"string","pattern":"^(?:system|user|wallet|org|project|domain|worker|agent|service|provider|policy|governance|runtime)://[^\\s]+$"},"primitiveCapability":{"type":"string","pattern":"^prim:[a-z][a-z0-9._-]*$"},"authorityScope":{"type":"string","pattern":"^scope:[a-z][a-z0-9._-]*$"},"artifactRef":{"type":"string","pattern":"^artifact://[^\\s]+$"},"evidenceRef":{"type":"string","pattern":"^(?:evidence|assurance-evidence|artifact)://[^\\s]+$"},"verificationRef":{"type":"string","pattern":"^(?:verifier-path|verification|receipt)://[^\\s]+$"},"acceptanceRef":{"type":"string","pattern":"^acceptance://[^\\s]+$"},"adjudicationRef":{"type":"string","pattern":"^(?:decision|dispute)://[^\\s]+$"},"settlementRef":{"type":"string","pattern":"^settlement://[^\\s]+$"},"publicCommitmentRef":{"type":"string","pattern":"^(?:commitment|settlement|tx)://[^\\s]+$"},"hash":{"type":"string","minLength":1}}}"###,
+        r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/receipt-envelope/v1","title":"ReceiptEnvelope","description":"Portable base envelope shared by registered IOI receipt profiles.","x-ioi-schema-version":"ioi.foundations.receipt-envelope.v1","type":"object","additionalProperties":false,"required":["receipt_id","receipt_type","receipt_profile_ref","attested_boundary_fact_refs","claim_scope_ref","run_id","task_id","actor_id","authority_grant_id","primitive_capabilities","authority_scopes","artifact_refs","evidence_bundle_refs","verification_ref","acceptance_ref","adjudication_ref","settlement_ref","timestamp","signature","public_commitment_ref"],"properties":{"receipt_id":{"$ref":"#/$defs/receiptRef"},"receipt_type":{"type":"string","pattern":"^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*$"},"receipt_profile_ref":{"$ref":"#/$defs/schemaRef"},"attested_boundary_fact_refs":{"type":"array","items":{"$ref":"#/$defs/canonicalRef"},"uniqueItems":true},"claim_scope_ref":{"anyOf":[{"$ref":"#/$defs/schemaOrPolicyRef"},{"type":"null"}]},"run_id":{"anyOf":[{"$ref":"#/$defs/runRef"},{"type":"null"}]},"task_id":{"anyOf":[{"$ref":"#/$defs/taskRef"},{"type":"null"}]},"actor_id":{"$ref":"#/$defs/protocolPrincipalOrRuntimeRef"},"input_hash":{"$ref":"#/$defs/hash"},"output_hash":{"$ref":"#/$defs/hash"},"policy_hash":{"$ref":"#/$defs/hash"},"authority_grant_id":{"anyOf":[{"$ref":"#/$defs/grantRef"},{"type":"null"}]},"primitive_capabilities":{"type":"array","items":{"$ref":"#/$defs/primitiveCapability"},"uniqueItems":true},"authority_scopes":{"type":"array","items":{"$ref":"#/$defs/authorityScope"},"uniqueItems":true},"artifact_refs":{"type":"array","items":{"$ref":"#/$defs/artifactRef"},"uniqueItems":true},"evidence_bundle_refs":{"type":"array","items":{"$ref":"#/$defs/evidenceRef"},"uniqueItems":true},"verification_ref":{"anyOf":[{"$ref":"#/$defs/verificationRef"},{"type":"null"}]},"acceptance_ref":{"anyOf":[{"$ref":"#/$defs/acceptanceRef"},{"type":"null"}]},"adjudication_ref":{"anyOf":[{"$ref":"#/$defs/adjudicationRef"},{"type":"null"}]},"settlement_ref":{"anyOf":[{"$ref":"#/$defs/settlementRef"},{"type":"null"}]},"timestamp":{"type":"string","format":"date-time"},"signature":{"description":"Legacy opaque signature string. Cut 2 owns a future portable signing envelope.","anyOf":[{"type":"string","minLength":1},{"type":"null"}]},"public_commitment_ref":{"anyOf":[{"$ref":"#/$defs/publicCommitmentRef"},{"type":"null"}]}},"$defs":{"canonicalRef":{"type":"string","pattern":"^[a-z][a-z0-9-]*(?:://|:)[^\\s]+$"},"receiptRef":{"type":"string","pattern":"^receipt://[^\\s]+$"},"schemaRef":{"type":"string","pattern":"^schema://[^\\s]+$"},"schemaOrPolicyRef":{"type":"string","pattern":"^(?:schema|policy)://[^\\s]+$"},"runRef":{"type":"string","pattern":"^run://[^\\s]+$"},"taskRef":{"type":"string","pattern":"^task://[^\\s]+$"},"grantRef":{"type":"string","pattern":"^grant://[^\\s]+$"},"protocolPrincipalOrRuntimeRef":{"type":"string","pattern":"^(?:system|user|wallet|org|project|domain|worker|agent|service|provider|policy|governance|runtime)://[^\\s]+$"},"primitiveCapability":{"type":"string","pattern":"^prim:[a-z][a-z0-9._-]*$"},"authorityScope":{"type":"string","pattern":"^scope:[a-z][a-z0-9._-]*$"},"artifactRef":{"type":"string","pattern":"^artifact://[^\\s]+$"},"evidenceRef":{"type":"string","pattern":"^(?:evidence|assurance-evidence|artifact)://[^\\s]+$"},"verificationRef":{"type":"string","pattern":"^(?:verifier-path|verification|receipt)://[^\\s]+$"},"acceptanceRef":{"type":"string","pattern":"^acceptance://[^\\s]+$"},"adjudicationRef":{"type":"string","pattern":"^(?:decision|dispute)://[^\\s]+$"},"settlementRef":{"type":"string","pattern":"^settlement://[^\\s]+$"},"publicCommitmentRef":{"type":"string","pattern":"^(?:commitment|settlement|tx)://[^\\s]+$"},"hash":{"type":"string","minLength":1}}}"##,
     ),
     (
         "schema://ioi/foundations/physical-action-execution-receipt/v1",
-        r###"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/physical-action-execution-receipt/v1","title":"PhysicalActionExecutionReceipt","description":"Portable physical-action execution receipt profile bundling one exact closed ReceiptEnvelope v1 with the domain-specific execution body.","x-ioi-schema-version":"ioi.physical-action-execution-receipt.v1","type":"object","additionalProperties":false,"required":["schema_version","receipt_envelope","body","body_hash","receipt_hash"],"properties":{"schema_version":{"const":"ioi.physical-action-execution-receipt.v1"},"receipt_envelope":{"$ref":"#/$defs/receiptEnvelope"},"body":{"$ref":"#/$defs/physicalActionExecutionBody"},"body_hash":{"$ref":"#/$defs/sha256Hash","description":"SHA-256 over JCS of the exact receipt_envelope and body bundle."},"receipt_hash":{"$ref":"#/$defs/sha256Hash","description":"Domain-separated physical-action execution receipt hash over the same canonical bundle."}},"$defs":{"receiptEnvelope":{"type":"object","additionalProperties":false,"required":["receipt_id","receipt_type","receipt_profile_ref","attested_boundary_fact_refs","claim_scope_ref","run_id","task_id","actor_id","authority_grant_id","primitive_capabilities","authority_scopes","artifact_refs","evidence_bundle_refs","verification_ref","acceptance_ref","adjudication_ref","settlement_ref","timestamp","signature","public_commitment_ref"],"properties":{"receipt_id":{"$ref":"#/$defs/receiptRef"},"receipt_type":{"const":"physical_action_execution"},"receipt_profile_ref":{"const":"schema://ioi/foundations/physical-action-execution-receipt/v1"},"attested_boundary_fact_refs":{"type":"array","items":{"$ref":"#/$defs/canonicalRef"},"uniqueItems":true},"claim_scope_ref":{"anyOf":[{"$ref":"#/$defs/schemaOrPolicyRef"},{"type":"null"}]},"run_id":{"anyOf":[{"$ref":"#/$defs/runRef"},{"type":"null"}]},"task_id":{"anyOf":[{"$ref":"#/$defs/taskRef"},{"type":"null"}]},"actor_id":{"$ref":"#/$defs/protocolPrincipalOrRuntimeRef"},"input_hash":{"$ref":"#/$defs/sha256Hash"},"output_hash":{"$ref":"#/$defs/sha256Hash"},"policy_hash":{"$ref":"#/$defs/sha256Hash"},"authority_grant_id":{"anyOf":[{"$ref":"#/$defs/grantRef"},{"type":"null"}]},"primitive_capabilities":{"type":"array","items":{"$ref":"#/$defs/primitiveCapability"},"minItems":1,"uniqueItems":true},"authority_scopes":{"type":"array","items":{"$ref":"#/$defs/authorityScope"},"minItems":1,"uniqueItems":true},"artifact_refs":{"type":"array","items":{"$ref":"#/$defs/artifactRef"},"uniqueItems":true},"evidence_bundle_refs":{"type":"array","items":{"$ref":"#/$defs/evidenceRef"},"minItems":1,"uniqueItems":true},"verification_ref":{"anyOf":[{"$ref":"#/$defs/verificationRef"},{"type":"null"}]},"acceptance_ref":{"anyOf":[{"$ref":"#/$defs/acceptanceRef"},{"type":"null"}]},"adjudication_ref":{"anyOf":[{"$ref":"#/$defs/adjudicationRef"},{"type":"null"}]},"settlement_ref":{"anyOf":[{"$ref":"#/$defs/settlementRef"},{"type":"null"}]},"timestamp":{"type":"string","format":"date-time"},"signature":{"anyOf":[{"type":"string","minLength":1},{"type":"null"}]},"public_commitment_ref":{"anyOf":[{"$ref":"#/$defs/publicCommitmentRef"},{"type":"null"}]}}},"physicalActionExecutionBody":{"type":"object","additionalProperties":false,"required":["idempotency_key","execution_request_hash","admission_id","admission_record_hash","work_subject","target_system_ref","resource_group_bindings","emergency_stop_authority_ref","controller_binding_ref","runtime_graph_manifest_ref","runtime_graph_manifest_hash","safety_envelope_ref","safety_envelope_hash","assurance_evidence_bundle_ref","assurance_evidence_bundle_hash","active_writer_lease_ref","active_writer_fencing_epoch","active_writer_fencing_token_hash","graph_timing_chain_ref","graph_timing_chain_hash","command_schema_ref","command_payload_hash","segment_commitment_receipt_refs","preflight_receipt_refs","sensor_evidence_receipt_refs","controller_operation_ref","dispatch_posture","dispatch_evidence_receipt_refs","controller_receipt_refs","outcome_normalization_error_codes","effect_status","state_root_before","state_root_after","previous_execution_receipt_hash","executed_at","incident_refs","reconciliation_state","agentgres_operation_refs","assurance_stage"],"properties":{"idempotency_key":{"type":"string","minLength":1},"execution_request_hash":{"$ref":"#/$defs/sha256Hash"},"admission_id":{"type":"string","pattern":"^physical-action-admission:[^\\s]+$"},"admission_record_hash":{"$ref":"#/$defs/sha256Hash"},"work_subject":{"$ref":"#/$defs/workSubject"},"target_system_ref":{"$ref":"#/$defs/physicalTargetRef"},"resource_group_bindings":{"type":"array","items":{"$ref":"#/$defs/resourceGroupBinding"},"minItems":1,"uniqueItems":true},"emergency_stop_authority_ref":{"$ref":"#/$defs/emergencyStopAuthorityRef"},"controller_binding_ref":{"$ref":"#/$defs/controllerBindingRef"},"runtime_graph_manifest_ref":{"$ref":"#/$defs/runtimeGraphManifestRef"},"runtime_graph_manifest_hash":{"$ref":"#/$defs/sha256Hash"},"safety_envelope_ref":{"$ref":"#/$defs/safetyEnvelopeRef"},"safety_envelope_hash":{"$ref":"#/$defs/sha256Hash"},"assurance_evidence_bundle_ref":{"$ref":"#/$defs/assuranceEvidenceBundleRef"},"assurance_evidence_bundle_hash":{"$ref":"#/$defs/sha256Hash"},"active_writer_lease_ref":{"$ref":"#/$defs/resourceLeaseRef"},"active_writer_fencing_epoch":{"type":"integer","minimum":0},"active_writer_fencing_token_hash":{"$ref":"#/$defs/sha256Hash"},"graph_timing_chain_ref":{"$ref":"#/$defs/artifactRef"},"graph_timing_chain_hash":{"$ref":"#/$defs/sha256Hash"},"command_schema_ref":{"$ref":"#/$defs/actionSchemaRef"},"command_payload_hash":{"$ref":"#/$defs/sha256Hash"},"segment_commitment_receipt_refs":{"$ref":"#/$defs/receiptRefArray"},"preflight_receipt_refs":{"type":"array","items":{"$ref":"#/$defs/receiptRef"},"minItems":1,"uniqueItems":true},"sensor_evidence_receipt_refs":{"type":"array","items":{"$ref":"#/$defs/receiptRef"},"minItems":1,"uniqueItems":true},"controller_operation_ref":{"$ref":"#/$defs/effectRef"},"dispatch_posture":{"enum":["not_dispatched_proven","dispatched_observed","dispatch_ambiguous"]},"dispatch_evidence_receipt_refs":{"$ref":"#/$defs/receiptRefArray"},"controller_receipt_refs":{"$ref":"#/$defs/receiptRefArray"},"outcome_normalization_error_codes":{"type":"array","items":{"type":"string","pattern":"^[a-z][a-z0-9_]*$"},"uniqueItems":true},"effect_status":{"enum":["committed","rejected","unknown"]},"state_root_before":{"type":"string","minLength":1},"state_root_after":{"anyOf":[{"type":"string","minLength":1},{"type":"null"}]},"previous_execution_receipt_hash":{"anyOf":[{"$ref":"#/$defs/sha256Hash"},{"type":"null"}]},"executed_at":{"type":"string","format":"date-time"},"incident_refs":{"type":"array","items":{"$ref":"#/$defs/incidentRef"},"uniqueItems":true},"reconciliation_state":{"enum":["confirmed","partially_confirmed","ambiguous_effect","compensation_required","non_retryable","failed"]},"agentgres_operation_refs":{"type":"array","items":{"$ref":"#/$defs/agentgresOperationRef"},"uniqueItems":true},"assurance_stage":{"enum":["attested","evidenced","verified","accepted","adjudicated","settled"]}},"allOf":[{"if":{"type":"object","required":["effect_status"],"properties":{"effect_status":{"const":"committed"}}},"then":{"type":"object","properties":{"dispatch_posture":{"const":"dispatched_observed"},"controller_receipt_refs":{"type":"array","minItems":1},"state_root_after":{"type":"string","minLength":1},"outcome_normalization_error_codes":{"type":"array","maxItems":0},"reconciliation_state":{"const":"confirmed"}}}},{"if":{"type":"object","required":["effect_status"],"properties":{"effect_status":{"const":"rejected"}}},"then":{"type":"object","properties":{"dispatch_posture":{"const":"not_dispatched_proven"},"state_root_after":{"type":"null"},"outcome_normalization_error_codes":{"type":"array","maxItems":0},"reconciliation_state":{"const":"failed"}}}},{"if":{"type":"object","required":["effect_status"],"properties":{"effect_status":{"const":"unknown"}}},"then":{"type":"object","properties":{"reconciliation_state":{"const":"ambiguous_effect"}}}}]},"workSubject":{"type":"object","additionalProperties":false,"required":["kind","ref"],"properties":{"kind":{"enum":["goal_run","automation_run","work_item","work_claim","service_order","physical_action_intent"]},"ref":{"$ref":"#/$defs/canonicalRef"}}},"resourceGroupBinding":{"type":"object","additionalProperties":false,"required":["group_revision_ref","membership_closure_hash","unit_refs","controller_binding_refs","sensor_refs","actuator_refs","physical_zone_refs","emergency_stop_authority_refs"],"properties":{"group_revision_ref":{"$ref":"#/$defs/resourceGroupRevisionRef"},"membership_closure_hash":{"$ref":"#/$defs/sha256Hash"},"unit_refs":{"type":"array","items":{"$ref":"#/$defs/embodiedUnitRef"},"minItems":1,"uniqueItems":true},"controller_binding_refs":{"type":"array","items":{"$ref":"#/$defs/controllerBindingRef"},"minItems":1,"uniqueItems":true},"sensor_refs":{"type":"array","items":{"$ref":"#/$defs/sensorRef"},"minItems":1,"uniqueItems":true},"actuator_refs":{"type":"array","items":{"$ref":"#/$defs/actuatorRef"},"minItems":1,"uniqueItems":true},"physical_zone_refs":{"type":"array","items":{"$ref":"#/$defs/physicalZoneRef"},"minItems":1,"uniqueItems":true},"emergency_stop_authority_refs":{"type":"array","items":{"$ref":"#/$defs/emergencyStopAuthorityRef"},"minItems":1,"uniqueItems":true}}},"receiptRefArray":{"type":"array","items":{"$ref":"#/$defs/receiptRef"},"uniqueItems":true},"sha256Hash":{"type":"string","pattern":"^sha256:[a-f0-9]{64}$"},"canonicalRef":{"type":"string","pattern":"^[a-z][a-z0-9-]*(?:://|:)[^\\s]+$"},"receiptRef":{"type":"string","pattern":"^receipt://[^\\s]+$"},"schemaOrPolicyRef":{"type":"string","pattern":"^(?:schema|policy)://[^\\s]+$"},"runRef":{"type":"string","pattern":"^run://[^\\s]+$"},"taskRef":{"type":"string","pattern":"^task://[^\\s]+$"},"protocolPrincipalOrRuntimeRef":{"type":"string","pattern":"^(?:system|user|wallet|org|project|domain|worker|agent|service|provider|policy|governance|runtime)://[^\\s]+$"},"grantRef":{"type":"string","pattern":"^grant://[^\\s]+$"},"primitiveCapability":{"type":"string","pattern":"^prim:[a-z][a-z0-9._-]*$"},"authorityScope":{"type":"string","pattern":"^scope:[a-z][a-z0-9._-]*$"},"artifactRef":{"type":"string","pattern":"^artifact://[^\\s]+$"},"evidenceRef":{"type":"string","pattern":"^(?:evidence|assurance-evidence|artifact)://[^\\s]+$"},"verificationRef":{"type":"string","pattern":"^(?:verifier-path|verification|receipt)://[^\\s]+$"},"acceptanceRef":{"type":"string","pattern":"^acceptance://[^\\s]+$"},"adjudicationRef":{"type":"string","pattern":"^(?:decision|dispute)://[^\\s]+$"},"settlementRef":{"type":"string","pattern":"^settlement://[^\\s]+$"},"publicCommitmentRef":{"type":"string","pattern":"^(?:commitment|settlement|tx)://[^\\s]+$"},"physicalTargetRef":{"type":"string","pattern":"^(?:robot|facility|vehicle|device|drone|actuator)://[^\\s]+$"},"resourceGroupRevisionRef":{"type":"string","pattern":"^embodied-resource-group-revision://[^\\s]+$"},"embodiedUnitRef":{"type":"string","pattern":"^(?:robot|drone|device|facility|facility-system|vehicle)://[^\\s]+$","description":"Canonical physical-unit write reference. The hyphenated facility-system scheme is required; legacy underscore aliases are read-side migration input only."},"controllerBindingRef":{"type":"string","pattern":"^controller-binding://[^\\s]+$"},"sensorRef":{"type":"string","pattern":"^sensor://[^\\s]+$"},"actuatorRef":{"type":"string","pattern":"^actuator://[^\\s]+$"},"physicalZoneRef":{"type":"string","pattern":"^zone://[^\\s]+$"},"emergencyStopAuthorityRef":{"type":"string","pattern":"^estop://[^\\s]+$"},"runtimeGraphManifestRef":{"type":"string","pattern":"^embodied-runtime-graph-manifest://[^\\s]+$"},"safetyEnvelopeRef":{"type":"string","pattern":"^safety://[^\\s]+$"},"assuranceEvidenceBundleRef":{"type":"string","pattern":"^assurance-evidence://[^\\s]+$"},"resourceLeaseRef":{"type":"string","pattern":"^resource-lease://[^\\s]+$"},"actionSchemaRef":{"type":"string","pattern":"^action-schema://[^\\s]+$"},"effectRef":{"type":"string","pattern":"^effect://[^\\s]+$"},"incidentRef":{"type":"string","pattern":"^incident://[^\\s]+$"},"agentgresOperationRef":{"type":"string","pattern":"^agentgres://operation/[^\\s]+$"}}}"###,
+        r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/physical-action-execution-receipt/v1","title":"PhysicalActionExecutionReceipt","description":"Portable physical-action execution receipt profile bundling one exact closed ReceiptEnvelope v1 with the domain-specific execution body.","x-ioi-schema-version":"ioi.physical-action-execution-receipt.v1","type":"object","additionalProperties":false,"required":["schema_version","receipt_envelope","body","body_hash","receipt_hash"],"properties":{"schema_version":{"const":"ioi.physical-action-execution-receipt.v1"},"receipt_envelope":{"$ref":"#/$defs/receiptEnvelope"},"body":{"$ref":"#/$defs/physicalActionExecutionBody"},"body_hash":{"$ref":"#/$defs/sha256Hash","description":"SHA-256 over JCS of the exact receipt_envelope and body bundle."},"receipt_hash":{"$ref":"#/$defs/sha256Hash","description":"Domain-separated physical-action execution receipt hash over the same canonical bundle."}},"$defs":{"receiptEnvelope":{"type":"object","additionalProperties":false,"required":["receipt_id","receipt_type","receipt_profile_ref","attested_boundary_fact_refs","claim_scope_ref","run_id","task_id","actor_id","authority_grant_id","primitive_capabilities","authority_scopes","artifact_refs","evidence_bundle_refs","verification_ref","acceptance_ref","adjudication_ref","settlement_ref","timestamp","signature","public_commitment_ref"],"properties":{"receipt_id":{"$ref":"#/$defs/receiptRef"},"receipt_type":{"const":"physical_action_execution"},"receipt_profile_ref":{"const":"schema://ioi/foundations/physical-action-execution-receipt/v1"},"attested_boundary_fact_refs":{"type":"array","items":{"$ref":"#/$defs/canonicalRef"},"uniqueItems":true},"claim_scope_ref":{"anyOf":[{"$ref":"#/$defs/schemaOrPolicyRef"},{"type":"null"}]},"run_id":{"anyOf":[{"$ref":"#/$defs/runRef"},{"type":"null"}]},"task_id":{"anyOf":[{"$ref":"#/$defs/taskRef"},{"type":"null"}]},"actor_id":{"$ref":"#/$defs/protocolPrincipalOrRuntimeRef"},"input_hash":{"$ref":"#/$defs/sha256Hash"},"output_hash":{"$ref":"#/$defs/sha256Hash"},"policy_hash":{"$ref":"#/$defs/sha256Hash"},"authority_grant_id":{"anyOf":[{"$ref":"#/$defs/grantRef"},{"type":"null"}]},"primitive_capabilities":{"type":"array","items":{"$ref":"#/$defs/primitiveCapability"},"minItems":1,"uniqueItems":true},"authority_scopes":{"type":"array","items":{"$ref":"#/$defs/authorityScope"},"minItems":1,"uniqueItems":true},"artifact_refs":{"type":"array","items":{"$ref":"#/$defs/artifactRef"},"uniqueItems":true},"evidence_bundle_refs":{"type":"array","items":{"$ref":"#/$defs/evidenceRef"},"minItems":1,"uniqueItems":true},"verification_ref":{"anyOf":[{"$ref":"#/$defs/verificationRef"},{"type":"null"}]},"acceptance_ref":{"anyOf":[{"$ref":"#/$defs/acceptanceRef"},{"type":"null"}]},"adjudication_ref":{"anyOf":[{"$ref":"#/$defs/adjudicationRef"},{"type":"null"}]},"settlement_ref":{"anyOf":[{"$ref":"#/$defs/settlementRef"},{"type":"null"}]},"timestamp":{"type":"string","format":"date-time"},"signature":{"anyOf":[{"type":"string","minLength":1},{"type":"null"}]},"public_commitment_ref":{"anyOf":[{"$ref":"#/$defs/publicCommitmentRef"},{"type":"null"}]}}},"physicalActionExecutionBody":{"type":"object","additionalProperties":false,"required":["idempotency_key","execution_request_hash","admission_id","admission_record_hash","work_subject","target_system_ref","resource_group_bindings","emergency_stop_authority_ref","controller_binding_ref","runtime_graph_manifest_ref","runtime_graph_manifest_hash","safety_envelope_ref","safety_envelope_hash","assurance_evidence_bundle_ref","assurance_evidence_bundle_hash","active_writer_lease_ref","active_writer_fencing_epoch","active_writer_fencing_token_hash","graph_timing_chain_ref","graph_timing_chain_hash","command_schema_ref","command_payload_hash","segment_commitment_receipt_refs","preflight_receipt_refs","sensor_evidence_receipt_refs","controller_operation_ref","dispatch_posture","dispatch_evidence_receipt_refs","controller_receipt_refs","outcome_normalization_error_codes","effect_status","state_root_before","state_root_after","previous_execution_receipt_hash","executed_at","incident_refs","reconciliation_state","agentgres_operation_refs","assurance_stage"],"properties":{"idempotency_key":{"type":"string","minLength":1},"execution_request_hash":{"$ref":"#/$defs/sha256Hash"},"admission_id":{"type":"string","pattern":"^physical-action-admission:[^\\s]+$"},"admission_record_hash":{"$ref":"#/$defs/sha256Hash"},"work_subject":{"$ref":"#/$defs/workSubject"},"target_system_ref":{"$ref":"#/$defs/physicalTargetRef"},"resource_group_bindings":{"type":"array","items":{"$ref":"#/$defs/resourceGroupBinding"},"minItems":1,"uniqueItems":true},"emergency_stop_authority_ref":{"$ref":"#/$defs/emergencyStopAuthorityRef"},"controller_binding_ref":{"$ref":"#/$defs/controllerBindingRef"},"runtime_graph_manifest_ref":{"$ref":"#/$defs/runtimeGraphManifestRef"},"runtime_graph_manifest_hash":{"$ref":"#/$defs/sha256Hash"},"safety_envelope_ref":{"$ref":"#/$defs/safetyEnvelopeRef"},"safety_envelope_hash":{"$ref":"#/$defs/sha256Hash"},"assurance_evidence_bundle_ref":{"$ref":"#/$defs/assuranceEvidenceBundleRef"},"assurance_evidence_bundle_hash":{"$ref":"#/$defs/sha256Hash"},"active_writer_lease_ref":{"$ref":"#/$defs/resourceLeaseRef"},"active_writer_fencing_epoch":{"type":"integer","minimum":0},"active_writer_fencing_token_hash":{"$ref":"#/$defs/sha256Hash"},"graph_timing_chain_ref":{"$ref":"#/$defs/artifactRef"},"graph_timing_chain_hash":{"$ref":"#/$defs/sha256Hash"},"command_schema_ref":{"$ref":"#/$defs/actionSchemaRef"},"command_payload_hash":{"$ref":"#/$defs/sha256Hash"},"segment_commitment_receipt_refs":{"$ref":"#/$defs/receiptRefArray"},"preflight_receipt_refs":{"type":"array","items":{"$ref":"#/$defs/receiptRef"},"minItems":1,"uniqueItems":true},"sensor_evidence_receipt_refs":{"type":"array","items":{"$ref":"#/$defs/receiptRef"},"minItems":1,"uniqueItems":true},"controller_operation_ref":{"$ref":"#/$defs/effectRef"},"dispatch_posture":{"enum":["not_dispatched_proven","dispatched_observed","dispatch_ambiguous"]},"dispatch_evidence_receipt_refs":{"$ref":"#/$defs/receiptRefArray"},"controller_receipt_refs":{"$ref":"#/$defs/receiptRefArray"},"outcome_normalization_error_codes":{"type":"array","items":{"type":"string","pattern":"^[a-z][a-z0-9_]*$"},"uniqueItems":true},"effect_status":{"enum":["committed","rejected","unknown"]},"state_root_before":{"type":"string","minLength":1},"state_root_after":{"anyOf":[{"type":"string","minLength":1},{"type":"null"}]},"previous_execution_receipt_hash":{"anyOf":[{"$ref":"#/$defs/sha256Hash"},{"type":"null"}]},"executed_at":{"type":"string","format":"date-time"},"incident_refs":{"type":"array","items":{"$ref":"#/$defs/incidentRef"},"uniqueItems":true},"reconciliation_state":{"enum":["confirmed","partially_confirmed","ambiguous_effect","compensation_required","non_retryable","failed"]},"agentgres_operation_refs":{"type":"array","items":{"$ref":"#/$defs/agentgresOperationRef"},"uniqueItems":true},"assurance_stage":{"enum":["attested","evidenced","verified","accepted","adjudicated","settled"]}},"allOf":[{"if":{"type":"object","required":["effect_status"],"properties":{"effect_status":{"const":"committed"}}},"then":{"type":"object","properties":{"dispatch_posture":{"const":"dispatched_observed"},"controller_receipt_refs":{"type":"array","minItems":1},"state_root_after":{"type":"string","minLength":1},"outcome_normalization_error_codes":{"type":"array","maxItems":0},"reconciliation_state":{"const":"confirmed"}}}},{"if":{"type":"object","required":["effect_status"],"properties":{"effect_status":{"const":"rejected"}}},"then":{"type":"object","properties":{"dispatch_posture":{"const":"not_dispatched_proven"},"state_root_after":{"type":"null"},"outcome_normalization_error_codes":{"type":"array","maxItems":0},"reconciliation_state":{"const":"failed"}}}},{"if":{"type":"object","required":["effect_status"],"properties":{"effect_status":{"const":"unknown"}}},"then":{"type":"object","properties":{"reconciliation_state":{"const":"ambiguous_effect"}}}}]},"workSubject":{"type":"object","additionalProperties":false,"required":["kind","ref"],"properties":{"kind":{"enum":["goal_run","automation_run","work_item","work_claim","service_order","physical_action_intent"]},"ref":{"$ref":"#/$defs/canonicalRef"}}},"resourceGroupBinding":{"type":"object","additionalProperties":false,"required":["group_revision_ref","membership_closure_hash","unit_refs","controller_binding_refs","sensor_refs","actuator_refs","physical_zone_refs","emergency_stop_authority_refs"],"properties":{"group_revision_ref":{"$ref":"#/$defs/resourceGroupRevisionRef"},"membership_closure_hash":{"$ref":"#/$defs/sha256Hash"},"unit_refs":{"type":"array","items":{"$ref":"#/$defs/embodiedUnitRef"},"minItems":1,"uniqueItems":true},"controller_binding_refs":{"type":"array","items":{"$ref":"#/$defs/controllerBindingRef"},"minItems":1,"uniqueItems":true},"sensor_refs":{"type":"array","items":{"$ref":"#/$defs/sensorRef"},"minItems":1,"uniqueItems":true},"actuator_refs":{"type":"array","items":{"$ref":"#/$defs/actuatorRef"},"minItems":1,"uniqueItems":true},"physical_zone_refs":{"type":"array","items":{"$ref":"#/$defs/physicalZoneRef"},"minItems":1,"uniqueItems":true},"emergency_stop_authority_refs":{"type":"array","items":{"$ref":"#/$defs/emergencyStopAuthorityRef"},"minItems":1,"uniqueItems":true}}},"receiptRefArray":{"type":"array","items":{"$ref":"#/$defs/receiptRef"},"uniqueItems":true},"sha256Hash":{"type":"string","pattern":"^sha256:[a-f0-9]{64}$"},"canonicalRef":{"type":"string","pattern":"^[a-z][a-z0-9-]*(?:://|:)[^\\s]+$"},"receiptRef":{"type":"string","pattern":"^receipt://[^\\s]+$"},"schemaOrPolicyRef":{"type":"string","pattern":"^(?:schema|policy)://[^\\s]+$"},"runRef":{"type":"string","pattern":"^run://[^\\s]+$"},"taskRef":{"type":"string","pattern":"^task://[^\\s]+$"},"protocolPrincipalOrRuntimeRef":{"type":"string","pattern":"^(?:system|user|wallet|org|project|domain|worker|agent|service|provider|policy|governance|runtime)://[^\\s]+$"},"grantRef":{"type":"string","pattern":"^grant://[^\\s]+$"},"primitiveCapability":{"type":"string","pattern":"^prim:[a-z][a-z0-9._-]*$"},"authorityScope":{"type":"string","pattern":"^scope:[a-z][a-z0-9._-]*$"},"artifactRef":{"type":"string","pattern":"^artifact://[^\\s]+$"},"evidenceRef":{"type":"string","pattern":"^(?:evidence|assurance-evidence|artifact)://[^\\s]+$"},"verificationRef":{"type":"string","pattern":"^(?:verifier-path|verification|receipt)://[^\\s]+$"},"acceptanceRef":{"type":"string","pattern":"^acceptance://[^\\s]+$"},"adjudicationRef":{"type":"string","pattern":"^(?:decision|dispute)://[^\\s]+$"},"settlementRef":{"type":"string","pattern":"^settlement://[^\\s]+$"},"publicCommitmentRef":{"type":"string","pattern":"^(?:commitment|settlement|tx)://[^\\s]+$"},"physicalTargetRef":{"type":"string","pattern":"^(?:robot|facility|vehicle|device|drone|actuator)://[^\\s]+$"},"resourceGroupRevisionRef":{"type":"string","pattern":"^embodied-resource-group-revision://[^\\s]+$"},"embodiedUnitRef":{"type":"string","pattern":"^(?:robot|drone|device|facility|facility-system|vehicle)://[^\\s]+$","description":"Canonical physical-unit write reference. The hyphenated facility-system scheme is required; legacy underscore aliases are read-side migration input only."},"controllerBindingRef":{"type":"string","pattern":"^controller-binding://[^\\s]+$"},"sensorRef":{"type":"string","pattern":"^sensor://[^\\s]+$"},"actuatorRef":{"type":"string","pattern":"^actuator://[^\\s]+$"},"physicalZoneRef":{"type":"string","pattern":"^zone://[^\\s]+$"},"emergencyStopAuthorityRef":{"type":"string","pattern":"^estop://[^\\s]+$"},"runtimeGraphManifestRef":{"type":"string","pattern":"^embodied-runtime-graph-manifest://[^\\s]+$"},"safetyEnvelopeRef":{"type":"string","pattern":"^safety://[^\\s]+$"},"assuranceEvidenceBundleRef":{"type":"string","pattern":"^assurance-evidence://[^\\s]+$"},"resourceLeaseRef":{"type":"string","pattern":"^resource-lease://[^\\s]+$"},"actionSchemaRef":{"type":"string","pattern":"^action-schema://[^\\s]+$"},"effectRef":{"type":"string","pattern":"^effect://[^\\s]+$"},"incidentRef":{"type":"string","pattern":"^incident://[^\\s]+$"},"agentgresOperationRef":{"type":"string","pattern":"^agentgres://operation/[^\\s]+$"}}}"##,
     ),
     (
         "schema://ioi/foundations/authority-grant-envelope/v1",
-        r###"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/authority-grant-envelope/v1","title":"AuthorityGrantEnvelope","description":"Canonical IOI authority grant field envelope before the Cut 2 portable signature profile.","x-ioi-schema-version":"ioi.foundations.authority-grant-envelope.v1","type":"object","additionalProperties":false,"required":["authority_grant_id","request_id","issuer_id","subject_id","authority_scopes","primitive_capability_constraints","resources","constraints","revocation_epoch","status"],"properties":{"authority_grant_id":{"$ref":"#/$defs/grantRef"},"request_id":{"$ref":"#/$defs/authorityRequestRef"},"issuer_id":{"$ref":"#/$defs/issuerRef"},"subject_id":{"$ref":"#/$defs/subjectRef"},"authority_scopes":{"type":"array","items":{"$ref":"#/$defs/authorityScope"},"uniqueItems":true},"primitive_capability_constraints":{"type":"array","items":{"$ref":"#/$defs/primitiveCapability"},"uniqueItems":true},"resources":{"type":"array","items":{"$ref":"#/$defs/resourceRef"},"minItems":1,"uniqueItems":true},"constraints":{"type":"object","additionalProperties":false,"required":["max_budget_usd","expires_at","approval_required_for"],"properties":{"max_budget_usd":{"type":"number","minimum":0},"expires_at":{"type":"string","format":"date-time"},"max_calls":{"type":"integer","minimum":1},"approval_required_for":{"type":"array","items":{"type":"string","pattern":"^[a-z][a-z0-9._-]*$"},"uniqueItems":true}}},"revocation_epoch":{"type":"integer","minimum":0},"status":{"enum":["active","expired","revoked"]}},"$defs":{"grantRef":{"type":"string","pattern":"^grant://[^\\s]+$"},"authorityRequestRef":{"type":"string","pattern":"^authority-request://[^\\s]+$"},"issuerRef":{"type":"string","pattern":"^(?:system|wallet|org|policy)://[^\\s]+$"},"subjectRef":{"type":"string","pattern":"^(?:system|agent|worker|runtime)://[^\\s]+$"},"authorityScope":{"type":"string","pattern":"^scope:[a-z][a-z0-9._-]*$"},"primitiveCapability":{"type":"string","pattern":"^prim:[a-z][a-z0-9._-]*$"},"resourceRef":{"type":"string","pattern":"^[a-z][a-z0-9-]*://[^\\s]+$"}}}"###,
+        r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/authority-grant-envelope/v1","title":"AuthorityGrantEnvelope","description":"Canonical IOI authority grant field envelope before the Cut 2 portable signature profile.","x-ioi-schema-version":"ioi.foundations.authority-grant-envelope.v1","type":"object","additionalProperties":false,"required":["authority_grant_id","request_id","issuer_id","subject_id","authority_scopes","primitive_capability_constraints","resources","constraints","revocation_epoch","status"],"properties":{"authority_grant_id":{"$ref":"#/$defs/grantRef"},"request_id":{"$ref":"#/$defs/authorityRequestRef"},"issuer_id":{"$ref":"#/$defs/issuerRef"},"subject_id":{"$ref":"#/$defs/subjectRef"},"authority_scopes":{"type":"array","items":{"$ref":"#/$defs/authorityScope"},"uniqueItems":true},"primitive_capability_constraints":{"type":"array","items":{"$ref":"#/$defs/primitiveCapability"},"uniqueItems":true},"resources":{"type":"array","items":{"$ref":"#/$defs/resourceRef"},"minItems":1,"uniqueItems":true},"constraints":{"type":"object","additionalProperties":false,"required":["max_budget_usd","expires_at","approval_required_for"],"properties":{"max_budget_usd":{"type":"number","minimum":0},"expires_at":{"type":"string","format":"date-time"},"max_calls":{"type":"integer","minimum":1},"approval_required_for":{"type":"array","items":{"type":"string","pattern":"^[a-z][a-z0-9._-]*$"},"uniqueItems":true}}},"revocation_epoch":{"type":"integer","minimum":0},"status":{"enum":["active","expired","revoked"]}},"$defs":{"grantRef":{"type":"string","pattern":"^grant://[^\\s]+$"},"authorityRequestRef":{"type":"string","pattern":"^authority-request://[^\\s]+$"},"issuerRef":{"type":"string","pattern":"^(?:system|wallet|org|policy)://[^\\s]+$"},"subjectRef":{"type":"string","pattern":"^(?:system|agent|worker|runtime)://[^\\s]+$"},"authorityScope":{"type":"string","pattern":"^scope:[a-z][a-z0-9._-]*$"},"primitiveCapability":{"type":"string","pattern":"^prim:[a-z][a-z0-9._-]*$"},"resourceRef":{"type":"string","pattern":"^[a-z][a-z0-9-]*://[^\\s]+$"}}}"##,
     ),
     (
         "schema://ioi/foundations/authority-grant-envelope/v2",
-        r###"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/authority-grant-envelope/v2","title":"AuthorityGrantEnvelope","description":"Portable, individually signed IOI authority grant with holder, audience, attenuation, revocation, and canonical-body bindings.","x-ioi-schema-version":"ioi.foundations.authority-grant-envelope.v2","type":"object","additionalProperties":false,"required":["schema_version","envelope_type","signature_domain","schema_hash","authority_grant_id","request_id","issuer_id","issuer_key_set_ref","issuer_key_set_version","issuer_key_id","holder_id","holder_key_id","audience","issued_at","not_before","expires_at","parent_grant","authority_scopes","primitive_capability_constraints","resources","attenuating_caveats","risk_restrictions","revocation_epoch","body_hash","signature_suite","signature_key_id","signature"],"properties":{"schema_version":{"const":"ioi.foundations.authority-grant-envelope.v2"},"envelope_type":{"const":"ioi.authority-grant"},"signature_domain":{"const":"ioi.authority-grant-envelope.v2"},"schema_hash":{"$ref":"#/$defs/sha256Hash"},"authority_grant_id":{"$ref":"#/$defs/grantRef"},"request_id":{"$ref":"#/$defs/authorityRequestRef"},"issuer_id":{"$ref":"#/$defs/issuerRef"},"issuer_key_set_ref":{"$ref":"#/$defs/keySetRef"},"issuer_key_set_version":{"type":"integer","minimum":1},"issuer_key_id":{"$ref":"#/$defs/keyRef"},"holder_id":{"$ref":"#/$defs/holderRef"},"holder_key_id":{"$ref":"#/$defs/keyRef"},"audience":{"$ref":"#/$defs/canonicalRef"},"issued_at":{"type":"integer","minimum":0},"not_before":{"type":"integer","minimum":0},"expires_at":{"type":"integer","minimum":0},"parent_grant":{"oneOf":[{"type":"null"},{"type":"object","additionalProperties":false,"required":["grant_ref","body_hash","proof_ref"],"properties":{"grant_ref":{"$ref":"#/$defs/grantRef"},"body_hash":{"$ref":"#/$defs/sha256Hash"},"proof_ref":{"$ref":"#/$defs/proofRef"}}}]},"authority_scopes":{"type":"array","items":{"$ref":"#/$defs/authorityScope"},"uniqueItems":true},"primitive_capability_constraints":{"type":"array","items":{"$ref":"#/$defs/primitiveCapability"},"uniqueItems":true},"resources":{"type":"array","items":{"$ref":"#/$defs/canonicalRef"},"minItems":1,"uniqueItems":true},"attenuating_caveats":{"type":"array","items":{"$ref":"#/$defs/caveatRef"},"uniqueItems":true},"risk_restrictions":{"type":"object","additionalProperties":false,"required":["allowed_risk_classes","max_budget_microusd","max_calls","approval_required_for"],"properties":{"allowed_risk_classes":{"type":"array","items":{"$ref":"#/$defs/riskClass"},"minItems":1,"uniqueItems":true},"max_budget_microusd":{"type":"integer","minimum":0},"max_calls":{"type":"integer","minimum":1},"approval_required_for":{"type":"array","items":{"type":"string","pattern":"^[a-z][a-z0-9._-]*$"},"uniqueItems":true}}},"revocation_epoch":{"type":"integer","minimum":0},"body_hash":{"$ref":"#/$defs/sha256Hash"},"signature_suite":{"const":"ed25519"},"signature_key_id":{"$ref":"#/$defs/keyRef"},"signature":{"$ref":"#/$defs/ed25519Signature"}},"$defs":{"grantRef":{"type":"string","pattern":"^grant://[^\\s]+$"},"authorityRequestRef":{"type":"string","pattern":"^authority-request://[^\\s]+$"},"issuerRef":{"type":"string","pattern":"^(?:system|wallet|org|policy)://[^\\s]+$"},"holderRef":{"type":"string","pattern":"^(?:system|agent|worker|runtime|wallet|org)://[^\\s]+$"},"keySetRef":{"type":"string","pattern":"^keyset://[^\\s]+$"},"keyRef":{"type":"string","pattern":"^key://[^\\s]+$"},"proofRef":{"type":"string","pattern":"^proof://[^\\s]+$"},"caveatRef":{"type":"string","pattern":"^caveat://[^\\s]+$"},"authorityScope":{"type":"string","pattern":"^scope:[a-z][a-z0-9._-]*$"},"primitiveCapability":{"type":"string","pattern":"^prim:[a-z][a-z0-9._-]*$"},"canonicalRef":{"type":"string","pattern":"^[a-z][a-z0-9-]*://[^\\s]+$"},"sha256Hash":{"type":"string","pattern":"^sha256:[a-f0-9]{64}$"},"ed25519Signature":{"type":"string","pattern":"^[A-Za-z0-9_-]{86}$"},"riskClass":{"enum":["read","draft","external_message","commerce","funds","trade","policy_widening","secret_export","declassification","identity_change","cloud_deploy","physical_action"]}}}"###,
+        r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/authority-grant-envelope/v2","title":"AuthorityGrantEnvelope","description":"Portable, individually signed IOI authority grant with holder, audience, attenuation, revocation, and canonical-body bindings.","x-ioi-schema-version":"ioi.foundations.authority-grant-envelope.v2","type":"object","additionalProperties":false,"required":["schema_version","envelope_type","signature_domain","schema_hash","authority_grant_id","request_id","issuer_id","issuer_key_set_ref","issuer_key_set_version","issuer_key_id","holder_id","holder_key_id","audience","issued_at","not_before","expires_at","parent_grant","authority_scopes","primitive_capability_constraints","resources","attenuating_caveats","risk_restrictions","revocation_epoch","body_hash","signature_suite","signature_key_id","signature"],"properties":{"schema_version":{"const":"ioi.foundations.authority-grant-envelope.v2"},"envelope_type":{"const":"ioi.authority-grant"},"signature_domain":{"const":"ioi.authority-grant-envelope.v2"},"schema_hash":{"$ref":"#/$defs/sha256Hash"},"authority_grant_id":{"$ref":"#/$defs/grantRef"},"request_id":{"$ref":"#/$defs/authorityRequestRef"},"issuer_id":{"$ref":"#/$defs/issuerRef"},"issuer_key_set_ref":{"$ref":"#/$defs/keySetRef"},"issuer_key_set_version":{"type":"integer","minimum":1},"issuer_key_id":{"$ref":"#/$defs/keyRef"},"holder_id":{"$ref":"#/$defs/holderRef"},"holder_key_id":{"$ref":"#/$defs/keyRef"},"audience":{"$ref":"#/$defs/canonicalRef"},"issued_at":{"type":"integer","minimum":0},"not_before":{"type":"integer","minimum":0},"expires_at":{"type":"integer","minimum":0},"parent_grant":{"oneOf":[{"type":"null"},{"type":"object","additionalProperties":false,"required":["grant_ref","body_hash","proof_ref"],"properties":{"grant_ref":{"$ref":"#/$defs/grantRef"},"body_hash":{"$ref":"#/$defs/sha256Hash"},"proof_ref":{"$ref":"#/$defs/proofRef"}}}]},"authority_scopes":{"type":"array","items":{"$ref":"#/$defs/authorityScope"},"uniqueItems":true},"primitive_capability_constraints":{"type":"array","items":{"$ref":"#/$defs/primitiveCapability"},"uniqueItems":true},"resources":{"type":"array","items":{"$ref":"#/$defs/canonicalRef"},"minItems":1,"uniqueItems":true},"attenuating_caveats":{"type":"array","items":{"$ref":"#/$defs/caveatRef"},"uniqueItems":true},"risk_restrictions":{"type":"object","additionalProperties":false,"required":["allowed_risk_classes","max_budget_microusd","max_calls","approval_required_for"],"properties":{"allowed_risk_classes":{"type":"array","items":{"$ref":"#/$defs/riskClass"},"minItems":1,"uniqueItems":true},"max_budget_microusd":{"type":"integer","minimum":0},"max_calls":{"type":"integer","minimum":1},"approval_required_for":{"type":"array","items":{"type":"string","pattern":"^[a-z][a-z0-9._-]*$"},"uniqueItems":true}}},"revocation_epoch":{"type":"integer","minimum":0},"body_hash":{"$ref":"#/$defs/sha256Hash"},"signature_suite":{"const":"ed25519"},"signature_key_id":{"$ref":"#/$defs/keyRef"},"signature":{"$ref":"#/$defs/ed25519Signature"}},"$defs":{"grantRef":{"type":"string","pattern":"^grant://[^\\s]+$"},"authorityRequestRef":{"type":"string","pattern":"^authority-request://[^\\s]+$"},"issuerRef":{"type":"string","pattern":"^(?:system|wallet|org|policy)://[^\\s]+$"},"holderRef":{"type":"string","pattern":"^(?:system|agent|worker|runtime|wallet|org)://[^\\s]+$"},"keySetRef":{"type":"string","pattern":"^keyset://[^\\s]+$"},"keyRef":{"type":"string","pattern":"^key://[^\\s]+$"},"proofRef":{"type":"string","pattern":"^proof://[^\\s]+$"},"caveatRef":{"type":"string","pattern":"^caveat://[^\\s]+$"},"authorityScope":{"type":"string","pattern":"^scope:[a-z][a-z0-9._-]*$"},"primitiveCapability":{"type":"string","pattern":"^prim:[a-z][a-z0-9._-]*$"},"canonicalRef":{"type":"string","pattern":"^[a-z][a-z0-9-]*://[^\\s]+$"},"sha256Hash":{"type":"string","pattern":"^sha256:[a-f0-9]{64}$"},"ed25519Signature":{"type":"string","pattern":"^[A-Za-z0-9_-]{86}$"},"riskClass":{"enum":["read","draft","external_message","commerce","funds","trade","policy_widening","secret_export","declassification","identity_change","cloud_deploy","physical_action"]}}}"##,
     ),
     (
         "schema://ioi/foundations/authority-key-set/v1",
-        r###"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/authority-key-set/v1","title":"AuthorityKeySet","description":"Versioned issuer key-discovery set used to verify portable authority objects.","x-ioi-schema-version":"ioi.foundations.authority-key-set.v1","type":"object","additionalProperties":false,"required":["schema_version","key_set_type","key_set_id","issuer_id","version","issued_at","expires_at","keys"],"properties":{"schema_version":{"const":"ioi.foundations.authority-key-set.v1"},"key_set_type":{"const":"ioi.authority-key-set"},"key_set_id":{"$ref":"#/$defs/keySetRef"},"issuer_id":{"$ref":"#/$defs/issuerRef"},"version":{"type":"integer","minimum":1},"issued_at":{"type":"integer","minimum":0},"expires_at":{"type":"integer","minimum":0},"keys":{"type":"array","minItems":1,"uniqueItems":true,"items":{"type":"object","additionalProperties":false,"required":["key_id","signature_suite","public_key","not_before","expires_at","status"],"properties":{"key_id":{"$ref":"#/$defs/keyRef"},"signature_suite":{"const":"ed25519"},"public_key":{"$ref":"#/$defs/ed25519PublicKey"},"not_before":{"type":"integer","minimum":0},"expires_at":{"type":"integer","minimum":0},"status":{"enum":["active","retired","revoked"]}}}}},"$defs":{"keySetRef":{"type":"string","pattern":"^keyset://[^\\s]+$"},"keyRef":{"type":"string","pattern":"^key://[^\\s]+$"},"issuerRef":{"type":"string","pattern":"^(?:system|wallet|org|policy)://[^\\s]+$"},"ed25519PublicKey":{"type":"string","pattern":"^[A-Za-z0-9_-]{43}$"}}}"###,
+        r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/authority-key-set/v1","title":"AuthorityKeySet","description":"Versioned issuer key-discovery set used to verify portable authority objects.","x-ioi-schema-version":"ioi.foundations.authority-key-set.v1","type":"object","additionalProperties":false,"required":["schema_version","key_set_type","key_set_id","issuer_id","version","issued_at","expires_at","keys"],"properties":{"schema_version":{"const":"ioi.foundations.authority-key-set.v1"},"key_set_type":{"const":"ioi.authority-key-set"},"key_set_id":{"$ref":"#/$defs/keySetRef"},"issuer_id":{"$ref":"#/$defs/issuerRef"},"version":{"type":"integer","minimum":1},"issued_at":{"type":"integer","minimum":0},"expires_at":{"type":"integer","minimum":0},"keys":{"type":"array","minItems":1,"uniqueItems":true,"items":{"type":"object","additionalProperties":false,"required":["key_id","signature_suite","public_key","not_before","expires_at","status"],"properties":{"key_id":{"$ref":"#/$defs/keyRef"},"signature_suite":{"const":"ed25519"},"public_key":{"$ref":"#/$defs/ed25519PublicKey"},"not_before":{"type":"integer","minimum":0},"expires_at":{"type":"integer","minimum":0},"status":{"enum":["active","retired","revoked"]}}}}},"$defs":{"keySetRef":{"type":"string","pattern":"^keyset://[^\\s]+$"},"keyRef":{"type":"string","pattern":"^key://[^\\s]+$"},"issuerRef":{"type":"string","pattern":"^(?:system|wallet|org|policy)://[^\\s]+$"},"ed25519PublicKey":{"type":"string","pattern":"^[A-Za-z0-9_-]{43}$"}}}"##,
     ),
     (
         "schema://ioi/foundations/authority-revocation-snapshot/v1",
-        r###"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/authority-revocation-snapshot/v1","title":"AuthorityRevocationSnapshot","description":"Signed bounded-staleness snapshot of revoked portable grants and issuer keys.","x-ioi-schema-version":"ioi.foundations.authority-revocation-snapshot.v1","type":"object","additionalProperties":false,"required":["schema_version","snapshot_type","snapshot_id","issuer_id","issuer_key_set_ref","issuer_key_set_version","epoch","issued_at","expires_at","revoked_grant_refs","revoked_key_ids","body_hash","signature_domain","signature_suite","signature_key_id","signature"],"properties":{"schema_version":{"const":"ioi.foundations.authority-revocation-snapshot.v1"},"snapshot_type":{"const":"ioi.authority-revocation-snapshot"},"snapshot_id":{"$ref":"#/$defs/snapshotRef"},"issuer_id":{"$ref":"#/$defs/issuerRef"},"issuer_key_set_ref":{"$ref":"#/$defs/keySetRef"},"issuer_key_set_version":{"type":"integer","minimum":1},"epoch":{"type":"integer","minimum":0},"issued_at":{"type":"integer","minimum":0},"expires_at":{"type":"integer","minimum":0},"revoked_grant_refs":{"type":"array","items":{"$ref":"#/$defs/grantRef"},"uniqueItems":true},"revoked_key_ids":{"type":"array","items":{"$ref":"#/$defs/keyRef"},"uniqueItems":true},"body_hash":{"$ref":"#/$defs/sha256Hash"},"signature_domain":{"const":"ioi.authority-revocation-snapshot.v1"},"signature_suite":{"const":"ed25519"},"signature_key_id":{"$ref":"#/$defs/keyRef"},"signature":{"$ref":"#/$defs/ed25519Signature"}},"$defs":{"snapshotRef":{"type":"string","pattern":"^snapshot://[^\\s]+$"},"issuerRef":{"type":"string","pattern":"^(?:system|wallet|org|policy)://[^\\s]+$"},"keySetRef":{"type":"string","pattern":"^keyset://[^\\s]+$"},"keyRef":{"type":"string","pattern":"^key://[^\\s]+$"},"grantRef":{"type":"string","pattern":"^grant://[^\\s]+$"},"sha256Hash":{"type":"string","pattern":"^sha256:[a-f0-9]{64}$"},"ed25519Signature":{"type":"string","pattern":"^[A-Za-z0-9_-]{86}$"}}}"###,
+        r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/authority-revocation-snapshot/v1","title":"AuthorityRevocationSnapshot","description":"Signed bounded-staleness snapshot of revoked portable grants and issuer keys.","x-ioi-schema-version":"ioi.foundations.authority-revocation-snapshot.v1","type":"object","additionalProperties":false,"required":["schema_version","snapshot_type","snapshot_id","issuer_id","issuer_key_set_ref","issuer_key_set_version","epoch","issued_at","expires_at","revoked_grant_refs","revoked_key_ids","body_hash","signature_domain","signature_suite","signature_key_id","signature"],"properties":{"schema_version":{"const":"ioi.foundations.authority-revocation-snapshot.v1"},"snapshot_type":{"const":"ioi.authority-revocation-snapshot"},"snapshot_id":{"$ref":"#/$defs/snapshotRef"},"issuer_id":{"$ref":"#/$defs/issuerRef"},"issuer_key_set_ref":{"$ref":"#/$defs/keySetRef"},"issuer_key_set_version":{"type":"integer","minimum":1},"epoch":{"type":"integer","minimum":0},"issued_at":{"type":"integer","minimum":0},"expires_at":{"type":"integer","minimum":0},"revoked_grant_refs":{"type":"array","items":{"$ref":"#/$defs/grantRef"},"uniqueItems":true},"revoked_key_ids":{"type":"array","items":{"$ref":"#/$defs/keyRef"},"uniqueItems":true},"body_hash":{"$ref":"#/$defs/sha256Hash"},"signature_domain":{"const":"ioi.authority-revocation-snapshot.v1"},"signature_suite":{"const":"ed25519"},"signature_key_id":{"$ref":"#/$defs/keyRef"},"signature":{"$ref":"#/$defs/ed25519Signature"}},"$defs":{"snapshotRef":{"type":"string","pattern":"^snapshot://[^\\s]+$"},"issuerRef":{"type":"string","pattern":"^(?:system|wallet|org|policy)://[^\\s]+$"},"keySetRef":{"type":"string","pattern":"^keyset://[^\\s]+$"},"keyRef":{"type":"string","pattern":"^key://[^\\s]+$"},"grantRef":{"type":"string","pattern":"^grant://[^\\s]+$"},"sha256Hash":{"type":"string","pattern":"^sha256:[a-f0-9]{64}$"},"ed25519Signature":{"type":"string","pattern":"^[A-Za-z0-9_-]{86}$"}}}"##,
     ),
     (
         "schema://ioi/foundations/receipt-checkpoint/v1",
-        r###"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/receipt-checkpoint/v1","title":"ReceiptCheckpoint","description":"Signed checkpoint over one versioned append-only receipt hash-chain accumulator.","x-ioi-schema-version":"ioi.foundations.receipt-checkpoint.v1","type":"object","additionalProperties":false,"required":["schema_version","checkpoint_type","signature_domain","schema_hash","checkpoint_id","receipt_log_id","accumulator_algorithm","receipt_body_hash_profile","receipt_contract_id","receipt_schema_hash","accumulator_size","accumulator_root","previous_checkpoint_ref","previous_checkpoint_hash","previous_accumulator_size","previous_accumulator_root","issuer_id","issuer_key_set_ref","issuer_key_set_version","issuer_key_id","issued_at","build_identity_ref","policy_posture_ref","body_hash","signature_suite","signature_key_id","signature"],"properties":{"schema_version":{"const":"ioi.foundations.receipt-checkpoint.v1"},"checkpoint_type":{"const":"ioi.receipt-checkpoint"},"signature_domain":{"const":"ioi.receipt-checkpoint.v1"},"schema_hash":{"$ref":"#/$defs/sha256Hash"},"checkpoint_id":{"$ref":"#/$defs/checkpointRef"},"receipt_log_id":{"$ref":"#/$defs/logRef"},"accumulator_algorithm":{"const":"ioi.receipt-hash-chain-jcs-sha256.v1"},"receipt_body_hash_profile":{"const":"ioi.receipt-envelope-jcs-sha256.v1"},"receipt_contract_id":{"const":"schema://ioi/foundations/receipt-envelope/v1"},"receipt_schema_hash":{"$ref":"#/$defs/sha256Hash"},"accumulator_size":{"type":"integer","minimum":1},"accumulator_root":{"$ref":"#/$defs/sha256Hash"},"previous_checkpoint_ref":{"anyOf":[{"$ref":"#/$defs/checkpointRef"},{"type":"null"}]},"previous_checkpoint_hash":{"anyOf":[{"$ref":"#/$defs/sha256Hash"},{"type":"null"}]},"previous_accumulator_size":{"anyOf":[{"type":"integer","minimum":1},{"type":"null"}]},"previous_accumulator_root":{"anyOf":[{"$ref":"#/$defs/sha256Hash"},{"type":"null"}]},"issuer_id":{"$ref":"#/$defs/issuerRef"},"issuer_key_set_ref":{"$ref":"#/$defs/keySetRef"},"issuer_key_set_version":{"type":"integer","minimum":1},"issuer_key_id":{"$ref":"#/$defs/keyRef"},"issued_at":{"type":"integer","minimum":0},"build_identity_ref":{"$ref":"#/$defs/buildRef"},"policy_posture_ref":{"$ref":"#/$defs/policyRef"},"body_hash":{"$ref":"#/$defs/sha256Hash"},"signature_suite":{"const":"ed25519"},"signature_key_id":{"$ref":"#/$defs/keyRef"},"signature":{"$ref":"#/$defs/ed25519Signature"}},"$defs":{"sha256Hash":{"type":"string","pattern":"^sha256:[a-f0-9]{64}$"},"checkpointRef":{"type":"string","pattern":"^receipt-checkpoint://[^\\s]+$"},"logRef":{"type":"string","pattern":"^receipt-log://[^\\s]+$"},"issuerRef":{"type":"string","pattern":"^(?:system|wallet|org|policy)://[^\\s]+$"},"keySetRef":{"type":"string","pattern":"^keyset://[^\\s]+$"},"keyRef":{"type":"string","pattern":"^key://[^\\s]+$"},"buildRef":{"type":"string","pattern":"^build://[^\\s]+$"},"policyRef":{"type":"string","pattern":"^policy://[^\\s]+$"},"ed25519Signature":{"type":"string","pattern":"^[A-Za-z0-9_-]{86}$"}}}"###,
+        r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/receipt-checkpoint/v1","title":"ReceiptCheckpoint","description":"Signed checkpoint over one versioned append-only receipt hash-chain accumulator.","x-ioi-schema-version":"ioi.foundations.receipt-checkpoint.v1","type":"object","additionalProperties":false,"required":["schema_version","checkpoint_type","signature_domain","schema_hash","checkpoint_id","receipt_log_id","accumulator_algorithm","receipt_body_hash_profile","receipt_contract_id","receipt_schema_hash","accumulator_size","accumulator_root","previous_checkpoint_ref","previous_checkpoint_hash","previous_accumulator_size","previous_accumulator_root","issuer_id","issuer_key_set_ref","issuer_key_set_version","issuer_key_id","issued_at","build_identity_ref","policy_posture_ref","body_hash","signature_suite","signature_key_id","signature"],"properties":{"schema_version":{"const":"ioi.foundations.receipt-checkpoint.v1"},"checkpoint_type":{"const":"ioi.receipt-checkpoint"},"signature_domain":{"const":"ioi.receipt-checkpoint.v1"},"schema_hash":{"$ref":"#/$defs/sha256Hash"},"checkpoint_id":{"$ref":"#/$defs/checkpointRef"},"receipt_log_id":{"$ref":"#/$defs/logRef"},"accumulator_algorithm":{"const":"ioi.receipt-hash-chain-jcs-sha256.v1"},"receipt_body_hash_profile":{"const":"ioi.receipt-envelope-jcs-sha256.v1"},"receipt_contract_id":{"const":"schema://ioi/foundations/receipt-envelope/v1"},"receipt_schema_hash":{"$ref":"#/$defs/sha256Hash"},"accumulator_size":{"type":"integer","minimum":1},"accumulator_root":{"$ref":"#/$defs/sha256Hash"},"previous_checkpoint_ref":{"anyOf":[{"$ref":"#/$defs/checkpointRef"},{"type":"null"}]},"previous_checkpoint_hash":{"anyOf":[{"$ref":"#/$defs/sha256Hash"},{"type":"null"}]},"previous_accumulator_size":{"anyOf":[{"type":"integer","minimum":1},{"type":"null"}]},"previous_accumulator_root":{"anyOf":[{"$ref":"#/$defs/sha256Hash"},{"type":"null"}]},"issuer_id":{"$ref":"#/$defs/issuerRef"},"issuer_key_set_ref":{"$ref":"#/$defs/keySetRef"},"issuer_key_set_version":{"type":"integer","minimum":1},"issuer_key_id":{"$ref":"#/$defs/keyRef"},"issued_at":{"type":"integer","minimum":0},"build_identity_ref":{"$ref":"#/$defs/buildRef"},"policy_posture_ref":{"$ref":"#/$defs/policyRef"},"body_hash":{"$ref":"#/$defs/sha256Hash"},"signature_suite":{"const":"ed25519"},"signature_key_id":{"$ref":"#/$defs/keyRef"},"signature":{"$ref":"#/$defs/ed25519Signature"}},"$defs":{"sha256Hash":{"type":"string","pattern":"^sha256:[a-f0-9]{64}$"},"checkpointRef":{"type":"string","pattern":"^receipt-checkpoint://[^\\s]+$"},"logRef":{"type":"string","pattern":"^receipt-log://[^\\s]+$"},"issuerRef":{"type":"string","pattern":"^(?:system|wallet|org|policy)://[^\\s]+$"},"keySetRef":{"type":"string","pattern":"^keyset://[^\\s]+$"},"keyRef":{"type":"string","pattern":"^key://[^\\s]+$"},"buildRef":{"type":"string","pattern":"^build://[^\\s]+$"},"policyRef":{"type":"string","pattern":"^policy://[^\\s]+$"},"ed25519Signature":{"type":"string","pattern":"^[A-Za-z0-9_-]{86}$"}}}"##,
     ),
     (
         "schema://ioi/foundations/receipt-proof-bundle/v1",
-        r###"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/receipt-proof-bundle/v1","title":"ReceiptProofBundle","description":"Offline export of one exact receipt, its hash-chain inclusion witness, and signed checkpoint consistency material.","x-ioi-schema-version":"ioi.foundations.receipt-proof-bundle.v1","type":"object","additionalProperties":false,"required":["schema_version","bundle_type","manifest_domain","bundle_schema_hash","manifest_hash","manifest_signature_suite","manifest_signature_key_id","manifest_signature","bundle_id","receipt_contract_id","receipt_schema_hash","receipt_body_hash_profile","receipt","receipt_body_hash","leaf","inclusion_proof","checkpoint","previous_checkpoint","consistency_proof","trusted_input_refs","verification_instructions"],"properties":{"schema_version":{"const":"ioi.foundations.receipt-proof-bundle.v1"},"bundle_type":{"const":"ioi.receipt-proof-bundle"},"manifest_domain":{"const":"ioi.receipt-proof-bundle-manifest.v1"},"bundle_schema_hash":{"$ref":"#/$defs/sha256Hash"},"manifest_hash":{"$ref":"#/$defs/sha256Hash"},"manifest_signature_suite":{"const":"ed25519"},"manifest_signature_key_id":{"$ref":"#/$defs/keyRef"},"manifest_signature":{"$ref":"#/$defs/ed25519Signature"},"bundle_id":{"$ref":"#/$defs/proofRef"},"receipt_contract_id":{"const":"schema://ioi/foundations/receipt-envelope/v1"},"receipt_schema_hash":{"$ref":"#/$defs/sha256Hash"},"receipt_body_hash_profile":{"const":"ioi.receipt-envelope-jcs-sha256.v1"},"receipt":{"type":"object"},"receipt_body_hash":{"$ref":"#/$defs/sha256Hash"},"leaf":{"type":"object","additionalProperties":false,"required":["algorithm","domain","leaf_index","leaf_hash"],"properties":{"algorithm":{"const":"ioi.receipt-hash-chain-jcs-sha256.v1"},"domain":{"const":"ioi.receipt-accumulator-leaf.v1"},"leaf_index":{"type":"integer","minimum":0},"leaf_hash":{"$ref":"#/$defs/sha256Hash"}}},"inclusion_proof":{"type":"object","additionalProperties":false,"required":["profile","leaf_index","prefix_root","suffix_leaf_hashes"],"properties":{"profile":{"const":"ioi.receipt-hash-chain-inclusion.v1"},"leaf_index":{"type":"integer","minimum":0},"prefix_root":{"$ref":"#/$defs/sha256Hash"},"suffix_leaf_hashes":{"type":"array","items":{"$ref":"#/$defs/sha256Hash"}}}},"checkpoint":{"type":"object"},"previous_checkpoint":{"anyOf":[{"type":"object"},{"type":"null"}]},"consistency_proof":{"type":"object","additionalProperties":false,"required":["profile","from_size","from_root","extension_leaf_hashes"],"properties":{"profile":{"const":"ioi.receipt-hash-chain-consistency.v1"},"from_size":{"type":"integer","minimum":0},"from_root":{"$ref":"#/$defs/sha256Hash"},"extension_leaf_hashes":{"type":"array","items":{"$ref":"#/$defs/sha256Hash"}}}},"trusted_input_refs":{"type":"object","additionalProperties":false,"required":["key_set_ref","key_set_version","revocation_snapshot_ref","revocation_epoch"],"properties":{"key_set_ref":{"$ref":"#/$defs/keySetRef"},"key_set_version":{"type":"integer","minimum":1},"revocation_snapshot_ref":{"$ref":"#/$defs/snapshotRef"},"revocation_epoch":{"type":"integer","minimum":0}}},"verification_instructions":{"type":"object","additionalProperties":false,"required":["profile","steps","offline_required_inputs"],"properties":{"profile":{"const":"ioi.receipt-proof-verification.v1"},"steps":{"type":"array","minItems":1,"items":{"type":"string","minLength":1}},"offline_required_inputs":{"type":"array","minItems":1,"uniqueItems":true,"items":{"enum":["trusted_key_set","signed_revocation_snapshot","trusted_time"]}}}}},"$defs":{"sha256Hash":{"type":"string","pattern":"^sha256:[a-f0-9]{64}$"},"proofRef":{"type":"string","pattern":"^proof://[^\\s]+$"},"keySetRef":{"type":"string","pattern":"^keyset://[^\\s]+$"},"snapshotRef":{"type":"string","pattern":"^snapshot://[^\\s]+$"},"keyRef":{"type":"string","pattern":"^key://[^\\s]+$"},"ed25519Signature":{"type":"string","pattern":"^[A-Za-z0-9_-]{86}$"}}}"###,
+        r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/receipt-proof-bundle/v1","title":"ReceiptProofBundle","description":"Offline export of one exact receipt, its hash-chain inclusion witness, and signed checkpoint consistency material.","x-ioi-schema-version":"ioi.foundations.receipt-proof-bundle.v1","type":"object","additionalProperties":false,"required":["schema_version","bundle_type","manifest_domain","bundle_schema_hash","manifest_hash","manifest_signature_suite","manifest_signature_key_id","manifest_signature","bundle_id","receipt_contract_id","receipt_schema_hash","receipt_body_hash_profile","receipt","receipt_body_hash","leaf","inclusion_proof","checkpoint","previous_checkpoint","consistency_proof","trusted_input_refs","verification_instructions"],"properties":{"schema_version":{"const":"ioi.foundations.receipt-proof-bundle.v1"},"bundle_type":{"const":"ioi.receipt-proof-bundle"},"manifest_domain":{"const":"ioi.receipt-proof-bundle-manifest.v1"},"bundle_schema_hash":{"$ref":"#/$defs/sha256Hash"},"manifest_hash":{"$ref":"#/$defs/sha256Hash"},"manifest_signature_suite":{"const":"ed25519"},"manifest_signature_key_id":{"$ref":"#/$defs/keyRef"},"manifest_signature":{"$ref":"#/$defs/ed25519Signature"},"bundle_id":{"$ref":"#/$defs/proofRef"},"receipt_contract_id":{"const":"schema://ioi/foundations/receipt-envelope/v1"},"receipt_schema_hash":{"$ref":"#/$defs/sha256Hash"},"receipt_body_hash_profile":{"const":"ioi.receipt-envelope-jcs-sha256.v1"},"receipt":{"type":"object"},"receipt_body_hash":{"$ref":"#/$defs/sha256Hash"},"leaf":{"type":"object","additionalProperties":false,"required":["algorithm","domain","leaf_index","leaf_hash"],"properties":{"algorithm":{"const":"ioi.receipt-hash-chain-jcs-sha256.v1"},"domain":{"const":"ioi.receipt-accumulator-leaf.v1"},"leaf_index":{"type":"integer","minimum":0},"leaf_hash":{"$ref":"#/$defs/sha256Hash"}}},"inclusion_proof":{"type":"object","additionalProperties":false,"required":["profile","leaf_index","prefix_root","suffix_leaf_hashes"],"properties":{"profile":{"const":"ioi.receipt-hash-chain-inclusion.v1"},"leaf_index":{"type":"integer","minimum":0},"prefix_root":{"$ref":"#/$defs/sha256Hash"},"suffix_leaf_hashes":{"type":"array","items":{"$ref":"#/$defs/sha256Hash"}}}},"checkpoint":{"type":"object"},"previous_checkpoint":{"anyOf":[{"type":"object"},{"type":"null"}]},"consistency_proof":{"type":"object","additionalProperties":false,"required":["profile","from_size","from_root","extension_leaf_hashes"],"properties":{"profile":{"const":"ioi.receipt-hash-chain-consistency.v1"},"from_size":{"type":"integer","minimum":0},"from_root":{"$ref":"#/$defs/sha256Hash"},"extension_leaf_hashes":{"type":"array","items":{"$ref":"#/$defs/sha256Hash"}}}},"trusted_input_refs":{"type":"object","additionalProperties":false,"required":["key_set_ref","key_set_version","revocation_snapshot_ref","revocation_epoch"],"properties":{"key_set_ref":{"$ref":"#/$defs/keySetRef"},"key_set_version":{"type":"integer","minimum":1},"revocation_snapshot_ref":{"$ref":"#/$defs/snapshotRef"},"revocation_epoch":{"type":"integer","minimum":0}}},"verification_instructions":{"type":"object","additionalProperties":false,"required":["profile","steps","offline_required_inputs"],"properties":{"profile":{"const":"ioi.receipt-proof-verification.v1"},"steps":{"type":"array","minItems":1,"items":{"type":"string","minLength":1}},"offline_required_inputs":{"type":"array","minItems":1,"uniqueItems":true,"items":{"enum":["trusted_key_set","signed_revocation_snapshot","trusted_time"]}}}}},"$defs":{"sha256Hash":{"type":"string","pattern":"^sha256:[a-f0-9]{64}$"},"proofRef":{"type":"string","pattern":"^proof://[^\\s]+$"},"keySetRef":{"type":"string","pattern":"^keyset://[^\\s]+$"},"snapshotRef":{"type":"string","pattern":"^snapshot://[^\\s]+$"},"keyRef":{"type":"string","pattern":"^key://[^\\s]+$"},"ed25519Signature":{"type":"string","pattern":"^[A-Za-z0-9_-]{86}$"}}}"##,
     ),
     (
         "schema://ioi/foundations/information-flow-label/v1",
-        r###"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/information-flow-label/v1","title":"InformationFlowLabel","description":"Versioned multi-axis information-flow label carried by context and derived values.","x-ioi-schema-version":"ioi.foundations.information-flow-label.v1","type":"object","additionalProperties":false,"required":["schema_version","label_ref","profile_ref","content_hash","origin","integrity","confidentiality","instruction_authority","egress_policy","purpose","retention","derivation_kind","derivation_parent_refs","derivation_closure_refs"],"properties":{"schema_version":{"const":"ioi.foundations.information-flow-label.v1"},"label_ref":{"$ref":"#/$defs/labelRef"},"profile_ref":{"$ref":"#/$defs/policyRef"},"content_hash":{"$ref":"#/$defs/hash"},"origin":{"enum":["operator","admitted_artifact","external_untrusted","connector_output","tool_output","model_output","memory_import","unknown"]},"integrity":{"enum":["verified","admitted","declared","untrusted","unknown"]},"confidentiality":{"enum":["public","internal","confidential","private","restricted","unknown"]},"instruction_authority":{"enum":["authoritative","context_only","none","untrusted","unknown"]},"egress_policy":{"type":"object","additionalProperties":false,"required":["mode","allowed_destination_patterns","allowed_data_classes"],"properties":{"mode":{"enum":["deny","allow_declared","declassification_required"]},"allowed_destination_patterns":{"type":"array","items":{"type":"string","minLength":1},"uniqueItems":true},"allowed_data_classes":{"type":"array","items":{"enum":["public","internal","confidential","private","restricted"]},"uniqueItems":true}}},"purpose":{"type":"string","minLength":1},"retention":{"type":"object","additionalProperties":false,"required":["max_seconds","disposition"],"properties":{"max_seconds":{"type":"integer","minimum":0},"disposition":{"enum":["delete","return_to_owner","retain_under_policy","unknown"]}}},"derivation_kind":{"enum":["direct","join","summarization","model_substitution","memory_import","tool_output"]},"derivation_parent_refs":{"type":"array","items":{"$ref":"#/$defs/labelRef"},"uniqueItems":true},"derivation_closure_refs":{"type":"array","items":{"$ref":"#/$defs/labelRef"},"minItems":1,"uniqueItems":true}},"$defs":{"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"labelRef":{"type":"string","pattern":"^ifc-label://[A-Za-z0-9._~:/-]+$"},"policyRef":{"type":"string","pattern":"^policy://[A-Za-z0-9._~:/-]+$"}}}"###,
+        r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/information-flow-label/v1","title":"InformationFlowLabel","description":"Versioned multi-axis information-flow label carried by context and derived values.","x-ioi-schema-version":"ioi.foundations.information-flow-label.v1","type":"object","additionalProperties":false,"required":["schema_version","label_ref","profile_ref","content_hash","origin","integrity","confidentiality","instruction_authority","egress_policy","purpose","retention","derivation_kind","derivation_parent_refs","derivation_closure_refs"],"properties":{"schema_version":{"const":"ioi.foundations.information-flow-label.v1"},"label_ref":{"$ref":"#/$defs/labelRef"},"profile_ref":{"$ref":"#/$defs/policyRef"},"content_hash":{"$ref":"#/$defs/hash"},"origin":{"enum":["operator","admitted_artifact","external_untrusted","connector_output","tool_output","model_output","memory_import","unknown"]},"integrity":{"enum":["verified","admitted","declared","untrusted","unknown"]},"confidentiality":{"enum":["public","internal","confidential","private","restricted","unknown"]},"instruction_authority":{"enum":["authoritative","context_only","none","untrusted","unknown"]},"egress_policy":{"type":"object","additionalProperties":false,"required":["mode","allowed_destination_patterns","allowed_data_classes"],"properties":{"mode":{"enum":["deny","allow_declared","declassification_required"]},"allowed_destination_patterns":{"type":"array","items":{"type":"string","minLength":1},"uniqueItems":true},"allowed_data_classes":{"type":"array","items":{"enum":["public","internal","confidential","private","restricted"]},"uniqueItems":true}}},"purpose":{"type":"string","minLength":1},"retention":{"type":"object","additionalProperties":false,"required":["max_seconds","disposition"],"properties":{"max_seconds":{"type":"integer","minimum":0},"disposition":{"enum":["delete","return_to_owner","retain_under_policy","unknown"]}}},"derivation_kind":{"enum":["direct","join","summarization","model_substitution","memory_import","tool_output"]},"derivation_parent_refs":{"type":"array","items":{"$ref":"#/$defs/labelRef"},"uniqueItems":true},"derivation_closure_refs":{"type":"array","items":{"$ref":"#/$defs/labelRef"},"minItems":1,"uniqueItems":true}},"$defs":{"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"labelRef":{"type":"string","pattern":"^ifc-label://[A-Za-z0-9._~:/-]+$"},"policyRef":{"type":"string","pattern":"^policy://[A-Za-z0-9._~:/-]+$"}}}"##,
     ),
     (
         "schema://ioi/components/connectors-tools/runtime-tool-contract/v1",
-        r###"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/connectors-tools/runtime-tool-contract/v1","title":"RuntimeToolContract","description":"Immutable callable capability contract including data-class and destination-specific egress ceilings.","x-ioi-schema-version":"ioi.components.connectors-tools.runtime-tool-contract.v1","type":"object","additionalProperties":false,"required":["schema_version","tool_id","revision_ref","content_hash","namespace","display_name","version","risk_class","effect_class","primitive_capabilities_required","authority_scopes_required","approval_required","evidence_required","owner","data_class_allowlist","egress_policy"],"properties":{"schema_version":{"const":"ioi.components.connectors-tools.runtime-tool-contract.v1"},"tool_id":{"type":"string","pattern":"^tool://[A-Za-z0-9._~:/-]+$"},"revision_ref":{"type":"string","pattern":"^tool://[A-Za-z0-9._~:/-]+/revision/[A-Za-z0-9._~-]+$"},"predecessor_revision_ref":{"anyOf":[{"type":"string","pattern":"^tool://[A-Za-z0-9._~:/-]+/revision/[A-Za-z0-9._~-]+$"},{"type":"null"}]},"content_hash":{"$ref":"#/$defs/hash"},"namespace":{"type":"string","minLength":1},"display_name":{"type":"string","minLength":1},"version":{"type":"string","minLength":1},"input_schema":{"type":"object"},"output_schema":{"type":"object"},"risk_class":{"type":"string","minLength":1},"effect_class":{"type":"string","minLength":1},"concurrency_class":{"enum":["safe_parallel","resource_scoped","exclusive","serialized"]},"timeout":{"type":"object","additionalProperties":false,"required":["default_ms","max_ms"],"properties":{"default_ms":{"type":"integer","minimum":1},"max_ms":{"type":"integer","minimum":1}}},"primitive_capabilities_required":{"type":"array","items":{"type":"string","pattern":"^prim:[a-z0-9._-]+$"},"uniqueItems":true},"authority_scopes_required":{"type":"array","items":{"type":"string","pattern":"^scope:[a-z0-9._-]+$"},"uniqueItems":true},"approval_required":{"type":"boolean"},"evidence_required":{"type":"array","items":{"type":"string","minLength":1},"uniqueItems":true},"redaction_policy":{"enum":["redact_body","hash_only","full_private"]},"owner":{"type":"string","minLength":1},"data_class_allowlist":{"type":"array","items":{"enum":["public","internal","confidential","private","restricted"]},"minItems":1,"uniqueItems":true},"egress_policy":{"type":"object","additionalProperties":false,"required":["default","allowed_destination_patterns"],"properties":{"default":{"enum":["deny","allow_declared"]},"allowed_destination_patterns":{"type":"array","items":{"type":"string","minLength":1},"minItems":1,"uniqueItems":true}}},"registry_lifecycle_ref":{"anyOf":[{"type":"string","minLength":1},{"type":"null"}]},"registry_status":{"enum":["draft","released","deprecated","revoked"]}},"$defs":{"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}}}"###,
+        r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/connectors-tools/runtime-tool-contract/v1","title":"RuntimeToolContract","description":"Immutable callable capability contract including data-class and destination-specific egress ceilings.","x-ioi-schema-version":"ioi.components.connectors-tools.runtime-tool-contract.v1","type":"object","additionalProperties":false,"required":["schema_version","tool_id","revision_ref","content_hash","namespace","display_name","version","risk_class","effect_class","primitive_capabilities_required","authority_scopes_required","approval_required","evidence_required","owner","data_class_allowlist","egress_policy"],"properties":{"schema_version":{"const":"ioi.components.connectors-tools.runtime-tool-contract.v1"},"tool_id":{"type":"string","pattern":"^tool://[A-Za-z0-9._~:/-]+$"},"revision_ref":{"type":"string","pattern":"^tool://[A-Za-z0-9._~:/-]+/revision/[A-Za-z0-9._~-]+$"},"predecessor_revision_ref":{"anyOf":[{"type":"string","pattern":"^tool://[A-Za-z0-9._~:/-]+/revision/[A-Za-z0-9._~-]+$"},{"type":"null"}]},"content_hash":{"$ref":"#/$defs/hash"},"namespace":{"type":"string","minLength":1},"display_name":{"type":"string","minLength":1},"version":{"type":"string","minLength":1},"input_schema":{"type":"object"},"output_schema":{"type":"object"},"risk_class":{"type":"string","minLength":1},"effect_class":{"type":"string","minLength":1},"concurrency_class":{"enum":["safe_parallel","resource_scoped","exclusive","serialized"]},"timeout":{"type":"object","additionalProperties":false,"required":["default_ms","max_ms"],"properties":{"default_ms":{"type":"integer","minimum":1},"max_ms":{"type":"integer","minimum":1}}},"primitive_capabilities_required":{"type":"array","items":{"type":"string","pattern":"^prim:[a-z0-9._-]+$"},"uniqueItems":true},"authority_scopes_required":{"type":"array","items":{"type":"string","pattern":"^scope:[a-z0-9._-]+$"},"uniqueItems":true},"approval_required":{"type":"boolean"},"evidence_required":{"type":"array","items":{"type":"string","minLength":1},"uniqueItems":true},"redaction_policy":{"enum":["redact_body","hash_only","full_private"]},"owner":{"type":"string","minLength":1},"data_class_allowlist":{"type":"array","items":{"enum":["public","internal","confidential","private","restricted"]},"minItems":1,"uniqueItems":true},"egress_policy":{"type":"object","additionalProperties":false,"required":["default","allowed_destination_patterns"],"properties":{"default":{"enum":["deny","allow_declared"]},"allowed_destination_patterns":{"type":"array","items":{"type":"string","minLength":1},"minItems":1,"uniqueItems":true}}},"registry_lifecycle_ref":{"anyOf":[{"type":"string","minLength":1},{"type":"null"}]},"registry_status":{"enum":["draft","released","deprecated","revoked"]}},"$defs":{"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}}}"##,
     ),
     (
         "schema://ioi/foundations/managed-work-billing-ledger-bundle/v1",
-        r###"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/managed-work-billing-ledger-bundle/v1","title":"ManagedWorkBillingLedgerBundle","description":"Portable projection of one owner-derived managed-work billing chain. All monetary and Work Credit quantities are fixed-point integer units; no floating-point amount is valid.","x-ioi-schema-version":"ioi.foundations.managed-work-billing-ledger-bundle.v1","type":"object","additionalProperties":false,"required":["schema_version","bundle_ref","billing_account_ref","work_ref","rate_card","plan","quote","holds","usage_records","overrun_decisions","final_debit","adjustments","ledger_head_hash","exported_at_ms","assurance_status"],"properties":{"schema_version":{"const":"ioi.foundations.managed-work-billing-ledger-bundle.v1"},"bundle_ref":{"$ref":"#/$defs/ref"},"billing_account_ref":{"$ref":"#/$defs/ref"},"work_ref":{"$ref":"#/$defs/ref"},"rate_card":{"$ref":"#/$defs/rate_card"},"plan":{"$ref":"#/$defs/plan"},"quote":{"$ref":"#/$defs/quote"},"holds":{"type":"array","minItems":1,"items":{"$ref":"#/$defs/hold"}},"usage_records":{"type":"array","items":{"$ref":"#/$defs/usage_record"}},"overrun_decisions":{"type":"array","items":{"$ref":"#/$defs/overrun_decision"}},"final_debit":{"anyOf":[{"$ref":"#/$defs/final_debit"},{"type":"null"}]},"adjustments":{"type":"array","items":{"$ref":"#/$defs/adjustment"}},"ledger_head_hash":{"$ref":"#/$defs/hash"},"exported_at_ms":{"$ref":"#/$defs/safe_integer"},"assurance_status":{"enum":["internal_event_log","supplier_partially_reconciled","supplier_reconciled"]}},"$defs":{"safe_integer":{"type":"integer","minimum":0,"maximum":9007199254740991},"positive_safe_integer":{"type":"integer","minimum":1,"maximum":9007199254740991},"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://\\S+$"},"work_credit_amount":{"type":"object","additionalProperties":false,"required":["unit","units"],"properties":{"unit":{"const":"micro_work_credit"},"units":{"$ref":"#/$defs/safe_integer"}}},"cost_breakdown":{"type":"object","additionalProperties":false,"required":["currency_code","provider_cost_minor","broker_fee_minor","participant_cost_minor","verifier_cost_minor","ioi_fee_minor","excluded_customer_borne_provider_cost_minor","supplier_reconciliation_state"],"properties":{"currency_code":{"type":"string","pattern":"^[A-Z]{3}$"},"provider_cost_minor":{"$ref":"#/$defs/safe_integer"},"broker_fee_minor":{"$ref":"#/$defs/safe_integer"},"participant_cost_minor":{"$ref":"#/$defs/safe_integer"},"verifier_cost_minor":{"$ref":"#/$defs/safe_integer"},"ioi_fee_minor":{"$ref":"#/$defs/safe_integer"},"excluded_customer_borne_provider_cost_minor":{"$ref":"#/$defs/safe_integer"},"supplier_reconciliation_state":{"enum":["not_applicable","estimated","supplier_statement_reconciled"]}}},"meter_rate":{"type":"object","additionalProperties":false,"required":["meter_class","work_credit_micro_units_per_meter_unit","charge_component"],"properties":{"meter_class":{"type":"string","minLength":1},"work_credit_micro_units_per_meter_unit":{"$ref":"#/$defs/safe_integer"},"charge_component":{"enum":["managed_model","managed_runtime","broker","participant","verifier","ioi_managed_service","non_billable_telemetry"]}}},"rate_card":{"type":"object","additionalProperties":false,"required":["rate_card_ref","version","body_hash","currency_code","meter_rates","ioi_fee_policy_ref","issued_at_ms","expires_at_ms"],"properties":{"rate_card_ref":{"$ref":"#/$defs/ref"},"version":{"$ref":"#/$defs/positive_safe_integer"},"body_hash":{"$ref":"#/$defs/hash"},"currency_code":{"type":"string","pattern":"^[A-Z]{3}$"},"meter_rates":{"type":"array","minItems":1,"items":{"$ref":"#/$defs/meter_rate"}},"ioi_fee_policy_ref":{"$ref":"#/$defs/ref"},"issued_at_ms":{"$ref":"#/$defs/safe_integer"},"expires_at_ms":{"$ref":"#/$defs/positive_safe_integer"}}},"plan":{"type":"object","additionalProperties":false,"required":["plan_ref","version","body_hash","rate_card_ref","rate_card_body_hash","included_work_credits","reset_policy","issued_at_ms","expires_at_ms"],"properties":{"plan_ref":{"$ref":"#/$defs/ref"},"version":{"$ref":"#/$defs/positive_safe_integer"},"body_hash":{"$ref":"#/$defs/hash"},"rate_card_ref":{"$ref":"#/$defs/ref"},"rate_card_body_hash":{"$ref":"#/$defs/hash"},"included_work_credits":{"$ref":"#/$defs/work_credit_amount"},"reset_policy":{"enum":["non_resetting","monthly_expiring","contract_term_expiring"]},"issued_at_ms":{"$ref":"#/$defs/safe_integer"},"expires_at_ms":{"$ref":"#/$defs/positive_safe_integer"}}},"quote":{"type":"object","additionalProperties":false,"required":["quote_ref","body_hash","rate_card_ref","rate_card_body_hash","plan_ref","plan_body_hash","estimated_work_credits","required_hold","overrun_policy","max_attempt_count","allowed_commercial_postures","issued_at_ms","expires_at_ms"],"properties":{"quote_ref":{"$ref":"#/$defs/ref"},"body_hash":{"$ref":"#/$defs/hash"},"rate_card_ref":{"$ref":"#/$defs/ref"},"rate_card_body_hash":{"$ref":"#/$defs/hash"},"plan_ref":{"$ref":"#/$defs/ref"},"plan_body_hash":{"$ref":"#/$defs/hash"},"estimated_work_credits":{"$ref":"#/$defs/work_credit_amount"},"required_hold":{"$ref":"#/$defs/work_credit_amount"},"overrun_policy":{"enum":["block","exact_additional_hold"]},"max_attempt_count":{"$ref":"#/$defs/positive_safe_integer"},"allowed_commercial_postures":{"type":"array","minItems":1,"uniqueItems":true,"items":{"enum":["managed","customer_byok","customer_byoa","customer_cloud","self_hosted","local"]}},"issued_at_ms":{"$ref":"#/$defs/safe_integer"},"expires_at_ms":{"$ref":"#/$defs/positive_safe_integer"}}},"hold":{"type":"object","additionalProperties":false,"required":["hold_ref","body_hash","quote_ref","idempotency_key","hold_kind","overrun_decision_ref","amount","created_at_ms","expires_at_ms","status"],"properties":{"hold_ref":{"$ref":"#/$defs/ref"},"body_hash":{"$ref":"#/$defs/hash"},"quote_ref":{"$ref":"#/$defs/ref"},"idempotency_key":{"type":"string","minLength":1},"hold_kind":{"enum":["initial","exact_additional"]},"overrun_decision_ref":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}]},"amount":{"$ref":"#/$defs/work_credit_amount"},"created_at_ms":{"$ref":"#/$defs/safe_integer"},"expires_at_ms":{"$ref":"#/$defs/positive_safe_integer"},"status":{"enum":["active","consumed","released"]}}},"usage_record":{"type":"object","additionalProperties":false,"required":["usage_ref","body_hash","quote_ref","sequence","previous_usage_hash","runtime_receipt_refs","supplier_statement_refs","meter_class","quantity_units","rate_work_credit_micro_units_per_meter_unit","charged_work_credits","commercial_posture","cost_breakdown","coarse_ocu_projection","occurred_at_ms"],"properties":{"usage_ref":{"$ref":"#/$defs/ref"},"body_hash":{"$ref":"#/$defs/hash"},"quote_ref":{"$ref":"#/$defs/ref"},"sequence":{"$ref":"#/$defs/positive_safe_integer"},"previous_usage_hash":{"anyOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]},"runtime_receipt_refs":{"type":"array","minItems":1,"uniqueItems":true,"items":{"$ref":"#/$defs/ref"}},"supplier_statement_refs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/ref"}},"meter_class":{"type":"string","minLength":1},"quantity_units":{"$ref":"#/$defs/safe_integer"},"rate_work_credit_micro_units_per_meter_unit":{"$ref":"#/$defs/safe_integer"},"charged_work_credits":{"$ref":"#/$defs/work_credit_amount"},"commercial_posture":{"enum":["managed","customer_byok","customer_byoa","customer_cloud","self_hosted","local"]},"cost_breakdown":{"$ref":"#/$defs/cost_breakdown"},"coarse_ocu_projection":{"type":"boolean"},"occurred_at_ms":{"$ref":"#/$defs/safe_integer"}}},"overrun_decision":{"type":"object","additionalProperties":false,"required":["overrun_decision_ref","body_hash","quote_ref","usage_head_hash","held_work_credits","projected_work_credits","exact_overage_work_credits","decision","additional_hold_amount","created_at_ms"],"properties":{"overrun_decision_ref":{"$ref":"#/$defs/ref"},"body_hash":{"$ref":"#/$defs/hash"},"quote_ref":{"$ref":"#/$defs/ref"},"usage_head_hash":{"anyOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]},"held_work_credits":{"$ref":"#/$defs/work_credit_amount"},"projected_work_credits":{"$ref":"#/$defs/work_credit_amount"},"exact_overage_work_credits":{"$ref":"#/$defs/work_credit_amount"},"decision":{"enum":["block","exact_additional_hold"]},"additional_hold_amount":{"$ref":"#/$defs/work_credit_amount"},"created_at_ms":{"$ref":"#/$defs/safe_integer"}}},"final_debit":{"type":"object","additionalProperties":false,"required":["final_debit_ref","body_hash","quote_ref","usage_head_hash","usage_record_refs","hold_refs","debited_work_credits","finalized_at_ms"],"properties":{"final_debit_ref":{"$ref":"#/$defs/ref"},"body_hash":{"$ref":"#/$defs/hash"},"quote_ref":{"$ref":"#/$defs/ref"},"usage_head_hash":{"anyOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]},"usage_record_refs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/ref"}},"hold_refs":{"type":"array","minItems":1,"uniqueItems":true,"items":{"$ref":"#/$defs/ref"}},"debited_work_credits":{"$ref":"#/$defs/work_credit_amount"},"finalized_at_ms":{"$ref":"#/$defs/safe_integer"}}},"adjustment":{"type":"object","additionalProperties":false,"required":["adjustment_ref","body_hash","final_debit_ref","previous_adjustment_hash","adjustment_kind","amount","reason_code","evidence_refs","created_at_ms"],"properties":{"adjustment_ref":{"$ref":"#/$defs/ref"},"body_hash":{"$ref":"#/$defs/hash"},"final_debit_ref":{"$ref":"#/$defs/ref"},"previous_adjustment_hash":{"anyOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]},"adjustment_kind":{"enum":["refund","writeoff"]},"amount":{"$ref":"#/$defs/work_credit_amount"},"reason_code":{"type":"string","minLength":1},"evidence_refs":{"type":"array","minItems":1,"uniqueItems":true,"items":{"$ref":"#/$defs/ref"}},"created_at_ms":{"$ref":"#/$defs/safe_integer"}}}}}"###,
+        r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/managed-work-billing-ledger-bundle/v1","title":"ManagedWorkBillingLedgerBundle","description":"Portable projection of one owner-derived managed-work billing chain. All monetary and Work Credit quantities are fixed-point integer units; no floating-point amount is valid.","x-ioi-schema-version":"ioi.foundations.managed-work-billing-ledger-bundle.v1","type":"object","additionalProperties":false,"required":["schema_version","bundle_ref","billing_account_ref","work_ref","rate_card","plan","quote","holds","usage_records","overrun_decisions","final_debit","adjustments","ledger_head_hash","exported_at_ms","assurance_status"],"properties":{"schema_version":{"const":"ioi.foundations.managed-work-billing-ledger-bundle.v1"},"bundle_ref":{"$ref":"#/$defs/ref"},"billing_account_ref":{"$ref":"#/$defs/ref"},"work_ref":{"$ref":"#/$defs/ref"},"rate_card":{"$ref":"#/$defs/rate_card"},"plan":{"$ref":"#/$defs/plan"},"quote":{"$ref":"#/$defs/quote"},"holds":{"type":"array","minItems":1,"items":{"$ref":"#/$defs/hold"}},"usage_records":{"type":"array","items":{"$ref":"#/$defs/usage_record"}},"overrun_decisions":{"type":"array","items":{"$ref":"#/$defs/overrun_decision"}},"final_debit":{"anyOf":[{"$ref":"#/$defs/final_debit"},{"type":"null"}]},"adjustments":{"type":"array","items":{"$ref":"#/$defs/adjustment"}},"ledger_head_hash":{"$ref":"#/$defs/hash"},"exported_at_ms":{"$ref":"#/$defs/safe_integer"},"assurance_status":{"enum":["internal_event_log","supplier_partially_reconciled","supplier_reconciled"]}},"$defs":{"safe_integer":{"type":"integer","minimum":0,"maximum":9007199254740991},"positive_safe_integer":{"type":"integer","minimum":1,"maximum":9007199254740991},"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://\\S+$"},"work_credit_amount":{"type":"object","additionalProperties":false,"required":["unit","units"],"properties":{"unit":{"const":"micro_work_credit"},"units":{"$ref":"#/$defs/safe_integer"}}},"cost_breakdown":{"type":"object","additionalProperties":false,"required":["currency_code","provider_cost_minor","broker_fee_minor","participant_cost_minor","verifier_cost_minor","ioi_fee_minor","excluded_customer_borne_provider_cost_minor","supplier_reconciliation_state"],"properties":{"currency_code":{"type":"string","pattern":"^[A-Z]{3}$"},"provider_cost_minor":{"$ref":"#/$defs/safe_integer"},"broker_fee_minor":{"$ref":"#/$defs/safe_integer"},"participant_cost_minor":{"$ref":"#/$defs/safe_integer"},"verifier_cost_minor":{"$ref":"#/$defs/safe_integer"},"ioi_fee_minor":{"$ref":"#/$defs/safe_integer"},"excluded_customer_borne_provider_cost_minor":{"$ref":"#/$defs/safe_integer"},"supplier_reconciliation_state":{"enum":["not_applicable","estimated","supplier_statement_reconciled"]}}},"meter_rate":{"type":"object","additionalProperties":false,"required":["meter_class","work_credit_micro_units_per_meter_unit","charge_component"],"properties":{"meter_class":{"type":"string","minLength":1},"work_credit_micro_units_per_meter_unit":{"$ref":"#/$defs/safe_integer"},"charge_component":{"enum":["managed_model","managed_runtime","broker","participant","verifier","ioi_managed_service","non_billable_telemetry"]}}},"rate_card":{"type":"object","additionalProperties":false,"required":["rate_card_ref","version","body_hash","currency_code","meter_rates","ioi_fee_policy_ref","issued_at_ms","expires_at_ms"],"properties":{"rate_card_ref":{"$ref":"#/$defs/ref"},"version":{"$ref":"#/$defs/positive_safe_integer"},"body_hash":{"$ref":"#/$defs/hash"},"currency_code":{"type":"string","pattern":"^[A-Z]{3}$"},"meter_rates":{"type":"array","minItems":1,"items":{"$ref":"#/$defs/meter_rate"}},"ioi_fee_policy_ref":{"$ref":"#/$defs/ref"},"issued_at_ms":{"$ref":"#/$defs/safe_integer"},"expires_at_ms":{"$ref":"#/$defs/positive_safe_integer"}}},"plan":{"type":"object","additionalProperties":false,"required":["plan_ref","version","body_hash","rate_card_ref","rate_card_body_hash","included_work_credits","reset_policy","issued_at_ms","expires_at_ms"],"properties":{"plan_ref":{"$ref":"#/$defs/ref"},"version":{"$ref":"#/$defs/positive_safe_integer"},"body_hash":{"$ref":"#/$defs/hash"},"rate_card_ref":{"$ref":"#/$defs/ref"},"rate_card_body_hash":{"$ref":"#/$defs/hash"},"included_work_credits":{"$ref":"#/$defs/work_credit_amount"},"reset_policy":{"enum":["non_resetting","monthly_expiring","contract_term_expiring"]},"issued_at_ms":{"$ref":"#/$defs/safe_integer"},"expires_at_ms":{"$ref":"#/$defs/positive_safe_integer"}}},"quote":{"type":"object","additionalProperties":false,"required":["quote_ref","body_hash","rate_card_ref","rate_card_body_hash","plan_ref","plan_body_hash","estimated_work_credits","required_hold","overrun_policy","max_attempt_count","allowed_commercial_postures","issued_at_ms","expires_at_ms"],"properties":{"quote_ref":{"$ref":"#/$defs/ref"},"body_hash":{"$ref":"#/$defs/hash"},"rate_card_ref":{"$ref":"#/$defs/ref"},"rate_card_body_hash":{"$ref":"#/$defs/hash"},"plan_ref":{"$ref":"#/$defs/ref"},"plan_body_hash":{"$ref":"#/$defs/hash"},"estimated_work_credits":{"$ref":"#/$defs/work_credit_amount"},"required_hold":{"$ref":"#/$defs/work_credit_amount"},"overrun_policy":{"enum":["block","exact_additional_hold"]},"max_attempt_count":{"$ref":"#/$defs/positive_safe_integer"},"allowed_commercial_postures":{"type":"array","minItems":1,"uniqueItems":true,"items":{"enum":["managed","customer_byok","customer_byoa","customer_cloud","self_hosted","local"]}},"issued_at_ms":{"$ref":"#/$defs/safe_integer"},"expires_at_ms":{"$ref":"#/$defs/positive_safe_integer"}}},"hold":{"type":"object","additionalProperties":false,"required":["hold_ref","body_hash","quote_ref","idempotency_key","hold_kind","overrun_decision_ref","amount","created_at_ms","expires_at_ms","status"],"properties":{"hold_ref":{"$ref":"#/$defs/ref"},"body_hash":{"$ref":"#/$defs/hash"},"quote_ref":{"$ref":"#/$defs/ref"},"idempotency_key":{"type":"string","minLength":1},"hold_kind":{"enum":["initial","exact_additional"]},"overrun_decision_ref":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}]},"amount":{"$ref":"#/$defs/work_credit_amount"},"created_at_ms":{"$ref":"#/$defs/safe_integer"},"expires_at_ms":{"$ref":"#/$defs/positive_safe_integer"},"status":{"enum":["active","consumed","released"]}}},"usage_record":{"type":"object","additionalProperties":false,"required":["usage_ref","body_hash","quote_ref","sequence","previous_usage_hash","runtime_receipt_refs","supplier_statement_refs","meter_class","quantity_units","rate_work_credit_micro_units_per_meter_unit","charged_work_credits","commercial_posture","cost_breakdown","coarse_ocu_projection","occurred_at_ms"],"properties":{"usage_ref":{"$ref":"#/$defs/ref"},"body_hash":{"$ref":"#/$defs/hash"},"quote_ref":{"$ref":"#/$defs/ref"},"sequence":{"$ref":"#/$defs/positive_safe_integer"},"previous_usage_hash":{"anyOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]},"runtime_receipt_refs":{"type":"array","minItems":1,"uniqueItems":true,"items":{"$ref":"#/$defs/ref"}},"supplier_statement_refs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/ref"}},"meter_class":{"type":"string","minLength":1},"quantity_units":{"$ref":"#/$defs/safe_integer"},"rate_work_credit_micro_units_per_meter_unit":{"$ref":"#/$defs/safe_integer"},"charged_work_credits":{"$ref":"#/$defs/work_credit_amount"},"commercial_posture":{"enum":["managed","customer_byok","customer_byoa","customer_cloud","self_hosted","local"]},"cost_breakdown":{"$ref":"#/$defs/cost_breakdown"},"coarse_ocu_projection":{"type":"boolean"},"occurred_at_ms":{"$ref":"#/$defs/safe_integer"}}},"overrun_decision":{"type":"object","additionalProperties":false,"required":["overrun_decision_ref","body_hash","quote_ref","usage_head_hash","held_work_credits","projected_work_credits","exact_overage_work_credits","decision","additional_hold_amount","created_at_ms"],"properties":{"overrun_decision_ref":{"$ref":"#/$defs/ref"},"body_hash":{"$ref":"#/$defs/hash"},"quote_ref":{"$ref":"#/$defs/ref"},"usage_head_hash":{"anyOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]},"held_work_credits":{"$ref":"#/$defs/work_credit_amount"},"projected_work_credits":{"$ref":"#/$defs/work_credit_amount"},"exact_overage_work_credits":{"$ref":"#/$defs/work_credit_amount"},"decision":{"enum":["block","exact_additional_hold"]},"additional_hold_amount":{"$ref":"#/$defs/work_credit_amount"},"created_at_ms":{"$ref":"#/$defs/safe_integer"}}},"final_debit":{"type":"object","additionalProperties":false,"required":["final_debit_ref","body_hash","quote_ref","usage_head_hash","usage_record_refs","hold_refs","debited_work_credits","finalized_at_ms"],"properties":{"final_debit_ref":{"$ref":"#/$defs/ref"},"body_hash":{"$ref":"#/$defs/hash"},"quote_ref":{"$ref":"#/$defs/ref"},"usage_head_hash":{"anyOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]},"usage_record_refs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/ref"}},"hold_refs":{"type":"array","minItems":1,"uniqueItems":true,"items":{"$ref":"#/$defs/ref"}},"debited_work_credits":{"$ref":"#/$defs/work_credit_amount"},"finalized_at_ms":{"$ref":"#/$defs/safe_integer"}}},"adjustment":{"type":"object","additionalProperties":false,"required":["adjustment_ref","body_hash","final_debit_ref","previous_adjustment_hash","adjustment_kind","amount","reason_code","evidence_refs","created_at_ms"],"properties":{"adjustment_ref":{"$ref":"#/$defs/ref"},"body_hash":{"$ref":"#/$defs/hash"},"final_debit_ref":{"$ref":"#/$defs/ref"},"previous_adjustment_hash":{"anyOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]},"adjustment_kind":{"enum":["refund","writeoff"]},"amount":{"$ref":"#/$defs/work_credit_amount"},"reason_code":{"type":"string","minLength":1},"evidence_refs":{"type":"array","minItems":1,"uniqueItems":true,"items":{"$ref":"#/$defs/ref"}},"created_at_ms":{"$ref":"#/$defs/safe_integer"}}}}}"##,
     ),
     (
         "schema://ioi/foundations/dispute-rail-bundle/v1",
-        r###"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/dispute-rail-bundle/v1","title":"DisputeRailBundle","description":"Portable projection of one exact dispute-rail profile, owner-produced dispute snapshot, and admitted resolution. V1 uses one immutable asset-unit binding for disputed value, remedies, bonds, and bond allocation; it performs no conversion.","x-ioi-schema-version":"ioi.foundations.dispute-rail-bundle.v1","type":"object","additionalProperties":false,"required":["schema_version","bundle_ref","profile","dispute","resolution","exported_at_ms","assurance_status"],"properties":{"schema_version":{"const":"ioi.foundations.dispute-rail-bundle.v1"},"bundle_ref":{"$ref":"#/$defs/ref"},"profile":{"$ref":"#/$defs/dispute_rail_profile"},"dispute":{"$ref":"#/$defs/dispute"},"resolution":{"$ref":"#/$defs/dispute_resolution"},"exported_at_ms":{"$ref":"#/$defs/safe_integer"},"assurance_status":{"const":"deterministic_admission_only"}},"$defs":{"safe_integer":{"type":"integer","minimum":0,"maximum":9007199254740991},"positive_safe_integer":{"type":"integer","minimum":1,"maximum":9007199254740991},"bps":{"type":"integer","minimum":0,"maximum":10000},"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://\\S+$"},"optional_ref":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}]},"optional_hash":{"anyOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]},"value_unit":{"type":"object","additionalProperties":false,"required":["asset_ref","unit_ref","unit_version","unit_body_hash","atomic_unit_code","decimals"],"properties":{"asset_ref":{"$ref":"#/$defs/ref"},"unit_ref":{"$ref":"#/$defs/ref"},"unit_version":{"$ref":"#/$defs/positive_safe_integer"},"unit_body_hash":{"$ref":"#/$defs/hash"},"atomic_unit_code":{"type":"string","minLength":1,"pattern":"^[A-Za-z0-9_.-]+$"},"decimals":{"$ref":"#/$defs/safe_integer"}}},"bond_distribution_bps":{"type":"object","additionalProperties":false,"required":["challenger_return_bps","respondent_return_bps","challenger_award_bps","respondent_award_bps","verifier_funding_bps","treasury_bps","burn_bps","rounding_recipient"],"properties":{"challenger_return_bps":{"$ref":"#/$defs/bps"},"respondent_return_bps":{"$ref":"#/$defs/bps"},"challenger_award_bps":{"$ref":"#/$defs/bps"},"respondent_award_bps":{"$ref":"#/$defs/bps"},"verifier_funding_bps":{"$ref":"#/$defs/bps"},"treasury_bps":{"$ref":"#/$defs/bps"},"burn_bps":{"$ref":"#/$defs/bps"},"rounding_recipient":{"enum":["challenger_return","respondent_return","challenger_award","respondent_award","verifier_funding","treasury","burn"]}}},"outcome_rule":{"type":"object","additionalProperties":false,"required":["outcome","remedy","maximum_remedy_bps_of_disputed_value","bond_distribution"],"properties":{"outcome":{"$ref":"#/$defs/outcome"},"remedy":{"$ref":"#/$defs/remedy"},"maximum_remedy_bps_of_disputed_value":{"$ref":"#/$defs/bps"},"bond_distribution":{"$ref":"#/$defs/bond_distribution_bps"}}},"outcome":{"enum":["challenger_upheld","respondent_upheld","partial","no_fault","escalated"]},"remedy":{"enum":["none","refund","partial_refund","payout","partial_payout","slash","retry","revise","escalate"]},"dispute_rail_profile":{"type":"object","additionalProperties":false,"required":["dispute_rail_profile_ref","profile_version","profile_body_hash","rail_kind","value_unit","ordinary_verification_funding_ref","challenger_bond_units","respondent_bond_units","evidence_window_ms","response_window_ms","appeal_window_ms","evidence_unavailable_default","respondent_timeout_default","allowed_remedies","outcome_rules"],"properties":{"dispute_rail_profile_ref":{"$ref":"#/$defs/ref"},"profile_version":{"$ref":"#/$defs/positive_safe_integer"},"profile_body_hash":{"$ref":"#/$defs/hash"},"rail_kind":{"enum":["internal_review","marketplace_escrow","aiip_dispute","public_settlement"]},"value_unit":{"$ref":"#/$defs/value_unit"},"ordinary_verification_funding_ref":{"$ref":"#/$defs/optional_ref"},"challenger_bond_units":{"$ref":"#/$defs/safe_integer"},"respondent_bond_units":{"$ref":"#/$defs/safe_integer"},"evidence_window_ms":{"$ref":"#/$defs/positive_safe_integer"},"response_window_ms":{"$ref":"#/$defs/positive_safe_integer"},"appeal_window_ms":{"$ref":"#/$defs/positive_safe_integer"},"evidence_unavailable_default":{"$ref":"#/$defs/outcome"},"respondent_timeout_default":{"$ref":"#/$defs/outcome"},"allowed_remedies":{"type":"array","minItems":1,"uniqueItems":true,"items":{"$ref":"#/$defs/remedy"}},"outcome_rules":{"type":"array","minItems":1,"uniqueItems":true,"items":{"$ref":"#/$defs/outcome_rule"}}}},"dispute":{"type":"object","additionalProperties":false,"required":["dispute_ref","dispute_rail_profile_ref","dispute_rail_profile_version","dispute_rail_profile_body_hash","value_unit","challenged_ref","challenger_ref","respondent_ref","opened_at_ms","evidence_retained_until_ms","disputed_value_units","challenger_bond_hold_ref","challenger_bond_held_units","respondent_bond_hold_ref","respondent_bond_held_units","escrow_ref","collaboration_terms_ref","collaboration_terms_root","settlement_profile_ref","network_enrollment_ref","case_head_hash"],"properties":{"dispute_ref":{"$ref":"#/$defs/ref"},"dispute_rail_profile_ref":{"$ref":"#/$defs/ref"},"dispute_rail_profile_version":{"$ref":"#/$defs/positive_safe_integer"},"dispute_rail_profile_body_hash":{"$ref":"#/$defs/hash"},"value_unit":{"$ref":"#/$defs/value_unit"},"challenged_ref":{"$ref":"#/$defs/ref"},"challenger_ref":{"$ref":"#/$defs/ref"},"respondent_ref":{"$ref":"#/$defs/ref"},"opened_at_ms":{"$ref":"#/$defs/safe_integer"},"evidence_retained_until_ms":{"$ref":"#/$defs/safe_integer"},"disputed_value_units":{"$ref":"#/$defs/safe_integer"},"challenger_bond_hold_ref":{"$ref":"#/$defs/optional_ref"},"challenger_bond_held_units":{"$ref":"#/$defs/safe_integer"},"respondent_bond_hold_ref":{"$ref":"#/$defs/optional_ref"},"respondent_bond_held_units":{"$ref":"#/$defs/safe_integer"},"escrow_ref":{"$ref":"#/$defs/optional_ref"},"collaboration_terms_ref":{"$ref":"#/$defs/optional_ref"},"collaboration_terms_root":{"$ref":"#/$defs/optional_hash"},"settlement_profile_ref":{"$ref":"#/$defs/optional_ref"},"network_enrollment_ref":{"$ref":"#/$defs/optional_ref"},"case_head_hash":{"$ref":"#/$defs/hash"}}},"bond_allocation":{"type":"object","additionalProperties":false,"required":["challenger_return_units","respondent_return_units","challenger_award_units","respondent_award_units","verifier_funding_units","treasury_units","burn_units"],"properties":{"challenger_return_units":{"$ref":"#/$defs/safe_integer"},"respondent_return_units":{"$ref":"#/$defs/safe_integer"},"challenger_award_units":{"$ref":"#/$defs/safe_integer"},"respondent_award_units":{"$ref":"#/$defs/safe_integer"},"verifier_funding_units":{"$ref":"#/$defs/safe_integer"},"treasury_units":{"$ref":"#/$defs/safe_integer"},"burn_units":{"$ref":"#/$defs/safe_integer"}}},"dispute_resolution":{"type":"object","additionalProperties":false,"required":["dispute_resolution_ref","dispute_ref","dispute_rail_profile_ref","dispute_rail_profile_version","dispute_rail_profile_body_hash","rail_kind","value_unit","case_head_hash","request_hash","idempotency_key","adjudicator_ref","decided_at_ms","evidence_refs","response_refs","appeal_of_resolution_ref","outcome","remedy","remedy_units","bond_pool_units","bond_allocation","used_evidence_unavailable_default","used_respondent_timeout_default","appeal_deadline_ms","required_receipt_kinds","resolution_state"],"properties":{"dispute_resolution_ref":{"$ref":"#/$defs/ref"},"dispute_ref":{"$ref":"#/$defs/ref"},"dispute_rail_profile_ref":{"$ref":"#/$defs/ref"},"dispute_rail_profile_version":{"$ref":"#/$defs/positive_safe_integer"},"dispute_rail_profile_body_hash":{"$ref":"#/$defs/hash"},"rail_kind":{"enum":["internal_review","marketplace_escrow","aiip_dispute","public_settlement"]},"value_unit":{"$ref":"#/$defs/value_unit"},"case_head_hash":{"$ref":"#/$defs/hash"},"request_hash":{"$ref":"#/$defs/hash"},"idempotency_key":{"type":"string","minLength":1},"adjudicator_ref":{"$ref":"#/$defs/ref"},"decided_at_ms":{"$ref":"#/$defs/safe_integer"},"evidence_refs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/ref"}},"response_refs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/ref"}},"appeal_of_resolution_ref":{"$ref":"#/$defs/optional_ref"},"outcome":{"$ref":"#/$defs/outcome"},"remedy":{"$ref":"#/$defs/remedy"},"remedy_units":{"$ref":"#/$defs/safe_integer"},"bond_pool_units":{"$ref":"#/$defs/safe_integer"},"bond_allocation":{"$ref":"#/$defs/bond_allocation"},"used_evidence_unavailable_default":{"type":"boolean"},"used_respondent_timeout_default":{"type":"boolean"},"appeal_deadline_ms":{"$ref":"#/$defs/safe_integer"},"required_receipt_kinds":{"type":"array","minItems":2,"uniqueItems":true,"items":{"enum":["dispute_resolution","bond_distribution","dispute_remedy_execution","dispute_escalation"]},"allOf":[{"contains":{"const":"dispute_resolution"}},{"contains":{"const":"bond_distribution"}}]},"resolution_state":{"enum":["proposed","admitted","appealed","superseded","execution_pending","executed","execution_failed"]}}}}}"###,
+        r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/dispute-rail-bundle/v1","title":"DisputeRailBundle","description":"Portable projection of one exact dispute-rail profile, owner-produced dispute snapshot, and admitted resolution. V1 uses one immutable asset-unit binding for disputed value, remedies, bonds, and bond allocation; it performs no conversion.","x-ioi-schema-version":"ioi.foundations.dispute-rail-bundle.v1","type":"object","additionalProperties":false,"required":["schema_version","bundle_ref","profile","dispute","resolution","exported_at_ms","assurance_status"],"properties":{"schema_version":{"const":"ioi.foundations.dispute-rail-bundle.v1"},"bundle_ref":{"$ref":"#/$defs/ref"},"profile":{"$ref":"#/$defs/dispute_rail_profile"},"dispute":{"$ref":"#/$defs/dispute"},"resolution":{"$ref":"#/$defs/dispute_resolution"},"exported_at_ms":{"$ref":"#/$defs/safe_integer"},"assurance_status":{"const":"deterministic_admission_only"}},"$defs":{"safe_integer":{"type":"integer","minimum":0,"maximum":9007199254740991},"positive_safe_integer":{"type":"integer","minimum":1,"maximum":9007199254740991},"bps":{"type":"integer","minimum":0,"maximum":10000},"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://\\S+$"},"optional_ref":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}]},"optional_hash":{"anyOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]},"value_unit":{"type":"object","additionalProperties":false,"required":["asset_ref","unit_ref","unit_version","unit_body_hash","atomic_unit_code","decimals"],"properties":{"asset_ref":{"$ref":"#/$defs/ref"},"unit_ref":{"$ref":"#/$defs/ref"},"unit_version":{"$ref":"#/$defs/positive_safe_integer"},"unit_body_hash":{"$ref":"#/$defs/hash"},"atomic_unit_code":{"type":"string","minLength":1,"pattern":"^[A-Za-z0-9_.-]+$"},"decimals":{"$ref":"#/$defs/safe_integer"}}},"bond_distribution_bps":{"type":"object","additionalProperties":false,"required":["challenger_return_bps","respondent_return_bps","challenger_award_bps","respondent_award_bps","verifier_funding_bps","treasury_bps","burn_bps","rounding_recipient"],"properties":{"challenger_return_bps":{"$ref":"#/$defs/bps"},"respondent_return_bps":{"$ref":"#/$defs/bps"},"challenger_award_bps":{"$ref":"#/$defs/bps"},"respondent_award_bps":{"$ref":"#/$defs/bps"},"verifier_funding_bps":{"$ref":"#/$defs/bps"},"treasury_bps":{"$ref":"#/$defs/bps"},"burn_bps":{"$ref":"#/$defs/bps"},"rounding_recipient":{"enum":["challenger_return","respondent_return","challenger_award","respondent_award","verifier_funding","treasury","burn"]}}},"outcome_rule":{"type":"object","additionalProperties":false,"required":["outcome","remedy","maximum_remedy_bps_of_disputed_value","bond_distribution"],"properties":{"outcome":{"$ref":"#/$defs/outcome"},"remedy":{"$ref":"#/$defs/remedy"},"maximum_remedy_bps_of_disputed_value":{"$ref":"#/$defs/bps"},"bond_distribution":{"$ref":"#/$defs/bond_distribution_bps"}}},"outcome":{"enum":["challenger_upheld","respondent_upheld","partial","no_fault","escalated"]},"remedy":{"enum":["none","refund","partial_refund","payout","partial_payout","slash","retry","revise","escalate"]},"dispute_rail_profile":{"type":"object","additionalProperties":false,"required":["dispute_rail_profile_ref","profile_version","profile_body_hash","rail_kind","value_unit","ordinary_verification_funding_ref","challenger_bond_units","respondent_bond_units","evidence_window_ms","response_window_ms","appeal_window_ms","evidence_unavailable_default","respondent_timeout_default","allowed_remedies","outcome_rules"],"properties":{"dispute_rail_profile_ref":{"$ref":"#/$defs/ref"},"profile_version":{"$ref":"#/$defs/positive_safe_integer"},"profile_body_hash":{"$ref":"#/$defs/hash"},"rail_kind":{"enum":["internal_review","marketplace_escrow","aiip_dispute","public_settlement"]},"value_unit":{"$ref":"#/$defs/value_unit"},"ordinary_verification_funding_ref":{"$ref":"#/$defs/optional_ref"},"challenger_bond_units":{"$ref":"#/$defs/safe_integer"},"respondent_bond_units":{"$ref":"#/$defs/safe_integer"},"evidence_window_ms":{"$ref":"#/$defs/positive_safe_integer"},"response_window_ms":{"$ref":"#/$defs/positive_safe_integer"},"appeal_window_ms":{"$ref":"#/$defs/positive_safe_integer"},"evidence_unavailable_default":{"$ref":"#/$defs/outcome"},"respondent_timeout_default":{"$ref":"#/$defs/outcome"},"allowed_remedies":{"type":"array","minItems":1,"uniqueItems":true,"items":{"$ref":"#/$defs/remedy"}},"outcome_rules":{"type":"array","minItems":1,"uniqueItems":true,"items":{"$ref":"#/$defs/outcome_rule"}}}},"dispute":{"type":"object","additionalProperties":false,"required":["dispute_ref","dispute_rail_profile_ref","dispute_rail_profile_version","dispute_rail_profile_body_hash","value_unit","challenged_ref","challenger_ref","respondent_ref","opened_at_ms","evidence_retained_until_ms","disputed_value_units","challenger_bond_hold_ref","challenger_bond_held_units","respondent_bond_hold_ref","respondent_bond_held_units","escrow_ref","collaboration_terms_ref","collaboration_terms_root","settlement_profile_ref","network_enrollment_ref","case_head_hash"],"properties":{"dispute_ref":{"$ref":"#/$defs/ref"},"dispute_rail_profile_ref":{"$ref":"#/$defs/ref"},"dispute_rail_profile_version":{"$ref":"#/$defs/positive_safe_integer"},"dispute_rail_profile_body_hash":{"$ref":"#/$defs/hash"},"value_unit":{"$ref":"#/$defs/value_unit"},"challenged_ref":{"$ref":"#/$defs/ref"},"challenger_ref":{"$ref":"#/$defs/ref"},"respondent_ref":{"$ref":"#/$defs/ref"},"opened_at_ms":{"$ref":"#/$defs/safe_integer"},"evidence_retained_until_ms":{"$ref":"#/$defs/safe_integer"},"disputed_value_units":{"$ref":"#/$defs/safe_integer"},"challenger_bond_hold_ref":{"$ref":"#/$defs/optional_ref"},"challenger_bond_held_units":{"$ref":"#/$defs/safe_integer"},"respondent_bond_hold_ref":{"$ref":"#/$defs/optional_ref"},"respondent_bond_held_units":{"$ref":"#/$defs/safe_integer"},"escrow_ref":{"$ref":"#/$defs/optional_ref"},"collaboration_terms_ref":{"$ref":"#/$defs/optional_ref"},"collaboration_terms_root":{"$ref":"#/$defs/optional_hash"},"settlement_profile_ref":{"$ref":"#/$defs/optional_ref"},"network_enrollment_ref":{"$ref":"#/$defs/optional_ref"},"case_head_hash":{"$ref":"#/$defs/hash"}}},"bond_allocation":{"type":"object","additionalProperties":false,"required":["challenger_return_units","respondent_return_units","challenger_award_units","respondent_award_units","verifier_funding_units","treasury_units","burn_units"],"properties":{"challenger_return_units":{"$ref":"#/$defs/safe_integer"},"respondent_return_units":{"$ref":"#/$defs/safe_integer"},"challenger_award_units":{"$ref":"#/$defs/safe_integer"},"respondent_award_units":{"$ref":"#/$defs/safe_integer"},"verifier_funding_units":{"$ref":"#/$defs/safe_integer"},"treasury_units":{"$ref":"#/$defs/safe_integer"},"burn_units":{"$ref":"#/$defs/safe_integer"}}},"dispute_resolution":{"type":"object","additionalProperties":false,"required":["dispute_resolution_ref","dispute_ref","dispute_rail_profile_ref","dispute_rail_profile_version","dispute_rail_profile_body_hash","rail_kind","value_unit","case_head_hash","request_hash","idempotency_key","adjudicator_ref","decided_at_ms","evidence_refs","response_refs","appeal_of_resolution_ref","outcome","remedy","remedy_units","bond_pool_units","bond_allocation","used_evidence_unavailable_default","used_respondent_timeout_default","appeal_deadline_ms","required_receipt_kinds","resolution_state"],"properties":{"dispute_resolution_ref":{"$ref":"#/$defs/ref"},"dispute_ref":{"$ref":"#/$defs/ref"},"dispute_rail_profile_ref":{"$ref":"#/$defs/ref"},"dispute_rail_profile_version":{"$ref":"#/$defs/positive_safe_integer"},"dispute_rail_profile_body_hash":{"$ref":"#/$defs/hash"},"rail_kind":{"enum":["internal_review","marketplace_escrow","aiip_dispute","public_settlement"]},"value_unit":{"$ref":"#/$defs/value_unit"},"case_head_hash":{"$ref":"#/$defs/hash"},"request_hash":{"$ref":"#/$defs/hash"},"idempotency_key":{"type":"string","minLength":1},"adjudicator_ref":{"$ref":"#/$defs/ref"},"decided_at_ms":{"$ref":"#/$defs/safe_integer"},"evidence_refs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/ref"}},"response_refs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/ref"}},"appeal_of_resolution_ref":{"$ref":"#/$defs/optional_ref"},"outcome":{"$ref":"#/$defs/outcome"},"remedy":{"$ref":"#/$defs/remedy"},"remedy_units":{"$ref":"#/$defs/safe_integer"},"bond_pool_units":{"$ref":"#/$defs/safe_integer"},"bond_allocation":{"$ref":"#/$defs/bond_allocation"},"used_evidence_unavailable_default":{"type":"boolean"},"used_respondent_timeout_default":{"type":"boolean"},"appeal_deadline_ms":{"$ref":"#/$defs/safe_integer"},"required_receipt_kinds":{"type":"array","minItems":2,"uniqueItems":true,"items":{"enum":["dispute_resolution","bond_distribution","dispute_remedy_execution","dispute_escalation"]},"allOf":[{"contains":{"const":"dispute_resolution"}},{"contains":{"const":"bond_distribution"}}]},"resolution_state":{"enum":["proposed","admitted","appealed","superseded","execution_pending","executed","execution_failed"]}}}}}"##,
     ),
     (
         "schema://ioi/foundations/declassification-approval/v1",
-        r###"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/declassification-approval/v1","title":"DeclassificationApproval","description":"Single-use authority object binding declassification to exact effect bytes and the exact reviewed representation.","x-ioi-schema-version":"ioi.foundations.declassification-approval.v1","type":"object","additionalProperties":false,"required":["schema_version","approval_ref","issuer_ref","subject_ref","authority_grant_ref","tool_contract_revision_ref","label_ref","label_content_hash","decision","declassified_to","exact_effect_hash","exact_request_hash","reviewed_representation_hash","destination","purpose","issued_at","expires_at","status","approval_receipt_ref"],"properties":{"schema_version":{"const":"ioi.foundations.declassification-approval.v1"},"approval_ref":{"type":"string","pattern":"^approval://[A-Za-z0-9._~:/-]+$"},"issuer_ref":{"type":"string","minLength":1},"subject_ref":{"type":"string","minLength":1},"authority_grant_ref":{"type":"string","pattern":"^grant://[A-Za-z0-9._~:/-]+$"},"tool_contract_revision_ref":{"type":"string","pattern":"^tool://[A-Za-z0-9._~:/-]+/revision/[A-Za-z0-9._~-]+$"},"label_ref":{"type":"string","pattern":"^ifc-label://[A-Za-z0-9._~:/-]+$"},"label_content_hash":{"$ref":"#/$defs/hash"},"decision":{"const":"allow"},"declassified_to":{"enum":["public","internal","confidential"]},"exact_effect_hash":{"$ref":"#/$defs/hash"},"exact_request_hash":{"$ref":"#/$defs/hash"},"reviewed_representation_hash":{"$ref":"#/$defs/hash"},"destination":{"type":"string","minLength":1},"purpose":{"type":"string","minLength":1},"issued_at":{"type":"string","format":"date-time"},"expires_at":{"type":"string","format":"date-time"},"status":{"enum":["active","consumed","revoked","expired"]},"approval_receipt_ref":{"type":"string","pattern":"^receipt://[A-Za-z0-9._~:/-]+$"}},"$defs":{"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}}}"###,
+        r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/declassification-approval/v1","title":"DeclassificationApproval","description":"Single-use authority object binding declassification to exact effect bytes and the exact reviewed representation.","x-ioi-schema-version":"ioi.foundations.declassification-approval.v1","type":"object","additionalProperties":false,"required":["schema_version","approval_ref","issuer_ref","subject_ref","authority_grant_ref","tool_contract_revision_ref","label_ref","label_content_hash","decision","declassified_to","exact_effect_hash","exact_request_hash","reviewed_representation_hash","destination","purpose","issued_at","expires_at","status","approval_receipt_ref"],"properties":{"schema_version":{"const":"ioi.foundations.declassification-approval.v1"},"approval_ref":{"type":"string","pattern":"^approval://[A-Za-z0-9._~:/-]+$"},"issuer_ref":{"type":"string","minLength":1},"subject_ref":{"type":"string","minLength":1},"authority_grant_ref":{"type":"string","pattern":"^grant://[A-Za-z0-9._~:/-]+$"},"tool_contract_revision_ref":{"type":"string","pattern":"^tool://[A-Za-z0-9._~:/-]+/revision/[A-Za-z0-9._~-]+$"},"label_ref":{"type":"string","pattern":"^ifc-label://[A-Za-z0-9._~:/-]+$"},"label_content_hash":{"$ref":"#/$defs/hash"},"decision":{"const":"allow"},"declassified_to":{"enum":["public","internal","confidential"]},"exact_effect_hash":{"$ref":"#/$defs/hash"},"exact_request_hash":{"$ref":"#/$defs/hash"},"reviewed_representation_hash":{"$ref":"#/$defs/hash"},"destination":{"type":"string","minLength":1},"purpose":{"type":"string","minLength":1},"issued_at":{"type":"string","format":"date-time"},"expires_at":{"type":"string","format":"date-time"},"status":{"enum":["active","consumed","revoked","expired"]},"approval_receipt_ref":{"type":"string","pattern":"^receipt://[A-Za-z0-9._~:/-]+$"}},"$defs":{"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}}}"##,
     ),
 ];
 
 const CONTRACT_INVARIANTS: &[(&str, &str)] = &[
     (
         "schema://ioi/foundations/receipt-envelope/v1",
-        r###"[{"rule_id":"receipt.boundary_fact.required","description":"A receipt binds at least one declared boundary fact; an empty receipt is not proof.","expression":{"operator":"non_empty","path":"$.attested_boundary_fact_refs"}}]"###,
+        r#"[{"rule_id":"receipt.boundary_fact.required","description":"A receipt binds at least one declared boundary fact; an empty receipt is not proof.","expression":{"operator":"non_empty","path":"$.attested_boundary_fact_refs"}}]"#,
     ),
     (
         "schema://ioi/foundations/physical-action-execution-receipt/v1",
-        r###"[{"rule_id":"physical_action_execution.receipt.boundary_fact.required","description":"The bundled base receipt attests at least one physical execution boundary fact.","expression":{"operator":"non_empty","path":"$.receipt_envelope.attested_boundary_fact_refs"}},{"rule_id":"physical_action_execution.receipt.input_hash.matches_execution_request","description":"The bundled base receipt input hash is the exact execution request hash carried by the physical body.","expression":{"operator":"fields_equal","paths":["$.receipt_envelope.input_hash","$.body.execution_request_hash"]}},{"rule_id":"physical_action_execution.receipt.timestamp.matches_execution_time","description":"The bundled base receipt timestamp is the physical execution timestamp.","expression":{"operator":"fields_equal","paths":["$.receipt_envelope.timestamp","$.body.executed_at"]}},{"rule_id":"physical_action_execution.dispatch.evidence.required_for_terminal_claim","description":"Committed and rejected terminal claims require nonempty controller dispatch evidence; unknown effects may remain evidence-incomplete pending reconciliation.","expression":{"operator":"non_empty_when_in","path":"$.body.dispatch_evidence_receipt_refs","when_path":"$.body.effect_status","values":["committed","rejected"]}}]"###,
+        r#"[{"rule_id":"physical_action_execution.receipt.boundary_fact.required","description":"The bundled base receipt attests at least one physical execution boundary fact.","expression":{"operator":"non_empty","path":"$.receipt_envelope.attested_boundary_fact_refs"}},{"rule_id":"physical_action_execution.receipt.input_hash.matches_execution_request","description":"The bundled base receipt input hash is the exact execution request hash carried by the physical body.","expression":{"operator":"fields_equal","paths":["$.receipt_envelope.input_hash","$.body.execution_request_hash"]}},{"rule_id":"physical_action_execution.receipt.timestamp.matches_execution_time","description":"The bundled base receipt timestamp is the physical execution timestamp.","expression":{"operator":"fields_equal","paths":["$.receipt_envelope.timestamp","$.body.executed_at"]}},{"rule_id":"physical_action_execution.dispatch.evidence.required_for_terminal_claim","description":"Committed and rejected terminal claims require nonempty controller dispatch evidence; unknown effects may remain evidence-incomplete pending reconciliation.","expression":{"operator":"non_empty_when_in","path":"$.body.dispatch_evidence_receipt_refs","when_path":"$.body.effect_status","values":["committed","rejected"]}}]"#,
     ),
     (
         "schema://ioi/foundations/authority-grant-envelope/v1",
-        r###"[{"rule_id":"authority_grant.capability.required","description":"A grant must convey at least one authority scope or primitive capability constraint.","expression":{"operator":"any_non_empty","paths":["$.authority_scopes","$.primitive_capability_constraints"]}}]"###,
+        r#"[{"rule_id":"authority_grant.capability.required","description":"A grant must convey at least one authority scope or primitive capability constraint.","expression":{"operator":"any_non_empty","paths":["$.authority_scopes","$.primitive_capability_constraints"]}}]"#,
     ),
     (
         "schema://ioi/foundations/authority-grant-envelope/v2",
-        r###"[{"rule_id":"authority_grant.capability.required","description":"A portable grant must convey at least one authority scope or primitive capability constraint.","expression":{"operator":"any_non_empty","paths":["$.authority_scopes","$.primitive_capability_constraints"]}},{"rule_id":"authority_grant.signature_key.matches_issuer_key","description":"The signature key must be the exact issuer key named by the signed grant body.","expression":{"operator":"fields_equal","paths":["$.signature_key_id","$.issuer_key_id"]}},{"rule_id":"authority_grant.schema_hash.matches_contract","description":"The signed schema hash must match the registered immutable v2 schema.","expression":{"operator":"matches_contract_schema_hash","path":"$.schema_hash"}},{"rule_id":"authority_grant.issued_at.not_after_not_before","description":"A grant cannot become valid before it is issued.","expression":{"operator":"numbers_lte","paths":["$.issued_at","$.not_before"]}},{"rule_id":"authority_grant.not_before.before_expiry","description":"A portable grant must have a non-empty validity interval.","expression":{"operator":"numbers_lt","paths":["$.not_before","$.expires_at"]}}]"###,
+        r#"[{"rule_id":"authority_grant.capability.required","description":"A portable grant must convey at least one authority scope or primitive capability constraint.","expression":{"operator":"any_non_empty","paths":["$.authority_scopes","$.primitive_capability_constraints"]}},{"rule_id":"authority_grant.signature_key.matches_issuer_key","description":"The signature key must be the exact issuer key named by the signed grant body.","expression":{"operator":"fields_equal","paths":["$.signature_key_id","$.issuer_key_id"]}},{"rule_id":"authority_grant.schema_hash.matches_contract","description":"The signed schema hash must match the registered immutable v2 schema.","expression":{"operator":"matches_contract_schema_hash","path":"$.schema_hash"}},{"rule_id":"authority_grant.issued_at.not_after_not_before","description":"A grant cannot become valid before it is issued.","expression":{"operator":"numbers_lte","paths":["$.issued_at","$.not_before"]}},{"rule_id":"authority_grant.not_before.before_expiry","description":"A portable grant must have a non-empty validity interval.","expression":{"operator":"numbers_lt","paths":["$.not_before","$.expires_at"]}}]"#,
     ),
     (
         "schema://ioi/foundations/authority-key-set/v1",
-        r###"[{"rule_id":"authority_key_set.issued_at.before_expiry","description":"A key-discovery set must have a non-empty validity interval.","expression":{"operator":"numbers_lt","paths":["$.issued_at","$.expires_at"]}}]"###,
+        r#"[{"rule_id":"authority_key_set.issued_at.before_expiry","description":"A key-discovery set must have a non-empty validity interval.","expression":{"operator":"numbers_lt","paths":["$.issued_at","$.expires_at"]}}]"#,
     ),
     (
         "schema://ioi/foundations/authority-revocation-snapshot/v1",
-        r###"[{"rule_id":"authority_revocation_snapshot.issued_at.before_expiry","description":"A revocation snapshot must have a non-empty freshness interval.","expression":{"operator":"numbers_lt","paths":["$.issued_at","$.expires_at"]}}]"###,
+        r#"[{"rule_id":"authority_revocation_snapshot.issued_at.before_expiry","description":"A revocation snapshot must have a non-empty freshness interval.","expression":{"operator":"numbers_lt","paths":["$.issued_at","$.expires_at"]}}]"#,
     ),
     (
         "schema://ioi/foundations/receipt-checkpoint/v1",
-        r###"[{"rule_id":"receipt_checkpoint.schema_hash.matches_contract","description":"The checkpoint binds the generated contract schema hash.","expression":{"operator":"matches_contract_schema_hash","path":"$.schema_hash"}},{"rule_id":"receipt_checkpoint.signature_key.matches_issuer_key","description":"The signature key and declared issuer key are identical.","expression":{"operator":"fields_equal","paths":["$.signature_key_id","$.issuer_key_id"]}}]"###,
+        r#"[{"rule_id":"receipt_checkpoint.schema_hash.matches_contract","description":"The checkpoint binds the generated contract schema hash.","expression":{"operator":"matches_contract_schema_hash","path":"$.schema_hash"}},{"rule_id":"receipt_checkpoint.signature_key.matches_issuer_key","description":"The signature key and declared issuer key are identical.","expression":{"operator":"fields_equal","paths":["$.signature_key_id","$.issuer_key_id"]}}]"#,
     ),
     (
         "schema://ioi/foundations/receipt-proof-bundle/v1",
-        r###"[{"rule_id":"receipt_proof_bundle.schema_hash.matches_contract","description":"The exported manifest binds the generated bundle schema hash.","expression":{"operator":"matches_contract_schema_hash","path":"$.bundle_schema_hash"}},{"rule_id":"receipt_proof_bundle.leaf_index.matches_inclusion","description":"The leaf and inclusion witness address the same accumulator position.","expression":{"operator":"fields_equal","paths":["$.leaf.leaf_index","$.inclusion_proof.leaf_index"]}}]"###,
+        r#"[{"rule_id":"receipt_proof_bundle.schema_hash.matches_contract","description":"The exported manifest binds the generated bundle schema hash.","expression":{"operator":"matches_contract_schema_hash","path":"$.bundle_schema_hash"}},{"rule_id":"receipt_proof_bundle.leaf_index.matches_inclusion","description":"The leaf and inclusion witness address the same accumulator position.","expression":{"operator":"fields_equal","paths":["$.leaf.leaf_index","$.inclusion_proof.leaf_index"]}}]"#,
     ),
     (
         "schema://ioi/foundations/information-flow-label/v1",
-        r###"[{"rule_id":"information_flow_label.derivation_closure.required","description":"Every label carries at least its own derivation identity in the transitive closure.","expression":{"operator":"non_empty","path":"$.derivation_closure_refs"}}]"###,
+        r#"[{"rule_id":"information_flow_label.derivation_closure.required","description":"Every label carries at least its own derivation identity in the transitive closure.","expression":{"operator":"non_empty","path":"$.derivation_closure_refs"}}]"#,
     ),
     (
         "schema://ioi/components/connectors-tools/runtime-tool-contract/v1",
-        r###"[{"rule_id":"runtime_tool_contract.data_class_allowlist.required","description":"A tool declares the information classes it may receive.","expression":{"operator":"non_empty","path":"$.data_class_allowlist"}},{"rule_id":"runtime_tool_contract.destination_allowlist.required","description":"A tool declares at least one destination pattern; ambient network is forbidden.","expression":{"operator":"non_empty","path":"$.egress_policy.allowed_destination_patterns"}}]"###,
+        r#"[{"rule_id":"runtime_tool_contract.data_class_allowlist.required","description":"A tool declares the information classes it may receive.","expression":{"operator":"non_empty","path":"$.data_class_allowlist"}},{"rule_id":"runtime_tool_contract.destination_allowlist.required","description":"A tool declares at least one destination pattern; ambient network is forbidden.","expression":{"operator":"non_empty","path":"$.egress_policy.allowed_destination_patterns"}}]"#,
     ),
     (
         "schema://ioi/foundations/managed-work-billing-ledger-bundle/v1",
-        r###"[{"rule_id":"managed_work_billing.rate_card.window","description":"A RateCard has a finite non-empty validity interval.","expression":{"operator":"numbers_lt","paths":["$.rate_card.issued_at_ms","$.rate_card.expires_at_ms"]}},{"rule_id":"managed_work_billing.plan.window","description":"A Plan has a finite non-empty validity interval.","expression":{"operator":"numbers_lt","paths":["$.plan.issued_at_ms","$.plan.expires_at_ms"]}},{"rule_id":"managed_work_billing.quote.window","description":"An immutable WorkQuote has a finite non-empty validity interval.","expression":{"operator":"numbers_lt","paths":["$.quote.issued_at_ms","$.quote.expires_at_ms"]}},{"rule_id":"managed_work_billing.hold.required","description":"An exportable admitted billing chain contains at least one finite CreditHold.","expression":{"operator":"non_empty","path":"$.holds"}},{"rule_id":"managed_work_billing.ledger_head.required","description":"The bundle binds the current append-only ledger head.","expression":{"operator":"non_empty","path":"$.ledger_head_hash"}}]"###,
+        r#"[{"rule_id":"managed_work_billing.rate_card.window","description":"A RateCard has a finite non-empty validity interval.","expression":{"operator":"numbers_lt","paths":["$.rate_card.issued_at_ms","$.rate_card.expires_at_ms"]}},{"rule_id":"managed_work_billing.plan.window","description":"A Plan has a finite non-empty validity interval.","expression":{"operator":"numbers_lt","paths":["$.plan.issued_at_ms","$.plan.expires_at_ms"]}},{"rule_id":"managed_work_billing.quote.window","description":"An immutable WorkQuote has a finite non-empty validity interval.","expression":{"operator":"numbers_lt","paths":["$.quote.issued_at_ms","$.quote.expires_at_ms"]}},{"rule_id":"managed_work_billing.hold.required","description":"An exportable admitted billing chain contains at least one finite CreditHold.","expression":{"operator":"non_empty","path":"$.holds"}},{"rule_id":"managed_work_billing.ledger_head.required","description":"The bundle binds the current append-only ledger head.","expression":{"operator":"non_empty","path":"$.ledger_head_hash"}}]"#,
     ),
     (
         "schema://ioi/foundations/dispute-rail-bundle/v1",
-        r###"[{"rule_id":"dispute_rail.profile.dispute.ref","description":"The dispute binds the exact rail profile ref.","expression":{"operator":"fields_equal","paths":["$.profile.dispute_rail_profile_ref","$.dispute.dispute_rail_profile_ref"]}},{"rule_id":"dispute_rail.profile.dispute.version","description":"The dispute binds the exact rail profile version.","expression":{"operator":"fields_equal","paths":["$.profile.profile_version","$.dispute.dispute_rail_profile_version"]}},{"rule_id":"dispute_rail.profile.dispute.hash","description":"The dispute binds the exact rail profile body hash.","expression":{"operator":"fields_equal","paths":["$.profile.profile_body_hash","$.dispute.dispute_rail_profile_body_hash"]}},{"rule_id":"dispute_rail.profile.resolution.ref","description":"The resolution binds the exact rail profile ref.","expression":{"operator":"fields_equal","paths":["$.profile.dispute_rail_profile_ref","$.resolution.dispute_rail_profile_ref"]}},{"rule_id":"dispute_rail.profile.resolution.version","description":"The resolution binds the exact rail profile version.","expression":{"operator":"fields_equal","paths":["$.profile.profile_version","$.resolution.dispute_rail_profile_version"]}},{"rule_id":"dispute_rail.profile.resolution.hash","description":"The resolution binds the exact rail profile body hash.","expression":{"operator":"fields_equal","paths":["$.profile.profile_body_hash","$.resolution.dispute_rail_profile_body_hash"]}},{"rule_id":"dispute_rail.value_unit.profile_dispute.asset","description":"Disputed value and bonds use the profile asset.","expression":{"operator":"fields_equal","paths":["$.profile.value_unit.asset_ref","$.dispute.value_unit.asset_ref"]}},{"rule_id":"dispute_rail.value_unit.profile_dispute.unit_ref","description":"Disputed value and bonds use the profile unit ref.","expression":{"operator":"fields_equal","paths":["$.profile.value_unit.unit_ref","$.dispute.value_unit.unit_ref"]}},{"rule_id":"dispute_rail.value_unit.profile_dispute.unit_hash","description":"Disputed value and bonds use the profile unit body hash.","expression":{"operator":"fields_equal","paths":["$.profile.value_unit.unit_body_hash","$.dispute.value_unit.unit_body_hash"]}},{"rule_id":"dispute_rail.value_unit.profile_dispute.unit_version","description":"Disputed value and bonds use the profile unit version.","expression":{"operator":"fields_equal","paths":["$.profile.value_unit.unit_version","$.dispute.value_unit.unit_version"]}},{"rule_id":"dispute_rail.value_unit.profile_dispute.atomic_code","description":"Disputed value and bonds use the profile atomic-unit code.","expression":{"operator":"fields_equal","paths":["$.profile.value_unit.atomic_unit_code","$.dispute.value_unit.atomic_unit_code"]}},{"rule_id":"dispute_rail.value_unit.profile_dispute.decimals","description":"Disputed value and bonds use the profile decimal scale.","expression":{"operator":"fields_equal","paths":["$.profile.value_unit.decimals","$.dispute.value_unit.decimals"]}},{"rule_id":"dispute_rail.value_unit.profile_resolution.asset","description":"Remedy and bond allocations use the profile asset.","expression":{"operator":"fields_equal","paths":["$.profile.value_unit.asset_ref","$.resolution.value_unit.asset_ref"]}},{"rule_id":"dispute_rail.value_unit.profile_resolution.unit_ref","description":"Remedy and bond allocations use the profile unit ref.","expression":{"operator":"fields_equal","paths":["$.profile.value_unit.unit_ref","$.resolution.value_unit.unit_ref"]}},{"rule_id":"dispute_rail.value_unit.profile_resolution.unit_hash","description":"Remedy and bond allocations use the profile unit body hash.","expression":{"operator":"fields_equal","paths":["$.profile.value_unit.unit_body_hash","$.resolution.value_unit.unit_body_hash"]}},{"rule_id":"dispute_rail.value_unit.profile_resolution.unit_version","description":"Remedy and bond allocations use the profile unit version.","expression":{"operator":"fields_equal","paths":["$.profile.value_unit.unit_version","$.resolution.value_unit.unit_version"]}},{"rule_id":"dispute_rail.value_unit.profile_resolution.atomic_code","description":"Resolution display and arithmetic use the profile atomic-unit code.","expression":{"operator":"fields_equal","paths":["$.profile.value_unit.atomic_unit_code","$.resolution.value_unit.atomic_unit_code"]}},{"rule_id":"dispute_rail.value_unit.profile_resolution.decimals","description":"Resolution display scale is the profile scale.","expression":{"operator":"fields_equal","paths":["$.profile.value_unit.decimals","$.resolution.value_unit.decimals"]}},{"rule_id":"dispute_rail.profile_resolution.rail_kind","description":"The resolution remains on the admitted dispute rail.","expression":{"operator":"fields_equal","paths":["$.profile.rail_kind","$.resolution.rail_kind"]}},{"rule_id":"dispute_rail.dispute_resolution.dispute_ref","description":"The resolution belongs to the exported dispute.","expression":{"operator":"fields_equal","paths":["$.dispute.dispute_ref","$.resolution.dispute_ref"]}},{"rule_id":"dispute_rail.dispute_resolution.case_head","description":"The resolution binds the exported dispute head.","expression":{"operator":"fields_equal","paths":["$.dispute.case_head_hash","$.resolution.case_head_hash"]}}]"###,
+        r#"[{"rule_id":"dispute_rail.profile.dispute.ref","description":"The dispute binds the exact rail profile ref.","expression":{"operator":"fields_equal","paths":["$.profile.dispute_rail_profile_ref","$.dispute.dispute_rail_profile_ref"]}},{"rule_id":"dispute_rail.profile.dispute.version","description":"The dispute binds the exact rail profile version.","expression":{"operator":"fields_equal","paths":["$.profile.profile_version","$.dispute.dispute_rail_profile_version"]}},{"rule_id":"dispute_rail.profile.dispute.hash","description":"The dispute binds the exact rail profile body hash.","expression":{"operator":"fields_equal","paths":["$.profile.profile_body_hash","$.dispute.dispute_rail_profile_body_hash"]}},{"rule_id":"dispute_rail.profile.resolution.ref","description":"The resolution binds the exact rail profile ref.","expression":{"operator":"fields_equal","paths":["$.profile.dispute_rail_profile_ref","$.resolution.dispute_rail_profile_ref"]}},{"rule_id":"dispute_rail.profile.resolution.version","description":"The resolution binds the exact rail profile version.","expression":{"operator":"fields_equal","paths":["$.profile.profile_version","$.resolution.dispute_rail_profile_version"]}},{"rule_id":"dispute_rail.profile.resolution.hash","description":"The resolution binds the exact rail profile body hash.","expression":{"operator":"fields_equal","paths":["$.profile.profile_body_hash","$.resolution.dispute_rail_profile_body_hash"]}},{"rule_id":"dispute_rail.value_unit.profile_dispute.asset","description":"Disputed value and bonds use the profile asset.","expression":{"operator":"fields_equal","paths":["$.profile.value_unit.asset_ref","$.dispute.value_unit.asset_ref"]}},{"rule_id":"dispute_rail.value_unit.profile_dispute.unit_ref","description":"Disputed value and bonds use the profile unit ref.","expression":{"operator":"fields_equal","paths":["$.profile.value_unit.unit_ref","$.dispute.value_unit.unit_ref"]}},{"rule_id":"dispute_rail.value_unit.profile_dispute.unit_hash","description":"Disputed value and bonds use the profile unit body hash.","expression":{"operator":"fields_equal","paths":["$.profile.value_unit.unit_body_hash","$.dispute.value_unit.unit_body_hash"]}},{"rule_id":"dispute_rail.value_unit.profile_dispute.unit_version","description":"Disputed value and bonds use the profile unit version.","expression":{"operator":"fields_equal","paths":["$.profile.value_unit.unit_version","$.dispute.value_unit.unit_version"]}},{"rule_id":"dispute_rail.value_unit.profile_dispute.atomic_code","description":"Disputed value and bonds use the profile atomic-unit code.","expression":{"operator":"fields_equal","paths":["$.profile.value_unit.atomic_unit_code","$.dispute.value_unit.atomic_unit_code"]}},{"rule_id":"dispute_rail.value_unit.profile_dispute.decimals","description":"Disputed value and bonds use the profile decimal scale.","expression":{"operator":"fields_equal","paths":["$.profile.value_unit.decimals","$.dispute.value_unit.decimals"]}},{"rule_id":"dispute_rail.value_unit.profile_resolution.asset","description":"Remedy and bond allocations use the profile asset.","expression":{"operator":"fields_equal","paths":["$.profile.value_unit.asset_ref","$.resolution.value_unit.asset_ref"]}},{"rule_id":"dispute_rail.value_unit.profile_resolution.unit_ref","description":"Remedy and bond allocations use the profile unit ref.","expression":{"operator":"fields_equal","paths":["$.profile.value_unit.unit_ref","$.resolution.value_unit.unit_ref"]}},{"rule_id":"dispute_rail.value_unit.profile_resolution.unit_hash","description":"Remedy and bond allocations use the profile unit body hash.","expression":{"operator":"fields_equal","paths":["$.profile.value_unit.unit_body_hash","$.resolution.value_unit.unit_body_hash"]}},{"rule_id":"dispute_rail.value_unit.profile_resolution.unit_version","description":"Remedy and bond allocations use the profile unit version.","expression":{"operator":"fields_equal","paths":["$.profile.value_unit.unit_version","$.resolution.value_unit.unit_version"]}},{"rule_id":"dispute_rail.value_unit.profile_resolution.atomic_code","description":"Resolution display and arithmetic use the profile atomic-unit code.","expression":{"operator":"fields_equal","paths":["$.profile.value_unit.atomic_unit_code","$.resolution.value_unit.atomic_unit_code"]}},{"rule_id":"dispute_rail.value_unit.profile_resolution.decimals","description":"Resolution display scale is the profile scale.","expression":{"operator":"fields_equal","paths":["$.profile.value_unit.decimals","$.resolution.value_unit.decimals"]}},{"rule_id":"dispute_rail.profile_resolution.rail_kind","description":"The resolution remains on the admitted dispute rail.","expression":{"operator":"fields_equal","paths":["$.profile.rail_kind","$.resolution.rail_kind"]}},{"rule_id":"dispute_rail.dispute_resolution.dispute_ref","description":"The resolution belongs to the exported dispute.","expression":{"operator":"fields_equal","paths":["$.dispute.dispute_ref","$.resolution.dispute_ref"]}},{"rule_id":"dispute_rail.dispute_resolution.case_head","description":"The resolution binds the exported dispute head.","expression":{"operator":"fields_equal","paths":["$.dispute.case_head_hash","$.resolution.case_head_hash"]}}]"#,
     ),
     (
         "schema://ioi/foundations/declassification-approval/v1",
-        r###"[{"rule_id":"declassification_approval.exact_effect_hash.required","description":"The approval binds exact canonical effect bytes.","expression":{"operator":"non_empty","path":"$.exact_effect_hash"}},{"rule_id":"declassification_approval.reviewed_representation_hash.required","description":"The approval binds the exact representation the authority reviewed.","expression":{"operator":"non_empty","path":"$.reviewed_representation_hash"}}]"###,
+        r#"[{"rule_id":"declassification_approval.exact_effect_hash.required","description":"The approval binds exact canonical effect bytes.","expression":{"operator":"non_empty","path":"$.exact_effect_hash"}},{"rule_id":"declassification_approval.reviewed_representation_hash.required","description":"The approval binds the exact representation the authority reviewed.","expression":{"operator":"non_empty","path":"$.reviewed_representation_hash"}}]"#,
+    ),
+];
+
+const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
+    (
+        r#"^(?:commitment|settlement|tx)://[^\s]+$"#,
+        r#"^(?:commitment|settlement|tx)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
+    ),
+    (
+        r#"^(?:decision|dispute)://[^\s]+$"#,
+        r#"^(?:decision|dispute)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
+    ),
+    (
+        r#"^(?:evidence|assurance-evidence|artifact)://[^\s]+$"#,
+        r#"^(?:evidence|assurance-evidence|artifact)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
+    ),
+    (
+        r#"^(?:robot|drone|device|facility|facility-system|vehicle)://[^\s]+$"#,
+        r#"^(?:robot|drone|device|facility|facility-system|vehicle)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
+    ),
+    (
+        r#"^(?:robot|facility|vehicle|device|drone|actuator)://[^\s]+$"#,
+        r#"^(?:robot|facility|vehicle|device|drone|actuator)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
+    ),
+    (
+        r#"^(?:schema|policy)://[^\s]+$"#,
+        r#"^(?:schema|policy)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
+    ),
+    (
+        r#"^(?:system|agent|worker|runtime)://[^\s]+$"#,
+        r#"^(?:system|agent|worker|runtime)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
+    ),
+    (
+        r#"^(?:system|agent|worker|runtime|wallet|org)://[^\s]+$"#,
+        r#"^(?:system|agent|worker|runtime|wallet|org)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
+    ),
+    (
+        r#"^(?:system|user|wallet|org|project|domain|worker|agent|service|provider|policy|governance|runtime)://[^\s]+$"#,
+        r#"^(?:system|user|wallet|org|project|domain|worker|agent|service|provider|policy|governance|runtime)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
+    ),
+    (
+        r#"^(?:system|wallet|org|policy)://[^\s]+$"#,
+        r#"^(?:system|wallet|org|policy)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
+    ),
+    (
+        r#"^(?:verifier-path|verification|receipt)://[^\s]+$"#,
+        r#"^(?:verifier-path|verification|receipt)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
+    ),
+    (r#"^[a-z][a-z0-9_]*$"#, r#"^[a-z][a-z0-9_]*$"#),
+    (
+        r#"^[a-z][a-z0-9-]*://[^\s]+$"#,
+        r#"^[a-z][a-z0-9-]*://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
+    ),
+    (
+        r#"^[a-z][a-z0-9-]*(?:://|:)[^\s]+$"#,
+        r#"^[a-z][a-z0-9-]*(?:://|:)[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
+    ),
+    (r#"^[a-z][a-z0-9._-]*$"#, r#"^[a-z][a-z0-9._-]*$"#),
+    (
+        r#"^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*$"#,
+        r#"^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*$"#,
+    ),
+    (
+        r#"^[a-z][a-z0-9+.-]*://\S+$"#,
+        r#"^[a-z][a-z0-9+.-]*://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
+    ),
+    (r#"^[A-Z]{3}$"#, r#"^[A-Z]{3}$"#),
+    (r#"^[A-Za-z0-9_-]{43}$"#, r#"^[A-Za-z0-9_-]{43}$"#),
+    (r#"^[A-Za-z0-9_-]{86}$"#, r#"^[A-Za-z0-9_-]{86}$"#),
+    (r#"^[A-Za-z0-9_.-]+$"#, r#"^[A-Za-z0-9_.-]+$"#),
+    (
+        r#"^acceptance://[^\s]+$"#,
+        r#"^acceptance://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
+    ),
+    (
+        r#"^action-schema://[^\s]+$"#,
+        r#"^action-schema://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
+    ),
+    (
+        r#"^actuator://[^\s]+$"#,
+        r#"^actuator://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
+    ),
+    (
+        r#"^agentgres://operation/[^\s]+$"#,
+        r#"^agentgres://operation/[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
+    ),
+    (
+        r#"^approval://[A-Za-z0-9._~:/-]+$"#,
+        r#"^approval://[A-Za-z0-9._~:/-]+$"#,
+    ),
+    (
+        r#"^artifact://[^\s]+$"#,
+        r#"^artifact://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
+    ),
+    (
+        r#"^assurance-evidence://[^\s]+$"#,
+        r#"^assurance-evidence://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
+    ),
+    (
+        r#"^authority-request://[^\s]+$"#,
+        r#"^authority-request://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
+    ),
+    (
+        r#"^build://[^\s]+$"#,
+        r#"^build://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
+    ),
+    (
+        r#"^caveat://[^\s]+$"#,
+        r#"^caveat://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
+    ),
+    (
+        r#"^controller-binding://[^\s]+$"#,
+        r#"^controller-binding://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
+    ),
+    (
+        r#"^effect://[^\s]+$"#,
+        r#"^effect://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
+    ),
+    (
+        r#"^embodied-resource-group-revision://[^\s]+$"#,
+        r#"^embodied-resource-group-revision://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
+    ),
+    (
+        r#"^embodied-runtime-graph-manifest://[^\s]+$"#,
+        r#"^embodied-runtime-graph-manifest://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
+    ),
+    (
+        r#"^estop://[^\s]+$"#,
+        r#"^estop://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
+    ),
+    (
+        r#"^grant://[^\s]+$"#,
+        r#"^grant://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
+    ),
+    (
+        r#"^grant://[A-Za-z0-9._~:/-]+$"#,
+        r#"^grant://[A-Za-z0-9._~:/-]+$"#,
+    ),
+    (
+        r#"^ifc-label://[A-Za-z0-9._~:/-]+$"#,
+        r#"^ifc-label://[A-Za-z0-9._~:/-]+$"#,
+    ),
+    (
+        r#"^incident://[^\s]+$"#,
+        r#"^incident://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
+    ),
+    (
+        r#"^key://[^\s]+$"#,
+        r#"^key://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
+    ),
+    (
+        r#"^keyset://[^\s]+$"#,
+        r#"^keyset://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
+    ),
+    (
+        r#"^physical-action-admission:[^\s]+$"#,
+        r#"^physical-action-admission:[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
+    ),
+    (
+        r#"^policy://[^\s]+$"#,
+        r#"^policy://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
+    ),
+    (
+        r#"^policy://[A-Za-z0-9._~:/-]+$"#,
+        r#"^policy://[A-Za-z0-9._~:/-]+$"#,
+    ),
+    (r#"^prim:[a-z][a-z0-9._-]*$"#, r#"^prim:[a-z][a-z0-9._-]*$"#),
+    (r#"^prim:[a-z0-9._-]+$"#, r#"^prim:[a-z0-9._-]+$"#),
+    (
+        r#"^proof://[^\s]+$"#,
+        r#"^proof://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
+    ),
+    (
+        r#"^receipt-checkpoint://[^\s]+$"#,
+        r#"^receipt-checkpoint://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
+    ),
+    (
+        r#"^receipt-log://[^\s]+$"#,
+        r#"^receipt-log://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
+    ),
+    (
+        r#"^receipt://[^\s]+$"#,
+        r#"^receipt://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
+    ),
+    (
+        r#"^receipt://[A-Za-z0-9._~:/-]+$"#,
+        r#"^receipt://[A-Za-z0-9._~:/-]+$"#,
+    ),
+    (
+        r#"^resource-lease://[^\s]+$"#,
+        r#"^resource-lease://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
+    ),
+    (
+        r#"^run://[^\s]+$"#,
+        r#"^run://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
+    ),
+    (
+        r#"^safety://[^\s]+$"#,
+        r#"^safety://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
+    ),
+    (
+        r#"^schema://[^\s]+$"#,
+        r#"^schema://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
+    ),
+    (
+        r#"^scope:[a-z][a-z0-9._-]*$"#,
+        r#"^scope:[a-z][a-z0-9._-]*$"#,
+    ),
+    (r#"^scope:[a-z0-9._-]+$"#, r#"^scope:[a-z0-9._-]+$"#),
+    (
+        r#"^sensor://[^\s]+$"#,
+        r#"^sensor://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
+    ),
+    (
+        r#"^settlement://[^\s]+$"#,
+        r#"^settlement://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
+    ),
+    (r#"^sha256:[0-9a-f]{64}$"#, r#"^sha256:[0-9a-f]{64}$"#),
+    (r#"^sha256:[a-f0-9]{64}$"#, r#"^sha256:[a-f0-9]{64}$"#),
+    (
+        r#"^snapshot://[^\s]+$"#,
+        r#"^snapshot://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
+    ),
+    (
+        r#"^task://[^\s]+$"#,
+        r#"^task://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
+    ),
+    (
+        r#"^tool://[A-Za-z0-9._~:/-]+/revision/[A-Za-z0-9._~-]+$"#,
+        r#"^tool://[A-Za-z0-9._~:/-]+/revision/[A-Za-z0-9._~-]+$"#,
+    ),
+    (
+        r#"^tool://[A-Za-z0-9._~:/-]+$"#,
+        r#"^tool://[A-Za-z0-9._~:/-]+$"#,
+    ),
+    (
+        r#"^zone://[^\s]+$"#,
+        r#"^zone://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
     ),
 ];
 
@@ -1384,7 +2862,13 @@ fn type_matches(expected: &str, value: &Value) -> bool {
     match expected {
         "null" => value.is_null(),
         "string" => value.is_string(),
-        "integer" => value.as_u64().is_some(),
+        "integer" => {
+            value.as_i64().is_some()
+                || value.as_u64().is_some()
+                || value
+                    .as_f64()
+                    .is_some_and(|number| number.is_finite() && number.fract() == 0.0)
+        }
         "number" => value.is_number(),
         "boolean" => value.is_boolean(),
         "array" => value.is_array(),
@@ -1393,11 +2877,139 @@ fn type_matches(expected: &str, value: &Value) -> bool {
     }
 }
 
+fn normalized_json_number(number: &serde_json::Number) -> (bool, String, i32) {
+    let rendered = number.to_string();
+    let (negative, unsigned) = rendered
+        .strip_prefix('-')
+        .map_or((false, rendered.as_str()), |unsigned| (true, unsigned));
+    let (mantissa, explicit_exponent) =
+        unsigned
+            .split_once(['e', 'E'])
+            .map_or((unsigned, 0_i32), |(mantissa, exponent)| {
+                (
+                    mantissa,
+                    exponent
+                        .parse::<i32>()
+                        .expect("serde_json rendered a valid number exponent"),
+                )
+            });
+    let (whole, fraction) = mantissa
+        .split_once('.')
+        .map_or((mantissa, ""), |(whole, fraction)| (whole, fraction));
+    let mut digits = format!("{whole}{fraction}")
+        .trim_start_matches('0')
+        .to_owned();
+    if digits.is_empty() {
+        return (false, "0".to_owned(), 0);
+    }
+    let mut decimal_exponent = explicit_exponent - fraction.len() as i32;
+    while digits.ends_with('0') {
+        digits.pop();
+        decimal_exponent += 1;
+    }
+    (negative, digits, decimal_exponent)
+}
+
+fn json_schema_equal(left: &Value, right: &Value) -> bool {
+    match (left, right) {
+        (Value::Null, Value::Null) => true,
+        (Value::Bool(left), Value::Bool(right)) => left == right,
+        (Value::Number(left), Value::Number(right)) => {
+            normalized_json_number(left) == normalized_json_number(right)
+        }
+        (Value::String(left), Value::String(right)) => left == right,
+        (Value::Array(left), Value::Array(right)) => {
+            left.len() == right.len()
+                && left
+                    .iter()
+                    .zip(right)
+                    .all(|(left, right)| json_schema_equal(left, right))
+        }
+        (Value::Object(left), Value::Object(right)) => {
+            left.len() == right.len()
+                && left.iter().all(|(key, left)| {
+                    right
+                        .get(key)
+                        .is_some_and(|right| json_schema_equal(left, right))
+                })
+        }
+        _ => false,
+    }
+}
+
+fn is_leap_year(year: u32) -> bool {
+    year % 4 == 0 && (year % 100 != 0 || year % 400 == 0)
+}
+
+fn is_rfc3339_date_time(text: &str) -> bool {
+    let regex = Regex::new(
+        r"(?i)^(\d{4})-(\d{2})-(\d{2})t(\d{2}):(\d{2}):(\d{2}(?:\.\d+)?)(z|([+-])(\d{2}):(\d{2}))$",
+    )
+    .expect("generated RFC3339 regex is valid");
+    let Some(captures) = regex.captures(text) else {
+        return false;
+    };
+    let parse = |index| {
+        captures
+            .get(index)
+            .and_then(|value| value.as_str().parse::<u32>().ok())
+    };
+    let (Some(year), Some(month), Some(day), Some(hour), Some(minute)) =
+        (parse(1), parse(2), parse(3), parse(4), parse(5))
+    else {
+        return false;
+    };
+    let Some(second) = captures
+        .get(6)
+        .and_then(|value| value.as_str().parse::<f64>().ok())
+    else {
+        return false;
+    };
+    let zone_sign = if captures.get(8).is_some_and(|value| value.as_str() == "-") {
+        -1_i32
+    } else {
+        1_i32
+    };
+    let zone_hour = parse(9).unwrap_or(0);
+    let zone_minute = parse(10).unwrap_or(0);
+    let month_days = [
+        0,
+        31,
+        if is_leap_year(year) { 29 } else { 28 },
+        31,
+        30,
+        31,
+        30,
+        31,
+        31,
+        30,
+        31,
+        30,
+        31,
+    ];
+    if !(1..=12).contains(&month)
+        || day == 0
+        || day > month_days[month as usize]
+        || hour > 23
+        || minute > 59
+        || zone_hour > 23
+        || zone_minute > 59
+    {
+        return false;
+    }
+    if second < 60.0 {
+        return true;
+    }
+    let utc_minute = minute as i32 - zone_minute as i32 * zone_sign;
+    let utc_hour = hour as i32 - zone_hour as i32 * zone_sign - i32::from(utc_minute < 0);
+    (utc_hour == 23 || utc_hour == -1) && (utc_minute == 59 || utc_minute == -1) && second < 61.0
+}
+
 fn validate_node(root: &Value, schema: &Value, value: &Value, at: &str) -> Result<(), String> {
     if let Some(reference) = schema.get("$ref").and_then(Value::as_str) {
         let resolved = resolve_ref(root, reference)
             .ok_or_else(|| format!("{at}: unresolved $ref {reference}"))?;
-        return validate_node(root, resolved, value, at);
+        validate_node(root, resolved, value, at)?;
     }
     if let Some(branches) = schema.get("allOf").and_then(Value::as_array) {
         for branch in branches {
@@ -1428,16 +3040,18 @@ fn validate_node(root: &Value, schema: &Value, value: &Value, at: &str) -> Resul
             if !valid {
                 return Err(format!("{at}: failed {keyword}"));
             }
-            break;
         }
     }
     if let Some(values) = schema.get("enum").and_then(Value::as_array) {
-        if !values.contains(value) {
+        if !values
+            .iter()
+            .any(|candidate| json_schema_equal(candidate, value))
+        {
             return Err(format!("{at}: value is outside enum"));
         }
     }
     if let Some(expected) = schema.get("const") {
-        if expected != value {
+        if !json_schema_equal(expected, value) {
             return Err(format!("{at}: value does not match const"));
         }
     }
@@ -1454,18 +3068,18 @@ fn validate_node(root: &Value, schema: &Value, value: &Value, at: &str) -> Resul
             }
         }
         if let Some(pattern) = schema.get("pattern").and_then(Value::as_str) {
-            let regex =
-                Regex::new(pattern).map_err(|error| format!("invalid schema regex: {error}"))?;
+            let translated = CONTRACT_PATTERN_TRANSLATIONS
+                .iter()
+                .find_map(|(ecma, rust)| (*ecma == pattern).then_some(*rust))
+                .ok_or_else(|| format!("unsupported ECMA-262 schema pattern: {pattern}"))?;
+            let regex = Regex::new(translated)
+                .map_err(|error| format!("invalid translated schema regex: {error}"))?;
             if !regex.is_match(text) {
                 return Err(format!("{at}: string failed pattern"));
             }
         }
         if schema.get("format").and_then(Value::as_str) == Some("date-time") {
-            let zoned = text.ends_with('Z')
-                || text.rsplit_once(['+', '-']).is_some_and(|(_, zone)| {
-                    zone.len() == 5 && zone.as_bytes().get(2) == Some(&b':')
-                });
-            if !text.contains('T') || !zoned {
+            if !is_rfc3339_date_time(text) {
                 return Err(format!("{at}: invalid date-time"));
             }
         }
@@ -1473,6 +3087,11 @@ fn validate_node(root: &Value, schema: &Value, value: &Value, at: &str) -> Resul
     if let Some(minimum) = schema.get("minimum").and_then(Value::as_f64) {
         if value.as_f64().is_some_and(|number| number < minimum) {
             return Err(format!("{at}: number below minimum"));
+        }
+    }
+    if let Some(maximum) = schema.get("maximum").and_then(Value::as_f64) {
+        if value.as_f64().is_some_and(|number| number > maximum) {
+            return Err(format!("{at}: number above maximum"));
         }
     }
     if let Some(items) = value.as_array() {
@@ -1487,14 +3106,26 @@ fn validate_node(root: &Value, schema: &Value, value: &Value, at: &str) -> Resul
             }
         }
         if schema.get("uniqueItems").and_then(Value::as_bool) == Some(true) {
-            let unique: HashSet<String> = items.iter().map(Value::to_string).collect();
-            if unique.len() != items.len() {
-                return Err(format!("{at}: array items are not unique"));
+            for (index, item) in items.iter().enumerate() {
+                if items[..index]
+                    .iter()
+                    .any(|candidate| json_schema_equal(candidate, item))
+                {
+                    return Err(format!("{at}: array items are not unique"));
+                }
             }
         }
         if let Some(item_schema) = schema.get("items") {
             for (index, item) in items.iter().enumerate() {
                 validate_node(root, item_schema, item, &format!("{at}[{index}]"))?;
+            }
+        }
+        if let Some(contains_schema) = schema.get("contains") {
+            if !items
+                .iter()
+                .any(|item| validate_node(root, contains_schema, item, at).is_ok())
+            {
+                return Err(format!("{at}: array has no item matching contains"));
             }
         }
     }
@@ -1640,6 +3271,7 @@ pub fn validate_architecture_contract(contract_id: &str, value: &Value) -> Resul
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::collections::BTreeSet;
 
     const FIXTURE_BODIES: &[(&str, &str)] = &[
     ("docs/architecture/_meta/schemas/fixtures/receipt-envelope-v1/positive-minimal.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/receipt-envelope-v1/positive-minimal.json"))),
@@ -1691,6 +3323,8 @@ mod tests {
     ("docs/architecture/_meta/schemas/fixtures/declassification-approval-v1/positive-exact-binding.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/declassification-approval-v1/positive-exact-binding.json"))),
     ("docs/architecture/_meta/schemas/fixtures/declassification-approval-v1/negative-missing-reviewed-representation-hash.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/declassification-approval-v1/negative-missing-reviewed-representation-hash.json"))),
     ];
+    const RAW_STRING_DELIMITER_REGRESSION_SCHEMA: &str =
+        r####"{"const":"schema-controlled\"###literal"}"####;
 
     fn parse_projection(contract_id: &str, value: &Value) -> Result<(), String> {
         match contract_id {
@@ -1763,6 +3397,57 @@ mod tests {
         }
     }
 
+    fn validate_schema_only(contract_id: &str, value: &Value) -> Result<(), String> {
+        let schema_text = CONTRACT_SCHEMAS
+            .iter()
+            .find_map(|(id, schema)| (*id == contract_id).then_some(*schema))
+            .ok_or_else(|| format!("unknown contract: {contract_id}"))?;
+        let schema: Value = serde_json::from_str(schema_text).map_err(|error| error.to_string())?;
+        validate_node(&schema, &schema, value, "$")
+    }
+
+    fn mutation_value(mutation: &ArchitectureContractMutation) -> Value {
+        let body = FIXTURE_BODIES
+            .iter()
+            .find_map(|(path, body)| (*path == mutation.source_fixture_path).then_some(*body))
+            .expect("mutation source fixture is generated");
+        let mut value: Value =
+            serde_json::from_str(body).expect("mutation source fixture contains JSON");
+        let (parent_pointer, encoded_name) = mutation
+            .patch_pointer
+            .rsplit_once('/')
+            .expect("mutation uses a JSON pointer");
+        let name = encoded_name.replace("~1", "/").replace("~0", "~");
+        let object = value
+            .pointer_mut(parent_pointer)
+            .and_then(Value::as_object_mut)
+            .expect("mutation pointer parent is an object");
+        match mutation.patch_operation {
+            "set" => {
+                let replacement = serde_json::from_str(
+                    mutation
+                        .patch_value_json
+                        .expect("set mutation has a replacement"),
+                )
+                .expect("mutation replacement contains JSON");
+                object.insert(name, replacement);
+            }
+            "remove" => {
+                object.remove(&name).expect("removed mutation field exists");
+            }
+            operation => panic!("unsupported mutation operation {operation}"),
+        }
+        value
+    }
+
+    fn fixture_value(path: &str) -> Value {
+        let body = FIXTURE_BODIES
+            .iter()
+            .find_map(|(candidate, body)| (*candidate == path).then_some(*body))
+            .expect("fixture body is generated");
+        serde_json::from_str(body).expect("fixture contains JSON")
+    }
+
     #[test]
     fn golden_fixtures_match_generated_rust_contracts() {
         for fixture in ARCHITECTURE_CONTRACT_FIXTURES {
@@ -1771,6 +3456,14 @@ mod tests {
                 .find_map(|(path, body)| (*path == fixture.path).then_some(*body))
                 .expect("fixture body is generated");
             let value: Value = serde_json::from_str(body).expect("fixture contains JSON");
+            let schema_result = validate_schema_only(fixture.contract_id, &value);
+            assert_eq!(
+                schema_result.is_ok(),
+                fixture.expected_schema_accept,
+                "fixture {} expected_schema_accept={} schema_result={schema_result:?}",
+                fixture.path,
+                fixture.expected_schema_accept,
+            );
             let result = validate_architecture_contract(fixture.contract_id, &value)
                 .and_then(|_| parse_projection(fixture.contract_id, &value));
             assert_eq!(
@@ -1784,5 +3477,139 @@ mod tests {
                 assert!(error.contains(expected_rule), "{}: {error}", fixture.path);
             }
         }
+    }
+
+    #[test]
+    fn adversarial_mutations_match_ajv_expectations_and_cover_every_keyword() {
+        let expected_keywords = ARCHITECTURE_CONTRACT_ASSERTION_KEYWORDS
+            .iter()
+            .copied()
+            .collect::<BTreeSet<_>>();
+        let covered_keywords = ARCHITECTURE_CONTRACT_MUTATIONS
+            .iter()
+            .flat_map(|mutation| mutation.covered_keywords.iter().copied())
+            .collect::<BTreeSet<_>>();
+        assert_eq!(covered_keywords, expected_keywords);
+
+        for mutation in ARCHITECTURE_CONTRACT_MUTATIONS {
+            let value = mutation_value(mutation);
+            let schema_result = validate_schema_only(mutation.contract_id, &value);
+            assert_eq!(
+                schema_result.is_ok(),
+                mutation.ajv_expected_accept,
+                "mutation {} from {} expected Ajv acceptance={} result={schema_result:?}",
+                mutation.id,
+                mutation.source_fixture_path,
+                mutation.ajv_expected_accept,
+            );
+            let contract_result = validate_architecture_contract(mutation.contract_id, &value);
+            assert_eq!(
+                contract_result.is_ok(),
+                mutation.ajv_expected_accept,
+                "mutation {} contract result={contract_result:?}",
+                mutation.id,
+            );
+        }
+    }
+
+    #[test]
+    fn exact_json_number_equality_preserves_unique_items_semantics() {
+        const CONTRACT_ID: &str = "schema://ioi/foundations/authority-key-set/v1";
+        const FIXTURE_PATH: &str =
+            "docs/architecture/_meta/schemas/fixtures/authority-key-set-v1/positive-active.json";
+
+        let with_not_before_numbers = |first: &str, second: &str| {
+            let mut value = fixture_value(FIXTURE_PATH);
+            let key = value["keys"][0].clone();
+            let mut first_key = key.clone();
+            first_key["not_before"] = serde_json::from_str(first).expect("first exact JSON number");
+            let mut second_key = key;
+            second_key["not_before"] =
+                serde_json::from_str(second).expect("second exact JSON number");
+            value["keys"] = Value::Array(vec![first_key, second_key]);
+            value
+        };
+
+        let distinct_large = with_not_before_numbers("9007199254740992", "9007199254740993");
+        assert!(
+            validate_schema_only(CONTRACT_ID, &distinct_large).is_ok(),
+            "distinct exact integers above 2^53 remain unique",
+        );
+        assert!(
+            validate_architecture_contract(CONTRACT_ID, &distinct_large)
+                .and_then(|_| parse_projection(CONTRACT_ID, &distinct_large))
+                .is_ok(),
+            "registered Rust validator and projection accept distinct exact integers",
+        );
+
+        let equal_integer_decimal = with_not_before_numbers("1", "1.0");
+        assert!(
+            validate_schema_only(CONTRACT_ID, &equal_integer_decimal).is_err(),
+            "JSON numbers 1 and 1.0 are mathematically equal for uniqueItems",
+        );
+        assert!(json_schema_equal(
+            &serde_json::from_str("1").expect("integer JSON number"),
+            &serde_json::from_str("1.0").expect("decimal JSON number"),
+        ));
+        assert!(!json_schema_equal(
+            &serde_json::from_str("9007199254740992").expect("first large JSON number"),
+            &serde_json::from_str("9007199254740993").expect("second large JSON number"),
+        ));
+    }
+
+    #[test]
+    fn strict_rfc3339_rejects_invalid_leap_second_clock_fields() {
+        const CONTRACT_ID: &str = "schema://ioi/foundations/authority-grant-envelope/v1";
+        const FIXTURE_PATH: &str =
+            "docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v1/positive-active.json";
+        for invalid in ["2025-01-01T24:59:60+01:00", "2025-01-01T23:60:60+00:01"] {
+            let mut value = fixture_value(FIXTURE_PATH);
+            value["constraints"]["expires_at"] = Value::String(invalid.to_owned());
+            assert!(
+                validate_schema_only(CONTRACT_ID, &value).is_err(),
+                "strict RFC3339 accepted {invalid}",
+            );
+        }
+    }
+
+    #[test]
+    fn registered_ecma_pattern_translations_compile_and_match_whitespace() {
+        assert_eq!(CONTRACT_PATTERN_TRANSLATIONS.len(), 67,);
+        for (ecma, translated) in CONTRACT_PATTERN_TRANSLATIONS {
+            Regex::new(translated).unwrap_or_else(|error| panic!("{ecma}: {error}"));
+        }
+        let translated = CONTRACT_PATTERN_TRANSLATIONS
+            .iter()
+            .find_map(|(ecma, translated)| (*ecma == r"^schema://[^\s]+$").then_some(*translated))
+            .expect("registered schema-ref pattern is translated");
+        let regex = Regex::new(translated).expect("translated pattern compiles");
+        assert!(!regex.is_match("schema://ioi/test/\u{feff}"));
+        assert!(regex.is_match("schema://ioi/test/\u{0085}"));
+    }
+
+    #[test]
+    fn closed_literal_projections_reject_invalid_values_directly() {
+        for mutation in ARCHITECTURE_CONTRACT_MUTATIONS
+            .iter()
+            .filter(|mutation| mutation.direct_projection_rejection)
+        {
+            let value = mutation_value(mutation);
+            let result = parse_projection(mutation.contract_id, &value);
+            assert!(
+                result.is_err(),
+                "closed literal mutation {} deserialized directly",
+                mutation.id,
+            );
+        }
+    }
+
+    #[test]
+    fn dynamic_raw_string_delimiter_survives_schema_controlled_hashes() {
+        let schema: Value = serde_json::from_str(RAW_STRING_DELIMITER_REGRESSION_SCHEMA)
+            .expect("dynamic raw literal contains JSON");
+        assert_eq!(
+            schema["const"],
+            Value::String("schema-controlled\"###literal".to_owned()),
+        );
     }
 }

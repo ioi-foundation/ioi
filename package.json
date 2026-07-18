@@ -55,6 +55,7 @@
     "generate:architecture-contracts": "node scripts/generate-architecture-contracts.mjs",
     "check:architecture-contracts": "node scripts/check-architecture-contracts.mjs",
     "test:architecture-contract-projections": "node --experimental-strip-types scripts/test-architecture-contract-projections.mjs",
+    "check:architecture-contract-bar": "node scripts/generate-architecture-contracts.mjs --check && npm run check:architecture-contracts && npm run test:architecture-contract-projections && node --test scripts/test-architecture-docs-integrity.mjs && cargo test --locked -p ioi-types architecture_contracts",
     "dev:web": "npm run dev --workspace=@ioi/hypervisor-app",
     "dev:benchmarks": "npm run dev --workspace=apps/benchmarks",
     "build:benchmarks": "npm run build --workspace=apps/benchmarks",
@@ -68,7 +69,7 @@
     "typecheck": "npm run typecheck --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present",
     "check:architecture-docs": "node scripts/check-architecture-docs.mjs",
-    "check:pre-next-leg": "node scripts/generate-runtime-action-contracts.mjs --check && npm run check:architecture-docs && node scripts/check-pre-next-leg-readiness.mjs && npm run check:runtime-layout"
+    "check:pre-next-leg": "node scripts/generate-runtime-action-contracts.mjs --check && npm run check:architecture-contract-bar && npm run check:architecture-docs && node scripts/check-pre-next-leg-readiness.mjs && npm run check:runtime-layout"
   },
   "devDependencies": {
     "@playwright/test": "^1.60.0",

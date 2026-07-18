@@ -30,6 +30,10 @@ function allFiles(dir, predicate = () => true) {
   });
 }
 
+function normalizedProse(value) {
+  return value.replace(/\s+/g, " ").trim();
+}
+
 function assert(id, condition, evidence, message) {
   report.push({
     id,
@@ -82,6 +86,13 @@ const retiredDirectWorkspaceSurfacePaths = [
 const hypervisorConformanceSource = read(
   "scripts/conformance/hypervisor-conformance.mjs",
 );
+const githubCiWorkflow = read(".github/workflows/ci.yml");
+const rustHypervisorDaemonSource = read(
+  "crates/node/src/bin/hypervisor-daemon.rs",
+);
+const rustHypervisorLifecycleRoutesSource = read(
+  "crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs",
+);
 const hypervisorProvidersEnvironmentsDoc = read(
   "docs/architecture/components/hypervisor/providers-and-environments.md",
 );
@@ -95,6 +106,16 @@ const architectureImplementationMatrix = read(
   "docs/architecture/_meta/implementation-matrix.md",
 );
 const architectureVocabulary = read("docs/architecture/_meta/vocabulary.md");
+const normalizedArchitectureSourceOfTruthMap = normalizedProse(
+  architectureSourceOfTruthMap,
+);
+const normalizedArchitectureVocabulary = normalizedProse(
+  architectureVocabulary,
+);
+const normalizedHypervisorCoreClientsSurfacesDoc = normalizedProse(
+  hypervisorCoreClientsSurfacesDoc,
+);
+const normalizedDaemonRuntimeApiDoc = normalizedProse(daemonRuntimeApiDoc);
 const codeEditorAdapterLauncher = read(
   "scripts/launch-hypervisor-code-editor-adapter-host.mjs",
 );
@@ -426,6 +447,11 @@ const generatedRust = read(
 const actionSchema = JSON.parse(
   read("docs/architecture/_meta/schemas/runtime-action-schema.json"),
 );
+const hypervisorCoreTaxonomy = JSON.parse(
+  read(
+    "crates/node/src/bin/hypervisor_daemon_routes/hypervisor_core_taxonomy.json",
+  ),
+);
 
 assert(
   "focused-hypervisor-checks",
@@ -592,10 +618,16 @@ assert(
 );
 assert(
   "tracked-runtime-boundary-map",
-  architectureSourceOfTruthMap.includes("Hypervisor Core") &&
-    architectureSourceOfTruthMap.includes("Hypervisor Daemon") &&
+  normalizedArchitectureSourceOfTruthMap.includes(
+    "Hypervisor App, Hypervisor Web, and Hypervisor CLI/headless are first-class clients over Hypervisor Core",
+  ) &&
+    normalizedArchitectureSourceOfTruthMap.includes(
+      "IDEs, browser shells, and external runners are adapter targets, not Hypervisor's product identity.",
+    ) &&
+    normalizedArchitectureSourceOfTruthMap.includes(
+      "Hypervisor Daemon is the execution and effect-admission owner beneath those clients and adapter targets.",
+    ) &&
     architectureSourceOfTruthMap.includes("AdapterConnectionProfile") &&
-    architectureSourceOfTruthMap.includes("adapter targets, not Hypervisor's product identity") &&
     architectureVocabulary.includes("HypervisorAdapterTarget") &&
     architectureVocabulary.includes("AdapterConnectionProfile"),
   [
@@ -606,19 +638,33 @@ assert(
 );
 assert(
   "hypervisor-canon-folds-fleet-into-provider-environment-views",
-  architectureSourceOfTruthMap.includes("Hypervisor Providers / Environments") &&
-    hypervisorProvidersEnvironmentsDoc.includes("cross-session environment inventory") &&
+  normalizedArchitectureSourceOfTruthMap.includes(
+    "Environments and Operations are substrate applications",
+  ) &&
+    normalizedArchitectureVocabulary.includes(
+      "`Providers / Environments` maps to Environments;",
+    ) &&
+    normalizedHypervisorCoreClientsSurfacesDoc.includes(
+      "Provider and infrastructure posture = Environments views through Applications, Open Application, sessions, projects, provider settings, org/admin views, or operator consoles",
+    ) &&
+    hypervisorProvidersEnvironmentsDoc.includes(
+      "cross-session environment inventory",
+    ) &&
     hypervisorProvidersEnvironmentsDoc.includes("session access leases") &&
-    hypervisorProvidersEnvironmentsDoc.includes("development environment recipes") &&
+    hypervisorProvidersEnvironmentsDoc.includes(
+      "development environment recipes",
+    ) &&
     hypervisorProvidersEnvironmentsDoc.includes("lifecycle observations") &&
     !/Foundry\s*\/\s*Fleet|Workbench,\s*Foundry,\s*Fleet|Foundry\/Fleet|Fleet names/.test(
       `${architectureSourceOfTruthMap}\n${hypervisorProvidersEnvironmentsDoc}`,
     ),
   [
     "docs/architecture/_meta/source-of-truth-map.md",
+    "docs/architecture/_meta/vocabulary.md",
+    "docs/architecture/components/hypervisor/core-clients-surfaces.md",
     "docs/architecture/components/hypervisor/providers-and-environments.md",
   ],
-  "tracked canon must fold retired Fleet posture into Hypervisor provider/environment/session views",
+  "tracked canon must fold retired Fleet posture into the Environments substrate application and session/project/provider views",
 );
 assert(
   "ioi-reference-local-verifier-script",
@@ -1008,6 +1054,35 @@ assert(
   "The canon-named hypervisor-conformance command family must exist and delegate to the current docs, ABI, bridge, receipt, app, compositor, wallet, candidate, and negative guards.",
 );
 assert(
+  "architecture-contract-bar-wiring",
+  packageJson.scripts["check:architecture-contract-bar"] ===
+    [
+    "node scripts/generate-architecture-contracts.mjs --check",
+    "npm run check:architecture-contracts",
+    "npm run test:architecture-contract-projections",
+    "node --test scripts/test-architecture-docs-integrity.mjs",
+    "cargo test --locked -p ioi-types architecture_contracts",
+    ].join(" && ") &&
+    packageJson.scripts["check:pre-next-leg"]
+      ?.split(" && ")
+      .includes("npm run check:architecture-contract-bar") &&
+    /docs:\s*\[\s*npmRun\("check:architecture-contract-bar"\),/u.test(
+      hypervisorConformanceSource,
+    ) &&
+    /- name: Install JavaScript dependencies\s+run: npm ci/u.test(
+      githubCiWorkflow,
+    ) &&
+    /- name: Architecture contract bar\s+run: npm run check:architecture-contract-bar/u.test(
+      githubCiWorkflow,
+    ),
+  [
+    "package.json",
+    "scripts/conformance/hypervisor-conformance.mjs",
+    ".github/workflows/ci.yml",
+  ],
+  "The complete generated, schema, projection, documentation-integrity, and Rust architecture-contract bar must remain wired into pre-next-leg readiness, conformance, and CI.",
+);
+assert(
   "hypervisor-shell-no-generic-surface-placeholders",
   !/PLACEHOLDER_SURFACE_COPY|HypervisorSurfacePlaceholder|isPlaceholderSurface|hypervisor-surface-placeholder/.test(
     `${hypervisorShellContentSource}\n${hypervisorShellBaseCssSource}`,
@@ -1079,11 +1154,43 @@ assert(
 assert(
   "hypervisor-core-taxonomy-projection",
     daemonRuntimeApiDoc.includes("GET /v1/hypervisor/core-taxonomy") &&
-    daemonRuntimeApiDoc.includes("ioi.runtime.hypervisor_core_taxonomy.v1"),
+    daemonRuntimeApiDoc.includes("ioi.runtime.hypervisor_core_taxonomy.v2") &&
+    normalizedDaemonRuntimeApiDoc.includes(
+      "Implementation status: the current core-taxonomy code path still emits the narrower v1 hard-coded taxonomy, and the product-surface projection endpoint is not implemented.",
+    ) &&
+    normalizedDaemonRuntimeApiDoc.includes(
+      "Until typed registrations, normalized owner records, and the request-scoped policy compiler exist, a v2 taxonomy request and a product-surface projection request must return typed unavailable/unsupported responses rather than relabeling v1 data or compiling launch state in a client.",
+    ) &&
+    hypervisorCoreTaxonomy.schema_version ===
+      "ioi.runtime.hypervisor_core_taxonomy.v1" &&
+    rustHypervisorDaemonSource.includes(
+      '"/v1/hypervisor/core-taxonomy"',
+    ) &&
+    rustHypervisorDaemonSource.includes(
+      "get(lifecycle_routes::handle_core_taxonomy)",
+    ) &&
+    /pub\(crate\)\s+async\s+fn\s+handle_core_taxonomy\b/u.test(
+      rustHypervisorLifecycleRoutesSource,
+    ) &&
+    rustHypervisorLifecycleRoutesSource.includes(
+      'include_str!("hypervisor_core_taxonomy.json")',
+    ) &&
+    hypervisorCoreTaxonomy.core?.execution_owner === "hypervisor-daemon" &&
+    hypervisorCoreTaxonomy.first_class_clients?.length === 3 &&
+    hypervisorCoreTaxonomy.application_surfaces?.length > 0 &&
+    hypervisorCoreTaxonomy.adapter_target_families?.length > 0 &&
+    hypervisorCoreTaxonomy.agent_harness_adapters?.length > 0 &&
+    hypervisorCoreTaxonomy.retired_surface_aliases?.some(
+      ({ alias, replacement }) =>
+        alias === "fleet" && replacement === "sessions/providers/environments",
+    ),
   [
     "docs/architecture/components/daemon-runtime/api.md",
+    "crates/node/src/bin/hypervisor-daemon.rs",
+    "crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs",
+    "crates/node/src/bin/hypervisor_daemon_routes/hypervisor_core_taxonomy.json",
   ],
-  "Hypervisor Core taxonomy must be a daemon-visible projection that keeps clients, application surfaces, adapter targets, AgentHarnessAdapters, and retired Fleet posture distinct.",
+  "Hypervisor Core taxonomy must distinguish the transitional daemon-visible v1 projection from the fail-closed v2 target while keeping clients, application surfaces, adapter targets, AgentHarnessAdapters, and retired Fleet posture distinct.",
 );
 assert(
   "contract-family-modules",
