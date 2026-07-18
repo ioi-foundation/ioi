@@ -7,6 +7,7 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 import {
   IMPLEMENTATION_MATRIX_CROSS_BOUNDARY_OWNERS,
+  checkArchivedTerminalRecordBoundary,
   checkImplementationRefs,
   checkImplementationMatrixEvidence,
   checkOwnerMetadata,
@@ -76,11 +77,11 @@ test("implementation matrix rejects stale evidence and enforces cross-boundary o
     ),
     row(
       "HypervisorKernelSubstrateMigration",
-      "[status](./hypervisor-kernel-substrate-migration-matrix.md)",
-      "non-doctrinal migration/status evidence",
+      "[matrix](./hypervisor-kernel-substrate-migration-matrix.md), [guide](./hypervisor-kernel-substrate-unification-master-guide.md)",
+      "archived terminal provenance",
     ).replace(
       " | keep | ",
-      " | may not define daemon doctrine or release sequencing | ",
+      " | route current implementation through this implementation matrix; archived records may not direct work | ",
     ),
   ].join("\n");
   assert.deepEqual(
@@ -98,6 +99,29 @@ test("implementation matrix rejects stale evidence and enforces cross-boundary o
     }).join("\n"),
     /missing current-evidence path/u,
   );
+  for (const concept of [
+    "HypervisorSessionLaunchRecipe",
+    "RuntimeDoctorReportProjectionControl",
+  ]) {
+    assert.match(
+      checkImplementationMatrixEvidence({
+        root,
+        matrixFile,
+        content: `${valid}\n${row(
+          concept,
+          ownerLink("daemon-runtime/doctrine.md"),
+        ).replace(
+          "`scripts/check-runtime-layout.mjs`",
+          "`docs/architecture/README.md`",
+        )}`,
+      }).join("\n"),
+      new RegExp(
+        `${concept}.*not an allowed source artifact|not an allowed source artifact.*${concept}`,
+        "u",
+      ),
+      `${concept}: README substitution must fail`,
+    );
+  }
   assert.match(
     checkImplementationMatrixEvidence({
       root,
@@ -128,11 +152,47 @@ test("implementation matrix rejects stale evidence and enforces cross-boundary o
       root,
       matrixFile,
       content: valid.replace(
-        "[status](./hypervisor-kernel-substrate-migration-matrix.md)",
-        ownerLink("daemon-runtime/doctrine.md"),
+        "archived terminal provenance",
+        "live migration status",
       ),
     }).join("\n"),
     /classify HypervisorKernelSubstrateMigration/u,
+  );
+});
+
+test("archived migration sequencers require one whole-document non-actionable boundary", () => {
+  const valid = [
+    "# Archived",
+    "",
+    "Status: archived terminal record / non-actionable migration provenance.",
+    "Canonical owner: none.",
+    "Superseded by: implementation-matrix.md, daemon-runtime/doctrine.md, canon-to-code-delta.md",
+    "Doctrine status: archived",
+    "Implementation status: n/a (archived terminal record)",
+    "",
+    "## Archived Terminal Record Boundary",
+    "",
+    "Whole-document boundary: archived terminal record / non-actionable.",
+    "Everything below this boundary is solely as historical provenance and MUST NOT direct current work.",
+    "Use implementation-matrix.md, doctrine.md, and canon-to-code-delta.md.",
+    "",
+    "## Historical body",
+    "",
+    "Implement the old live Node/JS daemon_js mcp-manager wrap then delete sprint maintenance rule.",
+  ].join("\n");
+  assert.deepEqual(
+    checkArchivedTerminalRecordBoundary("archive.md", valid),
+    [],
+  );
+  assert.match(
+    checkArchivedTerminalRecordBoundary(
+      "archive.md",
+      valid.replace(
+        "Everything below this boundary",
+        "Only selected passages below this boundary",
+      ),
+    ).join("\n"),
+    /Everything below this boundary/u,
   );
 });
 

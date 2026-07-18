@@ -1077,7 +1077,11 @@ assert(
 );
 assert(
   "architecture-contract-bar-wiring",
-  packageJson.scripts["check:architecture-contract-bar"] ===
+  packageJson.scripts["generate:runtime-action-contracts"] ===
+    "node scripts/generate-runtime-action-contracts.mjs --write" &&
+    packageJson.scripts["generate:architecture-contracts"] ===
+      "node scripts/generate-architecture-contracts.mjs --write" &&
+    packageJson.scripts["check:architecture-contract-bar"] ===
     [
     "node scripts/generate-architecture-contracts.mjs --check",
     "npm run check:architecture-contracts",

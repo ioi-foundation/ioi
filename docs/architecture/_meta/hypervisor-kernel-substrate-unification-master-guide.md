@@ -1,23 +1,39 @@
 # Hypervisor Kernel Substrate Unification Master Guide
 
-Status: non-doctrinal implementation migration and evidence guide.
-Scope: migration sequencing, implementation evidence, route-family cleanup, and
-terminal conformance for convergence of the Hypervisor daemon with the existing
-Rust/WASM kernel/workload substrate.
-Canonical owner: none. Architecture doctrine remains with the subject owners in
-[`source-of-truth-map.md`](./source-of-truth-map.md) and the applicable ADRs.
+Status: archived terminal record / non-actionable migration provenance.
+Scope: preserved historical migration sequencing, evidence, route-family
+cleanup, and terminal-conformance context.
+Canonical owner: none. This record owns no current implementation status,
+doctrine, sequencing, or work direction.
+Superseded by: [`implementation-matrix.md`](./implementation-matrix.md) for
+current status, [`../components/daemon-runtime/doctrine.md`](../components/daemon-runtime/doctrine.md)
+for daemon doctrine, and [`canon-to-code-delta.md`](./canon-to-code-delta.md)
+for current implementation deltas.
 Last alignment pass: 2026-07-18.
-Doctrine status: reference
-Implementation status: partial (the JS runtime daemon was retired and deleted 2026-06-23 — `1b68cca12`; Part I's split-brain evidence is preserved as PRE-RETIREMENT history; remaining route-family state in the migration matrix)
-Implementation refs:
-  - `crates/node/src/bin/hypervisor-daemon.rs`
-  - `crates/node/src/bin/hypervisor_daemon_routes/`
+Doctrine status: archived
+Implementation status: n/a (archived terminal record)
 Last implementation audit: 2026-07-18
 Last historical pruning alignment: 2026-06-12. The migration matrix is now a compact macro
 ledger; future guide updates should steer macro authority cuts instead of
 per-slice evidence accumulation.
 
-## How To Use This Guide
+## Archived Terminal Record Boundary
+
+> **Whole-document boundary: archived terminal record / non-actionable.**
+> Everything below this boundary, including every imperative, current-state
+> verb, migration method, sprint or maintenance rule, “next cut,” `daemon_js`,
+> `mcp-manager`, `live Node/JS`, and “wrap then delete” statement, is preserved
+> solely as historical provenance and MUST NOT direct current work. Current
+> implementation decisions must use
+> [`implementation-matrix.md`](./implementation-matrix.md), daemon
+> [`doctrine.md`](../components/daemon-runtime/doctrine.md), and
+> [`canon-to-code-delta.md`](./canon-to-code-delta.md), checked against the
+> mounted source call graph.
+
+The remaining text is intentionally preserved as a terminal historical record;
+its old reader instructions and sequencing language have no present authority.
+
+## Historical Use Of This Guide
 
 This guide has three jobs:
 

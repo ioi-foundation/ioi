@@ -6764,26 +6764,40 @@ function schemaMatches(root: JsonObject, schema: JsonObject, value: unknown, at:
     }
     if (schema.uniqueItems === true) {
       for (let index = 0; index < value.length; index += 1) {
-        if (
-          value
-            .slice(0, index)
-            .some((candidate) => jsonSchemaEqual(candidate, value[index]))
-        ) {
-          return [at + ": array items are not unique"];
+        for (let previous = 0; previous < index; previous += 1) {
+          if (jsonSchemaEqual(value[previous], value[index])) {
+            return [at + ": array items are not unique"];
+          }
         }
       }
     }
     if (isObject(schema.items)) {
-      const errors = value.flatMap((item, index) => schemaMatches(root, schema.items as JsonObject, item, at + "[" + index + "]"));
-      if (errors.length > 0) return errors;
+      for (let index = 0; index < value.length; index += 1) {
+        const errors = schemaMatches(
+          root,
+          schema.items as JsonObject,
+          value[index],
+          at + "[" + index + "]",
+        );
+        if (errors.length > 0) return errors;
+      }
     }
-    if (
-      isObject(schema.contains) &&
-      !value.some(
-        (item) => schemaMatches(root, schema.contains as JsonObject, item, at).length === 0,
-      )
-    ) {
-      return [at + ": array has no item matching contains"];
+    if (isObject(schema.contains)) {
+      let containsMatch = false;
+      for (let index = 0; index < value.length; index += 1) {
+        if (
+          schemaMatches(
+            root,
+            schema.contains as JsonObject,
+            value[index],
+            at + "[" + index + "]",
+          ).length === 0
+        ) {
+          containsMatch = true;
+          break;
+        }
+      }
+      if (!containsMatch) return [at + ": array has no item matching contains"];
     }
   }
   if (isObject(value)) {
@@ -6792,7 +6806,10 @@ function schemaMatches(root: JsonObject, schema: JsonObject, value: unknown, at:
     const missing = required.filter((name) => typeof name === "string" && !(name in value));
     if (missing.length > 0) return [at + ": missing " + missing.join(", ")];
     if (schema.additionalProperties === false) {
-      const unknown = Object.keys(value).filter((name) => !(name in properties));
+      const unknown: string[] = [];
+      for (const name in value) {
+        if (!(name in properties)) unknown.push(name);
+      }
       if (unknown.length > 0) return [at + ": unknown " + unknown.join(", ")];
     }
     for (const [name, propertySchema] of Object.entries(properties)) {

@@ -29,6 +29,7 @@ export type {
   WorkflowComposerComputerUseRunOptions,
 } from "./WorkflowComposer/computerUseRunOptions";
 export { createWorkflowHarnessTools } from "./runtime/workflow-harness-tools";
+export * from "./runtime/architecture-contracts";
 export {
   createWorkflowRuntimeUnavailableFailure,
   workflowRuntimeCatalogFallbackCopy,

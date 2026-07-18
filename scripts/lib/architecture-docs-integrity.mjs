@@ -394,9 +394,11 @@ export function checkOwnerMetadata({ root, sourceMapFile, sourceMapContent, cont
   const failures = [];
   const firstBySubject = new Map();
   for (const row of sourceMapRows(sourceMapContent)) {
-    const ownerFiles = markdownLinks(row.ownerCell)
-      .map((target) => path.resolve(path.dirname(sourceMapFile), target))
-      .filter((file) => file.endsWith(".md"));
+    const ownerFiles = /^Canonical owner:\s*none\b/iu.test(row.ownerCell)
+      ? []
+      : markdownLinks(row.ownerCell)
+          .map((target) => path.resolve(path.dirname(sourceMapFile), target))
+          .filter((file) => file.endsWith(".md"));
     const ownerKey = [...new Set(ownerFiles)].sort().join("|");
     if (firstBySubject.has(row.subject) && firstBySubject.get(row.subject).ownerKey !== ownerKey) {
       failures.push(
@@ -447,6 +449,72 @@ function implementationMatrixRows(content) {
       ? [{ cells, line: index + 1 }]
       : [];
   });
+}
+
+const IMPLEMENTATION_EVIDENCE_SOURCE_EXTENSIONS = new Set([
+  ".js",
+  ".json",
+  ".mjs",
+  ".rs",
+  ".sh",
+  ".toml",
+  ".ts",
+  ".tsx",
+  ".yaml",
+  ".yml",
+]);
+
+function directoryContainsSourceArtifact(directory) {
+  return fs.readdirSync(directory, { withFileTypes: true }).some((entry) => {
+    const absolute = path.join(directory, entry.name);
+    if (entry.isDirectory()) return directoryContainsSourceArtifact(absolute);
+    return (
+      entry.isFile() &&
+      IMPLEMENTATION_EVIDENCE_SOURCE_EXTENSIONS.has(
+        path.extname(entry.name).toLowerCase(),
+      )
+    );
+  });
+}
+
+function schemaDirectoryContainsStructuredArtifact(directory) {
+  return fs.readdirSync(directory, { withFileTypes: true }).some((entry) => {
+    const absolute = path.join(directory, entry.name);
+    if (entry.isDirectory()) {
+      return schemaDirectoryContainsStructuredArtifact(absolute);
+    }
+    return (
+      entry.isFile() &&
+      new Set([".json", ".yaml", ".yml"]).has(
+        path.extname(entry.name).toLowerCase(),
+      )
+    );
+  });
+}
+
+function implementationEvidenceSourceArtifact(root, candidate, resolved) {
+  const stat = fs.lstatSync(resolved);
+  if (stat.isSymbolicLink()) return false;
+  const relative = normalizeRel(root, resolved);
+  if (stat.isDirectory()) {
+    if (/^docs\/architecture\/_meta\/schemas(?:\/|$)/u.test(relative)) {
+      return schemaDirectoryContainsStructuredArtifact(resolved);
+    }
+    return (
+      /^(?:apps|crates|packages|scripts)\//u.test(`${relative}/`) &&
+      directoryContainsSourceArtifact(resolved)
+    );
+  }
+  if (!stat.isFile()) return false;
+  const extension = path.extname(resolved).toLowerCase();
+  if (!IMPLEMENTATION_EVIDENCE_SOURCE_EXTENSIONS.has(extension)) return false;
+  if (relative.startsWith("docs/")) {
+    return (
+      /^docs\/architecture\/_meta\/schemas\//u.test(relative) &&
+      new Set([".json", ".yaml", ".yml"]).has(extension)
+    );
+  }
+  return /^(?:\.github|apps|crates|packages|scripts)\//u.test(relative);
 }
 
 export const IMPLEMENTATION_MATRIX_CROSS_BOUNDARY_OWNERS = new Map([
@@ -622,6 +690,12 @@ export function checkImplementationMatrixEvidence({
         failures.push(
           `${rel}:${line} has missing current-evidence path: ${rawCandidate}.`,
         );
+      } else if (
+        !implementationEvidenceSourceArtifact(root, candidate, resolved)
+      ) {
+        failures.push(
+          `${rel}:${line} ${cells[0]} current-evidence path is not an allowed source artifact: ${rawCandidate}.`,
+        );
       }
     }
     if (
@@ -662,11 +736,17 @@ export function checkImplementationMatrixEvidence({
     !migration[1].includes(
       "hypervisor-kernel-substrate-migration-matrix.md",
     ) ||
-    !/non-doctrinal migration\/status evidence/iu.test(migration[2]) ||
-    !/may not define daemon doctrine/iu.test(migration[3])
+    !migration[1].includes(
+      "hypervisor-kernel-substrate-unification-master-guide.md",
+    ) ||
+    !/archived terminal provenance/iu.test(migration[2]) ||
+    !/route current implementation through this implementation matrix/iu.test(
+      migration[3],
+    ) ||
+    !/archived records may not direct work/iu.test(migration[3])
   ) {
     failures.push(
-      `${rel} must classify HypervisorKernelSubstrateMigration under the explicitly non-doctrinal migration/status matrix, not daemon doctrine.`,
+      `${rel} must classify HypervisorKernelSubstrateMigration as archived terminal provenance and route current work through current owners.`,
     );
   }
 
@@ -704,6 +784,54 @@ export function checkRetiredRuntimePathHonesty(rel, content) {
       failures.push(
         `${rel}:${index + 1} mentions a retired runtime/bridge path outside an explicit historical or retired context.`,
       );
+    }
+  }
+  return failures;
+}
+
+export function checkArchivedTerminalRecordBoundary(rel, content) {
+  const failures = [];
+  const lines = content.split(/\r?\n/u);
+  const boundary = lines.findIndex(
+    (line) => line === "## Archived Terminal Record Boundary",
+  );
+  if (boundary < 0 || boundary > 30) {
+    failures.push(
+      `${rel} must establish its Archived Terminal Record Boundary within the first 31 lines.`,
+    );
+    return failures;
+  }
+  const header = lines.slice(0, boundary).join("\n");
+  const boundaryEnd = lines.findIndex(
+    (line, index) => index > boundary && /^##\s+/u.test(line),
+  );
+  const boundaryText = lines
+    .slice(boundary, boundaryEnd < 0 ? lines.length : boundaryEnd)
+    .join(" ");
+  for (const required of [
+    "Status: archived terminal record / non-actionable",
+    "Canonical owner: none.",
+    "Doctrine status: archived",
+    "Implementation status: n/a (archived terminal record)",
+    "implementation-matrix.md",
+    "daemon-runtime/doctrine.md",
+    "canon-to-code-delta.md",
+  ]) {
+    if (!header.includes(required)) {
+      failures.push(`${rel} archived metadata is missing: ${required}.`);
+    }
+  }
+  for (const required of [
+    "Whole-document boundary: archived terminal record / non-actionable",
+    "Everything below this boundary",
+    "solely as historical provenance",
+    "MUST NOT direct current work",
+    "implementation-matrix.md",
+    "doctrine.md",
+    "canon-to-code-delta.md",
+  ]) {
+    if (!boundaryText.includes(required)) {
+      failures.push(`${rel} archive boundary is missing: ${required}.`);
     }
   }
   return failures;
@@ -775,7 +903,7 @@ export function checkArchitectureIntegrity({ root, architectureRoot, markdownFil
   ]) {
     const file = path.join(root, rel);
     failures.push(
-      ...checkRetiredRuntimePathHonesty(
+      ...checkArchivedTerminalRecordBoundary(
         rel,
         contentsByFile.get(file) ?? fs.readFileSync(file, "utf8"),
       ),

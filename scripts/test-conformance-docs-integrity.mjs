@@ -19,7 +19,7 @@ test("attestation assurance broken links fail the conformance docs tier", () => 
       "# Attestation Assurance\n\n[Missing evidence](./missing-evidence.md)\n",
     );
     assert.deepEqual(checkConformanceDocsIntegrity({ root }), [
-      "docs/conformance/hypervisor-core/attestation-assurance.md has broken local link: ./missing-evidence.md",
+      "docs/conformance/hypervisor-core/attestation-assurance.md has broken local link: [Missing evidence](./missing-evidence.md)",
     ]);
 
     fs.writeFileSync(
@@ -43,7 +43,7 @@ test("attestation assurance broken links fail the conformance docs tier", () => 
       "# Attestation Assurance\n\n[Wrong anchor](./missing-evidence.md#absent)\n",
     );
     assert.deepEqual(checkConformanceDocsIntegrity({ root }), [
-      "docs/conformance/hypervisor-core/attestation-assurance.md has broken local anchor: ./missing-evidence.md#absent",
+      "docs/conformance/hypervisor-core/attestation-assurance.md has broken local anchor: [Wrong anchor](./missing-evidence.md#absent)",
     ]);
 
     fs.writeFileSync(
@@ -74,6 +74,85 @@ test("attestation assurance broken links fail the conformance docs tier", () => 
     );
     fs.writeFileSync(path.join(hypervisorCore, "assurance.png"), "png");
     assert.deepEqual(checkConformanceDocsIntegrity({ root }), []);
+
+    fs.writeFileSync(
+      assurance,
+      [
+        "# Attestation Assurance",
+        "",
+        "[Multiline inline](",
+        "  ./missing-evidence.md#evidence-owner",
+        ")",
+        "",
+        "[Multiline full][evidence]",
+        "[Multiline collapsed][]",
+        "[Multiline shortcut]",
+        "![Multiline image][diagram]",
+        "",
+        "[evidence]:",
+        "  <./missing-evidence.md#evidence-owner>",
+        '  "Evidence title"',
+        "[multiline collapsed]:",
+        "  ./missing-evidence.md",
+        "[multiline shortcut]:",
+        "  ./missing-evidence.md",
+        "[diagram]:",
+        "  ./assurance.png",
+        "",
+      ].join("\n"),
+    );
+    assert.deepEqual(checkConformanceDocsIntegrity({ root }), []);
+
+    fs.writeFileSync(
+      assurance,
+      "# Attestation Assurance\n\n[Missing shortcut]\n",
+    );
+    assert.deepEqual(checkConformanceDocsIntegrity({ root }), [
+      "docs/conformance/hypervisor-core/attestation-assurance.md has missing reference definition: [Missing shortcut]",
+    ]);
+
+    fs.writeFileSync(
+      assurance,
+      "# Attestation Assurance\n\n[Missing collapsed][]\n",
+    );
+    assert.deepEqual(checkConformanceDocsIntegrity({ root }), [
+      "docs/conformance/hypervisor-core/attestation-assurance.md has missing reference definition: [Missing collapsed][]",
+    ]);
+
+    fs.writeFileSync(
+      assurance,
+      [
+        "# Attestation Assurance",
+        "",
+        "[Broken multiline][evidence]",
+        "",
+        "[evidence]:",
+        "  <./absent-multiline-reference.md>",
+        '  "Broken target"',
+        "",
+      ].join("\n"),
+    );
+    assert.deepEqual(checkConformanceDocsIntegrity({ root }), [
+      "docs/conformance/hypervisor-core/attestation-assurance.md has broken local link: [Broken multiline][evidence]",
+    ]);
+
+    fs.writeFileSync(
+      assurance,
+      [
+        "# Attestation Assurance",
+        "",
+        "[Broken multiline inline](",
+        "  ./absent-multiline-inline.md",
+        ")",
+        "",
+      ].join("\n"),
+    );
+    assert.deepEqual(checkConformanceDocsIntegrity({ root }), [
+      [
+        "docs/conformance/hypervisor-core/attestation-assurance.md has broken local link:",
+        "[Broken multiline inline](\n  ./absent-multiline-inline.md\n)",
+      ].join(" "),
+    ]);
 
     fs.writeFileSync(
       assurance,

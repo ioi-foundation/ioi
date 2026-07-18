@@ -4,10 +4,10 @@ Status: canonical metadata vocabulary.
 Canonical owner: this file for architecture documentation class names and placement rules.
 Supersedes: ad hoc document-type labels in architecture headers.
 Superseded by: none.
-Last alignment pass: 2026-06-23.
+Last alignment pass: 2026-07-18.
 Doctrine status: canonical
 Implementation status: mixed (documentation metadata vocabulary)
-Last implementation audit: 2026-07-05
+Last implementation audit: 2026-07-18
 
 ## Purpose
 
@@ -72,12 +72,15 @@ status lives in [`implementation-matrix.md`](./implementation-matrix.md).
 `states/` directories. Architecture docs may reference those artifact classes
 only when the generated output is necessary public evidence.
 
-`docs/architecture/_archive/` is the exception lane: verbatim historical
+`docs/architecture/_archive/` is the ordinary exception lane: verbatim historical
 extractions (change ledgers, build logs, former specs) live there with
 `Doctrine status: archived` and are never authority. The two `_meta`
-migration artifacts (the non-doctrinal migration/evidence guide and
-implementation ledger) remain in place as reference and status artifacts;
-their per-slice history has been moved to `_archive/change-ledgers/`.
+migration artifacts remain in place only as structurally bounded
+`archived terminal record / non-actionable` provenance because moving them
+would break long-lived historical links. Their whole-document boundary appears
+before all old guidance; every statement below it is historical and cannot
+direct work. Current implementation direction belongs to
+`implementation-matrix.md`, daemon doctrine, and `canon-to-code-delta.md`.
 
 ## Canonical Owner Shape
 

@@ -11,14 +11,44 @@ function isWithin(parent, candidate) {
   );
 }
 
-function nearestExistingAncestor(absolutePath) {
-  let candidate = absolutePath;
-  while (!fs.existsSync(candidate)) {
-    const parent = path.dirname(candidate);
-    if (parent === candidate) return null;
-    candidate = parent;
+function lstatIfPresent(candidate) {
+  try {
+    return fs.lstatSync(candidate);
+  } catch (error) {
+    if (
+      error &&
+      typeof error === "object" &&
+      (error.code === "ENOENT" || error.code === "ENOTDIR")
+    ) {
+      return null;
+    }
+    throw error;
   }
-  return candidate;
+}
+
+function assertNoSymlinkComponents({ base, candidate, at, relativePath }) {
+  const baseStat = lstatIfPresent(base);
+  if (baseStat === null) {
+    throw new Error(`${at}: path boundary does not exist: ${base}`);
+  }
+  if (baseStat.isSymbolicLink()) {
+    throw new Error(
+      `${at}: path contains a symlink component: ${relativePath}`,
+    );
+  }
+
+  const relative = path.relative(base, candidate);
+  let current = base;
+  for (const component of relative.split(path.sep).filter(Boolean)) {
+    current = path.join(current, component);
+    const stat = lstatIfPresent(current);
+    if (stat === null) break;
+    if (stat.isSymbolicLink()) {
+      throw new Error(
+        `${at}: path contains a symlink component: ${relativePath}`,
+      );
+    }
+  }
 }
 
 export function safeRepositoryPath({
@@ -50,10 +80,27 @@ export function safeRepositoryPath({
   }
 
   const rootAbsolute = path.resolve(root);
+  const rootStat = lstatIfPresent(rootAbsolute);
+  if (rootStat === null || !rootStat.isDirectory()) {
+    throw new Error(`${at}: repository root is not a directory: ${rootAbsolute}`);
+  }
+  if (rootStat.isSymbolicLink()) {
+    throw new Error(`${at}: repository root must not be a symlink`);
+  }
   const rootReal = fs.realpathSync(rootAbsolute);
   const boundaryAbsolute = path.resolve(boundaryRoot);
-  if (!fs.existsSync(boundaryAbsolute)) {
-    throw new Error(`${at}: path boundary does not exist: ${boundaryAbsolute}`);
+  if (!isWithin(rootAbsolute, boundaryAbsolute)) {
+    throw new Error(`${at}: path boundary escapes the repository`);
+  }
+  assertNoSymlinkComponents({
+    base: rootAbsolute,
+    candidate: boundaryAbsolute,
+    at,
+    relativePath: path.relative(rootAbsolute, boundaryAbsolute) || ".",
+  });
+  const boundaryStat = lstatIfPresent(boundaryAbsolute);
+  if (boundaryStat === null || !boundaryStat.isDirectory()) {
+    throw new Error(`${at}: path boundary is not a directory: ${boundaryAbsolute}`);
   }
   const boundaryReal = fs.realpathSync(boundaryAbsolute);
   if (!isWithin(rootReal, boundaryReal)) {
@@ -64,20 +111,17 @@ export function safeRepositoryPath({
   if (!isWithin(boundaryAbsolute, absolute)) {
     throw new Error(`${at}: path escapes its declared boundary: ${relativePath}`);
   }
-  if (mustExist && !fs.existsSync(absolute)) {
+  assertNoSymlinkComponents({
+    base: boundaryAbsolute,
+    candidate: absolute,
+    at,
+    relativePath,
+  });
+  const targetStat = lstatIfPresent(absolute);
+  if (mustExist && targetStat === null) {
     throw new Error(`${at}: path does not exist: ${relativePath}`);
   }
-  const ancestor = nearestExistingAncestor(absolute);
-  if (ancestor === null) {
-    throw new Error(`${at}: path has no existing ancestor: ${relativePath}`);
-  }
-  const ancestorReal = fs.realpathSync(ancestor);
-  if (!isWithin(boundaryReal, ancestorReal)) {
-    throw new Error(
-      `${at}: path resolves outside its declared boundary through a symlink: ${relativePath}`,
-    );
-  }
-  if (fs.existsSync(absolute)) {
+  if (targetStat !== null) {
     const real = fs.realpathSync(absolute);
     if (!isWithin(boundaryReal, real)) {
       throw new Error(

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
@@ -23,8 +24,12 @@ test("runtime-action generator rejects every accidental CLI mode before writes",
     ]),
   );
   for (const args of [
+    [],
     ["--chekc"],
     ["--help"],
+    ["--help", "--bogus"],
+    ["--write", "--check"],
+    ["--write", "--write"],
     ["--check", "--bogus"],
     ["--check", "--check"],
   ]) {
@@ -35,7 +40,7 @@ test("runtime-action generator rejects every accidental CLI mode before writes",
     assert.notEqual(result.status, 0, `accepted ${args.join(" ")}`);
     assert.match(
       `${result.stdout}\n${result.stderr}`,
-      /Unsupported runtime-action generator arguments/u,
+      /Supported invocations are exactly --write or --check/u,
     );
     for (const relative of generatedTargets) {
       assert.deepEqual(
@@ -44,6 +49,50 @@ test("runtime-action generator rejects every accidental CLI mode before writes",
         `${relative} changed after rejecting ${args.join(" ")}`,
       );
     }
+  }
+});
+
+test("runtime-action write rejects a dangling final symlink before external output", () => {
+  const temporaryParent = fs.mkdtempSync(
+    path.join(os.tmpdir(), "ioi-runtime-action-dangling-symlink-"),
+  );
+  const temporaryRoot = path.join(temporaryParent, "repo");
+  const externalTarget = path.join(temporaryParent, "external-action-schema.ts");
+  try {
+    for (const relativePath of [
+      generator,
+      "scripts/lib/repository-path-boundary.mjs",
+      "docs/architecture/_meta/schemas/runtime-action-schema.json",
+    ]) {
+      const target = path.join(temporaryRoot, relativePath);
+      fs.mkdirSync(path.dirname(target), { recursive: true });
+      fs.copyFileSync(path.join(root, relativePath), target);
+    }
+    const danglingTarget = path.join(temporaryRoot, generatedTargets[0]);
+    fs.mkdirSync(path.dirname(danglingTarget), { recursive: true });
+    fs.symlinkSync(externalTarget, danglingTarget, "file");
+
+    const result = spawnSync(process.execPath, [generator, "--write"], {
+      cwd: temporaryRoot,
+      encoding: "utf8",
+    });
+    assert.notEqual(result.status, 0);
+    assert.match(
+      `${result.stdout}\n${result.stderr}`,
+      /symlink component/u,
+    );
+    assert.equal(
+      fs.existsSync(externalTarget),
+      false,
+      "dangling final symlink must not create an external target",
+    );
+    assert.equal(
+      fs.existsSync(path.join(temporaryRoot, generatedTargets[1])),
+      false,
+      "path preflight must fail before writing another generated target",
+    );
+  } finally {
+    fs.rmSync(temporaryParent, { force: true, recursive: true });
   }
 });
 

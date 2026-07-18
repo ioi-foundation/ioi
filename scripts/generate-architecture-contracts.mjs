@@ -9,12 +9,12 @@ import Ajv2020 from "ajv/dist/2020.js";
 import addFormats from "ajv-formats";
 
 function parseCliMode(args) {
-  if (args.length === 0) return "generate";
+  if (args.length === 1 && args[0] === "--write") return "write";
   if (args.length === 1 && args[0] === "--check") return "check";
   if (args.length === 1 && args[0] === "--self-test") return "self-test";
   throw new Error(
     `Unsupported architecture-contract generator arguments: ${JSON.stringify(args)}. ` +
-      "Supported invocations are bare generation, --check, or --self-test.",
+      "Supported invocations are exactly --write, --check, or --self-test.",
   );
 }
 
@@ -29,15 +29,86 @@ try {
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const {
   ARCHITECTURE_CONTRACT_CONSUMER_TARGETS,
-  ARCHITECTURE_CONTRACT_CONSUMER_TARGET_BY_KIND,
 } = await import("./lib/architecture-contract-consumer-targets.mjs");
+const { architectureContractConsumerBindingFailures } = await import(
+  "./lib/architecture-contract-consumer-bindings.mjs"
+);
 const { safeRepositoryPath } = await import(
   "./lib/repository-path-boundary.mjs"
 );
+const PINNED_CONSUMER_TARGETS = Object.freeze([
+  Object.freeze({
+    kind: "typescript_projection",
+    path: "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+    consumer_path: "packages/hypervisor-workbench/src/index.ts",
+    consumer_marker: 'export * from "./runtime/architecture-contracts";',
+    typescript_bindings: Object.freeze([
+      Object.freeze({
+        binding_kind: "exports",
+        consumer_path: "packages/hypervisor-workbench/src/index.ts",
+        module_specifier: "./runtime/architecture-contracts",
+      }),
+      Object.freeze({
+        binding_kind: "exports",
+        consumer_path:
+          "packages/hypervisor-workbench/src/runtime/architecture-contracts.ts",
+        module_specifier: "./generated/architecture-contracts.ts",
+      }),
+      Object.freeze({
+        binding_kind: "imports",
+        consumer_path: "scripts/test-architecture-contract-projections.mjs",
+        module_specifier:
+          "../packages/hypervisor-workbench/src/runtime/architecture-contracts.ts",
+      }),
+    ]),
+  }),
+  Object.freeze({
+    kind: "rust_projection",
+    path: "crates/types/src/app/generated/architecture_contracts.rs",
+    consumer_path: "crates/types/src/app/mod.rs",
+    consumer_marker: "pub mod architecture_contracts;",
+    module_root_path: "crates/types/src/app/mod.rs",
+  }),
+]);
+const PINNED_CONSUMER_TARGET_BY_KIND = new Map(
+  PINNED_CONSUMER_TARGETS.map((target) => [target.kind, target]),
+);
+const declaredConsumerTargets = ARCHITECTURE_CONTRACT_CONSUMER_TARGETS.map(
+  ({ kind, path: targetPath, consumer_path, consumer_marker }) => ({
+    kind,
+    path: targetPath,
+    consumer_path,
+    consumer_marker,
+  }),
+);
+const expectedConsumerTargets = PINNED_CONSUMER_TARGETS.map(
+  ({ kind, path: targetPath, consumer_path, consumer_marker }) => ({
+    kind,
+    path: targetPath,
+    consumer_path,
+    consumer_marker,
+  }),
+);
+if (
+  JSON.stringify(declaredConsumerTargets) !==
+  JSON.stringify(expectedConsumerTargets)
+) {
+  throw new Error(
+    "Architecture contract consumer declaration manifest differs from independently pinned canonical consumers",
+  );
+}
 const schemaRoot = path.join(root, "docs", "architecture", "_meta", "schemas");
 const SUPPORTED_TARGET_KINDS = new Set(
-  ARCHITECTURE_CONTRACT_CONSUMER_TARGETS.map((target) => target.kind),
+  PINNED_CONSUMER_TARGETS.map((target) => target.kind),
 );
+const consumerBindingFailures = architectureContractConsumerBindingFailures({
+  root,
+  targets: PINNED_CONSUMER_TARGETS,
+  safeRepositoryPath,
+});
+if (consumerBindingFailures.length > 0) {
+  throw new Error(consumerBindingFailures.join("\n"));
+}
 const registryPath = safeSchemaPath(
   "architecture-contract-registry.v1.json",
   "architecture contract registry",
@@ -155,11 +226,12 @@ function projectionSymbol(entry) {
   return `${entry.canonical_name}V${contractVersion(entry)}`;
 }
 
-function safeGeneratedTargetPath(targetPath, at) {
+function safeGeneratedTargetPath(targetPath, at, mustExist = false) {
   return safeRepositoryPath({
     root,
     relativePath: targetPath,
     at,
+    mustExist,
   });
 }
 
@@ -185,7 +257,7 @@ function validateGeneratedTargets(registryDocument) {
         throw new Error(`${targetAt}: unknown generated target kind ${JSON.stringify(target.kind)}`);
       }
       const consumerTarget =
-        ARCHITECTURE_CONTRACT_CONSUMER_TARGET_BY_KIND.get(target.kind);
+        PINNED_CONSUMER_TARGET_BY_KIND.get(target.kind);
       if (target.path !== consumerTarget.path) {
         throw new Error(
           `${targetAt}: generated target path must match canonical ${target.kind} consumer ${consumerTarget.path}`,
@@ -1378,26 +1450,40 @@ function schemaMatches(root: JsonObject, schema: JsonObject, value: unknown, at:
     }
     if (schema.uniqueItems === true) {
       for (let index = 0; index < value.length; index += 1) {
-        if (
-          value
-            .slice(0, index)
-            .some((candidate) => jsonSchemaEqual(candidate, value[index]))
-        ) {
-          return [at + ": array items are not unique"];
+        for (let previous = 0; previous < index; previous += 1) {
+          if (jsonSchemaEqual(value[previous], value[index])) {
+            return [at + ": array items are not unique"];
+          }
         }
       }
     }
     if (isObject(schema.items)) {
-      const errors = value.flatMap((item, index) => schemaMatches(root, schema.items as JsonObject, item, at + "[" + index + "]"));
-      if (errors.length > 0) return errors;
+      for (let index = 0; index < value.length; index += 1) {
+        const errors = schemaMatches(
+          root,
+          schema.items as JsonObject,
+          value[index],
+          at + "[" + index + "]",
+        );
+        if (errors.length > 0) return errors;
+      }
     }
-    if (
-      isObject(schema.contains) &&
-      !value.some(
-        (item) => schemaMatches(root, schema.contains as JsonObject, item, at).length === 0,
-      )
-    ) {
-      return [at + ": array has no item matching contains"];
+    if (isObject(schema.contains)) {
+      let containsMatch = false;
+      for (let index = 0; index < value.length; index += 1) {
+        if (
+          schemaMatches(
+            root,
+            schema.contains as JsonObject,
+            value[index],
+            at + "[" + index + "]",
+          ).length === 0
+        ) {
+          containsMatch = true;
+          break;
+        }
+      }
+      if (!containsMatch) return [at + ": array has no item matching contains"];
     }
   }
   if (isObject(value)) {
@@ -1406,7 +1492,10 @@ function schemaMatches(root: JsonObject, schema: JsonObject, value: unknown, at:
     const missing = required.filter((name) => typeof name === "string" && !(name in value));
     if (missing.length > 0) return [at + ": missing " + missing.join(", ")];
     if (schema.additionalProperties === false) {
-      const unknown = Object.keys(value).filter((name) => !(name in properties));
+      const unknown: string[] = [];
+      for (const name in value) {
+        if (!(name in properties)) unknown.push(name);
+      }
       if (unknown.length > 0) return [at + ": unknown " + unknown.join(", ")];
     }
     for (const [name, propertySchema] of Object.entries(properties)) {
@@ -1582,8 +1671,8 @@ function rustStructsFor(entry, schema) {
           });
           const publicFields = fields
             .map(
-              ({ rustName, fieldType }) =>
-                `    pub ${rustName}: ${fieldType},`,
+              ({ rustName, fieldType, required }) =>
+                `${required ? "" : '    #[serde(skip_serializing_if = "Option::is_none")]\n'}    pub ${rustName}: ${fieldType},`,
             )
             .join("\n");
           const assignments = fields
@@ -1736,6 +1825,15 @@ function renderRust() {
             serde_json::from_value::<${projectionSymbol(entry)}>(value.clone())
                 .map(|_| ())
                 .map_err(|error| error.to_string())
+        }`,
+    )
+    .join(",\n");
+  const roundTripArms = contracts
+    .map(
+      ({ entry }) => `        ${JSON.stringify(entry.contract_id)} => {
+            let projection = serde_json::from_value::<${projectionSymbol(entry)}>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
         }`,
     )
     .join(",\n");
@@ -2357,6 +2455,13 @@ ${parseArms},
         }
     }
 
+    fn round_trip_projection(contract_id: &str, value: &Value) -> Result<Value, String> {
+        match contract_id {
+${roundTripArms},
+            _ => Err(format!("unknown projection: {contract_id}")),
+        }
+    }
+
     fn validate_schema_only(contract_id: &str, value: &Value) -> Result<(), String> {
         validate_projection_schema(contract_id, value)
     }
@@ -2478,6 +2583,11 @@ ${parseArms},
 
     #[test]
     fn golden_fixtures_match_generated_rust_contracts() {
+        assert_eq!(
+            ARCHITECTURE_CONTRACT_FIXTURES.len(),
+            48,
+            "the registered golden corpus must remain the explicit 48-fixture bar",
+        );
         for fixture in ARCHITECTURE_CONTRACT_FIXTURES {
             let body = FIXTURE_BODIES
                 .iter()
@@ -2493,7 +2603,11 @@ ${parseArms},
                 fixture.expected_schema_accept,
             );
             let result = validate_architecture_contract(fixture.contract_id, &value)
-                .and_then(|_| parse_projection(fixture.contract_id, &value));
+                .and_then(|_| round_trip_projection(fixture.contract_id, &value))
+                .and_then(|serialized| {
+                    validate_architecture_contract(fixture.contract_id, &serialized)
+                        .map(|_| serialized)
+                });
             assert_eq!(
                 result.is_ok(),
                 fixture.expected_accept,
@@ -2733,10 +2847,24 @@ ${parseArms},
         )
         .expect("nested required-nullable projection accepts a present value");
         receipt_envelope["claim_scope_ref"] = Value::Null;
+        let nested_receipt =
+            serde_json::from_value::<PhysicalActionExecutionReceiptV1ReceiptEnvelope>(
+                receipt_envelope.clone(),
+            )
+            .expect("nested required-nullable projection accepts explicit null");
+        let serialized_receipt =
+            serde_json::to_value(nested_receipt).expect("nested receipt serializes");
+        assert!(
+            serialized_receipt
+                .as_object()
+                .is_some_and(|object| object.contains_key("claim_scope_ref")),
+            "required nullable nested field must serialize explicitly",
+        );
+        assert!(serialized_receipt["claim_scope_ref"].is_null());
         serde_json::from_value::<PhysicalActionExecutionReceiptV1ReceiptEnvelope>(
-            receipt_envelope.clone(),
+            serialized_receipt,
         )
-        .expect("nested required-nullable projection accepts explicit null");
+        .expect("serialized required-nullable nested projection remains schema-valid");
         receipt_envelope
             .as_object_mut()
             .expect("receipt envelope is an object")
@@ -2759,8 +2887,21 @@ ${parseArms},
             .as_object_mut()
             .expect("constraints are an object")
             .remove("max_calls");
-        serde_json::from_value::<AuthorityGrantEnvelopeV1Constraints>(constraints.clone())
+        let nested_constraints =
+            serde_json::from_value::<AuthorityGrantEnvelopeV1Constraints>(
+                constraints.clone(),
+            )
             .expect("nested optional-non-nullable projection accepts absence");
+        let serialized_constraints =
+            serde_json::to_value(nested_constraints).expect("nested constraints serialize");
+        assert!(
+            serialized_constraints.get("max_calls").is_none(),
+            "optional non-nullable max_calls must stay omitted when None",
+        );
+        serde_json::from_value::<AuthorityGrantEnvelopeV1Constraints>(
+            serialized_constraints,
+        )
+        .expect("serialized optional nested projection remains schema-valid");
         constraints["max_calls"] = Value::Null;
         assert!(
             serde_json::from_value::<AuthorityGrantEnvelopeV1Constraints>(constraints).is_err(),
@@ -3001,12 +3142,27 @@ for (const [targetPath, content] of outputs) {
     `generated target ${targetPath}`,
   );
   if (check) {
-    if (!fs.existsSync(filePath) || fs.readFileSync(filePath, "utf8") !== content) {
+    if (!fs.existsSync(filePath)) {
+      mismatches.push(targetPath);
+      continue;
+    }
+    const checkedPath = safeGeneratedTargetPath(
+      targetPath,
+      `generated target read ${targetPath}`,
+      true,
+    );
+    if (fs.readFileSync(checkedPath, "utf8") !== content) {
       mismatches.push(targetPath);
     }
   } else {
     fs.mkdirSync(path.dirname(filePath), { recursive: true });
-    fs.writeFileSync(filePath, content);
+    fs.writeFileSync(
+      safeGeneratedTargetPath(
+        targetPath,
+        `generated target write ${targetPath}`,
+      ),
+      content,
+    );
   }
 }
 

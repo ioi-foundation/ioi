@@ -84,7 +84,10 @@ function runCommand(tier, command, args) {
 
 const args = process.argv.slice(2);
 
-if (args.includes("--help") || args.includes("-h")) {
+if (
+  args.length === 1 &&
+  (args[0] === "--help" || args[0] === "-h")
+) {
   console.log(usage());
   process.exit(0);
 }

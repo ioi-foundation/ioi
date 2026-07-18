@@ -4,11 +4,11 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 function parseCliMode(args) {
-  if (args.length === 0) return "generate";
+  if (args.length === 1 && args[0] === "--write") return "write";
   if (args.length === 1 && args[0] === "--check") return "check";
   throw new Error(
     `Unsupported runtime-action generator arguments: ${JSON.stringify(args)}. ` +
-      "Supported invocations are bare generation or --check.",
+      "Supported invocations are exactly --write or --check.",
   );
 }
 
@@ -21,33 +21,30 @@ try {
 }
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const schemaPath = path.join(
-  root,
-  "docs",
-  "architecture",
-  "_meta",
-  "schemas",
-  "runtime-action-schema.json",
+const { safeRepositoryPath } = await import(
+  "./lib/repository-path-boundary.mjs"
 );
-const schema = JSON.parse(fs.readFileSync(schemaPath, "utf8"));
+const schemaRelativePath =
+  "docs/architecture/_meta/schemas/runtime-action-schema.json";
+const targetRelativePaths = [
+  "packages/hypervisor-workbench/src/runtime/generated/action-schema.ts",
+  "crates/types/src/app/generated/runtime_action_schema.rs",
+];
 
-const tsPath = path.join(
-  root,
-  "packages",
-  "hypervisor-workbench",
-  "src",
-  "runtime",
-  "generated",
-  "action-schema.ts",
-);
-const rustPath = path.join(
-  root,
-  "crates",
-  "types",
-  "src",
-  "app",
-  "generated",
-  "runtime_action_schema.rs",
+function safePath(relativePath, at, mustExist = false) {
+  return safeRepositoryPath({
+    root,
+    relativePath,
+    at,
+    mustExist,
+  });
+}
+
+const schema = JSON.parse(
+  fs.readFileSync(
+    safePath(schemaRelativePath, "runtime action schema read", true),
+    "utf8",
+  ),
 );
 
 function tsArray(name, values) {
@@ -90,15 +87,29 @@ ${documentedRustArray("RUNTIME_ACTION_TERMINAL_KINDS", schema.terminalKinds, "Ru
 ${documentedRustArray("RUNTIME_ACTION_COMPLETION_VERIFICATION_KINDS", schema.completionVerificationKinds, "Runtime action kinds that can satisfy completion verification.")}
 `;
 
-fs.mkdirSync(path.dirname(tsPath), { recursive: true });
-fs.mkdirSync(path.dirname(rustPath), { recursive: true });
+const renderedTargets = [
+  [targetRelativePaths[0], ts],
+  [targetRelativePaths[1], rust],
+];
 if (cliMode === "check") {
   const mismatches = [];
-  if (!fs.existsSync(tsPath) || fs.readFileSync(tsPath, "utf8") !== ts) {
-    mismatches.push(path.relative(root, tsPath));
-  }
-  if (!fs.existsSync(rustPath) || fs.readFileSync(rustPath, "utf8") !== rust) {
-    mismatches.push(path.relative(root, rustPath));
+  for (const [relativePath, content] of renderedTargets) {
+    const targetPath = safePath(
+      relativePath,
+      `runtime action generated target ${relativePath}`,
+    );
+    if (!fs.existsSync(targetPath)) {
+      mismatches.push(relativePath);
+      continue;
+    }
+    const checkedPath = safePath(
+      relativePath,
+      `runtime action generated target read ${relativePath}`,
+      true,
+    );
+    if (fs.readFileSync(checkedPath, "utf8") !== content) {
+      mismatches.push(relativePath);
+    }
   }
   if (mismatches.length > 0) {
     console.error("Runtime action contracts are out of date:");
@@ -111,5 +122,17 @@ if (cliMode === "check") {
   console.log("Runtime action contracts are up to date.");
   process.exit(0);
 }
-fs.writeFileSync(tsPath, ts);
-fs.writeFileSync(rustPath, rust);
+for (const [relativePath, content] of renderedTargets) {
+  const targetPath = safePath(
+    relativePath,
+    `runtime action generated target ${relativePath}`,
+  );
+  fs.mkdirSync(path.dirname(targetPath), { recursive: true });
+  fs.writeFileSync(
+    safePath(
+      relativePath,
+      `runtime action generated target write ${relativePath}`,
+    ),
+    content,
+  );
+}

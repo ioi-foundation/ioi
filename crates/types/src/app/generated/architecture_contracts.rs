@@ -139,8 +139,11 @@ pub struct ReceiptEnvelopeV1 {
     pub run_id: Option<String>,
     pub task_id: Option<String>,
     pub actor_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub input_hash: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub output_hash: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub policy_hash: Option<String>,
     pub authority_grant_id: Option<String>,
     pub primitive_capabilities: Vec<String>,
@@ -393,8 +396,11 @@ pub struct PhysicalActionExecutionReceiptV1ReceiptEnvelope {
     pub run_id: Option<String>,
     pub task_id: Option<String>,
     pub actor_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub input_hash: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub output_hash: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub policy_hash: Option<String>,
     pub authority_grant_id: Option<String>,
     pub primitive_capabilities: Vec<String>,
@@ -1213,6 +1219,7 @@ impl<'de> serde::Deserialize<'de> for AuthorityGrantEnvelopeV1 {
 pub struct AuthorityGrantEnvelopeV1Constraints {
     pub max_budget_usd: f64,
     pub expires_at: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub max_calls: Option<ArchitectureContractInteger>,
     pub approval_required_for: Vec<String>,
 }
@@ -3112,26 +3119,34 @@ pub struct RuntimeToolContractV1 {
     pub schema_version: RuntimeToolContractV1SchemaVersion,
     pub tool_id: String,
     pub revision_ref: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub predecessor_revision_ref: Option<String>,
     pub content_hash: String,
     pub namespace: String,
     pub display_name: String,
     pub version: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub input_schema: Option<serde_json::Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub output_schema: Option<serde_json::Value>,
     pub risk_class: String,
     pub effect_class: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub concurrency_class: Option<RuntimeToolContractV1ConcurrencyClass>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub timeout: Option<RuntimeToolContractV1Timeout>,
     pub primitive_capabilities_required: Vec<String>,
     pub authority_scopes_required: Vec<String>,
     pub approval_required: bool,
     pub evidence_required: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub redaction_policy: Option<RuntimeToolContractV1RedactionPolicy>,
     pub owner: String,
     pub data_class_allowlist: Vec<RuntimeToolContractV1DataClassAllowlistItem>,
     pub egress_policy: RuntimeToolContractV1EgressPolicy,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub registry_lifecycle_ref: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub registry_status: Option<RuntimeToolContractV1RegistryStatus>,
 }
 
@@ -9424,6 +9439,81 @@ mod tests {
         }
     }
 
+    fn round_trip_projection(contract_id: &str, value: &Value) -> Result<Value, String> {
+        match contract_id {
+            "schema://ioi/foundations/receipt-envelope/v1" => {
+                let projection = serde_json::from_value::<ReceiptEnvelopeV1>(value.clone())
+                    .map_err(|error| error.to_string())?;
+                serde_json::to_value(projection).map_err(|error| error.to_string())
+            }
+            "schema://ioi/foundations/physical-action-execution-receipt/v1" => {
+                let projection =
+                    serde_json::from_value::<PhysicalActionExecutionReceiptV1>(value.clone())
+                        .map_err(|error| error.to_string())?;
+                serde_json::to_value(projection).map_err(|error| error.to_string())
+            }
+            "schema://ioi/foundations/authority-grant-envelope/v1" => {
+                let projection = serde_json::from_value::<AuthorityGrantEnvelopeV1>(value.clone())
+                    .map_err(|error| error.to_string())?;
+                serde_json::to_value(projection).map_err(|error| error.to_string())
+            }
+            "schema://ioi/foundations/authority-grant-envelope/v2" => {
+                let projection = serde_json::from_value::<AuthorityGrantEnvelopeV2>(value.clone())
+                    .map_err(|error| error.to_string())?;
+                serde_json::to_value(projection).map_err(|error| error.to_string())
+            }
+            "schema://ioi/foundations/authority-key-set/v1" => {
+                let projection = serde_json::from_value::<AuthorityKeySetV1>(value.clone())
+                    .map_err(|error| error.to_string())?;
+                serde_json::to_value(projection).map_err(|error| error.to_string())
+            }
+            "schema://ioi/foundations/authority-revocation-snapshot/v1" => {
+                let projection =
+                    serde_json::from_value::<AuthorityRevocationSnapshotV1>(value.clone())
+                        .map_err(|error| error.to_string())?;
+                serde_json::to_value(projection).map_err(|error| error.to_string())
+            }
+            "schema://ioi/foundations/receipt-checkpoint/v1" => {
+                let projection = serde_json::from_value::<ReceiptCheckpointV1>(value.clone())
+                    .map_err(|error| error.to_string())?;
+                serde_json::to_value(projection).map_err(|error| error.to_string())
+            }
+            "schema://ioi/foundations/receipt-proof-bundle/v1" => {
+                let projection = serde_json::from_value::<ReceiptProofBundleV1>(value.clone())
+                    .map_err(|error| error.to_string())?;
+                serde_json::to_value(projection).map_err(|error| error.to_string())
+            }
+            "schema://ioi/foundations/information-flow-label/v1" => {
+                let projection = serde_json::from_value::<InformationFlowLabelV1>(value.clone())
+                    .map_err(|error| error.to_string())?;
+                serde_json::to_value(projection).map_err(|error| error.to_string())
+            }
+            "schema://ioi/components/connectors-tools/runtime-tool-contract/v1" => {
+                let projection = serde_json::from_value::<RuntimeToolContractV1>(value.clone())
+                    .map_err(|error| error.to_string())?;
+                serde_json::to_value(projection).map_err(|error| error.to_string())
+            }
+            "schema://ioi/foundations/managed-work-billing-ledger-bundle/v1" => {
+                let projection =
+                    serde_json::from_value::<ManagedWorkBillingLedgerBundleV1>(value.clone())
+                        .map_err(|error| error.to_string())?;
+                serde_json::to_value(projection).map_err(|error| error.to_string())
+            }
+            "schema://ioi/foundations/dispute-rail-bundle/v1" => {
+                let projection = serde_json::from_value::<DisputeRailBundleV1>(value.clone())
+                    .map_err(|error| error.to_string())?;
+                serde_json::to_value(projection).map_err(|error| error.to_string())
+            }
+            "schema://ioi/foundations/declassification-approval/v1" => {
+                let projection =
+                    serde_json::from_value::<DeclassificationApprovalV1>(value.clone())
+                        .map_err(|error| error.to_string())?;
+                serde_json::to_value(projection).map_err(|error| error.to_string())
+            }
+            _ => Err(format!("unknown projection: {contract_id}")),
+        }
+    }
+
     fn validate_schema_only(contract_id: &str, value: &Value) -> Result<(), String> {
         validate_projection_schema(contract_id, value)
     }
@@ -9543,6 +9633,11 @@ mod tests {
 
     #[test]
     fn golden_fixtures_match_generated_rust_contracts() {
+        assert_eq!(
+            ARCHITECTURE_CONTRACT_FIXTURES.len(),
+            48,
+            "the registered golden corpus must remain the explicit 48-fixture bar",
+        );
         for fixture in ARCHITECTURE_CONTRACT_FIXTURES {
             let body = FIXTURE_BODIES
                 .iter()
@@ -9558,7 +9653,11 @@ mod tests {
                 fixture.expected_schema_accept,
             );
             let result = validate_architecture_contract(fixture.contract_id, &value)
-                .and_then(|_| parse_projection(fixture.contract_id, &value));
+                .and_then(|_| round_trip_projection(fixture.contract_id, &value))
+                .and_then(|serialized| {
+                    validate_architecture_contract(fixture.contract_id, &serialized)
+                        .map(|_| serialized)
+                });
             assert_eq!(
                 result.is_ok(),
                 fixture.expected_accept,
@@ -9775,10 +9874,23 @@ mod tests {
         )
         .expect("nested required-nullable projection accepts a present value");
         receipt_envelope["claim_scope_ref"] = Value::Null;
-        serde_json::from_value::<PhysicalActionExecutionReceiptV1ReceiptEnvelope>(
-            receipt_envelope.clone(),
-        )
+        let nested_receipt = serde_json::from_value::<
+            PhysicalActionExecutionReceiptV1ReceiptEnvelope,
+        >(receipt_envelope.clone())
         .expect("nested required-nullable projection accepts explicit null");
+        let serialized_receipt =
+            serde_json::to_value(nested_receipt).expect("nested receipt serializes");
+        assert!(
+            serialized_receipt
+                .as_object()
+                .is_some_and(|object| object.contains_key("claim_scope_ref")),
+            "required nullable nested field must serialize explicitly",
+        );
+        assert!(serialized_receipt["claim_scope_ref"].is_null());
+        serde_json::from_value::<PhysicalActionExecutionReceiptV1ReceiptEnvelope>(
+            serialized_receipt,
+        )
+        .expect("serialized required-nullable nested projection remains schema-valid");
         receipt_envelope
             .as_object_mut()
             .expect("receipt envelope is an object")
@@ -9801,8 +9913,17 @@ mod tests {
             .as_object_mut()
             .expect("constraints are an object")
             .remove("max_calls");
-        serde_json::from_value::<AuthorityGrantEnvelopeV1Constraints>(constraints.clone())
-            .expect("nested optional-non-nullable projection accepts absence");
+        let nested_constraints =
+            serde_json::from_value::<AuthorityGrantEnvelopeV1Constraints>(constraints.clone())
+                .expect("nested optional-non-nullable projection accepts absence");
+        let serialized_constraints =
+            serde_json::to_value(nested_constraints).expect("nested constraints serialize");
+        assert!(
+            serialized_constraints.get("max_calls").is_none(),
+            "optional non-nullable max_calls must stay omitted when None",
+        );
+        serde_json::from_value::<AuthorityGrantEnvelopeV1Constraints>(serialized_constraints)
+            .expect("serialized optional nested projection remains schema-valid");
         constraints["max_calls"] = Value::Null;
         assert!(
             serde_json::from_value::<AuthorityGrantEnvelopeV1Constraints>(constraints).is_err(),
