@@ -1,0 +1,56 @@
+{
+  "as_of_date": "2026-07-18",
+  "build_fingerprint": "157932f15f2aff51f3a267f9eaf58a75fbfb7ef1055cc83b04b34cd8333ef7e3",
+  "current_program_level": "M0 only; below P0 runtime proof",
+  "evidence_format": "ioi.m0.release_ladder.v1",
+  "ladder": [
+    {
+      "criterion": "One fixture traverses selected owner boundaries; it is not production-ready.",
+      "level": "P0",
+      "name": "walking skeleton",
+      "stage_binding": "M3-M5"
+    },
+    {
+      "criterion": "The terminal M9 journey works with adversarial evidence in an IOI-controlled environment.",
+      "level": "P1",
+      "name": "internal product proof",
+      "stage_binding": "M9"
+    },
+    {
+      "criterion": "Independent users complete the journey on their data with disclosed support and limits.",
+      "level": "P2",
+      "name": "external design-partner proof",
+      "stage_binding": "M9 external overlay"
+    },
+    {
+      "criterion": "Applicable required-now and selected conditional gates close and recovery thresholds pass.",
+      "level": "P3",
+      "name": "production-integrated profile",
+      "stage_binding": "M9 plus PG gates"
+    },
+    {
+      "criterion": "One logical System preserves continuity and performs useful work across admitted nodes.",
+      "level": "P4",
+      "name": "distributed L0 proof",
+      "stage_binding": "M10-M11"
+    },
+    {
+      "criterion": "Independently governed Systems demonstrate useful positive-surplus work and portable exit.",
+      "level": "P5",
+      "name": "sovereign cooperation proof",
+      "stage_binding": "M13"
+    },
+    {
+      "criterion": "A selected live hardware profile passes its physical-action, runtime, and production gates.",
+      "level": "P6",
+      "name": "embodied deployment proof",
+      "stage_binding": "M11 live overlay"
+    },
+    {
+      "criterion": "Connected and secured services show recurring external demand and sustainable security economics.",
+      "level": "P7",
+      "name": "public network demand proof",
+      "stage_binding": "M14"
+    }
+  ]
+}
