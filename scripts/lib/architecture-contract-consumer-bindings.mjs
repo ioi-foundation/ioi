@@ -128,7 +128,77 @@ function hasPathOverride(tokens) {
   return false;
 }
 
-function typescriptModuleSpecifiers(source, filePath) {
+function bindingNames(name, names) {
+  if (ts.isIdentifier(name)) {
+    names.push(name.text);
+    return;
+  }
+  for (const element of name.elements) {
+    if (!ts.isOmittedExpression(element)) bindingNames(element.name, names);
+  }
+}
+
+function hasExportModifier(node) {
+  return (
+    ts.canHaveModifiers(node) &&
+    (ts.getModifiers(node) ?? []).some(
+      (modifier) => modifier.kind === ts.SyntaxKind.ExportKeyword,
+    )
+  );
+}
+
+function explicitTypescriptExports(document) {
+  const explicitExports = [];
+  for (const statement of document.statements) {
+    if (
+      ts.isExportDeclaration(statement) &&
+      statement.exportClause &&
+      ts.isNamedExports(statement.exportClause)
+    ) {
+      const moduleSpecifier =
+        statement.moduleSpecifier &&
+        ts.isStringLiteral(statement.moduleSpecifier)
+          ? statement.moduleSpecifier.text
+          : null;
+      for (const element of statement.exportClause.elements) {
+        explicitExports.push({
+          exportedName: element.name.text,
+          importedName: element.propertyName?.text ?? element.name.text,
+          moduleSpecifier,
+        });
+      }
+      continue;
+    }
+    if (!hasExportModifier(statement)) continue;
+    const names = [];
+    if (ts.isVariableStatement(statement)) {
+      for (const declaration of statement.declarationList.declarations) {
+        bindingNames(declaration.name, names);
+      }
+    } else if (
+      (ts.isClassDeclaration(statement) ||
+        ts.isEnumDeclaration(statement) ||
+        ts.isFunctionDeclaration(statement) ||
+        ts.isInterfaceDeclaration(statement) ||
+        ts.isModuleDeclaration(statement) ||
+        ts.isTypeAliasDeclaration(statement)) &&
+      statement.name &&
+      ts.isIdentifier(statement.name)
+    ) {
+      names.push(statement.name.text);
+    }
+    for (const exportedName of names) {
+      explicitExports.push({
+        exportedName,
+        importedName: null,
+        moduleSpecifier: null,
+      });
+    }
+  }
+  return explicitExports;
+}
+
+function typescriptModuleBindings(source, filePath) {
   const document = ts.createSourceFile(
     filePath,
     source,
@@ -153,7 +223,24 @@ function typescriptModuleSpecifiers(source, filePath) {
       exports.add(statement.moduleSpecifier.text);
     }
   }
-  return { exports, imports };
+  return {
+    explicitExports: explicitTypescriptExports(document),
+    exports,
+    imports,
+  };
+}
+
+function typescriptExportedNames(source, filePath) {
+  const document = ts.createSourceFile(
+    filePath,
+    source,
+    ts.ScriptTarget.Latest,
+    true,
+    ts.ScriptKind.TS,
+  );
+  return new Set(
+    explicitTypescriptExports(document).map(({ exportedName }) => exportedName),
+  );
 }
 
 export function architectureContractConsumerBindingFailures({
@@ -162,7 +249,7 @@ export function architectureContractConsumerBindingFailures({
   safeRepositoryPath,
 }) {
   const failures = [];
-  const read = (relativePath, at) => {
+  const read = (relativePath, at, { allowMissing = false } = {}) => {
     try {
       const filePath = safeRepositoryPath({
         root,
@@ -183,7 +270,10 @@ export function architectureContractConsumerBindingFailures({
         ),
       };
     } catch (error) {
-      failures.push(error instanceof Error ? error.message : String(error));
+      const message = error instanceof Error ? error.message : String(error);
+      if (!allowMissing || !message.includes(": path does not exist:")) {
+        failures.push(message);
+      }
       return null;
     }
   };
@@ -212,20 +302,51 @@ export function architectureContractConsumerBindingFailures({
   const typescriptTarget = targets.find(
     (target) => target.kind === "typescript_projection",
   );
+  let generatedExportNames = new Set();
+  if (typescriptTarget) {
+    const generated = read(
+      typescriptTarget.path,
+      "generated TypeScript architecture-contract projection",
+      { allowMissing: true },
+    );
+    if (generated) {
+      generatedExportNames = typescriptExportedNames(
+        generated.source,
+        generated.filePath,
+      );
+      if (generatedExportNames.size === 0) {
+        failures.push(
+          `${typescriptTarget.path} must declare generated TypeScript architecture-contract exports`,
+        );
+      }
+    }
+  }
   for (const binding of typescriptTarget?.typescript_bindings ?? []) {
     const consumer = read(
       binding.consumer_path,
       `typescript architecture-contract ${binding.binding_kind} consumer`,
     );
     if (!consumer) continue;
-    const specifiers = typescriptModuleSpecifiers(
+    const bindings = typescriptModuleBindings(
       consumer.source,
       consumer.filePath,
     );
-    if (!specifiers[binding.binding_kind]?.has(binding.module_specifier)) {
+    if (!bindings[binding.binding_kind]?.has(binding.module_specifier)) {
       failures.push(
         `${binding.consumer_path} must ${binding.binding_kind} ${binding.module_specifier}`,
       );
+    }
+    if (binding.binding_kind !== "exports") continue;
+    for (const exported of bindings.explicitExports) {
+      if (!generatedExportNames.has(exported.exportedName)) continue;
+      const preservesCanonicalIdentity =
+        exported.moduleSpecifier === binding.module_specifier &&
+        exported.importedName === exported.exportedName;
+      if (!preservesCanonicalIdentity) {
+        failures.push(
+          `${binding.consumer_path} must not explicitly override architecture-contract export ${exported.exportedName}; canonical source is ${binding.module_specifier}`,
+        );
+      }
     }
   }
   return failures;

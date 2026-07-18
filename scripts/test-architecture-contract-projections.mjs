@@ -7,6 +7,7 @@ import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import Ajv2020 from "ajv/dist/2020.js";
 import addFormats from "ajv-formats";
+import ts from "typescript";
 import {
   ARCHITECTURE_CONTRACT_ASSERTION_KEYWORDS,
   ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES,
@@ -313,6 +314,24 @@ for (const [dateTime, expected] of [
     false,
     "generated TypeScript validator must match Ajv inherited-property semantics",
   );
+  for (const propertyName of ["toString", "constructor"]) {
+    for (const inheritedProperty of [false, true]) {
+      const candidate = inheritedProperty
+        ? Object.assign(Object.create({ [propertyName]: true }), plain)
+        : Object.assign({}, plain, { [propertyName]: true });
+      const caseId = `${inheritedProperty ? "inherited" : "own"} ${propertyName}`;
+      assert.equal(
+        validateWithAjv(candidate),
+        false,
+        `${caseId}: configured Ajv rejects the additional property`,
+      );
+      assert.equal(
+        validateArchitectureContract(contractId, candidate).ok,
+        false,
+        `${caseId}: generated TypeScript validator must use own schema-property membership`,
+      );
+    }
+  }
 }
 
 for (const requiredDifferential of [
@@ -546,6 +565,87 @@ assert.equal(
   path.join(root, CANONICAL_TYPESCRIPT_BARREL),
   "TypeScript compile regression must import the canonical public barrel",
 );
+
+function canonicalTypeScriptSymbol(checker, symbol) {
+  let current = symbol;
+  const seen = new Set();
+  while (current.flags & ts.SymbolFlags.Alias) {
+    assert.equal(
+      seen.has(current),
+      false,
+      `TypeScript export alias cycle at ${current.name}`,
+    );
+    seen.add(current);
+    current = checker.getAliasedSymbol(current);
+  }
+  return current;
+}
+
+function typeScriptModuleExports(program, checker, filePath) {
+  const source = program.getSourceFile(filePath);
+  assert.ok(source, `TypeScript identity regression could not load ${filePath}`);
+  const moduleSymbol = checker.getSymbolAtLocation(source);
+  assert.ok(
+    moduleSymbol,
+    `TypeScript identity regression could not resolve ${filePath}`,
+  );
+  return new Map(
+    checker.getExportsOfModule(moduleSymbol).map((symbol) => [
+      symbol.name,
+      canonicalTypeScriptSymbol(checker, symbol),
+    ]),
+  );
+}
+
+function assertTypeScriptConsumerExportIdentity() {
+  const publicIndex = path.join(root, CANONICAL_TYPESCRIPT_PUBLIC_INDEX);
+  const wrapper = path.join(root, CANONICAL_TYPESCRIPT_BARREL);
+  const generated = path.join(root, CANONICAL_TYPESCRIPT_TARGET);
+  const program = ts.createProgram({
+    rootNames: [publicIndex, wrapper, generated],
+    options: {
+      allowImportingTsExtensions: true,
+      jsx: ts.JsxEmit.ReactJSX,
+      module: ts.ModuleKind.ESNext,
+      moduleResolution: ts.ModuleResolutionKind.Bundler,
+      noEmit: true,
+      skipLibCheck: true,
+      target: ts.ScriptTarget.ES2022,
+    },
+  });
+  const checker = program.getTypeChecker();
+  const generatedExports = typeScriptModuleExports(
+    program,
+    checker,
+    generated,
+  );
+  const wrapperExports = typeScriptModuleExports(program, checker, wrapper);
+  const publicExports = typeScriptModuleExports(program, checker, publicIndex);
+  assert.ok(
+    generatedExports.size > 0,
+    "generated TypeScript projection must expose public symbols",
+  );
+  assert.deepEqual(
+    [...wrapperExports.keys()].sort(),
+    [...generatedExports.keys()].sort(),
+    "canonical architecture-contract wrapper must export exactly the generated symbols",
+  );
+  for (const [name, generatedSymbol] of generatedExports) {
+    assert.equal(
+      wrapperExports.get(name),
+      generatedSymbol,
+      `canonical wrapper export ${name} must resolve to the generated symbol`,
+    );
+    assert.equal(
+      publicExports.get(name),
+      generatedSymbol,
+      `public barrel export ${name} must resolve through the canonical wrapper to the generated symbol`,
+    );
+  }
+}
+
+assertTypeScriptConsumerExportIdentity();
+
 const generatedTargetPaths = [
   CANONICAL_TYPESCRIPT_TARGET,
   CANONICAL_RUST_TARGET,
@@ -590,13 +690,20 @@ for (const rejectedArgs of [
   }
 }
 
-function copyCanonicalConsumerBindings(temporaryRoot) {
-  for (const relativePath of [
+function copyCanonicalConsumerBindings(
+  temporaryRoot,
+  { includeGeneratedTarget = false } = {},
+) {
+  const relativePaths = [
     CANONICAL_TYPESCRIPT_PUBLIC_INDEX,
     CANONICAL_TYPESCRIPT_BARREL,
     CANONICAL_RUST_MODULE_ROOT,
     "scripts/test-architecture-contract-projections.mjs",
-  ]) {
+  ];
+  if (includeGeneratedTarget) {
+    relativePaths.push(CANONICAL_TYPESCRIPT_TARGET);
+  }
+  for (const relativePath of relativePaths) {
     const target = path.join(temporaryRoot, relativePath);
     fs.mkdirSync(path.dirname(target), { recursive: true });
     fs.copyFileSync(path.join(root, relativePath), target);
@@ -646,7 +753,9 @@ function runRejectedRegistryProbe(
         path.join(temporaryRoot, "scripts/lib", helper),
       );
     }
-    copyCanonicalConsumerBindings(temporaryRoot);
+    copyCanonicalConsumerBindings(temporaryRoot, {
+      includeGeneratedTarget: true,
+    });
     fs.copyFileSync(
       path.join(root, "rust-toolchain.toml"),
       path.join(temporaryRoot, "rust-toolchain.toml"),
@@ -716,6 +825,28 @@ function runRejectedRegistryProbe(
   }
 }
 
+runRejectedRegistryProbe(
+  "alternate generated-symbol re-export override",
+  () => {},
+  /must not explicitly override architecture-contract export validateArchitectureContract/u,
+  null,
+  null,
+  ({ temporaryRoot }) => {
+    fs.appendFileSync(
+      path.join(temporaryRoot, CANONICAL_TYPESCRIPT_PUBLIC_INDEX),
+      '\nexport { validateArchitectureContract } from "./runtime/alternate-architecture-contracts";\n',
+    );
+    const alternate = path.join(
+      temporaryRoot,
+      "packages/hypervisor-workbench/src/runtime/alternate-architecture-contracts.ts",
+    );
+    fs.mkdirSync(path.dirname(alternate), { recursive: true });
+    fs.writeFileSync(
+      alternate,
+      "export function validateArchitectureContract() { return { ok: true, errors: [] }; }\n",
+    );
+  },
+);
 runRejectedRegistryProbe(
   "escaping generated target",
   (attacked) => {
