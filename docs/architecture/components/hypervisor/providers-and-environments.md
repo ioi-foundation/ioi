@@ -38,7 +38,8 @@ wallet.network authorizes spend, access, secrets, SCM auth, and declassification
 Agentgres records admitted truth, receipts, state roots, archive refs, and
 restore validity.
 Storage backends hold payload bytes.
-IOI L1 settles only triggered public/economic/cross-domain commitments.
+The system settles locally unless its declared profile selects an external
+service such as IOI L1 for triggered public/economic/cross-domain commitments.
 ```
 
 Environments are the bridge between Hypervisor's Type 1, Type 2, and Type 3
@@ -82,7 +83,7 @@ Applications Catalog / Open Application / Contextual Views
   -> Operations
   -> Governance
   -> Provenance
-  -> Workbench
+  -> Developer Workspace
   -> Foundry
 ```
 
@@ -208,7 +209,7 @@ Agentgres artifact meaning, private plaintext, or restore validity.
 
 Hypervisor should support general VM creation and lifecycle control for any
 applicable use case where the selected substrate actually supports it. A VM is
-not limited to "agent work"; it may host a model server, Workbench, browser
+not limited to "agent work"; it may host a model server, Developer Workspace, browser
 session, build environment, connector worker, service endpoint, automation
 runner, private workspace, or ordinary operator-managed workload, so long as it
 is governed by the same authority, cost, custody, receipts, and restore rules.
@@ -225,7 +226,7 @@ Snapshot
 Archive
 Restore
 Expose ports / IP leases
-Run agent/session/workbench
+Run agent/session/development workspace
 Record cost / state root / receipts
 Tear down
 ```
@@ -474,12 +475,12 @@ HypervisorEnvironmentStatus
   schema_version: ioi.hypervisor.environment_status.v1
   environment_ref
   provider_placement_ref
-  recipe_ref
-  recipe_resolution_ref
+  development_environment_recipe_ref
+  development_environment_recipe_resolution_ref
   phase: creating | starting | running | updating | recovering | stopping |
          stopped | archived | failed
   components:
-    recipe            { phase, recipe_ref, resolution_ref, evidence_ref }
+    recipe            { phase, development_environment_recipe_ref, resolution_ref, evidence_ref }
     provisioner       { phase, evidence_ref, detail }            # node/VM/host lane
     workspace_content { phase, initializer_ref, custody_posture, evidence_ref }
     sandbox           { phase, container_ref, evidence_ref }     # devcontainer/microVM/host lane
@@ -568,7 +569,7 @@ operation, state root, authority context, and receipt that produced them.
 ## Development Environment Recipe
 
 `HypervisorDevelopmentEnvironmentRecipe` is the reusable setup contract for
-Workbench and other development-oriented sessions. It describes how a
+Developer Workspace and other development-oriented sessions. It describes how a
 development environment should be assembled, but it is not provider truth,
 storage truth, wallet authority, or runtime execution by itself.
 
@@ -580,7 +581,8 @@ inputs.
 ```text
 HypervisorDevelopmentEnvironmentRecipe
   schema_version
-  recipe_ref
+  development_environment_recipe_ref: development-environment-recipe://.../revision/...
+  content_hash
   project_ref?
   environment_class_ref?
   substrate: host | devcontainer | container | microvm | wasm |
@@ -624,11 +626,12 @@ HypervisorDevelopmentEnvironmentRecipe
   receipt_policy_ref
 ```
 
-`HypervisorEnvironmentRecipeResolution` is the daemon-admitted result of
+`HypervisorDevelopmentEnvironmentRecipeResolution` is the daemon-admitted result of
 turning a recipe into a concrete session/environment plan:
 
 ```text
-recipe_ref
+development_environment_recipe_ref
+development_environment_recipe_content_hash
 session_ref / environment_ref
 provider_candidate_ref
 resolved_image_ref / resolved_substrate
@@ -651,6 +654,12 @@ receipt_refs
 blocked_reason?
 runtimeTruthSource: daemon-runtime
 ```
+
+Historical `recipe_ref` and `HypervisorEnvironmentRecipeResolution` spellings
+are v1 compatibility aliases. Boundary adapters may read them, but canonical
+state emits the owner-qualified development-environment names above so they
+cannot collide with `DataRecipe`, `HypervisorSessionLaunchRecipe`,
+`WorkflowTemplate`, or `GoalRunProfile`.
 
 `HypervisorEnvironmentSubstratePolicy` records why the selected substrate is
 allowed for the workload and tenant posture:
@@ -1064,6 +1073,41 @@ reconciliation/compensation decisions and receipts
 receipts, replay, and proof refs
 ```
 
+## Autonomous-System Node Addition And Failover Boundary
+
+Environment provisioning is necessary but insufficient for a machine to become
+a member of a bounded autonomous system. The governed join sequence is:
+
+```text
+provision environment
+  -> establish node identity and attestation
+  -> propose system membership
+  -> governance admits scoped role assignments
+  -> verify constitution, manifest, and deployment roots
+  -> restore checkpoint where required
+  -> catch up the ordered operation log
+  -> verify current state root and watermarks
+  -> establish role lease, membership epoch, and any writer fence
+  -> mark observed readiness
+  -> rebalance eligible reads, execution, artifacts, or verification work
+```
+
+The environment owner manages provider placement and machine lifecycle. The
+autonomous-system owner manages logical membership, roles, ordering, authority,
+and continuity. Provider auto-scaling can create candidates; only the declared
+membership policy can admit them. Automatic scaling is normally limited to
+projection replicas, execution workers, and artifact replicas. Writers,
+authority members, consensus members, guardians, and assurance-bearing
+verifiers require governed changes.
+
+Replicas can improve read capacity, execution throughput, durability, artifact
+locality, and availability. They do not create safe same-head write throughput:
+that requires one fenced writer, an explicit ownership partition, threshold
+admission, or a declared consensus protocol. Uncontrolled multi-writer mutation
+is split brain. Environment recovery also does not equal logical-system
+failover; writer promotion requires system catch-up/root evidence, a higher
+epoch, and old-writer fencing (`INV-22` through `INV-24`).
+
 ## Capacity, Budget, And Allocation Pressure
 
 Capacity shock and budget exhaustion are Operations resource and scheduler
@@ -1254,8 +1298,8 @@ The Change Plane does not replace local surface ownership:
 Environments
   runtime environment lifecycle and provider placement evidence
 
-Missions
-  running-system execution queue, run, retry, failure, and build workstreams
+Work
+  typed GoalRun, AutomationRun, Session, WorkRun, retry, failure, and incident projections
 
 Operations resource facet
   quota, queue, capacity, rate-limit, utilization, and spend posture
@@ -1267,13 +1311,13 @@ Foundry
 Automations
   trigger, workflow, service, API, schedule, and run lifecycle
 
-Marketplace / Provenance
+Packages / Provenance
   package install/publish/recall evidence, artifact refs, contribution refs,
-  and settlement handoffs
+  and settlement handoffs; Marketplace remains an optional discovery/commerce mode
 
-Governance / Missions
+Governance / Work
   human approval and policy review gates (Governance); remediation, incident,
-  and support workstreams (Missions)
+  and support workstreams (Work)
 
 Provenance / Ontology
   dependency, provenance, and impact graph
@@ -1403,7 +1447,7 @@ state_root_ref and receipt_refs
 reason_when_blocked
 ```
 
-Change plans may be proposed by Automations, Workbench, Foundry, ioi.ai,
+Change plans may be proposed by Automations, Developer Workspace, Foundry, ioi.ai,
 provider views, scanner findings, policy engines, or human operators. They are
 executed only through Hypervisor Core and the daemon/provider boundary.
 wallet.network authorizes spend, secret release, SCM auth, access,

@@ -115,7 +115,8 @@ user, agent, app, or service requests market exposure
   -> venue executes orders and maintains position state
   -> Wallet/venue adapters monitor position risk and emit receipts
   -> Agentgres records relevant receipts, evidence, and policy state
-  -> IOI L1 receives only selected settlement/dispute/public commitments
+  -> IOI L1 receives settlement/dispute/public commitments only when the
+     declared enrollment and settlement profiles select it
 ```
 
 ### Event Exposure Route
@@ -135,7 +136,8 @@ user, agent, app, or service requests event exposure
   -> Wallet/venue adapters emit prediction, risk, and resolution receipts
   -> Agentgres records relevant receipts, evidence, policy state, and
      resolution refs
-  -> IOI L1 receives only selected settlement/dispute/public commitments
+  -> IOI L1 receives settlement/dispute/public commitments only when the
+     declared enrollment and settlement profiles select it
 ```
 
 ## Minimal Implementation Objects

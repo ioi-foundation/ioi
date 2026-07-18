@@ -1,0 +1,48 @@
+{
+  "statusCases": [
+    {
+      "name": "canonical built header",
+      "doctrine": "canonical",
+      "implementation": "built (verified)",
+      "valid": true
+    },
+    {
+      "name": "archived n-a header",
+      "doctrine": "archived",
+      "implementation": "n/a (historical record)",
+      "valid": true
+    },
+    {
+      "name": "advisory is not a doctrine status",
+      "doctrine": "not doctrine (advisory)",
+      "implementation": "n/a",
+      "valid": false
+    },
+    {
+      "name": "transitional is a qualifier not a state",
+      "doctrine": "canonical",
+      "implementation": "transitional (migration open)",
+      "valid": false
+    }
+  ],
+  "precedenceCases": [
+    {
+      "name": "recency cannot select canon",
+      "doctrine": "canonical",
+      "body": "When owner documents conflict, prefer the newer document.",
+      "valid": false
+    },
+    {
+      "name": "negated recency rule is valid",
+      "doctrine": "canonical",
+      "body": "Publication date and edit recency do not outrank explicit ownership.",
+      "valid": true
+    },
+    {
+      "name": "reference evidence may quote an old rule",
+      "doctrine": "reference",
+      "body": "The retired rule said to prefer the newer canonical document.",
+      "valid": true
+    }
+  ]
+}

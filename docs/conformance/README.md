@@ -5,7 +5,7 @@ Canonical owner: this file for the conformance tree and contract ownership.
 Supersedes: product or architecture prose that treats conformance as tied to one
 agent runtime, IDE, or harness.
 Superseded by: none.
-Last alignment pass: 2026-06-17.
+Last alignment pass: 2026-07-16.
 
 ## Purpose
 
@@ -32,6 +32,15 @@ Conformance keeps that architecture from collapsing into hidden shortcuts.
 | [`hypervisor-core/intent-resolution.md`](./hypervisor-core/intent-resolution.md) | Hypervisor Core | Deterministic intent collapse, primitive capability ontology, provider/harness shortcut bans. |
 | [`hypervisor-core/effect-execution.md`](./hypervisor-core/effect-execution.md) | Hypervisor Core | Effect execution, receipt-driven verification, terminal-state gates, remediation boundaries. |
 | [`hypervisor-core/harness-profile-adapter.md`](./hypervisor-core/harness-profile-adapter.md) | Hypervisor Core | Minimum adapter contract for third-party harnesses, model runtimes, modules, and worker profiles. |
+| [`hypervisor-core/information-flow-propagation.md`](./hypervisor-core/information-flow-propagation.md) | Security/privacy/policy owners | Target Cut 3B1 label propagation and exact-effect declassification contract; registered schemas and fixtures do not imply live pre-invoker enforcement. |
+| [`hypervisor-core/institutional-learning-boundary.md`](./hypervisor-core/institutional-learning-boundary.md) | Cross-plane enterprise learning owners | Target end-to-end grades for institution-controlled learning, egress, lineage, provider substitution, revocation, and export/import. |
+| [`hypervisor-core/work-lifecycle.md`](./hypervisor-core/work-lifecycle.md) | Domain work owners plus daemon runtime | Target shared kind-specific lifecycle, exact-head, cancellation, replay, and archival contract; current owner planes retain their own lifecycles. |
+| [`hypervisor-core/managed-work-billing.md`](./hypervisor-core/managed-work-billing.md) | Economic, metering, and receipt owners | Registered fixed-point bundle contract and target quote/hold/usage/debit lifecycle; no current accounting kernel or billing service. |
+| [`hypervisor-core/dispute-rails.md`](./hypervisor-core/dispute-rails.md) | Marketplace, AIIP, settlement, and receipt owners | Registered rail-bundle contract and target case/default/remedy/allocation behavior; no current adjudication kernel or settlement effect. |
+| [`hypervisor-core/attestation-assurance.md`](./hypervisor-core/attestation-assurance.md) | Runtime assurance and deployment-policy owners | Target structured attestation, startup narrowing, and deployment-obligation contract; no dedicated evaluator or live evidence owner. |
+| [`hypervisor-core/physical-action-safety.md`](./hypervisor-core/physical-action-safety.md) | Physical safety and Embodied Runtime | Current declaration-level intent admission plus target final-invoker, interrupted-effect, and execution-receipt contract. |
+| [`hypervisor-core/platform-operability.md`](./hypervisor-core/platform-operability.md) | Platform Operability | Target cross-plane operation disposition, recovery, version/key transition, and protected observability contract. |
+| [`hypervisor-core/platform-fault-matrix.v1.json`](./hypervisor-core/platform-fault-matrix.v1.json) | Platform Operability | Canonical machine-readable target scenarios; fixture evidence only, with no current operability evaluator or live fault injection. |
 
 ## Compatibility Labels
 

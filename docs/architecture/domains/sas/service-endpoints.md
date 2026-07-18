@@ -93,9 +93,13 @@ POST /v1/orders/{order_id}/open-dispute
   "privacy_class": "internal",
   "execution_profile": "hosted | depin_mutual_blind | tee_enterprise | customer_vpc",
   "payment": {
-    "mode": "escrow",
-    "token": "IOI",
-    "max_amount": "50"
+    "settlement_mode": "local_domain | bilateral | invoice | external_escrow | external_chain | ioi_l1",
+    "settlement_profile_ref": "policy://settlement/customer-default",
+    "network_enrollment_ref": null,
+    "asset_kind": "fiat | stablecoin | native_asset | service_credit",
+    "asset_identifier": "USD",
+    "max_amount": "50.00",
+    "product_budget_ref": "budget://goal-space/optional"
   },
   "authority_policy": {
     "primitive_capabilities_required": ["prim:model.invoke", "prim:fs.read"],
@@ -116,7 +120,7 @@ Worker Training orders may additionally include:
     "output_schema_ref": "cid://...",
     "domain_ontology_ref": "ontology://construction-estimating/v1",
     "canonical_object_model_refs": ["object-model://Estimate"],
-    "data_recipe_refs": ["recipe://construction/estimate-normalization/v1"],
+    "data_recipe_refs": ["data-recipe://construction/estimate-normalization/revision/v1"],
     "policy_bound_data_view_refs": ["view://customer-estimate-training"],
     "evaluation_dataset_refs": ["dataset://construction-estimate-holdout-v1"],
     "source_refs": ["artifact://plans", "artifact://prior_quotes"],
@@ -133,18 +137,18 @@ Response:
 
 ```json
 {
-  "order_id": "order_123",
-  "service_order_contract": "0x...",
+  "order_id": "order://123",
+  "service_order_contract": "contract://service-order/123",
   "escrow_status": "pending_lock | locked",
-  "outcome_workspace_ref": "agentgres://sas/outcome-workspaces/order_123",
-  "runtime_assignment_ref": "agentgres://sas/runtime-assignments/assign_123",
+  "outcome_workspace_ref": "agentgres://sas/outcome-workspaces/order/123",
+  "runtime_assignment_ref": "agentgres://sas/runtime-assignments/123",
   "compute_session": {
-    "compute_session_id": "compute_session_123",
+    "compute_session_id": "compute://session/123",
     "daemon_profile": "hosted_ioi | provider | depin | tee | customer_vpc | local",
     "substrate": "container | vm | browser_sandbox | gpu_job | tee_enclave | process",
     "status": "pending | warming | running | idle | archived"
   },
-  "agentgres_ref": "agentgres://sas/orders/order_123",
+  "agentgres_ref": "agentgres://sas/orders/123",
   "status": "created"
 }
 ```
@@ -175,17 +179,20 @@ POST /v1/deliveries/{delivery_id}/open-dispute
 
 ```json
 {
-  "delivery_id": "delivery_123",
-  "order_id": "order_123",
-  "delivery_status": "partial | submitted | accepted | accepted_partial | rejected | revision_requested | disputed | settled",
+  "delivery_id": "delivery://123",
+  "order_id": "order://123",
+  "delivery_status": "draft | partial | submitted | cancelled",
+  "acceptance_status": "pending | accepted | accepted_partial | rejected | revision_requested",
+  "adjudication_status": "none | disputed | adjudicating | resolved",
+  "settlement_status": "not_requested | intent_created | pending | settled | paid | refunded | slashed | failed",
   "milestone_ref": "optional",
   "provider_id": "ioi://publisher/provider",
   "buyer_domain_ref": "domain://buyer",
   "provider_domain_ref": "domain://provider",
-  "run_ids": ["run_1", "run_2"],
+  "run_ids": ["run://1", "run://2"],
   "output_artifacts": [
     {
-      "artifact_id": "artifact_report",
+      "artifact_id": "artifact://report",
       "cid": "bafy...",
       "sha256": "...",
       "media_type": "application/pdf"
@@ -193,11 +200,11 @@ POST /v1/deliveries/{delivery_id}/open-dispute
   ],
   "evidence_bundle": ["receipt://execution_1", "receipt://validation_1"],
   "delivery_update_refs": ["packet://delivery_update_1"],
-  "acceptance_decision_refs": ["packet://acceptance_decision_1"],
+  "acceptance_decision_refs": ["acceptance://delivery/123/1"],
   "local_receipt_root": "sha256:...",
   "remote_receipt_root": "sha256:...",
   "service_composition": {
-    "service_composition_receipt_bundle_ref": "service_comp_bundle_123",
+    "service_composition_receipt_bundle_ref": "receipt://service-composition/123",
     "composition_graph_ref": "workflow://graph_123",
     "routing_receipts": ["receipt://route_123"],
     "contribution_receipts": ["receipt://contribution_worker_1"],
@@ -244,9 +251,13 @@ POST /v1/provider/orders/{order_id}/submit-delivery
 GET  /v1/provider/payouts
 ```
 
-## Escrow / Contract Mirror API
+## Settlement / Escrow Mirror API
 
-sas.xyz Agentgres mirrors contract state. The chain is authoritative for money; Agentgres is authoritative for operational detail.
+sas.xyz Agentgres mirrors the selected settlement rail. The declared invoice,
+escrow, payment ledger, or chain is authoritative for monetary movement;
+Agentgres is authoritative for admitted operational detail. Local acceptance
+does not require a chain, and `ioi_l1` is valid only under an active enrollment
+that selected the service.
 
 ```http
 GET /v1/orders/{order_id}/escrow
@@ -258,15 +269,29 @@ Mirror shape:
 
 ```json
 {
-  "order_id": "order_123",
-  "contract_address": "0x...",
-  "escrow_amount": "50",
-  "token": "IOI",
-  "status": "locked | released | disputed | refunded",
-  "last_chain_event": "ServiceOrderEscrowLocked",
-  "last_tx_hash": "0x..."
+  "settlement_id": "settlement://order/123",
+  "subject_ref": "order://123",
+  "settlement_mode": "local_domain | bilateral | invoice | external_escrow | external_chain | ioi_l1",
+  "settlement_profile_ref": "policy://settlement/customer-default",
+  "network_enrollment_ref": null,
+  "rail": {
+    "network_or_ledger_ref": "agentgres://... | invoice://... | chain://... | network://... | null",
+    "contract_ref": "contract://... | null",
+    "payer_account_ref": "wallet://... | account://... | null",
+    "payee_account_ref": "wallet://... | account://... | null",
+    "amount": "50.00",
+    "asset_kind": "fiat | stablecoin | native_asset | service_credit",
+    "asset_identifier": "USD"
+  },
+  "status": "drafted | submitted | pending | settled | disputed | reversed | failed",
+  "last_settlement_event_ref": "event://...",
+  "last_ledger_or_transaction_ref": "invoice://... | tx://... | null"
 }
 ```
+
+Work Credits may fund an IOI product budget and appear through a separate
+`product_budget_ref` / debit receipt. They are not a provider payout asset and
+must not be relabeled as the token or currency of a service order.
 
 ## Dispute API
 
@@ -288,7 +313,9 @@ actions are `refund`, `partial_refund`, `payout`, `partial_payout`, `slash`,
 
 1. sas.xyz sells outcome contracts, not just agent prompts.
 2. Every service order must have an explicit output contract and acceptance criteria.
-3. Escrow/payout lives on IOI L1 contracts; operational order state lives in sas.xyz Agentgres.
+3. Escrow/payout lives on the order's declared settlement rail; operational
+   order state lives in sas.xyz Agentgres. IOI L1 is valid only for an active
+   enrollment that selected the service.
 4. Delivery must include artifacts, evidence, receipts, delivery-update state,
    acceptance/revision/dispute state, and settlement state. Composed delivery
    must also include worker contribution refs, verifier refs, private-data

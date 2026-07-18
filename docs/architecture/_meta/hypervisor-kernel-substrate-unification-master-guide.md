@@ -31,7 +31,7 @@ Read it by role:
 | --- | --- | --- |
 | System architect | One-Page Doctrine | Part I, Part II, Final Doctrine |
 | Runtime implementer | One-Page Doctrine | Part III, Part IV, Part VII |
-| Hypervisor Workbench / workflow implementer | One-Page Doctrine | Part V, Part VI, Part VII |
+| Developer Workspace / workflow implementer | One-Page Doctrine | Part V, Part VI, Part VII |
 | Agentgres / receipt implementer | One-Page Doctrine | Part III, Part IV |
 | cTEE / private workspace implementer | One-Page Doctrine | Part II, Part III, Part VII |
 | Migration lead | One-Page Doctrine | Part VII, Part VIII, Part IX |
@@ -81,7 +81,7 @@ kernel/workload substrate as the authoritative step/module execution backend.
 Record admitted truth in Agentgres.
 Authorize through local/domain governance and the applicable authority provider;
 use wallet.network for portable delegation and designated high-risk effects.
-Project the same graph into Hypervisor Workbench, App/Web clients, and
+Project the same graph into Developer Workspace, App/Web clients, and
 CLI/headless projections; TUI remains an optional presentation over the
 CLI/headless client.
 Use cTEE Private Workspace profiles when untrusted compute must not receive
@@ -100,7 +100,7 @@ Agentgres records admitted domain operational truth and state roots.
 Applicable local/domain policy and authority providers authorize;
 wallet.network is mandatory for portable delegation and designated high-risk effects.
 Hypervisor Core coordinates clients, application surfaces, sessions, and adapters.
-Hypervisor Workbench composes and inspects the same graph.
+Developer Workspace composes and inspects the same graph.
 ```
 
 This guide is intentionally honest about what exists today versus what is the
@@ -161,7 +161,7 @@ Agentgres + receipts + artifact refs + state roots
 
 | Layer | User sees | Implementer builds | Canon boundary |
 | --- | --- | --- | --- |
-| Product surface | Workbench/App/Web/CLI/SDK workflow | workflow graph, approvals, replay, package UX | product requests and inspection only |
+| Product surface | Developer Workspace/App/Web/CLI/SDK workflow | workflow graph, approvals, replay, package UX | product requests and inspection only |
 | Daemon admission and execution | a run that can act safely | gates, leases, StepModuleRouter, cTEE checks | applicable policy/authority authorizes; execution semantics live here |
 | Workflow Compositor | directed workflow/service graph | step contracts, dependencies, review points, selection hints | high-level graph shape, not execution truth |
 | Harness profile | scoped autonomous step | ActionProposal -> GateResult -> module execution -> observation | selected HarnessProfile resolves a step; DHP is reference/fallback |
@@ -219,7 +219,8 @@ The architecture docs already name the intended boundaries:
 Live product runtime today is primarily:
 
 ```text
-Hypervisor Workbench / Hypervisor App/Web / Workflow Compositor surfaces
+Developer Workspace (`Workbench` current-code alias) / Hypervisor App/Web /
+Workflow Compositor surfaces
   -> @ioi/runtime-daemon HTTP routes
   -> JS state store / thread store / model-mounting store
   -> JS direct tool dispatch for local coding tools
@@ -3365,7 +3366,7 @@ IOI L1 / compatible app chains
 
 | Responsibility | Authoritative owner | Notes |
 | --- | --- | --- |
-| User/operator UX | Hypervisor App / Web / CLI / SDK and Workbench surfaces | Requests, displays, composes, steers, inspects. Does not own execution semantics. |
+| User/operator UX | Hypervisor App / Web / CLI / SDK and Developer Workspace surfaces | Requests, displays, composes, steers, inspects. Does not own execution semantics. |
 | Execution semantics | Hypervisor Daemon | The daemon admits or rejects proposed effect transitions under active policy and valid wallet.network grants; it does not originate authority. |
 | Directed-work surface | Workflow Compositor | Shapes high-level workflow/service graphs, dependencies, review points, and step contracts. |
 | Step-resolution profile | Selected HarnessProfile | Resolves scoped steps under daemon ownership; Default Harness Profile is reference/fallback. |
@@ -3482,7 +3483,7 @@ from authoritative runtime paths.
 Keep JS/TS where it is a product or developer-experience advantage:
 
 ```text
-Hypervisor App / Hypervisor Web / Workbench
+Hypervisor App / Hypervisor Web / Developer Workspace
 web product surfaces
 SDK ergonomics and examples
 workflow authoring UI
@@ -3510,7 +3511,7 @@ Target:
 ```text
 Hypervisor Daemon = Rust
 Hypervisor kernel/workload = Rust/WASM
-Hypervisor App/Web/Workbench = TS/React or equivalent product UI
+Hypervisor App/Web/Developer Workspace = TS/React or equivalent product UI
 Hypervisor SDK = protocol bindings over Rust/core APIs
 ```
 
@@ -3802,15 +3803,18 @@ can be shadowed by a Rust/WASM module later.
 
 ## Part V: Workflow Compositor as Control Plane
 
-This part keeps Hypervisor Workbench out of the "pretty canvas only" trap. The
-compositor should operate as the visual control plane over the same module graph
-the daemon routes, the Rust/WASM backend executes, and Agentgres admits.
+This part keeps the Workflow Compositor out of the "pretty canvas only" trap.
+Automations owns reusable workflow/process authoring; Developer Workspace and
+Foundry consume the compositor contextually for code-bound and build/eval work.
+Every projection operates over the same module graph the daemon routes, the
+Rust/WASM backend executes, and Agentgres admits.
 
 ### Compositor purpose
 
-Hypervisor Workbench's workflow compositor should not be only a canvas. It should be
-the operator's visual control plane over the same module graph the daemon and
-kernel execute.
+The Workflow Compositor should not be only a canvas. It is an owner-bound visual
+control surface over the same module graph the daemon and kernel execute, with
+Automations as primary owner and Developer Workspace or Foundry as contextual
+consumers.
 
 It should show:
 
@@ -4049,7 +4053,7 @@ That means:
 - Rust/WASM workload/kernel backends execute admitted step and module work
   through the shared Step/Module contract.
 - Agentgres is the admitted truth path for meaningful transitions.
-- Hypervisor App/Web/CLI/SDK and Workbench surfaces interact through stable protocol APIs instead of
+- Hypervisor App/Web/CLI/SDK and Developer Workspace surfaces interact through stable protocol APIs instead of
   depending on legacy JS daemon execution routes.
 - Legacy JS authoritative paths, compatibility shims, and split-brain fallback
   routes have been deleted or demoted into non-authoritative clients.
@@ -4553,7 +4557,8 @@ Acceptance criteria:
 ### Phase 5: Workflow compositor projection upgrade
 
 Objective:
-Make Hypervisor Workbench display the same substrate the daemon executes.
+Make Automations and its contextual Developer Workspace/Foundry compositor
+views display the same substrate the daemon executes.
 
 Implementation work:
 
@@ -4565,6 +4570,8 @@ Implementation work:
 
 Likely files/modules:
 
+- the current `hypervisor-workbench` package name is an implementation alias
+  during the Developer Workspace migration;
 - `packages/hypervisor-workbench/src/runtime/harness-workflow/*`
 - `packages/hypervisor-workbench/src/runtime/workflow-composer-model.ts`
 - `packages/runtime-daemon/src/runtime-event-envelopes.mjs`
@@ -4880,7 +4887,7 @@ Implementation work:
 - Add a reference demo:
 
 ```text
-Hypervisor Workbench workflow
+Automations / Developer Workspace workflow
   -> daemon ActionProposal
   -> wallet.network / daemon GateResult
   -> Rust/WASM module invocation

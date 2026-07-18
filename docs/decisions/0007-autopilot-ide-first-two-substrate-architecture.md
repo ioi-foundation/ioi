@@ -76,8 +76,12 @@ product substrate to keep.
 The original implementation umbrella guide was a tracked `.internal/plans`
 campaign file. It has been removed from the live repo to avoid keeping retired
 Autopilot/Tauri execution instructions beside the current Hypervisor shell.
-Use `internal-docs/implementation/refine-architecture.md` for active
-implementation sequencing.
+Use the tracked architecture
+[`source-of-truth-map.md`](../architecture/_meta/source-of-truth-map.md) for
+ownership and
+[`implementation-matrix.md`](../architecture/_meta/implementation-matrix.md)
+for current implementation posture. Ignored internal guides are not canon or
+active sequencing authority.
 
 ## Related Decisions
 

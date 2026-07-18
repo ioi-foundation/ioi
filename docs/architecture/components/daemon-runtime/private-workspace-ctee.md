@@ -6,7 +6,7 @@ Supersedes: hosted/DePIN privacy wording that implies a rented GPU node can
 safely receive plaintext secrets merely because it runs a daemon, container,
 VM, benchmarked image, or boot-measured image.
 Superseded by: none.
-Last alignment pass: 2026-07-11.
+Last alignment pass: 2026-07-13.
 Doctrine status: canonical
 Implementation status: speculative (cTEE/CLPD design; no cTEE implementation)
 Last implementation audit: 2026-07-05
@@ -151,7 +151,7 @@ This document owns the IOI binding:
 | Plaintext-Free Runtime Mount | daemon-owned cTEE/private-workspace mount exposed to selected HarnessProfiles, model mounts, tools, and service modules |
 | StateLog | Agentgres |
 | Artifact / blob store | Agentgres Artifact Plane plus storage backends |
-| Settlement layer | IOI L1 / app chains only by trigger |
+| Settlement layer | system-local by default; declared external/app-chain service by profile; IOI L1 only for explicitly enrolled, selected services |
 | Worker marketplace | aiagent.xyz advertises worker capabilities; it does not grant capabilities |
 | Outcome marketplace | sas.xyz contracts service outcomes; authority exits still route through daemon + wallet.network |
 
@@ -450,6 +450,27 @@ contracts can be valuable. They are still provider trust unless the provider
 receives no sensitive plaintext or supplies a verifiable confidential/private
 compute guarantee accepted by policy.
 
+Institutional learning policy does not collapse this distinction. Before
+protected material crosses to an external model API or processor, the daemon
+intersects the active `InstitutionalLearningBoundaryProfile`, source policy and
+consent, `TrainingEvidenceEligibility` when learning use is proposed, the
+complete `ModelRouteRightsContract`, and `ExecutionPrivacyPosture`. Missing or
+ambiguous rights fail closed. An admitted crossing emits the registered
+`LearningEgressReceipt`; a denied attempt may claim
+`blocked_before_egress` only with gateway or network evidence that no write
+occurred.
+
+A custody-proven local, customer-boundary, or accepted confidential-compute
+route can keep protected material inside the institution and therefore avoid a
+provider-readable learning egress. It still emits the ordinary invocation,
+training, custody, and policy receipts required by the work. Conversely, a
+provider-trust route with strong contractual no-training or retention terms is
+compatible with disclosed `Standard` execution when policy permits, but those
+terms do not become a cryptographic no-egress or no-learning proof. Private
+Workspace protects custody; the learning boundary governs institutional use and
+egress; neither one manufactures output reuse, distillation, competing-model
+training, publication, or resale rights.
+
 ### ExecutionPrivacyPosture
 
 Private workers, service packages, outcome engines, and agent harnesses should
@@ -458,6 +479,8 @@ declare their privacy posture:
 ```yaml
 ExecutionPrivacyPosture:
   posture_id: privacy_posture://...
+  institutional_learning_boundary_profile_ref: learning-boundary://... | null
+  effective_learning_policy_hash: sha256:... | null
   posture:
     private_native | redacted_api | provider_trust | unsafe
   model_path:
@@ -484,7 +507,12 @@ ExecutionPrivacyPosture:
 
 `ExecutionPrivacyPosture` answers what happens to protected workspace data.
 `ModelWeightCustodyProfile` answers what happens to the model weights. They are
-separate decisions.
+separate decisions. `InstitutionalLearningBoundaryProfile` answers which
+institutional prompts, outputs, traces, corrections, evals, memory, datasets,
+and learned artifacts may be used, retained, derived, or allowed to cross the
+institution boundary. For protected institutional material, its profile ref and
+hash are required before an external mount, model route, processor, support
+path, cross-organization handoff, or export is admitted.
 
 ### PrivateWorkspaceMountAdmission
 

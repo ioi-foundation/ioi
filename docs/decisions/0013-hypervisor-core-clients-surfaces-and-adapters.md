@@ -8,6 +8,12 @@ Note: ADR 0014 refines this decision by making Hypervisor an IDE-of-IDEs and
 by folding Fleet terminology into sessions, providers, environments, and
 session-estate views.
 
+Note: ADR 0016 further refines the product taxonomy: Systems and Work become
+the core workspace spine, Developer Workspace replaces Workbench as the target
+label, Packages owns mandatory local lifecycle, and generic Hypervisor Mission
+truth is retired in favor of typed GoalRun, OutcomeRoom, AutomationRun,
+Session, and WorkRun associations.
+
 ## Context
 
 The earlier desktop direction treated the product as an IDE-first app and used

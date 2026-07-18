@@ -4,9 +4,9 @@ Status: canonical architecture authority.
 Canonical owner: this file for wallet.network authority doctrine; wallet product, exchange, route-source, exposure, protection, approval-inbox, and receipt doctrine lives in [`product-exchange-risk.md`](./product-exchange-risk.md); low-level scope APIs live in [`wallet-network-api-and-authority-scopes.md`](./api-authority-scopes.md).
 Supersedes: older generic capability-grant wording when it conflicts with `scope:*` authority grants.
 Superseded by: none.
-Last alignment pass: 2026-07-14.
+Last alignment pass: 2026-07-17.
 Doctrine status: canonical
-Implementation status: partial (capability-lease authority, sealed credentials, approval gates, and the principal-to-approval-authority resolver live in the wallet service; guardian surfaces, key shards, and MPC vault planned)
+Implementation status: partial (capability-lease authority, sealed credentials, approval gates, and the principal-to-approval-authority resolver are live; embedded account/factor/passkey/recovery APIs, guardian surfaces, key shards, and MPC vault are planned)
 Implementation refs:
   - `crates/node/src/bin/hypervisor_daemon_routes/`
   - `crates/types/src/app/wallet_network/principal_authority.rs`
@@ -101,6 +101,15 @@ need a delegated lease, secret brokerage, spend approval, decryption,
 declassification, provider-trust acceptance, external connector access,
 publication/export, cross-domain reuse, or portable revocation.
 
+An `InstitutionalLearningBoundaryProfile` does not itself grant any of those
+powers. Hypervisor and domain governance may compile the applicable learning
+rules, and Agentgres may record the admitted profile and decisions, but
+wallet.network remains involved only where an execution needs its owned
+delegated machine power: credentials, decryption, provider-trust acceptance,
+spend, declassification, external export, cross-domain reuse, or portable
+revocation. Ordinary internal eligibility remains with its source/data,
+training, and system-governance owners.
+
 The gateway must be portable, revocable, policy-bound, receipted, and visible
 across local, hosted, enterprise, cTEE/private-workspace, DePIN, cloud, model,
 connector, marketplace, and domain-application routes.
@@ -148,6 +157,54 @@ Revoke access
 Protocol and audit views may disclose the underlying authority provider, grant,
 lease, receipt, revocation epoch, and signature path.
 
+## Canonical Embedded Sign-In-to-Effect Journey
+
+The default first-party managed-product journey compiles familiar account access
+and consequential machine authority into one experience:
+
+```text
+Continue with Apple / Google / Microsoft / GitHub / enterprise SSO / passkey
+  -> create or link one native wallet.network identity without requiring
+     wallet, key, chain, or cryptographic terminology
+  -> establish an ordinary low-risk product session; authentication grants no
+     consequential authority
+  -> a product or agent proposes one consequential action
+  -> wallet.network derives an exact authority review bound to the principal,
+     acting subject, resources, destination, budget, policy, risk, expiry,
+     product session, origin, and request hash
+  -> an enrolled platform passkey performs local user verification through
+     Face ID, Touch ID, Windows Hello, device PIN, or equivalent; no biometric
+     sample or template leaves the device
+  -> wallet.network issues a scoped, expiring, revocable AuthorityGrant or
+     CapabilityLease bound to that exact review and revocation epoch
+  -> Hypervisor Daemon revalidates admission at the effect boundary and
+     executes or refuses
+  -> WalletReceipt plus Agentgres effect/evidence records make the decision and
+     result inspectable, replayable, challengeable, and revocable where possible
+```
+
+This is an experience contract, not a second identity or authority plane.
+Product adapters may name familiar providers, while the protocol records a
+provider-neutral federated factor and its issuer/subject binding. A platform
+biometric unlocks a local authenticator; Face ID, Touch ID, or Windows Hello is
+never itself an identity, authority grant, signature object, exported biometric
+result, or key shard.
+
+The calling product or deployment identity plane owns the product session.
+wallet.network binds that session ref and origin into the exact authority
+request and review without creating a second session lifecycle. Before this
+journey is claimable as portable end-to-end authority, the target
+`AuthorityGrantEnvelope` v3 successor must sign the exact request-body hash,
+principal, product-session/origin binding, factor/guardian posture, review
+receipt, and approval-evidence root; immutable v1/v2 contracts are not silently
+extended.
+
+Self-hosted, offline, air-gapped, and sovereign deployments may use
+deployment-local identity and another locally permitted authority provider.
+They retain the same authentication-versus-authority separation and
+effect-boundary admission rule without being forced through a hosted
+wallet.network login.
+
 ## Boundary Statement
 
 wallet.network does not execute work, store app-domain operational truth, or
@@ -158,13 +215,14 @@ remain in storage backends.
 
 - Hypervisor Daemon executes work as the autonomous-execution hypervisor/control plane.
 - Hypervisor App, Hypervisor Web, CLI/headless clients, optional TUI views, and
-  Workbench, Automations, Foundry, Applications, Environments views,
+  Developer Workspace, Automations, Foundry, Applications, Environments views,
   and domain surfaces request, approve, and inspect work as operator clients,
   application surfaces, and projections.
 - Agentgres records operational state, runs, receipts, projections, delivery,
   and contribution accounting.
-- IOI L1 settles registry, rights, escrows, bonds, disputes, and public
-  commitments.
+- Selected settlement services handle registry, rights, escrows, bonds,
+  disputes, and public commitments; IOI L1 provides the optional shared IOI
+  Network service set.
 - wallet.network authorizes scopes, protects secrets, controls payments, and
   issues approval/session grants.
 
@@ -321,8 +379,7 @@ User-facing onboarding should hide wallet complexity.
 
 A user may create a wallet.network account through:
 
-- Google;
-- GitHub;
+- Apple, Google, Microsoft, GitHub, or another admitted federated provider;
 - passkey;
 - Web3 wallet linking;
 - email/OIDC provider;
@@ -331,6 +388,8 @@ A user may create a wallet.network account through:
 A frictionless login creates a native wallet.network account with a Level 1 authority profile.
 
 The external login is an authentication factor, not the root identity.
+Provider brands are adapter and product metadata; the stable protocol kind is a
+provider-neutral federated identity factor bound to an exact issuer and subject.
 
 ## Account Security and Authority Factor Taxonomy
 
@@ -378,9 +437,10 @@ declassification, production deploys, high-value compute spend, or organization
 administration.
 
 TOTP is a supplemental factor and may raise confidence, but it is phishable and
-must not be treated as a sovereign authority shard. Face ID, Touch ID, or other
-biometrics are stronger when bound to passkey or secure-enclave assertions and
-an enrolled device policy.
+must not be treated as a sovereign authority shard. Face ID, Touch ID, Windows
+Hello, or another local verification mechanism can unlock a passkey or
+secure-enclave credential under an enrolled-device policy; the resulting
+cryptographic assertion, not the biometric, crosses the boundary.
 
 Out-of-band guardian approval should be available for high-risk actions. A QR,
 push, or CLI challenge is only a transport; the security property comes from the
@@ -397,15 +457,17 @@ policy hash
 request hash
 ```
 
-The agent never receives provider tokens, OTP values, biometric results,
-guardian secrets, raw key shards, or root session material. It receives only a
-scoped grant, denial receipt, revocation epoch, or authority receipt.
+The agent never receives provider tokens, OTP values, raw biometric samples or
+templates, guardian secrets, raw key shards, or root session material. A
+WebAuthn assertion may carry the authenticator's signed user-verification flag;
+that flag is not the underlying biometric. The agent receives only a scoped
+grant, denial receipt, revocation epoch, or authority receipt.
 
 ## Frictionless-to-Fortress Security Ladder
 
 ### Level 1: Federated / Frictionless Account
 
-- Google/GitHub/OIDC/Web3/email login;
+- federated OIDC/OAuth/SAML, Web3, email, or passkey login;
 - native wallet.network identity created automatically;
 - low-risk authority scopes;
 - managed recovery;
@@ -414,7 +476,8 @@ scoped grant, denial receipt, revocation epoch, or authority receipt.
 ### Level 2: Trusted Device / Passkey
 
 - passkey;
-- biometric assertion bound to an enrolled device;
+- cryptographic passkey assertion unlocked by required local user verification
+  and bound to an enrolled-device policy;
 - mobile approver;
 - local wallet or Hypervisor app;
 - higher risk limits;
@@ -484,6 +547,38 @@ authority snapshot, and revocation/expiry posture before reconstructing the
 exact successor. A copied `authority_id`, public key, or decision receipt is
 not sufficient authorization evidence.
 
+## Account Recovery and Device Lifecycle
+
+Recovery restores account access. It never reconstructs, widens, or silently
+preserves consequential authority.
+
+- A federated provider login by itself cannot recover Level 3, Level 4, or
+  organization-vault authority.
+- High-assurance recovery uses a predeclared independent authenticator,
+  GuardianSurface, organization quorum, hardware-backed factor, or delayed
+  reviewed recovery path appropriate to the active policy.
+- Losing or compromising a factor or device revokes or quarantines the factor,
+  dependent GuardianSurface, affected account sessions, and dependent grants;
+  applicable revocation epochs rotate before future authority is issued.
+- Linking or unlinking a factor, changing a recovery route, replacing a trusted
+  device, and merging account identities are consequential transitions with
+  exact review and receipts. Equal email strings never merge identities;
+  issuer/subject bindings and an authorized linking flow do.
+- A single-device passkey requires another enrolled authenticator or an
+  approved recovery route. Authenticator BE/BS signals expose single- versus
+  multi-device eligibility and current backed-up posture. They do not identify
+  a synchronization provider or prove device-bound custody; either claim
+  requires additional admitted evidence, and policy must not guess it.
+- Recovery may deliberately restore a lower security level. Standing high-risk
+  grants remain revoked or quarantined until the user or organization
+  re-establishes the required factors and explicitly reauthorizes them.
+
+A passkey is an `AuthFactor`. It satisfies a GuardianSurface policy only when
+the enrolled surface renders the exact action and the signed assertion is bound
+to the exact request or challenge hash. Authentication and recovery produce
+posture evidence; only the resulting `AuthorityGrant` or `CapabilityLease`
+conveys machine power (`INV-3`).
+
 ## wallet.network Authority Surfaces
 
 wallet.network may expose web, mobile, desktop, embedded Hypervisor panels, CLI,
@@ -540,6 +635,51 @@ scope:instacart.cart_create
 scope:instacart.order_submit
 scope:wallet.transfer_under_limit
 ```
+
+Autonomous-system control uses distinct high-assurance scopes rather than one
+generic deployment or improvement grant:
+
+```text
+scope:autonomous_system.constitution_amend
+scope:autonomous_system.node_admit
+scope:autonomous_system.node_role_change
+scope:autonomous_system.writer_promote
+scope:autonomous_system.authority_membership_change
+scope:autonomous_system.consensus_membership_change
+scope:autonomous_system.oracle_profile_change
+scope:autonomous_system.migrate
+scope:autonomous_system.succeed
+scope:autonomous_system.dissolve
+scope:autonomous_system.decommission
+scope:autonomous_system.network_enrollment_change
+```
+
+Bounded improvement uses distinct scopes for campaign governance rather than a
+generic self-improvement grant:
+
+```text
+scope:improvement.campaign_admit
+scope:improvement.epoch_freeze
+scope:improvement.cutoff_issue
+scope:improvement.upgrade_submit
+scope:improvement.campaign_stop
+```
+
+These scopes do not include target activation. A selected candidate still uses
+the target owner's ordinary release, amendment, deployment, or protected-change
+authority. Search authority cannot freeze its own evaluator, Judgment authority
+cannot activate the candidate it scored, and Campaign admission cannot mint a
+replacement authority root. Concurrent candidate or descendant work binds
+atomic, disjoint resource reservations; a branch, generation, or target-order
+change cannot re-spend the ancestor's unreserved balance.
+
+These scopes are examples of the canonical `scope:*` family; deployment does
+not imply node admission, ordinary upgrade does not imply constitutional
+amendment, and node admission does not imply writer or authority membership.
+Each request binds the active constitution/profile roots, exact transition,
+system and membership IDs, evidence, budget/effect posture, expiry, revocation
+epoch, and the external governance decision required by that system. A worker
+may propose the request but cannot approve its own protected transition.
 
 ## Risk Classes
 
@@ -705,8 +845,9 @@ wallet.network may interact with IOI L1 for:
 
 wallet.network abstracts gas and payment complexity from the user.
 
-IOI L1 is not the wallet database. IOI L1 stores registry, economic,
-settlement, dispute, and sparse public commitments. wallet.network stores
+IOI L1 is not the wallet database. When explicitly selected, IOI L1 stores
+registry, economic, settlement, dispute, and sparse public commitments.
+wallet.network stores
 authority state locally or in a secure authority deployment profile, and
 Agentgres stores operational receipts and projections.
 
@@ -958,7 +1099,8 @@ local/domain governance owns local policy decisions that do not cross portable,
 external, decryption, spend, declassification, or high-risk boundaries
 daemon executes work
 Agentgres records operational truth
-IOI L1 settles public/economic commitments
+the system settles locally unless its declared enrollment and settlement
+profiles select external services such as IOI L1
 ```
 
 ## Related Canon

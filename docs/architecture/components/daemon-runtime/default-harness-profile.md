@@ -1,16 +1,17 @@
 # Default Harness Profile
 
 Status: canonical reference harness profile.
-Canonical owner: this file for HarnessProfile semantics, the Default Harness
-Profile reference scaffold/fallback, bounded Goal Kernel loop-native step
-resolution, context topology, generic result normalization, output ownership,
-and implementation-stage object boundaries.
+Canonical owner: this file for HarnessProfile and AgentHarnessAdapter runtime
+semantics plus the Default Harness Profile reference scaffold/fallback. It
+consumes the GoalRunProfile, GoalRun, Goal Kernel, topology, context, handoff,
+invocation, and result contracts owned by the common-object canon; it does not
+redefine their state or ownership.
 Supersedes: standalone harness-profile wording that implies a peer runtime beside the Hypervisor Daemon.
 Superseded by: none.
-Last alignment pass: 2026-07-11.
+Last alignment pass: 2026-07-16.
 Doctrine status: canonical
-Implementation status: partial (harness-profile registry and default profile built; wider adapter contracts in progress)
-Last implementation audit: 2026-07-05
+Implementation status: partial (the harness-profile registry and default profile are built; registered information-flow/declassification schemas, invariants, fixtures, and generated projections provide contract substrate only; production information-flow derivation/effect compilation and enforcement across HTTP connectors, MCP, hosted models, browsers, memory, ContextCell, OutcomeRoom, inbound connectors/webhooks, wider computer-use families, and adapter contracts remain planned)
+Last implementation audit: 2026-07-18
 
 ## Canonical Definition
 
@@ -30,6 +31,9 @@ Use this doctrine:
 
 The Goal Kernel is deliberately bounded. It grounds, implements, observes,
 verifies, repairs, course-corrects, and completes one GoalRun or claimed subgoal.
+It interprets the exact GoalRunProfile revision and transitive component
+resolution admitted for that run; the profile declares reusable convergence
+while the GoalRun and GoalGroundingLoop retain live state.
 It is not the whole collaborative system. When many participants share a
 frontier, an `OutcomeRoom` / `CollaborativeWorkGraph` sits above multiple
 GoalRuns and owns dynamic participation, work discovery, claim leases,
@@ -58,7 +62,7 @@ The default stack relation is:
 ```text
 Hypervisor clients and surfaces
   Hypervisor App, Hypervisor Web, CLI/headless, optional TUI, SDK, ADK,
-  Workbench/Automations/Foundry surfaces, other application surfaces,
+  Developer Workspace/Automations/Foundry surfaces, other application surfaces,
   Canvas views, Environments views, Authority Gateway adapters
 
 Hypervisor Daemon
@@ -66,12 +70,17 @@ Hypervisor Daemon
   boundary under applicable policy and authority
 
 Workflow Compositor
-  high-level service/workflow graph, dependencies, review points, acceptance
-  criteria, delivery contract, and harness selection hints
+  immutable WorkflowTemplate revisions: high-level service/workflow graph,
+  dependencies, review points, acceptance criteria, delivery contract, and
+  HarnessProfile selection hints
+
+GoalRunProfile
+  immutable reusable pursuit composition interpreted by the Goal Kernel;
+  references optional WorkflowTemplates and step-resolution requirements
 
 Hypervisor Automations
   durable workflow, trigger, schedule, API/service, approval-flow, queue, and
-  background-mission product surface over Workflow Compositor contracts
+  background-work product surface over Workflow Compositor contracts
 
 ioi.ai collaborative outcome pattern
   ioi.ai's Goal Space and optional OutcomeRoom/CollaborativeWorkGraph over
@@ -158,15 +167,17 @@ manifest, event, trace, receipt, or Agentgres projection metadata.
 
 ```yaml
 HarnessProfile:
-  profile_id: harness_profile:...
+  profile_id: harness-profile://...
+  revision_ref: harness-profile://.../revision/...
+  predecessor_revision_ref: harness-profile://.../revision/... | null
+  content_hash: hash
   profile_family:
-    default_ioi | hermes | deepseek_tui | openhands |
-    codex_adapter | claude_code_adapter | service_engine |
-    deterministic_only | custom
+    default_ioi | coding_step | research_step | browser_step |
+    review_step | operator_step | custom
   profile_version: string
   daemon_executed_or_mediated: true
   step_resolution_contract_required: true
-  produces_boundary_objects:
+  supported_normalized_boundary_contracts:
     - ActionProposal
     - GateResult
     - ExecutionResult
@@ -177,6 +188,10 @@ HarnessProfile:
     - ArtifactRef
     - PayloadRef
     - AgentgresOperationRef
+  completed_invocation_terminal_minimum:
+    - WorkResult
+    - terminal Receipt
+  conditional_contracts_follow_task_brief: true
   authority_model: wallet.network
   state_substrate: Agentgres
   persistent_workspace_intelligence:
@@ -185,9 +200,14 @@ HarnessProfile:
   workflow_compositor_role:
     consumes_step_contracts: true
     owns_high_level_graph: false
+  registry_lifecycle_ref: agentgres://object/... | package://.../release/... | null
+  registry_status: draft | evaluable | released | deprecated | revoked
 
 DefaultHarnessProfile:
-  profile_id: default-harness-profile
+  profile_id: harness-profile://default-ioi
+  revision_ref: harness-profile://default-ioi/revision/2026.05.v1
+  predecessor_revision_ref: null
+  content_hash: hash
   profile_version: 2026.05.default-harness-profile.v1
   daemon_executed: true
   reference_profile: true
@@ -219,14 +239,62 @@ DefaultHarnessProfile:
     - CEC
 ```
 
-A harness profile may be implemented by a lower-level runtime service, external
-agent harness, deterministic service module, or Rust/WASM workload substrate,
-but the public ownership boundary stays with the daemon.
+`supported_normalized_boundary_contracts` is a compatibility ceiling, not a
+claim that every scoped step emits every object. A completed invocation must
+produce a canonical WorkResult and terminal receipt. ActionProposal, GateResult,
+ExecutionResult, NormalizedObservation, OutcomeDelta, artifacts, payloads, and
+Agentgres operations are conditional on the admitted TaskBrief, effects, and
+result profile.
+
+Each released HarnessProfile revision is immutable and content-addressed;
+registry lifecycle/status are excluded projections. The profile declares the
+step-resolution and normalization contract. One daemon-mediated
+`HarnessInvocation` selects the profile or an `AgentHarnessAdapter`, invokes the
+underlying agent/runtime implementation, and emits the normalized events,
+results, artifacts, and receipts. A deterministic `ServiceModule` or direct
+`RuntimeToolContract` invocation remains its own execution path rather than
+being relabeled a harness.
+
+## AgentHarnessAdapterEnvelope
+
+An AgentHarnessAdapter is the versioned concrete bridge to an external or
+embedded agent harness. Vendor, process, and protocol mechanics live here, not
+in the semantic HarnessProfile family.
+
+```yaml
+AgentHarnessAdapterEnvelope:
+  schema_version: ioi.agent-harness-adapter.v1
+  adapter_id: agent-harness-adapter://...
+  revision_ref: agent-harness-adapter://.../revision/...
+  predecessor_revision_ref: agent-harness-adapter://.../revision/... | null
+  content_hash: hash
+  owner_ref: org://... | project://... | system://... | ioi://publisher/...
+  adapter_family:
+    codex_cli | claude_code | openhands | hermes | deepseek_tui |
+    local_agent | remote_agent_api | custom
+  transport_kind:
+    local_process | daemon_plugin | remote_api | aiip | mcp | custom
+  compatible_harness_profile_revision_refs: []
+  supported_task_brief_schema_refs: []
+  supported_event_and_result_schema_refs: []
+  supported_runtime_and_model_route_refs: []
+  rendering_and_normalization_contract_refs: []
+  required_runtime_tool_contract_revision_refs: []
+  capability_and_context_requirement_refs: []
+  provenance_evaluation_and_conformance_refs: []
+  registry_lifecycle_ref: agentgres://object/... | package://.../release/... | null
+  registry_status: draft | evaluable | released | deprecated | revoked
+```
+
+A released adapter revision is immutable and content-addressed; registry
+lifecycle/status are excluded projections. It owns transport, rendering, and
+normalization compatibility only. It owns no GoalRun, workflow graph, context
+lease, credential, authority grant, persistent memory, or execution truth.
 
 ## Agent Operating Contract
 
 Hypervisor may expose an `Agent` selector in composer controls, launch forms,
-Automations nodes, Workbench panels, and Applications surfaces. That selector is
+Automations nodes, Developer Workspace panels, and Applications surfaces. That selector is
 product-facing. Under the runtime contract, a configured agent compiles into:
 
 ```text
@@ -366,7 +434,7 @@ Workflow Compositor
     acceptance criteria
     review points
     delivery contract
-    reusable workflow/service templates
+    immutable reusable WorkflowTemplate revisions
     harness/model/provider selection hints
 
 Hypervisor Automations
@@ -375,7 +443,7 @@ Hypervisor Automations
     triggers and schedules
     API/service entrypoints
     approval flows
-    background missions
+    background work definitions
     run-history and replay views
     Canvas editor state where useful
 
@@ -411,7 +479,7 @@ Hypervisor Daemon
 
 Workspace Intelligence
   persists across harness/model swaps:
-    skills
+    SkillManifests, owner-scoped SkillEntries, and admitted active-set snapshots
     memory
     wiki facts
     tool affordances
@@ -425,11 +493,12 @@ it may also choose another harness profile or a deterministic service module
 when that is a better fit. The selected profile is a step-resolution adapter,
 not the owner of the workflow graph.
 
-Setup flows such as downloading models, configuring providers, selecting local
-versus remote compute, creating capability leases, or initializing a private
-workspace should be represented as **Workspace Bootstrap Recipes** or
-**Hypervisor Setup Profiles** executed through the Workflow Compositor and
-daemon gates. They are not the Default Harness Profile.
+Reproducible environment construction uses
+`HypervisorDevelopmentEnvironmentRecipe`; session composition uses
+`HypervisorSessionLaunchRecipe`. Provider/model credential setup and live
+capability leases remain explicit provider, model, authority, and daemon
+admission operations. The retired `WorkspaceBootstrapRecipe` and undefined
+generic Hypervisor setup profile do not survive as parallel recipe families.
 
 ## Normative Lifecycle
 
@@ -439,31 +508,35 @@ verification, or terminal-state gates when those gates apply.
 
 ```text
 1. Capture intent.
-2. Build or derive an IntentContract.
-3. Resolve intent through CIRC-style deterministic selection.
-4. Estimate context pressure and risk.
-5. Build a ContextTopology when useful or required.
-6. Choose fulfillment mode.
-7. Forecast authority, resources, artifacts, and receipts.
-8. Request preflight grants or approval when needed.
-9. Compile or select an initial WorkGraph, service graph, or single Task
+2. Select the exact GoalRunProfile revision, using the versioned
+   generic-adaptive profile for direct ad hoc work.
+3. Build or derive an IntentContract and run-specific constraints.
+4. Admit permitted overrides and freeze the transitive component snapshot,
+   hash, and GoalRunProfileResolutionReceipt.
+5. Resolve intent through CIRC-style deterministic selection.
+6. Estimate context pressure and risk.
+7. Build a ContextTopology when useful or required.
+8. Choose fulfillment mode.
+9. Forecast authority, resources, artifacts, and receipts.
+10. Request preflight grants or approval when needed.
+11. Compile or select an initial WorkGraph, service graph, or single Task
    through the Workflow Compositor when the work is multi-step.
-10. Select a HarnessProfile, deterministic service module, worker, tool, model,
+12. Select a HarnessProfile, deterministic service module, worker, tool, model,
    or service engine for each executable step.
-11. Convert cross-context delegation into a ContextHandoff and
+13. Convert cross-context delegation into a ContextHandoff and
    TaskBriefPayload, then open a HarnessInvocation when a HarnessProfile or
    Agent Harness Adapter must perform the step.
-12. Normalize raw results into generic `WorkResult` / `OutcomeDelta` plus
+14. Normalize raw results into generic `WorkResult` / `OutcomeDelta` plus
     observations. Software implementation may use
     `ImplementationResultPayload` as a profile of that seam.
-13. Record receipts, traces, Agentgres operations, and artifact refs.
-14. Re-enter model loop when more action or synthesis is needed.
-15. Verify claims according to risk.
-16. Repartition context topology when telemetry proves the plan wrong.
-17. Run an OutputOwnershipPass unless deterministic-only profile applies.
-18. Commit delivery state and local/domain settlement in Agentgres.
-19. Store payload bytes in selected storage backends behind ArtifactRefs.
-20. Trigger L1/app-chain settlement only when policy or contract requires it.
+15. Record receipts, traces, Agentgres operations, and artifact refs.
+16. Re-enter model loop when more action or synthesis is needed.
+17. Verify claims according to risk.
+18. Repartition context topology when telemetry proves the plan wrong.
+19. Run an OutputOwnershipPass unless deterministic-only profile applies.
+20. Commit delivery state and local/domain settlement in Agentgres.
+21. Store payload bytes in selected storage backends behind ArtifactRefs.
+22. Trigger L1/app-chain settlement only when policy or contract requires it.
 ```
 
 When a GoalRun is fulfilling a room claim, its admitted result returns to the
@@ -490,9 +563,9 @@ ContextCell
 → Model re-entry
 ```
 
-## Harness Broker Boundary
+## Step-Resolution Broker Boundary
 
-The daemon-mediated harness broker is the boundary between Goal Kernel
+The daemon-mediated step-resolution broker behavior is the boundary between Goal Kernel
 coordination and provider-/tool-specific harness execution. It prevents the
 manual copy-paste workflow from becoming canon.
 
@@ -561,6 +634,9 @@ needs justify object heads.
 
 | Concept | Minimum durable form | Promote to object when |
 | --- | --- | --- |
+| `GoalRunProfile` | immutable revision plus daemon resolution snapshot/hash/receipt | always for newly admitted GoalRuns |
+| `WorkflowTemplate` | immutable compositor graph revision/hash | reusable declared directed work is selected |
+| `SkillManifest` / `SkillEntry` / `ActiveSkillSetSnapshot` | immutable definition / successor-versioned owner binding / exact run resolution | respectively on release, installation/admission, and run activation |
 | `IntentContract` | run request, resolver receipt, or Agentgres operation payload | multiple components query or rebase it |
 | `Run` / `Task` / `TaskState` | Agentgres runtime objects | always for serious runs |
 | `ContextTopology` | planner projection plus receipts | repartition, replay, or cross-cell routing requires it |
@@ -755,6 +831,8 @@ DefaultHarnessContextCellProfile:
     - receipt://...
   prior_observation_refs:
     - observation://...
+  information_flow_label_refs:
+    - ifc-label://...
   open_uncertainties:
     - string
   loop_policy:
@@ -771,9 +849,16 @@ DefaultHarnessContextCellProfile:
     return_state_patch: true
 ```
 
-Harness hot state and private scratch stay local unless admitted. Durable
+HarnessInvocation hot state and private scratch stay local unless admitted. Durable
 behavior-affecting memory goes through Agent Wiki / `ioi-memory` and crosses
 into Agentgres only as authorized operations such as `ContextMutation`.
+Every context item capable of influencing an effect retains its exact
+`InformationFlowLabel`. Context compaction, summarization, model substitution,
+memory import, tool output, and handoff derive a successor label through the
+canonical restrictive join and preserve the transitive parent closure. The
+harness may propose declassification but cannot mutate a label, mint a
+`DeclassificationApproval`, or treat schema-valid content as authoritative
+instruction.
 
 ### LoopStep
 
@@ -803,7 +888,7 @@ LoopStep:
 
 ### WorkResult And OutcomeDelta
 
-Harness completion normalizes into the generic result seam owned by the shared
+HarnessInvocation completion normalizes into the generic result seam owned by the shared
 object canon. Every domain profile preserves:
 
 ```text
@@ -963,7 +1048,7 @@ BlockerOpened
 VerificationRecorded
 OutputOwnershipRecorded
 DeliveryRecorded
-LocalSettlementRecorded
+StateTransitionCommitmentRecorded
 AgentStateArchiveCreated
 StateImported
 RunTerminalStateRecorded
@@ -1303,7 +1388,7 @@ Phase 3: settle serious run truth through Agentgres.
 ```text
 Run, Task, TaskState, PolicyDecision, AuthorityDecision
 ReceiptRecorded, ArtifactRecorded, Blocker, Verification
-OutputOwnershipRecorded, DeliveryRecorded, LocalSettlementRecorded
+OutputOwnershipRecorded, DeliveryRecorded, StateTransitionCommitmentRecorded
 archive/restore operation chain
 ```
 
@@ -1382,17 +1467,28 @@ optional L1 settlement hooks
 24. Goal Kernel is the bounded loop for one GoalRun or claim; it is not the
     OutcomeRoom, collaborative work graph, or universal conductor.
 25. `WorkResult` / `OutcomeDelta` is the generic result seam.
+26. Context compaction, summarization, model substitution, memory import, and
+    tool output preserve information-flow labels and derivation closure.
+27. A HarnessProfile cannot declassify data or upgrade instruction authority;
+    consequential effects use the daemon's central pre-effect evaluator.
     `ImplementationResultPayload` remains the software implementation profile.
 26. Dynamic room participation, claim leasing, resource allocation, shared
     frontier admission, and verifier challenges belong to the collaborative
     work graph, not private harness state.
 27. Background agents are durable delegated work with visible leases, spend,
     evidence, blockers, verification, and cancellation/quarantine controls.
+28. Reusable GoalRunProfile, WorkflowTemplate, SkillManifest, and Package
+    definitions grant no authority and never drift into active work: exact
+    revisions, hashes, permitted overrides, dependency snapshots, and
+    resolution receipts are frozen at the owning admission boundary.
+29. Patching a released profile, template, or skill creates a successor
+    revision. Adopting another GoalRunProfile requires an explicit receipted
+    migration or fork; no active run is silently rebound.
 
 ## One-Line Doctrine
 
 > **Workflow Compositor shapes work; HarnessProfiles resolve steps; the Default
-> Harness Profile is IOI's reference bounded-loop scaffold; OutcomeRooms
-> coordinate many GoalRuns; generic results cross the seam; workspace
-> intelligence persists through skills, memory, receipts, provenance, and
-> policy.**
+> Harness Profile is IOI's reference bounded-loop scaffold; GoalRunProfiles
+> declare reusable pursuit; OutcomeRooms coordinate many GoalRuns; generic
+> results cross the seam; SkillManifests and governed memory persist across
+> model and resolver swaps.**

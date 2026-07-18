@@ -1,6 +1,6 @@
 # ADR 0011: Canonicalize Hypervisor Nodes As Local Settlement Domains
 
-- Status: Accepted
+- Status: Superseded by [ADR 0015](./0015-bounded-distributed-autonomous-systems-and-network-enrollment.md)
 - Date: 2026-05-24
 - Owners: IOI architecture / Hypervisor / daemon runtime / Agentgres / wallet.network / IOI L1
 
@@ -43,9 +43,9 @@ Daemon, Agentgres, wallet.network authority paths, local registries,
 receipt/replay stores, and runtime profiles.
 
 A **governed autonomous-system chain** is a policy-bound, stateful autonomous
-execution object whose harness invokes typed service modules, emits receipts,
-and commits consequential transitions only through deterministic authority and
-governance paths.
+execution object whose bounded GoalRuns and scoped HarnessInvocations may invoke
+typed service modules, emit receipts, and commit consequential transitions only
+through deterministic authority and governance paths.
 
 The canon sentence is:
 
@@ -77,7 +77,7 @@ The canon sentence is:
 
 - Do not make Hypervisor Workbench the settlement layer.
 - Do not make every agent a public blockchain, validator, or standalone L1.
-- Do not put every agent step, harness node, receipt, or Agentgres operation on
+- Do not put every agent step, HarnessInvocation, receipt, or Agentgres operation on
   IOI L1.
 - Do not let autonomous systems self-modify or self-grant authority outside
   proposal, policy, approval, receipt, and governance paths.

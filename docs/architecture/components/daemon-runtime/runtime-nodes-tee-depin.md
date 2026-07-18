@@ -4,10 +4,10 @@ Status: canonical architecture authority.
 Canonical owner: this file for runtime-node and execution-privacy doctrine; low-level task capsule protocol lives in [`runtime-node-and-task-capsule-protocol.md`](./task-capsule-protocol.md).
 Supersedes: overlapping hosted/DePIN/TEE prose when execution-venue boundaries conflict.
 Superseded by: none.
-Last alignment pass: 2026-06-22.
+Last alignment pass: 2026-07-12.
 Doctrine status: canonical
-Implementation status: mixed (local venue real; TEE/DePIN/cTEE/embodied venue contracts design-stage)
-Last implementation audit: 2026-07-05
+Implementation status: mixed (the local venue is real; structured RATS-role attestation evaluation, startup assurance narrowing, live quote drivers, attestation-bound leases/re-attestation, and TEE/DePIN/cTEE/embodied venue deployments remain target contracts)
+Last implementation audit: 2026-07-16
 
 ## Canonical Definition
 
@@ -21,6 +21,14 @@ A runtime node may contain a lower-level runtime service bridge or worker SDK
 helpers, but the node's architectural boot target is the Hypervisor Daemon runtime-node
 profile. SDKs submit and control work as clients; they do not own node
 execution.
+
+Runtime-node eligibility and autonomous-system membership are distinct. A
+machine becomes a member of one logical bounded DAS only through an
+`AutonomousSystemNodeMembershipEnvelope` that scopes its roles, authority,
+failure-domain evidence, epoch, lease, catch-up/root state, and readiness. The
+same runtime node may execute unowned jobs, participate in several systems
+under separate memberships, or participate in none. Provisioning, attestation,
+or daemon health alone never creates system membership or writer authority.
 
 ## Taxonomy
 
@@ -53,7 +61,7 @@ profile boundary as worker execution.
 
 ## Execution Venues
 
-1. **Local Hypervisor Daemon under Hypervisor App, Workbench, or
+1. **Local Hypervisor Daemon under Hypervisor App, Developer Workspace, or
    CLI/headless** — user machine/private runtime; TUI is an optional
    presentation over CLI/headless.
 2. **Hosted IOI Runtime** — first-party managed runtime.
@@ -163,7 +171,7 @@ A remote node may execute a task-scoped capsule:
 
 ```yaml
 TaskCapsule:
-  task_id: task_123
+  task_id: task://123
   capsule_id: cap_07
   visible_context:
     - redacted_input
@@ -202,7 +210,8 @@ marketplace/app creates RunRequest
 → artifacts stored to selected storage backend behind Agentgres refs
 → receipts/results returned to Agentgres
 → trusted verifier/settlement path accepts or rejects
-→ IOI L1 contract updates only if economic boundary requires it
+→ optional IOI L1 contract update only if explicit enrollment and the selected
+  settlement profile require it
 ```
 
 Managed instances use the same boundary, but the assignment may be durable:
@@ -234,16 +243,107 @@ Private Workspace cTEE instances additionally require:
   and deterrence/detection receipts when protected outputs are mounted,
   produced, revealed, watermarked, canary-checked, or disputed.
 
-## TEE Flow
+## Attestation Assurance And TEE Flow
+
+Runtime-node attestation follows the RATS role boundary. The **Attester**
+produces evidence for one workload. A distinct **Verifier/Appraiser** verifies
+evidence and endorsements against named reference values and an appraisal
+policy. The **Relying Party** consumes only the signed appraisal result and
+decides admission. An Attester self-report, boot log, provider badge, or
+Relying-Party recomputation is not an appraisal result.
+
+Every admitted attestation assurance evaluation binds:
+
+```yaml
+attestation_assurance:
+  policy_ref: policy://...
+  required_posture:
+    trusted_operator | software_only | measured_boot | secure_element |
+    cpu_tee | gpu_confidential_compute |
+    cpu_tee_and_gpu_confidential_compute
+  roles:
+    attester_ref: runtime://...
+    verifier_ref: verifier://...
+    appraiser_ref: appraiser://...
+    relying_party_ref: runtime://... | authority://...
+  challenge:
+    nonce: string
+    single_use_status:
+      consumed_for_this_appraisal | already_consumed | unverified
+    consumption_receipt_ref: receipt://...
+  workload_identity: workload://...
+  daemon_build_hash: sha256:...
+  policy_build_hash: sha256:...
+  endorsement_refs:
+    - endorsement://...
+  reference_value_refs:
+    - reference://...
+  appraisal:
+    policy_ref: policy://...
+    result_ref: appraisal://...
+    status: pass | fail | indeterminate
+    appraised_at: timestamp
+    expires_at: timestamp
+  authority_state:
+    lease_ref: lease://...
+    lease_expires_at: timestamp
+    revocation_epoch: integer
+    revocation_status: current | revoked | unverified
+    revocation_check_receipt_ref: receipt://...
+  reattest_by: timestamp
+```
+
+The same workload, daemon build, policy build, lease, and revocation epoch must
+be present in CPU/TEE, GPU confidential-compute, secure-element, measured-boot,
+software-only, and trusted-operator evidence. Hardware or measured postures
+additionally require trusted vendor/platform endorsements. Every posture
+requires an admitted reference value appropriate to that posture; a
+software-only reference value does not become a hardware endorsement.
+
+An implementation evaluates eligible evidence in this deterministic projection
+order:
 
 ```text
-runtime node produces attestation
-→ wallet.network verifies measurement and policy
-→ secrets/keys released only to enclave
-→ worker executes inside TEE
-→ outputs encrypted to destination key
-→ attestation/execution receipt recorded
+cpu_tee_and_gpu_confidential_compute
+> gpu_confidential_compute
+> cpu_tee
+> secure_element
+> measured_boot
+> software_only
+> trusted_operator
+> unverified
 ```
+
+This order selects one display/admission projection; it does not assert that
+incomparable hardware technologies are substitutes. A deployment requirement
+for `cpu_tee`, `gpu_confidential_compute`, `secure_element`, or `measured_boot`
+is satisfied only by that exact evidence kind (the composite satisfies both CPU
+and GPU requirements). Loss or rejection of stronger evidence recomputes the
+strongest still-proven projection. Valid `software_only` or `trusted_operator`
+evidence may therefore keep an explicitly compatible workload running, but the
+result must set `hardware_or_measured_attested: false`.
+
+Replay/already-consumed nonce, wrong workload identity, wrong daemon or policy
+build, stale or rejected appraisal, untrusted endorsement/reference value,
+missing or expired lease, revoked or stale revocation state, and overdue
+re-attestation make the affected stronger evidence ineligible. The Relying
+Party fails closed when no remaining eligible evidence satisfies its required
+posture.
+
+```text
+Attester produces nonce-bound evidence
+→ Verifier/Appraiser checks identity, builds, endorsements/reference values,
+  lease/revocation state, freshness, and appraisal policy
+→ Relying Party applies the deployment's exact minimum posture
+→ wallet.network releases scoped keys only when its own authority gate also passes
+→ worker executes inside the admitted posture
+→ outputs and attestation/execution receipts bind the same workload and lease
+```
+
+Attestation proves only the named evidence, appraisal policy, and time window.
+It does not itself grant authority, create runtime-node membership, prove
+workload correctness, make consumer GPUs confidential, or determine legal
+conformity.
 
 ## Invariants
 
@@ -258,6 +358,9 @@ runtime node produces attestation
    boot is an integrity receipt, not a consumer-GPU plaintext privacy guarantee.
 9. Runtime nodes run daemon-compatible profiles; SDK presence inside a worker or
    client does not make the SDK the runtime substrate.
+10. Runtime placement, system membership, authority distribution, and
+    ordering/finality are independent claims. Adding compute capacity never
+    silently changes the latter three.
 
 ## One-Line Doctrine
 

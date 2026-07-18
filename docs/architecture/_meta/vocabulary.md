@@ -4,7 +4,7 @@ Status: canonical vocabulary reference.
 Canonical owner: this file for runtime, audit, substrate, projection, and naming vocabulary.
 Supersedes: overlapping runtime vocabulary in plans/specs when names conflict.
 Superseded by: none.
-Last alignment pass: 2026-07-11.
+Last alignment pass: 2026-07-17.
 Doctrine status: reference
 Implementation status: mixed (naming reference across all maturity levels)
 Last implementation audit: 2026-07-05
@@ -19,7 +19,7 @@ smallest visible vocabulary that matches the audience:
 
 | Layer | Use For | Default Language |
 | --- | --- | --- |
-| Product | users, buyers, first-run flows, marketplace listings | Goal Spaces, agents, contributors, jobs, workstreams, projects, sessions, permissions, connected apps, budgets, evidence, run history, payments, renew, revoke |
+| Product | users, buyers, first-run flows, marketplace listings | Goal Spaces, Systems, agents, contributors, goals, work, workstreams, projects, sessions, automations, applications, permissions, connected apps, budgets, evidence, run history, payments, renew, revoke |
 | Admin / Builder | org admins, builders, operators, advanced settings | policies, scopes, work frontier, claims, attempts, findings, verifier challenges, work ledger, evals, worker packages, runtime profiles, data recipes, ontology kits, surface descriptors, integration surfaces, authority clients |
 | Protocol / Architecture | implementers, auditors, conformance, proof drilldowns | wallet.network, Agentgres, Hypervisor Daemon, authority grants, Agentgres operations, ContributionReceipts, IOI L1 commitments |
 
@@ -33,7 +33,7 @@ Default presentation map:
 | IOI L1 / mainnet | proof network, settlement, public commitment |
 | aiagent.xyz | agent marketplace, worker marketplace, agent supply |
 | ContributionReceipt | contribution record, payout evidence, attribution |
-| OutcomeRoom / CollaborativeWorkGraph | Goal Space or Mission workstream |
+| OutcomeRoom / CollaborativeWorkGraph | Goal Space or Work / Room workstream |
 | RoomParticipantLease | contributor or background participant status |
 | WorkCredit | managed-work credit or included/top-up allowance |
 | NetworkGoalBudget | Network/Open budget, bounty, or external-contributor budget |
@@ -266,41 +266,118 @@ product pitch or routine onboarding flow.
   eligibility, cost owner, billing path, and uncertainty. It is not spend
   authority.
 - `HarnessProfile`: a daemon-executed or daemon-mediated step-resolution
-  profile/adapter. A selected harness profile resolves a scoped step under
-  daemon gates and must produce common boundary objects such as
-  `ActionProposal`, `GateResult`, `ExecutionResult`, `NormalizedObservation`,
+  profile. It declares how an assigned scoped step is resolved and normalized
+  under daemon gates. The selected profile is bound to a `HarnessInvocation`;
+  that invocation, not the reusable profile, emits common events, results,
   receipts, artifact refs, Agentgres refs, and terminal/blocker state. It is
-  not a peer runtime, not high-level workflow composition, and not the owner of
-  persistent workspace memory.
+  not an AgentHarnessAdapter identity, peer runtime, high-level workflow
+  composition, or persistent-workspace-memory owner.
 - `DefaultHarnessProfile`: IOI's reference scaffold/fallback
   `HarnessProfile` for loop-native scoped step resolution. It is useful as a
   template for custom profiles and as the ordinary fallback, but it is not the
   only admissible harness, not a meta-harness above external harnesses, and not
   the Workflow Compositor.
-- `GoalKernel` / `GoalMicroharness`: goal-shaped orchestration kernel used by
+- `GoalRunProfile`: immutable, content-addressed reusable pursuit
+  specification for one class of adaptive goals. It composes existing
+  OrchestrationPolicy, optional WorkflowTemplate, role/topology requirements,
+  HarnessProfile, SkillManifest, capability, output, verifier, budget, stop,
+  recovery, and learning-boundary requirements. Hypervisor Core and the daemon
+  admit an exact revision plus permitted overrides into each GoalRun and freeze
+  the transitive resolution. It is not executable, authority, live run state,
+  domain state, a campaign database, or a high-level super-harness.
+- `GoalKernel`: goal-shaped orchestration kernel used by
   ioi.ai and Hypervisor Sessions for one bounded goal or claimed subgoal. It
-  turns intent into a durable GoalRun, grounds context, selects or adapts a role
-  topology, leases context/resources/authority, delegates bounded work when
-  useful, returns generic `WorkResult` / `OutcomeDelta`, verifies through the
-  selected VerifierPath, reconciles receipts, and carries continuation state
-  across compaction or session boundaries. It is not a super-agent, an
-  OutcomeRoom, or a swarm-control UI.
+  interprets the admitted GoalRunProfile resolution, grounds context, forms and
+  revises plans, selects or adapts a role topology, leases
+  context/resources/authority, delegates bounded work when useful, returns
+  generic `WorkResult` / `OutcomeDelta`, verifies through the selected
+  VerifierPath, reconciles receipts, and carries continuation state across
+  compaction or session boundaries. Authoritative GoalRun creation and effects
+  remain daemon-owned. It is not a super-agent, an OutcomeRoom, or a
+  swarm-control UI.
 - `GoalRun`: durable coordination record for a goal-shaped unit of work:
-  normalized intent, constraints, role topology, context cells, context leases,
-  optional room/participant/claim refs, handoffs, orchestration plans, generic
-  results, verifier path, receipts, and continuation state. It owns one bounded
+  admitted GoalRunProfile revision and resolution snapshot, normalized intent,
+  constraints, role topology, context cells, context leases, optional
+  room/participant/claim refs, runtime assignments, handoffs, orchestration
+  plans, generic results, verifier path, receipts, and continuation state. It
+  owns one bounded
   pursue/verify/course-correct loop and may stand alone or participate in an
-  OutcomeRoom. It is not a chat transcript or a harness-local memory file.
+  OutcomeRoom. It is not a chat transcript or an adapter-/HarnessInvocation-
+  local memory file.
 - `GoalGroundingLoop`: low-level conductor-orientation loop for goal-shaped
   work: receive intent, classify risk, gather grounding, inspect current state,
   derive constraints and acceptance, select topology, lease context, open
   Context Cells only when useful, delegate or execute, monitor, verify, repair
   or escalate, reconcile receipts/memory/skills, and continue or close. It
   optimizes progress per token rather than maximizing agent calls.
+The unsuffixed work-lifecycle names below are conceptual and runtime-kernel
+shorthand. Their canonical JSON wire objects use the owner-qualified
+`*Envelope` names in
+[`common-objects-and-envelopes.md`](../foundations/common-objects-and-envelopes.md):
+`WorkLifecycleRecordEnvelope`, `CancellationFanoutPlanEnvelope`,
+`WorkLifecycleArchiveSegmentEnvelope`, and `WorkLifecycleSnapshotEnvelope`.
+
+- `WorkLifecycleRecord`: one content-committed append-only phase-transition or
+  typed child-reference fact for a GoalRun, GoalGroundingLoop, WorkRun,
+  AutomationRun, HarnessInvocation, ContextCell, or opaque external handle. A
+  shared kernel validates exact-head CAS, object-scoped idempotency, the
+  kind-specific legal edge and authority class, monotonic record time, and
+  replay integrity. The record does not own the underlying object or create a
+  universal business lifecycle.
+- `WorkLifecycleProjection`: rebuildable active-phase, active-child-reference,
+  cancellation-intent, receipt-lineage, idempotency, and exact-head projection
+  derived from one object's WorkLifecycleRecord chain. It is a cache/checkpoint,
+  not a mutable truth owner.
+- `CancellationFanoutPlan`: deterministic plan derived from an admitted
+  cancel/revoke transition and the exact active child index. It carries drain,
+  fence, timeout, lease-revocation, compensation, and ambiguous/irreversible-
+  effect reconciliation obligations plus the required policy refs. It cannot
+  claim that child owners executed or completed those obligations; their
+  receipts do.
+- `WorkLifecycleArchiveSegment` / `WorkLifecycleSnapshot`: an immutable
+  compacted lifecycle-record segment and its archive-root/head-bound replay
+  checkpoint. They retain receipt lineage and object-scoped idempotency state.
+  Snapshot state is rebuildable and never licenses destruction of the archive
+  or the domain object's owner truth.
+- `WorkflowTemplate`: immutable, versioned Workflow-Compositor definition of
+  directed graph shape, typed steps, dependencies, handoffs, review points,
+  acceptance, and delivery. An AutomationSpec, GoalRunProfile, Package, or
+  typed one-off GoalRun, AutomationRun, WorkRun, or Foundry job may reference
+  it. It owns no trigger, activation history,
+  live run state, harness loop, or canvas layout.
+- `SkillManifest`: immutable, versioned procedure/context package containing
+  instructions, examples, references, support assets, dependencies,
+  compatibility, provenance, and evaluation metadata. It may reference
+  RuntimeToolContracts but is not executable and carries no authority or
+  secret. `SkillEntry` binds one exact revision into an owner scope;
+  `ActiveSkillSetSnapshot` freezes the exact daemon-admitted run selection;
+  marketplace listing metadata remains a separate Packages projection.
+- `RuntimeToolContract`: versioned typed callable capability contract declaring
+  input/output schema, effect and risk class, primitive capability and
+  authority requirements, approval/evidence/receipt obligations, timeout,
+  concurrency, redaction, and owner. It is not a SkillManifest, connector
+  credential, authority grant, or ambient function.
+- `MCPGatewayRequirement`: immutable, package-safe compatibility requirement
+  describing the MCP-exposed tools, resource projections, prompt imports,
+  elicitation, external-task, App, risk, authority, privacy, budget, rate,
+  retention, and protocol posture a later binding must satisfy. It is not a
+  live gateway, subject, credential, lease, session, or grant. Pursuit,
+  workflow, and skill definitions remain transport-neutral.
+- `HypervisorMCPGatewayProfile`: immutable-revision, subject- and use-scoped,
+  expiring/revocable admitted projection that resolves MCP requirements to
+  canonical IOI contracts. Tools map to RuntimeToolContract; resources to
+  leased policy-bound views/artifacts/memory projections; prompts to untrusted
+  imports; elicitation to typed input; tasks to external HarnessInvocation
+  handles; Apps to sandboxed extension surfaces. Its lifecycle may only reduce
+  effective access; a changed declared profile is a successor revision and
+  widening requires new admission.
 - `RoleTopology`: provider-neutral role shape for a GoalRun, such as direct,
   goal-conductor, delegated-build, governed-release, multi-context-review, or
   specialist-mesh. Roles may resolve to any compatible HarnessProfile,
-  AgentHarnessAdapter, worker, local model, hosted agent, or future harness.
+  AgentHarnessAdapter, worker, local model, hosted agent, or future adapter.
+  Separately admitted RuntimeAssignments resolve those logical roles onto
+  eligible runtime and system-node placements; a topology does not itself grant
+  node membership, locality, or authority.
   Topology may change under policy when evidence, capacity, risk, or the room
   frontier changes; the initial roster is not permanent architecture.
 - `LoopNativeExecution`: the execution discipline in which scoped work advances
@@ -320,7 +397,9 @@ product pitch or routine onboarding flow.
   evidence refs, receipt refs, observations, uncertainty, loop policy, and
   output policy without dumping global context into every actor. It protects
   long-horizon intent from implementation-token churn and receives only scoped
-  memory, tool, model, and authority leases.
+  memory, tool, model, and authority leases. Its active RuntimeAssignment, when
+  present, binds that context to one governed execution placement without
+  turning the Context Cell into a node or sovereignty boundary.
 - `ContextHandoff`: typed packet between Context Cells, such as task brief,
   generic work result, outcome delta, finding, implementation result, blocker,
   diff/test summary, review or verification request, decision request, or
@@ -351,29 +430,66 @@ product pitch or routine onboarding flow.
 - `WorkResult`: generic bounded result returned by a GoalRun, work claim,
   worker, harness, service, research attempt, ontology operation, incident
   response, review, evaluation, or physical mission. It binds result profile,
-  outcome class, findings, outcome deltas, artifacts/evidence/receipts,
-  blockers, verification, and next action.
+  outcome class, exact producer-component resolution snapshot/hash/receipt and
+  resolver revision/hash when executable components contributed, findings,
+  outcome deltas, artifacts/evidence/receipts, blockers, verification, and next
+  action. A HarnessInvocation is an invocation binding, never the WorkResult's
+  underlying work subject.
 - `OutcomeDelta`: proposed change to outcome, frontier, finding, ontology,
   capability, policy, routing prior, service, or domain state. It binds
   preconditions/invariants, expected effect, verifier/acceptance refs, and
   admission state; it is a proposal until the owning domain admits it.
 - `OutcomeRoom`: durable shared collaborative-pursuit profile above one or more
   GoalRuns. It binds objective, constraints, acceptance and stop policy, room
-  mode, participation/visibility/privacy/contribution policy, hosted or
+  mode, cooperation-surplus policy, collaboration terms roots,
+  participation/visibility/privacy/contribution policy, hosted or
   federated admission topology, ontology profiles, budget/resources,
   participants, frontier, attempts, findings, verifier challenges, discussion
   projections, contribution lineage, and replay. It is not a runtime,
   marketplace, authority system, or global Agentgres database.
+- `ConditionalCooperationSurplus`: the participant-level reason for external
+  work: expected utility under the accepted collaboration terms minus expected
+  utility of the best permitted outside option and minus incremental search,
+  semantic-mapping, coordination, verification, disclosure, counterparty,
+  dispute, settlement, switching, and dependency costs. A required party
+  participates only when that value is positive under its governed decision
+  path. Raw valuation may remain private. System count, compatibility, shared
+  goals, messages, receipts, and AIIP traffic are not surplus by themselves.
+- `CollaborationTerms`: versioned `terms://...` bargain for voluntary
+  cross-party work. It binds exact scope, parties, roles, activation,
+  eligibility, work, rights, obligations, disclosure, contribution and reward
+  basis, consideration, risk, exit, amendment, and settlement. Every required
+  party accepts one root through its governed decision path; amendments require
+  new acceptance and never rewrite admitted work retroactively. Terms
+  acceptance grants no authority, work award, result acceptance, or payout.
+- `CollaborationTermsAcceptanceReceipt`: attested record binding one accountable
+  party, role, exact terms root, governed decision/signature, scope, time, and
+  supersession posture. It proves acceptance of those terms only; it does not
+  prove objective surplus, disclose private valuation, or create authority,
+  work, acceptance, allocation, or payout.
 - `OutcomeRoomDiscovery`: policy-bound `room-discovery://...` projection that
   exposes only the objective/category, semantic profiles, eligibility,
   privacy/visibility posture, budget/quote, verifier/settlement posture,
   publication version, and typed join path needed to discover eligible work.
   It never publishes private room context or grants participation.
+- `LocalAgentPairingSession`: ephemeral first-mile authentication session for
+  connecting an already-running, user-owned agent or harness. Its shared wire
+  object is `LocalAgentPairingSessionEnvelope`; its target is
+  `room_guest`, `private_worker`, or `organization_worker`. A one-time,
+  short-lived challenge stored only as a commitment/hash binds the candidate
+  key and permitted origin, then exposes only discovery plus worker-composition
+  or participation-request bootstrap actions. Pairing never grants authority,
+  context, budget, room membership, direct room-database access, reputation,
+  payout rights, or marketplace publication. Successful completion produces a
+  `WorkerComposition` draft/ref and/or `RoomParticipationRequest`; admission is
+  separate. A prompt-only bootstrap remains an untrusted proposal lane and
+  cannot exceed `attested` assurance from pairing alone.
 - `RoomParticipationRequest`: signed `participation-request://...` request from
   a disclosed external party to join a discoverable room with a declared role,
   capability, affiliation, home domain, eligibility evidence, requested
-  leases, and accepted policies. Admission or rejection is a separate
-  receipted decision; a request carries no ambient authority.
+  leases, exact collaboration terms response/root, and accepted policies. A
+  counteroffer or decline creates no membership. Admission or rejection is a
+  separate receipted decision; a request carries no ambient authority.
 - `ParticipantStateBundle`: policy-filtered `participant-state://...` portable
   bundle for active handoff or exit. It preserves permitted claim,
   contribution, result, finding, evidence, receipt, dispute, and acknowledgement
@@ -381,7 +497,7 @@ product pitch or routine onboarding flow.
   usable without continued access to the hosted room database.
 - `CollaborativeWorkGraph`: the admitted participant/frontier/claim/attempt/
   finding/evaluation graph of an OutcomeRoom. In ioi.ai it renders as a Goal
-  Space workstream; in Hypervisor it renders as Mission detail. Boards, chats,
+  Space workstream; in Hypervisor it renders in Work / Rooms. Boards, chats,
   digests, leaderboards, and replay are projections over this graph. It is not
   an unbounded swarm and not a separate runtime: every participant acts under
   a leased admission, every attempt runs as a bounded GoalRun (whose internal
@@ -391,7 +507,8 @@ product pitch or routine onboarding flow.
   operator, home domain, Worker/harness/model/runtime refs, affiliation,
   eligibility evidence, visibility, context/authority/resource/budget leases,
   current claim, heartbeat or wake condition, TTL, and lifecycle state.
-  Participation is leased rather than ambient.
+  exact accepted terms root, and lifecycle state. Participation is leased
+  rather than ambient; the lease cannot silently outlive its terms.
 - `ResourceOffer`: typed offer of compute, runtime capacity, data access,
   verification capacity, or another resource to a room, with locality, custody,
   trust, price, availability, allocation, fairness, spend, and contribution
@@ -528,6 +645,40 @@ product pitch or routine onboarding flow.
   retention, or enterprise privacy controls may be valuable, but they are not
   base cTEE no-plaintext-custody unless the provider receives no sensitive
   plaintext or exposes a separately verifiable private-compute interface.
+- `EnterpriseLearningBoundary`: the product-facing Governance projection of an
+  admitted `InstitutionalLearningBoundaryProfile`. It explains which
+  institutional learning material may be retained, used, derived, exported, or
+  sent to another custody domain. It is not another application, runtime,
+  authority plane, truth store, scaling plane, legal instrument, or privacy tier.
+- `InstitutionalLearningBoundaryProfile`: versioned, hash-bound compiler policy
+  that narrows organization/project defaults into a sovereign system revision
+  and session/run/job snapshots. It references rather than replaces source
+  rights, consent, policy-bound views, model-route rights, custody posture,
+  training eligibility, retention/export rules, and revocation-impact policy.
+  The most restrictive applicable permission wins; missing rights fail closed.
+- `LearningSourceRightsClaim`: evidence-bearing claim about the rights basis and
+  accountable steward for employee, contractor, customer, partner, public,
+  licensed, synthetic, provider-output, or collaborative material. It does not
+  manufacture ownership or permission; admission and later use still require
+  the applicable policy, consent, contract, license, and authority refs.
+- `LearningEgressReceipt`: receipt for a proposed or observed institutional-
+  boundary crossing. It binds material classes and commitments, source scope,
+  destination/purpose, representation, exact boundary/route contract, policy,
+  retention, secondary-use posture, and admitted or pre-egress-blocked status
+  without embedding protected payload plaintext. It proves only IOI-observed
+  boundary facts; it cannot prove hidden provider retention, deletion, or
+  training behavior.
+- `InstitutionalIntelligenceExportBundle`: policy-filtered, credential-scrubbed
+  manifest for audit, migration, or selected-capability export across eligible
+  ontology/recipe, Agentgres archive, memory, eval, policy, workflow, worker,
+  dataset, adapter/checkpoint, package, lineage, and receipt assets. Import
+  re-runs admission, and possession never manufactures rights.
+- `ModelSwapContinuityReport`: composite evaluation/provenance projection that
+  records a declared provider-removal test using institution-controlled,
+  rights-eligible state, private evals, route contracts, and promotion evidence.
+  It proves
+  continuity against named thresholds, not universal model equivalence, and is
+  not a new authority or truth object.
 - `CryptographicOperatorPlane`: the internal cTEE routing plane for protected
   subcomputations that must not become node plaintext. It routes private
   scoring, selection, retrieval, and policy checks through FHE, MPC, garbled
@@ -578,14 +729,25 @@ product pitch or routine onboarding flow.
   review contract. Canonical profiles are `lite_approval_card`,
   `standard_wallet_review`, `advanced_authority_console`, `cli_prompt`, and
   `mobile_approval_sheet`.
-- `AuthFactor`: a wallet.network account credential or factor such as Google,
-  GitHub, email/OIDC, enterprise SSO, Web3 wallet, passkey, or TOTP. It can help
-  authenticate account access or step-up posture, but it is not an authority
-  grant and does not by itself convey agent power.
-- `GuardianSurface`: a high-assurance wallet.network surface such as an enrolled
-  mobile approver, passkey device, hardware key, local CLI signer, trusted
-  wallet/Hypervisor app, or enterprise approval surface. It must render exact
-  action details and bind the request hash before approving high-risk authority.
+- `AuthFactor`: a provider-neutral wallet.network account credential or factor
+  with stable kinds such as `federated_identity`, `passkey`, `web3_wallet`,
+  `email_magic_link`, or `totp`. A federated factor binds its protocol, issuer,
+  provider ref, and provider subject instead of making Apple, Google, Microsoft,
+  GitHub, or an enterprise identity provider separate wire kinds. A passkey
+  binds its relying-party, origin, public key, authenticator-provided backup
+  eligibility/state signals, last-observed user-presence/user-verification,
+  and lifecycle posture without claiming a synchronization provider or custody
+  topology those signals cannot prove. Required UP/UV belongs to each ceremony
+  and policy. An AuthFactor authenticates account access or a step-up; it is not
+  an authority grant and does not by itself convey agent power.
+- `GuardianSurface`: an explicitly enrolled high-assurance wallet.network
+  approval surface such as a policy-qualified passkey authenticator, hardware key, mobile
+  approver, local CLI signer, trusted Wallet/Hypervisor app, or enterprise
+  approval service. An ordinary synced passkey may remain only an AuthFactor;
+  factor possession does not make it a GuardianSurface. A guardian must render
+  the exact action, bind principal, product session, origin and request hash,
+  satisfy the selected user-verification posture, and emit a review result
+  before high-risk authority can be granted.
 - `KeyShard`: actual MPC, threshold, hardware-backed, recovery, or organization
   quorum key material. The term "shard" is reserved for cryptographic or
   threshold authority, not ordinary provider login.
@@ -724,8 +886,9 @@ product pitch or routine onboarding flow.
   authority providers and local/domain policy control
   viewing/decryption/mutation authority, with wallet.network mandatory for
   portable delegated authority, secrets, decryption leases, external effects,
-  or high-risk approval; IOI L1 stores only selected
-  public/economic/cross-domain commitments.
+  or high-risk approval; IOI L1 stores public/economic/cross-domain
+  commitments only for explicitly enrolled systems under their selected
+  settlement profiles.
 - `AgentgresArtifactRefPlane`: the Agentgres-governed reference, lifecycle,
   policy/authority linkage, receipt, replay/import, archive/restore, and
   state-root validity layer for payload bytes. It owns `ArtifactRef`,
@@ -786,12 +949,15 @@ product pitch or routine onboarding flow.
   clients. Clients request, inspect, steer, approve, and render; they do not
   own runtime truth.
 - `HypervisorApp`: the native desktop client over Hypervisor Core. It may host
-  the application suite — Studio (whose agent lens absorbs the former Agent
-  Studio), Automations, Ontology, Data, Governance, Missions, Provenance
-  (the former Work Ledger card), Evaluations, Improvement, Foundry,
-  Marketplace, Workbench, Developer Console — plus the Environments and
-  Operations substrate lane, generated domain apps, the named HypervisorOS horizon entry (embodied systems lane; named only),
-  and other application surfaces.
+  Home, Systems, Projects, Applications, and Work as core workspaces;
+  Automations as one shell-placed owner application; the owner applications Studio, Automations,
+  Ontology, Data, Governance, Provenance, Evaluations, Improvement, Foundry,
+  Packages, Developer Workspace, and Developer Console; the Environments and
+  Operations substrate applications; extension applications and tools; and the
+  conditional Embodied Systems `owner_application` registration with
+  `surface_availability: planned`. `Missions`,
+  `Sessions`, `Workbench`, `Marketplace`, and other compatibility labels may
+  resolve into these identities but are not peer truth owners.
 - `HypervisorWeb`: the browser/team/remote client over Hypervisor Core. It may
   host web/operator/team versions of the same application surfaces while using
   the same daemon, authority, Agentgres, session, receipt, and adapter
@@ -804,27 +970,90 @@ product pitch or routine onboarding flow.
   HypervisorCliHeadless client. It is not a separate first-class client lane and
   must not maintain hidden runtime controls outside daemon/domain APIs.
 - `HypervisorHome`: the default command and resume surface in the Hypervisor
-  shell. It can start a New Session, resume recent work, surface approvals,
-  route into Projects, Automations, Applications, Sessions, receipts, and
-  replay, or draft a reviewed handoff. It is not a durable automation owner,
-  ioi.ai replacement, or default deploy-as-service funnel.
+  shell. It can open the keyboard-first New menu, preserve one-click New
+  Session, resume recent work, surface approvals, and route into Systems,
+  Projects, Automations, Applications, Work, receipts, and replay. It is not a
+  durable automation owner, ioi.ai replacement, or default deploy-as-service
+  funnel.
+- `HypervisorSystems`: the stable core inventory, context router, and coherent
+  read model for admitted live `system_id` identities. It projects Overview,
+  Design, Operate, Govern, Evidence, Improve, and Interfaces through canonical
+  owner applications and daemon/Agentgres records. It does not mint a System,
+  own membership or lifecycle truth, or require direct Project, Session,
+  AutomationSpec, or stand-alone GoalRun work to create a System.
+- `HypervisorWork`: the policy-filtered core workspace over GoalRuns,
+  AutomationRuns, OutcomeRooms, WorkQueues, WorkItems, WorkRuns, Sessions,
+  reviews, incidents, evidence, and history. RuntimeAssignments are placement
+  facets over the typed work rows they serve, not direct Work subjects. Its
+  standard views are Active, Goals, Sessions, Rooms, Queues, Reviews, Incidents,
+  and History. Every row exposes a typed `subject_kind` and canonical
+  `subject_ref`; Work owns no universal lifecycle, authority, budget, evidence,
+  or operational truth and applies policy before search, counts, caching, or
+  recents.
 - `HypervisorApplications`: the catalog, launcher, and vertical surface layer
-  inside Hypervisor. Applications can expose first-party, organization-built,
-  generated, marketplace, or domain-specific surfaces over Hypervisor Core.
-  Applications may create, inspect, modify, or govern Projects, Automations,
-  Sessions, agents, workers, models, environments, ODK descriptors, Domain
-  Apps, developer integrations, governance, operations, evidence, artifacts,
-  or other domain objects, but they are not separate runtimes, authority
-  owners, or Agentgres truth sources.
-- `HypervisorApplicationSurface`: a major product surface over Hypervisor Core,
-  such as Studio, Automations, Ontology, Data, Governance, Missions,
-  Provenance, Evaluations, Improvement, Foundry, Marketplace, Workbench,
-  Developer Console, the Environments and Operations substrate lane, or
-  the named HypervisorOS horizon entry (embodied systems lane; named only). Provider/environment posture may appear
-  through the Applications catalog, Open Application, session, project,
-  provider, org/admin, or operator-console views, not through a standalone
-  provider-management product. Application surfaces are not separate apps with
-  separate runtime truth.
+  inside Hypervisor. It exposes policy-filtered owner applications, substrate
+  applications, searchable owner-bound tools, and extension applications from
+  one product-surface compiler. Organization-authored, generated, privately
+  packaged, or Marketplace-distributed interfaces may create, inspect, modify,
+  or govern typed domain objects only through their admitted contracts. The
+  catalog is not a runtime, authority owner, package truth source, or Agentgres
+  truth source.
+- `HypervisorApplicationSurface`: a registered product surface over Hypervisor
+  Core. Every surface is classified independently by `surface_class`,
+  `surface_origin`, `surface_creation_method`, `surface_distribution`,
+  `surface_availability`, `surface_admission_state`,
+  `surface_installation_state`, `surface_package_disposition`,
+  `surface_enablement_state`, `surface_capability_depth`, and
+  `surface_operational_state` as defined by
+  [`../foundations/canonical-enums.md`](../foundations/canonical-enums.md).
+  Owner applications are Studio, Automations, Ontology, Data, Governance,
+  Provenance, Evaluations, Improvement, Foundry, Packages, Developer Workspace,
+  and Developer Console. Environments and Operations are substrate
+  applications. Embodied Systems is a conditional specialist
+  `owner_application` registration with `surface_availability: planned` and is
+  nonlaunchable until built. Tools and extension applications remain attributable to their
+  owners and contracts. A surface never acquires separate runtime, authority,
+  package, System, Work, or Agentgres truth merely by being registered.
+- `HypervisorApplicationSurfaceRegistration`: the canonical descriptor used by
+  the product-surface compiler. It binds stable surface identity, canonical
+  owner, definition-level class/origin/creation/availability, launch routes,
+  policy predicates, object/context compatibility, and contract obligations.
+  Release, installation, System-interface, and serving axes live on their
+  normalized records and join only in the request-scoped projection.
+  Registration makes a surface eligible for compilation; it does not install a
+  package, admit authority, bind a System, or prove the registered workflow
+  works.
+- `HypervisorRouteAliasRegistration`: one typed `route-alias://...` record
+  owned by exactly one core-workspace or application registration. It maps an
+  alias route pattern either to one static canonical target or to one
+  fail-closed typed resolver, declares required context preservation, and may
+  not collide with another identity's canonical route or alias. It is distinct
+  from `HypervisorSurfaceAlias`, which is vocabulary/product-family naming
+  guidance rather than an HTTP route contract.
+- `HypervisorProductSurfaceProjection`: one request-scoped policy-filtered
+  projection compiled from core-workspace and application registrations,
+  eligible normalized release/installation/System-interface/serving records,
+  authenticated policy and preferences, and typed launch context for the
+  shell, Applications catalog, command palette, contextual launchers, or API.
+  All consumers use the same compiler and owner records so a hidden route,
+  captured reference screen, or parity matrix cannot create product membership
+  independently.
+- `HypervisorSurfaceReleaseRecord`: immutable package-release binding for one
+  `surface://...`; owns distribution, release admission, package disposition,
+  capability depth, the versioned surface descriptor, and exact executable
+  object/action/operator contracts beneath the registration's declared
+  ceilings, not installation or serving health.
+- `HypervisorSurfaceInstallationBinding`: one `install://...` binding of one
+  admitted surface release to an organization or Project; owns installation
+  and deployment-level enablement state plus the non-System launch visibility,
+  audience, allowed-object/action, and authority-preview boundary.
+- `HypervisorSystemInterfaceBinding`: one `package_binding://...` joining an
+  installed surface release to one admitted `system://...`, with visibility,
+  audience, allowed-object/action, authority-preview, decision, Agentgres, and
+  receipt refs. It may only narrow the installation boundary, never widen it.
+- `HypervisorSurfaceServingBinding`: one `surface-serving://...` route/runtime
+  binding for an installation or System interface; owns operational state and
+  health evidence, never definition, release, installation, or System truth.
 - `HypervisorSurfaceAlias`: a legacy or architectural-family label that maps to
   a preferred product surface name. `Providers / Environments` maps to
   Environments; `Data / Knowledge`, `Data Studio`, `Ontology Studio`,
@@ -838,10 +1067,20 @@ product pitch or routine onboarding flow.
   `Operations Center`, and `Resource Management` map to Operations;
   `Receipts / Replay`, `Proof Explorer`, and `Work Ledger` map to Provenance;
   `Patterns / Examples / Training` and `Learning Center` map to enablement
-  facets in Home, Applications, Marketplace, Foundry, Ontology, Data, and
-  onboarding;
-  `Outcome Services / Delivery` maps to the Marketplace declared outcome
-  service facet. Aliases are not separate final product apps.
+  facets in Home, Applications, Packages, Foundry, Ontology, Data, and
+  onboarding; `Workbench` maps to Developer Workspace; `Marketplace` maps to
+  the optional marketplace mode of Packages; legacy `Sessions` routes map to
+  Work / Sessions and the New Session action; legacy `Missions` routes map to
+  Work / Goals or Work / Rooms according to the backing `GoalRun` or
+  `OutcomeRoom`; `Outcome Services / Delivery` maps to the optional marketplace
+  discovery/commerce mode. Aliases are not separate final product apps or
+  truth owners.
+- `HypervisorPackages`: the owner application for package search, inspection,
+  build/import, signing, policy review, install, update, disable, uninstall,
+  recall, revocation, and local or organization publication. Marketplace is an
+  optional discovery, distribution, and commerce mode over package truth; it
+  is not required for private/local package lifecycle and is not a peer owner
+  application.
 - `HypervisorPatternsExamplesTraining`: the role-guided recipe and enablement
   facet inside Hypervisor. It turns role tracks, speedruns,
   solution diagrams, examples, starter automations, data recipes, ontology
@@ -849,53 +1088,100 @@ product pitch or routine onboarding flow.
   automations, Foundry jobs, domain apps, receipts, replay, improvement, and
   marketplace paths. It is not passive documentation, a runtime owner, an
   authority layer, or proof of production readiness by itself.
-- `HypervisorWorkbench`: the code, systems, workspace, editor, terminal,
-  browser, workflow, and debugging surface over Hypervisor Core. It replaces
-  one editor shell as the live product term for the code-oriented Hypervisor
-  experience.
+- `HypervisorDeveloperWorkspace`: the code, repository, workspace, editor,
+  terminal, browser, workflow, and debugging owner application over Hypervisor
+  Core. It is the canonical code-oriented product identity. `Workbench` is a
+  compatibility alias only and must not receive an independent registration,
+  lifecycle, or truth boundary.
+- `HypervisorWorkbench`: compatibility alias for
+  `HypervisorDeveloperWorkspace`. Existing routes and records may preserve the
+  old name during migration, but it has no separate registration, lifecycle,
+  owner, or truth boundary.
 - `HypervisorAutomations`: the durable workflow, trigger, schedule, webhook,
-  approval-flow, queue-worker, service/API, and background-mission surface over
+  approval-flow, queue-worker, and service/API owner application over
   Hypervisor Core and the Workflow Compositor. It owns product-level
-  AutomationSpec projections and run views, but not execution semantics,
-  wallet.network authority, Agentgres truth, or the selected harness loop.
+  AutomationSpec and AutomationInstallationBinding lifecycle plus
+  AutomationRun projections, while execution remains daemon-owned and
+  authority, Agentgres truth, GoalRun pursuit, and selected harness loops
+  remain with their canonical owners. `background` is an execution mode, not
+  a separate Mission object or application class.
 - `HypervisorCanvas`: the visual builder/editor for graph-shaped work inside
-  Automations, Workbench, or Foundry. It may edit and display nodes, edges,
-  typed step contracts, approvals, privacy posture, and receipt projections,
-  but it is not a runtime owner, automation truth source, or authority plane.
-- `HypervisorSession`: a live governed workspace, run, or control context
-  managed through Hypervisor Core. Examples include local workspaces, remote VM
-  workspaces, browser sandboxes, hosted workers, HypervisorOS nodes, terminal
-  sessions, editor sessions, computer-use sessions, Foundry/eval/training
-  sessions, provider management sessions, and environment management sessions.
+  Automations, Developer Workspace, or Foundry. It may edit and display nodes,
+  edges, typed step contracts, approvals, privacy posture, and receipt
+  projections, but it is not a runtime owner, automation truth source, or
+  authority plane.
+- `HypervisorSession`: a bounded interactive, headless, or supervisory context
+  managed through Hypervisor Core. It binds participants, context, tools,
+  environment/access posture, selected adapters, and continuation or terminal
+  state around work, but it is not itself the durable goal, automation, room,
+  queue item, execution attempt, or System. A Session may support a GoalRun,
+  AutomationRun, OutcomeRoom, or WorkRun, or exist directly for exploratory
+  work; creating one does not require creating a System.
 - `HypervisorProject`: stable project/workspace identity under Hypervisor
   Core. It binds repository/context roots, default policies, persistence
   defaults, adapter preferences, and Agentgres domain links. It is not a
   product UI and not canonical runtime truth by itself.
-- `HypervisorMission`: background/manual/scheduled/webhook/event-triggered
-  autonomous work with trigger policy, review contract, output contract,
-  authority requirements, and receipts. It is not a hidden interactive editor
-  session.
-- `HypervisorAutomationSpec`: durable product object for saved workflows,
-  service recipes, schedules, triggers, approval flows, and background work. It
-  binds a Workflow Compositor graph contract, trigger/review/output contracts,
-  harness selection hints, authority refs, receipt policy, Agentgres refs, and
-  version state. It is not a chat transcript or Canvas layout.
-- `HypervisorAutomationRun`: run/session projection for one execution of an
-  AutomationSpec. It binds session refs, trigger refs, daemon refs, Agentgres
-  operation refs, receipt refs, artifact refs, and terminal status.
+- `HypervisorMission`: retired generic product/runtime object. Existing routes
+  and records must resolve to their typed backing object rather than creating a
+  second lifecycle: GoalRun for durable pursuit, OutcomeRoom for collective
+  pursuit, AutomationSpec/AutomationInstallationBinding/AutomationRun for
+  standing behavior, local enablement/narrowing, and activated behavior,
+  Session for bounded interaction, or WorkRun for an execution attempt. Typed
+  physical mission contracts such as `PhysicalMissionControlEnvelope`,
+  `FleetMissionCoordinationRecord`, and `FleetMissionAllocationLease` remain
+  canonical domain objects and are not affected by this retirement.
+- `MissionProfile`: optional product label/profile over exactly one GoalRun or
+  one OutcomeRoom. It may carry display and domain-specific presentation
+  metadata, but must expose the backing ref and has no independent identifier,
+  authority, budget, lifecycle, state, evidence, or receipts. If a future
+  sponsor engagement needs a distinct multi-goal acceptance, service-level,
+  termination, budget, and authority lifecycle, define a narrow
+  `OutcomeContract` or `ServiceOrder`; do not revive a generic Mission wrapper.
+- `AutomationSpec` (`HypervisorAutomationSpec` schema): immutable-revision standing-activation object for
+  saved workflows, services, schedules, triggers, approval flows, queue work,
+  and background behavior. It binds one exact WorkflowTemplate revision/hash,
+  activation parameters, trigger/schedule/monitor/service/queue contracts,
+  review and delivery contracts, concurrency/idempotency policy, authority
+  requirements, allowed activation overrides, receipt policy, and registry
+  lifecycle. It contains no concrete grants or HarnessProfile selection and is
+  not a chat transcript or Canvas layout.
+- `AutomationInstallationBinding`
+  (`HypervisorAutomationInstallationBinding` schema): immutable successor-versioned
+  owner-, Project-, organization-, or System-scope binding of one exact
+  AutomationSpec revision/hash. It owns local enablement plus narrowing policy
+  and authority overlays; its registry lifecycle is a mutable projection. It
+  owns no trigger, graph, procedure, run history, concrete authority grant, or
+  execution truth.
+- `AutomationRun` (`HypervisorAutomationRun` schema): one activation of an
+  AutomationSpec. It binds the
+  exact AutomationSpec, AutomationInstallationBinding, and WorkflowTemplate
+  revisions/hashes, admitted parameters, resolution receipt, activation event,
+  live authority leases, optional Session and WorkRun refs, WorkResults,
+  daemon and Agentgres operation refs, receipts, artifacts, and terminal
+  status. It does not become a GoalRun
+  unless a separate typed relationship explicitly makes the automation serve
+  that pursuit.
 - `HypervisorWorkQueue`: intake and ordering object for delegated agent work
-  inside Hypervisor. It may represent one-off handoffs, automation runs,
-  review queues, background missions, service requests, or custom queues. It
-  is product/work routing state, not an agent brain.
+  inside Hypervisor. It may order one-off handoffs, GoalRuns, AutomationRuns,
+  OutcomeRoom claims, review items, service requests, incidents, or custom
+  work through typed subject refs. It is product/work routing state, not an
+  agent brain or universal lifecycle owner.
 - `HypervisorWorkItem`: normalized work request queued for governed execution.
-  It binds source kind, original request, project/code context, desired
-  delivery, review contract, authority scopes, and status. It is distinct from
-  a chat message and distinct from an AutomationSpec.
+  It binds a typed parent/subject ref, source kind, original request,
+  project/code context, desired delivery, review contract, authority scopes,
+  and queue status. It is distinct from a chat message, GoalRun,
+  AutomationSpec, AutomationInstallationBinding, AutomationRun, and
+  OutcomeRoom claim.
 - `HypervisorWorkRun`: one execution attempt of a `HypervisorWorkItem` inside
-  a governed session/environment. It binds selected harness or agent adapter,
-  model and reasoning configuration, desired/current phase, activity,
-  conversation, transcript, logs, support bundle, connector/MCP status, usage,
-  outputs, review state, receipts, and Agentgres operation refs.
+  a governed session/environment, or a direct execution attempt bound by typed
+  subject ref to a GoalRun, AutomationRun, OutcomeRoom claim, review, service
+  request, or incident. It binds an accountable actor separately from the exact
+  HarnessProfile or AgentHarnessAdapter revision/hash and concrete
+  HarnessInvocation refs; model and reasoning configuration remain separate.
+  It also binds desired/current phase, activity, conversation,
+  transcript, logs, support bundle, connector/MCP status, usage, outputs,
+  review state, receipts, and Agentgres operation refs. It owns attempt state,
+  not the lifecycle of its parent work object.
 - `HypervisorWorkRunConversationProjection`: read model for a WorkRun's
   conversation history, live stream, blobs, and human/reviewer comments. It is
   a projection over daemon/admitted work input, not the private state of an
@@ -923,16 +1209,16 @@ product pitch or routine onboarding flow.
   bounty, procurement cap, or service-order budget. It is not ordinary Goal
   Space Work Credits, a transferable token, or pooled resale of provider seat
   limits.
-- `IoiAiGoal`: user-facing goal object for chat.ioi.ai / ioi.ai. It carries
-  goal text, constraints, privacy posture, authority context, project refs, and
-  terminal state.
-- `IoiAiOutcomePlan`: ioi.ai coordination plan for a goal. It selects the
-  materialization shape, such as single path, multi-model answer, multi-harness
-  attempt, software search, computer-use task, automation handoff, Foundry job,
-  wallet action, or marketplace handoff. Material plans should bind an
-  orchestration policy, constraint envelope, verifier path, and decision
-  receipt refs when the choice affects privacy, authority, cost, latency,
-  quality, or attribution.
+- `IoiAiGoalDraft`: pre-admission ioi.ai product state identified by
+  `intent://`. It may carry requested goal text and constraints, but it owns no
+  `goal://` identity or run lifecycle.
+- `IoiAiGoalProjection`: read-only ioi.ai projection over one admitted
+  `GoalRun`. GoalRun remains the sole owner of `goal://` identity, continuation,
+  and terminal state.
+- `IoiAiOutcomePlanProjection`: read-only ioi.ai projection binding one exact
+  immutable `OrchestrationPlan` revision/hash and its decision receipt. It may
+  expose navigation and evidence refs but never reselects materialization,
+  models, harnesses, workers, verifiers, or runtime state.
 - `OrchestrationPolicy`: versioned outcome-conductor plan-selection policy. It
   may use rules, benchmark priors, online quality evidence, user/org
   preferences, contextual bandit updates, or Foundry conductor advisors, but it
@@ -956,11 +1242,11 @@ product pitch or routine onboarding flow.
 - `GoalAppropriateSearchPolicy`: policy used by ioi.ai to decide whether a goal
   should stay lightweight or materialize multiple models, harnesses, workers,
   connectors, sessions, branches, or verifier lanes.
-- `CollaborativeMission`: a durable Hypervisor Automations mission class that
-  may be created from an ioi.ai Goal Space/OutcomeRoom handoff. Mission detail
-  and Goal Space render the same underlying participant/frontier/claim/attempt/
-  finding/evaluation graph through different product lenses. It is not a group
-  chat, separate swarm runtime, or unbounded process tree.
+- `CollaborativeMission`: retired compatibility label for an OutcomeRoom-backed
+  `MissionProfile`. ioi.ai Goal Space and Hypervisor Work / Rooms render the
+  same participant/frontier/claim/attempt/finding/evaluation graph through
+  different product lenses; neither creates a second mission lifecycle or
+  separate swarm runtime.
 - `StockfishStyleCodingSearch`: product shorthand for code and computer-use
   search over branches, snapshots, and sessions. Tests, static analysis, visual
   verification, runtime traces, benchmarks, and policy checks score attempts
@@ -975,12 +1261,13 @@ product pitch or routine onboarding flow.
   Hypervisor Session to an adapter target. It declares connection mode, launch
   mode, required local/remote components, supported features, policy coverage,
   and known limitations.
-- `AgentHarnessAdapter`: a Hypervisor adapter family for external CLI or hosted
+- `AgentHarnessAdapter`: an immutable, content-addressed adapter-revision family for external CLI or hosted
   agent harnesses such as Codex, Claude Code, Grok Build, OpenHands, Aider,
   Cursor/Windsurf agent loops, shell/tmux agent loops, CI agents, and hosted
   coding agents. These harnesses may propose work through Hypervisor Core and
   the Hypervisor Daemon, but they are not Hypervisor clients and not runtime
-  truth.
+  truth. HarnessInvocation selects the exact adapter revision/hash; vendor,
+  process, and transport mechanics never become a semantic HarnessProfile.
 - `HypervisorHarnessSelectionOption`: New Session selection object for either
   a selected `HarnessProfile` or a selected `AgentHarnessAdapter`. It is the
   app/API-facing object that keeps Default Harness Profile as IOI's reference
@@ -1087,33 +1374,255 @@ product pitch or routine onboarding flow.
 - `SupportBundlePolicy`: policy object declaring what logs, traces, screenshots,
   redacted diffs, environment metadata, and diagnostic files may leave a
   session.
-- `HypervisorNode`: the local autonomous-system settlement domain for a user,
-  organization, project, or deployment. It composes Hypervisor Core clients and
+- `HypervisorNode`: a physical or administrative deployment unit and local
+  operational-finality domain that may host scoped roles for one or more logical
+  autonomous systems. It composes Hypervisor Core clients and
   application surfaces, Hypervisor Daemon, Agentgres, wallet.network authority
   paths, local registries, receipts, replay, and runtime profiles. It is not
   the Hypervisor App, Hypervisor Web, CLI/headless client, optional TUI view,
-  Workbench, Automations, Foundry, or Environments view by itself.
-- `LocalSettlementDomain`: a Hypervisor Node domain that locally accepts work,
+  Developer Workspace, Automations, Foundry, or Environments view by itself,
+  and it is not the stable identity of every autonomous system it serves.
+- `BoundedDAS` or `BoundedDistributedAutonomousSystem`: one constitution-bound,
+  stateful autonomous institution whose intelligence may propose, route,
+  execute, and improve work while consequential transitions remain constrained
+  by declared ordering, policy, authority, evidence, receipts, replay, and
+  lifecycle. It may run on one node or many and may be benevolent or malicious;
+  bounded names enforceable power, not moral quality.
+- `AutonomousSystemPackage`: a reusable `package://` build/release artifact that
+  declares executable composition, authority requirements, constitution/profile
+  templates and constraints, evaluations, and receipt obligations. It has no
+  live `system_id`, membership, enrollment, failover, succession, or dissolution.
+- `AutonomousSystemGenesis`: the one-time `genesis://` binding of a selected
+  package release to a new stable `system_id`, active constitution and initial
+  profiles, governing decision/authority, and sequence-zero operation,
+  transition, state, and receipt roots. Its status derives from admitted
+  initialize/activate lifecycle receipts.
+- `IntelligentBlockchain`: the cryptographically continuous ordered state-
+  machine embodiment of a bounded DAS. Every admitted operation/batch binds a
+  monotonic sequence, expected predecessor commitment, operation/batch
+  commitment, admission signature/proof, resulting state root, and receipt
+  root. Intelligence may propose/evaluate transitions, but deterministic
+  admission remains governed. It does not require public consensus, a native
+  token, or multiple nodes; single-authority/PoA-1, replicated, threshold, BFT,
+  and external-finality profiles are valid when honestly declared. A bounded
+  autonomous application without that commitment chain is not a blockchain.
+- `AutonomousSystemConstitution`: the protected, versioned purpose and agency
+  boundary for one system: accountable principals, beneficiaries/affected
+  parties, ontology/action roots, invariants/prohibitions, authority/resource/
+  effect ceilings, amendment separation, oracle/evidence, emergency, succession,
+  migration/fork/adoption, dissolution, and residual obligations.
+- `AutonomousSystemDeploymentProfile`: desired environment, member-role counts,
+  failure domains, replication/durability, scaling, failover, RPO/RTO,
+  partition/degraded, restore, drain, and rollout posture for one logical
+  system. It is not observed topology.
+- `AutonomousSystemNodeMembership`: the observed governed binding of one node
+  to one logical system, including roles, owner, identity/attestation,
+  failure-domain evidence, admission roots, epoch/lease, catch-up/root state,
+  fencing, and readiness. Node admission never widens authority implicitly.
+- `AutonomousSystemFailoverProfile`: the immutable response/recovery policy for
+  one System, including declared deployment timing assumptions, evidence
+  freshness, safe lease/revocation wait-out, and the durable continuity-CAS
+  mechanism. It is not a detector, clock service, promotion, or effect grant.
+- `AutonomousSystemWriterEpochTransition`: one immutable, CAS-admitted advance
+  of a System's logical writer head, binding exact profiles, predecessor,
+  membership, catch-up/root, authority/revocation, timing, and resource fences.
+  It is distinct from the Agentgres mux/storage-writer epoch.
+- `LostSuffixRecord`: the explicit custody, classification, reconciliation, and
+  disposition record for history excluded by recovery. Rejoin never silently
+  merges the suffix into authoritative state.
+- `ConsequentialEffectFenceContext`: generated evidence embedded at a PEP and
+  checked against the durable active System fence, trusted executing-node
+  startup identity, exact owner-derived System/resource/effect/payload, timing,
+  revocation, and read posture. Caller-authored contexts are refused. It is
+  neither authority nor an independently caller-selected top-level object.
+- `OrderingAdmissionFinalityProfile`: the declared rule by which system
+  operations are ordered, admitted, and finalized: single authority, replicated
+  single authority, threshold authority, BFT consensus, or external-chain
+  finality. Replication and node count never upgrade this claim implicitly.
+- `OrderingFinalityRecovery`: a profile-native, compare-and-swap recovery
+  transition for threshold, BFT, membership-reconfiguration, or external-
+  finality systems. It binds the active profile, predecessor commitment/root,
+  decision/authority, recovery proof, and resulting commitment/root/finality
+  proof without inventing a writer epoch.
+- `OracleEvidenceProfile`: the versioned policy governing how attributed
+  external evidence may support a qualified, defeasible, time- and
+  consequence-scoped operational determination. It declares fact classes,
+  permitted consequence scopes, source identity, dependency and
+  diversity/correlation tests, freshness/finality, aggregation, uncertainty,
+  contradiction, required verifier paths, challenge/adjudication,
+  degraded/unknown behavior, validity, and replacement. It does not turn a
+  signature, receipt, vote, consensus result, acceptance, adjudication, or
+  settlement into external-world truth.
+- `OracleEvidenceAdmissionReceipt`: the receipt for one oracle/evidence
+  admission decision. It binds the assertion, exact profile revision,
+  admitted evidence and dependency graph, verifier results, freshness,
+  contradiction state, decision, consequence scope, validity interval,
+  required authority, and Agentgres exact-head predecessor/result. It proves
+  that the decision boundary applied the declared profile; it does not
+  independently prove the asserted external fact or substitute for the
+  separate domain admission of that assertion.
+- `OntologyAssertionAdmissionReceipt`: the separate receipt by which an
+  Agentgres/domain owner admits the exact assertion as operational semantic
+  truth. When an oracle profile applies, it binds the matching active
+  OracleEvidenceAdmissionReceipt, assertion commitment, fact class,
+  applicability and consequence scopes, exact predecessor/resulting assertion
+  head, policy/authority, and Agentgres operation. It cannot widen or revive
+  the oracle determination and does not prove the external proposition.
+- `LifecycleContinuityProfile`: the durable rules for recovery, successor
+  governance, key/authority rotation, migration, fork/adoption, suspension,
+  data/state/evidence export, dissolution, residual assets/obligations, and
+  terminal decommission.
+- `LocalOperationalFinalityDomain`: a Hypervisor Node domain that locally admits work,
   proposals, authority outcomes, receipts, interop messages, and state
   transitions for many governed autonomous-system chains. Public economic
-  finality still belongs to IOI L1 when required.
+  finality belongs to the system's declared external-settlement profile when
+  one exists; IOI L1 is an optional shared service set.
+- `StateTransitionCommitment`: the operational, non-economic commitment for one
+  admitted system transition: monotonic sequence, predecessor and operation/
+  resulting commitments, admission proof, acting membership/profile proof,
+  state root, and receipt root. An optional settlement ref links later economics
+  without making operational finalization a payment.
+- `NetworkServiceInvocation`: a selected registry, rights/license, reputation,
+  or finality service operation with exact service, terms, enrollment,
+  predecessor/resulting commitments, authority/decision, and receipt. Service
+  selection is independent from the rail used to pay its fee.
+- `ProtocolPrincipalRef`: the canonical actor union whose narrow subsets include
+  `system://` whenever a bounded DAS may act; logical system, admission/storage
+  domain, component worker/service, and operator/affiliation identities remain
+  distinct rather than substitutable.
 - `AIIP`: IOI's RPC-shaped, receipt-native interop protocol for bounded
-  autonomous work. It carries task offers, handoffs, authority leases, receipt
-  commitments, settlement intents, disputes, reputation queries, and
-  cross-system handoff finality across bounded execution domains.
-- `BoundedExecutionDomain`: a local, hosted, enterprise, marketplace, robot,
-  worker, service, microharness, third-party, or AS-L1 domain that performs
+  autonomous work between independently governed systems. It makes selective,
+  positive-surplus interoperation
+  contractible by carrying terms proposals/responses, task offers, handoffs,
+  authority leases, receipt commitments, settlement intents, disputes,
+  reputation queries, and cross-system handoff finality across bounded
+  execution domains. Compatibility creates no duty to use it.
+- `BoundedExecutionDomain`: a local-runtime, hosted, enterprise, marketplace,
+  robot, worker, service, third-party, or AS-L1 domain that performs
   scoped autonomous work under declared capabilities, policy, authority
   requirements, receipt schemas, runtime boundaries, and settlement behavior.
+- `EmbodiedRuntimeGraphManifest`: an immutable, content-addressed definition of
+  one native embodied execution graph: components, typed ports, physical stream
+  contracts, spatial frames, rates and deadlines, mixed-criticality strata,
+  resource ownership, lifecycle dependencies, action-policy contracts,
+  supervisor/safety bindings, deployment requirements, and assurance refs. It
+  is compiled and admitted before activation; it owns no live state, authority,
+  actuator command, or certification claim.
+- `NativeEmbodiedRuntimeProfile`: the deployment-footprint profile family for
+  the native runtime. `micro` targets bounded MCU/RTOS control and safety
+  partitions; `edge` targets on-unit perception, estimation, planning, motion,
+  and local coordination; `site` targets multi-unit world state, mission/fleet
+  coordination, evidence, and operations. These profiles compose within one
+  system and do not imply separate products, sovereign systems, assurance
+  levels, or AIIP peers.
+- `EmbodiedRuntimeExecutionStratum`: one of the locally isolated autonomy,
+  deterministic-motion, or runtime-assurance/safety strata beneath the slower
+  mission/governance plane. Strata have independently declared scheduling,
+  memory, fault-containment, restart, and assurance properties; an AI, GPU, or
+  communications failure may not disable the runtime-assurance stratum.
+- `PhysicalStreamContract`: the immutable semantic and operational contract for
+  one physical data or control stream. It binds schema, frame, direction,
+  endpoint identity, authentication, integrity/anti-replay, confidentiality,
+  source and receive clock domains, timestamp uncertainty, rate, deadline,
+  jitter, ordering, reliability, history, durability, freshness/lifespan,
+  liveliness, priority, backpressure, criticality, allowed transports, and the
+  fail/degrade/stop action. DDS, Zenoh, shared memory, fieldbus, or another
+  backend realizes the contract but does not own it.
+- `EmbodimentAdapter`: a versioned compatibility mapping from a device, vendor
+  controller, ROS graph, flight stack, transport, or external embodied runtime
+  into IOI identities, frames, streams, actions, lifecycle, health, and receipt
+  semantics. It cannot grant authority, manufacture assurance equivalence,
+  bypass the local supervisor, or turn external completion into accepted
+  physical truth.
+- `EmbodiedActionPolicyContract`: the immutable mapping from an ontology-level
+  permitted action class into bounded target-specific action-chunk schemas,
+  preconditions, postconditions, frames, limits, freshness, resources,
+  verification, fallback, safety, and receipt obligations. It narrows admitted
+  intent but grants neither actuation authority nor safety approval.
+- `EmbodiedActionChunk`: a finite, time- and frame-bound proposal such as a
+  waypoint set, trajectory segment, setpoint sequence, grasp, locomotion phase,
+  or coordinated subtask. It binds the admitted mission/action envelope,
+  action-policy revision, resources, uncertainty, provenance, expiry, and
+  expected observations. It is never an actuator command or authority grant;
+  the local supervisor may deny, clip, replace, interrupt, or expire it.
 - `EmbodiedRuntimeDomain`: the live physical-domain runtime record for robot
   fleets, facility systems, drones, vehicle-adjacent systems, IoT actuators, or
-  other embodied domains. It binds fleet identity, controller bridges, sensors,
-  actuators, world state, telemetry, command queues, policy, and emergency stop
-  to the Hypervisor Daemon boundary.
+  other embodied domains. It binds the owning `system_id`, deployment and
+  admitted operating-node memberships, graph activations, fleet identity,
+  native local supervisors or compatibility controller bridges, sensors,
+  actuators, versioned resource groups, world state, telemetry, command queues,
+  policy, and emergency stop to the Hypervisor Daemon boundary.
+- `EmbodiedUnitIdentity`: the stable physical identity of a robot, drone,
+  device, or facility system. A unit may host an admitted system node or attach
+  through a controller/edge node, but it is not a Hypervisor Node or sovereign
+  DAS by implication.
+- `RobotFleetRecord`: the generic Embodied Runtime operational collection of
+  `1..N` robot, drone, device, or facility-system unit identities. A singleton
+  robotics application is a valid fleet-of-one and does not require distributed
+  mission-coordination state merely because it is represented as a fleet.
+- `EmbodiedResourceGroup`: a versioned, named, exact-membership grouping of
+  physical sensors, actuators, and optionally nested embodied resource groups
+  inside one owning `system_id` and Embodied Runtime domain. It provides a
+  stable target for subassemblies such as a camera array, arm, drive train, or
+  workcell while binding health, safety, and concurrency constraints. Admission
+  freezes the transitive group expansion to explicit leaf
+  sensor/actuator refs and a membership hash; a later revision cannot widen an
+  active assignment, lease, mission envelope, command, or receipt. Group
+  membership creates no unit, fleet, system-node, DAS, or actuator authority,
+  and an observation-only fixed-sensor group may bind an admitted source-node
+  path without fabricating a robot or controller identity. Atomic execution may
+  be claimed only within one admitted controller or
+  hardware boundary. Multi-controller or multi-unit groups decompose through
+  bounded local commands and, where distributed, mission coordination.
+- `FleetMissionCoordinationRecord`: the native Embodied Runtime record that
+  coordinates one bounded DAS mission across its fleets, units, controllers,
+  and admitted node memberships. It binds coordination epoch, shared-world-state
+  watermark, allocation, partition/degraded operation, rejoin/rebalance, and
+  duplicate/ambiguous-effect reconciliation. It is not AIIP.
+- `FleetMissionAllocationLease`: the epoch- and expiry-bound award assigning one
+  mission work item to an embodied unit, controller binding, and admitted
+  execution-node membership. Reassignment must expire, revoke, or fence the
+  predecessor and reconcile unknown effects before retry.
+- `SpacetimeReservationLease`: an epoch-, expiry-, and uncertainty-bound claim
+  on a physical path, volume, workcell, resource, or capacity over a declared
+  time interval. It binds unit/group, mission allocation, geometry/frame,
+  safety margin, capacity/exclusivity, priority, preemption, fencing, and
+  partition behavior. It coordinates same-system work but is not collision
+  avoidance, actuation authority, proof that the world is clear, or AIIP; local
+  safety always overrides it.
 - `RobotControllerBinding`: the binding between an embodied unit and a local or
-  edge controller bridge. It declares command endpoints, telemetry streams,
-  heartbeat/failsafe policy, authority scopes, sensor/actuator registries, and
-  where receipts are emitted.
+  edge `LocalControlSupervisor` or compatibility `LocalControlBridge`. It
+  declares graph/profile refs, command-proposal endpoints, physical stream
+  contracts, heartbeat/failsafe policy, authority scopes, sensor/actuator
+  registries, and where receipts are emitted.
+- `LocalControlSupervisor`: the native deterministic local execution and
+  runtime-assurance boundary that owns active graph scheduling, exclusive
+  actuator-writer fencing, stream/time-health enforcement, safety monitoring,
+  command arbitration, recovery-controller switching, watchdogs, and the final
+  local veto inside an already admitted authority and safety envelope. It may
+  narrow or stop action but never create or widen authority, and its critical
+  path cannot depend on cloud, model, wallet, chain, or remote-human latency.
+- `LocalControlBridge`: the compatibility adapter that projects an existing
+  vendor, ROS, flight, PLC, or other external local controller into the native
+  controller-binding contract. It remains valid for adoption, but it is not the
+  native runtime root, a safety certification, or evidence that the external
+  controller provides `LocalControlSupervisor` guarantees.
+- `EmbodiedGraphActivationTransaction`: the local prepare/validate/commit-or-
+  abort record for one exact runtime-graph manifest. It freezes resolved
+  components and bindings, reserves resources, validates physical streams,
+  clocks, scheduling, supervisor/safety readiness, and assurance prerequisites,
+  then activates at a declared local time or returns inactive and unarmed. It
+  does not grant actuation authority, and atomicity is claimable only inside one
+  admitted supervisor/hardware boundary; distributed start uses fenced
+  coordination epochs rather than fictitious global physical atomicity.
+- `EmbodiedDeploymentAssuranceCase`: the deployment-bound claim-and-evidence
+  manifest joining an exact graph, binaries/toolchain, hardware, operational
+  design domain, hazards, safety requirements, timing and fault assumptions,
+  monitor/recovery implementations, test and fault-injection evidence,
+  applicable standards, assessment, residual risk, and amendment history. It
+  references existing `AssuranceEvidenceBundle` and receipt owners; possession
+  of the manifest is neither certification, authority, nor proof that an
+  arbitrary graph is safe.
 - `PhysicalCommandQueue`: the daemon-governed queue for movement,
   manipulation, facility-control, and other physical commands. It carries
   preflight, interrupt, concurrency, conflict, stop, and result semantics that a
@@ -1161,6 +1670,12 @@ product pitch or routine onboarding flow.
 - `AIIPChannel`: a registered or local channel binding two bounded execution
   domains to an AIIP profile, schema/version set, relay/router policy,
   authority posture, privacy posture, and settlement mode.
+- `AIIPStandardsBinding` or `AIIPExternalProtocolBinding`: a versioned mapping
+  from A2A, MCP, HTTP/RPC, OASF/directory, or chain/escrow identities, messages,
+  lifecycle, artifacts, errors, and status into AIIP. It records non-
+  equivalences so remote completion, a tool response, registry entry, or
+  evaluator decision cannot silently become IOI authority, verification,
+  acceptance, adjudication, or settlement.
 - `ServiceModule`: a reusable governed capability, code unit, contract,
   workflow component, worker service, adapter, verifier, policy module, or
   economic module that can be invoked by an autonomous-system harness.
@@ -1182,13 +1697,25 @@ product pitch or routine onboarding flow.
   instantiating application domains, sovereign execution domains,
   non-intelligent chains/state machines, and intelligent blockchains. It is not
   one live global chain and it is not the CLI.
-- `IOIL1`: the public registry, rights, settlement, dispute, sparse-commitment,
-  autonomous-system settlement, and governance layer. It may approve canonical
-  L0/kernel release roots, but it does not execute the L0 substrate or own
-  ordinary repository management.
+- `IOIL1`: the optional IOI Network registry, rights, assurance,
+  shared-security, dispute, sparse-commitment, economic-finality, and governance
+  layer for connected or secured systems. It may recognize L0/kernel release
+  roots under named network profiles, but it does not grant permission to use
+  compatible L0, execute it, or own ordinary repository management.
+- `IOINetworkEnrollment`: the stateful, explicit relationship between one
+  autonomous system and IOI Network. `ioi_compatible` has no mandatory L1,
+  fee, token, or assurance; `ioi_connected` selects and pays for named network
+  services; `ioi_secured` additionally adopts a Standard DAS profile and named
+  shared-security/assurance services and terms.
+- `StandardDASProfile`: a versioned conformance/assurance profile for
+  constitution, deployment/membership, ordering/finality, authority separation,
+  receipts/replay, oracle evidence, lifecycle continuity, exit, and
+  decommission. Passing it is not a blanket safe, correct, benevolent, legal, or
+  available claim.
 - `EdgeInTopology`: IOI's topology inversion in which work starts at the local
   or remote runtime edge, becomes operational truth in a domain kernel +
-  Agentgres, and settles upward to IOI L1 only when public trust is required.
+  Agentgres, and settles locally by default. Explicitly enrolled systems may
+  send sparse selected commitments to IOI L1 for shared public trust.
 - `VerifiableBoundedAgency`: IOI's alignment-security thesis that autonomous
   workers may reason, propose, and improve probabilistically, but consequential
   effects cross into reality only through bounded authority, policy, receipts,
@@ -1205,8 +1732,31 @@ product pitch or routine onboarding flow.
   daemon. For managed worker instances, the session may be warm, persistent, or
   zero-to-idle under a subscription or entitlement policy.
 - `RuntimeAssignment`: the domain-kernel/router decision that binds a run or
-  task capsule to a runtime node, daemon profile, authority posture, payment
-  quote, and verification requirements.
+  task capsule, GoalRun, claimed work item, logical role, Context Cell, or
+  embodied unit to a runtime node, daemon profile, optional compute session,
+  state watermark, locality/partition posture, authority, verification, and
+  duplicate-effect reconciliation contract. An embodied assignment may also
+  bind the matching controller, exact resource-group revision/membership hash as
+  a narrowing target, and fleet-mission allocation lease. A resource group
+  cannot become a standalone placement subject or authority grant. When an
+  assignment executes for a bounded DAS, it binds exactly one `system_id`,
+  active deployment profile, admitted node membership, membership epoch, node
+  role, and any required role lease; its system, unit, controller,
+  resource-group, and allocation refs must agree. Multiple assignments may
+  distribute one system's work across its nodes or embodied units. Distributed
+  multi-unit or multi-membership
+  missions require fleet-allocation leases, while a fleet-of-one does not merely
+  because it is represented as a fleet. A unit may have no current assignment
+  outside an admitted placement, and historical assignments grant neither
+  current placement nor authority. Assignment never widens membership,
+  authority, or actuator power. Cross-system AIIP work produces one
+  independently admitted local assignment per sovereign participant rather
+  than one placement object with authority over both systems.
+- `SameSystemDistributedWork`: useful cognitive, digital, human, verification,
+  or embodied work placed across admitted members of one `system_id` through
+  native L0 membership, RuntimeAssignment, scoped leases, state/evidence, and
+  domain admission. It is distinct from continuity replication and from
+  cross-system AIIP federation.
 - `Worker`: the canonical protocol actor for bounded executable labor. A
   worker has a manifest, accountable operator or owner, policy envelope,
   capability surface, receipt obligations, runtime requirements, contribution
@@ -1260,9 +1810,14 @@ product pitch or routine onboarding flow.
 - `ModelRouteRightsContract`: versioned admission contract for one candidate
   model route. It binds commercial posture, access mode, customer-facing and
   OEM/reseller rights, automation and downstream rights, credential principal,
-  provider/model terms, endpoint/model versions, provider allowlist, data and
-  ZDR posture, region, fallback classes, price limits, required parameters, and
-  output-training rights. Missing rights fail closed. A fallback is a semantic
+  provider/model terms, endpoint/model versions, provider allowlist, region,
+  fallback classes, price limits, and required parameters. Its bidirectional
+  learning-rights matrix separately declares provider logging, review, security,
+  retention, service-improvement, training, and aggregation rights over customer
+  material and customer retention, replay, evaluation, memory/RAG, tuning,
+  distillation, competing-model training, package reuse, publication, and resale
+  rights over outputs. Missing rights fail closed; derived multi-route output
+  uses the intersection of contributing contracts. A fallback is a semantic
   substitution that must remain eligible and re-enter verification; an
   aggregator such as OpenRouter is only one replaceable procurement adapter.
 - `ReasoningEffort`: model/harness control value such as low, medium, high, or
@@ -1309,7 +1864,7 @@ product pitch or routine onboarding flow.
   required.
 - `MemoryProjection`: a policy-filtered view of Agent Wiki / `ioi-memory` for a
   target harness, model route, worker, surface, API, or MCP endpoint. It is the
-  portability layer that keeps harness-local memory as cache rather than the
+  portability layer that keeps adapter-/HarnessInvocation-local memory as cache rather than the
   durable brain.
 - `ContextMemoryPlane`: the adjacent memory/retrieval plane that governs what
   agents can know, remember, and retrieve. Agentgres governs which context
@@ -1431,11 +1986,18 @@ product pitch or routine onboarding flow.
 - `CanonicalObjectModel`: the typed object contract that grounds a domain
   ontology in IDs, schemas, constraints, lifecycle states, privacy classes,
   authority needs, and projection hints.
-- `DataRecipe`: a repeatable, receipted pipeline that turns raw sources,
-  traces, connector outputs, and documents into ontology-bound objects,
-  training datasets, evaluation datasets, or projections.
-- `ConnectorMapping`: the mapping from provider fields, files, events, and
-  actions into canonical object models and authority scopes.
+- `DataRecipe`: immutable, content-addressed transformation definition over
+  raw-source types, traces, connector outputs, documents, ontology mappings,
+  steps, policy-bound views, and declared output contracts. Its content hash
+  commits an exact semantic-component snapshot/hash covering every referenced
+  ontology, ConnectorMapping, object model, schema/contract, and policy-bound
+  view. A `TransformationRun` binds the exact recipe and semantic-component
+  tuples and owns concrete objects, datasets, artifacts, authority, and
+  receipts.
+- `ConnectorMapping`: immutable successor-versioned mapping from provider
+  fields, files, events, and actions into canonical object models and authority
+  scopes. Its content hash commits its exact connector/schema, ontology,
+  object-model, policy, and evidence-contract dependency snapshot.
 - `PolicyBoundDataView`: a governed data lens that defines who or what may
   read, transform, train on, evaluate with, export, publish, or route over a
   subset of domain data.
@@ -1482,19 +2044,76 @@ product pitch or routine onboarding flow.
   delivery contracts, reusable templates, and harness/model/provider/verifier
   selection hints. It does not own execution semantics, wallet authority,
   Agentgres truth, persistent workspace memory, Foundry training, or the
-  selected harness's internal loop.
+  selected HarnessProfile's internal loop.
 - `ImprovementProposalPlane`: the governed proposal path for runtime
   improvement. It turns traces, failures, corrections, evals, and receipts into
-  proposed `SkillCandidate`, `MemoryCandidate`, `ToolCallRefinement`,
-  `WorkflowPatch`, `HarnessProfilePatch`, `RoutingPolicyPatch`,
+  proposed `SkillManifestCandidate`, `MemoryCandidate`, `ToolCallRefinement`,
+  `WorkflowTemplatePatch`, `GoalRunProfilePatch`, `HarnessProfilePatch`, `RoutingPolicyPatch`,
   `VerifierCandidate`, or `FoundryJobRequest` objects. It is not a
   self-modifying meta-harness and does not make improvements canonical without
   evaluation, policy, authority, receipts, and Agentgres admission.
-- `WorkspaceBootstrapRecipe`: a compositor-executed setup recipe for
-  downloading models, configuring provider integrations, setting local/remote
-  compute preferences, creating capability leases, initializing cTEE/private
-  workspace posture, and selecting defaults. It is not the Default Harness
-  Profile.
+- `ImprovementGovernanceProfile`: immutable owner-qualified policy revision
+  controlling whether Campaigns may be admitted, which targets are mutable or
+  protected, target-order/active-depth/unattended-generation ceilings,
+  inherited resource/statistical-risk/exposure reservation policy, evaluator
+  separation, promotion authority, stopping, and irreversible-effect recovery.
+  A System constitution protects its selected profile; a non-System owner scope
+  binds it through its declared governance path. It is not a Campaign,
+  evaluator, authority grant, or promotion decision.
+- `ImprovementAgenda`: immutable, governed, non-executable portfolio revision
+  stating which target families, mechanism hypotheses, falsifiers, evidence
+  gaps, transfer scopes, hard constraints, and investigation priorities deserve
+  bounded work. It may be a minimal one-item agenda. It grants no target,
+  execution, evaluation, or promotion authority.
+- `ImprovementCampaign`: optional durable multi-epoch domain lifecycle for
+  adaptive improvement. It binds one immutable agenda revision, declared mutable
+  target and incumbent root, coordinating and child GoalRuns, candidate ancestry,
+  evaluation epochs and exposure, evidence cutoffs, claims, promotion handoff,
+  and effect-recovery lineage. It is not a GoalRunProfile, GoalRun, Foundry job,
+  evaluator, runtime, authority plane, or application.
+- `EvaluationEpoch`: immutable-within-epoch judgment contract binding the target
+  and incumbent roots, admitted pursuit/component snapshot, task distribution,
+  visible/sealed/transfer/production evaluation compartments, evaluator versions
+  and affiliations, hard constraints, cost normalization, confirmatory method,
+  inherited risk/exposure posture, and leakage/rotation policy. Lifecycle
+  challenges and invalidations append records; they never rewrite its root.
+- `EvaluationExposureLedger`: append-only account of sealed-evaluation access,
+  candidate-family commitments, information returned, contamination posture,
+  and inherited exposure reservations/spend. It is evaluation-integrity state,
+  not currency, authority, or permission to reveal sealed material.
+- `ImprovementOrderCutoffReceipt`: immutable receipt recording one frozen source
+  campaign/epoch/archive cutoff, one adjacent target-order edge, eligible and
+  denied learning evidence, destination base root, and prior cutoff. It is not a
+  synchronization state machine, activation decision, or proof that a successor
+  is better.
+- `ImprovementEvidenceClaim`: immutable qualified claim artifact binding claim
+  class, target/order and generation lineage, frozen evidence contract, budget,
+  transfer scope, evaluator validity, reproduction, effect-recovery posture, and
+  limitations. It grants no authority and can be disputed, superseded,
+  downgraded, or withdrawn only through append-only lifecycle records.
+- `TargetImprovementOrder`: path-relative rank of the mutable target along one
+  admitted, version-unrolled improvement path. It is not process nesting,
+  candidate generation, evidence strength, intrinsic component metadata, or an
+  authority multiplier.
+- `RecursiveSeatPortfolio`: fresh fixed-resource set of lower-order campaigns
+  used to test whether a self-targeted successor improves the distribution of
+  later improvements. It is required only for the corresponding recursive claim,
+  not for ordinary optimization or direct upgrade proposals.
+- `LearningEvidenceEligibility`: owner-qualified decision admitting or denying
+  a Finding, OutcomeDelta, correction, production observation, trace, artifact,
+  or other evidence for a declared later learning or improvement use.
+  `TrainingEvidenceEligibility` is its training-oriented compatibility profile;
+  neither creates source rights or authority.
+- `Recipe`: product-facing and package-facing label for an owner-qualified
+  reusable composition, never a generic canonical envelope. Semantic data
+  transformation uses `DataRecipe`; environment construction uses
+  `HypervisorDevelopmentEnvironmentRecipe`; session composition uses
+  `HypervisorSessionLaunchRecipe`; directed work uses `WorkflowTemplate` and,
+  when standing activation is required, `AutomationSpec`; adaptive pursuit
+  uses `GoalRunProfile`. Provider/model credential setup remains an explicit
+  binding and authority flow. The retired `WorkspaceBootstrapRecipe` and
+  generic `run-recipe:` identities must normalize to these owners rather than
+  survive as parallel recipe families.
 - `IoiAiGoalChat`: the ioi.ai intent and coordination surface where users ask,
   invoke existing work, inspect state, and draft Hypervisor runs, Automations,
   Foundry jobs, restore flows, or marketplace publish flows. It is not the

@@ -4,7 +4,7 @@ Status: canonical architecture authority.
 Canonical owner: this file for persistent aiagent managed worker instance lifecycle, payment lapse, archive, restore, export, migration, and deletion semantics.
 Supersedes: plan prose and endpoint examples when lifecycle state conflicts.
 Superseded by: none.
-Last alignment pass: 2026-07-11.
+Last alignment pass: 2026-07-13.
 Doctrine status: canonical
 Implementation status: planned (lifecycle design; no managed-instance instantiation)
 Last implementation audit: 2026-07-05
@@ -36,6 +36,10 @@ This lifecycle owns:
 - authority grant revocation or freezing behavior;
 - portable Agent Wiki / `ioi-memory` binding lifecycle;
 - memory profile, projection, archive, export, delete, and forget policy;
+- buyer-scoped `InstitutionalLearningBoundaryProfile` binding and lifecycle
+  projection;
+- learning-source eligibility, derivative-lineage, revocation-impact, and
+  model-swap-continuity refs for the concrete instance;
 - restore/import receipts;
 - provider exit and migration behavior;
 - package delisting and version upgrade behavior.
@@ -51,6 +55,9 @@ The lifecycle does not own:
 - storage payload bytes;
 - physical-action safety;
 - marketplace payment contracts by itself.
+- ownership, license, consent, provider/model output rights, or permission for
+  the package seller, aiagent.xyz, a model provider, or another tenant to reuse
+  buyer learning material.
 
 ## Lifecycle
 
@@ -120,6 +127,13 @@ State rules:
   high-risk approval.
 - Delete/forget semantics distinguish billing deletion, archive deletion, and
   policy-governed memory erasure.
+- Prompts, outputs, traces, corrections, evals, accepted memory, datasets,
+  adapters, and other instance-specific learning remain buyer-bound by default.
+  Package installation, managed hosting, support access, benchmarking, seller
+  authorship, or payment does not authorize seller, platform, provider, or
+  cross-tenant learning use. Such use requires an individually eligible,
+  purpose-bound export under the effective institutional-learning boundary and
+  applicable source/model-route rights.
 
 ## Minimal Implementation Object
 
@@ -140,6 +154,12 @@ ManagedWorkerInstanceLifecycle:
   rollback_config_revision_ref: config_revision://... | null
   selected_model_route_ref: model_route://...
   execution_privacy_posture_ref: privacy_posture://...
+  institutional_learning_boundary_profile_ref:
+    learning-boundary://...
+  learning_evidence_eligibility_refs:
+    - eligibility://...
+  learning_derivative_lineage_root: hash | null
+  learning_revocation_impact_ref: impact_graph://... | null
   agent_wiki_ref: wiki://...
   memory_profile_ref: memory_profile://...
   active_memory_projection_refs:
@@ -193,6 +213,39 @@ ManagedWorkerInstanceLifecycle:
     - receipt://...
 ```
 
+## Buyer-Bound Learning And Model Continuity
+
+The managed instance is a concrete buyer-owned learning scope. Its durable
+institutional delta lives in policy-filtered Agent Wiki/Agentgres state and
+eligible artifact refs, not in a seller profile, provider-native thread, hosted
+vector store, opaque model session, or runtime VM. Provider-native state may be
+a cache or explicitly disclosed dependency, but it cannot be the only durable
+copy of accepted memory, corrections, evals, or lineage needed to operate the
+instance.
+
+The effective permission for any derived memory, eval, dataset, adapter,
+package revision, or export is the most restrictive intersection of the
+instance's `InstitutionalLearningBoundaryProfile`, source/participant rights,
+individual eligibility decisions, provider/model route rights, retention, and
+destination policy. Seller access and cross-tenant aggregation are denied by
+default. A support session, benchmark submission, or marketplace receipt does
+not widen that boundary.
+
+A model or harness swap must freeze the instance configuration, worker/package
+revision, ontology and policy refs, Agentgres state root, policy-filtered memory
+projection, eval suite, and acceptance floors. The incumbent route and any
+provider-only durable state are then disabled before the candidate is tested.
+Observed continuity, canary, rollback, and promotion refs are recorded through
+the normal Foundry/Evaluations, Governance, daemon, and Agentgres paths. The
+report proves only the declared eval result; it is not model equivalence or new
+authority.
+
+Revocation or expiry propagates to known instance derivatives. The owning
+policy may block future use, quarantine, recall, re-evaluate, rebuild/retrain,
+or delete eligible payloads. None of those actions, nor a receipt recording
+them, proves hidden provider deletion or verified model unlearning without a
+separate declared and verified unlearning property.
+
 ## Configuration Revisions And Change Plans
 
 Persistent agents are not set-and-forget objects. They can be customized after
@@ -216,8 +269,10 @@ ManagedWorkerInstanceConfigRevision:
   base_package_version_ref: package_version://...
   worker_composition_ref: composition://...
   selected_model_route_ref: model_route://...
-  harness_profile_ref: harness://...
+  harness_profile_ref: harness-profile://...
   runtime_profile_ref: runtime_profile://...
+  institutional_learning_boundary_profile_ref:
+    learning-boundary://...
   persistence_profile: ephemeral | session | zero_to_idle | persistent
   memory_profile_ref: memory_profile://...
   connector_binding_refs:
@@ -244,7 +299,7 @@ ManagedWorkerInstanceChangePlan:
   change_kinds:
     - live_config | connector_binding | contact_channel | schedule |
       standing_order | model_route | harness_profile | package_version |
-      runtime_assignment | memory_policy | authority_scope
+      runtime_assignment | memory_policy | learning_boundary | authority_scope
   risk_class:
     read | draft | local_write | write_reversible | external_message |
     commerce | funds | credential_access | policy_widening | secret_export |
@@ -279,8 +334,9 @@ authority gates, receipts, or private-workspace boundaries.
 
 Lifecycle transitions that affect ownership, payment, authority, archive,
 restore, deletion, or migration are Agentgres operations with receipts. IOI L1
-receives commitments only for install rights, subscription settlement, disputes,
-provider exit claims, reputation roots, or cross-domain migration commitments.
+receives commitments only when an active connected/secured enrollment selected
+that service for install rights, subscription settlement, disputes, provider
+exit claims, reputation roots, or cross-domain migration commitments.
 
 ## Events And Receipts
 
@@ -316,10 +372,13 @@ provider exit claims, reputation roots, or cross-domain migration commitments.
 
 - Payment lapse cannot silently delete user context.
 - Runtime/node failure cannot silently delete accepted memory.
-- Harness-local memory cannot become durable managed-instance memory without a
+- Adapter- or HarnessInvocation-local memory cannot become durable managed-instance memory without a
   `ContextMutationEnvelope` and receipt.
-- Model or harness swaps must consume policy-filtered memory projections rather
+- Model or HarnessProfile/adapter swaps must consume policy-filtered memory projections rather
   than raw archive payloads by default.
+- A swap-continuity claim requires the incumbent route and provider-only
+  durable state to be unavailable during the candidate run, a frozen instance
+  snapshot, declared eval floors, and linked eval/canary/rollback receipts.
 - Restore must be operation-backed through Agentgres.
 - Export requires explicit authority.
 - Activation requires a completed onboarding plan or a deliberate degraded-mode
@@ -332,6 +391,11 @@ provider exit claims, reputation roots, or cross-domain migration commitments.
 - Standing orders pause or narrow on lapse unless policy says otherwise.
 - Provider exit produces migration/archive/incident receipts.
 - Package delisting does not erase user-owned archives.
+- Seller, platform, model-provider, and cross-tenant reuse of buyer learning is
+  denied unless an explicit eligible export binds purpose, destination,
+  applicable rights, and the effective institutional-learning boundary.
+- Provider-native threads, vector stores, memories, or eval stores cannot be the
+  only durable copy of buyer-owned accepted instance learning.
 - Model route changes produce receipts and cannot silently reuse stale
   benchmark claims for routing eligibility.
 - Post-hire customization must produce a config revision or change plan. Console
@@ -355,6 +419,10 @@ provider exit claims, reputation roots, or cross-domain migration commitments.
   route, connector, memory, delivery, budget, or authority posture can drift.
 - Letting aiagent.xyz mutate customer/local runtime state through a management
   channel without an admitted change plan and receipts.
+- Treating package installation, managed hosting, support, benchmarking, or a
+  marketplace receipt as seller/cross-tenant training consent.
+- Calling deletion, recall, quarantine, or retraining verified unlearning
+  without an admitted method and verifier.
 
 ## Related Canon
 

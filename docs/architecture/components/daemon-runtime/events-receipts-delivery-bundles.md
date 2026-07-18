@@ -4,16 +4,16 @@ Status: canonical low-level reference.
 Canonical owner: this file for runtime events, receipts, delivery bundles, trace bundles, and quality records.
 Supersedes: overlapping event/receipt examples in plans/specs when event, trace, or receipt fields conflict.
 Superseded by: none.
-Last alignment pass: 2026-07-11.
+Last alignment pass: 2026-07-17.
 Doctrine status: canonical
-Implementation status: mixed (receipts/events live across built planes; OutcomeRoom/collective-pursuit receipt families, physical segment commitments, and delivery-bundle settlement planned)
-Last implementation audit: 2026-07-05
+Implementation status: mixed (receipts/events live across existing owner planes; `ReceiptCheckpoint` v1, `ReceiptProofBundle` v1, managed-work billing ledger-bundle, dispute-rail-bundle, and `PhysicalActionExecutionReceipt` v1 have registered schemas, invariants, fixtures, and generated projections; portable cryptographic proof verification/CLI support, managed-work billing and dispute kernels, physical execution production, daemon/Agentgres production billing/dispute/physical/checkpoint emission, supplier-statement resolution, evidence adjudication, remedy/bond execution receipts, cross-plane information-flow events, OutcomeRoom/collective-pursuit receipt families, full bounded-improvement Campaign receipts, embodied graph activation and action-chunk lineage, spacetime reservation, physical segment commitments, and delivery-bundle settlement remain planned)
+Last implementation audit: 2026-07-18
 
 ## Purpose
 
 Events enable observation; receipts bind attributable boundary facts; replay
 enables inspection; evidence, verification, acceptance, adjudication, and
-settlement add progressively stronger claims. Delivery bundles carry the
+settlement add distinct claim and disposition stages. Delivery bundles carry the
 evidence required for marketplace acceptance and settlement. These objects
 must be consistent across Hypervisor clients/application surfaces, Hypervisor
 Daemon, Agentgres, ioi.ai, aiagent.xyz, sas.xyz, and wallet.network.
@@ -54,10 +54,20 @@ Cryptography makes work claims attributable and challengeable. Correctness,
 causality, demand, scarcity, quality, and economic value still require evidence,
 evaluation, acceptance, and—when contested—adjudication.
 
+The ladder orders claim handling and institutional disposition, not certainty
+about an underlying proposition. Verification evaluates evidence under a named
+rule; acceptance records reliance or agreement; adjudication resolves a
+governed contest; settlement moves rights or value. A wrong claim can be
+accepted, adjudicated, finalized, or paid. Later stages therefore do not erase
+contradiction or convert a scoped operational determination into universal
+truth.
+
 ## Receipt Registry And Schema Ownership
 
-This file governs the common `ReceiptEnvelope` base and owns the receipt-type
-registry, cross-component receipt schemas, lifecycle, and assurance semantics (INV-9,
+[`../../foundations/common-objects-and-envelopes.md`](../../foundations/common-objects-and-envelopes.md#receiptenvelope)
+owns the portable `ReceiptEnvelope` base and shared identity/ref contract. This
+file owns the exhaustive receipt-type registry, cross-component specialized
+schemas, lifecycle, and assurance semantics (INV-9,
 [`../../foundations/invariants.md`](../../foundations/invariants.md)). Every new
 receipt type registers here before another owner relies on it.
 
@@ -76,6 +86,183 @@ release controls, support queues, and capability-improvement proposals, but they
 do not replace receipts, state roots, policy decisions, or wallet authority.
 When promoted into training or evaluation material, they must pass through
 policy-bound data views, Data Recipes, and Agentgres refs.
+
+## Oracle Evidence Admission Receipt
+
+`OracleEvidenceAdmissionReceipt` closes the external-assertion decision boundary
+between `OracleEvidenceProfileEnvelope`, provenance-bearing evidence,
+`OntologyAssertionEnvelope`, verification, and a permitted consequence. It
+extends the shared `ReceiptEnvelope`:
+
+```yaml
+OracleEvidenceAdmissionReceipt:
+  receipt_type: oracle_evidence_admission
+  assertion_ref: ontology-assertion://...
+  assertion_commitment: sha256:...
+  fact_class_ref: ontology://...#fact-class
+  oracle_evidence_profile_ref: oracle-evidence-profile://...
+  oracle_evidence_profile_version: semver_or_hash
+  oracle_evidence_profile_body_hash: sha256:...
+  evidence_bundle_refs:
+    - evidence://...
+  evidence_root: sha256:...
+  evidence_dependency_graph_ref: evidence://... | artifact://...
+  evidence_dependency_graph_root: sha256:...
+  source_independence_evidence_refs:
+    - evidence://... | artifact://... | receipt://...
+  verifier_path_refs:
+    - verifier_path://...
+  verification_receipt_refs:
+    - receipt://...
+  freshness_and_uncertainty_assessment_ref: evidence://...
+  contradiction_and_challenge_refs:
+    - ontology-assertion://... | verifier-challenge://... | dispute://...
+  decision: admitted_for_scope | held_unknown | rejected | escalated
+  applicability_scope_ref: policy://... | system://... | domain://... | null
+  permitted_consequence_scope_refs:
+    - policy://...
+  effective_at: timestamp
+  valid_until: timestamp | null
+  policy_ref: policy://...
+  required_authority_refs:
+    - grant://... | lease://...
+  expected_predecessor_admission_receipt_ref: receipt://... | null
+  expected_predecessor_admission_head_hash: sha256:... | null
+  resulting_admission_head_hash: sha256:...
+  agentgres_operation_ref: agentgres://operation/...
+```
+
+This receipt proves that the named boundary reached the declared decision under
+the bound profile, inputs, and time window. It neither proves the external
+proposition nor conveys effect authority. A consequential effect separately
+requires the active policy and authority path, fresh oracle-evidence and domain
+assertion-admission decisions, and the normal effect receipt.
+
+For `decision: admitted_for_scope`, `valid_until` and at least one member of
+`permitted_consequence_scope_refs` are mandatory, `valid_until` cannot exceed
+the profile maximum, and the receipt's fact class, applicability scope, and
+consequence scopes must match the assertion and be permitted by the active
+profile. `held_unknown`, `rejected`, and `escalated` convey no permitted
+consequence.
+
+Agentgres admits each assertion's oracle-decision chain through exact-head
+compare-and-swap over the expected predecessor ref/hash and resulting head.
+Concurrent successors from one predecessor cannot both become current. Every
+consequential effect binds both the active `OracleEvidenceAdmissionReceipt`
+ref/head and the current `OntologyAssertionAdmissionReceipt` ref/resulting
+assertion head. Immediately before invocation it revalidates the oracle
+decision, validity, active profile, source/verifier revocation posture,
+applicability, and permitted consequence scope, plus a current domain decision
+of `admitted` whose oracle receipt, assertion commitment, fact class,
+applicability, and consequence scopes match exactly. A current rejected or
+superseded domain-admission head blocks the effect even while the oracle
+decision remains active. Late contradiction, source or verifier revocation,
+profile replacement, domain rejection or supersession, or expiry stops future
+reliance according to policy while preserving immutable history and invoking
+declared reversal, compensation, or reconciliation.
+
+## Ontology Assertion Admission Receipt
+
+`OntologyAssertionAdmissionReceipt` records the separate Agentgres/domain
+decision to admit an assertion as operational semantic truth after any required
+oracle/evidence determination:
+
+```yaml
+OntologyAssertionAdmissionReceipt:
+  receipt_type: ontology_assertion_admission
+  assertion_ref: ontology-assertion://...
+  assertion_commitment: sha256:...
+  fact_class_ref: ontology://...#fact-class | null
+  oracle_evidence_profile_ref: oracle-evidence-profile://... | null
+  oracle_evidence_admission_receipt_ref: receipt://... | null
+  applicability_scope_ref: policy://... | system://... | domain://... | null
+  permitted_consequence_scope_refs:
+    - policy://...
+  decision: admitted | rejected
+  expected_predecessor_assertion_head_ref: ontology-assertion://... | null
+  expected_predecessor_assertion_head_hash: sha256:... | null
+  resulting_assertion_head_hash: sha256:...
+  policy_ref: policy://...
+  authority_refs:
+    - grant://... | lease://...
+  agentgres_operation_ref: agentgres://operation/...
+```
+
+When an oracle/evidence profile governs the assertion, admission requires the
+active unexpired `OracleEvidenceAdmissionReceipt`; its assertion commitment,
+fact class, profile revision, applicability, and consequence-scope set must
+match exactly. Domain admission cannot widen those scopes or revive a held,
+rejected, expired, superseded, or revoked oracle decision. The receipt proves
+the domain admitted the exact semantic assertion through exact-head CAS. It
+does not prove the proposition, replace the oracle evaluator, or convey effect
+authority.
+
+## Receipt Checkpoints And Offline Proofs
+
+`ReceiptCheckpoint` v1 and `ReceiptProofBundle` v1 are the portable export
+profile over the existing `ReceiptEnvelope`; neither replaces a receipt,
+`EvidenceBundle`, `DeliveryBundle`, or Agentgres operational truth. The machine
+contracts and fixtures are registered by
+[`architecture-contract-registry.v1.json`](../../_meta/schemas/architecture-contract-registry.v1.json).
+
+The v1 accumulator is named
+`ioi.receipt-hash-chain-jcs-sha256.v1`. It is a deterministic, append-only,
+domain-separated linear hash chain—not a Merkle tree and not an RFC 6962
+transparency-log proof. It uses:
+
+```text
+receipt_body_hash = SHA256(JCS(exact closed ReceiptEnvelope v1))
+leaf[i] = SHA256("IOI-RECEIPT-ACCUMULATOR-LEAF-V1\0" ||
+                 JCS(receipt contract/schema, body hash, domain, index i))
+root[0] = SHA256("IOI-RECEIPT-ACCUMULATOR-EMPTY-V1\0")
+root[i+1] = SHA256("IOI-RECEIPT-ACCUMULATOR-STEP-V1\0" ||
+                   JCS(previous root, leaf[i]))
+```
+
+An inclusion witness carries the root immediately before the selected leaf and
+every later leaf hash through the signed checkpoint. A consistency witness
+carries every leaf appended after the signed predecessor checkpoint. Both are
+linear-size v1 witnesses: that cost is explicit and is not mislabeled as
+Merkle/MMR compactness. A future compact accumulator requires a new versioned
+algorithm identity and cross-runtime vectors rather than silent wire mutation.
+
+`ReceiptCheckpoint` binds the receipt-log identity, algorithm and body-hash
+profiles, receipt and checkpoint schema hashes, size/root, exact predecessor
+checkpoint hash/size/root, issuer key-set identity/version, build identity,
+policy posture, and issuance time. The Ed25519 signature preimage is
+`IOI-RECEIPT-CHECKPOINT-V1\0` followed by JCS of the checkpoint body hash,
+schema hash, signing domain, algorithm, size, and root. The checkpoint body
+hash excludes only its signature block.
+
+`ReceiptProofBundle` contains the exact receipt, its body/leaf hashes, inclusion
+material, current and optional predecessor checkpoints, consistency material,
+trusted key-set/revocation-snapshot refs, and human-readable offline
+verification steps. Its manifest hashes every field except the manifest hash
+and signature block, and the checkpoint signer authenticates that hash under
+the separate `IOI-RECEIPT-PROOF-BUNDLE-MANIFEST-V1\0` domain. Recomputing a
+self-hash therefore cannot rewrite verification instructions or trusted-input
+refs without invalidating the manifest signature.
+
+Offline verification fails closed unless it can:
+
+1. validate every registered closed schema and schema hash;
+2. reproduce the exact receipt body and indexed leaf hashes;
+3. reproduce the signed accumulator root from the inclusion witness;
+4. verify current and predecessor checkpoint signatures against a locally
+   trusted, current key set and signed bounded-freshness revocation snapshot;
+5. reproduce the current root from the predecessor root and all extension
+   leaves;
+6. bind the manifest to those trusted inputs and verify its signature.
+
+The registered schemas, invariants, and adversarial fixtures encode refusal
+cases for receipt, type, domain, version, leaf, index, root, predecessor,
+manifest, signer, key, revocation, and staleness substitution. They are not a
+cryptographic inclusion/consistency verifier or an offline CLI. Those
+verifiers, public transparency, network key discovery, gossip/witness-based
+split-view detection, and live daemon/Agentgres emission remain separate
+planned work. Consequential runtime receipts do not acquire signed-checkpoint
+coverage until a production emitter records them in an implemented
+accumulator.
 
 Trace bundles are the inspection projection over events, logs, receipts,
 artifacts, authority decisions, and proof refs. A trace bundle should support
@@ -113,7 +300,7 @@ it should not become the only way to inspect ordinary runtime behavior.
 
 The Hypervisor Daemon emits these objects as the autonomous-execution
 hypervisor/control plane. Hypervisor App, Hypervisor Web, CLI/headless,
-optional TUI, SDK, ADK, Workbench/Foundry surfaces, other Applications
+optional TUI, SDK, ADK, Developer Workspace/Foundry surfaces, other Applications
 surfaces, Environments views, harnesses, benchmarks, and
 extension-host code may project or inspect them, but they must not mint private
 runtime truth for consequential work.
@@ -149,6 +336,10 @@ model.token
 model.completed
 tool.proposed
 tool.validated
+information_flow.labeled
+information_flow.effect_admitted
+information_flow.effect_denied
+information_flow.declassification_applied
 policy.decided
 authority.decided
 approval.requested
@@ -208,6 +399,23 @@ capability.rollback_requested
 capability.recall_issued
 capability.regression_detected
 capability.regression_adjudicated
+improvement.agenda_revision_released
+improvement.campaign_proposed
+improvement.campaign_admitted
+improvement.campaign_started
+improvement.campaign_paused
+improvement.campaign_stopped
+improvement.candidate_admitted
+improvement.epoch_frozen
+improvement.epoch_activated
+improvement.epoch_challenged
+improvement.epoch_invalidated
+improvement.exposure_reserved
+improvement.exposure_spent
+improvement.exposure_released
+improvement.order_cutoff_recorded
+improvement.evidence_claim_recorded
+improvement.evidence_claim_challenged
 usage.delta
 usage.final
 resource.allocation_requested
@@ -293,7 +501,7 @@ upgrade.proposal_submitted
 upgrade.proposal_approved
 upgrade.proposal_rejected
 upgrade.proposal_committed
-local_settlement.committed
+state_transition_commitment.committed
 ontology.bound
 ontology_projection.updated
 data_recipe.run_started
@@ -353,8 +561,53 @@ embodied.heartbeat.recorded
 embodied.failsafe.triggered
 embodied.sensor.registered
 embodied.actuator.registered
+embodied.runtime_graph.compiled
+embodied.runtime_graph.admitted
+embodied.physical_stream_contract.admitted
+embodied.physical_stream_contract.rejected
+embodied.physical_stream_contract.violated
+embodied.graph_activation.proposed
+embodied.graph_activation.staging
+embodied.graph_activation.prepared
+embodied.graph_activation.validated
+embodied.graph_activation.committed
+embodied.graph_activation.aborted
+embodied.graph_activation.deactivated
+embodied.graph_activation.rolled_back
+embodied.graph_activation.failed_closed
+embodied.local_supervisor.ready
+embodied.local_supervisor.vetoed
+embodied.local_supervisor.recovery_entered
 embodied.world_model.updated
 embodied.environment_state.updated
+embodied.action_chunk.proposed
+embodied.action_chunk.selected
+embodied.action_chunk.admitted_to_queue
+embodied.action_chunk.executed_under_segment
+embodied.action_chunk.clipped
+embodied.action_chunk.replaced
+embodied.action_chunk.rejected
+embodied.action_chunk.expired
+embodied.action_chunk.superseded
+embodied.fleet_allocation.proposed
+embodied.fleet_allocation.active
+embodied.fleet_allocation.completed
+embodied.fleet_allocation.fenced
+embodied.fleet_allocation.expired
+embodied.fleet_allocation.revoked
+embodied.fleet_allocation.ambiguous
+embodied.fleet_allocation.reassigned
+embodied.fleet_allocation.reconciliation_required
+embodied.spacetime_reservation.proposed
+embodied.spacetime_reservation.activated
+embodied.spacetime_reservation.consumed
+embodied.spacetime_reservation.fenced
+embodied.spacetime_reservation.preempted
+embodied.spacetime_reservation.revoked
+embodied.spacetime_reservation.expired
+embodied.spacetime_reservation.conflict
+embodied.spacetime_reservation.released
+embodied.spacetime_reservation.failed_closed
 embodied.command.proposed
 embodied.command.queued
 embodied.command.started
@@ -391,10 +644,10 @@ run.cancelled
 
 ```json
 {
-  "event_id": "evt_123",
-  "parent_event_id": "evt_122",
-  "run_id": "run_123",
-  "task_id": "task_123",
+  "event_id": "event://123",
+  "parent_event_id": "event://122",
+  "run_id": "run://123",
+  "task_id": "task://123",
   "kind": "tool.completed",
   "timestamp": "2026-05-01T00:00:00Z",
   "cursor": 42,
@@ -413,6 +666,9 @@ run.cancelled
 PolicyDecisionReceipt
 ApprovalReceipt
 ModelInvocationReceipt
+LearningEgressReceipt
+InformationFlowDecisionReceipt
+DeclassificationReceipt
 ToolExecutionReceipt
 ModuleInvocationReceipt
 ArtifactReceipt
@@ -421,23 +677,60 @@ ArtifactRepairReceipt
 ValidationReceipt
 MergeReceipt
 SettlementReceipt
-LocalSettlementReceipt
+StateTransitionCommitmentReceipt
 DeliveryReceipt
 AIIPPacketReceipt
 AIIPDeliveryUpdateReceipt
 AIIPAcceptanceDecisionReceipt
+DisputeResolutionReceipt
+BondDistributionReceipt
+DisputeRemedyExecutionReceipt
 AIIPDisputeResolutionReceipt
 AIIPSettlementIntentReceipt
 CrossDomainDeliveryBundleReceipt
 ContributionReceipt
+ContributionAdmissionReceipt
 QualityReceipt
 DataRecipeRunReceipt
 TransformationReceipt
 DatasetDistillationReceipt
 OntologyProjectionReceipt
+OracleEvidenceAdmissionReceipt
+OntologyAssertionAdmissionReceipt
 TrainingEvidenceEligibilityReceipt
+LearningEvidenceEligibilityReceipt
 UpgradeProposalReceipt
 UpgradeDecisionReceipt
+ImprovementAgendaRevisionReceipt
+ImprovementCampaignAdmissionReceipt
+ImprovementCampaignLifecycleReceipt
+EvaluationEpochReceipt
+EvaluationExposureReceipt
+ImprovementOrderCutoffReceipt
+ImprovementEvidenceClaimReceipt
+ConstitutionProposalReceipt
+ConstitutionDecisionReceipt
+ConstitutionActivationReceipt
+AutonomousSystemGenesisReceipt
+AutonomousSystemActivationReceipt
+NodeMembershipAdmissionReceipt
+NodeMembershipTransitionReceipt
+StateCatchupReceipt
+StateRootVerificationReceipt
+WriterPromotionReceipt
+WriterFencingReceipt
+DeploymentConformanceReceipt
+FailoverEvaluationReceipt
+SingleWriterRestoreReceipt
+OrderingFinalityRecoveryReceipt
+LifecycleTransitionReceipt
+MigrationReceipt
+SuccessionReceipt
+DissolutionReceipt
+NetworkEnrollmentTransitionReceipt
+NetworkServiceActivationReceipt
+NetworkServiceInvocationReceipt
+NetworkExitReceipt
 FoundrySpecReceipt
 DatasetSnapshotReceipt
 FoundryRunPlanReceipt
@@ -480,6 +773,7 @@ AssuranceEvidenceBundleReceipt
 ComplianceAuditExportBundleReceipt
 CommercialAssuranceExportReceipt
 MultiPartyCollaborationReceipt
+CollaborationTermsAcceptanceReceipt
 OutcomeRoomAdmissionReceipt
 OutcomeRoomDiscoveryPublicationReceipt
 RoomParticipationDecisionReceipt
@@ -495,6 +789,8 @@ WorkResultReceipt
 OutcomeDeltaAdmissionReceipt
 BenchmarkRunReceipt
 EvaluationVerdictReceipt
+GoalRunProfileResolutionReceipt
+AutomationRunResolutionReceipt
 OrchestrationDecisionReceipt
 RoutingDecisionReceipt
 AuthorityClientRegistrationReceipt
@@ -513,6 +809,9 @@ NodeMeasurementReceipt
 EmbodiedRuntimeDomainReceipt
 RobotFleetRegistrationReceipt
 ControllerBindingReceipt
+EmbodiedGraphActivationReceipt
+EmbodiedActionChunkLineageReceipt
+SpacetimeReservationReceipt
 HeartbeatReceipt
 FailsafeReceipt
 WorldModelReceipt
@@ -539,7 +838,6 @@ ModelMountReceipt
 PrivateInferenceReceipt
 CounterfactualLatticeReceipt
 PrivateOperatorReceipt
-DeclassificationReceipt
 CapabilityExitReceipt
 DeterrenceDetectionReceipt
 CanaryTripReceipt
@@ -554,6 +852,49 @@ DiagnosticsRepairReceipt
 JobReceipt
 ```
 
+## Information-Flow Decision Receipts
+
+`InformationFlowDecisionReceipt` is the receipt profile for the daemon's
+pre-effect IFC boundary. It binds the exact label and RuntimeToolContract
+revision, destination, decision/reason, and—when canonicalization reached that
+stage—the exact effect, request, and reviewed-representation hashes. A denied
+decision may assert `blocked_before_egress` only when its enforcement evidence
+binds the pre-network boundary and proves the external invoker was not called.
+It never includes protected effect bytes or the reviewed plaintext.
+
+```yaml
+InformationFlowDecisionReceipt:
+  receipt_profile_ref: schema://ioi/receipt/information-flow-decision/v1
+  information_flow_label_ref: ifc-label://... | null
+  information_flow_label_content_hash: hash | null
+  runtime_tool_contract_revision_ref: tool://.../revision/... | null
+  destination: string | null
+  effect_hash: hash | null
+  request_hash: hash | null
+  reviewed_representation_hash: hash | null
+  decision: admitted | denied
+  reason: canonical_ifc_reason
+  blocked_before_egress: boolean
+  enforcement_boundary_ref: runtime://... | policy://... | null
+  declassification_approval_ref: approval://... | null
+  declassification_receipt_ref: receipt://... | null
+```
+
+`DeclassificationReceipt` separately records validation or consumption of the
+exact `DeclassificationApproval`. It binds the approval ref, label/tool refs,
+effect/request/review hashes, destination, resulting data class, authority
+grant, and status at use. It does not rewrite the label, erase derivation
+parents, upgrade instruction authority, or prove anything about provider-side
+retention after a permitted transfer.
+
+`WorkResultReceipt` and `OutcomeDeltaAdmissionReceipt` bind the exact
+`information_flow_label_refs` present at admission. Delta admission unions the
+bound proposer's refs with any additional declared refs before hashing and
+receipting the record; a caller cannot use a delta to erase upstream
+provenance. These receipts prove preservation of refs at that boundary, not
+that every referenced label is independently verified or that any content was
+declassified.
+
 ## AIIP And Cross-Domain Service Receipts
 
 AIIP receipts bind cross-domain service handoffs without copying remote domain
@@ -561,13 +902,57 @@ state into local Agentgres as truth. `AIIPPacketReceipt` records an admitted
 packet and its envelope hash. `AIIPDeliveryUpdateReceipt` records milestone,
 partial, final, revision, or cancellation updates with artifact, evidence, and
 receipt roots. `AIIPAcceptanceDecisionReceipt` records accept, partial accept,
-reject, revision request, or dispute-open decisions. `AIIPDisputeResolutionReceipt`
-records refund, partial refund, payout, partial payout, slash, retry, revision,
-escalation, or no-fault outcomes. `AIIPSettlementIntentReceipt` records the
-conditions proposed for IOI L1 or local settlement. `CrossDomainDeliveryBundleReceipt`
+reject, revision request, or dispute-open decisions.
+`DisputeResolutionReceipt` records admission or execution evidence for the
+shared dispute object family; AIIP may carry it as an
+`AIIPDisputeResolutionReceipt` profile without redefining the body.
+`AIIPSettlementIntentReceipt` records the
+conditions proposed under the declared local, bilateral, invoice, escrow,
+external-chain, or enrolled IOI L1 settlement mode/profile.
+`CrossDomainDeliveryBundleReceipt`
 binds local and remote receipt roots, evidence refs, delivery updates,
 acceptance decisions, dispute refs, and settlement intent refs into an
 exportable proof bundle.
+
+### Dispute decision and execution receipts
+
+The canonical `DisputeResolutionEnvelope` is the decision/allocation object,
+not a receipt and not proof of execution. Receipt profiles bind stages around
+it:
+
+```yaml
+DisputeResolutionReceipt:
+  receipt_profile_ref: schema://ioi/receipt/dispute-resolution/v1
+  dispute_ref: dispute://...
+  dispute_resolution_ref: dispute-resolution://...
+  dispute_rail_profile_ref: policy://dispute/...
+  dispute_rail_profile_version: positive_integer
+  dispute_rail_profile_body_hash: sha256:...
+  case_head_hash: sha256:...
+  resolution_request_hash: sha256:...
+  value_unit_ref: denomination://...
+  value_unit_body_hash: sha256:...
+  outcome: challenger_upheld | respondent_upheld | partial | no_fault | escalated
+  remedy: none | refund | partial_refund | payout | partial_payout | slash | retry | revise | escalate
+  remedy_units: nonnegative_integer
+  bond_pool_units: nonnegative_integer
+  bond_allocation_hash: sha256:...
+  decision_admission_ref: decision://...
+  execution_receipt_refs: []
+  appeal_of_resolution_ref: dispute-resolution://... | null
+  assurance_stage: attested | evidenced | verified | accepted | adjudicated | settled
+  status: admitted | execution_pending | executed | execution_failed | appealed | superseded
+```
+
+The profile/case/resolution contract requires one exact asset-unit binding
+across disputed value, remedy, bonds, and allocation. The receipt repeats the
+unit ref/hash and exact resolution/case/profile hashes; it cannot relabel or
+convert them. A decision-stage receipt proves only that the deterministic
+admission boundary produced the bound decision. `bond_distribution`,
+`dispute_remedy_execution`, and `dispute_escalation` receipts remain separate
+required evidence when applicable. Only the owning escrow/payment/settlement
+adapter can attest that value moved, and only the applicable appeal/finality
+owner can attest finality.
 
 ## Model Invocation And Invoice-Reconciled Usage Receipts
 
@@ -584,11 +969,15 @@ receipt is a development projection, not invoice-grade Work Credit truth.
   "outcome_room_ref": "outcome-room://123 | null",
   "attempt_ref": "attempt://123 | null",
   "worker_ref": "worker://planner",
-  "harness_ref": "harness_profile:default | null",
+  "harness_ref": "harness-profile://default | null",
   "runtime_node_ref": "node://123",
   "route_attempt_id": "route-attempt://123",
   "fallback_chain_ref": "route-chain://123",
   "route_contract_ref": "model-route-contract://123",
+  "institutional_learning_boundary_profile_ref": "learning-boundary://org/default/v1 | null",
+  "effective_learning_policy_hash": "sha256:... | null",
+  "effective_customer_output_rights_hash": "sha256:... | null",
+  "learning_egress_receipt_refs": ["receipt://learning_egress_123"],
   "goal_execution_policy": "auto | pinned | compare",
   "endpoint_ref": "endpoint://123",
   "provider_ref": "provider://123",
@@ -643,6 +1032,263 @@ a model-provider cost already borne by the customer. They may still carry
 explicit conductor, governed-runtime, connector, storage, assurance, or support
 charges when those services were actually supplied.
 
+### Managed-work billing ledger linkage
+
+Runtime and model receipts are evidence inputs to billing; they are not
+themselves mutable balances or debit authority. The common-object
+[`Managed Work Billing Object Family`](../../foundations/common-objects-and-envelopes.md#managed-work-billing-object-family)
+owns the exact accounting records:
+
+```text
+RateCard + Plan -> WorkQuote -> CreditHold
+runtime receipt(s) -> append-only UsageRecord
+projected overrun -> OverrunDecision -> exact additional hold or block
+complete usage head -> FinalDebit -> Adjustment / Refund / Writeoff
+```
+
+Each `UsageRecord` binds the immutable quote, current prior-usage hash,
+owner-resolved runtime receipt refs, meter class and integer quantity, frozen
+integer rate, commercial posture, separate provider/broker/participant/verifier
+/IOI-fee fields, excluded customer-borne provider cost, and any exact supplier
+statement refs. The billing record's canonical hash and usage-head link make
+reordering, deletion, and changed-body replay detectable.
+
+The event/receipt plane may emit or project these records only after resolving
+the owning runtime evidence and billing authority. A public caller cannot
+submit an arbitrary supplier-usage body and thereby mint billable usage. A
+supplier-cost field marked estimated remains internal-event-log assurance; only
+an applicable supplier statement can elevate that cost to
+supplier-reconciled. Coarse OCU is zero-rate telemetry outside this chain and
+must never be presented as invoice-grade usage.
+
+## Learning Egress Receipt
+
+`LearningEgressReceipt` extends the common `ReceiptEnvelope` and binds one
+attempted or actual crossing of an institutional learning boundary. It does not
+duplicate route-rights, training-eligibility, custody, authority, export, or
+declassification truth; it references their admitted owner objects and the
+underlying operation receipts.
+
+```yaml
+LearningEgressReceipt:
+  receipt_id: receipt://...
+  receipt_type: learning_egress
+  institutional_learning_boundary_profile_ref: learning-boundary://...
+  effective_learning_policy_hash: sha256:...
+  boundary_compilation_or_policy_decision_ref:
+    receipt://... | decision://...
+  source_scope_ref:
+    system://... | org://... | project://... | domain://... |
+    agentgres://domain/... | workspace://...
+  material_classes:
+    - source_data
+    - prompts_and_completions
+    - connector_and_tool_io
+    - work_graphs_traces_and_receipts
+    - corrections_and_reviewer_judgments
+    - evaluations_rubrics_holdouts_and_canaries
+    - memory_context_procedures_workflows_and_skills
+    - datasets_embeddings_and_indexes
+    - adapters_checkpoints_weights_and_packages
+    - router_verifier_authority_and_governance_policy
+    - analytics_crash_support_and_security_telemetry
+    - embodied_sensor_actuator_mission_and_operator_telemetry
+  material_commitment: sha256:...
+  learning_source_rights_claim_refs:
+    - learning-source-rights://...
+  policy_bound_projection_refs:
+    - view://... | memory_projection://... | artifact://...
+  recipient_class:
+    model_provider | external_processor | cross_organization |
+    public_export | support_operator
+  recipient_ref:
+    provider://... | service://... | org://... | domain://... | user://... |
+    endpoint://... | null
+  purpose:
+    inference_service_delivery | hosted_training | hosted_evaluation |
+    support | audit_export | publication | cross_domain_reuse
+  representation:
+    public | redacted | synthetic | declassified | sealed_ciphertext |
+    protected_plaintext
+  execution_privacy_posture_ref: privacy_posture://... | null
+  model_route_contract_ref: model-route-contract://... | null
+  intended_customer_output_uses: []
+  effective_customer_output_rights_hash: sha256:... | null
+  applicable_terms_and_license_refs:
+    - terms://... | license://... | contract://...
+  provider_use_of_customer_material:
+    request_or_prompt_logging:
+      prohibited | contract_limited | explicitly_permitted | not_applicable
+    human_review:
+      prohibited | security_incident_only | contract_limited |
+      explicitly_permitted | not_applicable
+    abuse_and_security_processing:
+      prohibited | transient_only | contract_limited |
+      explicitly_permitted | not_applicable
+    service_improvement:
+      prohibited | contract_limited | explicitly_permitted | not_applicable
+    provider_model_training:
+      prohibited | contract_limited | explicitly_permitted | not_applicable
+    cross_customer_aggregation:
+      prohibited | contract_limited | explicitly_permitted | not_applicable
+  retention_posture:
+    zero_retention | transient_processing | contract_bounded |
+    provider_default | not_applicable
+  retention_policy_ref: policy://... | null
+  local_policy_and_consent_refs:
+    - policy://... | terms://... | license://...
+  authority_refs:
+    - grant://... | lease://... | authority://...
+  redaction_or_declassification_receipt_refs:
+    - receipt://...
+  underlying_operation_receipt_refs:
+    - receipt://...
+  revocation_impact_ref: policy://... | artifact://... | null
+  decision: blocked_before_egress | admitted
+  reason_codes:
+    - LearningEgressDenied | ProviderSecondaryUseDenied |
+      RouteRightsUnsatisfied | CustodyPostureUnsatisfied |
+      LearningSourceRightsMissing | InstitutionalExportDenied |
+      policy_defined
+  transfer_status:
+    not_sent | prevented_before_network_write | sent | delivery_confirmed |
+    failed | unknown
+  network_or_gateway_evidence_refs:
+    - receipt://... | artifact://...
+  agentgres_operation_refs:
+    - agentgres://operation/...
+  assurance_stage:
+    attested | evidenced | verified | accepted | adjudicated | settled
+```
+
+The receipt carries commitments and classifications, not protected plaintext.
+Its provider-use and retention fields are an immutable snapshot of the rights
+resolved for that crossing; `ModelRouteRightsContract`, source-rights claims,
+and the applicable policies remain the semantic owners. The snapshot cannot
+widen or reinterpret them.
+`admitted` proves only that the declared policies and rights allowed the
+crossing; it does not prove delivery, provider compliance, deletion, lack of
+training, or lack of cross-customer aggregation. Provider promises remain
+provider trust unless separately supported by an accepted confidential-compute
+or cryptographic proof.
+
+`blocked_before_egress` is verified only when gateway, network, sandbox, or
+equivalent enforcement evidence binds the request commitment and proves that no
+network write occurred. Without that evidence the receipt is an attested policy
+decision and `transfer_status` must not claim
+`prevented_before_network_write`. A later revocation cannot rewrite an earlier
+receipt; it links forward through the applicable impact, recall, deletion, or
+access-rotation record.
+
+## GoalRun Profile Resolution Receipts
+
+A `GoalRunProfileResolutionReceipt` proves which immutable pursuit definition,
+overrides, and transitive component set daemon admission froze before a
+GoalRun became active. It proves resolution and admission, not that the profile
+is good, that later work is correct, or that any effect was authorized.
+
+```yaml
+GoalRunProfileResolutionReceipt:
+  receipt_id: receipt://...
+  receipt_type: goal_run_profile_resolution
+  goal_ref: goal://...
+  goal_run_profile_revision_ref: goal-run-profile://.../revision/...
+  goal_run_profile_content_hash: hash
+  admitted_override_set_ref: artifact://... | null
+  admitted_override_set_hash: hash | null
+  effective_constraint_envelope_ref: constraint://...
+  effective_constraint_envelope_hash: hash
+  orchestration_policy_ref: orchestration_policy://...
+  orchestration_policy_version_or_hash: semver_or_hash
+  workflow_template_resolutions:
+    - revision_ref: workflow-template://.../revision/...
+      content_hash: hash
+  resolved_skill_bindings:
+    - skill_entry_ref: skill-entry://...
+      skill_entry_binding_revision_ref: skill-entry://.../revision/...
+      skill_entry_binding_hash: hash
+      skill_manifest_revision_ref: skill://.../revision/...
+      skill_manifest_content_hash: hash
+  active_skill_set_snapshot_ref: active-skill-set://...
+  active_skill_set_hash: hash
+  resolved_harness_profile_revisions:
+    - revision_ref: harness-profile://.../revision/...
+      content_hash: hash
+  resolved_runtime_tool_contracts:
+    - revision_ref: tool://.../revision/...
+      content_hash: hash
+  role_topology_requirement_refs: []
+  worker_model_service_and_verifier_requirement_refs: []
+  primitive_capability_requirement_refs: []
+  initial_role_topology_revision_ref: role_topology://.../revision/... | null
+  initial_role_topology_content_hash: hash | null
+  initial_role_topology_decision_ref: decision://... | receipt://... | null
+  unresolved_late_binding_requirement_refs: []
+  effective_learning_boundary_profile_ref: learning-boundary://... | null
+  effective_learning_policy_hash: hash | null
+  compatibility_revocation_and_admission_decision_refs: []
+  resolved_component_set_snapshot_ref: artifact://...
+  resolved_component_set_hash: hash
+  agentgres_operation_refs: []
+  assurance_stage: attested
+  receipt_root: hash
+  signature: optional
+```
+
+When the override ref is null its hash is null; otherwise both are required.
+Late-binding predicates may remain unresolved at run admission only when the
+profile permits them. Each actual worker, model, HarnessProfile, tool, runtime,
+context, and authority selection is then frozen by its owning
+`OrchestrationPlan`, `HarnessInvocation`, lease, decision, and receipt.
+
+## AutomationRun Resolution Receipts
+
+An `AutomationRunResolutionReceipt` proves which standing activation,
+WorkflowTemplate revision, permitted inputs, and dependency closure were frozen
+when one AutomationRun was admitted. It is emitted atomically with final run
+admission, never by a nonbinding preview or proposal.
+
+```yaml
+AutomationRunResolutionReceipt:
+  receipt_id: receipt://...
+  receipt_type: automation_run_resolution
+  automation_run_ref: automation-run://...
+  automation_spec_revision_ref: automation://.../revision/...
+  automation_spec_content_hash: hash
+  automation_installation_binding_revision_ref: install://automation/.../revision/...
+  automation_installation_binding_hash: hash
+  automation_installation_admission_receipt_ref: receipt://...
+  workflow_template_revision_ref: workflow-template://.../revision/...
+  workflow_template_content_hash: hash
+  activation_kind: manual | schedule | webhook | event | monitor | service | queue
+  activation_event_ref: event://...
+  admitted_parameter_set_ref: artifact://... | null
+  admitted_parameter_set_hash: hash | null
+  admitted_activation_override_set_ref: artifact://... | null
+  admitted_activation_override_set_hash: hash | null
+  goal_run_activation_resolutions:
+    - activation_contract_ref: action://goal-run/activate/...
+      activation_mode: create | join_existing
+      goal_run_profile_revision_ref: goal-run-profile://.../revision/...
+      goal_run_profile_content_hash: hash
+      goal_run_ref: goal://...
+      goal_run_profile_resolution_receipt_ref: receipt://...
+  resolved_component_set_snapshot_ref: artifact://...
+  resolved_component_set_hash: hash
+  compatibility_revocation_and_admission_decision_refs: []
+  authority_requirement_refs: []
+  agentgres_operation_refs: []
+  assurance_stage: attested
+  receipt_root: hash
+  signature: optional
+```
+
+Routine automations leave `goal_run_activation_resolutions` empty. A
+goal-shaped step may create or join a GoalRun only through a declared
+GoalRunActivationContract; that child GoalRun performs its own profile
+resolution and retains its own resolution receipt. The Automation receipt
+binds the bridge without collapsing the two run identities.
+
 ## Orchestration Decision Receipts
 
 An orchestration receipt records why a conductor selected a plan shape. It is
@@ -657,25 +1303,25 @@ OrchestrationDecisionReceipt:
   receipt_type: orchestration_decision
   goal_ref: goal://... | task://...
   conductor_ref: system://... | agent://... | worker://...
+  goal_run_profile_revision_ref: goal-run-profile://.../revision/...
+  goal_run_profile_resolution_receipt_ref: receipt://...
   orchestration_policy_ref: orchestration_policy://...
+  orchestration_policy_version_or_hash: semver_or_hash
   constraint_envelope_ref: constraint://...
-  candidate_plan_refs:
-    - orchestration_plan://...
-  selected_plan_ref: orchestration_plan://...
+  candidate_plan_revisions:
+    - revision_ref: orchestration_plan://.../revision/...
+      content_hash: hash
+  selected_orchestration_plan_revision_ref: orchestration_plan://.../revision/...
+  selected_orchestration_plan_content_hash: hash
   selected_materialization:
     single_path | verifier_backed_single_path | multi_model_answer |
     multi_harness_attempt | cross_session_branch_and_merge |
     collaborative_frontier | independent_replication |
     dynamic_specialist_mesh | open_challenge |
     marketplace_worker_delegation | foundry_job
-  selected_model_route_refs:
-    - model_route://...
-  selected_harness_refs:
-    - harness_profile:... | agent_harness_adapter:...
-  selected_worker_refs:
-    - worker://... | agent://...
-  selected_verifier_path_refs:
-    - verifier_path://...
+  selected_role_topology_revision_ref: role_topology://.../revision/... | null
+  selected_role_topology_content_hash: hash | null
+  routing_decision_refs: []
   expected_cost_ref: budget://... | null
   expected_latency_class: interactive | batch | background | deadline_bound
   evidence_basis_refs:
@@ -690,6 +1336,13 @@ OrchestrationDecisionReceipt:
   receipt_root: hash
   signature: optional
 ```
+
+The selected plan tuple attests one immutable OrchestrationPlan revision. Its
+optional topology tuple attests the exact RoleTopology that owns role, actor,
+resolver, model-route, runtime-assignment, and verifier bindings. Routing
+receipts own route/worker selection, and HarnessInvocation owns the resolver
+actually invoked; this receipt does not duplicate those owners as parallel
+selected-harness or selected-worker arrays.
 
 ## Routing Decision Receipts
 
@@ -707,6 +1360,13 @@ RoutingDecisionReceipt:
   outcome_room_ref: outcome-room://... | null
   task_ref: task://... | null
   router_ref: worker://... | runtime://... | system://... | domain://...
+  task_offer_ref: packet://... | null
+  task_acceptance_refs:
+    - packet://...
+  selected_task_acceptance_ref: packet://... | null
+  collaboration_terms_ref: terms://... | null
+  collaboration_terms_root: sha256:... | null
+  budget_reservation_ref: budget://... | spend://... | allocation://... | null
   intent_hash: sha256:...
   candidate_set_commitment: sha256:...
   candidate_affiliation_commitment: sha256:...
@@ -759,12 +1419,13 @@ effect without turning attribution into automatic correctness or payout.
 ContributionReceipt:
   receipt_id: receipt://...
   receipt_type: contribution
-  contribution_ref: contrib_...
+  contribution_ref: contribution://...
   contributor_ref:
-    worker://... | service://... | publisher://... | tool://... |
+    system://... | participant-lease://... | worker://... | service://... |
+    ioi://publisher/... | tool://... |
     org://... | domain://...
   contributor_role:
-    worker | service | publisher | tool | verifier | reviewer |
+    autonomous_system | worker | service | publisher | tool | verifier | reviewer |
     resource_provider | semantic_mapper | organization
   operator_ref: org://... | user://... | domain://... | null
   affiliation_refs: []
@@ -775,6 +1436,14 @@ ContributionReceipt:
   outcome_room_ref: outcome-room://... | null
   task_ref: task://... | null
   run_ref: run://... | null
+  collaboration_terms_ref: terms://... | null
+  collaboration_terms_root: sha256:... | null
+  task_offer_and_acceptance_refs:
+    - packet://...
+  work_claim_ref: work-claim://... | null
+  reward_basis_ref:
+    policy://... | rate-card://... | quote://... | order://... |
+    budget://... | null
   attempt_refs:
     - attempt://...
   work_result_refs:
@@ -807,7 +1476,6 @@ ContributionReceipt:
   uncertainty: number | string | null
   applicability: string | null
   license_policy_refs: []
-  reward_basis_ref: order://... | budget://... | policy://... | null
   settlement_ref: settlement-intent://... | settlement://... | null
   agentgres_operation_refs: []
   receipt_hash: sha256:...
@@ -840,7 +1508,7 @@ deterrence/detection profile.
   "receipt_type": "model_mount",
   "mount_id": "model_mount://123",
   "view_id": "model_mount_view://123",
-  "run_id": "run_123",
+  "run_id": "run://123",
   "node_id": "runtime_node_3090",
   "model_route_ref": "model_route://...",
   "visible_context_hash": "sha256:...",
@@ -859,7 +1527,7 @@ deterrence/detection profile.
 {
   "receipt_id": "receipt://private_inference_123",
   "receipt_type": "private_inference",
-  "run_id": "run_123",
+  "run_id": "run://123",
   "node_id": "runtime_node_3090",
   "capsule_id": "shielded_capsule://123",
   "alpha_seal_ref": "alpha_seal://123",
@@ -917,7 +1585,7 @@ schedule leakage.
   "receipt_id": "receipt://private_operator_123",
   "receipt_type": "private_operator",
   "policy_ref": "crypto_op_policy://123",
-  "run_id": "run_123",
+  "run_id": "run://123",
   "capsule_id": "shielded_capsule://123",
   "operator_family": "fhe_linear | fhe_approx | mpc_nonlinear | garbled_boolean | oram_lookup | local_guardian | threshold_guardian",
   "node_ref": "runtime_node_3090",
@@ -1076,7 +1744,16 @@ but do not replace, physical-action safety receipts such as
 SensorEvidenceReceipt:
   receipt_id: receipt://...
   receipt_type: sensor_evidence
-  mission_or_intent_ref: mission://... | intent://...
+  work_subject:
+    kind:
+      goal_run | automation_run | work_item | work_claim |
+      service_order | physical_action_intent
+    ref:
+      goal://... | automation-run://... | work_item://... | work-claim://... |
+      order://... | intent://...
+  resource_group_bindings:
+    - group_revision_ref: embodied-resource-group-revision://...
+      membership_closure_hash: hash
   sensor_refs:
     - sensor://...
   observation_hashes:
@@ -1093,8 +1770,17 @@ SensorEvidenceReceipt:
 ActuatorCommandReceipt:
   receipt_id: receipt://...
   receipt_type: actuator_command
-  mission_or_intent_ref: mission://... | intent://...
+  work_subject:
+    kind:
+      goal_run | automation_run | work_item | work_claim |
+      service_order | physical_action_intent
+    ref:
+      goal://... | automation-run://... | work_item://... | work-claim://... |
+      order://... | intent://...
   command_ref: physical_command://...
+  resource_group_bindings:
+    - group_revision_ref: embodied-resource-group-revision://...
+      membership_closure_hash: hash
   actuator_ref: actuator://...
   command_hash: sha256:...
   issued_by_ref: runtime://... | controller://...
@@ -1109,34 +1795,253 @@ ActuatorCommandReceipt:
   agentgres_operation_refs: []
 
 PhysicalActionExecutionReceipt:
+  schema_version: ioi.physical-action-execution-receipt.v1
+  receipt_envelope:
+    receipt_id: receipt://...
+    receipt_type: physical_action_execution
+    receipt_profile_ref: schema://ioi/foundations/physical-action-execution-receipt/v1
+    attested_boundary_fact_refs: []
+    claim_scope_ref: policy://... | schema://... | null
+    run_id: run://... | null
+    task_id: task://... | null
+    actor_id: worker://... | service://... | runtime://...
+    input_hash: sha256:...
+    output_hash: sha256:...
+    policy_hash: sha256:...
+    authority_grant_id: grant://... | null
+    primitive_capabilities: [prim:physical.actuate]
+    authority_scopes: [scope:physical.actuate]
+    artifact_refs: []
+    evidence_bundle_refs: [evidence://...]
+    verification_ref: verification://... | null
+    acceptance_ref: acceptance://... | null
+    adjudication_ref: decision://... | null
+    settlement_ref: settlement://... | null
+    timestamp: timestamp
+    signature: string | null
+    public_commitment_ref: commitment://... | settlement://... | tx://... | null
+  body:
+    idempotency_key: string
+    execution_request_hash: sha256:...
+    admission_id: physical-action-admission:...
+    admission_record_hash: sha256:...
+    work_subject:
+      kind:
+        goal_run | automation_run | work_item | work_claim |
+        service_order | physical_action_intent
+      ref:
+        goal://... | automation-run://... | work_item://... | work-claim://... |
+        order://... | intent://...
+    target_system_ref:
+      robot://... | facility://... | vehicle://... | device://... |
+      drone://... | actuator://...
+    resource_group_bindings:
+      - group_revision_ref: embodied-resource-group-revision://...
+        membership_closure_hash: sha256:...
+        unit_refs:
+          - robot://... | drone://... | device://...
+        controller_binding_refs: [controller-binding://...]
+        sensor_refs: [sensor://...]
+        actuator_refs: [actuator://...]
+        physical_zone_refs: [zone://...]
+        emergency_stop_authority_refs: [estop://...]
+    emergency_stop_authority_ref: estop://...
+    controller_binding_ref: controller-binding://...
+    runtime_graph_manifest_ref: embodied-runtime-graph-manifest://...
+    runtime_graph_manifest_hash: sha256:...
+    safety_envelope_ref: safety://...
+    safety_envelope_hash: sha256:...
+    assurance_evidence_bundle_ref: assurance-evidence://...
+    assurance_evidence_bundle_hash: sha256:...
+    active_writer_lease_ref: resource-lease://...
+    active_writer_fencing_epoch: nonnegative_integer
+    active_writer_fencing_token_hash: sha256:...
+    graph_timing_chain_ref: artifact://...
+    graph_timing_chain_hash: sha256:...
+    command_schema_ref: action-schema://...
+    command_payload_hash: sha256:...
+    segment_commitment_receipt_refs: [receipt://...]
+    preflight_receipt_refs: [receipt://...]
+    sensor_evidence_receipt_refs: [receipt://...]
+    controller_operation_ref: effect://...
+    dispatch_posture:
+      not_dispatched_proven | dispatched_observed | dispatch_ambiguous
+    dispatch_evidence_receipt_refs: [receipt://...]
+    controller_receipt_refs: [receipt://...]
+    outcome_normalization_error_codes: []
+    effect_status: committed | rejected | unknown
+    state_root_before: state_root://... | string
+    state_root_after: state_root://... | string | null
+    previous_execution_receipt_hash: sha256:... | null
+    executed_at: timestamp
+    incident_refs: [incident://...]
+    reconciliation_state:
+      confirmed | partially_confirmed | ambiguous_effect |
+      compensation_required | non_retryable | failed
+    agentgres_operation_refs: []
+    assurance_stage:
+      attested | evidenced | verified | accepted | adjudicated | settled
+  body_hash: sha256:...
+  receipt_hash: sha256:...
+
+EmbodiedGraphActivationReceipt:
   receipt_id: receipt://...
-  receipt_type: physical_action_execution
-  mission_or_intent_ref: mission://... | intent://...
-  segment_commitment_receipt_refs:
-    - receipt://...
-  preflight_receipt_refs:
-    - receipt://...
-  sensor_evidence_receipt_refs:
-    - receipt://...
-  incident_refs:
-    - incident://...
-  reconciliation_state:
-    confirmed | partially_confirmed | ambiguous_effect |
-    compensation_required | non_retryable | failed
-  acceptance_ref: acceptance://... | null
-  adjudication_ref: decision://... | null
+  receipt_type: embodied_graph_activation
+  runtime_graph_manifest_ref: embodied-runtime-graph-manifest://...
+  runtime_graph_manifest_hash: hash
+  activation_transaction_ref: graph-activation-transaction://...
+  native_runtime_profiles:
+    - micro | edge | site
+  partition_results:
+    - partition_key: string
+      runtime_profile: micro | edge | site
+      local_control_supervisor_ref: local_control_supervisor://... | null
+      local_prepare_receipt_ref: receipt://...
+      local_activation_receipt_ref: receipt://... | null
+      result: active_unarmed | aborted | failed_closed
+  atomicity_scope:
+    one_supervisor_hardware_boundary | coordinated_multi_partition
+  resolved_component_implementations:
+    - implementation_ref: package_artifact://... | artifact://... | module://...
+      implementation_hash: hash
+  resolved_transport_bindings:
+    - binding_ref: schema://... | artifact://... | connector://...
+      binding_hash: hash
+  safety_and_assurance_prerequisite_refs:
+    - policy://... | safety://... | conformance_profile://... | evidence://...
+  assurance_evidence_bundle_ref: assurance-evidence://...
+  prepared_at: timestamp
+  committed_at: timestamp | null
+  result:
+    active_unarmed | aborted | deactivated | rolled_back | failed_closed |
+    quarantined
   agentgres_operation_refs: []
-  assurance_stage: attested | evidenced | verified | accepted | adjudicated | settled
+
+EmbodiedActionChunkLineageReceipt:
+  receipt_id: receipt://...
+  receipt_type: embodied_action_chunk_lineage
+  work_subject: TypedWorkSubjectBinding
+  embodied_action_chunk_ref: embodied-action-chunk://...
+  physical_mission_envelope_ref: physical_mission_envelope://...
+  action_policy_contract_ref: embodied-action-policy-contract://...
+  action_policy_contract_hash: hash
+  source_observation_window_ref: state://... | artifact://...
+  world_state_watermark: string
+  policy_and_model_hashes: [hash]
+  embodiment_adapter_ref: embodiment_adapter://...
+  embodiment_adapter_hash: hash
+  runtime_graph_manifest_ref: embodied-runtime-graph-manifest://...
+  runtime_graph_manifest_hash: hash
+  resource_group_bindings:
+    - group_revision_ref: embodied-resource-group-revision://...
+      membership_closure_hash: hash
+  expires_at: timestamp
+  exclusive_actuator_writer_lease_ref: resource-lease://... | null
+  fencing_epoch: nonnegative_integer | null
+  fencing_token_hash: hash | null
+  proposed_action_sequence_root: hash
+  executed_action_sequence_root: hash | null
+  supersedes_or_replaces_ref: embodied-action-chunk://... | null
+  local_supervisor_decision:
+    admitted_to_queue | clipped | replaced | rejected | expired
+  command_and_segment_refs: [physical_command://... | control-segment://...]
+  agentgres_operation_refs: []
+
+SpacetimeReservationReceipt:
+  receipt_id: receipt://...
+  receipt_type: spacetime_reservation
+  work_subject: TypedWorkSubjectBinding
+  spacetime_reservation_ref: spacetime-reservation-lease://...
+  fleet_mission_coordination_ref: fleet-mission-coordination://... | null
+  allocation_lease_ref: fleet-mission-allocation-lease://... | null
+  coordination_epoch: nonnegative_integer | null
+  geometry_and_time_window_hash: hash
+  uncertainty_margin_ref: policy://...
+  status:
+    proposed | active | consumed | expired | preempted | revoked | released |
+    failed_closed
+  transition_reason:
+    admitted | completed | conflict | preemption | revoke | expiry |
+    local_safety_override | partition | policy | other
+  local_safety_override_refs: [receipt://...]
+  agentgres_operation_refs: []
 ```
+
+Resource-group bindings are optional provenance on embodied receipt families
+that are not scoped to a resource group. When present, each entry must match the
+exact admitted group revision, membership-closure hash, and expanded unit,
+controller-binding, sensor, actuator, physical-zone, and emergency-stop leaf
+refs used by the intent, envelope, command, or segment. In
+`PhysicalActionExecutionReceipt` the binding and every expanded leaf array are
+mandatory: the selected target, controller binding, and emergency-stop
+authority must resolve inside that exact closure. Bindings never replace
+`SensorEvidenceReceipt.sensor_refs`, `ActuatorCommandReceipt.actuator_ref`, or
+per-leaf evidence and result refs. A later group revision cannot rewrite a
+prior receipt.
+
+Every embodied work/effect receipt carries the common
+`TypedWorkSubjectBinding`. It must match the subject on the admitted
+`PhysicalMissionControlEnvelope` and any fleet coordination/allocation records.
+A configuration/lifecycle receipt such as graph activation may omit the field
+only when it is not performed for an admitted work subject; if present, it uses
+the same type. The binding never creates a generic Mission identity or inherits
+authority, budget, lifecycle, acceptance, or status.
+
+The registered v1 physical execution contract is the exact closed
+`{ schema_version, receipt_envelope, body, body_hash, receipt_hash }` object
+above, not the legacy flat receipt. A conforming producer must set
+`receipt_envelope.input_hash` to `body.execution_request_hash`,
+`receipt_envelope.output_hash` to the JCS SHA-256 of the exact physical body,
+and `receipt_envelope.policy_hash` to `body.safety_envelope_hash`. `body_hash`
+is the JCS SHA-256 of `{ receipt_envelope, body }`; `receipt_hash` is the
+domain-separated hash over the schema version and that same canonical bundle.
+Verification recomputes all four cross-bindings and the predecessor chain.
+
+A conforming v1 execution path requires the request's `state_root_before` to
+exactly equal the fresh admission state root and requires the invoker's typed
+`controller_binding_ref` to exactly equal the admitted binding before
+invocation. That is typed adapter identity, not cryptographic hardware identity.
+Its ledger must record `Prepared` immediately before the sole controller call and
+`Completed` only after normalization and bundle verification. Same key plus the
+same canonical request replays a completed receipt without reinvocation; a
+changed body conflicts. A restored `Prepared` entry freezes the chain and
+requires reconciliation rather than retry.
+
+Current master contains the registered contract substrate and the older
+physical-action-intent admission path, but no `PhysicalActionExecutionCore`,
+final controller invoker, or execution ledger implementing the behavior above.
+
+`committed` requires `dispatched_observed`, non-empty dispatch evidence,
+non-empty controller receipts, and a known after-state root. `rejected`
+requires `not_dispatched_proven`, dispatch evidence, and a null after-state
+root. A timeout, contradictory dispatch proof, or malformed post-invocation
+outcome normalizes to `unknown` plus `dispatch_ambiguous` and remains pending
+reconciliation. Agentgres admission, incident/reconciliation enrichment,
+acceptance, adjudication, settlement, and signature promotion are later owner
+actions; an empty `agentgres_operation_refs` list cannot be read as durable
+admission. A future reference ledger may be serializable, but this contract
+substrate does not provide a durable Agentgres-owned crash boundary and does not
+prove native actuator mounting, cryptographic controller identity,
+controller-side idempotency, or estate-wide CPAS coverage.
 
 ```json
 {
   "receipt_id": "receipt://embodied_command_123",
-  "receipt_type": "physical_command_queue | physical_command | physical_telemetry | physical_replay | controller_binding | heartbeat | failsafe | sim_to_real_promotion | operator_handoff | embodied_incident | embodied_recovery",
+  "receipt_type": "embodied_graph_activation | embodied_action_chunk_lineage | spacetime_reservation | physical_command_queue | physical_command | physical_telemetry | physical_replay | controller_binding | heartbeat | failsafe | sim_to_real_promotion | operator_handoff | embodied_incident | embodied_recovery",
+  "work_subject": {
+    "kind": "goal_run | automation_run | work_item | work_claim | service_order | physical_action_intent",
+    "ref": "goal://... | automation-run://... | work_item://... | work-claim://... | order://... | intent://..."
+  },
   "embodied_domain_ref": "embodied_domain://...",
   "fleet_ref": "robot_fleet://...",
   "unit_ref": "robot://...",
   "controller_binding_ref": "controller-binding://...",
+  "resource_group_bindings": [
+    {
+      "group_revision_ref": "embodied-resource-group-revision://...",
+      "membership_closure_hash": "sha256:..."
+    }
+  ],
   "command_ref": "physical_command://...",
   "queue_ref": "physical_command_queue://...",
   "world_model_ref": "world_model://...",
@@ -1162,11 +2067,20 @@ incident receipts remain immediate:
   "receipt_id": "receipt://physical_segment_123",
   "receipt_type": "physical_action_segment_commitment",
   "local_control_segment_ref": "control-segment://segment-123",
-  "mission_or_intent_ref": "mission://mission-7",
+  "work_subject": {
+    "kind": "goal_run",
+    "ref": "goal://physical-work-7"
+  },
   "controller_binding_ref": "controller-binding://robot-a",
+  "resource_group_bindings": [
+    {
+      "group_revision_ref": "embodied-resource-group-revision://left-arm/v3",
+      "membership_closure_hash": "sha256:..."
+    }
+  ],
   "controller_version_ref": "registry_version://controller/v4",
   "physical_action_policy_ref": "policy://physical-action/v2",
-  "safety_envelope_ref": "safety://mission-7",
+  "safety_envelope_ref": "safety://physical-work-7",
   "authority_refs": ["authority://...", "grant://..."],
   "started_at": "timestamp",
   "ended_at": "timestamp",
@@ -1184,7 +2098,7 @@ incident receipts remain immediate:
 
 A segment commitment proves the bound controller, interval, command/sensor
 roots, state refs, and reported result. It does not prove physical correctness
-or erase ambiguous-effect state; mission acceptance, external reconciliation,
+or erase ambiguous-effect state; work-subject acceptance, external reconciliation,
 adjudication, and compensation remain separate.
 
 Physical telemetry receipts should commit to stream refs, frame hashes, sequence
@@ -1220,7 +2134,7 @@ mounting.
 {
   "receipt_id": "receipt://tool_123",
   "receipt_type": "tool_execution",
-  "run_id": "run_123",
+  "run_id": "run://123",
   "tool_id": "tool://gmail.create_draft",
   "input_hash": "sha256:...",
   "output_hash": "sha256:...",
@@ -1316,6 +2230,59 @@ policy, and user-visible reason.
 
 ## Multi-Party Collaboration Receipts
 
+`CollaborationTermsAcceptanceReceipt` binds a party's acceptance of one exact
+terms root. It proves the declared party, signature/decision, scope, time, and
+supersession posture; it does not prove objective surplus, disclose private
+valuation, grant authority, award work, accept a result, or authorize payout.
+
+```yaml
+CollaborationTermsAcceptanceReceipt:
+  receipt_id: receipt://...
+  receipt_type: collaboration_terms_acceptance
+  collaboration_terms_ref: terms://...
+  collaboration_terms_root: sha256:...
+  collaboration_ref: collaboration://... | null
+  outcome_room_ref: outcome-room://... | null
+  task_and_frontier_refs:
+    - task://... | frontier://...
+  order_service_and_channel_refs:
+    - order://... | service://... | aiip://channel/...
+  accepting_party_ref:
+    system://... | domain://... | org://... | wallet://... |
+    service://... | provider://...
+  party_role:
+    data_owner | worker_provider | compute_provider | coordinator |
+    customer | auditor | regulator | insurer | verifier |
+    settlement_counterparty
+  participation_decision_ref: decision://... | null
+  accepted_scope_root: sha256:...
+  acceptance_signature_ref: signature_or_embedded
+  accepted_at: timestamp
+  effective_until: timestamp | null
+  predecessor_acceptance_ref: receipt://... | null
+  replacement_terms_ref: terms://... | null
+  acceptance_status: accepted | withdrawn | superseded | revoked
+  policy_hash: sha256:...
+  agentgres_operation_refs: []
+  assurance_stage: attested
+```
+
+Every required acceptance binds the same `terms_body_root`. A terms amendment
+requires a new receipt; it cannot carry forward acceptance or retroactively
+rewrite a contribution, claim, reward basis, dispute, or settlement record.
+`accepted_scope_root` is the canonical hash of the referenced
+`CollaborationTermsEnvelope.scope` object under
+`ioi.collaboration-terms-body.v1`; the explicit collaboration, room,
+task/frontier, order/service, and channel refs must match that scope. The
+receipt's `effective_until` cannot exceed the accepted terms expiry unless the
+terms' already accepted renewal or outstanding-obligation policy permits it.
+
+Acceptance receipts are immutable. Withdrawal, revocation, or supersession
+mints a new receipt pointing backward through `predecessor_acceptance_ref`;
+the prior receipt is never updated. `replacement_terms_ref` is valid only on
+the new supersession receipt and names the replacement whose root receives its
+own acceptance.
+
 Multi-party collaboration receipts bind the declared parties, roles, authority
 refs, restricted views, coordination topology, AIIP handoffs, evidence refs,
 delivery refs, contribution refs, settlement refs, and export profiles used for
@@ -1331,6 +2298,12 @@ another party's connector, wallet, or protected payload.
   "outcome_room_ref": "outcome-room://joint-service-outcome-001",
   "goal_ref": "order://123",
   "coordinator_ref": "domain://service-coordinator",
+  "active_collaboration_terms_ref": "terms://joint-service-outcome/v1",
+  "active_collaboration_terms_root": "sha256:...",
+  "party_terms_acceptance_refs": [
+    "receipt://terms/customer-a",
+    "receipt://terms/provider-b"
+  ],
   "coordination_topology": "hosted_admission | federated_admission",
   "coordination_and_ordering_policy_ref": "policy://room-ordering-v1",
   "shared_state_admission_owner_ref": "domain://service-coordinator",
@@ -1384,7 +2357,13 @@ another party's connector, wallet, or protected payload.
     "party_removal_effect": "no_new_access | revoke_live_access | tombstone_view | rotate_views",
     "historical_receipts": "immutable | sealed | export_limited"
   },
-  "l1_anchor_policy": "local_only | optional_anchor | dispute_only | reputation_only | settlement_required | required_public_root",
+  "settlement_policy": {
+    "default_settlement_mode": "local_domain",
+    "allowed_settlement_modes": ["local_domain", "invoice", "external_escrow"],
+    "settlement_profile_refs": ["policy://..."],
+    "party_network_enrollment_refs": [],
+    "public_commitment_policy_ref": "policy://... | null"
+  },
   "policy_hash": "sha256:...",
   "agentgres_operation_refs": ["agentgres://operation/..."],
   "status": "created | party_joined | party_removed | view_granted | view_revoked | proof_bundle_generated | archived"
@@ -1408,10 +2387,22 @@ host or federated admission policy admits the relevant state change.
 ```json
 {
   "receipt_id": "receipt://outcome_room_123",
-  "receipt_type": "outcome_room_admission | outcome_room_discovery_publication | room_participation_decision | participant_state_export | room_participant_lease | work_frontier_mutation | work_claim_lease | resource_offer_allocation | attempt_admission | finding_admission | verifier_challenge | work_result | outcome_delta_admission",
+  "receipt_type": "outcome_room_admission | outcome_room_discovery_publication | room_participation_decision | participant_state_export | room_participant_lease | work_frontier_mutation | work_claim_lease | resource_offer_allocation | attempt_admission | finding_admission | verifier_challenge | work_result | outcome_delta_admission | contribution_admission",
+  "system_id": "system://outcome-room/research-123",
   "outcome_room_ref": "outcome-room://research-123",
+  "package_id": "package://ioi/outcome-room",
+  "manifest_ref": "package://ioi/outcome-room/release/1.0.0",
+  "genesis_ref": "genesis://outcome-room/research-123",
+  "constitution_ref": "constitution://outcome-room/research-123/v1",
+  "active_profile_refs": {
+    "deployment": "deployment-profile://...",
+    "ordering_admission_finality": "ordering-profile://...",
+    "oracle_evidence": ["oracle-evidence-profile://..."],
+    "lifecycle_continuity": "lifecycle-profile://...",
+    "network_enrollment": null
+  },
   "coordination_topology": "hosted_admission | federated_admission",
-  "admission_owner_or_policy_ref": "domain://room-host | policy://federated-admission-v1",
+  "admission_owner_or_policy_ref": "system://room-host | domain://room-host | policy://federated-admission-v1",
   "subject_refs": [
     "room-discovery://research-123",
     "participation-request://worker-a",
@@ -1423,9 +2414,12 @@ host or federated admission policy admits the relevant state change.
     "finding://finding-4",
     "verifier-challenge://challenge-2",
     "work-result://result-12",
-    "outcome-delta://delta-8"
+    "outcome-delta://delta-8",
+    "contribution://contribution-12"
   ],
   "actor_and_affiliation_refs": [
+    "participant-lease://worker-a",
+    "system://operator-a",
     "worker://worker-a",
     "org://operator-a",
     "domain://operator-a",
@@ -1449,8 +2443,17 @@ host or federated admission policy admits the relevant state change.
     "artifact://candidate-12"
   ],
   "verifier_rule_version_ref": "rubric://research-v3",
+  "expected_room_revision": 41,
+  "resulting_room_revision": 42,
+  "sequence": 42,
+  "expected_predecessor_commitment_ref": "commitment://outcome-room/research-123/41",
+  "operation_or_batch_commitment": "sha256:...",
+  "admission_decision_ref": "decision://room-admission/42",
+  "admission_proof_ref": "evidence://... | receipt://...",
+  "resulting_transition_commitment_ref": "commitment://outcome-room/research-123/42",
   "predecessor_room_state_root": "sha256:...",
   "resulting_room_state_root": "sha256:...",
+  "resulting_receipt_root": "sha256:...",
   "agentgres_operation_refs": ["agentgres://operation/..."],
   "status": "proposed | admitted | challenged | superseded | rejected | revoked"
 }
@@ -1458,10 +2461,13 @@ host or federated admission policy admits the relevant state change.
 
 Receipt-specific obligations:
 
-- `OutcomeRoomAdmissionReceipt` binds room mode, objective, acceptance/stop
-  policies, coordination topology, shared-state admission owner, ontology
-  profiles, privacy, contribution, artifact/export, verifier, budget, and
-  settlement policies.
+- `OutcomeRoomAdmissionReceipt` binds the package/release root, genesis ref,
+  stable system identity, constitution root, active deployment/ordering/oracle/
+  lifecycle/enrollment refs, authority decision, sequence-zero origin
+  commitment, initial state and receipt roots, room mode, objective,
+  acceptance/stop policies, coordination topology, shared-state admission
+  owner, ontology profiles, privacy, contribution, artifact/export, verifier,
+  budget, and settlement policies.
 - `OutcomeRoomDiscoveryPublicationReceipt` binds the public or permissioned
   discovery projection, objective/category, semantic profiles, eligibility,
   privacy/visibility, budget/quote, verifier/settlement posture, publication
@@ -1480,15 +2486,19 @@ Receipt-specific obligations:
   supersede an erroneous export, but cannot erase already permitted historical
   contribution, receipt, acceptance, settlement, or dispute lineage.
 - `RoomParticipantLeaseReceipt` binds identity/eligibility evidence,
-  affiliation and dependency disclosure, visibility, context, resource,
-  authority and budget leases, TTL, heartbeat, wake condition, quarantine, and
-  revocation.
+  affiliation and dependency disclosure, exact collaboration terms root and
+  terms-acceptance receipt, visibility, context, resource, authority and budget
+  leases, TTL, heartbeat, wake condition, quarantine, and revocation.
 - `WorkFrontierMutationReceipt` binds the predecessor and resulting frontier,
   dependencies, priority/uncertainty, duplication policy, admission decision,
   and reason for course correction.
-- `WorkClaimLeaseReceipt` binds bounded scope, claimant, concurrency,
+- `WorkClaimLeaseReceipt` binds bounded scope, claimant, exact collaboration
+  terms root and acceptance receipt, task offer/response and routing decision
+  when selected, quote, budget reservation, settlement profile, concurrency,
   independent-replication policy, TTL, heartbeat, release, expiry,
-  reassignment, and quarantine.
+  reassignment, and quarantine. The claim receipt cannot outlive the accepted
+  terms or acceptance receipt unless their already accepted continuation policy
+  permits it.
 - `ResourceOfferAllocationReceipt` binds the offered capacity or capability,
   locality/custody, trust, price, eligibility, queue/preemption/fairness policy,
   allocation, spend, and contribution refs.
@@ -1510,12 +2520,147 @@ Receipt-specific obligations:
   effect, verifier/acceptance refs, and the admitted, rejected, superseded, or
   rolled-back change to frontier, finding, ontology, state, capability, policy,
   route prior, or service outcome.
+- `ContributionAdmissionReceipt` binds the exact participant lease, accountable
+  contributor/operator/affiliation, attempt/finding/result lineage, assurance
+  stage, and room admission spine before a contribution enters shared room
+  attribution, reputation, or reward projections.
 
 Room replay must reconstruct who joined, what each participant could see and
 do, which work was open or claimed, why resources were allocated, all positive
 and negative attempts, which findings were admitted or contradicted, verifier
 rule changes, affected re-verification, spend, authority, contribution lineage,
 and why the room changed direction.
+
+Every room-child receipt implements the `RoomAdmittedObjectBase` proof spine:
+exact participant lease or room-system issuer, expected room revision and
+predecessor transition commitment, payload/operation commitment, admission
+policy and decision, monotonic sequence, admission proof, resulting room
+revision, transition commitment, state root, and receipt root. Dependency refs
+to a worker, model, runtime, organization, or provider never replace the
+participant lease that accepted the room obligation.
+
+## Direct Improvement Gate Receipts
+
+The current daemon emits two application-specific receipt records for the
+implemented direct-proposal precursor. They are evidence of the recorded gate
+path, not proof that a candidate is correct and not substitutes for the planned
+Campaign receipt family below.
+
+Saving a simulation emits `receipt://hypervisor/simulation/{simulation_id}`
+with kind `hypervisor.simulation-report`. It binds the simulation and proposal
+refs, deterministic report hash, scenario summary, and high-impact result. The
+saved simulation report separately binds the exact proposal fingerprint,
+target-base ref and hash, versioned impact assessment, and its receipt ref.
+
+Applying a proposal emits `receipt://hypervisor/improvement/{improvement_id}`
+with kind `hypervisor.improvement-applied` and retains this chain:
+
+```yaml
+DirectImprovementApplicationReceipt:
+  proposal_ref: improvement-proposal://...
+  proposal_kind: skill_improvement | launch_policy_suggestion | automation_readiness
+  signal: string
+  applied_ref: string
+  evidence_refs: []
+  simulation_ref: simulation-report://... | null
+  report_hash: sha256:... | null
+  simulation_waiver_ref: approval-request://... | null
+  approval_request_ref: approval-request://... | null
+  release_control_ref: release-control://... | null
+  at: timestamp
+```
+
+An unsimulated application outside local development is attributable only when
+`simulation_waiver_ref` resolves live to an approved ApprovalRequest whose exact
+subject, proposal kind, current proposal fingerprint, `saved_simulation`
+requirement, and approval-transition `receipt_refs` satisfy the gate. The
+application receipt retains that waiver ref; it does not copy the ApprovalRequest
+or transition receipt into a second authority record. Saved-simulation paths
+retain `simulation_ref` and `report_hash`; high-impact paths additionally retain
+their approval and release refs. Provenance joins those owner records rather
+than inferring governance from non-null strings.
+
+These current records must converge on the portable `ReceiptEnvelope` identity,
+assurance, issuer, policy, and Agentgres admission contract before they are
+advertised as portable verified receipts. Their present implementation proves
+daemon-attributable chain retention only.
+
+## Bounded Improvement Campaign Receipts
+
+Campaign receipts make adaptive improvement reconstructable without turning a
+score, statistical decision, or receipt into promotion authority. The schemas
+below are profiles over the canonical objects in
+[`common-objects-and-envelopes.md`](../../foundations/common-objects-and-envelopes.md);
+they do not duplicate campaign state.
+
+```json
+{
+  "receipt_id": "receipt://improvement/...",
+  "receipt_type": "improvement_agenda_revision | improvement_campaign_admission | improvement_campaign_lifecycle | evaluation_epoch | evaluation_exposure | improvement_order_cutoff | improvement_evidence_claim",
+  "improvement_agenda_revision_ref": "improvement-agenda://.../revision/... | null",
+  "improvement_campaign_ref": "improvement-campaign://... | null",
+  "campaign_contract_root": "sha256:... | null",
+  "coordinating_goal_run_ref": "goal://... | null",
+  "goal_run_profile_revision_ref": "goal-run-profile://.../revision/... | null",
+  "resolved_component_set_hash": "sha256:... | null",
+  "evaluation_epoch_ref": "evaluation-epoch://... | null",
+  "evaluation_epoch_root": "sha256:... | null",
+  "target_ref": "string | null",
+  "target_base_root": "sha256:... | null",
+  "candidate_ref": "attempt://... | artifact://... | package://... | null",
+  "candidate_root": "sha256:... | null",
+  "target_improvement_order": "nonnegative_integer | null",
+  "pursuit_method_order": "positive_integer | null",
+  "resource_statistical_risk_and_exposure_reservation_refs": [],
+  "learning_evidence_eligibility_refs": [],
+  "learning_egress_receipt_refs": [],
+  "denied_or_quarantined_information_class_refs": [],
+  "evaluator_and_custodian_refs": [],
+  "previous_head_or_cutoff_root": "sha256:... | null",
+  "resulting_head_or_cutoff_root": "sha256:... | null",
+  "policy_and_decision_refs": [],
+  "agentgres_operation_refs": [],
+  "status": "proposed | admitted | active | paused | stopped | closed | challenged | invalidated | rejected"
+}
+```
+
+Receipt-specific obligations:
+
+- `ImprovementAgendaRevisionReceipt` binds the immutable released agenda root,
+  owner, target graph, portfolio-allocation policy, release decision, and
+  predecessor revision. It grants no campaign or target authority.
+- `ImprovementCampaignAdmissionReceipt` binds the exact campaign contract,
+  owner-scope improvement-governance snapshot and, when System-scoped,
+  constitution, target/incumbent roots, selected GoalRunProfile resolution,
+  target-order path and ceilings, learning boundary, accountable roles, and
+  disjoint ancestor reservations.
+- `ImprovementCampaignLifecycleReceipt` binds start, pause, stop, close, or
+  supersession against the expected operation head. It cannot rewrite the
+  campaign contract or erase attempts and findings.
+- `EvaluationEpochReceipt` binds freeze, activation, challenge, close,
+  invalidation, or rotation to the immutable target, incumbent, component,
+  evaluator, metric, hard-constraint, test, budget, and leakage-policy root.
+- `EvaluationExposureReceipt` binds candidate-family commitment, drawn-suite
+  commitment, information-return class, access/execution evidence,
+  contamination posture, reserved or spent exposure, and the previous ledger
+  head without disclosing sealed material to Search.
+- `ImprovementOrderCutoffReceipt` binds one source campaign/epoch/archive root,
+  one adjacent target-order edge, target-generation cutoff, destination base
+  root, eligible and denied evidence, learning eligibility, conditional egress,
+  custody/access evidence, sync-wave ID, and previous cutoff root. It says only
+  what was eligible at that cutoff; later evaluation, activation, or production
+  success requires separate receipts.
+- `ImprovementEvidenceClaimReceipt` binds an immutable claim artifact, its claim
+  class, target lineage, budget and environment, transfer scope, evaluator
+  validity, statistical analysis, reproduction, limitations, and supporting or
+  disputing lifecycle refs. It is evidence, never authority.
+
+Candidate attempts, Findings, WorkResults, VerifierChallenges,
+UpgradeProposals, UpgradeDecisions, release activation, regression, rollback,
+recall, containment, compensation, and residual irreversible-effect records
+retain their existing owners and receipt types. Provenance joins those refs into
+the complete campaign view; no aggregate campaign receipt may claim facts those
+owners have not recorded.
 
 ## Compliance Audit Export Receipts
 
@@ -1538,7 +2683,7 @@ bundles, or replay bypasses.
   "approval_receipt_refs": ["receipt://approval"],
   "denial_receipt_refs": ["receipt://denial"],
   "authority_refs": ["authority://export-grant"],
-  "evidence_bundle_refs": ["assurance_evidence://bundle", "evidence://agentgres-bundle"],
+  "evidence_bundle_refs": ["assurance-evidence://bundle", "evidence://agentgres-bundle"],
   "receipt_refs": ["receipt://execution", "receipt://delivery"],
   "replay_refs": ["replay://redacted-run"],
   "retention_lock_refs": ["retention_lock://legal-hold"],
@@ -1559,8 +2704,11 @@ bundles, or replay bypasses.
     "tax_export_refs": ["tax://..."],
     "purchase_order_refs": ["procurement://..."]
   },
-  "l1_anchor_policy": "local_only | optional_anchor | dispute_only | required_public_root",
-  "l1_anchor_refs": ["l1://..."],
+  "settlement_mode": "local_domain | bilateral | invoice | external_escrow | external_chain | ioi_l1",
+  "settlement_profile_ref": "policy://...",
+  "network_enrollment_ref": "network-enrollment://... | null",
+  "public_commitment_policy_ref": "policy://... | null",
+  "public_commitment_refs": ["commitment://... | settlement://... | tx://..."],
   "policy_hash": "sha256:...",
   "agentgres_operation_refs": ["agentgres://operation/..."],
   "status": "requested | generated | delivered | revoked | superseded | expired"
@@ -1584,7 +2732,8 @@ artifact refs, timestamps, and signatures still apply.
 {
   "receipt_id": "receipt://recipe_123",
   "receipt_type": "data_recipe_run | transformation | ontology_projection",
-  "data_recipe_ref": "recipe://construction/estimate-normalization/v1",
+  "data_recipe_revision_ref": "data-recipe://construction/estimate-normalization/revision/v1",
+  "data_recipe_content_hash": "sha256:...",
   "ontology_refs": ["ontology://construction-estimating/v1"],
   "transformation_run_id": "transform://123",
   "policy_bound_data_view_refs": ["view://customer-estimate-training"],
@@ -1607,7 +2756,7 @@ artifact refs, timestamps, and signatures still apply.
   "intended_use": "conductor_training | worker_training | eval_generation | dataset_distillation | benchmark | simulation | analytics_only",
   "training_data_posture": "never_train | synthetic_only | redacted_opt_in | full_private_opt_in | org_policy",
   "policy_bound_data_view_refs": ["view://..."],
-  "data_recipe_refs": ["recipe://..."],
+  "data_recipe_refs": ["data-recipe://.../revision/..."],
   "local_policy_refs": ["policy://..."],
   "consent_refs": ["grant://...", "policy://..."],
   "wallet_authority_refs": ["grant://...", "lease://..."],
@@ -1626,7 +2775,7 @@ artifact refs, timestamps, and signatures still apply.
   "receipt_type": "dataset_factory_run | training_pipeline_run | training_batch_plan | generation_batch | quality_gate_report | training_cost_ledger | training_trace | dataset_curation | experiment_optimization_cycle | artifact_conversion | model_registration | conductor_advisor_candidate | context_mutation | post_training_cycle | promotion_decision",
   "training_id": "train_123",
   "target_worker_id": "worker://...",
-  "run_id": "run_123",
+  "run_id": "run://123",
   "dataset_factory_run_id": "run://dataset_factory/...",
   "training_pipeline_run_id": "trainpipe://...",
   "training_evidence_eligibility_refs": ["eligibility://..."],
@@ -1646,7 +2795,7 @@ artifact refs, timestamps, and signatures still apply.
   "continuation_policy_ref": "policy://...",
   "stop_resume_policy_ref": "policy://...",
   "ontology_refs": ["ontology://..."],
-  "data_recipe_refs": ["recipe://..."],
+  "data_recipe_refs": ["data-recipe://.../revision/..."],
   "evaluation_dataset_refs": ["dataset://..."],
   "dataset_commitment": "sha256:...",
   "privacy_policy_ref": "policy://...",
@@ -1660,7 +2809,7 @@ artifact refs, timestamps, and signatures still apply.
 {
   "receipt_id": "receipt://promotion_123",
   "receipt_type": "promotion_decision | capability_lifecycle_transition",
-  "cycle_id": "ptc_123",
+  "cycle_id": "post-training-cycle://123",
   "capability_kind": "worker | model_route | agent_harness | tool | mcp_server | connector | automation | service | environment_image | package | domain_app | fleet_policy",
   "worker_id": "worker://...",
   "capability_ref": "worker://...",
@@ -1721,25 +2870,9 @@ artifact refs, timestamps, and signatures still apply.
 }
 ```
 
-```json
-{
-  "receipt_id": "receipt://route_123",
-  "receipt_type": "routing_decision",
-  "routing_decision_id": "route_123",
-  "task_id": "task://...",
-  "router_id": "runtime://... | system://... | domain://...",
-  "intent_hash": "sha256:...",
-  "candidate_set_commitment": "sha256:...",
-  "routing_policy_hash": "sha256:...",
-  "selected_domain_or_worker": "worker://...",
-  "authority_scope": ["scope:..."],
-  "cost_bound": "optional",
-  "reason_code": "policy_compatible_benchmark_leading_within_budget",
-  "fallback_policy": "optional",
-  "contribution_policy_ref": "license://...",
-  "receipt_obligations": ["receipt://contribution_required"]
-}
-```
+Routing decision receipts are declared once in
+[`Routing Decision Receipts`](#routing-decision-receipts). This legacy receipt
+catalog does not redeclare or override that canonical schema/registry owner.
 
 Training receipts bind declared training-lineage and dataset/evaluation
 commitments. Context mutation receipts bind versioned supersession rather than
@@ -1750,13 +2883,13 @@ Routing receipts bind selection under a declared candidate set and policy.
 None of these receipts alone proves capability quality, external correctness,
 acceptance, economic value, or universal worker superiority.
 
-## Autonomous-System Module and Local Settlement Receipts
+## Autonomous-System Module And State-Transition Commitment Receipts
 
 Governed autonomous-system chains use service-module invocations as typed
 transition boundaries. The receipt binds the specific invocation; Agentgres
-records the accepted operation and state roots; IOI L1 anchors only selected
-roots when public trust, dispute, reputation, or economic settlement requires
-them.
+records the accepted operation and state roots; an explicitly selected service
+such as IOI L1 anchors only the roots named by the system's enrollment and
+settlement profiles.
 
 ```json
 {
@@ -1764,8 +2897,17 @@ them.
   "receipt_type": "module_invocation",
   "module_id": "module://policy.evaluate.spend_limit.v3",
   "invocation_id": "invocation://123",
-  "autonomous_system_chain_id": "system://customer-ops",
+  "system_id": "system://customer-ops",
   "hypervisor_node_id": "node://local-hypervisor",
+  "acting_node_membership_ref": "node-membership://customer-ops/local",
+  "ordering_admission_finality_profile_ref": "ordering-profile://customer-ops/single-writer-v1",
+  "writer_epoch": 1,
+  "ordering_or_finality_proof_ref": null,
+  "sequence": 42,
+  "expected_predecessor_commitment_ref": "commitment://customer-ops/transition/41",
+  "operation_or_batch_commitment": "sha256:...",
+  "resulting_transition_commitment_ref": "commitment://customer-ops/transition/42",
+  "admission_proof_ref": "receipt://admission_42",
   "input_hash": "sha256:...",
   "predecessor_state_root": "sha256:...",
   "resulting_state_root": "sha256:...",
@@ -1782,31 +2924,149 @@ them.
   "receipt_id": "receipt://upgrade_123",
   "receipt_type": "upgrade_proposal | upgrade_decision",
   "proposal_id": "proposal://...",
-  "target_kind": "service_module | workflow_graph | policy_module | model_route | tool_binding | settlement_rule",
+  "change_class": "release_upgrade | ordinary_upgrade | constitutional_amendment | deployment_change | membership_change | lifecycle_transition | network_enrollment_change",
+  "target_kind": "package_release | service_module | workflow_graph | policy_module | model_route | tool_binding | settlement_rule | constitution | deployment_profile | node_membership | failover_profile | ordering_admission_finality_profile | oracle_evidence_profile | lifecycle_continuity_profile | network_enrollment",
   "target_ref": "module://...",
   "diff_ref": "artifact://...",
   "simulation_receipt_refs": ["receipt://..."],
   "benchmark_receipt_refs": ["receipt://..."],
   "decision": "approved | rejected | escalated | rolled_back",
   "policy_hash": "sha256:...",
-  "l1_commitment": "optional"
+  "public_commitment_ref": "commitment://... | settlement://... | tx://... | null"
 }
 ```
 
 ```json
 {
-  "receipt_id": "receipt://local_settlement_123",
-  "receipt_type": "local_settlement",
+  "receipt_id": "receipt://state_transition_commitment_123",
+  "receipt_type": "state_transition_commitment",
+  "system_id": "system://...",
   "hypervisor_node_id": "node://...",
-  "autonomous_system_chain_id": "system://...",
-  "settlement_kind": "module_invocation | workflow_transition | authority_outcome | task_handoff | upgrade_decision | receipt_root | dispute_escalation",
+  "acting_node_membership_ref": "node-membership://...",
+  "ordering_admission_finality_profile_ref": "ordering-profile://...",
+  "writer_epoch": "nonnegative_integer | null",
+  "ordering_or_finality_proof_ref": "evidence://... | null",
+  "sequence": 43,
+  "expected_predecessor_commitment_ref": "commitment://...",
+  "operation_or_batch_commitment": "sha256:...",
+  "resulting_transition_commitment_ref": "commitment://...",
+  "admission_proof_ref": "evidence://... | receipt://...",
+  "transition_kind": "module_invocation | workflow_transition | authority_outcome | task_handoff | upgrade_decision | receipt_root | dispute_escalation",
   "operation_ref": "agentgres://operation/...",
   "predecessor_state_root": "sha256:...",
   "resulting_state_root": "sha256:...",
   "receipt_root": "sha256:...",
-  "l1_anchor_ref": "optional"
+  "external_settlement_ref": "settlement://... | null"
 }
 ```
+
+The state-transition commitment receipt binds a writer epoch only when the active profile
+requires one. Threshold/BFT/external-finality records bind their declared
+ordering or finality proof instead.
+
+### Autonomous-System Control And Continuity Receipts
+
+Constitution, deployment, membership, failover, ordering/finality, oracle,
+lifecycle, and network-enrollment changes use the common receipt base plus the
+following binding fields:
+
+```yaml
+autonomous_system_control_receipt:
+  receipt_type:
+    constitution_proposal | constitution_decision | constitution_activation |
+    autonomous_system_genesis | autonomous_system_activation |
+    node_membership_admission | node_membership_transition | state_catchup |
+    state_root_verification | writer_promotion | writer_fencing |
+    deployment_conformance | failover_evaluation | single_writer_restore |
+    ordering_finality_recovery |
+    lifecycle_transition |
+    migration | succession | dissolution | network_enrollment_transition |
+    network_service_activation | network_exit
+  system_id: system://...
+  genesis_ref: genesis://... | null
+  package_id: package://... | null
+  manifest_ref: package://.../release/... | null
+  admitted_manifest_root: hash | null
+  constitution_root: hash
+  acting_hypervisor_node_id: node://... | null
+  acting_node_membership_ref: node-membership://... | null
+  membership_epoch: nonnegative_integer | null
+  writer_epoch: nonnegative_integer | null
+  ordering_or_finality_proof_ref: evidence://... | null
+  ordering_recovery_ref: ordering-recovery://... | null
+  sequence: nonnegative_integer | null
+  expected_predecessor_commitment_ref: commitment://... | null
+  operation_or_batch_commitment: hash | null
+  resulting_transition_commitment_ref: commitment://... | null
+  admission_proof_ref: evidence://... | receipt://... | null
+  target_profile_or_membership_ref: string
+  predecessor_target_root: hash | null
+  resulting_target_root: hash | null
+  predecessor_system_state_root: hash | null
+  resulting_system_state_root: hash | null
+  resulting_receipt_root: hash | null
+  proposal_ref: proposal://... | null
+  decision_ref: decision://... | null
+  authority_grant_refs: []
+  evidence_refs: []
+  challenge_or_dispute_refs: []
+  observed_topology_ref: agentgres://... | null
+  public_commitment_ref: commitment://... | settlement://... | tx://... | null
+```
+
+Each named profile adds only its subject facts. Membership admission binds the
+node identity, roles, failure-domain evidence, and membership epoch. State
+catch-up binds checkpoint, log offsets, and verified root. Single-writer
+promotion binds the old and new writer, incremented epoch, catch-up receipt,
+and fencing evidence. Threshold/BFT/external-finality recovery uses a typed
+`OrderingFinalityRecoveryEnvelope` and receipt binding the active profile,
+expected predecessor commitment/root, view/round or membership transition,
+decision/authority, recovery proof, and resulting commitment/root/finality
+proof; it does not invent a writer epoch. Lifecycle receipts bind disposition of active work, authority,
+data, assets, and obligations. Network receipts bind exact services, terms,
+assurance, bond/stake or fee basis, and exit obligations. A proposed topology
+or a successful API call is not an observed-readiness, failover, or assurance
+receipt.
+
+`SingleWriterRestoreReceipt` binds same-admitted-node restart versus governed
+replacement, checkpoint/log continuity proof, predecessor and resulting state/
+transition roots, node incarnation, governing decision/authority, work-lease
+reconciliation, and—when replacement or the restore policy requires it—the new
+writer epoch and displaced-writer fencing evidence. A fail-closed unavailable
+profile emits no restore success receipt.
+
+`AutonomousSystemGenesisReceipt` and `AutonomousSystemActivationReceipt` bind
+the reusable package/release root, one new stable `system_id`, constitution
+root, initial deployment/ordering/oracle/lifecycle/enrollment refs, governing
+decision and authority, sequence zero, genesis operation/transition commitment,
+initial state root, and initial receipt root. They are the receipt sources for
+the Genesis status projection and the `initialize`/`activate` lifecycle
+transitions; package publication or a successful create call is not activation.
+
+```yaml
+network_service_invocation_receipt:
+  receipt_type: network_service_invocation
+  network_service_invocation_ref: network-service-invocation://...
+  system_id: system://... | null
+  subject_ref: string
+  service_kind: registry | rights | reputation | finality
+  service_subprofile: worker_license | artifact_license | dataset_license | handoff_finality | null
+  operation: register | publish | commit | issue | transfer | revoke | finalize | challenge
+  service_ref: service://...
+  network_or_domain_ref: network://... | domain://...
+  network_enrollment_ref: network-enrollment://... | null
+  request_root: hash
+  expected_predecessor_commitment_ref: commitment://... | null
+  resulting_commitment_ref: commitment://... | tx://... | null
+  decision_ref: decision://... | null
+  authority_grant_refs: []
+  public_commitment_policy_ref: policy://... | null
+```
+
+This receipt proves only the selected service operation. It does not prove that
+the subject is correct, accepted, economically settled, or covered by services
+that were not selected. Fees for the invocation retain their independent
+`SettlementEnvelope` and rail.
 
 ## ServiceCompositionReceiptBundle
 
@@ -1884,11 +3144,11 @@ L1 settlement for every nested service step by default
 
 ```json
 {
-  "delivery_id": "delivery_123",
+  "delivery_id": "delivery://123",
   "delivery_type": "service_order | worker_invocation | workflow_run",
   "order_id": "optional",
   "worker_invocation_id": "optional",
-  "run_ids": ["run_123"],
+  "run_ids": ["run://123"],
   "output_artifacts": ["artifact://report"],
   "artifact_refs": [
     {
@@ -1905,7 +3165,7 @@ L1 settlement for every nested service step by default
   },
   "state_commitment": {
     "agentgres_domain": "agentgres://domain/sas.xyz",
-    "operation_id": "op_789",
+    "operation_ref": "agentgres://operation/789",
     "state_root": "sha256:..."
   },
   "quality_summary": {
@@ -1942,7 +3202,7 @@ archival checkpoint files.
 ```json
 {
   "trace_bundle_id": "trace_123",
-  "run_id": "run_123",
+  "run_id": "run://123",
   "outcome_room_ref": "outcome-room://room-123 | null",
   "room_coordination_topology": "hosted_admission | federated_admission | null",
   "timeline_segments": [],
@@ -2020,7 +3280,7 @@ archival checkpoint files.
 3. Delivery requires outputs plus evidence, not just files.
 4. Quality/reputation roots should be aggregated before L1 commitment.
 5. Private traces must support redacted export.
-6. Optional TUI, SDK, ADK, Workflow Compositor, Workbench, and Hypervisor
+6. Optional TUI, SDK, ADK, Workflow Compositor, Developer Workspace, and Hypervisor
    controls must leave the same event and receipt trail when they mutate
    runtime state.
 7. Private Workspace cTEE receipts must never reveal protected plaintext merely
@@ -2038,3 +3298,25 @@ archival checkpoint files.
     value.
 12. Verifier rule changes must version the rule, identify affected attempts,
     and trigger declared re-verification rather than silently rewriting history.
+13. Autonomous-system receipts bind the stable logical system and the acting
+    node membership separately; a `hypervisor_node_id` alone is insufficient.
+14. Writer-promotion evidence is invalid without catch-up/root verification, a
+    higher writer epoch, and old-writer fencing. Ambiguous partition fails closed.
+15. Network connection, payment, or registration receipts prove only their
+    selected service facts; they do not imply Standard DAS conformance or shared
+    security.
+16. A learning-egress receipt proves only its declared admission and transfer
+    boundary facts; it never proves provider-internal deletion, non-training,
+    non-aggregation, or confidential processing by implication.
+17. `blocked_before_egress` reaches verified assurance only with enforcement
+    evidence binding the request commitment and absence of a network write.
+18. Information-flow receipts bind label and tool-contract revisions plus exact
+    hashes; they never copy protected effect bytes or reviewed plaintext.
+19. A declassification receipt cannot upgrade origin, integrity, provenance, or
+    instruction authority and cannot override private-plus-untrusted refusal.
+20. Planned propagation through HTTP connectors, MCP tools, hosted models,
+    guarded browser navigation, memory write/edit, and OutcomeRoom does not
+    create an estate-wide receipt family by declaration. Each implemented
+    boundary needs its own emitted decision/derivation evidence before making
+    receipt-level assurance; current contract substrate supplies neither
+    production propagation nor receipt coverage by implication.

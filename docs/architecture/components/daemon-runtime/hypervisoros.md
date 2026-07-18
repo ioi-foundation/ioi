@@ -7,7 +7,7 @@ node integrity receipts, and HypervisorOS deployment profiles.
 Supersedes: wording that treats Hypervisor only as a hosted IDE, local daemon,
 Type-2 runtime, or cloud agent harness.
 Superseded by: none.
-Last alignment pass: 2026-07-11.
+Last alignment pass: 2026-07-12.
 Doctrine status: canonical
 Implementation status: speculative (bare-metal node profile design; no HypervisorOS build)
 Last implementation audit: 2026-07-05
@@ -38,7 +38,7 @@ infrastructure management.
 Canonical framing:
 
 ```text
-Hypervisor App / Web / Workbench
+Hypervisor App / Web / Developer Workspace
   hosted/private workspace clients and application surface
 
 Hypervisor CLI/headless
@@ -96,7 +96,8 @@ privacy/no-plaintext-custody, which belongs to Private Workspace backed by cTEE
 authority, secrets, and decryption, which belong to wallet.network
 admitted operational truth, which belongs to Agentgres
 payload bytes, which belong to storage backends
-public/economic/cross-domain settlement, which belongs to IOI L1 by trigger
+external public/economic/cross-domain settlement, which belongs to the
+system's explicitly selected service; IOI L1 is optional
 ```
 
 ## Core Doctrine
@@ -325,6 +326,26 @@ appliance-grade deployments.
 Firmware Profile is optional. HypervisorOS should not require firmware work to
 ship its first useful bare-metal form.
 
+### Cluster And Bounded-DAS Membership
+
+`HypervisorOS / appliance / cluster` describes the substrate-control form, not
+an implicit autonomous-system cluster. A measured, daemon-rooted node is only a
+candidate until the target logical system completes:
+
+```text
+identify and attest -> propose membership -> govern role assignment
+-> verify constitution/package/profile -> restore checkpoint -> catch up log
+-> verify root -> establish lease/epoch/fence -> ready
+```
+
+Drain and removal similarly revoke role leases, reconcile work, persist required
+state/evidence, update membership roots, and fence any former writer before the
+node leaves. A HypervisorOS node may participate in multiple systems under
+separate memberships. Boot integrity never grants system authority, proves
+failure independence, or changes ordering/finality. Cluster auto-scaling may
+provision candidates and scale non-authority roles, but authority-bearing role
+changes remain governed (`INV-22` through `INV-24`).
+
 ## Required Runtime Controls
 
 HypervisorOS must enforce:
@@ -426,6 +447,18 @@ HypervisorOSBootProfile:
     enabled: true | false | policy_declared
   tpm_measurement:
     enabled: true | false | unavailable
+  attestation_assurance:
+    appraisal_policy_ref: policy://...
+    required_posture:
+      trusted_operator | software_only | measured_boot | secure_element |
+      cpu_tee | gpu_confidential_compute |
+      cpu_tee_and_gpu_confidential_compute
+    trusted_endorsement_refs:
+      - endorsement://...
+    trusted_reference_value_refs:
+      - reference://...
+    maximum_appraisal_age_ms: integer
+    maximum_reattestation_interval_ms: integer
   update_policy:
     signed_updates_required: true
     rollback_protection: true
@@ -437,8 +470,10 @@ HypervisorOSBootReceipt:
   node_id: runtime://...
   boot_epoch: integer
   boot_profile_ref: boot_profile://...
+  workload_identity: workload://...
   image_hash: sha256:...
   daemon_binary_hash: sha256:...
+  policy_build_hash: sha256:...
   package_manifest_hash: sha256:...
   driver_manifest_hash: sha256:...
   measurement_method:
@@ -446,9 +481,47 @@ HypervisorOSBootReceipt:
     provider_attestation | policy_declared
   privacy_claim:
     none | no_plaintext_custody | tee_attested
+  attestation_assurance:
+    attester_ref: runtime://...
+    verifier_ref: verifier://...
+    appraiser_ref: appraiser://...
+    relying_party_ref: runtime://... | authority://...
+    nonce: string
+    nonce_single_use_status:
+      consumed_for_this_appraisal | already_consumed | unverified
+    nonce_consumption_receipt_ref: receipt://... | null
+    endorsement_refs:
+      - endorsement://...
+    reference_value_refs:
+      - reference://...
+    appraisal_policy_ref: policy://...
+    appraisal_result_ref: appraisal://... | null
+    appraisal_status: pass | fail | indeterminate
+    appraised_at: timestamp
+    appraisal_expires_at: timestamp
+    effective_posture:
+      unverified | trusted_operator | software_only | measured_boot |
+      secure_element | cpu_tee | gpu_confidential_compute |
+      cpu_tee_and_gpu_confidential_compute
+    hardware_or_measured_attested: boolean
+    lease_ref: lease://... | null
+    lease_expires_at: timestamp | null
+    revocation_epoch: integer | null
+    revocation_status: current | revoked | unverified
+    revocation_check_receipt_ref: receipt://... | null
+    reattest_by: timestamp
   note: "Boot measurement is an integrity receipt, not a consumer-GPU plaintext privacy guarantee."
   signature: ...
 ```
+
+The nested assurance block extends the existing boot receipt; it is not a
+parallel node-attestation registry. The runtime-node owner defines role
+separation, freshness, appraisal, exact evidence-kind requirements, and
+deterministic narrowing. `privacy_claim: tee_attested` is permitted only when
+the effective posture contains the required CPU/TEE or GPU confidential-compute
+evidence and the deployment's separate privacy policy permits that claim.
+Measured boot, TPM presence, secure element, software measurement, and trusted
+operator posture never imply plaintext confidentiality on their own.
 
 ```yaml
 NodeEnforcementProfile:
@@ -577,7 +650,8 @@ Measurement proves what was supposed to run.
 cTEE limits what the node is allowed to see.
 wallet.network limits what the node is allowed to do.
 Agentgres proves what the node claimed happened.
-IOI settles or disputes from receipts.
+The system settles locally or invokes its selected external settlement and
+dispute services from receipts; IOI L1 is one optional service set.
 ```
 
 ## Network and Action Policy
@@ -650,10 +724,11 @@ HypervisorOS measurements, workload receipts, cTEE receipts, and capability-exit
 receipts are admitted into Agentgres when they affect restore, replay,
 provider reputation, delivery, dispute, payout, or marketplace settlement.
 
-IOI L1 or compatible app-chain settlement receives only selected roots,
-receipt commitments, dispute commitments, registry state, staking claims,
-slashing evidence, or economic settlement state. It must not receive private
-workspace payloads.
+The declared external settlement profile receives only selected roots, receipt
+commitments, dispute commitments, registry state, staking claims, slashing
+evidence, or economic settlement state. IOI L1 requires an active enrollment
+that selected the service; no external rail may receive private workspace
+payloads.
 
 Non-IOI adopters may bind the same concept to an equivalent StateLog, but the
 IOI canon uses Agentgres for admitted operational truth.
@@ -706,9 +781,17 @@ A HypervisorOS implementation conforms when:
 9. Network egress is scoped, logged, and receipted.
 10. Unsafe plaintext paths are blocked or visibly marked Unsafe.
 11. cTEE privacy claims are not made from boot measurement alone.
-12. IOI settlement receives sparse commitments and receipts, not private payloads.
+12. A declared external settlement service receives only sparse selected
+    commitments and receipts, never private payloads; IOI L1 requires explicit
+    enrollment.
 13. Node enforcement profiles are declared for executable launch, egress,
     datawall, log/export, and daemon-bypass detection on managed nodes.
+14. Startup admission binds workload, daemon/policy builds, nonce single use,
+    endorsements/reference values, appraisal policy/result, lease/revocation
+    state, and re-attestation cadence to the required posture.
+15. Rejected stronger evidence deterministically narrows to eligible evidence;
+    software-only/trusted-operator continuity is never rendered as a hardware
+    or measured attestation claim.
 ```
 
 ## Anti-Patterns
@@ -727,6 +810,9 @@ settle work with no input/output commitments
 let renamed binaries bypass executable policy
 treat unscoped outbound network access as ordinary shell behavior
 treat datawall detections as optional debug logs
+treat a self-reported quote or provider badge as an appraisal result
+reuse a nonce, appraisal result, or lease across workloads or daemon/policy builds
+retain a stronger posture after appraisal expiry, revocation, or missed re-attestation
 treat HypervisorOS as requiring a custom hardware hypervisor from day one
 treat HypervisorOS as permanently unrelated to VM/container/microVM/WASM estate management
 collapse guardian, wallet authority, and untrusted GPU node into one root-controlled provider box
@@ -755,9 +841,10 @@ For developers:
 
 ```text
 Build once against the Hypervisor SDK.
-Run hosted through Hypervisor App, Hypervisor Web, Workbench, or CLI/headless.
+Run hosted through Hypervisor App, Hypervisor Web, Developer Workspace, or CLI/headless.
 Promote to HypervisorOS for bare-metal nodes.
-Settle through IOI.
+Settle locally by default; connect selected shared-trust services through the
+IOI Network only when valuable.
 ```
 
 For quant users:
@@ -788,4 +875,5 @@ Rent the node. Keep the alpha.
 > **HypervisorOS is the bare-metal profile for Hypervisor: a measured,
 > daemon-rooted node image where agents, models, tools, private workspaces, and
 > external actions run beneath Hypervisor policy, cTEE no-plaintext-custody,
-> Agentgres receipts, wallet.network authority, and IOI settlement.**
+> Agentgres receipts, wallet.network authority, local settlement by default,
+> and only explicitly selected external settlement services.**

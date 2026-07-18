@@ -41,8 +41,9 @@ wallet.network authorizes spend, provider credentials, grants, and revocation.
 Hypervisor provisions, executes, snapshots, restores, supervises, and tears down.
 Agentgres records admitted truth, receipts, state roots, and restore validity.
 Storage backends hold encrypted bytes.
-IOI L1 settles only triggered public, economic, dispute, registry, rights,
-reputation, or cross-domain commitments.
+The system settles locally unless its declared profile selects an external
+service such as IOI L1 for triggered public, economic, dispute, registry,
+rights, reputation, or cross-domain commitments.
 ```
 
 In Hypervisor product UX, the user does not choose between Hypervisor and
@@ -173,7 +174,8 @@ user, agent, app, automation, or Hypervisor requests infrastructure capacity
      evidence as applicable
   -> Agentgres records admitted truth, receipts, state roots, and restore
      validity
-  -> IOI L1 receives only selected settlement/dispute/public commitments
+  -> IOI L1 receives settlement/dispute/public commitments only when the
+     declared enrollment and settlement profiles select it
 ```
 
 ## Minimal Implementation Objects

@@ -4,7 +4,7 @@ Status: canonical architecture authority.
 Canonical owner: this file for Hypervisor Daemon, CLI ownership boundaries, and IOI CLI operator-surface positioning; low-level daemon endpoints live in [`api.md`](./api.md).
 Supersedes: older CLI/daemon wording that implies the CLI owns runtime semantics or is primarily a chain/domain generator.
 Superseded by: none.
-Last alignment pass: 2026-07-11.
+Last alignment pass: 2026-07-12.
 Doctrine status: canonical
 Implementation status: partial (the daemon is the single runtime surface; hosted/DePIN endpoint families planned)
 Implementation refs:
@@ -45,14 +45,16 @@ execution boundary. Hypervisor App, Hypervisor Web, CLI/headless, SDK, ADK,
 benchmarks, and extension hosts are first-class clients, builder frameworks, or
 projections; they do not become private runtimes. A TUI is an optional
 presentation of CLI/headless controls. The Hypervisor application
-suite (Studio, Automations, Ontology, Data, Governance, Missions, Provenance, Evaluations, Improvement, Foundry, Marketplace, Workbench, Developer Console), the Environments and Operations substrate lane,
+suite (Studio, Automations, Ontology, Data, Governance, Provenance, Evaluations,
+Improvement, Foundry, Packages with optional Marketplace mode, Developer
+Workspace, Developer Console), the Environments and Operations substrate lane,
 generated domain apps, Privacy / cTEE, Change Plane views, and Patterns /
 Examples / Training facets are projections over the same Core, not separate
 runtime truth paths. Agent Studio is Studio's agent lens; ODK is the
 developer kit beneath Ontology and Data; the former Work Ledger views
 converge in Provenance.
 
-Hypervisor Workbench is the live code/systems surface. VS Code, Cursor,
+Hypervisor Developer Workspace is the live code/systems surface. VS Code, Cursor,
 Windsurf, JetBrains, browser IDEs, terminals, VMs, local OS surfaces, and
 HypervisorOS nodes are adapter targets for Hypervisor Sessions, not
 Hypervisor's product identity. External CLI or hosted agent harnesses such as
@@ -85,10 +87,10 @@ wrappers, Git hooks, API proxies, credential brokers, and CI/CD gates. It exists
 to let users keep their IDE and keep their model while putting consequential
 execution behind IOI. It is a daemon deployment/adoption profile, not a second
 runtime and not a replacement for Hypervisor App, Hypervisor Web, CLI/headless,
-or the Hypervisor Workbench surface as first-party operator experiences.
+or the Hypervisor Developer Workspace surface as first-party operator experiences.
 
-> **Models reason. Hypervisor Daemon gates action. IOI settles what needs public
-> trust.**
+> **Models reason. Hypervisor Daemon gates action. The system settles locally
+> unless its declared profile selects shared trust such as IOI L1.**
 
 Adapters may observe, request, preview, deny, transform, or submit proposed
 actions through the daemon. They must not claim total interception over opaque
@@ -122,7 +124,7 @@ The daemon owns configured agent records, agent/session admission, work queues,
 work items, work runs, thread/turn controls, conversation streams, subagent
 delegation, runner reconciliation, model/LLM usage reporting, exec/security
 telemetry, receipts, and Agentgres bindings. Product controls such as Agent,
-Mode, Model, Reasoning, Speed, and Harness compile into daemon contracts rather
+Mode, Model, Reasoning, Speed, and HarnessProfile selection compile into daemon contracts rather
 than creating client-local loops.
 
 ## Hypervisor Node Boundary
@@ -134,24 +136,55 @@ stores, and runtime profiles.
 
 The daemon is the execution and authority-enforcement substrate inside that
 node. Hypervisor App, Hypervisor Web, CLI/headless, optional TUI views, and
-application surfaces such as Workbench, Foundry, and Environments
+application surfaces such as Developer Workspace, Foundry, and Environments
 views are operator clients/projections. Agentgres is the local operational
-truth substrate. AIIP is
-the semantic interop protocol for local microharness routing and external
-autonomous-system handoffs.
+truth substrate. Native L0 GoalRun, HarnessInvocation, RuntimeAssignment, and
+member-node contracts handle local and same-system routing. AIIP begins only
+at an independently governed boundary and carries external autonomous-system
+handoffs.
 Authority providers and local/domain governance authorize as required.
 wallet.network supplies portable delegated authority for secrets, provider
 credentials, external effects, spend, decryption, declassification,
 restore/apply, high-risk approvals, and other portable or consequential power.
-IOI L1 receives selected roots when public
+Each system settles locally by default. IOI L1 receives roots only when the
+system's explicit enrollment and settlement profiles select it for public
 trust, economic settlement, reputation portability, dispute resolution, or
-cross-system handoff finality requires them.
+cross-system handoff finality.
 
-The daemon may execute an autonomous-system harness as a modular
-state-transition pipeline. Consequential harness steps are typed
-service-module invocations: they read state, apply policy, invoke workers,
-tools, models, or connectors, emit receipts, and propose or commit bounded
-state transitions through Agentgres-compatible operations.
+The daemon may execute an admitted workflow/service-module transition pipeline.
+Consequential pipeline steps are typed service-module invocations: they read
+state, apply policy, invoke workers, tools, models, connectors, or scoped
+HarnessInvocations, emit receipts, and propose or commit bounded state
+transitions through Agentgres-compatible operations. A HarnessProfile resolves
+one scoped assigned step; it does not own the system-level pipeline.
+
+### Logical-System Control Boundary
+
+One logical autonomous system may span several Hypervisor Nodes. The daemon on
+each node acts only through that node's admitted system membership and roles;
+the daemon process is never the system identity or authority owner. The target
+system-control plane lets operators and governance:
+
+```text
+create and inspect a constitution-bound system
+propose a deployment profile and node membership
+attest identity and assign scoped roles
+restore checkpoint, catch up log, and verify state root
+mark observed readiness or degradation
+drain or remove a member
+evaluate failover; either increment/fence/promote a declared single writer or
+apply the active threshold/BFT/external-finality profile's native recovery
+transition and proof
+migrate, fork, succeed/adopt, dissolve, or decommission
+inspect and transition explicit IOI Network enrollment
+```
+
+Governance and the applicable authority provider authorize these changes. The
+daemon validates current constitution/profile roots, membership, leases,
+epochs, evidence, and preconditions; executes or mediates the transition; emits
+the named receipts; and fails closed. Agentgres records desired profiles and
+observed topology separately. Adding a process never grants writer, threshold,
+consensus, budget, external-effect, or governance authority by implication.
 
 The Hypervisor Daemon owns model routing and invocation boundaries, not implicit model
 possession. Model weights, local model files, model servers, BYOK provider
@@ -275,7 +308,7 @@ CLI-compatible workflow/domain packages. The CLI may inspect, validate,
 materialize, promote, publish, route, or verify them through daemon and
 Agentgres APIs. The CLI does not become the Hypervisor runtime.
 
-Hypervisor App, Hypervisor Web, CLI/headless, Workbench/Foundry surfaces, other
+Hypervisor App, Hypervisor Web, CLI/headless, Developer Workspace/Foundry surfaces, other
 application surfaces, and Environments views
 may manage or inspect local Hypervisor Daemons and render local runtime
 projections. Remote, hosted, provider, DePIN, TEE, and customer runtime nodes
@@ -303,7 +336,7 @@ receipt ingestion.
 This profile strengthens the marketplace/protocol thesis instead of competing
 with it: developers can first govern existing models and agents, then discover
 better workers, install marketplace workers, delegate authority through
-wallet.network, and graduate to Hypervisor App, Hypervisor Web, or Workbench
+wallet.network, and graduate to Hypervisor App, Hypervisor Web, or Developer Workspace
 when they need the native control room.
 
 ## Runtime Role
@@ -328,7 +361,7 @@ It is responsible for:
 
 ## Deployment Targets
 
-1. **Local Hypervisor Daemon under Hypervisor App or Workbench** — desktop/private execution.
+1. **Local Hypervisor Daemon under Hypervisor App or Developer Workspace** — desktop/private execution.
 2. **Hosted Hypervisor Daemon** — always-on hosted workers/services.
 3. **Provider daemon** — service provider infrastructure.
 4. **DePIN daemon** — Akash-like public compute.
@@ -362,7 +395,7 @@ GET  /v1/deliveries/{id}
 
 Interactive clients and builder frameworks such as Hypervisor App/Web,
 CLI/headless, optional TUI views, SDK, ADK, Workflow Compositor, and
-Workbench/Foundry surfaces, other application surfaces, and
+Developer Workspace/Foundry surfaces, other application surfaces, and
 Environments views also use the
 thread/turn control substrate:
 
@@ -437,6 +470,11 @@ HypervisorWorkRun
 HypervisorWorkRunConversationProjection
 HypervisorWorkRunIntegrationStatus
 HypervisorWorkRunReviewState
+WorkLifecycleRecord
+WorkLifecycleProjection
+CancellationFanoutPlan
+WorkLifecycleArchiveSegment
+WorkLifecycleSnapshot
 ModelInvocationReceipt
 ToolExecutionReceipt
 ArtifactRef
@@ -452,14 +490,14 @@ The implementation may bridge the daemon API into a lower-level
 `RuntimeAgentService` or other runtime service loop. That bridge is behind the
 daemon/runtime-node profile. It does not change client ownership: SDK, ADK,
 CLI/headless, optional TUI views, Workflow Compositor, Hypervisor App/Web
-clients, Workbench/Foundry surfaces, other application surfaces,
+clients, Developer Workspace/Foundry surfaces, other application surfaces,
 Environments views, harnesses, and benchmarks remain
 clients, builder frameworks, or projections.
 
 ## Delegated Agent Work Handling
 
 The daemon owns the execution boundary for delegated agent work, whether it
-starts from New Session, ioi.ai, Automations, Workbench, an API call, a pull
+starts from New Session, ioi.ai, Automations, Developer Workspace, an API call, a pull
 request, a schedule, or a webhook.
 
 Canonical delegated-work shape:
@@ -482,6 +520,33 @@ environment code context, authority grants, connector/MCP status, current
 activity, conversation history, live stream, transcript, logs/support refs,
 usage counters, output refs, review state, receipts, and Agentgres operation
 refs.
+
+### Shared Lifecycle Mechanics, Distinct Owners
+
+This section defines the target shared mechanism. Current master has no shared
+WorkLifecycle kernel, route, store, archive, snapshot writer, or status
+endpoint; existing kind-specific owners are implementation precedents only.
+
+The daemon should reuse one integrity/replay mechanism for lifecycle facts
+without creating one flattened lifecycle. GoalRun, GoalGroundingLoop, WorkRun,
+AutomationRun, HarnessInvocation, ContextCell, and external protocol adapters
+retain their own legal phase and authority tables. Their owning route/service
+would submit an exact-head `WorkLifecycleRecord`; the target shared kernel
+would validate and commit the fact, update a rebuildable active projection, and
+never acquire the domain object's write authority.
+
+Typed child references are append-only index facts. Attaching or detaching a
+HarnessInvocation, ContextCell, RuntimeAssignment, external handle, result, or
+receipt does not mutate that child. A cancel/revoke transition derives a
+`CancellationFanoutPlan` at the admitted head. Child owners must then receipt
+drain, fencing, lease revocation, timeout, compensation, ambiguous or
+irreversible-effect reconciliation, and completion. A terminal-looking parent
+phase alone is not cancellation proof.
+
+Lifecycle compaction writes an immutable archive segment followed by an
+archive-root/head-bound snapshot retaining idempotency decisions and receipt
+lineage. Hot-log pruning is permitted only after archive durability and replay
+parity are independently proven. This applies `INV-35`.
 
 Environment-resident agents are services behind the run. They may have a stable
 service reference, package/binary/container hash, healthcheck, memory store,
@@ -556,7 +621,9 @@ The daemon writes/updates domain state through Agentgres-compatible APIs:
 - worker invocations;
 - contribution receipts;
 - governed autonomous-system chain transitions;
-- Hypervisor Node local settlement records.
+- autonomous-system constitution, deployment, observed membership, failover,
+  lifecycle, and network-enrollment operations;
+- Hypervisor Node state-transition commitment records.
 
 The daemon must not maintain a separate canonical state store for application truth.
 
@@ -593,7 +660,7 @@ TUI = separate first-class runtime/client lane
 external CLI agent harness = Hypervisor client
 Codex/Claude Code/Grok Build = runtime truth
 Hypervisor App/Web/CLI-headless = runtime truth
-Hypervisor Workbench/Foundry/provider views = runtime truth
+Hypervisor Developer Workspace/Foundry/provider views = runtime truth
 Hypervisor Core = peer runtime beside the daemon
 Default Harness Profile = peer daemon, only admissible harness, or meta-harness
 selected harness/model = owner of workspace skills or memory
@@ -647,10 +714,21 @@ receipts and replay make work accountable
    profile as execution owner.
 9. No TUI-only runtime controls; TUI controls must map to daemon/domain APIs
    and remain an optional presentation of CLI/headless controls.
+10. No node joins, role changes, writer promotion, lifecycle transition, or
+    network enrollment without the applicable typed proposal, external
+    authority/governance decision, and receipt.
+11. No writer promotion before catch-up/root verification, epoch increment, and
+    old-writer fencing; an ambiguous partition fails closed.
+12. No generic lifecycle transition that bypasses the object's kind-specific
+    legal edge and authority table, and no cancellation completion claim without
+    child-owner receipts.
 
 ## One-Line Doctrine
 
-> **The Hypervisor Daemon is where Web4 work executes; Agentgres remembers it, authority is granted by local/domain governance or wallet.network according to risk boundary, and IOI L1 settles what matters.**
+> **The Hypervisor Daemon is where bounded autonomous work executes and
+> system-control transitions are enforced; Agentgres records admitted truth,
+> authority remains external, and explicitly enrolled systems may use IOI L1
+> for selected shared-trust commitments.**
 
 ## CLI Product Context Module
 

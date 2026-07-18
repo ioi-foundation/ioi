@@ -13,7 +13,7 @@ Last implementation audit: 2026-07-05
 
 Runtime nodes are execution venues. They may be a local Hypervisor Daemon
 managed by Hypervisor App, Hypervisor Web, CLI/headless clients, optional TUI
-views, Workbench surfaces, or Environments views; hosted Hypervisor Daemon; provider node;
+views, Developer Workspace surfaces, or Environments views; hosted Hypervisor Daemon; provider node;
 DePIN node; TEE-verified node; or customer VPC node. They execute task
 capsules and return events, artifacts, and receipts.
 
@@ -88,7 +88,7 @@ Security claim:
 ```json
 {
   "assignment_id": "assign_123",
-  "run_id": "run_123",
+  "run_id": "run://123",
   "compute_session_id": "compute_session_123",
   "daemon_profile": "hosted_ioi | provider | depin | hypervisoros | tee | customer_vpc | local",
   "runtime_bridge_profile": "fixture | runtime_service",
@@ -140,14 +140,14 @@ profile, not the VM by itself.
 ```json
 {
   "capsule_id": "cap_123",
-  "run_id": "run_123",
-  "task_id": "task_123",
-  "work_item_ref": "hypervisor_work_item:optional",
-  "work_run_ref": "hypervisor_work_run:optional",
-  "work_queue_ref": "hypervisor_work_queue:optional",
+  "run_id": "run://123",
+  "task_id": "task://123",
+  "work_item_ref": "work_item://optional",
+  "work_run_ref": "work_run://optional",
+  "work_queue_ref": "work_queue://optional",
   "worker_id": "ai://workers.runtime-auditor.ioi",
   "code_context": {
-    "project_ref": "project:optional",
+    "project_ref": "project://optional",
     "repository_refs": ["repo://optional"],
     "environment_ref": "hypervisor_environment_lifecycle:optional",
     "pull_request_ref": "scm_pr://optional"
@@ -218,7 +218,7 @@ Enterprise Secure:
 
 ```json
 {
-  "run_id": "run_123",
+  "run_id": "run://123",
   "capsule_id": "cap_123",
   "node_id": "node_abc",
   "status": "completed | failed",

@@ -4,15 +4,16 @@ Status: canonical low-level reference.
 Canonical owner: this file for IOI L1 contract interfaces and sparse root commitments.
 Supersedes: overlapping smart-contract interface examples in plans/specs when contract responsibility conflicts.
 Superseded by: none.
-Last alignment pass: 2026-05-25.
+Last alignment pass: 2026-07-12.
 Doctrine status: canonical
 Implementation status: speculative (interface sketches for a future chain)
 Last implementation audit: 2026-07-05
 
 ## Purpose
 
-IOI L1 is the canonical Web4 registry, rights, autonomous-system settlement,
-sparse-commitment, and governance layer. It does not run the L0/kernel
+IOI L1 is an optional IOI Network registry, rights, assurance,
+shared-security, autonomous-system settlement, sparse-commitment, and
+governance layer for explicitly connected or secured systems. It does not run the L0/kernel
 substrate, Agentgres, or rich application state. aiagent.xyz, sas.xyz,
 Hypervisor Nodes, and third-party autonomous systems interact with IOI L1
 through smart contracts for economically meaningful commitments.
@@ -22,9 +23,14 @@ through smart contracts for economically meaningful commitments.
 ```text
 AiNamespaceRegistry
 PublisherRegistry
-AppDomainRegistry
+DomainRegistry
 ManifestRootRegistry
 AutonomousSystemRegistry
+NetworkEnrollmentRegistry
+StandardDASProfileRegistry
+SharedSecurityServiceRegistry
+ServiceBondRegistry
+SharedSecurityAgreementRegistry
 AIIPChannelRegistry
 AIIPSchemaRegistry
 SettlementAccountRegistry
@@ -76,6 +82,17 @@ function updatePublisher(bytes32 publisherId, bytes32 identityRoot, string metad
 function suspendPublisher(bytes32 publisherId, string reason) external;
 ```
 
+## DomainRegistry
+
+`DomainRegistry` is the canonical name used by the L1 owner; the older
+`AppDomainRegistry` label is retired.
+
+```solidity
+function registerDomain(bytes32 domainId, bytes32 operatorRoot, bytes32 resolverRoot, string resolverURI) external payable;
+function updateDomain(bytes32 domainId, bytes32 operatorRoot, bytes32 resolverRoot, string resolverURI) external;
+function suspendDomain(bytes32 domainId, bytes32 reasonRoot) external;
+```
+
 ## ManifestRootRegistry
 
 ```solidity
@@ -87,9 +104,100 @@ function getManifest(bytes32 manifestId) external view returns (ManifestCommitme
 ## AutonomousSystemRegistry
 
 ```solidity
-function registerSystem(bytes32 systemId, bytes32 manifestRoot, bytes32 policyRoot, bytes32 authorityRoot, string resolverURI) external payable;
-function updateSystemRoots(bytes32 systemId, bytes32 policyRoot, bytes32 moduleRegistryRoot, bytes32 receiptRoot) external;
-function updateSystemStatus(bytes32 systemId, SystemStatus status, string reason) external;
+struct SystemMutationProof {
+  bytes32 enrollmentId;
+  bytes32 expectedPriorCommitmentRoot;
+  uint256 expectedPriorVersion;
+  bytes32 governingDecisionRoot;
+  bytes32 authorityProofRoot;
+}
+function registerSystem(bytes32 systemId, bytes32 genesisRoot, bytes32 constitutionRoot, bytes32 manifestRoot, bytes32 enrollmentId, bytes32 decisionRoot, bytes32 authorityProofRoot, string resolverURI) external payable;
+function commitConstitution(bytes32 systemId, bytes32 constitutionRoot, uint256 version, SystemMutationProof calldata proof) external;
+function recognizeSystemRelease(bytes32 systemId, bytes32 manifestRoot, bytes32 conformanceRoot, uint256 version, SystemMutationProof calldata proof) external;
+function updateSystemRoots(bytes32 systemId, bytes32 policyRoot, bytes32 moduleRegistryRoot, bytes32 membershipRoot, bytes32 receiptRoot, uint256 version, SystemMutationProof calldata proof) external;
+function commitLifecycleRoot(bytes32 systemId, bytes32 lifecycleRoot, bytes32 dispositionRoot, uint256 version, SystemMutationProof calldata proof) external;
+function updateSystemStatus(bytes32 systemId, SystemStatus status, bytes32 reasonRoot, uint256 version, SystemMutationProof calldata proof) external;
+```
+
+Registration is an opt-in network service. It does not create the system,
+grant permission to use L0, own its operational state, or prove its purpose,
+membership, or outputs correct.
+
+Every mutation must compare-and-swap the expected predecessor commitment and
+version, verify an active connected/secured enrollment selecting the registry
+service, validate the current constitution commitment and caller authority,
+verify the governing decision/authority proof, and emit a resulting commitment
+event plus `NetworkServiceInvocationReceipt`. Missing, stale, suspended, or
+mismatched inputs fail closed. These interfaces commit sparse public roots; they
+never directly mutate the system's operational state.
+
+## NetworkEnrollmentRegistry
+
+```solidity
+enum NetworkEnrollmentProfile { IOI_CONNECTED, IOI_SECURED }
+struct EnrollmentMutationProof {
+  bytes32 expectedPriorEnrollmentRoot;
+  uint256 expectedPriorVersion;
+  bytes32 governingDecisionRoot;
+  bytes32 systemAuthorityProofRoot;
+}
+function proposeEnrollment(bytes32 enrollmentId, bytes32 systemId, NetworkEnrollmentProfile profile, bytes32 enrollmentRoot, uint256 effectiveAt, uint256 expiresAt, EnrollmentMutationProof calldata proof) external payable;
+function activateEnrollment(bytes32 enrollmentId, bytes32 conformanceRoot, bytes32 serviceSelectionRoot, uint256 version, EnrollmentMutationProof calldata proof) external;
+function suspendEnrollment(bytes32 enrollmentId, bytes32 reasonRoot, uint256 version, EnrollmentMutationProof calldata proof) external;
+function requestExit(bytes32 enrollmentId, bytes32 obligationRoot, uint256 version, EnrollmentMutationProof calldata proof) external;
+function finalizeExit(bytes32 enrollmentId, bytes32 finalCommitmentRoot, uint256 version, EnrollmentMutationProof calldata proof) external;
+```
+
+The envelope vocabulary is `ioi_compatible | ioi_connected | ioi_secured`, but
+the on-chain registry accepts only connected or secured enrollment. An
+`ioi_compatible` system remains local-only and therefore has no enrollment
+transaction or placeholder registry record.
+
+Every enrollment mutation compare-and-swaps the predecessor root/version and
+validates the system's governing decision and authority proof. Activation also
+validates conformance and exact service selection; suspension and exit preserve
+outstanding obligations/disputes. A stale or unauthorized enrollment mutation
+fails closed and cannot be used to authorize a later registry or settlement
+operation.
+
+## StandardDASProfileRegistry
+
+```solidity
+function registerStandardDASProfile(bytes32 profileId, bytes32 requirementRoot, string profileURI, uint256 version) external;
+function recognizeConformance(bytes32 systemId, bytes32 profileId, bytes32 conformanceRoot, bytes32 evidenceRoot, uint256 expiresAt) external;
+function suspendConformance(bytes32 systemId, bytes32 profileId, bytes32 reasonRoot) external;
+```
+
+Conformance is versioned evidence against a declared profile, not a blanket
+safe/correct/legal/available claim.
+
+## SharedSecurityServiceRegistry
+
+```solidity
+function registerSecurityService(bytes32 serviceId, SecurityServiceKind kind, bytes32 providerRoot, bytes32 termsRoot, bytes32 assuranceRoot) external payable;
+function updateSecurityService(bytes32 serviceId, bytes32 termsRoot, bytes32 assuranceRoot) external;
+function suspendSecurityService(bytes32 serviceId, bytes32 reasonRoot) external;
+```
+
+Eligible kinds include validator, verifier, guardian, availability witness,
+relayer, arbitrator, ordering, and finality services.
+
+## ServiceBondRegistry
+
+```solidity
+function postServiceBond(bytes32 serviceId, bytes32 providerId, uint256 amount, address asset, bytes32 claimPolicyRoot) external payable;
+function openBondClaim(bytes32 claimId, bytes32 serviceId, bytes32 evidenceRoot, uint256 amount) external payable;
+function resolveBondClaim(bytes32 claimId, BondClaimDecision decision, uint256 amount, bytes32 adjudicationRoot) external;
+function releaseServiceBond(bytes32 serviceId, bytes32 providerId, uint256 amount) external;
+```
+
+## SharedSecurityAgreementRegistry
+
+```solidity
+function activateAgreement(bytes32 agreementId, bytes32 systemId, bytes32 serviceId, bytes32 scopeRoot, bytes32 termsRoot, bytes32 obligationRoot) external payable;
+function updateAgreement(bytes32 agreementId, bytes32 termsRoot, bytes32 obligationRoot) external;
+function requestAgreementExit(bytes32 agreementId, bytes32 outstandingObligationRoot) external;
+function finalizeAgreementExit(bytes32 agreementId, bytes32 finalRoot) external;
 ```
 
 ## AIIPChannelRegistry
@@ -143,13 +251,17 @@ function verifyInstallRight(uint256 licenseId, address holder) external view ret
 
 ```solidity
 function createOrder(bytes32 serviceId, address customer, address provider, bytes32 orderRoot, uint256 amount, address token) external payable returns (uint256 orderId);
-function lockEscrow(uint256 orderId) external payable;
-function submitDeliveryRoot(uint256 orderId, bytes32 deliveryRoot) external;
-function acceptDelivery(uint256 orderId) external;
-function releasePayout(uint256 orderId) external;
-function openDispute(uint256 orderId, bytes32 disputeRoot) external;
-function refund(uint256 orderId) external;
+function lockEscrow(uint256 orderId, bytes32 expectedPriorOrderStateRoot, bytes32 settlementIntentRoot, bytes32 authorityProofRoot) external payable;
+function submitDeliveryRoot(uint256 orderId, bytes32 expectedPriorOrderStateRoot, bytes32 deliveryRoot, bytes32 deliveryReceiptRoot, bytes32 authorityProofRoot) external;
+function releasePayout(uint256 orderId, bytes32 expectedPriorOrderStateRoot, bytes32 acceptanceDecisionRoot, bytes32 settlementIntentRoot, bytes32 authorityProofRoot) external;
+function applyAdjudicatedRemedy(uint256 orderId, bytes32 expectedPriorOrderStateRoot, bytes32 disputeId, bytes32 adjudicationRoot, bytes32 remedySettlementIntentRoot, bytes32 authorityProofRoot) external;
 ```
+
+The escrow consumes admitted delivery, acceptance, adjudication, and settlement-
+intent roots; it does not author those assurance stages. Disputes are opened and
+resolved through `DisputeRegistry`. Payout, refund, partial remedy, or slashing
+must bind the expected prior order state, applicable decision, intent, and
+authority proof and emit a resulting settlement receipt/state root.
 
 ## SLABondRegistry
 
@@ -158,6 +270,19 @@ function postBond(bytes32 providerId, bytes32 serviceId, uint256 amount, address
 function slashBond(bytes32 providerId, bytes32 serviceId, uint256 amount, string reason) external;
 function releaseBond(bytes32 providerId, bytes32 serviceId) external;
 ```
+
+## DisputeRegistry
+
+```solidity
+function openDispute(bytes32 disputeId, bytes32 subjectId, bytes32 claimRoot, bytes32 evidenceRoot, bytes32 policyRoot) external payable;
+function submitDisputeEvidence(bytes32 disputeId, bytes32 evidenceRoot, bytes32 disclosurePolicyRoot) external;
+function recordDisputeDecision(bytes32 disputeId, DisputeDecision decision, bytes32 adjudicationRoot, bytes32 remedyRoot) external;
+function appealDispute(bytes32 disputeId, bytes32 appealRoot) external payable;
+function finalizeDispute(bytes32 disputeId, bytes32 finalityRoot) external;
+```
+
+The registry records staged dispute commitments and remedies. It does not make
+a raw receipt, verifier vote, or evaluator response final by itself.
 
 ## ReputationRootRegistry
 
@@ -170,8 +295,11 @@ function challengeReputationRoot(bytes32 domainId, uint256 epoch, bytes32 eviden
 
 ```solidity
 function commitContributionRoot(bytes32 domainId, bytes32 contributionRoot, uint256 epoch) external;
-function claimReward(bytes32 contributionId, bytes32 proofRoot) external;
+function submitContributionSettlementClaim(bytes32 contributionId, bytes32 proofRoot, bytes32 termsRoot) external;
 ```
+
+The settlement claim stays asset- and reward-mechanism neutral until accepted
+economic terms and token/native-asset doctrine exist.
 
 ## AuthorityLeaseCommitmentRegistry
 
@@ -253,10 +381,11 @@ function updateAttestationProfile(bytes32 profileId, bytes32 verifierRoot, strin
 
 ## ProtocolGovernance
 
-Protocol governance records public commitments for canonical specs, contracts,
-reference implementations, and L0/kernel release roots. It should not manage
-ordinary commits, pull requests, private deployments, or application-domain
-state.
+Protocol governance records public commitments for IOI Network conformance
+profiles, contracts, recognized reference implementations, and recognized
+L0/kernel release roots. It does not govern all compatible L0 use, external
+AIIP peers, ordinary commits, pull requests, private deployments, or
+application-domain state.
 
 ```solidity
 function proposeProtocolUpgrade(bytes32 proposalRoot, string metadataURI) external payable;
@@ -280,6 +409,9 @@ payouts/refunds
 disputes
 reputation/contribution root commitments
 autonomous-system registration
+connected/secured enrollment and exit
+Standard DAS conformance commitments
+shared-security service registration, agreements, bonds, claims, and exit
 AIIP channel/schema/profile registration
 authority lease commitments
 receipt root anchoring
@@ -298,6 +430,7 @@ every tool call
 every model call
 every receipt detail
 every local projection update
+ioi-compatible system creation, deployment, node membership, or lifecycle
 ```
 
 ## Non-Negotiables
@@ -306,3 +439,9 @@ every local projection update
 2. Every contract root must be resolvable to Agentgres refs and storage-backend evidence when required.
 3. Contracts should accept roots and commitments, not bulky payloads.
 4. L2/rollup is optional scaling, not base architecture.
+5. AIIP and compatible L0 use do not require any contract call. Every L1
+   interaction follows explicit connected or secured enrollment.
+6. Shared-security and conformance contracts state exact scope and assurance;
+   they never emit a generic `verified` or blanket safety claim.
+7. Contract sketches remain asset-neutral until real service demand and native-
+   asset governance are separately approved.
