@@ -38,6 +38,7 @@ const AXUM_SERVICE_ROUTER_METHODS = new Set([
 ]);
 const RUST_EFFECT_CALL = /(?:^|::|\.)(?:persist(?:_|$)|persist_record$|persist_env$|persist_availability_locked$|persist_runnability_locked$|write(?:_|$)|write_all$|remove_record$|remove_file$|remove_dir_all$|create_dir(?:_all)?$|rename$|save(?:_|$)|store(?:_|$)|store_typed$|append(?:_|$)|append_audit_event(?:_with_records)?$|state\.insert$|state\.delete$|state\.batch_apply$|admit_and_persist|apply_workspace_patch$|Command::new$|spawn$|send$|try_send$|submit_ibc_messages$|set_secret$|provision_with_domain$|perform_sign$|sync_all$|register_service$)/u;
 const RUST_EXTERNAL_EFFECT_CALLS = new Set([
+  "MuxEngine::open",
   "admit_artifact_availability_incident",
   "admit_code_editor_adapter_launch_plan",
   "admit_harness_profile_mutation",
@@ -1131,7 +1132,8 @@ function effectRelevantRustCall(call) {
 function knownExternalRustEffect(call, resolved = call) {
   const symbols = [call, resolved];
   return symbols.some((symbol) => (
-    RUST_EXTERNAL_EFFECT_CALLS.has(symbol.split("::").at(-1))
+    RUST_EXTERNAL_EFFECT_CALLS.has(symbol)
+    || RUST_EXTERNAL_EFFECT_CALLS.has(symbol.split("::").at(-1))
     || /^(?:std|tokio)::fs::(?:create_dir(?:_all)?|remove_dir_all|remove_file|rename|set_permissions|write)$/u
       .test(symbol)
     || /^(?:std::thread|tokio)::spawn$/u.test(symbol)
