@@ -69,6 +69,7 @@
     "build:all": "npm run build --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present",
+    "check:m0-program-control": "node --test scripts/lib/m0-program-control.test.mjs && node scripts/m0-program-control.mjs --check",
     "check:architecture-docs": "node scripts/check-architecture-docs.mjs",
     "check:pre-next-leg": "node scripts/check-pre-next-leg.mjs"
   },
