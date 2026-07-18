@@ -1,0 +1,4609 @@
+import fs from "node:fs";
+import path from "node:path";
+
+import {
+  aggregateLiteralCalls,
+  assertUniqueIdentities,
+  attachRustHandlerDefinitions,
+  buildRustFunctionIndex,
+  discoverAxumRoutes,
+  discoverJsStorageMutations,
+  discoverJsOutboundCalls,
+  discoverLiteralCalls,
+  discoverProtoService,
+  discoverJsSystemEffects,
+  discoverRustFunctions,
+  discoverRustMatchServiceMethods,
+  discoverRustServiceInterfaceMethods,
+  discoverSwitchCases,
+  discoverWalletServiceMethods,
+  lexSource,
+  readRepoFile,
+  rustModuleSourceMap,
+  sha256,
+  sortByIdentity,
+} from "./m0-program-control.mjs";
+
+export const EVIDENCE_DIR = "docs/evidence/m0-program-control";
+export const REVIEW_FILE = `${EVIDENCE_DIR}/reviewed-entry-lock.json`;
+export const PROGRAM_SOURCE_FILE = `${EVIDENCE_DIR}/program-control-source.json`;
+export const AS_OF_DATE = "2026-07-18";
+
+export const GENERATED_ARTIFACT_FILES = [
+  "effect-census.json",
+  "selected-profile.json",
+  "pg-gate-map.json",
+  "current-baselines.json",
+  "blocker-ledger.json",
+  "release-ladder.json",
+  "program-evidence-index.json",
+  "m0-exit-report.json",
+  "manifest.json",
+];
+
+const MUTATING_HTTP_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
+const ENTRY_CLASSIFICATIONS = new Set([
+  "consequential",
+  "read_only",
+  "plan_only",
+  "compatibility",
+  "internal_only",
+  "unavailable_contract",
+]);
+const IMPLEMENTATION_STATES = new Set(["terminal", "partial", "unavailable", "not_applicable"]);
+const PG_DISPOSITIONS = new Set(["required_now", "conditional", "later", "out_of_scope"]);
+const BASELINE_CATEGORIES = new Set(["product", "reliability", "cost", "comprehension"]);
+const REVIEW_DIMENSIONS = [
+  "classification_and_effect_class",
+  "owner_and_source_anchor",
+  "handler_and_final_invoker_claim",
+  "pre_effect_gates_without_ui_inference",
+  "durable_evidence_idempotency_and_recovery",
+  "selected_profile_applicability_and_typed_blocker",
+];
+
+export const PG_IDS = [
+  "PG-0.1", "PG-0.2", "PG-0.3",
+  "PG-1.1", "PG-1.2", "PG-1.3",
+  "PG-2.1", "PG-2.2", "PG-2.3", "PG-2.4", "PG-2.5", "PG-2.6",
+  "PG-3.1", "PG-3.2", "PG-3.3", "PG-3.4", "PG-3.5", "PG-3.6",
+  "PG-4A.1", "PG-4A.2", "PG-4A.3", "PG-4A.4", "PG-4A.5", "PG-4A.6",
+  "PG-4B.1", "PG-4B.2", "PG-4B.3", "PG-4B.4", "PG-4B.5", "PG-4B.6",
+  "PG-5.1", "PG-5.2", "PG-5.3", "PG-5.4", "PG-5.5",
+  "PG-6A.1", "PG-6A.2", "PG-6A.3", "PG-6A.4",
+  "PG-6B.1", "PG-6B.2", "PG-6B.3", "PG-6B.4", "PG-6B.5",
+  "PG-6C.1", "PG-6C.2", "PG-6C.3",
+  "PG-6D.1", "PG-6D.2", "PG-6D.3",
+  "PG-7.1", "PG-7.2", "PG-7.3", "PG-7.4",
+  "PG-7.5", "PG-7.6", "PG-7.7", "PG-7.8",
+];
+
+const CANON_BASIS_FILES = [
+  "docs/architecture/_meta/execution-horizons.md",
+  "docs/architecture/_meta/implementation-matrix.md",
+  "docs/architecture/_meta/source-of-truth-map.md",
+  "docs/architecture/foundations/common-objects-and-envelopes.md",
+  "docs/architecture/foundations/governed-autonomous-systems.md",
+  "docs/architecture/foundations/institutional-learning-boundary.md",
+  "docs/architecture/components/daemon-runtime/doctrine.md",
+  "docs/architecture/components/daemon-runtime/api.md",
+  "docs/architecture/components/daemon-runtime/events-receipts-delivery-bundles.md",
+  "docs/architecture/components/daemon-runtime/improvement-governance-gates.md",
+  "docs/architecture/components/wallet-network/doctrine.md",
+  "docs/architecture/components/wallet-network/api-authority-scopes.md",
+  "docs/architecture/components/agentgres/doctrine.md",
+  "docs/architecture/components/agentgres/api-object-model.md",
+  "docs/architecture/components/hypervisor/core-clients-surfaces.md",
+  "docs/architecture/components/hypervisor/providers-and-environments.md",
+  "docs/architecture/domains/ioi-ai/collaborative-outcome-pattern.md",
+];
+
+const DISCOVERY_COVERAGE = Object.freeze({
+  axum_route_registry: Object.freeze({
+    pattern: /\.route\s*\(/u,
+    suffix: ".rs",
+    root: "crates",
+    files: Object.freeze({
+      "crates/node/src/bin/hypervisor-daemon.rs":
+        "enumerated Hypervisor daemon registry",
+      "crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs":
+        "enumerated conditional session-preview registry",
+      "crates/plugins/http-rpc-gateway/src/lib.rs":
+        "enumerated IBC HTTP registry",
+      "crates/telemetry/src/http.rs":
+        "enumerated telemetry HTTP registry",
+      "crates/validator/src/standard/provider/server.rs":
+        "enumerated provider HTTP registry",
+    }),
+  }),
+  blockchain_service_implementation: Object.freeze({
+    pattern: /impl\s+BlockchainService\s+for/u,
+    suffix: ".rs",
+    root: "crates",
+    files: Object.freeze({
+      "crates/consensus/src/service.rs": "enumerated native service",
+      "crates/execution/src/runtime_service/mod.rs":
+        "enumerated manifest-defined dynamic service wildcard",
+      "crates/plugins/ibc-service/src/core/registry.rs": "enumerated native service",
+      "crates/services/src/agentic/leakage.rs": "enumerated native service",
+      "crates/services/src/agentic/runtime/service/mod.rs": "enumerated native service",
+      "crates/services/src/guardian_registry/service.rs": "enumerated native service",
+      "crates/services/src/identity/mod.rs": "enumerated native service",
+      "crates/services/src/provider_registry/mod.rs": "enumerated native service",
+      "crates/services/src/wallet_network/mod.rs":
+        "enumerated wallet.network service registry",
+      "crates/vm/wasm/src/wasm_service.rs":
+        "no externally callable service method; transaction decorator and end-block hooks only",
+    }),
+  }),
+  proto_rpc_registry: Object.freeze({
+    pattern: /\brpc\s+[A-Za-z_][A-Za-z0-9_]*\s*\(/u,
+    suffix: ".proto",
+    root: "crates",
+    files: Object.freeze({
+      "crates/ipc/proto/blockchain/v1/blockchain.proto":
+        "enumerated mounted workload RPC registries",
+      "crates/ipc/proto/control/v1/control.proto":
+        "enumerated mounted workload and conditional Guardian RPC registries",
+      "crates/ipc/proto/model_mount/v1/model_mount.proto":
+        "enumerated unmounted compatibility contract",
+      "crates/ipc/proto/public/v1/public.proto":
+        "enumerated mounted public API registry",
+    }),
+  }),
+  rust_listener_or_server_source: Object.freeze({
+    pattern:
+      /(?:TcpListener::bind|UnixListener::bind|warp::serve|axum::serve|Server::builder|Server::bind|serve_with_shutdown|serve_with_incoming)/u,
+    suffix: ".rs",
+    root: "crates",
+    files: Object.freeze({
+      "crates/agentgres/src/bin/replica.rs":
+        "enumerated standalone AGRS2 replication binary registration",
+      "crates/agentgres/src/mux.rs":
+        "ReplicaServer binds occur only in the cfg(test) module",
+      "crates/agentgres/src/replica.rs":
+        "enumerated standalone AGRS2 replication wildcard",
+      "crates/cli/src/testing/backend.rs": "test support, not a shipped application listener",
+      "crates/cli/src/testing/validator.rs": "test support, not a shipped application listener",
+      "crates/node/src/bin/guardian.rs": "enumerated conditional Guardian gRPC registry",
+      "crates/node/src/bin/hypervisor-daemon.rs": "enumerated Hypervisor daemon registry",
+      "crates/node/src/bin/hypervisor_daemon_routes/editor_host.rs":
+        "ephemeral free-port reservation and private child runtime, reached through enumerated daemon and proxy entries",
+      "crates/node/src/bin/hypervisor_daemon_routes/editor_proxy.rs":
+        "enumerated dynamic lease-gated editor proxy wildcard",
+      "crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs":
+        "enumerated conditional session-preview registry",
+      "crates/node/src/bin/signer.rs": "enumerated signer POST /sign surface",
+      "crates/plugins/http-rpc-gateway/src/lib.rs": "enumerated IBC HTTP registry",
+      "crates/services/src/agentic/runtime/connectors/google_auth.rs":
+        "enumerated conditional Google OAuth callback",
+      "crates/services/src/agentic/runtime/kernel/model_mount/lifecycle/inventory.rs":
+        "cfg(test) fixture listener within a production source file",
+      "crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs":
+        "cfg(test) fixture listener within a production source file",
+      "crates/services/src/agentic/runtime/kernel/model_mount/provider_execution/stream.rs":
+        "cfg(test) fixture listener within a production source file",
+      "crates/services/src/agentic/runtime/kernel/model_mount/storage_control.rs":
+        "cfg(test) fixture listener within a production source file",
+      "crates/telemetry/src/http.rs": "enumerated telemetry HTTP registry",
+      "crates/validator/src/common/guardian/server.rs":
+        "enumerated encrypted Guardian channel wildcard",
+      "crates/validator/src/standard/orchestration/lifecycle.rs":
+        "enumerated mounted public API registry",
+      "crates/validator/src/standard/provider/server.rs":
+        "enumerated provider HTTP registry",
+      "crates/validator/src/standard/workload/ipc/mod.rs":
+        "enumerated mounted internal workload RPC registries",
+    }),
+  }),
+  service_interface_registry: Object.freeze({
+    pattern: /#\s*\[\s*service_interface/u,
+    suffix: ".rs",
+    root: "crates",
+    files: Object.freeze({
+      "crates/cli/src/commands/scaffold.rs":
+        "source template only; generated services are not mounted by this file",
+      "crates/services/src/agentic/evolution.rs": "enumerated unavailable legacy service",
+      "crates/services/src/agentic/optimizer.rs": "enumerated native service",
+      "crates/services/src/governance/mod.rs": "enumerated native service",
+      "crates/services/src/market/mod.rs": "enumerated native service",
+    }),
+  }),
+});
+
+const ACTIVE_JAVASCRIPT_EFFECT_SOURCE_COVERAGE = Object.freeze({
+  "apps/benchmarks/src/App.tsx": "active application read projection",
+  "apps/hypervisor/scripts/augmentation/10-run-timeline.js":
+    "dynamically concatenated product UI read crossing",
+  "apps/hypervisor/scripts/augmentation/35-app-catalog.js":
+    "dynamically concatenated product UI read crossing",
+  "apps/hypervisor/scripts/augmentation/40-home-explorer.js":
+    "dynamically concatenated product UI read crossing",
+  "apps/hypervisor/scripts/augmentation/50-new-session.js":
+    "dynamically concatenated product UI read, plan, and mutation crossings",
+  "apps/hypervisor/scripts/augmentation/70-cockpit-panel.js":
+    "dynamically concatenated product UI read and mutation crossings",
+  "apps/hypervisor/scripts/ioi-agent-runs.mjs":
+    "standing product UI daemon crossings",
+  "apps/hypervisor/scripts/ioi-api-adapter.mjs":
+    "standing product UI daemon crossings and local preference file",
+  "apps/hypervisor/scripts/serve-product-ui.mjs":
+    "standing product UI server, proxy, and daemon crossings",
+  "apps/hypervisor/src/dev/hypervisorDevHostBridge.ts":
+    "Vite development replay mutation crossing",
+  "apps/hypervisor/src/dev/hypervisorDevReplayClient.ts":
+    "Vite development replay read crossing and local endpoint state",
+  "apps/hypervisor/src/services/HypervisorClientRuntime.ts":
+    "active literal host commands and local compatibility state",
+  "apps/hypervisor/src/services/hypervisorAppearance.ts":
+    "active browser appearance compatibility state",
+  "apps/hypervisor/src/services/hypervisorHostBridge.ts":
+    "dynamic host bridge leaf; all active literal callers are enumerated",
+  "apps/hypervisor/src/services/hypervisorLaunchState.ts":
+    "active literal host commands and local compatibility state",
+  "apps/hypervisor/surfaces/approvals/index.mjs":
+    "standing product UI read and mutation crossings",
+  "apps/hypervisor/surfaces/ontology-context.mjs":
+    "standing product UI read crossing",
+  "apps/hypervisor/surfaces/ontology-manager/index.mjs":
+    "standing product UI read crossings",
+  "apps/hypervisor/surfaces/pipeline/index.mjs":
+    "standing product UI read crossings",
+  "apps/hypervisor/surfaces/sources/index.mjs":
+    "standing product UI read and mutation crossings",
+  "apps/sas-xyz/v2/app.jsx": "active demo application browser compatibility state",
+  "scripts/lib/mint-approval-grant.mjs":
+    "explicit test-signer child-process crossing, dynamically loaded only by the development flag",
+  "scripts/hypervisor-app-dev-replay-server.mjs":
+    "development replay dispatch, local evidence write, and configured model upstream",
+});
+
+const ACTIVE_JAVASCRIPT_SERVER_SOURCE_COVERAGE = Object.freeze({
+  "apps/hypervisor/product-ui/server.cjs":
+    "spawned reference UI compatibility server; dynamic mock and static fallback are file-locked",
+  "apps/hypervisor/scripts/serve-product-ui.mjs":
+    "standing product UI HTTP and WebSocket compatibility facade",
+  "scripts/hypervisor-app-dev-replay-server.mjs":
+    "explicit development replay HTTP server",
+});
+
+const JS_SYSTEM_EFFECT_ACTIONS = Object.freeze({
+  "js-system-effect:apps/hypervisor/scripts/ioi-api-adapter.mjs#saveStore": Object.freeze({
+    surface: "hypervisor-product-ui-local-state",
+    operation: "ANY /api/ioi.v1.UserService/SetPreference",
+    method: "ANY",
+    path: "/api/ioi.v1.UserService/SetPreference",
+    active_state: "standing_serve_product_ui_compatibility_surface",
+  }),
+  "js-system-effect:apps/hypervisor/scripts/serve-product-ui.mjs#module_scope_line_6437":
+    Object.freeze({
+      surface: "hypervisor-product-ui-process",
+      operation: "PROCESS_START product-ui reference server",
+      method: "PROCESS_START",
+      path: "REF_SERVER",
+      active_state: "standing_serve_product_ui_startup",
+    }),
+  "js-system-effect:apps/hypervisor/scripts/serve-product-ui.mjs#module_scope_line_6442":
+    Object.freeze({
+      surface: "hypervisor-product-ui-process",
+      operation: "SIGINT terminate product-ui reference server",
+      method: "SIGINT",
+      path: "productUi child",
+      active_state: "standing_serve_product_ui_signal_handler",
+    }),
+  "js-system-effect:apps/hypervisor/scripts/serve-product-ui.mjs#module_scope_line_6443":
+    Object.freeze({
+      surface: "hypervisor-product-ui-process",
+      operation: "SIGTERM terminate product-ui reference server",
+      method: "SIGTERM",
+      path: "productUi child",
+      active_state: "standing_serve_product_ui_signal_handler",
+    }),
+  "js-system-effect:scripts/hypervisor-app-dev-replay-server.mjs#writeEvidenceFile":
+    Object.freeze({
+      surface: "hypervisor-dev-replay",
+      operation: "explicitly configured development evidence file write",
+      method: "EXPLICIT_WRITE",
+      path: "configured --evidence path",
+      active_state: "development_replay_with_explicit_evidence_path",
+    }),
+  "js-system-effect:scripts/lib/mint-approval-grant.mjs#mintApprovalGrant": Object.freeze({
+    surface: "hypervisor-product-ui-test-signer",
+    operation: "PROCESS_EXEC build and invoke deterministic test approval signer",
+    method: "PROCESS_EXEC",
+    path: "cargo build then target/debug/mint-approval-grant",
+    active_state: "development_only_when_IOI_WALLET_TEST_SIGNER_equals_1",
+  }),
+});
+
+const ROUTE_DIRECTORY = "crates/node/src/bin/hypervisor_daemon_routes";
+const DAEMON_FILE = "crates/node/src/bin/hypervisor-daemon.rs";
+const WALLET_FILE = "crates/services/src/wallet_network/mod.rs";
+const WALLET_HANDLER_DIRECTORY = "crates/services/src/wallet_network/handlers";
+const PUBLIC_PROTO = "crates/ipc/proto/public/v1/public.proto";
+const GUARDIAN_PROTO = "crates/ipc/proto/control/v1/control.proto";
+
+function listFiles(repoRoot, relativeDirectory, suffix) {
+  return fs.readdirSync(path.join(repoRoot, relativeDirectory))
+    .filter((name) => name.endsWith(suffix))
+    .sort()
+    .map((name) => `${relativeDirectory}/${name}`);
+}
+
+function listFilesRecursive(repoRoot, relativeDirectory, suffix) {
+  const files = [];
+  const visit = (directory) => {
+    for (const entry of fs.readdirSync(path.join(repoRoot, directory), { withFileTypes: true })) {
+      const relativePath = `${directory}/${entry.name}`;
+      if (entry.isDirectory()) {
+        visit(relativePath);
+      } else if (entry.isFile() && entry.name.endsWith(suffix)) {
+        files.push(relativePath);
+      }
+    }
+  };
+  visit(relativeDirectory);
+  return files.sort();
+}
+
+const JAVASCRIPT_SOURCE_SUFFIXES = [".js", ".jsx", ".mjs", ".cjs", ".ts", ".tsx"];
+
+function listJavaScriptFilesRecursive(repoRoot, relativeDirectory) {
+  return JAVASCRIPT_SOURCE_SUFFIXES.flatMap((suffix) => (
+    listFilesRecursive(repoRoot, relativeDirectory, suffix)
+  ))
+    .filter((relativePath) => (
+      !/(?:^|\/)(?:dist|build|generated|node_modules)(?:\/|$)/u.test(relativePath)
+      && !/\.(?:test|spec)\.[^.]+$/u.test(relativePath)
+    ))
+    .sort();
+}
+
+function activeApplicationSourceFiles(repoRoot) {
+  const roots = fs.readdirSync(path.join(repoRoot, "apps"), { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => `apps/${entry.name}/src`)
+    .filter((relativePath) => fs.existsSync(path.join(repoRoot, relativePath)));
+  if (fs.existsSync(path.join(repoRoot, "apps/sas-xyz/v2"))) {
+    roots.push("apps/sas-xyz/v2");
+  }
+  return [...new Set(
+    roots.flatMap((relativePath) => listJavaScriptFilesRecursive(repoRoot, relativePath)),
+  )].sort();
+}
+
+function sourceFilesMatching(repoRoot, relativePaths, pattern) {
+  return relativePaths.filter((relativePath) => (
+    pattern.test(readRepoFile(repoRoot, relativePath).source)
+  ));
+}
+
+function resolveJavaScriptModule(repoRoot, fromFile, specifier) {
+  if (!specifier.startsWith(".")) {
+    return null;
+  }
+  const base = path.posix.normalize(
+    path.posix.join(path.posix.dirname(fromFile), specifier),
+  );
+  for (const candidate of [
+    base,
+    ...JAVASCRIPT_SOURCE_SUFFIXES.map((suffix) => `${base}${suffix}`),
+    ...JAVASCRIPT_SOURCE_SUFFIXES.map((suffix) => `${base}/index${suffix}`),
+  ]) {
+    if (fs.existsSync(path.join(repoRoot, candidate))) {
+      return candidate;
+    }
+  }
+  throw new Error(`${fromFile}: unresolved relative JavaScript module ${specifier}`);
+}
+
+function staticJavaScriptImports(repoRoot, relativePath) {
+  const { source } = readRepoFile(repoRoot, relativePath);
+  const tokens = lexSource(source, { language: "javascript" });
+  const imports = [];
+  for (let index = 0; index < tokens.length; index += 1) {
+    if (tokens[index].value === "from" && tokens[index + 1]?.type === "string") {
+      imports.push(tokens[index + 1].value);
+      continue;
+    }
+    if (tokens[index].value !== "import") {
+      continue;
+    }
+    if (tokens[index + 1]?.type === "string") {
+      imports.push(tokens[index + 1].value);
+    } else if (
+      tokens[index + 1]?.value === "("
+      && tokens[index + 2]?.type === "string"
+    ) {
+      imports.push(tokens[index + 2].value);
+    }
+  }
+  return [...new Set(
+    imports
+      .map((specifier) => resolveJavaScriptModule(repoRoot, relativePath, specifier))
+      .filter((resolved) => resolved !== null),
+  )].sort();
+}
+
+function staticJavaScriptClosure(repoRoot, entrypoint) {
+  const closure = new Set();
+  const visit = (relativePath) => {
+    if (closure.has(relativePath)) {
+      return;
+    }
+    closure.add(relativePath);
+    for (const dependency of staticJavaScriptImports(repoRoot, relativePath)) {
+      visit(dependency);
+    }
+  };
+  visit(entrypoint);
+  return [...closure].sort();
+}
+
+function sourceFilesContaining(repoRoot, { root, suffix, pattern }) {
+  return listFilesRecursive(repoRoot, root, suffix)
+    .filter((relativePath) => !/(?:^|\/)tests?(?:\/|\.rs$)/u.test(relativePath))
+    .filter((relativePath) => pattern.test(readRepoFile(repoRoot, relativePath).source))
+    .sort();
+}
+
+function assertExactCoverageSet(label, observed, expected) {
+  const observedSet = new Set(observed);
+  const expectedSet = new Set(expected);
+  const unexpected = observed.filter((relativePath) => !expectedSet.has(relativePath));
+  const missing = expected.filter((relativePath) => !observedSet.has(relativePath));
+  if (unexpected.length > 0 || missing.length > 0) {
+    throw new Error(
+      `${label} discovery coverage changed; classify the source before updating M0: `
+      + `unexpected=[${unexpected.join(", ")}] missing=[${missing.join(", ")}]`,
+    );
+  }
+}
+
+function activeJavaScriptEffectSources(repoRoot) {
+  const applicationFiles = activeApplicationSourceFiles(repoRoot);
+  const productUiFiles = [
+    ...staticJavaScriptClosure(
+      repoRoot,
+      "apps/hypervisor/scripts/serve-product-ui.mjs",
+    ),
+    ...listFiles(repoRoot, "apps/hypervisor/scripts/augmentation", ".js"),
+  ];
+  const candidates = [...new Set([
+    ...applicationFiles,
+    ...productUiFiles,
+    "scripts/hypervisor-app-dev-replay-server.mjs",
+  ])].sort();
+  const effectPattern =
+    /(?:\bfetch\s*\(|\bdaemon\s*\(|\.(?:request|sendBeacon)\s*\(|\b(?:EventSource|WebSocket)\s*\(|\binvoke(?:\s*<[^;>{}]+>)?\s*\(|(?:localStorage|sessionStorage)\.(?:setItem|removeItem|clear)\s*\(|\b(?:appendFile|appendFileSync|copyFile|copyFileSync|createWriteStream|exec|execFile|execFileSync|execSync|fork|mkdir|mkdirSync|rename|renameSync|rm|rmSync|rmdir|rmdirSync|spawn|spawnSync|unlink|unlinkSync|writeFile|writeFileSync)\s*\(|\.kill\s*\()/u;
+  return candidates.filter((relativePath) => (
+    effectPattern.test(readRepoFile(repoRoot, relativePath).source)
+  ));
+}
+
+function activeJavaScriptServerSources(repoRoot) {
+  const candidates = [...new Set([
+    ...activeApplicationSourceFiles(repoRoot),
+    ...staticJavaScriptClosure(
+      repoRoot,
+      "apps/hypervisor/scripts/serve-product-ui.mjs",
+    ),
+    "apps/hypervisor/product-ui/server.cjs",
+    "scripts/hypervisor-app-dev-replay-server.mjs",
+  ])].sort();
+  const serverPattern =
+    /(?:\bcreateServer\s*\(|\bWebSocketServer\s*\(|\.listen\s*\()/u;
+  return candidates.filter((relativePath) => (
+    serverPattern.test(readRepoFile(repoRoot, relativePath).source)
+  ));
+}
+
+function assertRepositoryDiscoveryCoverage(repoRoot) {
+  for (const [coverageId, coverage] of Object.entries(DISCOVERY_COVERAGE)) {
+    assertExactCoverageSet(
+      coverageId,
+      sourceFilesContaining(repoRoot, coverage),
+      Object.keys(coverage.files).sort(),
+    );
+  }
+  assertExactCoverageSet(
+    "active_javascript_effect_source",
+    activeJavaScriptEffectSources(repoRoot),
+    Object.keys(ACTIVE_JAVASCRIPT_EFFECT_SOURCE_COVERAGE).sort(),
+  );
+  assertExactCoverageSet(
+    "active_javascript_server_source",
+    activeJavaScriptServerSources(repoRoot),
+    Object.keys(ACTIVE_JAVASCRIPT_SERVER_SOURCE_COVERAGE).sort(),
+  );
+}
+
+function snakeCase(value) {
+  return value
+    .replaceAll(/([a-z0-9])([A-Z])/gu, "$1_$2")
+    .replaceAll(/([A-Z])([A-Z][a-z])/gu, "$1_$2")
+    .toLowerCase();
+}
+
+function attachRpcHandlers({
+  entries,
+  functionIndex,
+  sourceFileForService,
+  prefix = "",
+}) {
+  return entries.map((entry) => {
+    const functionName = `${prefix}${snakeCase(entry.rpc_method)}`;
+    const sourceFile = sourceFileForService(entry, functionName);
+    let candidates = functionIndex.get(sourceFile)?.get(functionName) ?? [];
+    if (candidates.length > 1) {
+      const rpcCandidates = candidates.filter((candidate) => (
+        candidate.source.includes("Request<")
+        || candidate.source.includes("Request <")
+      ));
+      if (rpcCandidates.length === 1) {
+        candidates = rpcCandidates;
+      }
+    }
+    if (candidates.length !== 1) {
+      return {
+        ...entry,
+        handler: functionName,
+        handler_source_file: sourceFile,
+        handler_source_symbol: functionName,
+        handler_anchor: null,
+        handler_resolution: candidates.length === 0 ? "unresolved" : "ambiguous",
+      };
+    }
+    const definition = candidates[0];
+    return {
+      ...entry,
+      handler: functionName,
+      handler_source_file: definition.relativePath,
+      handler_source_symbol: functionName,
+      handler_anchor: {
+        line: definition.line,
+        sha256: definition.sha256,
+      },
+      handler_resolution: "function_body",
+      handler_calls: [...new Set(definition.callSequence)].sort(),
+      handler_call_sequence: definition.callSequence,
+    };
+  });
+}
+
+function fileLockedEntry({
+  repoRoot,
+  identity,
+  kind,
+  surface,
+  operation,
+  relativePath,
+  symbol,
+  activeState = "active",
+  httpMethod = null,
+  httpPath = null,
+  serviceMethod = null,
+}) {
+  const { source } = readRepoFile(repoRoot, relativePath);
+  return {
+    identity,
+    kind,
+    surface,
+    operation,
+    method: httpMethod,
+    path: httpPath,
+    service_method: serviceMethod,
+    source_file: relativePath,
+    source_symbol: symbol,
+    handler: symbol,
+    active_state: activeState,
+    source_anchor: {
+      line: 1,
+      sha256: sha256(source),
+    },
+    handler_source_file: relativePath,
+    handler_source_symbol: symbol,
+    handler_anchor: {
+      line: 1,
+      sha256: sha256(source),
+    },
+    handler_resolution: "bounded_file_lock",
+    handler_calls: [],
+    handler_call_sequence: [],
+  };
+}
+
+function rustFunctionAnchoredEntry({
+  repoRoot,
+  identity,
+  kind,
+  surface,
+  operation,
+  registrationFile,
+  registrationSymbol,
+  handlerFile,
+  handlerSymbol,
+  activeState = "active",
+}) {
+  const { source: registrationSource } = readRepoFile(repoRoot, registrationFile);
+  const candidates = discoverRustFunctions({
+    repoRoot,
+    relativePath: handlerFile,
+  }).filter((definition) => definition.name === handlerSymbol);
+  if (candidates.length !== 1) {
+    throw new Error(
+      `${handlerFile}: expected one ${handlerSymbol} function, found ${candidates.length}`,
+    );
+  }
+  const definition = candidates[0];
+  return {
+    identity,
+    kind,
+    surface,
+    operation,
+    source_file: registrationFile,
+    source_symbol: registrationSymbol,
+    handler: handlerSymbol,
+    active_state: activeState,
+    source_anchor: {
+      line: 1,
+      sha256: sha256(registrationSource),
+    },
+    handler_source_file: definition.relativePath,
+    handler_source_symbol: handlerSymbol,
+    handler_anchor: {
+      line: definition.line,
+      sha256: definition.sha256,
+    },
+    handler_resolution: "function_body",
+    handler_calls: [...new Set(definition.callSequence)].sort(),
+    handler_call_sequence: definition.callSequence,
+  };
+}
+
+function attachSameFileRoutes(repoRoot, entries, relativePath) {
+  const functionIndex = buildRustFunctionIndex({
+    repoRoot,
+    relativePaths: [relativePath],
+  });
+  return attachRustHandlerDefinitions({
+    repoRoot,
+    entries,
+    functionIndex,
+    defaultSourceFile: relativePath,
+  });
+}
+
+export function discoverRepositorySurface(repoRoot) {
+  assertRepositoryDiscoveryCoverage(repoRoot);
+  const routeFiles = listFiles(repoRoot, ROUTE_DIRECTORY, ".rs");
+  const daemonFunctionIndex = buildRustFunctionIndex({
+    repoRoot,
+    relativePaths: [DAEMON_FILE, ...routeFiles],
+  });
+  const daemon = attachRustHandlerDefinitions({
+    repoRoot,
+    entries: discoverAxumRoutes({
+      repoRoot,
+      relativePath: DAEMON_FILE,
+      surface: "hypervisor-daemon",
+    }),
+    functionIndex: daemonFunctionIndex,
+    defaultSourceFile: DAEMON_FILE,
+    moduleSourceFiles: rustModuleSourceMap(routeFiles),
+  });
+
+  const ibcFile = "crates/plugins/http-rpc-gateway/src/lib.rs";
+  const telemetryFile = "crates/telemetry/src/http.rs";
+  const providerFile = "crates/validator/src/standard/provider/server.rs";
+  const ibc = attachSameFileRoutes(
+    repoRoot,
+    discoverAxumRoutes({
+      repoRoot,
+      relativePath: ibcFile,
+      surface: "ibc-http-gateway",
+    }),
+    ibcFile,
+  );
+  const telemetry = attachSameFileRoutes(
+    repoRoot,
+    discoverAxumRoutes({
+      repoRoot,
+      relativePath: telemetryFile,
+      surface: "telemetry-http",
+    }),
+    telemetryFile,
+  );
+  const provider = attachSameFileRoutes(
+    repoRoot,
+    discoverAxumRoutes({
+      repoRoot,
+      relativePath: providerFile,
+      surface: "provider-http",
+    }),
+    providerFile,
+  );
+  const previewHttp = attachSameFileRoutes(
+    repoRoot,
+    discoverAxumRoutes({
+      repoRoot,
+      relativePath: `${ROUTE_DIRECTORY}/lifecycle_routes.rs`,
+      surface: "session-preview-http",
+    }).map((entry) => ({
+      ...entry,
+      active_state: "conditional_authorized_session_preview_listener",
+    })),
+    `${ROUTE_DIRECTORY}/lifecycle_routes.rs`,
+  );
+
+  const walletHandlerFiles = listFilesRecursive(
+    repoRoot,
+    WALLET_HANDLER_DIRECTORY,
+    ".rs",
+  );
+  const walletFunctionIndex = buildRustFunctionIndex({
+    repoRoot,
+    relativePaths: [WALLET_FILE, ...walletHandlerFiles],
+  });
+  const wallet = attachRustHandlerDefinitions({
+    repoRoot,
+    entries: discoverWalletServiceMethods({
+      repoRoot,
+      relativePath: WALLET_FILE,
+    }),
+    functionIndex: walletFunctionIndex,
+    defaultSourceFile: WALLET_FILE,
+    moduleSourceFiles: rustModuleSourceMap(walletHandlerFiles),
+  });
+
+  const literalBlockchainServiceSpecs = [
+    {
+      relativePath: "crates/consensus/src/service.rs",
+      serviceId: "penalties",
+      serviceType: "PenaltiesService",
+      activeState: "always_mounted",
+    },
+    {
+      relativePath: "crates/services/src/identity/mod.rs",
+      serviceId: "identity_hub",
+      serviceType: "IdentityHub",
+      activeState: "configured_initial_service_default_node_profile",
+    },
+    {
+      relativePath: "crates/services/src/provider_registry/mod.rs",
+      serviceId: "provider_registry",
+      serviceType: "ProviderRegistryService",
+      activeState: "configured_initial_service_default_node_profile",
+    },
+    {
+      relativePath: "crates/services/src/agentic/leakage.rs",
+      serviceId: "leakage_controller",
+      serviceType: "LeakageController",
+      activeState: "configured_initial_service",
+    },
+    {
+      relativePath: "crates/services/src/guardian_registry/service.rs",
+      serviceId: "guardian_registry",
+      serviceType: "GuardianRegistry",
+      activeState: "configured_initial_service_default_node_profile",
+    },
+    {
+      relativePath: "crates/plugins/ibc-service/src/core/registry.rs",
+      serviceId: "ibc",
+      serviceType: "VerifierRegistry",
+      activeState: "feature_and_config_selected_initial_service",
+    },
+    {
+      relativePath: "crates/services/src/agentic/runtime/service/mod.rs",
+      serviceId: "desktop_agent",
+      serviceType: "RuntimeAgentService",
+      activeState: "driver_conditional_or_local_hot_swap",
+    },
+  ];
+  const literalBlockchainServices = literalBlockchainServiceSpecs.flatMap((spec) => (
+    discoverRustMatchServiceMethods({
+      repoRoot,
+      ...spec,
+    })
+  ));
+
+  const macroBlockchainServiceSpecs = [
+    {
+      relativePath: "crates/services/src/governance/mod.rs",
+      expectedServiceId: "governance",
+      activeState: "configured_initial_service_default_node_profile",
+    },
+    {
+      relativePath: "crates/services/src/agentic/optimizer.rs",
+      expectedServiceId: "optimizer",
+      activeState: "always_mounted_in_standard_workload",
+    },
+    {
+      relativePath: "crates/services/src/market/mod.rs",
+      expectedServiceId: "market",
+      activeState: "local_node_hot_swap",
+    },
+    {
+      relativePath: "crates/services/src/agentic/evolution.rs",
+      expectedServiceId: "evolution",
+      activeState: "unmounted_fail_closed_legacy_boundary",
+    },
+  ];
+  const macroBlockchainServices = macroBlockchainServiceSpecs.flatMap((spec) => (
+    discoverRustServiceInterfaceMethods({
+      repoRoot,
+      ...spec,
+    })
+  ));
+
+  const publicHandlerFiles = [
+    "crates/validator/src/standard/orchestration/grpc_public.rs",
+    "crates/validator/src/standard/orchestration/grpc_public/events_handlers/subscription.rs",
+    "crates/validator/src/standard/orchestration/grpc_public/session_handlers.rs",
+    "crates/validator/src/standard/orchestration/grpc_public/state_handlers.rs",
+    "crates/validator/src/standard/orchestration/grpc_public/tx_handlers.rs",
+  ];
+  const publicFunctionIndex = buildRustFunctionIndex({
+    repoRoot,
+    relativePaths: publicHandlerFiles,
+  });
+  const publicRpc = attachRpcHandlers({
+    entries: discoverProtoService({
+      repoRoot,
+      relativePath: PUBLIC_PROTO,
+      serviceName: "PublicApi",
+      surface: "public-api",
+      activeState: "active",
+    }),
+    functionIndex: publicFunctionIndex,
+    sourceFileForService: (_entry, functionName) => {
+      if (functionName.includes("subscribe_events")) {
+        return publicHandlerFiles[1];
+      }
+      if (["get_session_history", "set_runtime_secret"].includes(
+        functionName.replace(/^handle_/u, ""),
+      )) {
+        return publicHandlerFiles[2];
+      }
+      if (
+        ["query_state", "query_raw_state", "get_status", "get_block_by_height", "get_context_blob"]
+          .includes(functionName.replace(/^handle_/u, ""))
+      ) {
+        return publicHandlerFiles[3];
+      }
+      return publicHandlerFiles[4];
+    },
+    prefix: "handle_",
+  });
+
+  const guardianFile = "crates/node/src/bin/guardian.rs";
+  const guardianFunctionIndex = buildRustFunctionIndex({
+    repoRoot,
+    relativePaths: [guardianFile],
+  });
+  const guardianRpc = attachRpcHandlers({
+    entries: discoverProtoService({
+      repoRoot,
+      relativePath: GUARDIAN_PROTO,
+      serviceName: "GuardianControl",
+      surface: "guardian-control",
+      activeState: "conditional_env_mount",
+    }),
+    functionIndex: guardianFunctionIndex,
+    sourceFileForService: () => guardianFile,
+  });
+
+  const workloadServiceFiles = new Map([
+    ["ChainControl", "crates/validator/src/standard/workload/ipc/grpc_blockchain.rs"],
+    ["StateQuery", "crates/validator/src/standard/workload/ipc/grpc_blockchain.rs"],
+    ["ContractControl", "crates/validator/src/standard/workload/ipc/grpc_blockchain.rs"],
+    ["StakingControl", "crates/validator/src/standard/workload/ipc/grpc_blockchain.rs"],
+    ["SystemControl", "crates/validator/src/standard/workload/ipc/grpc_blockchain.rs"],
+    ["WorkloadControl", "crates/validator/src/standard/workload/ipc/grpc_control.rs"],
+  ]);
+  const workloadFunctionIndex = buildRustFunctionIndex({
+    repoRoot,
+    relativePaths: [...workloadServiceFiles.values()],
+  });
+  const workloadRpc = [];
+  for (const [serviceName, sourceFile] of workloadServiceFiles) {
+    const proto = serviceName === "WorkloadControl"
+      ? GUARDIAN_PROTO
+      : "crates/ipc/proto/blockchain/v1/blockchain.proto";
+    workloadRpc.push(...attachRpcHandlers({
+      entries: discoverProtoService({
+        repoRoot,
+        relativePath: proto,
+        serviceName,
+        surface: `workload-ipc-${snakeCase(serviceName)}`,
+        activeState: "mounted_internal_ipc",
+      }),
+      functionIndex: workloadFunctionIndex,
+      sourceFileForService: () => sourceFile,
+    }));
+  }
+
+  const modelMountRpc = discoverProtoService({
+    repoRoot,
+    relativePath: "crates/ipc/proto/model_mount/v1/model_mount.proto",
+    serviceName: "ModelMountService",
+    surface: "model-mount-grpc",
+    activeState: "unmounted_contract",
+  }).map((entry) => ({
+    ...entry,
+    handler: null,
+    handler_source_file: null,
+    handler_source_symbol: null,
+    handler_anchor: null,
+    handler_resolution: "unmounted",
+    handler_calls: [],
+    handler_call_sequence: [],
+  }));
+
+  const applicationSourceFiles = activeApplicationSourceFiles(repoRoot);
+  const hypervisorSourceFiles = applicationSourceFiles.filter((relativePath) => (
+    relativePath.startsWith("apps/hypervisor/src/")
+    && relativePath !== "apps/hypervisor/src/services/hypervisorHostBridge.ts"
+  ));
+  const jsHostCalls = aggregateLiteralCalls(discoverLiteralCalls({
+    repoRoot,
+    relativePaths: sourceFilesMatching(
+      repoRoot,
+      hypervisorSourceFiles,
+      /\binvoke(?:\s*<[^;>{}]+>)?\s*\(/u,
+    ),
+    callee: "invoke",
+    identityPrefix: "js-host-action",
+    surface: "hypervisor-app",
+  })).map((entry) => ({
+    ...entry,
+    handler_source_file: entry.source_file,
+    handler_source_symbol: entry.handler,
+    handler_anchor: entry.source_anchor,
+    handler_resolution: "host_bridge_call_site",
+    handler_calls: ["invoke"],
+    handler_call_sequence: ["invoke"],
+  }));
+
+  const devCases = discoverSwitchCases({
+    repoRoot,
+    relativePath: "scripts/hypervisor-app-dev-replay-server.mjs",
+    identityPrefix: "dev-replay-action",
+    surface: "hypervisor-dev-replay",
+  }).map((entry) => ({
+    ...entry,
+    handler_source_file: entry.source_file,
+    handler_source_symbol: entry.source_symbol,
+    handler_anchor: entry.source_anchor,
+    handler_resolution: "switch_case",
+    handler_calls: [],
+    handler_call_sequence: [],
+  }));
+
+  const jsStorage = discoverJsStorageMutations({
+    repoRoot,
+    relativePaths: sourceFilesMatching(
+      repoRoot,
+      applicationSourceFiles.filter((relativePath) => (
+        relativePath.startsWith("apps/hypervisor/src/")
+      )),
+      /(?:localStorage|sessionStorage)\.(?:setItem|removeItem|clear)\s*\(/u,
+    ),
+    surface: "hypervisor-app-local-storage",
+    activeState: "active_hypervisor_browser_compatibility_state",
+  }).map((entry) => ({
+    ...entry,
+    handler_source_file: entry.source_file,
+    handler_source_symbol: entry.source_symbol,
+    handler_anchor: entry.source_anchor,
+    handler_resolution: "browser_storage_call",
+    handler_calls: [entry.handler],
+    handler_call_sequence: [entry.handler],
+  }));
+  const otherJsStorage = discoverJsStorageMutations({
+    repoRoot,
+    relativePaths: sourceFilesMatching(
+      repoRoot,
+      applicationSourceFiles.filter((relativePath) => (
+        !relativePath.startsWith("apps/hypervisor/src/")
+      )),
+      /(?:localStorage|sessionStorage)\.(?:setItem|removeItem|clear)\s*\(/u,
+    ),
+    surface: "other-js-app-local-storage",
+    activeState: "active_application_browser_compatibility_state",
+  }).map((entry) => ({
+    ...entry,
+    handler_source_file: entry.source_file,
+    handler_source_symbol: entry.source_symbol,
+    handler_anchor: entry.source_anchor,
+    handler_resolution: "browser_storage_call",
+    handler_calls: [entry.handler],
+    handler_call_sequence: [entry.handler],
+  }));
+
+  const discoveredJsSystemEffects = discoverJsSystemEffects({
+    repoRoot,
+    relativePaths: activeJavaScriptEffectSources(repoRoot),
+  });
+  assertExactCoverageSet(
+    "active_javascript_system_effect_action",
+    discoveredJsSystemEffects.map((entry) => entry.identity),
+    Object.keys(JS_SYSTEM_EFFECT_ACTIONS).sort(),
+  );
+  const jsSystemEffects = discoveredJsSystemEffects.map((entry) => ({
+    ...entry,
+    ...JS_SYSTEM_EFFECT_ACTIONS[entry.identity],
+  }));
+
+  const productUiOutbound = discoverJsOutboundCalls({
+    repoRoot,
+    relativePaths: [
+      "apps/hypervisor/scripts/serve-product-ui.mjs",
+      "apps/hypervisor/scripts/ioi-api-adapter.mjs",
+      "apps/hypervisor/scripts/ioi-agent-runs.mjs",
+      ...listFiles(
+        repoRoot,
+        "apps/hypervisor/scripts/augmentation",
+        ".js",
+      ),
+      "apps/hypervisor/surfaces/approvals/index.mjs",
+      "apps/hypervisor/surfaces/ontology-context.mjs",
+      "apps/hypervisor/surfaces/ontology-manager/index.mjs",
+      "apps/hypervisor/surfaces/pipeline/index.mjs",
+      "apps/hypervisor/surfaces/sources/index.mjs",
+    ],
+    surface: "hypervisor-product-ui-outbound",
+    activeState: "standing_serve_product_ui_compatibility_surface",
+  });
+
+  const hypervisorDevSourceFiles = applicationSourceFiles.filter((relativePath) => (
+    relativePath.startsWith("apps/hypervisor/src/dev/")
+  ));
+  const hypervisorDevOutbound = discoverJsOutboundCalls({
+    repoRoot,
+    relativePaths: sourceFilesMatching(
+      repoRoot,
+      hypervisorDevSourceFiles,
+      /(?:\bfetch\s*\(|\bdaemon\s*\(|\.request\s*\()/u,
+    ),
+    surface: "hypervisor-app-dev-outbound",
+    activeState: "vite_development_only",
+  });
+
+  const hypervisorAppOutbound = discoverJsOutboundCalls({
+    repoRoot,
+    relativePaths: sourceFilesMatching(
+      repoRoot,
+      applicationSourceFiles.filter((relativePath) => (
+        relativePath.startsWith("apps/hypervisor/src/")
+        && !hypervisorDevSourceFiles.includes(relativePath)
+      )),
+      /(?:\bfetch\s*\(|\bdaemon\s*\(|\.request\s*\()/u,
+    ),
+    surface: "hypervisor-app-outbound",
+    activeState: "active_hypervisor_application",
+  });
+
+  const otherAppOutbound = discoverJsOutboundCalls({
+    repoRoot,
+    relativePaths: sourceFilesMatching(
+      repoRoot,
+      applicationSourceFiles.filter((relativePath) => (
+        !relativePath.startsWith("apps/hypervisor/src/")
+      )),
+      /(?:\bfetch\s*\(|\bdaemon\s*\(|\.request\s*\()/u,
+    ),
+    surface: "other-js-app-outbound",
+    activeState: "active_application",
+  });
+
+  const manual = [
+    fileLockedEntry({
+      repoRoot,
+      identity: "http:signer:POST /sign",
+      kind: "http",
+      surface: "signer-http",
+      operation: "POST /sign",
+      relativePath: "crates/node/src/bin/signer.rs",
+      symbol: "perform_sign",
+      httpMethod: "POST",
+      httpPath: "/sign",
+    }),
+    fileLockedEntry({
+      repoRoot,
+      identity: "compatibility-io:hypervisor-dev-replay:probeModelUpstreamReachable",
+      kind: "compatibility_io",
+      surface: "hypervisor-dev-replay",
+      operation: "GET configured model upstream /models",
+      relativePath: "scripts/hypervisor-app-dev-replay-server.mjs",
+      symbol: "probeModelUpstreamReachable",
+      httpMethod: "GET",
+      httpPath: "configured model upstream /models",
+    }),
+    fileLockedEntry({
+      repoRoot,
+      identity: "compatibility-io:hypervisor-dev-replay:streamSessionTurn",
+      kind: "compatibility_io",
+      surface: "hypervisor-dev-replay",
+      operation: "POST configured model upstream /chat/completions",
+      relativePath: "scripts/hypervisor-app-dev-replay-server.mjs",
+      symbol: "streamSessionTurn",
+      httpMethod: "POST",
+      httpPath: "configured model upstream /chat/completions",
+    }),
+    fileLockedEntry({
+      repoRoot,
+      identity:
+        "http:hypervisor-product-ui-reference-server:ANY /<dynamic-mock-or-static-route>",
+      kind: "http",
+      surface: "hypervisor-product-ui-reference-server",
+      operation: "ANY /<dynamic-mock-or-static-route>",
+      relativePath: "apps/hypervisor/product-ui/server.cjs",
+      symbol: "http.createServer compatibility dispatch",
+      activeState: "spawned_by_standing_serve_product_ui",
+      httpMethod: "ANY",
+      httpPath: "/<dynamic-mock-or-static-route>",
+    }),
+    fileLockedEntry({
+      repoRoot,
+      identity: "service-dynamic:wasm-runtime:<manifest-method@vN>",
+      kind: "dynamic_service_method",
+      surface: "blockchain-service:dynamic-wasm",
+      operation: "manifest-defined method@vN",
+      relativePath: "crates/execution/src/runtime_service/mod.rs",
+      symbol: "RuntimeService::handle_service_call",
+      activeState: "conditionally_installed_from_validated_manifest",
+      serviceMethod: "<manifest-method@vN>",
+    }),
+    fileLockedEntry({
+      repoRoot,
+      identity: "service:ibc_channel_manager:<unsupported-method>",
+      kind: "service_compatibility_boundary",
+      surface: "blockchain-service:ibc_channel_manager",
+      operation: "all service methods return Unsupported",
+      relativePath: "crates/plugins/ibc-service/src/apps/channel.rs",
+      symbol: "BlockchainService::handle_service_call default",
+      activeState: "feature_and_config_selected_no_supported_methods",
+      serviceMethod: "<unsupported-method>",
+    }),
+    rustFunctionAnchoredEntry({
+      repoRoot,
+      identity: "stream:agentgres-replica:AGRS2 <catch-up-or-batch>",
+      kind: "binary_stream_protocol",
+      surface: "agentgres-replica",
+      operation: "AGRS2 catch-up or admitted batch append",
+      registrationFile: "crates/agentgres/src/bin/replica.rs",
+      registrationSymbol: "substrate-replica main",
+      handlerFile: "crates/agentgres/src/replica.rs",
+      handlerSymbol: "serve_one",
+      activeState: "standalone_binary_when_launched",
+    }),
+    fileLockedEntry({
+      repoRoot,
+      identity: "http:google-oauth-callback:GET /?code&state",
+      kind: "conditional_http_callback",
+      surface: "google-oauth-callback",
+      operation: "GET /?code&state",
+      relativePath: "crates/services/src/agentic/runtime/connectors/google_auth.rs",
+      symbol: "wait_for_google_callback in login",
+      activeState: "conditional_pending_google_oauth_session",
+      httpMethod: "GET",
+      httpPath: "/?code&state",
+    }),
+    fileLockedEntry({
+      repoRoot,
+      identity: "stream:hypervisor-editor-proxy:<lease-authenticated-http-or-websocket-bytes>",
+      kind: "dynamic_stream_protocol",
+      surface: "hypervisor-editor-proxy",
+      operation: "lease-authenticated HTTP or WebSocket byte forwarding",
+      relativePath: `${ROUTE_DIRECTORY}/editor_proxy.rs`,
+      symbol: "handle_conn",
+      activeState: "conditional_live_editor_service",
+    }),
+    fileLockedEntry({
+      repoRoot,
+      identity: "stream:guardian-encrypted-container:<framed-orchestration-or-workload-request>",
+      kind: "dynamic_stream_protocol",
+      surface: "guardian-encrypted-container",
+      operation: "mTLS and post-quantum encrypted internal framed dispatch",
+      relativePath: "crates/validator/src/common/guardian/server.rs",
+      symbol: "GuardianContainer::start dispatch loop",
+      activeState: "configured_internal_guardian_container",
+    }),
+  ];
+
+  const entries = sortByIdentity([
+    ...daemon,
+    ...ibc,
+    ...telemetry,
+    ...provider,
+    ...previewHttp,
+    ...wallet,
+    ...literalBlockchainServices,
+    ...macroBlockchainServices,
+    ...publicRpc,
+    ...guardianRpc,
+    ...workloadRpc,
+    ...modelMountRpc,
+    ...jsHostCalls,
+    ...devCases,
+    ...jsStorage,
+    ...otherJsStorage,
+    ...jsSystemEffects,
+    ...productUiOutbound,
+    ...hypervisorDevOutbound,
+    ...hypervisorAppOutbound,
+    ...otherAppOutbound,
+    ...manual,
+  ]);
+  assertUniqueIdentities(entries, "M0 repository surface");
+  return entries;
+}
+
+function ownerForEntry(entry) {
+  if (entry.surface === "wallet.network") {
+    return {
+      owner: "wallet.network",
+      owner_doc: "docs/architecture/components/wallet-network/doctrine.md",
+    };
+  }
+  if (entry.surface === "public-api") {
+    return {
+      owner: "Validator orchestration public API",
+      owner_doc: "docs/architecture/components/daemon-runtime/api.md",
+    };
+  }
+  if (entry.surface.startsWith("blockchain-service:")) {
+    const serviceName = entry.surface.slice("blockchain-service:".length);
+    return {
+      owner: `${serviceName} native blockchain service`,
+      owner_doc: "docs/architecture/components/daemon-runtime/api.md",
+    };
+  }
+  if (entry.surface.startsWith("workload-ipc-")) {
+    return {
+      owner: "Validator workload IPC",
+      owner_doc: "docs/architecture/components/daemon-runtime/api.md",
+    };
+  }
+  if (entry.surface === "guardian-control" || entry.surface === "signer-http") {
+    return {
+      owner: "Guardian and signer boundary",
+      owner_doc: "docs/architecture/foundations/governed-autonomous-systems.md",
+    };
+  }
+  if (entry.surface === "provider-http") {
+    return {
+      owner: "Compute Provider",
+      owner_doc: "docs/architecture/components/hypervisor/providers-and-environments.md",
+    };
+  }
+  if (entry.surface === "ibc-http-gateway") {
+    return {
+      owner: "IBC HTTP gateway",
+      owner_doc: "docs/architecture/foundations/governed-autonomous-systems.md",
+    };
+  }
+  if (entry.surface === "telemetry-http") {
+    return {
+      owner: "Platform telemetry",
+      owner_doc: "docs/architecture/components/daemon-runtime/platform-operability.md",
+    };
+  }
+  if (entry.surface === "model-mount-grpc") {
+    return {
+      owner: "Model Mount compatibility contract",
+      owner_doc: "docs/architecture/components/daemon-runtime/api.md",
+    };
+  }
+  if (entry.surface === "agentgres-replica") {
+    return {
+      owner: "Agentgres",
+      owner_doc: "docs/architecture/components/agentgres/api-object-model.md",
+    };
+  }
+  if (entry.surface === "google-oauth-callback") {
+    return {
+      owner: "Hypervisor connector runtime",
+      owner_doc: "docs/architecture/components/daemon-runtime/api.md",
+    };
+  }
+  if (entry.surface === "hypervisor-editor-proxy") {
+    return {
+      owner: "Hypervisor Daemon/Core editor runtime",
+      owner_doc: "docs/architecture/components/hypervisor/core-clients-surfaces.md",
+    };
+  }
+  if (entry.surface === "guardian-encrypted-container") {
+    return {
+      owner: "Guardian internal container boundary",
+      owner_doc: "docs/architecture/foundations/governed-autonomous-systems.md",
+    };
+  }
+  if (entry.surface === "session-preview-http") {
+    return {
+      owner: "Hypervisor Daemon/Core session preview",
+      owner_doc: "docs/architecture/components/daemon-runtime/api.md",
+    };
+  }
+  if (entry.surface === "hypervisor-app-dev-outbound") {
+    return {
+      owner: "Hypervisor development replay compatibility",
+      owner_doc: "docs/architecture/components/hypervisor/core-clients-surfaces.md",
+    };
+  }
+  if (entry.surface === "hypervisor-app-outbound") {
+    return {
+      owner: "Hypervisor client projection",
+      owner_doc: "docs/architecture/components/hypervisor/core-clients-surfaces.md",
+    };
+  }
+  if (entry.surface === "hypervisor-app") {
+    return {
+      owner: "Hypervisor client projection",
+      owner_doc: "docs/architecture/components/hypervisor/core-clients-surfaces.md",
+    };
+  }
+  if (entry.surface === "hypervisor-app-local-storage") {
+    return {
+      owner: "Hypervisor client compatibility state",
+      owner_doc: "docs/architecture/components/hypervisor/core-clients-surfaces.md",
+    };
+  }
+  if (
+    entry.surface === "hypervisor-product-ui-outbound"
+    || entry.surface === "hypervisor-product-ui-local-state"
+    || entry.surface === "hypervisor-product-ui-process"
+    || entry.surface === "hypervisor-product-ui-reference-server"
+    || entry.surface === "hypervisor-product-ui-test-signer"
+  ) {
+    return {
+      owner: "Hypervisor product UI compatibility facade",
+      owner_doc: "docs/architecture/components/hypervisor/core-clients-surfaces.md",
+    };
+  }
+  if (entry.surface === "other-js-app-outbound") {
+    return {
+      owner: "Application read projection",
+      owner_doc: "docs/architecture/_meta/source-of-truth-map.md",
+    };
+  }
+  if (entry.surface === "other-js-app-local-storage") {
+    return {
+      owner: "Application-local compatibility state",
+      owner_doc: "docs/architecture/_meta/source-of-truth-map.md",
+    };
+  }
+  if (entry.surface === "hypervisor-dev-replay") {
+    return {
+      owner: "Hypervisor development replay compatibility",
+      owner_doc: "docs/architecture/components/hypervisor/core-clients-surfaces.md",
+    };
+  }
+  if (entry.surface === "hypervisor-daemon") {
+    const source = entry.handler_source_file ?? "";
+    if (source.includes("goalrun_routes")) {
+      return {
+        owner: "GoalRun and Goal Kernel",
+        owner_doc: "docs/architecture/foundations/common-objects-and-envelopes.md",
+      };
+    }
+    if (
+      /(outcome_room|room_participation|work_frontier_claim|attempt_finding|work_result)/u
+        .test(source)
+    ) {
+      return {
+        owner: "OutcomeRoom work coordination",
+        owner_doc: "docs/architecture/domains/ioi-ai/collaborative-outcome-pattern.md",
+      };
+    }
+    if (source.includes("authority_routes")) {
+      return {
+        owner: "Hypervisor daemon authority PEP",
+        owner_doc: "docs/architecture/components/wallet-network/api-authority-scopes.md",
+      };
+    }
+    return {
+      owner: "Hypervisor Daemon/Core",
+      owner_doc: "docs/architecture/components/daemon-runtime/api.md",
+    };
+  }
+  return {
+    owner: "Repository compatibility surface",
+    owner_doc: "docs/architecture/_meta/source-of-truth-map.md",
+  };
+}
+
+const DIRECT_EFFECT_CALL = /(?:^|::|\.)(?:persist(?:_|$)|persist_record$|persist_env$|persist_availability_locked$|persist_runnability_locked$|write(?:_|$)|write_all$|writeFileSync$|remove_record$|remove_file$|remove_dir_all$|create_dir(?:_all)?$|rename$|save(?:_|$)|store(?:_|$)|store_typed$|append(?:_|$)|append_audit_event(?:_with_records)?$|state\.insert$|state\.delete$|admit_and_persist|apply_workspace_patch$|Command::new$|spawn$|send$|try_send$|submit_ibc_messages$|set_secret$|provision_with_domain$|perform_sign$|sync_all$|register_service$|ensure_(?:seed|default_space)$)/u;
+const WALLET_EFFECT_CALL = /^(?:store_typed|append_audit_event(?:_with_records)?|commit_binding|state\.(?:insert|delete|batch_apply)|provider\.(?:read_latest|list_recent|mailbox_total_count|delete_spam|send_reply))$/u;
+
+const MACRO_GENERATED_GET_MUTATIONS = new Set([
+  "http:hypervisor-daemon:GET /v1/hypervisor/automation-affinities",
+  "http:hypervisor-daemon:GET /v1/hypervisor/memory-entries",
+  "http:hypervisor-daemon:GET /v1/hypervisor/skill-entries",
+]);
+
+const PLAN_ONLY_HTTP_IDENTITIES = new Set([
+  "http:hypervisor-daemon:POST /v1/hypervisor/authority/evaluate",
+  "http:hypervisor-daemon:POST /v1/hypervisor/provider-ladder/resolve",
+  "http:hypervisor-daemon:POST /v1/model-mount/tokens/count",
+  "http:hypervisor-daemon:POST /v1/threads/:id/snapshots/:snapshot_id/restore-preview",
+]);
+
+function directEffectCalls(entry) {
+  return (entry.handler_call_sequence ?? []).filter((call) => DIRECT_EFFECT_CALL.test(call));
+}
+
+function uniqueInOrder(values) {
+  return values.filter((value, index) => values.indexOf(value) === index);
+}
+
+function walletEffectCalls(entry) {
+  return uniqueInOrder(
+    (entry.handler_call_sequence ?? []).filter((call) => WALLET_EFFECT_CALL.test(call)),
+  );
+}
+
+function effectClassFor(entry, classification) {
+  const text = `${entry.operation} ${entry.handler ?? ""}`.toLowerCase();
+  if (classification === "read_only") {
+    return text.includes("health") || text.includes("probe")
+      ? "external_or_local_observation"
+      : "read_projection";
+  }
+  if (classification === "plan_only") {
+    return "plan_or_validation";
+  }
+  if (classification === "compatibility") {
+    return "compatibility_or_simulation";
+  }
+  if (classification === "unavailable_contract") {
+    return "declared_unmounted_contract";
+  }
+  if (classification === "internal_only") {
+    return "internal_runtime_or_state_control";
+  }
+  if (entry.kind === "js_outbound") {
+    return "javascript_network_or_daemon_effect";
+  }
+  if (entry.kind === "js_local_file_action") {
+    return "javascript_local_durable_state";
+  }
+  if (entry.kind === "js_system_effect") {
+    return entry.system_effect_categories.includes("process")
+      ? "javascript_process_lifecycle"
+      : "javascript_local_durable_state";
+  }
+  if (entry.kind === "js_local_storage") {
+    return "browser_local_durable_state";
+  }
+  if (entry.surface === "signer-http") {
+    return "cryptographic_signature_and_signer_wal";
+  }
+  if (entry.surface === "provider-http") {
+    return "provider_allocation_and_receipt";
+  }
+  if (entry.surface === "agentgres-replica") {
+    return "replicated_durable_log_append";
+  }
+  if (entry.surface === "google-oauth-callback") {
+    return "oauth_token_exchange_and_local_secret_state";
+  }
+  if (entry.surface === "hypervisor-editor-proxy") {
+    return "lease_gated_dynamic_editor_effect";
+  }
+  if (entry.surface === "guardian-encrypted-container") {
+    return "internal_encrypted_dynamic_control";
+  }
+  if (entry.surface === "ibc-http-gateway") {
+    return "network_transaction_submission";
+  }
+  if (entry.surface === "public-api" && entry.rpc_method === "SubmitTransaction") {
+    return "transaction_admission_and_network_fanout";
+  }
+  if (entry.surface === "public-api" && entry.rpc_method === "SetRuntimeSecret") {
+    return "process_local_secret_state";
+  }
+  if (entry.surface === "wallet.network") {
+    if (/(mail_|mailbox_)/u.test(entry.operation)) {
+      return "wallet_mail_external_io_and_durable_receipt";
+    }
+    if (/(grant|authority|policy|client|identity|secret|channel|approval|panic)/u.test(text)) {
+      return "wallet_authority_policy_or_secret_state";
+    }
+    return "wallet_durable_state";
+  }
+  if (/(authority|grant|approval|policy|revoke|lease)/u.test(text)) {
+    return "authority_policy_or_lease_state";
+  }
+  if (/(workspace|repository|file|git|editor|terminal|exec|coding)/u.test(text)) {
+    return "filesystem_repository_or_process_effect";
+  }
+  if (/(provider|connector|mail|scm|webhook|mcp|download|model)/u.test(text)) {
+    return "external_provider_or_network_effect";
+  }
+  if (/(start|stop|restart|execute|run|spawn|mount|load|unload|cancel)/u.test(text)) {
+    return "runtime_or_process_lifecycle";
+  }
+  if (/(receipt|evidence|export|checkpoint)/u.test(text)) {
+    return "evidence_or_export_state";
+  }
+  return "durable_control_state";
+}
+
+function initialClassification(entry, devCaseCommands) {
+  if (entry.surface === "session-preview-http") {
+    return "read_only";
+  }
+  if (
+    entry.surface === "agentgres-replica"
+    || entry.surface === "google-oauth-callback"
+    || entry.surface === "hypervisor-editor-proxy"
+  ) {
+    return "consequential";
+  }
+  if (entry.surface === "guardian-encrypted-container") {
+    return "internal_only";
+  }
+  if (entry.surface === "model-mount-grpc") {
+    return "unavailable_contract";
+  }
+  const internalReadRpcs = new Set([
+    "GetBlocksRange",
+    "GetGenesisStatus",
+    "QueryContract",
+    "GetNextStakedValidators",
+    "GetStakedValidators",
+    "PrefixScan",
+    "QueryRawState",
+    "QueryStateAt",
+    "GetExpectedModelHash",
+    "HealthCheck",
+  ]);
+  if (entry.surface.startsWith("workload-ipc-") && internalReadRpcs.has(entry.rpc_method)) {
+    return "read_only";
+  }
+  if (
+    entry.surface.startsWith("workload-ipc-")
+    && entry.rpc_method === "CheckTransactions"
+  ) {
+    return "plan_only";
+  }
+  if (
+    entry.surface.startsWith("workload-ipc-")
+    && entry.rpc_method === "CheckAndTallyProposals"
+  ) {
+    return "compatibility";
+  }
+  if (entry.surface.startsWith("workload-ipc-")) {
+    return "internal_only";
+  }
+  if (entry.surface === "blockchain-service:dynamic-wasm") {
+    return "unavailable_contract";
+  }
+  if (entry.surface === "blockchain-service:ibc_channel_manager") {
+    return "compatibility";
+  }
+  if (entry.surface === "blockchain-service:evolution") {
+    return "unavailable_contract";
+  }
+  if (entry.surface.startsWith("blockchain-service:")) {
+    return "consequential";
+  }
+  if (entry.surface === "telemetry-http") {
+    return "read_only";
+  }
+  if (entry.kind === "js_outbound") {
+    return ["GET", "HEAD"].includes(entry.method) ? "read_only" : "consequential";
+  }
+  if (entry.kind === "js_local_file_action") {
+    return "consequential";
+  }
+  if (entry.kind === "js_system_effect") {
+    return "consequential";
+  }
+  if (entry.kind === "js_local_storage") {
+    return "consequential";
+  }
+  if (entry.surface === "hypervisor-dev-replay") {
+    if (entry.identity.endsWith(":probeModelUpstreamReachable")) {
+      return "read_only";
+    }
+    if (
+      entry.identity.endsWith(":writeEvidenceFile")
+      || entry.identity.endsWith(":streamSessionTurn")
+    ) {
+      return "consequential";
+    }
+    return "compatibility";
+  }
+  if (entry.surface === "hypervisor-app") {
+    return devCaseCommands.has(entry.command) ? "compatibility" : "unavailable_contract";
+  }
+  if (entry.kind === "js_local_storage") {
+    return "consequential";
+  }
+  if (entry.surface === "wallet.network") {
+    return "consequential";
+  }
+  if (entry.surface === "guardian-control") {
+    if (entry.rpc_method === "LoadAssignedRecoveryShare") {
+      return "read_only";
+    }
+    return "consequential";
+  }
+  if (entry.surface === "public-api") {
+    if (["SubmitTransaction", "SetRuntimeSecret"].includes(entry.rpc_method)) {
+      return "consequential";
+    }
+    if (entry.rpc_method === "DraftTransaction") {
+      return "consequential";
+    }
+    return "read_only";
+  }
+  if (entry.surface === "ibc-http-gateway") {
+    return entry.path === "/v1/ibc/submit" ? "consequential" : "read_only";
+  }
+  if (entry.surface === "provider-http" || entry.surface === "signer-http") {
+    return "consequential";
+  }
+  if (entry.surface !== "hypervisor-daemon") {
+    return "compatibility";
+  }
+
+  if (entry.method === "GET") {
+    return directEffectCalls(entry).length > 0
+      || MACRO_GENERATED_GET_MUTATIONS.has(entry.identity)
+      ? "consequential"
+      : "read_only";
+  }
+
+  if (PLAN_ONLY_HTTP_IDENTITIES.has(entry.identity)) {
+    return "plan_only";
+  }
+  return MUTATING_HTTP_METHODS.has(entry.method) ? "consequential" : "read_only";
+}
+
+function gateRecord(state, symbols, note) {
+  return {
+    state,
+    symbols: [...new Set(symbols)].sort(),
+    note,
+  };
+}
+
+function observedGates(entry, classification) {
+  if (classification !== "consequential" && classification !== "internal_only") {
+    return Object.fromEntries(
+      ["authority", "policy", "revocation", "fence", "ifc"].map((gate) => [
+        gate,
+        gateRecord(
+          "not_applicable_no_effect",
+          [],
+          `No ${gate} gate is claimed because this entry is classified as non-consequential.`,
+        ),
+      ]),
+    );
+  }
+  const calls = entry.handler_calls ?? [];
+  const matching = (pattern) => calls.filter((call) => pattern.test(call));
+  const gates = {
+    authority: gateRecord(
+      "not_established_at_final_invoker",
+      [],
+      "No authority may be inferred from request fields, UI state, or copied receipt refs.",
+    ),
+    policy: gateRecord(
+      "not_established_at_final_invoker",
+      [],
+      "No final-invoker policy ordering proof is recorded for this entry.",
+    ),
+    revocation: gateRecord(
+      "not_established_at_final_invoker",
+      [],
+      "No bounded-staleness revocation check is established at the final invoker.",
+    ),
+    fence: gateRecord(
+      "not_established_at_final_invoker",
+      [],
+      "No owner-derived active-writer fence is established at the final invoker.",
+    ),
+    ifc: gateRecord(
+      "not_established_at_final_invoker",
+      [],
+      "No estate-wide label and destination closure is established at the final invoker.",
+    ),
+  };
+
+  if (entry.surface === "hypervisor-daemon") {
+    gates.authority = gateRecord(
+      "conditional_transport_auth_not_effect_authority",
+      ["lifecycle_routes::auth_gate"],
+      "The global auth ring enforces only when configured and is not proof of effect authority.",
+    );
+  }
+
+  const authorityCalls = matching(/authoriz|grant|approval|signature|signer/iu);
+  const policyCalls = matching(/policy|admission|preflight/iu);
+  const revocationCalls = matching(/revok|expiry|epoch/iu);
+  const fenceCalls = matching(/fence|exact_head|expected_head|revision|idempot/iu);
+  const ifcCalls = matching(/ifc|information_flow|label|declass|destination/iu);
+  for (const [name, symbols] of [
+    ["authority", authorityCalls],
+    ["policy", policyCalls],
+    ["revocation", revocationCalls],
+    ["fence", fenceCalls],
+    ["ifc", ifcCalls],
+  ]) {
+    if (symbols.length > 0) {
+      gates[name] = gateRecord(
+        "observed_in_handler_not_order_proven",
+        symbols,
+        "The symbols occur in the handler body; M0 does not claim final-invoker ordering.",
+      );
+    }
+  }
+
+  if (entry.surface === "wallet.network") {
+    const sequence = entry.handler_call_sequence ?? [];
+    const effectCalls = walletEffectCalls(entry);
+    const firstEffectIndex = sequence.findIndex((call) => effectCalls.includes(call));
+    const beforeEffect = (pattern) => uniqueInOrder(
+      sequence.filter((call, index) => (
+        (firstEffectIndex === -1 || index < firstEffectIndex) && pattern.test(call)
+      )),
+    );
+    const handlerAuthority = beforeEffect(
+      /ensure_(?:control_root_signer|initialized_wallet_client_role|wallet_client_role)|validate_(?:root_record|.*signature)|validate_registered_approval_grant/iu,
+    );
+    gates.authority = gateRecord(
+      entry.operation === "configure_control_root@v1"
+        ? "derived_root_signer_match_before_write"
+        : handlerAuthority.includes("ensure_control_root_signer")
+            ? "control_root_signer_verified_before_handler_effect"
+            : handlerAuthority.includes("ensure_initialized_wallet_client_role")
+                ? "initialized_client_role_verified_before_handler_effect"
+                : "service_method_role_with_uninitialized_root_compatibility",
+      uniqueInOrder([
+        "handlers::client_auth::authorize_wallet_method",
+        ...handlerAuthority,
+      ]),
+      entry.operation === "configure_control_root@v1"
+        ? "The proposed control-root key derives the transaction signer, and an existing root must match that signer before persistence."
+        : handlerAuthority.some((symbol) => (
+            symbol === "ensure_control_root_signer"
+            || symbol === "ensure_initialized_wallet_client_role"
+          ))
+            ? "The dispatch role check and listed handler check run before the observed handler effect calls."
+            : "The dispatch method-role check runs before the handler, but this path permits the documented uninitialized-root compatibility mode.",
+    );
+    const policySymbols = beforeEffect(
+      /validate|enforce|policy|scope|constraint|capabilit|is_(?:string|constraint)_subset/iu,
+    );
+    gates.policy = gateRecord(
+      policySymbols.length > 0
+        ? "method_role_and_handler_checks_before_observed_effect"
+        : "method_role_policy_only",
+      uniqueInOrder([
+        "handlers::client_auth::authorize_wallet_method",
+        ...policySymbols,
+      ]),
+      policySymbols.length > 0
+        ? "The listed method-specific validation and constraint calls precede the first observed handler effect call; they are not a generic production PEP."
+        : "The method role is checked before dispatch; no additional callable policy check was identified before the handler effect.",
+    );
+    if (
+      entry.operation !== "panic_stop@v1"
+      && beforeEffect(/load_revocation_epoch/iu).length > 0
+    ) {
+      gates.revocation = gateRecord(
+        "revocation_epoch_loaded_before_observed_effect",
+        ["load_revocation_epoch"],
+        "The handler loads and checks the active wallet revocation epoch before its observed effect calls; M0 does not claim estate-wide bounded-staleness closure.",
+      );
+    }
+    const fenceSymbols = beforeEffect(
+      /exact_replay|replay|state\.get|enforce_.*window|validate_next_version/iu,
+    );
+    if (fenceSymbols.length > 0) {
+      gates.fence = gateRecord(
+        "replay_or_slot_check_before_observed_effect_not_writer_fence",
+        fenceSymbols,
+        "The listed replay, sequence, or occupied-slot checks precede the first observed handler effect; they are not an owner-derived active-writer fence.",
+      );
+    }
+  }
+  if (entry.surface.startsWith("blockchain-service:")) {
+    gates.authority = gateRecord(
+      "transaction_signer_context_only",
+      ["TxContext::signer_account_id"],
+      "The chain transaction establishes a signer context; service-specific effect authority is not inferred.",
+    );
+    gates.policy = gateRecord(
+      "service_specific_checks_only",
+      (entry.handler_calls ?? []).filter((call) => /valid|policy|authoriz|verify|check/iu.test(call)),
+      "Any listed checks are local to the service method and are not a generic production PEP.",
+    );
+  }
+  if (entry.surface === "agentgres-replica") {
+    gates.authority = gateRecord(
+      "not_established_unauthenticated_replication_peer",
+      [],
+      "The listener accepts any reachable AGRS2 peer; writer epoch is a fence, not authenticated effect authority.",
+    );
+    gates.policy = gateRecord(
+      "protocol_framing_only_not_effect_policy",
+      ["MAGIC", "CATCHUP_CHUNK"],
+      "Protocol shape and catch-up framing are checked, but no owner policy authorizes the bytes being appended.",
+    );
+    gates.revocation = gateRecord(
+      "not_established_at_replica_listener",
+      [],
+      "No revocation source is checked before a catch-up or batch append.",
+    );
+    gates.fence = gateRecord(
+      "writer_epoch_checked_before_append",
+      ["MuxEngine::current_epoch", "primary_epoch", "max_epoch", "epoch"],
+      "The recovered maximum writer epoch fences stale primaries at handshake and before each batch append.",
+    );
+    gates.ifc = gateRecord(
+      "not_established_for_replication_destination",
+      [],
+      "The stream carries raw admitted log bytes without an information-flow or destination-policy check at this listener.",
+    );
+  }
+  if (entry.surface === "google-oauth-callback") {
+    gates.authority = gateRecord(
+      "oauth_state_and_pkce_only_not_product_authority",
+      ["wait_for_google_callback", "code_verifier"],
+      "Callback state and PKCE bind the OAuth exchange; they do not establish IOI product effect authority.",
+    );
+    gates.policy = gateRecord(
+      "requested_google_scopes_only_not_owner_policy",
+      ["resolve_requested_google_oauth_scopes", "requested_scopes"],
+      "The connector bounds requested Google scopes, but no owner policy authorizes local bearer-token persistence.",
+    );
+    gates.revocation = gateRecord(
+      "pending_session_timeout_only",
+      ["GOOGLE_AUTH_TIMEOUT_SECS", "pending_session_matches"],
+      "The pending callback expires and must still match in-memory state; provider-token revocation is not checked before persistence.",
+    );
+    gates.fence = gateRecord(
+      "pending_state_rechecked_before_local_write",
+      ["pending_session_matches", "save_google_auth_record"],
+      "The same in-memory pending state is checked after token exchange and before the local token record write.",
+    );
+    gates.ifc = gateRecord(
+      "not_established_for_local_bearer_token_file",
+      [],
+      "No IFC label, destination rule, or explicit file-permission hardening is established for the token record.",
+    );
+  }
+  if (entry.surface === "hypervisor-editor-proxy") {
+    gates.authority = gateRecord(
+      "active_lease_and_optional_token_match_before_forward",
+      ["capability_lease_status", "extract_lease_token"],
+      "The bound lease must be active; a supplied token must match, while tokenless same-origin asset and WebSocket requests are admitted.",
+    );
+    gates.policy = gateRecord(
+      "lease_service_binding_only",
+      ["bound_lease", "service_id", "internal_port"],
+      "The proxy is bound to one service and loopback target, but it cannot authorize the semantics of arbitrary forwarded bytes.",
+    );
+    gates.revocation = gateRecord(
+      "active_lease_rechecked_on_new_connection_only",
+      ["capability_lease_status"],
+      "Expiry or revocation fails closed for new connections; an established byte stream is not revalidated.",
+    );
+    gates.fence = gateRecord(
+      "not_established_for_forwarded_effect",
+      [],
+      "No exact-head, operation, idempotency, or owner-derived fence is available at the byte proxy.",
+    );
+    gates.ifc = gateRecord(
+      "loopback_target_only_not_semantic_ifc",
+      ["TcpStream::connect((\"127.0.0.1\", internal_port))"],
+      "Loopback destination binding is real, but payload labels and destination policy are opaque to the proxy.",
+    );
+  }
+  if (entry.surface === "guardian-encrypted-container") {
+    gates.authority = gateRecord(
+      "mutual_transport_identity_only",
+      ["create_ipc_server_config", "IpcClientType::try_from"],
+      "TLS peer identity and a one-byte client type select an internal channel; they do not prove effect-level authority.",
+    );
+    gates.policy = gateRecord(
+      "channel_selection_only",
+      ["orchestration_channel", "workload_channel"],
+      "The container selects an internal RPC channel and delegates all semantic policy downstream.",
+    );
+    gates.revocation = gateRecord(
+      "certificate_policy_not_effect_revocation",
+      ["create_ipc_server_config"],
+      "Certificate admission is transport policy; no effect-grant revocation check occurs at dynamic dispatch.",
+    );
+    gates.fence = gateRecord(
+      "not_established_at_encrypted_transport",
+      [],
+      "No effect fence can be inferred from the encrypted framed transport.",
+    );
+    gates.ifc = gateRecord(
+      "encrypted_channel_only_not_ifc",
+      ["server_post_handshake", "AeadWrappedStream"],
+      "Confidential transport does not establish information-flow labels or destination closure.",
+    );
+  }
+  if (
+    entry.kind === "js_outbound"
+    || entry.kind === "js_local_file_action"
+    || entry.kind === "js_system_effect"
+    || entry.kind === "js_local_storage"
+  ) {
+    gates.authority = gateRecord(
+      "client_or_facade_not_authority",
+      [],
+      "The JavaScript caller is never accepted as effect authority; real gates must exist downstream.",
+    );
+    gates.policy = gateRecord(
+      "downstream_only_not_established_here",
+      [],
+      "Any downstream daemon or provider policy is not inferred at this facade call site.",
+    );
+    if (entry.surface === "hypervisor-product-ui-test-signer") {
+      gates.authority = gateRecord(
+        "development_flag_and_deterministic_test_key_not_product_authority",
+        ["IOI_WALLET_TEST_SIGNER", "mintApprovalGrant"],
+        "The helper is reachable only through the explicit development test-signer flag; its deterministic key is never accepted as production authority.",
+      );
+      gates.policy = gateRecord(
+        "caller_supplied_hash_binding_only_not_owner_policy",
+        ["--policy-hash", "--request-hash"],
+        "The helper signs caller-provided bindings for tests and performs no owner-policy decision.",
+      );
+    }
+  }
+
+  if (entry.surface === "public-api" && entry.rpc_method === "SubmitTransaction") {
+    gates.authority = gateRecord(
+      "stateless_transaction_signature_only",
+      ["verify_stateless_signature"],
+      "Signature admission is real; generic effect authority and service policy are downstream.",
+    );
+    gates.fence = gateRecord(
+      "account_nonce_and_mempool_dedup_only",
+      ["tx_account_nonce", "tx_pool_ref.add"],
+      "Nonce and mempool duplicate handling are not an owner-derived effect fence.",
+    );
+  }
+
+  if (entry.surface === "ibc-http-gateway") {
+    gates.policy = gateRecord(
+      "rate_limit_and_resource_bounds_only",
+      ["rate_limit_middleware", "RequestBodyLimitLayer"],
+      "Transport limits are not transaction authority.",
+    );
+  }
+
+  return gates;
+}
+
+const FINAL_INVOKER_OVERRIDES = new Map([
+  [
+    "stream:agentgres-replica:AGRS2 <catch-up-or-batch>",
+    {
+      symbol: "std::fs::File::write_all",
+      source_file: "crates/agentgres/src/replica.rs",
+      resolution: "verified_effect_leaf",
+      note: "The replica appends catch-up and admitted batch bytes to muxlog.bin before acknowledging possession; device flush is asynchronous except at catch-up and connection close.",
+    },
+  ],
+  [
+    "http:google-oauth-callback:GET /?code&state",
+    {
+      symbol: "save_google_auth_record",
+      source_file: "crates/services/src/agentic/runtime/connectors/google_auth.rs",
+      resolution: "verified_effect_leaf",
+      note: "A matching pending state and PKCE exchange lead to the local OAuth token record write.",
+    },
+  ],
+  [
+    "http:hypervisor-daemon:POST /v1/hypervisor/authority/preflight",
+    {
+      symbol: "persist_record[authority-receipts]",
+      source_file: "crates/node/src/bin/hypervisor-daemon.rs",
+      resolution: "verified_effect_leaf",
+      note: "Every admit and refusal branch calls emit_receipt, whose final leaf persists an authority-receipt record.",
+    },
+  ],
+  [
+    "http:hypervisor-daemon:POST /v1/hypervisor/failover/evaluate",
+    {
+      symbol: "persist_plan | failover_run_core",
+      source_file: "crates/node/src/bin/hypervisor_daemon_routes/placement_failover_routes.rs",
+      resolution: "verified_effect_leaf_alternatives",
+      note: "Evaluation persists last-evaluated plan state and, on qualifying evidence, creates a failover run before persisting the triggered plan.",
+    },
+  ],
+  [
+    "http:hypervisor-daemon:POST /v1/threads/:id/mcp/validate",
+    {
+      symbol: "persist_record[agents]",
+      source_file: "crates/node/src/bin/hypervisor-daemon.rs",
+      resolution: "verified_effect_leaf",
+      note: "The shared apply_mcp_control path persists the planner-updated agent even for mcp_validate.",
+    },
+  ],
+  [
+    "http:hypervisor-daemon:POST /v1/threads/:id/memory/validate",
+    {
+      symbol: "admit_and_persist_event",
+      source_file: "crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs",
+      resolution: "verified_effect_leaf",
+      note: "The validation projection is wrapped in a memory.validate control event and admitted to the unified log.",
+    },
+  ],
+  [
+    "http:hypervisor-daemon:POST /v1/threads/:id/tools/:name/invoke",
+    {
+      symbol: "coding_tool_workspace::apply_workspace_patch",
+      source_file: "crates/services/src/agentic/runtime/kernel/coding_tool_workspace.rs",
+      resolution: "verified_effect_leaf_for_file.apply_patch_subdispatch",
+      note: "The dynamic route also supports read/plan tools; this leaf is only the selected file.apply_patch effect.",
+    },
+  ],
+  [
+    "http:ibc-http-gateway:POST /v1/ibc/submit",
+    {
+      symbol: "IbcHost::submit_ibc_messages",
+      source_file: "crates/plugins/http-rpc-gateway/src/lib.rs",
+      resolution: "verified_effect_leaf",
+      note: "The handler delegates decoded message bytes directly to the host.",
+    },
+  ],
+  [
+    "http:provider-http:POST /v1/provision",
+    {
+      symbol: "ProviderController::provision_with_domain",
+      source_file: "crates/validator/src/standard/provider/mod.rs",
+      resolution: "verified_effect_leaf",
+      note: "The controller mutates active_jobs and constructs the signed provider receipt.",
+    },
+  ],
+  [
+    "http:signer:POST /sign",
+    {
+      symbol: "perform_sign",
+      source_file: "crates/node/src/bin/signer.rs",
+      resolution: "verified_effect_leaf",
+      note: "The critical section flushes signer WAL state before producing the signature.",
+    },
+  ],
+  [
+    "rpc:public-api:SetRuntimeSecret",
+    {
+      symbol: "runtime_secret::set_secret",
+      source_file: "crates/validator/src/standard/orchestration/grpc_public/session_handlers.rs",
+      resolution: "verified_effect_leaf",
+      note: "The RPC writes bounded process-local secret state.",
+    },
+  ],
+  [
+    "rpc:public-api:DraftTransaction",
+    {
+      symbol: "nonce_manager entry increment | IntentResolver::resolve_intent | Keypair::sign",
+      source_file: "crates/validator/src/standard/orchestration/grpc_public/tx_handlers.rs",
+      resolution: "verified_effect_leaf_alternatives",
+      note: "Drafting reserves an in-process nonce, may invoke the inference runtime, and signs the resulting transaction; it is not a read-only plan.",
+    },
+  ],
+  [
+    "rpc:public-api:SubmitTransaction",
+    {
+      symbol: "tx_pool_ref.add | tx_ingest_tx.try_send",
+      source_file: "crates/validator/src/standard/orchestration/grpc_public/tx_handlers.rs",
+      resolution: "verified_effect_leaf_alternatives",
+      note: "Fast admission mutates the pool and fans out; the screened path enqueues ingestion.",
+    },
+  ],
+  [
+    "compatibility-io:hypervisor-dev-replay:streamSessionTurn",
+    {
+      symbol: "globalThis.fetch",
+      source_file: "scripts/hypervisor-app-dev-replay-server.mjs",
+      resolution: "verified_effect_leaf",
+      note: "POSTs to the explicitly configured OpenAI-compatible development upstream.",
+    },
+  ],
+]);
+
+function javascriptOutboundInvoker(entry) {
+  return {
+    request: "node:http.request",
+    WebSocket: "globalThis.WebSocket",
+    EventSource: "globalThis.EventSource",
+    sendBeacon: "navigator.sendBeacon",
+  }[entry.handler] ?? "globalThis.fetch";
+}
+
+function finalInvokerFor(entry, classification) {
+  if (classification !== "consequential" && classification !== "internal_only") {
+    return null;
+  }
+  if (FINAL_INVOKER_OVERRIDES.has(entry.identity)) {
+    return FINAL_INVOKER_OVERRIDES.get(entry.identity);
+  }
+  if (entry.surface === "wallet.network") {
+    const effects = walletEffectCalls(entry);
+    if (effects.length === 0) {
+      throw new Error(`${entry.identity}: consequential wallet method has no observed effect call`);
+    }
+    return {
+      symbol: effects.join(" | "),
+      source_file: entry.handler_source_file,
+      resolution: "verified_service_effect_calls_not_production_pep",
+      note: "These exact effect calls are observed in the resolved wallet handler; downstream provider completion and production PEP closure are not claimed.",
+    };
+  }
+  if (entry.surface.startsWith("blockchain-service:")) {
+    const candidates = directEffectCalls(entry);
+    if (candidates.length > 0) {
+      return {
+        symbol: candidates.at(-1),
+        source_file: entry.handler_source_file,
+        resolution: "static_service_arm_candidate_not_order_proven",
+        note: "The effect-shaped leaf is statically observed in this method; M0 does not claim complete order or policy closure.",
+      };
+    }
+    return {
+      symbol: entry.handler_source_symbol ?? entry.handler,
+      source_file: entry.handler_source_file ?? entry.source_file,
+      resolution: "service_method_boundary_only",
+      note: "No deeper effect leaf was proven; the typed final-invoker blocker remains open.",
+    };
+  }
+  if (entry.kind === "js_outbound") {
+    return {
+      symbol: javascriptOutboundInvoker(entry),
+      source_file: entry.handler_source_file,
+      resolution: "verified_javascript_network_leaf",
+      note: "This is the facade's external crossing; it does not establish downstream effect success.",
+    };
+  }
+  if (entry.kind === "js_local_file_action") {
+    return {
+      symbol: "writeFileSync",
+      source_file: entry.source_file,
+      resolution: "verified_javascript_file_leaf",
+      note: "This compatibility preference write is local facade state, never owner truth.",
+    };
+  }
+  if (entry.kind === "js_system_effect") {
+    return {
+      symbol: entry.handler_call_sequence.join(" | "),
+      source_file: entry.handler_source_file,
+      resolution: "verified_javascript_system_leaf",
+      note: "These exact local filesystem or child-process calls are the active JavaScript system-effect crossing.",
+    };
+  }
+  if (entry.kind === "js_local_storage") {
+    return {
+      symbol: entry.handler,
+      source_file: entry.source_file,
+      resolution: "verified_browser_storage_leaf",
+      note: "This is local browser compatibility state, never architecture authority or runtime truth.",
+    };
+  }
+  const candidates = directEffectCalls(entry);
+  if (candidates.length > 0) {
+    return {
+      symbol: candidates.at(-1),
+      source_file: entry.handler_source_file,
+      resolution: "static_candidate_not_order_proven",
+      note: "M0 found this effect-shaped call in the handler but does not claim it is the sole final leaf.",
+    };
+  }
+  return {
+    symbol: entry.handler_source_symbol ?? entry.handler ?? entry.source_symbol,
+    source_file: entry.handler_source_file ?? entry.source_file,
+    resolution: "handler_boundary_only",
+    note: "No deeper effect leaf was proven; the typed census blocker remains open.",
+  };
+}
+
+function finalInvokerClaimState(finalInvoker) {
+  if (finalInvoker === null) {
+    return null;
+  }
+  if (/^verified_effect_leaf(?:_|$)/u.test(finalInvoker.resolution)) {
+    return "verified_effect_leaf";
+  }
+  if (/^verified_(?:javascript|browser|service)_/u.test(finalInvoker.resolution)) {
+    return "verified_boundary_not_downstream_effect";
+  }
+  return "candidate_or_handler_boundary_not_final";
+}
+
+const SELECTED_ROUTE_APPLICABILITY = new Map([
+  ["http:hypervisor-daemon:POST /v1/hypervisor/auth/login", "required_journey"],
+  ["http:hypervisor-daemon:GET /v1/hypervisor/auth/whoami", "required_journey"],
+  ["http:hypervisor-daemon:GET /v1/hypervisor/authority/receipts", "required_journey"],
+  ["http:hypervisor-daemon:POST /v1/hypervisor/goal-runs", "required_journey"],
+  ["http:hypervisor-daemon:POST /v1/hypervisor/goal-runs/:id/start", "required_journey"],
+  ["http:hypervisor-daemon:POST /v1/hypervisor/goal-runs/:id/lifecycle-recovery", "required_journey"],
+  ["http:hypervisor-daemon:GET /v1/hypervisor/goal-runs/:id", "required_journey"],
+  ["http:hypervisor-daemon:POST /v1/hypervisor/outcome-rooms", "required_journey"],
+  ["http:hypervisor-daemon:POST /v1/hypervisor/outcome-rooms/:id/attach-goal-run", "required_journey"],
+  ["http:hypervisor-daemon:GET /v1/hypervisor/outcome-rooms/:id", "required_journey"],
+  ["http:hypervisor-daemon:POST /v1/hypervisor/work-frontier-items", "required_journey"],
+  ["http:hypervisor-daemon:POST /v1/hypervisor/work-claim-leases", "required_journey"],
+  ["http:hypervisor-daemon:POST /v1/hypervisor/attempts", "required_journey"],
+  ["http:hypervisor-daemon:POST /v1/hypervisor/work-results", "required_journey"],
+  ["http:hypervisor-daemon:POST /v1/threads/:id/workspace-change-reviews/detect", "required_journey"],
+  ["http:hypervisor-daemon:POST /v1/threads/:id/workspace-change-reviews/control", "required_journey"],
+  ["http:hypervisor-daemon:POST /v1/hypervisor/authority/preflight", "required_journey"],
+  ["http:hypervisor-daemon:POST /v1/threads/:id/tools/:name/invoke", "required_effect"],
+  ["http:hypervisor-daemon:GET /v1/runs/:id/inspect", "required_journey"],
+  ["http:hypervisor-daemon:GET /v1/runs/:id/replay", "required_journey"],
+  ["service:wallet.network:issue_principal_authority_binding@v1", "adjacent_not_sufficient"],
+  ["service:wallet.network:resolve_principal_authority@v1", "adjacent_not_sufficient"],
+  ["service:wallet.network:issue_session_grant@v1", "adjacent_not_sufficient"],
+  ["service:wallet.network:commit_receipt_root@v1", "adjacent_not_sufficient"],
+  ["service:wallet.network:panic_stop@v1", "adjacent_not_sufficient"],
+]);
+
+function blockerFor(entry, classification, selectedApplicability) {
+  if (selectedApplicability === "required_effect") {
+    return "BLK-M0-SELECTED-REPO-EFFECT";
+  }
+  if (selectedApplicability === "required_journey") {
+    return "BLK-M0-SELECTED-JOURNEY-BINDING";
+  }
+  if (classification === "unavailable_contract") {
+    return "BLK-M0-UNMOUNTED-SURFACE";
+  }
+  if (classification === "compatibility") {
+    return "BLK-M0-COMPATIBILITY-NONAUTHORITY";
+  }
+  if (classification === "internal_only") {
+    return "NONCLAIM-M0-INTERNAL-IPC";
+  }
+  if (entry.surface === "agentgres-replica") {
+    return "BLK-M0-AGENTGRES-REPLICA-AUTHORITY";
+  }
+  if (entry.surface === "google-oauth-callback") {
+    return "BLK-M0-GOOGLE-OAUTH-CALLBACK-PROOF";
+  }
+  if (entry.surface === "hypervisor-editor-proxy") {
+    return "BLK-M0-EDITOR-PROXY-DOWNSTREAM";
+  }
+  if (entry.surface === "wallet.network") {
+    return "BLK-M0-WALLET-PRODUCTION-PEP";
+  }
+  if (entry.surface.startsWith("blockchain-service:")) {
+    return "BLK-M0-BLOCKCHAIN-SERVICE-EFFECT-PROOF";
+  }
+  if (
+    entry.kind === "js_outbound"
+    || entry.kind === "js_local_file_action"
+    || entry.kind === "js_system_effect"
+    || entry.kind === "js_local_storage"
+  ) {
+    if (
+      entry.surface === "hypervisor-app-dev-outbound"
+      || entry.surface === "hypervisor-dev-replay"
+      || entry.surface === "hypervisor-product-ui-test-signer"
+    ) {
+      return "BLK-M0-COMPATIBILITY-NONAUTHORITY";
+    }
+    return classification === "consequential"
+      ? "NONCLAIM-M0-JAVASCRIPT-FACADE"
+      : null;
+  }
+  if (entry.surface === "hypervisor-app" || entry.surface === "hypervisor-dev-replay") {
+    return "BLK-M0-COMPATIBILITY-NONAUTHORITY";
+  }
+  if (classification === "consequential") {
+    return "BLK-M0-FINAL-INVOKER-PROOF";
+  }
+  return null;
+}
+
+function durableEvidenceFor(entry, classification) {
+  if (classification !== "consequential" && classification !== "internal_only") {
+    return {
+      state: "not_applicable",
+      symbols: [],
+      note: "This entry is classified as read, plan, compatibility, or unavailable.",
+    };
+  }
+  if (entry.surface === "signer-http") {
+    return {
+      state: "durable_local_wal",
+      symbols: ["File::write_all", "File::sync_all", "SignResponse"],
+      note: "The WAL is flushed before signature production.",
+    };
+  }
+  if (entry.surface === "wallet.network") {
+    const effects = walletEffectCalls(entry);
+    const providerEffects = effects.filter((call) => call.startsWith("provider."));
+    return {
+      state: providerEffects.length > 0
+        ? "provider_io_with_transactional_receipt_or_consumption_state"
+        : "transactional_wallet_record_or_audit_state",
+      symbols: effects,
+      note: `Exact handler-scoped effect calls for ${entry.operation}; the resolved source symbol and anchor identify the method-specific record construction.`,
+    };
+  }
+  if (entry.surface === "agentgres-replica") {
+    return {
+      state: "replica_muxlog_and_possession_ack",
+      symbols: ["muxlog.bin", "File::write_all", "write_u64"],
+      note: "The replica appends exact log bytes and returns a batch id acknowledgement, but normal acknowledgements precede device flush and are not canonical effect receipts.",
+    };
+  }
+  if (entry.surface === "google-oauth-callback") {
+    return {
+      state: "local_secret_record_without_canonical_receipt",
+      symbols: ["google_workspace_oauth.json", "save_google_auth_record"],
+      note: "The connector writes access and refresh token material to local configuration; it emits no canonical operation receipt or evidence chain.",
+    };
+  }
+  if (
+    entry.identity
+    === "http:hypervisor-daemon:POST /v1/hypervisor/authority/preflight"
+  ) {
+    return {
+      state: "local_authority_receipt_record",
+      symbols: ["emit_receipt", "persist_record", "authority-receipts"],
+      note: "A local receipt is persisted for both admission and refusal; it is not a portable authority proof or selected effect receipt.",
+    };
+  }
+  if (
+    entry.identity
+    === "http:hypervisor-daemon:POST /v1/hypervisor/failover/evaluate"
+  ) {
+    return {
+      state: "failover_plan_and_conditional_run_records",
+      symbols: ["persist_plan", "failover_run_core"],
+      note: "Evaluation updates the plan even when no evidence qualifies and can create a wallet-gated failover run when a trigger qualifies.",
+    };
+  }
+  if (
+    entry.identity
+    === "http:hypervisor-daemon:POST /v1/threads/:id/mcp/validate"
+  ) {
+    return {
+      state: "updated_agent_record",
+      symbols: ["apply_mcp_control", "persist_record"],
+      note: "The validation result is committed into the agent record; no production authority receipt is established.",
+    };
+  }
+  if (
+    entry.identity
+    === "http:hypervisor-daemon:POST /v1/threads/:id/memory/validate"
+  ) {
+    return {
+      state: "unified_runtime_event_with_declared_receipt_refs",
+      symbols: ["admit_and_persist_event", "memory.validate"],
+      note: "The route persists the planned memory validation event; M0 does not infer a complete receipt chain from declared refs.",
+    };
+  }
+  if (entry.surface === "public-api" && entry.rpc_method === "DraftTransaction") {
+    return {
+      state: "process_nonce_reservation_and_returned_signed_draft",
+      symbols: ["nonce_manager", "signed_tx_bytes"],
+      note: "The nonce reservation is process-local and the signed draft is returned to the caller; no durable draft receipt or ambiguous-failure recovery exists.",
+    };
+  }
+  if (entry.surface === "hypervisor-editor-proxy") {
+    return {
+      state: "proxy_event_only_downstream_effect_unknown",
+      symbols: ["persist_record", "editor-proxy-events"],
+      note: "Connection events are locally persisted, but arbitrary downstream byte effects and their receipts remain opaque.",
+    };
+  }
+  if (entry.surface === "guardian-encrypted-container") {
+    return {
+      state: "delegated_internal_channel_evidence_unknown",
+      symbols: [],
+      note: "The transport itself emits no durable effect record; downstream typed handlers own any state or receipt.",
+    };
+  }
+  if (entry.surface.startsWith("blockchain-service:")) {
+    const symbols = directEffectCalls(entry);
+    return {
+      state: symbols.length > 0
+        ? "transactional_state_or_external_effect_symbols_observed"
+        : "not_identified",
+      symbols: [...new Set(symbols)].sort(),
+      note: symbols.length > 0
+        ? "The service executes inside transaction state; commit and receipt semantics remain downstream."
+        : "No durable record, receipt, or evidence leaf was identified in the dispatch arm or method body.",
+    };
+  }
+  if (entry.kind === "js_outbound") {
+    return {
+      state: "downstream_response_only",
+      symbols: [javascriptOutboundInvoker(entry)],
+      note: "No durable commit or receipt is inferred from the JavaScript response.",
+    };
+  }
+  if (entry.kind === "js_local_file_action") {
+    return {
+      state: "local_compatibility_file",
+      symbols: ["writeFileSync", "app-preferences.json"],
+      note: "The file is local facade state and is not canonical owner evidence.",
+    };
+  }
+  if (entry.kind === "js_system_effect") {
+    return entry.system_effect_categories.includes("process")
+      ? {
+          state: "child_process_lifecycle_without_durable_receipt",
+          symbols: entry.handler_call_sequence,
+          note: "The child-process start or signal is observable only through process state and logs; no durable owner receipt is emitted.",
+        }
+      : {
+          state: "local_compatibility_file_without_owner_receipt",
+          symbols: entry.handler_call_sequence,
+          note: "The explicit local filesystem calls persist compatibility or development evidence state, not canonical owner evidence.",
+        };
+  }
+  if (entry.kind === "js_local_storage") {
+    return {
+      state: "browser_local_compatibility_state",
+      symbols: [entry.handler],
+      note: "Browser storage is durable only to this local client profile and is never canonical owner evidence.",
+    };
+  }
+  if (entry.surface === "public-api" && entry.rpc_method === "SubmitTransaction") {
+    return {
+      state: "process_state_then_chain",
+      symbols: ["tx_status_cache", "receipt_map", "tx_pool_ref", "tx_ingest_tx"],
+      note: "RPC acceptance is not itself final chain execution.",
+    };
+  }
+  if (entry.surface === "public-api" && entry.rpc_method === "SetRuntimeSecret") {
+    return {
+      state: "process_local_ttl_state",
+      symbols: ["runtime_secret::set_secret"],
+      note: "No durable receipt is emitted by this RPC.",
+    };
+  }
+  const symbols = directEffectCalls(entry);
+  return {
+    state: symbols.length > 0 ? "handler_evidence_symbols_observed" : "not_identified",
+    symbols: [...new Set(symbols)].sort(),
+    note: symbols.length > 0
+      ? "Symbols are observed in the handler; durable commit semantics are not inferred."
+      : "No durable record, receipt, or evidence leaf was identified at this boundary.",
+  };
+}
+
+function recoveryFor(entry, classification) {
+  if (classification !== "consequential" && classification !== "internal_only") {
+    return {
+      idempotency: "not_applicable",
+      recovery: "not_applicable",
+    };
+  }
+  if (entry.surface === "agentgres-replica") {
+    return {
+      idempotency: "connection_local_batch_ids_no_durable_dedup_proof",
+      recovery: "offset_catch_up_and_torn_tail_recovery_without_automatic_failover",
+    };
+  }
+  if (entry.surface === "google-oauth-callback") {
+    return {
+      idempotency: "in_memory_pending_state_only",
+      recovery: "no_canonical_receipt_or_ambiguous_token_write_recovery",
+    };
+  }
+  if (
+    entry.identity
+    === "http:hypervisor-daemon:POST /v1/hypervisor/failover/evaluate"
+  ) {
+    return {
+      idempotency: "one_active_run_check_but_evaluation_timestamps_mutate",
+      recovery: "wallet_gated_run_parking_without_end_to_end_fault_proof",
+    };
+  }
+  if (entry.surface === "public-api" && entry.rpc_method === "DraftTransaction") {
+    return {
+      idempotency: "not_idempotent_process_nonce_is_reserved_per_call",
+      recovery: "no_durable_draft_or_nonce_reservation_recovery",
+    };
+  }
+  if (entry.surface === "hypervisor-editor-proxy") {
+    return {
+      idempotency: "not_established_for_forwarded_bytes",
+      recovery: "connection_reconnect_only_effect_recovery_not_established",
+    };
+  }
+  if (entry.kind === "js_local_storage") {
+    return {
+      idempotency: "browser_storage_last_write_or_remove_only",
+      recovery: "no_owner_receipt_or_cross_device_recovery",
+    };
+  }
+  if (entry.kind === "js_system_effect") {
+    return entry.system_effect_categories.includes("process")
+      ? {
+          idempotency: "process_start_or_signal_not_idempotent",
+          recovery: "child_exit_propagation_and_signal_forwarding_only",
+        }
+      : {
+          idempotency: "local_file_last_write_without_operation_key",
+          recovery: "no_atomic_replace_or_ambiguous_write_recovery_proof",
+        };
+  }
+  if (entry.surface === "guardian-encrypted-container") {
+    return {
+      idempotency: "delegated_to_typed_internal_handler",
+      recovery: "delegated_to_typed_internal_handler",
+    };
+  }
+  if (entry.surface === "wallet.network") {
+    const calls = entry.handler_call_sequence ?? [];
+    if (calls.includes("exact_replay")) {
+      return {
+        idempotency: "exact_binding_replay_returns_existing_success",
+        recovery: "no_end_to_end_ambiguous_commit_recovery_proof",
+      };
+    }
+    if (calls.some((call) => /replay|enforce_.*window/iu.test(call))) {
+      return {
+        idempotency: "bounded_replay_or_sequence_state_observed",
+        recovery: "retry_refusal_or_window_behavior_without_ambiguous_commit_recovery_proof",
+      };
+    }
+    if (
+      calls.includes("state.get")
+      && calls.some((call) => /receipt_key|operation|request|_key/iu.test(call))
+    ) {
+      return {
+        idempotency: "occupied_request_or_record_slot_refuses_replay",
+        recovery: "no_end_to_end_ambiguous_commit_recovery_proof",
+      };
+    }
+    return {
+      idempotency: "not_established",
+      recovery: "no_end_to_end_ambiguous_commit_recovery_proof",
+    };
+  }
+  const text = `${entry.operation} ${(entry.handler_calls ?? []).join(" ")}`.toLowerCase();
+  return {
+    idempotency: text.includes("idempot")
+      ? "idempotency_symbol_observed_not_end_to_end_proven"
+      : "not_established",
+    recovery: /(recover|replay|reconcile|rollback|restore)/u.test(text)
+      ? "recovery_symbol_observed_not_fault_proven"
+      : "not_established",
+  };
+}
+
+export function createInitialReview(repoRoot, discoveredEntries) {
+  const devCaseCommands = new Set(
+    discoveredEntries
+      .filter((entry) => entry.kind === "compatibility_dispatch")
+      .map((entry) => entry.command),
+  );
+  const entries = discoveredEntries.map((entry) => {
+    const classification = initialClassification(entry, devCaseCommands);
+    const selectedProfileApplicability = SELECTED_ROUTE_APPLICABILITY.get(entry.identity)
+      ?? "not_selected";
+    const blockerRef = blockerFor(entry, classification, selectedProfileApplicability);
+    const finalInvoker = finalInvokerFor(entry, classification);
+    const anchoredFinalInvoker = finalInvoker === null
+      ? null
+      : {
+          ...finalInvoker,
+          claim_state: finalInvokerClaimState(finalInvoker),
+          source_anchor_sha256: sha256(
+            readRepoFile(repoRoot, finalInvoker.source_file).source,
+          ),
+        };
+    const implementationState = selectedProfileApplicability.startsWith("required_")
+      || classification === "unavailable_contract"
+      || entry.surface === "hypervisor-app"
+      ? "unavailable"
+      : classification === "consequential" || classification === "internal_only"
+        ? "partial"
+        : "not_applicable";
+    return {
+      identity: entry.identity,
+      review_status: "unreviewed",
+      review_origin: "heuristic_suggestion",
+      kind: entry.kind,
+      surface: entry.surface,
+      operation: entry.operation,
+      method: entry.method ?? null,
+      path: entry.path ?? null,
+      rpc_service: entry.rpc_service ?? null,
+      rpc_method: entry.rpc_method ?? null,
+      service_method: entry.service_method ?? null,
+      command: entry.command ?? null,
+      storage_method: entry.storage_method ?? null,
+      storage_key_expression: entry.storage_key_expression ?? null,
+      active_state: entry.active_state,
+      source_file: entry.source_file,
+      source_symbol: entry.source_symbol,
+      handler: entry.handler,
+      handler_source_file: entry.handler_source_file,
+      handler_source_symbol: entry.handler_source_symbol,
+      handler_resolution: entry.handler_resolution,
+      classification,
+      effect_class: effectClassFor(entry, classification),
+      ...ownerForEntry(entry),
+      registration_anchor_sha256: entry.source_anchor.sha256,
+      handler_anchor_sha256: entry.handler_anchor?.sha256 ?? null,
+      final_invoker: anchoredFinalInvoker,
+      pre_effect_gates: observedGates(entry, classification),
+      durable_record_receipt_evidence: durableEvidenceFor(entry, classification),
+      idempotency_recovery: recoveryFor(entry, classification),
+      selected_profile_applicability: selectedProfileApplicability,
+      implementation_state: implementationState,
+      blocker_or_nonclaim_ref: blockerRef,
+    };
+  });
+  return {
+    evidence_format: "ioi.m0.reviewed_entry_lock.v1",
+    lock_state: "worksheet_unreviewed",
+    as_of_date: AS_OF_DATE,
+    default_classification: "fail_closed_unclassified",
+    discovery_scope: {
+      active_surfaces: [
+        "Hypervisor daemon Axum registry",
+        "conditional Hypervisor session-preview listener",
+        "IBC, telemetry, provider, and signer HTTP",
+        "standalone Agentgres replication protocol and Google OAuth callback listener",
+        "wallet.network service dispatch",
+        "registered native blockchain service methods and dynamic WASM boundary",
+        "mounted public and conditional Guardian RPC",
+        "mounted internal workload RPC and encrypted Guardian channel dispatch",
+        "unmounted model-mount RPC compatibility contract",
+        "Hypervisor app host commands, development replay crossing, and browser storage mutations",
+        "standing product UI JavaScript outbound, dynamically served augmentation, local compatibility effects, and child-process lifecycle",
+        "lease-authenticated raw editor proxy",
+        "development replay command and actual I/O boundaries",
+      ],
+      mutation_methods: ["POST", "PUT", "PATCH", "DELETE", "RPC", "service_method"],
+      rule: "Every discovered identity is listed below; no classification is inherited by a new identity.",
+    },
+    entries,
+  };
+}
+
+function sourceLock(repoRoot, relativePath, note) {
+  const { source } = readRepoFile(repoRoot, relativePath);
+  return {
+    source_file: relativePath,
+    source_sha256: sha256(source),
+    note,
+  };
+}
+
+function createDiscoverySourceCoverage(repoRoot) {
+  const groups = Object.entries(DISCOVERY_COVERAGE).map(([coverageId, coverage]) => ({
+    coverage_id: coverageId,
+    sources: Object.entries(coverage.files)
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([relativePath, note]) => sourceLock(repoRoot, relativePath, note)),
+  }));
+  groups.push({
+    coverage_id: "active_javascript_effect_source",
+    sources: Object.entries(ACTIVE_JAVASCRIPT_EFFECT_SOURCE_COVERAGE)
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([relativePath, note]) => sourceLock(repoRoot, relativePath, note)),
+  });
+  groups.push({
+    coverage_id: "active_javascript_server_source",
+    sources: Object.entries(ACTIVE_JAVASCRIPT_SERVER_SOURCE_COVERAGE)
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([relativePath, note]) => sourceLock(repoRoot, relativePath, note)),
+  });
+  groups.push({
+    coverage_id: "active_javascript_system_effect_action",
+    actions: discoverJsSystemEffects({
+      repoRoot,
+      relativePaths: activeJavaScriptEffectSources(repoRoot),
+    }).map((entry) => ({
+      identity: entry.identity,
+      operation: JS_SYSTEM_EFFECT_ACTIONS[entry.identity]?.operation ?? null,
+      source_file: entry.source_file,
+      source_line: entry.source_anchor.line,
+      source_anchor_sha256: entry.source_anchor.sha256,
+      calls: entry.handler_call_sequence,
+    })),
+  });
+  return {
+    rule:
+      "A new production route registry, RPC registry, service implementation, listener source, active JavaScript effect source, or JavaScript filesystem/process action fails before its entries can be consumed.",
+    groups,
+  };
+}
+
+const SELECTED_OBJECT_OWNERS = [
+  {
+    object_set: "System package, release, genesis, constitution, deployment, membership, and lifecycle",
+    owner: "Governed autonomous systems",
+    owner_doc: "docs/architecture/foundations/governed-autonomous-systems.md",
+  },
+  {
+    object_set: "GoalRunProfile, GoalRun, GoalGroundingLoop, ContextCell, and handoff",
+    owner: "Goal Kernel common objects",
+    owner_doc: "docs/architecture/foundations/common-objects-and-envelopes.md",
+  },
+  {
+    object_set: "OutcomeRoom, participation, frontier, claim, attempt, finding, challenge, WorkResult, and OutcomeDelta",
+    owner: "OutcomeRoom collaborative outcome pattern",
+    owner_doc: "docs/architecture/domains/ioi-ai/collaborative-outcome-pattern.md",
+  },
+  {
+    object_set: "Worker topology, harness invocation, scoped tools, model routes, and selected repository effect",
+    owner: "Hypervisor Daemon/Core",
+    owner_doc: "docs/architecture/components/daemon-runtime/api.md",
+  },
+  {
+    object_set: "Account identity, product session, approval, portable grant, revocation, and step-up",
+    owner: "wallet.network authority",
+    owner_doc: "docs/architecture/components/wallet-network/api-authority-scopes.md",
+  },
+  {
+    object_set: "Operation, exact head/root, receipt, replay, checkpoint, artifact lineage, and export",
+    owner: "Agentgres",
+    owner_doc: "docs/architecture/components/agentgres/api-object-model.md",
+  },
+  {
+    object_set: "Provider route and isolated work environment",
+    owner: "Hypervisor providers and environments",
+    owner_doc: "docs/architecture/components/hypervisor/providers-and-environments.md",
+  },
+  {
+    object_set: "Proposal-mediated improvement, target approval, activation, rollback, recall, and suspension",
+    owner: "Improvement governance",
+    owner_doc: "docs/architecture/components/daemon-runtime/improvement-governance-gates.md",
+  },
+  {
+    object_set: "Learning eligibility, source rights, route rights, export, and revocation impact",
+    owner: "Institutional learning boundary",
+    owner_doc: "docs/architecture/foundations/institutional-learning-boundary.md",
+  },
+  {
+    object_set: "Visible product projections and unavailable/degraded/completed states",
+    owner: "Hypervisor core clients and surfaces",
+    owner_doc: "docs/architecture/components/hypervisor/core-clients-surfaces.md",
+  },
+];
+
+const SELECTED_JOURNEY = [
+  {
+    step: 1,
+    visible_action: "Continue with an eligible identity or passkey.",
+    route_identities: [
+      "http:hypervisor-daemon:POST /v1/hypervisor/auth/login",
+      "http:hypervisor-daemon:GET /v1/hypervisor/auth/whoami",
+    ],
+    state: "unavailable",
+    blocker_ref: "BLK-M0-SELECTED-IDENTITY-STEP-UP",
+  },
+  {
+    step: 2,
+    visible_action: "Choose the bounded software-change template.",
+    route_identities: [],
+    state: "unavailable",
+    blocker_ref: "BLK-M0-SELECTED-PACKAGE-GENESIS",
+  },
+  {
+    step: 3,
+    visible_action: "Describe the goal, repository, constraints, authority, and acceptance.",
+    route_identities: [
+      "http:hypervisor-daemon:POST /v1/hypervisor/goal-runs",
+    ],
+    state: "unavailable",
+    blocker_ref: "BLK-M0-SELECTED-JOURNEY-BINDING",
+  },
+  {
+    step: 4,
+    visible_action: "Validate, preview, and simulate one compiled package/genesis proposal.",
+    route_identities: [],
+    state: "unavailable",
+    blocker_ref: "BLK-M0-SELECTED-PACKAGE-GENESIS",
+  },
+  {
+    step: 5,
+    visible_action: "Approve genesis and inspect the stable System.",
+    route_identities: [],
+    state: "unavailable",
+    blocker_ref: "BLK-M0-SELECTED-PACKAGE-GENESIS",
+  },
+  {
+    step: 6,
+    visible_action: "Start or admit the GoalRun in its OutcomeRoom-backed work context.",
+    route_identities: [
+      "http:hypervisor-daemon:POST /v1/hypervisor/outcome-rooms",
+      "http:hypervisor-daemon:POST /v1/hypervisor/outcome-rooms/:id/attach-goal-run",
+      "http:hypervisor-daemon:POST /v1/hypervisor/goal-runs/:id/start",
+    ],
+    state: "unavailable",
+    blocker_ref: "BLK-M0-SELECTED-JOURNEY-BINDING",
+  },
+  {
+    step: 7,
+    visible_action: "Observe planning, claimed work, attempts, verification, and blockers.",
+    route_identities: [
+      "http:hypervisor-daemon:GET /v1/hypervisor/outcome-rooms/:id",
+      "http:hypervisor-daemon:POST /v1/hypervisor/work-frontier-items",
+      "http:hypervisor-daemon:POST /v1/hypervisor/work-claim-leases",
+      "http:hypervisor-daemon:POST /v1/hypervisor/attempts",
+      "http:hypervisor-daemon:POST /v1/hypervisor/work-results",
+    ],
+    state: "unavailable",
+    blocker_ref: "BLK-M0-SELECTED-JOURNEY-BINDING",
+  },
+  {
+    step: 8,
+    visible_action: "Review the exact proposed repository effect.",
+    route_identities: [
+      "http:hypervisor-daemon:POST /v1/threads/:id/workspace-change-reviews/detect",
+      "http:hypervisor-daemon:POST /v1/threads/:id/workspace-change-reviews/control",
+    ],
+    state: "unavailable",
+    blocker_ref: "BLK-M0-SELECTED-JOURNEY-BINDING",
+  },
+  {
+    step: 9,
+    visible_action: "Unlock a scoped grant with a passkey when policy requires it.",
+    route_identities: [
+      "service:wallet.network:issue_session_grant@v1",
+      "service:wallet.network:issue_principal_authority_binding@v1",
+    ],
+    state: "unavailable",
+    blocker_ref: "BLK-M0-SELECTED-IDENTITY-STEP-UP",
+  },
+  {
+    step: 10,
+    visible_action: "Let the daemon revalidate and execute or refuse the exact effect.",
+    route_identities: [
+      "http:hypervisor-daemon:POST /v1/hypervisor/authority/preflight",
+      "http:hypervisor-daemon:POST /v1/threads/:id/tools/:name/invoke",
+    ],
+    state: "unavailable",
+    blocker_ref: "BLK-M0-SELECTED-REPO-EFFECT",
+  },
+  {
+    step: 11,
+    visible_action: "Inspect the diff, tests, evidence admission, receipt chain, state root, costs, provider route, and learning eligibility.",
+    route_identities: [
+      "http:hypervisor-daemon:GET /v1/runs/:id/inspect",
+      "http:hypervisor-daemon:GET /v1/hypervisor/authority/receipts",
+    ],
+    state: "unavailable",
+    blocker_ref: "BLK-M0-SELECTED-INSPECTION-CHAIN",
+  },
+  {
+    step: 12,
+    visible_action: "Replay the decision and effect from exported evidence.",
+    route_identities: [
+      "http:hypervisor-daemon:GET /v1/runs/:id/replay",
+    ],
+    state: "unavailable",
+    blocker_ref: "BLK-M0-SELECTED-INSPECTION-CHAIN",
+  },
+  {
+    step: 13,
+    visible_action: "Propose an upgrade, exercise rollback or recall, and retire the System.",
+    route_identities: [],
+    state: "unavailable",
+    blocker_ref: "BLK-M0-SELECTED-UPGRADE-LIFECYCLE",
+  },
+];
+
+const PG_DISPOSITION_GROUPS = {
+  required_now: [
+    "PG-0.2",
+    "PG-1.1", "PG-1.2",
+    "PG-2.1", "PG-2.2", "PG-2.3", "PG-2.4",
+    "PG-3.1", "PG-3.5", "PG-3.6",
+    "PG-4A.5",
+    "PG-4B.1", "PG-4B.2", "PG-4B.3", "PG-4B.4", "PG-4B.5",
+    "PG-7.1", "PG-7.2", "PG-7.3", "PG-7.4", "PG-7.7", "PG-7.8",
+  ],
+  conditional: [
+    "PG-0.1", "PG-0.3", "PG-1.3", "PG-2.6",
+    "PG-3.2", "PG-3.3", "PG-3.4", "PG-4B.6",
+    "PG-6A.1", "PG-6A.4",
+    "PG-6C.1", "PG-6C.2", "PG-6C.3",
+    "PG-7.5", "PG-7.6",
+  ],
+  later: [
+    "PG-2.5",
+    "PG-4A.1", "PG-4A.2", "PG-4A.3", "PG-4A.4", "PG-4A.6",
+  ],
+  out_of_scope: [
+    "PG-5.1", "PG-5.2", "PG-5.3", "PG-5.4", "PG-5.5",
+    "PG-6A.2", "PG-6A.3",
+    "PG-6B.1", "PG-6B.2", "PG-6B.3", "PG-6B.4", "PG-6B.5",
+    "PG-6D.1", "PG-6D.2", "PG-6D.3",
+  ],
+};
+
+function pgTopic(id) {
+  if (id.startsWith("PG-0.")) return "program-integrity and selected upgrade";
+  if (id.startsWith("PG-1.")) return "registered contract and compatibility";
+  if (id.startsWith("PG-2.")) return "portable authority and receipt proof";
+  if (id.startsWith("PG-3.")) return "information-flow and destination control";
+  if (id.startsWith("PG-4A.")) return "multi-node continuity and writer fencing";
+  if (id.startsWith("PG-4B.")) return "shared lifecycle and recovery";
+  if (id.startsWith("PG-5.")) return "live physical action";
+  if (id.startsWith("PG-6A.")) return "commercial accounting and settlement";
+  if (id.startsWith("PG-6B.")) return "dispute, bond, and settlement";
+  if (id.startsWith("PG-6C.")) return "hardware attestation";
+  if (id.startsWith("PG-6D.")) return "legal-regulatory effect";
+  return "production operability";
+}
+
+function pgRationale(id, disposition) {
+  const topic = pgTopic(id);
+  if (disposition === "required_now") {
+    return `The selected single-node software-change profile directly needs ${topic}; the gate remains open.`;
+  }
+  if (disposition === "conditional") {
+    return `The selected profile does not activate every ${topic} posture; this gate blocks if its named posture is selected.`;
+  }
+  if (disposition === "later") {
+    return `${topic} belongs to a later horizon than the selected single-node proof.`;
+  }
+  return `The selected profile expressly excludes ${topic}; a separately selected profile and authority are required.`;
+}
+
+function createPgMap() {
+  const evidenceRef = {
+    required_now: "BLK-M0-PG-REQUIRED-NOT-CLOSED",
+    conditional: "COND-M0-PG-SELECTION",
+    later: "NONCLAIM-M0-LATER-HORIZON",
+    out_of_scope: "NONCLAIM-M0-SELECTED-PROFILE",
+  };
+  const dispositionById = new Map();
+  for (const [disposition, ids] of Object.entries(PG_DISPOSITION_GROUPS)) {
+    for (const id of ids) {
+      if (dispositionById.has(id)) {
+        throw new Error(`duplicate PG disposition source entry: ${id}`);
+      }
+      dispositionById.set(id, disposition);
+    }
+  }
+  return PG_IDS.map((id) => {
+    const disposition = dispositionById.get(id);
+    if (disposition === undefined) {
+      throw new Error(`missing PG disposition source entry: ${id}`);
+    }
+    return {
+      pg_id: id,
+      disposition,
+      selected_profile_rationale: pgRationale(id, disposition),
+      evidence_or_blocker_ref: evidenceRef[disposition],
+      closure_claimed: false,
+    };
+  });
+}
+
+const RELEASE_LADDER = [
+  {
+    level: "P0",
+    name: "walking skeleton",
+    criterion: "One fixture traverses selected owner boundaries; it is not production-ready.",
+    stage_binding: "M3-M5",
+  },
+  {
+    level: "P1",
+    name: "internal product proof",
+    criterion: "The terminal M9 journey works with adversarial evidence in an IOI-controlled environment.",
+    stage_binding: "M9",
+  },
+  {
+    level: "P2",
+    name: "external design-partner proof",
+    criterion: "Independent users complete the journey on their data with disclosed support and limits.",
+    stage_binding: "M9 external overlay",
+  },
+  {
+    level: "P3",
+    name: "production-integrated profile",
+    criterion: "Applicable required-now and selected conditional gates close and recovery thresholds pass.",
+    stage_binding: "M9 plus PG gates",
+  },
+  {
+    level: "P4",
+    name: "distributed L0 proof",
+    criterion: "One logical System preserves continuity and performs useful work across admitted nodes.",
+    stage_binding: "M10-M11",
+  },
+  {
+    level: "P5",
+    name: "sovereign cooperation proof",
+    criterion: "Independently governed Systems demonstrate useful positive-surplus work and portable exit.",
+    stage_binding: "M13",
+  },
+  {
+    level: "P6",
+    name: "embodied deployment proof",
+    criterion: "A selected live hardware profile passes its physical-action, runtime, and production gates.",
+    stage_binding: "M11 live overlay",
+  },
+  {
+    level: "P7",
+    name: "public network demand proof",
+    criterion: "Connected and secured services show recurring external demand and sustainable security economics.",
+    stage_binding: "M14",
+  },
+];
+
+const BASELINES = [
+  {
+    baseline_id: "BASE-M0-PRODUCT",
+    category: "product",
+    status: "not_measured",
+    frozen_as_of: AS_OF_DATE,
+    observed_as_of: null,
+    cohort: "At least five first-time internal operators using only supported selected-profile product surfaces.",
+    method: "Timestamp first eligible sign-in, first valid preview, genesis approval, effect review, terminal inspection, and replay; retain typed blockers.",
+    frozen_threshold: {
+      unaided_terminal_completion_rate_min: 0.8,
+      median_time_to_first_valid_preview_minutes_max: 10,
+      median_time_to_genesis_minutes_max: 20,
+    },
+    observed_value: null,
+    absence_evidence: "No qualifying end-to-end selected-profile product cohort exists as of the baseline date.",
+    blocker_ref: "BLK-M0-BASELINE-PRODUCT",
+  },
+  {
+    baseline_id: "BASE-M0-RELIABILITY",
+    category: "reliability",
+    status: "not_measured",
+    frozen_as_of: AS_OF_DATE,
+    observed_as_of: null,
+    cohort: "Thirty selected-profile runs, including at least ten declared crash, restart, stale-authority, or ambiguous-effect injections.",
+    method: "Replay owner records and exported evidence; independently reproduce verification and score every terminal, refused, recovered, or ambiguous effect.",
+    frozen_threshold: {
+      authorized_completion_rate_min: 0.95,
+      effect_recovery_success_rate_min: 1,
+      receipt_and_replay_completeness_min: 1,
+      verifier_reproducibility_min: 1,
+    },
+    observed_value: null,
+    absence_evidence: "No terminal selected-profile runtime and fault cohort exists as of the baseline date.",
+    blocker_ref: "BLK-M0-BASELINE-RELIABILITY",
+  },
+  {
+    baseline_id: "BASE-M0-COST",
+    category: "cost",
+    status: "not_measured",
+    frozen_as_of: AS_OF_DATE,
+    observed_as_of: null,
+    cohort: "Thirty successful selected-profile runs with route-attempt, tool, runtime, storage, and supplier-attributable measurements.",
+    method: "Reconcile measured internal cost to each accepted run; report p50, p90, fallback amplification, and unattributed cost without treating accounting as cash movement.",
+    frozen_threshold: {
+      p50_internal_cost_usd_max: 5,
+      p90_internal_cost_usd_max: 15,
+      unattributed_cost_fraction_max: 0,
+    },
+    observed_value: null,
+    absence_evidence: "No invoice-reconciled selected-profile run cohort exists as of the baseline date.",
+    blocker_ref: "BLK-M0-BASELINE-COST",
+  },
+  {
+    baseline_id: "BASE-M0-COMPREHENSION",
+    category: "comprehension",
+    status: "not_measured",
+    frozen_as_of: AS_OF_DATE,
+    observed_as_of: null,
+    cohort: "At least five first-time internal operators with no implementation-guide access during the selected journey.",
+    method: "Record exposed architecture terms, correct blocker interpretation, unsupported-success attempts, and a post-task comprehension check.",
+    frozen_threshold: {
+      median_exposed_architecture_terms_max: 8,
+      correct_blocker_interpretation_rate_min: 0.9,
+      fabricated_success_acceptance_rate_max: 0,
+    },
+    observed_value: null,
+    absence_evidence: "No qualifying first-time-operator comprehension cohort exists as of the baseline date.",
+    blocker_ref: "BLK-M0-BASELINE-COMPREHENSION",
+  },
+];
+
+const REPOSITORY_VALIDATION_BASELINES = [
+  {
+    baseline_id: "BASE-M0-REPOSITORY-RUSTFMT",
+    observed_as_of: AS_OF_DATE,
+    command: "cargo fmt --all -- --check",
+    status: "existing_failure",
+    exit_code: 1,
+    tool_version: "rustfmt 1.8.0-stable (01f6ddf758 2026-02-11)",
+    reported_file_count: 54,
+    reported_diff_hunk_count: 2002,
+    raw_output_sha256:
+      "27269428c23ccc63ed629b6e6fa9aac7c70cc9d72f7fd3152549e95362032715",
+    worktree_mutated: false,
+    nonclaim:
+      "This records repository-wide pre-existing formatting debt; M0 changes no Rust source and claims no Rustfmt closure.",
+    reported_paths: [
+      "crates/agentgres/src/bin/bench.rs",
+      "crates/agentgres/src/bin/parity.rs",
+      "crates/agentgres/src/bin/replica.rs",
+      "crates/agentgres/src/bin/shadow.rs",
+      "crates/agentgres/src/lib.rs",
+      "crates/agentgres/src/mux.rs",
+      "crates/agentgres/src/replica.rs",
+      "crates/node/src/bin/hypervisor-daemon.rs",
+      "crates/node/src/bin/hypervisor_daemon_routes/akash_candidate_source.rs",
+      "crates/node/src/bin/hypervisor_daemon_routes/aws_candidate_source.rs",
+      "crates/node/src/bin/hypervisor_daemon_routes/azure_candidate_source.rs",
+      "crates/node/src/bin/hypervisor_daemon_routes/capability_lease_plan_routes.rs",
+      "crates/node/src/bin/hypervisor_daemon_routes/connector_execution_routes.rs",
+      "crates/node/src/bin/hypervisor_daemon_routes/connector_mapping_routes.rs",
+      "crates/node/src/bin/hypervisor_daemon_routes/connector_session_routes.rs",
+      "crates/node/src/bin/hypervisor_daemon_routes/data_source_routes.rs",
+      "crates/node/src/bin/hypervisor_daemon_routes/decentralized_cloud_routes.rs",
+      "crates/node/src/bin/hypervisor_daemon_routes/domain_apps_routes.rs",
+      "crates/node/src/bin/hypervisor_daemon_routes/editor_routes.rs",
+      "crates/node/src/bin/hypervisor_daemon_routes/environment_routes.rs",
+      "crates/node/src/bin/hypervisor_daemon_routes/eval_suite_routes.rs",
+      "crates/node/src/bin/hypervisor_daemon_routes/feedback_routes.rs",
+      "crates/node/src/bin/hypervisor_daemon_routes/foundry_routes.rs",
+      "crates/node/src/bin/hypervisor_daemon_routes/gcp_candidate_source.rs",
+      "crates/node/src/bin/hypervisor_daemon_routes/goalrun_routes.rs",
+      "crates/node/src/bin/hypervisor_daemon_routes/governance_routes.rs",
+      "crates/node/src/bin/hypervisor_daemon_routes/harness_routes.rs",
+      "crates/node/src/bin/hypervisor_daemon_routes/ioi_agent_routes.rs",
+      "crates/node/src/bin/hypervisor_daemon_routes/ioi_intelligence_routes.rs",
+      "crates/node/src/bin/hypervisor_daemon_routes/k8s_candidate_source.rs",
+      "crates/node/src/bin/hypervisor_daemon_routes/lambda_candidate_source.rs",
+      "crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs",
+      "crates/node/src/bin/hypervisor_daemon_routes/marketplace_routes.rs",
+      "crates/node/src/bin/hypervisor_daemon_routes/materializing_run_routes.rs",
+      "crates/node/src/bin/hypervisor_daemon_routes/model_routes.rs",
+      "crates/node/src/bin/hypervisor_daemon_routes/odk_routes.rs",
+      "crates/node/src/bin/hypervisor_daemon_routes/ontology_projection_routes.rs",
+      "crates/node/src/bin/hypervisor_daemon_routes/orchestration_routes.rs",
+      "crates/node/src/bin/hypervisor_daemon_routes/outcome_room_routes.rs",
+      "crates/node/src/bin/hypervisor_daemon_routes/placement_failover_routes.rs",
+      "crates/node/src/bin/hypervisor_daemon_routes/policy_bound_data_view_routes.rs",
+      "crates/node/src/bin/hypervisor_daemon_routes/provider_routes.rs",
+      "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs",
+      "crates/node/src/bin/hypervisor_daemon_routes/runpod_candidate_source.rs",
+      "crates/node/src/bin/hypervisor_daemon_routes/state_machine_routes.rs",
+      "crates/node/src/bin/hypervisor_daemon_routes/storage_backend_routes.rs",
+      "crates/node/src/bin/hypervisor_daemon_routes/substrate_store.rs",
+      "crates/node/src/bin/hypervisor_daemon_routes/transformation_run_routes.rs",
+      "crates/node/src/bin/hypervisor_daemon_routes/vast_candidate_source.rs",
+      "crates/node/src/bin/hypervisor_daemon_routes/work_frontier_claim_routes.rs",
+      "crates/node/src/bin/hypervisor_daemon_routes/work_result_routes.rs",
+      "crates/services/src/agentic/runtime/kernel/runtime_goal_run_admission.rs",
+      "crates/services/src/agentic/runtime/kernel/runtime_harness_profile_mutation_admission.rs",
+      "crates/services/src/agentic/runtime/kernel/runtime_hypervisor_project_create.rs",
+    ],
+  },
+];
+
+const BLOCKERS = [
+  {
+    blocker_id: "BLK-M0-SELECTED-PACKAGE-GENESIS",
+    type: "owner_contract_unavailable",
+    state: "open",
+    summary: "The selected package-to-genesis System journey has no terminal live owner path.",
+  },
+  {
+    blocker_id: "BLK-M0-SELECTED-JOURNEY-BINDING",
+    type: "cross_owner_binding_unavailable",
+    state: "open",
+    summary: "Live partial objects are not bound into the selected immutable profile and complete journey.",
+  },
+  {
+    blocker_id: "BLK-M0-SELECTED-IDENTITY-STEP-UP",
+    type: "authority_path_unavailable",
+    state: "open",
+    summary: "Provider-neutral sign-in, passkey step-up, portable grant, and final-invoker revalidation are not terminal.",
+  },
+  {
+    blocker_id: "BLK-M0-SELECTED-REPO-EFFECT",
+    type: "selected_effect_unavailable",
+    state: "open",
+    summary: "The file.apply_patch leaf exists, but selected GoalRun, authority, revocation, IFC, fence, receipt, and recovery ordering do not.",
+  },
+  {
+    blocker_id: "BLK-M0-SELECTED-INSPECTION-CHAIN",
+    type: "evidence_chain_unavailable",
+    state: "open",
+    summary: "No one selected inspection/export reconstructs diff, tests, evidence, receipts, root, costs, route, and learning eligibility.",
+  },
+  {
+    blocker_id: "BLK-M0-SELECTED-UPGRADE-LIFECYCLE",
+    type: "system_lifecycle_unavailable",
+    state: "open",
+    summary: "Selected package/profile proposal, activation, rollback or recall, and System retirement are not terminal.",
+  },
+  {
+    blocker_id: "BLK-M0-WALLET-PRODUCTION-PEP",
+    type: "production_pep_unavailable",
+    state: "open",
+    summary: "wallet.network method checks include legacy compatibility and are not estate-wide production PEP closure.",
+  },
+  {
+    blocker_id: "BLK-M0-BLOCKCHAIN-SERVICE-EFFECT-PROOF",
+    type: "final_invoker_order_unproven",
+    state: "open",
+    summary: "Native blockchain methods are inventoried, but generic authority, final-leaf ordering, receipts, and recovery remain method-specific and partial.",
+  },
+  {
+    blocker_id: "BLK-M0-AGENTGRES-REPLICA-AUTHORITY",
+    type: "transport_authority_unavailable",
+    state: "open",
+    summary: "Replica writer-epoch fencing is real, but the externally reachable AGRS2 listener has no authenticated peer authority, effect policy, revocation, or IFC gate.",
+  },
+  {
+    blocker_id: "BLK-M0-GOOGLE-OAUTH-CALLBACK-PROOF",
+    type: "external_secret_effect_proof_partial",
+    state: "open",
+    summary: "OAuth state and PKCE checks precede local token persistence, but owner authority, hardened secret evidence, idempotency, and recovery are not terminal.",
+  },
+  {
+    blocker_id: "BLK-M0-EDITOR-PROXY-DOWNSTREAM",
+    type: "dynamic_downstream_effect_unclassified",
+    state: "open",
+    summary: "The editor proxy gates new connections with an active lease but cannot classify, fence, receipt, or recover arbitrary forwarded byte effects.",
+  },
+  {
+    blocker_id: "BLK-M0-FINAL-INVOKER-PROOF",
+    type: "final_invoker_order_unproven",
+    state: "open",
+    summary: "A static candidate or handler boundary is recorded without a terminal pre-effect order proof.",
+  },
+  {
+    blocker_id: "BLK-M0-UNMOUNTED-SURFACE",
+    type: "unavailable_contract",
+    state: "open",
+    summary: "The declared surface is unmounted, dynamic, or otherwise unavailable.",
+  },
+  {
+    blocker_id: "BLK-M0-COMPATIBILITY-NONAUTHORITY",
+    type: "compatibility_nonclaim",
+    state: "open",
+    summary: "Development replay and compatibility behavior cannot supply owner truth or authority.",
+  },
+  {
+    blocker_id: "NONCLAIM-M0-JAVASCRIPT-FACADE",
+    type: "nonclaim",
+    state: "retained",
+    summary: "JavaScript application and adapter crossings are protocol clients, never authority or durable owner truth.",
+  },
+  {
+    blocker_id: "NONCLAIM-M0-INTERNAL-IPC",
+    type: "nonclaim",
+    state: "retained",
+    summary: "Mounted workload IPC is internal transport and does not become a public capability claim.",
+  },
+  {
+    blocker_id: "BLK-M0-PG-REQUIRED-NOT-CLOSED",
+    type: "production_gate_open",
+    state: "open",
+    summary: "Every required-now PG gate remains owned and open in the production-gate ledger.",
+  },
+  {
+    blocker_id: "COND-M0-PG-SELECTION",
+    type: "conditional_gate",
+    state: "retained",
+    summary: "The gate becomes blocking only when its named conditional posture is selected.",
+  },
+  {
+    blocker_id: "NONCLAIM-M0-LATER-HORIZON",
+    type: "nonclaim",
+    state: "retained",
+    summary: "The gate belongs to a later horizon and is not closed by M0.",
+  },
+  {
+    blocker_id: "NONCLAIM-M0-SELECTED-PROFILE",
+    type: "nonclaim",
+    state: "retained",
+    summary: "The selected profile excludes this deployment, commercial, legal, or physical posture.",
+  },
+  ...BASELINES.map((baseline) => ({
+    blocker_id: baseline.blocker_ref,
+    type: "baseline_not_measured",
+    state: "open",
+    summary: baseline.absence_evidence,
+  })),
+];
+
+export function createInitialProgramSource(repoRoot) {
+  const canonBasis = CANON_BASIS_FILES.map((relativePath) => {
+    const { source } = readRepoFile(repoRoot, relativePath);
+    return {
+      source_file: relativePath,
+      source_sha256: sha256(source),
+      role: "landed owner canon",
+    };
+  });
+  return {
+    evidence_format: "ioi.m0.program_control_source.v1",
+    as_of_date: AS_OF_DATE,
+    program_state: "reviewed",
+    canon_basis: canonBasis,
+    canon_contradictions: [],
+    sequencing_authority: {
+      sole_sequencer_read_only_path:
+        "internal-docs/implementation/ioi-target-end-state-master-implementation-guide.md",
+      pg_ledger_read_only_path:
+        "internal-docs/implementation/canon-mechanism-hardening-action-plan.md",
+      legacy_default: "non_authoritative",
+      tracked_canon_role: "architecture owner and status authority, not an alternate implementation sequence",
+      rule: "No capture, legacy app plan, prompt, harness, or evidence file schedules work or creates owner truth.",
+    },
+    discovery_source_coverage: createDiscoverySourceCoverage(repoRoot),
+    selected_profile: {
+      profile_id: "selected-minimum-l0-outcome-room-bounded-software-change",
+      source: "docs/architecture/_meta/execution-horizons.md#selected-minimum-l0-proof-profile",
+      level: "minimum selected L0 proof profile; not a MinimumL0 object",
+      topology: {
+        nodes: 1,
+        writers: 1,
+        failure_domains: 1,
+        ordering_finality: "single_authority",
+      },
+      exact_effect: {
+        effect: "Apply or refuse one sandboxed repository software change.",
+        route_identity: "http:hypervisor-daemon:POST /v1/threads/:id/tools/:name/invoke",
+        selected_subdispatch: "file.apply_patch",
+        final_invoker_symbol: "coding_tool_workspace::apply_workspace_patch",
+        implementation_state: "unavailable",
+        blocker_ref: "BLK-M0-SELECTED-REPO-EFFECT",
+      },
+      included: [
+        "one immutable package and release through genesis into one stable System",
+        "one immutable GoalRunProfile and durable GoalRun in an OutcomeRoom",
+        "disclosed first-party worker roles plus an independent deterministic verifier",
+        "one isolated sandbox repository and branch",
+        "provider-neutral account and low-risk product session with passkey-capable step-up",
+        "exact authority, revocation, IFC, budget, fence, idempotency, recovery, and receipt checks",
+        "Agentgres operations, heads, roots, receipts, replay, evidence admission, and export",
+        "private evaluation and model routes with measured internal cost only",
+        "proposal-mediated improvement with target-owner activation, rollback or recall, suspension, and retirement",
+      ],
+      nonclaims: [
+        "no multiple runtime nodes, automatic failover, or cross-system AIIP",
+        "no public marketplace, payment, payout, settlement, IOI Network, IOI L1, or native asset",
+        "no physical actuation, cTEE claim, public certification, or generalized recursive improvement",
+        "no autonomous production access, universal correctness, universal factual truth, or hidden provider non-learning",
+        "no architecture or production capability closes merely because M0 program control verifies",
+      ],
+      object_owners: SELECTED_OBJECT_OWNERS,
+      visible_terminal_journey: SELECTED_JOURNEY,
+      rollback_stop_rules: [
+        "Stop on any hidden database edit, privileged one-off script, copied bearer authority, prompt-only transition, fabricated success, or manually reconstructed evidence chain.",
+        "An unavailable owner step remains a typed blocker; compatibility output never substitutes for it.",
+        "Revoke or fence authority before recovery, preserve ambiguous effects, and require explicit reconciliation before retry.",
+      ],
+    },
+    pg_gate_map: {
+      definition_owner:
+        "internal-docs/implementation/canon-mechanism-hardening-action-plan.md",
+      closure_claimed: false,
+      entries: createPgMap(),
+    },
+    baselines: BASELINES,
+    repository_validation_baselines: REPOSITORY_VALIDATION_BASELINES,
+    release_ladder: RELEASE_LADDER,
+    blocker_ledger: BLOCKERS,
+    bounded_discovery_exclusions: [
+      sourceLock(
+        repoRoot,
+        "crates/node/src/bin/hypervisor_daemon_routes/editor_proxy.rs",
+        "Dynamic raw bytes cannot be enumerated; the lease-gated wildcard proxy entry is censused and this implementation is file-locked.",
+      ),
+      sourceLock(
+        repoRoot,
+        "crates/validator/src/common/guardian/server.rs",
+        "Encrypted dynamic frames cannot be enumerated here; the internal wildcard channel entry and typed public/workload RPC registries are censused.",
+      ),
+      sourceLock(
+        repoRoot,
+        "apps/hypervisor/product-ui/owned/public/static/assets/main-DLKYFe1Y.js",
+        "Harvested/generated compatibility bundle; active owned adapter and outbound crossings are censused instead of treating bundle code as authority.",
+      ),
+      sourceLock(
+        repoRoot,
+        "apps/hypervisor/scripts/serve-product-ui.mjs",
+        "Dynamic inbound compatibility dispatch and augmentation loading are file-locked while every statically visible outbound crossing is enumerated.",
+      ),
+      sourceLock(
+        repoRoot,
+        "apps/hypervisor/product-ui/server.cjs",
+        "The spawned reference server has dynamic fixture, missing-chunk, and static-file fallbacks; its single ANY compatibility boundary is censused and the whole dispatch is file-locked.",
+      ),
+      ...listFiles(
+        repoRoot,
+        "apps/hypervisor/scripts/augmentation",
+        ".js",
+      ).map((relativePath) => sourceLock(
+        repoRoot,
+        relativePath,
+        "This active module is dynamically concatenated by serve-product-ui; its literal outbound crossings are censused and the full module is locked against undiscovered dynamic dispatch.",
+      )),
+      sourceLock(
+        repoRoot,
+        "crates/node/src/bin/hypervisor_daemon_routes/ioi_intelligence_routes.rs",
+        "Twelve CRUD handlers are generated by the family_handlers macro; each literal daemon route and generated symbol is enumerated and the macro source is file-locked.",
+      ),
+      sourceLock(
+        repoRoot,
+        "crates/execution/src/runtime_service/mod.rs",
+        "Manifest-defined WASM methods are intrinsically dynamic; the validated wildcard boundary is explicit in the census.",
+      ),
+    ],
+    m0_exit_policy: {
+      permitted_state: "verified",
+      claim_scope: "M0 program control and claim lock only",
+      required_conditions: [
+        "every discovered entry is explicitly reviewed and source-anchored",
+        "every selected object has an owner",
+        "every selected effect has a verified final invoker or explicit unavailable blocker",
+        "all legacy sequencing is non-authoritative",
+        "all 58 PG ids are mapped exactly once without closure claims",
+        "every baseline and evidence item is closed or honestly named",
+      ],
+      architecture_or_production_capability_closure: false,
+    },
+  };
+}
+
+function canonicalJsonValue(value) {
+  if (Array.isArray(value)) {
+    return value.map(canonicalJsonValue);
+  }
+  if (value !== null && typeof value === "object") {
+    return Object.fromEntries(
+      Object.keys(value)
+        .sort()
+        .map((key) => [key, canonicalJsonValue(value[key])]),
+    );
+  }
+  return value;
+}
+
+export function stableStringify(value) {
+  return `${JSON.stringify(canonicalJsonValue(value), null, 2)}\n`;
+}
+
+export function readJsonFile(repoRoot, relativePath) {
+  const absolutePath = path.join(repoRoot, relativePath);
+  let source;
+  try {
+    source = fs.readFileSync(absolutePath, "utf8");
+  } catch (error) {
+    if (error?.code === "ENOENT") {
+      throw new Error(`missing M0 evidence source: ${relativePath}`);
+    }
+    throw error;
+  }
+  try {
+    return JSON.parse(source);
+  } catch (error) {
+    throw new Error(`invalid JSON in ${relativePath}: ${error.message}`);
+  }
+}
+
+function addError(errors, condition, message) {
+  if (!condition) {
+    errors.push(message);
+  }
+}
+
+function isNonEmptyString(value) {
+  return typeof value === "string" && value.trim().length > 0;
+}
+
+function hasExactMembers(actual, expected) {
+  return actual.length === expected.length
+    && actual.every((value, index) => value === expected[index]);
+}
+
+function validationFailure(label, errors) {
+  if (errors.length > 0) {
+    throw new Error(
+      `${label} failed with ${errors.length} error(s):\n${errors.map((error) => `- ${error}`).join("\n")}`,
+    );
+  }
+}
+
+function validateAnchoredFile(repoRoot, relativePath, expectedHash, label, errors) {
+  addError(errors, isNonEmptyString(relativePath), `${label} is missing a source file`);
+  addError(errors, isNonEmptyString(expectedHash), `${label} is missing a source anchor`);
+  if (!isNonEmptyString(relativePath) || !isNonEmptyString(expectedHash)) {
+    return;
+  }
+  try {
+    const { source } = readRepoFile(repoRoot, relativePath);
+    addError(
+      errors,
+      sha256(source) === expectedHash,
+      `${label} has a stale source anchor for ${relativePath}`,
+    );
+  } catch (error) {
+    errors.push(`${label} source cannot be read: ${error.message}`);
+  }
+}
+
+const REQUIRED_GATE_NAMES = ["authority", "fence", "ifc", "policy", "revocation"];
+
+export function validateReviewLock(repoRoot, discoveredEntries, reviewLock) {
+  const errors = [];
+  addError(
+    errors,
+    reviewLock?.evidence_format === "ioi.m0.reviewed_entry_lock.v1",
+    "review lock has an unsafe or unknown evidence_format",
+  );
+  addError(errors, reviewLock?.lock_state === "reviewed", "review lock is not in reviewed state");
+  addError(errors, reviewLock?.as_of_date === AS_OF_DATE, "review lock has the wrong as_of_date");
+  addError(
+    errors,
+    reviewLock?.default_classification === "fail_closed_unclassified",
+    "review lock must use fail_closed_unclassified as its default",
+  );
+  addError(
+    errors,
+    reviewLock?.review_attestation?.reviewed_as_of === AS_OF_DATE,
+    "review lock is missing its dated review attestation",
+  );
+  addError(
+    errors,
+    reviewLock?.review_attestation?.reviewed_entry_count === discoveredEntries.length,
+    "review attestation count does not match discovery",
+  );
+  addError(
+    errors,
+    isNonEmptyString(reviewLock?.review_attestation?.method),
+    "review attestation must state its method",
+  );
+  addError(
+    errors,
+    !/heuristic|automatic promotion|auto[-_ ]classified/iu.test(
+      reviewLock?.review_attestation?.method ?? "",
+    ),
+    "review attestation describes heuristic or automatic promotion as review",
+  );
+  addError(
+    errors,
+    Array.isArray(reviewLock?.review_attestation?.review_groups)
+      && reviewLock.review_attestation.review_groups.length > 0,
+    "review attestation must name reviewed groups",
+  );
+  addError(
+    errors,
+    reviewLock?.review_attestation?.terminal_claim_count === 0,
+    "review attestation terminal claim count must match the fail-closed M0 review",
+  );
+  addError(
+    errors,
+    reviewLock?.review_attestation?.unresolved_placeholder_count === 0,
+    "review attestation reports unresolved placeholders",
+  );
+  addError(errors, Array.isArray(reviewLock?.entries), "review lock entries must be an array");
+
+  const discoveredByIdentity = new Map();
+  for (const entry of discoveredEntries) {
+    if (discoveredByIdentity.has(entry.identity)) {
+      errors.push(`discovery contains duplicate identity ${entry.identity}`);
+    }
+    discoveredByIdentity.set(entry.identity, entry);
+  }
+
+  const reviewByIdentity = new Map();
+  for (const entry of reviewLock?.entries ?? []) {
+    if (!isNonEmptyString(entry?.identity)) {
+      errors.push("review lock contains an entry without an identity");
+      continue;
+    }
+    if (reviewByIdentity.has(entry.identity)) {
+      errors.push(`review lock contains duplicate identity ${entry.identity}`);
+    }
+    reviewByIdentity.set(entry.identity, entry);
+  }
+
+  for (const identity of discoveredByIdentity.keys()) {
+    addError(errors, reviewByIdentity.has(identity), `discovered identity is unclassified: ${identity}`);
+  }
+  for (const identity of reviewByIdentity.keys()) {
+    addError(errors, discoveredByIdentity.has(identity), `review identity is no longer discovered: ${identity}`);
+  }
+
+  const expectedSurfaceCounts = new Map();
+  for (const entry of reviewByIdentity.values()) {
+    expectedSurfaceCounts.set(
+      entry.surface,
+      (expectedSurfaceCounts.get(entry.surface) ?? 0) + 1,
+    );
+  }
+  const attestedSurfaces = new Set();
+  for (const group of reviewLock?.review_attestation?.review_groups ?? []) {
+    const label = `review attestation group ${group?.group_id ?? "<missing>"}`;
+    addError(errors, isNonEmptyString(group?.group_id), `${label} lacks an id`);
+    addError(errors, isNonEmptyString(group?.surface), `${label} lacks a surface`);
+    addError(
+      errors,
+      group?.group_id === `surface:${group?.surface}`,
+      `${label} does not bind its surface`,
+    );
+    addError(
+      errors,
+      !attestedSurfaces.has(group?.surface),
+      `${label} duplicates surface ${group?.surface}`,
+    );
+    attestedSurfaces.add(group?.surface);
+    addError(
+      errors,
+      group?.reviewed_entry_count === expectedSurfaceCounts.get(group?.surface),
+      `${label} has a stale reviewed entry count`,
+    );
+    addError(
+      errors,
+      Array.isArray(group?.review_dimensions)
+        && hasExactMembers(
+          [...group.review_dimensions].sort(),
+          [...REVIEW_DIMENSIONS].sort(),
+        ),
+      `${label} does not attest every review dimension`,
+    );
+    addError(
+      errors,
+      isNonEmptyString(group?.finding)
+        && !/heuristic|automatic promotion|auto[-_ ]classified/iu.test(group.finding),
+      `${label} lacks a source-aware finding`,
+    );
+  }
+  addError(
+    errors,
+    hasExactMembers(
+      [...attestedSurfaces].sort(),
+      [...expectedSurfaceCounts.keys()].sort(),
+    ),
+    "review attestation groups do not partition every reviewed surface exactly once",
+  );
+
+  for (const [identity, reviewed] of reviewByIdentity) {
+    const discovered = discoveredByIdentity.get(identity);
+    if (discovered === undefined) {
+      continue;
+    }
+    const label = `review entry ${identity}`;
+    addError(errors, reviewed.review_status === "reviewed", `${label} is not explicitly reviewed`);
+    addError(
+      errors,
+      reviewed.review_origin === "explicit_m0_review",
+      `${label} has heuristic or unresolved review provenance`,
+    );
+    addError(errors, reviewed.reviewed_as_of === AS_OF_DATE, `${label} lacks a dated review`);
+    for (const field of [
+      "kind",
+      "surface",
+      "operation",
+      "active_state",
+      "source_file",
+      "source_symbol",
+      "handler_resolution",
+    ]) {
+      addError(
+        errors,
+        reviewed[field] === discovered[field],
+        `${label} has stale or mismatched ${field}`,
+      );
+    }
+    for (const field of ["handler", "handler_source_file", "handler_source_symbol"]) {
+      addError(
+        errors,
+        (reviewed[field] ?? null) === (discovered[field] ?? null),
+        `${label} has stale or mismatched ${field}`,
+      );
+    }
+    for (const field of [
+      "method",
+      "path",
+      "rpc_service",
+      "rpc_method",
+      "service_method",
+      "command",
+      "storage_method",
+      "storage_key_expression",
+    ]) {
+      addError(
+        errors,
+        (reviewed[field] ?? null) === (discovered[field] ?? null),
+        `${label} has stale or mismatched ${field}`,
+      );
+    }
+    addError(
+      errors,
+      reviewed.registration_anchor_sha256 === discovered.source_anchor?.sha256,
+      `${label} has a stale registration anchor`,
+    );
+    addError(
+      errors,
+      (reviewed.handler_anchor_sha256 ?? null) === (discovered.handler_anchor?.sha256 ?? null),
+      `${label} has a stale handler anchor`,
+    );
+    addError(
+      errors,
+      ENTRY_CLASSIFICATIONS.has(reviewed.classification),
+      `${label} has unknown classification ${reviewed.classification}`,
+    );
+    addError(errors, isNonEmptyString(reviewed.effect_class), `${label} lacks an effect class`);
+    addError(errors, isNonEmptyString(reviewed.owner), `${label} lacks an owner`);
+    addError(errors, isNonEmptyString(reviewed.owner_doc), `${label} lacks an owner document`);
+    if (isNonEmptyString(reviewed.owner_doc)) {
+      addError(
+        errors,
+        fs.existsSync(path.join(repoRoot, reviewed.owner_doc)),
+        `${label} owner document does not exist: ${reviewed.owner_doc}`,
+      );
+    }
+    addError(
+      errors,
+      isNonEmptyString(reviewed.selected_profile_applicability),
+      `${label} lacks selected-profile applicability`,
+    );
+    addError(
+      errors,
+      IMPLEMENTATION_STATES.has(reviewed.implementation_state),
+      `${label} has unknown implementation state ${reviewed.implementation_state}`,
+    );
+    addError(
+      errors,
+      !["unresolved", "ambiguous"].includes(reviewed.handler_resolution),
+      `${label} has unresolved handler resolution ${reviewed.handler_resolution}`,
+    );
+
+    const gateNames = Object.keys(reviewed.pre_effect_gates ?? {}).sort();
+    addError(
+      errors,
+      hasExactMembers(gateNames, REQUIRED_GATE_NAMES),
+      `${label} must explicitly classify all five pre-effect gates`,
+    );
+    for (const gateName of REQUIRED_GATE_NAMES) {
+      const gate = reviewed.pre_effect_gates?.[gateName];
+      addError(errors, isNonEmptyString(gate?.state), `${label} lacks ${gateName} gate state`);
+      addError(errors, Array.isArray(gate?.symbols), `${label} lacks ${gateName} gate symbols`);
+      addError(errors, isNonEmptyString(gate?.note), `${label} lacks ${gateName} gate evidence note`);
+    }
+
+    const isEffect = reviewed.classification === "consequential"
+      || reviewed.classification === "internal_only";
+    if (isEffect) {
+      addError(errors, reviewed.final_invoker !== null, `${label} lacks a final invoker`);
+      addError(
+        errors,
+        ["terminal", "partial", "unavailable"].includes(reviewed.implementation_state),
+        `${label} must use terminal, partial, or unavailable`,
+      );
+      addError(
+        errors,
+        reviewed.implementation_state === "terminal"
+          || isNonEmptyString(reviewed.blocker_or_nonclaim_ref),
+        `${label} is non-terminal without a typed blocker or nonclaim`,
+      );
+    }
+
+    if (reviewed.final_invoker !== null) {
+      addError(
+        errors,
+        isNonEmptyString(reviewed.final_invoker?.symbol),
+        `${label} final invoker lacks a symbol`,
+      );
+      addError(
+        errors,
+        isNonEmptyString(reviewed.final_invoker?.resolution),
+        `${label} final invoker lacks a resolution`,
+      );
+      addError(
+        errors,
+        [
+          "verified_effect_leaf",
+          "verified_boundary_not_downstream_effect",
+          "candidate_or_handler_boundary_not_final",
+        ].includes(reviewed.final_invoker?.claim_state),
+        `${label} final invoker lacks an honest claim state`,
+      );
+      addError(
+        errors,
+        isNonEmptyString(reviewed.final_invoker?.note),
+        `${label} final invoker lacks an evidence note`,
+      );
+      validateAnchoredFile(
+        repoRoot,
+        reviewed.final_invoker?.source_file,
+        reviewed.final_invoker?.source_anchor_sha256,
+        `${label} final invoker`,
+        errors,
+      );
+      if (
+        reviewed.final_invoker?.claim_state
+          === "candidate_or_handler_boundary_not_final"
+      ) {
+        addError(
+          errors,
+          reviewed.implementation_state !== "terminal"
+            && isNonEmptyString(reviewed.blocker_or_nonclaim_ref),
+          `${label} launders a candidate boundary without a typed blocker`,
+        );
+      }
+    }
+
+    addError(
+      errors,
+      isNonEmptyString(reviewed.durable_record_receipt_evidence?.state),
+      `${label} lacks durable record, receipt, or evidence state`,
+    );
+    addError(
+      errors,
+      Array.isArray(reviewed.durable_record_receipt_evidence?.symbols),
+      `${label} lacks durable record, receipt, or evidence symbols`,
+    );
+    addError(
+      errors,
+      isNonEmptyString(reviewed.durable_record_receipt_evidence?.note),
+      `${label} lacks durable record, receipt, or evidence note`,
+    );
+    addError(
+      errors,
+      isNonEmptyString(reviewed.idempotency_recovery?.idempotency),
+      `${label} lacks idempotency posture`,
+    );
+    addError(
+      errors,
+      isNonEmptyString(reviewed.idempotency_recovery?.recovery),
+      `${label} lacks recovery posture`,
+    );
+
+    if (reviewed.implementation_state === "terminal") {
+      addError(
+        errors,
+        reviewed.final_invoker?.claim_state === "verified_effect_leaf"
+          && /^verified_effect_leaf(?:_|$)/u.test(reviewed.final_invoker?.resolution ?? ""),
+        `${label} falsely claims terminality without a verified effect leaf`,
+      );
+      for (const gateName of REQUIRED_GATE_NAMES) {
+        addError(
+          errors,
+          reviewed.pre_effect_gates?.[gateName]?.state === "verified_pre_effect",
+          `${label} falsely claims terminality without verified ${gateName} ordering`,
+        );
+      }
+      addError(
+        errors,
+        reviewed.durable_record_receipt_evidence?.state
+          === "verified_durable_record_receipt_or_evidence",
+        `${label} falsely claims terminality without verified durable evidence`,
+      );
+      addError(
+        errors,
+        reviewed.idempotency_recovery?.idempotency === "end_to_end_verified",
+        `${label} falsely claims terminality without end-to-end idempotency`,
+      );
+      addError(
+        errors,
+        reviewed.idempotency_recovery?.recovery === "end_to_end_verified",
+        `${label} falsely claims terminality without end-to-end recovery`,
+      );
+      addError(
+        errors,
+        reviewed.blocker_or_nonclaim_ref === null,
+        `${label} terminal claim still carries a blocker`,
+      );
+    }
+  }
+
+  validationFailure("M0 reviewed entry lock", errors);
+  return reviewByIdentity;
+}
+
+export function validateProgramSource(
+  repoRoot,
+  discoveredEntries,
+  reviewLock,
+  programSource,
+) {
+  const reviewByIdentity = validateReviewLock(repoRoot, discoveredEntries, reviewLock);
+  const errors = [];
+  addError(
+    errors,
+    programSource?.evidence_format === "ioi.m0.program_control_source.v1",
+    "program source has an unsafe or unknown evidence_format",
+  );
+  addError(errors, programSource?.as_of_date === AS_OF_DATE, "program source has wrong as_of_date");
+  addError(errors, programSource?.program_state === "reviewed", "program source is not reviewed");
+  addError(
+    errors,
+    Array.isArray(programSource?.canon_contradictions)
+      && programSource.canon_contradictions.length === 0,
+    "program source records a canon contradiction; stop before changing canon",
+  );
+
+  const canonByPath = new Map(
+    (programSource?.canon_basis ?? []).map((entry) => [entry.source_file, entry]),
+  );
+  addError(
+    errors,
+    canonByPath.size === CANON_BASIS_FILES.length,
+    "program source canon basis count is stale",
+  );
+  for (const relativePath of CANON_BASIS_FILES) {
+    const basis = canonByPath.get(relativePath);
+    addError(errors, basis !== undefined, `program source omits canon basis ${relativePath}`);
+    if (basis !== undefined) {
+      validateAnchoredFile(
+        repoRoot,
+        relativePath,
+        basis.source_sha256,
+        `canon basis ${relativePath}`,
+        errors,
+      );
+    }
+  }
+  for (const relativePath of canonByPath.keys()) {
+    addError(
+      errors,
+      CANON_BASIS_FILES.includes(relativePath),
+      `program source has unexpected canon basis ${relativePath}`,
+    );
+  }
+
+  addError(
+    errors,
+    programSource?.sequencing_authority?.legacy_default === "non_authoritative",
+    "legacy sequencing is not explicitly non-authoritative",
+  );
+  addError(
+    errors,
+    programSource?.sequencing_authority?.sole_sequencer_read_only_path
+      === "internal-docs/implementation/ioi-target-end-state-master-implementation-guide.md",
+    "sole read-only sequencer path is missing or changed",
+  );
+  addError(
+    errors,
+    programSource?.sequencing_authority?.pg_ledger_read_only_path
+      === "internal-docs/implementation/canon-mechanism-hardening-action-plan.md",
+    "read-only PG ledger path is missing or changed",
+  );
+  let expectedDiscoveryCoverage;
+  try {
+    assertRepositoryDiscoveryCoverage(repoRoot);
+    expectedDiscoveryCoverage = createDiscoverySourceCoverage(repoRoot);
+  } catch (error) {
+    errors.push(`repository discovery source coverage failed: ${error.message}`);
+  }
+  if (expectedDiscoveryCoverage !== undefined) {
+    addError(
+      errors,
+      stableStringify(programSource?.discovery_source_coverage)
+        === stableStringify(expectedDiscoveryCoverage),
+      "program source discovery coverage is incomplete, stale, or reclassified",
+    );
+  }
+
+  const blockerById = new Map();
+  for (const blocker of programSource?.blocker_ledger ?? []) {
+    if (blockerById.has(blocker.blocker_id)) {
+      errors.push(`duplicate blocker id ${blocker.blocker_id}`);
+    }
+    blockerById.set(blocker.blocker_id, blocker);
+    addError(errors, isNonEmptyString(blocker.type), `blocker ${blocker.blocker_id} lacks a type`);
+    addError(errors, isNonEmptyString(blocker.state), `blocker ${blocker.blocker_id} lacks a state`);
+    addError(
+      errors,
+      isNonEmptyString(blocker.summary),
+      `blocker ${blocker.blocker_id} lacks a summary`,
+    );
+  }
+
+  const selectedProfile = programSource?.selected_profile;
+  addError(
+    errors,
+    selectedProfile?.profile_id === "selected-minimum-l0-outcome-room-bounded-software-change",
+    "selected minimum-L0 profile identity changed",
+  );
+  addError(
+    errors,
+    selectedProfile?.topology?.nodes === 1
+      && selectedProfile?.topology?.writers === 1
+      && selectedProfile?.topology?.failure_domains === 1
+      && selectedProfile?.topology?.ordering_finality === "single_authority",
+    "selected minimum-L0 topology changed",
+  );
+  const objectOwners = selectedProfile?.object_owners ?? [];
+  addError(errors, objectOwners.length > 0, "selected profile has no object owner sets");
+  for (const [index, objectOwner] of objectOwners.entries()) {
+    addError(
+      errors,
+      isNonEmptyString(objectOwner.object_set),
+      `selected object owner ${index} lacks an object set`,
+    );
+    addError(
+      errors,
+      isNonEmptyString(objectOwner.owner),
+      `selected object owner ${index} lacks an owner`,
+    );
+    addError(
+      errors,
+      isNonEmptyString(objectOwner.owner_doc)
+        && fs.existsSync(path.join(repoRoot, objectOwner.owner_doc)),
+      `selected object owner ${index} lacks a live owner document`,
+    );
+  }
+
+  const exactEffect = selectedProfile?.exact_effect;
+  const exactEffectReview = reviewByIdentity.get(exactEffect?.route_identity);
+  addError(errors, exactEffectReview !== undefined, "selected exact effect route is not censused");
+  addError(
+    errors,
+    exactEffect?.selected_subdispatch === "file.apply_patch",
+    "selected exact effect subdispatch changed",
+  );
+  addError(
+    errors,
+    exactEffect?.final_invoker_symbol === "coding_tool_workspace::apply_workspace_patch",
+    "selected exact effect leaf changed",
+  );
+  addError(
+    errors,
+    exactEffectReview?.final_invoker?.symbol === exactEffect?.final_invoker_symbol,
+    "selected exact effect leaf and reviewed final invoker disagree",
+  );
+  addError(
+    errors,
+    ["terminal", "unavailable"].includes(exactEffect?.implementation_state),
+    "selected exact effect must be terminal or explicitly unavailable",
+  );
+  addError(
+    errors,
+    exactEffect?.implementation_state === "terminal"
+      || blockerById.has(exactEffect?.blocker_ref),
+    "selected exact effect is unavailable without a typed blocker",
+  );
+
+  const journey = selectedProfile?.visible_terminal_journey ?? [];
+  addError(errors, journey.length === 13, "selected visible journey must contain exactly 13 steps");
+  for (const [index, step] of journey.entries()) {
+    addError(errors, step.step === index + 1, `selected journey step ${index + 1} is missing`);
+    addError(
+      errors,
+      isNonEmptyString(step.visible_action),
+      `selected journey step ${index + 1} lacks visible action`,
+    );
+    addError(
+      errors,
+      ["terminal", "unavailable"].includes(step.state),
+      `selected journey step ${index + 1} has unsafe state ${step.state}`,
+    );
+    addError(
+      errors,
+      step.state === "terminal" || blockerById.has(step.blocker_ref),
+      `selected journey step ${index + 1} is unavailable without a typed blocker`,
+    );
+    for (const identity of step.route_identities ?? []) {
+      addError(
+        errors,
+        reviewByIdentity.has(identity),
+        `selected journey step ${index + 1} references undiscovered route ${identity}`,
+      );
+      addError(
+        errors,
+        reviewByIdentity.get(identity)?.selected_profile_applicability !== "not_selected",
+        `selected journey step ${index + 1} references unselected route ${identity}`,
+      );
+    }
+  }
+
+  const pgEntries = programSource?.pg_gate_map?.entries ?? [];
+  const pgById = new Map();
+  for (const entry of pgEntries) {
+    if (pgById.has(entry.pg_id)) {
+      errors.push(`PG map duplicates ${entry.pg_id}`);
+    }
+    pgById.set(entry.pg_id, entry);
+    addError(
+      errors,
+      PG_DISPOSITIONS.has(entry.disposition),
+      `${entry.pg_id} has unknown disposition ${entry.disposition}`,
+    );
+    addError(
+      errors,
+      isNonEmptyString(entry.selected_profile_rationale),
+      `${entry.pg_id} lacks selected-profile rationale`,
+    );
+    addError(
+      errors,
+      blockerById.has(entry.evidence_or_blocker_ref),
+      `${entry.pg_id} references unknown evidence or blocker ${entry.evidence_or_blocker_ref}`,
+    );
+    addError(errors, entry.closure_claimed === false, `${entry.pg_id} falsely claims closure`);
+    addError(
+      errors,
+      !Object.hasOwn(entry, "gate_text") && !Object.hasOwn(entry, "definition"),
+      `${entry.pg_id} copies or redefines production-gate text`,
+    );
+  }
+  addError(errors, pgEntries.length === PG_IDS.length, "PG map must contain exactly 58 entries");
+  for (const id of PG_IDS) {
+    addError(errors, pgById.has(id), `PG map omits ${id}`);
+  }
+  for (const id of pgById.keys()) {
+    addError(errors, PG_IDS.includes(id), `PG map includes unknown id ${id}`);
+  }
+  addError(
+    errors,
+    programSource?.pg_gate_map?.closure_claimed === false,
+    "PG map falsely claims aggregate closure",
+  );
+
+  const baselines = programSource?.baselines ?? [];
+  const baselineCategories = [];
+  for (const baseline of baselines) {
+    baselineCategories.push(baseline.category);
+    addError(
+      errors,
+      BASELINE_CATEGORIES.has(baseline.category),
+      `baseline ${baseline.baseline_id} has unknown category`,
+    );
+    addError(
+      errors,
+      ["measured", "not_measured"].includes(baseline.status),
+      `baseline ${baseline.baseline_id} has unsafe status`,
+    );
+    addError(
+      errors,
+      baseline.frozen_as_of === AS_OF_DATE,
+      `baseline ${baseline.baseline_id} was not frozen on the M0 baseline date`,
+    );
+    addError(
+      errors,
+      isNonEmptyString(baseline.cohort),
+      `baseline ${baseline.baseline_id} lacks a frozen cohort`,
+    );
+    addError(
+      errors,
+      isNonEmptyString(baseline.method),
+      `baseline ${baseline.baseline_id} lacks a frozen method`,
+    );
+    addError(
+      errors,
+      baseline.frozen_threshold !== null
+        && typeof baseline.frozen_threshold === "object"
+        && Object.keys(baseline.frozen_threshold).length > 0,
+      `baseline ${baseline.baseline_id} lacks frozen thresholds`,
+    );
+    if (baseline.status === "not_measured") {
+      addError(
+        errors,
+        baseline.observed_as_of === null,
+        `unmeasured baseline ${baseline.baseline_id} fabricates an observation date`,
+      );
+      addError(
+        errors,
+        baseline.observed_value === null,
+        `unmeasured baseline ${baseline.baseline_id} fabricates an observed value`,
+      );
+      addError(
+        errors,
+        isNonEmptyString(baseline.absence_evidence),
+        `unmeasured baseline ${baseline.baseline_id} lacks absence evidence`,
+      );
+      addError(
+        errors,
+        blockerById.has(baseline.blocker_ref),
+        `unmeasured baseline ${baseline.baseline_id} lacks a typed blocker`,
+      );
+    } else {
+      addError(
+        errors,
+        isNonEmptyString(baseline.observed_as_of),
+        `measured baseline ${baseline.baseline_id} lacks an observation date`,
+      );
+      addError(
+        errors,
+        baseline.observed_value !== null && baseline.observed_value !== undefined,
+        `measured baseline ${baseline.baseline_id} lacks an observed value`,
+      );
+    }
+  }
+  addError(
+    errors,
+    hasExactMembers([...baselineCategories].sort(), [...BASELINE_CATEGORIES].sort()),
+    "baselines must map product, reliability, cost, and comprehension exactly once",
+  );
+  addError(
+    errors,
+    stableStringify(programSource?.repository_validation_baselines)
+      === stableStringify(REPOSITORY_VALIDATION_BASELINES),
+    "repository validation baselines are missing or stale",
+  );
+
+  const releaseLevels = (programSource?.release_ladder ?? []).map((entry) => entry.level);
+  addError(
+    errors,
+    hasExactMembers(releaseLevels, ["P0", "P1", "P2", "P3", "P4", "P5", "P6", "P7"]),
+    "release ladder must map P0 through P7 exactly once",
+  );
+  for (const release of programSource?.release_ladder ?? []) {
+    addError(errors, isNonEmptyString(release.name), `${release.level} lacks a name`);
+    addError(errors, isNonEmptyString(release.criterion), `${release.level} lacks a criterion`);
+    addError(
+      errors,
+      isNonEmptyString(release.stage_binding),
+      `${release.level} lacks a stage binding`,
+    );
+  }
+
+  for (const exclusion of programSource?.bounded_discovery_exclusions ?? []) {
+    validateAnchoredFile(
+      repoRoot,
+      exclusion.source_file,
+      exclusion.source_sha256,
+      `bounded discovery exclusion ${exclusion.source_file}`,
+      errors,
+    );
+    addError(
+      errors,
+      isNonEmptyString(exclusion.note),
+      `bounded discovery exclusion ${exclusion.source_file} lacks rationale`,
+    );
+  }
+  addError(
+    errors,
+    (programSource?.bounded_discovery_exclusions ?? []).length > 0,
+    "bounded dynamic-dispatch exclusions are not recorded",
+  );
+
+  for (const reviewed of reviewByIdentity.values()) {
+    if (isNonEmptyString(reviewed.blocker_or_nonclaim_ref)) {
+      addError(
+        errors,
+        blockerById.has(reviewed.blocker_or_nonclaim_ref),
+        `review entry ${reviewed.identity} references unknown blocker ${reviewed.blocker_or_nonclaim_ref}`,
+      );
+    }
+  }
+  addError(
+    errors,
+    programSource?.m0_exit_policy?.architecture_or_production_capability_closure === false,
+    "M0 exit policy falsely closes architecture or production capability",
+  );
+  addError(
+    errors,
+    programSource?.m0_exit_policy?.claim_scope === "M0 program control and claim lock only",
+    "M0 exit claim scope changed",
+  );
+
+  validationFailure("M0 program source", errors);
+  return {
+    blockerById,
+    reviewByIdentity,
+  };
+}
+
+function countBy(entries, selector) {
+  const counts = {};
+  for (const entry of entries) {
+    const key = selector(entry);
+    counts[key] = (counts[key] ?? 0) + 1;
+  }
+  return Object.fromEntries(Object.entries(counts).sort(([left], [right]) => (
+    left.localeCompare(right)
+  )));
+}
+
+function artifactEnvelope(fingerprint, artifact, body) {
+  return {
+    evidence_format: `ioi.m0.${artifact}.v1`,
+    as_of_date: AS_OF_DATE,
+    build_fingerprint: fingerprint,
+    ...body,
+  };
+}
+
+function buildFingerprint(discoveredEntries, reviewLock, programSource) {
+  return sha256(stableStringify({
+    discovered_entries: discoveredEntries,
+    program_source: programSource,
+    reviewed_entry_lock: reviewLock,
+  }));
+}
+
+export function buildM0Artifacts(
+  repoRoot,
+  discoveredEntries,
+  reviewLock,
+  programSource,
+) {
+  const { blockerById, reviewByIdentity } = validateProgramSource(
+    repoRoot,
+    discoveredEntries,
+    reviewLock,
+    programSource,
+  );
+  const fingerprint = buildFingerprint(discoveredEntries, reviewLock, programSource);
+  const reviewedEntries = discoveredEntries.map((discovered) => ({
+    ...discovered,
+    ...reviewByIdentity.get(discovered.identity),
+    discovery_source_anchor: discovered.source_anchor,
+    discovery_handler_anchor: discovered.handler_anchor,
+    discovered_handler_calls: discovered.handler_calls ?? [],
+    discovered_handler_call_sequence: discovered.handler_call_sequence ?? [],
+  }));
+  const selectedEntries = reviewedEntries.filter((entry) => (
+    entry.selected_profile_applicability !== "not_selected"
+  ));
+  const blockerUsage = new Map([...blockerById.keys()].map((id) => [id, []]));
+  for (const entry of reviewedEntries) {
+    if (isNonEmptyString(entry.blocker_or_nonclaim_ref)) {
+      blockerUsage.get(entry.blocker_or_nonclaim_ref)?.push(entry.identity);
+    }
+  }
+  for (const step of programSource.selected_profile.visible_terminal_journey) {
+    if (isNonEmptyString(step.blocker_ref)) {
+      blockerUsage.get(step.blocker_ref)?.push(`selected-journey-step:${step.step}`);
+    }
+  }
+  for (const baseline of programSource.baselines) {
+    if (isNonEmptyString(baseline.blocker_ref)) {
+      blockerUsage.get(baseline.blocker_ref)?.push(baseline.baseline_id);
+    }
+  }
+  for (const pg of programSource.pg_gate_map.entries) {
+    blockerUsage.get(pg.evidence_or_blocker_ref)?.push(pg.pg_id);
+  }
+
+  const documents = new Map();
+  documents.set("effect-census.json", artifactEnvelope(fingerprint, "effect_census", {
+    discovery_rule: reviewLock.discovery_scope.rule,
+    counts: {
+      total: reviewedEntries.length,
+      by_classification: countBy(reviewedEntries, (entry) => entry.classification),
+      by_implementation_state: countBy(reviewedEntries, (entry) => entry.implementation_state),
+      by_surface: countBy(reviewedEntries, (entry) => entry.surface),
+    },
+    entries: reviewedEntries,
+  }));
+  documents.set("selected-profile.json", artifactEnvelope(fingerprint, "selected_profile", {
+    claim_scope: "M0 program control only; no architecture or production capability closure",
+    profile: programSource.selected_profile,
+    selected_entry_counts: {
+      total: selectedEntries.length,
+      by_applicability: countBy(
+        selectedEntries,
+        (entry) => entry.selected_profile_applicability,
+      ),
+      by_state: countBy(selectedEntries, (entry) => entry.implementation_state),
+    },
+    selected_entries: selectedEntries.map((entry) => ({
+      identity: entry.identity,
+      selected_profile_applicability: entry.selected_profile_applicability,
+      implementation_state: entry.implementation_state,
+      final_invoker: entry.final_invoker,
+      blocker_or_nonclaim_ref: entry.blocker_or_nonclaim_ref,
+    })),
+  }));
+  documents.set("pg-gate-map.json", artifactEnvelope(fingerprint, "pg_gate_map", {
+    definition_owner: programSource.pg_gate_map.definition_owner,
+    closure_claimed: false,
+    counts: countBy(programSource.pg_gate_map.entries, (entry) => entry.disposition),
+    entries: programSource.pg_gate_map.entries,
+  }));
+  documents.set("current-baselines.json", artifactEnvelope(fingerprint, "current_baselines", {
+    observation_rule:
+      "Cohort, method, and threshold are frozen before observation; not_measured is evidence of absence, never zero.",
+    counts: countBy(programSource.baselines, (entry) => entry.status),
+    baselines: programSource.baselines,
+    repository_validation_baselines:
+      programSource.repository_validation_baselines,
+  }));
+  documents.set("blocker-ledger.json", artifactEnvelope(fingerprint, "blocker_ledger", {
+    counts: {
+      by_state: countBy(programSource.blocker_ledger, (entry) => entry.state),
+      by_type: countBy(programSource.blocker_ledger, (entry) => entry.type),
+    },
+    blockers: programSource.blocker_ledger.map((blocker) => ({
+      ...blocker,
+      reference_count: blockerUsage.get(blocker.blocker_id)?.length ?? 0,
+      references: [...(blockerUsage.get(blocker.blocker_id) ?? [])].sort(),
+    })),
+  }));
+  documents.set("release-ladder.json", artifactEnvelope(fingerprint, "release_ladder", {
+    current_program_level: "M0 only; below P0 runtime proof",
+    ladder: programSource.release_ladder,
+  }));
+
+  const indexItems = [
+    {
+      path: REVIEW_FILE,
+      role: "explicit reviewed claim lock",
+      state: "closed_current",
+    },
+    {
+      path: PROGRAM_SOURCE_FILE,
+      role: "reviewed selected-profile, PG, baseline, release, and blocker source",
+      state: "closed_current",
+    },
+    {
+      path: `${EVIDENCE_DIR}/README.md`,
+      role: "human consumption and M0 claim boundary",
+      state: "closed_current",
+    },
+    ...GENERATED_ARTIFACT_FILES
+      .filter((name) => name !== "program-evidence-index.json")
+      .map((name) => ({
+        path: `${EVIDENCE_DIR}/${name}`,
+        role: name === "manifest.json"
+          ? "artifact integrity and freshness lock"
+          : "deterministic M0 evidence projection",
+        state: "closed_current",
+      })),
+  ];
+  documents.set(
+    "program-evidence-index.json",
+    artifactEnvelope(fingerprint, "program_evidence_index", {
+      consumption_rule:
+        "Evidence is current only when the read-only checker reproduces this fingerprint and every manifest hash.",
+      evidence_items: indexItems,
+      honestly_open_evidence: programSource.baselines
+        .filter((entry) => entry.status === "not_measured")
+        .map((entry) => ({
+          baseline_id: entry.baseline_id,
+          blocker_ref: entry.blocker_ref,
+          status: entry.status,
+        })),
+    }),
+  );
+
+  const exitConditions = {
+    all_discovered_entries_explicitly_reviewed:
+      reviewedEntries.length === reviewLock.review_attestation.reviewed_entry_count,
+    every_selected_object_has_owner:
+      programSource.selected_profile.object_owners.every((entry) => (
+        isNonEmptyString(entry.owner) && isNonEmptyString(entry.owner_doc)
+      )),
+    selected_effect_has_leaf_or_unavailable_blocker:
+      isNonEmptyString(programSource.selected_profile.exact_effect.final_invoker_symbol)
+      && (
+        programSource.selected_profile.exact_effect.implementation_state === "terminal"
+        || blockerById.has(programSource.selected_profile.exact_effect.blocker_ref)
+      ),
+    legacy_sequencing_is_non_authoritative:
+      programSource.sequencing_authority.legacy_default === "non_authoritative",
+    all_58_pg_ids_mapped_once: programSource.pg_gate_map.entries.length === PG_IDS.length,
+    baselines_are_measured_or_honestly_named: programSource.baselines.every((entry) => (
+      entry.status === "measured"
+      || (
+        entry.status === "not_measured"
+        && entry.observed_value === null
+        && blockerById.has(entry.blocker_ref)
+      )
+    )),
+    repository_validation_baseline_recorded:
+      programSource.repository_validation_baselines.length > 0,
+    evidence_items_are_current_or_honestly_open:
+      indexItems.every((entry) => entry.state === "closed_current"),
+  };
+  const exitState = Object.values(exitConditions).every(Boolean) ? "verified" : "blocked";
+  documents.set("m0-exit-report.json", artifactEnvelope(fingerprint, "exit_report", {
+    m0_exit_state: exitState,
+    claim_scope: "M0 program control and claim lock only",
+    architecture_or_production_capability_closure: false,
+    conditions: exitConditions,
+    census_counts: {
+      total: reviewedEntries.length,
+      consequential: reviewedEntries.filter((entry) => (
+        entry.classification === "consequential"
+      )).length,
+      terminal_consequential: reviewedEntries.filter((entry) => (
+        entry.classification === "consequential"
+        && entry.implementation_state === "terminal"
+      )).length,
+      partial_consequential: reviewedEntries.filter((entry) => (
+        entry.classification === "consequential"
+        && entry.implementation_state === "partial"
+      )).length,
+      unavailable_consequential: reviewedEntries.filter((entry) => (
+        entry.classification === "consequential"
+        && entry.implementation_state === "unavailable"
+      )).length,
+    },
+    open_blocker_count: programSource.blocker_ledger.filter((entry) => (
+      entry.state === "open"
+    )).length,
+    nonclaims: [
+      "M0 does not close any architecture production-status claim.",
+      "M0 does not provide runtime capability, authority, product UX, or a canonical wire contract.",
+      "Every production gate remains owned by the read-only PG ledger.",
+    ],
+  }));
+
+  const rendered = new Map(
+    [...documents].map(([name, document]) => [name, stableStringify(document)]),
+  );
+  const sourceFiles = [REVIEW_FILE, PROGRAM_SOURCE_FILE].map((relativePath) => {
+    const source = fs.readFileSync(path.join(repoRoot, relativePath), "utf8");
+    return {
+      path: relativePath,
+      sha256: sha256(source),
+    };
+  });
+  const artifactFiles = [...rendered].map(([name, source]) => ({
+    path: `${EVIDENCE_DIR}/${name}`,
+    sha256: sha256(source),
+  }));
+  const manifest = artifactEnvelope(fingerprint, "manifest", {
+    consumption_rule:
+      "Consumers must run scripts/m0-program-control.mjs --check; matching filenames without matching hashes are stale.",
+    source_files: sourceFiles,
+    artifact_files: artifactFiles,
+  });
+  rendered.set("manifest.json", stableStringify(manifest));
+
+  if (exitState !== "verified") {
+    throw new Error("internal error: valid M0 source did not satisfy its exit conditions");
+  }
+  return {
+    fingerprint,
+    exitState,
+    documents,
+    rendered,
+  };
+}
+
+export function loadM0Sources(repoRoot) {
+  return {
+    reviewLock: readJsonFile(repoRoot, REVIEW_FILE),
+    programSource: readJsonFile(repoRoot, PROGRAM_SOURCE_FILE),
+  };
+}
+
+export function assertRenderedArtifactsCurrent(
+  repoRoot,
+  rendered,
+  artifactFiles = GENERATED_ARTIFACT_FILES,
+) {
+  const errors = [];
+  for (const name of artifactFiles) {
+    const relativePath = `${EVIDENCE_DIR}/${name}`;
+    let actual;
+    try {
+      actual = fs.readFileSync(path.join(repoRoot, relativePath), "utf8");
+    } catch (error) {
+      errors.push(
+        error?.code === "ENOENT"
+          ? `missing generated artifact ${relativePath}`
+          : `cannot read generated artifact ${relativePath}: ${error.message}`,
+      );
+      continue;
+    }
+    const expected = rendered.get(name);
+    if (actual !== expected) {
+      errors.push(`stale generated artifact ${relativePath}`);
+    }
+  }
+  validationFailure("M0 generated artifacts", errors);
+}
+
+export function checkM0Artifacts(repoRoot) {
+  const discoveredEntries = discoverRepositorySurface(repoRoot);
+  const { reviewLock, programSource } = loadM0Sources(repoRoot);
+  const built = buildM0Artifacts(
+    repoRoot,
+    discoveredEntries,
+    reviewLock,
+    programSource,
+  );
+  assertRenderedArtifactsCurrent(repoRoot, built.rendered);
+  return {
+    ...built,
+    discoveredEntries,
+    reviewLock,
+    programSource,
+  };
+}
