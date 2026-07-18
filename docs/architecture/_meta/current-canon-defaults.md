@@ -911,21 +911,37 @@ applicable;
 - the default managed-product authority experience is:
   `continue with an eligible federated identity or passkey -> native wallet
   identity -> low-risk product session with no effect authority ->
-  consequential-action proposal -> exact-action review -> platform passkey
-  user verification -> scoped, expiring, revocable grant/lease -> daemon
-  boundary revalidation and execution -> WalletReceipt plus Agentgres
-  evidence`. Apple, Google, Microsoft, GitHub, enterprise SSO, and future
-  providers are UI choices over a provider-neutral `federated_identity`
-  factor contract. The calling product/deployment identity plane owns the
-  product session; wallet.network binds its ref and origin into the exact
-  request/review without taking over its lifecycle. Portable v3 grants must
-  sign that request-body/context commitment before this journey is claimable
-  end to end. Face ID, Touch ID, Windows Hello, or a device PIN unlocks
-  the passkey locally; biometric material is not an IOI credential and does
-  not leave the device. Account linking, sign-in, session restoration,
-  recovery, and device replacement never reconstruct, preserve, or widen
-  authority. High-risk recovery requires policy-selected proof, revocation or
-  quarantine of affected sessions/factors, re-enrollment, and receipts;
+  consequential-action proposal -> canonical exact-action, batch, or standing
+  review -> qualified presentation plus separately inspectable authenticator
+  ceremony -> scoped, expiring, revocable grant/lease -> daemon-computed actual
+  effect and equality/membership/constraint verification -> effect or refusal
+  -> WalletReceipt plus Agentgres evidence`. Apple, Google, Microsoft, GitHub,
+  enterprise SSO, and future providers are UI choices over a provider-neutral
+  `federated_identity` factor contract. The calling product/deployment identity
+  plane owns the product session; wallet.network binds its ref and origin into
+  the exact request/review without taking over its lifecycle. The immutable
+  request, canonical reviewed representation, single-use ceremony context, and
+  typed authorization subject are distinct commitments. Presentation evidence
+  records independent properties through a versioned evidence profile; a
+  generic passkey, hardware key, user-verification flag, or attestation is not
+  proof that the application-defined representation was displayed or
+  understood. Portable v3 grants must sign that complete context together with
+  the exact root-signed principal-authority resolution coordinates and snapshot
+  whenever portable-principal authority is claimed before this journey is
+  claimable end to end. The target ceremony context is a closed,
+  domain-separated object with a fresh random nonce; the target review receipt
+  is a portable wrapper over the exact common receipt base and carries one
+  hash-bound satisfaction evaluation per required factor or guardian; and final
+  equality/membership/constraint admission, fresh trusted time, and revocation
+  evidence are recorded by a distinct `AuthorityEffectAdmissionReceipt` before
+  invocation. These successor contracts are not claims
+  about current v1/v2 schemas. Face ID, Touch ID, Windows Hello, or a device PIN
+  unlocks the authenticator locally; biometric material is not an IOI
+  credential and does not leave the device. Account linking, sign-in, session
+  restoration, recovery, and device replacement never reconstruct, preserve,
+  or widen authority. High-risk recovery requires policy-selected proof,
+  revocation or quarantine of affected sessions/factors, re-enrollment, and
+  receipts;
 - Developer Workspace is the live code, files, terminal, ports, debugging, and
   environment-bound hands-on surface; `Workbench` is its compatibility alias;
 - editor integrations such as VS Code, Cursor, Windsurf, JetBrains, browser

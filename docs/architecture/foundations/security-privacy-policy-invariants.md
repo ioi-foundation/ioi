@@ -6,7 +6,7 @@ conformance details live in
 [`../../conformance/hypervisor-core/`](../../conformance/hypervisor-core/).
 Supersedes: overlapping plan prose when invariants conflict.
 Superseded by: none.
-Last alignment pass: 2026-07-16.
+Last alignment pass: 2026-07-18.
 Doctrine status: canonical
 Implementation status: partial (authority/receipt gates are enforced across existing owner planes; registered multi-axis information-flow and declassification schemas, invariants, fixtures, and generated projections provide contract substrate only; the shared pre-effect evaluator and production propagation/enforcement across HTTP connectors, MCP, hosted models, browsers, memory, OutcomeRoom, ContextCell, general computer use, and inbound connectors/webhooks remain planned; local-agent pairing and TEE/cTEE/L1 items follow their owners and remain planned where not exposed by live routes)
 Last implementation audit: 2026-07-18
@@ -59,6 +59,68 @@ registry invariant, the registry wording wins on conflict.
 9. Providers may supply cognition, compute, storage, connectors, venues, and
    managed services, but they must not become the default authority root, secret
    owner, receipt truth, settlement root, or revocation plane.
+
+## Exact-Action Authority Invariants
+
+1. The immutable authority request, canonical reviewed representation,
+   presentation evidence, authenticator ceremony evidence, authority-review
+   decision, principal-authority resolution, grant issuance, final effect
+   admission, execution, and outcome are separate facts. No signature, flag,
+   root, receipt, or UI claim for one fact proves any of the others.
+2. A policy-required exact-action chain binds the same principal, acting
+   subject, product session, origin, authority-request body, authorization
+   subject, reviewed-representation hash, presentation and ceremony evidence,
+   one evaluation for every required factor/guardian posture ref, and, when
+   portable-principal authority is claimed, exact authority binding coordinates
+   and snapshot, plus policy, risk, expiry, grant, trusted time, and revocation
+   posture through final effect admission.
+   A missing required link, undefined comparison, stale dependency, or field
+   substitution fails before the consequential invoker.
+3. A WebAuthn assertion may establish the enrolled credential, exact challenge,
+   RP/origin context, cryptographic signature, and required UP/UV and backup
+   flags. UP/UV establishes ceremony-specific presence or local verification;
+   it does not prove browser pixels, application-defined transaction display,
+   comprehension, natural-person identity, biometric identity, device custody,
+   or effect execution. A generic passkey factor is not a trusted presentation
+   surface or authority grant by implication.
+4. Presentation evidence is interpreted only through a versioned profile whose
+   orthogonal dimensions include presentation operator/control boundary, exact
+   representation binding, request/effect linkage, enrollment and attestation
+   evidence, ceremony posture, freshness/replay handling, and independence from
+   the proposing client. `Same client` and `independent` are not assurance
+   tiers: either posture can be stronger or weaker depending on those separately
+   bound properties.
+5. Request-side `requested_auth_factor_posture_refs` and
+   `requested_guardian_surface_refs` are requested or eligible posture, not
+   evidence of participation. Only wallet/policy-minted review and ceremony
+   evidence may name satisfied factors and guardians. Every required ref has
+   exactly one hash-bound `satisfied`, `unsatisfied`, or `unknown` evaluation;
+   approval requires all evaluations to be satisfied.
+6. One-shot authority requires equality between the daemon-computed exact
+   effect hash and the committed `exact_effect`. Batch authority requires a
+   typed membership proof under the exact `batch_manifest` root. Standing
+   authority requires a typed proof that the actual effect remains within the
+   committed resources, destinations, budgets/calls, time, risk, and other
+   `standing_envelope` constraints. An unknown membership or constraint result
+   fails closed.
+7. Editing any request, reviewed representation, destination, amount, effect
+   arguments, batch member, or standing constraint creates successor
+   request/review/challenge lineage. Approval or ceremony evidence from the
+   predecessor cannot authorize the successor.
+8. Interaction mode and authentication posture are independent: step-up is an
+   authentication posture that may strengthen an interactive ceremony, not a
+   third interaction mode. Only an interactive exact-effect review may be
+   described as individual human review of that effect. Batch,
+   session-envelope, silent-within-policy, and after-the-fact modes must
+   disclose the envelope or policy actually reviewed and must not imply
+   per-effect human comprehension or approval.
+
+These exact-action invariants are release gates for the successor ceremony,
+review-receipt, context-bound grant, effect-admission receipt, and WalletReceipt
+contracts. They are not a claim that current registered v1/v2 authority or
+receipt schemas already implement the complete chain. Final admission requires
+typed `AuthorityEffectAdmissionReceiptV1` evidence; a generic tool or execution
+receipt does not substitute for it.
 
 ## Runtime Invariants
 

@@ -4,7 +4,7 @@ Status: canonical vocabulary reference.
 Canonical owner: this file for runtime, audit, substrate, projection, and naming vocabulary.
 Supersedes: overlapping runtime vocabulary in plans/specs when names conflict.
 Superseded by: none.
-Last alignment pass: 2026-07-17.
+Last alignment pass: 2026-07-18.
 Doctrine status: reference
 Implementation status: mixed (naming reference across all maturity levels)
 Last implementation audit: 2026-07-05
@@ -740,14 +740,21 @@ shorthand. Their canonical JSON wire objects use the owner-qualified
   topology those signals cannot prove. Required UP/UV belongs to each ceremony
   and policy. An AuthFactor authenticates account access or a step-up; it is not
   an authority grant and does not by itself convey agent power.
-- `GuardianSurface`: an explicitly enrolled high-assurance wallet.network
-  approval surface such as a policy-qualified passkey authenticator, hardware key, mobile
-  approver, local CLI signer, trusted Wallet/Hypervisor app, or enterprise
-  approval service. An ordinary synced passkey may remain only an AuthFactor;
-  factor possession does not make it a GuardianSurface. A guardian must render
-  the exact action, bind principal, product session, origin and request hash,
-  satisfy the selected user-verification posture, and emit a review result
-  before high-risk authority can be granted.
+- `GuardianSurface`: an explicitly enrolled wallet.network authority client or
+  approval surface, such as a mobile approver, local CLI signer, trusted
+  Wallet/Hypervisor app, enterprise approval service, or qualified
+  user-agent-controlled presentation mechanism, that can present a canonical
+  semantic review under a declared evidence profile. A passkey or hardware
+  security key is an `AuthFactor` or signing component, not a semantic display;
+  a passkey-backed guardian is the composition of an enrolled surface, its
+  qualified presentation mechanism, and the authenticator. Factor possession,
+  user verification, or attestation alone does not make a GuardianSurface or
+  prove which application-defined action was displayed or understood. Each
+  review records presentation operator/surface, exact-representation binding,
+  request/effect/batch/envelope binding, enrollment or attestation evidence,
+  user-presence/user-verification posture, freshness/replay controls, and
+  independence from the proposer through a versioned
+  `presentation_evidence_profile_ref` and evidence refs.
 - `KeyShard`: actual MPC, threshold, hardware-backed, recovery, or organization
   quorum key material. The term "shard" is reserved for cryptographic or
   threshold authority, not ordinary provider login.
@@ -768,10 +775,12 @@ shorthand. Their canonical JSON wire objects use the owner-qualified
   factor linking, guardian enrollment, approval/denial, grant inspection,
   revocation, secret-brokerage requests, and receipt export. It is a client of
   wallet.network authority, not a separate authority source.
-- `ApprovalMode`: the policy-derived execution approval posture for an
-  authority review. Values include `one_shot_review`, `session_envelope`,
-  `batch_review`, `silent_within_policy`, `after_the_fact_receipt`,
-  `step_up_review`, and `denied`.
+- `ApprovalMode`: compatibility/product shorthand for a policy-derived review
+  recipe, not one wire enum. Recipes include `one_shot_review`,
+  `session_envelope`, `batch_review`, `silent_within_policy`,
+  `after_the_fact_receipt`, `step_up_review`, and `denied`; the contract binds
+  authorization subject, interaction mode, authentication posture, receipt
+  timing, and decision as separate axes.
 - `RiskCoverageState`: the assessment coverage state attached to a risk or
   eligibility label. Values include `Assessed`, `Unknown`, `Unassessed`,
   `Stale`, `Partially Covered`, and `Conflicting Sources`. Absence of a risk
@@ -862,11 +871,39 @@ shorthand. Their canonical JSON wire objects use the owner-qualified
   initiator, action, authority risk class, risk labels, eligibility labels,
   coverage states, affected assets/secrets/data/workloads, destination, policy
   diff, policy explanation, simulation result, candidate evidence, expiry,
-  allowed approval modes, presentation profile, and deny/edit/approve actions.
+  allowed review recipes, presentation profile, and deny/edit/approve actions.
 - `WalletReceipt`: a user-facing and machine-verifiable receipt for wallet
   actions such as sends, receives, exchanges, approvals, delegations,
   revocations, agent actions, step-up, secret execution, risk events,
-  protection actions, and policy changes.
+  protection actions, and policy changes. It proves only its bound fields and
+  evidence links. An end-to-end exact-action claim additionally links the
+  immutable authority request, canonical reviewed representation, qualified
+  presentation and authenticator evidence, resolved approval authority,
+  authority grant, daemon-computed actual effect, and execution or refusal
+  receipt. The registered v1 shape remains narrower; the context-bound v2 shape
+  is a target successor.
+- `ApprovalCeremonyContext`: a target closed, immutable, single-use context
+  binding one request, review representation, principal/session/origin,
+  authorization subject, policy-derived required posture, policy decision,
+  random nonce, expiry, revocation posture, and any required exact
+  principal-authority resolution. Its domain-separated hash supplies the
+  WebAuthn challenge bytes; it is not mutable challenge status.
+- `AuthorityReviewReceipt`: a target portable wrapper around the exact common
+  `ReceiptEnvelope` v1 recording one immutable authority-review result. It binds
+  the request, principal/session/origin, authorization subject, canonical reviewed
+  representation, ceremony context, presentation surface and evidence profile,
+  separate authenticator evidence, required and satisfied factor/guardian
+  posture through one hash-bound evaluation per requirement, policy decision,
+  and any exact principal-authority resolution
+  required for a portable principal, plus the decision and expiry. It is not a
+  new authority primitive and does not prove pixels, human comprehension,
+  external-world correctness, effect admission, or per-effect review under a
+  batch or standing envelope.
+- `AuthorityEffectAdmissionReceipt`: target typed PEP evidence binding the
+  authorized subject, grant, review and ceremony, daemon-derived actual effect,
+  exact-equality/batch-membership/standing-constraint proof, fresh trusted-time
+  and revocation evidence, and a durable pre-invocation admission decision. A
+  review, grant, or generic tool receipt does not substitute for it.
 - `AccessPointBinding`: a wallet.network binding for low-assurance access
   points such as SMS, email, chat apps, voice bridges, or webhooks. These
   channels may notify, wake, pause, steer, or initiate preapproved low-risk
@@ -874,8 +911,10 @@ shorthand. Their canonical JSON wire objects use the owner-qualified
   grants, release secrets, or authorize high-risk actions without step-up.
 - `StepUpChallenge`: a short-lived, single-use challenge pointer sent through a
   low-assurance access point. It routes the user into wallet.network,
-  Hypervisor, an enrolled guardian device, passkey, enterprise IdP, local app,
-  CLI signer, or another high-assurance authority surface. It is not a grant.
+  Hypervisor, an enrolled authority surface, enterprise identity service, local
+  app, CLI signer, or another admitted authority client. An authenticator may
+  participate after routing, but the challenge is not a grant and a passkey
+  assertion is not presentation evidence by itself.
 - `DeclassificationGate`: the policy and authority boundary where protected
   outputs become visible or actionable. It emits a receipt and routes external
   effects through wallet.network capability exits.

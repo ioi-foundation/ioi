@@ -4,7 +4,7 @@ Status: canonical low-level reference.
 Canonical owner: this file for shared envelope and contract names, ID namespaces, principal refs, primitive capability tiers, authority grants, reusable GoalRun-profile, workflow-template, and skill-manifest contracts, bounded-autonomous-system package/genesis/constitution/deployment/membership/finality/recovery/oracle/lifecycle/enrollment/transition/service/settlement fields, dispute rail profile/value-unit/case/resolution fields, bounded-improvement governance/agenda/campaign/evaluation/exposure/evidence/cutoff fields, conditional-cooperation terms and participation fields, room admission fields, AIIP standards bindings, pre-AIIP local-agent pairing fields, native embodied graph/profile/component/stream/adapter/policy/world/action/activation/reservation/deployment-assurance fields, and receipt/run/event envelope fields.
 Supersedes: older flattened capability-tier examples in plans/specs.
 Superseded by: none.
-Last alignment pass: 2026-07-17.
+Last alignment pass: 2026-07-18.
 Doctrine status: canonical
 Implementation status: mixed (the registered architecture-contract substrate supplies schemas, invariants, adversarial fixtures, and generated Rust/TypeScript projections for `ReceiptEnvelope` v1, `ReceiptCheckpoint` v1, `ReceiptProofBundle` v1, `AuthorityGrantEnvelope` v1/v2, `AuthorityKeySet` v1, `AuthorityRevocationSnapshot` v1, `InformationFlowLabel` v1, `DeclassificationApproval` v1, `ManagedWorkBillingLedgerBundle` v1, `DisputeRailBundle` v1, and `PhysicalActionExecutionReceipt` v1; production portable-authority and receipt-proof cryptographic verifiers/CLIs, information-flow enforcement, managed-work billing and dispute kernels, shared work-lifecycle persistence/routes, physical execution, daemon/Agentgres checkpoint emission, network key discovery, and public transparency remain planned; other core runtime envelopes and IDs are built or partial only where their owner routes exist; bounded-autonomous-system profile/control families, bounded-improvement Agenda/Campaign/Epoch/exposure/claim spine, conditional-cooperation terms, local-agent pairing, AIIP transport/bindings and collaborative-pursuit, optional federated ontology/action, Institutional Learning Boundary, NetworkGoalBudget, physical-segment, embodied, cTEE, and prediction families remain planned or speculative)
 Last implementation audit: 2026-07-18
@@ -74,6 +74,7 @@ ReputationEventEnvelope
 AuthorityScopeRequestEnvelope
 AuthorityGrantEnvelope
 AccessPointBindingEnvelope
+ApprovalCeremonyContextEnvelope
 StepUpChallengeEnvelope
 TaskEnvelope
 RunEnvelope
@@ -228,6 +229,8 @@ module://...            governed service-module namespace
 invocation://...        module invocation namespace
 proposal://...          upgrade, policy, module, workflow, or settlement proposal namespace
 authority-request://... explicit portable authority-scope request identity
+approval-ceremony-context://... immutable single-use approval ceremony context identity
+review://...            authority, delivery, or policy review identity
 transition://...        accepted local state-transition namespace
 state://...             referenced operational, environment, world, or domain state identity
 constitution://...      autonomous-system constitutional boundary and amendment lineage
@@ -533,7 +536,8 @@ access_point://...      low-assurance access-point binding ref
 challenge://...         short-lived wallet.network step-up challenge pointer
 credential://...        provider credential binding or secret metadata ref
 key_shard://...         MPC, threshold, hardware-backed, or org key-share ref
-wallet_client://...     wallet.network CLI/MCP/mobile/web/embedded client session
+wallet-client://...     wallet.network CLI/MCP/mobile/web/embedded client session
+wallet_client://...     read-only legacy alias for wallet-client://...; never emitted by new writes
 origin://...            authority-client origin binding identity
 device://...            authority-client, guardian, or enrolled device identity
 key://...               public key, signing key, or key material metadata ref
@@ -3861,18 +3865,27 @@ placement or node authority inside another system.
 ## AuthorityScopeRequestEnvelope
 
 ```yaml
-AuthorityScopeRequestEnvelope:
+AuthorityScopeRequestEnvelopeV2:
+  schema_version: 2
   authority_request_id: authority-request://...
-  principal_ref: principal://... | wallet://... | org://...
+  principal_ref:
+    principal://... | wallet://... | org://... | worker://... | service://... |
+    domain://... | agentgres://domain/...
   product_session_ref: session://... | null
   origin_binding_ref: origin-binding://... | origin://... | null
   subject_id: system://... | agent://... | worker://... | runtime://...
   issuer_id: system://... | wallet://... | org://... | policy://...
   requesting_runtime_ref: runtime://... | null
   purpose: string
-  auth_factor_refs:
-    - auth_factor://...
-  guardian_surface_ref: guardian://... | null
+  requested_auth_factor_posture_refs:
+    - policy://... | auth_factor://...
+  requested_guardian_surface_refs:
+    - guardian://...
+  authorization_subject:
+    kind: exact_effect | batch_manifest | standing_envelope
+    subject_ref: effect://... | artifact://... | policy://...
+    subject_hash: sha256:...
+    validation_profile_ref: schema://... | policy://...
   primitive_capabilities_required:
     - prim:model.invoke
     - prim:fs.read
@@ -3892,20 +3905,176 @@ AuthorityScopeRequestEnvelope:
   destination_refs: []
   risk_classes: []
   policy_hash: hash
-  request_hash: sha256:...
+  authority_request_body_hash: sha256:...
   authority_grant_id: grant://... | null
   status: requested | granted | denied | expired | revoked
 ```
 
+The exact-action shape above is the target v2 successor. Current unversioned
+request adapters remain compatibility inputs until a closed v2 schema,
+fixtures, generated projections, migration rule, producer, and verifier land
+together; this prose does not mutate their wire contract.
+
 `product_session_ref` identifies a session owned by the product or deployment
 identity plane; wallet.network binds it into the request but does not own that
-session's lifecycle. `request_hash` commits the canonical RFC 8785 JCS encoding
-of every immutable request field above except `request_hash`,
-`authority_grant_id`, and `status`. It therefore binds the principal, product
-session, origin, acting subject/runtime, purpose, factors/guardian posture, exact
-capabilities/scopes/resources/destinations, budget/expiry constraints, risk,
-and policy. Review, grant issuance, and effect admission resolve the same body
-and reject any field substitution.
+session's lifecycle. `requested_auth_factor_posture_refs` and
+`requested_guardian_surface_refs` declare requested or eligible approval
+posture; they are not evidence that a factor or guardian participated. Observed
+satisfaction belongs in wallet-minted review and ceremony evidence.
+
+`authorization_subject` discriminates what the grant may ultimately authorize:
+`exact_effect` commits one canonical typed effect, `batch_manifest` commits a
+closed manifest/root whose members require proof, and `standing_envelope`
+commits the constraint set under which later effects may be admitted. The
+`subject_ref` is exact by kind: `exact_effect` uses `effect://`,
+`batch_manifest` uses `artifact://`, and `standing_envelope` uses `policy://`.
+It must resolve to kind-appropriate immutable content and
+`subject_hash` must equal its canonical body hash. For `exact_effect`, that is
+the exact payload hash the daemon recomputes at the final PEP; batch leaves use
+the same effect-hash profile. Undefined canonicalization, membership, or
+constraint semantics are inadmissible.
+
+`authority_request_body_hash` is:
+
+```text
+SHA-256(
+  "IOI-AUTHORITY-SCOPE-REQUEST-V2\0" ||
+  RFC8785_JCS(the exact closed v2 object excluding
+    authority_request_body_hash, authority_grant_id, and status)
+)
+```
+
+It therefore binds `schema_version`, the principal, product
+session, origin, acting subject/runtime, purpose, requested factors/guardian
+posture, authorization subject, exact capabilities/scopes/resources/
+destinations, budget/expiry constraints, risk, and policy. Review, grant
+issuance, and effect admission resolve the same body and reject substitution.
+No presentation surface, presentation-evidence profile, satisfied factor, or
+decision is request input; policy selects and records those later.
+
+## ApprovalCeremonyContextEnvelope
+
+This is a target successor contract. Current master has no registered
+`ApprovalCeremonyContextEnvelope` schema, generated projection, production
+emitter, or verifier. It must land as one closed machine contract rather than
+being inferred from a challenge URL or reconstructed from mutable review state.
+
+```yaml
+ApprovalCeremonyContextEnvelope:
+  schema_version: 1
+  approval_ceremony_context_ref: approval-ceremony-context://...
+  authority_request_ref: authority-request://...
+  authority_request_body_hash: sha256:...
+  authority_review_ref: review://...
+  authority_review_body_hash: sha256:...
+  predecessor_authority_review_ref: review://... | null
+  predecessor_authority_review_body_hash: sha256:... | null
+  predecessor_authority_request_ref: authority-request://... | null
+  predecessor_authority_request_body_hash: sha256:... | null
+  predecessor_authority_review_receipt_ref: receipt://... | null
+  predecessor_authority_review_receipt_hash: sha256:... | null
+  reviewed_representation_hash: sha256:...
+  principal_ref:
+    principal://... | wallet://... | org://... | worker://... | service://... |
+    domain://... | agentgres://domain/...
+  acting_subject_ref: system://... | agent://... | worker://... | runtime://...
+  product_session_ref: session://... | null
+  origin_binding_ref: origin-binding://... | origin://... | null
+  authorization_subject:
+    kind: exact_effect | batch_manifest | standing_envelope
+    subject_ref: effect://... | artifact://... | policy://...
+    subject_hash: sha256:...
+    validation_profile_ref: schema://... | policy://...
+  presentation_surface_ref: wallet-client://... | guardian://... | surface://...
+  presentation_evidence_profile_ref: policy://... | schema://...
+  principal_authority_resolution_ref: artifact://... | null
+  principal_authority_resolution_hash: sha256:... | null
+  required_auth_factor_posture_refs:
+    - policy://... | auth_factor://...
+  required_guardian_surface_refs:
+    - guardian://...
+  posture_satisfaction_profile_ref: policy://... | schema://...
+  interaction_mode: interactive | noninteractive_policy
+  authentication_posture: baseline | step_up
+  receipt_timing: before_effect | after_effect
+  policy_decision_receipt_ref: receipt://...
+  policy_decision_receipt_hash: sha256:...
+  policy_hash: sha256:...
+  risk_classes: []
+  revocation_epoch: integer
+  nonce_b64url: base64url_256_bits_or_more
+  issued_at: timestamp
+  expires_at: timestamp
+  single_use: true
+```
+
+The context hash is:
+
+```text
+SHA-256(
+  "IOI-APPROVAL-CEREMONY-CONTEXT-V1\0" ||
+  RFC8785_JCS(ApprovalCeremonyContextEnvelope)
+)
+```
+
+`authority_review_body_hash` is not the hash of a mutable review record that
+already contains this context. It is:
+
+```text
+SHA-256(
+  "IOI-AUTHORITY-REVIEW-PREPARATION-V1\0" ||
+  RFC8785_JCS({
+    schema_version,
+    authority_review_ref,
+    authority_request_ref,
+    authority_request_body_hash,
+    reviewed_representation_hash,
+    predecessor_authority_review_ref,
+    predecessor_authority_review_body_hash,
+    predecessor_authority_request_ref,
+    predecessor_authority_request_body_hash,
+    predecessor_authority_review_receipt_ref,
+    predecessor_authority_review_receipt_hash,
+    principal_ref,
+    acting_subject_ref,
+    product_session_ref,
+    origin_binding_ref,
+    authorization_subject,
+    presentation_surface_ref,
+    presentation_evidence_profile_ref,
+    principal_authority_resolution_ref,
+    principal_authority_resolution_hash,
+    required_auth_factor_posture_refs,
+    required_guardian_surface_refs,
+    posture_satisfaction_profile_ref,
+    interaction_mode,
+    authentication_posture,
+    receipt_timing,
+    policy_hash,
+    risk_classes,
+    expires_at
+  })
+)
+```
+
+That closed preparation object contains no ceremony-context ref/hash,
+challenge, presentation/authenticator evidence, policy-decision receipt,
+mutable status, or resulting decision/grant refs, so neither hash is
+self-referential. The ceremony context binds the policy-decision ref/hash
+directly beside the preparation hash. That policy-decision receipt is produced
+over the request, review-preparation inputs, required posture, risk, and policy;
+it must not include the later ceremony-context ref/hash in its own preimage.
+
+The WebAuthn challenge is the base64url encoding of the raw
+`approval_ceremony_context_hash` bytes, not the review-preparation hash. The
+fresh random nonce inside the hashed body supplies unpredictability and makes
+each ceremony unique; it is not replaced by a deterministic request or review
+hash. The principal-authority resolution fields are both required when
+`principal_ref` uses the registered portable grammar (`worker://`,
+`service://`, `org://`, `domain://`, or `agentgres://domain/`) and both null
+otherwise. The referenced artifact is the exact registered
+`PrincipalAuthorityResolutionV1` object, without projection; its hash is
+SHA-256 over the RFC 8785 JCS bytes of that exact object.
 
 ## AuthorityGrantEnvelope
 
@@ -3975,23 +4144,106 @@ contract and additionally signs:
 request_commitment:
   authority_request_id: authority-request://...
   authority_request_body_hash: sha256:...
-  principal_ref: principal://... | wallet://... | org://...
+  reviewed_representation_hash: sha256:...
+  presentation_surface_ref: wallet-client://... | guardian://... | surface://...
+  presentation_evidence_profile_ref: policy://... | schema://...
+  presentation_evidence_refs:
+    - receipt://... | evidence://... | attestation://...
+  approval_ceremony_context_ref: approval-ceremony-context://...
+  approval_ceremony_context_hash: sha256:...
+  approval_ceremony_evidence_refs:
+    - receipt://... | evidence://...
+  authorization_subject:
+    kind: exact_effect | batch_manifest | standing_envelope
+    subject_ref: effect://... | artifact://... | policy://...
+    subject_hash: sha256:...
+    validation_profile_ref: schema://... | policy://...
+  principal_ref:
+    principal://... | wallet://... | org://... | worker://... | service://... |
+    domain://... | agentgres://domain/...
   product_session_ref: session://... | null
   origin_binding_ref: origin-binding://... | origin://... | null
-  auth_factor_refs:
+  required_auth_factor_posture_refs:
+    - policy://... | auth_factor://...
+  required_guardian_surface_refs:
+    - guardian://...
+  satisfied_auth_factor_refs:
     - auth_factor://...
-  guardian_surface_ref: guardian://... | null
+  satisfied_guardian_surface_refs:
+    - guardian://...
+  posture_satisfaction_profile_ref: policy://... | schema://...
+  posture_satisfaction_evaluations:
+    - requirement_ref: policy://... | auth_factor://... | guardian://...
+      requirement_kind: auth_factor | guardian_surface
+      satisfied_by_refs:
+        - auth_factor://... | guardian://...
+      evidence_refs:
+        - evidence://... | receipt://... | artifact://...
+      evaluation_profile_ref: policy://... | schema://...
+      decision: satisfied | unsatisfied | unknown
+  posture_satisfaction_root: sha256:...
+  interaction_mode: interactive | noninteractive_policy
+  authentication_posture: baseline | step_up
+  receipt_timing: before_effect | after_effect
+  principal_authority_resolution_ref: artifact://... | null
+  principal_authority_resolution_hash: sha256:... | null
+  policy_decision_receipt_ref: receipt://...
+  policy_decision_receipt_hash: sha256:...
   authority_review_receipt_ref: receipt://...
+  authority_review_receipt_hash: sha256:...
+  approval_evidence_profile_ref: schema://... | policy://...
+  approval_evidence_leaf_refs:
+    - receipt://... | evidence://... | artifact://...
   approval_evidence_root: sha256:...
 ```
 
-The signed v3 grant is independently verifiable against the exact
-`AuthorityScopeRequestEnvelope` body and review receipt. A subject, session,
-origin, request, factor, guardian, resource, destination, budget, policy, or
-risk substitution invalidates the commitment. A null session or origin is
-permitted only when the selected non-browser/non-product policy explicitly
-declares that posture; it is never inferred by omission. V1 and v2 remain
-immutable compatibility contracts. V3 requires a new registered schema,
+The signed v3 grant is independently verifiable against the exact target
+`AuthorityScopeRequestEnvelopeV2` body, authorization subject, reviewed
+representation, presentation and ceremony evidence, required and satisfied
+factor/guardian posture, policy decision, any principal-authority resolution
+required by the portable principal contract, and authority-review receipt.
+Request-side factor and guardian refs remain requested posture; only the
+separately named `satisfied_*` refs and their wallet-minted evidence record
+participation. `posture_satisfaction_evaluations` is the authoritative closed
+mapping from policy requirements to evidence: every required factor/guardian
+ref appears exactly once, no unrequired ref appears, and an approved grant
+requires every entry to be `satisfied`. The `satisfied_*` arrays are exact,
+sorted projections of those entries, not independently authored claims.
+An `auth_factor` evaluation references only the required auth-factor set and
+uses only `auth_factor://` satisfiers; a `guardian_surface` evaluation
+references only the required guardian set and uses only `guardian://`
+satisfiers.
+`posture_satisfaction_root` is domain-separated by the named profile and commits
+the canonical ordered evaluation set; both the review receipt and grant bind
+the same profile and root.
+
+`presentation_evidence_profile_ref` independently declares the presentation
+operator/control boundary, exact representation binding, request/effect
+linkage, enrollment and attestation evidence, UP/UV posture, freshness/replay
+handling, and independence from the proposing client. These are orthogonal
+properties, not a `same client` versus `independent trusted` assurance tier.
+
+`approval_ceremony_context_ref` resolves the exact closed
+`ApprovalCeremonyContextEnvelope`; its domain-separated hash commits the
+request and reviewed-representation hashes, principal, acting subject, product
+session, origin, nonce, expiry, authorization subject, required posture, policy
+decision, risk, revocation epoch, and any principal-authority resolution
+required by the portable principal contract.
+`approval_evidence_profile_ref` defines ordered leaf types, canonical encoding,
+hash algorithm, and domain-separated construction for
+`approval_evidence_root`; an opaque root without that exact profile is
+inadmissible. When `principal_authority_resolution_ref` is non-null, that exact
+artifact ref/hash is a required typed leaf. The posture-satisfaction profile,
+closed evaluations, and root are bound directly by an approved grant; none may
+be inferred from the satisfied-ref projections alone.
+
+A subject, session, origin, request, representation, presentation surface or
+profile, ceremony, factor, guardian, principal-authority coordinate or
+snapshot, authorization-subject, resource, destination, budget, policy, risk,
+or evidence-root substitution invalidates the commitment. A null session or
+origin is permitted only when the selected non-browser/non-product policy
+explicitly declares that posture; it is never inferred by omission. V1 and v2
+remain immutable compatibility contracts. V3 requires a new registered schema,
 fixtures, generated Rust/TypeScript projections, and verifier support rather
 than silently changing either registered version.
 
@@ -3999,7 +4251,7 @@ than silently changing either registered version.
 
 ```yaml
 AuthorityClientEnvelope:
-  authority_client_id: wallet_client://...
+  authority_client_id: wallet-client://...
   client_kind:
     wallet_web | wallet_mobile | wallet_desktop | hypervisor_panel |
     cli_signer | mcp_server | sdk | enterprise_authority_service |
@@ -4043,7 +4295,7 @@ AuthorityClientEnvelope:
     suspicious_frequency | policy_denied | leaked | compromised
   quarantine_advisory_refs:
     - quarantine_advisory://...
-  replacement_client_ref: wallet_client://... | null
+  replacement_client_ref: wallet-client://... | null
   status:
     active | expired | suspended | quarantined | rotating | rotated | revoked
 ```
@@ -4090,13 +4342,15 @@ AccessPointBindingEnvelope:
   challenge_policy:
     single_use: true
     ttl_seconds: 300
-    requires_surface:
+    eligible_presentation_surface_classes:
       - wallet_network_web
       - hypervisor_app
-      - enrolled_guardian_device
-      - passkey
-      - enterprise_idp
+      - enrolled_guardian_authority_client
+      - enterprise_approval_surface
       - local_cli_signer
+    eligible_auth_factor_kinds:
+      - passkey
+      - federated_identity
   expires_at: optional
   revocation_epoch: integer
   status: active | disabled | expired | revoked
@@ -4109,24 +4363,30 @@ StepUpChallengeEnvelope:
   challenge_id: challenge://...
   binding_id: access_point://...
   owner_ref: wallet://...
-  request_hash: sha256:...
-  policy_hash: sha256:...
-  risk_class: read | draft | local_write | write_reversible |
-    external_message | commerce | funds | credential_access |
-    policy_widening | secret_export | identity_change |
-    system_destructive | physical_action
+  approval_ceremony_context_ref: approval-ceremony-context://...
+  approval_ceremony_context_hash: sha256:...
+  challenge_bytes_b64url: base64url(raw_approval_ceremony_context_hash)
   action_summary: string
-  challenge_url_ref: optional
-  single_use: true
-  expires_at: timestamp
+  challenge_url_ref: https://... | null
   status: issued | approved | denied | expired | consumed
   resulting_grant_ref: grant://... | null
-  receipt_ref: receipt://... | null
+  authority_review_receipt_ref: receipt://... | null
 ```
 
 Low-assurance access points can carry a `challenge://...` pointer but must not
 carry a `grant://...`, decryption key, credential, private workspace payload, or
 durable secret.
+
+The challenge resolves one immutable `ApprovalCeremonyContextEnvelope` and
+repeats only its ref, hash, and challenge bytes. The mutable delivery status and
+result refs are outside that context hash, avoiding a self-referential
+preimage. Required factor posture and guardian surfaces live in the context as
+requirements, not observed participation. Approval records actual presentation
+and ceremony evidence plus satisfied factor/guardian refs in the resulting
+`AuthorityReviewReceipt`; changing the request, representation, subject,
+required posture, policy decision, any required authority resolution, nonce,
+or expiry requires a successor context and challenge and invalidates
+predecessor approval evidence.
 
 ## TaskEnvelope
 
