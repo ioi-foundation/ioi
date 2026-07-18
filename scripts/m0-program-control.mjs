@@ -4,6 +4,9 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import {
+  atomicWriteFileSync,
+} from "./lib/m0-program-control.mjs";
+import {
   EVIDENCE_DIR,
   GENERATED_ARTIFACT_FILES,
   PROGRAM_SOURCE_FILE,
@@ -38,7 +41,7 @@ function writeIfMissing(relativePath, source) {
   if (fs.existsSync(absolutePath)) {
     return false;
   }
-  fs.writeFileSync(absolutePath, source, { encoding: "utf8", flag: "wx" });
+  atomicWriteFileSync(absolutePath, source, { exclusive: true });
   return true;
 }
 
@@ -55,7 +58,7 @@ function writeIfChanged(relativePath, source) {
   if (current === source) {
     return false;
   }
-  fs.writeFileSync(absolutePath, source, "utf8");
+  atomicWriteFileSync(absolutePath, source);
   return true;
 }
 
