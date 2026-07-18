@@ -1,0 +1,56 @@
+{
+  "$id": "invariant://ioi/foundations/managed-work-billing-ledger-bundle/fixed-chain/v1",
+  "language": "ioi.portable-invariants.v1",
+  "contract_id": "schema://ioi/foundations/managed-work-billing-ledger-bundle/v1",
+  "rules": [
+    {
+      "rule_id": "managed_work_billing.rate_card.window",
+      "description": "A RateCard has a finite non-empty validity interval.",
+      "expression": {
+        "operator": "numbers_lt",
+        "paths": [
+          "$.rate_card.issued_at_ms",
+          "$.rate_card.expires_at_ms"
+        ]
+      }
+    },
+    {
+      "rule_id": "managed_work_billing.plan.window",
+      "description": "A Plan has a finite non-empty validity interval.",
+      "expression": {
+        "operator": "numbers_lt",
+        "paths": [
+          "$.plan.issued_at_ms",
+          "$.plan.expires_at_ms"
+        ]
+      }
+    },
+    {
+      "rule_id": "managed_work_billing.quote.window",
+      "description": "An immutable WorkQuote has a finite non-empty validity interval.",
+      "expression": {
+        "operator": "numbers_lt",
+        "paths": [
+          "$.quote.issued_at_ms",
+          "$.quote.expires_at_ms"
+        ]
+      }
+    },
+    {
+      "rule_id": "managed_work_billing.hold.required",
+      "description": "An exportable admitted billing chain contains at least one finite CreditHold.",
+      "expression": {
+        "operator": "non_empty",
+        "path": "$.holds"
+      }
+    },
+    {
+      "rule_id": "managed_work_billing.ledger_head.required",
+      "description": "The bundle binds the current append-only ledger head.",
+      "expression": {
+        "operator": "non_empty",
+        "path": "$.ledger_head_hash"
+      }
+    }
+  ]
+}

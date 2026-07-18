@@ -7190,6 +7190,7 @@ dependencies = [
  "libp2p",
  "parity-scale-codec",
  "prost 0.13.5",
+ "regex",
  "schemars 0.8.22",
  "serde",
  "serde_jcs",

@@ -1,0 +1,186 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/foundations/authority-grant-envelope/v2",
+  "title": "AuthorityGrantEnvelope",
+  "description": "Portable, individually signed IOI authority grant with holder, audience, attenuation, revocation, and canonical-body bindings.",
+  "x-ioi-schema-version": "ioi.foundations.authority-grant-envelope.v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "envelope_type",
+    "signature_domain",
+    "schema_hash",
+    "authority_grant_id",
+    "request_id",
+    "issuer_id",
+    "issuer_key_set_ref",
+    "issuer_key_set_version",
+    "issuer_key_id",
+    "holder_id",
+    "holder_key_id",
+    "audience",
+    "issued_at",
+    "not_before",
+    "expires_at",
+    "parent_grant",
+    "authority_scopes",
+    "primitive_capability_constraints",
+    "resources",
+    "attenuating_caveats",
+    "risk_restrictions",
+    "revocation_epoch",
+    "body_hash",
+    "signature_suite",
+    "signature_key_id",
+    "signature"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "ioi.foundations.authority-grant-envelope.v2"
+    },
+    "envelope_type": {
+      "const": "ioi.authority-grant"
+    },
+    "signature_domain": {
+      "const": "ioi.authority-grant-envelope.v2"
+    },
+    "schema_hash": { "$ref": "#/$defs/sha256Hash" },
+    "authority_grant_id": { "$ref": "#/$defs/grantRef" },
+    "request_id": { "$ref": "#/$defs/authorityRequestRef" },
+    "issuer_id": { "$ref": "#/$defs/issuerRef" },
+    "issuer_key_set_ref": { "$ref": "#/$defs/keySetRef" },
+    "issuer_key_set_version": { "type": "integer", "minimum": 1 },
+    "issuer_key_id": { "$ref": "#/$defs/keyRef" },
+    "holder_id": { "$ref": "#/$defs/holderRef" },
+    "holder_key_id": { "$ref": "#/$defs/keyRef" },
+    "audience": { "$ref": "#/$defs/canonicalRef" },
+    "issued_at": { "type": "integer", "minimum": 0 },
+    "not_before": { "type": "integer", "minimum": 0 },
+    "expires_at": { "type": "integer", "minimum": 0 },
+    "parent_grant": {
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["grant_ref", "body_hash", "proof_ref"],
+          "properties": {
+            "grant_ref": { "$ref": "#/$defs/grantRef" },
+            "body_hash": { "$ref": "#/$defs/sha256Hash" },
+            "proof_ref": { "$ref": "#/$defs/proofRef" }
+          }
+        }
+      ]
+    },
+    "authority_scopes": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/authorityScope" },
+      "uniqueItems": true
+    },
+    "primitive_capability_constraints": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/primitiveCapability" },
+      "uniqueItems": true
+    },
+    "resources": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/canonicalRef" },
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "attenuating_caveats": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/caveatRef" },
+      "uniqueItems": true
+    },
+    "risk_restrictions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "allowed_risk_classes",
+        "max_budget_microusd",
+        "max_calls",
+        "approval_required_for"
+      ],
+      "properties": {
+        "allowed_risk_classes": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/riskClass" },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "max_budget_microusd": { "type": "integer", "minimum": 0 },
+        "max_calls": { "type": "integer", "minimum": 1 },
+        "approval_required_for": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9._-]*$"
+          },
+          "uniqueItems": true
+        }
+      }
+    },
+    "revocation_epoch": { "type": "integer", "minimum": 0 },
+    "body_hash": { "$ref": "#/$defs/sha256Hash" },
+    "signature_suite": { "const": "ed25519" },
+    "signature_key_id": { "$ref": "#/$defs/keyRef" },
+    "signature": { "$ref": "#/$defs/ed25519Signature" }
+  },
+  "$defs": {
+    "grantRef": { "type": "string", "pattern": "^grant://[^\\s]+$" },
+    "authorityRequestRef": {
+      "type": "string",
+      "pattern": "^authority-request://[^\\s]+$"
+    },
+    "issuerRef": {
+      "type": "string",
+      "pattern": "^(?:system|wallet|org|policy)://[^\\s]+$"
+    },
+    "holderRef": {
+      "type": "string",
+      "pattern": "^(?:system|agent|worker|runtime|wallet|org)://[^\\s]+$"
+    },
+    "keySetRef": { "type": "string", "pattern": "^keyset://[^\\s]+$" },
+    "keyRef": { "type": "string", "pattern": "^key://[^\\s]+$" },
+    "proofRef": { "type": "string", "pattern": "^proof://[^\\s]+$" },
+    "caveatRef": { "type": "string", "pattern": "^caveat://[^\\s]+$" },
+    "authorityScope": {
+      "type": "string",
+      "pattern": "^scope:[a-z][a-z0-9._-]*$"
+    },
+    "primitiveCapability": {
+      "type": "string",
+      "pattern": "^prim:[a-z][a-z0-9._-]*$"
+    },
+    "canonicalRef": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]*://[^\\s]+$"
+    },
+    "sha256Hash": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "ed25519Signature": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_-]{86}$"
+    },
+    "riskClass": {
+      "enum": [
+        "read",
+        "draft",
+        "external_message",
+        "commerce",
+        "funds",
+        "trade",
+        "policy_widening",
+        "secret_export",
+        "declassification",
+        "identity_change",
+        "cloud_deploy",
+        "physical_action"
+      ]
+    }
+  }
+}

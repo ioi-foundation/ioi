@@ -1,0 +1,89 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/foundations/receipt-checkpoint/v1",
+  "title": "ReceiptCheckpoint",
+  "description": "Signed checkpoint over one versioned append-only receipt hash-chain accumulator.",
+  "x-ioi-schema-version": "ioi.foundations.receipt-checkpoint.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "checkpoint_type",
+    "signature_domain",
+    "schema_hash",
+    "checkpoint_id",
+    "receipt_log_id",
+    "accumulator_algorithm",
+    "receipt_body_hash_profile",
+    "receipt_contract_id",
+    "receipt_schema_hash",
+    "accumulator_size",
+    "accumulator_root",
+    "previous_checkpoint_ref",
+    "previous_checkpoint_hash",
+    "previous_accumulator_size",
+    "previous_accumulator_root",
+    "issuer_id",
+    "issuer_key_set_ref",
+    "issuer_key_set_version",
+    "issuer_key_id",
+    "issued_at",
+    "build_identity_ref",
+    "policy_posture_ref",
+    "body_hash",
+    "signature_suite",
+    "signature_key_id",
+    "signature"
+  ],
+  "properties": {
+    "schema_version": { "const": "ioi.foundations.receipt-checkpoint.v1" },
+    "checkpoint_type": { "const": "ioi.receipt-checkpoint" },
+    "signature_domain": { "const": "ioi.receipt-checkpoint.v1" },
+    "schema_hash": { "$ref": "#/$defs/sha256Hash" },
+    "checkpoint_id": { "$ref": "#/$defs/checkpointRef" },
+    "receipt_log_id": { "$ref": "#/$defs/logRef" },
+    "accumulator_algorithm": { "const": "ioi.receipt-hash-chain-jcs-sha256.v1" },
+    "receipt_body_hash_profile": { "const": "ioi.receipt-envelope-jcs-sha256.v1" },
+    "receipt_contract_id": { "const": "schema://ioi/foundations/receipt-envelope/v1" },
+    "receipt_schema_hash": { "$ref": "#/$defs/sha256Hash" },
+    "accumulator_size": { "type": "integer", "minimum": 1 },
+    "accumulator_root": { "$ref": "#/$defs/sha256Hash" },
+    "previous_checkpoint_ref": {
+      "anyOf": [{ "$ref": "#/$defs/checkpointRef" }, { "type": "null" }]
+    },
+    "previous_checkpoint_hash": {
+      "anyOf": [{ "$ref": "#/$defs/sha256Hash" }, { "type": "null" }]
+    },
+    "previous_accumulator_size": {
+      "anyOf": [{ "type": "integer", "minimum": 1 }, { "type": "null" }]
+    },
+    "previous_accumulator_root": {
+      "anyOf": [{ "$ref": "#/$defs/sha256Hash" }, { "type": "null" }]
+    },
+    "issuer_id": { "$ref": "#/$defs/issuerRef" },
+    "issuer_key_set_ref": { "$ref": "#/$defs/keySetRef" },
+    "issuer_key_set_version": { "type": "integer", "minimum": 1 },
+    "issuer_key_id": { "$ref": "#/$defs/keyRef" },
+    "issued_at": { "type": "integer", "minimum": 0 },
+    "build_identity_ref": { "$ref": "#/$defs/buildRef" },
+    "policy_posture_ref": { "$ref": "#/$defs/policyRef" },
+    "body_hash": { "$ref": "#/$defs/sha256Hash" },
+    "signature_suite": { "const": "ed25519" },
+    "signature_key_id": { "$ref": "#/$defs/keyRef" },
+    "signature": { "$ref": "#/$defs/ed25519Signature" }
+  },
+  "$defs": {
+    "sha256Hash": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+    "checkpointRef": { "type": "string", "pattern": "^receipt-checkpoint://[^\\s]+$" },
+    "logRef": { "type": "string", "pattern": "^receipt-log://[^\\s]+$" },
+    "issuerRef": {
+      "type": "string",
+      "pattern": "^(?:system|wallet|org|policy)://[^\\s]+$"
+    },
+    "keySetRef": { "type": "string", "pattern": "^keyset://[^\\s]+$" },
+    "keyRef": { "type": "string", "pattern": "^key://[^\\s]+$" },
+    "buildRef": { "type": "string", "pattern": "^build://[^\\s]+$" },
+    "policyRef": { "type": "string", "pattern": "^policy://[^\\s]+$" },
+    "ed25519Signature": { "type": "string", "pattern": "^[A-Za-z0-9_-]{86}$" }
+  }
+}

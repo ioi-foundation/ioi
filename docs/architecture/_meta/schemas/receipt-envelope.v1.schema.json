@@ -1,0 +1,167 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/foundations/receipt-envelope/v1",
+  "title": "ReceiptEnvelope",
+  "description": "Portable base envelope shared by registered IOI receipt profiles.",
+  "x-ioi-schema-version": "ioi.foundations.receipt-envelope.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "receipt_id",
+    "receipt_type",
+    "receipt_profile_ref",
+    "attested_boundary_fact_refs",
+    "claim_scope_ref",
+    "run_id",
+    "task_id",
+    "actor_id",
+    "authority_grant_id",
+    "primitive_capabilities",
+    "authority_scopes",
+    "artifact_refs",
+    "evidence_bundle_refs",
+    "verification_ref",
+    "acceptance_ref",
+    "adjudication_ref",
+    "settlement_ref",
+    "timestamp",
+    "signature",
+    "public_commitment_ref"
+  ],
+  "properties": {
+    "receipt_id": { "$ref": "#/$defs/receiptRef" },
+    "receipt_type": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*$"
+    },
+    "receipt_profile_ref": { "$ref": "#/$defs/schemaRef" },
+    "attested_boundary_fact_refs": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/canonicalRef" },
+      "uniqueItems": true
+    },
+    "claim_scope_ref": {
+      "anyOf": [
+        { "$ref": "#/$defs/schemaOrPolicyRef" },
+        { "type": "null" }
+      ]
+    },
+    "run_id": {
+      "anyOf": [{ "$ref": "#/$defs/runRef" }, { "type": "null" }]
+    },
+    "task_id": {
+      "anyOf": [{ "$ref": "#/$defs/taskRef" }, { "type": "null" }]
+    },
+    "actor_id": { "$ref": "#/$defs/protocolPrincipalOrRuntimeRef" },
+    "input_hash": { "$ref": "#/$defs/hash" },
+    "output_hash": { "$ref": "#/$defs/hash" },
+    "policy_hash": { "$ref": "#/$defs/hash" },
+    "authority_grant_id": {
+      "anyOf": [{ "$ref": "#/$defs/grantRef" }, { "type": "null" }]
+    },
+    "primitive_capabilities": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/primitiveCapability" },
+      "uniqueItems": true
+    },
+    "authority_scopes": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/authorityScope" },
+      "uniqueItems": true
+    },
+    "artifact_refs": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/artifactRef" },
+      "uniqueItems": true
+    },
+    "evidence_bundle_refs": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/evidenceRef" },
+      "uniqueItems": true
+    },
+    "verification_ref": {
+      "anyOf": [{ "$ref": "#/$defs/verificationRef" }, { "type": "null" }]
+    },
+    "acceptance_ref": {
+      "anyOf": [{ "$ref": "#/$defs/acceptanceRef" }, { "type": "null" }]
+    },
+    "adjudication_ref": {
+      "anyOf": [{ "$ref": "#/$defs/adjudicationRef" }, { "type": "null" }]
+    },
+    "settlement_ref": {
+      "anyOf": [{ "$ref": "#/$defs/settlementRef" }, { "type": "null" }]
+    },
+    "timestamp": { "type": "string", "format": "date-time" },
+    "signature": {
+      "description": "Legacy opaque signature string. Cut 2 owns a future portable signing envelope.",
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 1
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "public_commitment_ref": {
+      "anyOf": [
+        { "$ref": "#/$defs/publicCommitmentRef" },
+        { "type": "null" }
+      ]
+    }
+  },
+  "$defs": {
+    "canonicalRef": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]*(?:://|:)[^\\s]+$"
+    },
+    "receiptRef": { "type": "string", "pattern": "^receipt://[^\\s]+$" },
+    "schemaRef": { "type": "string", "pattern": "^schema://[^\\s]+$" },
+    "schemaOrPolicyRef": {
+      "type": "string",
+      "pattern": "^(?:schema|policy)://[^\\s]+$"
+    },
+    "runRef": { "type": "string", "pattern": "^run://[^\\s]+$" },
+    "taskRef": { "type": "string", "pattern": "^task://[^\\s]+$" },
+    "grantRef": { "type": "string", "pattern": "^grant://[^\\s]+$" },
+    "protocolPrincipalOrRuntimeRef": {
+      "type": "string",
+      "pattern": "^(?:system|user|wallet|org|project|domain|worker|agent|service|provider|policy|governance|runtime)://[^\\s]+$"
+    },
+    "primitiveCapability": {
+      "type": "string",
+      "pattern": "^prim:[a-z][a-z0-9._-]*$"
+    },
+    "authorityScope": {
+      "type": "string",
+      "pattern": "^scope:[a-z][a-z0-9._-]*$"
+    },
+    "artifactRef": { "type": "string", "pattern": "^artifact://[^\\s]+$" },
+    "evidenceRef": {
+      "type": "string",
+      "pattern": "^(?:evidence|assurance-evidence|artifact)://[^\\s]+$"
+    },
+    "verificationRef": {
+      "type": "string",
+      "pattern": "^(?:verifier-path|verification|receipt)://[^\\s]+$"
+    },
+    "acceptanceRef": {
+      "type": "string",
+      "pattern": "^acceptance://[^\\s]+$"
+    },
+    "adjudicationRef": {
+      "type": "string",
+      "pattern": "^(?:decision|dispute)://[^\\s]+$"
+    },
+    "settlementRef": {
+      "type": "string",
+      "pattern": "^settlement://[^\\s]+$"
+    },
+    "publicCommitmentRef": {
+      "type": "string",
+      "pattern": "^(?:commitment|settlement|tx)://[^\\s]+$"
+    },
+    "hash": { "type": "string", "minLength": 1 }
+  }
+}

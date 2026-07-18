@@ -1,0 +1,22 @@
+{
+  "schema_version": "ioi.foundations.information-flow-label.v1",
+  "label_ref": "ifc-label://example/missing-axis",
+  "profile_ref": "policy://ifc/default-v1",
+  "content_hash": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+  "origin": "operator",
+  "integrity": "verified",
+  "confidentiality": "public",
+  "egress_policy": {
+    "mode": "allow_declared",
+    "allowed_destination_patterns": ["https://api.example.test/v1/*"],
+    "allowed_data_classes": ["public"]
+  },
+  "purpose": "fixture-validation",
+  "retention": {
+    "max_seconds": 0,
+    "disposition": "delete"
+  },
+  "derivation_kind": "direct",
+  "derivation_parent_refs": [],
+  "derivation_closure_refs": ["ifc-label://example/missing-axis"]
+}

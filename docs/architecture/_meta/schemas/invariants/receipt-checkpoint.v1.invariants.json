@@ -1,0 +1,23 @@
+{
+  "$id": "invariant://ioi/foundations/receipt-checkpoint/portable-checkpoint/v1",
+  "language": "ioi.portable-invariants.v1",
+  "contract_id": "schema://ioi/foundations/receipt-checkpoint/v1",
+  "rules": [
+    {
+      "rule_id": "receipt_checkpoint.schema_hash.matches_contract",
+      "description": "The checkpoint binds the generated contract schema hash.",
+      "expression": {
+        "operator": "matches_contract_schema_hash",
+        "path": "$.schema_hash"
+      }
+    },
+    {
+      "rule_id": "receipt_checkpoint.signature_key.matches_issuer_key",
+      "description": "The signature key and declared issuer key are identical.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": ["$.signature_key_id", "$.issuer_key_id"]
+      }
+    }
+  ]
+}

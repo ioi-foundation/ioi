@@ -1,0 +1,179 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/components/connectors-tools/runtime-tool-contract/v1",
+  "title": "RuntimeToolContract",
+  "description": "Immutable callable capability contract including data-class and destination-specific egress ceilings.",
+  "x-ioi-schema-version": "ioi.components.connectors-tools.runtime-tool-contract.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "tool_id",
+    "revision_ref",
+    "content_hash",
+    "namespace",
+    "display_name",
+    "version",
+    "risk_class",
+    "effect_class",
+    "primitive_capabilities_required",
+    "authority_scopes_required",
+    "approval_required",
+    "evidence_required",
+    "owner",
+    "data_class_allowlist",
+    "egress_policy"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "ioi.components.connectors-tools.runtime-tool-contract.v1"
+    },
+    "tool_id": {
+      "type": "string",
+      "pattern": "^tool://[A-Za-z0-9._~:/-]+$"
+    },
+    "revision_ref": {
+      "type": "string",
+      "pattern": "^tool://[A-Za-z0-9._~:/-]+/revision/[A-Za-z0-9._~-]+$"
+    },
+    "predecessor_revision_ref": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^tool://[A-Za-z0-9._~:/-]+/revision/[A-Za-z0-9._~-]+$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "content_hash": {
+      "$ref": "#/$defs/hash"
+    },
+    "namespace": {
+      "type": "string",
+      "minLength": 1
+    },
+    "display_name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "version": {
+      "type": "string",
+      "minLength": 1
+    },
+    "input_schema": {
+      "type": "object"
+    },
+    "output_schema": {
+      "type": "object"
+    },
+    "risk_class": {
+      "type": "string",
+      "minLength": 1
+    },
+    "effect_class": {
+      "type": "string",
+      "minLength": 1
+    },
+    "concurrency_class": {
+      "enum": ["safe_parallel", "resource_scoped", "exclusive", "serialized"]
+    },
+    "timeout": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["default_ms", "max_ms"],
+      "properties": {
+        "default_ms": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "max_ms": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "primitive_capabilities_required": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^prim:[a-z0-9._-]+$"
+      },
+      "uniqueItems": true
+    },
+    "authority_scopes_required": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^scope:[a-z0-9._-]+$"
+      },
+      "uniqueItems": true
+    },
+    "approval_required": {
+      "type": "boolean"
+    },
+    "evidence_required": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "uniqueItems": true
+    },
+    "redaction_policy": {
+      "enum": ["redact_body", "hash_only", "full_private"]
+    },
+    "owner": {
+      "type": "string",
+      "minLength": 1
+    },
+    "data_class_allowlist": {
+      "type": "array",
+      "items": {
+        "enum": ["public", "internal", "confidential", "private", "restricted"]
+      },
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "egress_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["default", "allowed_destination_patterns"],
+      "properties": {
+        "default": {
+          "enum": ["deny", "allow_declared"]
+        },
+        "allowed_destination_patterns": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        }
+      }
+    },
+    "registry_lifecycle_ref": {
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 1
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "registry_status": {
+      "enum": ["draft", "released", "deprecated", "revoked"]
+    }
+  },
+  "$defs": {
+    "hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    }
+  }
+}

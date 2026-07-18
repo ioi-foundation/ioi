@@ -1,0 +1,90 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/foundations/authority-grant-envelope/v1",
+  "title": "AuthorityGrantEnvelope",
+  "description": "Canonical IOI authority grant field envelope before the Cut 2 portable signature profile.",
+  "x-ioi-schema-version": "ioi.foundations.authority-grant-envelope.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "authority_grant_id",
+    "request_id",
+    "issuer_id",
+    "subject_id",
+    "authority_scopes",
+    "primitive_capability_constraints",
+    "resources",
+    "constraints",
+    "revocation_epoch",
+    "status"
+  ],
+  "properties": {
+    "authority_grant_id": { "$ref": "#/$defs/grantRef" },
+    "request_id": { "$ref": "#/$defs/authorityRequestRef" },
+    "issuer_id": { "$ref": "#/$defs/issuerRef" },
+    "subject_id": { "$ref": "#/$defs/subjectRef" },
+    "authority_scopes": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/authorityScope" },
+      "uniqueItems": true
+    },
+    "primitive_capability_constraints": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/primitiveCapability" },
+      "uniqueItems": true
+    },
+    "resources": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/resourceRef" },
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "constraints": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["max_budget_usd", "expires_at", "approval_required_for"],
+      "properties": {
+        "max_budget_usd": { "type": "number", "minimum": 0 },
+        "expires_at": { "type": "string", "format": "date-time" },
+        "max_calls": { "type": "integer", "minimum": 1 },
+        "approval_required_for": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9._-]*$"
+          },
+          "uniqueItems": true
+        }
+      }
+    },
+    "revocation_epoch": { "type": "integer", "minimum": 0 },
+    "status": { "enum": ["active", "expired", "revoked"] }
+  },
+  "$defs": {
+    "grantRef": { "type": "string", "pattern": "^grant://[^\\s]+$" },
+    "authorityRequestRef": {
+      "type": "string",
+      "pattern": "^authority-request://[^\\s]+$"
+    },
+    "issuerRef": {
+      "type": "string",
+      "pattern": "^(?:system|wallet|org|policy)://[^\\s]+$"
+    },
+    "subjectRef": {
+      "type": "string",
+      "pattern": "^(?:system|agent|worker|runtime)://[^\\s]+$"
+    },
+    "authorityScope": {
+      "type": "string",
+      "pattern": "^scope:[a-z][a-z0-9._-]*$"
+    },
+    "primitiveCapability": {
+      "type": "string",
+      "pattern": "^prim:[a-z][a-z0-9._-]*$"
+    },
+    "resourceRef": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]*://[^\\s]+$"
+    }
+  }
+}

@@ -1,0 +1,129 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/foundations/receipt-proof-bundle/v1",
+  "title": "ReceiptProofBundle",
+  "description": "Offline export of one exact receipt, its hash-chain inclusion witness, and signed checkpoint consistency material.",
+  "x-ioi-schema-version": "ioi.foundations.receipt-proof-bundle.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "bundle_type",
+    "manifest_domain",
+    "bundle_schema_hash",
+    "manifest_hash",
+    "manifest_signature_suite",
+    "manifest_signature_key_id",
+    "manifest_signature",
+    "bundle_id",
+    "receipt_contract_id",
+    "receipt_schema_hash",
+    "receipt_body_hash_profile",
+    "receipt",
+    "receipt_body_hash",
+    "leaf",
+    "inclusion_proof",
+    "checkpoint",
+    "previous_checkpoint",
+    "consistency_proof",
+    "trusted_input_refs",
+    "verification_instructions"
+  ],
+  "properties": {
+    "schema_version": { "const": "ioi.foundations.receipt-proof-bundle.v1" },
+    "bundle_type": { "const": "ioi.receipt-proof-bundle" },
+    "manifest_domain": { "const": "ioi.receipt-proof-bundle-manifest.v1" },
+    "bundle_schema_hash": { "$ref": "#/$defs/sha256Hash" },
+    "manifest_hash": { "$ref": "#/$defs/sha256Hash" },
+    "manifest_signature_suite": { "const": "ed25519" },
+    "manifest_signature_key_id": { "$ref": "#/$defs/keyRef" },
+    "manifest_signature": { "$ref": "#/$defs/ed25519Signature" },
+    "bundle_id": { "$ref": "#/$defs/proofRef" },
+    "receipt_contract_id": { "const": "schema://ioi/foundations/receipt-envelope/v1" },
+    "receipt_schema_hash": { "$ref": "#/$defs/sha256Hash" },
+    "receipt_body_hash_profile": { "const": "ioi.receipt-envelope-jcs-sha256.v1" },
+    "receipt": { "type": "object" },
+    "receipt_body_hash": { "$ref": "#/$defs/sha256Hash" },
+    "leaf": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["algorithm", "domain", "leaf_index", "leaf_hash"],
+      "properties": {
+        "algorithm": { "const": "ioi.receipt-hash-chain-jcs-sha256.v1" },
+        "domain": { "const": "ioi.receipt-accumulator-leaf.v1" },
+        "leaf_index": { "type": "integer", "minimum": 0 },
+        "leaf_hash": { "$ref": "#/$defs/sha256Hash" }
+      }
+    },
+    "inclusion_proof": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["profile", "leaf_index", "prefix_root", "suffix_leaf_hashes"],
+      "properties": {
+        "profile": { "const": "ioi.receipt-hash-chain-inclusion.v1" },
+        "leaf_index": { "type": "integer", "minimum": 0 },
+        "prefix_root": { "$ref": "#/$defs/sha256Hash" },
+        "suffix_leaf_hashes": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/sha256Hash" }
+        }
+      }
+    },
+    "checkpoint": { "type": "object" },
+    "previous_checkpoint": {
+      "anyOf": [{ "type": "object" }, { "type": "null" }]
+    },
+    "consistency_proof": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["profile", "from_size", "from_root", "extension_leaf_hashes"],
+      "properties": {
+        "profile": { "const": "ioi.receipt-hash-chain-consistency.v1" },
+        "from_size": { "type": "integer", "minimum": 0 },
+        "from_root": { "$ref": "#/$defs/sha256Hash" },
+        "extension_leaf_hashes": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/sha256Hash" }
+        }
+      }
+    },
+    "trusted_input_refs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["key_set_ref", "key_set_version", "revocation_snapshot_ref", "revocation_epoch"],
+      "properties": {
+        "key_set_ref": { "$ref": "#/$defs/keySetRef" },
+        "key_set_version": { "type": "integer", "minimum": 1 },
+        "revocation_snapshot_ref": { "$ref": "#/$defs/snapshotRef" },
+        "revocation_epoch": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "verification_instructions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["profile", "steps", "offline_required_inputs"],
+      "properties": {
+        "profile": { "const": "ioi.receipt-proof-verification.v1" },
+        "steps": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "offline_required_inputs": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "enum": ["trusted_key_set", "signed_revocation_snapshot", "trusted_time"] }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "sha256Hash": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+    "proofRef": { "type": "string", "pattern": "^proof://[^\\s]+$" },
+    "keySetRef": { "type": "string", "pattern": "^keyset://[^\\s]+$" },
+    "snapshotRef": { "type": "string", "pattern": "^snapshot://[^\\s]+$" },
+    "keyRef": { "type": "string", "pattern": "^key://[^\\s]+$" },
+    "ed25519Signature": { "type": "string", "pattern": "^[A-Za-z0-9_-]{86}$" }
+  }
+}

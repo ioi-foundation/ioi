@@ -1,0 +1,15 @@
+{
+  "$id": "invariant://ioi/foundations/authority-revocation-snapshot/validity-window/v1",
+  "language": "ioi.portable-invariants.v1",
+  "contract_id": "schema://ioi/foundations/authority-revocation-snapshot/v1",
+  "rules": [
+    {
+      "rule_id": "authority_revocation_snapshot.issued_at.before_expiry",
+      "description": "A revocation snapshot must have a non-empty freshness interval.",
+      "expression": {
+        "operator": "numbers_lt",
+        "paths": ["$.issued_at", "$.expires_at"]
+      }
+    }
+  ]
+}

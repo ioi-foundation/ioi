@@ -52,6 +52,9 @@
     "check:runtime-layout": "node scripts/check-runtime-layout.mjs",
     "check:hypervisor-code-editor-adapter-host-paths": "node scripts/check-hypervisor-code-editor-adapter-host-paths.mjs",
     "generate:runtime-action-contracts": "node scripts/generate-runtime-action-contracts.mjs",
+    "generate:architecture-contracts": "node scripts/generate-architecture-contracts.mjs",
+    "check:architecture-contracts": "node scripts/check-architecture-contracts.mjs",
+    "test:architecture-contract-projections": "node --experimental-strip-types scripts/test-architecture-contract-projections.mjs",
     "dev:web": "npm run dev --workspace=@ioi/hypervisor-app",
     "dev:benchmarks": "npm run dev --workspace=apps/benchmarks",
     "build:benchmarks": "npm run build --workspace=apps/benchmarks",
@@ -71,6 +74,8 @@
     "@playwright/test": "^1.60.0",
     "@types/react": "^18.3.1",
     "@types/react-dom": "^18.3.1",
+    "ajv": "^8.20.0",
+    "ajv-formats": "^3.0.1",
     "playwright": "^1.60.0",
     "prettier": "^3.2.5",
     "typescript": "^5.3.3"

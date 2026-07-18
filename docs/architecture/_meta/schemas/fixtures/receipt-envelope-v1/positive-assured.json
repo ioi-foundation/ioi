@@ -1,0 +1,29 @@
+{
+  "receipt_id": "receipt://run-43/delivery-7",
+  "receipt_type": "delivery.accepted",
+  "receipt_profile_ref": "schema://ioi/receipts/delivery-accepted/v1",
+  "attested_boundary_fact_refs": [
+    "artifact://sha256/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  ],
+  "claim_scope_ref": "schema://ioi/delivery/acceptance/v1",
+  "run_id": "run://43",
+  "task_id": "task://deliver-7",
+  "actor_id": "runtime://worker-2",
+  "input_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "output_hash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "policy_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+  "authority_grant_id": "grant://delivery-7",
+  "primitive_capabilities": ["prim:fs.read"],
+  "authority_scopes": ["scope:artifact.deliver"],
+  "artifact_refs": [
+    "artifact://sha256/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  ],
+  "evidence_bundle_refs": ["evidence://delivery-7"],
+  "verification_ref": "verifier-path://delivery/default/v1",
+  "acceptance_ref": "acceptance://delivery-7",
+  "adjudication_ref": null,
+  "settlement_ref": "settlement://delivery-7",
+  "timestamp": "2026-07-16T12:05:00Z",
+  "signature": "legacy-signature-placeholder",
+  "public_commitment_ref": "commitment://delivery-7"
+}

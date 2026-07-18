@@ -1,0 +1,22 @@
+{
+  "schema_version": "ioi.foundations.authority-revocation-snapshot.v1",
+  "snapshot_type": "ioi.authority-revocation-snapshot",
+  "snapshot_id": "snapshot://acme/security/revocations/8",
+  "issuer_id": "wallet://acme/security",
+  "issuer_key_set_ref": "keyset://acme/security/4",
+  "issuer_key_set_version": 4,
+  "epoch": 8,
+  "issued_at": 1784203200,
+  "expires_at": 1784203500,
+  "revoked_grant_refs": [
+    "grant://acme/retired/1"
+  ],
+  "revoked_key_ids": [
+    "key://acme/security/ed25519-3"
+  ],
+  "body_hash": "sha256:e540db8642847427538958b94828fc3ad39eab23e6bb2d5da75f1a6ff9f506f0",
+  "signature_domain": "ioi.authority-revocation-snapshot.v1",
+  "signature_suite": "ed25519",
+  "signature_key_id": "key://acme/security/ed25519-4",
+  "signature": "WTmefoEFEp3W7zwXIvPzxaTc6Gen2EigAxXxdAfEt4rjFIr36gsLUmDDpCsj4dXBrnTlGlrIYtzkd1ZBekD6Bg"
+}

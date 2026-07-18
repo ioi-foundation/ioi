@@ -1,0 +1,704 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/foundations/managed-work-billing-ledger-bundle/v1",
+  "title": "ManagedWorkBillingLedgerBundle",
+  "description": "Portable projection of one owner-derived managed-work billing chain. All monetary and Work Credit quantities are fixed-point integer units; no floating-point amount is valid.",
+  "x-ioi-schema-version": "ioi.foundations.managed-work-billing-ledger-bundle.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "bundle_ref",
+    "billing_account_ref",
+    "work_ref",
+    "rate_card",
+    "plan",
+    "quote",
+    "holds",
+    "usage_records",
+    "overrun_decisions",
+    "final_debit",
+    "adjustments",
+    "ledger_head_hash",
+    "exported_at_ms",
+    "assurance_status"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "ioi.foundations.managed-work-billing-ledger-bundle.v1"
+    },
+    "bundle_ref": {
+      "$ref": "#/$defs/ref"
+    },
+    "billing_account_ref": {
+      "$ref": "#/$defs/ref"
+    },
+    "work_ref": {
+      "$ref": "#/$defs/ref"
+    },
+    "rate_card": {
+      "$ref": "#/$defs/rate_card"
+    },
+    "plan": {
+      "$ref": "#/$defs/plan"
+    },
+    "quote": {
+      "$ref": "#/$defs/quote"
+    },
+    "holds": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/hold"
+      }
+    },
+    "usage_records": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/usage_record"
+      }
+    },
+    "overrun_decisions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/overrun_decision"
+      }
+    },
+    "final_debit": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/final_debit"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "adjustments": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/adjustment"
+      }
+    },
+    "ledger_head_hash": {
+      "$ref": "#/$defs/hash"
+    },
+    "exported_at_ms": {
+      "$ref": "#/$defs/safe_integer"
+    },
+    "assurance_status": {
+      "enum": [
+        "internal_event_log",
+        "supplier_partially_reconciled",
+        "supplier_reconciled"
+      ]
+    }
+  },
+  "$defs": {
+    "safe_integer": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "positive_safe_integer": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9007199254740991
+    },
+    "hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "ref": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9+.-]*://\\S+$"
+    },
+    "work_credit_amount": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "unit",
+        "units"
+      ],
+      "properties": {
+        "unit": {
+          "const": "micro_work_credit"
+        },
+        "units": {
+          "$ref": "#/$defs/safe_integer"
+        }
+      }
+    },
+    "cost_breakdown": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "currency_code",
+        "provider_cost_minor",
+        "broker_fee_minor",
+        "participant_cost_minor",
+        "verifier_cost_minor",
+        "ioi_fee_minor",
+        "excluded_customer_borne_provider_cost_minor",
+        "supplier_reconciliation_state"
+      ],
+      "properties": {
+        "currency_code": {
+          "type": "string",
+          "pattern": "^[A-Z]{3}$"
+        },
+        "provider_cost_minor": {
+          "$ref": "#/$defs/safe_integer"
+        },
+        "broker_fee_minor": {
+          "$ref": "#/$defs/safe_integer"
+        },
+        "participant_cost_minor": {
+          "$ref": "#/$defs/safe_integer"
+        },
+        "verifier_cost_minor": {
+          "$ref": "#/$defs/safe_integer"
+        },
+        "ioi_fee_minor": {
+          "$ref": "#/$defs/safe_integer"
+        },
+        "excluded_customer_borne_provider_cost_minor": {
+          "$ref": "#/$defs/safe_integer"
+        },
+        "supplier_reconciliation_state": {
+          "enum": [
+            "not_applicable",
+            "estimated",
+            "supplier_statement_reconciled"
+          ]
+        }
+      }
+    },
+    "meter_rate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "meter_class",
+        "work_credit_micro_units_per_meter_unit",
+        "charge_component"
+      ],
+      "properties": {
+        "meter_class": {
+          "type": "string",
+          "minLength": 1
+        },
+        "work_credit_micro_units_per_meter_unit": {
+          "$ref": "#/$defs/safe_integer"
+        },
+        "charge_component": {
+          "enum": [
+            "managed_model",
+            "managed_runtime",
+            "broker",
+            "participant",
+            "verifier",
+            "ioi_managed_service",
+            "non_billable_telemetry"
+          ]
+        }
+      }
+    },
+    "rate_card": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "rate_card_ref",
+        "version",
+        "body_hash",
+        "currency_code",
+        "meter_rates",
+        "ioi_fee_policy_ref",
+        "issued_at_ms",
+        "expires_at_ms"
+      ],
+      "properties": {
+        "rate_card_ref": {
+          "$ref": "#/$defs/ref"
+        },
+        "version": {
+          "$ref": "#/$defs/positive_safe_integer"
+        },
+        "body_hash": {
+          "$ref": "#/$defs/hash"
+        },
+        "currency_code": {
+          "type": "string",
+          "pattern": "^[A-Z]{3}$"
+        },
+        "meter_rates": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/meter_rate"
+          }
+        },
+        "ioi_fee_policy_ref": {
+          "$ref": "#/$defs/ref"
+        },
+        "issued_at_ms": {
+          "$ref": "#/$defs/safe_integer"
+        },
+        "expires_at_ms": {
+          "$ref": "#/$defs/positive_safe_integer"
+        }
+      }
+    },
+    "plan": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "plan_ref",
+        "version",
+        "body_hash",
+        "rate_card_ref",
+        "rate_card_body_hash",
+        "included_work_credits",
+        "reset_policy",
+        "issued_at_ms",
+        "expires_at_ms"
+      ],
+      "properties": {
+        "plan_ref": {
+          "$ref": "#/$defs/ref"
+        },
+        "version": {
+          "$ref": "#/$defs/positive_safe_integer"
+        },
+        "body_hash": {
+          "$ref": "#/$defs/hash"
+        },
+        "rate_card_ref": {
+          "$ref": "#/$defs/ref"
+        },
+        "rate_card_body_hash": {
+          "$ref": "#/$defs/hash"
+        },
+        "included_work_credits": {
+          "$ref": "#/$defs/work_credit_amount"
+        },
+        "reset_policy": {
+          "enum": [
+            "non_resetting",
+            "monthly_expiring",
+            "contract_term_expiring"
+          ]
+        },
+        "issued_at_ms": {
+          "$ref": "#/$defs/safe_integer"
+        },
+        "expires_at_ms": {
+          "$ref": "#/$defs/positive_safe_integer"
+        }
+      }
+    },
+    "quote": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "quote_ref",
+        "body_hash",
+        "rate_card_ref",
+        "rate_card_body_hash",
+        "plan_ref",
+        "plan_body_hash",
+        "estimated_work_credits",
+        "required_hold",
+        "overrun_policy",
+        "max_attempt_count",
+        "allowed_commercial_postures",
+        "issued_at_ms",
+        "expires_at_ms"
+      ],
+      "properties": {
+        "quote_ref": {
+          "$ref": "#/$defs/ref"
+        },
+        "body_hash": {
+          "$ref": "#/$defs/hash"
+        },
+        "rate_card_ref": {
+          "$ref": "#/$defs/ref"
+        },
+        "rate_card_body_hash": {
+          "$ref": "#/$defs/hash"
+        },
+        "plan_ref": {
+          "$ref": "#/$defs/ref"
+        },
+        "plan_body_hash": {
+          "$ref": "#/$defs/hash"
+        },
+        "estimated_work_credits": {
+          "$ref": "#/$defs/work_credit_amount"
+        },
+        "required_hold": {
+          "$ref": "#/$defs/work_credit_amount"
+        },
+        "overrun_policy": {
+          "enum": [
+            "block",
+            "exact_additional_hold"
+          ]
+        },
+        "max_attempt_count": {
+          "$ref": "#/$defs/positive_safe_integer"
+        },
+        "allowed_commercial_postures": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "managed",
+              "customer_byok",
+              "customer_byoa",
+              "customer_cloud",
+              "self_hosted",
+              "local"
+            ]
+          }
+        },
+        "issued_at_ms": {
+          "$ref": "#/$defs/safe_integer"
+        },
+        "expires_at_ms": {
+          "$ref": "#/$defs/positive_safe_integer"
+        }
+      }
+    },
+    "hold": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "hold_ref",
+        "body_hash",
+        "quote_ref",
+        "idempotency_key",
+        "hold_kind",
+        "overrun_decision_ref",
+        "amount",
+        "created_at_ms",
+        "expires_at_ms",
+        "status"
+      ],
+      "properties": {
+        "hold_ref": {
+          "$ref": "#/$defs/ref"
+        },
+        "body_hash": {
+          "$ref": "#/$defs/hash"
+        },
+        "quote_ref": {
+          "$ref": "#/$defs/ref"
+        },
+        "idempotency_key": {
+          "type": "string",
+          "minLength": 1
+        },
+        "hold_kind": {
+          "enum": [
+            "initial",
+            "exact_additional"
+          ]
+        },
+        "overrun_decision_ref": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ref"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "amount": {
+          "$ref": "#/$defs/work_credit_amount"
+        },
+        "created_at_ms": {
+          "$ref": "#/$defs/safe_integer"
+        },
+        "expires_at_ms": {
+          "$ref": "#/$defs/positive_safe_integer"
+        },
+        "status": {
+          "enum": [
+            "active",
+            "consumed",
+            "released"
+          ]
+        }
+      }
+    },
+    "usage_record": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "usage_ref",
+        "body_hash",
+        "quote_ref",
+        "sequence",
+        "previous_usage_hash",
+        "runtime_receipt_refs",
+        "supplier_statement_refs",
+        "meter_class",
+        "quantity_units",
+        "rate_work_credit_micro_units_per_meter_unit",
+        "charged_work_credits",
+        "commercial_posture",
+        "cost_breakdown",
+        "coarse_ocu_projection",
+        "occurred_at_ms"
+      ],
+      "properties": {
+        "usage_ref": {
+          "$ref": "#/$defs/ref"
+        },
+        "body_hash": {
+          "$ref": "#/$defs/hash"
+        },
+        "quote_ref": {
+          "$ref": "#/$defs/ref"
+        },
+        "sequence": {
+          "$ref": "#/$defs/positive_safe_integer"
+        },
+        "previous_usage_hash": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/hash"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "runtime_receipt_refs": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/ref"
+          }
+        },
+        "supplier_statement_refs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/ref"
+          }
+        },
+        "meter_class": {
+          "type": "string",
+          "minLength": 1
+        },
+        "quantity_units": {
+          "$ref": "#/$defs/safe_integer"
+        },
+        "rate_work_credit_micro_units_per_meter_unit": {
+          "$ref": "#/$defs/safe_integer"
+        },
+        "charged_work_credits": {
+          "$ref": "#/$defs/work_credit_amount"
+        },
+        "commercial_posture": {
+          "enum": [
+            "managed",
+            "customer_byok",
+            "customer_byoa",
+            "customer_cloud",
+            "self_hosted",
+            "local"
+          ]
+        },
+        "cost_breakdown": {
+          "$ref": "#/$defs/cost_breakdown"
+        },
+        "coarse_ocu_projection": {
+          "type": "boolean"
+        },
+        "occurred_at_ms": {
+          "$ref": "#/$defs/safe_integer"
+        }
+      }
+    },
+    "overrun_decision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "overrun_decision_ref",
+        "body_hash",
+        "quote_ref",
+        "usage_head_hash",
+        "held_work_credits",
+        "projected_work_credits",
+        "exact_overage_work_credits",
+        "decision",
+        "additional_hold_amount",
+        "created_at_ms"
+      ],
+      "properties": {
+        "overrun_decision_ref": {
+          "$ref": "#/$defs/ref"
+        },
+        "body_hash": {
+          "$ref": "#/$defs/hash"
+        },
+        "quote_ref": {
+          "$ref": "#/$defs/ref"
+        },
+        "usage_head_hash": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/hash"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "held_work_credits": {
+          "$ref": "#/$defs/work_credit_amount"
+        },
+        "projected_work_credits": {
+          "$ref": "#/$defs/work_credit_amount"
+        },
+        "exact_overage_work_credits": {
+          "$ref": "#/$defs/work_credit_amount"
+        },
+        "decision": {
+          "enum": [
+            "block",
+            "exact_additional_hold"
+          ]
+        },
+        "additional_hold_amount": {
+          "$ref": "#/$defs/work_credit_amount"
+        },
+        "created_at_ms": {
+          "$ref": "#/$defs/safe_integer"
+        }
+      }
+    },
+    "final_debit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "final_debit_ref",
+        "body_hash",
+        "quote_ref",
+        "usage_head_hash",
+        "usage_record_refs",
+        "hold_refs",
+        "debited_work_credits",
+        "finalized_at_ms"
+      ],
+      "properties": {
+        "final_debit_ref": {
+          "$ref": "#/$defs/ref"
+        },
+        "body_hash": {
+          "$ref": "#/$defs/hash"
+        },
+        "quote_ref": {
+          "$ref": "#/$defs/ref"
+        },
+        "usage_head_hash": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/hash"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "usage_record_refs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/ref"
+          }
+        },
+        "hold_refs": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/ref"
+          }
+        },
+        "debited_work_credits": {
+          "$ref": "#/$defs/work_credit_amount"
+        },
+        "finalized_at_ms": {
+          "$ref": "#/$defs/safe_integer"
+        }
+      }
+    },
+    "adjustment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "adjustment_ref",
+        "body_hash",
+        "final_debit_ref",
+        "previous_adjustment_hash",
+        "adjustment_kind",
+        "amount",
+        "reason_code",
+        "evidence_refs",
+        "created_at_ms"
+      ],
+      "properties": {
+        "adjustment_ref": {
+          "$ref": "#/$defs/ref"
+        },
+        "body_hash": {
+          "$ref": "#/$defs/hash"
+        },
+        "final_debit_ref": {
+          "$ref": "#/$defs/ref"
+        },
+        "previous_adjustment_hash": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/hash"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "adjustment_kind": {
+          "enum": [
+            "refund",
+            "writeoff"
+          ]
+        },
+        "amount": {
+          "$ref": "#/$defs/work_credit_amount"
+        },
+        "reason_code": {
+          "type": "string",
+          "minLength": 1
+        },
+        "evidence_refs": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/ref"
+          }
+        },
+        "created_at_ms": {
+          "$ref": "#/$defs/safe_integer"
+        }
+      }
+    }
+  }
+}

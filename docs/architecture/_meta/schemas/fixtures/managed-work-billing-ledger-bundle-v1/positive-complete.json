@@ -1,0 +1,226 @@
+{
+  "schema_version": "ioi.foundations.managed-work-billing-ledger-bundle.v1",
+  "bundle_ref": "billing-bundle://account-1/work-1/export-1",
+  "billing_account_ref": "billing-account://account-1",
+  "work_ref": "work-run://work-1",
+  "rate_card": {
+    "rate_card_ref": "rate-card://managed-work/1",
+    "version": 1,
+    "body_hash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "currency_code": "USD",
+    "meter_rates": [
+      {
+        "meter_class": "managed_model_token_block",
+        "work_credit_micro_units_per_meter_unit": 10,
+        "charge_component": "managed_model"
+      }
+    ],
+    "ioi_fee_policy_ref": "fee-basis://managed-work/1",
+    "issued_at_ms": 1000,
+    "expires_at_ms": 100000
+  },
+  "plan": {
+    "plan_ref": "plan://goal-space/1",
+    "version": 1,
+    "body_hash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "rate_card_ref": "rate-card://managed-work/1",
+    "rate_card_body_hash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "included_work_credits": {
+      "unit": "micro_work_credit",
+      "units": 1000
+    },
+    "reset_policy": "monthly_expiring",
+    "issued_at_ms": 1000,
+    "expires_at_ms": 90000
+  },
+  "quote": {
+    "quote_ref": "quote://work-1/1",
+    "body_hash": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "rate_card_ref": "rate-card://managed-work/1",
+    "rate_card_body_hash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "plan_ref": "plan://goal-space/1",
+    "plan_body_hash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "estimated_work_credits": {
+      "unit": "micro_work_credit",
+      "units": 100
+    },
+    "required_hold": {
+      "unit": "micro_work_credit",
+      "units": 100
+    },
+    "overrun_policy": "exact_additional_hold",
+    "max_attempt_count": 3,
+    "allowed_commercial_postures": [
+      "managed",
+      "customer_byok"
+    ],
+    "issued_at_ms": 2000,
+    "expires_at_ms": 80000
+  },
+  "holds": [
+    {
+      "hold_ref": "credit-hold://work-1/initial",
+      "body_hash": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "quote_ref": "quote://work-1/1",
+      "idempotency_key": "work-1-initial-hold",
+      "hold_kind": "initial",
+      "overrun_decision_ref": null,
+      "amount": {
+        "unit": "micro_work_credit",
+        "units": 100
+      },
+      "created_at_ms": 3000,
+      "expires_at_ms": 80000,
+      "status": "consumed"
+    },
+    {
+      "hold_ref": "credit-hold://work-1/additional-1",
+      "body_hash": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "quote_ref": "quote://work-1/1",
+      "idempotency_key": "work-1-additional-hold-1",
+      "hold_kind": "exact_additional",
+      "overrun_decision_ref": "overrun-decision://work-1/1",
+      "amount": {
+        "unit": "micro_work_credit",
+        "units": 20
+      },
+      "created_at_ms": 5000,
+      "expires_at_ms": 80000,
+      "status": "consumed"
+    }
+  ],
+  "usage_records": [
+    {
+      "usage_ref": "usage://work-1/1",
+      "body_hash": "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "quote_ref": "quote://work-1/1",
+      "sequence": 1,
+      "previous_usage_hash": null,
+      "runtime_receipt_refs": [
+        "receipt://runtime/work-1/1"
+      ],
+      "supplier_statement_refs": [
+        "supplier-statement://provider/line-1"
+      ],
+      "meter_class": "managed_model_token_block",
+      "quantity_units": 8,
+      "rate_work_credit_micro_units_per_meter_unit": 10,
+      "charged_work_credits": {
+        "unit": "micro_work_credit",
+        "units": 80
+      },
+      "commercial_posture": "managed",
+      "cost_breakdown": {
+        "currency_code": "USD",
+        "provider_cost_minor": 4,
+        "broker_fee_minor": 1,
+        "participant_cost_minor": 0,
+        "verifier_cost_minor": 1,
+        "ioi_fee_minor": 2,
+        "excluded_customer_borne_provider_cost_minor": 0,
+        "supplier_reconciliation_state": "supplier_statement_reconciled"
+      },
+      "coarse_ocu_projection": false,
+      "occurred_at_ms": 4000
+    },
+    {
+      "usage_ref": "usage://work-1/2",
+      "body_hash": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+      "quote_ref": "quote://work-1/1",
+      "sequence": 2,
+      "previous_usage_hash": "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "runtime_receipt_refs": [
+        "receipt://runtime/work-1/2"
+      ],
+      "supplier_statement_refs": [
+        "supplier-statement://provider/line-2"
+      ],
+      "meter_class": "managed_model_token_block",
+      "quantity_units": 4,
+      "rate_work_credit_micro_units_per_meter_unit": 10,
+      "charged_work_credits": {
+        "unit": "micro_work_credit",
+        "units": 40
+      },
+      "commercial_posture": "managed",
+      "cost_breakdown": {
+        "currency_code": "USD",
+        "provider_cost_minor": 2,
+        "broker_fee_minor": 0,
+        "participant_cost_minor": 0,
+        "verifier_cost_minor": 0,
+        "ioi_fee_minor": 1,
+        "excluded_customer_borne_provider_cost_minor": 0,
+        "supplier_reconciliation_state": "supplier_statement_reconciled"
+      },
+      "coarse_ocu_projection": false,
+      "occurred_at_ms": 6000
+    }
+  ],
+  "overrun_decisions": [
+    {
+      "overrun_decision_ref": "overrun-decision://work-1/1",
+      "body_hash": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+      "quote_ref": "quote://work-1/1",
+      "usage_head_hash": "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "held_work_credits": {
+        "unit": "micro_work_credit",
+        "units": 100
+      },
+      "projected_work_credits": {
+        "unit": "micro_work_credit",
+        "units": 120
+      },
+      "exact_overage_work_credits": {
+        "unit": "micro_work_credit",
+        "units": 20
+      },
+      "decision": "exact_additional_hold",
+      "additional_hold_amount": {
+        "unit": "micro_work_credit",
+        "units": 20
+      },
+      "created_at_ms": 4500
+    }
+  ],
+  "final_debit": {
+    "final_debit_ref": "final-debit://work-1/1",
+    "body_hash": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+    "quote_ref": "quote://work-1/1",
+    "usage_head_hash": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+    "usage_record_refs": [
+      "usage://work-1/1",
+      "usage://work-1/2"
+    ],
+    "hold_refs": [
+      "credit-hold://work-1/initial",
+      "credit-hold://work-1/additional-1"
+    ],
+    "debited_work_credits": {
+      "unit": "micro_work_credit",
+      "units": 120
+    },
+    "finalized_at_ms": 7000
+  },
+  "adjustments": [
+    {
+      "adjustment_ref": "billing-adjustment://work-1/refund-1",
+      "body_hash": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+      "final_debit_ref": "final-debit://work-1/1",
+      "previous_adjustment_hash": null,
+      "adjustment_kind": "refund",
+      "amount": {
+        "unit": "micro_work_credit",
+        "units": 10
+      },
+      "reason_code": "supplier_credit",
+      "evidence_refs": [
+        "supplier-statement://provider/credit-1"
+      ],
+      "created_at_ms": 8000
+    }
+  ],
+  "ledger_head_hash": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+  "exported_at_ms": 9000,
+  "assurance_status": "supplier_reconciled"
+}

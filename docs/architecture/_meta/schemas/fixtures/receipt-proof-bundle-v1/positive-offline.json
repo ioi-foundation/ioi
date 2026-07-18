@@ -1,0 +1,153 @@
+{
+  "schema_version": "ioi.foundations.receipt-proof-bundle.v1",
+  "bundle_type": "ioi.receipt-proof-bundle",
+  "manifest_domain": "ioi.receipt-proof-bundle-manifest.v1",
+  "bundle_schema_hash": "sha256:9eb674c09903e10a1b3a85df3c33615afb7e958547b0141628655453c1cc2879",
+  "manifest_hash": "sha256:e99b823b8972c4807ef88ea530d4e35d1781a7be238965cd88e3eefc0a2a038b",
+  "manifest_signature_suite": "ed25519",
+  "manifest_signature_key_id": "key://acme/security/ed25519-4",
+  "manifest_signature": "50XUkaXhTHaqBTE6SkN_PfnudDbouYA_IFg0yns7YgE6zSCmrrS--SJuKe1V32wULp_7ECvhTX3aXJRUzAT9Cw",
+  "bundle_id": "proof://acme/audit-log/4/receipt-1",
+  "receipt_contract_id": "schema://ioi/foundations/receipt-envelope/v1",
+  "receipt_schema_hash": "sha256:07129784ee34ab5d05dbc469490063e058a2c7568510df5be6e60e9c4ab4a8e1",
+  "receipt_body_hash_profile": "ioi.receipt-envelope-jcs-sha256.v1",
+  "receipt": {
+    "receipt_id": "receipt://run-43/delivery-7",
+    "receipt_type": "delivery.accepted",
+    "receipt_profile_ref": "schema://ioi/receipts/delivery-accepted/v1",
+    "attested_boundary_fact_refs": [
+      "artifact://sha256/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    ],
+    "claim_scope_ref": "schema://ioi/delivery/acceptance/v1",
+    "run_id": "run://43",
+    "task_id": "task://deliver-7",
+    "actor_id": "runtime://worker-2",
+    "input_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "output_hash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "policy_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "authority_grant_id": "grant://delivery-7",
+    "primitive_capabilities": [
+      "prim:fs.read"
+    ],
+    "authority_scopes": [
+      "scope:artifact.deliver"
+    ],
+    "artifact_refs": [
+      "artifact://sha256/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    ],
+    "evidence_bundle_refs": [
+      "evidence://delivery-7"
+    ],
+    "verification_ref": "verifier-path://delivery/default/v1",
+    "acceptance_ref": "acceptance://delivery-7",
+    "adjudication_ref": null,
+    "settlement_ref": "settlement://delivery-7",
+    "timestamp": "2026-07-16T12:05:00Z",
+    "signature": "legacy-signature-placeholder",
+    "public_commitment_ref": "commitment://delivery-7"
+  },
+  "receipt_body_hash": "sha256:26235f9318d765e5db6a07604252991fa2d0080fa799e7f8ee0aa60bf860e878",
+  "leaf": {
+    "algorithm": "ioi.receipt-hash-chain-jcs-sha256.v1",
+    "domain": "ioi.receipt-accumulator-leaf.v1",
+    "leaf_index": 1,
+    "leaf_hash": "sha256:3106fb2cf30ba8a026bbee76b6417ae1cb83a0699470a86ca066d3ee7aee415e"
+  },
+  "inclusion_proof": {
+    "profile": "ioi.receipt-hash-chain-inclusion.v1",
+    "leaf_index": 1,
+    "prefix_root": "sha256:460db93cda9696e422ac7c713c2164899bdadb73e3ea3b0c16cdc64ce3f369b0",
+    "suffix_leaf_hashes": [
+      "sha256:afea425012150fea14923cf80c17910a3646fc55c64e4d26b9cd53de2e7acfaa",
+      "sha256:2027b71d4dbb2160d9b8a3470c416f1fa87314068dc2e93d0328f91df92c279f"
+    ]
+  },
+  "checkpoint": {
+    "schema_version": "ioi.foundations.receipt-checkpoint.v1",
+    "checkpoint_type": "ioi.receipt-checkpoint",
+    "signature_domain": "ioi.receipt-checkpoint.v1",
+    "schema_hash": "sha256:41e1b5ea5794e534cf9aba7bf4558c2fa26815e5c9b3cfd3ffdb99eb4706d0df",
+    "checkpoint_id": "receipt-checkpoint://acme/audit-log/4",
+    "receipt_log_id": "receipt-log://acme/audit-log",
+    "accumulator_algorithm": "ioi.receipt-hash-chain-jcs-sha256.v1",
+    "receipt_body_hash_profile": "ioi.receipt-envelope-jcs-sha256.v1",
+    "receipt_contract_id": "schema://ioi/foundations/receipt-envelope/v1",
+    "receipt_schema_hash": "sha256:07129784ee34ab5d05dbc469490063e058a2c7568510df5be6e60e9c4ab4a8e1",
+    "accumulator_size": 4,
+    "accumulator_root": "sha256:a80a2341d4c1ba4de8047edef681c8b77c8494198c8f0c6f3763f6594c23e5ab",
+    "previous_checkpoint_ref": "receipt-checkpoint://acme/audit-log/2",
+    "previous_checkpoint_hash": "sha256:0bb941cdfd91654e8c7c53575444d5ad4d9474de7454a12c0520af2b2a49ba83",
+    "previous_accumulator_size": 2,
+    "previous_accumulator_root": "sha256:352831248cff9098cbdba9a6792a17227868988358abc028697639dac80cf54d",
+    "issuer_id": "wallet://acme/security",
+    "issuer_key_set_ref": "keyset://acme/security/4",
+    "issuer_key_set_version": 4,
+    "issuer_key_id": "key://acme/security/ed25519-4",
+    "issued_at": 1784203300,
+    "build_identity_ref": "build://ioi/hypervisor-daemon/fixture-2026-07-16",
+    "policy_posture_ref": "policy://acme/receipt-checkpoint/default",
+    "body_hash": "sha256:6a40cf01bb7d68413083f165fbe34b6fa5fb92987156198190b0997e13ccd398",
+    "signature_suite": "ed25519",
+    "signature_key_id": "key://acme/security/ed25519-4",
+    "signature": "2YmJcKolLbbOqbFrGf6QYeXKDjxFKFsSb0bPP6AzfQZbIqwCShQKm9cUSGcZ8ama7HaxaqfIVzZpogSVnktrCw"
+  },
+  "previous_checkpoint": {
+    "schema_version": "ioi.foundations.receipt-checkpoint.v1",
+    "checkpoint_type": "ioi.receipt-checkpoint",
+    "signature_domain": "ioi.receipt-checkpoint.v1",
+    "schema_hash": "sha256:41e1b5ea5794e534cf9aba7bf4558c2fa26815e5c9b3cfd3ffdb99eb4706d0df",
+    "checkpoint_id": "receipt-checkpoint://acme/audit-log/2",
+    "receipt_log_id": "receipt-log://acme/audit-log",
+    "accumulator_algorithm": "ioi.receipt-hash-chain-jcs-sha256.v1",
+    "receipt_body_hash_profile": "ioi.receipt-envelope-jcs-sha256.v1",
+    "receipt_contract_id": "schema://ioi/foundations/receipt-envelope/v1",
+    "receipt_schema_hash": "sha256:07129784ee34ab5d05dbc469490063e058a2c7568510df5be6e60e9c4ab4a8e1",
+    "accumulator_size": 2,
+    "accumulator_root": "sha256:352831248cff9098cbdba9a6792a17227868988358abc028697639dac80cf54d",
+    "previous_checkpoint_ref": null,
+    "previous_checkpoint_hash": null,
+    "previous_accumulator_size": null,
+    "previous_accumulator_root": null,
+    "issuer_id": "wallet://acme/security",
+    "issuer_key_set_ref": "keyset://acme/security/4",
+    "issuer_key_set_version": 4,
+    "issuer_key_id": "key://acme/security/ed25519-4",
+    "issued_at": 1784203240,
+    "build_identity_ref": "build://ioi/hypervisor-daemon/fixture-2026-07-16",
+    "policy_posture_ref": "policy://acme/receipt-checkpoint/default",
+    "body_hash": "sha256:ffbba18526ca57f325f69831819a0c8e74b7d835fcf33413c17dba6ccf39bc00",
+    "signature_suite": "ed25519",
+    "signature_key_id": "key://acme/security/ed25519-4",
+    "signature": "vEyfYScqYA2RxllOdr8IGxkj99lom13W2fSKRUHDIkX4uHD7Q_JjcCjgIIWDs_X06F5aAQAlbiXIxQUd9cEhBg"
+  },
+  "consistency_proof": {
+    "profile": "ioi.receipt-hash-chain-consistency.v1",
+    "from_size": 2,
+    "from_root": "sha256:352831248cff9098cbdba9a6792a17227868988358abc028697639dac80cf54d",
+    "extension_leaf_hashes": [
+      "sha256:afea425012150fea14923cf80c17910a3646fc55c64e4d26b9cd53de2e7acfaa",
+      "sha256:2027b71d4dbb2160d9b8a3470c416f1fa87314068dc2e93d0328f91df92c279f"
+    ]
+  },
+  "trusted_input_refs": {
+    "key_set_ref": "keyset://acme/security/4",
+    "key_set_version": 4,
+    "revocation_snapshot_ref": "snapshot://acme/security/revocations/8",
+    "revocation_epoch": 8
+  },
+  "verification_instructions": {
+    "profile": "ioi.receipt-proof-verification.v1",
+    "steps": [
+      "Validate registered closed schemas and schema hashes.",
+      "Recompute the manifest and exact ReceiptEnvelope RFC 8785 JCS SHA-256 hashes.",
+      "Recompute the indexed leaf and hash-chain inclusion root.",
+      "Verify the current and previous checkpoint Ed25519 signatures against trusted local inputs.",
+      "Recompute append-only consistency from the previous checkpoint root."
+    ],
+    "offline_required_inputs": [
+      "trusted_key_set",
+      "signed_revocation_snapshot",
+      "trusted_time"
+    ]
+  }
+}

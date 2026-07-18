@@ -1,0 +1,19 @@
+{
+  "schema_version": "ioi.foundations.authority-key-set.v1",
+  "key_set_type": "ioi.authority-key-set",
+  "key_set_id": "keyset://acme/security/4",
+  "issuer_id": "wallet://acme/security",
+  "version": 4,
+  "issued_at": 1784116800,
+  "expires_at": 1815652800,
+  "keys": [
+    {
+      "key_id": "key://acme/security/ed25519-4",
+      "signature_suite": "ed25519",
+      "public_key": "QYRCACKVbJtP0yXai8KhMBh0XZLbov9WSlbETdIGRm4",
+      "not_before": 1784116800,
+      "expires_at": 1815652800,
+      "status": "active"
+    }
+  ]
+}

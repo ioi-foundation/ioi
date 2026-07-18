@@ -1,0 +1,83 @@
+{
+  "schema_version": "ioi.foundations.managed-work-billing-ledger-bundle.v1",
+  "bundle_ref": "billing-bundle://account-1/work-float/export-1",
+  "billing_account_ref": "billing-account://account-1",
+  "work_ref": "work-run://work-float",
+  "rate_card": {
+    "rate_card_ref": "rate-card://managed-work/1",
+    "version": 1,
+    "body_hash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "currency_code": "USD",
+    "meter_rates": [
+      {
+        "meter_class": "managed_runtime_second",
+        "work_credit_micro_units_per_meter_unit": 10,
+        "charge_component": "managed_runtime"
+      }
+    ],
+    "ioi_fee_policy_ref": "fee-basis://managed-work/1",
+    "issued_at_ms": 1000,
+    "expires_at_ms": 100000
+  },
+  "plan": {
+    "plan_ref": "plan://goal-space/1",
+    "version": 1,
+    "body_hash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "rate_card_ref": "rate-card://managed-work/1",
+    "rate_card_body_hash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "included_work_credits": {
+      "unit": "micro_work_credit",
+      "units": 1000
+    },
+    "reset_policy": "monthly_expiring",
+    "issued_at_ms": 1000,
+    "expires_at_ms": 90000
+  },
+  "quote": {
+    "quote_ref": "quote://work-float/1",
+    "body_hash": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "rate_card_ref": "rate-card://managed-work/1",
+    "rate_card_body_hash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "plan_ref": "plan://goal-space/1",
+    "plan_body_hash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "estimated_work_credits": {
+      "unit": "micro_work_credit",
+      "units": 100
+    },
+    "required_hold": {
+      "unit": "micro_work_credit",
+      "units": 100
+    },
+    "overrun_policy": "block",
+    "max_attempt_count": 1,
+    "allowed_commercial_postures": [
+      "managed"
+    ],
+    "issued_at_ms": 2000,
+    "expires_at_ms": 80000
+  },
+  "holds": [
+    {
+      "hold_ref": "credit-hold://work-float/initial",
+      "body_hash": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "quote_ref": "quote://work-float/1",
+      "idempotency_key": "work-float-initial-hold",
+      "hold_kind": "initial",
+      "overrun_decision_ref": null,
+      "amount": {
+        "unit": "micro_work_credit",
+        "units": 1.5
+      },
+      "created_at_ms": 3000,
+      "expires_at_ms": 80000,
+      "status": "active"
+    }
+  ],
+  "usage_records": [],
+  "overrun_decisions": [],
+  "final_debit": null,
+  "adjustments": [],
+  "ledger_head_hash": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+  "exported_at_ms": 4000,
+  "assurance_status": "internal_event_log"
+}

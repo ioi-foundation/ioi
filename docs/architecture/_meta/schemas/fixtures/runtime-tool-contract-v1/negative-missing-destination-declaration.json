@@ -1,0 +1,21 @@
+{
+  "schema_version": "ioi.components.connectors-tools.runtime-tool-contract.v1",
+  "tool_id": "tool://example.send",
+  "revision_ref": "tool://example.send/revision/1.0.0",
+  "content_hash": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+  "namespace": "example",
+  "display_name": "Send example",
+  "version": "1.0.0",
+  "risk_class": "external_message",
+  "effect_class": "external_message",
+  "primitive_capabilities_required": ["prim:net.request"],
+  "authority_scopes_required": ["scope:example.send"],
+  "approval_required": true,
+  "evidence_required": ["request_preview"],
+  "owner": "connector://example",
+  "data_class_allowlist": ["public"],
+  "egress_policy": {
+    "default": "allow_declared",
+    "allowed_destination_patterns": []
+  }
+}

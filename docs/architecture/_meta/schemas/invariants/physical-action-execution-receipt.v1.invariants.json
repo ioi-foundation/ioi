@@ -1,0 +1,50 @@
+{
+  "$id": "invariant://ioi/foundations/physical-action-execution-receipt/bundle-binding/v1",
+  "language": "ioi.portable-invariants.v1",
+  "contract_id": "schema://ioi/foundations/physical-action-execution-receipt/v1",
+  "rules": [
+    {
+      "rule_id": "physical_action_execution.receipt.boundary_fact.required",
+      "description": "The bundled base receipt attests at least one physical execution boundary fact.",
+      "expression": {
+        "operator": "non_empty",
+        "path": "$.receipt_envelope.attested_boundary_fact_refs"
+      }
+    },
+    {
+      "rule_id": "physical_action_execution.receipt.input_hash.matches_execution_request",
+      "description": "The bundled base receipt input hash is the exact execution request hash carried by the physical body.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.receipt_envelope.input_hash",
+          "$.body.execution_request_hash"
+        ]
+      }
+    },
+    {
+      "rule_id": "physical_action_execution.receipt.timestamp.matches_execution_time",
+      "description": "The bundled base receipt timestamp is the physical execution timestamp.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.receipt_envelope.timestamp",
+          "$.body.executed_at"
+        ]
+      }
+    },
+    {
+      "rule_id": "physical_action_execution.dispatch.evidence.required_for_terminal_claim",
+      "description": "Committed and rejected terminal claims require nonempty controller dispatch evidence; unknown effects may remain evidence-incomplete pending reconciliation.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.body.dispatch_evidence_receipt_refs",
+        "when_path": "$.body.effect_status",
+        "values": [
+          "committed",
+          "rejected"
+        ]
+      }
+    }
+  ]
+}

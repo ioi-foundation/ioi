@@ -1,0 +1,23 @@
+{
+  "schema_version": "ioi.foundations.information-flow-label.v1",
+  "label_ref": "ifc-label://example/private-untrusted",
+  "profile_ref": "policy://ifc/default-v1",
+  "content_hash": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+  "origin": "external_untrusted",
+  "integrity": "untrusted",
+  "confidentiality": "private",
+  "instruction_authority": "untrusted",
+  "egress_policy": {
+    "mode": "declassification_required",
+    "allowed_destination_patterns": ["https://api.example.test/v1/*"],
+    "allowed_data_classes": ["public", "private"]
+  },
+  "purpose": "fixture-validation",
+  "retention": {
+    "max_seconds": 60,
+    "disposition": "delete"
+  },
+  "derivation_kind": "join",
+  "derivation_parent_refs": ["ifc-label://example/private-source", "ifc-label://example/untrusted-source"],
+  "derivation_closure_refs": ["ifc-label://example/private-source", "ifc-label://example/untrusted-source", "ifc-label://example/private-untrusted"]
+}
