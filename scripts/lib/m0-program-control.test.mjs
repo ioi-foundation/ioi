@@ -366,6 +366,7 @@ test("external Rust method effects stay distinct from unresolved helpers", () =>
       fn handler() {
         client().send();
         command().spawn();
+        MuxEngine::open(path, false);
         external.read();
       }
       fn app() { Router::new().route("/x", get(handler)); }
@@ -385,7 +386,11 @@ test("external Rust method effects stay distinct from unresolved helpers", () =>
       moduleSourceFiles: rustModuleSourceMap(relativePaths),
     });
     assert.equal(entries[0].handler_resolution, "transitive_function_closure");
-    assert.deepEqual(entries[0].handler_effect_calls, [".send", ".spawn"]);
+    assert.deepEqual(entries[0].handler_effect_calls, [
+      ".send",
+      ".spawn",
+      "MuxEngine::open",
+    ]);
   } finally {
     fs.rmSync(root, { force: true, recursive: true });
   }
