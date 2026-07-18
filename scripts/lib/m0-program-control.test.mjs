@@ -946,6 +946,26 @@ test("stale generated artifacts fail before consumption", () => {
   }
 });
 
+test("effect census binds transitive closures without duplicating call corpora", () => {
+  const census = JSON.parse(
+    fs.readFileSync(path.join(repoRoot, EVIDENCE_DIR, "effect-census.json"), "utf8"),
+  );
+  for (const entry of census.entries) {
+    assert.equal("handler_calls" in entry, false);
+    assert.equal("handler_call_sequence" in entry, false);
+    assert.equal("registration_handler_call_sequence" in entry, false);
+    assert.equal("discovered_handler_calls" in entry, false);
+    assert.equal("discovered_handler_call_sequence" in entry, false);
+  }
+  const transitive = census.entries.find((entry) => (
+    entry.handler_resolution === "transitive_function_closure"
+    && entry.handler_effect_calls?.length > 0
+  ));
+  assert.ok(transitive);
+  assert.ok(transitive.reachable_handler_functions.length > 0);
+  assert.match(transitive.handler_anchor_sha256, /^[a-f0-9]{64}$/u);
+});
+
 test("README tampering changes the fingerprint and fails the read-only check", () => {
   const absolutePath = path.join(repoRoot, README_FILE);
   const original = fs.readFileSync(absolutePath);

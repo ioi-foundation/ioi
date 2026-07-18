@@ -4461,14 +4461,22 @@ export function buildM0Artifacts(
     reviewLock,
     programSource,
   );
-  const reviewedEntries = discoveredEntries.map((discovered) => ({
-    ...discovered,
-    ...reviewByIdentity.get(discovered.identity),
-    discovery_source_anchor: discovered.source_anchor,
-    discovery_handler_anchor: discovered.handler_anchor,
-    discovered_handler_calls: discovered.handler_calls ?? [],
-    discovered_handler_call_sequence: discovered.handler_call_sequence ?? [],
-  }));
+  const reviewedEntries = discoveredEntries.map((discovered) => {
+    const discoveryProjection = { ...discovered };
+    for (const field of [
+      "handler_calls",
+      "handler_call_sequence",
+      "registration_handler_call_sequence",
+    ]) {
+      delete discoveryProjection[field];
+    }
+    return {
+      ...discoveryProjection,
+      ...reviewByIdentity.get(discovered.identity),
+      discovery_source_anchor: discovered.source_anchor,
+      discovery_handler_anchor: discovered.handler_anchor,
+    };
+  });
   const selectedEntries = reviewedEntries.filter((entry) => (
     entry.selected_profile_applicability !== "not_selected"
   ));
