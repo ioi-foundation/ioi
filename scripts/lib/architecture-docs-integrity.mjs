@@ -436,6 +436,129 @@ export function checkOwnerMetadata({ root, sourceMapFile, sourceMapContent, cont
   return failures;
 }
 
+function implementationMatrixRows(content) {
+  return content.split(/\r?\n/u).flatMap((line, index) => {
+    if (!line.startsWith("| `")) return [];
+    const cells = line
+      .split("|")
+      .slice(1, -1)
+      .map((cell) => cell.trim());
+    return cells.length === 6
+      ? [{ cells, line: index + 1 }]
+      : [];
+  });
+}
+
+export function checkImplementationMatrixEvidence({
+  root,
+  matrixFile,
+  content,
+}) {
+  const rel = normalizeRel(root, matrixFile);
+  const failures = [];
+  for (const stale of [
+    ["deleted JavaScript daemon path", /packages\/runtime-daemon/u],
+    ["deleted Step/Module bridge path", /ioi[_-]step_module_bridge/u],
+    ["stale live JavaScript-remains claim", /\b(?:JS|JavaScript)\s+remains?\b/iu],
+  ]) {
+    if (stale[1].test(content)) {
+      failures.push(`${rel} contains ${stale[0]}.`);
+    }
+  }
+
+  const rows = implementationMatrixRows(content);
+  if (rows.some(({ cells }) => cells[0].startsWith("`RuntimeDaemonCore"))) {
+    failures.push(
+      `${rel} carries RuntimeDaemonCore migration-mechanism rows; keep migration sequencing/status in the non-doctrinal migration matrix.`,
+    );
+  }
+  for (const { cells, line } of rows) {
+    for (const rawCandidate of [...cells[4].matchAll(/`([^`]+)`/gu)].map(
+      (match) => match[1],
+    )) {
+      const candidate = cleanPathRef(rawCandidate);
+      if (!pathLookingRef(candidate)) continue;
+      const resolved = path.resolve(root, staticGlobPrefix(candidate));
+      if (
+        (!resolved.startsWith(`${root}${path.sep}`) && resolved !== root) ||
+        !fs.existsSync(resolved)
+      ) {
+        failures.push(
+          `${rel}:${line} has missing current-evidence path: ${rawCandidate}.`,
+        );
+      }
+    }
+  }
+
+  const byConcept = new Map(rows.map(({ cells }) => [cells[0], cells]));
+  const requiredOwners = new Map([
+    [
+      "`ModelCapabilityTokenControl`",
+      ["model-router/doctrine.md", "wallet-network/doctrine.md"],
+    ],
+    [
+      "`ModelVaultControl`",
+      [
+        "model-router/doctrine.md",
+        "wallet-network/doctrine.md",
+        "daemon-runtime/private-workspace-ctee.md",
+      ],
+    ],
+    [
+      "`RuntimeThreadMemoryControl`",
+      [
+        "daemon-runtime/doctrine.md",
+        "daemon-runtime/portable-memory-vault.md",
+        "agentgres/doctrine.md",
+      ],
+    ],
+    [
+      "`RuntimeManagedSessionControl`",
+      ["daemon-runtime/doctrine.md", "hypervisor/core-clients-surfaces.md"],
+    ],
+    [
+      "`RuntimeWorkflowEditControl`",
+      ["daemon-runtime/doctrine.md", "hypervisor/core-clients-surfaces.md"],
+    ],
+    [
+      "`RuntimeSkillHookRegistryControl`",
+      [
+        "foundations/common-objects-and-envelopes.md",
+        "daemon-runtime/doctrine.md",
+        "connectors-tools/contracts.md",
+      ],
+    ],
+  ]);
+  for (const [concept, ownerFragments] of requiredOwners) {
+    const row = byConcept.get(concept);
+    if (!row) {
+      failures.push(`${rel} is missing owner-audited row ${concept}.`);
+      continue;
+    }
+    for (const fragment of ownerFragments) {
+      if (!row[1].includes(fragment)) {
+        failures.push(`${rel} ${concept} is missing owner boundary ${fragment}.`);
+      }
+    }
+  }
+
+  const migration = byConcept.get("`HypervisorKernelSubstrateMigration`");
+  if (
+    !migration ||
+    !migration[1].includes(
+      "hypervisor-kernel-substrate-migration-matrix.md",
+    ) ||
+    !/non-doctrinal migration\/status evidence/iu.test(migration[2]) ||
+    !/may not define daemon doctrine/iu.test(migration[3])
+  ) {
+    failures.push(
+      `${rel} must classify HypervisorKernelSubstrateMigration under the explicitly non-doctrinal migration/status matrix, not daemon doctrine.`,
+    );
+  }
+
+  return failures;
+}
+
 function allSchemaFiles(dir) {
   if (!fs.existsSync(dir)) return [];
   return fs.readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
@@ -485,5 +608,16 @@ export function checkArchitectureIntegrity({ root, architectureRoot, markdownFil
     sourceMapContent: contentsByFile.get(sourceMapFile) ?? "",
     contentsByFile,
   }));
+  const implementationMatrixFile = path.join(
+    architectureRoot,
+    "_meta/implementation-matrix.md",
+  );
+  failures.push(
+    ...checkImplementationMatrixEvidence({
+      root,
+      matrixFile: implementationMatrixFile,
+      content: contentsByFile.get(implementationMatrixFile) ?? "",
+    }),
+  );
   return failures;
 }

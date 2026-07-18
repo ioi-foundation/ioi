@@ -54,8 +54,8 @@ jobs:
             target
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
-      - name: Architecture contract bar
-        run: npm run check:architecture-contract-bar
+      - name: Canon pre-next-leg bar
+        run: npm run check:pre-next-leg
 
       - name: Check format
         uses: actions-rs/cargo@v1

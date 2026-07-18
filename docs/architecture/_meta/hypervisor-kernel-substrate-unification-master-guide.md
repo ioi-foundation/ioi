@@ -4059,8 +4059,10 @@ hypervisor-conformance
   runs the complete terminal suite
 
 hypervisor-conformance:docs
-  checks terminology, source-of-truth maps, implementation matrix, and stale
-  live-architecture wording
+  checks architecture contracts, terminology, source-of-truth maps,
+  implementation-matrix integrity, stale live-architecture wording, and local
+  targets/Markdown anchors across docs/conformance; it does not execute target
+  runtime conformance profiles
 
 hypervisor-conformance:abi
   validates StepModuleInvocation / StepModuleResult schema coverage for every

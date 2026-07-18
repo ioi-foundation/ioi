@@ -8,6 +8,7 @@ const TIERS = {
   docs: [
     npmRun("check:architecture-contract-bar"),
     npmRun("check:architecture-docs"),
+    npmRun("check:conformance-docs"),
     node("scripts/check-pre-next-leg-readiness.mjs"),
   ],
   abi: [node("scripts/generate-runtime-action-contracts.mjs", "--check")],
@@ -30,6 +31,7 @@ const TIERS = {
   wallet: [npmRun("check:wallet-packaging")],
   candidates: [npmRun("check:candidate-evidence")],
   negative: [npmRun("check:runtime-layout")],
+  compositor: [npmRun("test:workflow-compositor-dogfood")],
   // The unified-Rust-daemon lifecycle ratchet: the Rust hypervisor-daemon owns the
   // thread/agent/run/turn/events/control/MCP/task/job/subagent surface (spawns the
   // Rust daemon and asserts the lifecycle contract). See
@@ -42,6 +44,7 @@ const DEFAULT_TIERS = [
   "docs",
   "bridge",
   "receipts",
+  "compositor",
   "app",
   "wallet",
   "candidates",

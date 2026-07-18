@@ -566,7 +566,7 @@ Required checks after every macro cut:
 | --- | --- |
 | `node --check` on touched JS/conformance files | syntax and module integrity |
 | focused `node --test` or Rust tests | local behavior and negative guards |
-| `npm run hypervisor-conformance:docs` | docs/source-of-truth consistency |
+| `npm run hypervisor-conformance:docs` | architecture contracts/source-of-truth consistency plus local-link and Markdown-anchor integrity across `docs/conformance/**`; not runtime proof for target conformance profiles |
 | `npm run hypervisor-conformance:bridge` | bridge/direct-invoker/facade guards |
 | relevant tier commands | receipts, cTEE, compositor, negative, or ABI as touched |
 | `npm run hypervisor-conformance` | full current-tier proof |

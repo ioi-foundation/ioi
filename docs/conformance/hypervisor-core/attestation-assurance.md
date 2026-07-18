@@ -156,9 +156,11 @@ A future executable conformance tier must cover:
 - timestamp-overflow refusal.
 
 Current master has no dedicated `attestation` conformance tier or the named
-evaluator modules. `npm run hypervisor-conformance:docs` validates this
-contract's architecture links and surrounding canon only; it is not runtime
-attestation evidence. Promotion requires the executable suite above plus live
+evaluator modules. `npm run hypervisor-conformance:docs` validates architecture
+contracts and canon plus local targets and Markdown anchors throughout
+`docs/conformance/**`, including this file; it is not runtime attestation
+evidence and does not execute the target evaluator described here. Promotion
+requires the executable suite above plus live
 quote, endorsement, nonce-store, signature-chain, revocation-service, and
 deployment fault-injection evidence. Incident timestamps, reporting receipts,
 erasure receipts, legal holds, exceptions, and jurisdiction inputs must also be
