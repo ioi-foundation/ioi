@@ -28,10 +28,10 @@
 //      (no `queue`, no `pr` assignments, no `estate-closure`); the ranking declares
 //      implementation_sequence_status=superseded_by_canon pointing at
 //      docs/architecture/_meta/canon-to-code-delta.md; every unfinished surface appears exactly
-//      once in that file's deferred UX backlog; the contract-first build sequence remains
+//      once in that file's deferred UX backlog; the 14-step contract-first build sequence remains
 //      canonical in execution-horizons.md; and the exact false claims the #70 review caught
 //      (a verdict plane behind `Finding`, precedent substrates classified `partial`,
-//      held-stack work described as landed/shipped) are guarded against returning.
+//      merged work described as held or unlanded) are guarded against returning.
 //
 // Usage: node apps/hypervisor/scripts/verify-hypervisor-operational-depth.mjs
 import { readFileSync } from "node:fs";
@@ -161,11 +161,11 @@ async function run() {
   // application-UX backlog, while contract-complete read-only surfaces remain out of that queue.
   const deltaDoc = readFileSync(join(APP, "..", "..", "docs", "architecture", "_meta", "canon-to-code-delta.md"), "utf8");
   const backlog = deltaDoc.split("## Deferred application-UX backlog")[1] || "";
-  const BACKLOG_ROW = { changes: "| Changes", monitors: "| Monitors", models: "| Models", designer: "| Designer", incidents: "| Incidents", machinery: "| Machinery", evalsuites: "| Evalsuites", explorer: "| Explorer", listings: "| Marketplace" };
+  const BACKLOG_ROW = { changes: "| Changes", monitors: "| Monitors", models: "| Models", designer: "| Designer", incidents: "| Incidents", machinery: "| Machinery", evalsuites: "| Evalsuites", explorer: "| Explorer", listings: "| Packages / Marketplace (Listings)" };
   ok("every unfinished registry surface appears exactly once in the canon's deferred UX backlog", unfinished.every((u) => BACKLOG_ROW[u] && backlog.split(`\n${BACKLOG_ROW[u]} `).length === 2), unfinished.filter((u) => !(BACKLOG_ROW[u] && backlog.split(`\n${BACKLOG_ROW[u]} `).length === 2)).join(",") || `${unfinished.length} surfaces`);
   ok("backlog rows resume only when PULLED by an implemented contract (no PR-number sequence)", /resumes? (only )?when pulled by an implemented contract/i.test(backlog) && !/\| Changes[^\n]*#7\d/.test(backlog));
   const horizons = readFileSync(join(APP, "..", "..", "docs", "architecture", "_meta", "execution-horizons.md"), "utf8");
-  ok("the contract-first build sequence remains canonical (8 ordered steps; closure = working proof, no PR numbers)", horizons.includes("## The build sequence (contract-first)") && /8\. Two-sovereign-node conformance proof/.test(horizons) && /Completion is not forced into an arbitrary PR\s+number|not forced into an arbitrary PR number/.test(horizons.replace(/\n/g, " ")) && deltaDoc.includes("execution-horizons.md#the-build-sequence-contract-first"));
+  ok("the contract-first build sequence remains canonical (14 ordered steps; closure = working proof, no PR numbers)", horizons.includes("## The build sequence (contract-first)") && /1\. Bounded-system constitutional core/.test(horizons) && /14\. Connected\/secured network-service proof/.test(horizons) && /Completion is not forced into an arbitrary PR\s+number|not forced into an arbitrary PR number/.test(horizons.replace(/\n/g, " ")) && deltaDoc.includes("execution-horizons.md#the-build-sequence-contract-first"));
 
   // FALSE-CLAIM GUARDS: merged build-step-3 objects must remain honestly partial, while unrelated
   // precedent-only rows must never be promoted by proximity.
@@ -180,7 +180,8 @@ async function run() {
   for (const obj of ["OntologyVersion", "SemanticMappingDecision", "ProvenanceAssertion"]) {
     ok(`\`${obj}\` row: not started with an explicitly LABELED implementation precedent (a precedent is never partial)`, row(obj).includes("not started") && !/\| partial/.test(row(obj)) && /implementation precedent/i.test(row(obj)));
   }
-  ok("no held-stack work is described as landed/shipped (delta doc + atlas)", !/already-landed/i.test(deltaDoc) && !/shipped state/.test(deltaDoc) && /held stack/.test(deltaDoc) && /not yet\s+merged to master/i.test(deltaDoc.replace(/\n/g, " ")) && !JSON.stringify(atlas).includes("LANDED"));
+  const estateRecord = `${deltaDoc}\n${JSON.stringify(atlas)}`;
+  ok("merged estate work is no longer described as held or unlanded (delta doc + atlas)", !/already-landed|shipped state|held stack|not yet\s+merged(?:\s+to master)?/i.test(estateRecord));
 
   ok("the atlas records the audit invariant: daemon_wired + shell-pixel certification do NOT imply operational completeness", typeof atlas.doctrine === "string" && /certification.*(not|never).*operational|operational.*not.*implied/i.test(atlas.doctrine));
 
