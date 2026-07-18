@@ -1,0 +1,106 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/foundations/declassification-approval/v1",
+  "title": "DeclassificationApproval",
+  "description": "Single-use authority object binding declassification to exact effect bytes and the exact reviewed representation.",
+  "x-ioi-schema-version": "ioi.foundations.declassification-approval.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "approval_ref",
+    "issuer_ref",
+    "subject_ref",
+    "authority_grant_ref",
+    "tool_contract_revision_ref",
+    "label_ref",
+    "label_content_hash",
+    "decision",
+    "declassified_to",
+    "exact_effect_hash",
+    "exact_request_hash",
+    "reviewed_representation_hash",
+    "destination",
+    "purpose",
+    "issued_at",
+    "expires_at",
+    "status",
+    "approval_receipt_ref"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "ioi.foundations.declassification-approval.v1"
+    },
+    "approval_ref": {
+      "type": "string",
+      "pattern": "^approval://[A-Za-z0-9._~:/-]+$"
+    },
+    "issuer_ref": {
+      "type": "string",
+      "minLength": 1
+    },
+    "subject_ref": {
+      "type": "string",
+      "minLength": 1
+    },
+    "authority_grant_ref": {
+      "type": "string",
+      "pattern": "^grant://[A-Za-z0-9._~:/-]+$"
+    },
+    "tool_contract_revision_ref": {
+      "type": "string",
+      "pattern": "^tool://[A-Za-z0-9._~:/-]+/revision/[A-Za-z0-9._~-]+$"
+    },
+    "label_ref": {
+      "type": "string",
+      "pattern": "^ifc-label://[A-Za-z0-9._~:/-]+$"
+    },
+    "label_content_hash": {
+      "$ref": "#/$defs/hash"
+    },
+    "decision": {
+      "const": "allow"
+    },
+    "declassified_to": {
+      "enum": ["public", "internal", "confidential"]
+    },
+    "exact_effect_hash": {
+      "$ref": "#/$defs/hash"
+    },
+    "exact_request_hash": {
+      "$ref": "#/$defs/hash"
+    },
+    "reviewed_representation_hash": {
+      "$ref": "#/$defs/hash"
+    },
+    "destination": {
+      "type": "string",
+      "minLength": 1
+    },
+    "purpose": {
+      "type": "string",
+      "minLength": 1
+    },
+    "issued_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "expires_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "status": {
+      "enum": ["active", "consumed", "revoked", "expired"]
+    },
+    "approval_receipt_ref": {
+      "type": "string",
+      "pattern": "^receipt://[A-Za-z0-9._~:/-]+$"
+    }
+  },
+  "$defs": {
+    "hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    }
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "schema_version": "ioi.foundations.declassification-approval.v1",
+  "approval_ref": "approval://example/declassify-1",
+  "issuer_ref": "wallet://example",
+  "subject_ref": "agent://example",
+  "authority_grant_ref": "grant://example/declassify-1",
+  "tool_contract_revision_ref": "tool://example.send/revision/1.0.0",
+  "label_ref": "ifc-label://example/private-reviewed",
+  "label_content_hash": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+  "decision": "allow",
+  "declassified_to": "public",
+  "exact_effect_hash": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+  "exact_request_hash": "sha256:8888888888888888888888888888888888888888888888888888888888888888",
+  "destination": "https://api.example.test/v1/send",
+  "purpose": "send reviewed customer response",
+  "issued_at": "2026-07-16T12:00:00Z",
+  "expires_at": "2026-07-16T12:05:00Z",
+  "status": "active",
+  "approval_receipt_ref": "receipt://example/declassify-1"
+}

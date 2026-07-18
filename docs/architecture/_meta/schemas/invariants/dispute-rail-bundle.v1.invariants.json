@@ -1,0 +1,238 @@
+{
+  "$id": "invariant://ioi/foundations/dispute-rail-bundle/exact-bindings/v1",
+  "language": "ioi.portable-invariants.v1",
+  "contract_id": "schema://ioi/foundations/dispute-rail-bundle/v1",
+  "rules": [
+    {
+      "rule_id": "dispute_rail.profile.dispute.ref",
+      "description": "The dispute binds the exact rail profile ref.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.profile.dispute_rail_profile_ref",
+          "$.dispute.dispute_rail_profile_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "dispute_rail.profile.dispute.version",
+      "description": "The dispute binds the exact rail profile version.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.profile.profile_version",
+          "$.dispute.dispute_rail_profile_version"
+        ]
+      }
+    },
+    {
+      "rule_id": "dispute_rail.profile.dispute.hash",
+      "description": "The dispute binds the exact rail profile body hash.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.profile.profile_body_hash",
+          "$.dispute.dispute_rail_profile_body_hash"
+        ]
+      }
+    },
+    {
+      "rule_id": "dispute_rail.profile.resolution.ref",
+      "description": "The resolution binds the exact rail profile ref.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.profile.dispute_rail_profile_ref",
+          "$.resolution.dispute_rail_profile_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "dispute_rail.profile.resolution.version",
+      "description": "The resolution binds the exact rail profile version.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.profile.profile_version",
+          "$.resolution.dispute_rail_profile_version"
+        ]
+      }
+    },
+    {
+      "rule_id": "dispute_rail.profile.resolution.hash",
+      "description": "The resolution binds the exact rail profile body hash.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.profile.profile_body_hash",
+          "$.resolution.dispute_rail_profile_body_hash"
+        ]
+      }
+    },
+    {
+      "rule_id": "dispute_rail.value_unit.profile_dispute.asset",
+      "description": "Disputed value and bonds use the profile asset.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.profile.value_unit.asset_ref",
+          "$.dispute.value_unit.asset_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "dispute_rail.value_unit.profile_dispute.unit_ref",
+      "description": "Disputed value and bonds use the profile unit ref.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.profile.value_unit.unit_ref",
+          "$.dispute.value_unit.unit_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "dispute_rail.value_unit.profile_dispute.unit_hash",
+      "description": "Disputed value and bonds use the profile unit body hash.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.profile.value_unit.unit_body_hash",
+          "$.dispute.value_unit.unit_body_hash"
+        ]
+      }
+    },
+    {
+      "rule_id": "dispute_rail.value_unit.profile_dispute.unit_version",
+      "description": "Disputed value and bonds use the profile unit version.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.profile.value_unit.unit_version",
+          "$.dispute.value_unit.unit_version"
+        ]
+      }
+    },
+    {
+      "rule_id": "dispute_rail.value_unit.profile_dispute.atomic_code",
+      "description": "Disputed value and bonds use the profile atomic-unit code.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.profile.value_unit.atomic_unit_code",
+          "$.dispute.value_unit.atomic_unit_code"
+        ]
+      }
+    },
+    {
+      "rule_id": "dispute_rail.value_unit.profile_dispute.decimals",
+      "description": "Disputed value and bonds use the profile decimal scale.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.profile.value_unit.decimals",
+          "$.dispute.value_unit.decimals"
+        ]
+      }
+    },
+    {
+      "rule_id": "dispute_rail.value_unit.profile_resolution.asset",
+      "description": "Remedy and bond allocations use the profile asset.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.profile.value_unit.asset_ref",
+          "$.resolution.value_unit.asset_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "dispute_rail.value_unit.profile_resolution.unit_ref",
+      "description": "Remedy and bond allocations use the profile unit ref.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.profile.value_unit.unit_ref",
+          "$.resolution.value_unit.unit_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "dispute_rail.value_unit.profile_resolution.unit_hash",
+      "description": "Remedy and bond allocations use the profile unit body hash.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.profile.value_unit.unit_body_hash",
+          "$.resolution.value_unit.unit_body_hash"
+        ]
+      }
+    },
+    {
+      "rule_id": "dispute_rail.value_unit.profile_resolution.unit_version",
+      "description": "Remedy and bond allocations use the profile unit version.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.profile.value_unit.unit_version",
+          "$.resolution.value_unit.unit_version"
+        ]
+      }
+    },
+    {
+      "rule_id": "dispute_rail.value_unit.profile_resolution.atomic_code",
+      "description": "Resolution display and arithmetic use the profile atomic-unit code.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.profile.value_unit.atomic_unit_code",
+          "$.resolution.value_unit.atomic_unit_code"
+        ]
+      }
+    },
+    {
+      "rule_id": "dispute_rail.value_unit.profile_resolution.decimals",
+      "description": "Resolution display scale is the profile scale.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.profile.value_unit.decimals",
+          "$.resolution.value_unit.decimals"
+        ]
+      }
+    },
+    {
+      "rule_id": "dispute_rail.profile_resolution.rail_kind",
+      "description": "The resolution remains on the admitted dispute rail.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.profile.rail_kind",
+          "$.resolution.rail_kind"
+        ]
+      }
+    },
+    {
+      "rule_id": "dispute_rail.dispute_resolution.dispute_ref",
+      "description": "The resolution belongs to the exported dispute.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.dispute.dispute_ref",
+          "$.resolution.dispute_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "dispute_rail.dispute_resolution.case_head",
+      "description": "The resolution binds the exported dispute head.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.dispute.case_head_hash",
+          "$.resolution.case_head_hash"
+        ]
+      }
+    }
+  ]
+}

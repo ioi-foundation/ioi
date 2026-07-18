@@ -1,0 +1,18 @@
+{
+  "schema_version": "ioi.foundations.authority-revocation-snapshot.v1",
+  "snapshot_type": "ioi.authority-revocation-snapshot",
+  "snapshot_id": "snapshot://acme/delegator/revocations/8",
+  "issuer_id": "system://acme/delegator",
+  "issuer_key_set_ref": "keyset://acme/delegator/1",
+  "issuer_key_set_version": 1,
+  "epoch": 8,
+  "issued_at": 1784203200,
+  "expires_at": 1784203500,
+  "revoked_grant_refs": [],
+  "revoked_key_ids": [],
+  "body_hash": "sha256:37e735385d0f74bd510fddbb0ec1903d2e33ab42583b6618c2de744f0edb8b60",
+  "signature_domain": "ioi.authority-revocation-snapshot.v1",
+  "signature_suite": "ed25519",
+  "signature_key_id": "key://acme/delegator/ed25519-1",
+  "signature": "4ZID5l0775KRuTPACrPpc0ish_TgvdPSU6wVh5jqSkouyl10ogdxXTS1pKr8-d-ktoWHS7-vVhvZJwPL_GO6BQ"
+}

@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/foundations/authority-revocation-snapshot/v1",
+  "title": "AuthorityRevocationSnapshot",
+  "description": "Signed bounded-staleness snapshot of revoked portable grants and issuer keys.",
+  "x-ioi-schema-version": "ioi.foundations.authority-revocation-snapshot.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "snapshot_type",
+    "snapshot_id",
+    "issuer_id",
+    "issuer_key_set_ref",
+    "issuer_key_set_version",
+    "epoch",
+    "issued_at",
+    "expires_at",
+    "revoked_grant_refs",
+    "revoked_key_ids",
+    "body_hash",
+    "signature_domain",
+    "signature_suite",
+    "signature_key_id",
+    "signature"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "ioi.foundations.authority-revocation-snapshot.v1"
+    },
+    "snapshot_type": { "const": "ioi.authority-revocation-snapshot" },
+    "snapshot_id": { "$ref": "#/$defs/snapshotRef" },
+    "issuer_id": { "$ref": "#/$defs/issuerRef" },
+    "issuer_key_set_ref": { "$ref": "#/$defs/keySetRef" },
+    "issuer_key_set_version": { "type": "integer", "minimum": 1 },
+    "epoch": { "type": "integer", "minimum": 0 },
+    "issued_at": { "type": "integer", "minimum": 0 },
+    "expires_at": { "type": "integer", "minimum": 0 },
+    "revoked_grant_refs": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/grantRef" },
+      "uniqueItems": true
+    },
+    "revoked_key_ids": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/keyRef" },
+      "uniqueItems": true
+    },
+    "body_hash": { "$ref": "#/$defs/sha256Hash" },
+    "signature_domain": {
+      "const": "ioi.authority-revocation-snapshot.v1"
+    },
+    "signature_suite": { "const": "ed25519" },
+    "signature_key_id": { "$ref": "#/$defs/keyRef" },
+    "signature": { "$ref": "#/$defs/ed25519Signature" }
+  },
+  "$defs": {
+    "snapshotRef": { "type": "string", "pattern": "^snapshot://[^\\s]+$" },
+    "issuerRef": {
+      "type": "string",
+      "pattern": "^(?:system|wallet|org|policy)://[^\\s]+$"
+    },
+    "keySetRef": { "type": "string", "pattern": "^keyset://[^\\s]+$" },
+    "keyRef": { "type": "string", "pattern": "^key://[^\\s]+$" },
+    "grantRef": { "type": "string", "pattern": "^grant://[^\\s]+$" },
+    "sha256Hash": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "ed25519Signature": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_-]{86}$"
+    }
+  }
+}

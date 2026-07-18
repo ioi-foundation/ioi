@@ -1,0 +1,23 @@
+{
+  "$id": "invariant://ioi/foundations/receipt-proof-bundle/portable-proof/v1",
+  "language": "ioi.portable-invariants.v1",
+  "contract_id": "schema://ioi/foundations/receipt-proof-bundle/v1",
+  "rules": [
+    {
+      "rule_id": "receipt_proof_bundle.schema_hash.matches_contract",
+      "description": "The exported manifest binds the generated bundle schema hash.",
+      "expression": {
+        "operator": "matches_contract_schema_hash",
+        "path": "$.bundle_schema_hash"
+      }
+    },
+    {
+      "rule_id": "receipt_proof_bundle.leaf_index.matches_inclusion",
+      "description": "The leaf and inclusion witness address the same accumulator position.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": ["$.leaf.leaf_index", "$.inclusion_proof.leaf_index"]
+      }
+    }
+  ]
+}

@@ -1,0 +1,715 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/architecture-contract-registry/v1",
+  "registry_version": "ioi.architecture-contract-registry.v1",
+  "contracts": [
+    {
+      "contract_id": "schema://ioi/foundations/receipt-envelope/v1",
+      "canonical_name": "ReceiptEnvelope",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/common-objects-and-envelopes.md#receiptenvelope",
+      "schema_version": "ioi.foundations.receipt-envelope.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": null,
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "none"
+      },
+      "schema_ref": "receipt-envelope.v1.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/foundations/receipt-envelope/boundary-fact-required/v1",
+          "path": "invariants/receipt-envelope.v1.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "ReceiptEnvelopeV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "ReceiptEnvelopeV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/receipt-envelope-v1/positive-minimal.json",
+        "fixtures/receipt-envelope-v1/positive-assured.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/receipt-envelope-v1/negative-bad-profile-ref.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/receipt-envelope-v1/negative-empty-boundary-facts.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "receipt.boundary_fact.required"
+        },
+        {
+          "path": "fixtures/receipt-envelope-v1/negative-unknown-field.json",
+          "expected_failure": "schema"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/foundations/physical-action-execution-receipt/v1",
+      "canonical_name": "PhysicalActionExecutionReceipt",
+      "canonical_owner_ref": "canon://docs/architecture/components/daemon-runtime/events-receipts-delivery-bundles.md#embodied-runtime-receipts",
+      "schema_version": "ioi.physical-action-execution-receipt.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": null,
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "none"
+      },
+      "schema_ref": "physical-action-execution-receipt.v1.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/foundations/physical-action-execution-receipt/bundle-binding/v1",
+          "path": "invariants/physical-action-execution-receipt.v1.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "PhysicalActionExecutionReceiptV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "PhysicalActionExecutionReceiptV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/physical-action-execution-receipt-v1/positive-committed.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/physical-action-execution-receipt-v1/negative-flat-unbundled.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/physical-action-execution-receipt-v1/negative-envelope-input-hash-mismatch.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "physical_action_execution.receipt.input_hash.matches_execution_request"
+        },
+        {
+          "path": "fixtures/physical-action-execution-receipt-v1/negative-committed-missing-dispatch-evidence.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "physical_action_execution.dispatch.evidence.required_for_terminal_claim"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/foundations/authority-grant-envelope/v1",
+      "canonical_name": "AuthorityGrantEnvelope",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/common-objects-and-envelopes.md#authoritygrantenvelope",
+      "schema_version": "ioi.foundations.authority-grant-envelope.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": null,
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": "schema://ioi/foundations/authority-grant-envelope/v2",
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "none"
+      },
+      "schema_ref": "authority-grant-envelope.v1.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/foundations/authority-grant-envelope/capability-required/v1",
+          "path": "invariants/authority-grant-envelope.v1.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [
+        {
+          "kind": "field",
+          "alias": "grant_id",
+          "canonical": "authority_grant_id",
+          "read_policy": "compatibility_adapter_only",
+          "write_policy": "forbidden"
+        }
+      ],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "AuthorityGrantEnvelopeV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "AuthorityGrantEnvelopeV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/authority-grant-envelope-v1/positive-active.json",
+        "fixtures/authority-grant-envelope-v1/positive-revoked.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/authority-grant-envelope-v1/negative-empty-capabilities.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "authority_grant.capability.required"
+        },
+        {
+          "path": "fixtures/authority-grant-envelope-v1/negative-legacy-alias-write.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/authority-grant-envelope-v1/negative-status.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/authority-grant-envelope-v1/negative-unknown-constraint.json",
+          "expected_failure": "schema"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/foundations/authority-grant-envelope/v2",
+      "canonical_name": "AuthorityGrantEnvelope",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/common-objects-and-envelopes.md#authoritygrantenvelope",
+      "schema_version": "ioi.foundations.authority-grant-envelope.v2",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": "schema://ioi/foundations/authority-grant-envelope/v1",
+        "successor_contract_id": null,
+        "compatibility": "breaking",
+        "migration_policy": "explicit_adapter_required",
+        "predecessor_remains_valid": true,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "signature_preimage_changed"
+      },
+      "schema_ref": "authority-grant-envelope.v2.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/foundations/authority-grant-envelope/portable-grant/v2",
+          "path": "invariants/authority-grant-envelope.v2.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "AuthorityGrantEnvelopeV2"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "AuthorityGrantEnvelopeV2"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/authority-grant-envelope-v2/positive-root.json",
+        "fixtures/authority-grant-envelope-v2/positive-attenuated-child.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/authority-grant-envelope-v2/negative-empty-capabilities.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "authority_grant.capability.required"
+        },
+        {
+          "path": "fixtures/authority-grant-envelope-v2/negative-signature-key-mismatch.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "authority_grant.signature_key.matches_issuer_key"
+        },
+        {
+          "path": "fixtures/authority-grant-envelope-v2/negative-stale-schema-hash.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "authority_grant.schema_hash.matches_contract"
+        },
+        {
+          "path": "fixtures/authority-grant-envelope-v2/negative-padded-signature.json",
+          "expected_failure": "schema"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/foundations/authority-key-set/v1",
+      "canonical_name": "AuthorityKeySet",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/common-objects-and-envelopes.md#authoritygrantenvelope",
+      "schema_version": "ioi.foundations.authority-key-set.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "none"
+      },
+      "schema_ref": "authority-key-set.v1.schema.json",
+      "cross_field_invariant_refs": [{
+        "invariant_id": "invariant://ioi/foundations/authority-key-set/validity-window/v1",
+        "path": "invariants/authority-key-set.v1.invariants.json"
+      }],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "AuthorityKeySetV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "AuthorityKeySetV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/authority-key-set-v1/positive-active.json",
+        "fixtures/authority-key-set-v1/positive-delegator.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/authority-key-set-v1/negative-padded-public-key.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/authority-key-set-v1/negative-empty-validity-window.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "authority_key_set.issued_at.before_expiry"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/foundations/authority-revocation-snapshot/v1",
+      "canonical_name": "AuthorityRevocationSnapshot",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/common-objects-and-envelopes.md#authoritygrantenvelope",
+      "schema_version": "ioi.foundations.authority-revocation-snapshot.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "none"
+      },
+      "schema_ref": "authority-revocation-snapshot.v1.schema.json",
+      "cross_field_invariant_refs": [{
+        "invariant_id": "invariant://ioi/foundations/authority-revocation-snapshot/validity-window/v1",
+        "path": "invariants/authority-revocation-snapshot.v1.invariants.json"
+      }],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "AuthorityRevocationSnapshotV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "AuthorityRevocationSnapshotV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/authority-revocation-snapshot-v1/positive-current.json",
+        "fixtures/authority-revocation-snapshot-v1/positive-delegator-current.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/authority-revocation-snapshot-v1/negative-wrong-domain.json",
+          "expected_failure": "schema"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/foundations/receipt-checkpoint/v1",
+      "canonical_name": "ReceiptCheckpoint",
+      "canonical_owner_ref": "canon://docs/architecture/components/daemon-runtime/events-receipts-delivery-bundles.md#receipt-checkpoints-and-offline-proofs",
+      "schema_version": "ioi.foundations.receipt-checkpoint.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "none"
+      },
+      "schema_ref": "receipt-checkpoint.v1.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/foundations/receipt-checkpoint/portable-checkpoint/v1",
+          "path": "invariants/receipt-checkpoint.v1.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "ReceiptCheckpointV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "ReceiptCheckpointV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/receipt-checkpoint-v1/positive-current.json",
+        "fixtures/receipt-checkpoint-v1/positive-previous.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/receipt-checkpoint-v1/negative-wrong-domain.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/receipt-checkpoint-v1/negative-stale-schema-hash.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "receipt_checkpoint.schema_hash.matches_contract"
+        },
+        {
+          "path": "fixtures/receipt-checkpoint-v1/negative-signature-key-mismatch.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "receipt_checkpoint.signature_key.matches_issuer_key"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/foundations/receipt-proof-bundle/v1",
+      "canonical_name": "ReceiptProofBundle",
+      "canonical_owner_ref": "canon://docs/architecture/components/daemon-runtime/events-receipts-delivery-bundles.md#receipt-checkpoints-and-offline-proofs",
+      "schema_version": "ioi.foundations.receipt-proof-bundle.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "none"
+      },
+      "schema_ref": "receipt-proof-bundle.v1.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/foundations/receipt-proof-bundle/portable-proof/v1",
+          "path": "invariants/receipt-proof-bundle.v1.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "ReceiptProofBundleV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "ReceiptProofBundleV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/receipt-proof-bundle-v1/positive-offline.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/receipt-proof-bundle-v1/negative-wrong-domain.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/receipt-proof-bundle-v1/negative-stale-schema-hash.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "receipt_proof_bundle.schema_hash.matches_contract"
+        },
+        {
+          "path": "fixtures/receipt-proof-bundle-v1/negative-leaf-index-mismatch.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "receipt_proof_bundle.leaf_index.matches_inclusion"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/foundations/information-flow-label/v1",
+      "canonical_name": "InformationFlowLabel",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/common-objects-and-envelopes.md#informationflowlabel-and-declassificationapproval",
+      "schema_version": "ioi.foundations.information-flow-label.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "none"
+      },
+      "schema_ref": "information-flow-label.v1.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/foundations/information-flow-label/derivation-closure/v1",
+          "path": "invariants/information-flow-label.v1.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "InformationFlowLabelV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "InformationFlowLabelV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/information-flow-label-v1/positive-public-verified.json",
+        "fixtures/information-flow-label-v1/positive-private-untrusted.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/information-flow-label-v1/negative-missing-instruction-authority.json",
+          "expected_failure": "schema"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/components/connectors-tools/runtime-tool-contract/v1",
+      "canonical_name": "RuntimeToolContract",
+      "canonical_owner_ref": "canon://docs/architecture/components/connectors-tools/contracts.md#runtimetoolcontract",
+      "schema_version": "ioi.components.connectors-tools.runtime-tool-contract.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "none"
+      },
+      "schema_ref": "runtime-tool-contract.v1.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/components/connectors-tools/runtime-tool-contract/ifc-egress/v1",
+          "path": "invariants/runtime-tool-contract.v1.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "RuntimeToolContractV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "RuntimeToolContractV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/runtime-tool-contract-v1/positive-declared-egress.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/runtime-tool-contract-v1/negative-missing-destination-declaration.json",
+          "expected_failure": "schema"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/foundations/managed-work-billing-ledger-bundle/v1",
+      "canonical_name": "ManagedWorkBillingLedgerBundle",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/common-objects-and-envelopes.md#managed-work-billing-object-family",
+      "schema_version": "ioi.foundations.managed-work-billing-ledger-bundle.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "none"
+      },
+      "schema_ref": "managed-work-billing-ledger-bundle.v1.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/foundations/managed-work-billing-ledger-bundle/fixed-chain/v1",
+          "path": "invariants/managed-work-billing-ledger-bundle.v1.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "ManagedWorkBillingLedgerBundleV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "ManagedWorkBillingLedgerBundleV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/managed-work-billing-ledger-bundle-v1/positive-complete.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/managed-work-billing-ledger-bundle-v1/negative-floating-credit-units.json",
+          "expected_failure": "schema"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/foundations/dispute-rail-bundle/v1",
+      "canonical_name": "DisputeRailBundle",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/common-objects-and-envelopes.md#dispute-rail-object-family",
+      "schema_version": "ioi.foundations.dispute-rail-bundle.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "none"
+      },
+      "schema_ref": "dispute-rail-bundle.v1.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/foundations/dispute-rail-bundle/exact-bindings/v1",
+          "path": "invariants/dispute-rail-bundle.v1.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "DisputeRailBundleV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "DisputeRailBundleV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/dispute-rail-bundle-v1/positive-marketplace-resolution.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/dispute-rail-bundle-v1/negative-value-unit-substitution.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "dispute_rail.value_unit.profile_dispute.unit_ref"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/foundations/declassification-approval/v1",
+      "canonical_name": "DeclassificationApproval",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/common-objects-and-envelopes.md#informationflowlabel-and-declassificationapproval",
+      "schema_version": "ioi.foundations.declassification-approval.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "none"
+      },
+      "schema_ref": "declassification-approval.v1.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/foundations/declassification-approval/exact-bindings/v1",
+          "path": "invariants/declassification-approval.v1.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "DeclassificationApprovalV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "DeclassificationApprovalV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/declassification-approval-v1/positive-exact-binding.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/declassification-approval-v1/negative-missing-reviewed-representation-hash.json",
+          "expected_failure": "schema"
+        }
+      ]
+    }
+  ]
+}

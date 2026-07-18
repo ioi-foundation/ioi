@@ -1,0 +1,135 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/foundations/information-flow-label/v1",
+  "title": "InformationFlowLabel",
+  "description": "Versioned multi-axis information-flow label carried by context and derived values.",
+  "x-ioi-schema-version": "ioi.foundations.information-flow-label.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "label_ref",
+    "profile_ref",
+    "content_hash",
+    "origin",
+    "integrity",
+    "confidentiality",
+    "instruction_authority",
+    "egress_policy",
+    "purpose",
+    "retention",
+    "derivation_kind",
+    "derivation_parent_refs",
+    "derivation_closure_refs"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "ioi.foundations.information-flow-label.v1"
+    },
+    "label_ref": {
+      "$ref": "#/$defs/labelRef"
+    },
+    "profile_ref": {
+      "$ref": "#/$defs/policyRef"
+    },
+    "content_hash": {
+      "$ref": "#/$defs/hash"
+    },
+    "origin": {
+      "enum": [
+        "operator",
+        "admitted_artifact",
+        "external_untrusted",
+        "connector_output",
+        "tool_output",
+        "model_output",
+        "memory_import",
+        "unknown"
+      ]
+    },
+    "integrity": {
+      "enum": ["verified", "admitted", "declared", "untrusted", "unknown"]
+    },
+    "confidentiality": {
+      "enum": ["public", "internal", "confidential", "private", "restricted", "unknown"]
+    },
+    "instruction_authority": {
+      "enum": ["authoritative", "context_only", "none", "untrusted", "unknown"]
+    },
+    "egress_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode", "allowed_destination_patterns", "allowed_data_classes"],
+      "properties": {
+        "mode": {
+          "enum": ["deny", "allow_declared", "declassification_required"]
+        },
+        "allowed_destination_patterns": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "allowed_data_classes": {
+          "type": "array",
+          "items": {
+            "enum": ["public", "internal", "confidential", "private", "restricted"]
+          },
+          "uniqueItems": true
+        }
+      }
+    },
+    "purpose": {
+      "type": "string",
+      "minLength": 1
+    },
+    "retention": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["max_seconds", "disposition"],
+      "properties": {
+        "max_seconds": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "disposition": {
+          "enum": ["delete", "return_to_owner", "retain_under_policy", "unknown"]
+        }
+      }
+    },
+    "derivation_kind": {
+      "enum": ["direct", "join", "summarization", "model_substitution", "memory_import", "tool_output"]
+    },
+    "derivation_parent_refs": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/labelRef"
+      },
+      "uniqueItems": true
+    },
+    "derivation_closure_refs": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/labelRef"
+      },
+      "minItems": 1,
+      "uniqueItems": true
+    }
+  },
+  "$defs": {
+    "hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "labelRef": {
+      "type": "string",
+      "pattern": "^ifc-label://[A-Za-z0-9._~:/-]+$"
+    },
+    "policyRef": {
+      "type": "string",
+      "pattern": "^policy://[A-Za-z0-9._~:/-]+$"
+    }
+  }
+}

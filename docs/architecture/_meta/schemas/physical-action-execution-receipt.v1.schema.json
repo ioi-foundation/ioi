@@ -1,0 +1,786 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/foundations/physical-action-execution-receipt/v1",
+  "title": "PhysicalActionExecutionReceipt",
+  "description": "Portable physical-action execution receipt profile bundling one exact closed ReceiptEnvelope v1 with the domain-specific execution body.",
+  "x-ioi-schema-version": "ioi.physical-action-execution-receipt.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "receipt_envelope",
+    "body",
+    "body_hash",
+    "receipt_hash"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "ioi.physical-action-execution-receipt.v1"
+    },
+    "receipt_envelope": {
+      "$ref": "#/$defs/receiptEnvelope"
+    },
+    "body": {
+      "$ref": "#/$defs/physicalActionExecutionBody"
+    },
+    "body_hash": {
+      "$ref": "#/$defs/sha256Hash",
+      "description": "SHA-256 over JCS of the exact receipt_envelope and body bundle."
+    },
+    "receipt_hash": {
+      "$ref": "#/$defs/sha256Hash",
+      "description": "Domain-separated physical-action execution receipt hash over the same canonical bundle."
+    }
+  },
+  "$defs": {
+    "receiptEnvelope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "receipt_id",
+        "receipt_type",
+        "receipt_profile_ref",
+        "attested_boundary_fact_refs",
+        "claim_scope_ref",
+        "run_id",
+        "task_id",
+        "actor_id",
+        "authority_grant_id",
+        "primitive_capabilities",
+        "authority_scopes",
+        "artifact_refs",
+        "evidence_bundle_refs",
+        "verification_ref",
+        "acceptance_ref",
+        "adjudication_ref",
+        "settlement_ref",
+        "timestamp",
+        "signature",
+        "public_commitment_ref"
+      ],
+      "properties": {
+        "receipt_id": {
+          "$ref": "#/$defs/receiptRef"
+        },
+        "receipt_type": {
+          "const": "physical_action_execution"
+        },
+        "receipt_profile_ref": {
+          "const": "schema://ioi/foundations/physical-action-execution-receipt/v1"
+        },
+        "attested_boundary_fact_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/canonicalRef"
+          },
+          "uniqueItems": true
+        },
+        "claim_scope_ref": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/schemaOrPolicyRef"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "run_id": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/runRef"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "task_id": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/taskRef"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "actor_id": {
+          "$ref": "#/$defs/protocolPrincipalOrRuntimeRef"
+        },
+        "input_hash": {
+          "$ref": "#/$defs/sha256Hash"
+        },
+        "output_hash": {
+          "$ref": "#/$defs/sha256Hash"
+        },
+        "policy_hash": {
+          "$ref": "#/$defs/sha256Hash"
+        },
+        "authority_grant_id": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/grantRef"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "primitive_capabilities": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/primitiveCapability"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "authority_scopes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/authorityScope"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "artifact_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/artifactRef"
+          },
+          "uniqueItems": true
+        },
+        "evidence_bundle_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/evidenceRef"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "verification_ref": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/verificationRef"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "acceptance_ref": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/acceptanceRef"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "adjudication_ref": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/adjudicationRef"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "settlement_ref": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/settlementRef"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "signature": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "public_commitment_ref": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/publicCommitmentRef"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "physicalActionExecutionBody": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "idempotency_key",
+        "execution_request_hash",
+        "admission_id",
+        "admission_record_hash",
+        "work_subject",
+        "target_system_ref",
+        "resource_group_bindings",
+        "emergency_stop_authority_ref",
+        "controller_binding_ref",
+        "runtime_graph_manifest_ref",
+        "runtime_graph_manifest_hash",
+        "safety_envelope_ref",
+        "safety_envelope_hash",
+        "assurance_evidence_bundle_ref",
+        "assurance_evidence_bundle_hash",
+        "active_writer_lease_ref",
+        "active_writer_fencing_epoch",
+        "active_writer_fencing_token_hash",
+        "graph_timing_chain_ref",
+        "graph_timing_chain_hash",
+        "command_schema_ref",
+        "command_payload_hash",
+        "segment_commitment_receipt_refs",
+        "preflight_receipt_refs",
+        "sensor_evidence_receipt_refs",
+        "controller_operation_ref",
+        "dispatch_posture",
+        "dispatch_evidence_receipt_refs",
+        "controller_receipt_refs",
+        "outcome_normalization_error_codes",
+        "effect_status",
+        "state_root_before",
+        "state_root_after",
+        "previous_execution_receipt_hash",
+        "executed_at",
+        "incident_refs",
+        "reconciliation_state",
+        "agentgres_operation_refs",
+        "assurance_stage"
+      ],
+      "properties": {
+        "idempotency_key": {
+          "type": "string",
+          "minLength": 1
+        },
+        "execution_request_hash": {
+          "$ref": "#/$defs/sha256Hash"
+        },
+        "admission_id": {
+          "type": "string",
+          "pattern": "^physical-action-admission:[^\\s]+$"
+        },
+        "admission_record_hash": {
+          "$ref": "#/$defs/sha256Hash"
+        },
+        "work_subject": {
+          "$ref": "#/$defs/workSubject"
+        },
+        "target_system_ref": {
+          "$ref": "#/$defs/physicalTargetRef"
+        },
+        "resource_group_bindings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/resourceGroupBinding"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "emergency_stop_authority_ref": {
+          "$ref": "#/$defs/emergencyStopAuthorityRef"
+        },
+        "controller_binding_ref": {
+          "$ref": "#/$defs/controllerBindingRef"
+        },
+        "runtime_graph_manifest_ref": {
+          "$ref": "#/$defs/runtimeGraphManifestRef"
+        },
+        "runtime_graph_manifest_hash": {
+          "$ref": "#/$defs/sha256Hash"
+        },
+        "safety_envelope_ref": {
+          "$ref": "#/$defs/safetyEnvelopeRef"
+        },
+        "safety_envelope_hash": {
+          "$ref": "#/$defs/sha256Hash"
+        },
+        "assurance_evidence_bundle_ref": {
+          "$ref": "#/$defs/assuranceEvidenceBundleRef"
+        },
+        "assurance_evidence_bundle_hash": {
+          "$ref": "#/$defs/sha256Hash"
+        },
+        "active_writer_lease_ref": {
+          "$ref": "#/$defs/resourceLeaseRef"
+        },
+        "active_writer_fencing_epoch": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "active_writer_fencing_token_hash": {
+          "$ref": "#/$defs/sha256Hash"
+        },
+        "graph_timing_chain_ref": {
+          "$ref": "#/$defs/artifactRef"
+        },
+        "graph_timing_chain_hash": {
+          "$ref": "#/$defs/sha256Hash"
+        },
+        "command_schema_ref": {
+          "$ref": "#/$defs/actionSchemaRef"
+        },
+        "command_payload_hash": {
+          "$ref": "#/$defs/sha256Hash"
+        },
+        "segment_commitment_receipt_refs": {
+          "$ref": "#/$defs/receiptRefArray"
+        },
+        "preflight_receipt_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/receiptRef"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "sensor_evidence_receipt_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/receiptRef"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "controller_operation_ref": {
+          "$ref": "#/$defs/effectRef"
+        },
+        "dispatch_posture": {
+          "enum": [
+            "not_dispatched_proven",
+            "dispatched_observed",
+            "dispatch_ambiguous"
+          ]
+        },
+        "dispatch_evidence_receipt_refs": {
+          "$ref": "#/$defs/receiptRefArray"
+        },
+        "controller_receipt_refs": {
+          "$ref": "#/$defs/receiptRefArray"
+        },
+        "outcome_normalization_error_codes": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]*$"
+          },
+          "uniqueItems": true
+        },
+        "effect_status": {
+          "enum": [
+            "committed",
+            "rejected",
+            "unknown"
+          ]
+        },
+        "state_root_before": {
+          "type": "string",
+          "minLength": 1
+        },
+        "state_root_after": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "previous_execution_receipt_hash": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/sha256Hash"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "executed_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "incident_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/incidentRef"
+          },
+          "uniqueItems": true
+        },
+        "reconciliation_state": {
+          "enum": [
+            "confirmed",
+            "partially_confirmed",
+            "ambiguous_effect",
+            "compensation_required",
+            "non_retryable",
+            "failed"
+          ]
+        },
+        "agentgres_operation_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/agentgresOperationRef"
+          },
+          "uniqueItems": true
+        },
+        "assurance_stage": {
+          "enum": [
+            "attested",
+            "evidenced",
+            "verified",
+            "accepted",
+            "adjudicated",
+            "settled"
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "type": "object",
+            "required": [
+              "effect_status"
+            ],
+            "properties": {
+              "effect_status": {
+                "const": "committed"
+              }
+            }
+          },
+          "then": {
+            "type": "object",
+            "properties": {
+              "dispatch_posture": {
+                "const": "dispatched_observed"
+              },
+              "controller_receipt_refs": {
+                "type": "array",
+                "minItems": 1
+              },
+              "state_root_after": {
+                "type": "string",
+                "minLength": 1
+              },
+              "outcome_normalization_error_codes": {
+                "type": "array",
+                "maxItems": 0
+              },
+              "reconciliation_state": {
+                "const": "confirmed"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "type": "object",
+            "required": [
+              "effect_status"
+            ],
+            "properties": {
+              "effect_status": {
+                "const": "rejected"
+              }
+            }
+          },
+          "then": {
+            "type": "object",
+            "properties": {
+              "dispatch_posture": {
+                "const": "not_dispatched_proven"
+              },
+              "state_root_after": {
+                "type": "null"
+              },
+              "outcome_normalization_error_codes": {
+                "type": "array",
+                "maxItems": 0
+              },
+              "reconciliation_state": {
+                "const": "failed"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "type": "object",
+            "required": [
+              "effect_status"
+            ],
+            "properties": {
+              "effect_status": {
+                "const": "unknown"
+              }
+            }
+          },
+          "then": {
+            "type": "object",
+            "properties": {
+              "reconciliation_state": {
+                "const": "ambiguous_effect"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "workSubject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "ref"
+      ],
+      "properties": {
+        "kind": {
+          "enum": [
+            "goal_run",
+            "automation_run",
+            "work_item",
+            "work_claim",
+            "service_order",
+            "physical_action_intent"
+          ]
+        },
+        "ref": {
+          "$ref": "#/$defs/canonicalRef"
+        }
+      }
+    },
+    "resourceGroupBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "group_revision_ref",
+        "membership_closure_hash",
+        "unit_refs",
+        "controller_binding_refs",
+        "sensor_refs",
+        "actuator_refs",
+        "physical_zone_refs",
+        "emergency_stop_authority_refs"
+      ],
+      "properties": {
+        "group_revision_ref": {
+          "$ref": "#/$defs/resourceGroupRevisionRef"
+        },
+        "membership_closure_hash": {
+          "$ref": "#/$defs/sha256Hash"
+        },
+        "unit_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/embodiedUnitRef"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "controller_binding_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/controllerBindingRef"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "sensor_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/sensorRef"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "actuator_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/actuatorRef"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "physical_zone_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/physicalZoneRef"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "emergency_stop_authority_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/emergencyStopAuthorityRef"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        }
+      }
+    },
+    "receiptRefArray": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/receiptRef"
+      },
+      "uniqueItems": true
+    },
+    "sha256Hash": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "canonicalRef": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]*(?:://|:)[^\\s]+$"
+    },
+    "receiptRef": {
+      "type": "string",
+      "pattern": "^receipt://[^\\s]+$"
+    },
+    "schemaOrPolicyRef": {
+      "type": "string",
+      "pattern": "^(?:schema|policy)://[^\\s]+$"
+    },
+    "runRef": {
+      "type": "string",
+      "pattern": "^run://[^\\s]+$"
+    },
+    "taskRef": {
+      "type": "string",
+      "pattern": "^task://[^\\s]+$"
+    },
+    "protocolPrincipalOrRuntimeRef": {
+      "type": "string",
+      "pattern": "^(?:system|user|wallet|org|project|domain|worker|agent|service|provider|policy|governance|runtime)://[^\\s]+$"
+    },
+    "grantRef": {
+      "type": "string",
+      "pattern": "^grant://[^\\s]+$"
+    },
+    "primitiveCapability": {
+      "type": "string",
+      "pattern": "^prim:[a-z][a-z0-9._-]*$"
+    },
+    "authorityScope": {
+      "type": "string",
+      "pattern": "^scope:[a-z][a-z0-9._-]*$"
+    },
+    "artifactRef": {
+      "type": "string",
+      "pattern": "^artifact://[^\\s]+$"
+    },
+    "evidenceRef": {
+      "type": "string",
+      "pattern": "^(?:evidence|assurance-evidence|artifact)://[^\\s]+$"
+    },
+    "verificationRef": {
+      "type": "string",
+      "pattern": "^(?:verifier-path|verification|receipt)://[^\\s]+$"
+    },
+    "acceptanceRef": {
+      "type": "string",
+      "pattern": "^acceptance://[^\\s]+$"
+    },
+    "adjudicationRef": {
+      "type": "string",
+      "pattern": "^(?:decision|dispute)://[^\\s]+$"
+    },
+    "settlementRef": {
+      "type": "string",
+      "pattern": "^settlement://[^\\s]+$"
+    },
+    "publicCommitmentRef": {
+      "type": "string",
+      "pattern": "^(?:commitment|settlement|tx)://[^\\s]+$"
+    },
+    "physicalTargetRef": {
+      "type": "string",
+      "pattern": "^(?:robot|facility|vehicle|device|drone|actuator)://[^\\s]+$"
+    },
+    "resourceGroupRevisionRef": {
+      "type": "string",
+      "pattern": "^embodied-resource-group-revision://[^\\s]+$"
+    },
+    "embodiedUnitRef": {
+      "type": "string",
+      "pattern": "^(?:robot|drone|device|facility|facility-system|vehicle)://[^\\s]+$",
+      "description": "Canonical physical-unit write reference. The hyphenated facility-system scheme is required; legacy underscore aliases are read-side migration input only."
+    },
+    "controllerBindingRef": {
+      "type": "string",
+      "pattern": "^controller-binding://[^\\s]+$"
+    },
+    "sensorRef": {
+      "type": "string",
+      "pattern": "^sensor://[^\\s]+$"
+    },
+    "actuatorRef": {
+      "type": "string",
+      "pattern": "^actuator://[^\\s]+$"
+    },
+    "physicalZoneRef": {
+      "type": "string",
+      "pattern": "^zone://[^\\s]+$"
+    },
+    "emergencyStopAuthorityRef": {
+      "type": "string",
+      "pattern": "^estop://[^\\s]+$"
+    },
+    "runtimeGraphManifestRef": {
+      "type": "string",
+      "pattern": "^embodied-runtime-graph-manifest://[^\\s]+$"
+    },
+    "safetyEnvelopeRef": {
+      "type": "string",
+      "pattern": "^safety://[^\\s]+$"
+    },
+    "assuranceEvidenceBundleRef": {
+      "type": "string",
+      "pattern": "^assurance-evidence://[^\\s]+$"
+    },
+    "resourceLeaseRef": {
+      "type": "string",
+      "pattern": "^resource-lease://[^\\s]+$"
+    },
+    "actionSchemaRef": {
+      "type": "string",
+      "pattern": "^action-schema://[^\\s]+$"
+    },
+    "effectRef": {
+      "type": "string",
+      "pattern": "^effect://[^\\s]+$"
+    },
+    "incidentRef": {
+      "type": "string",
+      "pattern": "^incident://[^\\s]+$"
+    },
+    "agentgresOperationRef": {
+      "type": "string",
+      "pattern": "^agentgres://operation/[^\\s]+$"
+    }
+  }
+}

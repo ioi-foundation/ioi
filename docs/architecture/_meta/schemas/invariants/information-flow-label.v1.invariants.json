@@ -1,0 +1,15 @@
+{
+  "$id": "invariant://ioi/foundations/information-flow-label/derivation-closure/v1",
+  "language": "ioi.portable-invariants.v1",
+  "contract_id": "schema://ioi/foundations/information-flow-label/v1",
+  "rules": [
+    {
+      "rule_id": "information_flow_label.derivation_closure.required",
+      "description": "Every label carries at least its own derivation identity in the transitive closure.",
+      "expression": {
+        "operator": "non_empty",
+        "path": "$.derivation_closure_refs"
+      }
+    }
+  ]
+}

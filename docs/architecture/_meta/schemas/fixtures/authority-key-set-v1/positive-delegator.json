@@ -1,0 +1,19 @@
+{
+  "schema_version": "ioi.foundations.authority-key-set.v1",
+  "key_set_type": "ioi.authority-key-set",
+  "key_set_id": "keyset://acme/delegator/1",
+  "issuer_id": "system://acme/delegator",
+  "version": 1,
+  "issued_at": 1784116800,
+  "expires_at": 1815652800,
+  "keys": [
+    {
+      "key_id": "key://acme/delegator/ed25519-1",
+      "signature_suite": "ed25519",
+      "public_key": "Acw8KOcP5Rl8tWdjWv5wScWmF0JEDKS23yjRGvQpmus",
+      "not_before": 1784116800,
+      "expires_at": 1815652800,
+      "status": "active"
+    }
+  ]
+}

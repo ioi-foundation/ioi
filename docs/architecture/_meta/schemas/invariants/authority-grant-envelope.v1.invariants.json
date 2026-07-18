@@ -1,0 +1,18 @@
+{
+  "$id": "invariant://ioi/foundations/authority-grant-envelope/capability-required/v1",
+  "language": "ioi.portable-invariants.v1",
+  "contract_id": "schema://ioi/foundations/authority-grant-envelope/v1",
+  "rules": [
+    {
+      "rule_id": "authority_grant.capability.required",
+      "description": "A grant must convey at least one authority scope or primitive capability constraint.",
+      "expression": {
+        "operator": "any_non_empty",
+        "paths": [
+          "$.authority_scopes",
+          "$.primitive_capability_constraints"
+        ]
+      }
+    }
+  ]
+}
