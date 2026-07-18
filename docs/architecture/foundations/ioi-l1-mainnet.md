@@ -304,7 +304,7 @@ Agentgres domain writes
 Hypervisor Node state-transition commitment records
 autonomous-system-chain module invocations
 ioi-compatible system creation, deployment, replication, failover, or lifecycle transitions
-AIIP local-profile packets
+ordinary AIIP packets that do not invoke an IOI L1 service or commitment
 GoalRuns and GoalGroundingLoop iterations
 OutcomeRoom participant/frontier/claim/attempt/finding transitions
 verifier challenges and re-verification inside one declared room/domain

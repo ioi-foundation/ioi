@@ -1663,13 +1663,17 @@ shorthand. Their canonical JSON wire objects use the owner-qualified
 - `AIIPEnvelope`: the signed, sequenced packet envelope for AIIP messages. It
   binds sender/receiver systems, channel, profile, policy hash, authority ref,
   payload hash, receipt obligations, settlement terms, and signature.
-- `AIIPProfile`: a standard AIIP mode such as local, installed worker,
-  marketplace worker, outcome service, autonomous system, or enterprise. The
-  profile changes trust boundary, transport, privacy, and settlement depth
-  without changing the semantic protocol.
-- `AIIPChannel`: a registered or local channel binding two bounded execution
-  domains to an AIIP profile, schema/version set, relay/router policy,
-  authority posture, privacy posture, and settlement mode.
+- `AIIPProfile`: a standard cross-system AIIP mode such as marketplace worker,
+  outcome service, autonomous system, collaborative pursuit, or enterprise.
+  The profile changes transport, privacy, and settlement depth without
+  weakening the requirement for two distinct independently governed and
+  admitted System identities. Same-system local or installed-Worker routing is
+  L0, not an AIIP profile.
+- `AIIPChannel`: a bilaterally admitted channel binding two distinct
+  independently governed System identities to an AIIP profile, schema/version
+  set, relay/router policy, authority posture, privacy posture, and settlement
+  mode. A local transport can carry the channel only under that two-System
+  condition; the same transport within one System remains L0.
 - `AIIPStandardsBinding` or `AIIPExternalProtocolBinding`: a versioned mapping
   from A2A, MCP, HTTP/RPC, OASF/directory, or chain/escrow identities, messages,
   lifecycle, artifacts, errors, and status into AIIP. It records non-

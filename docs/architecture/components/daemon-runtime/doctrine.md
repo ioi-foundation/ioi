@@ -642,6 +642,53 @@ Sensitive actions require:
 - expiry;
 - revocation epoch.
 
+## Step/Module Execution ABI
+
+The daemon owns the canonical Step/Module execution boundary. A
+`StepModuleInvocation` is the typed handoff from one daemon-admitted loop step
+to an execution backend; `StepModuleResult` is the typed return. This ABI does
+not create another runtime, workflow owner, harness owner, authority plane, or
+truth store.
+
+The ownership order is:
+
+```text
+Workflow Compositor declares directed graph shape and step contracts
+  -> selected HarnessProfile resolves one scoped step
+  -> daemon admits policy, authority, custody, budget, and recovery
+  -> StepModuleInvocation selects one exact backend module revision
+  -> backend executes only the admitted invocation
+  -> StepModuleResult returns observation/evidence refs
+  -> daemon admits receipts and Agentgres state or rejects the result
+  -> owner projections update
+```
+
+Every invocation binds:
+
+- invocation, run, task, and optional thread/workflow/context identities;
+- the exact ActionProposal and GateResult;
+- module kind, identity, version/hash, and manifest ref;
+- actor and runtime-node identity;
+- authority-grant refs, policy hash, primitive capabilities, authority scopes,
+  and approval ref;
+- input hash/schema plus context, artifact, payload, state-root, and projection
+  watermark refs;
+- custody/privacy and declassification obligations; and
+- backend, idempotency, deadline, resource lease, retry, cancellation, and
+  effect-recovery policy.
+
+Every result binds the originating invocation, terminal or nonterminal status,
+execution-result and normalized-observation refs, receipt/artifact/payload refs,
+state-root transition, resource usage, error/retry posture, and completion time.
+An unbound result, changed module revision, stale authority/policy/custody fact,
+or missing required receipt cannot update owner truth.
+
+Daemon-native tools, Rust/WASM service modules, workload jobs, model mounts,
+cTEE actions, verifiers, and AIIP/capability exits may implement this ABI. Their
+backend kind never changes the admission order or lets a client, compositor,
+HarnessProfile, backend, receipt, or projection become execution or operational
+truth.
+
 ## Runtime Privacy Profiles
 
 1. **Local/private** — local Hypervisor, customer machine.

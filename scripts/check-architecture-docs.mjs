@@ -177,6 +177,26 @@ for (const file of markdownFiles) {
   }
 }
 
+for (const file of markdownFiles) {
+  if (isImportedConsensusCorpus(file)) continue;
+  const lines = fs.readFileSync(file, "utf8").split(/\r?\n/);
+  for (const [index, line] of lines.entries()) {
+    if (!line.includes("Providers / Environments")) continue;
+    const context = lines
+      .slice(Math.max(0, index - 2), index + 3)
+      .join(" ");
+    if (
+      !/\b(?:alias|older|legacy|maps? to|migration|compatib|retired|historical|family label)\b/i.test(
+        context,
+      )
+    ) {
+      fail(
+        `${relative(file)}:${index + 1} restores Providers / Environments outside explicit alias or migration context; the product surface is Environments.`,
+      );
+    }
+  }
+}
+
 const index = fs.readFileSync(path.join(architectureRoot, "README.md"), "utf8");
 for (const required of [
   "_meta/source-of-truth-map.md",
@@ -315,6 +335,10 @@ function normalizeContractText(content) {
   return content.replace(/[`*]/g, "").replace(/\s+/g, " ").trim();
 }
 
+function normalizeWhitespace(content) {
+  return content.replace(/\s+/g, " ").trim();
+}
+
 function contractSection(content, startMarker, endMarker, rel) {
   const start = content.indexOf(startMarker);
   const end = content.indexOf(endMarker, start + startMarker.length);
@@ -394,6 +418,265 @@ const canonToCodeDelta = fs.readFileSync(
   path.join(architectureRoot, "_meta/canon-to-code-delta.md"),
   "utf8",
 );
+const aiipDoctrine = fs.readFileSync(
+  path.join(architectureRoot, "foundations/aiip.md"),
+  "utf8",
+);
+const ioiL1Mainnet = fs.readFileSync(
+  path.join(architectureRoot, "foundations/ioi-l1-mainnet.md"),
+  "utf8",
+);
+const web4AndIoiStack = fs.readFileSync(
+  path.join(architectureRoot, "foundations/web4-and-ioi-stack.md"),
+  "utf8",
+);
+const architectureWhitepaper = fs.readFileSync(
+  path.join(architectureRoot, "whitepaper.tex"),
+  "utf8",
+);
+const daemonDoctrine = fs.readFileSync(
+  path.join(architectureRoot, "components/daemon-runtime/doctrine.md"),
+  "utf8",
+);
+const hypervisorKernelMigrationGuide = fs.readFileSync(
+  path.join(
+    architectureRoot,
+    "_meta/hypervisor-kernel-substrate-unification-master-guide.md",
+  ),
+  "utf8",
+);
+const architectureDocClasses = fs.readFileSync(
+  path.join(architectureRoot, "_meta/doc-classes.md"),
+  "utf8",
+);
+const archivedHypervisorMigrationLedgers = [
+  "_archive/change-ledgers/hypervisor-kernel-substrate-slice-ledger.md",
+  "_archive/change-ledgers/hypervisor-kernel-substrate-migration-cut-log.md",
+].map((rel) => [
+  rel,
+  fs.readFileSync(path.join(architectureRoot, rel), "utf8"),
+]);
+const hypervisorKernelMigrationMatrix = fs.readFileSync(
+  path.join(
+    architectureRoot,
+    "_meta/hypervisor-kernel-substrate-migration-matrix.md",
+  ),
+  "utf8",
+);
+const hypervisorDaemonRoutes = fs.readFileSync(
+  path.join(root, "crates/node/src/bin/hypervisor-daemon.rs"),
+  "utf8",
+);
+const hypervisorLifecycleRoutes = fs.readFileSync(
+  path.join(
+    root,
+    "crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs",
+  ),
+  "utf8",
+);
+
+const mountedTopLevelMcpDiscoveryRoutes = [
+  ["get", "/v1/mcp", "handle_mcp_discover_status"],
+  ["get", "/v1/mcp/servers", "handle_mcp_discover_servers"],
+  ["get", "/v1/mcp/tools", "handle_mcp_discover_tools"],
+  ["get", "/v1/mcp/resources", "handle_mcp_discover_resources"],
+  ["get", "/v1/mcp/prompts", "handle_mcp_discover_prompts"],
+];
+const mountedThreadMcpControlRoutes = [
+  ["get", "/v1/threads/:id/mcp/tools/search", "handle_mcp_tool_search"],
+  ["post", "/v1/threads/:id/mcp/import", "handle_mcp_import"],
+  ["post", "/v1/threads/:id/mcp/servers", "handle_mcp_add"],
+  [
+    "delete",
+    "/v1/threads/:id/mcp/servers/:server_id",
+    "handle_mcp_remove",
+  ],
+  [
+    "post",
+    "/v1/threads/:id/mcp/servers/:server_id/enable",
+    "handle_mcp_enable",
+  ],
+  [
+    "post",
+    "/v1/threads/:id/mcp/servers/:server_id/disable",
+    "handle_mcp_disable",
+  ],
+  ["post", "/v1/threads/:id/mcp", "handle_mcp_status"],
+  ["post", "/v1/threads/:id/mcp/status", "handle_mcp_status"],
+  ["post", "/v1/threads/:id/mcp/validate", "handle_mcp_validate"],
+];
+const mountedLifecycleRoutes = [
+  ...hypervisorDaemonRoutes.matchAll(
+    /\.route\(\s*"([^"]+)"\s*,\s*(get|post|put|patch|delete)\(lifecycle_routes::([A-Za-z0-9_]+)\)\s*,?\s*\)/g,
+  ),
+].map((match) => ({
+  path: match[1],
+  method: match[2],
+  handler: match[3],
+}));
+const mountedRouteHandlers = new Map(
+  mountedLifecycleRoutes.map(({ method, path: routePath, handler }) => [
+    `${method} ${routePath}`,
+    handler,
+  ]),
+);
+const expectedMcpRouteKeys = new Set(
+  [
+    ...mountedTopLevelMcpDiscoveryRoutes,
+    ...mountedThreadMcpControlRoutes,
+  ].map(([method, routePath]) => `${method} ${routePath}`),
+);
+const actualMcpRoutes = mountedLifecycleRoutes.filter(
+  ({ path: routePath }) =>
+    routePath === "/v1/mcp" ||
+    routePath.startsWith("/v1/mcp/") ||
+    routePath === "/v1/threads/:id/mcp" ||
+    routePath.startsWith("/v1/threads/:id/mcp/") ||
+    routePath === "/api/v1/mcp" ||
+    routePath.startsWith("/api/v1/mcp/"),
+);
+for (const { method, path: routePath, handler } of actualMcpRoutes) {
+  const key = `${method} ${routePath}`;
+  if (!expectedMcpRouteKeys.has(key)) {
+    fail(
+      `crates/node/src/bin/hypervisor-daemon.rs has an unexpected mounted MCP route ${key} -> ${handler}; update the source-backed inventory and implementation-status canon deliberately.`,
+    );
+  }
+}
+for (const [method, routePath, handler] of [
+  ...mountedTopLevelMcpDiscoveryRoutes,
+  ...mountedThreadMcpControlRoutes,
+]) {
+  if (mountedRouteHandlers.get(`${method} ${routePath}`) !== handler) {
+    fail(
+      `crates/node/src/bin/hypervisor-daemon.rs must keep the source-backed ${method.toUpperCase()} ${routePath} -> ${handler} MCP mount until its status assertions are deliberately revised.`,
+    );
+  }
+  if (
+    !new RegExp(
+      `pub\\(crate\\)\\s+async\\s+fn\\s+${handler}\\b`,
+      "u",
+    ).test(hypervisorLifecycleRoutes)
+  ) {
+    fail(
+      `crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs missing implemented MCP handler ${handler}.`,
+    );
+  }
+}
+for (const forbidden of [
+  "/api/v1/mcp",
+  "/v1/mcp/serve",
+  "/v1/threads/:id/mcp/invoke",
+  "/v1/threads/:id/mcp/serve",
+]) {
+  if (
+    mountedLifecycleRoutes.some(
+      ({ path: routePath }) =>
+        routePath === forbidden || routePath.startsWith(`${forbidden}/`),
+    )
+  ) {
+    fail(
+      `crates/node/src/bin/hypervisor-daemon.rs unexpectedly remounted retired/absent MCP surface ${forbidden}.`,
+    );
+  }
+}
+
+const mcpStatusRows = [
+  [
+    "_meta/implementation-matrix.md",
+    implementationMatrix
+      .split(/\r?\n/)
+      .find((line) => line.startsWith("| `RuntimeMcpControl` |")),
+  ],
+  [
+    "_meta/hypervisor-kernel-substrate-migration-matrix.md",
+    hypervisorKernelMigrationMatrix
+      .split(/\r?\n/)
+      .find((line) =>
+        line.startsWith(
+          "| Runtime MCP registry/control and discovery positive API |",
+        ),
+      ),
+  ],
+];
+for (const [rel, row] of mcpStatusRows) {
+  if (!row) {
+    fail(`${rel} missing the MCP implementation-status row.`);
+    continue;
+  }
+  for (const [, routePath] of mountedTopLevelMcpDiscoveryRoutes) {
+    if (!row.includes(`\`${routePath}\``)) {
+      fail(`${rel} must acknowledge mounted current-master MCP route ${routePath}.`);
+    }
+  }
+  if (!row.includes("remain mounted")) {
+    fail(`${rel} must say the current-master top-level MCP discovery routes remain mounted.`);
+  }
+  if (
+    /public\s+`?\/v1\/mcp\*`?\s+handlers[^|]{0,240}\b(?:are\s+)?(?:gone|retired)\b/i.test(
+      row,
+    ) ||
+    /full top-level(?:\/legacy)? MCP route[^|]{0,160}\bretirement\b/i.test(
+      row,
+    ) ||
+    /\b(?:all|every)\s+(?:public\s+)?(?:top-level\s+)?(?:MCP|`?\/v1\/mcp\*?`?)[^|]{0,100}\b(?:routes?|handlers?)[^|]{0,40}\b(?:are|were|have been|remain)\s+(?:gone|removed|retired|absent|deleted)\b/i.test(
+      row,
+    ) ||
+    /\b(?:the\s+)?(?:entire|full|blanket)\s+(?:top-level\s+)?(?:MCP|`?\/v1\/mcp\*?`?)[^|]{0,100}\b(?:retirement|removal|deletion)\s+(?:is|was|has been)\s+(?:complete|completed|done|landed|merged)\b/i.test(
+      row,
+    )
+  ) {
+    fail(`${rel} falsely claims blanket top-level MCP route retirement.`);
+  }
+}
+
+const modelMountMcpStatusRows = [
+  [
+    "_meta/implementation-matrix.md",
+    implementationMatrix
+      .split(/\r?\n/)
+      .find((line) => line.startsWith("| `ModelMcpWorkflowControl` |")),
+  ],
+  [
+    "_meta/hypervisor-kernel-substrate-migration-matrix.md",
+    hypervisorKernelMigrationMatrix
+      .split(/\r?\n/)
+      .find((line) => line.startsWith("| `model-mounting/mcp-workflow` |")),
+  ],
+];
+for (const [rel, row] of modelMountMcpStatusRows) {
+  if (!row) {
+    fail(`${rel} missing model-mount MCP workflow status.`);
+    continue;
+  }
+  for (const required of [
+    "no public model-mount mcp workflow route",
+    "unmounted",
+  ]) {
+    if (!row.toLowerCase().includes(required)) {
+      fail(`${rel} must classify model-mount MCP workflow as unmounted substrate: ${required}.`);
+    }
+  }
+  for (const forbidden of [
+    "contextPolicyCore.executeRuntimeMcpLiveBackend()",
+    "returning public workflow truth",
+    "returns public truth only after",
+  ]) {
+    if (row.includes(forbidden)) {
+      fail(`${rel} falsely claims live model-mount MCP workflow execution: ${forbidden}.`);
+    }
+  }
+}
+for (const identifier of [
+  "plan_model_mount_mcp_workflow",
+  "execute_runtime_mcp_live_backend",
+]) {
+  if (hypervisorDaemonRoutes.includes(identifier) || hypervisorLifecycleRoutes.includes(identifier)) {
+    fail(
+      `The mounted Rust daemon unexpectedly calls unmounted model-mount MCP substrate ${identifier}; update implementation status and positive conformance before claiming a route.`,
+    );
+  }
+}
 
 for (const required of [
   "GoalRunProfile   immutable reusable specification",
@@ -1222,9 +1505,396 @@ for (const [rel, content] of [
   }
 }
 
+const solePursuitOwnerRows = [
+  [
+    "`GoalRunProfile`",
+    "[`common-objects-and-envelopes.md`](../foundations/common-objects-and-envelopes.md)",
+  ],
+  [
+    "`WorkflowTemplate`",
+    "[`core-clients-surfaces.md`](../components/hypervisor/core-clients-surfaces.md)",
+  ],
+  [
+    "`HarnessProfile`",
+    "[`default-harness-profile.md`](../components/daemon-runtime/default-harness-profile.md)",
+  ],
+  [
+    "`SkillManifest`, `SkillEntry`, `ActiveSkillSetSnapshot`",
+    "[`common-objects-and-envelopes.md`](../foundations/common-objects-and-envelopes.md)",
+  ],
+  [
+    "`RuntimeToolContract`",
+    "[`connector-and-tool-contracts.md`](../components/connectors-tools/contracts.md)",
+  ],
+];
+for (const [rel, content] of [
+  ["_meta/implementation-matrix.md", implementationMatrix],
+  ["_meta/canon-to-code-delta.md", canonToCodeDelta],
+]) {
+  const lines = content.split(/\r?\n/);
+  for (const [subject, owner] of solePursuitOwnerRows) {
+    if (!lines.some((line) => line.startsWith(`| ${subject} | ${owner} |`))) {
+      fail(`${rel} must assign ${subject} solely to ${owner}.`);
+    }
+  }
+}
+
+const aiipChannelEnvelopeBlock = contractSection(
+  commonObjects,
+  "AIIPChannelEnvelope:",
+  "AIIPEnvelope:",
+  "foundations/common-objects-and-envelopes.md",
+);
 for (const required of [
-  "`GoalRunProfile`, `WorkflowTemplate`",
+  "system_id_to: system://... # required to differ from system_id_from",
+  "endpoint_channel_enrollments:",
+  "channel_enrollment_decision_ref:",
+  "channel_enrollment_receipt_ref:",
+  "profile: marketplace_worker | outcome_service | autonomous_system | collaborative_pursuit | enterprise",
+  "transport: in_process | daemon_ipc | unix_socket | local_http",
+  "use of the same transports inside one System is L0",
+]) {
+  if (!aiipChannelEnvelopeBlock.includes(required)) {
+    fail(
+      `AIIPChannelEnvelope must preserve the independently governed two-System/L0 boundary: ${required}.`,
+    );
+  }
+}
+if (
+  /\bprofile:\s*[^\n]*(?:\blocal\b|\binstalled_worker\b)/u.test(
+    aiipChannelEnvelopeBlock,
+  )
+) {
+  fail(
+    "AIIPChannelEnvelope must not restore same-System local or installed-worker routing as an AIIP profile.",
+  );
+}
+
+const aiipProtocolProfilesBlock = contractSection(
+  aiipDoctrine,
+  "## Protocol Profiles",
+  "## Multi-Party Collaboration",
+  "foundations/aiip.md",
+);
+const normalizedAiipProtocolProfilesBlock = normalizeWhitespace(
+  aiipProtocolProfilesBlock,
+);
+for (const required of [
+  "Same-system HarnessInvocation and installed Worker routing belongs to native L0 contracts",
+  "Installing a package or Worker under the same System identity does not create a second sovereign endpoint and remains L0.",
+]) {
+  if (!normalizedAiipProtocolProfilesBlock.includes(required)) {
+    fail(`foundations/aiip.md must keep same-System routing at L0: ${required}.`);
+  }
+}
+for (const forbidden of ["Local Profile", "Installed Worker Profile"]) {
+  if (aiipProtocolProfilesBlock.includes(forbidden)) {
+    fail(
+      `foundations/aiip.md must not restore the same-System ${forbidden} as an AIIP protocol profile.`,
+    );
+  }
+}
+for (const [rel, content, required] of [
+  [
+    "foundations/aiip.md",
+    aiipDoctrine,
+    "distinct independently governed `system_id` values and each endpoint binds its",
+  ],
+  [
+    "foundations/aiip.md",
+    aiipDoctrine,
+    "The same transports carry L0 when both endpoints belong to one System.",
+  ],
+  [
+    "whitepaper.tex",
+    architectureWhitepaper,
+    "between distinct independently governed systems",
+  ],
+  [
+    "whitepaper.tex",
+    architectureWhitepaper,
+    "same-system GoalRuns, HarnessInvocations, installed Workers",
+  ],
+  [
+    "whitepaper.tex",
+    architectureWhitepaper,
+    "The same transports carry L0 when both endpoints belong to one System.",
+  ],
+]) {
+  if (!normalizeWhitespace(content).includes(required)) {
+    fail(`${rel} must preserve the ADR 0015 AIIP/L0 boundary: ${required}.`);
+  }
+}
+for (const [rel, content, required] of [
+  [
+    "_meta/vocabulary.md",
+    vocabulary,
+    "Same-system local or installed-Worker routing is L0, not an AIIP profile.",
+  ],
+  [
+    "_meta/vocabulary.md",
+    vocabulary,
+    "A local transport can carry the channel only under that two-System condition; the same transport within one System remains L0.",
+  ],
+  [
+    "foundations/ioi-l1-mainnet.md",
+    ioiL1Mainnet,
+    "ordinary AIIP packets that do not invoke an IOI L1 service or commitment",
+  ],
+  [
+    "foundations/web4-and-ioi-stack.md",
+    web4AndIoiStack,
+    "AIIP = semantic work interop between distinct independently governed systems; same-system handoffs remain native L0",
+  ],
+  [
+    "whitepaper.tex",
+    architectureWhitepaper,
+    "An \\textbf{AIIPChannel} binds two distinct independently governed and bilaterally enrolled System identities",
+  ],
+]) {
+  if (!normalizeWhitespace(content).includes(required)) {
+    fail(`${rel} must preserve the canon-wide ADR 0015 AIIP/L0 boundary: ${required}.`);
+  }
+}
+for (const [rel, content, forbidden] of [
+  [
+    "_meta/vocabulary.md",
+    vocabulary,
+    "AIIP mode such as local, installed worker",
+  ],
+  [
+    "_meta/vocabulary.md",
+    vocabulary,
+    "registered or local channel binding two bounded execution domains",
+  ],
+  [
+    "foundations/ioi-l1-mainnet.md",
+    ioiL1Mainnet,
+    "AIIP local-profile packets",
+  ],
+  [
+    "foundations/web4-and-ioi-stack.md",
+    web4AndIoiStack,
+    "AIIP                      = semantic work interop for local and cross-system autonomous handoffs",
+  ],
+]) {
+  if (content.includes(forbidden)) {
+    fail(`${rel} restores same-System routing as AIIP: ${forbidden}.`);
+  }
+}
+const aiipChannelImplementationRow = implementationMatrix
+  .split(/\r?\n/)
+  .find((line) => line.startsWith("| `AIIPChannel` |"));
+for (const required of [
+  "two distinct independently governed System identities",
+  "same-System local/installed routing remains L0 even over a local transport",
+  "reject equal endpoint System identities",
+]) {
+  if (!aiipChannelImplementationRow?.includes(required)) {
+    fail(
+      `_meta/implementation-matrix.md must preserve the cross-System AIIPChannel contract: ${required}.`,
+    );
+  }
+}
+
+const workProjectionRow = canonToCodeDelta
+  .split(/\r?\n/)
+  .find((line) =>
+    line.startsWith(
+      "| `HypervisorWorkSubjectProjection`, `HypervisorLegacyWorkSubjectAlias` |",
+    ),
+  );
+if (!workProjectionRow) {
+  fail("_meta/canon-to-code-delta.md missing the typed Work projection row.");
+} else {
+  for (const required of [
+    "typed Work views across GoalRuns, WorkResults, OutcomeRooms, participants, frontier items and claims, Attempts, Findings, VerifierChallenges",
+    "**current compatibility surface only:** current master serves `/__ioi/missions`",
+    "surface registry still declares `owner=Missions`",
+    "those labels are not a visible Work reframing",
+    "Work / Rooms with typed WorkResult, OutcomeRoom, participant, frontier/claim, Attempt, Finding, and VerifierChallenge views",
+  ]) {
+    if (!workProjectionRow.includes(required)) {
+      fail(
+        `_meta/canon-to-code-delta.md must keep Missions compatibility separate from typed Work owner projections: ${required}.`,
+      );
+    }
+  }
+  if (/\/__ioi\/missions[^|]{0,240}\bvisibly framed as Work\b/i.test(workProjectionRow)) {
+    fail(
+      "_meta/canon-to-code-delta.md must not claim the current /__ioi/missions compatibility route is visibly reframed as Work.",
+    );
+  }
+}
+
+const workClaimRow = canonToCodeDelta
+  .split(/\r?\n/)
+  .find((line) => line.startsWith("| `WorkClaimLease` |"));
+if (
+  !workClaimRow?.includes(
+    "| implement reassignment; keep acceptance/verdict and federation in their later owner planes |",
+  )
+) {
+  fail(
+    "_meta/canon-to-code-delta.md must name only reassignment, acceptance/verdict, and federation as remaining WorkClaim owner-plane work.",
+  );
+}
+if (workClaimRow && /\bland (?:Attempt|Finding)|then VerifierChallenge/i.test(workClaimRow)) {
+  fail(
+    "_meta/canon-to-code-delta.md must not restore merged Attempt/Finding/VerifierChallenge planes as WorkClaim next steps.",
+  );
+}
+
+for (const required of [
+  "Generic WorkResult admission is merged",
+  "OutcomeRoom graph through participants, frontier/claims, offers, Attempts, Findings, OutcomeDelta, and VerifierChallenge is merged but partial",
+  "federation, acceptance/verdict, and settlement remain planned",
+]) {
+  if (!normalizeWhitespace(architectureWhitepaper).includes(required)) {
+    fail(`whitepaper.tex must keep merged versus planned Work status honest: ${required}.`);
+  }
+}
+if (/generic result\s+profiles[^.]{0,160}\bplanned\b/i.test(architectureWhitepaper)) {
+  fail("whitepaper.tex must not restore generic WorkResult profiles to planned status.");
+}
+
+for (const required of [
+  "Status: non-doctrinal implementation migration and evidence guide.",
+  "Canonical owner: none. Architecture doctrine remains with the subject owners",
+  "Doctrine status: reference",
+  "It owns no architecture doctrine and is not a release or work sequencer.",
+  "daemon doctrine, not this guide, defines the boundary",
+  "| Canon doc | Owner-defined boundary |",
+  "Migration method:",
+  "## Part I: Current Rust Baseline and Historical Split-Brain Evidence",
+  "The deleted `packages/runtime-daemon` package, its stores, and `RuntimeContextPolicyCore` are not live fallbacks.",
+  "This guide publishes no `WorkflowModuleGraph` schema.",
+  "This guide publishes no `RuntimeImprovementProposal`.",
+  "canonical `UpgradeProposalEnvelope` revision and target-owner proposal path",
+]) {
+  if (!normalizeWhitespace(hypervisorKernelMigrationGuide).includes(required)) {
+    fail(
+      `_meta/hypervisor-kernel-substrate-unification-master-guide.md must remain a non-doctrinal migration/evidence reference: ${required}.`,
+    );
+  }
+}
+for (const forbidden of ["| Canon doc | Current doctrine |", "Migration doctrine:"]) {
+  if (hypervisorKernelMigrationGuide.includes(forbidden)) {
+    fail(
+      `_meta/hypervisor-kernel-substrate-unification-master-guide.md must not present migration guidance as doctrine: ${forbidden}.`,
+    );
+  }
+}
+for (const forbidden of [
+  /^WorkflowModuleGraph:\s*$/mu,
+  /^RuntimeImprovementProposal:\s*$/mu,
+  /Automations as primary owner/u,
+  /This part defines how runtime learning becomes governable/u,
+  /### Where the split brain lives/u,
+]) {
+  if (forbidden.test(hypervisorKernelMigrationGuide)) {
+    fail(
+      `_meta/hypervisor-kernel-substrate-unification-master-guide.md restores competing doctrine or stale live status: ${forbidden}.`,
+    );
+  }
+}
+if (
+  !normalizeWhitespace(architectureDocClasses).includes(
+    "The two `_meta` migration artifacts (the non-doctrinal migration/evidence guide and implementation ledger) remain in place as reference and status artifacts",
+  )
+) {
+  fail(
+    "_meta/doc-classes.md must classify the Hypervisor migration guide and ledger as non-doctrinal reference/status artifacts.",
+  );
+}
+for (const [rel, content] of archivedHypervisorMigrationLedgers) {
+  if (
+    !content.includes(
+      "Canonical owner: none; this file is history, not authority.",
+    ) ||
+    /\(live doctrine\)|Superseded by: the canonical owner doc/u.test(content)
+  ) {
+    fail(
+      `${rel} must not restore either non-doctrinal Hypervisor migration artifact as live doctrine.`,
+    );
+  }
+}
+for (const required of [
+  "## Step/Module Execution ABI",
+  "The daemon owns the canonical Step/Module execution boundary.",
+]) {
+  if (!daemonDoctrine.includes(required)) {
+    fail(`components/daemon-runtime/doctrine.md must own the Step/Module ABI: ${required}.`);
+  }
+}
+for (const required of [
+  "| Daemon Step/Module execution ABI, invocation/result binding, backend-neutral admission order, and no-peer-runtime boundary |",
+  "| Hypervisor kernel-substrate migration sequencing and evidence, route-family cleanup ledger, Rust-core extraction status, JS-facade retirement evidence, and terminal conformance tracking |",
+  "these meta artifacts do not own daemon, Step/Module, Workflow Compositor, HarnessProfile, authority, custody, or operational-truth doctrine and do not sequence releases",
+]) {
+  if (!sourceMap.includes(required)) {
+    fail(`_meta/source-of-truth-map.md must keep doctrine with subject owners: ${required}.`);
+  }
+}
+for (const line of implementationMatrix.split(/\r?\n/)) {
+  if (!line.startsWith("| ")) continue;
+  const canonicalOwnerCell = line.split("|")[2] ?? "";
+  for (const nonDoctrinalOwner of [
+    "hypervisor-kernel-substrate-unification-master-guide.md",
+    "hypervisor-kernel-substrate-migration-matrix.md",
+  ]) {
+    if (canonicalOwnerCell.includes(nonDoctrinalOwner)) {
+      fail(
+        `_meta/implementation-matrix.md must not use non-doctrinal migration evidence as a canonical owner: ${line.split("|")[1]?.trim()} -> ${nonDoctrinalOwner}.`,
+      );
+    }
+  }
+}
+for (const [subject, owner] of [
+  [
+    "`StepModuleInvocation`",
+    "[`ioi-cli-daemon-runtime.md`](../components/daemon-runtime/doctrine.md)",
+  ],
+  [
+    "`StepModuleResult`",
+    "[`ioi-cli-daemon-runtime.md`](../components/daemon-runtime/doctrine.md)",
+  ],
+  [
+    "`StepModuleRouter`",
+    "[`ioi-cli-daemon-runtime.md`](../components/daemon-runtime/doctrine.md)",
+  ],
+  [
+    "`ModelRouteControl`",
+    "[`model-router-byok-run-to-idle.md`](../components/model-router/doctrine.md)",
+  ],
+  [
+    "`RuntimeMcpManagerConfigCompatibilityTransportRetired`",
+    "[`connector-and-tool-contracts.md`](../components/connectors-tools/contracts.md)",
+  ],
+  [
+    "`RuntimeAgentgresStateCacheControl`",
+    "[`agentgres-state-substrate.md`](../components/agentgres/doctrine.md)",
+  ],
+  [
+    "`RuntimeRepositoryWorkflowProjectionControl`",
+    "[`core-clients-surfaces.md`](../components/hypervisor/core-clients-surfaces.md)",
+  ],
+]) {
+  if (
+    !implementationMatrix
+      .split(/\r?\n/)
+      .some((line) => line.startsWith(`| ${subject} | ${owner} |`))
+  ) {
+    fail(`_meta/implementation-matrix.md must assign ${subject} to ${owner}.`);
+  }
+}
+
+for (const required of [
+  "`GoalRunProfile`",
+  "`WorkflowTemplate`",
+  "`HarnessProfile`",
   "`SkillManifest`, `SkillEntry`, `ActiveSkillSetSnapshot`",
+  "`RuntimeToolContract`",
   "`MCPPrimitiveNormalization`, `HypervisorMCPGatewayRequirement`, `HypervisorMCPGatewayProfile`",
   "raw-tool admission",
   "resource-to-view/lease proof",
@@ -1237,8 +1907,11 @@ for (const required of [
 }
 
 for (const required of [
-  "`GoalRunProfile`, `WorkflowTemplate`",
+  "`GoalRunProfile`",
+  "`WorkflowTemplate`",
+  "`HarnessProfile`",
   "`SkillManifest`, `SkillEntry`, `ActiveSkillSetSnapshot`",
+  "`RuntimeToolContract`",
   "`MCPPrimitiveNormalization`, `HypervisorMCPGatewayRequirement`, `HypervisorMCPGatewayProfile`",
   "top-level `/v1/mcp`",
   "different protocol/session assumptions",
