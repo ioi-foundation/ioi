@@ -1,0 +1,1639 @@
+{
+  "as_of_date": "2026-07-18",
+  "baselines": [
+    {
+      "absence_evidence": "No qualifying end-to-end selected-profile product cohort exists as of the baseline date.",
+      "baseline_id": "BASE-M0-PRODUCT",
+      "blocker_ref": "BLK-M0-BASELINE-PRODUCT",
+      "category": "product",
+      "cohort": "At least five first-time internal operators using only supported selected-profile product surfaces.",
+      "frozen_as_of": "2026-07-18",
+      "frozen_threshold": {
+        "median_time_to_first_valid_preview_minutes_max": 10,
+        "median_time_to_genesis_minutes_max": 20,
+        "unaided_terminal_completion_rate_min": 0.8
+      },
+      "method": "Timestamp first eligible sign-in, first valid preview, genesis approval, effect review, terminal inspection, and replay; retain typed blockers.",
+      "observed_as_of": null,
+      "observed_value": null,
+      "status": "not_measured"
+    },
+    {
+      "absence_evidence": "No terminal selected-profile runtime and fault cohort exists as of the baseline date.",
+      "baseline_id": "BASE-M0-RELIABILITY",
+      "blocker_ref": "BLK-M0-BASELINE-RELIABILITY",
+      "category": "reliability",
+      "cohort": "Thirty selected-profile runs, including at least ten declared crash, restart, stale-authority, or ambiguous-effect injections.",
+      "frozen_as_of": "2026-07-18",
+      "frozen_threshold": {
+        "authorized_completion_rate_min": 0.95,
+        "effect_recovery_success_rate_min": 1,
+        "receipt_and_replay_completeness_min": 1,
+        "verifier_reproducibility_min": 1
+      },
+      "method": "Replay owner records and exported evidence; independently reproduce verification and score every terminal, refused, recovered, or ambiguous effect.",
+      "observed_as_of": null,
+      "observed_value": null,
+      "status": "not_measured"
+    },
+    {
+      "absence_evidence": "No invoice-reconciled selected-profile run cohort exists as of the baseline date.",
+      "baseline_id": "BASE-M0-COST",
+      "blocker_ref": "BLK-M0-BASELINE-COST",
+      "category": "cost",
+      "cohort": "Thirty successful selected-profile runs with route-attempt, tool, runtime, storage, and supplier-attributable measurements.",
+      "frozen_as_of": "2026-07-18",
+      "frozen_threshold": {
+        "p50_internal_cost_usd_max": 5,
+        "p90_internal_cost_usd_max": 15,
+        "unattributed_cost_fraction_max": 0
+      },
+      "method": "Reconcile measured internal cost to each accepted run; report p50, p90, fallback amplification, and unattributed cost without treating accounting as cash movement.",
+      "observed_as_of": null,
+      "observed_value": null,
+      "status": "not_measured"
+    },
+    {
+      "absence_evidence": "No qualifying first-time-operator comprehension cohort exists as of the baseline date.",
+      "baseline_id": "BASE-M0-COMPREHENSION",
+      "blocker_ref": "BLK-M0-BASELINE-COMPREHENSION",
+      "category": "comprehension",
+      "cohort": "At least five first-time internal operators with no implementation-guide access during the selected journey.",
+      "frozen_as_of": "2026-07-18",
+      "frozen_threshold": {
+        "correct_blocker_interpretation_rate_min": 0.9,
+        "fabricated_success_acceptance_rate_max": 0,
+        "median_exposed_architecture_terms_max": 8
+      },
+      "method": "Record exposed architecture terms, correct blocker interpretation, unsupported-success attempts, and a post-task comprehension check.",
+      "observed_as_of": null,
+      "observed_value": null,
+      "status": "not_measured"
+    }
+  ],
+  "blocker_ledger": [
+    {
+      "blocker_id": "BLK-M0-SELECTED-PACKAGE-GENESIS",
+      "state": "open",
+      "summary": "The selected package-to-genesis System journey has no terminal live owner path.",
+      "type": "owner_contract_unavailable"
+    },
+    {
+      "blocker_id": "BLK-M0-SELECTED-JOURNEY-BINDING",
+      "state": "open",
+      "summary": "Live partial objects are not bound into the selected immutable profile and complete journey.",
+      "type": "cross_owner_binding_unavailable"
+    },
+    {
+      "blocker_id": "BLK-M0-SELECTED-IDENTITY-STEP-UP",
+      "state": "open",
+      "summary": "Provider-neutral sign-in, passkey step-up, portable grant, and final-invoker revalidation are not terminal.",
+      "type": "authority_path_unavailable"
+    },
+    {
+      "blocker_id": "BLK-M0-SELECTED-REPO-EFFECT",
+      "state": "open",
+      "summary": "The file.apply_patch leaf exists, but selected GoalRun, authority, revocation, IFC, fence, receipt, and recovery ordering do not.",
+      "type": "selected_effect_unavailable"
+    },
+    {
+      "blocker_id": "BLK-M0-SELECTED-INSPECTION-CHAIN",
+      "state": "open",
+      "summary": "No one selected inspection/export reconstructs diff, tests, evidence, receipts, root, costs, route, and learning eligibility.",
+      "type": "evidence_chain_unavailable"
+    },
+    {
+      "blocker_id": "BLK-M0-SELECTED-UPGRADE-LIFECYCLE",
+      "state": "open",
+      "summary": "Selected package/profile proposal, activation, rollback or recall, and System retirement are not terminal.",
+      "type": "system_lifecycle_unavailable"
+    },
+    {
+      "blocker_id": "BLK-M0-WALLET-PRODUCTION-PEP",
+      "state": "open",
+      "summary": "wallet.network method checks include legacy compatibility and are not estate-wide production PEP closure.",
+      "type": "production_pep_unavailable"
+    },
+    {
+      "blocker_id": "BLK-M0-BLOCKCHAIN-SERVICE-EFFECT-PROOF",
+      "state": "open",
+      "summary": "Native blockchain methods are inventoried, but generic authority, final-leaf ordering, receipts, and recovery remain method-specific and partial.",
+      "type": "final_invoker_order_unproven"
+    },
+    {
+      "blocker_id": "BLK-M0-AGENTGRES-REPLICA-AUTHORITY",
+      "state": "open",
+      "summary": "Replica writer-epoch fencing is real, but the externally reachable AGRS2 listener has no authenticated peer authority, effect policy, revocation, or IFC gate.",
+      "type": "transport_authority_unavailable"
+    },
+    {
+      "blocker_id": "BLK-M0-GOOGLE-OAUTH-CALLBACK-PROOF",
+      "state": "open",
+      "summary": "OAuth state and PKCE checks precede local token persistence, but owner authority, hardened secret evidence, idempotency, and recovery are not terminal.",
+      "type": "external_secret_effect_proof_partial"
+    },
+    {
+      "blocker_id": "BLK-M0-EDITOR-PROXY-DOWNSTREAM",
+      "state": "open",
+      "summary": "The editor proxy gates new connections with an active lease but cannot classify, fence, receipt, or recover arbitrary forwarded byte effects.",
+      "type": "dynamic_downstream_effect_unclassified"
+    },
+    {
+      "blocker_id": "BLK-M0-FINAL-INVOKER-PROOF",
+      "state": "open",
+      "summary": "A static candidate or handler boundary is recorded without a terminal pre-effect order proof.",
+      "type": "final_invoker_order_unproven"
+    },
+    {
+      "blocker_id": "BLK-M0-UNMOUNTED-SURFACE",
+      "state": "open",
+      "summary": "The declared surface is unmounted, dynamic, or otherwise unavailable.",
+      "type": "unavailable_contract"
+    },
+    {
+      "blocker_id": "BLK-M0-COMPATIBILITY-NONAUTHORITY",
+      "state": "open",
+      "summary": "Development replay and compatibility behavior cannot supply owner truth or authority.",
+      "type": "compatibility_nonclaim"
+    },
+    {
+      "blocker_id": "NONCLAIM-M0-JAVASCRIPT-FACADE",
+      "state": "retained",
+      "summary": "JavaScript application and adapter crossings are protocol clients, never authority or durable owner truth.",
+      "type": "nonclaim"
+    },
+    {
+      "blocker_id": "NONCLAIM-M0-INTERNAL-IPC",
+      "state": "retained",
+      "summary": "Mounted workload IPC is internal transport and does not become a public capability claim.",
+      "type": "nonclaim"
+    },
+    {
+      "blocker_id": "BLK-M0-PG-REQUIRED-NOT-CLOSED",
+      "state": "open",
+      "summary": "Every required-now PG gate remains owned and open in the production-gate ledger.",
+      "type": "production_gate_open"
+    },
+    {
+      "blocker_id": "COND-M0-PG-SELECTION",
+      "state": "retained",
+      "summary": "The gate becomes blocking only when its named conditional posture is selected.",
+      "type": "conditional_gate"
+    },
+    {
+      "blocker_id": "NONCLAIM-M0-LATER-HORIZON",
+      "state": "retained",
+      "summary": "The gate belongs to a later horizon and is not closed by M0.",
+      "type": "nonclaim"
+    },
+    {
+      "blocker_id": "NONCLAIM-M0-SELECTED-PROFILE",
+      "state": "retained",
+      "summary": "The selected profile excludes this deployment, commercial, legal, or physical posture.",
+      "type": "nonclaim"
+    },
+    {
+      "blocker_id": "BLK-M0-BASELINE-PRODUCT",
+      "state": "open",
+      "summary": "No qualifying end-to-end selected-profile product cohort exists as of the baseline date.",
+      "type": "baseline_not_measured"
+    },
+    {
+      "blocker_id": "BLK-M0-BASELINE-RELIABILITY",
+      "state": "open",
+      "summary": "No terminal selected-profile runtime and fault cohort exists as of the baseline date.",
+      "type": "baseline_not_measured"
+    },
+    {
+      "blocker_id": "BLK-M0-BASELINE-COST",
+      "state": "open",
+      "summary": "No invoice-reconciled selected-profile run cohort exists as of the baseline date.",
+      "type": "baseline_not_measured"
+    },
+    {
+      "blocker_id": "BLK-M0-BASELINE-COMPREHENSION",
+      "state": "open",
+      "summary": "No qualifying first-time-operator comprehension cohort exists as of the baseline date.",
+      "type": "baseline_not_measured"
+    }
+  ],
+  "bounded_discovery_exclusions": [
+    {
+      "note": "Dynamic raw bytes cannot be enumerated; the lease-gated wildcard proxy entry is censused and this implementation is file-locked.",
+      "source_file": "crates/node/src/bin/hypervisor_daemon_routes/editor_proxy.rs",
+      "source_sha256": "91a63096a50a817f742d9ce13e6e4df7b40781a1cddf3238662d91b720c154c7"
+    },
+    {
+      "note": "Encrypted dynamic frames cannot be enumerated here; the internal wildcard channel entry and typed public/workload RPC registries are censused.",
+      "source_file": "crates/validator/src/common/guardian/server.rs",
+      "source_sha256": "4b2faeed0acd7ea84b48f8987b9125906995746ad6daf6dd71dbd48c512bfbd5"
+    },
+    {
+      "note": "Harvested/generated compatibility bundle; active owned adapter and outbound crossings are censused instead of treating bundle code as authority.",
+      "source_file": "apps/hypervisor/product-ui/owned/public/static/assets/main-DLKYFe1Y.js",
+      "source_sha256": "b52ab542870b4b3e0d48572ecf96ba43142a278ff5287396c48fa64cb6cd35a2"
+    },
+    {
+      "note": "Dynamic inbound compatibility dispatch and augmentation loading are file-locked while every statically visible outbound crossing is enumerated.",
+      "source_file": "apps/hypervisor/scripts/serve-product-ui.mjs",
+      "source_sha256": "8f40f7aa4a876701baec887bf7dcc574912f335b8149e6a3e8d641e51081c20a"
+    },
+    {
+      "note": "The spawned reference server has dynamic fixture, missing-chunk, and static-file fallbacks; its single ANY compatibility boundary is censused and the whole dispatch is file-locked.",
+      "source_file": "apps/hypervisor/product-ui/server.cjs",
+      "source_sha256": "61090d7e9c1f90d0dc9f509b6297fb4859a4eee25d8b012378a8e540befbbfd3"
+    },
+    {
+      "note": "This active module is dynamically concatenated by serve-product-ui; its literal outbound crossings are censused and the full module is locked against undiscovered dynamic dispatch.",
+      "source_file": "apps/hypervisor/scripts/augmentation/00-core.js",
+      "source_sha256": "75ecae5f50913a7b555a6d0c6d173854b664665300a6ed185b64dba72c14f47d"
+    },
+    {
+      "note": "This active module is dynamically concatenated by serve-product-ui; its literal outbound crossings are censused and the full module is locked against undiscovered dynamic dispatch.",
+      "source_file": "apps/hypervisor/scripts/augmentation/10-run-timeline.js",
+      "source_sha256": "f879c0b2a2cd9d9673f8d8436880e9b59449bfe430c03469ef23ab92debcb227"
+    },
+    {
+      "note": "This active module is dynamically concatenated by serve-product-ui; its literal outbound crossings are censused and the full module is locked against undiscovered dynamic dispatch.",
+      "source_file": "apps/hypervisor/scripts/augmentation/20-connections.js",
+      "source_sha256": "306c75cd474b2498d31f902df9051364d2b51eccc0a9633a01f5d8fb4b58f3ab"
+    },
+    {
+      "note": "This active module is dynamically concatenated by serve-product-ui; its literal outbound crossings are censused and the full module is locked against undiscovered dynamic dispatch.",
+      "source_file": "apps/hypervisor/scripts/augmentation/30-shell.js",
+      "source_sha256": "e1cb9e7c05ac5091388c0161132ebe5ef4b38448c4aa5ec5cc5c9cbb186ce1eb"
+    },
+    {
+      "note": "This active module is dynamically concatenated by serve-product-ui; its literal outbound crossings are censused and the full module is locked against undiscovered dynamic dispatch.",
+      "source_file": "apps/hypervisor/scripts/augmentation/35-app-catalog.js",
+      "source_sha256": "4d4bc784108d77d2f082a6aaabee3cbdd044fa6bc48ed849cccd7bd0022c1cc1"
+    },
+    {
+      "note": "This active module is dynamically concatenated by serve-product-ui; its literal outbound crossings are censused and the full module is locked against undiscovered dynamic dispatch.",
+      "source_file": "apps/hypervisor/scripts/augmentation/40-home-explorer.js",
+      "source_sha256": "75e8c64f8adb340c5af6069631204f54b84e50eb77f42c4fedbf8714825bfc56"
+    },
+    {
+      "note": "This active module is dynamically concatenated by serve-product-ui; its literal outbound crossings are censused and the full module is locked against undiscovered dynamic dispatch.",
+      "source_file": "apps/hypervisor/scripts/augmentation/50-new-session.js",
+      "source_sha256": "35b8cb3928856022ae9cdd49bb89ec85363bfbb7f1bcc85b3bbac8b232bbff78"
+    },
+    {
+      "note": "This active module is dynamically concatenated by serve-product-ui; its literal outbound crossings are censused and the full module is locked against undiscovered dynamic dispatch.",
+      "source_file": "apps/hypervisor/scripts/augmentation/60-shell-wiring.js",
+      "source_sha256": "cc7fe6069b37de2e393d6d589a9839eb0681f75ba4535296bd26302126d32c1d"
+    },
+    {
+      "note": "This active module is dynamically concatenated by serve-product-ui; its literal outbound crossings are censused and the full module is locked against undiscovered dynamic dispatch.",
+      "source_file": "apps/hypervisor/scripts/augmentation/70-cockpit-panel.js",
+      "source_sha256": "c0abbcbb68ba123f0aae984b6a3a8daa2c46ce4671f758acc9790493238921d8"
+    },
+    {
+      "note": "This active module is dynamically concatenated by serve-product-ui; its literal outbound crossings are censused and the full module is locked against undiscovered dynamic dispatch.",
+      "source_file": "apps/hypervisor/scripts/augmentation/80-automations.js",
+      "source_sha256": "6cde3b79c63fb7dd31dab1e157cfac5fc1ea3e39ab7652083478ddc493d11e17"
+    },
+    {
+      "note": "This active module is dynamically concatenated by serve-product-ui; its literal outbound crossings are censused and the full module is locked against undiscovered dynamic dispatch.",
+      "source_file": "apps/hypervisor/scripts/augmentation/90-mount.js",
+      "source_sha256": "b3d140aeb4c6044965ad92d7b455bd534276f5e47c574f0052a661e7e8b803f6"
+    },
+    {
+      "note": "Twelve CRUD handlers are generated by the family_handlers macro; each literal daemon route and generated symbol is enumerated and the macro source is file-locked.",
+      "source_file": "crates/node/src/bin/hypervisor_daemon_routes/ioi_intelligence_routes.rs",
+      "source_sha256": "1920ba85aea3787354f5a5c3fd5d288a3be0e33e18b8d0ef039f17ae4a412497"
+    },
+    {
+      "note": "Manifest-defined WASM methods are intrinsically dynamic; the validated wildcard boundary is explicit in the census.",
+      "source_file": "crates/execution/src/runtime_service/mod.rs",
+      "source_sha256": "e803e14cb9234d5fa73b0750551fd23741a664aafc83bf11b0582d9ac9b88eef"
+    }
+  ],
+  "canon_basis": [
+    {
+      "role": "landed owner canon",
+      "source_file": "docs/architecture/_meta/execution-horizons.md",
+      "source_sha256": "539bb1839b7394e3f07c091a8285e353e301dccc26880291a12abf264c2b1adb"
+    },
+    {
+      "role": "landed owner canon",
+      "source_file": "docs/architecture/_meta/implementation-matrix.md",
+      "source_sha256": "f2869bc0084f61a5627cfdc3b703dbb7ec3d9a665559dadd366e34e010c334cd"
+    },
+    {
+      "role": "landed owner canon",
+      "source_file": "docs/architecture/_meta/source-of-truth-map.md",
+      "source_sha256": "d1538ee36c0f0ff8fc9b869a51119f9698e7d3754f7928f70715dc9d9d8aaea3"
+    },
+    {
+      "role": "landed owner canon",
+      "source_file": "docs/architecture/foundations/common-objects-and-envelopes.md",
+      "source_sha256": "553bdaacc19a93dc73f1305bc16750f17a40643b19d812efddfb88d3a2abf301"
+    },
+    {
+      "role": "landed owner canon",
+      "source_file": "docs/architecture/foundations/governed-autonomous-systems.md",
+      "source_sha256": "0d5599eb3916214702815f8c8ee7763fba40df6e959a57a84fe50a9e802faee9"
+    },
+    {
+      "role": "landed owner canon",
+      "source_file": "docs/architecture/foundations/institutional-learning-boundary.md",
+      "source_sha256": "b2b2980b017c3259e616470044179c60878947aad9bc4d3427f8e4b7f5fa3d3c"
+    },
+    {
+      "role": "landed owner canon",
+      "source_file": "docs/architecture/components/daemon-runtime/doctrine.md",
+      "source_sha256": "011853454e8e1d13dcedf6f1b82a977177c1929b64be018c27f3bd46e4a907cc"
+    },
+    {
+      "role": "landed owner canon",
+      "source_file": "docs/architecture/components/daemon-runtime/api.md",
+      "source_sha256": "704056e5a267d3c83e3373f1e2cf73fa4872ddd612f361860add58ac9ea306e8"
+    },
+    {
+      "role": "landed owner canon",
+      "source_file": "docs/architecture/components/daemon-runtime/events-receipts-delivery-bundles.md",
+      "source_sha256": "69e6a82d55c5b9ade8231233fa2220d8035d7bde1ef290fe021af6bff7eecb21"
+    },
+    {
+      "role": "landed owner canon",
+      "source_file": "docs/architecture/components/daemon-runtime/improvement-governance-gates.md",
+      "source_sha256": "a071c4b314ffabb6041c1d494710732c9e2d42da1d09b8e1fd3b2b89319c526c"
+    },
+    {
+      "role": "landed owner canon",
+      "source_file": "docs/architecture/components/wallet-network/doctrine.md",
+      "source_sha256": "75b23ca0dd001238aa6d8299c0d940ceb4c3d9c03796c94dc5d7d10f7230e305"
+    },
+    {
+      "role": "landed owner canon",
+      "source_file": "docs/architecture/components/wallet-network/api-authority-scopes.md",
+      "source_sha256": "86764a44a19d59d449098f3955407fae4c640e1120068a8d0f9b6d01f9abfff8"
+    },
+    {
+      "role": "landed owner canon",
+      "source_file": "docs/architecture/components/agentgres/doctrine.md",
+      "source_sha256": "fe2e3a69910ecba46197daf5062a8b01a4be402d7c79310c98f1efd031b8a533"
+    },
+    {
+      "role": "landed owner canon",
+      "source_file": "docs/architecture/components/agentgres/api-object-model.md",
+      "source_sha256": "ed1edda6f65628fadcae96c6a1416bc419d66825105a03746c6777127e2d6b76"
+    },
+    {
+      "role": "landed owner canon",
+      "source_file": "docs/architecture/components/hypervisor/core-clients-surfaces.md",
+      "source_sha256": "ae5b9ff857331ed7c98356fe42f4abedafb93a3a8760b706112ae725cc43849c"
+    },
+    {
+      "role": "landed owner canon",
+      "source_file": "docs/architecture/components/hypervisor/providers-and-environments.md",
+      "source_sha256": "a3ed4badd668272d86c14ebdce7c37b0c94fea5caa77e62fce35b9a064d9a9f5"
+    },
+    {
+      "role": "landed owner canon",
+      "source_file": "docs/architecture/domains/ioi-ai/collaborative-outcome-pattern.md",
+      "source_sha256": "348f0f485746089a80cb76e33422cddd49067b519632d2a6980d575750cefa42"
+    }
+  ],
+  "canon_contradictions": [],
+  "discovery_source_coverage": {
+    "groups": [
+      {
+        "coverage_id": "axum_route_registry",
+        "sources": [
+          {
+            "note": "enumerated conditional session-preview registry",
+            "source_file": "crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs",
+            "source_sha256": "ef144796d5fa8eb77cb31eb367d8e04ade16dbd64f4ffebd8e278dbc66da936a"
+          },
+          {
+            "note": "enumerated Hypervisor daemon registry",
+            "source_file": "crates/node/src/bin/hypervisor-daemon.rs",
+            "source_sha256": "e02015f85f95900316b7f94c0f65b87c5c5e1057a69bc9a2535c46949b947322"
+          },
+          {
+            "note": "enumerated IBC HTTP registry",
+            "source_file": "crates/plugins/http-rpc-gateway/src/lib.rs",
+            "source_sha256": "a53dc6bb436810a81fd795cb09c6990b732cc2f152fdda982d44f1debce9305a"
+          },
+          {
+            "note": "enumerated telemetry HTTP registry",
+            "source_file": "crates/telemetry/src/http.rs",
+            "source_sha256": "ee1f93186005554478cdcc44ec7379d482e65624b8b5f4f0d65a55aa1309c38c"
+          },
+          {
+            "note": "enumerated provider HTTP registry",
+            "source_file": "crates/validator/src/standard/provider/server.rs",
+            "source_sha256": "4e61832dd2229cd05387fb6c1bb56612bc4ed507d177097148e61e6f3cca09d0"
+          }
+        ]
+      },
+      {
+        "coverage_id": "blockchain_service_implementation",
+        "sources": [
+          {
+            "note": "enumerated native service",
+            "source_file": "crates/consensus/src/service.rs",
+            "source_sha256": "bedcd57774581caaaaa4fc8c45f293fac87ae352f457c809c5e290d5c4ebe065"
+          },
+          {
+            "note": "enumerated manifest-defined dynamic service wildcard",
+            "source_file": "crates/execution/src/runtime_service/mod.rs",
+            "source_sha256": "e803e14cb9234d5fa73b0750551fd23741a664aafc83bf11b0582d9ac9b88eef"
+          },
+          {
+            "note": "enumerated native service",
+            "source_file": "crates/plugins/ibc-service/src/core/registry.rs",
+            "source_sha256": "8f711bd18f4f804f6fc72fd87f56043b64dd730c0c91d160f320fdcd0c74f810"
+          },
+          {
+            "note": "enumerated native service",
+            "source_file": "crates/services/src/agentic/leakage.rs",
+            "source_sha256": "c1c9b369aacbb171310f53a175dc201e207e0f76446b9c27de999432e4ec7b0b"
+          },
+          {
+            "note": "enumerated native service",
+            "source_file": "crates/services/src/agentic/runtime/service/mod.rs",
+            "source_sha256": "7a76d91400d77ced79a91241564f42b8d32b77bbd165b714b1f56a2be2a7ca2f"
+          },
+          {
+            "note": "enumerated native service",
+            "source_file": "crates/services/src/guardian_registry/service.rs",
+            "source_sha256": "11f4265b8c404559861b985df773c696ba36b7f9096a43901a1991a6fe9053a2"
+          },
+          {
+            "note": "enumerated native service",
+            "source_file": "crates/services/src/identity/mod.rs",
+            "source_sha256": "c84f011835d2979cc9da8d3722e6b18177fd25f49f6c92f0fe2dbcd744aef4a1"
+          },
+          {
+            "note": "enumerated native service",
+            "source_file": "crates/services/src/provider_registry/mod.rs",
+            "source_sha256": "8d62352f6a386a9ac760a3ea3c965921cda493ccffe14b63b90e304f193b16bd"
+          },
+          {
+            "note": "enumerated wallet.network service registry",
+            "source_file": "crates/services/src/wallet_network/mod.rs",
+            "source_sha256": "dd7306b2e979bd043193f2abb3be50284e92cc47217725a5fd08af24506a51cb"
+          },
+          {
+            "note": "no externally callable service method; transaction decorator and end-block hooks only",
+            "source_file": "crates/vm/wasm/src/wasm_service.rs",
+            "source_sha256": "23cf77970be4bf81e0e5114883b2fffad8f6fe6ff8ad1d4b2c8d50609f5eae3c"
+          }
+        ]
+      },
+      {
+        "coverage_id": "proto_rpc_registry",
+        "sources": [
+          {
+            "note": "enumerated mounted workload RPC registries",
+            "source_file": "crates/ipc/proto/blockchain/v1/blockchain.proto",
+            "source_sha256": "8079b9f80e346dd5fd27b8062c0638541c9f3bf2c111628a55346f8e4d7ccf3b"
+          },
+          {
+            "note": "enumerated mounted workload and conditional Guardian RPC registries",
+            "source_file": "crates/ipc/proto/control/v1/control.proto",
+            "source_sha256": "9cdaad1ae6cff08313c54001d9ff33cb2be48c452aaf99dda2c7f36c0fd0b825"
+          },
+          {
+            "note": "enumerated unmounted compatibility contract",
+            "source_file": "crates/ipc/proto/model_mount/v1/model_mount.proto",
+            "source_sha256": "274342ce610f87b6448480046225fe74db3573b00e39ef6e1eab82c479e3eeb0"
+          },
+          {
+            "note": "enumerated mounted public API registry",
+            "source_file": "crates/ipc/proto/public/v1/public.proto",
+            "source_sha256": "d8860562792b22870f41a5c81d0046805b066c95fb08f73b24066f347f9e3a02"
+          }
+        ]
+      },
+      {
+        "coverage_id": "rust_listener_or_server_source",
+        "sources": [
+          {
+            "note": "enumerated standalone AGRS2 replication binary registration",
+            "source_file": "crates/agentgres/src/bin/replica.rs",
+            "source_sha256": "89d19694b418f2b6c9e46ede1a7530e1f9b4c612b5f3d6565a29da82db5ec861"
+          },
+          {
+            "note": "ReplicaServer binds occur only in the cfg(test) module",
+            "source_file": "crates/agentgres/src/mux.rs",
+            "source_sha256": "574e8e67fd37c5492eb1372f26485bcb2ac1e4468e56cefefd24add398dd398c"
+          },
+          {
+            "note": "enumerated standalone AGRS2 replication wildcard",
+            "source_file": "crates/agentgres/src/replica.rs",
+            "source_sha256": "3fc80d853477e499f0a78377ff73467c754a9d6fc203d8da46479af963710116"
+          },
+          {
+            "note": "test support, not a shipped application listener",
+            "source_file": "crates/cli/src/testing/backend.rs",
+            "source_sha256": "f5cd62080701e81fd7e202f8285528217bda995e2d3ec5a4ff71080bfa2d7adf"
+          },
+          {
+            "note": "test support, not a shipped application listener",
+            "source_file": "crates/cli/src/testing/validator.rs",
+            "source_sha256": "00c93f69a2139e51a7814d8e4e7a3df4467ee3b48d76ae26151f81cf6d289765"
+          },
+          {
+            "note": "enumerated conditional Guardian gRPC registry",
+            "source_file": "crates/node/src/bin/guardian.rs",
+            "source_sha256": "fd064246fe8209bd36a6a947858a4d49426c5e6e4395151ddf823892604d6669"
+          },
+          {
+            "note": "ephemeral free-port reservation and private child runtime, reached through enumerated daemon and proxy entries",
+            "source_file": "crates/node/src/bin/hypervisor_daemon_routes/editor_host.rs",
+            "source_sha256": "f44dfe08043c59e6d07ff5bd5a8cf65382a2d845b158edd4b0aba6c83410057c"
+          },
+          {
+            "note": "enumerated dynamic lease-gated editor proxy wildcard",
+            "source_file": "crates/node/src/bin/hypervisor_daemon_routes/editor_proxy.rs",
+            "source_sha256": "91a63096a50a817f742d9ce13e6e4df7b40781a1cddf3238662d91b720c154c7"
+          },
+          {
+            "note": "enumerated conditional session-preview registry",
+            "source_file": "crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs",
+            "source_sha256": "ef144796d5fa8eb77cb31eb367d8e04ade16dbd64f4ffebd8e278dbc66da936a"
+          },
+          {
+            "note": "enumerated Hypervisor daemon registry",
+            "source_file": "crates/node/src/bin/hypervisor-daemon.rs",
+            "source_sha256": "e02015f85f95900316b7f94c0f65b87c5c5e1057a69bc9a2535c46949b947322"
+          },
+          {
+            "note": "enumerated signer POST /sign surface",
+            "source_file": "crates/node/src/bin/signer.rs",
+            "source_sha256": "097e98860a4571982fd53b235975b522f5793ec13dadf1bdf8269c3b9ca4c396"
+          },
+          {
+            "note": "enumerated IBC HTTP registry",
+            "source_file": "crates/plugins/http-rpc-gateway/src/lib.rs",
+            "source_sha256": "a53dc6bb436810a81fd795cb09c6990b732cc2f152fdda982d44f1debce9305a"
+          },
+          {
+            "note": "enumerated conditional Google OAuth callback",
+            "source_file": "crates/services/src/agentic/runtime/connectors/google_auth.rs",
+            "source_sha256": "d013c5cbab210d99c465d80043373276873ea7edb2a3fd033539c9c3d0a897f1"
+          },
+          {
+            "note": "cfg(test) fixture listener within a production source file",
+            "source_file": "crates/services/src/agentic/runtime/kernel/model_mount/lifecycle/inventory.rs",
+            "source_sha256": "6ea7fb18c98887dec4ed04abe5ca8a9298a626b9cb3ea41a518b5145178354c6"
+          },
+          {
+            "note": "cfg(test) fixture listener within a production source file",
+            "source_file": "crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs",
+            "source_sha256": "4774ed141a95d5feccd67e45307d4537a6c882df54cd16ff29a71e5fcb1da08a"
+          },
+          {
+            "note": "cfg(test) fixture listener within a production source file",
+            "source_file": "crates/services/src/agentic/runtime/kernel/model_mount/provider_execution/stream.rs",
+            "source_sha256": "e76fb24c8a6effa8ace3a06498acd3a312349442ab52b535a2b3c52baade06b2"
+          },
+          {
+            "note": "cfg(test) fixture listener within a production source file",
+            "source_file": "crates/services/src/agentic/runtime/kernel/model_mount/storage_control.rs",
+            "source_sha256": "7e0e707914153ef0f4136f6e04095ee1bcebcc2fc123c082ad31a6f1e0471da9"
+          },
+          {
+            "note": "enumerated telemetry HTTP registry",
+            "source_file": "crates/telemetry/src/http.rs",
+            "source_sha256": "ee1f93186005554478cdcc44ec7379d482e65624b8b5f4f0d65a55aa1309c38c"
+          },
+          {
+            "note": "enumerated encrypted Guardian channel wildcard",
+            "source_file": "crates/validator/src/common/guardian/server.rs",
+            "source_sha256": "4b2faeed0acd7ea84b48f8987b9125906995746ad6daf6dd71dbd48c512bfbd5"
+          },
+          {
+            "note": "enumerated mounted public API registry",
+            "source_file": "crates/validator/src/standard/orchestration/lifecycle.rs",
+            "source_sha256": "6d4584d6d55f3e481f1cc17f13080a4b8b403723d00f538db34e2c60e4653edf"
+          },
+          {
+            "note": "enumerated provider HTTP registry",
+            "source_file": "crates/validator/src/standard/provider/server.rs",
+            "source_sha256": "4e61832dd2229cd05387fb6c1bb56612bc4ed507d177097148e61e6f3cca09d0"
+          },
+          {
+            "note": "enumerated mounted internal workload RPC registries",
+            "source_file": "crates/validator/src/standard/workload/ipc/mod.rs",
+            "source_sha256": "e3cf54f361c9a5cbd34c5addb5f476cb312a2aee807de2bae0a2bc501c9aa15e"
+          }
+        ]
+      },
+      {
+        "coverage_id": "service_interface_registry",
+        "sources": [
+          {
+            "note": "source template only; generated services are not mounted by this file",
+            "source_file": "crates/cli/src/commands/scaffold.rs",
+            "source_sha256": "1fb3e5abe3a422804fc7d1802b53f117184bf8dd8b06e80f44ab41814386b0e4"
+          },
+          {
+            "note": "enumerated unavailable legacy service",
+            "source_file": "crates/services/src/agentic/evolution.rs",
+            "source_sha256": "c9c9571444ca40c91a2eb61cbf53ea839232b6c2e4f6768568767d8a1027f03d"
+          },
+          {
+            "note": "enumerated native service",
+            "source_file": "crates/services/src/agentic/optimizer.rs",
+            "source_sha256": "70157c64c2ef1af0a331bb7cbe203edddfc9249117d6ca1094bd67432640e332"
+          },
+          {
+            "note": "enumerated native service",
+            "source_file": "crates/services/src/governance/mod.rs",
+            "source_sha256": "7108aadf177cf2a6fe10708aee96ea5452c3080d09b61a5a911f02f62e360e88"
+          },
+          {
+            "note": "enumerated native service",
+            "source_file": "crates/services/src/market/mod.rs",
+            "source_sha256": "c98a9f4c11586dfe8db5ac4d59c7b3464dbbdf147aebac460dae3e050eb2b939"
+          }
+        ]
+      },
+      {
+        "coverage_id": "active_javascript_effect_source",
+        "sources": [
+          {
+            "note": "active application read projection",
+            "source_file": "apps/benchmarks/src/App.tsx",
+            "source_sha256": "386c0f95ff520bf72a4acfe0429139ad7a375c5efc0954617c1b91ffdff6ece3"
+          },
+          {
+            "note": "dynamically concatenated product UI read crossing",
+            "source_file": "apps/hypervisor/scripts/augmentation/10-run-timeline.js",
+            "source_sha256": "f879c0b2a2cd9d9673f8d8436880e9b59449bfe430c03469ef23ab92debcb227"
+          },
+          {
+            "note": "dynamically concatenated product UI read crossing",
+            "source_file": "apps/hypervisor/scripts/augmentation/35-app-catalog.js",
+            "source_sha256": "4d4bc784108d77d2f082a6aaabee3cbdd044fa6bc48ed849cccd7bd0022c1cc1"
+          },
+          {
+            "note": "dynamically concatenated product UI read crossing",
+            "source_file": "apps/hypervisor/scripts/augmentation/40-home-explorer.js",
+            "source_sha256": "75e8c64f8adb340c5af6069631204f54b84e50eb77f42c4fedbf8714825bfc56"
+          },
+          {
+            "note": "dynamically concatenated product UI read, plan, and mutation crossings",
+            "source_file": "apps/hypervisor/scripts/augmentation/50-new-session.js",
+            "source_sha256": "35b8cb3928856022ae9cdd49bb89ec85363bfbb7f1bcc85b3bbac8b232bbff78"
+          },
+          {
+            "note": "dynamically concatenated product UI read and mutation crossings",
+            "source_file": "apps/hypervisor/scripts/augmentation/70-cockpit-panel.js",
+            "source_sha256": "c0abbcbb68ba123f0aae984b6a3a8daa2c46ce4671f758acc9790493238921d8"
+          },
+          {
+            "note": "standing product UI daemon crossings",
+            "source_file": "apps/hypervisor/scripts/ioi-agent-runs.mjs",
+            "source_sha256": "e81a326388d6751c589fb981cd8a72d0104417cf3bcff8dca613d948f2cbc27a"
+          },
+          {
+            "note": "standing product UI daemon crossings and local preference file",
+            "source_file": "apps/hypervisor/scripts/ioi-api-adapter.mjs",
+            "source_sha256": "915d1a1402876864c262b3ee2a75ce87f6b6b965b58f622ada2ab1d8029dae3e"
+          },
+          {
+            "note": "standing product UI server, proxy, and daemon crossings",
+            "source_file": "apps/hypervisor/scripts/serve-product-ui.mjs",
+            "source_sha256": "8f40f7aa4a876701baec887bf7dcc574912f335b8149e6a3e8d641e51081c20a"
+          },
+          {
+            "note": "Vite development replay mutation crossing",
+            "source_file": "apps/hypervisor/src/dev/hypervisorDevHostBridge.ts",
+            "source_sha256": "a4d26299329463c416d136633bec54822d1faacc8b9f13779e35276f2e6ea1a2"
+          },
+          {
+            "note": "Vite development replay read crossing and local endpoint state",
+            "source_file": "apps/hypervisor/src/dev/hypervisorDevReplayClient.ts",
+            "source_sha256": "33d63e3261517307ff527b95041ae7420f8dd36eaca2cc996c4cfe9dba6b683f"
+          },
+          {
+            "note": "active browser appearance compatibility state",
+            "source_file": "apps/hypervisor/src/services/hypervisorAppearance.ts",
+            "source_sha256": "b941bf54f7df71426fb4f30aced32462da1d2e13bfe629aabb758a42e0902bf2"
+          },
+          {
+            "note": "active literal host commands and local compatibility state",
+            "source_file": "apps/hypervisor/src/services/HypervisorClientRuntime.ts",
+            "source_sha256": "dac92f72d4ec88167e7525348cbe1d6957080d52c951a76b1ea107b3c2f7be16"
+          },
+          {
+            "note": "dynamic host bridge leaf; all active literal callers are enumerated",
+            "source_file": "apps/hypervisor/src/services/hypervisorHostBridge.ts",
+            "source_sha256": "95382438241ef622a0ed23a67fd1e0a97e6dfe2cbdb5eb5496d6d98ea3d05408"
+          },
+          {
+            "note": "active literal host commands and local compatibility state",
+            "source_file": "apps/hypervisor/src/services/hypervisorLaunchState.ts",
+            "source_sha256": "ead6b17fe4410a3b944c84986bea780258e5cd6f74bef29b0694ca14b4b13874"
+          },
+          {
+            "note": "standing product UI read and mutation crossings",
+            "source_file": "apps/hypervisor/surfaces/approvals/index.mjs",
+            "source_sha256": "1add34976e38faae3980917a6abc07f58efa64f8712c800a4b30520730be288c"
+          },
+          {
+            "note": "standing product UI read crossing",
+            "source_file": "apps/hypervisor/surfaces/ontology-context.mjs",
+            "source_sha256": "e4a498ec9eea24456cc0a33671cc5968304752f11aec487018f9a60a73545f75"
+          },
+          {
+            "note": "standing product UI read crossings",
+            "source_file": "apps/hypervisor/surfaces/ontology-manager/index.mjs",
+            "source_sha256": "65b9b7f0d03bfd6b5c192001de284abb2d0b8efa10a495b5656b55d2282cedf2"
+          },
+          {
+            "note": "standing product UI read crossings",
+            "source_file": "apps/hypervisor/surfaces/pipeline/index.mjs",
+            "source_sha256": "c27af691fb069819e873e1d71b4c7ae9ad6c9b080bd320b5fd748894cdd108c7"
+          },
+          {
+            "note": "standing product UI read and mutation crossings",
+            "source_file": "apps/hypervisor/surfaces/sources/index.mjs",
+            "source_sha256": "da5bed6b35780fee1e38121361bc804d9d47cb39941b1d34b04e0be7abd9b471"
+          },
+          {
+            "note": "active demo application browser compatibility state",
+            "source_file": "apps/sas-xyz/v2/app.jsx",
+            "source_sha256": "60d729fdf2dbd86dcafc3dfe85ffe0164950c22c9954a13c77baa6f58ac0644b"
+          },
+          {
+            "note": "development replay dispatch, local evidence write, and configured model upstream",
+            "source_file": "scripts/hypervisor-app-dev-replay-server.mjs",
+            "source_sha256": "a7345f864c203348b5ac76a1956605e32cc0089e5098c8ebaec0a871c54c2a68"
+          },
+          {
+            "note": "explicit test-signer child-process crossing, dynamically loaded only by the development flag",
+            "source_file": "scripts/lib/mint-approval-grant.mjs",
+            "source_sha256": "18cd6c091ab13762950f45da159a1a8f47d665d0475b1bd2c466826b036516ff"
+          }
+        ]
+      },
+      {
+        "coverage_id": "active_javascript_server_source",
+        "sources": [
+          {
+            "note": "spawned reference UI compatibility server; dynamic mock and static fallback are file-locked",
+            "source_file": "apps/hypervisor/product-ui/server.cjs",
+            "source_sha256": "61090d7e9c1f90d0dc9f509b6297fb4859a4eee25d8b012378a8e540befbbfd3"
+          },
+          {
+            "note": "standing product UI HTTP and WebSocket compatibility facade",
+            "source_file": "apps/hypervisor/scripts/serve-product-ui.mjs",
+            "source_sha256": "8f40f7aa4a876701baec887bf7dcc574912f335b8149e6a3e8d641e51081c20a"
+          },
+          {
+            "note": "explicit development replay HTTP server",
+            "source_file": "scripts/hypervisor-app-dev-replay-server.mjs",
+            "source_sha256": "a7345f864c203348b5ac76a1956605e32cc0089e5098c8ebaec0a871c54c2a68"
+          }
+        ]
+      },
+      {
+        "actions": [
+          {
+            "calls": [
+              "mkdirSync",
+              "writeFileSync"
+            ],
+            "identity": "js-system-effect:apps/hypervisor/scripts/ioi-api-adapter.mjs#saveStore",
+            "operation": "ANY /api/ioi.v1.UserService/SetPreference",
+            "source_anchor_sha256": "47acf9eaf1365cbff7f28fb2e57baa7cd54a2dc90571a8c20a6a418b4a5af35a",
+            "source_file": "apps/hypervisor/scripts/ioi-api-adapter.mjs",
+            "source_line": 119
+          },
+          {
+            "calls": [
+              "spawn"
+            ],
+            "identity": "js-system-effect:apps/hypervisor/scripts/serve-product-ui.mjs#module_scope_line_6437",
+            "operation": "PROCESS_START product-ui reference server",
+            "source_anchor_sha256": "c8d8d354d1eec4affd8c064f63cbe0d17acef0f00849c62f985d5456de447c39",
+            "source_file": "apps/hypervisor/scripts/serve-product-ui.mjs",
+            "source_line": 6437
+          },
+          {
+            "calls": [
+              "productUi.kill"
+            ],
+            "identity": "js-system-effect:apps/hypervisor/scripts/serve-product-ui.mjs#module_scope_line_6442",
+            "operation": "SIGINT terminate product-ui reference server",
+            "source_anchor_sha256": "97664aa1a1a616e58e75aae8c2222f241586345de495da2a31976e4a9a1290fc",
+            "source_file": "apps/hypervisor/scripts/serve-product-ui.mjs",
+            "source_line": 6442
+          },
+          {
+            "calls": [
+              "productUi.kill"
+            ],
+            "identity": "js-system-effect:apps/hypervisor/scripts/serve-product-ui.mjs#module_scope_line_6443",
+            "operation": "SIGTERM terminate product-ui reference server",
+            "source_anchor_sha256": "9172978d427c7101f744748588c49cbaf6183bd20ebe45c3da3ab5a8abc1dee0",
+            "source_file": "apps/hypervisor/scripts/serve-product-ui.mjs",
+            "source_line": 6443
+          },
+          {
+            "calls": [
+              "mkdirSync",
+              "writeFileSync"
+            ],
+            "identity": "js-system-effect:scripts/hypervisor-app-dev-replay-server.mjs#writeEvidenceFile",
+            "operation": "explicitly configured development evidence file write",
+            "source_anchor_sha256": "a09d71fb238f890ad14875dcee325dcf67bea93de0fc11329c4923dffe3d93a4",
+            "source_file": "scripts/hypervisor-app-dev-replay-server.mjs",
+            "source_line": 2427
+          },
+          {
+            "calls": [
+              "spawnSync",
+              "spawnSync"
+            ],
+            "identity": "js-system-effect:scripts/lib/mint-approval-grant.mjs#mintApprovalGrant",
+            "operation": "PROCESS_EXEC build and invoke deterministic test approval signer",
+            "source_anchor_sha256": "8ec8ca456c62a0f785de091c1596ae455eeb6de3be000e93859829f7d0401114",
+            "source_file": "scripts/lib/mint-approval-grant.mjs",
+            "source_line": 16
+          }
+        ],
+        "coverage_id": "active_javascript_system_effect_action"
+      }
+    ],
+    "rule": "A new production route registry, RPC registry, service implementation, listener source, active JavaScript effect source, or JavaScript filesystem/process action fails before its entries can be consumed."
+  },
+  "evidence_format": "ioi.m0.program_control_source.v1",
+  "m0_exit_policy": {
+    "architecture_or_production_capability_closure": false,
+    "claim_scope": "M0 program control and claim lock only",
+    "permitted_state": "verified",
+    "required_conditions": [
+      "every discovered entry is explicitly reviewed and source-anchored",
+      "every selected object has an owner",
+      "every selected effect has a verified final invoker or explicit unavailable blocker",
+      "all legacy sequencing is non-authoritative",
+      "all 58 PG ids are mapped exactly once without closure claims",
+      "every baseline and evidence item is closed or honestly named"
+    ]
+  },
+  "pg_gate_map": {
+    "closure_claimed": false,
+    "definition_owner": "internal-docs/implementation/canon-mechanism-hardening-action-plan.md",
+    "entries": [
+      {
+        "closure_claimed": false,
+        "disposition": "conditional",
+        "evidence_or_blocker_ref": "COND-M0-PG-SELECTION",
+        "pg_id": "PG-0.1",
+        "selected_profile_rationale": "The selected profile does not activate every program-integrity and selected upgrade posture; this gate blocks if its named posture is selected."
+      },
+      {
+        "closure_claimed": false,
+        "disposition": "required_now",
+        "evidence_or_blocker_ref": "BLK-M0-PG-REQUIRED-NOT-CLOSED",
+        "pg_id": "PG-0.2",
+        "selected_profile_rationale": "The selected single-node software-change profile directly needs program-integrity and selected upgrade; the gate remains open."
+      },
+      {
+        "closure_claimed": false,
+        "disposition": "conditional",
+        "evidence_or_blocker_ref": "COND-M0-PG-SELECTION",
+        "pg_id": "PG-0.3",
+        "selected_profile_rationale": "The selected profile does not activate every program-integrity and selected upgrade posture; this gate blocks if its named posture is selected."
+      },
+      {
+        "closure_claimed": false,
+        "disposition": "required_now",
+        "evidence_or_blocker_ref": "BLK-M0-PG-REQUIRED-NOT-CLOSED",
+        "pg_id": "PG-1.1",
+        "selected_profile_rationale": "The selected single-node software-change profile directly needs registered contract and compatibility; the gate remains open."
+      },
+      {
+        "closure_claimed": false,
+        "disposition": "required_now",
+        "evidence_or_blocker_ref": "BLK-M0-PG-REQUIRED-NOT-CLOSED",
+        "pg_id": "PG-1.2",
+        "selected_profile_rationale": "The selected single-node software-change profile directly needs registered contract and compatibility; the gate remains open."
+      },
+      {
+        "closure_claimed": false,
+        "disposition": "conditional",
+        "evidence_or_blocker_ref": "COND-M0-PG-SELECTION",
+        "pg_id": "PG-1.3",
+        "selected_profile_rationale": "The selected profile does not activate every registered contract and compatibility posture; this gate blocks if its named posture is selected."
+      },
+      {
+        "closure_claimed": false,
+        "disposition": "required_now",
+        "evidence_or_blocker_ref": "BLK-M0-PG-REQUIRED-NOT-CLOSED",
+        "pg_id": "PG-2.1",
+        "selected_profile_rationale": "The selected single-node software-change profile directly needs portable authority and receipt proof; the gate remains open."
+      },
+      {
+        "closure_claimed": false,
+        "disposition": "required_now",
+        "evidence_or_blocker_ref": "BLK-M0-PG-REQUIRED-NOT-CLOSED",
+        "pg_id": "PG-2.2",
+        "selected_profile_rationale": "The selected single-node software-change profile directly needs portable authority and receipt proof; the gate remains open."
+      },
+      {
+        "closure_claimed": false,
+        "disposition": "required_now",
+        "evidence_or_blocker_ref": "BLK-M0-PG-REQUIRED-NOT-CLOSED",
+        "pg_id": "PG-2.3",
+        "selected_profile_rationale": "The selected single-node software-change profile directly needs portable authority and receipt proof; the gate remains open."
+      },
+      {
+        "closure_claimed": false,
+        "disposition": "required_now",
+        "evidence_or_blocker_ref": "BLK-M0-PG-REQUIRED-NOT-CLOSED",
+        "pg_id": "PG-2.4",
+        "selected_profile_rationale": "The selected single-node software-change profile directly needs portable authority and receipt proof; the gate remains open."
+      },
+      {
+        "closure_claimed": false,
+        "disposition": "later",
+        "evidence_or_blocker_ref": "NONCLAIM-M0-LATER-HORIZON",
+        "pg_id": "PG-2.5",
+        "selected_profile_rationale": "portable authority and receipt proof belongs to a later horizon than the selected single-node proof."
+      },
+      {
+        "closure_claimed": false,
+        "disposition": "conditional",
+        "evidence_or_blocker_ref": "COND-M0-PG-SELECTION",
+        "pg_id": "PG-2.6",
+        "selected_profile_rationale": "The selected profile does not activate every portable authority and receipt proof posture; this gate blocks if its named posture is selected."
+      },
+      {
+        "closure_claimed": false,
+        "disposition": "required_now",
+        "evidence_or_blocker_ref": "BLK-M0-PG-REQUIRED-NOT-CLOSED",
+        "pg_id": "PG-3.1",
+        "selected_profile_rationale": "The selected single-node software-change profile directly needs information-flow and destination control; the gate remains open."
+      },
+      {
+        "closure_claimed": false,
+        "disposition": "conditional",
+        "evidence_or_blocker_ref": "COND-M0-PG-SELECTION",
+        "pg_id": "PG-3.2",
+        "selected_profile_rationale": "The selected profile does not activate every information-flow and destination control posture; this gate blocks if its named posture is selected."
+      },
+      {
+        "closure_claimed": false,
+        "disposition": "conditional",
+        "evidence_or_blocker_ref": "COND-M0-PG-SELECTION",
+        "pg_id": "PG-3.3",
+        "selected_profile_rationale": "The selected profile does not activate every information-flow and destination control posture; this gate blocks if its named posture is selected."
+      },
+      {
+        "closure_claimed": false,
+        "disposition": "conditional",
+        "evidence_or_blocker_ref": "COND-M0-PG-SELECTION",
+        "pg_id": "PG-3.4",
+        "selected_profile_rationale": "The selected profile does not activate every information-flow and destination control posture; this gate blocks if its named posture is selected."
+      },
+      {
+        "closure_claimed": false,
+        "disposition": "required_now",
+        "evidence_or_blocker_ref": "BLK-M0-PG-REQUIRED-NOT-CLOSED",
+        "pg_id": "PG-3.5",
+        "selected_profile_rationale": "The selected single-node software-change profile directly needs information-flow and destination control; the gate remains open."
+      },
+      {
+        "closure_claimed": false,
+        "disposition": "required_now",
+        "evidence_or_blocker_ref": "BLK-M0-PG-REQUIRED-NOT-CLOSED",
+        "pg_id": "PG-3.6",
+        "selected_profile_rationale": "The selected single-node software-change profile directly needs information-flow and destination control; the gate remains open."
+      },
+      {
+        "closure_claimed": false,
+        "disposition": "later",
+        "evidence_or_blocker_ref": "NONCLAIM-M0-LATER-HORIZON",
+        "pg_id": "PG-4A.1",
+        "selected_profile_rationale": "multi-node continuity and writer fencing belongs to a later horizon than the selected single-node proof."
+      },
+      {
+        "closure_claimed": false,
+        "disposition": "later",
+        "evidence_or_blocker_ref": "NONCLAIM-M0-LATER-HORIZON",
+        "pg_id": "PG-4A.2",
+        "selected_profile_rationale": "multi-node continuity and writer fencing belongs to a later horizon than the selected single-node proof."
+      },
+      {
+        "closure_claimed": false,
+        "disposition": "later",
+        "evidence_or_blocker_ref": "NONCLAIM-M0-LATER-HORIZON",
+        "pg_id": "PG-4A.3",
+        "selected_profile_rationale": "multi-node continuity and writer fencing belongs to a later horizon than the selected single-node proof."
+      },
+      {
+        "closure_claimed": false,
+        "disposition": "later",
+        "evidence_or_blocker_ref": "NONCLAIM-M0-LATER-HORIZON",
+        "pg_id": "PG-4A.4",
+        "selected_profile_rationale": "multi-node continuity and writer fencing belongs to a later horizon than the selected single-node proof."
+      },
+      {
+        "closure_claimed": false,
+        "disposition": "required_now",
+        "evidence_or_blocker_ref": "BLK-M0-PG-REQUIRED-NOT-CLOSED",
+        "pg_id": "PG-4A.5",
+        "selected_profile_rationale": "The selected single-node software-change profile directly needs multi-node continuity and writer fencing; the gate remains open."
+      },
+      {
+        "closure_claimed": false,
+        "disposition": "later",
+        "evidence_or_blocker_ref": "NONCLAIM-M0-LATER-HORIZON",
+        "pg_id": "PG-4A.6",
+        "selected_profile_rationale": "multi-node continuity and writer fencing belongs to a later horizon than the selected single-node proof."
+      },
+      {
+        "closure_claimed": false,
+        "disposition": "required_now",
+        "evidence_or_blocker_ref": "BLK-M0-PG-REQUIRED-NOT-CLOSED",
+        "pg_id": "PG-4B.1",
+        "selected_profile_rationale": "The selected single-node software-change profile directly needs shared lifecycle and recovery; the gate remains open."
+      },
+      {
+        "closure_claimed": false,
+        "disposition": "required_now",
+        "evidence_or_blocker_ref": "BLK-M0-PG-REQUIRED-NOT-CLOSED",
+        "pg_id": "PG-4B.2",
+        "selected_profile_rationale": "The selected single-node software-change profile directly needs shared lifecycle and recovery; the gate remains open."
+      },
+      {
+        "closure_claimed": false,
+        "disposition": "required_now",
+        "evidence_or_blocker_ref": "BLK-M0-PG-REQUIRED-NOT-CLOSED",
+        "pg_id": "PG-4B.3",
+        "selected_profile_rationale": "The selected single-node software-change profile directly needs shared lifecycle and recovery; the gate remains open."
+      },
+      {
+        "closure_claimed": false,
+        "disposition": "required_now",
+        "evidence_or_blocker_ref": "BLK-M0-PG-REQUIRED-NOT-CLOSED",
+        "pg_id": "PG-4B.4",
+        "selected_profile_rationale": "The selected single-node software-change profile directly needs shared lifecycle and recovery; the gate remains open."
+      },
+      {
+        "closure_claimed": false,
+        "disposition": "required_now",
+        "evidence_or_blocker_ref": "BLK-M0-PG-REQUIRED-NOT-CLOSED",
+        "pg_id": "PG-4B.5",
+        "selected_profile_rationale": "The selected single-node software-change profile directly needs shared lifecycle and recovery; the gate remains open."
+      },
+      {
+        "closure_claimed": false,
+        "disposition": "conditional",
+        "evidence_or_blocker_ref": "COND-M0-PG-SELECTION",
+        "pg_id": "PG-4B.6",
+        "selected_profile_rationale": "The selected profile does not activate every shared lifecycle and recovery posture; this gate blocks if its named posture is selected."
+      },
+      {
+        "closure_claimed": false,
+        "disposition": "out_of_scope",
+        "evidence_or_blocker_ref": "NONCLAIM-M0-SELECTED-PROFILE",
+        "pg_id": "PG-5.1",
+        "selected_profile_rationale": "The selected profile expressly excludes live physical action; a separately selected profile and authority are required."
+      },
+      {
+        "closure_claimed": false,
+        "disposition": "out_of_scope",
+        "evidence_or_blocker_ref": "NONCLAIM-M0-SELECTED-PROFILE",
+        "pg_id": "PG-5.2",
+        "selected_profile_rationale": "The selected profile expressly excludes live physical action; a separately selected profile and authority are required."
+      },
+      {
+        "closure_claimed": false,
+        "disposition": "out_of_scope",
+        "evidence_or_blocker_ref": "NONCLAIM-M0-SELECTED-PROFILE",
+        "pg_id": "PG-5.3",
+        "selected_profile_rationale": "The selected profile expressly excludes live physical action; a separately selected profile and authority are required."
+      },
+      {
+        "closure_claimed": false,
+        "disposition": "out_of_scope",
+        "evidence_or_blocker_ref": "NONCLAIM-M0-SELECTED-PROFILE",
+        "pg_id": "PG-5.4",
+        "selected_profile_rationale": "The selected profile expressly excludes live physical action; a separately selected profile and authority are required."
+      },
+      {
+        "closure_claimed": false,
+        "disposition": "out_of_scope",
+        "evidence_or_blocker_ref": "NONCLAIM-M0-SELECTED-PROFILE",
+        "pg_id": "PG-5.5",
+        "selected_profile_rationale": "The selected profile expressly excludes live physical action; a separately selected profile and authority are required."
+      },
+      {
+        "closure_claimed": false,
+        "disposition": "conditional",
+        "evidence_or_blocker_ref": "COND-M0-PG-SELECTION",
+        "pg_id": "PG-6A.1",
+        "selected_profile_rationale": "The selected profile does not activate every commercial accounting and settlement posture; this gate blocks if its named posture is selected."
+      },
+      {
+        "closure_claimed": false,
+        "disposition": "out_of_scope",
+        "evidence_or_blocker_ref": "NONCLAIM-M0-SELECTED-PROFILE",
+        "pg_id": "PG-6A.2",
+        "selected_profile_rationale": "The selected profile expressly excludes commercial accounting and settlement; a separately selected profile and authority are required."
+      },
+      {
+        "closure_claimed": false,
+        "disposition": "out_of_scope",
+        "evidence_or_blocker_ref": "NONCLAIM-M0-SELECTED-PROFILE",
+        "pg_id": "PG-6A.3",
+        "selected_profile_rationale": "The selected profile expressly excludes commercial accounting and settlement; a separately selected profile and authority are required."
+      },
+      {
+        "closure_claimed": false,
+        "disposition": "conditional",
+        "evidence_or_blocker_ref": "COND-M0-PG-SELECTION",
+        "pg_id": "PG-6A.4",
+        "selected_profile_rationale": "The selected profile does not activate every commercial accounting and settlement posture; this gate blocks if its named posture is selected."
+      },
+      {
+        "closure_claimed": false,
+        "disposition": "out_of_scope",
+        "evidence_or_blocker_ref": "NONCLAIM-M0-SELECTED-PROFILE",
+        "pg_id": "PG-6B.1",
+        "selected_profile_rationale": "The selected profile expressly excludes dispute, bond, and settlement; a separately selected profile and authority are required."
+      },
+      {
+        "closure_claimed": false,
+        "disposition": "out_of_scope",
+        "evidence_or_blocker_ref": "NONCLAIM-M0-SELECTED-PROFILE",
+        "pg_id": "PG-6B.2",
+        "selected_profile_rationale": "The selected profile expressly excludes dispute, bond, and settlement; a separately selected profile and authority are required."
+      },
+      {
+        "closure_claimed": false,
+        "disposition": "out_of_scope",
+        "evidence_or_blocker_ref": "NONCLAIM-M0-SELECTED-PROFILE",
+        "pg_id": "PG-6B.3",
+        "selected_profile_rationale": "The selected profile expressly excludes dispute, bond, and settlement; a separately selected profile and authority are required."
+      },
+      {
+        "closure_claimed": false,
+        "disposition": "out_of_scope",
+        "evidence_or_blocker_ref": "NONCLAIM-M0-SELECTED-PROFILE",
+        "pg_id": "PG-6B.4",
+        "selected_profile_rationale": "The selected profile expressly excludes dispute, bond, and settlement; a separately selected profile and authority are required."
+      },
+      {
+        "closure_claimed": false,
+        "disposition": "out_of_scope",
+        "evidence_or_blocker_ref": "NONCLAIM-M0-SELECTED-PROFILE",
+        "pg_id": "PG-6B.5",
+        "selected_profile_rationale": "The selected profile expressly excludes dispute, bond, and settlement; a separately selected profile and authority are required."
+      },
+      {
+        "closure_claimed": false,
+        "disposition": "conditional",
+        "evidence_or_blocker_ref": "COND-M0-PG-SELECTION",
+        "pg_id": "PG-6C.1",
+        "selected_profile_rationale": "The selected profile does not activate every hardware attestation posture; this gate blocks if its named posture is selected."
+      },
+      {
+        "closure_claimed": false,
+        "disposition": "conditional",
+        "evidence_or_blocker_ref": "COND-M0-PG-SELECTION",
+        "pg_id": "PG-6C.2",
+        "selected_profile_rationale": "The selected profile does not activate every hardware attestation posture; this gate blocks if its named posture is selected."
+      },
+      {
+        "closure_claimed": false,
+        "disposition": "conditional",
+        "evidence_or_blocker_ref": "COND-M0-PG-SELECTION",
+        "pg_id": "PG-6C.3",
+        "selected_profile_rationale": "The selected profile does not activate every hardware attestation posture; this gate blocks if its named posture is selected."
+      },
+      {
+        "closure_claimed": false,
+        "disposition": "out_of_scope",
+        "evidence_or_blocker_ref": "NONCLAIM-M0-SELECTED-PROFILE",
+        "pg_id": "PG-6D.1",
+        "selected_profile_rationale": "The selected profile expressly excludes legal-regulatory effect; a separately selected profile and authority are required."
+      },
+      {
+        "closure_claimed": false,
+        "disposition": "out_of_scope",
+        "evidence_or_blocker_ref": "NONCLAIM-M0-SELECTED-PROFILE",
+        "pg_id": "PG-6D.2",
+        "selected_profile_rationale": "The selected profile expressly excludes legal-regulatory effect; a separately selected profile and authority are required."
+      },
+      {
+        "closure_claimed": false,
+        "disposition": "out_of_scope",
+        "evidence_or_blocker_ref": "NONCLAIM-M0-SELECTED-PROFILE",
+        "pg_id": "PG-6D.3",
+        "selected_profile_rationale": "The selected profile expressly excludes legal-regulatory effect; a separately selected profile and authority are required."
+      },
+      {
+        "closure_claimed": false,
+        "disposition": "required_now",
+        "evidence_or_blocker_ref": "BLK-M0-PG-REQUIRED-NOT-CLOSED",
+        "pg_id": "PG-7.1",
+        "selected_profile_rationale": "The selected single-node software-change profile directly needs production operability; the gate remains open."
+      },
+      {
+        "closure_claimed": false,
+        "disposition": "required_now",
+        "evidence_or_blocker_ref": "BLK-M0-PG-REQUIRED-NOT-CLOSED",
+        "pg_id": "PG-7.2",
+        "selected_profile_rationale": "The selected single-node software-change profile directly needs production operability; the gate remains open."
+      },
+      {
+        "closure_claimed": false,
+        "disposition": "required_now",
+        "evidence_or_blocker_ref": "BLK-M0-PG-REQUIRED-NOT-CLOSED",
+        "pg_id": "PG-7.3",
+        "selected_profile_rationale": "The selected single-node software-change profile directly needs production operability; the gate remains open."
+      },
+      {
+        "closure_claimed": false,
+        "disposition": "required_now",
+        "evidence_or_blocker_ref": "BLK-M0-PG-REQUIRED-NOT-CLOSED",
+        "pg_id": "PG-7.4",
+        "selected_profile_rationale": "The selected single-node software-change profile directly needs production operability; the gate remains open."
+      },
+      {
+        "closure_claimed": false,
+        "disposition": "conditional",
+        "evidence_or_blocker_ref": "COND-M0-PG-SELECTION",
+        "pg_id": "PG-7.5",
+        "selected_profile_rationale": "The selected profile does not activate every production operability posture; this gate blocks if its named posture is selected."
+      },
+      {
+        "closure_claimed": false,
+        "disposition": "conditional",
+        "evidence_or_blocker_ref": "COND-M0-PG-SELECTION",
+        "pg_id": "PG-7.6",
+        "selected_profile_rationale": "The selected profile does not activate every production operability posture; this gate blocks if its named posture is selected."
+      },
+      {
+        "closure_claimed": false,
+        "disposition": "required_now",
+        "evidence_or_blocker_ref": "BLK-M0-PG-REQUIRED-NOT-CLOSED",
+        "pg_id": "PG-7.7",
+        "selected_profile_rationale": "The selected single-node software-change profile directly needs production operability; the gate remains open."
+      },
+      {
+        "closure_claimed": false,
+        "disposition": "required_now",
+        "evidence_or_blocker_ref": "BLK-M0-PG-REQUIRED-NOT-CLOSED",
+        "pg_id": "PG-7.8",
+        "selected_profile_rationale": "The selected single-node software-change profile directly needs production operability; the gate remains open."
+      }
+    ]
+  },
+  "program_state": "reviewed",
+  "release_ladder": [
+    {
+      "criterion": "One fixture traverses selected owner boundaries; it is not production-ready.",
+      "level": "P0",
+      "name": "walking skeleton",
+      "stage_binding": "M3-M5"
+    },
+    {
+      "criterion": "The terminal M9 journey works with adversarial evidence in an IOI-controlled environment.",
+      "level": "P1",
+      "name": "internal product proof",
+      "stage_binding": "M9"
+    },
+    {
+      "criterion": "Independent users complete the journey on their data with disclosed support and limits.",
+      "level": "P2",
+      "name": "external design-partner proof",
+      "stage_binding": "M9 external overlay"
+    },
+    {
+      "criterion": "Applicable required-now and selected conditional gates close and recovery thresholds pass.",
+      "level": "P3",
+      "name": "production-integrated profile",
+      "stage_binding": "M9 plus PG gates"
+    },
+    {
+      "criterion": "One logical System preserves continuity and performs useful work across admitted nodes.",
+      "level": "P4",
+      "name": "distributed L0 proof",
+      "stage_binding": "M10-M11"
+    },
+    {
+      "criterion": "Independently governed Systems demonstrate useful positive-surplus work and portable exit.",
+      "level": "P5",
+      "name": "sovereign cooperation proof",
+      "stage_binding": "M13"
+    },
+    {
+      "criterion": "A selected live hardware profile passes its physical-action, runtime, and production gates.",
+      "level": "P6",
+      "name": "embodied deployment proof",
+      "stage_binding": "M11 live overlay"
+    },
+    {
+      "criterion": "Connected and secured services show recurring external demand and sustainable security economics.",
+      "level": "P7",
+      "name": "public network demand proof",
+      "stage_binding": "M14"
+    }
+  ],
+  "repository_validation_baselines": [
+    {
+      "baseline_id": "BASE-M0-REPOSITORY-RUSTFMT",
+      "command": "cargo fmt --all -- --check",
+      "exit_code": 1,
+      "nonclaim": "This records repository-wide pre-existing formatting debt; M0 changes no Rust source and claims no Rustfmt closure.",
+      "observed_as_of": "2026-07-18",
+      "raw_output_sha256": "27269428c23ccc63ed629b6e6fa9aac7c70cc9d72f7fd3152549e95362032715",
+      "reported_diff_hunk_count": 2002,
+      "reported_file_count": 54,
+      "reported_paths": [
+        "crates/agentgres/src/bin/bench.rs",
+        "crates/agentgres/src/bin/parity.rs",
+        "crates/agentgres/src/bin/replica.rs",
+        "crates/agentgres/src/bin/shadow.rs",
+        "crates/agentgres/src/lib.rs",
+        "crates/agentgres/src/mux.rs",
+        "crates/agentgres/src/replica.rs",
+        "crates/node/src/bin/hypervisor-daemon.rs",
+        "crates/node/src/bin/hypervisor_daemon_routes/akash_candidate_source.rs",
+        "crates/node/src/bin/hypervisor_daemon_routes/aws_candidate_source.rs",
+        "crates/node/src/bin/hypervisor_daemon_routes/azure_candidate_source.rs",
+        "crates/node/src/bin/hypervisor_daemon_routes/capability_lease_plan_routes.rs",
+        "crates/node/src/bin/hypervisor_daemon_routes/connector_execution_routes.rs",
+        "crates/node/src/bin/hypervisor_daemon_routes/connector_mapping_routes.rs",
+        "crates/node/src/bin/hypervisor_daemon_routes/connector_session_routes.rs",
+        "crates/node/src/bin/hypervisor_daemon_routes/data_source_routes.rs",
+        "crates/node/src/bin/hypervisor_daemon_routes/decentralized_cloud_routes.rs",
+        "crates/node/src/bin/hypervisor_daemon_routes/domain_apps_routes.rs",
+        "crates/node/src/bin/hypervisor_daemon_routes/editor_routes.rs",
+        "crates/node/src/bin/hypervisor_daemon_routes/environment_routes.rs",
+        "crates/node/src/bin/hypervisor_daemon_routes/eval_suite_routes.rs",
+        "crates/node/src/bin/hypervisor_daemon_routes/feedback_routes.rs",
+        "crates/node/src/bin/hypervisor_daemon_routes/foundry_routes.rs",
+        "crates/node/src/bin/hypervisor_daemon_routes/gcp_candidate_source.rs",
+        "crates/node/src/bin/hypervisor_daemon_routes/goalrun_routes.rs",
+        "crates/node/src/bin/hypervisor_daemon_routes/governance_routes.rs",
+        "crates/node/src/bin/hypervisor_daemon_routes/harness_routes.rs",
+        "crates/node/src/bin/hypervisor_daemon_routes/ioi_agent_routes.rs",
+        "crates/node/src/bin/hypervisor_daemon_routes/ioi_intelligence_routes.rs",
+        "crates/node/src/bin/hypervisor_daemon_routes/k8s_candidate_source.rs",
+        "crates/node/src/bin/hypervisor_daemon_routes/lambda_candidate_source.rs",
+        "crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs",
+        "crates/node/src/bin/hypervisor_daemon_routes/marketplace_routes.rs",
+        "crates/node/src/bin/hypervisor_daemon_routes/materializing_run_routes.rs",
+        "crates/node/src/bin/hypervisor_daemon_routes/model_routes.rs",
+        "crates/node/src/bin/hypervisor_daemon_routes/odk_routes.rs",
+        "crates/node/src/bin/hypervisor_daemon_routes/ontology_projection_routes.rs",
+        "crates/node/src/bin/hypervisor_daemon_routes/orchestration_routes.rs",
+        "crates/node/src/bin/hypervisor_daemon_routes/outcome_room_routes.rs",
+        "crates/node/src/bin/hypervisor_daemon_routes/placement_failover_routes.rs",
+        "crates/node/src/bin/hypervisor_daemon_routes/policy_bound_data_view_routes.rs",
+        "crates/node/src/bin/hypervisor_daemon_routes/provider_routes.rs",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs",
+        "crates/node/src/bin/hypervisor_daemon_routes/runpod_candidate_source.rs",
+        "crates/node/src/bin/hypervisor_daemon_routes/state_machine_routes.rs",
+        "crates/node/src/bin/hypervisor_daemon_routes/storage_backend_routes.rs",
+        "crates/node/src/bin/hypervisor_daemon_routes/substrate_store.rs",
+        "crates/node/src/bin/hypervisor_daemon_routes/transformation_run_routes.rs",
+        "crates/node/src/bin/hypervisor_daemon_routes/vast_candidate_source.rs",
+        "crates/node/src/bin/hypervisor_daemon_routes/work_frontier_claim_routes.rs",
+        "crates/node/src/bin/hypervisor_daemon_routes/work_result_routes.rs",
+        "crates/services/src/agentic/runtime/kernel/runtime_goal_run_admission.rs",
+        "crates/services/src/agentic/runtime/kernel/runtime_harness_profile_mutation_admission.rs",
+        "crates/services/src/agentic/runtime/kernel/runtime_hypervisor_project_create.rs"
+      ],
+      "status": "existing_failure",
+      "tool_version": "rustfmt 1.8.0-stable (01f6ddf758 2026-02-11)",
+      "worktree_mutated": false
+    }
+  ],
+  "selected_profile": {
+    "exact_effect": {
+      "blocker_ref": "BLK-M0-SELECTED-REPO-EFFECT",
+      "effect": "Apply or refuse one sandboxed repository software change.",
+      "final_invoker_symbol": "coding_tool_workspace::apply_workspace_patch",
+      "implementation_state": "unavailable",
+      "route_identity": "http:hypervisor-daemon:POST /v1/threads/:id/tools/:name/invoke",
+      "selected_subdispatch": "file.apply_patch"
+    },
+    "included": [
+      "one immutable package and release through genesis into one stable System",
+      "one immutable GoalRunProfile and durable GoalRun in an OutcomeRoom",
+      "disclosed first-party worker roles plus an independent deterministic verifier",
+      "one isolated sandbox repository and branch",
+      "provider-neutral account and low-risk product session with passkey-capable step-up",
+      "exact authority, revocation, IFC, budget, fence, idempotency, recovery, and receipt checks",
+      "Agentgres operations, heads, roots, receipts, replay, evidence admission, and export",
+      "private evaluation and model routes with measured internal cost only",
+      "proposal-mediated improvement with target-owner activation, rollback or recall, suspension, and retirement"
+    ],
+    "level": "minimum selected L0 proof profile; not a MinimumL0 object",
+    "nonclaims": [
+      "no multiple runtime nodes, automatic failover, or cross-system AIIP",
+      "no public marketplace, payment, payout, settlement, IOI Network, IOI L1, or native asset",
+      "no physical actuation, cTEE claim, public certification, or generalized recursive improvement",
+      "no autonomous production access, universal correctness, universal factual truth, or hidden provider non-learning",
+      "no architecture or production capability closes merely because M0 program control verifies"
+    ],
+    "object_owners": [
+      {
+        "object_set": "System package, release, genesis, constitution, deployment, membership, and lifecycle",
+        "owner": "Governed autonomous systems",
+        "owner_doc": "docs/architecture/foundations/governed-autonomous-systems.md"
+      },
+      {
+        "object_set": "GoalRunProfile, GoalRun, GoalGroundingLoop, ContextCell, and handoff",
+        "owner": "Goal Kernel common objects",
+        "owner_doc": "docs/architecture/foundations/common-objects-and-envelopes.md"
+      },
+      {
+        "object_set": "OutcomeRoom, participation, frontier, claim, attempt, finding, challenge, WorkResult, and OutcomeDelta",
+        "owner": "OutcomeRoom collaborative outcome pattern",
+        "owner_doc": "docs/architecture/domains/ioi-ai/collaborative-outcome-pattern.md"
+      },
+      {
+        "object_set": "Worker topology, harness invocation, scoped tools, model routes, and selected repository effect",
+        "owner": "Hypervisor Daemon/Core",
+        "owner_doc": "docs/architecture/components/daemon-runtime/api.md"
+      },
+      {
+        "object_set": "Account identity, product session, approval, portable grant, revocation, and step-up",
+        "owner": "wallet.network authority",
+        "owner_doc": "docs/architecture/components/wallet-network/api-authority-scopes.md"
+      },
+      {
+        "object_set": "Operation, exact head/root, receipt, replay, checkpoint, artifact lineage, and export",
+        "owner": "Agentgres",
+        "owner_doc": "docs/architecture/components/agentgres/api-object-model.md"
+      },
+      {
+        "object_set": "Provider route and isolated work environment",
+        "owner": "Hypervisor providers and environments",
+        "owner_doc": "docs/architecture/components/hypervisor/providers-and-environments.md"
+      },
+      {
+        "object_set": "Proposal-mediated improvement, target approval, activation, rollback, recall, and suspension",
+        "owner": "Improvement governance",
+        "owner_doc": "docs/architecture/components/daemon-runtime/improvement-governance-gates.md"
+      },
+      {
+        "object_set": "Learning eligibility, source rights, route rights, export, and revocation impact",
+        "owner": "Institutional learning boundary",
+        "owner_doc": "docs/architecture/foundations/institutional-learning-boundary.md"
+      },
+      {
+        "object_set": "Visible product projections and unavailable/degraded/completed states",
+        "owner": "Hypervisor core clients and surfaces",
+        "owner_doc": "docs/architecture/components/hypervisor/core-clients-surfaces.md"
+      }
+    ],
+    "profile_id": "selected-minimum-l0-outcome-room-bounded-software-change",
+    "rollback_stop_rules": [
+      "Stop on any hidden database edit, privileged one-off script, copied bearer authority, prompt-only transition, fabricated success, or manually reconstructed evidence chain.",
+      "An unavailable owner step remains a typed blocker; compatibility output never substitutes for it.",
+      "Revoke or fence authority before recovery, preserve ambiguous effects, and require explicit reconciliation before retry."
+    ],
+    "source": "docs/architecture/_meta/execution-horizons.md#selected-minimum-l0-proof-profile",
+    "topology": {
+      "failure_domains": 1,
+      "nodes": 1,
+      "ordering_finality": "single_authority",
+      "writers": 1
+    },
+    "visible_terminal_journey": [
+      {
+        "blocker_ref": "BLK-M0-SELECTED-IDENTITY-STEP-UP",
+        "route_identities": [
+          "http:hypervisor-daemon:POST /v1/hypervisor/auth/login",
+          "http:hypervisor-daemon:GET /v1/hypervisor/auth/whoami"
+        ],
+        "state": "unavailable",
+        "step": 1,
+        "visible_action": "Continue with an eligible identity or passkey."
+      },
+      {
+        "blocker_ref": "BLK-M0-SELECTED-PACKAGE-GENESIS",
+        "route_identities": [],
+        "state": "unavailable",
+        "step": 2,
+        "visible_action": "Choose the bounded software-change template."
+      },
+      {
+        "blocker_ref": "BLK-M0-SELECTED-JOURNEY-BINDING",
+        "route_identities": [
+          "http:hypervisor-daemon:POST /v1/hypervisor/goal-runs"
+        ],
+        "state": "unavailable",
+        "step": 3,
+        "visible_action": "Describe the goal, repository, constraints, authority, and acceptance."
+      },
+      {
+        "blocker_ref": "BLK-M0-SELECTED-PACKAGE-GENESIS",
+        "route_identities": [],
+        "state": "unavailable",
+        "step": 4,
+        "visible_action": "Validate, preview, and simulate one compiled package/genesis proposal."
+      },
+      {
+        "blocker_ref": "BLK-M0-SELECTED-PACKAGE-GENESIS",
+        "route_identities": [],
+        "state": "unavailable",
+        "step": 5,
+        "visible_action": "Approve genesis and inspect the stable System."
+      },
+      {
+        "blocker_ref": "BLK-M0-SELECTED-JOURNEY-BINDING",
+        "route_identities": [
+          "http:hypervisor-daemon:POST /v1/hypervisor/outcome-rooms",
+          "http:hypervisor-daemon:POST /v1/hypervisor/outcome-rooms/:id/attach-goal-run",
+          "http:hypervisor-daemon:POST /v1/hypervisor/goal-runs/:id/start"
+        ],
+        "state": "unavailable",
+        "step": 6,
+        "visible_action": "Start or admit the GoalRun in its OutcomeRoom-backed work context."
+      },
+      {
+        "blocker_ref": "BLK-M0-SELECTED-JOURNEY-BINDING",
+        "route_identities": [
+          "http:hypervisor-daemon:GET /v1/hypervisor/outcome-rooms/:id",
+          "http:hypervisor-daemon:POST /v1/hypervisor/work-frontier-items",
+          "http:hypervisor-daemon:POST /v1/hypervisor/work-claim-leases",
+          "http:hypervisor-daemon:POST /v1/hypervisor/attempts",
+          "http:hypervisor-daemon:POST /v1/hypervisor/work-results"
+        ],
+        "state": "unavailable",
+        "step": 7,
+        "visible_action": "Observe planning, claimed work, attempts, verification, and blockers."
+      },
+      {
+        "blocker_ref": "BLK-M0-SELECTED-JOURNEY-BINDING",
+        "route_identities": [
+          "http:hypervisor-daemon:POST /v1/threads/:id/workspace-change-reviews/detect",
+          "http:hypervisor-daemon:POST /v1/threads/:id/workspace-change-reviews/control"
+        ],
+        "state": "unavailable",
+        "step": 8,
+        "visible_action": "Review the exact proposed repository effect."
+      },
+      {
+        "blocker_ref": "BLK-M0-SELECTED-IDENTITY-STEP-UP",
+        "route_identities": [
+          "service:wallet.network:issue_session_grant@v1",
+          "service:wallet.network:issue_principal_authority_binding@v1"
+        ],
+        "state": "unavailable",
+        "step": 9,
+        "visible_action": "Unlock a scoped grant with a passkey when policy requires it."
+      },
+      {
+        "blocker_ref": "BLK-M0-SELECTED-REPO-EFFECT",
+        "route_identities": [
+          "http:hypervisor-daemon:POST /v1/hypervisor/authority/preflight",
+          "http:hypervisor-daemon:POST /v1/threads/:id/tools/:name/invoke"
+        ],
+        "state": "unavailable",
+        "step": 10,
+        "visible_action": "Let the daemon revalidate and execute or refuse the exact effect."
+      },
+      {
+        "blocker_ref": "BLK-M0-SELECTED-INSPECTION-CHAIN",
+        "route_identities": [
+          "http:hypervisor-daemon:GET /v1/runs/:id/inspect",
+          "http:hypervisor-daemon:GET /v1/hypervisor/authority/receipts"
+        ],
+        "state": "unavailable",
+        "step": 11,
+        "visible_action": "Inspect the diff, tests, evidence admission, receipt chain, state root, costs, provider route, and learning eligibility."
+      },
+      {
+        "blocker_ref": "BLK-M0-SELECTED-INSPECTION-CHAIN",
+        "route_identities": [
+          "http:hypervisor-daemon:GET /v1/runs/:id/replay"
+        ],
+        "state": "unavailable",
+        "step": 12,
+        "visible_action": "Replay the decision and effect from exported evidence."
+      },
+      {
+        "blocker_ref": "BLK-M0-SELECTED-UPGRADE-LIFECYCLE",
+        "route_identities": [],
+        "state": "unavailable",
+        "step": 13,
+        "visible_action": "Propose an upgrade, exercise rollback or recall, and retire the System."
+      }
+    ]
+  },
+  "sequencing_authority": {
+    "legacy_default": "non_authoritative",
+    "pg_ledger_read_only_path": "internal-docs/implementation/canon-mechanism-hardening-action-plan.md",
+    "rule": "No capture, legacy app plan, prompt, harness, or evidence file schedules work or creates owner truth.",
+    "sole_sequencer_read_only_path": "internal-docs/implementation/ioi-target-end-state-master-implementation-guide.md",
+    "tracked_canon_role": "architecture owner and status authority, not an alternate implementation sequence"
+  }
+}

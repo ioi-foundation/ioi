@@ -1,0 +1,421 @@
+{
+  "as_of_date": "2026-07-18",
+  "build_fingerprint": "157932f15f2aff51f3a267f9eaf58a75fbfb7ef1055cc83b04b34cd8333ef7e3",
+  "closure_claimed": false,
+  "counts": {
+    "conditional": 15,
+    "later": 6,
+    "out_of_scope": 15,
+    "required_now": 22
+  },
+  "definition_owner": "internal-docs/implementation/canon-mechanism-hardening-action-plan.md",
+  "entries": [
+    {
+      "closure_claimed": false,
+      "disposition": "conditional",
+      "evidence_or_blocker_ref": "COND-M0-PG-SELECTION",
+      "pg_id": "PG-0.1",
+      "selected_profile_rationale": "The selected profile does not activate every program-integrity and selected upgrade posture; this gate blocks if its named posture is selected."
+    },
+    {
+      "closure_claimed": false,
+      "disposition": "required_now",
+      "evidence_or_blocker_ref": "BLK-M0-PG-REQUIRED-NOT-CLOSED",
+      "pg_id": "PG-0.2",
+      "selected_profile_rationale": "The selected single-node software-change profile directly needs program-integrity and selected upgrade; the gate remains open."
+    },
+    {
+      "closure_claimed": false,
+      "disposition": "conditional",
+      "evidence_or_blocker_ref": "COND-M0-PG-SELECTION",
+      "pg_id": "PG-0.3",
+      "selected_profile_rationale": "The selected profile does not activate every program-integrity and selected upgrade posture; this gate blocks if its named posture is selected."
+    },
+    {
+      "closure_claimed": false,
+      "disposition": "required_now",
+      "evidence_or_blocker_ref": "BLK-M0-PG-REQUIRED-NOT-CLOSED",
+      "pg_id": "PG-1.1",
+      "selected_profile_rationale": "The selected single-node software-change profile directly needs registered contract and compatibility; the gate remains open."
+    },
+    {
+      "closure_claimed": false,
+      "disposition": "required_now",
+      "evidence_or_blocker_ref": "BLK-M0-PG-REQUIRED-NOT-CLOSED",
+      "pg_id": "PG-1.2",
+      "selected_profile_rationale": "The selected single-node software-change profile directly needs registered contract and compatibility; the gate remains open."
+    },
+    {
+      "closure_claimed": false,
+      "disposition": "conditional",
+      "evidence_or_blocker_ref": "COND-M0-PG-SELECTION",
+      "pg_id": "PG-1.3",
+      "selected_profile_rationale": "The selected profile does not activate every registered contract and compatibility posture; this gate blocks if its named posture is selected."
+    },
+    {
+      "closure_claimed": false,
+      "disposition": "required_now",
+      "evidence_or_blocker_ref": "BLK-M0-PG-REQUIRED-NOT-CLOSED",
+      "pg_id": "PG-2.1",
+      "selected_profile_rationale": "The selected single-node software-change profile directly needs portable authority and receipt proof; the gate remains open."
+    },
+    {
+      "closure_claimed": false,
+      "disposition": "required_now",
+      "evidence_or_blocker_ref": "BLK-M0-PG-REQUIRED-NOT-CLOSED",
+      "pg_id": "PG-2.2",
+      "selected_profile_rationale": "The selected single-node software-change profile directly needs portable authority and receipt proof; the gate remains open."
+    },
+    {
+      "closure_claimed": false,
+      "disposition": "required_now",
+      "evidence_or_blocker_ref": "BLK-M0-PG-REQUIRED-NOT-CLOSED",
+      "pg_id": "PG-2.3",
+      "selected_profile_rationale": "The selected single-node software-change profile directly needs portable authority and receipt proof; the gate remains open."
+    },
+    {
+      "closure_claimed": false,
+      "disposition": "required_now",
+      "evidence_or_blocker_ref": "BLK-M0-PG-REQUIRED-NOT-CLOSED",
+      "pg_id": "PG-2.4",
+      "selected_profile_rationale": "The selected single-node software-change profile directly needs portable authority and receipt proof; the gate remains open."
+    },
+    {
+      "closure_claimed": false,
+      "disposition": "later",
+      "evidence_or_blocker_ref": "NONCLAIM-M0-LATER-HORIZON",
+      "pg_id": "PG-2.5",
+      "selected_profile_rationale": "portable authority and receipt proof belongs to a later horizon than the selected single-node proof."
+    },
+    {
+      "closure_claimed": false,
+      "disposition": "conditional",
+      "evidence_or_blocker_ref": "COND-M0-PG-SELECTION",
+      "pg_id": "PG-2.6",
+      "selected_profile_rationale": "The selected profile does not activate every portable authority and receipt proof posture; this gate blocks if its named posture is selected."
+    },
+    {
+      "closure_claimed": false,
+      "disposition": "required_now",
+      "evidence_or_blocker_ref": "BLK-M0-PG-REQUIRED-NOT-CLOSED",
+      "pg_id": "PG-3.1",
+      "selected_profile_rationale": "The selected single-node software-change profile directly needs information-flow and destination control; the gate remains open."
+    },
+    {
+      "closure_claimed": false,
+      "disposition": "conditional",
+      "evidence_or_blocker_ref": "COND-M0-PG-SELECTION",
+      "pg_id": "PG-3.2",
+      "selected_profile_rationale": "The selected profile does not activate every information-flow and destination control posture; this gate blocks if its named posture is selected."
+    },
+    {
+      "closure_claimed": false,
+      "disposition": "conditional",
+      "evidence_or_blocker_ref": "COND-M0-PG-SELECTION",
+      "pg_id": "PG-3.3",
+      "selected_profile_rationale": "The selected profile does not activate every information-flow and destination control posture; this gate blocks if its named posture is selected."
+    },
+    {
+      "closure_claimed": false,
+      "disposition": "conditional",
+      "evidence_or_blocker_ref": "COND-M0-PG-SELECTION",
+      "pg_id": "PG-3.4",
+      "selected_profile_rationale": "The selected profile does not activate every information-flow and destination control posture; this gate blocks if its named posture is selected."
+    },
+    {
+      "closure_claimed": false,
+      "disposition": "required_now",
+      "evidence_or_blocker_ref": "BLK-M0-PG-REQUIRED-NOT-CLOSED",
+      "pg_id": "PG-3.5",
+      "selected_profile_rationale": "The selected single-node software-change profile directly needs information-flow and destination control; the gate remains open."
+    },
+    {
+      "closure_claimed": false,
+      "disposition": "required_now",
+      "evidence_or_blocker_ref": "BLK-M0-PG-REQUIRED-NOT-CLOSED",
+      "pg_id": "PG-3.6",
+      "selected_profile_rationale": "The selected single-node software-change profile directly needs information-flow and destination control; the gate remains open."
+    },
+    {
+      "closure_claimed": false,
+      "disposition": "later",
+      "evidence_or_blocker_ref": "NONCLAIM-M0-LATER-HORIZON",
+      "pg_id": "PG-4A.1",
+      "selected_profile_rationale": "multi-node continuity and writer fencing belongs to a later horizon than the selected single-node proof."
+    },
+    {
+      "closure_claimed": false,
+      "disposition": "later",
+      "evidence_or_blocker_ref": "NONCLAIM-M0-LATER-HORIZON",
+      "pg_id": "PG-4A.2",
+      "selected_profile_rationale": "multi-node continuity and writer fencing belongs to a later horizon than the selected single-node proof."
+    },
+    {
+      "closure_claimed": false,
+      "disposition": "later",
+      "evidence_or_blocker_ref": "NONCLAIM-M0-LATER-HORIZON",
+      "pg_id": "PG-4A.3",
+      "selected_profile_rationale": "multi-node continuity and writer fencing belongs to a later horizon than the selected single-node proof."
+    },
+    {
+      "closure_claimed": false,
+      "disposition": "later",
+      "evidence_or_blocker_ref": "NONCLAIM-M0-LATER-HORIZON",
+      "pg_id": "PG-4A.4",
+      "selected_profile_rationale": "multi-node continuity and writer fencing belongs to a later horizon than the selected single-node proof."
+    },
+    {
+      "closure_claimed": false,
+      "disposition": "required_now",
+      "evidence_or_blocker_ref": "BLK-M0-PG-REQUIRED-NOT-CLOSED",
+      "pg_id": "PG-4A.5",
+      "selected_profile_rationale": "The selected single-node software-change profile directly needs multi-node continuity and writer fencing; the gate remains open."
+    },
+    {
+      "closure_claimed": false,
+      "disposition": "later",
+      "evidence_or_blocker_ref": "NONCLAIM-M0-LATER-HORIZON",
+      "pg_id": "PG-4A.6",
+      "selected_profile_rationale": "multi-node continuity and writer fencing belongs to a later horizon than the selected single-node proof."
+    },
+    {
+      "closure_claimed": false,
+      "disposition": "required_now",
+      "evidence_or_blocker_ref": "BLK-M0-PG-REQUIRED-NOT-CLOSED",
+      "pg_id": "PG-4B.1",
+      "selected_profile_rationale": "The selected single-node software-change profile directly needs shared lifecycle and recovery; the gate remains open."
+    },
+    {
+      "closure_claimed": false,
+      "disposition": "required_now",
+      "evidence_or_blocker_ref": "BLK-M0-PG-REQUIRED-NOT-CLOSED",
+      "pg_id": "PG-4B.2",
+      "selected_profile_rationale": "The selected single-node software-change profile directly needs shared lifecycle and recovery; the gate remains open."
+    },
+    {
+      "closure_claimed": false,
+      "disposition": "required_now",
+      "evidence_or_blocker_ref": "BLK-M0-PG-REQUIRED-NOT-CLOSED",
+      "pg_id": "PG-4B.3",
+      "selected_profile_rationale": "The selected single-node software-change profile directly needs shared lifecycle and recovery; the gate remains open."
+    },
+    {
+      "closure_claimed": false,
+      "disposition": "required_now",
+      "evidence_or_blocker_ref": "BLK-M0-PG-REQUIRED-NOT-CLOSED",
+      "pg_id": "PG-4B.4",
+      "selected_profile_rationale": "The selected single-node software-change profile directly needs shared lifecycle and recovery; the gate remains open."
+    },
+    {
+      "closure_claimed": false,
+      "disposition": "required_now",
+      "evidence_or_blocker_ref": "BLK-M0-PG-REQUIRED-NOT-CLOSED",
+      "pg_id": "PG-4B.5",
+      "selected_profile_rationale": "The selected single-node software-change profile directly needs shared lifecycle and recovery; the gate remains open."
+    },
+    {
+      "closure_claimed": false,
+      "disposition": "conditional",
+      "evidence_or_blocker_ref": "COND-M0-PG-SELECTION",
+      "pg_id": "PG-4B.6",
+      "selected_profile_rationale": "The selected profile does not activate every shared lifecycle and recovery posture; this gate blocks if its named posture is selected."
+    },
+    {
+      "closure_claimed": false,
+      "disposition": "out_of_scope",
+      "evidence_or_blocker_ref": "NONCLAIM-M0-SELECTED-PROFILE",
+      "pg_id": "PG-5.1",
+      "selected_profile_rationale": "The selected profile expressly excludes live physical action; a separately selected profile and authority are required."
+    },
+    {
+      "closure_claimed": false,
+      "disposition": "out_of_scope",
+      "evidence_or_blocker_ref": "NONCLAIM-M0-SELECTED-PROFILE",
+      "pg_id": "PG-5.2",
+      "selected_profile_rationale": "The selected profile expressly excludes live physical action; a separately selected profile and authority are required."
+    },
+    {
+      "closure_claimed": false,
+      "disposition": "out_of_scope",
+      "evidence_or_blocker_ref": "NONCLAIM-M0-SELECTED-PROFILE",
+      "pg_id": "PG-5.3",
+      "selected_profile_rationale": "The selected profile expressly excludes live physical action; a separately selected profile and authority are required."
+    },
+    {
+      "closure_claimed": false,
+      "disposition": "out_of_scope",
+      "evidence_or_blocker_ref": "NONCLAIM-M0-SELECTED-PROFILE",
+      "pg_id": "PG-5.4",
+      "selected_profile_rationale": "The selected profile expressly excludes live physical action; a separately selected profile and authority are required."
+    },
+    {
+      "closure_claimed": false,
+      "disposition": "out_of_scope",
+      "evidence_or_blocker_ref": "NONCLAIM-M0-SELECTED-PROFILE",
+      "pg_id": "PG-5.5",
+      "selected_profile_rationale": "The selected profile expressly excludes live physical action; a separately selected profile and authority are required."
+    },
+    {
+      "closure_claimed": false,
+      "disposition": "conditional",
+      "evidence_or_blocker_ref": "COND-M0-PG-SELECTION",
+      "pg_id": "PG-6A.1",
+      "selected_profile_rationale": "The selected profile does not activate every commercial accounting and settlement posture; this gate blocks if its named posture is selected."
+    },
+    {
+      "closure_claimed": false,
+      "disposition": "out_of_scope",
+      "evidence_or_blocker_ref": "NONCLAIM-M0-SELECTED-PROFILE",
+      "pg_id": "PG-6A.2",
+      "selected_profile_rationale": "The selected profile expressly excludes commercial accounting and settlement; a separately selected profile and authority are required."
+    },
+    {
+      "closure_claimed": false,
+      "disposition": "out_of_scope",
+      "evidence_or_blocker_ref": "NONCLAIM-M0-SELECTED-PROFILE",
+      "pg_id": "PG-6A.3",
+      "selected_profile_rationale": "The selected profile expressly excludes commercial accounting and settlement; a separately selected profile and authority are required."
+    },
+    {
+      "closure_claimed": false,
+      "disposition": "conditional",
+      "evidence_or_blocker_ref": "COND-M0-PG-SELECTION",
+      "pg_id": "PG-6A.4",
+      "selected_profile_rationale": "The selected profile does not activate every commercial accounting and settlement posture; this gate blocks if its named posture is selected."
+    },
+    {
+      "closure_claimed": false,
+      "disposition": "out_of_scope",
+      "evidence_or_blocker_ref": "NONCLAIM-M0-SELECTED-PROFILE",
+      "pg_id": "PG-6B.1",
+      "selected_profile_rationale": "The selected profile expressly excludes dispute, bond, and settlement; a separately selected profile and authority are required."
+    },
+    {
+      "closure_claimed": false,
+      "disposition": "out_of_scope",
+      "evidence_or_blocker_ref": "NONCLAIM-M0-SELECTED-PROFILE",
+      "pg_id": "PG-6B.2",
+      "selected_profile_rationale": "The selected profile expressly excludes dispute, bond, and settlement; a separately selected profile and authority are required."
+    },
+    {
+      "closure_claimed": false,
+      "disposition": "out_of_scope",
+      "evidence_or_blocker_ref": "NONCLAIM-M0-SELECTED-PROFILE",
+      "pg_id": "PG-6B.3",
+      "selected_profile_rationale": "The selected profile expressly excludes dispute, bond, and settlement; a separately selected profile and authority are required."
+    },
+    {
+      "closure_claimed": false,
+      "disposition": "out_of_scope",
+      "evidence_or_blocker_ref": "NONCLAIM-M0-SELECTED-PROFILE",
+      "pg_id": "PG-6B.4",
+      "selected_profile_rationale": "The selected profile expressly excludes dispute, bond, and settlement; a separately selected profile and authority are required."
+    },
+    {
+      "closure_claimed": false,
+      "disposition": "out_of_scope",
+      "evidence_or_blocker_ref": "NONCLAIM-M0-SELECTED-PROFILE",
+      "pg_id": "PG-6B.5",
+      "selected_profile_rationale": "The selected profile expressly excludes dispute, bond, and settlement; a separately selected profile and authority are required."
+    },
+    {
+      "closure_claimed": false,
+      "disposition": "conditional",
+      "evidence_or_blocker_ref": "COND-M0-PG-SELECTION",
+      "pg_id": "PG-6C.1",
+      "selected_profile_rationale": "The selected profile does not activate every hardware attestation posture; this gate blocks if its named posture is selected."
+    },
+    {
+      "closure_claimed": false,
+      "disposition": "conditional",
+      "evidence_or_blocker_ref": "COND-M0-PG-SELECTION",
+      "pg_id": "PG-6C.2",
+      "selected_profile_rationale": "The selected profile does not activate every hardware attestation posture; this gate blocks if its named posture is selected."
+    },
+    {
+      "closure_claimed": false,
+      "disposition": "conditional",
+      "evidence_or_blocker_ref": "COND-M0-PG-SELECTION",
+      "pg_id": "PG-6C.3",
+      "selected_profile_rationale": "The selected profile does not activate every hardware attestation posture; this gate blocks if its named posture is selected."
+    },
+    {
+      "closure_claimed": false,
+      "disposition": "out_of_scope",
+      "evidence_or_blocker_ref": "NONCLAIM-M0-SELECTED-PROFILE",
+      "pg_id": "PG-6D.1",
+      "selected_profile_rationale": "The selected profile expressly excludes legal-regulatory effect; a separately selected profile and authority are required."
+    },
+    {
+      "closure_claimed": false,
+      "disposition": "out_of_scope",
+      "evidence_or_blocker_ref": "NONCLAIM-M0-SELECTED-PROFILE",
+      "pg_id": "PG-6D.2",
+      "selected_profile_rationale": "The selected profile expressly excludes legal-regulatory effect; a separately selected profile and authority are required."
+    },
+    {
+      "closure_claimed": false,
+      "disposition": "out_of_scope",
+      "evidence_or_blocker_ref": "NONCLAIM-M0-SELECTED-PROFILE",
+      "pg_id": "PG-6D.3",
+      "selected_profile_rationale": "The selected profile expressly excludes legal-regulatory effect; a separately selected profile and authority are required."
+    },
+    {
+      "closure_claimed": false,
+      "disposition": "required_now",
+      "evidence_or_blocker_ref": "BLK-M0-PG-REQUIRED-NOT-CLOSED",
+      "pg_id": "PG-7.1",
+      "selected_profile_rationale": "The selected single-node software-change profile directly needs production operability; the gate remains open."
+    },
+    {
+      "closure_claimed": false,
+      "disposition": "required_now",
+      "evidence_or_blocker_ref": "BLK-M0-PG-REQUIRED-NOT-CLOSED",
+      "pg_id": "PG-7.2",
+      "selected_profile_rationale": "The selected single-node software-change profile directly needs production operability; the gate remains open."
+    },
+    {
+      "closure_claimed": false,
+      "disposition": "required_now",
+      "evidence_or_blocker_ref": "BLK-M0-PG-REQUIRED-NOT-CLOSED",
+      "pg_id": "PG-7.3",
+      "selected_profile_rationale": "The selected single-node software-change profile directly needs production operability; the gate remains open."
+    },
+    {
+      "closure_claimed": false,
+      "disposition": "required_now",
+      "evidence_or_blocker_ref": "BLK-M0-PG-REQUIRED-NOT-CLOSED",
+      "pg_id": "PG-7.4",
+      "selected_profile_rationale": "The selected single-node software-change profile directly needs production operability; the gate remains open."
+    },
+    {
+      "closure_claimed": false,
+      "disposition": "conditional",
+      "evidence_or_blocker_ref": "COND-M0-PG-SELECTION",
+      "pg_id": "PG-7.5",
+      "selected_profile_rationale": "The selected profile does not activate every production operability posture; this gate blocks if its named posture is selected."
+    },
+    {
+      "closure_claimed": false,
+      "disposition": "conditional",
+      "evidence_or_blocker_ref": "COND-M0-PG-SELECTION",
+      "pg_id": "PG-7.6",
+      "selected_profile_rationale": "The selected profile does not activate every production operability posture; this gate blocks if its named posture is selected."
+    },
+    {
+      "closure_claimed": false,
+      "disposition": "required_now",
+      "evidence_or_blocker_ref": "BLK-M0-PG-REQUIRED-NOT-CLOSED",
+      "pg_id": "PG-7.7",
+      "selected_profile_rationale": "The selected single-node software-change profile directly needs production operability; the gate remains open."
+    },
+    {
+      "closure_claimed": false,
+      "disposition": "required_now",
+      "evidence_or_blocker_ref": "BLK-M0-PG-REQUIRED-NOT-CLOSED",
+      "pg_id": "PG-7.8",
+      "selected_profile_rationale": "The selected single-node software-change profile directly needs production operability; the gate remains open."
+    }
+  ],
+  "evidence_format": "ioi.m0.pg_gate_map.v1"
+}

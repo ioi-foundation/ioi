@@ -1,0 +1,50 @@
+{
+  "artifact_files": [
+    {
+      "path": "docs/evidence/m0-program-control/effect-census.json",
+      "sha256": "7b5b0927c788717a40cf3b1566315ead1f98a20f28d1d8da7f605c3a8a841afe"
+    },
+    {
+      "path": "docs/evidence/m0-program-control/selected-profile.json",
+      "sha256": "31fb1e2f9b99ddd6687b3f661ac5c028abf86ae145da20e637ad70bb59759bb3"
+    },
+    {
+      "path": "docs/evidence/m0-program-control/pg-gate-map.json",
+      "sha256": "97023e41eafbe328021e4516a1bd89781be8ac8469c21c8ec2fa94f32be45e80"
+    },
+    {
+      "path": "docs/evidence/m0-program-control/current-baselines.json",
+      "sha256": "7169ae9e3083cb7e77e7202b91b209786657f99dff37ccc4ce56fd60601876d9"
+    },
+    {
+      "path": "docs/evidence/m0-program-control/blocker-ledger.json",
+      "sha256": "4dc111c39f43419bcf70e6217f1be8403663cb5fb684a3dc869596b9a0f5da61"
+    },
+    {
+      "path": "docs/evidence/m0-program-control/release-ladder.json",
+      "sha256": "6060b8b2937864839f3a46e5c44f360a3ffc68cff7e9489c0ad960ba437ba77e"
+    },
+    {
+      "path": "docs/evidence/m0-program-control/program-evidence-index.json",
+      "sha256": "4eb5eabb2c9998b7487bec19ad8ea38637071672aa5cb3b09ad741ae50f19800"
+    },
+    {
+      "path": "docs/evidence/m0-program-control/m0-exit-report.json",
+      "sha256": "a7d4187e3654b7e7981de8d04cc3b1a2129920d6b5fe4ac1f46fe719e69c7d58"
+    }
+  ],
+  "as_of_date": "2026-07-18",
+  "build_fingerprint": "157932f15f2aff51f3a267f9eaf58a75fbfb7ef1055cc83b04b34cd8333ef7e3",
+  "consumption_rule": "Consumers must run scripts/m0-program-control.mjs --check; matching filenames without matching hashes are stale.",
+  "evidence_format": "ioi.m0.manifest.v1",
+  "source_files": [
+    {
+      "path": "docs/evidence/m0-program-control/reviewed-entry-lock.json",
+      "sha256": "f2b7e5bf59d66f8be294aa87582b67e30928f70861793baecd4fe13d522ae9db"
+    },
+    {
+      "path": "docs/evidence/m0-program-control/program-control-source.json",
+      "sha256": "fe429b185ef0bf0cf43c7073f9a3c24c795621a4047efbe57b86582f8e493d4a"
+    }
+  ]
+}

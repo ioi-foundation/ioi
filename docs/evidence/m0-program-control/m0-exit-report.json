@@ -1,0 +1,31 @@
+{
+  "architecture_or_production_capability_closure": false,
+  "as_of_date": "2026-07-18",
+  "build_fingerprint": "157932f15f2aff51f3a267f9eaf58a75fbfb7ef1055cc83b04b34cd8333ef7e3",
+  "census_counts": {
+    "consequential": 727,
+    "partial_consequential": 713,
+    "terminal_consequential": 0,
+    "total": 1519,
+    "unavailable_consequential": 14
+  },
+  "claim_scope": "M0 program control and claim lock only",
+  "conditions": {
+    "all_58_pg_ids_mapped_once": true,
+    "all_discovered_entries_explicitly_reviewed": true,
+    "baselines_are_measured_or_honestly_named": true,
+    "every_selected_object_has_owner": true,
+    "evidence_items_are_current_or_honestly_open": true,
+    "legacy_sequencing_is_non_authoritative": true,
+    "repository_validation_baseline_recorded": true,
+    "selected_effect_has_leaf_or_unavailable_blocker": true
+  },
+  "evidence_format": "ioi.m0.exit_report.v1",
+  "m0_exit_state": "verified",
+  "nonclaims": [
+    "M0 does not close any architecture production-status claim.",
+    "M0 does not provide runtime capability, authority, product UX, or a canonical wire contract.",
+    "Every production gate remains owned by the read-only PG ledger."
+  ],
+  "open_blocker_count": 19
+}

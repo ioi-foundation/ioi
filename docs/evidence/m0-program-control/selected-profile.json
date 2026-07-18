@@ -1,0 +1,544 @@
+{
+  "as_of_date": "2026-07-18",
+  "build_fingerprint": "157932f15f2aff51f3a267f9eaf58a75fbfb7ef1055cc83b04b34cd8333ef7e3",
+  "claim_scope": "M0 program control only; no architecture or production capability closure",
+  "evidence_format": "ioi.m0.selected_profile.v1",
+  "profile": {
+    "exact_effect": {
+      "blocker_ref": "BLK-M0-SELECTED-REPO-EFFECT",
+      "effect": "Apply or refuse one sandboxed repository software change.",
+      "final_invoker_symbol": "coding_tool_workspace::apply_workspace_patch",
+      "implementation_state": "unavailable",
+      "route_identity": "http:hypervisor-daemon:POST /v1/threads/:id/tools/:name/invoke",
+      "selected_subdispatch": "file.apply_patch"
+    },
+    "included": [
+      "one immutable package and release through genesis into one stable System",
+      "one immutable GoalRunProfile and durable GoalRun in an OutcomeRoom",
+      "disclosed first-party worker roles plus an independent deterministic verifier",
+      "one isolated sandbox repository and branch",
+      "provider-neutral account and low-risk product session with passkey-capable step-up",
+      "exact authority, revocation, IFC, budget, fence, idempotency, recovery, and receipt checks",
+      "Agentgres operations, heads, roots, receipts, replay, evidence admission, and export",
+      "private evaluation and model routes with measured internal cost only",
+      "proposal-mediated improvement with target-owner activation, rollback or recall, suspension, and retirement"
+    ],
+    "level": "minimum selected L0 proof profile; not a MinimumL0 object",
+    "nonclaims": [
+      "no multiple runtime nodes, automatic failover, or cross-system AIIP",
+      "no public marketplace, payment, payout, settlement, IOI Network, IOI L1, or native asset",
+      "no physical actuation, cTEE claim, public certification, or generalized recursive improvement",
+      "no autonomous production access, universal correctness, universal factual truth, or hidden provider non-learning",
+      "no architecture or production capability closes merely because M0 program control verifies"
+    ],
+    "object_owners": [
+      {
+        "object_set": "System package, release, genesis, constitution, deployment, membership, and lifecycle",
+        "owner": "Governed autonomous systems",
+        "owner_doc": "docs/architecture/foundations/governed-autonomous-systems.md"
+      },
+      {
+        "object_set": "GoalRunProfile, GoalRun, GoalGroundingLoop, ContextCell, and handoff",
+        "owner": "Goal Kernel common objects",
+        "owner_doc": "docs/architecture/foundations/common-objects-and-envelopes.md"
+      },
+      {
+        "object_set": "OutcomeRoom, participation, frontier, claim, attempt, finding, challenge, WorkResult, and OutcomeDelta",
+        "owner": "OutcomeRoom collaborative outcome pattern",
+        "owner_doc": "docs/architecture/domains/ioi-ai/collaborative-outcome-pattern.md"
+      },
+      {
+        "object_set": "Worker topology, harness invocation, scoped tools, model routes, and selected repository effect",
+        "owner": "Hypervisor Daemon/Core",
+        "owner_doc": "docs/architecture/components/daemon-runtime/api.md"
+      },
+      {
+        "object_set": "Account identity, product session, approval, portable grant, revocation, and step-up",
+        "owner": "wallet.network authority",
+        "owner_doc": "docs/architecture/components/wallet-network/api-authority-scopes.md"
+      },
+      {
+        "object_set": "Operation, exact head/root, receipt, replay, checkpoint, artifact lineage, and export",
+        "owner": "Agentgres",
+        "owner_doc": "docs/architecture/components/agentgres/api-object-model.md"
+      },
+      {
+        "object_set": "Provider route and isolated work environment",
+        "owner": "Hypervisor providers and environments",
+        "owner_doc": "docs/architecture/components/hypervisor/providers-and-environments.md"
+      },
+      {
+        "object_set": "Proposal-mediated improvement, target approval, activation, rollback, recall, and suspension",
+        "owner": "Improvement governance",
+        "owner_doc": "docs/architecture/components/daemon-runtime/improvement-governance-gates.md"
+      },
+      {
+        "object_set": "Learning eligibility, source rights, route rights, export, and revocation impact",
+        "owner": "Institutional learning boundary",
+        "owner_doc": "docs/architecture/foundations/institutional-learning-boundary.md"
+      },
+      {
+        "object_set": "Visible product projections and unavailable/degraded/completed states",
+        "owner": "Hypervisor core clients and surfaces",
+        "owner_doc": "docs/architecture/components/hypervisor/core-clients-surfaces.md"
+      }
+    ],
+    "profile_id": "selected-minimum-l0-outcome-room-bounded-software-change",
+    "rollback_stop_rules": [
+      "Stop on any hidden database edit, privileged one-off script, copied bearer authority, prompt-only transition, fabricated success, or manually reconstructed evidence chain.",
+      "An unavailable owner step remains a typed blocker; compatibility output never substitutes for it.",
+      "Revoke or fence authority before recovery, preserve ambiguous effects, and require explicit reconciliation before retry."
+    ],
+    "source": "docs/architecture/_meta/execution-horizons.md#selected-minimum-l0-proof-profile",
+    "topology": {
+      "failure_domains": 1,
+      "nodes": 1,
+      "ordering_finality": "single_authority",
+      "writers": 1
+    },
+    "visible_terminal_journey": [
+      {
+        "blocker_ref": "BLK-M0-SELECTED-IDENTITY-STEP-UP",
+        "route_identities": [
+          "http:hypervisor-daemon:POST /v1/hypervisor/auth/login",
+          "http:hypervisor-daemon:GET /v1/hypervisor/auth/whoami"
+        ],
+        "state": "unavailable",
+        "step": 1,
+        "visible_action": "Continue with an eligible identity or passkey."
+      },
+      {
+        "blocker_ref": "BLK-M0-SELECTED-PACKAGE-GENESIS",
+        "route_identities": [],
+        "state": "unavailable",
+        "step": 2,
+        "visible_action": "Choose the bounded software-change template."
+      },
+      {
+        "blocker_ref": "BLK-M0-SELECTED-JOURNEY-BINDING",
+        "route_identities": [
+          "http:hypervisor-daemon:POST /v1/hypervisor/goal-runs"
+        ],
+        "state": "unavailable",
+        "step": 3,
+        "visible_action": "Describe the goal, repository, constraints, authority, and acceptance."
+      },
+      {
+        "blocker_ref": "BLK-M0-SELECTED-PACKAGE-GENESIS",
+        "route_identities": [],
+        "state": "unavailable",
+        "step": 4,
+        "visible_action": "Validate, preview, and simulate one compiled package/genesis proposal."
+      },
+      {
+        "blocker_ref": "BLK-M0-SELECTED-PACKAGE-GENESIS",
+        "route_identities": [],
+        "state": "unavailable",
+        "step": 5,
+        "visible_action": "Approve genesis and inspect the stable System."
+      },
+      {
+        "blocker_ref": "BLK-M0-SELECTED-JOURNEY-BINDING",
+        "route_identities": [
+          "http:hypervisor-daemon:POST /v1/hypervisor/outcome-rooms",
+          "http:hypervisor-daemon:POST /v1/hypervisor/outcome-rooms/:id/attach-goal-run",
+          "http:hypervisor-daemon:POST /v1/hypervisor/goal-runs/:id/start"
+        ],
+        "state": "unavailable",
+        "step": 6,
+        "visible_action": "Start or admit the GoalRun in its OutcomeRoom-backed work context."
+      },
+      {
+        "blocker_ref": "BLK-M0-SELECTED-JOURNEY-BINDING",
+        "route_identities": [
+          "http:hypervisor-daemon:GET /v1/hypervisor/outcome-rooms/:id",
+          "http:hypervisor-daemon:POST /v1/hypervisor/work-frontier-items",
+          "http:hypervisor-daemon:POST /v1/hypervisor/work-claim-leases",
+          "http:hypervisor-daemon:POST /v1/hypervisor/attempts",
+          "http:hypervisor-daemon:POST /v1/hypervisor/work-results"
+        ],
+        "state": "unavailable",
+        "step": 7,
+        "visible_action": "Observe planning, claimed work, attempts, verification, and blockers."
+      },
+      {
+        "blocker_ref": "BLK-M0-SELECTED-JOURNEY-BINDING",
+        "route_identities": [
+          "http:hypervisor-daemon:POST /v1/threads/:id/workspace-change-reviews/detect",
+          "http:hypervisor-daemon:POST /v1/threads/:id/workspace-change-reviews/control"
+        ],
+        "state": "unavailable",
+        "step": 8,
+        "visible_action": "Review the exact proposed repository effect."
+      },
+      {
+        "blocker_ref": "BLK-M0-SELECTED-IDENTITY-STEP-UP",
+        "route_identities": [
+          "service:wallet.network:issue_session_grant@v1",
+          "service:wallet.network:issue_principal_authority_binding@v1"
+        ],
+        "state": "unavailable",
+        "step": 9,
+        "visible_action": "Unlock a scoped grant with a passkey when policy requires it."
+      },
+      {
+        "blocker_ref": "BLK-M0-SELECTED-REPO-EFFECT",
+        "route_identities": [
+          "http:hypervisor-daemon:POST /v1/hypervisor/authority/preflight",
+          "http:hypervisor-daemon:POST /v1/threads/:id/tools/:name/invoke"
+        ],
+        "state": "unavailable",
+        "step": 10,
+        "visible_action": "Let the daemon revalidate and execute or refuse the exact effect."
+      },
+      {
+        "blocker_ref": "BLK-M0-SELECTED-INSPECTION-CHAIN",
+        "route_identities": [
+          "http:hypervisor-daemon:GET /v1/runs/:id/inspect",
+          "http:hypervisor-daemon:GET /v1/hypervisor/authority/receipts"
+        ],
+        "state": "unavailable",
+        "step": 11,
+        "visible_action": "Inspect the diff, tests, evidence admission, receipt chain, state root, costs, provider route, and learning eligibility."
+      },
+      {
+        "blocker_ref": "BLK-M0-SELECTED-INSPECTION-CHAIN",
+        "route_identities": [
+          "http:hypervisor-daemon:GET /v1/runs/:id/replay"
+        ],
+        "state": "unavailable",
+        "step": 12,
+        "visible_action": "Replay the decision and effect from exported evidence."
+      },
+      {
+        "blocker_ref": "BLK-M0-SELECTED-UPGRADE-LIFECYCLE",
+        "route_identities": [],
+        "state": "unavailable",
+        "step": 13,
+        "visible_action": "Propose an upgrade, exercise rollback or recall, and retire the System."
+      }
+    ]
+  },
+  "selected_entries": [
+    {
+      "blocker_or_nonclaim_ref": "BLK-M0-SELECTED-JOURNEY-BINDING",
+      "final_invoker": null,
+      "identity": "http:hypervisor-daemon:GET /v1/hypervisor/auth/whoami",
+      "implementation_state": "unavailable",
+      "selected_profile_applicability": "required_journey"
+    },
+    {
+      "blocker_or_nonclaim_ref": "BLK-M0-SELECTED-JOURNEY-BINDING",
+      "final_invoker": null,
+      "identity": "http:hypervisor-daemon:GET /v1/hypervisor/authority/receipts",
+      "implementation_state": "unavailable",
+      "selected_profile_applicability": "required_journey"
+    },
+    {
+      "blocker_or_nonclaim_ref": "BLK-M0-SELECTED-JOURNEY-BINDING",
+      "final_invoker": null,
+      "identity": "http:hypervisor-daemon:GET /v1/hypervisor/goal-runs/:id",
+      "implementation_state": "unavailable",
+      "selected_profile_applicability": "required_journey"
+    },
+    {
+      "blocker_or_nonclaim_ref": "BLK-M0-SELECTED-JOURNEY-BINDING",
+      "final_invoker": null,
+      "identity": "http:hypervisor-daemon:GET /v1/hypervisor/outcome-rooms/:id",
+      "implementation_state": "unavailable",
+      "selected_profile_applicability": "required_journey"
+    },
+    {
+      "blocker_or_nonclaim_ref": "BLK-M0-SELECTED-JOURNEY-BINDING",
+      "final_invoker": null,
+      "identity": "http:hypervisor-daemon:GET /v1/runs/:id/inspect",
+      "implementation_state": "unavailable",
+      "selected_profile_applicability": "required_journey"
+    },
+    {
+      "blocker_or_nonclaim_ref": "BLK-M0-SELECTED-JOURNEY-BINDING",
+      "final_invoker": null,
+      "identity": "http:hypervisor-daemon:GET /v1/runs/:id/replay",
+      "implementation_state": "unavailable",
+      "selected_profile_applicability": "required_journey"
+    },
+    {
+      "blocker_or_nonclaim_ref": "BLK-M0-SELECTED-JOURNEY-BINDING",
+      "final_invoker": {
+        "claim_state": "candidate_or_handler_boundary_not_final",
+        "note": "M0 found this effect-shaped call in the handler but does not claim it is the sole final leaf.",
+        "resolution": "static_candidate_not_order_proven",
+        "source_anchor_sha256": "13093217d3a0ff37a0f9f0edb2672871a2cc8b83a9a44d7a74920b70588f73c0",
+        "source_file": "crates/node/src/bin/hypervisor_daemon_routes/attempt_finding_routes.rs",
+        "symbol": "persist_and_complete_locked"
+      },
+      "identity": "http:hypervisor-daemon:POST /v1/hypervisor/attempts",
+      "implementation_state": "unavailable",
+      "selected_profile_applicability": "required_journey"
+    },
+    {
+      "blocker_or_nonclaim_ref": "BLK-M0-SELECTED-JOURNEY-BINDING",
+      "final_invoker": {
+        "claim_state": "candidate_or_handler_boundary_not_final",
+        "note": "No deeper effect leaf was proven; the typed census blocker remains open.",
+        "resolution": "handler_boundary_only",
+        "source_anchor_sha256": "ef144796d5fa8eb77cb31eb367d8e04ade16dbd64f4ffebd8e278dbc66da936a",
+        "source_file": "crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs",
+        "symbol": "handle_auth_login"
+      },
+      "identity": "http:hypervisor-daemon:POST /v1/hypervisor/auth/login",
+      "implementation_state": "unavailable",
+      "selected_profile_applicability": "required_journey"
+    },
+    {
+      "blocker_or_nonclaim_ref": "BLK-M0-SELECTED-JOURNEY-BINDING",
+      "final_invoker": {
+        "claim_state": "verified_effect_leaf",
+        "note": "Every admit and refusal branch calls emit_receipt, whose final leaf persists an authority-receipt record.",
+        "resolution": "verified_effect_leaf",
+        "source_anchor_sha256": "e02015f85f95900316b7f94c0f65b87c5c5e1057a69bc9a2535c46949b947322",
+        "source_file": "crates/node/src/bin/hypervisor-daemon.rs",
+        "symbol": "persist_record[authority-receipts]"
+      },
+      "identity": "http:hypervisor-daemon:POST /v1/hypervisor/authority/preflight",
+      "implementation_state": "unavailable",
+      "selected_profile_applicability": "required_journey"
+    },
+    {
+      "blocker_or_nonclaim_ref": "BLK-M0-SELECTED-JOURNEY-BINDING",
+      "final_invoker": {
+        "claim_state": "candidate_or_handler_boundary_not_final",
+        "note": "M0 found this effect-shaped call in the handler but does not claim it is the sole final leaf.",
+        "resolution": "static_candidate_not_order_proven",
+        "source_anchor_sha256": "33f777c34917d416ba935dfd71c31228ae2634ed8aa8b921f2dde136a701f067",
+        "source_file": "crates/node/src/bin/hypervisor_daemon_routes/goalrun_routes.rs",
+        "symbol": "persist_record"
+      },
+      "identity": "http:hypervisor-daemon:POST /v1/hypervisor/goal-runs",
+      "implementation_state": "unavailable",
+      "selected_profile_applicability": "required_journey"
+    },
+    {
+      "blocker_or_nonclaim_ref": "BLK-M0-SELECTED-JOURNEY-BINDING",
+      "final_invoker": {
+        "claim_state": "candidate_or_handler_boundary_not_final",
+        "note": "M0 found this effect-shaped call in the handler but does not claim it is the sole final leaf.",
+        "resolution": "static_candidate_not_order_proven",
+        "source_anchor_sha256": "33f777c34917d416ba935dfd71c31228ae2634ed8aa8b921f2dde136a701f067",
+        "source_file": "crates/node/src/bin/hypervisor_daemon_routes/goalrun_routes.rs",
+        "symbol": "persist_goal_run_atomic"
+      },
+      "identity": "http:hypervisor-daemon:POST /v1/hypervisor/goal-runs/:id/lifecycle-recovery",
+      "implementation_state": "unavailable",
+      "selected_profile_applicability": "required_journey"
+    },
+    {
+      "blocker_or_nonclaim_ref": "BLK-M0-SELECTED-JOURNEY-BINDING",
+      "final_invoker": {
+        "claim_state": "candidate_or_handler_boundary_not_final",
+        "note": "M0 found this effect-shaped call in the handler but does not claim it is the sole final leaf.",
+        "resolution": "static_candidate_not_order_proven",
+        "source_anchor_sha256": "33f777c34917d416ba935dfd71c31228ae2634ed8aa8b921f2dde136a701f067",
+        "source_file": "crates/node/src/bin/hypervisor_daemon_routes/goalrun_routes.rs",
+        "symbol": "persist_record"
+      },
+      "identity": "http:hypervisor-daemon:POST /v1/hypervisor/goal-runs/:id/start",
+      "implementation_state": "unavailable",
+      "selected_profile_applicability": "required_journey"
+    },
+    {
+      "blocker_or_nonclaim_ref": "BLK-M0-SELECTED-JOURNEY-BINDING",
+      "final_invoker": {
+        "claim_state": "candidate_or_handler_boundary_not_final",
+        "note": "No deeper effect leaf was proven; the typed census blocker remains open.",
+        "resolution": "handler_boundary_only",
+        "source_anchor_sha256": "a3413172e9a3033fc3511066544a2e3f853fd42352825e7ba321fdf92d74cd5b",
+        "source_file": "crates/node/src/bin/hypervisor_daemon_routes/outcome_room_routes.rs",
+        "symbol": "handle_outcome_room_create"
+      },
+      "identity": "http:hypervisor-daemon:POST /v1/hypervisor/outcome-rooms",
+      "implementation_state": "unavailable",
+      "selected_profile_applicability": "required_journey"
+    },
+    {
+      "blocker_or_nonclaim_ref": "BLK-M0-SELECTED-JOURNEY-BINDING",
+      "final_invoker": {
+        "claim_state": "candidate_or_handler_boundary_not_final",
+        "note": "No deeper effect leaf was proven; the typed census blocker remains open.",
+        "resolution": "handler_boundary_only",
+        "source_anchor_sha256": "a3413172e9a3033fc3511066544a2e3f853fd42352825e7ba321fdf92d74cd5b",
+        "source_file": "crates/node/src/bin/hypervisor_daemon_routes/outcome_room_routes.rs",
+        "symbol": "handle_outcome_room_attach_goal_run"
+      },
+      "identity": "http:hypervisor-daemon:POST /v1/hypervisor/outcome-rooms/:id/attach-goal-run",
+      "implementation_state": "unavailable",
+      "selected_profile_applicability": "required_journey"
+    },
+    {
+      "blocker_or_nonclaim_ref": "BLK-M0-SELECTED-JOURNEY-BINDING",
+      "final_invoker": {
+        "claim_state": "candidate_or_handler_boundary_not_final",
+        "note": "M0 found this effect-shaped call in the handler but does not claim it is the sole final leaf.",
+        "resolution": "static_candidate_not_order_proven",
+        "source_anchor_sha256": "ec8e4c3b2f711f8b502e62f62f1686c2366c3588a56f9f6c01e7eff3e13c0e70",
+        "source_file": "crates/node/src/bin/hypervisor_daemon_routes/work_frontier_claim_routes.rs",
+        "symbol": "persist_and_complete_intent_locked"
+      },
+      "identity": "http:hypervisor-daemon:POST /v1/hypervisor/work-claim-leases",
+      "implementation_state": "unavailable",
+      "selected_profile_applicability": "required_journey"
+    },
+    {
+      "blocker_or_nonclaim_ref": "BLK-M0-SELECTED-JOURNEY-BINDING",
+      "final_invoker": {
+        "claim_state": "candidate_or_handler_boundary_not_final",
+        "note": "M0 found this effect-shaped call in the handler but does not claim it is the sole final leaf.",
+        "resolution": "static_candidate_not_order_proven",
+        "source_anchor_sha256": "ec8e4c3b2f711f8b502e62f62f1686c2366c3588a56f9f6c01e7eff3e13c0e70",
+        "source_file": "crates/node/src/bin/hypervisor_daemon_routes/work_frontier_claim_routes.rs",
+        "symbol": "persist_and_complete_intent_locked"
+      },
+      "identity": "http:hypervisor-daemon:POST /v1/hypervisor/work-frontier-items",
+      "implementation_state": "unavailable",
+      "selected_profile_applicability": "required_journey"
+    },
+    {
+      "blocker_or_nonclaim_ref": "BLK-M0-SELECTED-JOURNEY-BINDING",
+      "final_invoker": {
+        "claim_state": "candidate_or_handler_boundary_not_final",
+        "note": "No deeper effect leaf was proven; the typed census blocker remains open.",
+        "resolution": "handler_boundary_only",
+        "source_anchor_sha256": "76019eeeebac2f81ad6063ab8a4315f102ed7f111c91557b9c8492d84f8c5fa0",
+        "source_file": "crates/node/src/bin/hypervisor_daemon_routes/work_result_routes.rs",
+        "symbol": "handle_work_result_create"
+      },
+      "identity": "http:hypervisor-daemon:POST /v1/hypervisor/work-results",
+      "implementation_state": "unavailable",
+      "selected_profile_applicability": "required_journey"
+    },
+    {
+      "blocker_or_nonclaim_ref": "BLK-M0-SELECTED-REPO-EFFECT",
+      "final_invoker": {
+        "claim_state": "verified_effect_leaf",
+        "note": "The dynamic route also supports read/plan tools; this leaf is only the selected file.apply_patch effect.",
+        "resolution": "verified_effect_leaf_for_file.apply_patch_subdispatch",
+        "source_anchor_sha256": "b3f2f9436dfbd9cf3fab1a773e85dbdb3d2fc990ecdc4c10df90693859dab10f",
+        "source_file": "crates/services/src/agentic/runtime/kernel/coding_tool_workspace.rs",
+        "symbol": "coding_tool_workspace::apply_workspace_patch"
+      },
+      "identity": "http:hypervisor-daemon:POST /v1/threads/:id/tools/:name/invoke",
+      "implementation_state": "unavailable",
+      "selected_profile_applicability": "required_effect"
+    },
+    {
+      "blocker_or_nonclaim_ref": "BLK-M0-SELECTED-JOURNEY-BINDING",
+      "final_invoker": {
+        "claim_state": "candidate_or_handler_boundary_not_final",
+        "note": "M0 found this effect-shaped call in the handler but does not claim it is the sole final leaf.",
+        "resolution": "static_candidate_not_order_proven",
+        "source_anchor_sha256": "ef144796d5fa8eb77cb31eb367d8e04ade16dbd64f4ffebd8e278dbc66da936a",
+        "source_file": "crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs",
+        "symbol": "admit_and_persist_event"
+      },
+      "identity": "http:hypervisor-daemon:POST /v1/threads/:id/workspace-change-reviews/control",
+      "implementation_state": "unavailable",
+      "selected_profile_applicability": "required_journey"
+    },
+    {
+      "blocker_or_nonclaim_ref": "BLK-M0-SELECTED-JOURNEY-BINDING",
+      "final_invoker": {
+        "claim_state": "candidate_or_handler_boundary_not_final",
+        "note": "M0 found this effect-shaped call in the handler but does not claim it is the sole final leaf.",
+        "resolution": "static_candidate_not_order_proven",
+        "source_anchor_sha256": "ef144796d5fa8eb77cb31eb367d8e04ade16dbd64f4ffebd8e278dbc66da936a",
+        "source_file": "crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs",
+        "symbol": "admit_and_persist_event"
+      },
+      "identity": "http:hypervisor-daemon:POST /v1/threads/:id/workspace-change-reviews/detect",
+      "implementation_state": "unavailable",
+      "selected_profile_applicability": "required_journey"
+    },
+    {
+      "blocker_or_nonclaim_ref": "BLK-M0-WALLET-PRODUCTION-PEP",
+      "final_invoker": {
+        "claim_state": "verified_boundary_not_downstream_effect",
+        "note": "These exact effect calls are observed in the resolved wallet handler; downstream provider completion and production PEP closure are not claimed.",
+        "resolution": "verified_service_effect_calls_not_production_pep",
+        "source_anchor_sha256": "a38abe06c58acbbf2103467e70d887d06358bf3472c08304a887b1620d4009dc",
+        "source_file": "crates/services/src/wallet_network/handlers/channel.rs",
+        "symbol": "store_typed | append_audit_event"
+      },
+      "identity": "service:wallet.network:commit_receipt_root@v1",
+      "implementation_state": "partial",
+      "selected_profile_applicability": "adjacent_not_sufficient"
+    },
+    {
+      "blocker_or_nonclaim_ref": "BLK-M0-WALLET-PRODUCTION-PEP",
+      "final_invoker": {
+        "claim_state": "verified_boundary_not_downstream_effect",
+        "note": "These exact effect calls are observed in the resolved wallet handler; downstream provider completion and production PEP closure are not claimed.",
+        "resolution": "verified_service_effect_calls_not_production_pep",
+        "source_anchor_sha256": "231a4e2962b4b99a38b42fe3d33d16a6bfb4875c0f1d6965bc69f34f39d6934e",
+        "source_file": "crates/services/src/wallet_network/handlers/principal_authority.rs",
+        "symbol": "commit_binding"
+      },
+      "identity": "service:wallet.network:issue_principal_authority_binding@v1",
+      "implementation_state": "partial",
+      "selected_profile_applicability": "adjacent_not_sufficient"
+    },
+    {
+      "blocker_or_nonclaim_ref": "BLK-M0-WALLET-PRODUCTION-PEP",
+      "final_invoker": {
+        "claim_state": "verified_boundary_not_downstream_effect",
+        "note": "These exact effect calls are observed in the resolved wallet handler; downstream provider completion and production PEP closure are not claimed.",
+        "resolution": "verified_service_effect_calls_not_production_pep",
+        "source_anchor_sha256": "cab7cb34597a9728ef7b31fe4f8615d74b601e427ccfff8ee41c96fe98499b5d",
+        "source_file": "crates/services/src/wallet_network/handlers/session.rs",
+        "symbol": "store_typed | append_audit_event"
+      },
+      "identity": "service:wallet.network:issue_session_grant@v1",
+      "implementation_state": "partial",
+      "selected_profile_applicability": "adjacent_not_sufficient"
+    },
+    {
+      "blocker_or_nonclaim_ref": "BLK-M0-WALLET-PRODUCTION-PEP",
+      "final_invoker": {
+        "claim_state": "verified_boundary_not_downstream_effect",
+        "note": "These exact effect calls are observed in the resolved wallet handler; downstream provider completion and production PEP closure are not claimed.",
+        "resolution": "verified_service_effect_calls_not_production_pep",
+        "source_anchor_sha256": "b2e3f97dc8e270bc69d7e05da855f659fa7aeecc71d25be2c157c2849991b7a1",
+        "source_file": "crates/services/src/wallet_network/handlers/approval.rs",
+        "symbol": "store_typed | append_audit_event"
+      },
+      "identity": "service:wallet.network:panic_stop@v1",
+      "implementation_state": "partial",
+      "selected_profile_applicability": "adjacent_not_sufficient"
+    },
+    {
+      "blocker_or_nonclaim_ref": "BLK-M0-WALLET-PRODUCTION-PEP",
+      "final_invoker": {
+        "claim_state": "verified_boundary_not_downstream_effect",
+        "note": "These exact effect calls are observed in the resolved wallet handler; downstream provider completion and production PEP closure are not claimed.",
+        "resolution": "verified_service_effect_calls_not_production_pep",
+        "source_anchor_sha256": "231a4e2962b4b99a38b42fe3d33d16a6bfb4875c0f1d6965bc69f34f39d6934e",
+        "source_file": "crates/services/src/wallet_network/handlers/principal_authority.rs",
+        "symbol": "append_audit_event_with_records"
+      },
+      "identity": "service:wallet.network:resolve_principal_authority@v1",
+      "implementation_state": "partial",
+      "selected_profile_applicability": "adjacent_not_sufficient"
+    }
+  ],
+  "selected_entry_counts": {
+    "by_applicability": {
+      "adjacent_not_sufficient": 5,
+      "required_effect": 1,
+      "required_journey": 19
+    },
+    "by_state": {
+      "partial": 5,
+      "unavailable": 20
+    },
+    "total": 25
+  }
+}

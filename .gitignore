@@ -52,6 +52,10 @@ apps/hypervisor/src/generated/*
 apps/developers-ioi-ai/release/
 docs/context-atlas-implementation-plan.md
 docs/evidence/
+!docs/evidence/
+docs/evidence/*
+!docs/evidence/m0-program-control/
+!docs/evidence/m0-program-control/**
 
 # Keep public docs consumer-facing; internal plans/specs belong under internal-docs/.
 docs/plans/

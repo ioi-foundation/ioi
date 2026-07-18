@@ -1,0 +1,151 @@
+{
+  "as_of_date": "2026-07-18",
+  "baselines": [
+    {
+      "absence_evidence": "No qualifying end-to-end selected-profile product cohort exists as of the baseline date.",
+      "baseline_id": "BASE-M0-PRODUCT",
+      "blocker_ref": "BLK-M0-BASELINE-PRODUCT",
+      "category": "product",
+      "cohort": "At least five first-time internal operators using only supported selected-profile product surfaces.",
+      "frozen_as_of": "2026-07-18",
+      "frozen_threshold": {
+        "median_time_to_first_valid_preview_minutes_max": 10,
+        "median_time_to_genesis_minutes_max": 20,
+        "unaided_terminal_completion_rate_min": 0.8
+      },
+      "method": "Timestamp first eligible sign-in, first valid preview, genesis approval, effect review, terminal inspection, and replay; retain typed blockers.",
+      "observed_as_of": null,
+      "observed_value": null,
+      "status": "not_measured"
+    },
+    {
+      "absence_evidence": "No terminal selected-profile runtime and fault cohort exists as of the baseline date.",
+      "baseline_id": "BASE-M0-RELIABILITY",
+      "blocker_ref": "BLK-M0-BASELINE-RELIABILITY",
+      "category": "reliability",
+      "cohort": "Thirty selected-profile runs, including at least ten declared crash, restart, stale-authority, or ambiguous-effect injections.",
+      "frozen_as_of": "2026-07-18",
+      "frozen_threshold": {
+        "authorized_completion_rate_min": 0.95,
+        "effect_recovery_success_rate_min": 1,
+        "receipt_and_replay_completeness_min": 1,
+        "verifier_reproducibility_min": 1
+      },
+      "method": "Replay owner records and exported evidence; independently reproduce verification and score every terminal, refused, recovered, or ambiguous effect.",
+      "observed_as_of": null,
+      "observed_value": null,
+      "status": "not_measured"
+    },
+    {
+      "absence_evidence": "No invoice-reconciled selected-profile run cohort exists as of the baseline date.",
+      "baseline_id": "BASE-M0-COST",
+      "blocker_ref": "BLK-M0-BASELINE-COST",
+      "category": "cost",
+      "cohort": "Thirty successful selected-profile runs with route-attempt, tool, runtime, storage, and supplier-attributable measurements.",
+      "frozen_as_of": "2026-07-18",
+      "frozen_threshold": {
+        "p50_internal_cost_usd_max": 5,
+        "p90_internal_cost_usd_max": 15,
+        "unattributed_cost_fraction_max": 0
+      },
+      "method": "Reconcile measured internal cost to each accepted run; report p50, p90, fallback amplification, and unattributed cost without treating accounting as cash movement.",
+      "observed_as_of": null,
+      "observed_value": null,
+      "status": "not_measured"
+    },
+    {
+      "absence_evidence": "No qualifying first-time-operator comprehension cohort exists as of the baseline date.",
+      "baseline_id": "BASE-M0-COMPREHENSION",
+      "blocker_ref": "BLK-M0-BASELINE-COMPREHENSION",
+      "category": "comprehension",
+      "cohort": "At least five first-time internal operators with no implementation-guide access during the selected journey.",
+      "frozen_as_of": "2026-07-18",
+      "frozen_threshold": {
+        "correct_blocker_interpretation_rate_min": 0.9,
+        "fabricated_success_acceptance_rate_max": 0,
+        "median_exposed_architecture_terms_max": 8
+      },
+      "method": "Record exposed architecture terms, correct blocker interpretation, unsupported-success attempts, and a post-task comprehension check.",
+      "observed_as_of": null,
+      "observed_value": null,
+      "status": "not_measured"
+    }
+  ],
+  "build_fingerprint": "157932f15f2aff51f3a267f9eaf58a75fbfb7ef1055cc83b04b34cd8333ef7e3",
+  "counts": {
+    "not_measured": 4
+  },
+  "evidence_format": "ioi.m0.current_baselines.v1",
+  "observation_rule": "Cohort, method, and threshold are frozen before observation; not_measured is evidence of absence, never zero.",
+  "repository_validation_baselines": [
+    {
+      "baseline_id": "BASE-M0-REPOSITORY-RUSTFMT",
+      "command": "cargo fmt --all -- --check",
+      "exit_code": 1,
+      "nonclaim": "This records repository-wide pre-existing formatting debt; M0 changes no Rust source and claims no Rustfmt closure.",
+      "observed_as_of": "2026-07-18",
+      "raw_output_sha256": "27269428c23ccc63ed629b6e6fa9aac7c70cc9d72f7fd3152549e95362032715",
+      "reported_diff_hunk_count": 2002,
+      "reported_file_count": 54,
+      "reported_paths": [
+        "crates/agentgres/src/bin/bench.rs",
+        "crates/agentgres/src/bin/parity.rs",
+        "crates/agentgres/src/bin/replica.rs",
+        "crates/agentgres/src/bin/shadow.rs",
+        "crates/agentgres/src/lib.rs",
+        "crates/agentgres/src/mux.rs",
+        "crates/agentgres/src/replica.rs",
+        "crates/node/src/bin/hypervisor-daemon.rs",
+        "crates/node/src/bin/hypervisor_daemon_routes/akash_candidate_source.rs",
+        "crates/node/src/bin/hypervisor_daemon_routes/aws_candidate_source.rs",
+        "crates/node/src/bin/hypervisor_daemon_routes/azure_candidate_source.rs",
+        "crates/node/src/bin/hypervisor_daemon_routes/capability_lease_plan_routes.rs",
+        "crates/node/src/bin/hypervisor_daemon_routes/connector_execution_routes.rs",
+        "crates/node/src/bin/hypervisor_daemon_routes/connector_mapping_routes.rs",
+        "crates/node/src/bin/hypervisor_daemon_routes/connector_session_routes.rs",
+        "crates/node/src/bin/hypervisor_daemon_routes/data_source_routes.rs",
+        "crates/node/src/bin/hypervisor_daemon_routes/decentralized_cloud_routes.rs",
+        "crates/node/src/bin/hypervisor_daemon_routes/domain_apps_routes.rs",
+        "crates/node/src/bin/hypervisor_daemon_routes/editor_routes.rs",
+        "crates/node/src/bin/hypervisor_daemon_routes/environment_routes.rs",
+        "crates/node/src/bin/hypervisor_daemon_routes/eval_suite_routes.rs",
+        "crates/node/src/bin/hypervisor_daemon_routes/feedback_routes.rs",
+        "crates/node/src/bin/hypervisor_daemon_routes/foundry_routes.rs",
+        "crates/node/src/bin/hypervisor_daemon_routes/gcp_candidate_source.rs",
+        "crates/node/src/bin/hypervisor_daemon_routes/goalrun_routes.rs",
+        "crates/node/src/bin/hypervisor_daemon_routes/governance_routes.rs",
+        "crates/node/src/bin/hypervisor_daemon_routes/harness_routes.rs",
+        "crates/node/src/bin/hypervisor_daemon_routes/ioi_agent_routes.rs",
+        "crates/node/src/bin/hypervisor_daemon_routes/ioi_intelligence_routes.rs",
+        "crates/node/src/bin/hypervisor_daemon_routes/k8s_candidate_source.rs",
+        "crates/node/src/bin/hypervisor_daemon_routes/lambda_candidate_source.rs",
+        "crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs",
+        "crates/node/src/bin/hypervisor_daemon_routes/marketplace_routes.rs",
+        "crates/node/src/bin/hypervisor_daemon_routes/materializing_run_routes.rs",
+        "crates/node/src/bin/hypervisor_daemon_routes/model_routes.rs",
+        "crates/node/src/bin/hypervisor_daemon_routes/odk_routes.rs",
+        "crates/node/src/bin/hypervisor_daemon_routes/ontology_projection_routes.rs",
+        "crates/node/src/bin/hypervisor_daemon_routes/orchestration_routes.rs",
+        "crates/node/src/bin/hypervisor_daemon_routes/outcome_room_routes.rs",
+        "crates/node/src/bin/hypervisor_daemon_routes/placement_failover_routes.rs",
+        "crates/node/src/bin/hypervisor_daemon_routes/policy_bound_data_view_routes.rs",
+        "crates/node/src/bin/hypervisor_daemon_routes/provider_routes.rs",
+        "crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs",
+        "crates/node/src/bin/hypervisor_daemon_routes/runpod_candidate_source.rs",
+        "crates/node/src/bin/hypervisor_daemon_routes/state_machine_routes.rs",
+        "crates/node/src/bin/hypervisor_daemon_routes/storage_backend_routes.rs",
+        "crates/node/src/bin/hypervisor_daemon_routes/substrate_store.rs",
+        "crates/node/src/bin/hypervisor_daemon_routes/transformation_run_routes.rs",
+        "crates/node/src/bin/hypervisor_daemon_routes/vast_candidate_source.rs",
+        "crates/node/src/bin/hypervisor_daemon_routes/work_frontier_claim_routes.rs",
+        "crates/node/src/bin/hypervisor_daemon_routes/work_result_routes.rs",
+        "crates/services/src/agentic/runtime/kernel/runtime_goal_run_admission.rs",
+        "crates/services/src/agentic/runtime/kernel/runtime_harness_profile_mutation_admission.rs",
+        "crates/services/src/agentic/runtime/kernel/runtime_hypervisor_project_create.rs"
+      ],
+      "status": "existing_failure",
+      "tool_version": "rustfmt 1.8.0-stable (01f6ddf758 2026-02-11)",
+      "worktree_mutated": false
+    }
+  ]
+}
