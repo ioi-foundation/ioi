@@ -63,6 +63,37 @@ const RUST_EXTERNAL_EFFECT_CALLS = new Set([
 const RUST_EXTERNAL_PURE_CALLS = new Set([
   "write_validator_sets",
 ]);
+const RUST_OPEN_OPTIONS_MUTATING_METHODS = new Set([
+  "append",
+  "create",
+  "create_new",
+  "truncate",
+  "write",
+]);
+const RUST_OPEN_OPTIONS_READ_ONLY_FLAGS = new Set([
+  "O_CLOEXEC",
+  "O_DIRECT",
+  "O_DIRECTORY",
+  "O_DSYNC",
+  "O_NOATIME",
+  "O_NOCTTY",
+  "O_NOFOLLOW",
+  "O_NONBLOCK",
+  "O_PATH",
+  "O_RDONLY",
+  "O_SYNC",
+]);
+const RUST_OPEN_OPTIONS_WRITE_FLAGS = new Set([
+  "O_APPEND",
+  "O_CREAT",
+  "O_EXCL",
+  "O_RDWR",
+  "O_TMPFILE",
+  "O_TRUNC",
+  "O_WRONLY",
+]);
+const RUST_OPEN_OPTIONS_WRITE_EFFECT = "std::fs::OpenOptions::open[write]";
+const RUST_OPEN_OPTIONS_READ_ONLY = "std::fs::OpenOptions::open[read_only]";
 const OPEN_TO_CLOSE = new Map([
   ["(", ")"],
   ["[", "]"],
@@ -529,7 +560,152 @@ function normalizeSymbolTokens(tokens, start, end) {
     .trim();
 }
 
-function callSequenceInRange(tokens, start, end) {
+function resolveRustAliasMap(aliases, symbol) {
+  let resolved = symbol;
+  const seen = new Set();
+  while (simpleRustSymbol(resolved)) {
+    const parts = resolved.split("::");
+    const first = parts[0];
+    const alias = aliases?.get(first);
+    if (alias === undefined || seen.has(first)) {
+      break;
+    }
+    seen.add(first);
+    resolved = [alias, ...parts.slice(1)].join("::");
+  }
+  return resolved;
+}
+
+function rustOpenOptionsMarkersInRange(
+  tokens,
+  start,
+  end,
+  { aliases = new Map(), relativePath = "<Rust source>" } = {},
+) {
+  const markers = new Map();
+  for (let cursor = start; cursor < end - 1; cursor += 1) {
+    if (
+      tokens[cursor].value !== "new"
+      || tokens[cursor + 1]?.value !== "("
+    ) {
+      continue;
+    }
+    let symbolStart = cursor;
+    while (
+      symbolStart >= start + 2
+      && tokens[symbolStart - 1].value === "::"
+      && tokens[symbolStart - 2].type === "identifier"
+    ) {
+      symbolStart -= 2;
+    }
+    const symbol = normalizeSymbolTokens(tokens, symbolStart, cursor + 1);
+    const resolved = resolveRustAliasMap(aliases, symbol);
+    if (!/^(?:std|tokio)::fs::OpenOptions::new$/u.test(resolved)) {
+      continue;
+    }
+    const constructorClose = findMatchingToken(tokens, cursor + 1);
+    if (constructorClose >= end) {
+      throw new Error(
+        `${relativePath}:${tokens[cursor].line}: OpenOptions constructor `
+        + "escapes the discovered function body",
+      );
+    }
+    let chainCursor = constructorClose + 1;
+    let writeCapable = false;
+    let opened = false;
+    while (
+      chainCursor + 2 < end
+      && tokens[chainCursor].value === "."
+      && tokens[chainCursor + 1].type === "identifier"
+      && tokens[chainCursor + 2].value === "("
+    ) {
+      const methodToken = tokens[chainCursor + 1];
+      const method = methodToken.value;
+      const argumentsOpen = chainCursor + 2;
+      const argumentsClose = findMatchingToken(tokens, argumentsOpen);
+      if (argumentsClose >= end) {
+        throw new Error(
+          `${relativePath}:${methodToken.line}: OpenOptions ${method} call `
+          + "escapes the discovered function body",
+        );
+      }
+      if (method === "open") {
+        markers.set(
+          chainCursor + 1,
+          writeCapable
+            ? RUST_OPEN_OPTIONS_WRITE_EFFECT
+            : RUST_OPEN_OPTIONS_READ_ONLY,
+        );
+        opened = true;
+        break;
+      }
+      if (RUST_OPEN_OPTIONS_MUTATING_METHODS.has(method)) {
+        const argument = tokens.slice(argumentsOpen + 1, argumentsClose);
+        if (
+          argument.length !== 1
+          || !["true", "false"].includes(argument[0].value)
+        ) {
+          throw new Error(
+            `${relativePath}:${methodToken.line}: unsupported dynamic `
+            + `OpenOptions ${method} mode`,
+          );
+        }
+        writeCapable ||= argument[0].value === "true";
+      } else if (method === "custom_flags") {
+        const argument = tokens.slice(argumentsOpen + 1, argumentsClose);
+        const identifiers = argument
+          .filter((token) => token.type === "identifier")
+          .map((token) => token.value)
+          .filter((value) => value !== "libc");
+        const unknown = identifiers.filter((value) => (
+          !RUST_OPEN_OPTIONS_READ_ONLY_FLAGS.has(value)
+          && !RUST_OPEN_OPTIONS_WRITE_FLAGS.has(value)
+        ));
+        const unsupportedToken = argument.find((token) => (
+          token.type === "number"
+          || (
+            token.type !== "identifier"
+            && !["::", "|"].includes(token.value)
+          )
+        ));
+        if (
+          identifiers.length === 0
+          || unknown.length > 0
+          || unsupportedToken !== undefined
+        ) {
+          throw new Error(
+            `${relativePath}:${methodToken.line}: unsupported OpenOptions `
+            + "custom_flags form",
+          );
+        }
+        writeCapable ||= identifiers.some((value) => (
+          RUST_OPEN_OPTIONS_WRITE_FLAGS.has(value)
+        ));
+      } else if (!["mode", "read"].includes(method)) {
+        throw new Error(
+          `${relativePath}:${methodToken.line}: unsupported OpenOptions `
+          + `builder method ${method}`,
+        );
+      }
+      chainCursor = argumentsClose + 1;
+    }
+    if (!opened) {
+      throw new Error(
+        `${relativePath}:${tokens[cursor].line}: unsupported indirect `
+        + "OpenOptions builder form",
+      );
+    }
+  }
+  return markers;
+}
+
+function callSequenceInRange(tokens, start, end, rustContext = {}) {
+  const openOptionsMarkers = rustOpenOptionsMarkersInRange(
+    tokens,
+    start,
+    end,
+    rustContext,
+  );
   const calls = [];
   for (let cursor = start; cursor < end - 1; cursor += 1) {
     if (
@@ -552,6 +728,10 @@ function callSequenceInRange(tokens, start, end) {
         ? `.${symbol}`
         : symbol,
     );
+    const openOptionsMarker = openOptionsMarkers.get(cursor);
+    if (openOptionsMarker !== undefined) {
+      calls.push(openOptionsMarker);
+    }
   }
   return calls;
 }
@@ -925,6 +1105,7 @@ function rustAliases(tokens) {
 export function discoverRustFunctions({ repoRoot, relativePath }) {
   const { source } = readRepoFile(repoRoot, relativePath);
   const tokens = lexSource(source, { language: "rust" });
+  const aliases = rustAliases(tokens);
   const functions = [];
   for (let index = 0; index < tokens.length - 2; index += 1) {
     if (tokens[index].value !== "fn" || tokens[index + 1].type !== "identifier") {
@@ -965,7 +1146,12 @@ export function discoverRustFunctions({ repoRoot, relativePath }) {
     }
     const bodyClose = findMatchingToken(tokens, bodyOpen);
     const functionAnchor = anchor(source, tokens[index], tokens[bodyClose]);
-    const callSequence = callSequenceInRange(tokens, bodyOpen + 1, bodyClose);
+    const callSequence = callSequenceInRange(
+      tokens,
+      bodyOpen + 1,
+      bodyClose,
+      { aliases, relativePath },
+    );
     functions.push({
       name: nameToken.value,
       relativePath,
@@ -1030,19 +1216,10 @@ const RUST_NON_HELPER_CALLS = new Set([
 ]);
 
 function resolveRustAlias(functionIndex, relativePath, symbol) {
-  let resolved = symbol;
-  const seen = new Set();
-  while (simpleRustSymbol(resolved)) {
-    const parts = resolved.split("::");
-    const first = parts[0];
-    const alias = functionIndex.aliasesByFile?.get(relativePath)?.get(first);
-    if (alias === undefined || seen.has(first)) {
-      break;
-    }
-    seen.add(first);
-    resolved = [alias, ...parts.slice(1)].join("::");
-  }
-  return resolved;
+  return resolveRustAliasMap(
+    functionIndex.aliasesByFile?.get(relativePath),
+    symbol,
+  );
 }
 
 function rustDefinitionResolution({
@@ -1134,7 +1311,11 @@ function knownExternalRustEffect(call, resolved = call) {
   return symbols.some((symbol) => (
     RUST_EXTERNAL_EFFECT_CALLS.has(symbol)
     || RUST_EXTERNAL_EFFECT_CALLS.has(symbol.split("::").at(-1))
-    || /^(?:std|tokio)::fs::(?:create_dir(?:_all)?|remove_dir_all|remove_file|rename|set_permissions|write)$/u
+    || symbol === RUST_OPEN_OPTIONS_WRITE_EFFECT
+    || /^(?:std|tokio)::fs::File::(?:create|create_new)$/u.test(symbol)
+    || /^(?:std|tokio)::fs::(?:copy|create_dir(?:_all)?|hard_link|remove_dir(?:_all)?|remove_file|rename|set_permissions|write)$/u
+      .test(symbol)
+    || /^std::os::(?:unix|windows)::fs::(?:symlink|symlink_dir|symlink_file)$/u
       .test(symbol)
     || /^(?:std::thread|tokio)::spawn$/u.test(symbol)
     || symbol === "libc::write"

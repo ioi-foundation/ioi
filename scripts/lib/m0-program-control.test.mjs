@@ -396,6 +396,114 @@ test("external Rust method effects stay distinct from unresolved helpers", () =>
   }
 });
 
+test("external filesystem mutators are effects while read-only opens stay reads", () => {
+  const readHelper = `
+    use std::fs::OpenOptions;
+    pub async fn status() {
+      OpenOptions::new().read(true).open("state.json");
+    }
+  `;
+  const variants = [
+    {
+      source: `
+        use std::fs::File;
+        pub async fn status() { File::create("state.json"); }
+      `,
+      effect: "File::create",
+    },
+    {
+      source: `
+        use std::fs;
+        pub async fn status() { fs::copy("source.json", "state.json"); }
+      `,
+      effect: "fs::copy",
+    },
+    {
+      source: `
+        use std::fs::OpenOptions;
+        pub async fn status() {
+          OpenOptions::new()
+            .write(true)
+            .create(true)
+            .truncate(true)
+            .open("state.json");
+        }
+      `,
+      effect: "std::fs::OpenOptions::open[write]",
+    },
+  ];
+  const root = temporaryRepository({
+    [README_FILE]: "fixture evidence boundary\n",
+    "helpers.rs": readHelper,
+    "routes.rs": `
+      use crate::helpers::status;
+      fn app() { Router::new().route("/status", get(status)); }
+    `,
+  });
+  const discover = () => {
+    const relativePaths = ["routes.rs", "helpers.rs"];
+    return attachRustHandlerDefinitions({
+      repoRoot: root,
+      entries: discoverAxumRoutes({
+        repoRoot: root,
+        relativePath: "routes.rs",
+        surface: "hypervisor-daemon",
+      }),
+      functionIndex: buildRustFunctionIndex({ repoRoot: root, relativePaths }),
+      defaultSourceFile: "routes.rs",
+      moduleSourceFiles: rustModuleSourceMap(relativePaths),
+    });
+  };
+  try {
+    const readEntries = discover();
+    const readFingerprint = buildM0Fingerprint(
+      root,
+      readEntries,
+      { fixture: "review" },
+      { fixture: "program" },
+    );
+    assert.deepEqual(readEntries[0].handler_effect_calls, []);
+    assert.equal(
+      createInitialReview(root, readEntries).entries[0].classification,
+      "read_only",
+    );
+
+    for (const variant of variants) {
+      fs.writeFileSync(path.join(root, "helpers.rs"), variant.source);
+      const effectEntries = discover();
+      const effectFingerprint = buildM0Fingerprint(
+        root,
+        effectEntries,
+        { fixture: "review" },
+        { fixture: "program" },
+      );
+      assert.ok(effectEntries[0].handler_effect_calls.includes(variant.effect));
+      assert.equal(
+        createInitialReview(root, effectEntries).entries[0].classification,
+        "consequential",
+      );
+      assert.notEqual(
+        readEntries[0].handler_anchor.sha256,
+        effectEntries[0].handler_anchor.sha256,
+      );
+      assert.notEqual(readFingerprint, effectFingerprint);
+    }
+
+    fs.writeFileSync(path.join(root, "helpers.rs"), `
+      use std::fs::OpenOptions;
+      pub async fn status(write_enabled: bool) {
+        OpenOptions::new().write(write_enabled).open("state.json");
+      }
+    `);
+    assert.throws(
+      () => discover(),
+      /unsupported dynamic OpenOptions write mode/u,
+    );
+  } finally {
+    fs.rmSync(root, { force: true, recursive: true });
+  }
+});
+
 test("Rust service discovery stops the last literal arm before the wildcard", () => {
   const root = temporaryRepository({
     "service.rs": `
