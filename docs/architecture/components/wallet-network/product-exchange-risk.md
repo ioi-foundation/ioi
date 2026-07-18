@@ -9,7 +9,7 @@ Supersedes: wallet product, swap, trade, risk-center, and route-authority
 language embedded only in prototypes or supporting product notes when it
 conflicts with this file.
 Superseded by: none.
-Last alignment pass: 2026-07-11.
+Last alignment pass: 2026-07-17.
 Doctrine status: canonical
 Implementation status: planned (exchange/trade/prediction product design; SDK candidate-source seams exist, no live exchange or trade surface)
 Last implementation audit: 2026-07-05
@@ -272,6 +272,15 @@ Canonical invariant:
 
 > **The Wallet authority pipeline is reusable infrastructure. The Wallet
 > console is one presentation of that pipeline, not the universal dapp UI.**
+
+Every presentation profile renders the same review contract at the density
+appropriate to its user. The contract binds the authenticated principal,
+acting subject, product session and origin, action, resources and destination,
+budget or amount, policy and risk, expiry, exact request hash, qualifying
+AuthFactor and GuardianSurface posture, and resulting grant, denial, and
+receipt. A compact card may hide protocol jargon; it may not omit or weaken
+the facts needed to understand the consequence or prevent cross-principal,
+cross-session, cross-origin, or changed-request replay.
 
 ### Approval Modes
 
@@ -665,7 +674,8 @@ user or agent requests exchange
   -> chain executes
   -> Wallet emits ExchangeReceipt
   -> Agentgres records receipt/evidence/outcome refs
-  -> IOI L1 receives only selected public/economic/dispute commitments
+  -> IOI L1 receives public/economic/dispute commitments only when the
+     declared enrollment and settlement profiles select it
 ```
 
 ## Canonical Trade Flow
@@ -684,7 +694,8 @@ user or agent requests exposure
   -> venue executes and maintains venue-native position state
   -> Wallet/venue adapter monitors position risk and emits receipts
   -> Agentgres records receipt/evidence/outcome refs
-  -> IOI L1 receives only selected public/economic/dispute commitments
+  -> IOI L1 receives public/economic/dispute commitments only when the
+     declared enrollment and settlement profiles select it
 ```
 
 ## Minimal Implementation Objects
@@ -1277,7 +1288,8 @@ A conforming Wallet Exchange path must prove:
 - approval/revocation/emergency-stop invalidates stale executable intents;
 - Agentgres receives exchange receipt/evidence refs when the exchange affects
   operational truth;
-- IOI L1 receives commitments only when settlement triggers apply.
+- IOI L1 receives commitments only when the declared enrollment and settlement
+  profiles select it and their trigger applies.
 
 A conforming Wallet Trade path must prove:
 
@@ -1303,7 +1315,8 @@ A conforming Wallet Trade path must prove:
   policy outcomes, not buried in UI text;
 - Agentgres receives trade receipt/evidence refs when the trade affects
   operational truth;
-- IOI L1 receives commitments only when settlement triggers apply.
+- IOI L1 receives commitments only when the declared enrollment and settlement
+  profiles select it and their trigger applies.
 
 ## Anti-Patterns
 
@@ -1346,7 +1359,8 @@ Provider execution and restore validity live in Hypervisor and Agentgres.
 Prediction markets and event contracts live in selected venues and resolution
 rules.
 Agentgres records receipts and evidence.
-IOI L1 anchors only selected public/economic commitments.
+Each system settles locally by default; IOI L1 anchors public/economic
+commitments only when the declared enrollment and settlement profiles select it.
 ```
 
 ## Related Canon

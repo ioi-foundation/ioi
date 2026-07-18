@@ -74,7 +74,8 @@ Non-replacements:
 - blob/object storage for payload bytes;
 - storage backends such as Filecoin/CAS for content-addressed artifact availability;
 - wallet.network for authority, secrets, key leases, and approvals;
-- IOI L1 for public settlement and rights;
+- the declared external settlement service for public/economic settlement and
+  rights; IOI L1 only for explicitly enrolled, selected services;
 - OLAP warehouses for heavy analytical scans;
 - vector databases when a dedicated vector engine is the right serving plane;
 - local UI hover/draft state;

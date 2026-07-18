@@ -1,26 +1,42 @@
-# Hypervisor Core, Clients, Application Surfaces, Sessions, and Adapters
+# Hypervisor Core, Clients, Workspaces, Application Surfaces, Sessions, and Adapters
 
 Status: canonical architecture authority.
 Canonical owner: this file for Hypervisor Core product taxonomy, first-class
-client boundaries, application-surface boundaries, session boundaries, and
-adapter-target doctrine, including Hypervisor's Mission projection of ioi.ai
-Goal Spaces and OutcomeRooms.
+client boundaries, core-workspace boundaries, application-surface boundaries,
+Work and Session projections, and adapter-target doctrine, including
+Hypervisor's projection of ioi.ai Goal Spaces and OutcomeRooms through Work and
+the Hypervisor-owned **Connect local agent** pairing/adapter surface. Dedicated
+Improvement, Evaluations, and Foundry owner contracts remain in
+[`improvement.md`](./improvement.md), [`evaluations.md`](./evaluations.md), and
+[`foundry.md`](./foundry.md).
 Supersedes: live product prose that treats one editor shell as the parent
 Hypervisor product, treats Electron/VS Code hosting as the product identity, or
 treats editor integrations as runtime ownership.
 Superseded by: none.
-Last alignment pass: 2026-07-11.
+Last alignment pass: 2026-07-17.
 Doctrine status: canonical
-Implementation status: broad (2026-07-06 — priority ladder P0/P1/P2 complete, P3 two rounds in: Home explorer + New Session composer identities, approvals inbox, unified jobs, run lineage/replay, model catalog, sessions root, evals lane, developer console, authority clients, recipe handoff chain, pipeline view, blueprint candidates, code repositories, search, work/tool analytics facets, release lifecycle matrix, proof citations — each verifier-gated; shell served from the OWNED vendored tree under the shell-parity oracle. Remaining: marketplace deepening, feedback/annotations native (needs substrate), governance-card tail, settings folds).
+Implementation status: mixed (the existing Home, New Session, Projects,
+Automations, Applications, Sessions, owner-application, environment, and
+operational surfaces are broad and verifier-gated; the canonical Systems and
+Work workspaces, taxonomy-v2 registrations/compiler, Packages-first product
+home, Developer Workspace rename, generated/installed application registry,
+typed legacy-Mission migration, and corresponding routes are target contracts
+and are not shipped as one complete path. `LocalAgentPairingSessionEnvelope`,
+Connect local agent UX, and room-admitted local-agent gateway issuance also
+remain planned. The bounded ImprovementCampaign, EvaluationEpoch, protected-
+evaluation exposure, and evaluator-validity owner paths are target contracts,
+not one shipped end-to-end implementation).
 
-Taxonomy status: RESTRUCTURED (2026-07-06) — the application estate is defined by the
-autonomous-systems suite in this file's "Top-Level Product IA" and "The Autonomous-Systems
-Application Suite" sections, with working detail in
-`internal-docs/prompts/autonomous-systems-suite/suite-guide.md`. ODK is reclassified as a
-developer kit (not an application); Domain Apps and Agent Studio dissolve as cards (generated
-apps launch from the catalog; agent composition is Studio's agent lens); Work Ledger evolves
-into Provenance; Operations splits into Missions (suite, systems) and Operations (substrate,
-infrastructure). Older mapping documents are ARCHIVED historical evidence.
+Taxonomy status: TARGET CANONICAL (2026-07-15) — Systems and Work are core
+workspaces; twelve enduring baseline owner applications, one conditional
+planned Embodied Systems owner registration, two substrate applications, tool
+surfaces, and extension applications remain dimensionally distinct.
+Missions retires as a peer application and `HypervisorMission` retires as a
+generic truth object. Packages owns mandatory local package lifecycle;
+Marketplace is its optional discovery/exchange mode. Developer Workspace is the
+preferred product label for the former Workbench. ODK remains a developer kit,
+generated and installed applications compile into the common registration
+contract, and older mapping documents remain archived historical evidence.
 Implementation refs:
   - `apps/hypervisor/`
   - `crates/node/src/bin/hypervisor_daemon_routes/`
@@ -52,10 +68,14 @@ Product IA doctrine:
 
 ```text
 Home starts or resumes work.
-Projects organize persistent software/system work.
-Automations own durable workflows, pipelines, APIs, and services.
-Applications expose specialized vertical and platform surfaces.
-Sessions show live and historical execution.
+Systems is the stable contextual home for live bounded institutions.
+Projects organize persistent build and work context.
+Automations own reusable standing behavior.
+Applications expose specialized owner, substrate, tool, and extension surfaces.
+Work projects pursued, collective, triggered, executing, review, incident, and
+historical work through typed canonical subjects.
+Sessions provide bounded interactive, headless, or supervisory execution and
+control contexts inside Work.
 Hypervisor Core governs the runtime/control boundary underneath.
 ```
 
@@ -68,15 +88,24 @@ Automations make durable workflows and services.
 ioi.ai coordinates single-path work or an OutcomeRoom/CollaborativeWorkGraph
 when persistent multi-participant pursuit calls for it.
 Foundry builds models, workers, evals, datasets, ontology-bound packages,
-and deployment candidates.
-Workbench develops, debugs, and operates systems.
+deployment candidates, and admitted experimental runs.
+Evaluations freezes independent judgment contracts and maintains their
+validity, exposure, and re-verification posture.
+Improvement coordinates optional multi-epoch improvement campaigns and hands
+supported candidate changes to their target owners.
+Governance and the target owner decide admission, activation, and effect
+recovery.
+Developer Workspace develops, debugs, and operates systems and workspaces.
 Canvas visually edits automations; it is not runtime truth.
 ```
 
 The same persistent collective outcome appears as a **Goal Space** in ioi.ai
-and as **Mission detail** in Hypervisor. It is not duplicated state and it does
-not justify a permanent Swarm application. A simple question, direct run,
-ordinary automation, or single-session task remains direct.
+and as **Work / Room detail** in Hypervisor. It is not duplicated state and it
+does not justify a permanent Mission or Swarm application. A simple question,
+direct run, ordinary automation, or single-session task remains direct.
+`Mission` may remain optional product language over exactly one explicit
+GoalRun or OutcomeRoom subject; it creates no independent identity, lifecycle,
+budget, authority, evidence, status, or receipts.
 
 Product-budget boundary:
 
@@ -174,12 +203,12 @@ through the existing shell and catalog:
 | Operator expectation | Hypervisor home |
 | --- | --- |
 | Substrate overview | Operations, Environments, provider detail, Hypervisor Desktop / Workstation |
-| Inventory | Applications catalog, Operations tables, Environments, Sessions, Missions |
-| Create / import wizard | Home, New Session, Projects, Environments, Studio, Developer Console |
-| Live console / machine window | Workbench, Sessions, Run Timeline, Open Application |
-| Snapshots / checkpoints / restore | Provenance, Workbench, Environments |
+| Inventory | Systems, Work, Applications catalog, Operations tables, Environments |
+| Create / import wizard | Home, New, Projects, Environments, Studio, Developer Console |
+| Live console / machine window | Developer Workspace, Work / Sessions, Run Timeline, Open Application |
+| Snapshots / checkpoints / restore | Provenance, Developer Workspace, Environments |
 | Networks / storage / devices | Environments, Developer Console, Governance |
-| Tasks / events / logs / alerts | Operations (infrastructure), Missions (systems), Provenance |
+| Tasks / events / logs / alerts | Work (logical work), Operations (infrastructure), Provenance (evidence) |
 | RBAC / policy / audit / lifecycle | Governance, Provenance, Operations |
 
 Do not hide these behind only AI-native language such as model routes, agent
@@ -239,7 +268,7 @@ Term map for product surfaces:
 | IOI L1 / mainnet | proof network, settlement, public commitment |
 | aiagent.xyz | agent marketplace, worker marketplace, agent supply |
 | ContributionReceipt | contribution record, payout evidence, attribution |
-| OutcomeRoom / CollaborativeWorkGraph | Goal Space in ioi.ai; Mission detail in Hypervisor |
+| OutcomeRoom / CollaborativeWorkGraph | Goal Space in ioi.ai; Work / Room detail in Hypervisor |
 | RoomParticipantLease / WorkClaimLease | participant status/current work with advanced lease details |
 | Work Credits | managed-work allowance and usage budget |
 
@@ -260,10 +289,10 @@ Observe
 Improve
 ```
 
-Package, publish, trade, and marketplace flows are downstream paths for
-reusable capability. They should be available from Foundry, Marketplace,
-Projects, Automations, Sessions, or aiagent.xyz handoffs when useful, not forced
-into every task.
+Package lifecycle is mandatory for reusable release material; Marketplace
+discovery and exchange is optional. Packages flows should be available from
+Foundry, Packages, Projects, Automations, Work, or aiagent.xyz handoffs when
+useful, while commerce is never forced into ordinary local work.
 
 Conceptual split:
 
@@ -332,29 +361,33 @@ Hypervisor
       SDK / ADK / ODK clients
   -> default shell
       Home
+      Systems
       Projects
       Automations
       Applications
-      Sessions
-  -> application surfaces (the autonomous-systems suite)
+      Work
+  -> owner applications
       Studio
       Automations
       Ontology
       Data
       Governance
-      Missions
       Provenance
       Evaluations
       Improvement
       Foundry
-      Marketplace
-      Workbench
+      Packages
+      Developer Workspace
       Developer Console
-  -> substrate surfaces (type 1 + 2 face)
+  -> substrate applications (type 1 + 2 face)
       Environments
       Operations
-  -> horizon
-      HypervisorOS (embodied systems; named only)
+  -> tool surfaces
+      owner-bound editors, inspectors, inboxes, graphs, wizards, and reports
+  -> extension applications
+      generated, organization-authored, installed, or third-party interfaces
+  -> conditional owner application
+      Embodied Systems (planned registration; nonlaunchable until built)
   -> session, project, and contextual views
       Services / Tasks / Ports / Logs / Restore
   -> Hypervisor Core
@@ -442,23 +475,133 @@ Hypervisor MCP Gateway = host/platform mutation bypass
 Hypervisor MCP Gateway = runtime beside Hypervisor Core
 ```
 
+### Connect local agent
+
+ioi.ai may embed a screenshot-simple **Connect local agent** modal inside a Goal
+Space, and aiagent.xyz may link to the same flow when a local Worker wants to
+join eligible work. The canonical product boundary is nonetheless singular:
+
+```text
+ioi.ai
+  embeds room-specific Connect local agent and projects admission/work status
+
+Hypervisor
+  implements the shared LocalAgentPairingSessionEnvelope through its
+  deployment-local lifecycle, local adapter/sidecar, candidate key and origin
+  binding, daemon ingress, and post-admission MCP gateway profile
+
+aiagent.xyz
+  owns the separate opt-in private reusable Worker record or public package,
+  benchmark, listing, routing-eligibility, reputation, and marketplace
+  settlement projections/refs; it does not own authority, operational truth,
+  or public finality
+```
+
+Pairing does not publish an agent to aiagent.xyz and does not require a public
+marketplace listing. A one-room candidate may remain private and ephemeral. A
+later **Save to My workers** or **Publish on aiagent.xyz** action is an
+explicit handoff with its own package, rights, benchmark, admission, and
+publication state.
+
+The default modal should preserve the screenshot's low-friction copy/paste
+shape while showing the actual trust transition:
+
+```text
+CONNECT LOCAL AGENT
+
+1  CHOOSE AGENT
+   Codex | Claude Code | OpenCode | Aider | generic CLI/MCP | local sidecar
+
+2  AGENT PROFILE
+   display name; optional operating style; declared harness/capabilities;
+   privacy and local-runtime posture
+
+3  PAIR THIS DEVICE
+   one copyable command or prompt; one-time expiring challenge/device code;
+   candidate generates the signing key and binds its origin
+
+4  REQUEST ROOM ACCESS
+   show public/policy-bound room objective, requested role, verifier,
+   contribution, privacy, budget/quote, and admission terms
+
+5  CONNECTED
+   only after admission: participant lease, permitted views, scoped expiring
+   gateway profile, current claim, expiry, heartbeat, pause, and revoke
+```
+
+The bootstrap may contain an endpoint, public discovery ref, adapter
+instructions, expiry, and one-time challenge. It must never contain a broad
+organization read/write token, raw model/provider or connector credential,
+ambient private room context, wallet grant, durable API key, or master MCP
+manifest. The challenge is hash-only at rest and returned once. The candidate
+generates its own signing key; Hypervisor binds the public key and origin but
+never retains the private key.
+
+Pairing authenticates the candidate only. Before typed room admission it may
+read the signed `OutcomeRoomDiscoveryEnvelope`, submit its scoped
+`WorkerComposition` proposal, and then submit a
+`RoomParticipationRequestEnvelope`; it has no membership, private context,
+claim, tool, spend, or effect authority. Only an admitted
+`RoomParticipantLeaseEnvelope` lets Hypervisor issue the matching scoped,
+expiring, revocable gateway profile. Every effectful tool still crosses the
+backing contract's policy, authority, daemon-admission, receipt, and replay
+path.
+
+Prompt-only compatibility remains useful when an existing agent cannot install
+a native adapter or sidecar. The UI must label it **Proposal only / low
+assurance**. An admitted prompt-only participant may read its permitted
+projection and submit tainted proposals or artifact refs, but cannot receive
+effectful tools, claim daemon-instrumented execution, auto-promote work, accrue
+portable reputation or payout from pairing alone, or become a marketplace
+listing. The result may later reach a stronger assurance stage through the
+normal sandbox, evidence, verifier, acceptance, and room/domain admission path;
+that does not retroactively verify the hidden agent runtime.
+
+The surface must project the exact pairing lifecycle without mixing downstream
+admission into it: `created`, `challenge_issued`, `agent_proof_received`,
+`bootstrap_bound`, `composition_submitted`, `participation_submitted`,
+`completed`, `expired`, `rejected`, `cancelled`, `revoked`, or `failed_closed`.
+Friendly labels may map one-to-one to those values. `admitted` belongs to the
+separate composition or room-participation decision, never pairing status.
+After admission the Goal Space/Work participant view shows the participant
+and work-claim leases, gateway/profile expiry, current claim, heartbeat,
+evidence/assurance posture, spend, quarantine, release, retire, and revoke
+controls rather than representing the agent as an opaque live token stream.
+
+The shared schema is owned by
+[`LocalAgentPairingSessionEnvelope`](../../foundations/common-objects-and-envelopes.md#localagentpairingsessionenvelope);
+deployment-local lifecycle handling is owned by
+[`identity-access-and-metering.md`](./identity-access-and-metering.md#local-agent-pairing-sessions).
+Gateway-profile binding is owned by
+[`connector-and-tool-contracts.md`](../connectors-tools/contracts.md#local-agent-pairing-profile-binding).
+
 ## Top-Level Product IA
 
 The default Hypervisor shell should stay small enough that new users can tell
 where work lives:
 
 ```text
-+ New Session
++ New
+  System
+  Session
+  Goal
+  Project
+  Automation
 
 Home
+Systems
 Projects
 Automations
 Applications
-Sessions
+Work
 
 Open Application
   optional singular shell slot for the currently open application
 ```
+
+`New Session` remains a one-click and keyboard-first action even when `+ New`
+is the visible creation affordance. Product navigation must not make an
+ordinary direct Session pay the ceremony cost of a System or GoalRun.
 
 This is a product-navigation doctrine, not a new ownership graph. The durable
 owners remain the daemon, wallet.network, Agentgres, storage backends, AIIP, and
@@ -470,25 +613,35 @@ Use these product meanings:
 Home
   default command surface for starting, resuming, approving, or inspecting work
 
+Systems
+  inventory and contextual workspace for one stable constitution-bound
+  institution across releases, nodes, models, upgrades, recovery, and migration
+
 Projects
-  persistent software/system work containers with repos, files, environments,
+  persistent build/work containers with repos, files, environments,
   development environment recipes, adapter preferences, policy defaults, linked
   automations, and receipts
 
 Automations
-  durable workflow/service/API/trigger/approval-flow objects
+  one owner-application identity for reusable workflow, service, API, trigger,
+  monitor, schedule, queue, and approval-flow definitions and their activations
 
 Applications
-  catalog, search, launcher, and management surface for specialized surfaces
-  over Hypervisor Core
+  catalog, search, launcher, and management surface for registered owner,
+  substrate, tool, generated, and installed extension surfaces
+
+Work
+  read-only, policy-filtered projection across GoalRuns, OutcomeRooms,
+  AutomationRuns, Sessions, WorkItems, WorkRuns, reviews, incidents, and history
 
 Sessions
-  live and historical governed execution contexts
+  bounded interactive, headless, or supervisory execution/control contexts
+  available as a first-class Work view and direct creation action
 ```
 
 Avoid turning platform primitives into permanent top-level nav. Agents, Workers,
 Models, Connectors, MCP servers, Ontology, Policies, Receipts, Monitoring,
-Foundry, Marketplace, and similar surfaces should live in the Applications
+Foundry, Packages/Marketplace, and similar surfaces should live in the Applications
 catalog and may appear as the singular Open Application while active. Favorites,
 recommended apps, promoted apps, recent apps, and organization shortcuts are
 catalog affordances and user/org preferences, not canonical shell categories.
@@ -503,15 +656,21 @@ region is not canonical; pinned/favorite/promoted entries are catalog, Home, or
 project/session affordances. `Open Application` remains a singular active
 surface slot when a specialized surface is selected.
 
-The Applications catalog carries the autonomous-systems suite (thirteen
-applications derived from the lifecycle of a decentralized bounded autonomous
-system: intent → compose → ground → govern → run → prove → evaluate → improve →
-package → distribute → operate), the substrate lane, launchable generated apps,
-and one named horizon entry. Parenthetical phrases preserve older family names
-where they help cross-reference contracts:
+The product estate has dimensional classes rather than one flattened list.
+Home, Systems, Projects, Applications, and Work are core workspaces. Automations
+is one owner-application registration with a shell placement, not a duplicate
+workspace registration. `surface_availability: planned` is a state, not another
+class.
 
 ```text
-The suite
+Core workspaces
+  Home
+  Systems
+  Projects
+  Applications
+  Work
+
+Owner applications
   Studio            (system & agent composition; absorbs Agent Studio as its agent lens)
   Automations       (durable triggers, schedules, monitors, services, process graphs)
   Ontology          (the semantic world-model: object/link/action types, functions,
@@ -519,35 +678,109 @@ The suite
   Data              (supply the world-model: sources, syncs, data recipes, datasets,
                      media sets, consent posture — Data/Knowledge family)
   Governance        (authority, approvals, leases, release gates, kill switches, budgets)
-  Missions          (fleet of running systems and persistent outcome rooms:
-                     frontier, participants, claims, attempts, incidents, spend,
-                     authority, evidence, and replay)
   Provenance        (receipts, lineage, replay, state roots — Work Ledger family)
-  Evaluations       (eval suites, scorecards, feedback with consent ladders, quality dashboards)
-  Improvement       (proposals, what-if simulations, canaries, rollbacks, remediation)
-  Foundry           (model catalog/routes/mounts, tuning, datasets, training pipelines)
-  Marketplace       (listings, admission, installs, artifact registry, org-to-org refs)
-  Workbench         (code, files, terminal, ports inside environments)
+  Evaluations       (suite revisions, frozen epochs, scorecards, holdout/exposure,
+                     evaluator validity, feedback, re-verification)
+  Improvement       (agendas, optional campaigns, target/candidate lineage,
+                     synchronization, proposals, activation/recovery handoff)
+  Foundry           (candidate/evaluator asset construction, admitted experiments,
+                     models/routes/mounts, tuning, datasets, training pipelines)
+  Packages          (local package, release, install, dependency, impact, recall lifecycle;
+                     Marketplace is an optional discovery/exchange mode)
+  Developer Workspace
+                    (code, files, terminal, ports inside environments;
+                     Workbench is a compatibility alias)
   Developer Console (connectors, MCP, APIs, OAuth clients, SDK on-ramps, conformance —
                      Developer & Integrations family; UI touchpoint of the developer kit)
 
-Substrate lane (type 1 + 2 face; distinct from the suite)
+Substrate applications (type 1 + 2 face)
   Environments
   Operations        (infrastructure: scheduler health, providers, placement/failover,
                      storage custody, capacity, provider spend)
 
-Generated apps     (launchable catalog entries authored in Studio, distributed via Marketplace)
+Tool surfaces
+  owner-bound editors, inspectors, pickers, inboxes, graphs, wizards, reports,
+  dashboards, comparisons, and consoles; one primary owner, many contextual consumers
 
-Horizon
-  HypervisorOS     (embodied systems lane; named only, no surfaces)
+Extension applications
+  generated, organization-authored, developer-kit-generated, installed, or
+  marketplace-distributed interfaces admitted through the common registration
+
+Conditional specialist owner application
+  Embodied Systems  (`owner_application`; deployment-neutral `planned`
+                     registration; nonlaunchable until built)
 ```
+
+### Canonical Target Routes And Compatibility Aliases
+
+Routes are part of the registration contract, not names inferred by a client.
+The v2 target route ledger is:
+
+| Surface/action | Canonical target route | Compatibility aliases or rule |
+| --- | --- | --- |
+| Home | `/home` | `/ai`, `/__ioi/home` |
+| New Session | `/work/new-session` | `/ai#new-session`; remains a one-click action |
+| Systems | `/systems` | no fabricated System rows during migration |
+| Projects | `/projects` | existing Project context is preserved |
+| Applications | `/applications` | one catalog/compiler projection |
+| Work | `/work` | `/sessions` → `/work/sessions`; `/missions` → typed GoalRun/OutcomeRoom view |
+| Studio | `/studio` | `/__ioi/agent-studio` |
+| Automations | `/automations` | shell placement and application identity resolve to the same registration |
+| Ontology | `/ontology` | current ontology/ODK subroutes remain contextual aliases |
+| Data | `/data` | `/__ioi/odk#data-planes` |
+| Governance | `/governance` | `/__ioi/governance` |
+| Provenance | `/provenance` | `/__ioi/work-ledger` |
+| Evaluations | `/evaluations` | `/__ioi/evaluations`, `/__ioi/feedback` |
+| Improvement | `/improvement` | `/__ioi/agent-studio#improvement-proposals`, `/__ioi/improvement/changes` |
+| Foundry | `/foundry` | `/__ioi/foundry` |
+| Packages | `/packages` | `/marketplace`, `/__ioi/marketplace` → `/packages/marketplace` |
+| Developer Workspace | `/developer-workspace` | `/workbench`, `/__ioi/workbench` |
+| Developer Console | `/developer-console` | `/__ioi/connections` |
+| Environments | `/environments` | `/__ioi/environments` |
+| Operations | `/operations` | `/__ioi/operations` |
+| Embodied Systems | `/embodied-systems` reserved | planned and nonlaunchable; `/fleet` must resolve contextually rather than aliasing to one owner |
+
+An extension application's general route is compiled as
+`/applications/{surface_key}`. A System-bound interface resolves under
+`/systems/{system_id}/interfaces/{system_binding_id}`. Aliases must preserve
+query, hash, embed/return state, and every typed Organization, Project, System,
+GoalRun, OutcomeRoom, AutomationRun, Session, WorkQueue, WorkItem, and WorkRun
+context. Additional current aliases remain admitted registration data; they do
+not create another product identity.
+
+The durable owner-application jobs are derived from the lifecycle of a bounded
+autonomous institution: constitute, compose, ground, govern, run, prove,
+evaluate, improve, package, deploy, operate, recover/migrate/succeed, and
+retire/dissolve. Systems keeps the live institution at the center; Work keeps
+heterogeneous work coherent without creating a universal work object.
+
+The conditional Embodied Systems `owner_application` registration is
+deployment-neutral and does not enlarge the twelve enduring baseline owner
+jobs until it becomes available. Its native projection centers admitted
+`EmbodiedRuntimeGraphManifest` revisions, composable `micro`/`edge`/`site`
+profiles, physical streams and action-policy contracts, exact resource groups,
+`LocalControlSupervisor` state, graph activation transactions, fleet allocation,
+`SpacetimeReservationLease` state, telemetry/replay, and deployment-bound
+assurance. Existing robot, vehicle, industrial, and device controllers enter
+through an admitted `EmbodimentAdapter` and, where required, a compatibility-only
+`LocalControlBridge`; neither replaces the native runtime contract or the
+supervisor's final local veto. Embodied Systems does not require HypervisorOS;
+it remains an optional Type 1 substrate when stronger node control, measurement,
+or containment is useful.
 
 ODK is NOT an application: it is the developer kit (CLI, templates, scaffolds,
 generated SDKs, docs, conformance). Its object planes remain substrate and
 surface through the suite — ontologies and value types through Ontology,
 data recipes and sources through Data,
-surface descriptors through Studio, manifests through Marketplace — and its
+surface descriptors through Studio, manifests through Packages — and its
 developer tooling through Developer Console and the kit itself.
+
+Generated domain apps will often use React or another proven application
+framework and may be the most prominent System interface. They remain
+projections and intent surfaces over constitution, daemon, authority,
+Agentgres, deployment, and receipt contracts. IOI's value is not replacing the
+UI framework; it is supplying the governed autonomous-system substrate beneath
+one or many UI replicas.
 
 ## Context, Integrations, And Memory Placement
 
@@ -564,11 +797,17 @@ Developer Console:
 Developer Console
   connectors and connected apps
   MCP servers and surface MCPs
-  provider accounts and BYOK/BYOA
-  APIs, SDKs, ADK, webhooks, service accounts
+  connector, tool, and provider-integration registrations
+  APIs, OAuth clients, SDKs, ADK, webhooks, and service registrations
   conformance and developer app registration
   developer-kit on-ramps: scaffolds, templates, generated SDKs
 ```
+
+Developer Console defines and validates integration/configuration
+registrations; it does not own provider runtime lifecycle, placement, health,
+capacity, or spend. Environments and Operations own those projections and
+actions, while settings own personal or organization credential and policy
+defaults.
 
 User and organization settings expose only scoped slices of that estate:
 
@@ -583,6 +822,8 @@ Organization settings
   organization connectors and service accounts
   connector allowlists and provider policies
   SSO/OIDC, retention, audit, export, shared-memory policy
+  Enterprise Learning Boundary defaults, provider secondary-use and
+  cross-customer learning policy, custody/region, capability-exit posture
   workspace defaults and administrative enrollment
 ```
 
@@ -590,20 +831,27 @@ Contextual surfaces expose the same primitives where they are actually used:
 
 ```text
 New Session
-  agent, model, harness, tools, memory, privacy, budget, authority
+  agent, model, harness, tools, memory, privacy, learning-from-this-work posture,
+  budget, authority
 
 Studio
   system boundary, agent lens (worker tools, skills, memory profile,
-  model/harness), endpoint/package posture
+  model/harness), compiled InstitutionalLearningBoundaryProfile,
+  endpoint/package posture
 
 Projects
-  project memory, project connectors, environment recipes, policy defaults
+  project memory, project connectors, environment recipes, learning-boundary
+  build policy, policy defaults
 
 Automations
   workflow/service triggers, connector steps, approval requirements, delivery
 
 Managed agent console
   instance connectors, schedules, contact channels, memory posture, updates
+
+Governance / Data / Ontology / Models / Foundry / Provenance / Environments
+  contextual policy, source-rights, route-rights, eligible-evidence,
+  learning-flow, custody, export, revocation-impact, and model-swap projections
 ```
 
 Durable workflows remain Automations. Personal shortcuts, reusable snippets, or
@@ -615,16 +863,68 @@ top-level Automations surface.
 
 Do not copy reference-product tab taxonomies as Hypervisor product structure.
 Hypervisor has a top-level Automations surface for durable triggers, schedules,
-service graphs, approvals, delivery, and background missions. Studio, New
+service graphs, approvals, and delivery. Studio, New
 Session, Projects, and Developer Console may project automation
 readiness, connector availability, skills, memory posture, and launch policies
 where they are used, but they must not cannibalize Automations as a child tab or
 rename durable Automations into generic workflows.
 
-Agent Wiki / `ioi-memory` is the durable memory substrate. Harness-local
+Agent Wiki / `ioi-memory` is the durable memory substrate. Adapter-local
 "brains," scratchpads, summaries, embeddings, and vendor memory features are
 adapters or projections over admitted memory. They do not own portable user,
 project, org, worker, or managed-instance knowledge.
+
+### Enterprise Learning Boundary Is A Cross-Cutting Facet
+
+**Enterprise Learning Boundary** is the product-facing projection of the
+canonical `InstitutionalLearningBoundaryProfile`. It is primarily configured in
+Governance and organization/project/system settings, then rendered where a
+specific source, route, job, derivative, export, or environment makes the
+decision relevant. It must not become a fourteenth suite application, a second
+privacy selector beside `Standard`/`Private`, or a new truth or authority plane.
+
+The product should answer four concrete questions:
+
+```text
+What learning material is covered?
+Where may it travel, in which representation, and under whose custody?
+Which institution/provider uses and derivative rights are admitted?
+Can the institution export the eligible capability and continue without this model?
+```
+
+Organization and project settings supply build defaults. Studio compiles them
+into the proposed system package/genesis profile. The admitted live system
+revision remains authoritative; a later organization-default change creates a
+governed upgrade proposal rather than silently changing the system. Sessions,
+GoalRuns, model invocations, transformations, and Foundry jobs snapshot that
+boundary and may narrow it. Any widening requires explicit authority and a new
+admitted decision.
+
+Suggested projections remain contextual:
+
+- Governance owns boundary policy, exceptions, declassification, export,
+  deletion, revocation, incident, and system-upgrade review;
+- Data and Ontology expose source-rights, consent, intended-use, recipe, and
+  derivative-impact posture;
+- Models and Developer Console expose the registered bidirectional
+  provider/customer learning terms, retention, ZDR, custody, fallback, and
+  provider-exposure configuration relevant to model and integration choice;
+- Evaluations and Improvement protect private rubrics/corrections and show which
+  eligible observations produced candidates, promotions, regressions, or
+  rollback;
+- Foundry shows the exact boundary, eligibility, source-rights, route-rights,
+  destination scope, and export disposition before a job begins;
+- Provenance derives a metadata-safe learning-flow graph from source through
+  eligibility, use, derivative, promotion, egress/export, and revocation;
+- Environments and Operations show actual placement, keys, custody, egress
+  enforcement, and proof posture; and
+- Home, Systems, and Work show only concise boundary health, blockers, and
+  incidents appropriate to their context.
+
+User choices such as ephemeral only, remember within the system, admit to a
+private eval, or propose for private improvement are policy requests. They can
+narrow or request an authorized transition; they are never toggles that override
+source rights or the compiled system boundary.
 
 The compact doctrine:
 
@@ -634,7 +934,8 @@ Start or resume work from Home.
 Build software in Projects.
 Build workflows in Automations.
 Open specialized tools in Applications.
-Track execution in Sessions.
+Start, supervise, inspect, review, replay, and resume work in Work.
+Open Sessions for bounded interactive, headless, or supervisory execution.
 Run consequential work through Hypervisor Core, the daemon, wallet.network,
 Agentgres, and receipt/replay boundaries.
 ```
@@ -645,11 +946,11 @@ The product-management lifecycle is:
 
 ```text
 Build
-  Projects, Workbench, Studio, Automations, Ontology, Data, Canvas, SDK/ADK/
-  developer kit, Developer Console, Foundry, Marketplace facets
+  Projects, Developer Workspace, Studio, Automations, Ontology, Data, Canvas,
+  SDK/ADK/developer kit, Developer Console, Foundry, Packages facets
 
 Run
-  Sessions, Missions, daemon runtime, providers, environments, cTEE,
+  Systems, Work, Sessions, daemon runtime, providers, environments, cTEE,
   code execution, computer use, worker/model/tool routing, memory, restore
 
 Govern
@@ -659,13 +960,15 @@ Govern
 
 Observe
   Provenance: receipts, replay, traces, logs, lineage, state roots;
-  Evaluations: evaluations, executable eval worlds, online monitors, quality
-  alerts, work analytics, tool analytics, feedback, examples
+  Evaluations: frozen judgment epochs, scorecards, holdout/exposure posture,
+  evaluator validity, challenges, re-verification, quality alerts, feedback
 
 Improve
-  Improvement: proposals, simulations, canaries, rollbacks, remediation;
-  Foundry: evals, benchmarks, worker/model promotion, data recipes,
-  distilled ontology datasets, rollout outcomes, routing improvements
+  Improvement: direct proposals or optional campaign/agenda coordination,
+  candidate comparison, synchronization, and target-owner change handoff;
+  Foundry: candidate/evaluator asset construction, admitted experiments,
+  models, workers, data recipes, and distilled ontology datasets;
+  Governance: activation, canary/cohort, rollback, recall, and recovery decision
 
 Package / Market
   Autonomous System Packages, worker manifests, templates, patterns,
@@ -710,33 +1013,52 @@ Environments
   environment create/start/readiness/idle/archive/restore/delete,
   provider placement, ports, services, tasks, logs, restore posture
 
+Systems
+  stable System identity, active package/revision/constitution/profile refs,
+  lifecycle summary, logical desired-versus-observed topology, health, and
+  contextual deep links; Systems is a read model and never admits a transition
+
+Work
+  GoalRun, OutcomeRoom, AutomationRun, Session, WorkItem, WorkRun, review,
+  incident, blocker, and history projections with typed canonical subjects
+
 Operations
-  queued/running/failed/retried jobs, builds, retries, and execution status
+  queued/running/failed/retried infrastructure jobs; provider, placement,
+  capacity, custody, member readiness, catch-up, verified roots, leases, writer
+  epochs, fencing, RPO/RTO, degraded/partition posture, and admitted add, drain,
+  promote, or remove operations
 
 Operations resource facet
   queues, quotas, rate limits, capacity, utilization, spend, and budgets
 
 Foundry
-  dataset, eval, build, training, artifact conversion, registration, and
-  promotion-candidate lifecycle
+  dataset, evaluator-asset, candidate-build, admitted experiment, training,
+  artifact conversion, registration, and promotion-bundle construction
 
 Studio
   system-boundary/agent/harness/tool/memory-profile/memory-projection/
-  authority/eval-readiness and worker/package candidacy
+  authority/eval-readiness and worker/package candidacy; Studio packages
+  constitution and deployment intents but never owns observed membership,
+  writer, failover, or lifecycle truth
 
 Automations
   trigger, workflow, service, API, schedule, catch-up, and run lifecycle
 
-Evaluations / Improvement
-  eval-suite, scorecard, feedback-consent, proposal, simulation, canary, and
-  rollback lifecycle
+Evaluations
+  eval-suite revision, frozen epoch, scorecard, holdout/exposure, evaluator
+  validity, challenge, feedback-consent, and re-verification lifecycle
 
-Marketplace / Provenance
-  install, publish, package, artifact, recall evidence, contribution, and
-  settlement handoffs
+Improvement
+  agenda, optional campaign, target/candidate lineage, synchronization cutoff,
+  candidate nomination, and UpgradeProposal handoff lifecycle
 
-Governance / Missions / Operations
-  human approval, policy review, remediation, incident, and support gates
+Packages / Provenance
+  package, release, install, publish, dependency, impact, recall evidence,
+  contribution, and optional Marketplace/settlement handoffs
+
+Governance / Work / Operations
+  human approval and policy review (Governance), logical remediation/incidents
+  (Work), and infrastructure remediation/support (Operations)
 
 Provenance / Ontology
   dependency, provenance, and impact graph
@@ -754,8 +1076,10 @@ replay refs, proof refs, and operator/MCP contracts.
 
 The lifecycle projection is not a new truth store. Agentgres admits truth,
 wallet.network authorizes, the Hypervisor Daemon executes, Foundry builds and
-evaluates, Marketplace/aiagent/MoW attributes external supply when applicable,
-and Provenance inspects evidence.
+runs admitted experiments, Evaluations maintains independent judgment,
+Improvement coordinates bounded change, Governance decides activation and
+effect recovery, Marketplace/aiagent/MoW attributes external supply when
+applicable, and Provenance inspects evidence.
 
 ## Application Surfaces
 
@@ -782,14 +1106,14 @@ first fold (the augmentation script tag moving into the owned index.html) is
 in. Serve-time code transforms must stay formatting-tolerant — they apply to
 both the minified original and the beautified owned source.
 
-### The Autonomous-Systems Application Suite
+### The Autonomous-Systems Owner Applications
 
-The suite is derived from the lifecycle of a decentralized bounded autonomous
-system (intent → compose → ground → govern → run → prove → evaluate → improve →
-package → distribute → operate). Every application earns its place with an
-existence reason; projections that do not are facets of these surfaces, not
-cards. Working detail (UX seeds, reshapes, adoption order) lives in
-`internal-docs/prompts/autonomous-systems-suite/suite-guide.md`.
+The owner applications are durable expert workbenches over the lifecycle of a
+bounded autonomous institution. Every application earns its place through one
+distinct object/lifecycle job; an editor, graph, inbox, inspector, picker,
+wizard, or report that lacks such a job is an owner-bound tool rather than a
+peer application. Reference-product captures and parity certificates may
+inform interaction design but never determine this taxonomy.
 
 ```text
 Hypervisor Studio
@@ -801,10 +1125,9 @@ Hypervisor Studio
   agent-level lens
 
 Hypervisor Automations
-  durable workflow, trigger, schedule, monitor, API/service, approval-flow, and
-  background-mission surface; condition-over-object-set → governed effect is
-  its core grammar; includes durable missions created from ioi.ai
-  collaborative outcome handoffs
+  reusable workflow, trigger, schedule, monitor, API/service, approval-flow,
+  queue, and process-graph definitions plus their activations;
+  condition-over-object-set → governed effect is its core grammar
 
 Hypervisor Ontology
   the semantic world-model systems act on: ontologies (object/link/action
@@ -821,69 +1144,120 @@ Hypervisor Data
 Hypervisor Governance
   authority and control surface: approvals inbox, authority scopes and
   capability leases, release gates, cohorts, kill switches, budgets,
-  retention/marking policy, justification checkpoints
-
-Hypervisor Missions
-  fleet console for running systems and persistent collective outcomes:
-  missions, OutcomeRoom work-frontier graphs, participant/claim state, run
-  queues, attempts/findings/verifier challenges, incidents and remediation,
-  spend, authority blockers, contribution lineage, and replay — systems, not
-  infrastructure (infrastructure is substrate Operations)
+  retention/marking policy, justification checkpoints; constitution and
+  protected-amendment history, ordering/finality, oracle policy, successor and
+  guardian paths, migration/fork/adoption, dissolution/decommission, and IOI
+  Network enrollment/assurance are explicit high-assurance facets
 
 Hypervisor Provenance
   the proof plane: chronological receipt stream, lineage graph of
   runs/artifacts/authority where every edge is a receipt, state roots, replay
-  entries, custody receipts; evolves the former Work Ledger card
+  entries, custody receipts; exposes editable domain object -> immutable source
+  snapshot -> derived export, including the exact tool/workflow revision,
+  transformation run, and receipt for each derived edge; evolves the former
+  Work Ledger card
 
 Hypervisor Evaluations
-  judgment surface: eval suites and runs, scorecards over systems/agents/
-  models, operator feedback with evidence-eligibility consent, quality
-  dashboards, start-from-object-set analyses
+  independent judgment surface: released eval-suite revisions, immutable
+  evaluation epochs, visible/sealed/transfer/adversarial portfolios, scorecards
+  over systems/agents/models, holdout custody and exposure, evaluator validity,
+  challenges, re-verification, operator feedback with evidence-eligibility
+  consent, quality dashboards, and start-from-object-set analyses
 
 Hypervisor Improvement
-  safe-change surface: improvement proposals, what-if simulations over
-  recorded runs, canary rollouts and rollbacks, remediation sweeps, a
-  deadline-driven change inbox; Governance gates it, Improvement drives it
+  safe-change cockpit: immutable agenda revisions, optional multi-epoch
+  campaigns, target/order and candidate lineage, negative knowledge,
+  candidate comparison and nomination, synchronization cutoffs, improvement
+  claims, direct proposals, what-if simulations, and target-owner activation/
+  recovery handoffs; ordinary one-shot UpgradeProposal remains valid;
+  Governance gates and decides activation while Improvement coordinates
 
 Hypervisor Foundry
-  model catalog, registry, model routes/mounts, tuning, persistent training
-  pipelines, dataset factory runs, experiment optimization, artifact
-  conversion, evaluation, executable eval worlds, interactive worlds,
-  gameplay trajectory datasets, scenario curricula, world-model candidates,
-  spatial-temporal policy candidates, transfer gates, tool-call audits,
+  candidate/evaluator asset builder and admitted experimental executor: model
+  catalog, registry, model routes/mounts, tuning, persistent training pipelines,
+  dataset factory runs, subordinate experiment optimization, artifact
+  conversion, executable eval assets and jobs, interactive worlds, gameplay
+  trajectory datasets, scenario curricula, world-model candidates, spatial-
+  temporal policy candidates, transfer-gate candidates, tool-call audits,
   trajectory scorecards, datasets, endpoints, monitoring, worker/package
-  creation, certification-run candidates, and ontology-aware improvement surface
+  creation, certification-run candidates, and ontology-aware capability builds;
+  not campaign owner, evaluation-epoch truth, candidate-selection authority, or
+  release owner
 
-Hypervisor Marketplace
-  distribution surface: listings, admission reviews, configure-and-install
-  runs, versioned artifact registry with receipted recall, examples gallery,
-  org-to-org collaboration by refs
+Hypervisor Embodied Systems (planned and nonlaunchable until built)
+  native physical-operations surface: commission units, controllers,
+  calibration, and exact resource groups; inspect admitted runtime graphs,
+  profile/stratum placement, streams, policies, and local supervisors; prepare
+  and observe graph activation without implying arming; allocate fleet work and
+  reserve shared spacetime as separate leases; supervise live operations,
+  intervention, telemetry, replay, incidents, recovery, and deployment-bound
+  assurance. Studio authors graph source, Foundry produces candidates and
+  evidence, Governance owns consequential admission, and the daemon plus
+  Agentgres own execution and operational truth. The surface never becomes
+  actuator authority or a safety controller.
 
-Hypervisor Workbench
+Hypervisor Packages
+  mandatory local package lifecycle: package candidates, immutable releases,
+  dependencies, installed bindings, affected-System impact, deprecation,
+  revocation, and receipted recall; Marketplace is an optional discovery,
+  publishing, exchange, attribution, and organization-to-organization mode
+
+Hypervisor Developer Workspace
   code, systems, workflow, workspace, editor, terminal, browser, and
   debugging surface, including development environment recipes and lifecycle
-  observations where they help users start, inspect, restore, or tear down work
+  observations where they help users start, inspect, restore, or tear down
+  work; Workbench remains a compatibility alias
 
 Hypervisor Developer Console
-  extension surface: connectors and connected apps, MCP servers, provider
-  accounts and BYOK/BYOA, APIs and OAuth/service registrations, function and
-  widget/extension registries, conformance, and developer-kit on-ramps
-  (scaffolds, templates, generated SDKs)
+  extension surface: connector, connected-app, MCP, tool, and provider-
+  integration registrations; APIs and OAuth/service registrations; function,
+  widget, and extension registries; conformance; and developer-kit on-ramps
+  (scaffolds, templates, generated SDKs). Environments and Operations own
+  provider lifecycle, placement, health, capacity, and spend
 
 Hypervisor Canvas
-  visual builder/editor inside Studio, Automations, Workbench, or Foundry where
-  useful; not a separate product plane or runtime owner
+  visual builder/editor inside Studio, Automations, Developer Workspace, or
+  Foundry where useful; not a separate product plane or runtime owner
 ```
 
-Other surfaces may include specialized model consoles, service/API consoles,
-domain-operation consoles, organization admin views, and settings panes. Work
-analytics, tool analytics, release control, run replay, and data-recipe views
-appear as facets of the suite (Evaluations, Governance, Provenance, Ontology, Data)
-or contextual panels. Generated domain apps are launchable Applications-catalog
-entries — authored in Studio, distributed through Marketplace — not a separate
-card. These should still resolve through the Applications catalog, the singular
-Open Application slot, session/project detail, or contextual panels instead of
-becoming new default top-level shell categories.
+Source-neutral tool placement is canonical at the owner boundary:
+
+| Tool surface | Primary owner and placement |
+| --- | --- |
+| Pipeline Builder / Recipe Builder | Data / Recipes |
+| Data Connections | Data / Sources |
+| Ontology Manager | Ontology / Schema |
+| Object Explorer | Ontology / Explore |
+| Approvals | Governance / Approvals |
+| Model Catalog | Foundry / Models |
+| Marketplace | Packages / Marketplace |
+| System Designer (legacy Solution Designer) | Studio / System Design |
+| Process Graphs (legacy Machinery) | Automations / Process Graphs |
+| Monitors (legacy Automate) | Automations / Monitors |
+| Change Inbox (legacy Upgrade Assistant) | Improvement / Changes |
+| Evaluation Suites (legacy AIP Evals) | Evaluations / Suites |
+
+`Work / Incidents` and `Work / Reviews` are workspace views, not tool
+registrations and not truth owners. The legacy Issues route resolves to
+`Work / Incidents`. Each row keeps its typed work subject; incident and review
+refs remain facets owned by the applicable domain or owner application, and
+detail actions route there. This prevents a core workspace from masquerading
+as a tool's primary owner.
+
+These tool labels may be directly searchable and launchable, but direct launch
+opens them under their primary owner and current Organization, Project, System,
+Work, GoalRun, OutcomeRoom, or Session context. They do not become peer product
+identities. Other specialized consoles, admin views, analytics, release
+controls, replay, and data-recipe views remain owner-bound tools or contextual
+projections.
+
+Generated and installed extension applications are launchable
+Applications-catalog entries. Studio authors interface descriptors; the
+developer kit may scaffold them; Packages admits and versions them; Marketplace
+may distribute them; the product-surface compiler exposes eligible installed
+bindings. Creation method and distribution channel do not change the extension
+application's registration class or grant it runtime, authority, System, or
+Agentgres ownership.
 
 User-facing configuration should prefer simple labels:
 
@@ -893,16 +1267,18 @@ Mode       Agent | Plan | Goal
 Model      product-facing model choice
 Reasoning  Low | Medium | High | Extra high
 Speed      Standard | Fast
-Harness    advanced execution topology, hidden unless relevant
+Resolver   advanced scoped-step profile/adapter, hidden unless relevant
 Execution  Auto | Pinned | Compare, shown when route plurality matters
 ```
 
 `Agent` is the buildable product object. `Worker` remains the durable protocol
 actor/package boundary. `Model` is the product-facing label; `ModelRoute`
 remains the internal runtime object for provider, custody, fallback, spend,
-privacy, eligibility, and invocation policy. `Harness` is the visible
-power-user label for selected `HarnessProfile` or adapter topology; it should
-not be exposed as "execution profile" in ordinary composer controls.
+privacy, eligibility, and invocation policy. `Resolver` is the power-user
+label for a selected `HarnessProfile` or AgentHarnessAdapter. `RoleTopology`
+and WorkflowTemplate own topology; the resolver owns only one scoped step.
+Ordinary composer controls may continue to hide this distinction behind Agent
+and Mode.
 
 `Auto` means one eligible route or a declared verified escalation cascade;
 `Pinned` means one selected eligible route with fail-closed fallback policy;
@@ -920,17 +1296,18 @@ project, provider, and environment views.
 
 ## Hypervisor New Session
 
-`+ New Session` launches governed work. It is not generic chat and not a
-private UI state transition.
+`New Session` launches one bounded governed execution/control context. It is
+not generic chat, not a private UI state transition, and not an implicit way to
+create an AutomationSpec, GoalRun, OutcomeRoom, or generic Mission object.
 
 A New Session request should bind:
 
 ```text
 intent
-project or application context
-work execution mode: foreground session | one-off background handoff |
-                     durable automation | background mission |
-                     persistent Goal Space / OutcomeRoom handoff
+organization, project, system, application, or direct context when applicable
+session mode: interactive | headless | supervisory
+optional typed attachment: GoalRun | AutomationRun | WorkItem | OutcomeRoom
+                           participant/claim/attempt
 worker/model/tool route
 execution policy: Auto | Pinned | Compare
 contributor scope: My workers | Organization | Network / Open
@@ -952,12 +1329,15 @@ policies over eligible routes, not subscription tiers.
 Hypervisor Core admits the request through daemon, wallet.network, Agentgres,
 privacy, provider, and receipt boundaries before consequential work begins.
 
-A New Session may atomically bind project/environment recipe, selected agent,
+A New Session may atomically bind organization/project/system context,
+project/environment recipe, selected agent,
 initial input, mode, model configuration, reasoning effort, speed/service tier,
 harness selection, tools/connectors, memory policy, authority, budget, eval,
 execution policy, contributor scope, Network/Open goal budget when applicable,
-and receipt posture. That bundle is a daemon-admitted launch recipe, not a
-client-local chat setting.
+typed GoalRun/AutomationRun/WorkItem/room-work refs, and receipt posture. That
+bundle is a daemon-admitted launch recipe, not a client-local chat setting.
+Creating durable intent or standing behavior remains an explicit New Goal or
+New Automation action even when a Session is attached immediately afterward.
 
 Implementation status: live — New Session IS the product shell's polished
 composer page (goal prompt, agent picker, project/URL/scratch intake), at
@@ -986,14 +1366,15 @@ resume / newest-proof strips with honest empty + degraded states). The
 composer is deliberately NOT the home page — it is New Session — and there is
 no second "Home" entry in the Applications launcher.
 
-Home may accept goal prompts, show recent sessions, surface waiting approvals,
-and route the user into a Project, Automation, Application, Session, receipt, or
-replay. Home is allowed to draft work, but it must not become the durable owner
-of automations, projects, or sessions.
+Home may accept goal prompts, show recent typed Work subjects, surface waiting
+approvals, and route the user into a System, Project, Automation, Application,
+GoalRun, OutcomeRoom, Session, receipt, or replay. Home is allowed to draft
+work, but it must not become the durable owner of systems, goals, automations,
+projects, or sessions.
 
 Home should stay a low-friction command and resume surface. Dense panes for
 code, diffs, comments, terminals, ports, tasks, logs, or environment controls
-belong in active Project, Workbench, Session, or Open Application contexts where
+belong in active Project, Developer Workspace, Session, or Open Application contexts where
 the user has selected the work scope.
 
 Correct:
@@ -1014,13 +1395,15 @@ Home = default deploy-as-service funnel
 
 ## Hypervisor Projects
 
-**Hypervisor Projects** are persistent software/system work containers.
+**Hypervisor Projects** are persistent build and work-context containers. A
+Project is not the live identity of a bounded autonomous System.
 
 A Project may bind repositories, files, branches, packages, assets,
-environments, adapter preferences, linked automations, sessions, policies,
+environments, adapter preferences, linked Systems, automations, GoalRuns,
+sessions, policies,
 secrets scopes, artifacts, receipts, and Agentgres domain links. Workbench is
-the IDE-grade code/systems mode inside or attached to a Project; the Project is
-the durable object.
+the compatibility label for the IDE-grade **Developer Workspace** inside or
+attached to a Project; the Project is the durable context object.
 
 Project-owned product state is still admitted through the canonical owners:
 daemon/Core for execution semantics, wallet.network for authority and secret
@@ -1031,8 +1414,8 @@ Correct:
 
 ```text
 Open the Project.
-Use Workbench or an editor adapter to inspect and change it.
-Resume the Project's governed Sessions.
+Use Developer Workspace or an editor adapter to inspect and change it.
+Resume the Project's typed Work and governed Sessions.
 ```
 
 Avoid:
@@ -1041,36 +1424,135 @@ Avoid:
 Project = editor folder with no Agentgres identity
 Workbench = parent product
 editor adapter = project truth
+Project = live System identity
 ```
+
+## Hypervisor Systems
+
+**Hypervisor Systems** is the stable inventory and contextual workspace for
+live constitution-bound autonomous institutions. It projects one `system_id`
+across package revisions, node membership changes, model-route changes,
+upgrades, recovery, migration, succession, and dissolution. It is not a truth
+store and never mints or mutates System identity by itself.
+
+A System workspace provides the following contextual modes over existing
+owners:
+
+| Mode | Primary projections |
+| --- | --- |
+| Overview | identity, purpose, active revision, constitution/profile refs, lifecycle, health, and attention |
+| Design | Studio, Ontology, Data, and Automations |
+| Operate | Work, Automations, Environments, Operations, and Embodied Systems where applicable |
+| Govern | Governance authority, budgets, protected change, learning boundary, lifecycle, and enrollment |
+| Evidence | Provenance and Evaluations |
+| Improve | Improvement, Foundry, and Governance |
+| Interfaces | Studio, Packages, Developer Console, and admitted generated interfaces |
+
+Systems may compare desired and observed topology, but Operations performs
+admitted provider, placement, fencing, failover, and member actions; Governance
+authorizes protected transitions; daemon/domain contracts execute; Agentgres
+records admitted truth. A direct Session, Project, AutomationSpec, or standalone
+GoalRun never requires System genesis.
+
+Implementation status: target contract. Autonomous-system contract/API slices
+exist in canon, but a complete policy-filtered Systems inventory, permanent
+shell destination, and blank-to-genesis product path are not shipped.
+
+## Hypervisor Work
+
+**Hypervisor Work** is the unified core workspace for starting, supervising,
+inspecting, intervening in, reviewing, replaying, and resuming heterogeneous
+work. It is a policy-filtered read model, not a canonical `Work` object or one
+universal lifecycle.
+
+```text
+Work / Active
+Work / Goals
+Work / Sessions
+Work / Rooms
+Work / Queues
+Work / Reviews
+Work / Incidents
+Work / History
+```
+
+Every Work row declares a typed `subject_kind` and canonical `subject_ref` and
+deep-links to the type-specific owner. Work may derive display facets across
+GoalRun, OutcomeRoom, AutomationRun, Session, WorkItem, WorkRun, review, and
+incident states, but it never writes one common status back over them. Policy
+filtering occurs before search, counts, recents, aggregation, and caching.
+
+System, Project, organization, and OutcomeRoom scope remain orthogonal to work
+kind. System-bound work projects into `System / Operate`; direct, Project,
+organization, and room work remains valid without a parent System unless its
+own canonical contract requires one.
+
+Implementation status: target contract. The existing Sessions root, jobs,
+GoalRun views, automation-run views, and issue/blocker aggregates are migration
+inputs, not proof that the unified Work workspace or typed projection is live.
+
+Canonical routing follows the object model rather than preserving a retired
+peer application:
+
+```text
+/work                         -> Work / Active
+/work/goals                   -> Work / Goals
+/work/sessions                -> Work / Sessions
+/work/rooms                   -> Work / Rooms
+/work/queues                  -> Work / Queues
+/work/reviews                 -> Work / Reviews
+/work/incidents               -> Work / Incidents
+/work/history                 -> Work / History
+/sessions                     -> compatibility alias for Work / Sessions
+/missions                     -> compatibility alias resolved through typed legacy aliases
+/missions/{legacy_subject_id} -> Work / Goals or Work / Rooms after typed resolution
+```
+
+New writes never mint a generic Mission id. A legacy Mission route must resolve
+through `HypervisorLegacyWorkSubjectAlias` to one typed canonical subject before
+rendering; unresolved or ambiguous aliases fail closed. Redirects preserve
+organization, Project, System, query, hash, embedded-shell, backing-subject, and
+Open Application context, then render the canonical breadcrumb and back-stack
+identity rather than perpetuating Mission as a peer owner.
+Typed details resolve beneath the matching view by canonical subject identity;
+for example, `/work/queues/{work_queue_id}`,
+`/work/reviews/{facet_projection_id}`, and
+`/work/incidents/{facet_projection_id}`. A review or incident detail remains a
+read-only Work facet whose source object deep-links to its canonical owner; the
+route does not mint a generic review or incident work subject.
 
 ## Hypervisor Applications
 
 **Hypervisor Applications** is the catalog, launcher, and vertical surface layer
 inside Hypervisor.
 
-An Application is a specialized UI/work surface over Hypervisor Core that
-creates, inspects, modifies, or governs Projects, Automations, Sessions,
-Agents, Workers, Models, Environments, surface descriptors, generated apps,
-integrations, Governance, Missions, Provenance, Marketplace, or other domain
-objects. Older family labels such as `Providers / Environments`,
+An Application is a registered specialized UI/work surface over Hypervisor Core
+that creates, inspects, modifies, or governs typed domain objects. Applications
+may project Projects, Systems, Work subjects, Automations, Sessions, agents,
+workers, models, environments, surface descriptors, extension applications,
+Governance, Provenance, Packages, or other domain objects without owning their
+truth. Older family labels such as `Providers / Environments`,
 `Connections`, `Connectors / Tools / MCP`, `Data / Knowledge`,
 `Ontology Studio`, `Workshop`, `Domain Blueprints`, `Authority / Govern`, `Release Controls`,
 `Resource Management`, `Operations Center`, `Learning Center`, and
 `Receipts / Replay` remain aliases or facets for those product surfaces.
 
-Applications may be first-party, organization-built, generated via the
-developer kit, marketplace, or vertical-specific. They are product surfaces,
-not separate runtimes or authority owners.
+Publisher identity, origin, creation method, distribution channel,
+availability, admission state, installation state, package disposition,
+enablement state, capability depth, and operational state are independent dimensions. A
+first-party, organization-authored, developer-kit-generated, marketplace-
+distributed, or vertical application remains a product surface, not a separate
+runtime or authority owner.
 
-The first-party set is the autonomous-systems suite plus the substrate lane
-(see Top-Level Product IA and The Autonomous-Systems Application Suite):
+The first-party owner set plus substrate lane is:
 
 ```text
-Studio · Automations · Ontology · Data · Governance · Missions · Provenance ·
-Evaluations · Improvement · Foundry · Marketplace · Workbench ·
+Studio · Automations · Ontology · Data · Governance · Provenance ·
+Evaluations · Improvement · Foundry · Packages · Developer Workspace ·
 Developer Console
 Environments · Operations   (substrate lane)
-HypervisorOS                (horizon; named only)
+Embodied Systems            (conditional `owner_application`; `planned` and
+                             nonlaunchable until built)
 ```
 
 Applications may contain or manage Automations, Projects, or Sessions, but they
@@ -1083,24 +1565,126 @@ when reuse, evaluation, installation, or settlement matters.
 
 ### Application Surface Registration Contract
 
-Every durable Hypervisor application surface should have a registration contract
-before it becomes first-class product inventory. The contract may start as a
-client-local descriptor and promote into daemon/Agentgres records when install,
-permissioning, packaging, replay, audit, or marketplace behavior needs durable
-identity.
+Every durable Hypervisor application surface must have one discriminated
+registration before it becomes first-class product inventory:
 
-A surface registration should declare:
+```text
+surface_class
+  owner_application
+  substrate_application
+  tool_surface
+  extension_application
+```
 
-- stable surface id, display name, summary, and family;
-- canonical owner doc and owning object families;
-- supported placements: Applications catalog, Open Application, Home
-  suggestion, Project context, Session context, org/admin view, or operator
-  console;
+`extension_application` covers organization-authored, generated, installed,
+and third-party application interfaces. Those attributes resolve through the
+independent origin, creation, distribution, admission, installation, and
+operational dimensions; they are not separate classes. Core workspaces use a sibling
+`HypervisorCoreWorkspaceRegistration` so one product-surface compiler can serve
+navigation and catalog projections without pretending Home, Systems, Projects,
+Applications, or Work is an application.
+
+An imported MCP App is a sandboxed extension surface, not a new runtime or
+truth owner. Ephemeral rendering remains an invocation-scoped sandboxed view.
+When the surface is durably installed, `extension_application` release,
+admission, installation, enablement, System-binding, serving, action,
+authority-preview, and revocation contracts own it like any other extension.
+UI-initiated actions still cross the Hypervisor MCP Gateway,
+RuntimeToolContract, daemon, policy, authority, and receipt boundaries.
+
+The following dimensions remain independent:
+
+```text
+publisher_ref
+  org://... | user://... | ioi://publisher/... | null
+
+surface_origin
+  first_party | organization | external_publisher
+
+surface_creation_method
+  hand_authored | studio_generated | developer_kit_generated | imported | adapted
+
+surface_distribution
+  bundled | direct_package | organization_catalog | private_registry | marketplace
+
+surface_availability
+  planned | preview | limited | available | deprecated | unavailable
+
+surface_admission_state
+  not_applicable | candidate | under_review | admitted | rejected | revoked
+
+surface_installation_state
+  not_applicable | not_installed | installing | installed | update_available |
+  uninstalling | uninstalled
+
+surface_package_disposition
+  not_applicable | active | deprecated | superseded | recalled
+
+surface_enablement_state
+  not_applicable | enabled | disabled
+
+surface_capability_depth
+  browse | inspect | propose | act | workflow_complete
+
+surface_operational_state
+  inactive | starting | ready | serving | degraded | blocked | stopped | unavailable
+```
+
+`surface_availability` describes whether the product registration is offered;
+`surface_admission_state` records registry acceptance;
+`surface_installation_state` records the local binding transition;
+`surface_package_disposition` records the bound release's lifecycle;
+`surface_enablement_state` records the administrator or deployment decision
+that permits ordinary launch;
+`surface_capability_depth` declares the deepest permitted interaction; and
+`surface_operational_state` reports current serving health. None is derived from
+another, and a degraded installed application does not become uninstalled,
+unadmitted, recalled, or less capable merely because its runtime is unhealthy.
+
+A developer-kit-generated, marketplace-distributed extension application is
+therefore still one extension registration. Marketplace distribution does not
+turn it into the Packages owner, and `planned` does not create another
+application kind.
+
+`org://...` or `user://...` identifies the accountable organization or person
+inside the deployment boundary, and `ioi://publisher/...` identifies an
+admitted external publisher.
+An `external_publisher` registration must carry a non-null
+`ioi://publisher/...` ref. `publisher_ref: null` is permitted only for bundled
+first-party registrations whose accountability is fixed by the release.
+
+The record family is normalized so one stable definition never absorbs
+per-release, per-installation, per-System, or per-runtime cardinality:
+
+| Record | Cardinality and owned state |
+| --- | --- |
+| `HypervisorApplicationSurfaceRegistration` | one stable `surface://...` definition; class, publisher/origin, creation method, product availability, owner/job, routes, contexts, contracts, and obligations |
+| `HypervisorRouteAliasRegistration` | one unique `route-alias://...` mapping owned by one workspace or application registration; static target or typed fail-closed resolver plus context-preservation rules |
+| `HypervisorSurfaceReleaseRecord` | one immutable package release for that surface; distribution, admission, package disposition, capability depth, versioned descriptor, and exact executable contracts |
+| `HypervisorSurfaceInstallationBinding` | one organization/project installation of one release; installation, deployment enablement, audience, allowed objects/actions, and authority preview |
+| `HypervisorSystemInterfaceBinding` | one installation bound to one admitted System; System-specific enablement and narrower audience, allowed objects/actions, and authority preview |
+| `HypervisorSurfaceServingBinding` | one serving route/runtime for an installation or System binding; operational health only |
+| `HypervisorProductSurfaceProjection` | one request-scoped policy-filtered join; selected and eligible binding refs, groups, launchability, disabled reasons, and typed launch target |
+
+The normalized family collectively declares:
+
+- stable surface id, display name, summary, surface class, family,
+  publisher identity, origin, creation method, distribution channel, availability,
+  admission state, installation state, package disposition, enablement state,
+  capability depth, and operational state;
+- distinct package, immutable release, installation-binding, and optional
+  System-binding refs where the surface is packaged or installed;
+- canonical route, compatibility aliases, canonical owner doc, primary owning
+  object family, and optional consuming/contextual application ids;
+- primary user job, supported roles, and supported placements: Applications
+  catalog, Open Application, Home, Project, System, Work, GoalRun, OutcomeRoom,
+  AutomationRun, Session, organization/admin, or operator console;
 - composition pattern: list/detail, command/search, modal wizard, canvas/editor,
   object view, graph view, review inbox, monitoring console, lineage/replay
   view, lifecycle strip/detail drawer, package/install flow, or generated
   domain surface;
-- launch modes and target bindings, including project/session compatibility;
+- launch modes and typed target bindings, including Project/System/Work/Session
+  compatibility;
 - daemon/API dependencies and Agentgres object refs;
 - operator-plane tool or MCP contract refs, including which actions are
   inspect-only, propose-only, or effectful;
@@ -1115,8 +1699,26 @@ A surface registration should declare:
   CanonicalObjectModel refs, DataRecipe refs, PolicyBoundDataView refs,
   OntologyProjection refs, OntologySurfaceDescriptor refs, and generated
   artifact refs;
-- install, favorite, recent, recommended, and marketplace metadata where
+- package, release, install, favorite, recent, recommended, and Marketplace metadata where
   applicable.
+
+A tool registration additionally declares exactly one primary owner, a tool
+kind (`editor`, `inspector`, `picker`, `inbox`, `graph`, `wizard`, `report`,
+`dashboard`, `comparison`, or `console`), object/action contracts, and its
+inspect/propose/effect boundary. A tool may have many contextual consumers.
+Shared code-level UX primitives are not multi-owner tool registrations.
+Before a shared primitive becomes canonical substrate, at least two owner or
+substrate surfaces should consume it or its promotion should be justified by a
+cross-surface conformance requirement. Its code package may have a maintainer,
+but product truth remains with each consuming registration and object owner.
+
+An extension registration additionally links distinct package candidate,
+admitted release, installation binding, serving binding, disable, recall, and
+revocation refs. A draft or organization-wide tool may omit a System binding.
+An effectful System interface must bind an admitted package, installation,
+System/context, allowed-action, and authority-preview contract before launch.
+An `OntologySurfaceDescriptor` is an input to this registration; it is not a
+launchable application by itself.
 
 Before a surface becomes durable first-class product inventory, it should pass an
 implementation-pressure check. The check should prove that the surface can carry
@@ -1151,6 +1753,52 @@ surfaces still bind to Hypervisor Core, daemon APIs, Agentgres ontology/object
 refs, policy-bound views, authority requirements, receipts, replay, and
 conformance profiles.
 
+### Product-Surface Compiler
+
+Navigation, Applications, command-palette, contextual launch, search, recent,
+favorite, and recommendation projections must be produced from one compiler:
+
+```text
+core-workspace registrations
+  + static owner, substrate, tool, and planned registrations
+  + typed route-alias registrations
+  + daemon/Agentgres-admitted release, installation, System-interface,
+    and serving records
+  + authenticated organization and user preferences
+  + Organization, Project, System, GoalRun, OutcomeRoom, AutomationRun,
+    Session, WorkQueue, WorkItem, and WorkRun typed context
+  + Work workspace route/filter state, which never becomes a work:// identity
+  -> request-scoped policy-filtered product-surface projection
+```
+
+Policy filtering occurs before aggregation and caching. One stable registration
+appears once even when it matches several groups. Drafts never appear as
+ordinary launchable apps. Disable, recall, and revocation remove launch
+eligibility immediately. Partial daemon or preference-service failure preserves
+safe static first-party inventory without leaking cached organization, user, or
+System state. Release identity, installation-binding identity, and System-
+binding identity remain distinct even when one catalog row joins all three.
+
+The compiled catalog exposes stable user-meaningful groups without turning
+them into new registrations:
+
+```text
+First-party applications
+Tools for this context
+Organization applications
+Installed applications
+System interfaces
+Recommended for this context
+Recent and favorites
+```
+
+A registration may appear in several groups but retains one identity, primary
+owner, canonical route, and typed launch binding.
+
+Capture provenance, screenshots, pixel certificates, and parity matrices may
+remain implementation evidence on a tool registration. They have zero authority
+over registration class, catalog membership, owner, capability, or maturity.
+
 ### Application Composition Contract
 
 Application surfaces are composed from reusable UX primitives over shared
@@ -1165,6 +1813,8 @@ Open Application frame
 list/detail workspace
 command composer
 modal or step wizard
+governed System/genesis wizard
+typed object/resource picker
 canvas/editor projection
 object view
 object-view editor
@@ -1172,10 +1822,17 @@ graph view
 review/approval inbox
 monitoring or resource console
 lifecycle strip / release-control detail drawer
+authority preview drawer
+desired-versus-observed topology
 lineage/replay/evidence view
+incident/remediation queue
+proposal/diff/simulation drawer
 artifact/build/job view
 package/install/publish flow
-generated domain surface
+generated/installed application frame
+executable walkthrough
+Organization / Project / System / Application / Tool / Object breadcrumb
+honest empty/degraded/blocked/read-only/permission-denied states
 ```
 
 Composition primitives are presentation and workflow affordances. They do not
@@ -1188,6 +1845,45 @@ receipts, replay, eval/package obligations, and supported placements.
 Generated applications, organization-built surfaces, domain apps, templates,
 walkthroughs, examples, and builder outputs must compile into this same
 registration/composition contract before they become durable inventory.
+
+### Bounded-System Builder Experience Contract
+
+Hypervisor must compress the architecture into one ordinary creation journey
+without weakening any owner boundary:
+
+```text
+blank or installable template
+  -> describe the institution, people/agents, resources, actions, and success
+  -> Studio compiles one inspectable package/genesis proposal
+  -> validate contracts and show typed blockers
+  -> preview authority, policy, cost, topology, evidence, and lifecycle
+  -> simulate the selected work and consequential effects where applicable
+  -> propose and approve through the existing owner paths
+  -> instantiate one stable System
+  -> operate it through Systems, Work, and its generated interfaces
+  -> inspect every material decision, effect, result, and receipt
+  -> upgrade, recover, migrate, suspend, recall, or dissolve through governance
+```
+
+The visual Studio, declarative files, ADK, SDK, and CLI are editors and
+projections over one source-neutral build representation. They may optimize for
+different users, but they must compile the same package, profile, ontology,
+action, policy, authority, evidence, deployment, lifecycle, surface, and
+admission contracts. A user may move from a compact guided form to the complete
+typed declaration and back without losing meaning, inventing hidden defaults,
+or forking truth.
+
+The default flow uses product language—System, goals, agents, data, actions,
+permissions, evidence, and recovery—and progressively discloses protocol nouns.
+Advanced users can inspect every resolved ref, hash, policy source, override,
+and receipt. Templates prefill declarations but never pre-authorize effects,
+claim evidence coverage, choose hidden provider rights, or create live state.
+
+The builder is successful only when a first-time operator can create, validate,
+simulate, admit, operate, inspect, and retire a bounded institution without
+manual database edits, private backend surgery, or a second bespoke application
+workflow. Fast composition is therefore a product acceptance contract over the
+canonical owners, not permission for Studio to absorb their state or authority.
 
 Application surface modes should be treated as first-class catalog or
 contextual inventory when they matter to product outcomes. They are not
@@ -1231,10 +1927,10 @@ inference readiness
 domain app consoles
 ```
 
-Each mode should be classified under an owning suite surface, such as
-Studio, Automations, Ontology, Data, Governance, Missions, Provenance, Evaluations,
-Improvement, Foundry, Marketplace, Projects / Workbench, Developer Console, or
-the substrate lane (Environments, Operations). Older family labels such as
+Each mode should be classified under an owning surface, such as Studio,
+Automations, Ontology, Data, Governance, Work, Provenance, Evaluations,
+Improvement, Foundry, Packages, Projects / Developer Workspace, Developer
+Console, or the substrate lane (Environments, Operations). Older family labels such as
 `Data / Knowledge`, `Ontology Studio`,
 `Workshop`, `Domain Blueprints`, `Providers / Environments`,
 `Release Controls`, `Resource Management`, `Authority / Govern`,
@@ -1243,10 +1939,10 @@ facets, not separate product surfaces.
 
 ## Hypervisor Operator Plane
 
-The Hypervisor Operator Plane is the governed control-plane harness for
-operating Hypervisor itself.
+The Hypervisor Operator Plane is the governed control-plane surface and
+operation lane for operating Hypervisor itself.
 
-It is not ioi.ai, not a child session harness, and not an ambient host
+It is not ioi.ai, not a child Session or HarnessInvocation, and not an ambient host
 administrator. It is a distinct operating lane that uses the same configuration
 substrate as sessions:
 
@@ -1280,7 +1976,8 @@ user intent or application surface request
   -> Agentgres operation, receipt, projection, and replay
 ```
 
-Child session harnesses may request, propose, or explain platform actions. They
+Selected AgentHarnessAdapters and their child HarnessInvocations may request,
+propose, or explain platform actions. They
 must not directly mutate host or platform state such as the Applications
 registry, provider settings, authority grants, model route eligibility, or
 organization policy. Effectful host/platform changes route through the
@@ -1312,7 +2009,7 @@ obligations, and optional Automations nodes.
 **Surface Generate** (Studio, scaffolded by the developer kit) is the product
 path for object-aware application shells, widgets, forms, dashboards, operator
 consoles, autonomous-system blueprints, and generated domain apps. It may use
-ontology object/action/value types, data recipes, Workbench code, Automations,
+ontology object/action/value types, data recipes, Developer Workspace code, Automations,
 tool contracts, and package metadata.
 
 These builder paths are proposal and packaging paths over Hypervisor Core. They
@@ -1323,7 +2020,7 @@ admission, authority-provider gates as required, Agentgres, and receipts.
 ## Learning, Patterns, Examples, And Training
 
 **Learning / Patterns / Examples / Training** is an enablement facet, not a
-standalone product surface. It may appear in Home, Applications, Marketplace,
+standalone product surface. It may appear in Home, Applications, Packages,
 Foundry, Studio, Ontology, Data, and onboarding flows when a recipe can become
 governed work.
 
@@ -1350,7 +2047,7 @@ This surface may expose:
   eval packs, dashboard/application shells, model routes, provider profiles,
   and marketplace packages;
 - solution diagrams and architecture planners that compile into reviewed
-  Studio, Workbench, Automations, Foundry, Ontology, or Data
+  Studio, Developer Workspace, Automations, Foundry, Ontology, or Data
   proposals.
 
 Every serious example should declare the vertical problem, required data and
@@ -1371,11 +2068,14 @@ It does not own:
 - marketplace settlement;
 - domain app runtime truth.
 
-## Hypervisor Workbench
+## Hypervisor Developer Workspace
 
-**Hypervisor Workbench** is the code/systems/workspace surface.
+**Hypervisor Developer Workspace** is the code/systems/workspace surface.
+`Workbench` and `HypervisorWorkbench` remain compatibility labels for existing
+routes, packages, APIs, and saved links during migration; they are not a second
+product identity.
 
-Workbench may appear in:
+Developer Workspace may appear in:
 
 - Hypervisor App;
 - Hypervisor Web;
@@ -1384,12 +2084,12 @@ Workbench may appear in:
 - Cursor, Windsurf, JetBrains, and other editor adapters;
 - terminal/tmux-oriented operator views.
 
-Workbench can open and operate sessions through many editors. The editor is an
+Developer Workspace can open and operate Sessions through many editors. The editor is an
 adapter target, not the product identity.
 
 ## Hypervisor Automations
 
-**Hypervisor Automations** is the durable orchestration surface over
+**Hypervisor Automations** is the reusable-standing-behavior surface over
 Hypervisor Core and the Workflow Compositor.
 
 Automations is for work the user wants to save, run again, trigger, schedule,
@@ -1403,7 +2103,8 @@ Automations may own product-level projections for:
 - review points, approval gates, and output contracts;
 - change plans, rollout gates, release channels, maintenance windows,
   suppression windows, canary/adjudication, recall, and remediation workflows;
-- run history, mission status, receipt views, and replay links;
+- AutomationRun history, resulting GoalRun/Session/WorkRun refs, receipt views,
+  and replay links;
 - service templates and reusable recipes;
 - Canvas editor state where a visual view is useful.
 
@@ -1442,29 +2143,49 @@ manual workflow
 scheduled workflow
 event/webhook-triggered workflow
 pull-request or issue-triggered workflow
-background mission
+monitor / condition-over-object-set
 approval flow
 service/API endpoint
 queue worker
 marketplace service recipe
-collaborative mission
 ```
 
-The durable object is the automation spec and its Agentgres-backed run history,
-not the editor that created it.
+The durable reusable object is `AutomationSpec`; one activation is an
+`AutomationRun`. An AutomationRun may finish directly, request one or more
+bounded Sessions/WorkRuns, explicitly create or link one or more GoalRuns, or
+contribute typed work to an existing OutcomeRoom. It does not become a GoalRun
+merely because it is long-running, headless, or bound to a System.
+
+```text
+AutomationSpec
+  -> exact AutomationInstallationBinding
+  -> AutomationRun
+      -> direct result or approval-only completion
+      -> optional Session(s) / WorkRun(s)
+      -> optional explicit GoalRun(s)
+      -> optional typed OutcomeRoom contribution
+```
+
+Background, interactive, and supervisory are execution modes on Sessions,
+WorkRuns, RuntimeAssignments, or participants. They are not Automation or
+Mission object kinds. System, Project, organization, and room scope are
+expressed by the exact AutomationInstallationBinding and remain orthogonal to
+AutomationSpec and AutomationRun identity.
 
 ioi.ai may hand off a collaborative outcome into Automations when a goal needs
 many models, harnesses, workers, sessions, branches, connectors, or verifier
 lanes. The ioi.ai coordination pattern is owned by
 [`../../domains/ioi-ai/collaborative-outcome-pattern.md`](../../domains/ioi-ai/collaborative-outcome-pattern.md).
 
-The durable handoff binds an OutcomeRoom/CollaborativeWorkGraph and one or more
-`HypervisorMission` objects. Automations owns reusable triggers, schedules,
-services, and workflow graph shape; it does not own room participation,
-shared-frontier admission, local participant truth, or generic attempt/finding
-semantics. Each claimed work item resolves through a bounded GoalRun. Dynamic
+The durable handoff binds the OutcomeRoom/CollaborativeWorkGraph directly and
+creates or links explicit AutomationRuns, GoalRuns, WorkItems, WorkRuns, and
+Sessions as required. Automations owns reusable triggers, schedules, services,
+and workflow graph shape; it does not own room participation, shared-frontier
+admission, local participant truth, or generic attempt/finding semantics. Each
+claimed work item resolves through a bounded GoalRun. Dynamic
 join/sleep/wake/retire/quarantine and claim/resource leases remain room-level
-contracts rather than hidden automation state.
+contracts rather than hidden automation state. No generic `HypervisorMission`
+wrapper is created.
 
 One-off agent handoffs and durable automations are different products over the
 same execution substrate:
@@ -1495,7 +2216,7 @@ Every consequential step still emits receipts and Agentgres-backed run history.
 **Hypervisor Canvas** is a visual editor/presentation for composing and
 inspecting graph-shaped work.
 
-Canvas may appear inside Automations, Workbench, or Foundry. Its default home
+Canvas may appear inside Automations, Developer Workspace, or Foundry. Its default home
 for durable workflows and services is Automations.
 
 Canvas may display:
@@ -1509,11 +2230,11 @@ Canvas may display:
 - harness, model, worker, service, verifier, and provider selection hints;
 - OutcomeRoom frontier, participant, claim, attempt, finding, verifier-
   challenge, authority, budget, and contribution-lineage projections when
-  opened from Missions or a Goal Space handoff.
+  opened from Work / Rooms or a Goal Space handoff.
 
 Canvas does not own execution, authority, state truth, receipts, or workflow
 semantics. It edits or visualizes objects owned by Automations, the Workflow
-Compositor, Foundry, Missions, or other product surfaces.
+Compositor, Foundry, Work subject owners, or other product surfaces.
 
 Use this product phrasing:
 
@@ -1529,10 +2250,44 @@ Canvas runs the service.
 Canvas is the product plane.
 ```
 
+## Hypervisor Evaluations
+
+**Hypervisor Evaluations** owns independent judgment lifecycle over Hypervisor
+Core. It releases evaluation-suite revisions, freezes exact target, incumbent,
+task-distribution, evaluator, threshold, statistical, and applicability roots
+into `EvaluationEpoch` contracts, maintains protected-evaluation exposure and
+evaluator-validity lineage, and coordinates challenges and re-verification.
+
+Foundry, Developer Workspace, Data, Ontology, and domain owners may build
+evaluation assets. The daemon executes admitted evaluation jobs. Evaluations
+owns neither those build/execution lifecycles nor campaign selection or release
+authority. It owns the judgment boundary by which their observations become
+decision-bearing evidence.
+
+Evaluations is owned in detail by [`evaluations.md`](./evaluations.md).
+
+## Hypervisor Improvement
+
+**Hypervisor Improvement** is the optional campaign and safe-change cockpit over
+Hypervisor Core. It authors immutable ImprovementAgenda revisions, coordinates
+multi-epoch ImprovementCampaign state around bounded GoalRuns, renders target/
+candidate ancestry and negative knowledge, coordinates adjacent-order evidence
+cutoffs, records an attributable candidate nomination, and constructs the
+target-specific `UpgradeProposal` handoff.
+
+The direct change path remains canonical for ordinary one-shot patches. A
+campaign is used only when adaptive or multi-epoch work needs durable candidate,
+evaluation-exposure, synchronization, or recursive-seat lineage. Improvement
+does not own execution, evaluation truth, or release authority; Governance and
+the target owner admit protected work and decide activation and effect recovery.
+
+Improvement is owned in detail by [`improvement.md`](./improvement.md).
+
 ## Hypervisor Foundry
 
-**Hypervisor Foundry** is the worker/model/eval/persistent-training/dataset/
-registry/endpoint/package surface over Hypervisor Core.
+**Hypervisor Foundry** is the candidate/evaluator asset builder and admitted
+experimental executor for worker/model/eval/persistent-training/dataset/
+registry/endpoint/package work over Hypervisor Core.
 
 Foundry produces and improves things that other surfaces use:
 
@@ -1540,29 +2295,92 @@ Foundry produces and improves things that other surfaces use:
 - model registry entries, model routes, and model-mount candidates;
 - WorkerPackages and worker manifests;
 - datasets, feature views, ontology-bound datasets, and holdouts;
-- dataset factory runs, persistent training pipelines, experiment optimization
-  cycles, artifact conversion runs, endpoints, batch inference, metadata, and
-  monitoring projections;
-- eval suites, benchmarks, and verifier candidates;
+- dataset factory runs, persistent training pipelines, subordinate experiment
+  optimization cycles, artifact conversion runs, endpoints, batch inference,
+  metadata, and monitoring projections;
+- eval-suite, benchmark, eval-world, scorer, and verifier candidates plus
+  admitted experimental and reproduction jobs;
 - training, distillation, fine-tuning, and dataset recipes;
 - quality gates and promotion proposals;
 - package publication proposals for aiagent.xyz or private catalogs.
 
-Foundry may consume Automations traces, Workbench runs, agent corrections,
-receipts, and evaluation results, but it does not directly self-mutate the
-runtime. Durable improvements enter through governed proposals, eval gates,
-wallet.network approvals when needed, and Agentgres admission.
+Foundry may consume Automations traces, Developer Workspace runs, agent
+corrections, receipts, and evaluation results, but it does not directly
+self-mutate the runtime. Its experiment optimizer is a subordinate execution
+profile that may link to an ImprovementCampaign and EvaluationEpoch; it does
+not own the campaign, freeze evaluation truth, select the release candidate, or
+make the release decision. Durable improvements enter through governed
+proposals, independent eval gates, wallet.network approvals when needed, and
+Agentgres admission.
+
+Foundry also binds the active `InstitutionalLearningBoundaryProfile`, individual
+training-evidence eligibility, source rights, model-route rights, derivative
+lineage, and revocation impact before it consumes evidence or promotes a derived
+artifact. A green learning-boundary projection is never ambient permission to
+train on every trace.
 
 Foundry is owned in detail by [`foundry.md`](./foundry.md). ioi.ai may consume
 Foundry evals and promote lessons into Foundry proposals, but ioi.ai
 coordination is not Foundry and Foundry is not a chat room.
 
+## Hypervisor Packages
+
+**Hypervisor Packages** is the mandatory local lifecycle owner for reusable
+release material. It manages package candidates, immutable admitted releases,
+dependencies, installation bindings, serving eligibility, affected-System
+impact, deprecation, disable, recall, revocation, rollback inputs, and the
+receipts that connect those transitions. A package may carry an application,
+RuntimeToolContract, Worker, GoalRunProfile revision, WorkflowTemplate
+revision, HarnessProfile revision, SkillManifest revision, AutomationSpec
+revision, ontology/DataRecipe bundle, System profile, generated interface, or
+other typed artifact without erasing that artifact's own canonical object
+contract.
+
+Packages contain immutable definitions, requirements, compatibility pins, and
+templates. They never contain SkillEntries, ActiveSkillSetSnapshots, concrete
+MCP gateway profiles, ContextLeases, RuntimeAssignments, authority grants,
+connector credentials, or subject/session/run-scoped bindings. A package may
+carry an MCP gateway requirement or immutable template reference; the concrete
+`mcp_gateway://...` profile is separately admitted and revocable for live work
+or a live System.
+
+Package admission does not grant runtime authority, create a live System, or
+make an application launchable by itself. Installation and serving remain
+explicit bindings evaluated against organization, Project, System, policy,
+capability, dependency, environment, and authority context. Agentgres retains
+admitted package/install truth; daemon/Core executes admitted effects;
+wallet.network governs protected authority; Packages supplies the lifecycle
+projection and requests those owners admit transitions.
+
+Marketplace is an optional Packages mode and distribution channel for
+discovery, publishing, exchange, attribution, commercial terms, and
+organization-to-organization acquisition. A private or air-gapped deployment
+must retain complete package, release, install, disable, recall, and revocation
+semantics without Marketplace. The compatibility route `Marketplace` resolves
+to `Packages / Marketplace`; it never becomes a second package owner.
+
+Recall and revocation are not cosmetic catalog states. The product-surface
+compiler must immediately remove ineligible launches, expose affected installs
+and Systems, and route protected stop, rollback, migration, or remediation
+actions through their canonical owners. Packages must not silently mutate or
+terminate a live System merely because one release changes state.
+
+Implementation status: target canonical owner. Package and worker-package
+concepts exist across current surfaces, but the unified Packages workspace,
+admitted install registry, compiler integration, and Marketplace-as-mode route
+migration are not yet fully shipped.
+
 ## Workflow Compositor
 
 **Workflow Compositor** is the high-level directed-work surface over Hypervisor
-Core. It is a shared graph/projection model used by Automations, Workbench,
+Core. It is a shared graph/projection model used by Automations, Developer Workspace,
 Foundry, other application surfaces, Environments views, and
 SDK/ADK/ODK clients when work needs explicit structure.
+
+Its reusable canonical object is `WorkflowTemplateEnvelope`: an immutable,
+content-addressed directed graph revision. A template never runs itself.
+`AutomationSpec`, `GoalRun`, `AutomationRun`, `WorkRun`, a Foundry job, or
+another typed run owner supplies activation and execution identity.
 
 The compositor owns:
 
@@ -1572,7 +2390,7 @@ The compositor owns:
 - acceptance criteria and review points;
 - change-plan gates, rollout cohorts, maintenance windows, suppression windows,
   recall/remediation handoff edges, and blocked-reason projections;
-- delivery contract and reusable templates;
+- delivery contract and immutable WorkflowTemplate revisions;
 - harness, model, worker, provider, and verifier selection hints;
 - replay, receipt, authority, cTEE, and context-topology projections for the
   graph.
@@ -1585,10 +2403,10 @@ It does not own:
 - model private reasoning;
 - persistent workspace, project, or managed-instance memory;
 - Foundry training or distillation;
-- the selected harness's internal loop.
+- the selected HarnessProfile's internal loop.
 
 The Workflow Compositor and CollaborativeWorkGraph are complementary, not
-aliases. The compositor owns a declared directed workflow/service recipe. The
+aliases. The compositor owns a declared directed WorkflowTemplate. The
 collaborative graph owns a live, potentially changing frontier of questions,
 hypotheses, claims, attempts, findings, resources, and verifier challenges.
 Room admission may materialize frontier work as GoalRuns or durable Automation
@@ -1608,15 +2426,37 @@ selected HarnessProfile
 ```
 
 The selected `HarnessProfile` resolves the scoped step. The Default Harness
-Profile is the reference scaffold/fallback profile. External harnesses such as
+Profile is the reference scaffold/fallback profile. External agent harnesses such as
 Codex, Claude Code, Grok Build, OpenHands, Aider, DeepSeek TUI-like runtimes,
-or Hermes-like runtimes may be mediated as harness profiles or agent harness
-adapters when they produce the common boundary objects and obey daemon gates.
+or Hermes-like runtimes are mediated through exact AgentHarnessAdapter
+revisions. A semantic HarnessProfile may select or constrain a compatible
+adapter, but vendor/process mechanics never become a HarnessProfile family.
+The resulting HarnessInvocation must emit the common boundary objects and obey
+daemon gates.
+
+## GoalRun Profiles
+
+`GoalRunProfile` is the reusable product object for adaptive pursuit. Studio
+may author and compare profile revisions; Packages versions, distributes,
+recalls, and revokes released revisions; Work / Goals and ioi.ai select or
+explain the profile for a GoalRun; Improvement proposes successor revisions;
+Provenance exposes the resolution snapshot and receipt. None of those surfaces
+creates a second runtime owner.
+
+New Goal UX may present a friendly Recipe or mode name, but the backing
+`goal-run-profile://.../revision/...` ref must be inspectable. Direct ad hoc
+work resolves through the versioned generic-adaptive profile. Advanced editors
+may expose optional WorkflowTemplate refs, role/topology requirements,
+SkillManifest and tool requirements, verifier and acceptance contracts,
+budgets, stop/recovery/escalation policy, compatible domains, and permitted
+override schema. They must not embed credentials, live leases, selected
+RuntimeAssignments, attempts, artifacts, or domain lifecycle state.
 
 ## Hypervisor Sessions
 
-**Hypervisor Sessions** are live governed workspaces, runs, or control contexts
-managed through Hypervisor Core.
+**Hypervisor Sessions** are bounded governed execution/control contexts managed
+through Hypervisor Core. A Session may be `interactive`, `headless`, or
+`supervisory`; headless does not imply a different durable work kind.
 
 Examples:
 
@@ -1633,9 +2473,12 @@ Foundry / eval / training session
 provider / environment management session
 ```
 
-A session binds:
+A Session binds:
 
-- user, org, project, or worker identity;
+- user, organization, project, system, or worker context when applicable;
+- its explicit session mode;
+- AutomationRun or GoalRun refs when it executes part of standing behavior or
+  pursued intent;
 - work item and work run refs when the session is executing delegated agent
   work;
 - authority grants and capability leases;
@@ -1649,7 +2492,7 @@ A session binds:
 - adapter targets;
 - replay and restore metadata.
 
-Sessions are the execution truth window. A session view should be able to show
+Sessions are bounded execution truth windows. A Session view should be able to show
 the live or historical transcript, step graph, tool/model calls,
 terminal/browser/computer-use activity, authority gates, privacy posture,
 provider and environment state, logs, traces, receipts, state roots, replay
@@ -1673,7 +2516,7 @@ This makes long-running work observable without tying the product to one agent
 implementation.
 
 For OutcomeRoom work, a session is one participant/claim/attempt drilldown, not
-the room itself. Mission detail owns the graph-first shared view; Sessions own
+the room itself. Work / Room detail owns the graph-first shared view; Sessions own
 the bounded execution view. A background participant must expose claim, lease,
 heartbeat/wake, spend, evidence, verification, blocker, and cancellation or
 quarantine projections rather than only transcript tokens.
@@ -1699,17 +2542,20 @@ The improvement loop is:
 ```text
 sessions and receipts
   -> examples and traces
-  -> eval datasets
-  -> failure clusters
-  -> prompt/tool/model/worker/data-recipe fixes
-  -> simulation/offline/online evaluation
-  -> promotion or rollback
+  -> policy-eligible eval data and failure clusters
+  -> direct UpgradeProposal or optional ImprovementCampaign
+  -> Foundry and other target owners build immutable candidates
+  -> Evaluations freezes and applies independent judgment
+  -> candidate nomination and target-specific UpgradeProposal
+  -> Governance activation, continued review, rejection, or effect recovery
   -> better routing and work acceptance
 ```
 
-Foundry, Automations, Applications, Sessions, Receipts/Replay, and marketplace
-surfaces should expose this loop without giving any one UI surface runtime
-truth.
+Improvement, Evaluations, Foundry, Governance, Automations, Applications,
+Sessions, Receipts/Replay, and marketplace surfaces should expose this loop
+without giving any one UI surface runtime truth. An ordinary change does not
+need a campaign, and a campaign never bypasses the target owner's standard
+change path.
 
 Receipts/Replay surfaces may include a proof explorer for deep inspection across
 runs, but the default UX should stay work-first: show the event, authority,
@@ -1784,6 +2630,13 @@ Keep your agent harness.
 Put consequential execution behind Hypervisor.
 ```
 
+When the external harness is connected through a Goal Space, adapter launch is
+preceded by a `LocalAgentPairingSessionEnvelope`. Pairing binds the candidate's
+generated public key and origin but supplies no room membership or authority.
+The admitted participant lease and post-admission gateway profile determine the
+permitted projection, proposal, and tool surface; the harness never receives an
+organization-wide token or ambient workspace/room access.
+
 Implementation-facing selection contract:
 
 ```text
@@ -1797,7 +2650,7 @@ Default Harness Profile
   model route: Hypervisor model mount by default
   runtime truth: daemon-runtime
 
-AgentHarnessAdapterProfile
+AgentHarnessAdapter
   selection_kind: agent_harness_adapter
   examples:
     Codex CLI
@@ -2074,7 +2927,7 @@ cleanup obligations
 receipt obligations
 ```
 
-External harnesses, Workbench, Automations, Foundry, Canvas views, Hypervisor
+External harnesses, Developer Workspace, Automations, Foundry, Canvas views, Hypervisor
 App/Web, CLI/headless clients, and Environments views may receive
 structured outputs and exit codes. They do not get durable secrets, plaintext
 custody, or authority except through wallet.network capability leases and
@@ -2112,51 +2965,73 @@ restore rehydrates from Agentgres-bound archive/payload refs
 provider/devcontainer/log output explains the lifecycle but does not prove it
 ```
 
-## Projects, Sessions, And Missions
+## Systems, Projects, Work, Goals, Automations, Rooms, And Sessions
 
-`HypervisorProject`, `HypervisorSession`, and `HypervisorMission` are distinct.
+These product and protocol concepts remain distinct:
+
+| Object or surface | Durable meaning | Must not collapse into |
+| --- | --- | --- |
+| Project | Build/work context: repositories, files, environments, drafts, receipts, and defaults | Live System identity |
+| System | One constitution-bound institution across releases, nodes, models, recovery, and migration | Package, node, process, GoalRun, Session, or UI |
+| Package | Reusable versioned release material that may instantiate many Systems | Live membership or System lifecycle |
+| Work | Read-only core workspace over typed pursued/executing/review subjects | Runtime, authority, evidence truth, or universal lifecycle |
+| AutomationSpec | Reusable trigger, schedule, monitor, workflow, service, API, queue, or approval-flow definition | One activation, GoalRun, or transcript |
+| AutomationInstallationBinding | Successor-versioned scope enablement and narrowing overlay for one exact AutomationSpec | Trigger/graph definition, one activation, concrete grant, or execution truth |
+| AutomationRun | One activation freezing the exact WorkflowTemplate, AutomationSpec, and AutomationInstallationBinding | Reusable definition or durable collective objective |
+| GoalRun | Durable bounded outcome pursuit with constraints, continuation, attempts, verification, and course correction | Automation definition or Session transcript |
+| OutcomeRoom | Persistent shared pursuit above admitted participant GoalRuns | Every goal, global swarm, or Mission wrapper |
+| Session | Bounded interactive, headless, or supervisory execution/control context | Durable intent or reusable trigger definition |
+| WorkRun | One governed execution attempt of a WorkItem inside a Session/environment | Goal identity or shared room frontier |
+| Node | Admitted deployment member with declared role, leases, failure domain, and observed state | System identity or automatic authority |
+| Application | Registered owner, substrate, tool, or extension control surface | Runtime, authority, or canonical truth |
+
+The canonical relationship model is:
 
 ```text
-HypervisorProject
-  stable project/workspace identity, repository/context roots, policy defaults,
-  persistence defaults, adapter preferences, and Agentgres domain links
-
-HypervisorSession
-  live interactive or operator-facing workspace/run/control context
-
-HypervisorMission
-  background/manual/scheduled/webhook/event-triggered autonomous work that may
-  run without an interactive editor or terminal attached; for persistent
-  collective outcomes, it projects the same OutcomeRoom shown as a Goal Space
-  in ioi.ai
+human / API / System event -> optional GoalRun
+AutomationSpec + exact AutomationInstallationBinding
+  -> AutomationRun -> direct completion or explicit GoalRun(s)
+OutcomeRoom -> accepted participant GoalRun(s)
+GoalRun -> zero or more Sessions over time
+Session -> zero or more WorkRuns
+WorkRun -> results, evidence, receipts -> GoalRun and optional OutcomeRoom
 ```
 
-Missions are how Hypervisor represents background automations and long-running
-outcome work. A mission may create sessions and runs, but it is not merely an
-editor tab. It has trigger policy, review contract, authority requirements,
-output contract, and receipt obligations.
+A GoalRun survives Session termination, worker replacement, compaction, sleep,
+restore, and course correction. A direct terminal/editor/environment/provider
+Session may exist without a GoalRun. An AutomationRun may finish without a
+GoalRun and, when no managed execution occurs, without a Session. An
+OutcomeRoom can outlive every participating Session.
 
-For a persistent collective outcome, Mission detail is graph-first:
+For a persistent collective outcome, Work / Room detail is graph-first:
 
 ```text
 objective, acceptance, constraints, deadline, visibility, stop policy
-work frontier: open, claimed, blocked, replicating, verifying, accepted,
-  rejected, superseded
-participants: active, sleeping, waiting, failed, quarantined, completed,
-  retired; affiliation and worker/model/runtime dependencies remain visible
-current claim, participant/claim leases, heartbeat or wake condition, spend,
-  last contribution, blockers
-attempts, findings, negative results, contradictions, artifacts, evidence
+work frontier and typed state
+participants, affiliations, leases, heartbeat/wake, spend, and blockers
+claims, attempts, findings, negative results, contradictions, and evidence
 evaluation, guardrails, Pareto frontier, verifier versions and challenges
-approvals, authority/privacy incidents, pause, kill, quarantine
+approvals, authority/privacy incidents, pause, kill, and quarantine
 contribution and derivation lineage
 replay explaining topology, budget, verifier, and course corrections
 ```
 
-A live feed or chat is a social projection over this graph. It is not the
-mission truth. The product must not add a permanent Swarm application: direct
-tasks remain direct, and collective detail appears only when an OutcomeRoom is
-materialized.
+A live feed or chat is a social projection over this graph, not its truth. The
+product must not add a permanent Mission or Swarm application. `Mission` may be
+an optional label or creation preset only when it resolves to exactly one typed
+GoalRun or OutcomeRoom subject. It creates no independent canonical id,
+authority, lifecycle, budget, status, evidence, or receipts.
+
+If a future sponsor engagement proves it needs a distinct multi-goal
+acceptance, service-level, termination, budget, and authority lifecycle, add a
+narrow `OutcomeContract` or `ServiceOrder`. Do not revive Mission as a
+polymorphic wrapper around unrelated work kinds.
+
+This retirement is deliberately narrow. Typed domain language and objects such
+as `PhysicalMissionControlEnvelope`, `FleetMissionCoordinationRecord`, and
+`FleetMissionAllocationLease` remain valid. Their generic work binding resolves
+through an explicit GoalRun or discriminated work-subject ref rather than a
+generic `HypervisorMission` identity.
 
 ## Access, Ports, Browser, Logs, And Support
 
@@ -2188,6 +3063,11 @@ These are not convenience details. They are part of the custody and authority
 boundary. Log export, browser previews, port forwarding, screenshots, SSH
 config, and support bundles must be policy-bound, redacted where required, and
 receipted when they affect privacy, authority, dispute, or restore.
+When a support bundle, telemetry export, crash report, screenshot, model call,
+or human-review packet crosses an institutional learning boundary, it also
+requires the applicable `LearningEgressReceipt` posture. The receipt records
+IOI-observed admission or pre-egress blocking; it does not prove a recipient's
+hidden deletion, retention, or learning behavior.
 
 ## Lifecycle
 
@@ -2227,12 +3107,13 @@ HypervisorClient:
   core_endpoint_ref: hypervisor_core://...
   supported_surfaces:
     - home
+    - systems
     - projects
-    - sessions
     - applications
     - automations
-    - missions
-    - workbench
+    - work
+    - sessions
+    - developer_workspace
     - foundry
     - agents
     - services
@@ -2242,57 +3123,435 @@ HypervisorClient:
   adapter_targets:
     - adapter_target:...
 
-HypervisorSurface:
-  surface_id: hypervisor_surface:...
-  surface_kind:
-    home | projects | automations | applications | sessions | workbench |
-    missions | foundry | canvas | agents | services | models | ctee_privacy |
-    receipts_audit | connectors
-  client_ref: hypervisor_client:...
-  session_refs:
-    - hypervisor_session:...
-  projection_refs:
-    - agentgres://projection/...
+HypervisorCoreWorkspaceRegistration:
+  workspace_id: hypervisor-workspace://...
+  workspace_kind: home | systems | projects | applications | work
+  workspace_key: string # URL-safe; equals workspace_kind in taxonomy v2
+  display_name: string
+  canonical_route: string
+  route_alias_refs: [route-alias://...]
+  supported_context_kinds:
+    - organization | project | system | goal_run | outcome_room |
+      automation_run | session | work_queue | work_item | work_run
+  registration_is_projection_only: true
+  writes_through_canonical_owners: true
+
+HypervisorRouteAliasRegistration:
+  route_alias_ref: route-alias://...
+  owner_ref:
+    hypervisor-workspace://... | surface://...
+  alias_route_pattern: string
+  resolution:
+    one_of:
+      - kind: static_route
+        target_route_template: string
+      - kind: typed_resolver
+        resolver_kind:
+          legacy_work_subject | contextual_surface | package_marketplace
+        resolver_contract_ref: api://...
+  preserve_context:
+    query: true
+    hash: true
+    embed_and_return_state: true
+    open_application_identity_and_back_stack: true
+    typed_context_kinds:
+      - organization | project | system | goal_run | outcome_room |
+        automation_run | session | work_queue | work_item | work_run
+  failure_mode: fail_closed
+
+HypervisorApplicationSurfaceRegistration:
+  surface_id: surface://...
+  surface_key: string # URL-safe and unique in one deployment catalog; never inferred from surface_id
+  surface_class:
+    owner_application | substrate_application | tool_surface |
+    extension_application
+  family_id: string
+  display_name: string
+  publisher_ref:
+    org://... | user://... | ioi://publisher/... | null
+  surface_origin: first_party | organization | external_publisher
+  surface_creation_method:
+    hand_authored | studio_generated | developer_kit_generated | imported |
+    adapted
+  surface_availability:
+    planned | preview | limited | available | deprecated | unavailable
+  summary: string
+  primary_user_job: string
+  canonical_route: string
+  route_alias_refs: [route-alias://...]
+  canonical_owner_doc_ref: doc://...
+  primary_owner_application_ref: surface://... | null
+  primary_object_family: string
+  declared_object_contract_refs:
+    [ontology://... | object-model://... | object-set://... | schema://...]
+  declared_action_contract_refs:
+    [ontology-action://... | action://... | tool://... | mcp://...]
+  tool_surface_contract:
+    required_when: surface_class == tool_surface
+    otherwise: null
+    tool_kind:
+      editor | inspector | picker | inbox | graph | wizard | report |
+      dashboard | comparison | console
+    object_contract_refs:
+      [ontology://... | object-model://... | object-set://... | schema://...]
+      # definition-level ceiling; release owns the exact executable set
+    action_contract_refs:
+      [ontology-action://... | action://... | tool://... | mcp://...]
+      # definition-level ceiling; release owns the exact executable set
+    capability_descriptor_refs: [capability://...]
+    required_primitive_refs: [prim:...]
+    required_scope_refs: [scope:...]
+    shared_primitive_refs: [ui-primitive://...]
+    evidence_refs: [artifact://...]
+  consuming_surface_refs: [surface://...]
+  supported_context_kinds:
+    - organization | project | system | goal_run | outcome_room |
+      automation_run | session | work_queue | work_item | work_run
+  supported_roles: [string]
+  supported_placements:
+    - permanent_shell | applications_catalog | open_application | home |
+      project | system | work | goal_run | outcome_room | automation_run |
+      session | organization_admin | operator_console
+  composition_pattern: string
+  launch_modes:
+    - direct | contextual | open_application | command_palette | api
+  daemon_api_dependency_refs: [api://...]
+  agentgres_projection_refs: [agentgres://projection/...]
+  declared_operator_contract_refs: [tool://... | mcp://...]
+  effect_boundary: inspect_only | propose_only | effectful
+  mutation_boundary:
+    child_request | operator_plane | human_admin | not_applicable
+  authority_policy_refs: [policy://...]
+  privacy_policy_refs: [policy://...]
+  receipt_policy_refs: [policy://...]
+  replay_policy_refs: [policy://...]
+  evaluation_policy_refs: [policy://...]
+  promotion_policy_refs: [policy://...]
+  ontology_refs:
+    [ontology://... | object-model://... | data-recipe://.../revision/... | view://...]
+  parity_evidence_refs: [artifact://...] # evidence only; never membership authority
+
+HypervisorSurfaceReleaseRecord:
+  release_ref: package://.../release/...
+  surface_ref: surface://...
+  package_ref: package://...
+  surface_distribution:
+    - bundled | direct_package | organization_catalog | private_registry |
+      marketplace
+  surface_admission_state:
+    not_applicable | candidate | under_review | admitted | rejected | revoked
+  surface_package_disposition:
+    not_applicable | active | deprecated | superseded | recalled
+  surface_capability_depth:
+    browse | inspect | propose | act | workflow_complete
+  descriptor_ref: surface-descriptor://... | artifact://...
+  object_contract_refs:
+    [ontology://... | object-model://... | object-set://... | schema://...]
+  action_contract_refs:
+    [ontology-action://... | action://... | tool://... | mcp://...]
+  operator_contract_refs: [tool://... | mcp://...]
+  dependency_release_refs: [package://.../release/...]
+  admission_decision_ref: decision://... | null
+  agentgres_operation_refs: [agentgres://operation/...]
+  state_root_ref: agentgres://state-root/... | null
+  evidence_refs: [artifact://... | receipt://...]
+
+HypervisorSurfaceInstallationBinding:
+  installation_ref: install://...
+  surface_ref: surface://...
+  release_ref: package://.../release/...
+  org_ref: org://...
+  project_ref: project://... | null
+  surface_installation_state:
+    not_applicable | not_installed | installing | installed | update_available |
+    uninstalling | uninstalled
+  surface_enablement_state: not_applicable | enabled | disabled
+  visibility: private | organization | permissioned | public
+  audience_refs: [user://... | org://... | authority://...]
+  allowed_object_contract_refs:
+    [ontology://... | object-model://... | object-set://... | schema://...]
+  allowed_action_refs: [ontology-action://... | action://... | tool://...]
+  authority_preview_policy_ref: policy://...
+  decision_ref: decision://... | null
+  agentgres_operation_refs: [agentgres://operation/...]
+  state_root_ref: agentgres://state-root/... | null
+  receipt_refs: [receipt://...]
+
+HypervisorSystemInterfaceBinding:
+  system_binding_ref: package_binding://...
+  surface_ref: surface://...
+  release_ref: package://.../release/...
+  installation_ref: install://...
+  system_ref: system://...
+  surface_enablement_state: not_applicable | enabled | disabled
+  visibility: private | organization | permissioned | public
+  audience_refs: [user://... | org://... | authority://...]
+  allowed_object_contract_refs:
+    [ontology://... | object-model://... | object-set://... | schema://...]
+  allowed_action_refs: [ontology-action://... | action://... | tool://...]
+  authority_preview_policy_ref: policy://...
+  binding_admission_ref: decision://...
+  agentgres_operation_refs: [agentgres://operation/...]
+  state_root_ref: agentgres://state-root/...
+  evidence_refs: [artifact://...]
+  receipt_refs: [receipt://...]
+
+HypervisorSurfaceServingBinding:
+  serving_binding_ref: surface-serving://...
+  surface_ref: surface://...
+  release_ref: package://.../release/...
+  installation_ref: install://...
+  system_binding_ref: package_binding://... | null
+  resolved_route: string
+  runtime_ref: runtime://... | null
+  surface_operational_state:
+    inactive | starting | ready | serving | degraded | blocked | stopped |
+    unavailable
+  health_observation_refs: [observation://...]
+  agentgres_projection_ref: agentgres://projection/... | null
+  receipt_refs: [receipt://...]
+
+HypervisorProductSurfaceProjection:
+  projection_id: projection://hypervisor/product-surface/...
+  request_context_hash: hash
+  workspace_registration_refs: [hypervisor-workspace://...]
+  application_registration_refs: [surface://...]
+  workspace_entries:
+    - workspace_ref: hypervisor-workspace://...
+      display_name: string
+      canonical_route: string
+      route_alias_refs: [route-alias://...]
+      launchable: boolean
+      disabled_reason_codes: [string]
+      launch_binding:
+        kind: core_workspace
+        workspace_ref: hypervisor-workspace://...
+      typed_context_refs:
+        - org://... | project://... | system://... | goal://... |
+          outcome-room://... | automation-run://... | session://... |
+          work_queue://... | work_item://... | work_run://...
+  application_entries:
+    - surface_ref: surface://...
+      surface_key: string
+      family_id: string
+      display_name: string
+      summary: string
+      primary_user_job: string
+      publisher_ref:
+        org://... | user://... | ioi://publisher/... | null
+      primary_owner_application_ref: surface://... | null
+      tool_kind:
+        editor | inspector | picker | inbox | graph | wizard | report |
+        dashboard | comparison | console | null
+      selected_release_ref: package://.../release/... | null
+      selected_installation_ref: install://... | null
+      selected_system_binding_ref: package_binding://... | null
+      selected_serving_binding_ref: surface-serving://... | null
+      eligible_release_refs: [package://.../release/...]
+      eligible_installation_refs: [install://...]
+      eligible_system_binding_refs: [package_binding://...]
+      eligible_serving_binding_refs: [surface-serving://...]
+      surface_class:
+        owner_application | substrate_application | tool_surface |
+        extension_application
+      surface_origin: first_party | organization | external_publisher
+      surface_creation_method:
+        hand_authored | studio_generated | developer_kit_generated | imported |
+        adapted
+      surface_distribution:
+        bundled | direct_package | organization_catalog | private_registry |
+        marketplace | null
+      surface_availability:
+        planned | preview | limited | available | deprecated | unavailable
+      surface_admission_state:
+        not_applicable | candidate | under_review | admitted | rejected |
+        revoked | null
+      surface_installation_state:
+        not_applicable | not_installed | installing | installed |
+        update_available | uninstalling | uninstalled | null
+      surface_package_disposition:
+        not_applicable | active | deprecated | superseded | recalled | null
+      selected_installation_enablement_state:
+        not_applicable | enabled | disabled | null
+      selected_system_enablement_state:
+        not_applicable | enabled | disabled | null
+      effective_enablement_state:
+        not_applicable | enabled | disabled
+      surface_capability_depth:
+        browse | inspect | propose | act | workflow_complete | null
+      surface_operational_state:
+        inactive | starting | ready | serving | degraded | blocked | stopped |
+        unavailable | null
+      effective_visibility:
+        private | organization | permissioned | public | null
+      effective_audience_refs: [user://... | org://... | authority://...]
+      effective_object_contract_refs:
+        [ontology://... | object-model://... | object-set://... | schema://...]
+      effective_allowed_action_refs:
+        [ontology-action://... | action://... | tool://...]
+      effective_authority_preview_policy_ref: policy://... | null
+      group_kinds:
+        - first_party_applications | tools_for_context |
+          organization_applications | installed_applications |
+          system_interfaces | recommended | recent | favorites
+      canonical_route: string
+      resolved_launch_route: string | null
+      route_alias_refs: [route-alias://...]
+      launchable: boolean
+      disabled_reason_codes:
+        - planned | unavailable | not_admitted | rejected | revoked |
+          not_installed | installing | disabled | recalled | policy_denied |
+          missing_context | runtime_unavailable
+      launch_binding:
+        one_of:
+          - null
+          - kind: surface
+            surface_ref: surface://...
+          - kind: installation
+            installation_ref: install://...
+          - kind: system_interface
+            system_binding_ref: package_binding://...
+          - kind: serving_binding
+            serving_binding_ref: surface-serving://...
+      typed_context_refs:
+        - org://... | project://... | system://... | goal://... |
+          outcome-room://... | automation-run://... | session://... |
+          work_queue://... | work_item://... | work_run://...
+  policy_decision_refs: [decision://...]
+  join_invariants:
+    - every eligible or selected release record has
+      release.surface_ref == application_entry.surface_ref
+    - every eligible or selected installation has
+      installation.surface_ref == application_entry.surface_ref and
+      installation.release_ref in eligible_release_refs
+    - every eligible or selected System-interface binding has
+      system_binding.surface_ref == application_entry.surface_ref,
+      system_binding.release_ref == installation.release_ref, and
+      system_binding.installation_ref in eligible_installation_refs
+    - every eligible or selected serving binding has
+      serving.surface_ref == application_entry.surface_ref,
+      serving.release_ref == installation.release_ref,
+      serving.installation_ref in eligible_installation_refs, and, when
+      non-null, serving.system_binding_ref in eligible_system_binding_refs
+    - selected refs are members of their corresponding eligible-ref sets; when
+      non-null, the discriminated launch binding names exactly one selected
+      compatible ref, and launchable true requires a non-null launch binding
+    - resolved_launch_route is non-null iff launchable is true and is compiled
+      from the selected serving, System-interface, installation, or surface
+      binding in that precedence order; clients never derive it from
+      canonical_route or concatenate a System route locally
+    - effective_enablement_state is disabled when either selected applicable
+      installation or System-interface gate is disabled; launch requires every
+      selected applicable gate to be enabled or not_applicable
+    - the selected immutable release's exact object, action, and operator
+      contracts are subsets of the stable definition's declared ceilings;
+      installation allowed objects/actions are subsets of the selected release,
+      and a selected System-interface binding may only narrow installation
+      visibility, audience, objects, actions, and authority posture, never
+      widen them
+    - an effectful launch against a live System requires a selected admitted
+      System-interface binding; organization- or Project-scoped surfaces remain
+      bounded by their installation visibility, audience, actions, and
+      authority-preview policy
+    - a null release-, installation-, or serving-owned projected axis means no
+      eligible record of that owner kind was selected; null is projection
+      absence and never a new canonical enum value
+  generated_at: timestamp
+  read_model_only: true
+
+HypervisorGoalRunActivationContract:
+  activation_contract_ref: action://goal-run/activate/...
+  workflow_step_ref: workflow-step://...
+  activation_mode: create | join_existing
+  goal_run_profile_revision_ref: goal-run-profile://.../revision/...
+  goal_run_profile_content_hash: hash
+  permitted_override_mapping_ref: schema://... | null
+  existing_goal_ref_parameter_ref: schema://... | null
 
 HypervisorAutomationSpec:
-  automation_id: automation:...
-  project_ref: project:...
+  automation_id: automation://...
+  automation_revision_ref: automation://.../revision/...
+  predecessor_revision_ref: automation://.../revision/... | null
+  content_hash: hash
+  owner_ref: org://... | project://... | system://... | user://... | ioi://publisher/...
+  applicable_scope_constraint_refs: []
   automation_kind:
     manual_workflow | scheduled_workflow | webhook_workflow |
-    background_mission | approval_flow | service_api |
-    queue_worker | marketplace_service_recipe | outcome_room
-  graph_ref: workflow:...
+    event_workflow | monitor | approval_flow | service_api |
+    queue_worker | marketplace_service
+  workflow_template_revision_ref: workflow-template://.../revision/...
+  workflow_template_content_hash: hash
   compositor_contract_ref: workflow_compositor://...
-  trigger_policy_ref: policy://...
-  review_contract_ref: review_contract://... | null
-  output_contract_ref: output_contract://... | null
-  harness_selection_hints:
-    - harness_profile:... | agent_harness_adapter:...
-  authority_refs:
-    - grant://... | lease://...
+  activation_parameter_schema_or_binding_ref: schema://... | artifact://... | null
+  trigger_schedule_monitor_service_or_queue_contract_refs: []
+  activation_review_contract_ref: review_contract://... | null
+  delivery_contract_ref: output_contract://... | null
+  goal_run_activation_contract_refs:
+    - action://goal-run/activate/...
+  concurrency_and_idempotency_policy_refs: []
+  authority_requirement_refs: []
+  allowed_activation_override_schema_ref: schema://... | null
   agentgres_refs:
     - agentgres://operation/...
   receipt_policy_ref: policy://...
-  version:
-    semver: string
-    state_root_ref: state_root://...
-  status:
-    draft | enabled | disabled | archived
+  registry_lifecycle_ref: agentgres://object/... | null
+  registry_status: draft | released | deprecated | revoked
+
+HypervisorAutomationInstallationBinding:
+  automation_installation_ref: install://automation/...
+  binding_revision_ref: install://automation/.../revision/...
+  predecessor_binding_revision_ref: install://automation/.../revision/... | null
+  binding_hash: hash
+  automation_spec_revision_ref: automation://.../revision/...
+  automation_spec_content_hash: hash
+  owner_scope_ref: org://... | project://... | system://... | user://...
+  enablement_state: enabled | disabled | archived
+  policy_and_authority_overlay_refs: []
+  admission_receipt_ref: receipt://...
+  registry_lifecycle_ref: agentgres://object/... | null
+  registry_status: proposed | active | suspended | archived | revoked
 
 HypervisorAutomationRun:
-  automation_run_id: automation_run:...
-  automation_ref: automation:...
-  mission_ref: mission:... | null
+  automation_run_id: automation-run://...
+  automation_ref: automation://...
+  automation_spec_revision_ref: automation://.../revision/...
+  automation_spec_content_hash: hash
+  automation_installation_binding_revision_ref: install://automation/.../revision/...
+  automation_installation_binding_hash: hash
+  workflow_template_revision_ref: workflow-template://.../revision/...
+  workflow_template_content_hash: hash
+  admitted_parameter_set_ref: artifact://... | null
+  admitted_parameter_set_hash: hash | null
+  admitted_activation_override_set_ref: artifact://... | null
+  admitted_activation_override_set_hash: hash | null
+  resolution_receipt_ref: receipt://...
+  resolved_component_set_snapshot_ref: artifact://...
+  resolved_component_set_hash: hash
+  system_ref: system://... | null
+  goal_run_refs:
+    - goal://...
+  outcome_room_ref: outcome-room://... | null
+  work_item_refs:
+    - work_item://...
+  work_run_refs:
+    - work_run://...
   session_refs:
-    - hypervisor_session:...
-  trigger_ref: trigger://... | webhook://... | schedule://... | null
+    - session://...
+  activation_kind: manual | schedule | webhook | event | monitor | service | queue
+  activation_event_ref: event://... | null
   daemon_ref: daemon://...
+  authority_lease_refs:
+    - lease://... | grant://...
   agentgres_refs:
     - agentgres://operation/...
   receipt_refs:
     - receipt://...
   artifact_refs:
     - artifact://...
+  work_result_refs:
+    - work-result://...
+  outcome_delta_refs:
+    - outcome-delta://...
   status:
     queued | running | waiting_for_approval | blocked |
     succeeded | failed | canceled | archived
@@ -2300,23 +3559,28 @@ HypervisorAutomationRun:
 HypervisorCanvasView:
   canvas_view_id: canvas_view:...
   owner_surface:
-    automations | workbench | foundry
+    automations | developer_workspace | foundry
   target_ref:
-    automation:... | workflow:... | foundry_job:... | project:...
+    automation://... | workflow-template://.../revision/... |
+    workflow://... | foundry_job://... | project://...
   layout_ref: artifact://... | null
   projection_refs:
     - agentgres://projection/...
 
 HypervisorSession:
-  session_id: hypervisor_session:...
-  project_ref: project:... | null
+  session_id: session://...
+  project_ref: project://... | null
+  system_ref: system://... | null
+  session_mode: interactive | headless | supervisory
   session_kind:
     local_workspace | remote_vm_workspace | browser_sandbox |
     hosted_worker | hypervisoros_node | terminal | editor |
     computer_use | foundry_eval_training | provider_management |
     environment_management
   daemon_ref: daemon://...
-  runtime_assignment_ref: runtime_assignment:... | null
+  runtime_assignment_ref: runtime-assignment://... | null
+  automation_run_ref: automation-run://... | null
+  work_item_ref: work_item://... | null
   goal_run_ref: goal://... | null
   outcome_room_ref: outcome-room://... | null
   room_participant_lease_ref: participant-lease://... | null
@@ -2420,7 +3684,7 @@ HypervisorEnvironmentOpsProfile:
   profile_id: hypervisor_environment_ops:...
   environment_class_ref: hypervisor_environment_class:...
   consumer_kind:
-    workbench | foundry | provider_environment_view |
+    developer_workspace | foundry | provider_environment_view |
     agent_harness_adapter | app | web | cli_headless |
     sdk | adk | connector
   discovery:
@@ -2465,7 +3729,7 @@ AgentHarnessEnvironmentOpsProfile:
 
 HypervisorEnvironmentLifecycleState:
   lifecycle_state_id: hypervisor_environment_lifecycle:...
-  session_ref: hypervisor_session:...
+  session_ref: session://...
   environment_class_ref: hypervisor_environment_class:...
   status:
     requested | provisioning | starting | ready | active | idle |
@@ -2482,7 +3746,7 @@ HypervisorEnvironmentLifecycleState:
 
 HypervisorEnvironmentActivitySignal:
   activity_signal_id: hypervisor_environment_activity:...
-  session_ref: hypervisor_session:...
+  session_ref: session://...
   signal_kind:
     user_active | agent_active | task_running | service_running |
     port_open | log_written | file_changed | network_activity |
@@ -2495,7 +3759,7 @@ HypervisorEnvironmentActivitySignal:
     local | shared | support | provider_visible | redacted
 
 HypervisorProject:
-  project_id: project:...
+  project_id: project://...
   owner_ref: wallet://... | org://...
   repository_refs:
     - repo://...
@@ -2507,16 +3771,19 @@ HypervisorProject:
   preferred_adapter_connection_profile_refs:
     - adapter_connection_profile:...
   work_queue_refs:
-    - hypervisor_work_queue:...
+    - work_queue://...
+  linked_system_refs:
+    - system://...
   agentgres_domain_ref: agentgres://domain/... | null
 
 HypervisorWorkQueue:
-  work_queue_id: hypervisor_work_queue:...
-  project_ref: project:... | null
+  work_queue_id: work_queue://...
+  project_ref: project://... | null
+  system_ref: system://... | null
   owner_ref: wallet://... | org://...
   queue_kind:
-    one_off_handoffs | automation_runs | review_queue |
-    background_missions | service_requests | custom
+    one_off_handoffs | automation_runs | goal_runs | review_queue |
+    incident_queue | service_requests | custom
   intake_policy_ref: policy://...
   default_environment_profile_ref: hypervisor_environment_ops:... | null
   default_harness_selection_ref: harness_selection:... | null
@@ -2527,9 +3794,14 @@ HypervisorWorkQueue:
     - receipt://...
 
 HypervisorWorkItem:
-  work_item_id: hypervisor_work_item:...
-  queue_ref: hypervisor_work_queue:...
-  project_ref: project:... | null
+  work_item_id: work_item://...
+  queue_ref: work_queue://...
+  project_ref: project://... | null
+  system_ref: system://... | null
+  automation_run_ref: automation-run://... | null
+  goal_run_ref: goal://... | null
+  outcome_room_ref: outcome-room://... | null
+  work_claim_ref: work-claim://... | null
   source_kind:
     new_session | automation_trigger | pull_request | issue_event |
     webhook | schedule | human_comment | api | collaborative_outcome
@@ -2552,13 +3824,28 @@ HypervisorWorkItem:
     - receipt://...
 
 HypervisorWorkRun:
-  work_run_id: hypervisor_work_run:...
-  work_item_ref: hypervisor_work_item:...
-  session_ref: hypervisor_session:...
-  automation_run_ref: automation_run:... | null
+  work_run_id: work_run://...
+  work_item_ref: work_item://...
+  session_ref: session://...
+  system_ref: system://... | null
+  automation_run_ref: automation-run://... | null
+  goal_run_ref: goal://... | null
+  outcome_room_ref: outcome-room://... | null
+  room_participant_lease_ref: participant-lease://... | null
+  work_claim_ref: work-claim://... | null
+  attempt_ref: attempt://... | null
+  runtime_assignment_ref: runtime-assignment://... | null
   workflow_action_ref: workflow_action:... | null
-  selected_agent_ref: worker://... | agent_harness_adapter:... | null
+  accountable_actor_ref:
+    worker://... | agent://... | system://... | service://... |
+    org://... | user://... | domain://... | null
   harness_selection_ref: harness_selection:...
+  resolver_revision_ref:
+    harness-profile://.../revision/... |
+    agent-harness-adapter://.../revision/... | null
+  resolver_content_hash: hash | null
+  harness_invocation_refs:
+    - harness_invocation://...
   model_configuration_ref: model_configuration:...
   reasoning_profile_ref: reasoning_profile:... | null
   desired_phase:
@@ -2590,6 +3877,10 @@ HypervisorWorkRun:
     context_window_limit: integer | null
   output_refs:
     - artifact://... | patch://... | receipt://...
+  work_result_refs:
+    - work-result://...
+  outcome_delta_refs:
+    - outcome-delta://...
   review_state_ref: hypervisor_work_run_review_state:... | null
   merge_proposal_ref: merge_proposal://... | pull_request://... | null
   merge_decision_ref: merge_decision://... | null
@@ -2598,7 +3889,7 @@ HypervisorWorkRun:
 
 HypervisorWorkRunConversationProjection:
   conversation_projection_id: hypervisor_work_run_conversation:...
-  work_run_ref: hypervisor_work_run:...
+  work_run_ref: work_run://...
   history_ref: artifact://... | null
   live_stream_ref: stream://... | null
   blob_store_ref: artifact://... | null
@@ -2612,7 +3903,7 @@ HypervisorWorkRunConversationProjection:
 
 HypervisorWorkRunIntegrationStatus:
   integration_status_id: hypervisor_work_run_integration_status:...
-  work_run_ref: hypervisor_work_run:...
+  work_run_ref: work_run://...
   integration_ref: connector://... | mcp://... | tool://...
   phase:
     unknown | connected | degraded | failed | auth_required |
@@ -2624,7 +3915,7 @@ HypervisorWorkRunIntegrationStatus:
 
 HypervisorWorkRunReviewState:
   review_state_id: hypervisor_work_run_review_state:...
-  work_run_ref: hypervisor_work_run:...
+  work_run_ref: work_run://...
   phase:
     not_required | waiting_for_review | changes_requested |
     approved | rejected | superseded
@@ -2635,54 +3926,71 @@ HypervisorWorkRunReviewState:
   receipt_refs:
     - receipt://...
 
-HypervisorMission:
-  mission_id: mission:...
-  mission_kind:
-    manual | schedule | webhook | pull_request | issue_event |
-    policy_event | service_outcome | marketplace_job |
-    collaborative_outcome
-  interactive: false
-  project_ref: project:...
-  workflow_ref: workflow:...
-  automation_ref: automation:... | null
-  outcome_room_ref: outcome-room://... | null
-  managed_execution_mode: standard | private
-  goal_execution_policy: auto | pinned | compare
-  contributor_scope: my_workers | organization | network_open
-  placement_policy_ref: policy://... | null
-  coordination_admission_policy_ref: policy://... | null
-  multi_party_collaboration_ref: collaboration://... | null
-  work_credit_budget_ref: budget://... | null
-  network_goal_budget_ref: goal-budget://... | order://... | null
-  participant_lease_refs:
-    - participant-lease://...
-  frontier_item_refs:
-    - frontier://...
-  claim_lease_refs:
-    - work-claim://...
-  attempt_refs:
-    - attempt://...
-  finding_refs:
-    - finding://...
-  verifier_challenge_refs:
-    - verifier-challenge://...
-  default_harness_profile_ref: dhp:...
-  runtime_assignment_ref: runtime_assignment:... | null
-  trigger_policy_ref: policy://...
-  review_contract:
-    required: true
-    reviewer_refs:
-      - wallet://... | org_role://...
-  output_contract_ref: output_contract://...
-  receipt_refs:
-    - receipt://...
-  status:
-    enabled | disabled | running | waiting_for_review |
-    completed | failed | archived
+HypervisorWorkSubjectProjection:
+  projection_row_id: hypervisor_work_subject_projection:...
+  subject_kind:
+    goal_run | outcome_room | automation_run | session | work_queue |
+    work_item | work_run
+  subject_ref:
+    goal://... | outcome-room://... | automation-run://... |
+    session://... | work_queue://... | work_item://... | work_run://...
+  org_ref: org://... | null
+  project_ref: project://... | null
+  system_ref: system://... | null
+  canonical_detail_route: string
+  display_facets:
+    activity: active | waiting | blocked | review | completed | failed | archived
+    execution_mode: interactive | headless | supervisory | not_applicable
+  review_facet_projection_refs: [projection://...]
+  incident_facet_projection_refs: [projection://...]
+  source_projection_refs: [agentgres://projection/...]
+  policy_decision_refs: [decision://...]
+  read_model_only: true
+
+HypervisorWorkFacetProjection:
+  facet_projection_id: projection://hypervisor/work-facet/...
+  facet_kind: review | incident
+  facet_type: string
+  facet_ref: string # canonical typed ref owned by the source domain
+  owner_ref:
+    surface://... | agentgres://domain/... | wallet://... | system://... |
+    org://...
+  subject_kind:
+    goal_run | outcome_room | automation_run | session | work_queue |
+    work_item | work_run
+  subject_ref:
+    goal://... | outcome-room://... | automation-run://... |
+    session://... | work_queue://... | work_item://... | work_run://...
+  canonical_detail_route: string
+  source_projection_ref: agentgres://projection/... | projection://...
+  policy_decision_refs: [decision://...]
+  read_model_only: true
+
+`HypervisorWorkFacetProjection` is only a policy-filtered cross-owner pointer.
+It may project `HypervisorWorkRunReviewState`, `review://wallet/...`,
+`approval-request://...`, `artifact_incident://...`, `incident://...`, or a
+typed physical/domain incident without converting any of them into a universal
+Review or Incident truth object.
+
+RuntimeAssignment is a placement facet and source projection for the typed row
+it serves, not a direct Work subject. Fleet allocation and other domain leases
+remain facets or linked domain objects unless they acquire an independently
+owned work lifecycle and canonical detail route.
+
+HypervisorLegacyWorkSubjectAlias:
+  alias_id: hypervisor_legacy_work_subject_alias:...
+  legacy_kind: mission
+  legacy_ref: mission://...
+  resolution_status: resolved | needs_review | rejected
+  subject_kind: goal_run | outcome_room | null
+  subject_ref: goal://... | outcome-room://... | null
+  decision_ref: decision://... | null
+  evidence_refs: [artifact://... | agentgres://operation/...]
+  migration_receipt_ref: receipt://... | null
+  read_only_compatibility_record: true
 
 HypervisorOutcomeRoomProjection:
   projection_id: hypervisor_outcome_room_projection:...
-  mission_ref: mission:...
   outcome_room_ref: outcome-room://...
   objective_and_acceptance_ref: outcome-room://...
   work_frontier_projection_ref: projection://...
@@ -2697,7 +4005,7 @@ HypervisorOutcomeRoomProjection:
 
 SessionAccessToken:
   token_id: session_access_token:...
-  session_ref: hypervisor_session:...
+  session_ref: session://...
   audience:
     editor | ssh | browser | logs | environment_ops | support
   scopes:
@@ -2709,7 +4017,7 @@ SessionAccessToken:
 
 HypervisorSessionAccessLease:
   access_lease_id: hypervisor_session_access_lease:...
-  session_ref: hypervisor_session:...
+  session_ref: session://...
   lease_kind:
     editor | ssh | browser | logs | environment_ops | support |
     port_share | scm_auth | task_exec
@@ -2724,7 +4032,7 @@ HypervisorSessionAccessLease:
 
 HypervisorEnvironmentService:
   service_id: hypervisor_environment_service:...
-  session_ref: hypervisor_session:...
+  session_ref: session://...
   service_kind:
     model_server | dev_server | database | queue | browser |
     worker | agent_service | evaluator | custom
@@ -2740,12 +4048,12 @@ HypervisorEnvironmentService:
 
 HypervisorEnvironmentTask:
   task_id: hypervisor_environment_task:...
-  session_ref: hypervisor_session:...
+  session_ref: session://...
   task_kind:
     shell | build | test | eval | benchmark | migration |
     package_install | git_operation | pull_request | code_review_response |
     agent_run | provider_action | archive | restore | custom
-  work_run_ref: hypervisor_work_run:... | null
+  work_run_ref: work_run://... | null
   authority_refs:
     - grant://...
   status:
@@ -2756,7 +4064,7 @@ HypervisorEnvironmentTask:
 
 HypervisorEnvironmentPort:
   port_id: hypervisor_environment_port:...
-  session_ref: hypervisor_session:...
+  session_ref: session://...
   port: integer
   protocol:
     http | https | tcp | udp | websocket | grpc
@@ -2768,7 +4076,7 @@ HypervisorEnvironmentPort:
 
 HypervisorScmAuthRequirement:
   requirement_id: hypervisor_scm_auth_requirement:...
-  session_ref: hypervisor_session:...
+  session_ref: session://...
   provider:
     github | gitlab | bitbucket | self_hosted_git | custom
   required_for:
@@ -2781,6 +4089,30 @@ HypervisorScmAuthRequirement:
     pending | satisfied | denied | expired | revoked
   receipt_ref: receipt://... | null
 ```
+
+Automation definition and activation are revision-bound. A released
+AutomationSpec patch creates a successor revision; a WorkflowTemplate patch
+creates a successor template revision. Each AutomationRun freezes the exact
+AutomationSpec, AutomationInstallationBinding, and WorkflowTemplate
+revisions/hashes, admitted parameters, resolution receipt, and live authority
+leases. Later template/spec/binding edits, enablement changes, recall, or
+revocation never silently rewrite an active run. Concrete grants and leases do
+not belong in the reusable AutomationSpec.
+
+`content_hash` excludes only the AutomationSpec registry lifecycle/status
+projection. Owner- or System-scoped enablement and narrowing policy overlays
+belong to `HypervisorAutomationInstallationBinding`; a released spec never
+contains live enablement. Each installation binding revision is immutable;
+`binding_hash` commits the exact spec pin, owner scope, enablement, policy and
+authority overlays. The admission receipt and registry lifecycle/status are
+excluded; the receipt binds the already-computed binding hash. A binding-body
+change creates a successor revision. A
+goal-shaped workflow step must reference a
+`HypervisorGoalRunActivationContract` that pins the exact GoalRunProfile and
+declares `create` or `join_existing`. The admitted AutomationRun records the
+resulting GoalRun ref, while that GoalRun retains its separate profile
+resolution receipt. Routine workflow steps leave the activation-contract list
+empty.
 
 For code WorkRuns, the default materialized backing is a Git branch or worktree
 created from a pinned base commit. Agentgres patch branches remain the canonical
@@ -2797,6 +4129,65 @@ not mutate host state directly.
   daemon and Agentgres admission path.
 - No application surface may become a private runtime loop beside the
   Hypervisor Daemon.
+- Home, Systems, Projects, Applications, and Work must register as core
+  workspaces, not applications. Automations remains an owner application with a
+  first-class shell placement; Sessions remains a typed execution object and
+  Work view, not a peer application registration.
+- `New Session` must create only a bounded Session. New System, Goal, Project,
+  and Automation flows must remain explicit typed commands even when the shell
+  presents them in one New menu.
+- A Project must not silently become live System identity. A System may link
+  Projects, packages, work, interfaces, and nodes, while direct Projects,
+  Sessions, Automations, and GoalRuns remain valid without System genesis.
+- Every durable application surface must use exactly one registration class:
+  `owner_application`, `substrate_application`, `tool_surface`, or
+  `extension_application`. Publisher identity, origin, creation method, distribution
+  channel, availability, admission state, installation state, package
+  disposition, enablement state, capability depth, and operational state remain independent
+  dimensions and must not be inferred from that class or from one another.
+- One product-surface compiler must produce navigation, Applications,
+  command-palette, contextual-launch, search, recent, favorite, and
+  recommendation projections. It must filter authorization and visibility
+  before aggregation or caching, deduplicate by stable registration id, fail
+  safely to eligible static inventory, and remove recalled, revoked,
+  uninstalled, blocked, unavailable, or otherwise ineligible launches
+  immediately.
+- A stable surface registration must not absorb mutable release,
+  installation, System-interface, or serving state. Those states belong to the
+  normalized release/binding records and may join only in a request-scoped
+  projection with typed eligible/selected refs and unavailable reasons.
+- A `tool_surface` registration must name exactly one
+  `primary_owner_application_ref` and a complete `tool_surface_contract`;
+  non-tool registrations must not populate that discriminated block.
+- Workspace/surface identities, application surface keys, and canonical routes
+  must be unique in the applicable deployment catalog. Every alias
+  resolves to exactly one registered identity and canonical route;
+  alias-versus-canonical and cross-identity alias collisions fail closed. No
+  navigation, search, catalog, command-palette, or launch row may point to an
+  unregistered or orphan route.
+- `permanent_shell` is reserved for the Automations owner registration in
+  taxonomy v2. Home, Systems, Projects, Applications, and Work derive from core
+  workspace registrations; no tool, extension, substrate, or other owner
+  application may self-promote into the permanent rail through metadata.
+- Raw capture/review routes under `/__apps` are development evidence only and
+  must never appear as production product inventory. `Ported apps`, `Harvested
+  seeds`, `Pixel certified`, and `Substrate bound` are verifier/evidence labels,
+  not end-user catalog groups, registration classes, or launchability claims.
+- `Work / Reviews` and `Work / Incidents` must remain policy-filtered views over
+  typed work subjects and cross-owner facet projections. They may not introduce
+  universal Review/Incident subjects or make Work the owner of a tool/domain
+  record.
+- Packages must remain the mandatory lifecycle owner for reusable releases and
+  installs. Marketplace is only an optional Packages mode and distribution
+  channel; absence of Marketplace must not weaken private package admission,
+  installation, disable, recall, revocation, impact, or receipt semantics.
+- Generated or installed application code must not become launchable product
+  inventory until an admitted registration, package/release/install binding,
+  allowed-action contract, policy filter, and authority preview make the
+  current launch eligible.
+- Every tool surface must declare exactly one primary owner even when several
+  applications consume it. A code-level UX primitive may be shared without a
+  tool registration, but it must not become an independent truth owner.
 - No application surface may become a bespoke island when a standard
   composition primitive plus the application registration contract can carry the
   product job.
@@ -2811,7 +4202,7 @@ not mutate host state directly.
 - Code WorkRuns that produce file changes should bind isolated child
   environments to both a materialized Git branch/worktree and an Agentgres patch
   branch unless the work is explicitly read-only, non-code, or ephemeral.
-- Workbench, Automations, Foundry, Canvas, other application surfaces, and
+- Developer Workspace, Automations, Foundry, Canvas, other application surfaces, and
   Environments views must share Core session, authority, receipt,
   replay, and projection contracts.
 - Automations must use Workflow Compositor contracts for graph shape and the
@@ -2831,13 +4222,26 @@ not mutate host state directly.
   restore.
 - `SessionAccessToken` is derived token material under a
   `HypervisorSessionAccessLease`; it is not the durable authority object.
-- Background missions must be modeled as `HypervisorMission` objects with
-  trigger policy, review contract, authority requirements, output contract, and
-  receipts; they must not be hidden interactive sessions.
+- New writes must not create `HypervisorMission`, `mission://`, or generic
+  `mission_ref` truth. `/missions` compatibility routes must resolve through a
+  typed legacy alias to a GoalRun or OutcomeRoom and then render the canonical
+  Work route; ambiguous or missing aliases fail closed.
+- Typed physical mission, route, and actuation-plan objects may remain inside
+  the Embodied Runtime domain. They are domain contracts for physical work,
+  not a generic Hypervisor work container or peer product application.
+- Reusable or background behavior must be modeled as an `AutomationSpec` plus
+  typed `AutomationRun`, GoalRun, OutcomeRoom contribution, WorkItem/WorkRun, or
+  Session refs as applicable. Background, interactive, headless, supervisory,
+  scheduled, event-driven, and monitor execution are modes, not Mission object
+  classes or hidden editor sessions.
+- Work must remain a policy-filtered projection over typed canonical subjects;
+  it must not mint a universal Work status, owner, lifecycle, or id and write it
+  back over GoalRun, OutcomeRoom, AutomationRun, Session, WorkItem, WorkRun,
+  review, or incident owners.
 - A persistent collective outcome must be one underlying OutcomeRoom projected
-  as ioi.ai Goal Space and Hypervisor Mission detail, not duplicated product
+  as ioi.ai Goal Space and Hypervisor Work / Room detail, not duplicated product
   state.
-- Mission/Goal Space UI must be graph-first and expose frontier, participants,
+- Goal Space and Work / Room UI must be graph-first and expose frontier, participants,
   participant/claim leases, attempts, findings, verifier challenges, spend,
   authority/privacy blockers, contribution lineage, and replay. Chat and live
   feeds remain projections.
@@ -2846,7 +4250,20 @@ not mutate host state directly.
   capability, eligibility/affiliation, privacy/locality, budget/quote,
   verifier, and settlement posture. Joining creates a typed participation
   request and shows the admission decision; it never silently mints membership.
-- Mission/Goal Space participant controls must expose claim release,
+- Connect local agent must use `LocalAgentPairingSessionEnvelope` with a
+  one-time expiring challenge/device code stored hash-only at rest, a candidate-
+  generated key, and an origin binding. Pairing authenticates a candidate but
+  never grants room membership, context, tools, authority, reputation, payout,
+  or publication.
+- A local-agent MCP/gateway profile may be issued only after a matching typed
+  room-admission decision creates an active participant lease. The profile must
+  be scoped, expiring, revocable, bound to candidate key/origin/room/policy, and
+  no broader than the admitted lease.
+- Prompt-only local-agent compatibility must be labeled proposal-only and low
+  assurance. Submitted messages, artifacts, and proposals remain tainted until
+  the normal isolation, evidence, verification, and room/domain admission path
+  accepts them.
+- Goal Space and Work / Room participant controls must expose claim release,
   retirement/revocation, portable participant-state export, acknowledgement,
   supersession, and future-access revocation while preserving historical
   contribution, receipt, acceptance, and dispute lineage.
@@ -2862,7 +4279,7 @@ not mutate host state directly.
 - Work Credit allowance and separately funded Network/Open participation must
   remain distinguishable in budget projections even when ioi.ai presents one
   user-facing quote.
-- ioi.ai collaborative outcome handoffs and Collaborative Missions must use the
+- ioi.ai collaborative outcome and room handoffs must use the
   Automations, session, daemon, wallet.network, Agentgres, and Foundry/eval
   paths defined in
   [`../../domains/ioi-ai/collaborative-outcome-pattern.md`](../../domains/ioi-ai/collaborative-outcome-pattern.md);
@@ -2888,8 +4305,17 @@ Hypervisor Web owns Core
 ioi.ai chat = durable automation owner
 ioi.ai = Hypervisor Operator Plane
 ioi.ai = privileged Hypervisor substrate
-Home = dense Workbench terminal/diff/file console
+Home = dense Developer Workspace terminal/diff/file console
 Applications = unstructured app drawer
+core workspace = application registration
+application class = publisher, creation, distribution, availability, admission,
+installation, package disposition, enablement, capability depth, or operational state
+one surface registration = duplicated navigation/catalog/search/recent records
+tool used by several applications = several primary owners
+generated UI = launchable before package admission and install binding
+Marketplace = mandatory package lifecycle or second package owner
+package install = runtime authority or live System identity
+package recall = silent mutation or termination of live Systems
 Pinned Applications = permanent empty rail region
 Open Application = multiple simultaneous primary app frames
 application composition = bespoke product island
@@ -2911,18 +4337,29 @@ automation spec = chat transcript
 ioi.ai collaborative outcome = group chat
 ioi.ai collaborative outcome = unbounded swarm
 OutcomeRoom = permanent Swarm application
-OutcomeRoom = duplicated Goal Space and Mission truth
+OutcomeRoom = duplicated Goal Space and Work / Room truth
+Work = universal canonical status or lifecycle written over every subject kind
+System = renamed Project
+Project = implicit live System identity
+New Session = implicit Goal, Automation, or System creation
+generic Mission = background-work or collective-work truth object
 background agent = invisible process or token stream
 same-owner seed fleet = independent multi-party network
 Goal Space subscription = pooled provider chat seats
 Network / Open spend = hidden ordinary seat burn
+Connect local agent = shared organization read/write token
+pairing challenge = reusable durable API credential
+pairing success = room membership or effect authority
+prompt-only local agent = verified runtime
+local-agent pairing = automatic aiagent.xyz publication
+local-agent gateway = raw provider credentials or ambient room context
 Auto = hidden multi-route execution
 Pinned = silent fallback
 Hypervisor Operator Plane = ambient host administrator
 child session harness = host platform administrator
 Git branch = canonical attribution/truth layer
 code WorkRun = no materialized branch/worktree by default
-Workbench = runtime truth
+Developer Workspace = runtime truth
 Foundry = direct self-mutation path
 provider posture = standalone provider-management product
 provider posture = infrastructure runtime or authority owner
@@ -2942,13 +4379,24 @@ Hypervisor Core = shared contracts and control substrate
 Hypervisor Daemon = execution owner
 App/Web/CLI-headless = first-class clients
 TUI = optional CLI presentation
-Workbench/Automations/Foundry = application surfaces
+Home/Systems/Projects/Applications/Work = core workspaces
+Developer Workspace/Automations/Foundry = application surfaces
+Evaluations = independent epoch, exposure, validity, and re-verification owner
+Improvement = optional campaign and direct-change coordination cockpit
+Foundry = candidate/evaluator asset builder and admitted experiment executor
+Governance + target owner = activation and effect-recovery authority
+Workbench = compatibility alias for Developer Workspace
+Systems = stable contextual inventory of live constitution-bound Systems
+Projects = persistent build and work-context containers
+Work = policy-filtered typed projection, never a universal truth object
+Packages = mandatory release/install/recall lifecycle owner
+Marketplace = optional Packages discovery/exchange mode and distribution channel
 Application composition = reusable UX primitives over shared Core contracts
 Canvas = visual editor/projection
 ioi.ai = intent-to-outcome coordination, including multi-model/multi-path
 goal pursuit when useful
 Goal Space = ioi.ai outcome product projection
-Mission detail = Hypervisor projection of the same persistent OutcomeRoom
+Work / Room detail = Hypervisor projection of the same persistent OutcomeRoom
 OutcomeRoom = graph-first shared frontier above bounded GoalRuns
 background participants = visible claims, leases, spend, evidence, and controls
 Hypervisor Operator Plane = governed control-plane harness over declared
@@ -2958,9 +4406,15 @@ Agentgres patch branch + receipts
 Provider and infrastructure posture = Environments views through
 Applications, Open Application, sessions, projects, provider settings,
 org/admin views, or operator consoles
-Sessions = governed live workspaces/runs
+Sessions = bounded governed execution/control contexts projected in Work
 Adapters = mediated bridges to targets
 Agent harness adapters = mediated bridges for external agent harnesses
+Connect local agent = one-time candidate pairing, then typed room admission
+LocalAgentPairingSessionEnvelope = authentication, never authorization
+room_guest participant lease = prerequisite for its scoped expiring gateway profile
+private/organization worker = active registration + admitted invocation/session/run scope
+prompt-only local agent = visibly low-assurance proposal source
+aiagent.xyz reusable/public Worker record = separate explicit handoff
 wallet.network = authority
 Agentgres = admitted truth
 ```
@@ -2974,6 +4428,8 @@ Agentgres = admitted truth
 - [`identity-access-and-metering.md`](./identity-access-and-metering.md)
 - [`../../domains/ioi-ai/collaborative-outcome-pattern.md`](../../domains/ioi-ai/collaborative-outcome-pattern.md)
 - [`../../foundations/economic-flywheel-and-pricing-boundaries.md`](../../foundations/economic-flywheel-and-pricing-boundaries.md)
+- [`improvement.md`](./improvement.md)
+- [`evaluations.md`](./evaluations.md)
 - [`foundry.md`](./foundry.md)
 - [`../wallet-network/doctrine.md`](../wallet-network/doctrine.md)
 - [`../agentgres/doctrine.md`](../agentgres/doctrine.md)

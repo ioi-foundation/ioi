@@ -4,15 +4,15 @@ Status: canonical architecture authority.
 Canonical owner: this file for stack-wide monetization boundaries, open
 substrate / paid network doctrine, verified work graph economics, Work Credit
 usage abstraction, marketplace fee legitimacy, substrate bundling, wallet.network
-value-flow revenue boundaries, Agentgres pricing non-boundaries, and token/BME
-timing.
+value-flow revenue boundaries, dispute-rail economics, Agentgres pricing
+non-boundaries, and token/BME timing.
 Supersedes: product or plan prose that turns every protocol surface, authority
 check, receipt, state write, or builder surface into a separate toll booth.
 Superseded by: none.
-Last alignment pass: 2026-07-11.
+Last alignment pass: 2026-07-16.
 Doctrine status: canonical
-Implementation status: mixed (fee-basis declarations and flat OCU receipt metering built; invoice-grade multi-provider reconciliation, Work Credits, Goal Space allowances, marketplace fees, and token/BME planned or deferred)
-Last implementation audit: 2026-07-11
+Implementation status: mixed (fee-basis declarations and flat OCU receipt metering exist; the registered managed-work billing and dispute-rail schemas, invariants, fixtures, and generated projections are contract substrate only; quote/hold/usage/debit/adjustment persistence, dispute admission/allocation, public Work Credit purchase/debit APIs, supplier-statement reconciliation, live evidence adjudication, escrow/bond/remedy execution, payment rails, Goal Space allowances, marketplace fees, and token/BME remain planned or deferred)
+Last implementation audit: 2026-07-18
 
 ## Canonical Thesis
 
@@ -24,13 +24,64 @@ execution, marketplace distribution, commercial trust, or financial value flow.
 It should not invent separate pricing models merely because an internal
 primitive exists.
 
-The primary alpha is **network effects plus governed trust**. The code may be
-open source and user execution may be BYOM, BYOA, self-hosted, customer-cloud,
-or local-first. The durable asset is the **Verified Work Graph**: the
-receipt-backed record of who did what, under which authority, with which
-worker/harness/model/tool stack, at what cost, with what eval result, for whom,
-and whether that evidence is reusable for routing, reputation, settlement,
-promotion, or dispute resolution.
+IOI has three distinct value loops. They may reinforce one another, but none
+accrues to another automatically:
+
+1. **L0 product alpha** — Goal Space/Hypervisor subscriptions, Work Credits,
+   managed clusters and execution, enterprise/private deployment, support,
+   compliance, and procurement convenience.
+2. **Network alpha** — worker/service/verifier/ontology discovery, routing,
+   marketplaces, certification, assurance operations, shared evidence,
+   dispute, rights, and settlement liquidity.
+3. **L1 value** — paid scarce neutral trust and bonded risk: public capacity,
+   registries, shared security, finality, bonds/stake, slashing/claims,
+   arbitration, and governance.
+
+The **Verified Work Graph** becomes a durable compounding asset across the first
+two loops only when repeated evidenced, verified, accepted, or adjudicated
+outcomes measurably improve routing, trust, audit, promotion, or dispute
+decisions. It is the receipt-backed record of who did what, under which
+authority, with which worker/harness/model/tool stack, at what cost, with what
+eval result, for whom, and whether that evidence is reusable. Raw graph size,
+receipt count, or participation creates no moat by itself.
+
+## Conditional Cooperation And Participant Rationality
+
+Sovereignty does not motivate cooperation; it limits its downside. A system
+uses external workers, services, verifiers, data-derived evidence, authority,
+resources, or shared trust only when its expected cooperation surplus is
+positive under its own constitution and policy.
+
+```text
+expected cooperation surplus_i
+  = expected utility under accepted collaboration terms_i
+  - expected utility of best permitted outside option_i
+  - incremental cooperation costs_i
+
+incremental cooperation costs_i include execution, opportunity, search,
+  semantic-mapping, coordination, verification, privacy, IP, counterparty,
+  dispute, settlement, switching, and dependency costs and risks
+
+participate only when expected cooperation surplus_i > 0
+```
+
+Participation is rational only when the surplus is positive for every required
+party under its own constitution and policy. Total coalition value is
+insufficient if one required party is made worse off. Raw valuations and
+outside options may remain private; the protocol binds each party's governed
+acceptance of one exact `CollaborationTermsEnvelope` root.
+
+The network earns value by reducing search, contracting, semantic-translation,
+verification, counterparty-risk, and settlement costs or by unlocking a scarce
+complement that a participant cannot obtain as efficiently alone. AIIP
+compatibility, system count, room activity, message volume, receipts, or L0
+adoption create no network alpha by themselves. The correct fallback when no
+positive-surplus case exists is direct local operation.
+
+Attribution supplies evidence for allocation; it is not allocation. Payment,
+reputation, licensing, reciprocal access, or other consideration follows only
+the terms and contribution policy in force when work was awarded plus the
+declared verification, acceptance or adjudication, and settlement path.
 
 Short form:
 
@@ -40,7 +91,7 @@ Short form:
 Category form:
 
 ```text
-Open substrate. Paid network.
+Open, independently operable L0. Paid managed products and network services.
 Your model, your cloud, your tools, your authority.
 IOI monetizes coordination, governed trust, distribution, verified outcomes,
 managed convenience, and value movement.
@@ -65,7 +116,7 @@ and successful outcome coordination. Inference remains a disclosed cost of
 delivered work and may carry a visible managed-service margin; it is not the
 defensible product by itself.
 
-## Open Verification / Protected Network Covenant
+## Open L0 / Protected Commercial Network Covenant
 
 The open/closed split is a trust boundary, not only a business preference.
 Anything required to verify IOI's honesty must be inspectable and implementable
@@ -76,7 +127,9 @@ or provider risk may be protected and monetized.
 Architecture doctrine, not legal license advice:
 
 ```text
-open verification layer
+open, independently operable L0
+  constitution, deployment, membership, ordering/finality, oracle, lifecycle,
+    and enrollment contracts
   protocol contracts
   receipt schemas
   authority envelopes
@@ -84,15 +137,14 @@ open verification layer
   portable memory vault format
   Agentgres ref and object model
   provider / connector / harness adapter contracts
-  SDK interfaces
+  SDK / ADK / ODK interfaces and portable package formats
+  complete self-hostable reference stack
   conformance tests
 
-protected local runtime layer
-  local Hypervisor core
-  Agentgres runtime implementation
-  wallet authority daemon
-  provider adapter runtime
-  self-host single-node stack
+protected commercial implementations (allowed, never required for compatibility)
+  differentiated Hypervisor clients and enterprise distributions
+  optimized Agentgres/runtime implementations and managed control planes
+  proprietary provider adapters, operations automation, and support tooling
 
 proprietary network / operations layer
   hosted ioi.ai
@@ -106,13 +158,19 @@ proprietary network / operations layer
   enterprise / compliance control plane
 ```
 
-The open verification layer should use permissive or standards-compatible
-terms wherever adoption, third-party implementation, offline verification, or
-challengeability is load-bearing. The protected local runtime layer may use
-source-available or anti-rehosting terms when needed to keep large hosted
-providers from reselling IOI's control plane as a commodity service. The
-network/operations layer is the business: it compounds data, distribution,
-managed execution, commercial trust, and routing value.
+The open L0 must be implementable and independently operable, not merely
+inspectable. It should use permissive or standards-compatible terms wherever
+adoption, third-party implementation, offline verification, portability, or
+challengeability is load-bearing. Commercial implementations may remain
+protected when a complete compatible reference path exists. The
+network/operations layer becomes a defensible business only where voluntary
+participation creates distribution, routing, managed-execution, or commercial-
+trust value greater than the coordination, disclosure, and switching costs
+borne by its users.
+
+This is architecture doctrine, not a license grant. Any change to an existing
+repository's licensing or previously adopted open/protected covenant requires a
+separate legal review and ADR; documentation cannot silently relicense code.
 
 This covenant has two hard requirements:
 
@@ -123,7 +181,8 @@ This covenant has two hard requirements:
 2. The local/self-hosted core must be complete enough for one operator to run
    governed work on their own substrate. A crippled demo core is trust theater;
    managed IOI should win through convenience, routing intelligence,
-   compliance, support, private runtime posture, and network effects.
+   compliance, support, private runtime posture, and demonstrated routing and
+   distribution advantages.
 
 Conformance is therefore a product pillar. Open adapter contracts without an
 executable conformance suite invite fake integrations, hidden provider
@@ -152,8 +211,9 @@ from:
 The graph is not a single database, chain, or UI. Agentgres-backed domains keep
 operational truth; product surfaces render projections; marketplaces consume
 attribution and reputation; wallet.network supplies authority and value-flow
-receipts; IOI L1 anchors selected public/economic commitments when portability,
-settlement, reputation, rights, or disputes require it.
+receipts; IOI L1 anchors selected public/economic commitments only when a
+system's enrollment and settlement profiles choose it for portability,
+settlement, reputation, rights, or disputes.
 
 “Verified” is an assurance path, not a claim that every signed receipt is true
 or valuable:
@@ -178,7 +238,7 @@ request was admitted, a policy hash was evaluated, a tool reported an effect,
 or a signer made an observation. It does not alone establish external-world
 change, correctness, causality, customer value, or settlement eligibility.
 
-The graph is the moat because it improves:
+The graph can become a moat only when its staged evidence measurably improves:
 
 - route calibration;
 - worker and service reputation;
@@ -194,13 +254,36 @@ The graph is the moat because it improves:
 
 | Layer | Economic role | Boundary |
 | --- | --- | --- |
-| Hypervisor | Main product shell, managed runtime, the application suite (Studio, Automations, Ontology, Data, Governance, Missions, Provenance, Evaluations, Improvement, Foundry, Marketplace, Workbench, Developer Console), the Environments and Operations substrate lane, and related managed compute | Monetizes subscriptions, managed execution, enterprise/private deployment, and Work Credit usage. Foundry is a Hypervisor surface and usage lane, not a separate top-level business by default. |
+| Hypervisor | Main product shell, managed runtime, the core Systems and Work workspaces, the application suite (Studio, Automations, Ontology, Data, Governance, Provenance, Evaluations, Improvement, Foundry, Packages with optional Marketplace mode, Developer Workspace, Developer Console), the Environments and Operations substrate lane, and related managed compute | Monetizes subscriptions, managed execution, enterprise/private deployment, and Work Credit usage. Foundry is a Hypervisor surface and usage lane, not a separate top-level business by default. Local package build, install, version, recall, and impact workflows do not depend on marketplace commerce. |
 | ioi.ai | Intent-to-outcome conductor over Hypervisor, marketplace workers, connectors, sessions, and verifier lanes | Monetizes subscription and conductor usage. It spends Work Credits through Hypervisor and markets rather than owning a separate runtime pricing model. |
 | aiagent.xyz | Capability marketplace for benchmarked, installable, attributable workers and managed worker instances | Monetizes admission, benchmarks, certification, managed instances, invocation, distribution, licensing, procurement, and take-rate only where it supplies real demand, trust, hosting, or settlement. |
 | sas.xyz | Outcome marketplace for delivered autonomous services and Worker Training as Service-as-Software | Monetizes escrow, orders, milestones, SLAs, disputes, procurement, delivery acceptance, and take-rate where it provides commercial trust and demand. |
 | wallet.network | Authority wallet, credential broker, approvals, recovery, exchange/trade/provider authority, payments, swaps, and value movement | Ordinary authority, connector approval, provider credential custody, resource-spend approval, and IAM-style grants are infrastructure bundled into products. Revenue capture belongs mainly to swaps, trades, payments, exchange, settlement assistance, protection, or other value-flow actions. |
 | Agentgres | Per-domain operational truth substrate, receipt/state/projection substrate, and Postgres-like compatibility layer | Not a separate pricing surface in the first-party stack. It records economics and may support optional managed infrastructure offerings, but routine Agentgres writes, refs, and projections are bundled substrate. |
 | IOI L1 | Public registry, rights, reputation, settlement, dispute, sparse commitments, and governance layer | Protocol fees apply only at public coordination, settlement, registry, dispute, reputation, rights, bond, or economic-finality boundaries. It is not charged per model thought, local workflow node, routine receipt, or Agentgres write. |
+
+## Enrollment Economics And Value Accrual
+
+The system-level enrollment profiles make the economic boundary explicit:
+
+| Enrollment | What the network supplies | Economic rule |
+| --- | --- | --- |
+| `ioi_compatible` | Open L0 contracts, formats, reference implementation, and local conformance. No IOI Network assurance. | No mandatory fee, token, L1 use, or network contribution. Adoption may improve tooling and ecosystem reach but creates no automatic L1 demand. |
+| `ioi_connected` | Selected registry, rights, reputation, escrow, dispute, settlement, or endpoint services. | Pay only for the selected service under its fee basis; connection alone does not imply shared security or certification. |
+| `ioi_secured` | Standard DAS conformance plus named verifier, guardian, availability, ordering, finality, arbitration, or related shared-security coverage. | Explicit service fees, bonds/stake, slashing/claim terms, or a declared network-contribution covenant pay for scarce neutral trust. |
+
+This is the required adoption/value-capture separation. A popular open L0 can
+create product leads and ecosystem reach while producing no L1 transactions.
+AIIP message volume can grow without IOI settlement. Marketplace GMV can grow
+without a native asset if fiat or stable settlement is superior. L1 value
+exists only when users choose scarce neutral trust, public capacity, bonded
+security, disputes, rights, finality, or governance that the L1 supplies better
+than alternatives.
+
+The design intentionally combines lessons from modular sovereign ecosystems:
+compatibility remains open; connected networks declare explicit alignment and
+services; scarce shared security is paid; and additional assurance is opt-in.
+IOI L1 is not a toll on sovereignty.
 
 ## One Goal Space, Two Supply Lanes
 
@@ -314,7 +397,7 @@ Work Credits may meter or budget:
   create managed cost;
 - Foundry training, eval, dataset, experiment, conversion, endpoint, and
   package jobs;
-- Hypervisor Automations and background missions;
+- Hypervisor AutomationRuns and background Session/WorkRun execution;
 - ioi.ai conductor runs, multi-path attempts, verifier lanes, and synthesis;
 - aiagent worker invocation, managed worker instance runtime, benchmark, and
   certification jobs;
@@ -351,6 +434,70 @@ and amount, adjustments/refunds, and total Work Credits. Direct BYOK normally
 removes the provider-cost component while retaining explicit conductor,
 runtime, governance, or support charges.
 
+### Managed-work billing chain
+
+One managed-work ledger is scoped to a billing account and one admitted work
+identity. Its v1 chain is:
+
+```text
+versioned RateCard + versioned Plan
+  -> immutable WorkQuote
+  -> finite idempotent CreditHold
+  -> append-only UsageRecord chain
+  -> typed OverrunDecision
+       -> exact additional CreditHold
+       -> or block
+  -> one exact FinalDebit
+  -> append-only downward Adjustment / Refund / Writeoff
+```
+
+All money and Work Credit arithmetic uses fixed-point integers: ISO-currency
+minor units and `micro_work_credit` units. Floating-point amounts are invalid
+at contract and kernel boundaries. Every RateCard, Plan, quote, hold, usage
+entry, decision, debit, and adjustment has a canonical exact-body hash. A quote
+freezes the exact RateCard and Plan refs and hashes, expiry, estimated Work
+Credits, required initial hold, maximum attempt count, admitted commercial
+postures, and overrun policy. Expired RateCards, Plans, quotes, or holds cannot
+be silently reused.
+
+A `CreditHold` is a finite budget reservation, not a payment or machine
+authority grant. Same idempotency key plus the same canonical command bytes
+replays the prior result; the same key with changed bytes conflicts. A
+`UsageRecord` can only append against the current usage head, derives its
+quantity from owner-resolved runtime receipts, applies the frozen rate, and
+cannot exceed active holds. If projected use exceeds the active held amount,
+the quote's exact overrun policy either blocks or permits one additional hold
+equal to the precise overage. It never permits an unbounded or approximate
+top-up.
+
+The cost breakdown keeps these dimensions separate:
+
+- managed provider or compute supplier cost;
+- external broker cost;
+- participant cost;
+- verifier cost;
+- IOI managed-service fee;
+- customer-borne provider cost excluded under BYOK, BYOA, customer-cloud,
+  self-hosted, or local posture;
+- supplier-reconciliation state and exact statement refs.
+
+`FinalDebit` equals the checked sum of the complete bound UsageRecord chain and
+cannot exceed then-active holds. Exactly one FinalDebit is allowed. A later
+refund or writeoff is an append-only downward adjustment bound to that debit
+and the prior adjustment head; cumulative adjustments cannot exceed the debit.
+No record rewrites prior usage, changes the frozen quote, turns Work Credits
+into cash, or authorizes execution.
+
+The registered ledger-bundle contract, invariants, fixtures, and generated
+projections specify this internal product-accounting chain. Current master does
+not contain the quote/hold/usage/debit/adjustment kernel or its durable store,
+and exposes no public caller-authored supplier-usage endpoint. A future
+implementation must accept only owner-resolved authority/evidence context.
+Its internal-event-log assurance cannot become invoice-grade merely because a
+debit exists: a managed supplier-cost claim becomes reconciled only when the
+applicable supplier statement is bound. Coarse OCU remains a separate,
+zero-rate telemetry projection and cannot mint billable usage.
+
 `Auto` / `1-of-N`, `Pinned`, and `Compare` / `N-of-N` are routing policies, not
 plan tiers. Auto may use a verified cheap-first cascade and escalate only on
 failure. Pinned fails closed on an unavailable or commercially/privacy-
@@ -383,14 +530,14 @@ The durable portfolio is intentionally plural:
 | Supply source | Preferred role | Economic and trust posture |
 | --- | --- | --- |
 | Direct provider API, managed endpoint, or negotiated inference agreement | Core/high-volume routes, feature fidelity, negotiated economics, regional/privacy commitments, dedicated capacity, high assurance | First-class adapter and direct receipt; graduate proven volume here |
-| Aggregator such as OpenRouter | Bootstrap breadth, long-tail models, price/availability discovery, policy-qualified fallback, overflow, experimentation | Replaceable procurement/routing adapter, never the product moat or sole inference authority; obtain enterprise/OEM interpretation where IOI's provider-neutral routing could approach prohibited raw resale/competition |
+| Provider aggregator or broker | Bootstrap breadth, long-tail models, price/availability discovery, policy-qualified fallback, overflow, experimentation | Replaceable procurement/routing adapter, never the product moat or sole inference authority; obtain enterprise/OEM interpretation where IOI's provider-neutral routing could approach prohibited raw resale/competition |
 | Customer BYOK/BYOA | Customer cost ownership, existing commitments, user-selected interactive harnesses, enterprise control | Customer-owned credential binding; explicit IOI conductor/runtime/governance charges instead of hidden spend markup |
 | Open/self-hosted weights | No-provider-trust execution, sovereignty, customization, training/distillation rights, concentration and COGS hedge | Hypervisor-managed or customer-boundary execution with explicit model license, custody, and attestation posture |
 
 An aggregator does not erase model/provider terms, commercial rights, data
 handling, availability risk, or semantic differences. Default provider or model
 fallbacks are too fail-open for governed sensitive work. Eligible routes pin or
-allowlist providers, required parameters, data-collection/ZDR and region policy,
+allowlist providers, required parameters, provider-use and retention/ZDR policy,
 maximum price, fallback classes, and verifier obligations. An aggregator ZDR
 flag may qualify a disclosed `Standard` route; it does not satisfy strict
 `Private` / no-provider-trust posture without a custody-proven direct,
@@ -404,38 +551,46 @@ the schema and enums. Economic admission requires its `commercial_posture`,
 `status`, `access_mode`, `customer_facing_allowed`, `reseller_oem_authorized`,
 `automation_right`, `downstream_right`, `credential_principal`,
 `provider_terms_version_ref`, `model_terms_version_ref`, `endpoint_ref`,
-`model_version_ref`, `provider_allowlist`, `data_collection`, `zdr_required`,
-`retention_policy_ref`, `region_ref`, `fallback_classes`, `max_price_ref`,
-`required_parameters`, and `output_training_right` fields; pricing code must not
-invent a reduced parallel contract.
+`model_version_ref`, `provider_allowlist`, `zdr_required`, the full
+`provider_use_of_customer_material` matrix and retention posture, the full
+`customer_use_of_outputs` matrix, `rights_basis_refs`, `region_ref`,
+`fallback_classes`, `max_price_ref`, and `required_parameters`; pricing code
+must not invent a reduced parallel contract.
 
-Missing rights fail closed. A provider/model fallback is a semantic substitution
+Missing rights fail closed. Compare or synthesized multi-route output uses the
+intersection of every contributing route's customer output rights, while
+provider exposure remains attributed per recipient. A provider/model fallback is a semantic substitution
 and must remain within this contract, emit routing evidence, and re-run the
 applicable verifier/acceptance path. Inference rights and training/distillation
 rights are separate; Foundry uses open weights or expressly licensed teacher
 agreements rather than inferring training rights from ordinary inference spend.
+Enterprise pricing may cover managed learning-boundary governance, confidential
+compute, custody evidence, compliance packs, capability export, and provider-exit
+testing; it must not condition the customer's right to retain eligible
+institutional state on a platform toll.
 
-Primary current provider boundaries informing this doctrine include the
-[OpenAI Services Agreement](https://openai.com/policies/services-agreement/),
-[OpenAI subscription/API separation](https://help.openai.com/en/articles/8156019),
-[Anthropic paid-plan/API separation](https://support.claude.com/en/articles/9876003-i-have-a-paid-claude-subscription-pro-max-team-or-enterprise-plans-why-do-i-have-to-pay-separately-to-use-the-claude-api-and-console),
-and OpenRouter's [pricing](https://openrouter.ai/pricing),
-[BYOK](https://openrouter.ai/docs/guides/overview/auth/byok),
-[routing](https://openrouter.ai/docs/guides/routing/provider-selection),
-[fallback](https://openrouter.ai/docs/guides/routing/model-fallbacks),
-[ZDR](https://openrouter.ai/docs/guides/features/zdr), and
-[terms](https://openrouter.ai/terms/) documentation. Public fees and defaults
-are procurement inputs that can change, never customer-plan promises.
+Supplier agreements; separation between named-human workspace plans and
+API/OEM access; and aggregator pricing, BYOK, routing, fallback, data-use,
+retention, and commercial terms are time-sensitive procurement evidence, not
+canonical architecture. Reviewed versions belong in non-canonical discovery
+and implementation evidence. Public fees and defaults can change and never
+become customer-plan promises.
 
 ## Commercial Activation Gates
 
 The target product is not a claim that current metering safely supports a paid
 multi-provider allowance. As of the implementation audit for this alignment
-pass, the live OCU slice charges `0.1` OCU for every model-backed receipt
+pass, the live OCU slice still charges `0.1` OCU for every model-backed receipt
 without reconciling provider, input/output/cache/reasoning classes, retries, or
-supplier invoice. The model-route overview declares sealed BYOK unimplemented
-and only Ollama-transport routes bindable for session execution. Work Credits,
-marketplace fees, and the Goal Space allowance remain planned.
+supplier invoice. The registered managed-work contract now supplies the exact
+machine shape and adversarial fixtures for
+RateCard/Plan/quote/hold/usage/overrun/debit/adjustment, but the runtime kernel,
+durable ledger, public billing API, payment rail, and supplier-statement
+reconciler remain planned. The
+model-route overview declares sealed BYOK unimplemented and only
+Ollama-transport routes bindable for session execution. Commercial Work Credit
+allowances and top-ups, marketplace fees, and the Goal Space allowance remain
+planned.
 
 Before attaching a fixed managed-work allowance, IOI needs invoice-grade
 reconciliation for:
@@ -466,8 +621,8 @@ Progression gates are supplier-invoice reconciliation, positive cohort
 contribution margin, bounded p95 COGS, abuse and chargeback behavior, fallback
 cost amplification, accepted outcomes per dollar, and support burden—not gross
 token volume. The included allowance must be based on observed workload cohorts
-and managed-work COGS, never the sum of retail ChatGPT, Claude, or aggregator
-plan prices.
+and managed-work COGS, never the sum of retail named-human workspace or
+aggregator plan prices.
 
 ## Legitimate Revenue Surfaces
 
@@ -494,6 +649,37 @@ Revenue is legitimate when it attaches to at least one of these:
 
 If none of those applies, the feature should usually be bundled into the
 product surface that depends on it.
+
+## Dispute Rail Economics
+
+Dispute handling is not one global court or one automatic token-slashing
+system. The selected `DisputeRailProfileEnvelope` fixes one of four economic
+postures:
+
+| Rail | Economic boundary |
+|---|---|
+| `internal_review` | Domain-local review. No challenger/respondent bond and no claim of escrow or public finality. |
+| `marketplace_escrow` | The marketplace case binds the exact order escrow; the marketplace/settlement owner later executes any admitted refund, payout, or bond distribution. |
+| `aiip_dispute` | The cross-domain case binds the exact accepted CollaborationTerms root and an ordinary verification-funding source. AIIP carries the case and receipts; it does not create settlement by message delivery. |
+| `public_settlement` | Optional enrolled neutral dispute/finality service. The case binds the selected settlement profile and active network enrollment; compatibility alone creates no fee, bond, or public adjudication. |
+
+V1 uses one exact `DisputeValueUnitBinding` across disputed value, remedy,
+challenger and respondent bonds, bond pool, and every allocation leg. This is a
+deliberate no-conversion rule. A USD-cent claim cannot be remedied in a token,
+a Work Credit bond cannot be treated as cash, and one chain deployment or
+decimal scale cannot substitute for another because their display labels look
+similar. A later multi-asset rail must bind an explicit conversion contract,
+rate source, freshness, rounding, slippage, and conversion authority.
+
+Dispute revenue is legitimate only for real escrow operation, independent
+verification/adjudication, evidence custody/export, insurance routing,
+settlement execution, public finality, or support work. Opening a local review,
+hashing a case, or computing a deterministic allocation does not by itself
+justify a network toll. The registered contract requires a profile-selected
+resolution and conserved allocation plan. Current master does not contain the
+dispute admission or allocation kernel; schema validation also cannot hold a
+bond, decide evidence truth, move value, execute a remedy, emit the required
+receipts, or make an appeal or public settlement final.
 
 ## Product Surface Guidance
 
@@ -618,7 +804,8 @@ single-node and network-node products:
   boundary deployment, reserved capacity, audit, retention, connector
   governance, SLA, administration, and support.
 
-Same-domain 1-N worker orchestration is built into the Goal Space. Genuine
+Same-domain 1-N worker orchestration is included in the target Goal Space
+product contract. Genuine
 multi-party participation is an opt-in supply scope with explicit admission,
 affiliation, evidence, and settlement terms. Node count is not the SKU.
 
@@ -794,6 +981,23 @@ Token or BME design should be treated as protocol-economics work after product
 usage proves the demand curve. Until then, Work Credits are the cleaner product
 abstraction.
 
+If a native asset is eventually justified, its defensible role is risk-bearing
+network capital and access to scarce public capacity:
+
+- gas for selected public commitments;
+- validator or consensus security;
+- verifier, guardian, availability-witness, relayer, and arbitrator bonds;
+- claims, slashing, and performance/security penalties;
+- governance of IOI Network contracts, conformance profiles, services, and
+  treasury/security parameters.
+
+It is not the default user billing unit, generic inference currency, a
+replacement for stable-value Work Credits, or a mandatory token for every DAS.
+Architecture cannot promise market capitalization. Token value requires real
+fee demand, credible neutral security, capital at risk, and durable governance
+rights; product revenue, network usage, and token value are three different
+ledgers until evidence proves their coupling.
+
 The recursive trust topology is:
 
 ```text
@@ -823,6 +1027,10 @@ Do not model:
 - IOI L1 gas on every model thought, workflow node, routine receipt, or local
   Agentgres operation;
 - Work Credits as mandatory protocol tokens;
+- architecture adoption, AIIP traffic, product revenue, or marketplace volume
+  presented as automatic native-asset demand or market capitalization;
+- mandatory connected/secured enrollment or L1 fees for compatible local use;
+- one token per autonomous system by default;
 - marketplace routing as pay-to-win;
 - generic routing fees on direct local/self-hosted execution that does not use
   IOI network matching, managed hosting, settlement, or marketplace
@@ -883,6 +1091,10 @@ marketplace take-rate, ask:
     than inferred from one flat per-receipt constant?
 16. Does each economic claim preserve the distinction between attestation,
     evidence, verification, acceptance, adjudication, and settlement?
+17. Is IOI Network enrollment explicit, service-specific, and unnecessary for
+    a compatible local system?
+18. What scarce neutral trust, public capacity, bonded risk, or governance right
+    creates L1 demand, independently of L0 product revenue or AIIP adoption?
 
 If the answer is unclear, bundle the primitive into the nearest product surface
 and revisit after real usage evidence exists.

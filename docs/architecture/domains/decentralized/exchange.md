@@ -104,7 +104,8 @@ user, agent, app, or service requests asset conversion
   -> Wallet emits ExchangeReceipt
   -> Agentgres records receipt/evidence/outcome refs when operational truth
      is affected
-  -> IOI L1 receives only selected settlement/dispute/public commitments
+  -> IOI L1 receives settlement/dispute/public commitments only when the
+     declared enrollment and settlement profiles select it
 ```
 
 ## Minimal Implementation Objects

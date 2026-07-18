@@ -1,0 +1,301 @@
+{
+  "schema_version": "ioi.platform-fault-scenario.v1",
+  "scenarios": [
+    {
+      "scenario_id": "authority-unavailable-blocks-external-effect",
+      "input": {
+        "operation": "external_effect",
+        "observations": [
+          { "plane": "daemon", "state": "healthy" },
+          { "plane": "agentgres", "state": "healthy" },
+          { "plane": "authority", "state": "unavailable" },
+          { "plane": "clock", "state": "healthy" },
+          { "plane": "network_fleet", "state": "healthy" },
+          { "plane": "attestation", "state": "healthy" }
+        ],
+        "asserted_assurance": "software_only",
+        "fallback_assurance": "software_only"
+      },
+      "expected_disposition": "fail_closed",
+      "expected_effective_assurance": "software_only",
+      "required_reason_codes": ["required_plane_unavailable:authority"],
+      "required_obligations": ["recover_or_route_around_plane:authority"]
+    },
+    {
+      "scenario_id": "agentgres-split-brain-blocks-truth-mutation",
+      "input": {
+        "operation": "truth_mutation",
+        "observations": [
+          { "plane": "daemon", "state": "healthy" },
+          { "plane": "agentgres", "state": "split_brain_suspected" },
+          { "plane": "authority", "state": "healthy" },
+          { "plane": "clock", "state": "healthy" },
+          { "plane": "attestation", "state": "healthy" }
+        ],
+        "asserted_assurance": "measured_boot",
+        "fallback_assurance": "software_only"
+      },
+      "expected_disposition": "fail_closed",
+      "expected_effective_assurance": "measured_boot",
+      "required_reason_codes": ["required_plane_split_brain:agentgres"],
+      "required_obligations": ["fence_and_reconcile_plane:agentgres"]
+    },
+    {
+      "scenario_id": "operation-specific-degraded-contract-allows-local-proposal",
+      "input": {
+        "operation": "proposal_only",
+        "observations": [
+          {
+            "plane": "daemon",
+            "state": "degraded",
+            "degraded_contract_ref": "policy://platform/daemon-proposal-only",
+            "degraded_allowed_operations": ["proposal_only"]
+          },
+          { "plane": "attestation", "state": "healthy" }
+        ],
+        "asserted_assurance": "software_only",
+        "fallback_assurance": "software_only"
+      },
+      "expected_disposition": "degraded",
+      "expected_effective_assurance": "software_only",
+      "required_reason_codes": ["required_plane_degraded:daemon"],
+      "required_obligations": ["emit_degraded_operation_evidence:daemon"]
+    },
+    {
+      "scenario_id": "degraded-contract-for-different-operation-fails-closed",
+      "input": {
+        "operation": "external_effect",
+        "observations": [
+          { "plane": "daemon", "state": "healthy" },
+          { "plane": "agentgres", "state": "healthy" },
+          { "plane": "authority", "state": "healthy" },
+          { "plane": "clock", "state": "healthy" },
+          { "plane": "network_fleet", "state": "healthy" },
+          {
+            "plane": "provider",
+            "state": "degraded",
+            "degraded_contract_ref": "policy://platform/provider-cached-read-only",
+            "degraded_allowed_operations": ["cached_read"]
+          },
+          { "plane": "attestation", "state": "healthy" }
+        ],
+        "provider_required": true,
+        "asserted_assurance": "software_only",
+        "fallback_assurance": "software_only"
+      },
+      "expected_disposition": "fail_closed",
+      "expected_effective_assurance": "software_only",
+      "required_reason_codes": ["required_plane_degraded_contract_excludes_operation:provider"],
+      "required_obligations": ["obtain_operation_specific_degraded_contract:provider"]
+    },
+    {
+      "scenario_id": "bounded-cache-read-survives-provider-outage",
+      "input": {
+        "operation": "cached_read",
+        "observations": [
+          { "plane": "provider", "state": "unavailable" },
+          { "plane": "attestation", "state": "healthy" }
+        ],
+        "cached_state_age_ms": 5000,
+        "maximum_cached_state_staleness_ms": 10000,
+        "cached_state_source_head": "sha256:4242424242424242424242424242424242424242424242424242424242424242",
+        "asserted_assurance": "software_only",
+        "fallback_assurance": "software_only"
+      },
+      "expected_disposition": "degraded",
+      "expected_effective_assurance": "software_only",
+      "required_reason_codes": ["served_from_bounded_stale_cache"],
+      "required_obligations": ["record_cache_age_and_source_head"]
+    },
+    {
+      "scenario_id": "expired-cache-fails-closed",
+      "input": {
+        "operation": "cached_read",
+        "observations": [
+          { "plane": "attestation", "state": "healthy" }
+        ],
+        "cached_state_age_ms": 11000,
+        "maximum_cached_state_staleness_ms": 10000,
+        "cached_state_source_head": "sha256:4141414141414141414141414141414141414141414141414141414141414141",
+        "asserted_assurance": "software_only",
+        "fallback_assurance": "software_only"
+      },
+      "expected_disposition": "fail_closed",
+      "expected_effective_assurance": "software_only",
+      "required_reason_codes": ["cached_state_outside_declared_staleness"],
+      "required_obligations": ["refresh_or_fail_with_typed_unavailable"]
+    },
+    {
+      "scenario_id": "cache-without-source-head-fails-closed",
+      "input": {
+        "operation": "cached_read",
+        "observations": [
+          { "plane": "attestation", "state": "healthy" }
+        ],
+        "cached_state_age_ms": 1000,
+        "maximum_cached_state_staleness_ms": 10000,
+        "asserted_assurance": "software_only",
+        "fallback_assurance": "software_only"
+      },
+      "expected_disposition": "fail_closed",
+      "expected_effective_assurance": "software_only",
+      "required_reason_codes": ["cached_state_source_head_missing"],
+      "required_obligations": ["refresh_or_supply_exact_source_head"]
+    },
+    {
+      "scenario_id": "local-physical-continuation-during-control-plane-partition",
+      "input": {
+        "operation": "physical_bounded_continuation",
+        "observations": [
+          { "plane": "clock", "state": "healthy" },
+          { "plane": "daemon", "state": "unavailable" },
+          { "plane": "network_fleet", "state": "unavailable" },
+          { "plane": "agentgres", "state": "unavailable" },
+          { "plane": "attestation", "state": "stale" }
+        ],
+        "local_supervisor_available": true,
+        "asserted_assurance": "hardware_attested",
+        "fallback_assurance": "software_only"
+      },
+      "expected_disposition": "degraded",
+      "expected_effective_assurance": "software_only",
+      "required_reason_codes": ["attestation_claim_narrowed"],
+      "required_obligations": ["emit_assurance_downgrade_and_reappraise"]
+    },
+    {
+      "scenario_id": "missing-local-supervisor-blocks-physical-continuation",
+      "input": {
+        "operation": "physical_bounded_continuation",
+        "observations": [
+          { "plane": "clock", "state": "healthy" },
+          { "plane": "attestation", "state": "healthy" }
+        ],
+        "local_supervisor_available": false,
+        "asserted_assurance": "measured_boot",
+        "fallback_assurance": "software_only"
+      },
+      "expected_disposition": "fail_closed",
+      "expected_effective_assurance": "measured_boot",
+      "required_reason_codes": ["local_supervisor_unavailable"],
+      "required_obligations": ["enter_declared_minimum_risk_or_safe_stop_state"]
+    },
+    {
+      "scenario_id": "billing-outage-blocks-paid-work-start",
+      "input": {
+        "operation": "paid_work_start",
+        "observations": [
+          { "plane": "daemon", "state": "healthy" },
+          { "plane": "agentgres", "state": "healthy" },
+          { "plane": "authority", "state": "healthy" },
+          { "plane": "clock", "state": "healthy" },
+          { "plane": "billing", "state": "unavailable" },
+          { "plane": "attestation", "state": "healthy" }
+        ],
+        "asserted_assurance": "software_only",
+        "fallback_assurance": "software_only"
+      },
+      "expected_disposition": "fail_closed",
+      "expected_effective_assurance": "software_only",
+      "required_reason_codes": ["required_plane_unavailable:billing"],
+      "required_obligations": ["recover_or_route_around_plane:billing"]
+    },
+    {
+      "scenario_id": "public-settlement-outage-does-not-block-local-proposal",
+      "input": {
+        "operation": "proposal_only",
+        "observations": [
+          { "plane": "daemon", "state": "healthy" },
+          { "plane": "public_settlement", "state": "unavailable" },
+          { "plane": "attestation", "state": "healthy" }
+        ],
+        "asserted_assurance": "trusted_operator",
+        "fallback_assurance": "trusted_operator"
+      },
+      "expected_disposition": "degraded",
+      "expected_effective_assurance": "trusted_operator",
+      "required_reason_codes": ["public_settlement_deferred"],
+      "required_obligations": ["retain_local_commitment_and_retry_settlement_later"]
+    },
+    {
+      "scenario_id": "stale-attestation-blocks-portable-assurance-export",
+      "input": {
+        "operation": "portable_assurance_export",
+        "observations": [
+          { "plane": "daemon", "state": "healthy" },
+          { "plane": "agentgres", "state": "healthy" },
+          { "plane": "storage", "state": "healthy" },
+          { "plane": "clock", "state": "healthy" },
+          { "plane": "attestation", "state": "stale" }
+        ],
+        "asserted_assurance": "hardware_attested",
+        "fallback_assurance": "software_only"
+      },
+      "expected_disposition": "fail_closed",
+      "expected_effective_assurance": "software_only",
+      "required_reason_codes": ["required_plane_stale:attestation", "attestation_claim_narrowed"],
+      "required_obligations": ["refresh_required_plane:attestation", "emit_assurance_downgrade_and_reappraise"]
+    },
+    {
+      "scenario_id": "clock-staleness-blocks-external-effect",
+      "input": {
+        "operation": "external_effect",
+        "observations": [
+          { "plane": "daemon", "state": "healthy" },
+          { "plane": "agentgres", "state": "healthy" },
+          { "plane": "authority", "state": "healthy" },
+          { "plane": "clock", "state": "stale" },
+          { "plane": "network_fleet", "state": "healthy" },
+          { "plane": "attestation", "state": "healthy" }
+        ],
+        "asserted_assurance": "software_only",
+        "fallback_assurance": "software_only"
+      },
+      "expected_disposition": "fail_closed",
+      "expected_effective_assurance": "software_only",
+      "required_reason_codes": ["required_plane_stale:clock"],
+      "required_obligations": ["refresh_required_plane:clock"]
+    },
+    {
+      "scenario_id": "unknown-effect-never-converts-to-success",
+      "input": {
+        "operation": "truth_mutation",
+        "observations": [
+          { "plane": "daemon", "state": "healthy" },
+          { "plane": "agentgres", "state": "healthy" },
+          { "plane": "authority", "state": "healthy" },
+          { "plane": "clock", "state": "healthy" },
+          { "plane": "attestation", "state": "healthy" }
+        ],
+        "unknown_effect": true,
+        "asserted_assurance": "software_only",
+        "fallback_assurance": "software_only"
+      },
+      "expected_disposition": "fail_closed",
+      "expected_effective_assurance": "software_only",
+      "required_reason_codes": ["unknown_effect_requires_reconciliation"],
+      "required_obligations": ["reconcile_before_retry_compensation_or_success"]
+    },
+    {
+      "scenario_id": "provider-outage-blocks-provider-required-effect",
+      "input": {
+        "operation": "external_effect",
+        "observations": [
+          { "plane": "daemon", "state": "healthy" },
+          { "plane": "agentgres", "state": "healthy" },
+          { "plane": "authority", "state": "healthy" },
+          { "plane": "clock", "state": "healthy" },
+          { "plane": "network_fleet", "state": "healthy" },
+          { "plane": "provider", "state": "unavailable" },
+          { "plane": "attestation", "state": "healthy" }
+        ],
+        "provider_required": true,
+        "asserted_assurance": "software_only",
+        "fallback_assurance": "software_only"
+      },
+      "expected_disposition": "fail_closed",
+      "expected_effective_assurance": "software_only",
+      "required_reason_codes": ["required_plane_unavailable:provider"],
+      "required_obligations": ["recover_or_route_around_plane:provider"]
+    }
+  ]
+}

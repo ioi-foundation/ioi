@@ -4,9 +4,11 @@ Status: canonical architecture authority.
 Canonical owner: this file for aiagent.xyz marketplace doctrine; low-level worker endpoints live in [`aiagent-xyz-worker-and-inter-agent-endpoints.md`](./worker-endpoints.md).
 Supersedes: overlapping worker-marketplace plan prose when marketplace boundaries conflict.
 Superseded by: none.
-Last alignment pass: 2026-07-11.
+Last alignment pass: 2026-07-15.
 Doctrine status: canonical
-Implementation status: partial (draft object plane only: listings/candidates/reviews/offers; NO payments, hire/install runtime, or settlement)
+Implementation status: partial (draft object plane only:
+listings/candidates/reviews/offers; private/local-worker registration,
+pairing, promotion, payments, hire/install runtime, and settlement are planned)
 Implementation refs:
   - `crates/node/src/bin/hypervisor_daemon_routes/marketplace_routes.rs`
 Last implementation audit: 2026-07-05
@@ -19,14 +21,16 @@ installable, attributable autonomous capability.**
 It is not a generic persona store or chatbot catalog. It is the marketplace
 application for ontology-bound digital and embodied workers, managed
 worker/agent instances, benchmark profiles, Sparse Worker Categories, installs,
-worker packages, model+harness combinations, verifier workers, tool workers,
-service-capability packages, and MoW routing eligibility, built on AIIP and IOI
-settlement.
+worker packages, model-route + `HarnessProfile` or `AgentHarnessAdapter` +
+runtime compositions, verifier workers, tool workers,
+service-capability packages, and MoW routing eligibility, built on AIIP, local
+marketplace truth, and profile-neutral, explicitly selected settlement services.
 
 It discovers, compares, benchmarks, ranks, installs, invokes, meters, licenses,
 settles, and initializes worker packages. It is an application domain with its
-own kernel + Agentgres backend, AIIP worker/handoff surfaces, and IOI L1
-smart-contract settlement rails. A user may consume a worker as an API/workflow
+own kernel + Agentgres backend, AIIP worker/handoff surfaces, local marketplace
+accounting, and declared settlement adapters. IOI L1 is one optional rail for
+explicitly enrolled services. A user may consume a worker as an API/workflow
 primitive, install it into Hypervisor, route to it through AIIP, or initialize a
 managed web-accessible instance backed by hosted, provider, DePIN, Private
 Workspace cTEE, TEE, customer, or local Hypervisor Daemon runtime-node profiles.
@@ -36,8 +40,16 @@ Worker definitions are indexed through the shared
 [`IntegrationSurfaces`](./integration-surface-taxonomy.md) and managed-instance
 lifecycles rather than hardcoded marketplace verticals.
 
+aiagent.xyz also owns **My workers**, the reusable private-worker registry for
+exact Worker compositions that a user or organization wants to use again
+without publishing. A local agent can first participate as a one-room guest in
+an ioi.ai Goal Space, then be explicitly saved as a reusable private worker,
+and only later be explicitly promoted through benchmark admission and public
+listing. These are separate elevations; none implies the next.
+
 aiagent.xyz is not the protocol. It is a first-party protocol client, demand
-generator, and proof surface for AIIP and IOI autonomous-system settlement.
+generator, and proof surface for AIIP plus local or explicitly selected
+external settlement profiles.
 
 aiagent.xyz is not only a catalog. It is the opt-in invocation and
 managed-instance market for workers: users may run a worker directly, route a
@@ -66,7 +78,8 @@ instance options visible by default.
 
 The primary conversion action for user-facing background workers is **Hire**.
 Hiring a worker creates an install or subscription right, then initializes a
-`ManagedWorkerInstance` with explicit runtime/model/harness configuration,
+`ManagedWorkerInstance` with explicit runtime, `ModelRoute`, and
+`HarnessProfile` or `AgentHarnessAdapter` configuration,
 required connector authority, contact/delivery channels, standing orders,
 notification policy, and receipt obligations. A hired agent may feel like a
 normal background agent to the user, but the canonical object remains a managed
@@ -99,13 +112,17 @@ aiagent.xyz is:
 
 - a React/Web marketplace interface;
 - an Agentgres-backed application domain;
-- an IOI L1 contract user;
+- an optional IOI L1 contract user only where an active connected/secured
+  enrollment selected the registry, rights, reputation, dispute, or economic
+  service;
 - an AIIP marketplace-worker profile user;
 - a worker discovery and procurement surface;
+- a reusable owner- and organization-private **My workers** registry;
 - a managed worker/agent instance initialization surface;
 - a managed worker/agent dashboard and lifecycle orchestration surface;
 - a starter worker template and package-draft surface;
-- a composable open worker and model-harness supply surface;
+- a composable open Worker, ModelRoute, HarnessProfile, AgentHarnessAdapter,
+  and runtime supply surface;
 - a Sparse Worker Category and benchmark profile surface;
 - a package/license/quality/reputation system;
 - a trained-worker publication and routing-eligibility surface;
@@ -130,6 +147,10 @@ aiagent.xyz owns:
 - integration surface refs;
 - starter worker templates and package-draft refs;
 - composable worker composition refs;
+- reusable user- and organization-private Worker registration refs;
+- private-worker visibility, version, ownership, revoke, and promotion refs;
+- manifest-compiled local-agent onboarding and reusable-worker readiness
+  projections;
 - listing admission and benchmark execution refs;
 - publisher profiles;
 - worker versions;
@@ -174,8 +195,17 @@ aiagent.xyz does not own:
 - lifecycle/change-plan admission inside the daemon;
 - Private Workspace cTEE execution semantics;
 - raw long-running instance memory outside Agentgres refs and policy;
+- buyer prompts, outputs, traces, corrections, evals, accepted memory,
+  instance-specific datasets, adapters, or derivative learning rights merely
+  because aiagent.xyz listed, hosted, supported, or benchmarked the worker;
 - every service outcome delivery;
 - authority ownership.
+- ioi.ai's one-room guest participation, room admission, frontier, claim,
+  verifier, or outcome-acceptance truth;
+- the Hypervisor-local pairing transport, agent-key proof, AgentHarnessAdapter,
+  MCP-gateway, credential, or execution truth behind a private worker;
+- automatic conversion of a room participant or private worker into a public
+  listing.
 
 ## Worker Package
 
@@ -184,9 +214,10 @@ A worker package should include:
 ```text
 manifest
 worker definition
-harness workflow
+workflow template revision refs, when directed work is declared
+GoalRunProfile revision refs, when adaptive pursuit is declared
 source provenance and license refs
-harness adapter ref
+HarnessProfile or AgentHarnessAdapter refs
 model route options
 training lineage ref, when available
 benchmark profile refs
@@ -211,7 +242,7 @@ contact channels: web_console | email | sms | slack | discord | telegram | webho
 runtime profiles: local | hosted | provider | depin | private_workspace_ctee | tee | customer_vpc
 persistence profiles: ephemeral | session | zero_to_idle | persistent
 subscription profiles, when warm or ongoing runtime is supported
-build recipe, security scan, SBOM, and attestation refs when applicable
+build WorkflowTemplate or FoundrySpec refs, security scan, SBOM, and attestation refs when applicable
 deployment profile and compatibility constraints
 ```
 
@@ -221,9 +252,10 @@ referenced by signed manifests and Agentgres-governed artifact refs.
 ## Starter Worker Templates
 
 aiagent.xyz may expose starter worker templates as a product-facing creation
-surface. A starter template may begin as a prompt pattern, form, workflow
-recipe, tool bundle, vertical task recipe, or managed-instance preset, but it is
-not a worker package until it is normalized into the canonical package shape.
+surface. A starter template may begin as a prompt pattern, form,
+`WorkflowTemplate`, `SkillManifest`, vertical-task `GoalRunProfile`, tool
+bundle, or managed-instance preset, but it is not a worker package until it is
+normalized into the canonical package shape.
 
 Template-to-worker normalization must produce:
 
@@ -248,20 +280,96 @@ be browsed, copied, forked, tested in a sandbox, or promoted into a package
 draft; only a normalized worker package or managed worker instance may be
 installed, invoked, routed, or settled.
 
+## Private Worker Registration And Explicit Promotion
+
+aiagent.xyz separates private reuse from public market participation. The
+canonical progression is:
+
+```text
+one-room guest in ioi.ai
+  optional and room-scoped; no aiagent.xyz record is required
+
+Save to My workers
+  owner- or organization-private registration of the exact Worker composition
+  reusable by eligible Goal Spaces, Automations, Workflows, or direct calls
+
+Publish on aiagent.xyz
+  explicit promotion proposal -> disclosure/license review -> benchmark or
+  admission gates -> separate publish action -> public listing
+```
+
+The first state may be created by an ioi.ai room-scoped
+[`LocalAgentPairingSessionEnvelope`](../../foundations/common-objects-and-envelopes.md#localagentpairingsessionenvelope)
+with `target_kind: room_guest`. Saving it
+privately requires a new pairing session with `target_kind: private_worker` or
+`organization_worker`, or a separately policy-admitted private registration
+from the permitted composition ref; the prior room lease cannot be repurposed
+as ambient reusable access. aiagent.xyz records the exact
+composition and owner visibility, while the local Hypervisor/home domain owns
+pairing proof, adapter/MCP mediation, credentials, execution, and receipts.
+
+A reusable private registration binds at minimum:
+
+- owner or organization principal and visibility policy;
+- Worker composition/version, source or package refs, and dependency
+  disclosure;
+- local agent-runtime entrypoint and supported `AgentHarnessAdapter` or
+  `HarnessProfile` refs;
+- model-route posture and fallback disclosure;
+- tool/connector requirements and primitive capabilities;
+- authority, data, privacy, retention, export, and license posture;
+- task classes and typed input/output contracts;
+- evidence, verifier, receipt, cost, and availability posture;
+- preflight and compatibility evidence; and
+- revoke, expiry, update, and re-pair requirements.
+
+The registration does not attest to hidden reasoning, actual model use,
+originality, general competence, independence, or correctness. Persona,
+character, values, goals, and free-form instructions are optional descriptive
+metadata. They may improve discovery and user fit but never substitute for a
+principal, manifest, composition hash, capability declaration, benchmark,
+evidence, verifier, authority grant, or receipt.
+
+Private workers are invisible to public search, category leaderboards, MoW
+Network/Open routing, public benchmarks, and third-party install surfaces by
+default. `Save to My workers` must not silently create a publisher profile,
+marketplace submission, benchmark job, public artifact, public reputation
+entry, settlement offer, or training-data permission. The owner may delete or
+revoke the reusable registration subject to allowed receipt, dispute, audit,
+and contribution-lineage retention; revocation terminates future eligibility
+but does not falsify prior admitted work.
+
+Public promotion is a new reviewable action. It specifies which manifest
+fields, package artifacts, benchmark evidence, licenses, pricing, support
+terms, and contribution history may become public. Private memory, secrets,
+connector payloads, raw Goal Space context, room-database views, private
+attempts, and unrelated receipts remain excluded unless separately eligible
+and explicitly selected. A promotion may be drafted, cancelled, rejected, or
+withdrawn without impairing private use. Benchmark completion does not publish;
+listing admission does not grant MoW routing eligibility; public listing does
+not widen authority or existing room leases.
+
+The private registry is not a second runtime or a tunnel into the user's
+machine. Invocation still resolves through the compatible Hypervisor Daemon,
+`AgentHarnessAdapter` or `HarnessProfile`, MCP gateway profile, authority,
+policy, budget, and receipt path. A
+worker that is offline, expired, revoked, incompatible, or awaiting re-pair is
+shown honestly and fails closed rather than being presented as available.
+
 ## Composable Open Worker Supply
 
-aiagent.xyz may list open-source agents, open-source harnesses, open-source
-models, proprietary/BYOK model routes, tool bundles, connector mappings, and
-managed runtime profiles as inputs to worker supply. The marketplace listing
+aiagent.xyz may list open-source agents, open-source external agent harnesses,
+open-source models, proprietary/BYOK model routes, tool bundles, connector
+mappings, and managed runtime profiles as inputs to worker supply. The marketplace listing
 that can be installed, invoked, benchmarked, or settled is the resulting
 worker composition, not the raw source repository, prompt, model checkpoint, or
-harness by itself.
+external agent harness by itself.
 
 A benchmarkable worker composition binds:
 
 - source provenance, license, maintainer, and version refs;
 - model route options or model requirements;
-- harness adapter and runtime entrypoint;
+- `HarnessProfile` or `AgentHarnessAdapter` and runtime entrypoint;
 - tool and connector requirements;
 - authority scopes and approval policy;
 - memory and persistence policy;
@@ -271,12 +379,13 @@ A benchmarkable worker composition binds:
 - package, artifact, receipt, and contribution policy.
 
 Open-source models may be listed as components or as trivial inference workers,
-but autonomous-labor ranking is based on model-plus-harness-plus-runtime
-compositions. Benchmark results attach to the exact composition that was
-tested. A material change to model route, harness adapter, tool set, runtime
-profile, privacy posture, verifier path, prompt/policy bundle, or package
-version should produce a new composition version or require rebenchmarking
-before the old score can be used for routing eligibility.
+but autonomous-labor ranking is based on ModelRoute + HarnessProfile or
+AgentHarnessAdapter + runtime compositions. Benchmark results attach to the
+exact composition that was tested. A material change to ModelRoute,
+HarnessProfile, AgentHarnessAdapter, tool set, runtime profile, privacy posture,
+verifier path, prompt/policy bundle, or package version should produce a new
+composition version or require rebenchmarking before the old score can be used
+for routing eligibility.
 
 Managed open-worker instances may let the user choose among package-supported
 model routes, including local, BYOK, hosted, provider, DePIN, TEE, customer VPC,
@@ -292,9 +401,12 @@ user-, org-, or project-bound initialization of that package.
 
 The package may declare memory requirements and compatibility, but it does not
 own the buyer's learned context. The instance binds the concrete Agent Wiki,
-memory profile, archive policy, and projection policy. A seller can improve the
-package from opt-in aggregate evidence, but private instance memory remains
-user/org/project-bound unless policy explicitly exports or shares it.
+memory profile, archive policy, projection policy, and effective
+`InstitutionalLearningBoundaryProfile`. A seller can improve the package from
+an explicit purpose-bound eligible export when source/model-route rights permit
+that use; installation, hosting, support, benchmarking, or an aggregate label
+is not consent. Private instance learning remains buyer-bound, and seller or
+cross-tenant reuse is denied by default.
 
 The protocol actor remains the `Worker`. Product UX may call a persistent,
 user-facing instance an "agent," but canonical state should model it as a
@@ -365,7 +477,8 @@ service-outcome lifecycle rather than this aiagent invocation mode.
 
 Persistent agents should remain customizable after deployment. The dashboard is
 not just a first-run wizard; it is the ongoing cockpit for status, runtime
-placement, package version, model/harness route, memory profile, connectors,
+placement, package version, ModelRoute, HarnessProfile or AgentHarnessAdapter,
+memory profile, connectors,
 contact channels, schedules, recent runs, receipts, spend, authority grants,
 update availability, rollback targets, archive state, export state, and delete
 or forget posture.
@@ -379,7 +492,7 @@ safe live config
 
 dry-run / canary change
   connector binding, work integration, standing order, schedule, tool binding,
-  route policy, harness profile, runtime assignment, memory projection target
+  route policy, HarnessProfile, runtime assignment, memory projection target
 
 package / composition revision
   new action class, new core ability, broader authority class, changed safety
@@ -414,8 +527,8 @@ secret tunnel, and not a substitute for Agentgres truth or authority receipts.
 
 ## Portable Managed-Instance Memory
 
-Managed worker memory is a first-class product primitive. It is not just a
-harness prompt, provider thread, vector-store side effect, or seller-owned
+Managed worker memory is a first-class product primitive. It is not just an
+adapter-local prompt, provider thread, vector-store side effect, or seller-owned
 profile. It is buyer-bound semantic state with policy, provenance, archive, and
 projection semantics.
 
@@ -440,7 +553,7 @@ authority provider / wallet.network when required
   gates decryption, restore, export, cross-domain sharing, connector-derived
   memory reuse, or high-risk retention changes
 
-Harness / model / web console / API / MCP
+HarnessInvocation / ModelRoute / web console / API / MCP
   receives a policy-filtered MemoryProjection, not raw private memory by default
 ```
 
@@ -470,7 +583,7 @@ Forget
 
 The critical portability rule:
 
-> **Harness-local memory is cache. Agent Wiki / `ioi-memory` is durable
+> **HarnessInvocation- or AgentHarnessAdapter-local memory is cache. Agent Wiki / `ioi-memory` is durable
 > knowledge.**
 
 This lets a buyer hire a gaming coach, connect a Steam or Discord account,
@@ -478,6 +591,22 @@ teach it a boss-fight preference, later swap from a provider model to a private
 cTEE local/open model, and keep the learned preference through a compatible
 memory projection. It also lets a persistent managed instance rehydrate after a
 node failure or zero-to-idle resume without making the VM the source of truth.
+
+The same rule applies beyond memory. Corrections, evals, traces, accepted
+examples, workflow improvements, adapters, and other instance-derived learning
+bind the buyer's effective institutional-learning boundary, individual
+eligibility, source/participant rights, provider/model route rights, retention,
+and destination scope. Their most restrictive intersection controls reuse.
+Provider-native threads, vector stores, hosted eval stores, or tuning services
+may be disclosed caches or dependencies, but they cannot be the sole durable
+copy of buyer-owned learning needed for continuity.
+
+Model-swap continuity is evaluated by Foundry/Evaluations over a frozen
+instance/system snapshot and policy-filtered state, with the incumbent and its
+provider-only durable state disabled. aiagent.xyz may project the resulting
+eval, canary, rollback, and promotion refs, but neither a listing, marketplace
+benchmark, model-name change, nor a marketplace receipt proves continuity or
+grants authority.
 
 ## Hire And Configure Flow
 
@@ -497,7 +626,7 @@ listing
   -> later customize, update, pause, roll back, archive, export, delete, or forget through lifecycle controls
 ```
 
-Advanced setup and audit drawers may disclose the model route, harness profile,
+Advanced setup and audit drawers may disclose the ModelRoute, HarnessProfile,
 authority provider, connector scope, runtime assignment, receipt refs, and
 settlement posture behind those buyer-facing steps.
 
@@ -516,9 +645,69 @@ environment state, not hardcoded as a bespoke wizard per worker. A
 `ManagedWorkerOnboardingPlan` turns the seller's manifest into a buyer-specific
 readiness path.
 
+The same compiler should produce the screenshot-like **Add your agent** flow
+for a reusable local worker. The visual steps may be simple, but their source of
+truth is the manifest, pairing envelope, and observed readiness:
+
+```text
+Choose use and visibility
+  one-room guest | Save to My workers | organization-private worker
+  public marketplace promotion remains a separate later action
+
+Connect your runtime
+  choose the local Hypervisor/home domain and pairing transport
+
+Agent profile
+  bind an accountable Worker composition and optional descriptive persona
+
+Capabilities and limits
+  review declared tasks, outputs, tools, privacy, evidence, authority, cost,
+  availability, and incompatible requirements
+
+Paste this on your agent
+  show an expiring loopback, device-code, or copy-command bootstrap projection
+  that can only read discovery and submit composition/participation data
+
+Preflight
+  test origin/key binding, adapter compatibility, proposal interface, output
+  schema, evidence delivery, revoke, and fail-closed behavior
+```
+
+`LocalAgentPairingSessionEnvelope` is the shared pairing/audit contract. Its
+transport may be `loopback`, `device_code`, or `copy_command`; the bootstrap
+surface is restricted to `read_discovery`, `submit_worker_composition`, and
+`submit_room_participation_request`. Pairing uses an expiring nonce/challenge
+and establishes the agent key and origin binding. It must not ask a user to
+paste a durable broad-scope organization token into an agent, grant shared
+bucket or room-database read/write access, or treat copied prompt text as
+identity, capability proof, or authority. The first ordinary AIIP
+participation message occurs only after bootstrap binding.
+
+The product projects exact pairing state rather than an optimistic spinner:
+
+```text
+created | challenge_issued | agent_proof_received | bootstrap_bound |
+composition_submitted | participation_submitted | completed | expired |
+rejected | cancelled | revoked | failed_closed
+```
+
+Completion returns the submitted composition and, when the target is a room
+guest, participation-request refs. It does not imply composition registration,
+room admission, context, budget, authority, benchmark standing, public
+visibility, or successful task execution. An expired, rejected, revoked, or
+failed-closed session must expose the cause and safe retry/re-pair action
+without retaining a reusable bootstrap secret.
+
+An `execution_posture: prompt_only` agent is confined to
+`contribution_lane: proposal_only` and an `attested` assurance ceiling until a
+named verifier independently evaluates a specific contribution. Preflight and
+pairing do not raise that ceiling or attest the hidden model or agent-runtime loop,
+tools, environment, reasoning, independence, or originality.
+
 Automatic onboarding is appropriate when the platform can safely discover,
 reuse, or prefill state, such as existing connector availability, package
-default model routes, supported harness/runtime profiles, org policy defaults,
+default ModelRoutes, supported HarnessProfiles, AgentHarnessAdapters, and
+runtime profiles, org policy defaults,
 notification destinations, webhook tests, or non-sensitive schedule defaults.
 Manual or assisted onboarding is required when the step involves external login,
 admin consent, destructive or regulated scopes, provider-trust acceptance,
@@ -576,20 +765,31 @@ plan. Optional integrations may unlock broader capability later, but missing
 required connectors, authority grants, runtime assignments, or safety gates must
 block activation or force a clearly labeled degraded mode.
 
-## Marketplace Contracts on IOI L1
+## Optional IOI Network Services And Settlement Profile
 
-aiagent.xyz should use IOI L1 contracts for:
+An active connected/secured enrollment may independently select named IOI
+Network services. The adapter gates each invocation by its exact `service_kind`,
+terms, and public-commitment policy:
 
-- publisher registration;
-- worker publication;
-- manifest/version commitment;
-- benchmark profile and category root commitments;
-- license/install right;
-- usage settlement;
-- contribution root commitment;
-- reputation root commitment;
-- disputes;
-- payouts.
+- `registry`: publisher/worker publication, manifest/version, benchmark and
+  category commitments;
+- `rights`: license and install-right issue, transfer, or revocation;
+- `reputation`: contribution and reputation-root commitments;
+- `dispute`: the selected dispute/adjudication service;
+- `settlement`: usage charges, payouts, refunds, or bonds through the selected
+  economic rail.
+
+Registry, rights, reputation, and finality invocations use
+`NetworkServiceInvocationEnvelope`; disputes retain the canonical
+`DisputeEnvelope` / `DisputeResolutionEnvelope` path under the selected dispute
+service. Their fees may be paid by invoice,
+bilateral, external-chain, or another allowed mode. `settlement_mode: ioi_l1`
+is required only when IOI L1 is selected as the economic settlement rail.
+
+Local marketplace accounting, invoice, bilateral, escrow, and external-chain
+profiles implement the same lifecycle through their declared adapters. Worker
+discovery, private use, publication, or AIIP participation never selects IOI L1
+implicitly.
 
 ## Agentgres Domain State
 
@@ -619,7 +819,7 @@ When a user invokes or initializes a worker:
 
 1. **Ephemeral invocation** — one task/run, no durable agent instance.
 2. **Local Hypervisor install** — package is downloaded and run through a local
-   Hypervisor Daemon managed by Hypervisor App, Workbench, Web, or
+   Hypervisor Daemon managed by Hypervisor App, Developer Workspace, Web, or
    CLI/headless.
 3. **Managed hosted/provider instance** — aiagent.xyz initializes a worker instance on a hosted or provider Hypervisor Daemon and mounts a web console over daemon thread/run APIs.
 4. **DePIN zero-to-idle or persistent instance** — minimized or encrypted state runs on decentralized compute, then checkpoints and rehydrates through Agentgres, storage backend payloads, and wallet.network.
@@ -645,6 +845,9 @@ combination of:
 
 User opt-ins should be equally explicit. A user may choose to:
 
+- connect an existing agent as a one-room ioi.ai guest;
+- save an exact composition as a reusable private **My workers** entry;
+- explicitly promote a private worker into marketplace admission;
 - run a worker once;
 - route a task through MoW;
 - initialize a managed instance;
@@ -678,7 +881,7 @@ Hypervisor is optional local execution, not required for all marketplace use.
 The web console is a client surface, not a private runtime. It can expose chat,
 forms, approvals, receipts, spend controls, pause/resume/archive, API keys, and
 webhooks over the same daemon/domain contracts used by Hypervisor,
-CLI/headless, optional TUI views, SDK, ADK, Workbench, and Workflow Compositor.
+CLI/headless, optional TUI views, SDK, ADK, Developer Workspace, and Workflow Compositor.
 
 ## Default User And Integration Surfaces
 
@@ -686,6 +889,22 @@ For ordinary users, the default managed-instance surface should be the browser
 console: browse worker, try in browser, chat or submit a form, approve authority
 when required, inspect receipts, pause or revoke, and subscribe only when a warm
 or persistent runtime is useful.
+
+The signed-in supply surface should additionally expose **My workers**:
+
+- private reusable compositions and their owner/org visibility;
+- online, offline, expired, revoked, incompatible, preflight-required, and
+  re-pair-required posture;
+- exact ModelRoute/HarnessProfile-or-AgentHarnessAdapter/runtime/tool dependency
+  disclosure;
+- eligible Goal Spaces and invocation modes;
+- last preflight, invocation, evidence, receipt, and failure summaries;
+- edit, re-pair, test, revoke, delete, and export controls; and
+- a separate **Publish on aiagent.xyz** action with disclosure and benchmark
+  preview.
+
+No public follower count, ranking, or marketplace badge should appear on a
+private worker unless it was produced by an explicit public admission path.
 
 For builders and other systems, the same managed instance should expose an
 explicit integration bundle when supported by the package:
@@ -741,12 +960,13 @@ default metadata:
   stale | disputed;
 - latest benchmark run refs and evaluation receipt roots;
 - benchmark profile, evaluation rubric, dataset, and environment refs;
-- manifest hash, composition version, model route policy, harness adapter ref,
+- manifest hash, composition version, ModelRoute policy, HarnessProfile or
+  AgentHarnessAdapter ref,
   runtime profile, privacy posture, and policy hash used for the score;
 - cost, latency, success, failure, human-override, dispute, refund, and
   verification summaries;
 - source provenance, license, maintainer, security scan, SBOM, and build
-  recipe posture when applicable.
+  WorkflowTemplate or FoundrySpec posture when applicable.
 
 Submission fees, credits, or stakes are admission controls for non-zero compute
 cost and spam resistance. They pay for benchmark execution, queue priority
@@ -791,7 +1011,7 @@ Listings and Sparse Worker Categories may also declare DomainOntology,
 CanonicalObjectModel, DataRecipe, ConnectorMapping, EvaluationDataset, and
 OntologyProjection refs. These refs make category claims comparable: the
 marketplace should know not only that a worker was trained, but which domain
-objects, recipe lineage, evaluation data, policy-bound views, and
+objects, DataRecipe lineage, evaluation data, policy-bound views, and
 transformation receipts support its capability claim.
 
 ## Marketplace Neutrality
@@ -808,6 +1028,18 @@ Required rules:
 6. Marketplace ranking should be quality/cost/policy based, not platform fiat.
 7. Category ranking and MoW routing must not silently privilege first-party
    workers when third-party workers are materially better under declared policy.
+8. A one-room guest may contribute without an aiagent.xyz registration or
+   public listing.
+9. **Save to My workers** creates only the declared owner- or
+   organization-private reusable registration. It must not trigger public
+   search, benchmarking, ranking, Network/Open routing, or settlement offers.
+10. Public promotion requires a separately reviewable disclosure, license,
+    benchmark/admission, and publish path. Private data and history remain
+    excluded unless independently eligible and explicitly selected.
+11. Seller, platform, model-provider, or cross-tenant learning from a managed
+    instance is default-deny. Any exception requires an explicit eligible
+    export binding purpose, destination, institutional-learning-boundary
+    revision, source/model-route rights, retention, and revocation posture.
 
 IOI may operate a first-party seed fleet to solve cold start, provide baseline
 quality, last-resort capacity, conformance fixtures, and initial Goal Space
@@ -815,9 +1047,9 @@ liquidity. Those planner/researcher, builder, verifier, critic, synthesizer, and
 benchmark compositions must be ordinary named/versioned Worker packages under
 the same authority, isolation, benchmark, receipt, contribution, and routing
 contracts as external workers. The fleet must disclose IOI ownership, subsidy,
-model/harness/runtime/provider dependencies, and actual cost; receive no hidden
-ranking preference; and remain replaceable or outperformable without changing
-the pursuit contract.
+ModelRoute/HarnessProfile-or-AgentHarnessAdapter/runtime/provider dependencies,
+and actual cost; receive no hidden ranking preference; and remain replaceable
+or outperformable without changing the pursuit contract.
 
 The seed fleet is one party when IOI controls its authority, truth, verifier,
 risk, and settlement, even if it uses many models, accounts, nodes, providers,
@@ -826,13 +1058,13 @@ as evidence that an open network exists. IOI must not simultaneously be the
 hidden coordinator, preferred paid worker, sole verifier, ranking authority,
 and final settlement judge for one outcome.
 
-ioi.ai, Hypervisor Automations, Foundry, Workbench, and custom coordinators may
-route to aiagent.xyz workers when a marketplace worker is materially useful. The
-worker's package, managed instance, routing basis, license, and contribution
-refs must remain visible in the resulting receipts. A coordinator may summarize
-the worker's contribution for the user, but it must not silently clone the
-worker's private internals into a default harness or erase marketplace
-attribution from the outcome graph.
+ioi.ai, Hypervisor Automations, Foundry, Developer Workspace, and custom
+coordinators may route to aiagent.xyz workers when a marketplace worker is
+materially useful. The worker's package, managed instance, routing basis,
+license, and contribution refs must remain visible in the resulting receipts.
+A coordinator may summarize the worker's contribution for the user, but it must
+not silently clone the worker's private internals into the Default Harness
+Profile or erase marketplace attribution from the outcome graph.
 
 ## Quality and Reputation
 
@@ -863,18 +1095,36 @@ the execution runtime
 the service-outcome marketplace
 a required dependency for every service package
 a place to silently absorb private worker internals
+a seller or cross-tenant training corpus created from managed-instance exhaust
+without an explicit eligible export
+a provider-native thread, vector store, memory, or eval store used as the sole
+durable copy of buyer-owned learning
+a marketplace receipt presented as proof of hidden provider deletion,
+non-training behavior, or model unlearning
+a registry that silently publishes or benchmarks My workers
+a room-scoped guest lease reused as ambient private-worker access
+a copied prompt, persona, character profile, or agent name treated as identity,
+capability, independence, evidence, or authority
+a long-lived organization token or shared-bucket read/write grant used for
+local-agent onboarding
+a private-worker registry implemented as a peer runtime or remote shell
 a ranking surface that can privilege first-party workers by fiat
 a first-party seed fleet presented as independent network supply or verification
 a pool of shared/browser-automated/resold foundation-model workspace seats
 a place that owns cTEE or receives protected plaintext because a user rented a GPU node
-a model zoo that ranks raw checkpoints as autonomous workers without harness,
-runtime, policy, authority, receipt, and benchmark context
+a model zoo that ranks raw checkpoints as autonomous workers without a
+HarnessProfile or AgentHarnessAdapter, runtime, policy, authority, receipt, and
+benchmark context
 ```
 
 Correct model:
 
 ```text
 aiagent.xyz lists and supplies portable and composable worker capability
+ioi.ai may admit one-room local guests without a marketplace listing
+aiagent.xyz My workers registers reusable private compositions without exposure
+public benchmark/listing is an explicit promotion, admission, and publish path
+LocalAgentPairingSessionEnvelope bootstraps pairing but grants no authority
 the daemon executes workers under authority
 Agentgres records installs, invocations, receipts, and contribution state
 MoW routing remains policy, benchmark, receipt, cost, privacy, and trust based
@@ -888,7 +1138,10 @@ deterrence/detection receipts may support canary, watermark, replay, and dispute
 
 ## One-Line Doctrine
 
-> **aiagent.xyz sells portable workers and managed worker instances, not prompts or raw model checkpoints: workers expose responsibilities, receipts, requirements, benchmarks, runtime options, routing eligibility, and measurable outcomes.**
+> **aiagent.xyz registers reusable private workers and markets portable worker
+> packages and managed instances, not prompts or raw model checkpoints:
+> workers expose responsibilities, receipts, requirements, benchmarks,
+> runtime options, routing eligibility, and measurable outcomes.**
 
 ## Product Context Module
 

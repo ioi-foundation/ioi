@@ -4,9 +4,12 @@ Status: canonical low-level reference.
 Canonical owner: this file for aiagent.xyz worker endpoint shapes and inter-agent endpoint contracts.
 Supersedes: overlapping worker endpoint examples in plans/specs when endpoint fields conflict.
 Superseded by: none.
-Last alignment pass: 2026-07-11.
+Last alignment pass: 2026-07-12.
 Doctrine status: reference
-Implementation status: planned (endpoint spec; draft plane implements a small subset)
+Implementation status: planned (endpoint spec; draft plane implements a small
+listing/candidate/review/offer subset; private registration, local-agent
+pairing, promotion, benchmark, install, invocation, and managed-instance routes
+below are not live unless separately audited)
 Last implementation audit: 2026-07-05
 
 ## Purpose
@@ -15,7 +18,9 @@ aiagent.xyz is the canonical Web4 worker marketplace. It must support
 discovery, installation, direct worker invocation, hosted worker execution,
 managed worker/agent instances, web-mounted consoles, runtime subscriptions,
 Sparse Worker Categories, benchmark submissions, routing eligibility, and
-inter-agent calls.
+inter-agent calls. It must also support a private **My workers** registry for
+reusable local Worker compositions without forcing those workers into public
+listing, benchmarking, or Network/Open routing.
 
 Endpoint metadata should reference
 [`digital-worker-ontology.md`](./digital-worker-ontology.md),
@@ -31,10 +36,18 @@ workflow. ioi.ai may coordinate account entitlement, restore, and runtime
 discovery for those choices, but aiagent.xyz owns the marketplace endpoint
 records and the selected Hypervisor Daemon runtime node executes the work.
 
+A user may instead connect an existing local agent as a one-room ioi.ai guest,
+save the exact composition as an owner- or organization-private reusable
+worker, or explicitly promote it through aiagent.xyz admission. Those are
+separate states. A room guest needs no aiagent.xyz record; a private
+registration has no public listing; and promotion, benchmark admission,
+publication, and MoW routing eligibility remain separate explicit actions.
+
 ## Worker Endpoint Classes
 
 ```text
 Discovery / Manifest
+Private worker registration / local-agent pairing / promotion
 Sparse Worker Categories / Benchmarks
 Marketplace admission
 Compatibility inference
@@ -98,8 +111,11 @@ GET /v1/agent/quality
     "composition_id": "composition://runtime-auditor/1.0.0/qwen-coder/local",
     "source_provenance_refs": ["git://github.com/example/runtime-auditor#v1.0.0"],
     "license_ref": "license://apache-2.0",
-    "maintainer_refs": ["publisher://example"],
-    "harness_adapter_ref": "harness_adapter://coding.loop.v1",
+    "maintainer_refs": ["ioi://publisher/example"],
+    "harness_profile_revision_ref": "harness-profile://coding/step-resolution/revision/1",
+    "harness_profile_content_hash": "sha256:...",
+    "agent_harness_adapter_revision_ref": "agent-harness-adapter://coding/loop/revision/1",
+    "agent_harness_adapter_content_hash": "sha256:...",
     "model_route_options": [
       {
         "route_id": "model_route://qwen-coder-local",
@@ -137,6 +153,187 @@ GET /v1/agent/quality
   }
 }
 ```
+
+## Private Worker Registration, Pairing, And Promotion
+
+The private-registry and promotion endpoints below back the **My workers**
+supply surface. They are planned. Local pairing compiles to the shared
+Hypervisor routes owned by the daemon API; listing those routes here is a
+cross-domain product-flow reference, not duplicate endpoint ownership or
+evidence of a live remote-agent runtime.
+
+```http
+POST /v1/hypervisor/local-agent-pairings
+GET  /v1/hypervisor/local-agent-pairings/{pairing_ref}
+POST /v1/hypervisor/local-agent-pairings/{pairing_ref}/claim
+POST /v1/hypervisor/local-agent-pairings/{pairing_ref}/complete
+POST /v1/hypervisor/local-agent-pairings/{pairing_ref}/cancel
+POST /v1/hypervisor/local-agent-pairings/{pairing_ref}/revoke
+
+GET    /v1/worker-registrations
+POST   /v1/worker-registrations
+GET    /v1/worker-registrations/{registration_ref}
+PATCH  /v1/worker-registrations/{registration_ref}
+DELETE /v1/worker-registrations/{registration_ref}
+POST   /v1/worker-registrations/{registration_ref}/re-pair
+POST   /v1/worker-registrations/{registration_ref}/preflight
+POST   /v1/worker-registrations/{registration_ref}/revoke
+
+POST /v1/worker-registrations/{registration_ref}/promotion-proposals
+GET  /v1/worker-registrations/{registration_ref}/promotion-proposals
+GET  /v1/worker-registrations/{registration_ref}/promotion-proposals/{promotion_ref}
+POST /v1/worker-registrations/{registration_ref}/promotion-proposals/{promotion_ref}/submit
+POST /v1/worker-registrations/{registration_ref}/promotion-proposals/{promotion_ref}/cancel
+```
+
+### Pairing Session Projection
+
+`LocalAgentPairingSessionEnvelope` is the canonical shared object. The create
+route accepts only one declared target:
+
+```json
+{
+  "target_kind": "room_guest | private_worker | organization_worker",
+  "target_scope_ref": "outcome-room://... | user://... | org://...",
+  "room_discovery_ref": "room-discovery://... | null",
+  "claimed_local_agent": {
+    "display_name": "Runtime Auditor",
+    "resolver_kind": "harness_profile | agent_harness_adapter | none",
+    "resolver_revision_ref": "harness-profile://.../revision/... | agent-harness-adapter://.../revision/... | null",
+    "resolver_content_hash": "sha256:... | null",
+    "semantic_harness_profile_revision_ref": "harness-profile://.../revision/... | null",
+    "semantic_harness_profile_content_hash": "sha256:... | null",
+    "execution_posture": "instrumented_adapter | prompt_only"
+  },
+  "pairing_transport": "loopback | device_code | copy_command",
+  "expires_in_seconds": 600
+}
+```
+
+`room_guest` is initiated from the ioi.ai/OutcomeRoom flow and does not create a
+private registration. `private_worker` and `organization_worker` completion
+records the submitted composition; a separate aiagent.xyz registration
+admission may then create the private record. The returned projection contains
+an expiring challenge, a loopback/device-code/copy-command bootstrap
+instruction, and only these bootstrap actions:
+
+```text
+read_discovery
+submit_worker_composition
+submit_room_participation_request
+```
+
+The copyable instruction is setup convenience, not identity or authority. It
+must not contain a durable organization credential, broad bucket permission,
+room-database token, raw connector secret, ambient MCP access, or permission to
+execute effects. The local agent proves control of its generated key and origin
+binding through the selected pairing transport. Ordinary AIIP participation
+begins only after `bootstrap_bound`.
+
+The product returns the exact shared lifecycle:
+
+```text
+created | challenge_issued | agent_proof_received | bootstrap_bound |
+composition_submitted | participation_submitted | completed | expired |
+rejected | cancelled | revoked | failed_closed
+```
+
+Completion refs may include `composition://...` and, for a room guest,
+`participation-request://...`. `completed` proves only the declared pairing
+boundary; it grants no room membership, private context, database access,
+budget, tool capability, effect authority, benchmark standing, listing, or
+task success. The session fails closed on expiry, replay, principal/origin
+mismatch, unsupported adapter, invalid composition, or revoked target using the
+shared failure codes: `challenge_expired`, `challenge_replayed`,
+`invalid_proof`, `key_mismatch`, `origin_mismatch`, `attempt_exhausted`,
+`rate_limited`, `scope_escalation`, `malformed_submission`, `policy_denied`, or
+`target_unavailable`. Product-specific explanations must map to one of those
+codes rather than extending the envelope locally.
+
+The private-registration preflight route uses
+`execution_posture: prompt_only` and `contribution_lane: proposal_only` by
+default. It checks adapter reachability, typed request/result support, evidence
+delivery, revocation, and bounded failure behavior without granting an
+effectful tool surface. A `prompt_only` agent remains at an `attested`
+assurance ceiling until its bounded contribution is independently evaluated;
+copied instructions and self-reported runtime or model metadata are not proof.
+
+### Private Registration Projection
+
+`POST /v1/worker-registrations` adopts a completed private/organization pairing
+or an otherwise policy-admitted exact Worker composition:
+
+```json
+{
+  "pairing_session_ref": "local-agent-pairing://... | null",
+  "worker_composition_ref": "composition://...",
+  "visibility": "owner_private | organization_private",
+  "owner_ref": "user://... | org://...",
+  "display_profile": {
+    "name": "Runtime Auditor",
+    "description": "Reviews bounded repository changes.",
+    "persona": "optional descriptive metadata only"
+  },
+  "invocation_policy_ref": "policy://...",
+  "eligible_goal_space_policy_ref": "policy://..."
+}
+```
+
+Response:
+
+```json
+{
+  "registration_ref": "worker-registration://...",
+  "worker_composition_ref": "composition://...",
+  "visibility": "owner_private | organization_private",
+  "status": "pending_preflight | ready | offline | incompatible | expired | revoked | re_pair_required",
+  "public_listing_ref": null,
+  "benchmark_status": "unbenchmarked",
+  "routing_eligibility_status": "private_only",
+  "last_preflight_receipt_ref": "receipt://... | null"
+}
+```
+
+Private visibility is fail-closed. Registration does not create a publisher
+profile, public artifact, category submission, benchmark run, public reputation
+entry, settlement offer, or training permission. `PATCH` may change descriptive
+metadata or policy within the owner's authority; a material composition,
+principal, adapter, model-route, tool, privacy, or runtime change creates a new
+version and may require re-pairing or preflight. Delete/revoke ends future use
+while preserving only the receipt, dispute, audit, and contribution lineage
+required by policy.
+
+### Promotion Projection
+
+A promotion proposal selects the exact public disclosure rather than flipping
+the private registration's visibility:
+
+```json
+{
+  "worker_composition_ref": "composition://...",
+  "public_manifest_field_allowlist": [
+    "name",
+    "task_classes",
+    "output_contracts",
+    "dependencies",
+    "benchmark_profile_refs",
+    "license_ref"
+  ],
+  "public_artifact_refs": ["artifact://package/..."],
+  "sparse_worker_category": "std:code:runtime_audit.v1",
+  "benchmark_profile_refs": ["benchmark://ioi/categories/runtime_audit/v1"],
+  "license_ref": "license://...",
+  "pricing_ref": "pricing://... | null",
+  "contribution_history_export_policy_ref": "policy://... | null"
+}
+```
+
+Submitting the proposal creates or binds the existing marketplace admission
+record. It does not publish automatically. The seller must still satisfy the
+quote/waiver, benchmark and admission gates, then invoke the separate
+`POST /v1/marketplace/submissions/{submission_id}/publish` action. Public
+listing still does not imply MoW routing eligibility. Cancelling or rejecting a
+promotion leaves the private registration intact and unexposed.
 
 ## Sparse Worker Category and Benchmark Endpoints
 
@@ -332,8 +529,8 @@ Response:
 
 ```json
 {
-  "task_id": "task_abc",
-  "run_id": "run_123",
+  "task_id": "task://abc",
+  "run_id": "run://123",
   "status": "accepted",
   "events": "/v1/agent/tasks/task_abc/events",
   "run_room": "agentgres://runroom/run_123"
@@ -613,3 +810,22 @@ Instance creation response:
 8. Contact channels must disclose whether they are notification-only or also
    work integrations. Notification-only channels cannot hold secrets, protected
    plaintext, durable authority, or high-risk approvals.
+9. Pairing routes must return and persist the exact
+   `LocalAgentPairingSessionEnvelope` lifecycle. Pairing completion records
+   bootstrap submission only; it must not imply Worker registration, room
+   admission, authority, capability, benchmark standing, publication, or task
+   success.
+10. A room-scoped guest must not require a private/public aiagent.xyz record,
+    and its participant lease must not become ambient reusable-worker access.
+11. Private Worker registration must default to owner/org visibility and
+    `private_only` routing eligibility. No endpoint may silently publish,
+    benchmark, rank, route, monetize, or train from it.
+12. Public promotion must use a separate disclosure proposal, marketplace
+    admission, benchmark posture, and publish action. Cancelling or rejecting
+    promotion must leave the private registration unexposed.
+13. Prompt, persona, values, goals, display name, copied bootstrap text, and
+    self-reported model/runtime claims are descriptive inputs, not identity,
+    capability, independence, evidence, or authority.
+14. Pairing bootstrap actions are a closed set and never include room-database
+    access, raw secrets, ambient MCP, budget, spend, effect execution, install,
+    invocation, publication, or settlement.

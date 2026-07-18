@@ -7,10 +7,10 @@ brokerage, payment, exchange, exposure, protection, receipt, wallet authority
 client, and revocation APIs.
 Supersedes: older wallet authority API wording when it conflicts with `scope:*` authority grants.
 Superseded by: none.
-Last alignment pass: 2026-07-14.
+Last alignment pass: 2026-07-17.
 Doctrine status: reference
-Implementation status: partial (authority-client seams, lease APIs, and portable principal-to-approval-authority binding resolution live; guardian/shard surfaces planned)
-Last implementation audit: 2026-07-14
+Implementation status: partial (authority-client seams, lease APIs, and portable principal-to-approval-authority binding resolution are live; account/factor, WebAuthn ceremony, device/session lifecycle, recovery, guardian, and shard surfaces are planned)
+Last implementation audit: 2026-07-17
 
 ## Purpose
 
@@ -66,6 +66,12 @@ POST /v1/auth/sign-in
 POST /v1/auth/link-factor
 GET  /v1/auth/factors
 DELETE /v1/auth/factors/{factor_id}
+POST /v1/auth/passkeys/registration/options
+POST /v1/auth/passkeys/registration/verify
+POST /v1/auth/passkeys/authentication/options
+POST /v1/auth/passkeys/authentication/verify
+GET  /v1/auth/passkeys
+DELETE /v1/auth/passkeys/{factor_id}
 POST /v1/guardians
 GET  /v1/guardians
 GET  /v1/guardians/{guardian_id}
@@ -78,20 +84,30 @@ GET  /v1/account
 GET  /v1/account/security-level
 POST /v1/account/upgrade-security
 POST /v1/session
+GET  /v1/sessions
 DELETE /v1/session/{session_id}
+DELETE /v1/sessions
+POST /v1/account/recovery/start
+GET  /v1/account/recovery/{recovery_id}
+POST /v1/account/recovery/{recovery_id}/verify
+POST /v1/account/recovery/{recovery_id}/complete
+POST /v1/account/recovery/{recovery_id}/cancel
 ```
 
-Sign-in providers and linked factors:
+Stable sign-in and linked-factor kinds:
 
 ```text
-google
-github
+federated_identity
 passkey
 web3_wallet
 email_magic_link
-enterprise_sso
 totp
 ```
+
+`federated_identity` binds a provider registry ref, protocol, issuer, and
+provider-scoped subject. Apple, Google, Microsoft, GitHub, enterprise IdPs, and
+future providers are adapters and product labels rather than permanent wire
+enum members.
 
 A frictionless login creates a Level 1 wallet.network account. TOTP is a linked
 step-up factor, not a primary identity provider. High-risk authority scopes
@@ -102,8 +118,9 @@ Canonical factor taxonomy:
 ```text
 AuthFactor
   Authenticates account access or step-up posture. It does not convey authority
-  by itself. Google, GitHub, email/OIDC, enterprise SSO, Web3 wallet, passkey,
-  and TOTP are auth factors.
+  by itself. Federated identity, email magic link, Web3 wallet, passkey, and
+  TOTP are auth factors. Provider identity is issuer/subject-bound metadata,
+  not a separate authority family.
 
 GuardianSurface
   High-assurance authority surface that can render an exact action and sign or
@@ -135,16 +152,21 @@ sovereign_or_org_vault
 ```
 
 TOTP may increase confidence but is phishable and cannot satisfy high-risk
-authority alone. Biometrics only count as high-assurance when bound to a
-passkey, secure enclave, enrolled device, or equivalent signed assertion.
+authority alone. Local biometric or PIN verification may contribute to a
+high-assurance posture only by unlocking a passkey, secure-enclave credential,
+or equivalent cryptographic assertion under an enrolled-device policy.
 
 ### Auth Factor
 
 ```json
 {
-  "factor_id": "auth_factor://google/user_123/default",
+  "factor_id": "auth_factor://federated/user_123/default",
   "owner_ref": "wallet://user_123",
-  "kind": "google | github | email_oidc | enterprise_sso | web3_wallet | passkey | totp",
+  "kind": "federated_identity | email_magic_link | web3_wallet | passkey | totp",
+  "provider_ref": "identity-provider://apple | identity-provider://google | identity-provider://microsoft | identity-provider://github | identity-provider://enterprise/... | null",
+  "authentication_protocol": "oidc | oauth2_profile | saml | webauthn | wallet_proof | email_magic_link | totp",
+  "issuer": "https://issuer.example | null",
+  "subject_binding_hash": "sha256:... | null",
   "assurance_level": "low | medium | high",
   "can_bootstrap_account": true,
   "can_satisfy_step_up": false,
@@ -156,6 +178,70 @@ passkey, secure enclave, enrolled device, or equivalent signed assertion.
 }
 ```
 
+Kind/protocol legality is closed:
+
+| `kind` | Allowed `authentication_protocol` | Required bindings |
+| --- | --- | --- |
+| `federated_identity` | `oidc`, `oauth2_profile`, or `saml` | provider ref, issuer, and provider-scoped subject binding |
+| `passkey` | `webauthn` | credential/public-key, RP, origin-set, user-handle, and passkey lifecycle fields |
+| `web3_wallet` | `wallet_proof` | wallet/account subject binding and admitted proof-policy ref |
+| `email_magic_link` | `email_magic_link` | owner/account binding and single-use challenge policy |
+| `totp` | `totp` | owner/account binding and enrolled-secret custody ref |
+
+For non-federated kinds, `provider_ref` and federated `issuer` are null.
+Irrelevant kind-specific fields are absent or null, and a kind/protocol
+mismatch fails admission.
+
+For `kind: passkey`, the same `AuthFactor` additionally records:
+
+```json
+{
+  "credential_id": "base64url:...",
+  "credential_public_key_ref": "wallet-internal://passkey-public-key/...",
+  "rp_id": "wallet.network",
+  "admitted_origin_set_hash": "sha256:...",
+  "user_handle_hash": "sha256:...",
+  "sign_count": 42,
+  "transports": ["internal", "hybrid"],
+  "discoverable_credential": true,
+  "uv_initialized": true,
+  "last_observed_user_presence": true,
+  "last_observed_user_verification": true,
+  "backup_eligibility_observed": true,
+  "backup_state_observed": true,
+  "attestation_and_trust_refs": ["attestation://..."],
+  "guardian_ref": "guardian://device/user_123/phone | null",
+  "revocation_epoch": 7,
+  "replaces_factor_ref": "auth_factor://... | null",
+  "status": "active | quarantined | revoked | replaced"
+}
+```
+
+Registration and authentication `options` responses bind a cryptographically
+random, single-use, expiring challenge to an always-present
+`ceremony_context_hash`, the account or pre-account session, RP ID, admitted
+origins, requested user-presence/user-verification policy, and operation kind.
+`authority_request_hash` is null for ordinary registration or login and must
+equal the exact authority-review/request hash for a consequential step-up.
+
+`verify` checks the expected `clientDataJSON.type`, exact challenge, origin and
+applicable `crossOrigin`/`topOrigin` posture, `rpIdHash`, UP when required, UV
+when required, credential owner and user handle, signature, BE/BS flag
+combination, factor status, and selected attestation/trust policy. It rejects
+replay, credential substitution, wrong owner, invalid signature, or a
+stale/revoked factor. A zero or non-incrementing signature counter may be valid
+for an authenticator; a regression is a policy-scored anomaly and does not by
+itself prove cloning. Backup eligibility and backup state are authenticator
+signals, not proof of a specific synchronization provider, hardware custody, or
+device topology.
+
+wallet.network stores the credential public key and metadata; it never receives
+a private key, biometric sample or template, device PIN, or platform root
+credential. It receives the WebAuthn assertion and user-presence/
+user-verification flags needed to verify the ceremony. Required UP/UV belongs
+to each ceremony and GuardianSurface policy, not as a permanent guarantee of
+the credential.
+
 ### Guardian Surface
 
 ```json
@@ -164,9 +250,14 @@ passkey, secure enclave, enrolled device, or equivalent signed assertion.
   "owner_ref": "wallet://user_123",
   "kind": "enrolled_mobile | passkey_device | hardware_key | local_cli_signer | hypervisor_app | enterprise_approval",
   "display_label": "Personal phone",
-  "challenge_methods": ["qr", "push", "local_cli"],
+  "auth_factor_refs": ["auth_factor://passkey/user_123/phone"],
+  "enrollment_policy_ref": "policy://wallet/guardian/passkey-device",
+  "enrollment_receipt_ref": "receipt://...",
+  "challenge_methods": ["webauthn", "qr", "push", "local_cli"],
   "can_render_exact_intent": true,
   "can_sign_request_hash": true,
+  "user_verification_policy_ref": "policy://wallet/webauthn/guardian-uv-required",
+  "attestation_and_trust_refs": ["attestation://..."],
   "allowed_risk_classes": [
     "external_message",
     "commerce",
@@ -176,9 +267,14 @@ passkey, secure enclave, enrolled device, or equivalent signed assertion.
     "policy_widening"
   ],
   "revocation_epoch": 7,
-  "status": "active"
+  "status": "active | quarantined | revoked | replaced"
 }
 ```
+
+A `passkey_device` guardian requires explicit enrollment under the bound policy
+and receipt. Every qualifying approval requires fresh WebAuthn user
+verification and the exact authority-review hash; possession of the underlying
+AuthFactor alone is insufficient.
 
 ### Key Shard
 
@@ -194,6 +290,37 @@ passkey, secure enclave, enrolled device, or equivalent signed assertion.
   "status": "active"
 }
 ```
+
+### Account Recovery and Device Lifecycle
+
+Recovery is a receipted state machine over existing account, factor, guardian,
+session, grant, and revocation owners:
+
+```text
+requested
+  -> evidence_pending
+  -> delay_or_guardian_review
+      -> denied | cancelled | expired
+      -> approved_at_declared_assurance
+           -> affected_sessions_factors_and_grants_disposed
+           -> completed_at_resulting_security_level
+```
+
+The recovery record binds the owner, initiating principal/session when known,
+lost or compromised factors/devices, requested and maximum resulting security
+level, policy, evidence, required independent factors/guardians/quorum,
+cooldown, notifications, session disposition, credential rotation,
+revocation-epoch transition, dependent-grant disposition, decision, and
+completion receipts. Recovery never copies authority from the lost factor and
+never lets a low-assurance provider login inherit higher-tier grants.
+Denied, cancelled, and expired are terminal without rotation or restored
+access. A pending recovery session is recovery-only: it cannot satisfy product
+login, step-up, GuardianSurface approval, or effect authority.
+
+Account linking and merge use exact provider issuer/subject bindings. An email
+match is discovery evidence only. Factor link/unlink, recovery-policy change,
+device replacement, session revoke-all, and account merge require the
+applicable step-up and emit receipts.
 
 ## Access Point Binding API
 
@@ -297,8 +424,10 @@ high-assurance authority surface. The agent receives only a scoped
 
 QR or push delivery is not authority by itself. The guardian surface must render
 the exact action and sign or approve the bound request hash. The agent never
-receives OTP values, biometric results, provider tokens, raw key shards, raw
-session material, or guardian secrets.
+receives OTP values, raw biometric samples or templates, provider tokens, raw
+key shards, raw session material, or guardian secrets. A WebAuthn assertion may
+carry the authenticator's signed user-verification flag; that flag is not the
+underlying biometric.
 
 ## Principal-to-Approval-Authority Binding API
 
@@ -456,21 +585,41 @@ POST /v1/authority/capability-leases/{lease_id}/revoke
 
 ```json
 {
-  "subject_id": "agent://runtime-auditor",
-  "requesting_runtime": "runtime://node_abc",
-  "purpose": "Run weekly runtime audit",
-  "primitive_capabilities_declared": ["prim:fs.read", "prim:sys.exec", "prim:model.invoke"],
-  "authority_scopes_requested": ["scope:repo.read"],
+  "authority_request_id": "authority-request://wallet/user_123/merge_456",
+  "principal_ref": "principal://user_123",
+  "product_session_ref": "session://ioi-ai/product_123",
+  "origin_binding_ref": "origin-binding://wallet.example/app",
+  "subject_id": "agent://change-integrator",
+  "issuer_id": "wallet://user_123",
+  "requesting_runtime_ref": "runtime://node_abc",
+  "purpose": "Merge verified change set change://ioi/456 into main",
+  "auth_factor_refs": ["auth_factor://passkey/user_123/laptop"],
+  "guardian_surface_ref": "guardian://device/user_123/phone",
+  "primitive_capabilities_required": ["prim:fs.read", "prim:sys.exec"],
+  "authority_scopes_requested": ["scope:repo.write"],
   "resource_scope": {
-    "resources": ["git://repo/ioi", "file://workspace/**"],
-    "expiry": "2026-05-01T12:00:00Z",
-    "max_budget_usd": 5
+    "resources": ["git://repo/ioi", "change://ioi/456"],
+    "constraints": {
+      "max_budget_usd": 5,
+      "expiry": "2027-05-01T12:00:00Z",
+      "approval_required_for": ["repo_merge"]
+    }
   },
-  "risk_class": "write_reversible",
+  "destination_refs": ["git://repo/ioi/ref/main"],
+  "risk_classes": ["write_reversible"],
+  "policy_hash": "sha256:...",
   "request_hash": "sha256:...",
-  "policy_hash": "sha256:..."
+  "authority_grant_id": null,
+  "status": "requested"
 }
 ```
+
+`product_session_ref` is owned by the calling product or deployment identity
+plane. wallet.network binds it into the authority request and review; it does
+not create, renew, revoke, or otherwise own that product session. `request_hash`
+is RFC 8785 JCS over the immutable `AuthorityScopeRequestEnvelope` fields
+defined in the shared object canon, excluding only the hash and mutable
+decision/grant fields.
 
 Worker Training scope requests use the same envelope. Typical scopes include:
 
@@ -494,24 +643,77 @@ scope:worker.publish
 scope:mow.route
 ```
 
+Protected autonomous-system transitions use separate scopes:
+
+```text
+scope:autonomous_system.constitution_amend
+scope:autonomous_system.deployment_profile_change
+scope:autonomous_system.node_admit
+scope:autonomous_system.node_role_change
+scope:autonomous_system.writer_promote
+scope:autonomous_system.authority_membership_change
+scope:autonomous_system.consensus_membership_change
+scope:autonomous_system.failover_profile_change
+scope:autonomous_system.ordering_admission_finality_profile_change
+scope:autonomous_system.oracle_profile_change
+scope:autonomous_system.lifecycle_profile_change
+scope:autonomous_system.recover
+scope:autonomous_system.suspend
+scope:autonomous_system.quarantine
+scope:autonomous_system.migrate
+scope:autonomous_system.fork
+scope:autonomous_system.adopt
+scope:autonomous_system.succeed
+scope:autonomous_system.retire
+scope:autonomous_system.dissolve
+scope:autonomous_system.decommission
+scope:autonomous_system.network_enrollment_change
+```
+
+Requests for these scopes additionally bind `system_id`, active constitution
+root, target profile or membership ref, predecessor and proposed roots,
+required decision profile, evidence refs, and the exact transition. They are
+not interchangeable and cannot be inferred from ordinary deployment,
+improvement, or node access.
+
 Training-data grants should bind purpose, reuse rights, retention policy,
 privacy class, dataset commitment, domain ontology refs, data recipe refs,
 policy-bound data view refs, allowed transformation methods, allowed runtime
 environment, and expiry.
 
-### Authority Grant
+### Target Context-Bound Authority Grant
+
+The following is a semantic excerpt of the planned
+`AuthorityGrantEnvelope` v3 result for the request above, not a claim that the
+v3 registered wire contract is built. The eventual wire object retains every
+portable-v2 signature, holder, audience, parent, caveat, revocation, and
+attenuation field in addition to this request commitment:
 
 ```json
 {
-  "grant_id": "grant_123",
+  "authority_grant_id": "grant://wallet/user_123/merge_456",
+  "request_id": "authority-request://wallet/user_123/merge_456",
   "issuer_id": "wallet://user_123",
-  "subject_id": "agent://runtime-auditor",
-  "authority_scopes": ["scope:repo.read"],
-  "primitive_capability_constraints": ["prim:fs.read"],
+  "subject_id": "agent://change-integrator",
+  "authority_scopes": ["scope:repo.write"],
+  "primitive_capability_constraints": ["prim:fs.read", "prim:sys.exec"],
+  "resources": ["git://repo/ioi", "change://ioi/456"],
   "constraints": {
-    "resources": ["git://repo/ioi"],
-    "expires_at": "2026-05-01T12:00:00Z",
-    "max_calls": 100
+    "max_budget_usd": 5,
+    "expires_at": "2027-05-01T12:00:00Z",
+    "approval_required_for": ["repo_merge"],
+    "max_calls": 1
+  },
+  "request_commitment": {
+    "authority_request_id": "authority-request://wallet/user_123/merge_456",
+    "authority_request_body_hash": "sha256:...",
+    "principal_ref": "principal://user_123",
+    "product_session_ref": "session://ioi-ai/product_123",
+    "origin_binding_ref": "origin-binding://wallet.example/app",
+    "auth_factor_refs": ["auth_factor://passkey/user_123/laptop"],
+    "guardian_surface_ref": "guardian://device/user_123/phone",
+    "authority_review_receipt_ref": "receipt://wallet/review/merge_456",
+    "approval_evidence_root": "sha256:..."
   },
   "revocation_epoch": 7,
   "status": "active"
@@ -1124,7 +1326,11 @@ class, risk labels, eligibility labels, coverage states, affected
 assets/secrets/data/workloads, budget or amount, destination, policy diff,
 policy explanation, simulation result, candidate evidence, expiry, allowed
 approval modes, recommended presentation profile, and available approve/edit/deny
-actions.
+actions. Every review also binds the authenticated principal, acting subject,
+product session and origin, exact request hash, qualifying AuthFactor and
+GuardianSurface posture, resulting grant or denial, and authority receipt. A
+review authenticated for one principal, session, origin, or request cannot be
+replayed for another.
 
 ## Revocation and Emergency Stop
 
@@ -1143,7 +1349,9 @@ to the active blast-radius report.
 
 1. Agents never hold root keys or long-lived connector secrets.
 2. Secret export is a high-risk authority scope and disabled by default.
-3. Approval grants bind exact request hash, policy hash, scope, and expiry.
+3. Approval grants bind the exact request-body hash, principal, externally
+   owned product session, origin, subject, resources/destination, policy, risk,
+   scope, budget, and expiry.
 4. Authority grants are revocable and must include revocation epoch.
 5. TEE secret release requires verified attestation matching policy.
 6. SMS, email, chat, voice, and webhook access points may carry step-up
@@ -1162,3 +1370,19 @@ to the active blast-radius report.
 12. wallet.network MCP and CLI clients can request, inspect, approve, deny, or
     receipt authority only through the same policy pipeline; they cannot bypass
     step-up, export secrets, raise limits, or raw-sign arbitrary payloads.
+13. Protected autonomous-system changes require the exact transition scope and
+    constitutionally declared governance path; no worker may approve its own
+    constitutional, writer, authority-membership, lifecycle, or enrollment
+    change.
+14. WebAuthn type/challenge/RP-hash/origin/cross-origin mismatch, credential or
+    owner/user-handle substitution, absent required UP/UV, invalid signature,
+    cross-account factor linking, stale revocation epoch, and
+    principal/session replay fail closed.
+15. Account recovery may restore access at an equal or lower declared security
+    level; it never widens, reconstructs, or silently preserves consequential
+    authority, and affected high-risk grants remain revoked or quarantined
+    until explicitly reauthorized. A pending recovery session cannot log in,
+    step up, approve, or execute.
+16. The portable embedded sign-in-to-effect claim requires the registered
+    context-bound `AuthorityGrantEnvelope` v3 successor. Green v1/v2 and legacy
+    AuthorityReview checks do not satisfy that product proof.

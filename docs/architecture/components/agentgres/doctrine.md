@@ -4,12 +4,12 @@ Status: canonical architecture authority.
 Canonical owner: this file for high-level Agentgres doctrine; low-level runtime objects live in [`agentgres-api-and-object-model.md`](./api-object-model.md), and Postgres bridge/readiness guarantees live in [`postgres-bridge-and-readiness-contract.md`](./postgres-bridge-and-readiness-contract.md).
 Supersedes: overlapping plan prose when Agentgres state ownership conflicts.
 Superseded by: none.
-Last alignment pass: 2026-07-11.
+Last alignment pass: 2026-07-15.
 Doctrine status: canonical
-Implementation status: partial (runtime state store and object planes in the daemon; branch lane partial — thread forks, run replay, counterfactual what-if replay, and workspace snapshot/restore custody exist; OutcomeRoom discovery/participation/portable-exit/frontier/claim/attempt/finding/result and the five branch/staged-effect durable object families are planned)
+Implementation status: partial (the runtime state store and multiple daemon object planes are live; thread forks, run replay, counterfactual what-if replay, and workspace snapshot/restore custody are implementation precedents. `ReceiptCheckpoint`/`ReceiptProofBundle` schemas, fixtures, invariants, and generated projections are present, while portable verifiers and Agentgres checkpoint admission/emission/export remain planned. Hosted OutcomeRoom participation, frontier/claim, offer/matching, Attempt/Finding, WorkResult/OutcomeDelta, and VerifierChallenge planes are merged. Per-System writer-transition/fencing control, room discovery, portable exit, federation, acceptance/verdict/settlement, branch/staged-effect object families, and the bounded-improvement Agenda/Campaign/Epoch/exposure/claim spine remain planned.)
 Implementation refs:
   - `crates/services/src/agentic/runtime/`
-Last implementation audit: 2026-07-05
+Last implementation audit: 2026-07-16
 
 ## Canonical Definition
 
@@ -22,13 +22,13 @@ can reuse it.
 In the Hypervisor/daemon canon, the Hypervisor Daemon is the hypervisor/control plane
 for autonomous execution and Agentgres is the operational truth substrate behind
 that control plane. Hypervisor App, Hypervisor Web, CLI/headless clients,
-optional TUI views, and application surfaces such as Workbench, Foundry, and
+optional TUI views, and application surfaces such as Developer Workspace, Foundry, and
 Environments views may render Agentgres-backed projections, but they must not become the
 canonical state store.
 
 In the machine-economy canon, Agentgres is the local/domain operational truth
 substrate for governed autonomous-system chains and Hypervisor Node settlement
-domains. It records proposals, module invocations, local settlement records,
+domains. It records proposals, module invocations, state-transition commitment records,
 receipt roots, upgrade decisions, state roots, and replayable projections before
 selected commitments are anchored to IOI L1.
 
@@ -292,12 +292,40 @@ still cap, 200k adm/s at p99 0.89ms). The daemon adopts this behind env
 (`IOI_SUBSTRATE_REPLICA_ADDRS` + `IOI_SUBSTRATE_ASYNC_FLUSH=1` +
 `IOI_SUBSTRATE_ACK_QUORUM`; default remains device-flush sync, and async
 without a connected replica FAIL-SAFES to per-batch sync, loudly).
-Deliberately NOT built (consensus tier, horizon 2, both gates named:
+Deliberately NOT built (consensus tier, gated after the same-system multi-node
+proof, both gates named:
 a real multi-node customer needing automated-failover SLAs AND a running
 deterministic-simulation harness): leader election, view changes, dynamic
 membership, automated failover. Options stay open: VSR-under-DST or a
 proven consensus library for the control plane over this data plane —
 the epochs built here are exactly what either consumes.
+
+**Bounded-DAS deployment binding.** The built static primary/standby mechanism
+is the first implementation anchor for
+`AutonomousSystemDeploymentProfileEnvelope`,
+`AutonomousSystemNodeMembershipEnvelope`, and
+`AutonomousSystemFailoverProfileEnvelope`; it does not yet implement those
+public system-control objects or dynamic membership APIs. The existing writer
+maps to `admission_writer`, a caught-up promotable replica maps to
+`hot_standby` plus `state_replica`, and the promotion receipt supplies evidence
+for the new writer epoch. Desired topology remains distinct from observed
+membership/readiness. Operator promotion is not automatic failover, static
+quorum replication is not consensus, and several IOI-operated replicas are not
+independent parties (`INV-22` through `INV-24`).
+
+The mux epoch and a System writer epoch are deliberately separate. The mux
+`current_epoch` fences writers of one Agentgres storage log and rides its
+replication protocol; it does not identify a logical System, bind that System's
+membership or authority, or admit connector/wallet/provider/domain effects.
+The target per-System `AutonomousSystemWriterEpochTransition` sits above
+storage, advances through its declared durable continuity CAS, and supplies the
+active fence checked by each System-scoped consequential-resource PEP. A
+storage epoch may eventually persist or replicate that transition, but can
+never substitute for it. Current master contains no per-System transition
+store, derived active-fence projection, public transition/promotion route,
+automatic failover controller, or System-scoped consequential-resource PEP
+coverage. The static mux writer epoch is implementation precedent only and
+must not be presented as a completed bounded-DAS fencing plane.
 
 **Lineage and the cautionary tale.** The architectural ancestry is
 Datomic-class (immutable facts, single-writer transactor, reads scaled
@@ -363,11 +391,22 @@ Agentgres owns per-domain operational truth:
 - worker installs;
 - managed worker/agent instances;
 - governed autonomous-system chain records;
-- Hypervisor Node local settlement records;
+- Hypervisor Node state-transition commitment records;
 - service module manifests and registry roots;
 - module invocation records;
 - proposal queues;
 - upgrade decisions;
+- admitted improvement-governance profile revisions and active owner-scope
+  bindings, including constitution bindings when System-scoped;
+- immutable Improvement Agenda revisions and release/supersession lineage;
+- Improvement Campaign contracts, append-only operation heads, and derived
+  lifecycle projections;
+- frozen Evaluation Epoch roots, challenges, closure, and invalidation lineage;
+- evaluation-exposure reservations, spend, returns, contamination, rotation,
+  and ledger heads;
+- Improvement Order Cutoff receipts;
+- immutable Improvement Evidence Claims plus dispute, downgrade, withdrawal,
+  and supersession lineage;
 - runtime subscription and usage state;
 - orders;
 - workflow state;
@@ -376,12 +415,17 @@ Agentgres owns per-domain operational truth:
 - data recipes;
 - connector mappings;
 - policy-bound data views;
+- admitted `InstitutionalLearningBoundaryProfile` revisions and effective
+  scope snapshots;
+- per-subject learning-evidence eligibility decisions, including training and
+  non-training improvement uses;
 - transformation runs and receipt refs;
 - evaluation dataset refs;
 - ontology-aware projection definitions;
 - ontology-to-worker plans;
 - Worker Training specs;
 - training lineage;
+- source-rights, derivative-obligation, and revocation-impact lineage refs;
 - dataset commitments;
 - context mutations and supersession graphs;
 - post-training cycles;
@@ -432,6 +476,8 @@ Agentgres does not own:
 - storage backend payload bytes;
 - sealed archive bytes;
 - raw source-system payload authority;
+- ownership, license, consent, provider/customer learning rights, or
+  permission to train, distill, export, publish, or reuse a recorded subject;
 - connector mapping authority without an admitted authority grant, policy
   decision, or governance owner ref;
 - first-party product pricing, billing strategy, or separate SKU ownership;
@@ -441,7 +487,14 @@ Agentgres does not own:
 - draft, fuzzy, local, or speculative memory that has not crossed an admission boundary;
 - retrieval candidates, embeddings, full-text indexes, or wiki projections as canonical truth;
 - a globally mutable shared collaboration graph across sovereign domains;
-- raw room chat, message-board consensus, or leaderboards as admission truth.
+- raw room chat, message-board consensus, or leaderboards as admission truth;
+- the authority to admit an Improvement Campaign, select its protected target,
+  choose or alter its frozen evaluator truth, or promote its candidate;
+- sealed holdout cases, labels, evaluator internals, or protected feedback
+  payloads merely because it records their commitments, custody, and exposure
+  receipts;
+- a mutable candidate archive, Campaign status, remaining-budget counter, or
+  claim-support graph outside rebuildable projections over admitted operations.
 
 Authority providers and domain governance own permission decisions. wallet.network
 is the portable delegated authority provider for secrets, provider credentials,
@@ -454,16 +507,76 @@ authority provider.
 
 Hypervisor Daemon runtime nodes own execution. Hypervisor clients and
 application surfaces own UX/projections. AIIP owns autonomous-work interop
-semantics. Storage backends own payload byte availability. IOI L1 owns public
-settlement and rights. Hypervisor Nodes coordinate local settlement and interop,
-but their operational truth is still recorded through Agentgres/domain
-operations rather than client UI state.
+semantics. Storage backends own payload byte availability. The declared
+external settlement service owns its public/economic settlement and rights;
+IOI L1 does so only for explicitly enrolled, selected services. Hypervisor
+Nodes coordinate local operational finality and interop, but their operational truth is
+still recorded through Agentgres/domain operations rather than client UI state.
 
 Agentgres may record usage, payout, royalty, billing, entitlement, dispute,
 settlement, and ContributionReceipt state for the domains it serves. Recording
 economic truth does not make Agentgres the monetization surface. In the
 first-party stack, routine Agentgres writes, projections, refs, and receipts are
 bundled substrate under the product surface that depends on them.
+
+## Institutional Learning Boundary
+
+Agentgres is the admitted truth and lineage substrate beneath an enterprise or
+other institutional learning boundary. It records the effective
+`InstitutionalLearningBoundaryProfile` revision, individual evidence
+eligibility, source/model-route rights refs, policy decisions, transformation
+and derivative edges, retention/revocation state, promotion/export refs, and
+the receipts that bind observed boundary actions. Product surfaces may derive a
+learning-flow, exposure, derivative-impact, or model-swap-readiness projection
+from those records.
+
+Agentgres does not grant any of those rights and does not make a broad profile
+override a restrictive source. Admission computes the most restrictive
+intersection selected by the owning policy, and durable records retain the
+inputs to that decision. Agentgres also does not store protected dataset,
+trace, checkpoint, adapter, model, or export payload bytes merely because it
+records their refs and commitments; storage backends keep the bytes under the
+bound custody and retention policy.
+
+Revocation is transitive operational state, not historical erasure. A source
+revocation may block future reads or training, quarantine a view or artifact,
+recall a release, require re-evaluation, or trigger rebuild/retraining from an
+eligible corpus. Prior receipts and lineage remain immutable evidence subject
+to their visibility/retention policy. A deletion, recall, quarantine, retrain,
+or receipt does not by itself prove model unlearning or hidden external-provider
+behavior; a verified-unlearning claim needs its own declared method, property,
+evaluation, verifier, and assurance result.
+
+Provider-native threads, vector stores, hosted memory, eval stores, or tuning
+services cannot be the only durable copy of institution-owned accepted memory,
+evals, corrections, ontology state, or derivative lineage. Agentgres-backed
+state plus policy-permitted artifact archives/exports must preserve a
+provider-independent reconstruction path. This rule does not claim or require
+access to provider-owned weights or hidden state.
+
+For model-swap continuity, Agentgres records the frozen system/profile/state
+root, policy-filtered memory projection, incumbent and candidate route refs,
+eval/scorecard receipts, observed results, canary, rollback, and promotion
+decision. It does not declare models equivalent or authorize the swap; Foundry
+and Evaluations produce evidence, Governance owns release gates, and the daemon
+admits execution.
+
+The same boundary applies to bounded improvement. `LearningEvidenceEligibility`
+is the one admitted decision for reusing a Finding, trace, correction, receipt,
+or artifact in model training or in pursuit-method, workflow, evaluator,
+Agenda, policy, memory, package, or tool improvement.
+`TrainingEvidenceEligibility` is its training-oriented compatibility profile
+over that same object ID, never a second truth. Live sealed evaluation material remains
+ineligible learning evidence until its owning rotation/declassification policy
+releases it; recording a commitment or access receipt does not reveal or
+declassify the payload.
+
+Agentgres records Campaign contracts and operations, frozen Epoch roots,
+exposure-ledger entries, cutoff receipts, candidate Attempts, evidence Claims,
+and the UpgradeProposal/Decision lineage that follows. It can rebuild candidate
+DAGs, archives, remaining-budget/exposure views, synchronization lineage, and
+claim-support projections. It does not decide which target may improve, alter
+an active Epoch, grade its own evidence, or make a candidate canonical.
 
 ## Memory And Agent Wiki Boundary
 
@@ -473,7 +586,7 @@ admitted truth.
 The long-term memory architecture has four distinct planes:
 
 ```text
-Harness/runtime hot state
+HarnessInvocation/runtime hot state
   active cognition, scratch state, temporary observations, in-flight plans
 
 Agent Wiki / ioi-memory context plane
@@ -565,7 +678,7 @@ canonical truth =
   + object heads
   + state roots
   + receipts
-  + local settlement records
+  + state-transition commitment records
   + archive refs
 
 portable state format =
@@ -623,6 +736,9 @@ routing inside each domain. It records:
 - dataset commitments and source refs;
 - accepted/rejected curation summaries;
 - training lineage refs;
+- effective institutional-learning-boundary revisions, individual eligibility
+  decisions, source/model-route rights refs, derivative-lineage roots, and
+  revocation-impact decisions;
 - context mutation refs and supersession graphs;
 - post-training cycle state;
 - adapter, route-policy, evaluation, and package promotion decisions;
@@ -757,8 +873,9 @@ The scalable path is layered:
    Large immutable payloads, sealed encrypted bundles, checkpoint files, trace
    archives, evidence bundles.
 
-4. IOI L1 contract layer
-   Registry, rights, escrow, settlement, dispute roots, selected commitments.
+4. Optional declared external settlement layer
+   Registry, rights, escrow, settlement, dispute roots, or selected public
+   commitments. IOI L1 is one enrolled service set.
 ```
 
 Operational flow:
@@ -768,7 +885,8 @@ hot state in Agentgres domain storage
 -> periodic checkpoints/snapshots to cold artifact storage
 -> sealed state archives to Filecoin/CAS or equivalent durable blob stores
 -> receipt/evidence bundles to storage backends
--> selected economic/trust commitments to IOI L1
+-> selected economic/trust commitments to the declared external settlement
+   profile; IOI L1 only for explicitly enrolled services
 -> local/client projections for read scale
 ```
 
@@ -1062,9 +1180,10 @@ Reads should wake shared runtime only when freshness, policy, key release, proof
 - sync metadata;
 - lightweight runtime status.
 
-## Interaction with IOI L1
+## Interaction with External Settlement Services
 
-Agentgres synchronizes with IOI L1 contracts for:
+When a system selects an external settlement profile, Agentgres may synchronize
+the selected service's contracts or ledgers for:
 
 - rights;
 - licenses;
@@ -1075,7 +1194,9 @@ Agentgres synchronizes with IOI L1 contracts for:
 - reputation/contribution roots;
 - manifest commitments.
 
-Agentgres does not post every event or receipt to IOI L1.
+IOI L1 is valid only under an active connected/secured enrollment that selected
+the service. Agentgres does not post every event or receipt to any external
+rail.
 
 ## Anti-Patterns
 
@@ -1141,6 +1262,24 @@ consequential authority
 8. No retrieval, embedding, full-text, graph, or wiki projection is canonical
    memory truth unless it is rebuildable from accepted Agentgres operations and
    artifact refs.
+9. No recorded learning-boundary profile, eligibility decision, source-rights
+   ref, provider contract, or receipt grants a use beyond its declared scope;
+   the most restrictive applicable constraint controls.
+10. No provider-native thread, vector store, memory, eval, or tuning service is
+    the sole durable copy of institution-owned accepted learning state needed
+    for provider-independent operation.
+11. No receipt, deletion record, quarantine, recall, or retraining record proves
+    hidden provider behavior or model unlearning beyond the explicit verified
+    property it binds.
+12. No Campaign operation, projection, score, or evidence Claim grants target
+    authority or replaces target-owner UpgradeProposal/Decision admission.
+13. No candidate may rewrite the frozen Epoch, exposure ledger, ancestor
+    budget, evaluator boundary, or recovery path by advancing Campaign state.
+14. No live sealed evaluation material becomes learning evidence merely because
+    its commitment, custody, access, or result receipt is recorded.
+15. No Campaign status, candidate archive, remaining-budget/exposure counter,
+    synchronization view, or claim-support graph is canonical unless rebuildable
+    from admitted objects, operations, and receipts.
 
 ## One-Line Doctrine
 

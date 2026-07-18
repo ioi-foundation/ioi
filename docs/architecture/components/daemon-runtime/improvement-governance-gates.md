@@ -2,12 +2,12 @@
 
 Status: canonical architecture authority with an implemented initial contract (`ioi_intelligence_routes.rs` + `governance_routes.rs`)
 Doctrine status: canonical
-Implementation status: mixed (current improvement apply/simulation/approval/release gates and deterministic 409s built; OutcomeRoom finding/evaluator-challenge promotion and derived-artifact recall extensions planned)
+Implementation status: mixed (the older direct proposal, simulation, approval, and release-control path is an implementation precursor. Deployment-aware waiver admission, exact target-base freshness, versioned impact assessment, repeated-proposal campaign decomposition pressure, application-chain receipts, full campaign/epoch/exposure, OutcomeRoom finding/evaluator-challenge promotion, and derived-artifact recall extensions remain target contracts.)
 Implementation refs:
   - `crates/node/src/bin/hypervisor_daemon_routes/ioi_intelligence_routes.rs`
-Last alignment pass: 2026-07-11.
-Last implementation audit: 2026-07-05
-Canonical owner: this file for the apply-time gate rule, freshness rule, reason codes, epistemic promotion ladder, evaluator-rule change/reverification gate, and no-automatic-promotion boundary.
+Last alignment pass: 2026-07-16.
+Last implementation audit: 2026-07-16 (scoped audit of `ioi_intelligence_routes.rs` direct-proposal gate)
+Canonical owner: this file for direct-proposal and campaign apply-time gate rules, freshness and exact-base rules, deterministic reason codes, epistemic promotion ladder, evaluator-rule change/reverification gate, and no-automatic-promotion boundary.
 Object authority remains `docs/architecture/foundations/common-objects-and-envelopes.md`
 (improvement proposals, simulation reports) and the governance control objects
 (`approval-request://`, `release-control://`).
@@ -21,6 +21,25 @@ learned improvement whose saved what-if simulation is high-impact cannot become
 behavior without an APPROVED `ApprovalRequest` and an OPEN `ReleaseControl`
 targeting the proposal or that simulation report—validated live at apply time,
 never trusted from stale stamped refs.
+
+Every improvement kind requires a saved simulation outside
+`local_development`, unless an approved and transition-receipted
+`ApprovalRequest` waives exactly the `saved_simulation` requirement for the
+current proposal ref, proposal kind, and proposal fingerprint. Local
+development retains a narrow unsimulated path for `skill_improvement` and
+`automation_readiness`; `launch_policy_suggestion` has no ordinary local
+bypass. The exact receipted waiver remains the only exception to either rule.
+
+The direct proposal path and campaign path are both canonical. A bounded
+one-shot change may use the existing proposal/simulation gate directly. The
+target decomposition guard refuses a fourth or later non-rejected proposal
+against the same normalized target family within 24 hours unless its
+`improvement_campaign_ref` resolves to an `ImprovementCampaign` record. This is
+an initial anti-decomposition boundary, not campaign conformance: adaptive
+repeated search, sealed evaluation, multi-epoch work, or a recursive claim still
+additionally binds the active `EvaluationEpoch`, evaluation-exposure posture,
+and exact pursuit/component resolution. Those objects supply evidence and
+lineage; they do not bypass this target-owner gate.
 
 The canonical improvement ladder is:
 
@@ -47,35 +66,113 @@ verdicts state the replacement version.
 
 ## Gate rule (evaluated at apply; same evaluation feeds the UI posture)
 
-1. `launch_policy_suggestion` proposals must carry a saved simulation → else
-   `simulation_required`. Other kinds without a simulation keep existing behavior
-   (`no_simulation` posture, apply allowed).
-2. Any cited simulation must be FRESH: the report records a
+1. Outside `local_development`, every proposal kind must carry a saved
+   simulation or an exact simulation waiver → else `simulation_required`.
+   The waiver is an `approval-request://` record whose subject is the exact
+   proposal, whose `request_kind` is `improvement_simulation_waiver`, whose
+   `enforcement_preview` binds `requirement: saved_simulation`, the proposal
+   kind, and the current proposal fingerprint, whose status is `approved`, and
+   whose `receipt_refs` contains the receipt minted by the governed approval-
+   transition path. Missing, stale, unreceipted, foreign-subject, wrong-kind,
+   or wrong-fingerprint waivers fail with `simulation_waiver_invalid`. This is
+   governed record linkage; portable cryptographic proof requires the portable
+   ReceiptEnvelope and Agentgres admission contract.
+2. In `local_development`, an unsimulated `skill_improvement` or
+   `automation_readiness` proposal may use the explicit
+   `local_development_no_simulation` posture. A `launch_policy_suggestion` still
+   returns `simulation_required` unless it carries the exact waiver above.
+3. Any cited simulation must be FRESH: the report records a
    `proposal_fingerprint = sha256(proposal_kind, target_ref, suggested, evidence_refs)`;
    the live proposal must still fingerprint identically → else `simulation_stale`.
-   Freshness is content identity — restoring the exact simulated payload restores freshness;
-   no clock is consulted.
-3. If the fresh report's `governance.high_impact` is true:
+   The report additionally binds the exact `target_base_ref` and the current
+   target-base record hash; target replacement or mutation fails with
+   `simulation_target_base_stale`. Freshness is content and base identity—no
+   clock is consulted.
+4. The saved report must contain a known `ioi.improvement-impact.v1`
+   assessment. Missing or unknown classification fails with
+   `improvement_impact_unknown` rather than defaulting to low impact.
+5. If the fresh report's `governance.high_impact` is true:
    - a bound `approval_request_ref` must resolve, target the proposal or the simulation
      report, and be `approved` → else `approval_required` / `approval_not_approved`;
    - a bound `release_control_ref` must resolve, target the proposal or the simulation
      report, and be `open` → else `release_control_required` / `release_control_not_open`.
-4. Low-impact fresh simulations apply without controls.
-5. A proposal derived from an external/room participant must bind source,
+6. Low-impact fresh simulations apply without approval/release controls.
+7. A proposal derived from an external/room participant must bind source,
    affiliation, attempt/finding lineage, taint state, license/export policy,
    independent evaluation, and admission receipt before it can enter the
    existing apply path. Missing lineage or unresolved taint fails closed.
-6. A verifier/evaluator-rule proposal must bind a `VerifierChallenge`, prior
+8. A verifier/evaluator-rule proposal must bind a `VerifierChallenge`, prior
    rule version, proposed rule version, adjudication decision, affected-attempt
    set, and re-verification plan. The new rule cannot overwrite prior verdicts
    or become active solely because it improves its own leaderboard score.
-7. Promotion candidates must carry evaluator-integrity, correlated-verifier,
+9. Promotion candidates must carry evaluator-integrity, correlated-verifier,
    adversarial-holdout, regression, rollback, and recall posture appropriate to
    risk. Authority widening is never an improvement side effect.
 
-The implemented first four rules block with deterministic HTTP 409 reason
-codes. Rules 5–7 are the target admission contract; their route/schema and
-reason-code implementation remains planned and must not be described as built.
+The current master implements only the older direct-proposal precursor for a
+subset of Rules 1–6. Deployment-aware waiver, target-base freshness, versioned
+impact, application-chain receipt, repeated-proposal decomposition, and
+campaign bindings are target admission contracts, as are Rules 7–9; their
+route/schema and reason-code implementation remains planned and must not be
+described as built.
+
+## Campaign-grade gate extension (planned)
+
+Campaign-grade promotion evaluates the same direct gate plus these bindings:
+
+1. the campaign admission decision, immutable campaign-contract root,
+   coordinating GoalRun, selected `GoalRunProfile` revision, and exact resolved
+   component snapshot must agree;
+2. the active `EvaluationEpoch` must be frozen, unexpired, unchallenged or
+   explicitly adjudicated, and bound to the same target/incumbent roots;
+3. the candidate must bind one exact predecessor target root, conflict set,
+   immutable candidate root, Attempt ancestry, and confirmatory disposition;
+4. campaign and ancestor resource, statistical-risk, and sealed-evaluation
+   exposure reservations must be valid and unexhausted;
+5. every upward Finding, OutcomeDelta, production observation, or synchronization
+   signal must have `LearningEvidenceEligibility`; institutional-boundary
+   crossings additionally require the applicable `LearningEgressReceipt`;
+6. candidate, evaluator, and controller or agenda successors may not be selected
+   and activated at the same cutoff; an evaluator successor begins in a fresh
+   epoch and never rewrites old verdicts;
+7. the `ImprovementOrderCutoffReceipt` must bind the frozen source roots,
+   eligible and denied evidence classes, target-order edge, destination base
+   root, and previous cutoff root without claiming later evaluation or release;
+8. the promotion bundle must satisfy hard safety, privacy, authority, security,
+   rights, maintainability, monitorability, trace-quality, migration, and
+   target-specific effect-recovery gates;
+9. recursive claim classes additionally require their declared fresh descendant
+   portfolio, transfer, causal-ablation, equal-budget, and reproduction evidence;
+10. approval activates only through the target owner's future scope. A profile
+    successor applies to future daemon-admitted GoalRuns; an evaluator successor
+    applies to a fresh epoch; other targets use their own release or migration
+    cohort.
+
+The planned deterministic failure family includes:
+
+```text
+campaign_binding_mismatch
+evaluation_epoch_not_frozen
+evaluation_epoch_invalid
+target_base_stale
+candidate_conflict_unresolved
+resource_reservation_exhausted
+statistical_risk_budget_exhausted
+evaluation_exposure_exhausted
+learning_evidence_ineligible
+learning_egress_denied
+same_cutoff_mutual_validation
+improvement_order_cutoff_invalid
+hard_constraint_regression
+monitorability_regression
+reproduction_required
+recursive_claim_unsupported
+effect_recovery_posture_missing
+```
+
+These reason codes are target contract only until implemented and tested. The
+daemon must not synthesize campaign truth from a caller-supplied claim or from
+copied receipt fields.
 
 ## Binding
 
@@ -87,22 +184,39 @@ binds `approval_request_ref` / `release_control_ref` — the control must exist 
 automatically. Governance controls targeting the PROPOSAL survive re-simulation; controls
 targeting a specific REPORT bind to exactly that preview.
 
+The same patch route may bind `simulation_waiver_ref`. Bind-time validation
+requires a resolvable ApprovalRequest with the exact proposal subject,
+`improvement_simulation_waiver` request kind, `saved_simulation` requirement,
+proposal kind, and current proposal fingerprint. Apply-time validation then
+requires that request to be approved and carry its approval-transition receipt;
+changing any fingerprint-bearing proposal field invalidates the waiver.
+
 ## Impact semantics
 
-A simulation's `changed` counters isolate the PROPOSAL's counterfactual effect: replay
-compares recompute-with-base vs recompute-with-overlay under today's probed posture
-(ambient drift vs stored projections is reported as `recorded_counts` reference, never
-counted as impact). `high_impact = changed >= 3 || blockers_introduced > 0 ||
-privacy_loosened`; the report's `governance.satisfiable_target_refs` names exactly which
-refs an ApprovalRequest / ReleaseControl may target.
+A simulation's `changed` counters isolate the proposal's counterfactual effect:
+replay compares recompute-with-base versus recompute-with-overlay under the
+current probed posture. Ambient drift versus stored projections is reported as
+`recorded_counts` reference and is not counted as proposal impact.
+
+`ioi.improvement-impact.v1` reports `severity`, changed-scenario and introduced-
+blocker counts, and explicit `authority`, `privacy`, `physical`, `financial`,
+`security`, and `constitutional` dimensions. Any named dimension, three or more
+changed scenarios, or an introduced blocker makes the current assessment high
+impact. Non-object suggestions classify as `unknown` and block. The dimension
+classifier is a deterministic conservative field/value-fragment detector, not
+proof of external-world effect; future classifiers require a version change.
+The report's `governance.satisfiable_target_refs` names exactly which refs an
+ApprovalRequest or ReleaseControl may target.
 
 ## Receipts
 
-Apply mints `receipt://hypervisor/improvement/*` citing `simulation_ref`, `report_hash`,
-`approval_request_ref`, and `release_control_ref`; the Work Ledger record
-family (protocol terminology — the Provenance application renders these
-views) indexes an `improvement_applied` entry carrying and backlinking the
-full chain.
+Apply mints `receipt://hypervisor/improvement/*` citing `simulation_ref`,
+`report_hash`, `simulation_waiver_ref`, `approval_request_ref`, and
+`release_control_ref`. The receipt therefore retains either the saved-
+simulation path or its exact waiver and the applicable governance chain. The
+Work Ledger record family (protocol terminology—the Provenance application
+renders these views) indexes an `improvement_applied` entry carrying and
+backlinking the full chain.
 
 ## Canary release + rollback (learned-policy rollouts)
 

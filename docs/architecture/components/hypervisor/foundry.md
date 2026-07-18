@@ -4,15 +4,20 @@ Status: canonical architecture authority.
 Canonical owner: this file for Hypervisor Foundry as the model, worker, eval,
 training, registry, endpoint, experiment, pipeline, metadata, monitoring,
 simulation-training, interactive-world training, durable training lifecycle,
-artifact packaging, governed promotion, and ontology-aware build surface over
-Hypervisor Core.
+artifact packaging, promotion-bundle construction, and ontology-aware candidate
+and evaluator-asset build surface over Hypervisor Core, including execution of
+admitted experiments. Improvement owns agenda/campaign coordination;
+Evaluations owns epoch judgment, holdout exposure, evaluator validity, and
+re-verification; Governance and the target owner own release decisions.
 Supersedes: product prose that treats Foundry as direct runtime mutation, a
 generic dashboard, only a training UI, or the same concept as ioi.ai goal
 coordination.
 Superseded by: none.
-Last alignment pass: 2026-07-11.
+Last alignment pass: 2026-07-15.
 Doctrine status: canonical
-Implementation status: partial (draft object plane bound to real model-mount substrate, deliberately inert; training/eval execution planned)
+Implementation status: partial (draft object plane bound to real model-mount
+substrate, deliberately inert; training/eval execution and generalized
+campaign-linked optimization remain planned)
 Last implementation audit: 2026-07-05
 
 ## Canonical Definition
@@ -25,6 +30,13 @@ evals, datasets, model routes, endpoints, experiments, persistent training
 pipelines, simulations, conductor advisors, and ontology-aware capability
 packages.
 
+Foundry is the builder and admitted experimental executor. It constructs
+immutable candidate and evaluator assets, packages jobs, submits those jobs to
+daemon-governed execution backends, and returns replayable observations and
+promotion-bundle candidates. It does not own an `ImprovementCampaign`, freeze
+an `EvaluationEpoch`, select the campaign's release candidate, or decide
+activation.
+
 Foundry is closer to an agent/model platform than a chat room. It gives builders
 places to discover models, tune or train candidates, define evals, register
 workers and models, publish endpoints, manage datasets, monitor runs, and turn
@@ -33,12 +45,21 @@ Its central product promise is not "train a model"; it is to industrialize
 capability from data, traces, evals, feedback, policy, and governed work
 evidence.
 
+For enterprise and other institution-owned learning, Foundry operates inside an
+admitted `InstitutionalLearningBoundaryProfile`. The profile is the maximum
+learning-use and destination boundary for the owning scope; each source still
+needs its own eligible use, license, consent, provenance, and route-rights
+evidence. Foundry industrializes the permitted institutional delta. It does not
+turn capture, tenancy, a provider response, or possession of bytes into a right
+to retain, train, distill, publish, or transfer them.
+
 It is not:
 
 ```text
 a runtime beside the daemon
 a chat.ioi.ai coordination surface
 a direct self-modification path
+a campaign, evaluation-epoch, candidate-selection, or release owner
 a wallet or authority layer
 an Agentgres replacement
 a generic notebook product
@@ -62,22 +83,30 @@ Foundry owns product-level projections and workflows for:
 - synthetic-safety quarantine, source-aware audit, candidate-data curation, and
   training-signal eligibility before teacher-generated material enters reusable
   datasets;
+- learning-boundary compatibility projections across source rights, individual
+  `LearningEvidenceEligibilityEnvelope` decisions (including the
+  `training_compatibility` profile), provider/model route rights, intended use,
+  destination scope, custody, retention, export, and revocation;
 - tuning, fine-tuning, distillation, post-training, and training plans;
 - role-specialized candidate training for workers, verifier models, route
   policies, conductor advisors, prompters, adapters, and package revisions;
 - persistent autonomous training pipeline runs from dataset idea to registered
   model;
-- experiment-optimization cycles that iteratively modify training code,
-  recipes, hyperparameters, harnesses, or model-route policy under eval gates;
+- experiment-optimization cycles that iteratively construct candidates for
+  training code, `FoundrySpec` or `RunPlan` revisions, hyperparameters,
+  `GoalRunProfile`, `WorkflowTemplate`, `HarnessProfile`, `SkillManifest`,
+  `RuntimeToolContract` bindings, ModelRoute policy, evaluator assets, or other
+  admitted component targets under independent eval gates;
 - conductor-advisor training, distillation, evals, and promotion proposals for
   ioi.ai or other Hypervisor-built coordinators;
 - artifact conversion, quantization, adapter merge, and model registration
   candidates;
-- batch inference and evaluation runs;
-- eval suites, benchmark gates, scorecards, and verifier candidates;
+- batch inference and execution of admitted evaluation or reproduction jobs;
+- eval-suite, benchmark-gate, scorecard, scorer, world, fixture, and verifier
+  candidates for release and epoch use by Evaluations;
 - executable eval suites, eval worlds, adversarial workflow packs,
   tool-call audits, long-horizon trajectory scorecards, and certification-run
-  candidates for agents, workers, harnesses, model routes, tools, connectors,
+  candidates for agents, Workers, HarnessProfiles, ModelRoutes, tools, connectors,
   MCP profiles, and generated domain apps;
 - interactive worlds, gameplay trajectory datasets, scenario curricula,
   simulator/game/browser/domain-world adapters, spatial-temporal world-model
@@ -89,12 +118,16 @@ Foundry owns product-level projections and workflows for:
   reasons, reviewer judgments, and quality labels into evaluation or training
   candidates;
 - datasets, feature views, distilled ontology datasets, and holdout sets;
-- experiments, pipelines, metadata, work-analytics, tool-analytics, and
-  monitoring views;
-- simulation worlds, digital twins, robotics training environments, and
-  perception/action datasets;
-- embodied capability packages that bind world representations, sensor/action
-  contracts, perception models, action policies, runtime adapters, safety
+- experiments, pipelines, candidate archives, metadata, work-analytics,
+  tool-analytics, and monitoring views subordinate to their owning campaign or
+  direct build job when applicable;
+- backend-neutral scenario/evaluation specifications, simulation worlds,
+  digital twins, robotics training environments, and governed embodied
+  experience datasets;
+- embodied capability packages that bind immutable runtime graphs, resolved
+  world representations, physical-stream and sensor/action contracts,
+  embodiment adapters, perception models, model-neutral action policies,
+  native runtime profiles, optional external adapters, safety/assurance
   envelopes, eval suites, sim-to-real evidence, and promotion proposals;
 - embodied runtime candidates that may be promoted into daemon-governed physical
   runtime only after eval, safety, authority, receipt, and Governance gates;
@@ -114,8 +147,20 @@ Foundry does not own:
 - storage backend payload meaning;
 - live user intent coordination in chat.ioi.ai;
 - ioi.ai goal coordination;
+- `ImprovementAgenda` or `ImprovementCampaign` identity, target/order graph,
+  multi-epoch candidate-selection lineage, synchronization cutoffs, or
+  improvement claims;
+- `EvaluationEpoch` freeze or lifecycle, sealed-holdout custody and exposure
+  accounting, evaluator-validity disposition, or re-verification truth;
+- candidate nomination or selection authority for campaign release. Foundry
+  may rank experiment-local candidates and emit a recommendation under the
+  declared job/epoch policy, but Improvement records the attributable campaign
+  nomination and the target owner retains the decision path;
 - conductor-training consent or training-data authority;
-- Workbench code/systems operation;
+- ownership, license, consent, source rights, or the
+  `InstitutionalLearningBoundaryProfile`; Foundry consumes admitted refs and
+  fails closed when they are absent or incompatible;
+- Developer Workspace code/systems operation;
 - direct publication to aiagent.xyz, sas.xyz, or L1 without policy and receipt
   gates.
 - rollout, rollback, recall, kill-switch, or remote-config truth after a
@@ -140,7 +185,7 @@ Dataset Factory
 Dataset Snapshots
 Teacher Sessions
 Candidate Data Quarantine
-Evaluation
+Evaluation Asset Builder / Runs
 Executable Evals
 Eval Worlds
 Interactive Worlds
@@ -168,7 +213,7 @@ Tool-Call Audits
 Trajectory Scorecards
 Certification Runs
 Packages
-Promotion Queue
+Promotion Bundle Queue
 ```
 
 The exact product labels may vary, but the conceptual split should stay stable:
@@ -178,7 +223,7 @@ Discover
   model catalog, worker/package catalog candidates
 
 Build
-  datasets, recipes, prompts, tool schemas, workers, packages, pipelines,
+  datasets, FoundrySpecs, RunPlans, prompts, tool schemas, workers, packages, pipelines,
   game/simulator adapters, world contracts, scenario curricula
 
 Train / Tune
@@ -188,14 +233,18 @@ Train / Tune
   world-model training, spatial-temporal policy training
 
 Evaluate
-  eval suites, executable eval worlds, benchmark gates, adversarial workflows,
-  tool-call audits, trajectory scorecards, verifier candidates, scorecards,
-  regressions, synthetic-safety quarantine, scenario replay,
-  world-to-runtime transfer gates
+  construct eval-suite/world/scorer/verifier candidates; execute jobs admitted
+  under an EvaluationEpoch or direct evaluation contract; record trajectories,
+  observations, costs, audits, build-specific scorecards, regressions,
+  synthetic-safety quarantine, scenario replay, and transfer-gate candidates;
+  Evaluations owns the judgment contract, exposure, validity, and
+  re-verification posture
 
 Optimize
-  autonomous experiment cycles, training recipe edits, hyperparameter search,
-  model/harness comparisons, accepted-change logs
+  subordinate autonomous experiment cycles, FoundrySpec or RunPlan candidates,
+  component candidates, hyperparameter search, ModelRoute/HarnessProfile
+  comparisons, accepted/rejected/inconclusive attempt lineage; link to the
+  owning campaign and epoch when campaign-coordinated
 
 Deploy / Route
   artifact conversion, package artifacts, model registry, registry versions,
@@ -203,8 +252,8 @@ Deploy / Route
   batch inference
 
 Govern
-  metadata, monitoring, receipts, promotion queue, route binding records,
-  policy and authority checks
+  metadata, monitoring, receipts, promotion-bundle queue and route-binding
+  candidates, policy and authority checks; Governance owns activation decisions
 ```
 
 ## Durable Foundry Object Planes
@@ -220,13 +269,15 @@ The source-neutral plane split is:
 ```text
 Control plane
   FoundrySpec, RunPlan, Run, Trial, retry policy, budget policy,
-  checkpoints, heartbeats, external-job polling, and promotion decisions.
+  checkpoints, heartbeats, external-job polling, and promotion-bundle
+  recommendations.
 
 Data and metadata plane
   DatasetFactory, DatasetSnapshot, candidate data, eval sets, eval worlds,
   interactive worlds, gameplay trajectory datasets, scenario curricula,
   adversarial workflow packs, tool-call audits, trajectory scorecards, traces,
-  cost ledgers, lineage, model cards, world-model candidates,
+  cost ledgers, source-rights and derivative-lineage refs, learning-boundary
+  snapshots, model cards, world-model candidates,
   spatial-temporal policy candidates, and retention policy.
 
 Execution plane
@@ -235,8 +286,9 @@ Execution plane
   conversion jobs, and packaging jobs.
 
 Serving and governance plane
-  registry versions, mutable aliases, route bindings, traffic splits,
-  canaries, rollback targets, approval state, and promotion records.
+  candidate registry versions and route bindings plus projections of target-
+  owner aliases, traffic splits, canaries, rollback targets, approval state,
+  and promotion records.
 ```
 
 Notebooks, scripts, and chats may author or inspect Foundry work, but they are
@@ -251,23 +303,27 @@ separate lineage nodes. Conversion and packaging are governed downstream stages
 after checkpoint freeze, not informal scripts attached to training code.
 
 Autonomous optimizers are advisory and experimental. They propose trials,
-recipe/code/config changes, search-space changes, prompt changes, or package
-candidates; execution backends run; eval gates score; promotion policy decides.
-An optimizer may not directly mutate a registry alias, model route, endpoint,
-approval state, runtime route, or production traffic split.
+FoundrySpec/RunPlan/code/config changes, search-space changes, prompt changes, or package
+candidates; execution backends run; Evaluations or the applicable direct
+evaluation contract supplies judgment; Improvement or the direct change path
+records the attributable nomination; Governance and the target owner decide
+activation. An optimizer may not directly mutate a registry alias, model route,
+endpoint, approval state, runtime route, or production traffic split.
 
 ## Executable Evals And Eval Worlds
 
-Foundry must treat serious agent evaluation as executable environment work, not
-static prompt testing. The durable product lane is **Executable Evals**:
-stateful eval worlds, real or simulated tools, persistent state, long-horizon
-trajectories, outcome-level scoring, tool-call audits, adversarial workflows,
-and replayable evidence.
+Foundry must treat serious agent evaluation assets and jobs as executable
+environment work, not static prompt testing. Its durable builder/executor lane
+is **Executable Evals**: stateful eval worlds, real or simulated tools,
+persistent state, long-horizon trajectories, outcome scorers, tool-call audits,
+adversarial workflows, and replayable execution evidence.
 
 Executable Evals are a Foundry workflow/facet, not a new top-level application
-surface. They are built and scored in Foundry, run on Hypervisor Environments,
-observed in Missions and Operations, proven in Provenance, and admitted into release or
-certification posture through Governance and Ecosystem Assurance.
+surface. Their assets and jobs are built and packaged in Foundry, run through
+Hypervisor Environments and the daemon, observed in Work and Operations, and
+proven in Provenance. Evaluations freezes the judgment contract and maintains
+holdout exposure, evaluator validity, and re-verification; Governance and
+Ecosystem Assurance admit release or certification posture.
 
 Canonical flow:
 
@@ -280,26 +336,49 @@ capability under test
   -> executable environment admission
      provider placement, isolation, authority, budget, privacy, receipt policy
   -> trajectory run
-     model/worker/harness/tool calls over time, including retries and recovery
+     model/Worker/HarnessInvocation/tool calls over time, including retries and recovery
   -> tool-call audit
      allowed/blocked calls, side effects, policy decisions, authority refs
-  -> outcome scoring
+  -> outcome-scoring observations under the admitted epoch/contract
      task success, process quality, safety/policy, groundedness, cost, latency,
      robustness, calibration, abstention, and recovery behavior
   -> replay/proof bundle
      logs, artifacts, receipts, state roots, trace spans, redaction/export policy
-  -> scorecard / regression record / certification-run candidate
-  -> promotion, rollback, recall, marketplace posture, or continued review
+  -> Foundry scorecard candidate / regression record / certification-run candidate
+  -> Evaluations judgment and validity posture
+  -> Governance promotion, rollback, recall, marketplace posture, or continued review
 ```
 
 An EvalWorld may be a local sandbox, VM, microVM, browser/computer-use world,
 simulated SaaS tenant, synthetic database, generated Domain App, robot simulator,
 tool server, MCP gateway profile, connector fixture, or external test service.
-The world is an admitted environment recipe plus seeded state and scoring
-contracts. Provider telemetry and tool logs are evidence; Agentgres-admitted
+The world is an admitted `HypervisorDevelopmentEnvironmentRecipe` revision plus
+seeded state and scoring contracts. Provider telemetry and tool logs are evidence; Agentgres-admitted
 operations, object heads, and state roots define domain operational truth.
 Receipts bind their declared boundary facts and assurance evidence; they do not
 make an evaluation correct or accepted by themselves.
+
+## Model-Swap Continuity
+
+Foundry and Evaluations should expose a model-independence test over existing
+route, eval, scorecard, promotion, and receipt objects. This is a comparison and
+continuity proof, not a second authority object and not a claim that two models
+are universally equivalent.
+
+A serious continuity run freezes the owning system's ontology refs, policy and
+learning-boundary revision, Agentgres state root, policy-filtered memory
+projection, worker/package revision, tool contracts, eval suites, and accepted
+quality/safety/cost/latency floors. It evaluates the incumbent and candidate,
+then disables the incumbent route—including provider-native threads, vector
+stores, hidden session state, and provider-only durable memory—and reruns using
+only admitted institution-owned state. A passing candidate proceeds through
+ordinary shadow/canary, promotion, rollback, and Governance gates.
+
+The resulting report binds the frozen snapshot, incumbent and candidate route
+contracts, executable-eval receipts, scorecards, observed deltas, canary and
+rollback refs, and any incompatibilities. It proves continuity only for the
+declared task/eval envelope. Provider availability, a matching model name, or a
+single benchmark score is not model independence.
 
 Executable Evals should cover:
 
@@ -310,7 +389,7 @@ tool-call correctness and denial behavior
 long-horizon planning and recovery
 persistent-state mutation and rollback
 browser/computer-use workflows
-multi-agent and multi-harness comparisons
+multi-agent and multi-HarnessProfile or multi-HarnessInvocation comparisons
 private-mode and provider-trust boundaries
 budget, latency, capacity, and quota failure modes
 domain ontology/action correctness
@@ -365,14 +444,15 @@ interactive world or simulator adapter
   -> software, browser, domain-app, or embodied runtime promotion proposal
 ```
 
-Foundry owns the build/eval/training objects. Environments runs the world
-instances and keeps provider/runtime placement honest. Provenance records
-trajectories, replay, proof, and scorecards. Operations tracks long-running
-world jobs and capacity. Governance admits transfer, rollout, recall, and
-certification posture. ODK may generate scenario contracts and world schemas
-from ontology/data recipes. Live physical deployment still belongs to
-Hypervisor Daemon, Embodied Runtime, Physical Action Safety, and authority
-gates.
+Foundry owns build/training assets and admitted experiment/evaluation execution
+objects. Evaluations owns released suite revisions, frozen epoch judgment,
+exposure, challenges, and validity. Environments runs the world instances and
+keeps provider/runtime placement honest. Provenance records trajectories,
+replay, proof, and scorecards. Operations tracks long-running world jobs and
+capacity. Governance admits transfer, rollout, recall, and certification
+posture. ODK may generate scenario contracts and world schemas from
+ontology/data recipes. Live physical deployment still belongs to Hypervisor
+Daemon, Embodied Runtime, Physical Action Safety, and authority gates.
 
 The anti-pattern this boundary prevents is:
 
@@ -388,30 +468,32 @@ deployment still requires executable evals, transfer gates, safety envelopes,
 authority refs, receipts, release controls, and runtime-specific validation
 ```
 
-## Capability Improvement Loop
+## Capability-Building Role In Improvement
 
-Foundry is the product surface for turning observed autonomous work into better
-capability. It should make the improvement loop explicit without giving Foundry
-runtime authority:
+Foundry turns policy-eligible observed work into candidate reusable capability.
+It should make its build/execution role explicit without giving Foundry
+campaign, judgment, selection, runtime, or release authority:
 
 ```text
 sessions, receipts, traces, work analytics, tool analytics, feedback,
   corrections, rollout outcomes, and failures
-  -> examples, holdouts, and failure clusters
-  -> datasets, eval suites, scorecards, and simulations
-  -> prompts, tools, model routes, conductor advisors, workers, data recipes,
-     or package changes
-  -> offline, simulation, shadow, canary, and online gates
-  -> CapabilityRegressionRecord when any accepted or candidate capability
-     regresses safety, privacy, cost, authority, latency, reliability, or a
-     holdout
-  -> promotion, rollback, or continued review
+  -> eligible examples, datasets, evaluation-asset candidates, and failure clusters
+  -> Foundry builds immutable model, worker, route, profile, tool, data-recipe,
+     evaluator, or package candidates and executes admitted experiments
+  -> Evaluations supplies frozen independent judgment and validity posture
+  -> Improvement campaign or direct change path records candidate nomination
+  -> Governance and target owner activate, reject, continue, or recover
 ```
 
-This loop is the product path from work evidence to reusable capability.
+This is the product path from work evidence to reusable capability. A direct
+`UpgradeProposal` remains sufficient for a one-shot change. An
+`ImprovementCampaign` is optional domain state for adaptive or multi-epoch work;
+when present, Foundry jobs bind its campaign and evaluation-epoch refs but do
+not absorb either lifecycle.
+
 Promotions still require the appropriate daemon, authority refs when delegated
-power is involved, Agentgres, policy, receipt, Governance release/change
-controls, and marketplace gates.
+power is involved, Agentgres, independent evaluation, policy, receipts,
+Governance release/change controls, and marketplace gates.
 
 The compounding loop should remain visible in product and architecture:
 
@@ -419,9 +501,11 @@ The compounding loop should remain visible in product and architecture:
 governed work happens
   -> receipts, artifacts, traces, work analytics, feedback, evals, and failures accumulate
   -> Foundry mines reusable improvement candidates
-  -> Foundry builds, evaluates, trains, converts, packages, or promotes capability
+  -> Foundry builds, experiments, trains, converts, and packages candidates
+  -> Evaluations judges; Improvement or the direct path nominates;
+     Governance promotes or rejects
   -> aiagent.xyz or private catalogs attribute external supply when applicable
-  -> future work routes through better workers, models, tools, recipes, and evals
+  -> future work routes through better workers, models, tools, typed pursuit/workflow configurations, and evals
 ```
 
 Foundry may train or distill a conductor advisor from eligible synthetic,
@@ -510,7 +594,7 @@ verifier
 
 route policy
   learns cost, latency, privacy, context, authority, and quality tradeoffs over
-  model routes, workers, tools, and harnesses
+  ModelRoutes, Workers, tools, and HarnessProfiles
 
 conductor advisor
   learns decomposition, worker selection, context sharing, retry/compare
@@ -694,38 +778,69 @@ fake execution.
 
 ## Autonomous Experiment Optimizer
 
-Foundry may run an autonomous experiment optimizer for training and capability
-improvement. The optimizer is a governed worker or coordinator that proposes
-recipe/code/config changes, runs experiments, compares objective metrics, keeps
-only accepted improvements, and emits replayable evidence.
+Foundry may run an autonomous experiment optimizer as a subordinate execution
+profile for training or other admitted component targets. The optimizer is a
+governed worker or coordinator that proposes immutable candidate changes,
+runs bounded experiments, compares declared metrics and guardrails, preserves
+accepted, rejected, inconclusive, and exploit results, and emits replayable
+evidence.
+
+An optimization cycle may stand alone under a direct build/evaluation contract
+or bind an `ImprovementCampaign` and one frozen `EvaluationEpoch`. In the latter
+case the campaign owns multi-epoch target/candidate/synchronization lineage and
+Evaluations owns judgment. The cycle remains an executor profile; it does not
+become the campaign database or epoch truth.
 
 Canonical loop:
 
 ```text
-baseline training recipe and objective metric
-  -> propose code/config/hyperparameter/harness/model-route candidate
+immutable target and baseline revision plus declared objective/guardrails
+  -> optionally bind ImprovementCampaign and EvaluationEpoch
+  -> propose code/config/hyperparameter/profile/route/evaluator-asset candidate
   -> run bounded experiment under budget, seed, privacy, and compute policy
-  -> evaluate objective metric and guardrails
-  -> accept, reject, or queue for human review
-  -> update best-known recipe candidate
+  -> return immutable observations under the admitted judgment contract
+  -> classify accepted, rejected, inconclusive, exploit, or human review
+  -> update only the experiment-local best/archive projection
   -> repeat until budget, time, improvement, or policy stop condition
+  -> emit candidate and promotion-bundle recommendation, never activation
 ```
 
 The objective may be loss, bits-per-byte, benchmark score, validation accuracy,
 agent success rate, cost-adjusted quality, latency, verifier pass rate, or a
-domain-specific metric. The optimizer can orchestrate multiple models or
-workers as planners, executors, judges, verifiers, and code editors, but it
-does not become runtime truth. Accepted changes are candidate artifacts until
-they pass Foundry scorecards, Agentgres admission, authority checks, and
-promotion/rollback gates.
+domain-specific metric. The target may be a training pipeline, `FoundrySpec`,
+`RunPlan`, model, Worker, `GoalRunProfile`, `WorkflowTemplate`,
+`HarnessProfile`, `SkillManifest`, `RuntimeToolContract` binding, ModelRoute,
+evaluator asset, or another explicitly admitted component. The optimizer can
+orchestrate multiple models or workers as planners, executors, and code editors;
+any judge or verifier it invokes remains subject to the independent evaluation
+contract and cannot silently select itself or the controller that chose it.
+
+Accepted changes remain candidate artifacts until the applicable Evaluations,
+Agentgres, authority, proposal, and promotion/recovery gates pass. An
+experiment-local `best_candidate_ref` is a convenience projection under the
+declared objective. It is neither the campaign nomination nor production
+selection authority.
 
 The optimizer may not accept a single objective improvement when declared
 guardrails regress. Mixed results produce a regression record, shadow-more
-decision, rejection, or human-review queue. If the regression is discovered
+recommendation, rejection, or human-review queue. If the regression is discovered
 after canary or production exposure, Governance release/change controls own
 pause, rollback, recall, constraint, or patched-retry posture; Foundry receives the admitted
 regression evidence as future eval or training material only after training
 evidence eligibility permits that reuse.
+
+The cycle does not mandate one search algorithm or winner-only archive.
+Hyperparameter search, evolutionary search, quality-diversity methods, bandits,
+Bayesian optimization, exhaustive comparison, or human-directed trials are
+versioned policies selected for the work. Architecture requires declared
+policy, immutable attempts, bounded resources, independent judgment, and honest
+handoffs.
+
+A non-Foundry target does not become Foundry state merely because a Foundry job
+constructed or tested its candidate. The cycle emits the target owner's typed
+patch candidate and evidence refs. Improvement or the direct change path then
+hands that candidate to the existing owner-specific admission, packaging,
+activation, and effect-recovery contract.
 
 ## Pattern And Example Supply
 
@@ -790,7 +905,8 @@ contracts.
 
 Foundry is the home for embodied model-building and simulation-training
 workflows. ioi.ai may request or summarize this work, and aiagent may package
-the resulting worker, but Foundry owns the build/eval lane.
+the resulting worker, but Foundry owns asset construction and admitted
+experiment execution while Evaluations owns released judgment contracts.
 
 Interactive-world and gameplay trajectories may feed embodied candidates by
 teaching spatial-temporal priors, navigation, coordination, affordance
@@ -801,18 +917,22 @@ safety envelopes, authority refs when delegated power is involved, receipts,
 and Governance release controls.
 
 The endpoint is a governed `EmbodiedCapabilityPackage`, not merely a trained
-vision-language model. The package is the center of the architecture: Foundry
-produces it, Hypervisor Daemon executes it, Embodied Runtime binds it to a
-physical domain, Physical Action Safety constrains it, wallet.network
+vision-language model. The package is the promotion unit of this Foundry
+pipeline: Foundry produces it, Hypervisor Daemon admits its use, the native Embodied Runtime
+compiles and executes its admitted graph and binds it to a physical domain,
+Physical Action Safety constrains it, wallet.network
 authorizes its mission scope and spend when delegated authority is required,
 Agentgres records its state and receipts, and Governance promotes or recalls
 its route.
 
 A VLM may be one component for perception, grounding, explanation, planning, or
-success/failure judgment. Runtime-capable embodied work also needs action
-policies, runtime adapters, embodiment adapters, sensor/action/world contracts,
-time synchronization, calibration, safety envelopes, eval suites, sim-to-real
-evidence, and promotion routes.
+success/failure judgment. Runtime-capable embodied work also needs an immutable
+runtime-graph manifest, model-neutral action-policy contracts, embodiment
+adapters, physical-stream and sensor/action/world contracts, time
+synchronization, calibration, safety envelopes, eval suites, sim-to-real
+evidence, and promotion routes. External robot stacks, transports, simulators,
+and accelerator formats are optional adapters or backends; the candidate must
+remain executable by the native IOI runtime profile it declares.
 
 Foundry may manage:
 
@@ -827,6 +947,7 @@ Gaussian splats and neural scene representations
 semantic scene graphs, meshes, occupancy maps, collision proxies, and physics proxies
 robotics task curricula
 demonstration, teleoperation, actuator, and sensor-evidence datasets
+autonomous rollouts, human interventions, corrections, and recovery segments
 teacher label sets, reward proposals, subgoal graphs, and success detectors
 VLM / perception model candidates
 VLA, visuomotor, diffusion/flow action-policy, or controller-adapter candidates
@@ -834,7 +955,7 @@ verifier, safety-case, route-policy, and failure-detector candidates
 policy training runs
 perception model training
 navigation and manipulation eval worlds
-safety-case eval suites
+safety-case, runtime-assurance, timing, and fault-injection eval suites
 hardware-in-the-loop and shadow-mode evals
 sim-to-real validation reports
 ```
@@ -849,20 +970,23 @@ demonstrations, sensor receipts, actuator logs, telemetry, world captures,
      (camera, depth, LiDAR, IMU, force/torque, tactile, proprioception,
       controller state, command status, e-stop, and operator events)
   -> normalized episode datasets
-     (episode/step semantics, camera metadata, modality schema, labels,
-      rewards, success/failure annotations, and split manifests)
+     (episode/step semantics, embodiment and calibration revisions,
+      observation/proposed-action/executed-action lineage, intervention and
+      recovery intervals, camera metadata, modality schema, labels, rewards,
+      success/failure annotations, rights/eligibility, and split manifests)
   -> teacher label set
      (plans, subgoals, object grounding, affordances, reward proposals,
       trace summaries, success labels, failure reasons, all with validation)
   -> world representation bundle
      (splat / mesh / point cloud / occupancy / scene graph / collision proxy)
-  -> perception, action-policy, verifier, and runtime-adapter candidates
-  -> closed-loop simulation eval
+  -> perception, model-neutral action-policy, verifier, and native runtime-graph candidates
+  -> deterministic physical replay
+  -> randomized closed-loop simulation eval
   -> software-in-the-loop eval
   -> hardware-in-the-loop or shadow-mode eval
   -> canary task battery by physical risk tier
   -> safety-case scorecard and sim-to-real report
-  -> EmbodiedCapabilityPackage
+  -> immutable EmbodiedRuntimeGraphManifest plus EmbodiedCapabilityPackage
   -> FoundryEmbodiedRuntimeCandidate
   -> Governance promotion proposal
   -> Hypervisor Daemon + Embodied Runtime + Physical Action Safety for live use
@@ -874,6 +998,27 @@ not be assumed to sit in the high-frequency actuator loop. Low-latency
 perception-action inference should be carried by an appropriate VLA, visuomotor
 policy, action expert, controller adapter, deterministic controller, or hybrid
 stack admitted by the daemon.
+
+Foundry owns a backend-neutral scenario and evaluation contract, not a new
+mandatory physics engine. A frozen embodied scenario separately binds the
+world/scene manifest; physics engine, renderer, timestep, solver, and versions;
+observation and sensor models; embodiment and action adapters; event, reset,
+fault-injection, and randomization policies; reward/rubric and independent
+success detectors; termination and timeout; recorder; seeds; concurrency; and
+holdout partition. Isaac, MuJoCo, Drake, Gazebo, replay, or another backend may
+realize that contract. Contract parity across replay, simulation,
+software-in-loop, hardware-in-loop, shadow, and live execution is required;
+identical physical behavior is never presumed, and simulated effects remain in
+a distinct provenance and authority domain.
+
+Embodied collection must distinguish human demonstration, scripted behavior,
+simulation, autonomous rollout, intervention, correction, and recovery. Every
+episode binds its embodiment adapter, calibration, action representation,
+controller and policy versions, timing quality, outcome evidence, and learning
+eligibility. A correction is institutional learning material rather than
+incidental exhaust, but it is not automatically training-eligible; rights,
+consent, confidentiality, retention, and the Institutional Learning Boundary
+still govern its use.
 
 Teacher output is weak supervision until validated. A teacher-generated success
 label should be corroborated by measurable end-state change, geometry
@@ -888,7 +1033,9 @@ execution requires:
 
 ```text
 Hypervisor Daemon admission
-PhysicalActionSafetyEnvelope
+EmbodiedRuntimeGraphManifest and EmbodiedGraphActivationTransaction
+LocalControlSupervisor readiness
+SafetyEnvelope
 HumanSupervisionPolicy
 EmergencyStopAuthority
 SensorEvidenceReceipt
@@ -934,7 +1081,7 @@ Foundry supports ioi.ai collaborative outcomes by providing:
 
 - eval suites;
 - benchmark gates;
-- model and harness comparison views;
+- ModelRoute and HarnessProfile comparison views;
 - conductor-advisor candidates;
 - scorecards;
 - failure mining;
@@ -949,17 +1096,33 @@ ioi.ai coordinates the user-facing pursuit. Foundry builds the engines, tracks
 the benchmarks, and turns eligible evaluated lessons into reusable capability.
 No room message, finding, score, or contribution promotes itself.
 
-## Relationship To Workbench And Automations
+## Relationship To Developer Workspace, Automations, And Packages
 
 ```text
-Workbench
+Developer Workspace
   builds, edits, debugs, and operates systems and workspaces
 
 Automations
-  owns durable workflows, triggers, schedules, services, and missions
+  owns durable workflows, triggers, schedules, and services
 
 Foundry
-  owns model/worker/eval/training/package build and improvement workflows
+  owns model/worker/evaluator/training/package candidate construction and
+  admitted experimental execution
+
+Evaluations
+  owns frozen judgment, holdout exposure, evaluator validity, and
+  re-verification
+
+Improvement
+  owns optional agenda/campaign coordination, candidate nomination, and typed
+  change handoff
+
+Governance and target owner
+  own activation and effect-recovery decisions
+
+Packages
+  owns admitted reusable releases, installs, versions, recall, and impact;
+  Marketplace is an optional discovery and commerce mode
 ```
 
 Canvas may appear inside Foundry for pipeline, eval, dataset, or package graphs.
@@ -1021,6 +1184,12 @@ FoundryJobRequest:
     world_to_runtime_transfer_gate
   source_refs:
     - artifact://...
+  institutional_learning_boundary_profile_ref:
+    learning-boundary://...
+  training_evidence_eligibility_refs:
+    - eligibility://...
+  source_rights_refs:
+    - rights://... | license://... | consent://... | policy://...
   ontology_refs:
     - ontology://...
   input_dataset_refs:
@@ -1065,18 +1234,28 @@ FoundrySpec:
 
 FoundryDatasetSnapshot:
   dataset_snapshot_id: dataset_snapshot://...
-  dataset_factory_ref: foundry_job://... | recipe://...
+  dataset_factory_ref: foundry_job://... | null
+  data_recipe_revision_ref: data-recipe://.../revision/... | null
+  data_recipe_content_hash: hash | null
   dataset_refs:
     - dataset://...
   content_manifest_ref: artifact://...
   split_manifest_ref: artifact://...
   source_version_refs:
     - artifact://... | connector://... | view://... | receipt://...
+  institutional_learning_boundary_profile_ref:
+    learning-boundary://...
+  training_evidence_eligibility_refs:
+    - eligibility://...
+  source_rights_refs:
+    - rights://... | license://... | consent://... | policy://...
   slice_definitions_ref: optional artifact://...
   filtering_rules_ref: optional policy://... | artifact://...
   retention_policy_ref: policy://...
   lineage_refs:
     - receipt://... | transform://...
+  derivative_constraint_refs:
+    - policy://... | rights://... | revocation://...
   snapshot_hash: hash
   status:
     materialized | retained | deprecated | revoked
@@ -1220,7 +1399,8 @@ FoundryExecutableEvalSuite:
   eval_suite_id: executable_eval_suite://...
   foundry_job_ref: foundry_job://...
   capability_refs:
-    - model://... | worker://... | harness://... | model_route://... |
+    - model://... | worker://... | harness-profile://... |
+      agent-harness-adapter://... | model_route://... |
       tool://... | mcp://... | package://...
   eval_world_refs:
     - eval_world://...
@@ -1238,7 +1418,8 @@ FoundryExecutableEvalSuite:
 
 FoundryEvalWorld:
   eval_world_id: eval_world://...
-  environment_recipe_ref: recipe://...
+  development_environment_recipe_ref: development-environment-recipe://.../revision/...
+  development_environment_recipe_content_hash: hash
   seeded_state_refs:
     - artifact://... | dataset_snapshot://... | domain_app://...
   tool_contract_refs:
@@ -1331,10 +1512,21 @@ FoundryInteractiveWorld:
   world_kind:
     game | simulator | browser_world | domain_app_world |
     robotics_sim | synthetic_world | custom
-  environment_recipe_ref: recipe://...
+  world_representation_manifest_ref: world-representation-manifest://...
+  resolved_world_representation_hash: hash
+  physics_and_render_profile_ref: artifact://...
+  development_environment_recipe_ref: development-environment-recipe://.../revision/...
+  development_environment_recipe_content_hash: hash
   observation_schema_ref: schema://...
   action_schema_ref: schema://...
+  embodiment_adapter_ref: embodiment_adapter://... | null
+  event_reset_and_fault_injection_ref: policy://...
+  recorder_contract_ref: schema://...
+  seed_manifest_ref: artifact://...
   reward_or_rubric_ref: rubric://... | reward://...
+  success_detector_refs:
+    - success_detector://...
+  termination_and_timeout_ref: policy://...
   state_snapshot_refs:
     - artifact://...
   domain_ontology_refs:
@@ -1376,6 +1568,11 @@ FoundryScenarioCurriculum:
     - artifact://...
   difficulty_policy_ref: policy://...
   perturbation_policy_ref: optional policy://...
+  randomization_distribution_ref: artifact://... | null
+  sensor_actuator_network_fault_policy_ref: policy://... | null
+  seed_manifest_ref: artifact://...
+  reset_contract_ref: schema://...
+  recorder_contract_ref: schema://...
   objective_refs:
     - gate://... | rubric://... | reward://...
   status:
@@ -1420,10 +1617,17 @@ FoundrySimWorldAdapter:
     game | simulator | browser_world | domain_app_world |
     robotics_sim | synthetic_world | custom
   runtime_binding_ref: runtime://... | service://... | environment://...
+  backend_name_and_version: string
+  physics_renderer_solver_profile_ref: artifact://...
+  world_representation_manifest_ref: world-representation-manifest://...
   observation_schema_ref: schema://...
   action_schema_ref: schema://...
+  embodiment_adapter_ref: embodiment_adapter://... | null
   reset_contract_ref: schema://...
+  fault_injection_contract_ref: schema://...
   instrumentation_contract_ref: schema://...
+  deterministic_replay_posture:
+    deterministic | seeded_best_effort | nondeterministic_declared
   receipt_policy_ref: policy://...
   status:
     draft | validated | active | deprecated | revoked
@@ -1507,7 +1711,7 @@ FoundryDatasetFactoryRun:
   source_refs:
     - artifact://... | connector://... | view://...
   data_recipe_refs:
-    - recipe://...
+    - data-recipe://.../revision/...
   ontology_refs:
     - ontology://...
   stages:
@@ -1540,8 +1744,10 @@ FoundryTrainingStackBlueprint:
     - model://... | model_route://...
   trainer_backend_profile_refs:
     - trainer_backend://...
-  dataset_factory_refs:
-    - run://dataset_factory/... | recipe://...
+  dataset_factory_run_refs:
+    - run://dataset_factory/...
+  data_recipe_refs:
+    - data-recipe://.../revision/...
   dataset_snapshot_refs:
     - dataset_snapshot://... | dataset://...
   verifier_environment_set_refs:
@@ -1632,6 +1838,12 @@ FoundryTrainingPipelineRun:
   last_heartbeat_ref: receipt://...
   training_evidence_eligibility_refs:
     - eligibility://...
+  institutional_learning_boundary_profile_ref:
+    learning-boundary://...
+  source_rights_refs:
+    - rights://... | license://... | consent://... | policy://...
+  derivative_constraint_refs:
+    - policy://... | rights://... | revocation://...
   training_data_posture:
     synthetic_only | redacted_opt_in | full_private_opt_in | org_policy
   model_base_refs:
@@ -1672,24 +1884,45 @@ FoundryTrainingPipelineRun:
 FoundryExperimentOptimizationCycle:
   optimization_cycle_id: optcycle://...
   foundry_job_ref: foundry_job://...
-  target_training_pipeline_ref: trainpipe://...
+  improvement_campaign_ref: improvement-campaign://... | null
+  evaluation_epoch_ref: evaluation-epoch://... | null
+  coordinating_goal_run_ref: goal://... | null
+  target_ref: string
+  target_class:
+    training_pipeline | foundry_spec | run_plan | model | worker |
+    goal_run_profile | workflow_template | harness_profile | skill_manifest |
+    runtime_tool_contract_binding | model_route | evaluator_asset |
+    other_admitted_component
+  target_owner_ref: string
+  baseline_target_ref: string
+  baseline_target_root: hash
+  resolved_component_snapshot_ref: artifact://...
   optimizer_ref:
     worker://... | conductor://... | runtime://...
-  objective_metric:
-    name: string
-    direction: minimize | maximize
-  baseline_recipe_ref: artifact://...
+  search_policy_ref: policy://...
+  objective_and_guardrail_policy_ref: policy://...
+  randomness_and_repetition_policy_ref: policy://...
+  resource_normalization_ref: policy://... | budget://...
   best_candidate_ref: artifact://...
+  candidate_archive_projection_ref: artifact://...
   trial_refs:
     - experiment_trial://...
   accepted_change_refs:
     - artifact://...
   rejected_change_refs:
     - artifact://...
+  inconclusive_change_refs:
+    - artifact://...
+  exploit_or_invalid_change_refs:
+    - artifact://...
+  evaluation_result_refs:
+    - finding://... | scorecard://... | receipt://...
+  typed_patch_candidate_ref: artifact://... | proposal://... | null
+  promotion_bundle_candidate_ref: promotion_bundle://... | null
   stop_policy_ref: policy://...
   budget_policy_ref: policy://...
   status:
-    planned | running | stopped | promoted_to_review | failed | rejected
+    planned | running | stopped | proposed_for_review | failed | rejected
 
 FoundryArtifactConversionRun:
   conversion_run_id: conversion://...
@@ -1711,7 +1944,9 @@ FoundryScorecard:
   scorecard_id: foundry_scorecard:...
   job_ref: foundry_job:...
   candidate_refs:
-    - model://... | worker://... | model_route://... | conductor://...
+    - model://... | worker://... | model_route://... | conductor://... |
+      goal-run-profile://... | workflow-template://... | harness-profile://... |
+      skill-manifest://... | runtime-tool-contract://... | artifact://...
   rubric_version_ref: rubric://...
   verifier_version_refs:
     - worker://... | model://... | gate://...
@@ -1732,7 +1967,7 @@ FoundryScorecard:
   cost_summary_ref: cost://...
   risk_labels:
     - risk:...
-  promotion_verdict:
+  promotion_recommendation:
     promote | hold | reject | needs_review
 
 FoundryPromotionBundle:
@@ -1742,6 +1977,14 @@ FoundryPromotionBundle:
   parent_artifact_ref: optional artifact://... | model://... | worker://...
   dataset_digest_refs:
     - dataset://... | hash
+  institutional_learning_boundary_profile_ref:
+    learning-boundary://...
+  training_evidence_eligibility_refs:
+    - eligibility://...
+  source_rights_refs:
+    - rights://... | license://... | consent://... | policy://...
+  derivative_lineage_root: hash
+  revocation_impact_ref: impact_graph://... | null
   teacher_session_refs:
     - teacher_session://...
   verifier_version_refs:
@@ -1753,9 +1996,12 @@ FoundryPromotionBundle:
   monitoring_policy_ref: policy://...
   deployment_tier: local | shadow | canary | production | marketplace
   rollback_target_ref: artifact://... | model://... | worker://... | package://...
+  upgrade_proposal_ref: proposal://... | null
+  target_owner_decision_ref: decision://... | null
   receipt_root: hash
-  status:
-    draft | frozen | proposed | approved | rejected | rolled_back | recalled
+  handoff_status:
+    draft | frozen | proposed | target_owner_approved | rejected |
+    activated | rolled_back | recalled
 
 FoundryConductorAdvisorCandidate:
   candidate_id: conductor://...
@@ -1790,84 +2036,26 @@ FoundryConductorAdvisorCandidate:
     rolled_back | recalled
   rollback_ref: optional
 
-EmbodiedCapabilityPackage:
-  package_ref: package://...
-  foundry_job_ref: foundry_job://...
-  capability_spec_ref: capability_spec://...
-  robot_embodiment_refs:
-    - embodiment://...
-  embodiment_adapter_refs:
-    - embodiment_adapter://...
-  sensor_contract_ref: sensor_contract://...
-  action_schema_ref: action_schema://...
-  world_contract_ref: world_contract://...
-  world_representation_refs:
-    - world_representation://... | artifact://...
-  world_model_refs:
-    - world_model://...
-  raw_robot_log_refs:
-    - robot_log://... | artifact://...
-  episode_dataset_refs:
-    - episode_dataset://... | dataset_snapshot://...
-  teacher_label_set_refs:
-    - teacher_label_set://...
-  perception_model_refs:
-    - model://...
-  action_policy_refs:
-    - model://... | worker://... | artifact://...
-  verifier_refs:
-    - model://... | worker://... | gate://...
-  success_detector_refs:
-    - success_detector://... | model://... | worker://...
-  runtime_adapter_ref: worker://...
-  calibration_refs:
-    - calibration://...
-  time_sync_contract_ref: time_sync://...
-  physical_action_safety_envelope_ref: policy://... | safety://...
-  human_supervision_policy_ref: supervision://...
-  emergency_stop_authority_ref: estop://...
-  eval_suite_refs:
-    - gate://... | benchmark://...
-  offline_eval_report_ref: optional artifact://... | report://...
-  software_in_loop_report_ref: optional artifact://... | report://...
-  hardware_in_loop_report_ref: optional artifact://... | report://...
-  shadow_mode_report_ref: optional artifact://... | report://...
-  canary_task_battery_ref: optional gate://... | artifact://...
-  sim_to_real_report_ref: artifact://... | report://...
-  scorecard_ref: foundry_scorecard:...
-  promotion_proposal_ref: proposal://...
-  receipt_root: hash
-
-FoundryEmbodiedRuntimeCandidate:
-  candidate_id: embodied_candidate://...
-  source_training_pipeline_ref: trainpipe://...
-  embodied_capability_package_ref: package://...
-  intended_runtime:
-    hypervisor_daemon | partner_robot_runtime | simulator_only
-  robot_embodiment_refs:
-    - embodiment://...
-  embodiment_adapter_refs:
-    - embodiment_adapter://...
-  sensor_contract_ref: sensor_contract://...
-  action_schema_ref: action_schema://...
-  world_contract_ref: world_contract://...
-  runtime_adapter_ref: worker://...
-  time_sync_contract_ref: time_sync://...
-  calibration_refs:
-    - calibration://...
-  physical_action_safety_envelope_ref: policy://... | safety://...
-  human_supervision_policy_ref: supervision://...
-  emergency_stop_authority_ref: estop://...
-  eval_suite_refs:
-    - gate://... | benchmark://...
-  sim_to_real_validation_report_ref: artifact://... | report://...
-  shadow_mode_refs:
-    - run://...
-  canary_task_battery_ref: optional gate://... | artifact://...
-  scorecard_ref: foundry_scorecard:...
-  promotion_status:
-    draft | eval | shadow | gated | proposed | rejected | promoted
 ```
+
+The single canonical field-level wire shapes are
+[`EmbodiedCapabilityPackageEnvelope`](../../foundations/common-objects-and-envelopes.md#embodiedcapabilitypackageenvelope)
+and
+[`FoundryEmbodiedRuntimeCandidateEnvelope`](../../foundations/common-objects-and-envelopes.md#foundryembodiedruntimecandidateenvelope).
+Foundry owns how eligible data, experiments, evaluation evidence, scorecards,
+and promotion proposals build those objects; it does not redefine their runtime
+bindings or lifecycle here.
+
+The package hash-binds every executable graph and its profile set, embodiment,
+stream/sensor/action/world contracts, adapters, policies, success detectors,
+calibration, evidence, safety/assurance requirements, and provenance. Typed
+episode/eval refs preserve demonstration, autonomous, intervention, correction,
+recovery, and failure lineage without inventing a second package schema. A
+runtime candidate selects exactly one `native`, `external`, `simulator`, or
+`replay` binding branch. Native profiles are non-empty only for `native`;
+external, simulator, and replay branches bind their exact adapter or replay
+artifact and hashes. Simulation or replay cannot promote directly into physical
+activation.
 
 ## Conformance Checks
 
@@ -1880,6 +2068,21 @@ FoundryEmbodiedRuntimeCandidate:
   storage backends only as byte stores.
 - Training and tuning must produce receipts, cost ledgers, input/output refs,
   and quality-gate evidence.
+- Every Foundry job, immutable dataset snapshot, artifact lineage, and promotion
+  bundle must bind the effective `InstitutionalLearningBoundaryProfile`, the
+  individual eligibility decisions for every governed input, and the
+  applicable source, teacher, model-output, license, consent, retention, and
+  destination rights. The effective permission is their most restrictive
+  intersection; neither a broad organization profile nor one permissive source
+  widens another input.
+- Derivative artifacts inherit transitive source and teacher constraints.
+  Revocation or expiry creates an impact decision for affected datasets,
+  checkpoints, adapters, models, workers, packages, routes, exports, and
+  promotion records. Foundry may block future use, quarantine, recall, retrain
+  from an eligible corpus, or require re-evaluation. It may claim verified
+  unlearning only when an admitted unlearning method and verifier establish the
+  declared property; deletion, route disablement, retraining, or a receipt alone
+  is not proof that a model forgot a source.
 - Teacher sessions must preserve teacher identity, model/version identity,
   prompt artifacts, tool/evidence refs, critic or debate outputs, privacy
   posture, cost, and candidate-data refs.
@@ -1895,8 +2098,10 @@ FoundryEmbodiedRuntimeCandidate:
 - Scorecards must version rubrics, judges, verifier sets, thresholds, and
   frontier curves independently of model artifacts.
 - Promotion bundles must freeze data digests, teacher sessions, verifier
-  versions, scorecards, thresholds, monitoring policy, signoff refs, and
-  rollback target before Governance may roll out or route the candidate.
+  versions, learning-boundary and eligibility snapshots, source-rights and
+  derivative-lineage roots, scorecards, thresholds, monitoring policy, signoff
+  refs, and rollback target before Governance may roll out or route the
+  candidate.
 - On-policy correction is required when the student rollout distribution is the
   thing being optimized. Static prompt/answer distillation is insufficient for
   long-horizon tool, code, routing, or orchestration behavior.
@@ -1922,7 +2127,16 @@ FoundryEmbodiedRuntimeCandidate:
   runtime images, model cards, and endpoint packages are distinct lineage
   nodes.
 - Autonomous experiment optimizers must bind objective metrics, seed/budget
-  policy, accepted/rejected changes, replay evidence, and stop conditions.
+  policy, target/base roots, accepted/rejected/inconclusive/exploit attempts,
+  replay evidence, and stop conditions. When campaign-coordinated they must
+  also bind the ImprovementCampaign and frozen EvaluationEpoch.
+- `FoundryExperimentOptimizationCycle` is a subordinate execution profile. Its
+  experiment-local best candidate and promotion recommendation are not campaign
+  nomination, evaluation-epoch truth, or release authority.
+- Experiment optimization may target an explicitly admitted non-training
+  component, but it must preserve the component owner's typed patch and
+  activation path rather than treating every change as a training-pipeline
+  mutation.
 - Autonomous optimizers may propose trials or candidate changes, but they may
   not directly mutate registry aliases, route bindings, traffic splits,
   endpoint status, approval state, or production runtime routes.
@@ -1937,13 +2151,28 @@ FoundryEmbodiedRuntimeCandidate:
   when delegated power is involved, training evidence eligibility refs,
   policy-bound data views, eval suites, scorecards, privacy/incident counters
   from shadow mode, and promotion gates before any ioi.ai use.
-- Embodied capability packages must bind robot embodiment, sensor contracts,
-  embodiment adapter, sensor contracts, action schema, world contract, world
-  representations, raw robot logs, normalized episode datasets, teacher label
-  provenance, success-detector/evaluator refs, runtime adapter, calibration
-  refs, time-sync contract, safety envelope, supervision policy, eval suites,
+- Embodied capability packages must bind robot embodiment, exact runtime-graph
+  manifests and hashes, native runtime profile set, embodiment adapter, physical-stream
+  and sensor contracts, action schema, model-neutral action-policy contracts,
+  world contract and resolved world-representation manifests, raw robot logs,
+  normalized episodes plus intervention/correction/recovery lineage, teacher
+  provenance, success-detector/evaluator refs, calibration, time sync, local
+  supervisor, safety and assurance profiles, supervision policy, eval suites,
   sim-to-real evidence, scorecard, and promotion proposal before any runtime
   promotion.
+- Frozen embodied scenarios must separately bind backend/version, world and
+  physics/render/solver configuration, observation and action managers, reset,
+  randomization and fault injection, success and termination semantics,
+  recorder, seeds, and holdouts. Backend substitution requires compatibility
+  evidence; simulator output never becomes live effect truth.
+- Embodied experience datasets must distinguish demonstration, scripted,
+  simulation, autonomous, intervention, correction, and recovery intervals and
+  preserve proposed-versus-executed action lineage, embodiment/calibration
+  revision, timing quality, outcome evidence, rights, and learning eligibility.
+- A learned policy or predicted action chunk remains a candidate artifact or
+  non-authoritative runtime proposal. Foundry evidence cannot let it bypass
+  exact resource fencing, the PhysicalCommandQueue, LocalControlSupervisor, or
+  Physical Action Safety.
 - Embodied teacher labels, reward proposals, subgoal graphs, trace summaries,
   and success/failure annotations are weak supervision until validated against
   measurable end-state, geometry, contact, simulation, evaluator, or human
@@ -1964,6 +2193,10 @@ FoundryEmbodiedRuntimeCandidate:
 - ioi.ai collaborative outcome lessons may become Foundry proposals; they do
   not become runtime changes merely because a projected score or comparison
   selected them.
+- Model-swap continuity must hard-disable incumbent-only state and rerun against
+  the frozen, policy-filtered institutional state. A report records observed
+  continuity under declared evals; it grants no authority and makes no general
+  model-equivalence claim.
 
 ## Anti-Patterns
 
@@ -1977,15 +2210,27 @@ Foundry conductor = hidden ioi.ai authority
 conductor-training consent = ioi.ai record
 Foundry score = deployment permission
 training dataset = Agentgres truth
+tenant ownership = training permission
+provider output = reusable teacher material without route rights
+dataset deletion receipt = verified model unlearning
+model name changed = model independence proven
 model endpoint = unrestricted authority
 persistent training run = opaque notebook side effect
 experiment optimizer = self-modifying runtime
+experiment optimizer = ImprovementCampaign
+Foundry scorecard = EvaluationEpoch truth
+experiment-local best = campaign nomination
+campaign nomination = release decision
 converted artifact = deployable model without validation receipt
 ontology projection = storage blob
 benchmark win = package publication
 embodied VLM = runtime robot capability
 Foundry embodied candidate = actuator authority
 simulation pass = physical deployment
+simulator backend = canonical embodied runtime
+matching tensor dimensions = compatible embodiment
+action chunk = actuator authority
+remote policy server = trusted control endpoint
 teacher label = measured physical truth
 photorealistic world model = collision authority
 raw robot log = training dataset without eligibility
@@ -2008,7 +2253,10 @@ production endpoint mutation = safe rollout
 Correct:
 
 ```text
-Foundry builds and evaluates capability
+Foundry builds candidate/evaluator assets and executes admitted experiments
+Evaluations owns frozen judgment, exposure, validity, and re-verification
+Improvement owns optional campaign coordination and candidate nomination
+Governance and the target owner decide activation and effect recovery
 Foundry conductor candidates are bounded planning/routing advisors
 Foundry embodied packages are evidence-backed capability candidates
 daemon executes consequential work
@@ -2016,13 +2264,15 @@ wallet.network authorizes power
 Agentgres admits truth and refs
 storage backends hold bytes
 ioi.ai coordinates user-facing goal pursuit
-Workbench operates systems
-Automations owns durable workflow/service/mission specs
+Developer Workspace operates systems
+Automations owns durable workflow/service specs
 ```
 
 ## Related Canon
 
 - [`core-clients-surfaces.md`](./core-clients-surfaces.md)
+- [`improvement.md`](./improvement.md)
+- [`evaluations.md`](./evaluations.md)
 - [`../../foundations/domain-ontologies-and-data-recipes.md`](../../foundations/domain-ontologies-and-data-recipes.md)
 - [`../../foundations/worker-training-lifecycle.md`](../../foundations/worker-training-lifecycle.md)
 - [`../../foundations/common-objects-and-envelopes.md`](../../foundations/common-objects-and-envelopes.md)

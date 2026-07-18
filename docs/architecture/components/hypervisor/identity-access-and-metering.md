@@ -4,18 +4,18 @@ Status: canonical architecture authority.
 Canonical owner: this file for the Hypervisor Daemon's **deployment-local**
 identity/access plane (principals, sessions, authentication, SSO/OIDC login,
 SCIM provisioning, invites, domain verification, principal-scoped capability
-leases), the secrets and API-access-token management surfaces, and the metering
-& cost plane.
+leases), local-agent pairing sessions, the secrets and API-access-token
+management surfaces, and the metering & cost plane.
 Supersedes: prose that treats org login/SSO/SCIM/secrets/metering for a
 self-hosted Hypervisor deployment as having no daemon-side plane, or that treats
 identity roles as machine authority.
 Superseded by: none.
-Last alignment pass: 2026-07-11.
+Last alignment pass: 2026-07-16.
 Doctrine status: canonical
-Implementation status: mixed (principals, sessions, OIDC SSO, SCIM, and enforcement built; receipt-derived coarse OCU projection built; invoice-grade provider reconciliation, Work Credit debiting, and SaaS billing planned)
+Implementation status: mixed (principals, sessions, OIDC SSO, SCIM, enforcement, and receipt-derived coarse OCU projection are built; the registered managed-work billing schema, invariants, fixtures, and generated projections are present as contract substrate, while the quote/hold/usage/debit/adjustment kernel, durable billing store, `LocalAgentPairingSessionEnvelope`, local-agent pairing APIs, room-admitted gateway issuance, public Work Credit billing APIs, supplier-statement reconciliation, and SaaS billing remain planned)
 Implementation refs:
   - `crates/node/src/bin/hypervisor_daemon_routes/`
-Last implementation audit: 2026-07-05
+Last implementation audit: 2026-07-16
 
 ## Canonical Definition
 
@@ -111,6 +111,94 @@ never substitutes for it.
   surfaced exactly once, and a token resolves to its principal through the auth
   ring.
 
+### Local-agent pairing sessions
+
+Hypervisor owns the pairing and adapter boundary that lets an already-running
+local agent or harness become an authenticated candidate participant without
+making the agent a Hypervisor client, room member, marketplace listing, or
+authority holder. ioi.ai may embed the user-facing **Connect local agent** flow
+inside a Goal Space. Hypervisor creates and resolves the pairing session,
+candidate key, origin binding, adapter, daemon ingress, and scoped gateway
+boundary. aiagent.xyz owns any later private reusable Worker record or public
+package, benchmark, listing, routing-eligibility, reputation, and settlement
+projection/refs; wallet, Agentgres, and IOI settlement owners retain authority,
+operational truth, and finality.
+
+The screenshot-simple product flow is:
+
+```text
+Connect local agent
+  -> choose room_guest, private_worker, or organization_worker target
+  -> declare agent/harness and optional display profile
+  -> create one-time pairing challenge/device code
+  -> copy a bootstrap command or prompt into the local agent
+  -> candidate proves possession and binds its public key plus origin
+  -> bootstrap_bound authenticates a candidate only
+  -> submit the target-specific WorkerComposition proposal
+  -> for room_guest, read discovery and submit RoomParticipationRequestEnvelope
+  -> completed records the required bootstrap submissions only
+  -> registry or room admission separately accepts, rejects, or quarantines
+  -> room_guest: after room admission, issue an expiring gateway profile bound
+     to participant lease, candidate key, origin, room, and policy
+  -> private_worker / organization_worker: after registry admission, a later
+     direct call, Session, Automation, or WorkRun obtains its own invocation,
+     context, tool, resource, budget, and authority admission before gateway use
+```
+
+[`common-objects-and-envelopes.md`](../../foundations/common-objects-and-envelopes.md#localagentpairingsessionenvelope)
+owns the exact `LocalAgentPairingSessionEnvelope` schema, target, transport,
+closed bootstrap-action, failure-code, contribution-lane, assurance, and status
+enums. This file owns the deployment-local creation, challenge storage,
+attempt/rate limiting, claim/binding, expiry, cancellation/revocation, and API
+authentication around that object. It must not republish a deployment-specific
+competing envelope. Downstream admission decisions, participant leases,
+gateway profiles, Worker records, and contributions keep their own refs and
+lifecycle rather than being collapsed into pairing status.
+
+The challenge/device code is high entropy, single use, short lived, stored only
+as a hash, and displayed exactly once. The candidate creates the signing key;
+Hypervisor never returns or stores its private key. A successful challenge
+proves possession of the bootstrap value and candidate key at the bound origin.
+It does not prove the agent's model, hidden reasoning, correctness,
+independence, room eligibility, or right to perform an effect.
+
+Pairing authenticates a candidate; it never authorizes. A `room_guest` may
+receive only its signed policy-bound discovery projection and narrow
+composition/participation submission path before room admission. Admission may
+create a participant lease and then a scoped, expiring, revocable gateway
+profile. A `private_worker` or `organization_worker` may instead receive a
+private registry admission; each later direct invocation, Session, Automation,
+WorkRun, or room participation still requires its own policy, context, tools,
+resources, budget, and authority admission. No reusable worker inherits a room
+lease, and no direct invocation requires a fictitious room lease.
+
+A `prompt_only` agent still generates or presents a bootstrap-client public key
+and binds its origin. What it cannot bind is a native adapter and instrumented
+daemon execution path. It therefore remains a low-assurance proposal source:
+its messages and artifacts stay tainted, it gets no ambient context or
+effectful tools, and it cannot acquire portable reputation, payout eligibility,
+or public marketplace status from pairing alone.
+
+Target API shape (planned):
+
+```http
+POST /v1/hypervisor/local-agent-pairings
+GET  /v1/hypervisor/local-agent-pairings/{pairing_ref}
+POST /v1/hypervisor/local-agent-pairings/{pairing_ref}/claim
+POST /v1/hypervisor/local-agent-pairings/{pairing_ref}/complete
+POST /v1/hypervisor/local-agent-pairings/{pairing_ref}/cancel
+POST /v1/hypervisor/local-agent-pairings/{pairing_ref}/revoke
+```
+
+The create response may contain the plaintext one-time device code and copyable
+bootstrap text exactly once. Later reads return only the policy-permitted
+hashes, refs, expiry, assurance posture, failure code, and exact pairing status.
+Completion cannot mint a participant lease, private Worker registration, or
+gateway profile. A separate room or registry admission may later admit the same
+candidate identity, key, origin, composition, and policy posture. Gateway use
+then requires the concrete room-participant or invocation/session/run admission
+applicable to that use.
+
 ### Metering & cost
 - **Current consumption projection** — derived from admitted daemon receipts
   (Agentgres records → an economic projection) and bucketed per day. Runtime
@@ -120,6 +208,16 @@ never substitutes for it.
 - **Budget** — a ceiling + a **wallet-backed auto-funding policy** (replenish
   from wallet.network when the balance crosses a threshold), applied to the
   current OCU projection and recorded as ledger entries.
+- **Internal managed-work ledger** — a separate fixed-point chain freezes a
+  versioned RateCard and Plan into an immutable WorkQuote, requires finite
+  idempotent holds, appends receipt-derived UsageRecords against the current
+  usage head, enforces the exact quote overrun policy, admits one exact
+  FinalDebit, and permits only append-only downward adjustments. It separates
+  provider, broker, participant, verifier, IOI-fee, and excluded
+  customer-borne cost fields. The kernel/store seam requires owner-resolved
+  authority and evidence and has no public route that can mint supplier usage.
+  It is product-accounting machinery, not payment settlement or proof that an
+  estimated supplier charge appeared on an invoice.
 - **Target commercial reconciliation** — route-attempt receipts must bind
   endpoint, provider, model/version, price-schedule version, detailed billed
   usage classes, fallback chain, estimated and finalized supplier cost, broker
@@ -145,9 +243,16 @@ managed-work execution and metering; Agentgres records the economic facts.
   provisioning *read/record through* Agentgres; they do not define truth).
 - Runtime execution semantics (the daemon executes; this plane only identifies
   the caller and scopes surface access).
-- Payment/settlement mechanics. The current implementation has no SaaS billing;
-  the target meter projects billing/entitlement refs owned by ioi.ai and the
-  applicable billing, invoice, marketplace, service-order, or settlement plane.
+- OutcomeRoom admission, Worker publication, benchmark/routing eligibility, or
+  marketplace reputation. Pairing only authenticates a deployment-local
+  candidate and binds its adapter ingress; the room owner admits participation,
+  and aiagent.xyz owns optional reusable/private or public Worker records.
+- Payment/settlement mechanics. The internal managed-work ledger can quote,
+  reserve, meter, debit, refund, or write off product credits, but the current
+  implementation has no SaaS purchase/top-up surface, processor integration,
+  cash ledger, payout, or settlement rail. The meter projects
+  billing/entitlement refs owned by ioi.ai and the applicable billing, invoice,
+  marketplace, service-order, or settlement plane.
 - Product pricing, Goal Space plan design, Work Credit semantics, marketplace
   payout, or IOI fee policy.
 - Multi-tenant federation beyond the deployment (cross-org SSO trust, directory
@@ -202,10 +307,30 @@ it is not required merely to represent every deployment-local product action.
 - A sellable Work Credit debit must reconcile route-attempt receipts to the
   applicable supplier price schedule and final statement, preserve fallbacks,
   adjustments, BYOK/local exclusions, broker fees, and IOI fee basis, and fail
-  closed when required billing evidence is absent.
+  closed when required billing evidence is absent. An internal-event-log debit
+  with estimated provider cost is not a supplier-reconciled commercial claim.
+- Managed-work accounting must use integer minor/micro-credit units, exact
+  RateCard/Plan/quote body bindings, finite holds, same-key/same-body replay,
+  changed-body conflict, append-only usage and adjustment heads, exact overrun
+  amounts, one FinalDebit, and checked arithmetic. Coarse OCU must remain
+  zero-rate and outside that billable chain.
 - The deployment-local identity plane must compose with, and never shadow, the
   applicable local/domain or protocol authority; it must preserve wallet.network
   wherever portable delegation or a designated high-risk action requires it.
+- `LocalAgentPairingSessionEnvelope` challenge/device-code material must be
+  single-use, expiring, hash-only at rest, and returned in plaintext at most
+  once. The candidate must generate its own signing key and prove possession at
+  the recorded origin; Hypervisor must never generate or retain the candidate's
+  private key.
+- Pairing must produce only an authenticated candidate. It must not grant room
+  membership, context, tools, org read/write access, authority, reputation,
+  payout eligibility, or marketplace publication. A room guest gateway profile
+  requires matching typed room admission and participant lease; a reusable
+  private/organization worker gateway profile requires active registration plus
+  concrete invocation, Session, Automation, or WorkRun admission and leases.
+- A prompt-only pairing must remain visibly low assurance and proposal-only.
+  Its output stays tainted until the normal isolation, verification, and
+  room/domain admission path accepts it.
 
 ## Anti-Patterns
 
@@ -226,6 +351,12 @@ retail chat subscription limits treated as managed worker capacity
 customer BYOK provider spend charged again as IOI model cost
 budget auto-fund treated as crossing authorization
 deployment-local identity replacing wallet.network protocol authority
+shared organization read/write token pasted into a local agent
+pairing challenge stored in plaintext or reusable after completion
+pairing success = room admission, authority grant, or marketplace publication
+agent private key generated or retained by Hypervisor
+prompt-only agent presented as daemon-instrumented or independently verified
+local-agent bootstrap containing raw provider credentials or ambient room context
 ```
 
 Correct:
@@ -243,11 +374,19 @@ commercial Work Credits wait for route-attempt and supplier-statement reconcilia
 direct BYOK/local provider cost is not double charged
 wallet funds the deployment budget without granting crossing authority
 the daemon admits/enforces authorized work; Agentgres records admitted truth
+LocalAgentPairingSessionEnvelope = authenticated candidate ingress only
+room admission -> participant lease -> scoped expiring gateway profile
+private/org registration -> admitted invocation/session/run -> scoped gateway profile
+prompt-only local agent = tainted low-assurance proposal source
+aiagent.xyz publication or reusable Worker record = separate explicit handoff
 ```
 
 ## Related Canon
 
 - [`core-clients-surfaces.md`](./core-clients-surfaces.md)
+- [`../connectors-tools/doctrine.md`](../connectors-tools/doctrine.md)
+- [`../connectors-tools/contracts.md`](../connectors-tools/contracts.md)
+- [`../../domains/ioi-ai/collaborative-outcome-pattern.md`](../../domains/ioi-ai/collaborative-outcome-pattern.md)
 - [`providers-and-environments.md`](./providers-and-environments.md)
 - [`../wallet-network/doctrine.md`](../wallet-network/doctrine.md)
 - [`../wallet-network/api-authority-scopes.md`](../wallet-network/api-authority-scopes.md)

@@ -1,15 +1,17 @@
 # Connectors, Tools, and Authority-Aware Registry Specification
 
 Status: canonical architecture authority.
-Canonical owner: this file for connector/tool registry doctrine; low-level tool contracts and connector mappings live in [`connector-and-tool-contracts.md`](./contracts.md).
+Canonical owner: this file for connector/tool registry doctrine and the
+local-agent-pairing-to-gateway boundary; low-level tool contracts and connector
+mappings live in [`connector-and-tool-contracts.md`](./contracts.md).
 Supersedes: older flattened capability-registry wording when it conflicts with primitive capability and authority scope tiers.
 Superseded by: none.
-Last alignment pass: 2026-06-22.
+Last alignment pass: 2026-07-16.
 Doctrine status: canonical
-Implementation status: partial (connector estate, capability leases, and MCP gateway built; semantic-data chain partial)
+Implementation status: partial (the connector estate, capability leases, and MCP gateway are built; registered RuntimeToolContract information-flow schemas and projections are contract substrate only. Production IFC enforcement and propagation across connector, MCP, model, browser, OutcomeRoom, inbound webhook, and remaining computer-use paths remain planned, as do `LocalAgentPairingSessionEnvelope`, room-admitted local-agent gateway issuance, and the semantic-data chain)
 Implementation refs:
   - `crates/node/src/bin/hypervisor_daemon_routes/`
-Last implementation audit: 2026-07-05
+Last implementation audit: 2026-07-18 (contract substrate; production IFC enforcement not claimed)
 
 ## Canonical Definition
 
@@ -156,6 +158,28 @@ receipts_replay_proof
   and proof/settlement drilldowns
 ```
 
+Packages, application-surface releases, adapter manifests, and System manifests
+may carry immutable `MCPGatewayRequirementEnvelope` refs when MCP compatibility
+is specifically required. GoalRunProfiles, WorkflowTemplates, and
+SkillManifests remain transport-neutral and declare semantic capabilities,
+tools, resources, context, and input contracts instead. The concrete
+Hypervisor MCP Gateway profile is created later for one admitted subject and use, freezes
+the resolved requirement set and exposure-manifest hashes, and binds scope,
+privacy, budget, expiry, revocation, and an admission receipt. Narrowing,
+suspension, quarantine, expiry, or revocation may reduce effective access
+through lifecycle/policy state without rewriting that revision; any changed
+declared exposure creates a successor, and privilege widening requires fresh
+admission.
+
+Protocol objects stay subordinate to canonical IOI owners: tools normalize to
+`RuntimeToolContract`; resources to policy-bound views, artifacts, or memory
+projections under `ContextLease`; prompts to untrusted import inputs;
+elicitation to typed user input with separate wallet approval when authority is
+required; tasks to opaque handles on `HarnessInvocation`; and Apps to sandboxed
+`extension_application` surfaces. An MCP server session or task is never
+GoalRun, WorkRun, authority, state-root, or receipt truth. The field-level
+mapping is owned by [`contracts.md`](./contracts.md#mcp-normalization-boundary).
+
 Every gateway-exposed MCP tool must declare the backing contract ref, profile,
 risk class, primitive capabilities, required authority scopes, readiness state,
 dry-run/approval policy, privacy posture, rate/budget limits, receipt
@@ -168,6 +192,88 @@ enterprise agents, aiagent.xyz workers, CI agents, and third-party harnesses
 without giving those agents ambient authority. It should increase external
 utility while preserving the same daemon, wallet.network, Agentgres, cTEE,
 receipt, and replay boundaries as native Hypervisor clients.
+
+Connector registration and invocation preserve a separate information-flow
+boundary. Each HTTP adapter tool binds one exact RuntimeToolContract revision
+with data-class and destination allowlists. Request arguments carry a versioned
+`InformationFlowLabel`; the daemon evaluates it before wallet/credential use
+and again immediately around the external invoker. The live MCP backend applies
+the same parent-aware compilation to `tools/call` and `tools/list` before
+`McpManager`, then labels results as untrusted tool output. Connector and tool
+outputs re-enter context as provenance-bearing untrusted inputs until an
+explicit mapping and integrity decision says otherwise. Output-schema
+validation never makes embedded instructions authoritative. MCP resources,
+prompts, elicitation, tasks, Apps, OutcomeRoom, inbound webhooks, and other
+connector families remain explicit Cut 3B2 gaps rather than inferred coverage.
+
+### Local-agent pairing to gateway admission
+
+The screenshot-style **Connect local agent** flow is an ingress convenience over
+the same gateway, not a new authority or collaboration protocol. ioi.ai may
+embed the modal in a Goal Space, but Hypervisor owns the local adapter, daemon
+pairing, candidate key/origin binding, and gateway issuance boundary. The
+canonical pairing object is
+[`LocalAgentPairingSessionEnvelope`](../../foundations/common-objects-and-envelopes.md#localagentpairingsessionenvelope);
+deployment-local lifecycle handling is owned by
+[`identity-access-and-metering.md`](../hypervisor/identity-access-and-metering.md#local-agent-pairing-sessions).
+aiagent.xyz owns only a later explicit private reusable Worker record or public
+package/listing/benchmark/routing-eligibility handoff; pairing never publishes
+the agent automatically.
+
+```text
+authenticated user selects Connect local agent
+  -> Hypervisor returns one copyable bootstrap command/prompt plus a one-time,
+     hash-at-rest, expiring challenge/device code
+  -> local candidate generates a signing key and proves the key + origin binding
+  -> pairing authenticates the candidate but grants no room or tool authority
+  -> candidate reads only OutcomeRoomDiscoveryEnvelope, submits its typed
+     WorkerComposition proposal, then submits RoomParticipationRequestEnvelope
+  -> declared room owner admits or rejects under room policy
+  -> admitted RoomParticipantLeaseEnvelope
+  -> Hypervisor issues a scoped, expiring, revocable MCP gateway profile bound
+     to pairing session, candidate key, origin, participant lease, room, policy,
+     privacy, rate, budget, and receipt obligations
+```
+
+That branch is specific to `room_guest`. For `private_worker` and
+`organization_worker`, completed pairing may feed a separate private registry
+admission. A later direct call, Session, Automation, or WorkRun receives a
+gateway profile only after that concrete invocation passes its own context,
+tool, resource, budget, privacy, policy, and authority admission. It binds the
+active worker registration and invocation scope rather than inventing an
+OutcomeRoom or participant lease. If the reusable worker later joins a room,
+the ordinary room-participation request and lease become mandatory.
+
+The bootstrap payload may contain public discovery refs, endpoint location,
+pairing expiry, adapter instructions, and the one-time challenge. It must not
+contain a broad organization read/write token, raw model/provider or connector
+credentials, private room context, a wallet grant, a durable API secret, or an
+unbounded tool manifest. After candidate binding, subsequent traffic uses the
+candidate-generated key/origin binding; the one-time device code cannot become
+the continuing credential.
+
+Prompt-only compatibility is allowed for agents that cannot run a native
+adapter or local sidecar, but its contract is deliberately narrow:
+
+```text
+prompt_only_proposal
+  may: read the permitted discovery projection, request admission, submit
+       tainted messages/artifact refs/proposals through the declared path
+  may not: receive ambient room context, call effectful tools, hold connector or
+           provider credentials, mutate shared truth, claim instrumented
+           execution, earn payout/reputation from pairing alone, or publish
+           itself to aiagent.xyz
+```
+
+The host may verify and admit a prompt-only proposal under the ordinary
+WorkResult/evidence path. That verifies the admitted result under its named rule;
+it does not retroactively make the proposing agent or its hidden runtime
+verified. Stronger tool access requires a signed candidate plus the applicable
+admitted use and matching gateway profile: a participant lease for
+`room_guest`, or an active private/organization registration plus a separately
+admitted invocation, Session, Automation, or WorkRun for a reusable worker.
+Effectful access additionally requires the action-specific authority and daemon
+admission already required by the backing `RuntimeToolContract`.
 
 ## Readiness and Escalation States
 
@@ -336,6 +442,20 @@ effectful execution must be narrowed by profile, project/session context,
 authority scope, policy, privacy posture, budget/rate limit, and revocation
 state.
 
+Local-agent pairing does not weaken that rule. A
+`LocalAgentPairingSessionEnvelope` may resolve only to candidate authentication;
+the gateway profile is a separate post-admission object and must bind the exact
+applicable admission basis and scope leases: participant lease for a room guest,
+or active registration plus concrete invocation/session/run admission for a
+reusable worker. Before completion, pairing expiry or revocation fails closed
+and creates no partial grant. After admission, pairing history is immutable
+lineage rather than the continuing gateway credential: room retirement,
+participant quarantine/revocation, claim release, origin change, key rotation,
+or an explicit security revocation must follow the downstream object's policy
+and propagate to dependent gateway/session/run refs. Pairing revocation alone
+does not erase an independently admitted composition, request, contribution, or
+lease.
+
 ## Tool Registry
 
 The tool registry should:
@@ -406,6 +526,18 @@ They should still emit artifacts and receipts.
 9. No child session MCP/tool exposure may mutate Hypervisor host or platform
    state directly; host/platform effects route through declared application
    surface contracts and the Hypervisor Operator Plane.
+10. No local-agent bootstrap may expose a broad org read/write token, raw
+    provider credential, ambient room context, master MCP surface, or reusable
+    pairing code.
+11. Pairing authenticates a candidate and nothing more. A room guest requires
+    typed room admission and a participant lease; a reusable private or
+    organization worker requires active registration plus concrete
+    invocation/session/run admission. Only the applicable admitted scope may
+    precede a scoped gateway profile, and effectful calls still require their
+    own authority.
+12. Prompt-only local agents remain low-assurance proposal sources; pairing
+    cannot label them instrumented, independently verified, payable, reputable,
+    or marketplace-published.
 
 ## One-Line Doctrine
 
