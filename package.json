@@ -28,6 +28,7 @@
     "check:candidate-evidence": "node scripts/check-candidate-evidence-conformance.mjs",
     "check:service-composition-evidence": "node scripts/check-service-composition-evidence.mjs",
     "check:artifact-availability-incident": "node scripts/check-artifact-availability-incident.mjs",
+    "check:conformance-docs": "node scripts/check-conformance-docs.mjs && node --test scripts/test-conformance-docs-integrity.mjs",
     "hypervisor-conformance": "node scripts/conformance/hypervisor-conformance.mjs",
     "hypervisor-conformance:docs": "node scripts/conformance/hypervisor-conformance.mjs docs",
     "hypervisor-conformance:abi": "node scripts/conformance/hypervisor-conformance.mjs abi",
@@ -44,7 +45,7 @@
     "test:runtime-events": "node --test scripts/lib/architectural-improvements-broad-contract.test.mjs",
     "test:mcp-skills-hooks": "node --test scripts/lib/architectural-improvements-broad-contract.test.mjs",
     "test:subagents": "node --test scripts/lib/architectural-improvements-broad-contract.test.mjs",
-    "test:workflow-compositor-dogfood": "node --test scripts/lib/architectural-improvements-broad-contract.test.mjs",
+    "test:workflow-compositor-dogfood": "node --test scripts/lib/rust-daemon-workflow-edit-contract.test.mjs scripts/lib/rust-daemon-workflow-edit-approval-contract.test.mjs",
     "validate:model-mounting:e2e": "node scripts/validate-model-mounting-e2e.mjs",
     "check:model-mounting-guide": "node scripts/check-model-mounting-master-guide.mjs",
     "validate:model-mounting:closeout": "node scripts/validate-model-mounting-closeout.mjs",
@@ -69,7 +70,7 @@
     "typecheck": "npm run typecheck --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present",
     "check:architecture-docs": "node scripts/check-architecture-docs.mjs",
-    "check:pre-next-leg": "node scripts/generate-runtime-action-contracts.mjs --check && npm run check:architecture-contract-bar && npm run check:architecture-docs && node scripts/check-pre-next-leg-readiness.mjs && npm run check:runtime-layout"
+    "check:pre-next-leg": "node scripts/generate-runtime-action-contracts.mjs --check && npm run check:architecture-contract-bar && npm run check:architecture-docs && npm run check:conformance-docs && node scripts/check-pre-next-leg-readiness.mjs && npm run check:runtime-layout"
   },
   "devDependencies": {
     "@playwright/test": "^1.60.0",

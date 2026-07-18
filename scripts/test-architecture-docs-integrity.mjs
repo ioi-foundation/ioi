@@ -7,6 +7,7 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 import {
   checkImplementationRefs,
+  checkImplementationMatrixEvidence,
   checkOwnerMetadata,
   checkOwningRegistryDuplicates,
   checkRecencyPrecedence,
@@ -16,6 +17,7 @@ import {
 } from "./lib/architecture-docs-integrity.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
+const root = path.resolve(here, "..");
 const cases = JSON.parse(
   fs.readFileSync(path.join(here, "fixtures/architecture-docs-checker/cases.json"), "utf8"),
 );
@@ -47,6 +49,94 @@ test("Implementation refs validate live paths but exclude routes, URIs, and expl
   assert.deepEqual(checkImplementationRefs({ root, file, rel: "docs/architecture/owner.md", content }), []);
   const missing = content.replace("apps/live/", "apps/missing/");
   assert.match(checkImplementationRefs({ root, file, rel: "owner.md", content: missing })[0], /missing live Implementation ref/);
+});
+
+test("implementation matrix rejects stale evidence and enforces cross-boundary owners", () => {
+  const matrixFile = path.join(
+    root,
+    "docs/architecture/_meta/implementation-matrix.md",
+  );
+  const row = (concept, owners, current = "current Rust implementation") =>
+    `| \`${concept}\` | ${owners} | ${current} | keep | \`scripts/check-runtime-layout.mjs\` | guard |`;
+  const daemon =
+    "[daemon](../components/daemon-runtime/doctrine.md)";
+  const client =
+    "[client](../components/hypervisor/core-clients-surfaces.md)";
+  const model =
+    "[model](../components/model-router/doctrine.md)";
+  const wallet =
+    "[wallet](../components/wallet-network/doctrine.md)";
+  const ctee =
+    "[ctee](../components/daemon-runtime/private-workspace-ctee.md)";
+  const memory =
+    "[memory](../components/daemon-runtime/portable-memory-vault.md)";
+  const agentgres =
+    "[agentgres](../components/agentgres/doctrine.md)";
+  const shared =
+    "[shared](../foundations/common-objects-and-envelopes.md)";
+  const connector =
+    "[connector](../components/connectors-tools/contracts.md)";
+  const valid = [
+    row("ModelCapabilityTokenControl", `${model}, ${wallet}`),
+    row("ModelVaultControl", `${model}, ${wallet}, ${ctee}`),
+    row("RuntimeThreadMemoryControl", `${daemon}, ${memory}, ${agentgres}`),
+    row("RuntimeManagedSessionControl", `${daemon}, ${client}`),
+    row("RuntimeWorkflowEditControl", `${daemon}, ${client}`),
+    row(
+      "RuntimeSkillHookRegistryControl",
+      `${shared}, ${daemon}, ${connector}`,
+    ),
+    row(
+      "HypervisorKernelSubstrateMigration",
+      "[status](./hypervisor-kernel-substrate-migration-matrix.md)",
+      "non-doctrinal migration/status evidence",
+    ).replace(
+      " | keep | ",
+      " | may not define daemon doctrine or release sequencing | ",
+    ),
+  ].join("\n");
+  assert.deepEqual(
+    checkImplementationMatrixEvidence({ root, matrixFile, content: valid }),
+    [],
+  );
+  assert.match(
+    checkImplementationMatrixEvidence({
+      root,
+      matrixFile,
+      content: valid.replace(
+        "scripts/check-runtime-layout.mjs",
+        "scripts/missing-current-evidence.mjs",
+      ),
+    }).join("\n"),
+    /missing current-evidence path/u,
+  );
+  assert.match(
+    checkImplementationMatrixEvidence({
+      root,
+      matrixFile,
+      content: `${valid}\nJS remains a protocol edge.`,
+    }).join("\n"),
+    /stale live JavaScript-remains claim/u,
+  );
+  assert.match(
+    checkImplementationMatrixEvidence({
+      root,
+      matrixFile,
+      content: valid.replace(`${model}, ${wallet}`, model),
+    }).join("\n"),
+    /ModelCapabilityTokenControl.*wallet-network\/doctrine\.md/u,
+  );
+  assert.match(
+    checkImplementationMatrixEvidence({
+      root,
+      matrixFile,
+      content: valid.replace(
+        "[status](./hypervisor-kernel-substrate-migration-matrix.md)",
+        daemon,
+      ),
+    }).join("\n"),
+    /classify HypervisorKernelSubstrateMigration/u,
+  );
 });
 
 test("owner registries reject declarations, not cross-owner mentions or examples", () => {

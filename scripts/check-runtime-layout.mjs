@@ -47,6 +47,7 @@ function assert(id, condition, evidence, message) {
 const packageJson = JSON.parse(read("package.json"));
 const readme = read("README.md");
 const hypervisorAppReadme = read("apps/hypervisor/README.md");
+const hypervisorAppMainSource = read("apps/hypervisor/src/main.tsx");
 const developersDocs = read("apps/developers-ioi-ai/src/content/docs.tsx");
 const hypervisorCoreClientsSurfacesDoc = read(
   "docs/architecture/components/hypervisor/core-clients-surfaces.md",
@@ -87,6 +88,10 @@ const hypervisorConformanceSource = read(
   "scripts/conformance/hypervisor-conformance.mjs",
 );
 const githubCiWorkflow = read(".github/workflows/ci.yml");
+const architectureContractGenerator = read(
+  "scripts/generate-architecture-contracts.mjs",
+);
+const rustToolchain = read("rust-toolchain.toml");
 const rustHypervisorDaemonSource = read(
   "crates/node/src/bin/hypervisor-daemon.rs",
 );
@@ -553,11 +558,13 @@ assert(
     ]
       .join("\n")
       .includes("apps/hypervisor/src/windows/shared/hostWindowDrag.ts") &&
-    architectureImplementationMatrix.includes(
-      "apps/hypervisor/src/windows/HypervisorShellWindow/components/HypervisorActivityRail.tsx",
+    exists("apps/hypervisor/scripts/serve-product-ui.mjs") &&
+    exists("apps/hypervisor/scripts/ioi-api-adapter.mjs") &&
+    hypervisorAppMainSource.includes(
+      'import "@ioi/hypervisor-workbench/dist/style.css";',
     ) &&
-    architectureImplementationMatrix.includes(
-      "apps/hypervisor/src/windows/HypervisorShellWindow/components/HypervisorShellContent.tsx",
+    hypervisorAppMainSource.includes(
+      "The canonical Hypervisor product UI is the tracked product-ui bundle + IOI /api adapter",
     ),
   [
     "apps/hypervisor/src/windows/HypervisorShellWindow/components/HypervisorClientHeader.tsx",
@@ -565,6 +572,9 @@ assert(
     "docs/architecture/_meta/implementation-matrix.md",
     "docs/architecture/_meta/source-of-truth-map.md",
     "docs/architecture/components/hypervisor/core-clients-surfaces.md",
+    "apps/hypervisor/src/main.tsx",
+    "apps/hypervisor/scripts/serve-product-ui.mjs",
+    "apps/hypervisor/scripts/ioi-api-adapter.mjs",
   ],
   "Hypervisor shell and secondary canon docs must not reintroduce a hidden client header or host drag helper above the IOI-reference left rail.",
 );
@@ -1031,6 +1041,13 @@ assert(
       "node scripts/conformance/hypervisor-conformance.mjs app" &&
     packageJson.scripts["hypervisor-conformance:compositor"] ===
       "node scripts/conformance/hypervisor-conformance.mjs compositor" &&
+    packageJson.scripts["test:workflow-compositor-dogfood"] ===
+      "node --test scripts/lib/rust-daemon-workflow-edit-contract.test.mjs scripts/lib/rust-daemon-workflow-edit-approval-contract.test.mjs" &&
+    /compositor:\s*\[\s*npmRun\("test:workflow-compositor-dogfood"\)\s*\]/u.test(
+      hypervisorConformanceSource,
+    ) &&
+    exists("scripts/lib/rust-daemon-workflow-edit-contract.test.mjs") &&
+    exists("scripts/lib/rust-daemon-workflow-edit-approval-contract.test.mjs") &&
     packageJson.scripts["hypervisor-conformance:negative"] ===
       "node scripts/conformance/hypervisor-conformance.mjs negative" &&
     packageJson.scripts["hypervisor-conformance:wallet"] ===
@@ -1039,6 +1056,7 @@ assert(
       "node scripts/conformance/hypervisor-conformance.mjs candidates" &&
     hypervisorConformanceSource.includes("ioi.hypervisor.conformance_run.v1") &&
     hypervisorConformanceSource.includes("check:architecture-docs") &&
+    hypervisorConformanceSource.includes("check:conformance-docs") &&
     hypervisorConformanceSource.includes("check:runtime-layout") &&
     hypervisorConformanceSource.includes(
       "check:hypervisor-code-editor-adapter-host-paths",
@@ -1066,21 +1084,35 @@ assert(
     packageJson.scripts["check:pre-next-leg"]
       ?.split(" && ")
       .includes("npm run check:architecture-contract-bar") &&
+    packageJson.scripts["check:pre-next-leg"]
+      ?.split(" && ")
+      .includes("npm run check:conformance-docs") &&
     /docs:\s*\[\s*npmRun\("check:architecture-contract-bar"\),/u.test(
+      hypervisorConformanceSource,
+    ) &&
+    /docs:[\s\S]*?npmRun\("check:conformance-docs"\)/u.test(
       hypervisorConformanceSource,
     ) &&
     /- name: Install JavaScript dependencies\s+run: npm ci/u.test(
       githubCiWorkflow,
     ) &&
-    /- name: Architecture contract bar\s+run: npm run check:architecture-contract-bar/u.test(
+    /- name: Canon pre-next-leg bar\s+run: npm run check:pre-next-leg/u.test(
       githubCiWorkflow,
+    ) &&
+    /channel\s*=\s*"1\.93\.1"/u.test(rustToolchain) &&
+    /toolchain:\s*1\.93\.1/u.test(githubCiWorkflow) &&
+    architectureContractGenerator.includes(
+      '["run", toolchain, "rustfmt", "--version"]',
+    ) &&
+    architectureContractGenerator.includes(
+      '["run", toolchain, "rustfmt", "--edition", "2021", temporaryPath]',
     ),
   [
     "package.json",
     "scripts/conformance/hypervisor-conformance.mjs",
     ".github/workflows/ci.yml",
   ],
-  "The complete generated, schema, projection, documentation-integrity, and Rust architecture-contract bar must remain wired into pre-next-leg readiness, conformance, and CI.",
+  "The complete generated, schema, projection, architecture/conformance documentation-integrity, Rust contract, readiness, and runtime-layout bar must remain wired into pre-next-leg readiness, conformance, and CI.",
 );
 assert(
   "hypervisor-shell-no-generic-surface-placeholders",

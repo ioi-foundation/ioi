@@ -1838,12 +1838,22 @@ for (const required of [
 }
 for (const line of implementationMatrix.split(/\r?\n/)) {
   if (!line.startsWith("| ")) continue;
+  const concept = line.split("|")[1]?.trim();
   const canonicalOwnerCell = line.split("|")[2] ?? "";
   for (const nonDoctrinalOwner of [
     "hypervisor-kernel-substrate-unification-master-guide.md",
     "hypervisor-kernel-substrate-migration-matrix.md",
   ]) {
     if (canonicalOwnerCell.includes(nonDoctrinalOwner)) {
+      if (
+        concept === "`HypervisorKernelSubstrateMigration`" &&
+        nonDoctrinalOwner ===
+          "hypervisor-kernel-substrate-migration-matrix.md" &&
+        line.includes("non-doctrinal migration/status evidence") &&
+        line.includes("may not define daemon doctrine")
+      ) {
+        continue;
+      }
       fail(
         `_meta/implementation-matrix.md must not use non-doctrinal migration evidence as a canonical owner: ${line.split("|")[1]?.trim()} -> ${nonDoctrinalOwner}.`,
       );
@@ -1868,16 +1878,12 @@ for (const [subject, owner] of [
     "[`model-router-byok-run-to-idle.md`](../components/model-router/doctrine.md)",
   ],
   [
-    "`RuntimeMcpManagerConfigCompatibilityTransportRetired`",
-    "[`connector-and-tool-contracts.md`](../components/connectors-tools/contracts.md)",
-  ],
-  [
     "`RuntimeAgentgresStateCacheControl`",
     "[`agentgres-state-substrate.md`](../components/agentgres/doctrine.md)",
   ],
   [
     "`RuntimeRepositoryWorkflowProjectionControl`",
-    "[`core-clients-surfaces.md`](../components/hypervisor/core-clients-surfaces.md)",
+    "[`ioi-cli-daemon-runtime.md`](../components/daemon-runtime/doctrine.md), [`core-clients-surfaces.md`](../components/hypervisor/core-clients-surfaces.md)",
   ],
 ]) {
   if (
