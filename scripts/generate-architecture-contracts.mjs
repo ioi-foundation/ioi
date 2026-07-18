@@ -5,14 +5,39 @@ import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { fileURLToPath } from "node:url";
+import Ajv2020 from "ajv/dist/2020.js";
+import addFormats from "ajv-formats";
+
+function parseCliMode(args) {
+  if (args.length === 0) return "generate";
+  if (args.length === 1 && args[0] === "--check") return "check";
+  if (args.length === 1 && args[0] === "--self-test") return "self-test";
+  throw new Error(
+    `Unsupported architecture-contract generator arguments: ${JSON.stringify(args)}. ` +
+      "Supported invocations are bare generation, --check, or --self-test.",
+  );
+}
+
+let cliMode;
+try {
+  cliMode = parseCliMode(process.argv.slice(2));
+} catch (error) {
+  console.error(error instanceof Error ? error.message : String(error));
+  process.exit(2);
+}
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const schemaRoot = path.join(root, "docs", "architecture", "_meta", "schemas");
+const SUPPORTED_TARGET_KINDS = new Set([
+  "typescript_projection",
+  "rust_projection",
+]);
 const registryPath = path.join(
   schemaRoot,
   "architecture-contract-registry.v1.json",
 );
 const registry = readJson(registryPath);
+const declaredTargets = validateGeneratedTargets(registry);
 const contracts = registry.contracts.map((entry) => ({
   entry,
   schema: readJson(path.join(schemaRoot, entry.schema_ref)),
@@ -64,34 +89,27 @@ const RUST_ECMA_WHITESPACE_CLASS =
   "\\u{2000}-\\u{200A}\\u{2028}\\u{2029}\\u{202F}\\u{205F}" +
   "\\u{3000}\\u{FEFF}";
 
-const tsPath = path.join(
-  root,
-  "packages",
-  "hypervisor-workbench",
-  "src",
-  "runtime",
-  "generated",
-  "architecture-contracts.ts",
-);
-const rustPath = path.join(
-  root,
-  "crates",
-  "types",
-  "src",
-  "app",
-  "generated",
-  "architecture_contracts.rs",
-);
-
 function readJson(filePath) {
   return JSON.parse(fs.readFileSync(filePath, "utf8"));
+}
+
+function codePointCompare(left, right) {
+  const leftPoints = [...left].map((character) => character.codePointAt(0));
+  const rightPoints = [...right].map((character) => character.codePointAt(0));
+  const length = Math.min(leftPoints.length, rightPoints.length);
+  for (let index = 0; index < length; index += 1) {
+    if (leftPoints[index] !== rightPoints[index]) {
+      return leftPoints[index] - rightPoints[index];
+    }
+  }
+  return leftPoints.length - rightPoints.length;
 }
 
 function canonicalJson(value) {
   if (value === null || typeof value !== "object") return JSON.stringify(value);
   if (Array.isArray(value)) return `[${value.map(canonicalJson).join(",")}]`;
   return `{${Object.keys(value)
-    .sort()
+    .sort(codePointCompare)
     .map((key) => `${JSON.stringify(key)}:${canonicalJson(value[key])}`)
     .join(",")}}`;
 }
@@ -108,6 +126,83 @@ function contractVersion(entry) {
 
 function projectionSymbol(entry) {
   return `${entry.canonical_name}V${contractVersion(entry)}`;
+}
+
+function safeGeneratedTargetPath(targetPath, at) {
+  if (
+    typeof targetPath !== "string" ||
+    targetPath.length === 0 ||
+    targetPath.includes("\\") ||
+    path.isAbsolute(targetPath) ||
+    path.win32.isAbsolute(targetPath)
+  ) {
+    throw new Error(`${at}: generated target path must be a repository-relative POSIX path`);
+  }
+  const normalized = path.posix.normalize(targetPath);
+  if (
+    normalized !== targetPath ||
+    normalized === "." ||
+    normalized === ".." ||
+    normalized.startsWith("../")
+  ) {
+    throw new Error(`${at}: generated target path escapes or is not normalized: ${targetPath}`);
+  }
+  const absolute = path.resolve(root, targetPath);
+  const relative = path.relative(root, absolute);
+  if (
+    relative.length === 0 ||
+    relative === ".." ||
+    relative.startsWith(`..${path.sep}`) ||
+    path.isAbsolute(relative)
+  ) {
+    throw new Error(`${at}: generated target path escapes the repository: ${targetPath}`);
+  }
+  return absolute;
+}
+
+function validateGeneratedTargets(registryDocument) {
+  if (!Array.isArray(registryDocument?.contracts)) {
+    throw new Error("Architecture contract registry has no contracts array");
+  }
+  const targets = [];
+  for (const entry of registryDocument.contracts) {
+    const at = `registry:${entry?.contract_id ?? "unknown"}.generated_targets`;
+    if (!Array.isArray(entry?.generated_targets)) {
+      throw new Error(`${at}: expected a generated target array`);
+    }
+    const expectedSymbol = projectionSymbol(entry);
+    const seenKinds = new Set();
+    const seenDefinitions = new Set();
+    for (const [index, target] of entry.generated_targets.entries()) {
+      const targetAt = `${at}[${index}]`;
+      if (!isPlainObject(target)) {
+        throw new Error(`${targetAt}: expected a generated target object`);
+      }
+      if (!SUPPORTED_TARGET_KINDS.has(target.kind)) {
+        throw new Error(`${targetAt}: unknown generated target kind ${JSON.stringify(target.kind)}`);
+      }
+      if (seenKinds.has(target.kind)) {
+        throw new Error(`${at}: duplicate generated target kind ${target.kind}`);
+      }
+      seenKinds.add(target.kind);
+      if (target.symbol !== expectedSymbol) {
+        throw new Error(`${targetAt}: generated target symbol must be ${expectedSymbol}`);
+      }
+      const absolutePath = safeGeneratedTargetPath(target.path, targetAt);
+      const definition = `${target.kind}\u0000${target.path}\u0000${target.symbol}`;
+      if (seenDefinitions.has(definition)) {
+        throw new Error(`${at}: duplicate generated target definition`);
+      }
+      seenDefinitions.add(definition);
+      targets.push({ ...target, absolutePath, contractId: entry.contract_id });
+    }
+    for (const kind of SUPPORTED_TARGET_KINDS) {
+      if (!seenKinds.has(kind)) {
+        throw new Error(`${at}: missing required generated target kind ${kind}`);
+      }
+    }
+  }
+  return targets;
 }
 
 function resolveLocalRef(rootSchema, ref) {
@@ -449,6 +544,14 @@ const mutationDefinitions = [
     patch: { operation: "remove", pointer: "/actor_id" },
   },
   {
+    id: "required-nullable-claim-scope-missing",
+    contractId: "schema://ioi/foundations/receipt-envelope/v1",
+    fixture: "fixtures/receipt-envelope-v1/positive-minimal.json",
+    keywords: ["required"],
+    directProjectionRejection: true,
+    patch: { operation: "remove", pointer: "/claim_scope_ref" },
+  },
+  {
     id: "additional-property-injected",
     contractId: "schema://ioi/foundations/receipt-envelope/v1",
     fixture: "fixtures/receipt-envelope-v1/positive-assured.json",
@@ -495,6 +598,14 @@ const mutationDefinitions = [
     fixture: "fixtures/receipt-envelope-v1/positive-assured.json",
     keywords: ["anyOf"],
     patch: { operation: "set", pointer: "/claim_scope_ref", value: 42 },
+  },
+  {
+    id: "optional-non-nullable-input-hash-null",
+    contractId: "schema://ioi/foundations/receipt-envelope/v1",
+    fixture: "fixtures/receipt-envelope-v1/positive-minimal.json",
+    keywords: ["type", "$ref"],
+    directProjectionRejection: true,
+    patch: { operation: "set", pointer: "/input_hash", value: null },
   },
   {
     id: "unicode-aware-min-length-violated",
@@ -627,29 +738,265 @@ const mutationDefinitions = [
   },
 ];
 
+const generatorAjv = new Ajv2020({
+  allErrors: true,
+  strict: true,
+  validateFormats: true,
+});
+generatorAjv.addKeyword({
+  keyword: "x-ioi-schema-version",
+  schemaType: "string",
+});
+addFormats(generatorAjv);
+const generatorAjvValidators = new Map(
+  contracts.map(({ entry, schema }) => [
+    entry.contract_id,
+    generatorAjv.compile(schema),
+  ]),
+);
+
+function applyMutation(value, patch) {
+  const parts = patch.pointer
+    .slice(1)
+    .split("/")
+    .map((part) => part.replaceAll("~1", "/").replaceAll("~0", "~"));
+  const name = parts.pop();
+  const parent = parts.reduce((current, part) => current?.[part], value);
+  if (!isPlainObject(parent) || typeof name !== "string") {
+    throw new Error(`Mutation pointer has no object parent: ${patch.pointer}`);
+  }
+  if (patch.operation === "set") {
+    parent[name] = structuredClone(patch.value);
+  } else if (patch.operation === "remove") {
+    if (!Object.hasOwn(parent, name)) {
+      throw new Error(`Mutation pointer does not exist: ${patch.pointer}`);
+    }
+    delete parent[name];
+  } else {
+    throw new Error(`Unsupported mutation operation: ${patch.operation}`);
+  }
+  return value;
+}
+
+function generatorValueAtPath(value, pointer) {
+  if (typeof pointer !== "string" || !pointer.startsWith("$.")) return undefined;
+  return pointer
+    .slice(2)
+    .split(".")
+    .reduce(
+      (current, part) => (isPlainObject(current) ? current[part] : undefined),
+      value,
+    );
+}
+
+function generatorNonEmpty(value) {
+  return (
+    (Array.isArray(value) && value.length > 0) ||
+    (typeof value === "string" && value.length > 0)
+  );
+}
+
+function generatorInvariantErrors(contract, value) {
+  const expectedSchemaHash = schemaHash(contract.schema);
+  return contract.invariants.flatMap((profile) =>
+    (profile.rules ?? []).flatMap((rule) => {
+      const expression = rule.expression ?? {};
+      let valid = false;
+      if (expression.operator === "non_empty") {
+        valid = generatorNonEmpty(
+          generatorValueAtPath(value, expression.path),
+        );
+      } else if (
+        expression.operator === "any_non_empty" &&
+        Array.isArray(expression.paths)
+      ) {
+        valid = expression.paths.some((pointer) =>
+          generatorNonEmpty(generatorValueAtPath(value, pointer)),
+        );
+      } else if (
+        expression.operator === "non_empty_when_in" &&
+        Array.isArray(expression.values)
+      ) {
+        const actual = generatorValueAtPath(value, expression.when_path);
+        valid =
+          !expression.values.some((expected) => Object.is(actual, expected)) ||
+          generatorNonEmpty(generatorValueAtPath(value, expression.path));
+      } else if (
+        expression.operator === "fields_equal" &&
+        Array.isArray(expression.paths) &&
+        expression.paths.length === 2
+      ) {
+        valid =
+          canonicalJson(generatorValueAtPath(value, expression.paths[0])) ===
+          canonicalJson(generatorValueAtPath(value, expression.paths[1]));
+      } else if (expression.operator === "matches_contract_schema_hash") {
+        valid =
+          generatorValueAtPath(value, expression.path) === expectedSchemaHash;
+      } else if (
+        ["numbers_lte", "numbers_lt"].includes(expression.operator) &&
+        Array.isArray(expression.paths) &&
+        expression.paths.length === 2
+      ) {
+        const left = generatorValueAtPath(value, expression.paths[0]);
+        const right = generatorValueAtPath(value, expression.paths[1]);
+        valid =
+          typeof left === "number" &&
+          typeof right === "number" &&
+          (expression.operator === "numbers_lte" ? left <= right : left < right);
+      } else {
+        throw new Error(
+          `${profile.$id}: unsupported invariant operator ${expression.operator}`,
+        );
+      }
+      return valid ? [] : [rule.rule_id];
+    }),
+  );
+}
+
+function mutationValue(definition) {
+  const fixturePath = path.join(schemaRoot, definition.fixture);
+  const sourceValue = readJson(fixturePath);
+  const patch = definition.patch ?? definition.buildPatch?.(sourceValue);
+  if (
+    !isPlainObject(patch) ||
+    !["set", "remove"].includes(patch.operation) ||
+    typeof patch.pointer !== "string" ||
+    !patch.pointer.startsWith("/") ||
+    (patch.operation === "set" && !Object.hasOwn(patch, "value"))
+  ) {
+    throw new Error(`Invalid mutation patch ${definition.id}`);
+  }
+  return {
+    patch,
+    value: applyMutation(structuredClone(sourceValue), patch),
+  };
+}
+
 function mutationCorpus() {
   return mutationDefinitions.map((definition) => {
-    const fixturePath = path.join(schemaRoot, definition.fixture);
-    const sourceValue = readJson(fixturePath);
-    const patch = definition.patch ?? definition.buildPatch?.(sourceValue);
-    if (
-      !isPlainObject(patch) ||
-      !["set", "remove"].includes(patch.operation) ||
-      typeof patch.pointer !== "string" ||
-      !patch.pointer.startsWith("/") ||
-      (patch.operation === "set" && !Object.hasOwn(patch, "value"))
-    ) {
-      throw new Error(`Invalid mutation patch ${definition.id}`);
+    const { patch, value } = mutationValue(definition);
+    const validate = generatorAjvValidators.get(definition.contractId);
+    if (!validate) {
+      throw new Error(`Mutation ${definition.id} names an unknown contract`);
     }
     return {
       id: definition.id,
       contract_id: definition.contractId,
       source_fixture_path: `docs/architecture/_meta/schemas/${definition.fixture}`,
       covered_keywords: definition.keywords,
-      ajv_expected_accept: definition.ajvExpectedAccept === true,
+      ajv_expected_accept: Boolean(validate(value)),
       direct_projection_rejection:
         definition.directProjectionRejection === true,
       patch,
+    };
+  });
+}
+
+function replaceOnce(text, search, replacement, at) {
+  const first = text.indexOf(search);
+  if (first === -1 || text.indexOf(search, first + search.length) !== -1) {
+    throw new Error(`${at}: expected exactly one ${JSON.stringify(search)}`);
+  }
+  return `${text.slice(0, first)}${replacement}${text.slice(first + search.length)}`;
+}
+
+function differentialCorpus() {
+  const cases = fixtureMetadata().map((fixture) => ({
+    id: `fixture:${fixture.path}`,
+    contract_id: fixture.contract_id,
+    source_fixture_path: fixture.path,
+    mutation_id: null,
+    value_json: null,
+    value: readJson(path.join(root, fixture.path)),
+  }));
+  for (const definition of mutationDefinitions) {
+    const { value } = mutationValue(definition);
+    cases.push({
+      id: `mutation:${definition.id}`,
+      contract_id: definition.contractId,
+      source_fixture_path: null,
+      mutation_id: definition.id,
+      value_json: null,
+      value,
+    });
+  }
+
+  const authorityTimestampPath = path.join(
+    schemaRoot,
+    "fixtures/authority-grant-envelope-v2/positive-root.json",
+  );
+  const authorityTimestamp = fs.readFileSync(authorityTimestampPath, "utf8");
+  cases.push({
+    id: "differential:authority-timestamp-integral-decimal",
+    contract_id: "schema://ioi/foundations/authority-grant-envelope/v2",
+    source_fixture_path: null,
+    mutation_id: null,
+    value_json: replaceOnce(
+      authorityTimestamp,
+      '"issued_at": 1784203200',
+      '"issued_at": 1784203200.0',
+      "authority timestamp differential",
+    ),
+  });
+
+  const proofIndexPath = path.join(
+    schemaRoot,
+    "fixtures/receipt-proof-bundle-v1/positive-offline.json",
+  );
+  const proofIndex = fs.readFileSync(proofIndexPath, "utf8");
+  cases.push({
+    id: "differential:proof-index-integral-decimal-equality",
+    contract_id: "schema://ioi/foundations/receipt-proof-bundle/v1",
+    source_fixture_path: null,
+    mutation_id: null,
+    value_json: replaceOnce(
+      proofIndex,
+      '    "leaf_index": 1,\n    "leaf_hash"',
+      '    "leaf_index": 1.0,\n    "leaf_hash"',
+      "proof-index differential",
+    ),
+  });
+
+  const leapSecondFixture = readJson(
+    path.join(
+      schemaRoot,
+      "fixtures/authority-grant-envelope-v1/positive-active.json",
+    ),
+  );
+  for (const [id, dateTime] of [
+    ["leap-second-offset-hour-normalization", "2025-01-01T24:59:60+01:00"],
+    ["leap-second-offset-minute-normalization", "2025-01-01T23:60:60+00:01"],
+  ]) {
+    const value = structuredClone(leapSecondFixture);
+    value.constraints.expires_at = dateTime;
+    cases.push({
+      id: `differential:${id}`,
+      contract_id: "schema://ioi/foundations/authority-grant-envelope/v1",
+      source_fixture_path: null,
+      mutation_id: null,
+      value_json: JSON.stringify(value),
+    });
+  }
+
+  const contractsById = new Map(
+    contracts.map((contract) => [contract.entry.contract_id, contract]),
+  );
+  return cases.map((candidate) => {
+    const contract = contractsById.get(candidate.contract_id);
+    const validate = generatorAjvValidators.get(candidate.contract_id);
+    if (!contract || !validate) {
+      throw new Error(`Differential case ${candidate.id} names an unknown contract`);
+    }
+    const value =
+      candidate.value ??
+      JSON.parse(candidate.value_json);
+    const ajvSchemaAccept = Boolean(validate(value));
+    const { value: _value, ...serializable } = candidate;
+    return {
+      ...serializable,
+      ajv_schema_accept: ajvSchemaAccept,
+      oracle_contract_accept:
+        ajvSchemaAccept && generatorInvariantErrors(contract, value).length === 0,
     };
   });
 }
@@ -671,7 +1018,7 @@ const uncoveredMutationKeywords = [...usedSchemaKeywords].filter(
 );
 if (uncoveredMutationKeywords.length > 0) {
   throw new Error(
-    `Architecture contract mutation corpus does not cover used semantic keywords: ${uncoveredMutationKeywords.sort().join(", ")}`,
+    `Architecture contract mutation corpus does not cover used semantic keywords: ${uncoveredMutationKeywords.sort(codePointCompare).join(", ")}`,
   );
 }
 const staleMutationKeywords = [...mutationCoveredKeywords].filter(
@@ -679,7 +1026,7 @@ const staleMutationKeywords = [...mutationCoveredKeywords].filter(
 );
 if (staleMutationKeywords.length > 0) {
   throw new Error(
-    `Architecture contract mutation corpus claims unused semantic keywords: ${staleMutationKeywords.sort().join(", ")}`,
+    `Architecture contract mutation corpus claims unused semantic keywords: ${staleMutationKeywords.sort(codePointCompare).join(", ")}`,
   );
 }
 
@@ -703,6 +1050,13 @@ function renderTypescript() {
     contracts.map(({ entry, schema }) => [entry.contract_id, schemaHash(schema)]),
   );
   const mutations = mutationCorpus();
+  const differentialCases = differentialCorpus().map((candidate) => ({
+    id: candidate.id,
+    contract_id: candidate.contract_id,
+    source_fixture_path: candidate.source_fixture_path,
+    mutation_id: candidate.mutation_id,
+    value_json: candidate.value_json,
+  }));
   const wrappers = contracts
     .map(
       ({ entry }) => `export function validate${projectionSymbol(entry)}(
@@ -737,9 +1091,19 @@ export type ArchitectureContractMutation = {
 
 export const ARCHITECTURE_CONTRACT_MUTATIONS: ReadonlyArray<ArchitectureContractMutation> = ${JSON.stringify(mutations, null, 2)};
 
-export const ARCHITECTURE_CONTRACT_ASSERTION_KEYWORDS = ${JSON.stringify([...usedSchemaKeywords].sort(), null, 2)} as const;
+export type ArchitectureContractDifferentialCase = {
+  id: string;
+  contract_id: string;
+  source_fixture_path: string | null;
+  mutation_id: string | null;
+  value_json: string | null;
+};
 
-export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = ${JSON.stringify([...registeredPatternTranslations.keys()].sort(), null, 2)} as const;
+export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<ArchitectureContractDifferentialCase> = ${JSON.stringify(differentialCases, null, 2)};
+
+export const ARCHITECTURE_CONTRACT_ASSERTION_KEYWORDS = ${JSON.stringify([...usedSchemaKeywords].sort(codePointCompare), null, 2)} as const;
+
+export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = ${JSON.stringify([...registeredPatternTranslations.keys()].sort(codePointCompare), null, 2)} as const;
 
 export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = ${JSON.stringify(schemaHashes, null, 2)} as const;
 
@@ -825,14 +1189,12 @@ function isRfc3339DateTime(value: string): boolean {
     month > 12 ||
     day < 1 ||
     day > monthDays[month] ||
-    hour > 23 ||
-    minute > 59 ||
     zoneHour > 23 ||
     zoneMinute > 59
   ) {
     return false;
   }
-  if (second < 60) return true;
+  if (hour <= 23 && minute <= 59 && second < 60) return true;
   const utcMinute = minute - zoneMinute * zoneSign;
   const utcHour =
     hour - zoneHour * zoneSign - (utcMinute < 0 ? 1 : 0);
@@ -1016,7 +1378,7 @@ function invariantErrors(contractId: string, rules: Array<JsonObject>, value: un
           ? candidate.length > 0
           : typeof candidate === "string" && candidate.length > 0);
     } else if (operator === "fields_equal" && Array.isArray(expression.paths) && expression.paths.length === 2) {
-      valid = Object.is(
+      valid = jsonSchemaEqual(
         valueAtPath(value, expression.paths[0]),
         valueAtPath(value, expression.paths[1]),
       );
@@ -1067,6 +1429,7 @@ function nullableBranch(schema, rootSchema) {
 
 function rustStructsFor(entry, schema) {
   const definitions = new Map();
+  const topName = projectionSymbol(entry);
   function rustFieldName(name) {
     return name === "ref" ? "r#ref" : name;
   }
@@ -1112,7 +1475,7 @@ function rustStructsFor(entry, schema) {
       case "string":
         return "String";
       case "integer":
-        return "u64";
+        return "ArchitectureContractInteger";
       case "number":
         return "f64";
       case "boolean":
@@ -1132,12 +1495,67 @@ function rustStructsFor(entry, schema) {
             if (!required.has(name) && !fieldType.startsWith("Option<")) {
               fieldType = `Option<${fieldType}>`;
             }
-            return `    pub ${rustFieldName(name)}: ${fieldType},`;
+            return {
+              fieldType,
+              jsonName: name,
+              required: required.has(name),
+              rustName: rustFieldName(name),
+            };
           });
-          definitions.set(
-            nameHint,
-            `#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]\n#[serde(deny_unknown_fields)]\npub struct ${nameHint} {\n${fields.join("\n")}\n}`,
-          );
+          const publicFields = fields
+            .map(
+              ({ rustName, fieldType }) =>
+                `    pub ${rustName}: ${fieldType},`,
+            )
+            .join("\n");
+          if (nameHint === topName) {
+            const assignments = fields
+              .map(({ fieldType, jsonName, required, rustName }) =>
+                required
+                  ? `            ${rustName}: serde_json::from_value::<${fieldType}>(
+                object
+                    .remove(${rustString(jsonName)})
+                    .ok_or_else(|| serde::de::Error::missing_field(${rustString(jsonName)}))?,
+            )
+            .map_err(serde::de::Error::custom)?,`
+                  : `            ${rustName}: match object.remove(${rustString(jsonName)}) {
+                Some(field_value) => serde_json::from_value::<${fieldType}>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },`,
+              )
+              .join("\n");
+            definitions.set(
+              nameHint,
+              `#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct ${nameHint} {
+${publicFields}
+}
+
+impl<'de> serde::Deserialize<'de> for ${nameHint} {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_schema(${rustString(entry.contract_id)}, &value)
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+${assignments}
+        })
+    }
+}`,
+            );
+          } else {
+            definitions.set(
+              nameHint,
+              `#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]\n#[serde(deny_unknown_fields)]\npub struct ${nameHint} {\n${publicFields}\n}`,
+            );
+          }
         }
         return nameHint;
       }
@@ -1145,7 +1563,6 @@ function rustStructsFor(entry, schema) {
         return "serde_json::Value";
     }
   }
-  const topName = projectionSymbol(entry);
   rustType(schema, schema, topName);
   return [...definitions.values()].join("\n\n");
 }
@@ -1176,8 +1593,22 @@ function renderRust() {
       `    (${JSON.stringify(entry.contract_id)}, ${rustRaw(invariants.flatMap((profile) => profile.rules))}),`,
     )
     .join("\n");
+  const differentialCases = differentialCorpus();
+  const differentialEntries = differentialCases
+    .map(
+      (candidate) => `    ArchitectureContractDifferentialCase {
+        id: ${rustString(candidate.id)},
+        contract_id: ${rustString(candidate.contract_id)},
+        source_fixture_path: ${candidate.source_fixture_path === null ? "None" : `Some(${rustString(candidate.source_fixture_path)})`},
+        mutation_id: ${candidate.mutation_id === null ? "None" : `Some(${rustString(candidate.mutation_id)})`},
+        value_json: ${candidate.value_json === null ? "None" : `Some(${rustRawText(candidate.value_json)})`},
+        ajv_schema_accept: ${candidate.ajv_schema_accept},
+        oracle_contract_accept: ${candidate.oracle_contract_accept},
+    },`,
+    )
+    .join("\n");
   const patternTranslationEntries = [...registeredPatternTranslations]
-    .sort(([left], [right]) => left.localeCompare(right))
+    .sort(([left], [right]) => codePointCompare(left, right))
     .map(
       ([ecmaPattern, rustPattern]) =>
         `    (${rustString(ecmaPattern)}, ${rustString(rustPattern)}),`,
@@ -1242,11 +1673,12 @@ function renderRust() {
 
 use regex::Regex;
 use serde_json::Value;
+use std::cmp::Ordering;
 
 pub const ARCHITECTURE_CONTRACT_REGISTRY_VERSION: &str = ${JSON.stringify(registry.registry_version)};
 
 pub const ARCHITECTURE_CONTRACT_ASSERTION_KEYWORDS: &[&str] = &[
-${[...usedSchemaKeywords].sort().map((keyword) => `    ${rustString(keyword)},`).join("\n")}
+${[...usedSchemaKeywords].sort(codePointCompare).map((keyword) => `    ${rustString(keyword)},`).join("\n")}
 ];
 
 pub const ARCHITECTURE_CONTRACT_SCHEMA_HASHES: &[(&str, &str)] = &[
@@ -1257,6 +1689,32 @@ pub fn architecture_contract_schema_hash(contract_id: &str) -> Option<&'static s
     ARCHITECTURE_CONTRACT_SCHEMA_HASHES
         .iter()
         .find_map(|(id, hash)| (*id == contract_id).then_some(*hash))
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub struct ArchitectureContractInteger(pub u64);
+
+impl serde::Serialize for ArchitectureContractInteger {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_u64(self.0)
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for ArchitectureContractInteger {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        let number = value
+            .as_number()
+            .and_then(json_number_as_u64)
+            .ok_or_else(|| serde::de::Error::custom("expected an integral JSON number in u64 range"))?;
+        Ok(Self(number))
+    }
 }
 
 ${structs}
@@ -1292,6 +1750,21 @@ pub const ARCHITECTURE_CONTRACT_MUTATIONS: &[ArchitectureContractMutation] = &[
 ${mutationEntries}
 ];
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ArchitectureContractDifferentialCase {
+    pub id: &'static str,
+    pub contract_id: &'static str,
+    pub source_fixture_path: Option<&'static str>,
+    pub mutation_id: Option<&'static str>,
+    pub value_json: Option<&'static str>,
+    pub ajv_schema_accept: bool,
+    pub oracle_contract_accept: bool,
+}
+
+pub const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: &[ArchitectureContractDifferentialCase] = &[
+${differentialEntries}
+];
+
 const CONTRACT_SCHEMAS: &[(&str, &str)] = &[
 ${schemaEntries}
 ];
@@ -1313,13 +1786,9 @@ fn type_matches(expected: &str, value: &Value) -> bool {
     match expected {
         "null" => value.is_null(),
         "string" => value.is_string(),
-        "integer" => {
-            value.as_i64().is_some()
-                || value.as_u64().is_some()
-                || value
-                    .as_f64()
-                    .is_some_and(|number| number.is_finite() && number.fract() == 0.0)
-        }
+        "integer" => value
+            .as_number()
+            .is_some_and(json_number_is_integral),
         "number" => value.is_number(),
         "boolean" => value.is_boolean(),
         "array" => value.is_array(),
@@ -1360,12 +1829,63 @@ fn normalized_json_number(number: &serde_json::Number) -> (bool, String, i32) {
     (negative, digits, decimal_exponent)
 }
 
+fn json_number_is_integral(number: &serde_json::Number) -> bool {
+    let (_, _, decimal_exponent) = normalized_json_number(number);
+    decimal_exponent >= 0
+}
+
+fn json_number_as_u64(number: &serde_json::Number) -> Option<u64> {
+    let (negative, digits, decimal_exponent) = normalized_json_number(number);
+    if negative || decimal_exponent < 0 {
+        return None;
+    }
+    let zero_count = usize::try_from(decimal_exponent).ok()?;
+    let total_length = digits.len().checked_add(zero_count)?;
+    if total_length > 20 {
+        return None;
+    }
+    let mut integer = digits;
+    integer.extend(std::iter::repeat_n('0', zero_count));
+    integer.parse::<u64>().ok()
+}
+
+fn compare_json_numbers(
+    left: &serde_json::Number,
+    right: &serde_json::Number,
+) -> Ordering {
+    let (left_negative, left_digits, left_exponent) = normalized_json_number(left);
+    let (right_negative, right_digits, right_exponent) = normalized_json_number(right);
+    if left_negative != right_negative {
+        return if left_negative {
+            Ordering::Less
+        } else {
+            Ordering::Greater
+        };
+    }
+    let left_magnitude = left_digits.len() as i64 + i64::from(left_exponent);
+    let right_magnitude = right_digits.len() as i64 + i64::from(right_exponent);
+    let magnitude_order = left_magnitude.cmp(&right_magnitude).then_with(|| {
+        let width = left_digits.len().max(right_digits.len());
+        (0..width)
+            .map(|index| left_digits.as_bytes().get(index).copied().unwrap_or(b'0'))
+            .cmp(
+                (0..width)
+                    .map(|index| right_digits.as_bytes().get(index).copied().unwrap_or(b'0')),
+            )
+    });
+    if left_negative {
+        magnitude_order.reverse()
+    } else {
+        magnitude_order
+    }
+}
+
 fn json_schema_equal(left: &Value, right: &Value) -> bool {
     match (left, right) {
         (Value::Null, Value::Null) => true,
         (Value::Bool(left), Value::Bool(right)) => left == right,
         (Value::Number(left), Value::Number(right)) => {
-            normalized_json_number(left) == normalized_json_number(right)
+            compare_json_numbers(left, right) == Ordering::Equal
         }
         (Value::String(left), Value::String(right)) => left == right,
         (Value::Array(left), Value::Array(right)) => {
@@ -1440,14 +1960,12 @@ fn is_rfc3339_date_time(text: &str) -> bool {
     if !(1..=12).contains(&month)
         || day == 0
         || day > month_days[month as usize]
-        || hour > 23
-        || minute > 59
         || zone_hour > 23
         || zone_minute > 59
     {
         return false;
     }
-    if second < 60.0 {
+    if hour <= 23 && minute <= 59 && second < 60.0 {
         return true;
     }
     let utc_minute = minute as i32 - zone_minute as i32 * zone_sign;
@@ -1533,13 +2051,19 @@ fn validate_node(root: &Value, schema: &Value, value: &Value, at: &str) -> Resul
             }
         }
     }
-    if let Some(minimum) = schema.get("minimum").and_then(Value::as_f64) {
-        if value.as_f64().is_some_and(|number| number < minimum) {
+    if let Some(minimum) = schema.get("minimum").and_then(Value::as_number) {
+        if value
+            .as_number()
+            .is_some_and(|number| compare_json_numbers(number, minimum) == Ordering::Less)
+        {
             return Err(format!("{at}: number below minimum"));
         }
     }
-    if let Some(maximum) = schema.get("maximum").and_then(Value::as_f64) {
-        if value.as_f64().is_some_and(|number| number > maximum) {
+    if let Some(maximum) = schema.get("maximum").and_then(Value::as_number) {
+        if value
+            .as_number()
+            .is_some_and(|number| compare_json_numbers(number, maximum) == Ordering::Greater)
+        {
             return Err(format!("{at}: number above maximum"));
         }
     }
@@ -1658,7 +2182,7 @@ fn validate_invariants(contract_id: &str, rules: &Value, value: &Value) -> Resul
                         value_at_path(value, paths.get(1)?.as_str()?)?,
                     ))
                 })
-                .is_some_and(|(left, right)| left == right),
+                .is_some_and(|(left, right)| json_schema_equal(left, right)),
             Some("matches_contract_schema_hash") => expression
                 .get("path")
                 .and_then(Value::as_str)
@@ -1672,15 +2196,16 @@ fn validate_invariants(contract_id: &str, rules: &Value, value: &Value) -> Resul
                 .filter(|paths| paths.len() == 2)
                 .and_then(|paths| {
                     Some((
-                        value_at_path(value, paths.first()?.as_str()?)?.as_u64()?,
-                        value_at_path(value, paths.get(1)?.as_str()?)?.as_u64()?,
+                        value_at_path(value, paths.first()?.as_str()?)?.as_number()?,
+                        value_at_path(value, paths.get(1)?.as_str()?)?.as_number()?,
                     ))
                 })
                 .is_some_and(|(left, right)| {
+                    let ordering = compare_json_numbers(left, right);
                     if operator == "numbers_lte" {
-                        left <= right
+                        ordering != Ordering::Greater
                     } else {
-                        left < right
+                        ordering == Ordering::Less
                     }
                 }),
             _ => false,
@@ -1696,25 +2221,29 @@ fn validate_invariants(contract_id: &str, rules: &Value, value: &Value) -> Resul
     Ok(())
 }
 
-pub fn validate_architecture_contract(contract_id: &str, value: &Value) -> Result<(), String> {
+fn validate_projection_schema(contract_id: &str, value: &Value) -> Result<(), String> {
     let schema_text = CONTRACT_SCHEMAS
         .iter()
         .find_map(|(id, schema)| (*id == contract_id).then_some(*schema))
         .ok_or_else(|| format!("unknown contract: {contract_id}"))?;
+    let schema: Value = serde_json::from_str(schema_text).map_err(|error| error.to_string())?;
+    validate_node(&schema, &schema, value, "$")
+}
+
+pub fn validate_architecture_contract(contract_id: &str, value: &Value) -> Result<(), String> {
     let invariant_text = CONTRACT_INVARIANTS
         .iter()
         .find_map(|(id, rules)| (*id == contract_id).then_some(*rules))
         .unwrap_or("[]");
-    let schema: Value = serde_json::from_str(schema_text).map_err(|error| error.to_string())?;
     let invariants: Value = serde_json::from_str(invariant_text).map_err(|error| error.to_string())?;
-    validate_node(&schema, &schema, value, "$")?;
+    validate_projection_schema(contract_id, value)?;
     validate_invariants(contract_id, &invariants, value)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::collections::BTreeSet;
+    use std::collections::{BTreeMap, BTreeSet};
 
     const FIXTURE_BODIES: &[(&str, &str)] = &[
 ${fixtureBodies}
@@ -1729,13 +2258,7 @@ ${parseArms},
     }
 
     fn validate_schema_only(contract_id: &str, value: &Value) -> Result<(), String> {
-        let schema_text = CONTRACT_SCHEMAS
-            .iter()
-            .find_map(|(id, schema)| (*id == contract_id).then_some(*schema))
-            .ok_or_else(|| format!("unknown contract: {contract_id}"))?;
-        let schema: Value =
-            serde_json::from_str(schema_text).map_err(|error| error.to_string())?;
-        validate_node(&schema, &schema, value, "$")
+        validate_projection_schema(contract_id, value)
     }
 
     fn mutation_value(mutation: &ArchitectureContractMutation) -> Value {
@@ -1780,6 +2303,77 @@ ${parseArms},
             .find_map(|(candidate, body)| (*candidate == path).then_some(*body))
             .expect("fixture body is generated");
         serde_json::from_str(body).expect("fixture contains JSON")
+    }
+
+    fn differential_expectations() -> (BTreeMap<String, (bool, bool)>, bool) {
+        let oracle_path = match std::env::var("IOI_ARCHITECTURE_CONTRACT_AJV_ORACLE") {
+            Ok(path) => path,
+            Err(std::env::VarError::NotPresent) => {
+                return (
+                    ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES
+                        .iter()
+                        .map(|candidate| {
+                            (
+                                candidate.id.to_owned(),
+                                (
+                                    candidate.ajv_schema_accept,
+                                    candidate.oracle_contract_accept,
+                                ),
+                            )
+                        })
+                        .collect(),
+                    false,
+                );
+            }
+            Err(error) => panic!("invalid Ajv oracle environment: {error}"),
+        };
+        let body = std::fs::read_to_string(&oracle_path)
+            .unwrap_or_else(|error| panic!("{oracle_path}: {error}"));
+        let document: Value = serde_json::from_str(&body)
+            .unwrap_or_else(|error| panic!("{oracle_path}: {error}"));
+        assert_eq!(
+            document.get("schema_version").and_then(Value::as_str),
+            Some("ioi.architecture-contract-ajv-differential.v1"),
+            "{oracle_path}: unexpected live Ajv oracle schema",
+        );
+        let cases = document
+            .get("cases")
+            .and_then(Value::as_array)
+            .unwrap_or_else(|| panic!("{oracle_path}: cases must be an array"));
+        let mut expectations = BTreeMap::new();
+        for case in cases {
+            let id = case
+                .get("id")
+                .and_then(Value::as_str)
+                .unwrap_or_else(|| panic!("{oracle_path}: differential case has no id"));
+            let schema_accept = case
+                .get("ajv_schema_accept")
+                .and_then(Value::as_bool)
+                .unwrap_or_else(|| panic!("{oracle_path}: {id} has no Ajv schema result"));
+            let contract_accept = case
+                .get("oracle_contract_accept")
+                .and_then(Value::as_bool)
+                .unwrap_or_else(|| panic!("{oracle_path}: {id} has no contract result"));
+            assert!(
+                expectations
+                    .insert(id.to_owned(), (schema_accept, contract_accept))
+                    .is_none(),
+                "{oracle_path}: duplicate differential case {id}",
+            );
+        }
+        assert_eq!(
+            expectations.len(),
+            ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES.len(),
+            "{oracle_path}: live Ajv corpus size differs from the generated Rust corpus",
+        );
+        for candidate in ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES {
+            assert!(
+                expectations.contains_key(candidate.id),
+                "{oracle_path}: live Ajv corpus is missing {}",
+                candidate.id,
+            );
+        }
+        (expectations, true)
     }
 
     #[test]
@@ -1847,6 +2441,59 @@ ${parseArms},
     }
 
     #[test]
+    fn live_ajv_differential_corpus_matches_rust_validator_and_deserializer() {
+        let (expectations, live_oracle) = differential_expectations();
+        let oracle_label = if live_oracle {
+            "live Ajv subprocess oracle"
+        } else {
+            "generation-time Ajv oracle"
+        };
+        for candidate in ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES {
+            let (expected_schema_accept, expected_contract_accept) = expectations
+                .get(candidate.id)
+                .copied()
+                .unwrap_or_else(|| panic!("missing Ajv expectation for {}", candidate.id));
+            let value: Value = if let Some(value_json) = candidate.value_json {
+                serde_json::from_str(value_json)
+                    .unwrap_or_else(|error| panic!("{}: {error}", candidate.id))
+            } else if let Some(mutation_id) = candidate.mutation_id {
+                let mutation = ARCHITECTURE_CONTRACT_MUTATIONS
+                    .iter()
+                    .find(|mutation| mutation.id == mutation_id)
+                    .unwrap_or_else(|| panic!("{}: missing mutation {mutation_id}", candidate.id));
+                mutation_value(mutation)
+            } else {
+                fixture_value(
+                    candidate
+                        .source_fixture_path
+                        .unwrap_or_else(|| panic!("{}: missing differential source", candidate.id)),
+                )
+            };
+            let schema_result = validate_schema_only(candidate.contract_id, &value);
+            assert_eq!(
+                schema_result.is_ok(),
+                expected_schema_accept,
+                "{}: Rust schema result={schema_result:?} disagreed with {oracle_label}",
+                candidate.id,
+            );
+            let projection_result = parse_projection(candidate.contract_id, &value);
+            assert_eq!(
+                projection_result.is_ok(),
+                expected_schema_accept,
+                "{}: direct Rust projection result={projection_result:?} disagreed with {oracle_label}",
+                candidate.id,
+            );
+            let contract_result = validate_architecture_contract(candidate.contract_id, &value);
+            assert_eq!(
+                contract_result.is_ok(),
+                expected_contract_accept,
+                "{}: Rust contract result={contract_result:?} disagreed with {oracle_label} plus portable invariants",
+                candidate.id,
+            );
+        }
+    }
+
+    #[test]
     fn exact_json_number_equality_preserves_unique_items_semantics() {
         const CONTRACT_ID: &str =
             "schema://ioi/foundations/authority-key-set/v1";
@@ -1899,7 +2546,7 @@ ${parseArms},
     }
 
     #[test]
-    fn strict_rfc3339_rejects_invalid_leap_second_clock_fields() {
+    fn ajv_formats_leap_second_profile_is_shared_by_rust_projection() {
         const CONTRACT_ID: &str =
             "schema://ioi/foundations/authority-grant-envelope/v1";
         const FIXTURE_PATH: &str =
@@ -1912,8 +2559,12 @@ ${parseArms},
             value["constraints"]["expires_at"] =
                 Value::String(invalid.to_owned());
             assert!(
-                validate_schema_only(CONTRACT_ID, &value).is_err(),
-                "strict RFC3339 accepted {invalid}",
+                validate_schema_only(CONTRACT_ID, &value).is_ok(),
+                "Rust validator diverged from the ajv-formats leap-second oracle for {invalid}",
+            );
+            assert!(
+                parse_projection(CONTRACT_ID, &value).is_ok(),
+                "direct Rust projection diverged from the ajv-formats leap-second oracle for {invalid}",
             );
         }
     }
@@ -1940,7 +2591,7 @@ ${parseArms},
     }
 
     #[test]
-    fn closed_literal_projections_reject_invalid_values_directly() {
+    fn schema_invalid_values_refuse_direct_projection_deserialization() {
         for mutation in ARCHITECTURE_CONTRACT_MUTATIONS
             .iter()
             .filter(|mutation| mutation.direct_projection_rejection)
@@ -1969,6 +2620,8 @@ ${parseArms},
 }
 
 function formatRust(source) {
+  const toolchain = pinnedRustToolchain();
+  verifyPinnedRustfmt(toolchain);
   const temporaryDirectory = fs.mkdtempSync(
     path.join(os.tmpdir(), "ioi-architecture-contracts-"),
   );
@@ -1979,8 +2632,8 @@ function formatRust(source) {
   try {
     fs.writeFileSync(temporaryPath, source);
     const result = spawnSync(
-      "rustfmt",
-      ["--edition", "2021", temporaryPath],
+      "rustup",
+      ["run", toolchain, "rustfmt", "--edition", "2021", temporaryPath],
       {
         cwd: root,
         encoding: "utf8",
@@ -1994,6 +2647,44 @@ function formatRust(source) {
     return fs.readFileSync(temporaryPath, "utf8");
   } finally {
     fs.rmSync(temporaryDirectory, { force: true, recursive: true });
+  }
+}
+
+function pinnedRustToolchain() {
+  const toolchainPath = path.join(root, "rust-toolchain.toml");
+  const source = fs.readFileSync(toolchainPath, "utf8");
+  const match = /^\s*channel\s*=\s*"([^"]+)"\s*$/mu.exec(source);
+  if (!match || !/^[0-9]+\.[0-9]+\.[0-9]+$/u.test(match[1])) {
+    throw new Error(
+      "rust-toolchain.toml must pin an exact semantic Rust toolchain version",
+    );
+  }
+  return match[1];
+}
+
+function verifyPinnedRustfmt(toolchain) {
+  const rustc = spawnSync("rustup", ["run", toolchain, "rustc", "--version"], {
+    cwd: root,
+    encoding: "utf8",
+  });
+  const rustfmt = spawnSync(
+    "rustup",
+    ["run", toolchain, "rustfmt", "--version"],
+    {
+      cwd: root,
+      encoding: "utf8",
+    },
+  );
+  if (
+    rustc.status !== 0 ||
+    !rustc.stdout.startsWith(`rustc ${toolchain} `) ||
+    rustfmt.status !== 0 ||
+    !/^rustfmt [0-9.]+/u.test(rustfmt.stdout)
+  ) {
+    throw new Error(
+      `Pinned Rust formatter toolchain ${toolchain} is unavailable or mismatched: ` +
+        `${(rustc.stderr || rustc.stdout).trim()} ${(rustfmt.stderr || rustfmt.stdout).trim()}`,
+    );
   }
 }
 
@@ -2052,21 +2743,51 @@ function runGeneratorCapabilityRegressions() {
       "Generator regression: Rust raw-string delimiter was not expanded dynamically",
     );
   }
+
+  const ordered = ["\u{10000}", "\uE000", "A"].sort(codePointCompare);
+  if (ordered.join("") !== `A\uE000\u{10000}`) {
+    throw new Error(
+      "Generator regression: schema-controlled ordering is not Unicode code-point stable",
+    );
+  }
+  verifyPinnedRustfmt(pinnedRustToolchain());
 }
 
 runGeneratorCapabilityRegressions();
-if (process.argv.includes("--self-test")) {
+if (cliMode === "self-test") {
   console.log(
     `Architecture contract generator self-test passed (${usedSchemaKeywords.size} semantic keywords).`,
   );
   process.exit(0);
 }
 
-const outputs = [
-  [tsPath, renderTypescript()],
-  [rustPath, formatRust(renderRust())],
-];
-const check = process.argv.includes("--check");
+const renderedTargets = new Map([
+  ["typescript_projection", renderTypescript()],
+  ["rust_projection", formatRust(renderRust())],
+]);
+const outputsByPath = new Map();
+for (const target of declaredTargets) {
+  const content = renderedTargets.get(target.kind);
+  if (content === undefined) {
+    throw new Error(`No renderer exists for generated target kind ${target.kind}`);
+  }
+  if (!content.includes(target.symbol)) {
+    throw new Error(
+      `${target.contractId}: rendered ${target.kind} target lacks ${target.symbol}`,
+    );
+  }
+  const existing = outputsByPath.get(target.absolutePath);
+  if (existing !== undefined && existing !== content) {
+    throw new Error(
+      `Generated target path ${target.path} is assigned incompatible target kinds`,
+    );
+  }
+  outputsByPath.set(target.absolutePath, content);
+}
+const outputs = [...outputsByPath.entries()].sort(([left], [right]) =>
+  codePointCompare(path.relative(root, left), path.relative(root, right)),
+);
+const check = cliMode === "check";
 const mismatches = [];
 for (const [filePath, content] of outputs) {
   if (check) {

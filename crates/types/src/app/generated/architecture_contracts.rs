@@ -3,6 +3,7 @@
 
 use regex::Regex;
 use serde_json::Value;
+use std::cmp::Ordering;
 
 pub const ARCHITECTURE_CONTRACT_REGISTRY_VERSION: &str = "ioi.architecture-contract-registry.v1";
 
@@ -92,8 +93,35 @@ pub fn architecture_contract_schema_hash(contract_id: &str) -> Option<&'static s
         .find_map(|(id, hash)| (*id == contract_id).then_some(*hash))
 }
 
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
-#[serde(deny_unknown_fields)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub struct ArchitectureContractInteger(pub u64);
+
+impl serde::Serialize for ArchitectureContractInteger {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_u64(self.0)
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for ArchitectureContractInteger {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        let number = value
+            .as_number()
+            .and_then(json_number_as_u64)
+            .ok_or_else(|| {
+                serde::de::Error::custom("expected an integral JSON number in u64 range")
+            })?;
+        Ok(Self(number))
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
 pub struct ReceiptEnvelopeV1 {
     pub receipt_id: String,
     pub receipt_type: String,
@@ -120,14 +148,220 @@ pub struct ReceiptEnvelopeV1 {
     pub public_commitment_ref: Option<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
-#[serde(deny_unknown_fields)]
+impl<'de> serde::Deserialize<'de> for ReceiptEnvelopeV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_schema(r#"schema://ioi/foundations/receipt-envelope/v1"#, &value)
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            receipt_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"receipt_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"receipt_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            receipt_type: serde_json::from_value::<String>(
+                object
+                    .remove(r#"receipt_type"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"receipt_type"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            receipt_profile_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"receipt_profile_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"receipt_profile_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            attested_boundary_fact_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"attested_boundary_fact_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"attested_boundary_fact_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            claim_scope_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"claim_scope_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"claim_scope_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            run_id: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"run_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"run_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            task_id: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"task_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"task_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            actor_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"actor_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"actor_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            input_hash: match object.remove(r#"input_hash"#) {
+                Some(field_value) => serde_json::from_value::<Option<String>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            output_hash: match object.remove(r#"output_hash"#) {
+                Some(field_value) => serde_json::from_value::<Option<String>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            policy_hash: match object.remove(r#"policy_hash"#) {
+                Some(field_value) => serde_json::from_value::<Option<String>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            authority_grant_id: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"authority_grant_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"authority_grant_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            primitive_capabilities: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"primitive_capabilities"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"primitive_capabilities"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authority_scopes: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"authority_scopes"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"authority_scopes"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            artifact_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"artifact_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"artifact_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            evidence_bundle_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"evidence_bundle_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"evidence_bundle_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            verification_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"verification_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"verification_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            acceptance_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"acceptance_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"acceptance_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            adjudication_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"adjudication_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"adjudication_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            settlement_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"settlement_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"settlement_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            timestamp: serde_json::from_value::<String>(
+                object
+                    .remove(r#"timestamp"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"timestamp"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            signature: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"signature"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"signature"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            public_commitment_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"public_commitment_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"public_commitment_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
 pub struct PhysicalActionExecutionReceiptV1 {
     pub schema_version: PhysicalActionExecutionReceiptV1SchemaVersion,
     pub receipt_envelope: PhysicalActionExecutionReceiptV1ReceiptEnvelope,
     pub body: PhysicalActionExecutionReceiptV1Body,
     pub body_hash: String,
     pub receipt_hash: String,
+}
+
+impl<'de> serde::Deserialize<'de> for PhysicalActionExecutionReceiptV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_schema(
+            r#"schema://ioi/foundations/physical-action-execution-receipt/v1"#,
+            &value,
+        )
+        .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version:
+                serde_json::from_value::<PhysicalActionExecutionReceiptV1SchemaVersion>(
+                    object
+                        .remove(r#"schema_version"#)
+                        .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+                )
+                .map_err(serde::de::Error::custom)?,
+            receipt_envelope: serde_json::from_value::<
+                PhysicalActionExecutionReceiptV1ReceiptEnvelope,
+            >(
+                object
+                    .remove(r#"receipt_envelope"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"receipt_envelope"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            body: serde_json::from_value::<PhysicalActionExecutionReceiptV1Body>(
+                object
+                    .remove(r#"body"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"body"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            body_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"body_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"body_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            receipt_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"receipt_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"receipt_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -195,7 +429,7 @@ pub struct PhysicalActionExecutionReceiptV1Body {
     pub assurance_evidence_bundle_ref: String,
     pub assurance_evidence_bundle_hash: String,
     pub active_writer_lease_ref: String,
-    pub active_writer_fencing_epoch: u64,
+    pub active_writer_fencing_epoch: ArchitectureContractInteger,
     pub active_writer_fencing_token_hash: String,
     pub graph_timing_chain_ref: String,
     pub graph_timing_chain_hash: String,
@@ -308,8 +542,7 @@ pub enum PhysicalActionExecutionReceiptV1BodyAssuranceStage {
     Settled,
 }
 
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
-#[serde(deny_unknown_fields)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
 pub struct AuthorityGrantEnvelopeV1 {
     pub authority_grant_id: String,
     pub request_id: String,
@@ -319,8 +552,90 @@ pub struct AuthorityGrantEnvelopeV1 {
     pub primitive_capability_constraints: Vec<String>,
     pub resources: Vec<String>,
     pub constraints: AuthorityGrantEnvelopeV1Constraints,
-    pub revocation_epoch: u64,
+    pub revocation_epoch: ArchitectureContractInteger,
     pub status: AuthorityGrantEnvelopeV1Status,
+}
+
+impl<'de> serde::Deserialize<'de> for AuthorityGrantEnvelopeV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_schema(
+            r#"schema://ioi/foundations/authority-grant-envelope/v1"#,
+            &value,
+        )
+        .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            authority_grant_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"authority_grant_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"authority_grant_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            request_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"request_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"request_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            issuer_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"issuer_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"issuer_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            subject_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"subject_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"subject_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authority_scopes: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"authority_scopes"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"authority_scopes"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            primitive_capability_constraints: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"primitive_capability_constraints"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"primitive_capability_constraints"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            resources: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"resources"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"resources"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            constraints: serde_json::from_value::<AuthorityGrantEnvelopeV1Constraints>(
+                object
+                    .remove(r#"constraints"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"constraints"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            revocation_epoch: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"revocation_epoch"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"revocation_epoch"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            status: serde_json::from_value::<AuthorityGrantEnvelopeV1Status>(
+                object
+                    .remove(r#"status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -328,7 +643,7 @@ pub struct AuthorityGrantEnvelopeV1 {
 pub struct AuthorityGrantEnvelopeV1Constraints {
     pub max_budget_usd: f64,
     pub expires_at: String,
-    pub max_calls: Option<u64>,
+    pub max_calls: Option<ArchitectureContractInteger>,
     pub approval_required_for: Vec<String>,
 }
 
@@ -342,8 +657,7 @@ pub enum AuthorityGrantEnvelopeV1Status {
     Revoked,
 }
 
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
-#[serde(deny_unknown_fields)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
 pub struct AuthorityGrantEnvelopeV2 {
     pub schema_version: AuthorityGrantEnvelopeV2SchemaVersion,
     pub envelope_type: AuthorityGrantEnvelopeV2EnvelopeType,
@@ -353,25 +667,209 @@ pub struct AuthorityGrantEnvelopeV2 {
     pub request_id: String,
     pub issuer_id: String,
     pub issuer_key_set_ref: String,
-    pub issuer_key_set_version: u64,
+    pub issuer_key_set_version: ArchitectureContractInteger,
     pub issuer_key_id: String,
     pub holder_id: String,
     pub holder_key_id: String,
     pub audience: String,
-    pub issued_at: u64,
-    pub not_before: u64,
-    pub expires_at: u64,
+    pub issued_at: ArchitectureContractInteger,
+    pub not_before: ArchitectureContractInteger,
+    pub expires_at: ArchitectureContractInteger,
     pub parent_grant: Option<AuthorityGrantEnvelopeV2ParentGrant>,
     pub authority_scopes: Vec<String>,
     pub primitive_capability_constraints: Vec<String>,
     pub resources: Vec<String>,
     pub attenuating_caveats: Vec<String>,
     pub risk_restrictions: AuthorityGrantEnvelopeV2RiskRestrictions,
-    pub revocation_epoch: u64,
+    pub revocation_epoch: ArchitectureContractInteger,
     pub body_hash: String,
     pub signature_suite: AuthorityGrantEnvelopeV2SignatureSuite,
     pub signature_key_id: String,
     pub signature: String,
+}
+
+impl<'de> serde::Deserialize<'de> for AuthorityGrantEnvelopeV2 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_schema(
+            r#"schema://ioi/foundations/authority-grant-envelope/v2"#,
+            &value,
+        )
+        .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<AuthorityGrantEnvelopeV2SchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            envelope_type: serde_json::from_value::<AuthorityGrantEnvelopeV2EnvelopeType>(
+                object
+                    .remove(r#"envelope_type"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"envelope_type"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            signature_domain: serde_json::from_value::<AuthorityGrantEnvelopeV2SignatureDomain>(
+                object
+                    .remove(r#"signature_domain"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"signature_domain"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            schema_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"schema_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authority_grant_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"authority_grant_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"authority_grant_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            request_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"request_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"request_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            issuer_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"issuer_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"issuer_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            issuer_key_set_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"issuer_key_set_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"issuer_key_set_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            issuer_key_set_version: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"issuer_key_set_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"issuer_key_set_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            issuer_key_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"issuer_key_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"issuer_key_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            holder_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"holder_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"holder_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            holder_key_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"holder_key_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"holder_key_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            audience: serde_json::from_value::<String>(
+                object
+                    .remove(r#"audience"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"audience"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            issued_at: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"issued_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"issued_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            not_before: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"not_before"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"not_before"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            expires_at: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"expires_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"expires_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            parent_grant: serde_json::from_value::<Option<AuthorityGrantEnvelopeV2ParentGrant>>(
+                object
+                    .remove(r#"parent_grant"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"parent_grant"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authority_scopes: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"authority_scopes"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"authority_scopes"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            primitive_capability_constraints: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"primitive_capability_constraints"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"primitive_capability_constraints"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            resources: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"resources"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"resources"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            attenuating_caveats: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"attenuating_caveats"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"attenuating_caveats"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            risk_restrictions: serde_json::from_value::<AuthorityGrantEnvelopeV2RiskRestrictions>(
+                object
+                    .remove(r#"risk_restrictions"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"risk_restrictions"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            revocation_epoch: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"revocation_epoch"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"revocation_epoch"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            body_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"body_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"body_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            signature_suite: serde_json::from_value::<AuthorityGrantEnvelopeV2SignatureSuite>(
+                object
+                    .remove(r#"signature_suite"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"signature_suite"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            signature_key_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"signature_key_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"signature_key_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            signature: serde_json::from_value::<String>(
+                object
+                    .remove(r#"signature"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"signature"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -404,8 +902,8 @@ pub struct AuthorityGrantEnvelopeV2ParentGrant {
 #[serde(deny_unknown_fields)]
 pub struct AuthorityGrantEnvelopeV2RiskRestrictions {
     pub allowed_risk_classes: Vec<AuthorityGrantEnvelopeV2RiskRestrictionsAllowedRiskClassesItem>,
-    pub max_budget_microusd: u64,
-    pub max_calls: u64,
+    pub max_budget_microusd: ArchitectureContractInteger,
+    pub max_calls: ArchitectureContractInteger,
     pub approval_required_for: Vec<String>,
 }
 
@@ -443,17 +941,81 @@ pub enum AuthorityGrantEnvelopeV2SignatureSuite {
     Ed25519,
 }
 
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
-#[serde(deny_unknown_fields)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
 pub struct AuthorityKeySetV1 {
     pub schema_version: AuthorityKeySetV1SchemaVersion,
     pub key_set_type: AuthorityKeySetV1KeySetType,
     pub key_set_id: String,
     pub issuer_id: String,
-    pub version: u64,
-    pub issued_at: u64,
-    pub expires_at: u64,
+    pub version: ArchitectureContractInteger,
+    pub issued_at: ArchitectureContractInteger,
+    pub expires_at: ArchitectureContractInteger,
     pub keys: Vec<AuthorityKeySetV1KeysItem>,
+}
+
+impl<'de> serde::Deserialize<'de> for AuthorityKeySetV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_schema(r#"schema://ioi/foundations/authority-key-set/v1"#, &value)
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<AuthorityKeySetV1SchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            key_set_type: serde_json::from_value::<AuthorityKeySetV1KeySetType>(
+                object
+                    .remove(r#"key_set_type"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"key_set_type"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            key_set_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"key_set_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"key_set_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            issuer_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"issuer_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"issuer_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            version: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            issued_at: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"issued_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"issued_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            expires_at: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"expires_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"expires_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            keys: serde_json::from_value::<Vec<AuthorityKeySetV1KeysItem>>(
+                object
+                    .remove(r#"keys"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"keys"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -474,8 +1036,8 @@ pub struct AuthorityKeySetV1KeysItem {
     pub key_id: String,
     pub signature_suite: AuthorityKeySetV1KeysItemSignatureSuite,
     pub public_key: String,
-    pub not_before: u64,
-    pub expires_at: u64,
+    pub not_before: ArchitectureContractInteger,
+    pub expires_at: ArchitectureContractInteger,
     pub status: AuthorityKeySetV1KeysItemStatus,
 }
 
@@ -495,18 +1057,17 @@ pub enum AuthorityKeySetV1KeysItemStatus {
     Revoked,
 }
 
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
-#[serde(deny_unknown_fields)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
 pub struct AuthorityRevocationSnapshotV1 {
     pub schema_version: AuthorityRevocationSnapshotV1SchemaVersion,
     pub snapshot_type: AuthorityRevocationSnapshotV1SnapshotType,
     pub snapshot_id: String,
     pub issuer_id: String,
     pub issuer_key_set_ref: String,
-    pub issuer_key_set_version: u64,
-    pub epoch: u64,
-    pub issued_at: u64,
-    pub expires_at: u64,
+    pub issuer_key_set_version: ArchitectureContractInteger,
+    pub epoch: ArchitectureContractInteger,
+    pub issued_at: ArchitectureContractInteger,
+    pub expires_at: ArchitectureContractInteger,
     pub revoked_grant_refs: Vec<String>,
     pub revoked_key_ids: Vec<String>,
     pub body_hash: String,
@@ -514,6 +1075,123 @@ pub struct AuthorityRevocationSnapshotV1 {
     pub signature_suite: AuthorityRevocationSnapshotV1SignatureSuite,
     pub signature_key_id: String,
     pub signature: String,
+}
+
+impl<'de> serde::Deserialize<'de> for AuthorityRevocationSnapshotV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_schema(
+            r#"schema://ioi/foundations/authority-revocation-snapshot/v1"#,
+            &value,
+        )
+        .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<AuthorityRevocationSnapshotV1SchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            snapshot_type: serde_json::from_value::<AuthorityRevocationSnapshotV1SnapshotType>(
+                object
+                    .remove(r#"snapshot_type"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"snapshot_type"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            snapshot_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"snapshot_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"snapshot_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            issuer_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"issuer_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"issuer_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            issuer_key_set_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"issuer_key_set_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"issuer_key_set_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            issuer_key_set_version: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"issuer_key_set_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"issuer_key_set_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            epoch: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"epoch"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"epoch"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            issued_at: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"issued_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"issued_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            expires_at: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"expires_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"expires_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            revoked_grant_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"revoked_grant_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"revoked_grant_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            revoked_key_ids: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"revoked_key_ids"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"revoked_key_ids"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            body_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"body_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"body_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            signature_domain:
+                serde_json::from_value::<AuthorityRevocationSnapshotV1SignatureDomain>(
+                    object
+                        .remove(r#"signature_domain"#)
+                        .ok_or_else(|| serde::de::Error::missing_field(r#"signature_domain"#))?,
+                )
+                .map_err(serde::de::Error::custom)?,
+            signature_suite: serde_json::from_value::<AuthorityRevocationSnapshotV1SignatureSuite>(
+                object
+                    .remove(r#"signature_suite"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"signature_suite"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            signature_key_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"signature_key_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"signature_key_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            signature: serde_json::from_value::<String>(
+                object
+                    .remove(r#"signature"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"signature"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -540,8 +1218,7 @@ pub enum AuthorityRevocationSnapshotV1SignatureSuite {
     Ed25519,
 }
 
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
-#[serde(deny_unknown_fields)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
 pub struct ReceiptCheckpointV1 {
     pub schema_version: ReceiptCheckpointV1SchemaVersion,
     pub checkpoint_type: ReceiptCheckpointV1CheckpointType,
@@ -553,23 +1230,214 @@ pub struct ReceiptCheckpointV1 {
     pub receipt_body_hash_profile: ReceiptCheckpointV1ReceiptBodyHashProfile,
     pub receipt_contract_id: ReceiptCheckpointV1ReceiptContractId,
     pub receipt_schema_hash: String,
-    pub accumulator_size: u64,
+    pub accumulator_size: ArchitectureContractInteger,
     pub accumulator_root: String,
     pub previous_checkpoint_ref: Option<String>,
     pub previous_checkpoint_hash: Option<String>,
-    pub previous_accumulator_size: Option<u64>,
+    pub previous_accumulator_size: Option<ArchitectureContractInteger>,
     pub previous_accumulator_root: Option<String>,
     pub issuer_id: String,
     pub issuer_key_set_ref: String,
-    pub issuer_key_set_version: u64,
+    pub issuer_key_set_version: ArchitectureContractInteger,
     pub issuer_key_id: String,
-    pub issued_at: u64,
+    pub issued_at: ArchitectureContractInteger,
     pub build_identity_ref: String,
     pub policy_posture_ref: String,
     pub body_hash: String,
     pub signature_suite: ReceiptCheckpointV1SignatureSuite,
     pub signature_key_id: String,
     pub signature: String,
+}
+
+impl<'de> serde::Deserialize<'de> for ReceiptCheckpointV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_schema(r#"schema://ioi/foundations/receipt-checkpoint/v1"#, &value)
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<ReceiptCheckpointV1SchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            checkpoint_type: serde_json::from_value::<ReceiptCheckpointV1CheckpointType>(
+                object
+                    .remove(r#"checkpoint_type"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"checkpoint_type"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            signature_domain: serde_json::from_value::<ReceiptCheckpointV1SignatureDomain>(
+                object
+                    .remove(r#"signature_domain"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"signature_domain"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            schema_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"schema_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            checkpoint_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"checkpoint_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"checkpoint_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            receipt_log_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"receipt_log_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"receipt_log_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            accumulator_algorithm:
+                serde_json::from_value::<ReceiptCheckpointV1AccumulatorAlgorithm>(
+                    object.remove(r#"accumulator_algorithm"#).ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"accumulator_algorithm"#)
+                    })?,
+                )
+                .map_err(serde::de::Error::custom)?,
+            receipt_body_hash_profile: serde_json::from_value::<
+                ReceiptCheckpointV1ReceiptBodyHashProfile,
+            >(
+                object
+                    .remove(r#"receipt_body_hash_profile"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"receipt_body_hash_profile"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            receipt_contract_id: serde_json::from_value::<ReceiptCheckpointV1ReceiptContractId>(
+                object
+                    .remove(r#"receipt_contract_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"receipt_contract_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            receipt_schema_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"receipt_schema_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"receipt_schema_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            accumulator_size: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"accumulator_size"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"accumulator_size"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            accumulator_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"accumulator_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"accumulator_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            previous_checkpoint_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"previous_checkpoint_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"previous_checkpoint_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            previous_checkpoint_hash: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"previous_checkpoint_hash"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"previous_checkpoint_hash"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            previous_accumulator_size:
+                serde_json::from_value::<Option<ArchitectureContractInteger>>(
+                    object
+                        .remove(r#"previous_accumulator_size"#)
+                        .ok_or_else(|| {
+                            serde::de::Error::missing_field(r#"previous_accumulator_size"#)
+                        })?,
+                )
+                .map_err(serde::de::Error::custom)?,
+            previous_accumulator_root: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"previous_accumulator_root"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"previous_accumulator_root"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            issuer_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"issuer_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"issuer_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            issuer_key_set_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"issuer_key_set_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"issuer_key_set_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            issuer_key_set_version: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"issuer_key_set_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"issuer_key_set_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            issuer_key_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"issuer_key_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"issuer_key_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            issued_at: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"issued_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"issued_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            build_identity_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"build_identity_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"build_identity_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            policy_posture_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"policy_posture_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"policy_posture_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            body_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"body_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"body_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            signature_suite: serde_json::from_value::<ReceiptCheckpointV1SignatureSuite>(
+                object
+                    .remove(r#"signature_suite"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"signature_suite"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            signature_key_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"signature_key_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"signature_key_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            signature: serde_json::from_value::<String>(
+                object
+                    .remove(r#"signature"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"signature"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -614,8 +1482,7 @@ pub enum ReceiptCheckpointV1SignatureSuite {
     Ed25519,
 }
 
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
-#[serde(deny_unknown_fields)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
 pub struct ReceiptProofBundleV1 {
     pub schema_version: ReceiptProofBundleV1SchemaVersion,
     pub bundle_type: ReceiptProofBundleV1BundleType,
@@ -638,6 +1505,166 @@ pub struct ReceiptProofBundleV1 {
     pub consistency_proof: ReceiptProofBundleV1ConsistencyProof,
     pub trusted_input_refs: ReceiptProofBundleV1TrustedInputRefs,
     pub verification_instructions: ReceiptProofBundleV1VerificationInstructions,
+}
+
+impl<'de> serde::Deserialize<'de> for ReceiptProofBundleV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_schema(
+            r#"schema://ioi/foundations/receipt-proof-bundle/v1"#,
+            &value,
+        )
+        .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<ReceiptProofBundleV1SchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            bundle_type: serde_json::from_value::<ReceiptProofBundleV1BundleType>(
+                object
+                    .remove(r#"bundle_type"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"bundle_type"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            manifest_domain: serde_json::from_value::<ReceiptProofBundleV1ManifestDomain>(
+                object
+                    .remove(r#"manifest_domain"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"manifest_domain"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            bundle_schema_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"bundle_schema_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"bundle_schema_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            manifest_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"manifest_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"manifest_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            manifest_signature_suite: serde_json::from_value::<
+                ReceiptProofBundleV1ManifestSignatureSuite,
+            >(
+                object
+                    .remove(r#"manifest_signature_suite"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"manifest_signature_suite"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            manifest_signature_key_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"manifest_signature_key_id"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"manifest_signature_key_id"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            manifest_signature: serde_json::from_value::<String>(
+                object
+                    .remove(r#"manifest_signature"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"manifest_signature"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            bundle_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"bundle_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"bundle_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            receipt_contract_id: serde_json::from_value::<ReceiptProofBundleV1ReceiptContractId>(
+                object
+                    .remove(r#"receipt_contract_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"receipt_contract_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            receipt_schema_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"receipt_schema_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"receipt_schema_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            receipt_body_hash_profile: serde_json::from_value::<
+                ReceiptProofBundleV1ReceiptBodyHashProfile,
+            >(
+                object
+                    .remove(r#"receipt_body_hash_profile"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"receipt_body_hash_profile"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            receipt: serde_json::from_value::<serde_json::Value>(
+                object
+                    .remove(r#"receipt"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"receipt"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            receipt_body_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"receipt_body_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"receipt_body_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            leaf: serde_json::from_value::<ReceiptProofBundleV1Leaf>(
+                object
+                    .remove(r#"leaf"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"leaf"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            inclusion_proof: serde_json::from_value::<ReceiptProofBundleV1InclusionProof>(
+                object
+                    .remove(r#"inclusion_proof"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"inclusion_proof"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            checkpoint: serde_json::from_value::<serde_json::Value>(
+                object
+                    .remove(r#"checkpoint"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"checkpoint"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            previous_checkpoint: serde_json::from_value::<Option<serde_json::Value>>(
+                object
+                    .remove(r#"previous_checkpoint"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"previous_checkpoint"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            consistency_proof: serde_json::from_value::<ReceiptProofBundleV1ConsistencyProof>(
+                object
+                    .remove(r#"consistency_proof"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"consistency_proof"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            trusted_input_refs: serde_json::from_value::<ReceiptProofBundleV1TrustedInputRefs>(
+                object
+                    .remove(r#"trusted_input_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"trusted_input_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            verification_instructions: serde_json::from_value::<
+                ReceiptProofBundleV1VerificationInstructions,
+            >(
+                object
+                    .remove(r#"verification_instructions"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"verification_instructions"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -681,7 +1708,7 @@ pub enum ReceiptProofBundleV1ReceiptBodyHashProfile {
 pub struct ReceiptProofBundleV1Leaf {
     pub algorithm: ReceiptProofBundleV1LeafAlgorithm,
     pub domain: ReceiptProofBundleV1LeafDomain,
-    pub leaf_index: u64,
+    pub leaf_index: ArchitectureContractInteger,
     pub leaf_hash: String,
 }
 
@@ -701,7 +1728,7 @@ pub enum ReceiptProofBundleV1LeafDomain {
 #[serde(deny_unknown_fields)]
 pub struct ReceiptProofBundleV1InclusionProof {
     pub profile: ReceiptProofBundleV1InclusionProofProfile,
-    pub leaf_index: u64,
+    pub leaf_index: ArchitectureContractInteger,
     pub prefix_root: String,
     pub suffix_leaf_hashes: Vec<String>,
 }
@@ -716,7 +1743,7 @@ pub enum ReceiptProofBundleV1InclusionProofProfile {
 #[serde(deny_unknown_fields)]
 pub struct ReceiptProofBundleV1ConsistencyProof {
     pub profile: ReceiptProofBundleV1ConsistencyProofProfile,
-    pub from_size: u64,
+    pub from_size: ArchitectureContractInteger,
     pub from_root: String,
     pub extension_leaf_hashes: Vec<String>,
 }
@@ -731,9 +1758,9 @@ pub enum ReceiptProofBundleV1ConsistencyProofProfile {
 #[serde(deny_unknown_fields)]
 pub struct ReceiptProofBundleV1TrustedInputRefs {
     pub key_set_ref: String,
-    pub key_set_version: u64,
+    pub key_set_version: ArchitectureContractInteger,
     pub revocation_snapshot_ref: String,
-    pub revocation_epoch: u64,
+    pub revocation_epoch: ArchitectureContractInteger,
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -761,8 +1788,7 @@ pub enum ReceiptProofBundleV1VerificationInstructionsOfflineRequiredInputsItem {
     TrustedTime,
 }
 
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
-#[serde(deny_unknown_fields)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
 pub struct InformationFlowLabelV1 {
     pub schema_version: InformationFlowLabelV1SchemaVersion,
     pub label_ref: String,
@@ -778,6 +1804,112 @@ pub struct InformationFlowLabelV1 {
     pub derivation_kind: InformationFlowLabelV1DerivationKind,
     pub derivation_parent_refs: Vec<String>,
     pub derivation_closure_refs: Vec<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for InformationFlowLabelV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_schema(
+            r#"schema://ioi/foundations/information-flow-label/v1"#,
+            &value,
+        )
+        .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<InformationFlowLabelV1SchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            label_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"label_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"label_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            profile_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"profile_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"profile_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            content_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"content_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"content_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            origin: serde_json::from_value::<InformationFlowLabelV1Origin>(
+                object
+                    .remove(r#"origin"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"origin"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            integrity: serde_json::from_value::<InformationFlowLabelV1Integrity>(
+                object
+                    .remove(r#"integrity"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"integrity"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            confidentiality: serde_json::from_value::<InformationFlowLabelV1Confidentiality>(
+                object
+                    .remove(r#"confidentiality"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"confidentiality"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            instruction_authority: serde_json::from_value::<
+                InformationFlowLabelV1InstructionAuthority,
+            >(
+                object
+                    .remove(r#"instruction_authority"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"instruction_authority"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            egress_policy: serde_json::from_value::<InformationFlowLabelV1EgressPolicy>(
+                object
+                    .remove(r#"egress_policy"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"egress_policy"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            purpose: serde_json::from_value::<String>(
+                object
+                    .remove(r#"purpose"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"purpose"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            retention: serde_json::from_value::<InformationFlowLabelV1Retention>(
+                object
+                    .remove(r#"retention"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"retention"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            derivation_kind: serde_json::from_value::<InformationFlowLabelV1DerivationKind>(
+                object
+                    .remove(r#"derivation_kind"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"derivation_kind"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            derivation_parent_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"derivation_parent_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"derivation_parent_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            derivation_closure_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"derivation_closure_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"derivation_closure_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -885,7 +2017,7 @@ pub enum InformationFlowLabelV1EgressPolicyAllowedDataClassesItem {
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct InformationFlowLabelV1Retention {
-    pub max_seconds: u64,
+    pub max_seconds: ArchitectureContractInteger,
     pub disposition: InformationFlowLabelV1RetentionDisposition,
 }
 
@@ -917,8 +2049,7 @@ pub enum InformationFlowLabelV1DerivationKind {
     ToolOutput,
 }
 
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
-#[serde(deny_unknown_fields)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
 pub struct RuntimeToolContractV1 {
     pub schema_version: RuntimeToolContractV1SchemaVersion,
     pub tool_id: String,
@@ -946,6 +2077,180 @@ pub struct RuntimeToolContractV1 {
     pub registry_status: Option<RuntimeToolContractV1RegistryStatus>,
 }
 
+impl<'de> serde::Deserialize<'de> for RuntimeToolContractV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_schema(
+            r#"schema://ioi/components/connectors-tools/runtime-tool-contract/v1"#,
+            &value,
+        )
+        .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<RuntimeToolContractV1SchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            tool_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"tool_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"tool_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            revision_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"revision_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"revision_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            predecessor_revision_ref: match object.remove(r#"predecessor_revision_ref"#) {
+                Some(field_value) => serde_json::from_value::<Option<String>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            content_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"content_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"content_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            namespace: serde_json::from_value::<String>(
+                object
+                    .remove(r#"namespace"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"namespace"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            display_name: serde_json::from_value::<String>(
+                object
+                    .remove(r#"display_name"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"display_name"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            version: serde_json::from_value::<String>(
+                object
+                    .remove(r#"version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            input_schema: match object.remove(r#"input_schema"#) {
+                Some(field_value) => {
+                    serde_json::from_value::<Option<serde_json::Value>>(field_value)
+                        .map_err(serde::de::Error::custom)?
+                }
+                None => None,
+            },
+            output_schema: match object.remove(r#"output_schema"#) {
+                Some(field_value) => {
+                    serde_json::from_value::<Option<serde_json::Value>>(field_value)
+                        .map_err(serde::de::Error::custom)?
+                }
+                None => None,
+            },
+            risk_class: serde_json::from_value::<String>(
+                object
+                    .remove(r#"risk_class"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"risk_class"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            effect_class: serde_json::from_value::<String>(
+                object
+                    .remove(r#"effect_class"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"effect_class"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            concurrency_class: match object.remove(r#"concurrency_class"#) {
+                Some(field_value) => serde_json::from_value::<
+                    Option<RuntimeToolContractV1ConcurrencyClass>,
+                >(field_value)
+                .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            timeout: match object.remove(r#"timeout"#) {
+                Some(field_value) => {
+                    serde_json::from_value::<Option<RuntimeToolContractV1Timeout>>(field_value)
+                        .map_err(serde::de::Error::custom)?
+                }
+                None => None,
+            },
+            primitive_capabilities_required: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"primitive_capabilities_required"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"primitive_capabilities_required"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authority_scopes_required: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"authority_scopes_required"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"authority_scopes_required"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            approval_required: serde_json::from_value::<bool>(
+                object
+                    .remove(r#"approval_required"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"approval_required"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            evidence_required: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"evidence_required"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"evidence_required"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            redaction_policy: match object.remove(r#"redaction_policy"#) {
+                Some(field_value) => serde_json::from_value::<
+                    Option<RuntimeToolContractV1RedactionPolicy>,
+                >(field_value)
+                .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            owner: serde_json::from_value::<String>(
+                object
+                    .remove(r#"owner"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"owner"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            data_class_allowlist: serde_json::from_value::<
+                Vec<RuntimeToolContractV1DataClassAllowlistItem>,
+            >(
+                object
+                    .remove(r#"data_class_allowlist"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"data_class_allowlist"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            egress_policy: serde_json::from_value::<RuntimeToolContractV1EgressPolicy>(
+                object
+                    .remove(r#"egress_policy"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"egress_policy"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            registry_lifecycle_ref: match object.remove(r#"registry_lifecycle_ref"#) {
+                Some(field_value) => serde_json::from_value::<Option<String>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            registry_status: match object.remove(r#"registry_status"#) {
+                Some(field_value) => serde_json::from_value::<
+                    Option<RuntimeToolContractV1RegistryStatus>,
+                >(field_value)
+                .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+        })
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum RuntimeToolContractV1SchemaVersion {
     #[serde(rename = r#"ioi.components.connectors-tools.runtime-tool-contract.v1"#)]
@@ -967,8 +2272,8 @@ pub enum RuntimeToolContractV1ConcurrencyClass {
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RuntimeToolContractV1Timeout {
-    pub default_ms: u64,
-    pub max_ms: u64,
+    pub default_ms: ArchitectureContractInteger,
+    pub max_ms: ArchitectureContractInteger,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -1022,8 +2327,7 @@ pub enum RuntimeToolContractV1RegistryStatus {
     Revoked,
 }
 
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
-#[serde(deny_unknown_fields)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
 pub struct ManagedWorkBillingLedgerBundleV1 {
     pub schema_version: ManagedWorkBillingLedgerBundleV1SchemaVersion,
     pub bundle_ref: String,
@@ -1038,8 +2342,128 @@ pub struct ManagedWorkBillingLedgerBundleV1 {
     pub final_debit: Option<ManagedWorkBillingLedgerBundleV1FinalDebit>,
     pub adjustments: Vec<ManagedWorkBillingLedgerBundleV1AdjustmentsItem>,
     pub ledger_head_hash: String,
-    pub exported_at_ms: u64,
+    pub exported_at_ms: ArchitectureContractInteger,
     pub assurance_status: ManagedWorkBillingLedgerBundleV1AssuranceStatus,
+}
+
+impl<'de> serde::Deserialize<'de> for ManagedWorkBillingLedgerBundleV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_schema(
+            r#"schema://ioi/foundations/managed-work-billing-ledger-bundle/v1"#,
+            &value,
+        )
+        .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version:
+                serde_json::from_value::<ManagedWorkBillingLedgerBundleV1SchemaVersion>(
+                    object
+                        .remove(r#"schema_version"#)
+                        .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+                )
+                .map_err(serde::de::Error::custom)?,
+            bundle_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"bundle_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"bundle_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            billing_account_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"billing_account_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"billing_account_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            work_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"work_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"work_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            rate_card: serde_json::from_value::<ManagedWorkBillingLedgerBundleV1RateCard>(
+                object
+                    .remove(r#"rate_card"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"rate_card"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            plan: serde_json::from_value::<ManagedWorkBillingLedgerBundleV1Plan>(
+                object
+                    .remove(r#"plan"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"plan"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            quote: serde_json::from_value::<ManagedWorkBillingLedgerBundleV1Quote>(
+                object
+                    .remove(r#"quote"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"quote"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            holds: serde_json::from_value::<Vec<ManagedWorkBillingLedgerBundleV1HoldsItem>>(
+                object
+                    .remove(r#"holds"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"holds"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            usage_records: serde_json::from_value::<
+                Vec<ManagedWorkBillingLedgerBundleV1UsageRecordsItem>,
+            >(
+                object
+                    .remove(r#"usage_records"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"usage_records"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            overrun_decisions: serde_json::from_value::<
+                Vec<ManagedWorkBillingLedgerBundleV1OverrunDecisionsItem>,
+            >(
+                object
+                    .remove(r#"overrun_decisions"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"overrun_decisions"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            final_debit:
+                serde_json::from_value::<Option<ManagedWorkBillingLedgerBundleV1FinalDebit>>(
+                    object
+                        .remove(r#"final_debit"#)
+                        .ok_or_else(|| serde::de::Error::missing_field(r#"final_debit"#))?,
+                )
+                .map_err(serde::de::Error::custom)?,
+            adjustments: serde_json::from_value::<
+                Vec<ManagedWorkBillingLedgerBundleV1AdjustmentsItem>,
+            >(
+                object
+                    .remove(r#"adjustments"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"adjustments"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            ledger_head_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"ledger_head_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"ledger_head_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            exported_at_ms: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"exported_at_ms"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"exported_at_ms"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            assurance_status: serde_json::from_value::<
+                ManagedWorkBillingLedgerBundleV1AssuranceStatus,
+            >(
+                object
+                    .remove(r#"assurance_status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"assurance_status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -1052,20 +2476,20 @@ pub enum ManagedWorkBillingLedgerBundleV1SchemaVersion {
 #[serde(deny_unknown_fields)]
 pub struct ManagedWorkBillingLedgerBundleV1RateCard {
     pub rate_card_ref: String,
-    pub version: u64,
+    pub version: ArchitectureContractInteger,
     pub body_hash: String,
     pub currency_code: String,
     pub meter_rates: Vec<ManagedWorkBillingLedgerBundleV1RateCardMeterRatesItem>,
     pub ioi_fee_policy_ref: String,
-    pub issued_at_ms: u64,
-    pub expires_at_ms: u64,
+    pub issued_at_ms: ArchitectureContractInteger,
+    pub expires_at_ms: ArchitectureContractInteger,
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ManagedWorkBillingLedgerBundleV1RateCardMeterRatesItem {
     pub meter_class: String,
-    pub work_credit_micro_units_per_meter_unit: u64,
+    pub work_credit_micro_units_per_meter_unit: ArchitectureContractInteger,
     pub charge_component: ManagedWorkBillingLedgerBundleV1RateCardMeterRatesItemChargeComponent,
 }
 
@@ -1091,21 +2515,21 @@ pub enum ManagedWorkBillingLedgerBundleV1RateCardMeterRatesItemChargeComponent {
 #[serde(deny_unknown_fields)]
 pub struct ManagedWorkBillingLedgerBundleV1Plan {
     pub plan_ref: String,
-    pub version: u64,
+    pub version: ArchitectureContractInteger,
     pub body_hash: String,
     pub rate_card_ref: String,
     pub rate_card_body_hash: String,
     pub included_work_credits: ManagedWorkBillingLedgerBundleV1PlanIncludedWorkCredits,
     pub reset_policy: ManagedWorkBillingLedgerBundleV1PlanResetPolicy,
-    pub issued_at_ms: u64,
-    pub expires_at_ms: u64,
+    pub issued_at_ms: ArchitectureContractInteger,
+    pub expires_at_ms: ArchitectureContractInteger,
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ManagedWorkBillingLedgerBundleV1PlanIncludedWorkCredits {
     pub unit: ManagedWorkBillingLedgerBundleV1PlanIncludedWorkCreditsUnit,
-    pub units: u64,
+    pub units: ArchitectureContractInteger,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -1136,18 +2560,18 @@ pub struct ManagedWorkBillingLedgerBundleV1Quote {
     pub estimated_work_credits: ManagedWorkBillingLedgerBundleV1QuoteEstimatedWorkCredits,
     pub required_hold: ManagedWorkBillingLedgerBundleV1QuoteRequiredHold,
     pub overrun_policy: ManagedWorkBillingLedgerBundleV1QuoteOverrunPolicy,
-    pub max_attempt_count: u64,
+    pub max_attempt_count: ArchitectureContractInteger,
     pub allowed_commercial_postures:
         Vec<ManagedWorkBillingLedgerBundleV1QuoteAllowedCommercialPosturesItem>,
-    pub issued_at_ms: u64,
-    pub expires_at_ms: u64,
+    pub issued_at_ms: ArchitectureContractInteger,
+    pub expires_at_ms: ArchitectureContractInteger,
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ManagedWorkBillingLedgerBundleV1QuoteEstimatedWorkCredits {
     pub unit: ManagedWorkBillingLedgerBundleV1QuoteEstimatedWorkCreditsUnit,
-    pub units: u64,
+    pub units: ArchitectureContractInteger,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -1160,7 +2584,7 @@ pub enum ManagedWorkBillingLedgerBundleV1QuoteEstimatedWorkCreditsUnit {
 #[serde(deny_unknown_fields)]
 pub struct ManagedWorkBillingLedgerBundleV1QuoteRequiredHold {
     pub unit: ManagedWorkBillingLedgerBundleV1QuoteRequiredHoldUnit,
-    pub units: u64,
+    pub units: ArchitectureContractInteger,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -1203,8 +2627,8 @@ pub struct ManagedWorkBillingLedgerBundleV1HoldsItem {
     pub hold_kind: ManagedWorkBillingLedgerBundleV1HoldsItemHoldKind,
     pub overrun_decision_ref: Option<String>,
     pub amount: ManagedWorkBillingLedgerBundleV1HoldsItemAmount,
-    pub created_at_ms: u64,
-    pub expires_at_ms: u64,
+    pub created_at_ms: ArchitectureContractInteger,
+    pub expires_at_ms: ArchitectureContractInteger,
     pub status: ManagedWorkBillingLedgerBundleV1HoldsItemStatus,
 }
 
@@ -1220,7 +2644,7 @@ pub enum ManagedWorkBillingLedgerBundleV1HoldsItemHoldKind {
 #[serde(deny_unknown_fields)]
 pub struct ManagedWorkBillingLedgerBundleV1HoldsItemAmount {
     pub unit: ManagedWorkBillingLedgerBundleV1HoldsItemAmountUnit,
-    pub units: u64,
+    pub units: ArchitectureContractInteger,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -1245,25 +2669,25 @@ pub struct ManagedWorkBillingLedgerBundleV1UsageRecordsItem {
     pub usage_ref: String,
     pub body_hash: String,
     pub quote_ref: String,
-    pub sequence: u64,
+    pub sequence: ArchitectureContractInteger,
     pub previous_usage_hash: Option<String>,
     pub runtime_receipt_refs: Vec<String>,
     pub supplier_statement_refs: Vec<String>,
     pub meter_class: String,
-    pub quantity_units: u64,
-    pub rate_work_credit_micro_units_per_meter_unit: u64,
+    pub quantity_units: ArchitectureContractInteger,
+    pub rate_work_credit_micro_units_per_meter_unit: ArchitectureContractInteger,
     pub charged_work_credits: ManagedWorkBillingLedgerBundleV1UsageRecordsItemChargedWorkCredits,
     pub commercial_posture: ManagedWorkBillingLedgerBundleV1UsageRecordsItemCommercialPosture,
     pub cost_breakdown: ManagedWorkBillingLedgerBundleV1UsageRecordsItemCostBreakdown,
     pub coarse_ocu_projection: bool,
-    pub occurred_at_ms: u64,
+    pub occurred_at_ms: ArchitectureContractInteger,
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ManagedWorkBillingLedgerBundleV1UsageRecordsItemChargedWorkCredits {
     pub unit: ManagedWorkBillingLedgerBundleV1UsageRecordsItemChargedWorkCreditsUnit,
-    pub units: u64,
+    pub units: ArchitectureContractInteger,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -1292,12 +2716,12 @@ pub enum ManagedWorkBillingLedgerBundleV1UsageRecordsItemCommercialPosture {
 #[serde(deny_unknown_fields)]
 pub struct ManagedWorkBillingLedgerBundleV1UsageRecordsItemCostBreakdown {
     pub currency_code: String,
-    pub provider_cost_minor: u64,
-    pub broker_fee_minor: u64,
-    pub participant_cost_minor: u64,
-    pub verifier_cost_minor: u64,
-    pub ioi_fee_minor: u64,
-    pub excluded_customer_borne_provider_cost_minor: u64,
+    pub provider_cost_minor: ArchitectureContractInteger,
+    pub broker_fee_minor: ArchitectureContractInteger,
+    pub participant_cost_minor: ArchitectureContractInteger,
+    pub verifier_cost_minor: ArchitectureContractInteger,
+    pub ioi_fee_minor: ArchitectureContractInteger,
+    pub excluded_customer_borne_provider_cost_minor: ArchitectureContractInteger,
     pub supplier_reconciliation_state:
         ManagedWorkBillingLedgerBundleV1UsageRecordsItemCostBreakdownSupplierReconciliationState,
 }
@@ -1327,14 +2751,14 @@ pub struct ManagedWorkBillingLedgerBundleV1OverrunDecisionsItem {
     pub decision: ManagedWorkBillingLedgerBundleV1OverrunDecisionsItemDecision,
     pub additional_hold_amount:
         ManagedWorkBillingLedgerBundleV1OverrunDecisionsItemAdditionalHoldAmount,
-    pub created_at_ms: u64,
+    pub created_at_ms: ArchitectureContractInteger,
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ManagedWorkBillingLedgerBundleV1OverrunDecisionsItemHeldWorkCredits {
     pub unit: ManagedWorkBillingLedgerBundleV1OverrunDecisionsItemHeldWorkCreditsUnit,
-    pub units: u64,
+    pub units: ArchitectureContractInteger,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -1347,7 +2771,7 @@ pub enum ManagedWorkBillingLedgerBundleV1OverrunDecisionsItemHeldWorkCreditsUnit
 #[serde(deny_unknown_fields)]
 pub struct ManagedWorkBillingLedgerBundleV1OverrunDecisionsItemProjectedWorkCredits {
     pub unit: ManagedWorkBillingLedgerBundleV1OverrunDecisionsItemProjectedWorkCreditsUnit,
-    pub units: u64,
+    pub units: ArchitectureContractInteger,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -1360,7 +2784,7 @@ pub enum ManagedWorkBillingLedgerBundleV1OverrunDecisionsItemProjectedWorkCredit
 #[serde(deny_unknown_fields)]
 pub struct ManagedWorkBillingLedgerBundleV1OverrunDecisionsItemExactOverageWorkCredits {
     pub unit: ManagedWorkBillingLedgerBundleV1OverrunDecisionsItemExactOverageWorkCreditsUnit,
-    pub units: u64,
+    pub units: ArchitectureContractInteger,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -1381,7 +2805,7 @@ pub enum ManagedWorkBillingLedgerBundleV1OverrunDecisionsItemDecision {
 #[serde(deny_unknown_fields)]
 pub struct ManagedWorkBillingLedgerBundleV1OverrunDecisionsItemAdditionalHoldAmount {
     pub unit: ManagedWorkBillingLedgerBundleV1OverrunDecisionsItemAdditionalHoldAmountUnit,
-    pub units: u64,
+    pub units: ArchitectureContractInteger,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -1400,14 +2824,14 @@ pub struct ManagedWorkBillingLedgerBundleV1FinalDebit {
     pub usage_record_refs: Vec<String>,
     pub hold_refs: Vec<String>,
     pub debited_work_credits: ManagedWorkBillingLedgerBundleV1FinalDebitDebitedWorkCredits,
-    pub finalized_at_ms: u64,
+    pub finalized_at_ms: ArchitectureContractInteger,
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ManagedWorkBillingLedgerBundleV1FinalDebitDebitedWorkCredits {
     pub unit: ManagedWorkBillingLedgerBundleV1FinalDebitDebitedWorkCreditsUnit,
-    pub units: u64,
+    pub units: ArchitectureContractInteger,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -1427,7 +2851,7 @@ pub struct ManagedWorkBillingLedgerBundleV1AdjustmentsItem {
     pub amount: ManagedWorkBillingLedgerBundleV1AdjustmentsItemAmount,
     pub reason_code: String,
     pub evidence_refs: Vec<String>,
-    pub created_at_ms: u64,
+    pub created_at_ms: ArchitectureContractInteger,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -1442,7 +2866,7 @@ pub enum ManagedWorkBillingLedgerBundleV1AdjustmentsItemAdjustmentKind {
 #[serde(deny_unknown_fields)]
 pub struct ManagedWorkBillingLedgerBundleV1AdjustmentsItemAmount {
     pub unit: ManagedWorkBillingLedgerBundleV1AdjustmentsItemAmountUnit,
-    pub units: u64,
+    pub units: ArchitectureContractInteger,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -1461,16 +2885,74 @@ pub enum ManagedWorkBillingLedgerBundleV1AssuranceStatus {
     SupplierReconciled,
 }
 
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
-#[serde(deny_unknown_fields)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
 pub struct DisputeRailBundleV1 {
     pub schema_version: DisputeRailBundleV1SchemaVersion,
     pub bundle_ref: String,
     pub profile: DisputeRailBundleV1Profile,
     pub dispute: DisputeRailBundleV1Dispute,
     pub resolution: DisputeRailBundleV1Resolution,
-    pub exported_at_ms: u64,
+    pub exported_at_ms: ArchitectureContractInteger,
     pub assurance_status: DisputeRailBundleV1AssuranceStatus,
+}
+
+impl<'de> serde::Deserialize<'de> for DisputeRailBundleV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_schema(r#"schema://ioi/foundations/dispute-rail-bundle/v1"#, &value)
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<DisputeRailBundleV1SchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            bundle_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"bundle_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"bundle_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            profile: serde_json::from_value::<DisputeRailBundleV1Profile>(
+                object
+                    .remove(r#"profile"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"profile"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            dispute: serde_json::from_value::<DisputeRailBundleV1Dispute>(
+                object
+                    .remove(r#"dispute"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"dispute"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            resolution: serde_json::from_value::<DisputeRailBundleV1Resolution>(
+                object
+                    .remove(r#"resolution"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"resolution"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            exported_at_ms: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"exported_at_ms"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"exported_at_ms"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            assurance_status: serde_json::from_value::<DisputeRailBundleV1AssuranceStatus>(
+                object
+                    .remove(r#"assurance_status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"assurance_status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -1483,16 +2965,16 @@ pub enum DisputeRailBundleV1SchemaVersion {
 #[serde(deny_unknown_fields)]
 pub struct DisputeRailBundleV1Profile {
     pub dispute_rail_profile_ref: String,
-    pub profile_version: u64,
+    pub profile_version: ArchitectureContractInteger,
     pub profile_body_hash: String,
     pub rail_kind: DisputeRailBundleV1ProfileRailKind,
     pub value_unit: DisputeRailBundleV1ProfileValueUnit,
     pub ordinary_verification_funding_ref: Option<String>,
-    pub challenger_bond_units: u64,
-    pub respondent_bond_units: u64,
-    pub evidence_window_ms: u64,
-    pub response_window_ms: u64,
-    pub appeal_window_ms: u64,
+    pub challenger_bond_units: ArchitectureContractInteger,
+    pub respondent_bond_units: ArchitectureContractInteger,
+    pub evidence_window_ms: ArchitectureContractInteger,
+    pub response_window_ms: ArchitectureContractInteger,
+    pub appeal_window_ms: ArchitectureContractInteger,
     pub evidence_unavailable_default: DisputeRailBundleV1ProfileEvidenceUnavailableDefault,
     pub respondent_timeout_default: DisputeRailBundleV1ProfileRespondentTimeoutDefault,
     pub allowed_remedies: Vec<DisputeRailBundleV1ProfileAllowedRemediesItem>,
@@ -1516,10 +2998,10 @@ pub enum DisputeRailBundleV1ProfileRailKind {
 pub struct DisputeRailBundleV1ProfileValueUnit {
     pub asset_ref: String,
     pub unit_ref: String,
-    pub unit_version: u64,
+    pub unit_version: ArchitectureContractInteger,
     pub unit_body_hash: String,
     pub atomic_unit_code: String,
-    pub decimals: u64,
+    pub decimals: ArchitectureContractInteger,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -1577,7 +3059,7 @@ pub enum DisputeRailBundleV1ProfileAllowedRemediesItem {
 pub struct DisputeRailBundleV1ProfileOutcomeRulesItem {
     pub outcome: DisputeRailBundleV1ProfileOutcomeRulesItemOutcome,
     pub remedy: DisputeRailBundleV1ProfileOutcomeRulesItemRemedy,
-    pub maximum_remedy_bps_of_disputed_value: u64,
+    pub maximum_remedy_bps_of_disputed_value: ArchitectureContractInteger,
     pub bond_distribution: DisputeRailBundleV1ProfileOutcomeRulesItemBondDistribution,
 }
 
@@ -1620,13 +3102,13 @@ pub enum DisputeRailBundleV1ProfileOutcomeRulesItemRemedy {
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct DisputeRailBundleV1ProfileOutcomeRulesItemBondDistribution {
-    pub challenger_return_bps: u64,
-    pub respondent_return_bps: u64,
-    pub challenger_award_bps: u64,
-    pub respondent_award_bps: u64,
-    pub verifier_funding_bps: u64,
-    pub treasury_bps: u64,
-    pub burn_bps: u64,
+    pub challenger_return_bps: ArchitectureContractInteger,
+    pub respondent_return_bps: ArchitectureContractInteger,
+    pub challenger_award_bps: ArchitectureContractInteger,
+    pub respondent_award_bps: ArchitectureContractInteger,
+    pub verifier_funding_bps: ArchitectureContractInteger,
+    pub treasury_bps: ArchitectureContractInteger,
+    pub burn_bps: ArchitectureContractInteger,
     pub rounding_recipient:
         DisputeRailBundleV1ProfileOutcomeRulesItemBondDistributionRoundingRecipient,
 }
@@ -1654,19 +3136,19 @@ pub enum DisputeRailBundleV1ProfileOutcomeRulesItemBondDistributionRoundingRecip
 pub struct DisputeRailBundleV1Dispute {
     pub dispute_ref: String,
     pub dispute_rail_profile_ref: String,
-    pub dispute_rail_profile_version: u64,
+    pub dispute_rail_profile_version: ArchitectureContractInteger,
     pub dispute_rail_profile_body_hash: String,
     pub value_unit: DisputeRailBundleV1DisputeValueUnit,
     pub challenged_ref: String,
     pub challenger_ref: String,
     pub respondent_ref: String,
-    pub opened_at_ms: u64,
-    pub evidence_retained_until_ms: u64,
-    pub disputed_value_units: u64,
+    pub opened_at_ms: ArchitectureContractInteger,
+    pub evidence_retained_until_ms: ArchitectureContractInteger,
+    pub disputed_value_units: ArchitectureContractInteger,
     pub challenger_bond_hold_ref: Option<String>,
-    pub challenger_bond_held_units: u64,
+    pub challenger_bond_held_units: ArchitectureContractInteger,
     pub respondent_bond_hold_ref: Option<String>,
-    pub respondent_bond_held_units: u64,
+    pub respondent_bond_held_units: ArchitectureContractInteger,
     pub escrow_ref: Option<String>,
     pub collaboration_terms_ref: Option<String>,
     pub collaboration_terms_root: Option<String>,
@@ -1680,10 +3162,10 @@ pub struct DisputeRailBundleV1Dispute {
 pub struct DisputeRailBundleV1DisputeValueUnit {
     pub asset_ref: String,
     pub unit_ref: String,
-    pub unit_version: u64,
+    pub unit_version: ArchitectureContractInteger,
     pub unit_body_hash: String,
     pub atomic_unit_code: String,
-    pub decimals: u64,
+    pub decimals: ArchitectureContractInteger,
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -1692,7 +3174,7 @@ pub struct DisputeRailBundleV1Resolution {
     pub dispute_resolution_ref: String,
     pub dispute_ref: String,
     pub dispute_rail_profile_ref: String,
-    pub dispute_rail_profile_version: u64,
+    pub dispute_rail_profile_version: ArchitectureContractInteger,
     pub dispute_rail_profile_body_hash: String,
     pub rail_kind: DisputeRailBundleV1ResolutionRailKind,
     pub value_unit: DisputeRailBundleV1ResolutionValueUnit,
@@ -1700,18 +3182,18 @@ pub struct DisputeRailBundleV1Resolution {
     pub request_hash: String,
     pub idempotency_key: String,
     pub adjudicator_ref: String,
-    pub decided_at_ms: u64,
+    pub decided_at_ms: ArchitectureContractInteger,
     pub evidence_refs: Vec<String>,
     pub response_refs: Vec<String>,
     pub appeal_of_resolution_ref: Option<String>,
     pub outcome: DisputeRailBundleV1ResolutionOutcome,
     pub remedy: DisputeRailBundleV1ResolutionRemedy,
-    pub remedy_units: u64,
-    pub bond_pool_units: u64,
+    pub remedy_units: ArchitectureContractInteger,
+    pub bond_pool_units: ArchitectureContractInteger,
     pub bond_allocation: DisputeRailBundleV1ResolutionBondAllocation,
     pub used_evidence_unavailable_default: bool,
     pub used_respondent_timeout_default: bool,
-    pub appeal_deadline_ms: u64,
+    pub appeal_deadline_ms: ArchitectureContractInteger,
     pub required_receipt_kinds: Vec<DisputeRailBundleV1ResolutionRequiredReceiptKindsItem>,
     pub resolution_state: DisputeRailBundleV1ResolutionResolutionState,
 }
@@ -1733,10 +3215,10 @@ pub enum DisputeRailBundleV1ResolutionRailKind {
 pub struct DisputeRailBundleV1ResolutionValueUnit {
     pub asset_ref: String,
     pub unit_ref: String,
-    pub unit_version: u64,
+    pub unit_version: ArchitectureContractInteger,
     pub unit_body_hash: String,
     pub atomic_unit_code: String,
-    pub decimals: u64,
+    pub decimals: ArchitectureContractInteger,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -1778,13 +3260,13 @@ pub enum DisputeRailBundleV1ResolutionRemedy {
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct DisputeRailBundleV1ResolutionBondAllocation {
-    pub challenger_return_units: u64,
-    pub respondent_return_units: u64,
-    pub challenger_award_units: u64,
-    pub respondent_award_units: u64,
-    pub verifier_funding_units: u64,
-    pub treasury_units: u64,
-    pub burn_units: u64,
+    pub challenger_return_units: ArchitectureContractInteger,
+    pub respondent_return_units: ArchitectureContractInteger,
+    pub challenger_award_units: ArchitectureContractInteger,
+    pub respondent_award_units: ArchitectureContractInteger,
+    pub verifier_funding_units: ArchitectureContractInteger,
+    pub treasury_units: ArchitectureContractInteger,
+    pub burn_units: ArchitectureContractInteger,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -1823,8 +3305,7 @@ pub enum DisputeRailBundleV1AssuranceStatus {
     DeterministicAdmissionOnly,
 }
 
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
-#[serde(deny_unknown_fields)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
 pub struct DeclassificationApprovalV1 {
     pub schema_version: DeclassificationApprovalV1SchemaVersion,
     pub approval_ref: String,
@@ -1845,6 +3326,144 @@ pub struct DeclassificationApprovalV1 {
     pub expires_at: String,
     pub status: DeclassificationApprovalV1Status,
     pub approval_receipt_ref: String,
+}
+
+impl<'de> serde::Deserialize<'de> for DeclassificationApprovalV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_schema(
+            r#"schema://ioi/foundations/declassification-approval/v1"#,
+            &value,
+        )
+        .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<DeclassificationApprovalV1SchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            approval_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"approval_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"approval_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            issuer_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"issuer_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"issuer_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            subject_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"subject_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"subject_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authority_grant_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"authority_grant_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"authority_grant_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            tool_contract_revision_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"tool_contract_revision_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"tool_contract_revision_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            label_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"label_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"label_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            label_content_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"label_content_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"label_content_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            decision: serde_json::from_value::<DeclassificationApprovalV1Decision>(
+                object
+                    .remove(r#"decision"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"decision"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            declassified_to: serde_json::from_value::<DeclassificationApprovalV1DeclassifiedTo>(
+                object
+                    .remove(r#"declassified_to"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"declassified_to"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            exact_effect_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"exact_effect_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"exact_effect_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            exact_request_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"exact_request_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"exact_request_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            reviewed_representation_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"reviewed_representation_hash"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"reviewed_representation_hash"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            destination: serde_json::from_value::<String>(
+                object
+                    .remove(r#"destination"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"destination"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            purpose: serde_json::from_value::<String>(
+                object
+                    .remove(r#"purpose"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"purpose"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            issued_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"issued_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"issued_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            expires_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"expires_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"expires_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            status: serde_json::from_value::<DeclassificationApprovalV1Status>(
+                object
+                    .remove(r#"status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            approval_receipt_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"approval_receipt_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"approval_receipt_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -2315,6 +3934,17 @@ pub const ARCHITECTURE_CONTRACT_MUTATIONS: &[ArchitectureContractMutation] = &[
         patch_value_json: None,
     },
     ArchitectureContractMutation {
+        id: r#"required-nullable-claim-scope-missing"#,
+        contract_id: r#"schema://ioi/foundations/receipt-envelope/v1"#,
+        source_fixture_path: r#"docs/architecture/_meta/schemas/fixtures/receipt-envelope-v1/positive-minimal.json"#,
+        covered_keywords: &[r#"required"#],
+        ajv_expected_accept: false,
+        direct_projection_rejection: true,
+        patch_operation: r#"remove"#,
+        patch_pointer: r#"/claim_scope_ref"#,
+        patch_value_json: None,
+    },
+    ArchitectureContractMutation {
         id: r#"additional-property-injected"#,
         contract_id: r#"schema://ioi/foundations/receipt-envelope/v1"#,
         source_fixture_path: r#"docs/architecture/_meta/schemas/fixtures/receipt-envelope-v1/positive-assured.json"#,
@@ -2368,6 +3998,17 @@ pub const ARCHITECTURE_CONTRACT_MUTATIONS: &[ArchitectureContractMutation] = &[
         patch_operation: r#"set"#,
         patch_pointer: r#"/claim_scope_ref"#,
         patch_value_json: Some(r#"42"#),
+    },
+    ArchitectureContractMutation {
+        id: r#"optional-non-nullable-input-hash-null"#,
+        contract_id: r#"schema://ioi/foundations/receipt-envelope/v1"#,
+        source_fixture_path: r#"docs/architecture/_meta/schemas/fixtures/receipt-envelope-v1/positive-minimal.json"#,
+        covered_keywords: &[r#"type"#, r#"$ref"#],
+        ajv_expected_accept: false,
+        direct_projection_rejection: true,
+        patch_operation: r#"set"#,
+        patch_pointer: r#"/input_hash"#,
+        patch_value_json: Some(r#"null"#),
     },
     ArchitectureContractMutation {
         id: r#"unicode-aware-min-length-violated"#,
@@ -2502,6 +4143,982 @@ pub const ARCHITECTURE_CONTRACT_MUTATIONS: &[ArchitectureContractMutation] = &[
         patch_operation: r#"set"#,
         patch_pointer: r#"/resolution/required_receipt_kinds"#,
         patch_value_json: Some(r#"["dispute_resolution","dispute_remedy_execution"]"#),
+    },
+];
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ArchitectureContractDifferentialCase {
+    pub id: &'static str,
+    pub contract_id: &'static str,
+    pub source_fixture_path: Option<&'static str>,
+    pub mutation_id: Option<&'static str>,
+    pub value_json: Option<&'static str>,
+    pub ajv_schema_accept: bool,
+    pub oracle_contract_accept: bool,
+}
+
+pub const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: &[ArchitectureContractDifferentialCase] = &[
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/receipt-envelope-v1/positive-minimal.json"#,
+        contract_id: r#"schema://ioi/foundations/receipt-envelope/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/receipt-envelope-v1/positive-minimal.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/receipt-envelope-v1/positive-assured.json"#,
+        contract_id: r#"schema://ioi/foundations/receipt-envelope/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/receipt-envelope-v1/positive-assured.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/receipt-envelope-v1/negative-bad-profile-ref.json"#,
+        contract_id: r#"schema://ioi/foundations/receipt-envelope/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/receipt-envelope-v1/negative-bad-profile-ref.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/receipt-envelope-v1/negative-empty-boundary-facts.json"#,
+        contract_id: r#"schema://ioi/foundations/receipt-envelope/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/receipt-envelope-v1/negative-empty-boundary-facts.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/receipt-envelope-v1/negative-unknown-field.json"#,
+        contract_id: r#"schema://ioi/foundations/receipt-envelope/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/receipt-envelope-v1/negative-unknown-field.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/physical-action-execution-receipt-v1/positive-committed.json"#,
+        contract_id: r#"schema://ioi/foundations/physical-action-execution-receipt/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/physical-action-execution-receipt-v1/positive-committed.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/physical-action-execution-receipt-v1/negative-flat-unbundled.json"#,
+        contract_id: r#"schema://ioi/foundations/physical-action-execution-receipt/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/physical-action-execution-receipt-v1/negative-flat-unbundled.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/physical-action-execution-receipt-v1/negative-envelope-input-hash-mismatch.json"#,
+        contract_id: r#"schema://ioi/foundations/physical-action-execution-receipt/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/physical-action-execution-receipt-v1/negative-envelope-input-hash-mismatch.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/physical-action-execution-receipt-v1/negative-committed-missing-dispatch-evidence.json"#,
+        contract_id: r#"schema://ioi/foundations/physical-action-execution-receipt/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/physical-action-execution-receipt-v1/negative-committed-missing-dispatch-evidence.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v1/positive-active.json"#,
+        contract_id: r#"schema://ioi/foundations/authority-grant-envelope/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v1/positive-active.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v1/positive-revoked.json"#,
+        contract_id: r#"schema://ioi/foundations/authority-grant-envelope/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v1/positive-revoked.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v1/negative-empty-capabilities.json"#,
+        contract_id: r#"schema://ioi/foundations/authority-grant-envelope/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v1/negative-empty-capabilities.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v1/negative-legacy-alias-write.json"#,
+        contract_id: r#"schema://ioi/foundations/authority-grant-envelope/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v1/negative-legacy-alias-write.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v1/negative-status.json"#,
+        contract_id: r#"schema://ioi/foundations/authority-grant-envelope/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v1/negative-status.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v1/negative-unknown-constraint.json"#,
+        contract_id: r#"schema://ioi/foundations/authority-grant-envelope/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v1/negative-unknown-constraint.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v2/positive-root.json"#,
+        contract_id: r#"schema://ioi/foundations/authority-grant-envelope/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v2/positive-root.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v2/positive-attenuated-child.json"#,
+        contract_id: r#"schema://ioi/foundations/authority-grant-envelope/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v2/positive-attenuated-child.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v2/negative-empty-capabilities.json"#,
+        contract_id: r#"schema://ioi/foundations/authority-grant-envelope/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v2/negative-empty-capabilities.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v2/negative-signature-key-mismatch.json"#,
+        contract_id: r#"schema://ioi/foundations/authority-grant-envelope/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v2/negative-signature-key-mismatch.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v2/negative-stale-schema-hash.json"#,
+        contract_id: r#"schema://ioi/foundations/authority-grant-envelope/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v2/negative-stale-schema-hash.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v2/negative-padded-signature.json"#,
+        contract_id: r#"schema://ioi/foundations/authority-grant-envelope/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v2/negative-padded-signature.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/authority-key-set-v1/positive-active.json"#,
+        contract_id: r#"schema://ioi/foundations/authority-key-set/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/authority-key-set-v1/positive-active.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/authority-key-set-v1/positive-delegator.json"#,
+        contract_id: r#"schema://ioi/foundations/authority-key-set/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/authority-key-set-v1/positive-delegator.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/authority-key-set-v1/negative-padded-public-key.json"#,
+        contract_id: r#"schema://ioi/foundations/authority-key-set/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/authority-key-set-v1/negative-padded-public-key.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/authority-key-set-v1/negative-empty-validity-window.json"#,
+        contract_id: r#"schema://ioi/foundations/authority-key-set/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/authority-key-set-v1/negative-empty-validity-window.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/authority-revocation-snapshot-v1/positive-current.json"#,
+        contract_id: r#"schema://ioi/foundations/authority-revocation-snapshot/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/authority-revocation-snapshot-v1/positive-current.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/authority-revocation-snapshot-v1/positive-delegator-current.json"#,
+        contract_id: r#"schema://ioi/foundations/authority-revocation-snapshot/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/authority-revocation-snapshot-v1/positive-delegator-current.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/authority-revocation-snapshot-v1/negative-wrong-domain.json"#,
+        contract_id: r#"schema://ioi/foundations/authority-revocation-snapshot/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/authority-revocation-snapshot-v1/negative-wrong-domain.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/receipt-checkpoint-v1/positive-current.json"#,
+        contract_id: r#"schema://ioi/foundations/receipt-checkpoint/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/receipt-checkpoint-v1/positive-current.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/receipt-checkpoint-v1/positive-previous.json"#,
+        contract_id: r#"schema://ioi/foundations/receipt-checkpoint/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/receipt-checkpoint-v1/positive-previous.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/receipt-checkpoint-v1/negative-wrong-domain.json"#,
+        contract_id: r#"schema://ioi/foundations/receipt-checkpoint/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/receipt-checkpoint-v1/negative-wrong-domain.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/receipt-checkpoint-v1/negative-stale-schema-hash.json"#,
+        contract_id: r#"schema://ioi/foundations/receipt-checkpoint/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/receipt-checkpoint-v1/negative-stale-schema-hash.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/receipt-checkpoint-v1/negative-signature-key-mismatch.json"#,
+        contract_id: r#"schema://ioi/foundations/receipt-checkpoint/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/receipt-checkpoint-v1/negative-signature-key-mismatch.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/receipt-proof-bundle-v1/positive-offline.json"#,
+        contract_id: r#"schema://ioi/foundations/receipt-proof-bundle/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/receipt-proof-bundle-v1/positive-offline.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/receipt-proof-bundle-v1/negative-wrong-domain.json"#,
+        contract_id: r#"schema://ioi/foundations/receipt-proof-bundle/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/receipt-proof-bundle-v1/negative-wrong-domain.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/receipt-proof-bundle-v1/negative-stale-schema-hash.json"#,
+        contract_id: r#"schema://ioi/foundations/receipt-proof-bundle/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/receipt-proof-bundle-v1/negative-stale-schema-hash.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/receipt-proof-bundle-v1/negative-leaf-index-mismatch.json"#,
+        contract_id: r#"schema://ioi/foundations/receipt-proof-bundle/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/receipt-proof-bundle-v1/negative-leaf-index-mismatch.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/information-flow-label-v1/positive-public-verified.json"#,
+        contract_id: r#"schema://ioi/foundations/information-flow-label/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/information-flow-label-v1/positive-public-verified.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/information-flow-label-v1/positive-private-untrusted.json"#,
+        contract_id: r#"schema://ioi/foundations/information-flow-label/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/information-flow-label-v1/positive-private-untrusted.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/information-flow-label-v1/negative-missing-instruction-authority.json"#,
+        contract_id: r#"schema://ioi/foundations/information-flow-label/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/information-flow-label-v1/negative-missing-instruction-authority.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/runtime-tool-contract-v1/positive-declared-egress.json"#,
+        contract_id: r#"schema://ioi/components/connectors-tools/runtime-tool-contract/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/runtime-tool-contract-v1/positive-declared-egress.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/runtime-tool-contract-v1/negative-missing-destination-declaration.json"#,
+        contract_id: r#"schema://ioi/components/connectors-tools/runtime-tool-contract/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/runtime-tool-contract-v1/negative-missing-destination-declaration.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/managed-work-billing-ledger-bundle-v1/positive-complete.json"#,
+        contract_id: r#"schema://ioi/foundations/managed-work-billing-ledger-bundle/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/managed-work-billing-ledger-bundle-v1/positive-complete.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/managed-work-billing-ledger-bundle-v1/negative-floating-credit-units.json"#,
+        contract_id: r#"schema://ioi/foundations/managed-work-billing-ledger-bundle/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/managed-work-billing-ledger-bundle-v1/negative-floating-credit-units.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/dispute-rail-bundle-v1/positive-marketplace-resolution.json"#,
+        contract_id: r#"schema://ioi/foundations/dispute-rail-bundle/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/dispute-rail-bundle-v1/positive-marketplace-resolution.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/dispute-rail-bundle-v1/negative-value-unit-substitution.json"#,
+        contract_id: r#"schema://ioi/foundations/dispute-rail-bundle/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/dispute-rail-bundle-v1/negative-value-unit-substitution.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/declassification-approval-v1/positive-exact-binding.json"#,
+        contract_id: r#"schema://ioi/foundations/declassification-approval/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/declassification-approval-v1/positive-exact-binding.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/declassification-approval-v1/negative-missing-reviewed-representation-hash.json"#,
+        contract_id: r#"schema://ioi/foundations/declassification-approval/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/declassification-approval-v1/negative-missing-reviewed-representation-hash.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"mutation:type-number-for-string"#,
+        contract_id: r#"schema://ioi/foundations/receipt-envelope/v1"#,
+        source_fixture_path: None,
+        mutation_id: Some(r#"type-number-for-string"#),
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"mutation:required-property-removed"#,
+        contract_id: r#"schema://ioi/foundations/receipt-envelope/v1"#,
+        source_fixture_path: None,
+        mutation_id: Some(r#"required-property-removed"#),
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"mutation:required-nullable-claim-scope-missing"#,
+        contract_id: r#"schema://ioi/foundations/receipt-envelope/v1"#,
+        source_fixture_path: None,
+        mutation_id: Some(r#"required-nullable-claim-scope-missing"#),
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"mutation:additional-property-injected"#,
+        contract_id: r#"schema://ioi/foundations/receipt-envelope/v1"#,
+        source_fixture_path: None,
+        mutation_id: Some(r#"additional-property-injected"#),
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"mutation:referenced-pattern-violated"#,
+        contract_id: r#"schema://ioi/foundations/receipt-envelope/v1"#,
+        source_fixture_path: None,
+        mutation_id: Some(r#"referenced-pattern-violated"#),
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"mutation:ecma-whitespace-byte-order-mark-rejected"#,
+        contract_id: r#"schema://ioi/foundations/receipt-envelope/v1"#,
+        source_fixture_path: None,
+        mutation_id: Some(r#"ecma-whitespace-byte-order-mark-rejected"#),
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"mutation:ecma-non-whitespace-next-line-accepted"#,
+        contract_id: r#"schema://ioi/foundations/receipt-envelope/v1"#,
+        source_fixture_path: None,
+        mutation_id: Some(r#"ecma-non-whitespace-next-line-accepted"#),
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"mutation:nullable-any-of-violated"#,
+        contract_id: r#"schema://ioi/foundations/receipt-envelope/v1"#,
+        source_fixture_path: None,
+        mutation_id: Some(r#"nullable-any-of-violated"#),
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"mutation:optional-non-nullable-input-hash-null"#,
+        contract_id: r#"schema://ioi/foundations/receipt-envelope/v1"#,
+        source_fixture_path: None,
+        mutation_id: Some(r#"optional-non-nullable-input-hash-null"#),
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"mutation:unicode-aware-min-length-violated"#,
+        contract_id: r#"schema://ioi/components/connectors-tools/runtime-tool-contract/v1"#,
+        source_fixture_path: None,
+        mutation_id: Some(r#"unicode-aware-min-length-violated"#),
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"mutation:closed-enum-violated-with-raw-string-sentinel"#,
+        contract_id: r#"schema://ioi/foundations/authority-grant-envelope/v1"#,
+        source_fixture_path: None,
+        mutation_id: Some(r#"closed-enum-violated-with-raw-string-sentinel"#),
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"mutation:minimum-violated"#,
+        contract_id: r#"schema://ioi/foundations/authority-grant-envelope/v1"#,
+        source_fixture_path: None,
+        mutation_id: Some(r#"minimum-violated"#),
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"mutation:array-items-schema-violated"#,
+        contract_id: r#"schema://ioi/foundations/authority-grant-envelope/v1"#,
+        source_fixture_path: None,
+        mutation_id: Some(r#"array-items-schema-violated"#),
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"mutation:deep-unique-items-key-order-duplicate"#,
+        contract_id: r#"schema://ioi/foundations/authority-key-set/v1"#,
+        source_fixture_path: None,
+        mutation_id: Some(r#"deep-unique-items-key-order-duplicate"#),
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"mutation:impossible-rfc3339-calendar-date"#,
+        contract_id: r#"schema://ioi/foundations/authority-grant-envelope/v1"#,
+        source_fixture_path: None,
+        mutation_id: Some(r#"impossible-rfc3339-calendar-date"#),
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"mutation:closed-const-violated"#,
+        contract_id: r#"schema://ioi/foundations/authority-grant-envelope/v2"#,
+        source_fixture_path: None,
+        mutation_id: Some(r#"closed-const-violated"#),
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"mutation:one-of-violated"#,
+        contract_id: r#"schema://ioi/foundations/authority-grant-envelope/v2"#,
+        source_fixture_path: None,
+        mutation_id: Some(r#"one-of-violated"#),
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"mutation:maximum-safe-integer-violated"#,
+        contract_id: r#"schema://ioi/foundations/managed-work-billing-ledger-bundle/v1"#,
+        source_fixture_path: None,
+        mutation_id: Some(r#"maximum-safe-integer-violated"#),
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"mutation:minimum-array-size-violated"#,
+        contract_id: r#"schema://ioi/foundations/authority-grant-envelope/v1"#,
+        source_fixture_path: None,
+        mutation_id: Some(r#"minimum-array-size-violated"#),
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"mutation:type-less-if-then-max-items-violated"#,
+        contract_id: r#"schema://ioi/foundations/physical-action-execution-receipt/v1"#,
+        source_fixture_path: None,
+        mutation_id: Some(r#"type-less-if-then-max-items-violated"#),
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"mutation:nested-all-of-contains-member-missing"#,
+        contract_id: r#"schema://ioi/foundations/dispute-rail-bundle/v1"#,
+        source_fixture_path: None,
+        mutation_id: Some(r#"nested-all-of-contains-member-missing"#),
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"differential:authority-timestamp-integral-decimal"#,
+        contract_id: r#"schema://ioi/foundations/authority-grant-envelope/v2"#,
+        source_fixture_path: None,
+        mutation_id: None,
+        value_json: Some(
+            r#"{
+  "schema_version": "ioi.foundations.authority-grant-envelope.v2",
+  "envelope_type": "ioi.authority-grant",
+  "signature_domain": "ioi.authority-grant-envelope.v2",
+  "schema_hash": "sha256:2bb599d9a4fb74dec01ad34e6237277fa01ed0aa98d102be39dfe1ea66ad052c",
+  "authority_grant_id": "grant://acme/repo-auditor/2",
+  "request_id": "authority-request://acme/repo-auditor/2",
+  "issuer_id": "wallet://acme/security",
+  "issuer_key_set_ref": "keyset://acme/security/4",
+  "issuer_key_set_version": 4,
+  "issuer_key_id": "key://acme/security/ed25519-4",
+  "holder_id": "system://acme/delegator",
+  "holder_key_id": "key://acme/delegator/ed25519-1",
+  "audience": "runtime://acme/hypervisor/node-7",
+  "issued_at": 1784203200.0,
+  "not_before": 1784203200,
+  "expires_at": 1784289600,
+  "parent_grant": null,
+  "authority_scopes": [
+    "scope:repo.read",
+    "scope:repo.write"
+  ],
+  "primitive_capability_constraints": [
+    "prim:fs.read",
+    "prim:fs.write"
+  ],
+  "resources": [
+    "agentgres://project/hypervisor/source",
+    "agentgres://project/hypervisor/source/src"
+  ],
+  "attenuating_caveats": [],
+  "risk_restrictions": {
+    "allowed_risk_classes": [
+      "read",
+      "draft"
+    ],
+    "max_budget_microusd": 10000000,
+    "max_calls": 100,
+    "approval_required_for": [
+      "secret_export"
+    ]
+  },
+  "revocation_epoch": 7,
+  "body_hash": "sha256:1cb1754a47d624efd29717b210773b0c3be5d8c9d60b255fc656fddee5e11c96",
+  "signature_suite": "ed25519",
+  "signature_key_id": "key://acme/security/ed25519-4",
+  "signature": "maOqb4ZoJ231trhjheA8z2ADYLSW4gOx-CJvpadrhR_8PF3kQ1RbcOAgmmIsbwc-xZunocrhnTzrZZPMtCIdBg"
+}
+"#,
+        ),
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"differential:proof-index-integral-decimal-equality"#,
+        contract_id: r#"schema://ioi/foundations/receipt-proof-bundle/v1"#,
+        source_fixture_path: None,
+        mutation_id: None,
+        value_json: Some(
+            r#"{
+  "schema_version": "ioi.foundations.receipt-proof-bundle.v1",
+  "bundle_type": "ioi.receipt-proof-bundle",
+  "manifest_domain": "ioi.receipt-proof-bundle-manifest.v1",
+  "bundle_schema_hash": "sha256:9eb674c09903e10a1b3a85df3c33615afb7e958547b0141628655453c1cc2879",
+  "manifest_hash": "sha256:e99b823b8972c4807ef88ea530d4e35d1781a7be238965cd88e3eefc0a2a038b",
+  "manifest_signature_suite": "ed25519",
+  "manifest_signature_key_id": "key://acme/security/ed25519-4",
+  "manifest_signature": "50XUkaXhTHaqBTE6SkN_PfnudDbouYA_IFg0yns7YgE6zSCmrrS--SJuKe1V32wULp_7ECvhTX3aXJRUzAT9Cw",
+  "bundle_id": "proof://acme/audit-log/4/receipt-1",
+  "receipt_contract_id": "schema://ioi/foundations/receipt-envelope/v1",
+  "receipt_schema_hash": "sha256:07129784ee34ab5d05dbc469490063e058a2c7568510df5be6e60e9c4ab4a8e1",
+  "receipt_body_hash_profile": "ioi.receipt-envelope-jcs-sha256.v1",
+  "receipt": {
+    "receipt_id": "receipt://run-43/delivery-7",
+    "receipt_type": "delivery.accepted",
+    "receipt_profile_ref": "schema://ioi/receipts/delivery-accepted/v1",
+    "attested_boundary_fact_refs": [
+      "artifact://sha256/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    ],
+    "claim_scope_ref": "schema://ioi/delivery/acceptance/v1",
+    "run_id": "run://43",
+    "task_id": "task://deliver-7",
+    "actor_id": "runtime://worker-2",
+    "input_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "output_hash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "policy_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "authority_grant_id": "grant://delivery-7",
+    "primitive_capabilities": [
+      "prim:fs.read"
+    ],
+    "authority_scopes": [
+      "scope:artifact.deliver"
+    ],
+    "artifact_refs": [
+      "artifact://sha256/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    ],
+    "evidence_bundle_refs": [
+      "evidence://delivery-7"
+    ],
+    "verification_ref": "verifier-path://delivery/default/v1",
+    "acceptance_ref": "acceptance://delivery-7",
+    "adjudication_ref": null,
+    "settlement_ref": "settlement://delivery-7",
+    "timestamp": "2026-07-16T12:05:00Z",
+    "signature": "legacy-signature-placeholder",
+    "public_commitment_ref": "commitment://delivery-7"
+  },
+  "receipt_body_hash": "sha256:26235f9318d765e5db6a07604252991fa2d0080fa799e7f8ee0aa60bf860e878",
+  "leaf": {
+    "algorithm": "ioi.receipt-hash-chain-jcs-sha256.v1",
+    "domain": "ioi.receipt-accumulator-leaf.v1",
+    "leaf_index": 1.0,
+    "leaf_hash": "sha256:3106fb2cf30ba8a026bbee76b6417ae1cb83a0699470a86ca066d3ee7aee415e"
+  },
+  "inclusion_proof": {
+    "profile": "ioi.receipt-hash-chain-inclusion.v1",
+    "leaf_index": 1,
+    "prefix_root": "sha256:460db93cda9696e422ac7c713c2164899bdadb73e3ea3b0c16cdc64ce3f369b0",
+    "suffix_leaf_hashes": [
+      "sha256:afea425012150fea14923cf80c17910a3646fc55c64e4d26b9cd53de2e7acfaa",
+      "sha256:2027b71d4dbb2160d9b8a3470c416f1fa87314068dc2e93d0328f91df92c279f"
+    ]
+  },
+  "checkpoint": {
+    "schema_version": "ioi.foundations.receipt-checkpoint.v1",
+    "checkpoint_type": "ioi.receipt-checkpoint",
+    "signature_domain": "ioi.receipt-checkpoint.v1",
+    "schema_hash": "sha256:41e1b5ea5794e534cf9aba7bf4558c2fa26815e5c9b3cfd3ffdb99eb4706d0df",
+    "checkpoint_id": "receipt-checkpoint://acme/audit-log/4",
+    "receipt_log_id": "receipt-log://acme/audit-log",
+    "accumulator_algorithm": "ioi.receipt-hash-chain-jcs-sha256.v1",
+    "receipt_body_hash_profile": "ioi.receipt-envelope-jcs-sha256.v1",
+    "receipt_contract_id": "schema://ioi/foundations/receipt-envelope/v1",
+    "receipt_schema_hash": "sha256:07129784ee34ab5d05dbc469490063e058a2c7568510df5be6e60e9c4ab4a8e1",
+    "accumulator_size": 4,
+    "accumulator_root": "sha256:a80a2341d4c1ba4de8047edef681c8b77c8494198c8f0c6f3763f6594c23e5ab",
+    "previous_checkpoint_ref": "receipt-checkpoint://acme/audit-log/2",
+    "previous_checkpoint_hash": "sha256:0bb941cdfd91654e8c7c53575444d5ad4d9474de7454a12c0520af2b2a49ba83",
+    "previous_accumulator_size": 2,
+    "previous_accumulator_root": "sha256:352831248cff9098cbdba9a6792a17227868988358abc028697639dac80cf54d",
+    "issuer_id": "wallet://acme/security",
+    "issuer_key_set_ref": "keyset://acme/security/4",
+    "issuer_key_set_version": 4,
+    "issuer_key_id": "key://acme/security/ed25519-4",
+    "issued_at": 1784203300,
+    "build_identity_ref": "build://ioi/hypervisor-daemon/fixture-2026-07-16",
+    "policy_posture_ref": "policy://acme/receipt-checkpoint/default",
+    "body_hash": "sha256:6a40cf01bb7d68413083f165fbe34b6fa5fb92987156198190b0997e13ccd398",
+    "signature_suite": "ed25519",
+    "signature_key_id": "key://acme/security/ed25519-4",
+    "signature": "2YmJcKolLbbOqbFrGf6QYeXKDjxFKFsSb0bPP6AzfQZbIqwCShQKm9cUSGcZ8ama7HaxaqfIVzZpogSVnktrCw"
+  },
+  "previous_checkpoint": {
+    "schema_version": "ioi.foundations.receipt-checkpoint.v1",
+    "checkpoint_type": "ioi.receipt-checkpoint",
+    "signature_domain": "ioi.receipt-checkpoint.v1",
+    "schema_hash": "sha256:41e1b5ea5794e534cf9aba7bf4558c2fa26815e5c9b3cfd3ffdb99eb4706d0df",
+    "checkpoint_id": "receipt-checkpoint://acme/audit-log/2",
+    "receipt_log_id": "receipt-log://acme/audit-log",
+    "accumulator_algorithm": "ioi.receipt-hash-chain-jcs-sha256.v1",
+    "receipt_body_hash_profile": "ioi.receipt-envelope-jcs-sha256.v1",
+    "receipt_contract_id": "schema://ioi/foundations/receipt-envelope/v1",
+    "receipt_schema_hash": "sha256:07129784ee34ab5d05dbc469490063e058a2c7568510df5be6e60e9c4ab4a8e1",
+    "accumulator_size": 2,
+    "accumulator_root": "sha256:352831248cff9098cbdba9a6792a17227868988358abc028697639dac80cf54d",
+    "previous_checkpoint_ref": null,
+    "previous_checkpoint_hash": null,
+    "previous_accumulator_size": null,
+    "previous_accumulator_root": null,
+    "issuer_id": "wallet://acme/security",
+    "issuer_key_set_ref": "keyset://acme/security/4",
+    "issuer_key_set_version": 4,
+    "issuer_key_id": "key://acme/security/ed25519-4",
+    "issued_at": 1784203240,
+    "build_identity_ref": "build://ioi/hypervisor-daemon/fixture-2026-07-16",
+    "policy_posture_ref": "policy://acme/receipt-checkpoint/default",
+    "body_hash": "sha256:ffbba18526ca57f325f69831819a0c8e74b7d835fcf33413c17dba6ccf39bc00",
+    "signature_suite": "ed25519",
+    "signature_key_id": "key://acme/security/ed25519-4",
+    "signature": "vEyfYScqYA2RxllOdr8IGxkj99lom13W2fSKRUHDIkX4uHD7Q_JjcCjgIIWDs_X06F5aAQAlbiXIxQUd9cEhBg"
+  },
+  "consistency_proof": {
+    "profile": "ioi.receipt-hash-chain-consistency.v1",
+    "from_size": 2,
+    "from_root": "sha256:352831248cff9098cbdba9a6792a17227868988358abc028697639dac80cf54d",
+    "extension_leaf_hashes": [
+      "sha256:afea425012150fea14923cf80c17910a3646fc55c64e4d26b9cd53de2e7acfaa",
+      "sha256:2027b71d4dbb2160d9b8a3470c416f1fa87314068dc2e93d0328f91df92c279f"
+    ]
+  },
+  "trusted_input_refs": {
+    "key_set_ref": "keyset://acme/security/4",
+    "key_set_version": 4,
+    "revocation_snapshot_ref": "snapshot://acme/security/revocations/8",
+    "revocation_epoch": 8
+  },
+  "verification_instructions": {
+    "profile": "ioi.receipt-proof-verification.v1",
+    "steps": [
+      "Validate registered closed schemas and schema hashes.",
+      "Recompute the manifest and exact ReceiptEnvelope RFC 8785 JCS SHA-256 hashes.",
+      "Recompute the indexed leaf and hash-chain inclusion root.",
+      "Verify the current and previous checkpoint Ed25519 signatures against trusted local inputs.",
+      "Recompute append-only consistency from the previous checkpoint root."
+    ],
+    "offline_required_inputs": [
+      "trusted_key_set",
+      "signed_revocation_snapshot",
+      "trusted_time"
+    ]
+  }
+}
+"#,
+        ),
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"differential:leap-second-offset-hour-normalization"#,
+        contract_id: r#"schema://ioi/foundations/authority-grant-envelope/v1"#,
+        source_fixture_path: None,
+        mutation_id: None,
+        value_json: Some(
+            r#"{"authority_grant_id":"grant://acme/repo-auditor/7","request_id":"authority-request://acme/repo-auditor/7","issuer_id":"wallet://acme/security","subject_id":"agent://repo-auditor","authority_scopes":["scope:repo.read"],"primitive_capability_constraints":["prim:fs.read"],"resources":["agentgres://project/hypervisor/source"],"constraints":{"max_budget_usd":10,"expires_at":"2025-01-01T24:59:60+01:00","max_calls":100,"approval_required_for":["external_message"]},"revocation_epoch":7,"status":"active"}"#,
+        ),
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"differential:leap-second-offset-minute-normalization"#,
+        contract_id: r#"schema://ioi/foundations/authority-grant-envelope/v1"#,
+        source_fixture_path: None,
+        mutation_id: None,
+        value_json: Some(
+            r#"{"authority_grant_id":"grant://acme/repo-auditor/7","request_id":"authority-request://acme/repo-auditor/7","issuer_id":"wallet://acme/security","subject_id":"agent://repo-auditor","authority_scopes":["scope:repo.read"],"primitive_capability_constraints":["prim:fs.read"],"resources":["agentgres://project/hypervisor/source"],"constraints":{"max_budget_usd":10,"expires_at":"2025-01-01T23:60:60+00:01","max_calls":100,"approval_required_for":["external_message"]},"revocation_epoch":7,"status":"active"}"#,
+        ),
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
     },
 ];
 
@@ -2660,28 +5277,28 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^(?:verifier-path|verification|receipt)://[^\s]+$"#,
         r#"^(?:verifier-path|verification|receipt)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
     ),
-    (r#"^[a-z][a-z0-9_]*$"#, r#"^[a-z][a-z0-9_]*$"#),
+    (r#"^[A-Z]{3}$"#, r#"^[A-Z]{3}$"#),
+    (r#"^[A-Za-z0-9_-]{43}$"#, r#"^[A-Za-z0-9_-]{43}$"#),
+    (r#"^[A-Za-z0-9_-]{86}$"#, r#"^[A-Za-z0-9_-]{86}$"#),
+    (r#"^[A-Za-z0-9_.-]+$"#, r#"^[A-Za-z0-9_.-]+$"#),
     (
-        r#"^[a-z][a-z0-9-]*://[^\s]+$"#,
-        r#"^[a-z][a-z0-9-]*://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
+        r#"^[a-z][a-z0-9+.-]*://\S+$"#,
+        r#"^[a-z][a-z0-9+.-]*://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
     ),
     (
         r#"^[a-z][a-z0-9-]*(?:://|:)[^\s]+$"#,
         r#"^[a-z][a-z0-9-]*(?:://|:)[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
+    ),
+    (
+        r#"^[a-z][a-z0-9-]*://[^\s]+$"#,
+        r#"^[a-z][a-z0-9-]*://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
     ),
     (r#"^[a-z][a-z0-9._-]*$"#, r#"^[a-z][a-z0-9._-]*$"#),
     (
         r#"^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*$"#,
         r#"^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*$"#,
     ),
-    (
-        r#"^[a-z][a-z0-9+.-]*://\S+$"#,
-        r#"^[a-z][a-z0-9+.-]*://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
-    ),
-    (r#"^[A-Z]{3}$"#, r#"^[A-Z]{3}$"#),
-    (r#"^[A-Za-z0-9_-]{43}$"#, r#"^[A-Za-z0-9_-]{43}$"#),
-    (r#"^[A-Za-z0-9_-]{86}$"#, r#"^[A-Za-z0-9_-]{86}$"#),
-    (r#"^[A-Za-z0-9_.-]+$"#, r#"^[A-Za-z0-9_.-]+$"#),
+    (r#"^[a-z][a-z0-9_]*$"#, r#"^[a-z][a-z0-9_]*$"#),
     (
         r#"^acceptance://[^\s]+$"#,
         r#"^acceptance://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
@@ -2743,12 +5360,12 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^estop://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
     ),
     (
-        r#"^grant://[^\s]+$"#,
-        r#"^grant://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
+        r#"^grant://[A-Za-z0-9._~:/-]+$"#,
+        r#"^grant://[A-Za-z0-9._~:/-]+$"#,
     ),
     (
-        r#"^grant://[A-Za-z0-9._~:/-]+$"#,
-        r#"^grant://[A-Za-z0-9._~:/-]+$"#,
+        r#"^grant://[^\s]+$"#,
+        r#"^grant://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
     ),
     (
         r#"^ifc-label://[A-Za-z0-9._~:/-]+$"#,
@@ -2771,15 +5388,15 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^physical-action-admission:[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
     ),
     (
+        r#"^policy://[A-Za-z0-9._~:/-]+$"#,
+        r#"^policy://[A-Za-z0-9._~:/-]+$"#,
+    ),
+    (
         r#"^policy://[^\s]+$"#,
         r#"^policy://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
     ),
-    (
-        r#"^policy://[A-Za-z0-9._~:/-]+$"#,
-        r#"^policy://[A-Za-z0-9._~:/-]+$"#,
-    ),
-    (r#"^prim:[a-z][a-z0-9._-]*$"#, r#"^prim:[a-z][a-z0-9._-]*$"#),
     (r#"^prim:[a-z0-9._-]+$"#, r#"^prim:[a-z0-9._-]+$"#),
+    (r#"^prim:[a-z][a-z0-9._-]*$"#, r#"^prim:[a-z][a-z0-9._-]*$"#),
     (
         r#"^proof://[^\s]+$"#,
         r#"^proof://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
@@ -2793,12 +5410,12 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^receipt-log://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
     ),
     (
-        r#"^receipt://[^\s]+$"#,
-        r#"^receipt://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
+        r#"^receipt://[A-Za-z0-9._~:/-]+$"#,
+        r#"^receipt://[A-Za-z0-9._~:/-]+$"#,
     ),
     (
-        r#"^receipt://[A-Za-z0-9._~:/-]+$"#,
-        r#"^receipt://[A-Za-z0-9._~:/-]+$"#,
+        r#"^receipt://[^\s]+$"#,
+        r#"^receipt://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
     ),
     (
         r#"^resource-lease://[^\s]+$"#,
@@ -2816,11 +5433,11 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^schema://[^\s]+$"#,
         r#"^schema://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
     ),
+    (r#"^scope:[a-z0-9._-]+$"#, r#"^scope:[a-z0-9._-]+$"#),
     (
         r#"^scope:[a-z][a-z0-9._-]*$"#,
         r#"^scope:[a-z][a-z0-9._-]*$"#,
     ),
-    (r#"^scope:[a-z0-9._-]+$"#, r#"^scope:[a-z0-9._-]+$"#),
     (
         r#"^sensor://[^\s]+$"#,
         r#"^sensor://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
@@ -2840,12 +5457,12 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^task://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
     ),
     (
-        r#"^tool://[A-Za-z0-9._~:/-]+/revision/[A-Za-z0-9._~-]+$"#,
-        r#"^tool://[A-Za-z0-9._~:/-]+/revision/[A-Za-z0-9._~-]+$"#,
+        r#"^tool://[A-Za-z0-9._~:/-]+$"#,
+        r#"^tool://[A-Za-z0-9._~:/-]+$"#,
     ),
     (
-        r#"^tool://[A-Za-z0-9._~:/-]+$"#,
-        r#"^tool://[A-Za-z0-9._~:/-]+$"#,
+        r#"^tool://[A-Za-z0-9._~:/-]+/revision/[A-Za-z0-9._~-]+$"#,
+        r#"^tool://[A-Za-z0-9._~:/-]+/revision/[A-Za-z0-9._~-]+$"#,
     ),
     (
         r#"^zone://[^\s]+$"#,
@@ -2862,13 +5479,7 @@ fn type_matches(expected: &str, value: &Value) -> bool {
     match expected {
         "null" => value.is_null(),
         "string" => value.is_string(),
-        "integer" => {
-            value.as_i64().is_some()
-                || value.as_u64().is_some()
-                || value
-                    .as_f64()
-                    .is_some_and(|number| number.is_finite() && number.fract() == 0.0)
-        }
+        "integer" => value.as_number().is_some_and(json_number_is_integral),
         "number" => value.is_number(),
         "boolean" => value.is_boolean(),
         "array" => value.is_array(),
@@ -2910,12 +5521,59 @@ fn normalized_json_number(number: &serde_json::Number) -> (bool, String, i32) {
     (negative, digits, decimal_exponent)
 }
 
+fn json_number_is_integral(number: &serde_json::Number) -> bool {
+    let (_, _, decimal_exponent) = normalized_json_number(number);
+    decimal_exponent >= 0
+}
+
+fn json_number_as_u64(number: &serde_json::Number) -> Option<u64> {
+    let (negative, digits, decimal_exponent) = normalized_json_number(number);
+    if negative || decimal_exponent < 0 {
+        return None;
+    }
+    let zero_count = usize::try_from(decimal_exponent).ok()?;
+    let total_length = digits.len().checked_add(zero_count)?;
+    if total_length > 20 {
+        return None;
+    }
+    let mut integer = digits;
+    integer.extend(std::iter::repeat_n('0', zero_count));
+    integer.parse::<u64>().ok()
+}
+
+fn compare_json_numbers(left: &serde_json::Number, right: &serde_json::Number) -> Ordering {
+    let (left_negative, left_digits, left_exponent) = normalized_json_number(left);
+    let (right_negative, right_digits, right_exponent) = normalized_json_number(right);
+    if left_negative != right_negative {
+        return if left_negative {
+            Ordering::Less
+        } else {
+            Ordering::Greater
+        };
+    }
+    let left_magnitude = left_digits.len() as i64 + i64::from(left_exponent);
+    let right_magnitude = right_digits.len() as i64 + i64::from(right_exponent);
+    let magnitude_order = left_magnitude.cmp(&right_magnitude).then_with(|| {
+        let width = left_digits.len().max(right_digits.len());
+        (0..width)
+            .map(|index| left_digits.as_bytes().get(index).copied().unwrap_or(b'0'))
+            .cmp(
+                (0..width).map(|index| right_digits.as_bytes().get(index).copied().unwrap_or(b'0')),
+            )
+    });
+    if left_negative {
+        magnitude_order.reverse()
+    } else {
+        magnitude_order
+    }
+}
+
 fn json_schema_equal(left: &Value, right: &Value) -> bool {
     match (left, right) {
         (Value::Null, Value::Null) => true,
         (Value::Bool(left), Value::Bool(right)) => left == right,
         (Value::Number(left), Value::Number(right)) => {
-            normalized_json_number(left) == normalized_json_number(right)
+            compare_json_numbers(left, right) == Ordering::Equal
         }
         (Value::String(left), Value::String(right)) => left == right,
         (Value::Array(left), Value::Array(right)) => {
@@ -2990,14 +5648,12 @@ fn is_rfc3339_date_time(text: &str) -> bool {
     if !(1..=12).contains(&month)
         || day == 0
         || day > month_days[month as usize]
-        || hour > 23
-        || minute > 59
         || zone_hour > 23
         || zone_minute > 59
     {
         return false;
     }
-    if second < 60.0 {
+    if hour <= 23 && minute <= 59 && second < 60.0 {
         return true;
     }
     let utc_minute = minute as i32 - zone_minute as i32 * zone_sign;
@@ -3084,13 +5740,19 @@ fn validate_node(root: &Value, schema: &Value, value: &Value, at: &str) -> Resul
             }
         }
     }
-    if let Some(minimum) = schema.get("minimum").and_then(Value::as_f64) {
-        if value.as_f64().is_some_and(|number| number < minimum) {
+    if let Some(minimum) = schema.get("minimum").and_then(Value::as_number) {
+        if value
+            .as_number()
+            .is_some_and(|number| compare_json_numbers(number, minimum) == Ordering::Less)
+        {
             return Err(format!("{at}: number below minimum"));
         }
     }
-    if let Some(maximum) = schema.get("maximum").and_then(Value::as_f64) {
-        if value.as_f64().is_some_and(|number| number > maximum) {
+    if let Some(maximum) = schema.get("maximum").and_then(Value::as_number) {
+        if value
+            .as_number()
+            .is_some_and(|number| compare_json_numbers(number, maximum) == Ordering::Greater)
+        {
             return Err(format!("{at}: number above maximum"));
         }
     }
@@ -3214,7 +5876,7 @@ fn validate_invariants(contract_id: &str, rules: &Value, value: &Value) -> Resul
                         value_at_path(value, paths.get(1)?.as_str()?)?,
                     ))
                 })
-                .is_some_and(|(left, right)| left == right),
+                .is_some_and(|(left, right)| json_schema_equal(left, right)),
             Some("matches_contract_schema_hash") => expression
                 .get("path")
                 .and_then(Value::as_str)
@@ -3228,15 +5890,16 @@ fn validate_invariants(contract_id: &str, rules: &Value, value: &Value) -> Resul
                 .filter(|paths| paths.len() == 2)
                 .and_then(|paths| {
                     Some((
-                        value_at_path(value, paths.first()?.as_str()?)?.as_u64()?,
-                        value_at_path(value, paths.get(1)?.as_str()?)?.as_u64()?,
+                        value_at_path(value, paths.first()?.as_str()?)?.as_number()?,
+                        value_at_path(value, paths.get(1)?.as_str()?)?.as_number()?,
                     ))
                 })
                 .is_some_and(|(left, right)| {
+                    let ordering = compare_json_numbers(left, right);
                     if operator == "numbers_lte" {
-                        left <= right
+                        ordering != Ordering::Greater
                     } else {
-                        left < right
+                        ordering == Ordering::Less
                     }
                 }),
             _ => false,
@@ -3252,26 +5915,30 @@ fn validate_invariants(contract_id: &str, rules: &Value, value: &Value) -> Resul
     Ok(())
 }
 
-pub fn validate_architecture_contract(contract_id: &str, value: &Value) -> Result<(), String> {
+fn validate_projection_schema(contract_id: &str, value: &Value) -> Result<(), String> {
     let schema_text = CONTRACT_SCHEMAS
         .iter()
         .find_map(|(id, schema)| (*id == contract_id).then_some(*schema))
         .ok_or_else(|| format!("unknown contract: {contract_id}"))?;
+    let schema: Value = serde_json::from_str(schema_text).map_err(|error| error.to_string())?;
+    validate_node(&schema, &schema, value, "$")
+}
+
+pub fn validate_architecture_contract(contract_id: &str, value: &Value) -> Result<(), String> {
     let invariant_text = CONTRACT_INVARIANTS
         .iter()
         .find_map(|(id, rules)| (*id == contract_id).then_some(*rules))
         .unwrap_or("[]");
-    let schema: Value = serde_json::from_str(schema_text).map_err(|error| error.to_string())?;
     let invariants: Value =
         serde_json::from_str(invariant_text).map_err(|error| error.to_string())?;
-    validate_node(&schema, &schema, value, "$")?;
+    validate_projection_schema(contract_id, value)?;
     validate_invariants(contract_id, &invariants, value)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::collections::BTreeSet;
+    use std::collections::{BTreeMap, BTreeSet};
 
     const FIXTURE_BODIES: &[(&str, &str)] = &[
     ("docs/architecture/_meta/schemas/fixtures/receipt-envelope-v1/positive-minimal.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/receipt-envelope-v1/positive-minimal.json"))),
@@ -3398,12 +6065,7 @@ mod tests {
     }
 
     fn validate_schema_only(contract_id: &str, value: &Value) -> Result<(), String> {
-        let schema_text = CONTRACT_SCHEMAS
-            .iter()
-            .find_map(|(id, schema)| (*id == contract_id).then_some(*schema))
-            .ok_or_else(|| format!("unknown contract: {contract_id}"))?;
-        let schema: Value = serde_json::from_str(schema_text).map_err(|error| error.to_string())?;
-        validate_node(&schema, &schema, value, "$")
+        validate_projection_schema(contract_id, value)
     }
 
     fn mutation_value(mutation: &ArchitectureContractMutation) -> Value {
@@ -3446,6 +6108,77 @@ mod tests {
             .find_map(|(candidate, body)| (*candidate == path).then_some(*body))
             .expect("fixture body is generated");
         serde_json::from_str(body).expect("fixture contains JSON")
+    }
+
+    fn differential_expectations() -> (BTreeMap<String, (bool, bool)>, bool) {
+        let oracle_path = match std::env::var("IOI_ARCHITECTURE_CONTRACT_AJV_ORACLE") {
+            Ok(path) => path,
+            Err(std::env::VarError::NotPresent) => {
+                return (
+                    ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES
+                        .iter()
+                        .map(|candidate| {
+                            (
+                                candidate.id.to_owned(),
+                                (
+                                    candidate.ajv_schema_accept,
+                                    candidate.oracle_contract_accept,
+                                ),
+                            )
+                        })
+                        .collect(),
+                    false,
+                );
+            }
+            Err(error) => panic!("invalid Ajv oracle environment: {error}"),
+        };
+        let body = std::fs::read_to_string(&oracle_path)
+            .unwrap_or_else(|error| panic!("{oracle_path}: {error}"));
+        let document: Value =
+            serde_json::from_str(&body).unwrap_or_else(|error| panic!("{oracle_path}: {error}"));
+        assert_eq!(
+            document.get("schema_version").and_then(Value::as_str),
+            Some("ioi.architecture-contract-ajv-differential.v1"),
+            "{oracle_path}: unexpected live Ajv oracle schema",
+        );
+        let cases = document
+            .get("cases")
+            .and_then(Value::as_array)
+            .unwrap_or_else(|| panic!("{oracle_path}: cases must be an array"));
+        let mut expectations = BTreeMap::new();
+        for case in cases {
+            let id = case
+                .get("id")
+                .and_then(Value::as_str)
+                .unwrap_or_else(|| panic!("{oracle_path}: differential case has no id"));
+            let schema_accept = case
+                .get("ajv_schema_accept")
+                .and_then(Value::as_bool)
+                .unwrap_or_else(|| panic!("{oracle_path}: {id} has no Ajv schema result"));
+            let contract_accept = case
+                .get("oracle_contract_accept")
+                .and_then(Value::as_bool)
+                .unwrap_or_else(|| panic!("{oracle_path}: {id} has no contract result"));
+            assert!(
+                expectations
+                    .insert(id.to_owned(), (schema_accept, contract_accept))
+                    .is_none(),
+                "{oracle_path}: duplicate differential case {id}",
+            );
+        }
+        assert_eq!(
+            expectations.len(),
+            ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES.len(),
+            "{oracle_path}: live Ajv corpus size differs from the generated Rust corpus",
+        );
+        for candidate in ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES {
+            assert!(
+                expectations.contains_key(candidate.id),
+                "{oracle_path}: live Ajv corpus is missing {}",
+                candidate.id,
+            );
+        }
+        (expectations, true)
     }
 
     #[test]
@@ -3513,6 +6246,59 @@ mod tests {
     }
 
     #[test]
+    fn live_ajv_differential_corpus_matches_rust_validator_and_deserializer() {
+        let (expectations, live_oracle) = differential_expectations();
+        let oracle_label = if live_oracle {
+            "live Ajv subprocess oracle"
+        } else {
+            "generation-time Ajv oracle"
+        };
+        for candidate in ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES {
+            let (expected_schema_accept, expected_contract_accept) = expectations
+                .get(candidate.id)
+                .copied()
+                .unwrap_or_else(|| panic!("missing Ajv expectation for {}", candidate.id));
+            let value: Value = if let Some(value_json) = candidate.value_json {
+                serde_json::from_str(value_json)
+                    .unwrap_or_else(|error| panic!("{}: {error}", candidate.id))
+            } else if let Some(mutation_id) = candidate.mutation_id {
+                let mutation = ARCHITECTURE_CONTRACT_MUTATIONS
+                    .iter()
+                    .find(|mutation| mutation.id == mutation_id)
+                    .unwrap_or_else(|| panic!("{}: missing mutation {mutation_id}", candidate.id));
+                mutation_value(mutation)
+            } else {
+                fixture_value(
+                    candidate
+                        .source_fixture_path
+                        .unwrap_or_else(|| panic!("{}: missing differential source", candidate.id)),
+                )
+            };
+            let schema_result = validate_schema_only(candidate.contract_id, &value);
+            assert_eq!(
+                schema_result.is_ok(),
+                expected_schema_accept,
+                "{}: Rust schema result={schema_result:?} disagreed with {oracle_label}",
+                candidate.id,
+            );
+            let projection_result = parse_projection(candidate.contract_id, &value);
+            assert_eq!(
+                projection_result.is_ok(),
+                expected_schema_accept,
+                "{}: direct Rust projection result={projection_result:?} disagreed with {oracle_label}",
+                candidate.id,
+            );
+            let contract_result = validate_architecture_contract(candidate.contract_id, &value);
+            assert_eq!(
+                contract_result.is_ok(),
+                expected_contract_accept,
+                "{}: Rust contract result={contract_result:?} disagreed with {oracle_label} plus portable invariants",
+                candidate.id,
+            );
+        }
+    }
+
+    #[test]
     fn exact_json_number_equality_preserves_unique_items_semantics() {
         const CONTRACT_ID: &str = "schema://ioi/foundations/authority-key-set/v1";
         const FIXTURE_PATH: &str =
@@ -3558,7 +6344,7 @@ mod tests {
     }
 
     #[test]
-    fn strict_rfc3339_rejects_invalid_leap_second_clock_fields() {
+    fn ajv_formats_leap_second_profile_is_shared_by_rust_projection() {
         const CONTRACT_ID: &str = "schema://ioi/foundations/authority-grant-envelope/v1";
         const FIXTURE_PATH: &str =
             "docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v1/positive-active.json";
@@ -3566,8 +6352,12 @@ mod tests {
             let mut value = fixture_value(FIXTURE_PATH);
             value["constraints"]["expires_at"] = Value::String(invalid.to_owned());
             assert!(
-                validate_schema_only(CONTRACT_ID, &value).is_err(),
-                "strict RFC3339 accepted {invalid}",
+                validate_schema_only(CONTRACT_ID, &value).is_ok(),
+                "Rust validator diverged from the ajv-formats leap-second oracle for {invalid}",
+            );
+            assert!(
+                parse_projection(CONTRACT_ID, &value).is_ok(),
+                "direct Rust projection diverged from the ajv-formats leap-second oracle for {invalid}",
             );
         }
     }
@@ -3588,7 +6378,7 @@ mod tests {
     }
 
     #[test]
-    fn closed_literal_projections_reject_invalid_values_directly() {
+    fn schema_invalid_values_refuse_direct_projection_deserialization() {
         for mutation in ARCHITECTURE_CONTRACT_MUTATIONS
             .iter()
             .filter(|mutation| mutation.direct_projection_rejection)
