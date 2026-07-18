@@ -1,13 +1,13 @@
 {
   "architecture_or_production_capability_closure": false,
   "as_of_date": "2026-07-18",
-  "build_fingerprint": "157932f15f2aff51f3a267f9eaf58a75fbfb7ef1055cc83b04b34cd8333ef7e3",
+  "build_fingerprint": "475bc1de6556108eb05a24378a404737b24f82b0a602126848dc72c359fdcb74",
   "census_counts": {
-    "consequential": 727,
-    "partial_consequential": 713,
+    "consequential": 960,
+    "partial_consequential": 942,
     "terminal_consequential": 0,
-    "total": 1519,
-    "unavailable_consequential": 14
+    "total": 1534,
+    "unavailable_consequential": 18
   },
   "claim_scope": "M0 program control and claim lock only",
   "conditions": {

@@ -443,6 +443,11 @@
             "source_sha256": "e803e14cb9234d5fa73b0750551fd23741a664aafc83bf11b0582d9ac9b88eef"
           },
           {
+            "note": "service_interface expansion source; generated registries are enumerated and macro-bound",
+            "source_file": "crates/macros/src/lib.rs",
+            "source_sha256": "5e3e30f1fb80e6314b6b49e8b00319741f42523bdb7f6c387cf8d67ba662ef1f"
+          },
+          {
             "note": "enumerated native service",
             "source_file": "crates/plugins/ibc-service/src/core/registry.rs",
             "source_sha256": "8f711bd18f4f804f6fc72fd87f56043b64dd730c0c91d160f320fdcd0c74f810"
@@ -506,6 +511,26 @@
             "note": "enumerated mounted public API registry",
             "source_file": "crates/ipc/proto/public/v1/public.proto",
             "source_sha256": "d8860562792b22870f41a5c81d0046805b066c95fb08f73b24066f347f9e3a02"
+          }
+        ]
+      },
+      {
+        "coverage_id": "tonic_service_registration",
+        "sources": [
+          {
+            "note": "enumerated conditional Guardian gRPC registry",
+            "source_file": "crates/node/src/bin/guardian.rs",
+            "source_sha256": "fd064246fe8209bd36a6a947858a4d49426c5e6e4395151ddf823892604d6669"
+          },
+          {
+            "note": "enumerated mounted public API registry",
+            "source_file": "crates/validator/src/standard/orchestration/lifecycle.rs",
+            "source_sha256": "6d4584d6d55f3e481f1cc17f13080a4b8b403723d00f538db34e2c60e4653edf"
+          },
+          {
+            "note": "enumerated mounted internal workload RPC registries",
+            "source_file": "crates/validator/src/standard/workload/ipc/mod.rs",
+            "source_sha256": "e3cf54f361c9a5cbd34c5addb5f476cb312a2aee807de2bae0a2bc501c9aa15e"
           }
         ]
       },
@@ -803,9 +828,19 @@
             ],
             "identity": "js-system-effect:apps/hypervisor/scripts/ioi-api-adapter.mjs#saveStore",
             "operation": "ANY /api/ioi.v1.UserService/SetPreference",
-            "source_anchor_sha256": "47acf9eaf1365cbff7f28fb2e57baa7cd54a2dc90571a8c20a6a418b4a5af35a",
+            "source_anchor_sha256": "7540fd8b5e5027e68e45dcf4d6fd68c514557a1395d015e2eb3d5fba7cb7dc3f",
             "source_file": "apps/hypervisor/scripts/ioi-api-adapter.mjs",
             "source_line": 119
+          },
+          {
+            "calls": [
+              "process.exit"
+            ],
+            "identity": "js-system-effect:apps/hypervisor/scripts/serve-product-ui.mjs#module_scope_line_6433",
+            "operation": "PROCESS_EXIT product-ui reference bundle unavailable",
+            "source_anchor_sha256": "10dbbab5d21a0c7c54f7c9fd2954bdcefb46801e6f8dfa10ca8f79b1e3b025ec",
+            "source_file": "apps/hypervisor/scripts/serve-product-ui.mjs",
+            "source_line": 6433
           },
           {
             "calls": [
@@ -813,9 +848,19 @@
             ],
             "identity": "js-system-effect:apps/hypervisor/scripts/serve-product-ui.mjs#module_scope_line_6437",
             "operation": "PROCESS_START product-ui reference server",
-            "source_anchor_sha256": "c8d8d354d1eec4affd8c064f63cbe0d17acef0f00849c62f985d5456de447c39",
+            "source_anchor_sha256": "7867ce107c372659c47342fa9c08507a471323971ca5cb5013e39faed6133234",
             "source_file": "apps/hypervisor/scripts/serve-product-ui.mjs",
             "source_line": 6437
+          },
+          {
+            "calls": [
+              "process.exit"
+            ],
+            "identity": "js-system-effect:apps/hypervisor/scripts/serve-product-ui.mjs#module_scope_line_6441",
+            "operation": "PROCESS_EXIT propagate product-ui reference server exit",
+            "source_anchor_sha256": "11d903c3cb88f9ba3761a7bbfdf119c5db6cd0a148fe314ed01d473974de9bef",
+            "source_file": "apps/hypervisor/scripts/serve-product-ui.mjs",
+            "source_line": 6441
           },
           {
             "calls": [
@@ -823,7 +868,7 @@
             ],
             "identity": "js-system-effect:apps/hypervisor/scripts/serve-product-ui.mjs#module_scope_line_6442",
             "operation": "SIGINT terminate product-ui reference server",
-            "source_anchor_sha256": "97664aa1a1a616e58e75aae8c2222f241586345de495da2a31976e4a9a1290fc",
+            "source_anchor_sha256": "4f816f8d110c3b4700337d8eff7f0dccb3d3bcf82f0a1c2c56d4e82657be6b28",
             "source_file": "apps/hypervisor/scripts/serve-product-ui.mjs",
             "source_line": 6442
           },
@@ -833,9 +878,39 @@
             ],
             "identity": "js-system-effect:apps/hypervisor/scripts/serve-product-ui.mjs#module_scope_line_6443",
             "operation": "SIGTERM terminate product-ui reference server",
-            "source_anchor_sha256": "9172978d427c7101f744748588c49cbaf6183bd20ebe45c3da3ab5a8abc1dee0",
+            "source_anchor_sha256": "5d9da465e8158c6983412e619b94d81b92aae50447ccfa77f0c611941c12ea04",
             "source_file": "apps/hypervisor/scripts/serve-product-ui.mjs",
             "source_line": 6443
+          },
+          {
+            "calls": [
+              "process.exit"
+            ],
+            "identity": "js-system-effect:apps/hypervisor/scripts/serve-product-ui.mjs#waitForMirror",
+            "operation": "PROCESS_EXIT product-ui reference server startup timeout",
+            "source_anchor_sha256": "e16084e7d229518d7cda0ec932a6d0a8106269d4464bae9c14b382aa24f3ff72",
+            "source_file": "apps/hypervisor/scripts/serve-product-ui.mjs",
+            "source_line": 10089
+          },
+          {
+            "calls": [
+              "process.exit"
+            ],
+            "identity": "js-system-effect:scripts/hypervisor-app-dev-replay-server.mjs#module_scope_line_3701",
+            "operation": "PROCESS_EXIT development replay startup failure",
+            "source_anchor_sha256": "5091a4d12946a8c8f7357fe4b532c3c999a9c6092863d1a3cbcfbb93bf423209",
+            "source_file": "scripts/hypervisor-app-dev-replay-server.mjs",
+            "source_line": 3701
+          },
+          {
+            "calls": [
+              "process.exit"
+            ],
+            "identity": "js-system-effect:scripts/hypervisor-app-dev-replay-server.mjs#shutdown",
+            "operation": "PROCESS_EXIT development replay signal shutdown",
+            "source_anchor_sha256": "f1e9ea388e9f848b69e30c46ebe5fef640d80bc397cdff02d4312a170e201158",
+            "source_file": "scripts/hypervisor-app-dev-replay-server.mjs",
+            "source_line": 3692
           },
           {
             "calls": [
@@ -844,7 +919,7 @@
             ],
             "identity": "js-system-effect:scripts/hypervisor-app-dev-replay-server.mjs#writeEvidenceFile",
             "operation": "explicitly configured development evidence file write",
-            "source_anchor_sha256": "a09d71fb238f890ad14875dcee325dcf67bea93de0fc11329c4923dffe3d93a4",
+            "source_anchor_sha256": "e2a5cc4f219ae5d79cee9398015e878b523ec6f885e3dd0c3a2c478e8747a009",
             "source_file": "scripts/hypervisor-app-dev-replay-server.mjs",
             "source_line": 2427
           },
@@ -855,7 +930,7 @@
             ],
             "identity": "js-system-effect:scripts/lib/mint-approval-grant.mjs#mintApprovalGrant",
             "operation": "PROCESS_EXEC build and invoke deterministic test approval signer",
-            "source_anchor_sha256": "8ec8ca456c62a0f785de091c1596ae455eeb6de3be000e93859829f7d0401114",
+            "source_anchor_sha256": "5051f35b99ae0c1349e22fb73d02375e619f9756b976eb8de16506dc8cd94e8b",
             "source_file": "scripts/lib/mint-approval-grant.mjs",
             "source_line": 16
           }
