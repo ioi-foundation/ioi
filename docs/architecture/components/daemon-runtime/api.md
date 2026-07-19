@@ -8,10 +8,10 @@ Supersedes: older daemon/SDK/CLI endpoint lists when endpoint shape conflicts.
 Superseded by: none.
 Last alignment pass: 2026-07-15.
 Doctrine status: reference
-Implementation status: partial (many route families live; the registered information-flow/declassification contracts are schema/projection substrate, while production propagation and enforcement remain planned; the shared work-lifecycle integrity/replay kernel, local append store, projection repair, cancellation planner, archive/snapshot writer, and status route are target-only; generalized GoalRunProfile resolution, local-agent pairing, OutcomeRoom discussion/artifact resolution, native Embodied Runtime APIs, non-tool MCP normalization, production browser-context propagation, and remaining browser/computer-use IFC are also target-only; source of truth is the daemon route registry)
+Implementation status: partial (many route families live; Cut 3 information-flow enforcement is live at HTTP connector, MCP tool, hosted-model, guarded browser-navigation, memory write/edit, signed automation-webhook, and WorkResult/OutcomeDelta label-ref-preservation seams; a shared work-lifecycle integrity/replay kernel, local append store, projection repair, cancellation planner, archive/snapshot writer, and read-only status route are live as mechanisms but are not yet bound to owner write routes; generalized GoalRunProfile resolution, local-agent pairing, OutcomeRoom discussion/artifact resolution, native Embodied Runtime APIs, non-tool MCP normalization, production browser-context propagation, and remaining browser/computer-use IFC are target-only; source of truth is the daemon route registry)
 Implementation refs:
   - `crates/node/src/bin/hypervisor_daemon_routes/`
-Last implementation audit: 2026-07-18
+Last implementation audit: 2026-07-16 (information-flow Cut 3B1 propagation)
 
 ## Purpose
 
@@ -86,16 +86,15 @@ GET /v1/runtime/policy
 GET /v1/runtime/nodes
 ```
 
-### Target work-lifecycle mechanism status
+### Work-lifecycle mechanism status
 
 ```http
 GET /v1/hypervisor/work-lifecycle/status
 ```
 
-This route is target-only and is not present in the current daemon registry.
-If implemented, the read-only diagnostic reports the shared lifecycle kernel,
-durable local record/projection/archive/snapshot counts, per-kind
-legal-transition counts, and live owner-route bindings. It does not create or transition a GoalRun,
+This read-only diagnostic reports the shared lifecycle kernel, durable local
+record/projection/archive/snapshot counts, per-kind legal-transition counts,
+and live owner-route bindings. It does not create or transition a GoalRun,
 GoalGroundingLoop, WorkRun, AutomationRun, HarnessInvocation, ContextCell, or
 external handle. Until an owner route is explicitly listed in
 `live_owner_route_bindings`, that route does not claim append-only lifecycle
@@ -2580,12 +2579,8 @@ MCP manager endpoints expose tool/resource/prompt discovery and governed MCP
 tool invocation to Hypervisor App, Hypervisor Web, CLI/headless clients,
 optional TUI views, SDK, ADK, Developer Workspace, Workflow Compositor, Foundry
 surfaces, other application surfaces, and Environments views.
-Thread-scoped MCP routes are the canonical target protocol APIs. Current master
-still mounts top-level `/v1/mcp`, `/v1/mcp/servers`, `/v1/mcp/tools`,
-`/v1/mcp/resources`, and `/v1/mcp/prompts` routes. They are live
-implementation drift/compatibility surfaces pending explicit classification or
-retirement; their presence does not make them the canonical thread-scoped
-contract.
+Global MCP routes are thread-scoped daemon protocol APIs; retired top-level
+`/v1/mcp*` and legacy `/api/v1/mcp*` routes are not compatibility fallbacks.
 
 ```http
 GET  /v1/threads/{thread_id}/mcp/status
@@ -2639,9 +2634,8 @@ host or provider mutation.
 Implementation status: the audited live slice remains tool-centric and has
 protocol-version/session-assumption drift across transports. Resource, prompt,
 elicitation, external-task, and App normalization routes above are target
-contract. Until implemented, they fail typed-unavailable; clients must not use
-the live top-level `/v1/mcp*` compatibility surfaces or private state to
-simulate the missing thread-scoped semantics.
+contract. Until implemented, they fail typed-unavailable; clients must not
+simulate them with top-level `/v1/mcp*` routes or private state.
 
 ## Memory API
 
@@ -2673,17 +2667,16 @@ PATCH /v1/threads/{thread_id}/memory/{memory_id}
 DELETE /v1/threads/{thread_id}/memory/{memory_id}
 ```
 
-The target `POST` and `PATCH` durable record mutations require
+`POST` and `PATCH` durable record mutations require
 `information_flow_parent_labels`; they may also supply
 `information_flow_label_ref` and
 `information_flow_derivation_kind = memory_import | summarization`. Immediately
 before `persist_record`, the daemon hashes the actual planned payload, joins
 every supplied parent plus any replayed prior record label, stores the derived
 `information_flow_label`, and only then invokes storage. Missing or invalid
-parents must fail closed without a write. Current master does not implement
-this propagation seam for memory mutations. Delete, policy/event records,
-portable export, and external memory connectors remain with their owning
-contracts as well.
+parents fail closed without a write. This built seam does not imply that delete,
+policy/event records, portable export, or external memory connectors have the
+same propagation; those remain with their owning contracts.
 
 ## Subagent API
 

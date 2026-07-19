@@ -9,14 +9,13 @@ Superseded by: none.
 Last alignment pass: 2026-07-13.
 Doctrine status: canonical
 Implementation status: partial (model-route registry and local Ollama mounting
-are built; registered information-flow/declassification schemas and generated
-projections define the hosted-provider boundary, but production parent-aware
-admission and output-label propagation remain planned; sealed BYOK and
-multi-transport session execution are unimplemented, and only
-active/available Ollama routes are currently bindable for execution; custody,
-commercial-rights policy, and full router/ContextCell propagation remain
-partial)
-Last implementation audit: 2026-07-18
+built; hosted-provider blocking/streaming transport now enforces parent-aware
+information-flow admission and returns untrusted content-only model-output
+labels; sealed BYOK and multi-transport session execution are unimplemented,
+and only active/available Ollama routes are currently bindable for execution;
+custody, commercial-rights policy, and full router/ContextCell propagation
+remain partial)
+Last implementation audit: 2026-07-16 (hosted-provider IFC boundary)
 
 ## Canonical Definition
 
@@ -91,16 +90,15 @@ worker-market inventory. Managed unattended work uses API, dedicated endpoint,
 expressly negotiated inference, self-hosted, or explicitly authorized OEM/
 reseller capacity.
 
-Hosted provider transport is also an information-flow boundary. A conforming
-invocation owner requires the complete actual input-label set, an independently admitted
+Hosted provider transport is also an information-flow boundary. The invocation
+owner requires the complete actual input-label set, an independently admitted
 effect label, and the exact provider `RuntimeToolContract`; it recomputes the
 restrictive join against the canonical outbound request and exact destination
 immediately before blocking or streaming network contact. A caller-supplied
 public effect label cannot weaken private or untrusted inputs. Raw model output
 returns as `origin=model_output`, `integrity=untrusted`, and
 `instruction_authority=none` until a separate verifier or admission path
-promotes its integrity. Model inference itself never mints authority. Current
-master does not yet implement this hosted-provider information-flow seam.
+promotes its integrity. Model inference itself never mints authority.
 
 The model router may record model architecture and training-profile metadata,
 but that metadata is descriptive. It does not make a model the protocol actor.

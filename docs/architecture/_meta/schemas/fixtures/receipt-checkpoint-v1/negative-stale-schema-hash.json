@@ -8,7 +8,7 @@
   "accumulator_algorithm": "ioi.receipt-hash-chain-jcs-sha256.v1",
   "receipt_body_hash_profile": "ioi.receipt-envelope-jcs-sha256.v1",
   "receipt_contract_id": "schema://ioi/foundations/receipt-envelope/v1",
-  "receipt_schema_hash": "sha256:76d2ce07623700a3d25e31f5bb131006e3d638559ec4338b09843674e5e51edc",
+  "receipt_schema_hash": "sha256:07129784ee34ab5d05dbc469490063e058a2c7568510df5be6e60e9c4ab4a8e1",
   "accumulator_size": 4,
   "accumulator_root": "sha256:a80a2341d4c1ba4de8047edef681c8b77c8494198c8f0c6f3763f6594c23e5ab",
   "previous_checkpoint_ref": "receipt-checkpoint://acme/audit-log/2",

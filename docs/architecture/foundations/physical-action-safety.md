@@ -6,7 +6,7 @@ Supersedes: plan prose that treats `physical_action` as only a loose runtime ris
 Superseded by: none.
 Last alignment pass: 2026-07-16.
 Doctrine status: canonical
-Implementation status: partial admission precursor (current master contains the older Rust-owned physical-action-intent admission path. The stricter deployment/ODD/timing/resource-closure contract, `PhysicalActionExecutionCore`, native controller mount, durable Agentgres receipt emission, cryptographic controller identity, controller-side idempotency, and estate-wide CPAS coverage remain planned. This cut adds only the registered execution-receipt schema, invariants, fixtures, and generated projections.)
+Implementation status: partial (the Rust-owned `POST /v1/hypervisor/physical-action-intent-admissions` planner rejects live, hard-real-time, and E1+ requests without exact deployment, resource-group, command/controller, ODD, timing, assured-input, safe-switch, restart/writer, and teleoperation evidence; a separate reference `PhysicalActionExecutionCore` proves fresh preflight immediately before one typed invoker, exact state-root and adapter-identity checks, zero-call denial, coordinator-side same-body replay, serializable `Prepared`/`Completed` recovery posture, dispatch-proof normalization, and the registered nested execution-receipt contract. That core is not yet mounted to a native controller, persisted durably through Agentgres, or operating a `LocalControlSupervisor`; it does not prove cryptographic controller identity or controller-side idempotency. Estate-wide CPAS coverage and live timing/incident claims therefore remain open — `crates/services/src/agentic/runtime/kernel/runtime_physical_action_intent_admission.rs`, `crates/services/src/agentic/runtime/kernel/physical_action_execution.rs`)
 Last implementation audit: 2026-07-16
 
 ## Canonical Definition
@@ -650,11 +650,12 @@ The body additionally binds the controller effect ref, dispatch posture and
 evidence, controller receipts, state root after execution when known, effect
 status, predecessor receipt hash, and execution time.
 
-The registered schema, invariants, fixtures, and generated projections specify
-this target receipt invariant; they are not an execution core or proof that a
-deployed actuator path is covered. A native or separately assured controller
-adapter must enforce the final gate at the real effect boundary and persist its
-ledger and receipts through the runtime/Agentgres owners. Native mounting,
+The built Rust core is a reference mechanism for this invariant. Until a native
+or separately assured controller adapter mounts it at the real effect boundary
+and persists its ledger and receipts through the runtime/Agentgres owners, it
+does not prove that every deployed actuator path is covered. The adapter
+contract requires propagation of the controller idempotency key, but the
+reference core cannot prove controller-side deduplication. Native mounting,
 durable Agentgres persistence, cryptographic hardware/controller identity,
 controller-side idempotency, and estate-wide CPAS conformance remain open.
 

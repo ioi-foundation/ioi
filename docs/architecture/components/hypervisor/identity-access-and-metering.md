@@ -12,9 +12,10 @@ identity roles as machine authority.
 Superseded by: none.
 Last alignment pass: 2026-07-16.
 Doctrine status: canonical
-Implementation status: mixed (principals, sessions, OIDC SSO, SCIM, enforcement, and receipt-derived coarse OCU projection are built; the registered managed-work billing schema, invariants, fixtures, and generated projections are present as contract substrate, while the quote/hold/usage/debit/adjustment kernel, durable billing store, `LocalAgentPairingSessionEnvelope`, local-agent pairing APIs, room-admitted gateway issuance, public Work Credit billing APIs, supplier-statement reconciliation, and SaaS billing remain planned)
+Implementation status: mixed (principals, sessions, OIDC SSO, SCIM, and enforcement built; receipt-derived coarse OCU projection plus the registered managed-work billing contract and internal fixed-point quote/hold/usage/debit/adjustment kernel with process-local durable storage built; `LocalAgentPairingSessionEnvelope`, local-agent pairing APIs, room-admitted gateway issuance, public Work Credit billing APIs, supplier-statement reconciliation, and SaaS billing planned)
 Implementation refs:
   - `crates/node/src/bin/hypervisor_daemon_routes/`
+  - `crates/services/src/agentic/runtime/kernel/managed_work_billing.rs`
 Last implementation audit: 2026-07-16
 
 ## Canonical Definition

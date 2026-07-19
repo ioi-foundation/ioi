@@ -11,12 +11,10 @@ workflow.
 Superseded by: none.
 Last alignment pass: 2026-07-12.
 Doctrine status: canonical
-Implementation status: partial (bounded GoalRun multi-harness orchestration and
-the hosted OutcomeRoom graph through participation, frontier/claim,
-offers/matching, Attempt/Finding, WorkResult/OutcomeDelta, and
-VerifierChallenge are built; collaboration-terms negotiation, federated and
-cross-domain admission, local-agent pairing, acceptance/verdict/settlement,
-and product-level attempt comparison remain planned)
+Implementation status: partial (bounded GoalRun multi-harness orchestration
+built; collaboration-terms negotiation, general OutcomeRoom participation,
+shared-frontier, cross-domain, local-agent pairing/admission, and attempt-
+comparison behavior remain planned)
 Last implementation audit: 2026-07-05
 
 ## Canonical Definition

@@ -33,11 +33,6 @@
     }
   },
   "$defs": {
-    "canonicalDateTime": {
-      "type": "string",
-      "format": "date-time",
-      "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
-    },
     "receiptEnvelope": {
       "type": "object",
       "additionalProperties": false,
@@ -204,7 +199,8 @@
           ]
         },
         "timestamp": {
-          "$ref": "#/$defs/canonicalDateTime"
+          "type": "string",
+          "format": "date-time"
         },
         "signature": {
           "anyOf": [
@@ -331,8 +327,7 @@
         },
         "active_writer_fencing_epoch": {
           "type": "integer",
-          "minimum": 0,
-          "maximum": 9007199254740991
+          "minimum": 0
         },
         "active_writer_fencing_token_hash": {
           "$ref": "#/$defs/sha256Hash"
@@ -425,7 +420,8 @@
           ]
         },
         "executed_at": {
-          "$ref": "#/$defs/canonicalDateTime"
+          "type": "string",
+          "format": "date-time"
         },
         "incident_refs": {
           "type": "array",

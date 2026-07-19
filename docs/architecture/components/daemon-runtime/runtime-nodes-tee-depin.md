@@ -6,7 +6,7 @@ Supersedes: overlapping hosted/DePIN/TEE prose when execution-venue boundaries c
 Superseded by: none.
 Last alignment pass: 2026-07-12.
 Doctrine status: canonical
-Implementation status: mixed (the local venue is real; structured RATS-role attestation evaluation, startup assurance narrowing, live quote drivers, attestation-bound leases/re-attestation, and TEE/DePIN/cTEE/embodied venue deployments remain target contracts)
+Implementation status: mixed (local venue real; structured RATS-role attestation evaluation and startup assurance narrowing are built reference mechanisms; live quote drivers, attestation-bound leases/re-attestation, and TEE/DePIN/cTEE/embodied venue deployments remain design-stage)
 Last implementation audit: 2026-07-16
 
 ## Canonical Definition

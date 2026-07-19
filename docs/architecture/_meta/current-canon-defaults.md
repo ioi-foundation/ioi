@@ -7,7 +7,7 @@ files named in [source-of-truth-map.md](./source-of-truth-map.md).
 Supersedes: the inline "Current canonical defaults" digest formerly embedded in
 [source-of-truth-map.md](./source-of-truth-map.md).
 Superseded by: none.
-Last alignment pass: 2026-07-17.
+Last alignment pass: 2026-07-18.
 Doctrine status: canonical
 Implementation status: mixed (cross-owner digest)
 Last implementation audit: 2026-07-16
@@ -668,15 +668,14 @@ synchronized.
   non-transferable product credits, not cash, a speculative token, or a labor
   payout rail. Direct BYOK removes the provider-cost component and retains only
   explicit conductor/runtime/governance/support charges;
-- the registered managed-work billing schema, invariants, fixtures, and
-  generated projections define exact versioned RateCard/Plan/quote bindings,
-  finite credit holds, owner-evidence-bound usage, explicit overrun decisions,
-  one final debit, and downward-only refund/writeoff adjustments using
-  fixed-point units. The accounting kernel and durable ledger remain planned;
-  the contract substrate is not public entitlement, invoice truth, cash
-  movement, escrow, payout, or cross-process Agentgres ledger authority;
+- a deterministic internal managed-work accounting reference is built around
+  exact versioned RateCard/Plan/quote bindings, finite credit holds,
+  owner-evidence-bound usage, explicit overrun decisions, one final debit, and
+  downward-only refund/writeoff adjustments using fixed-point units. It is not
+  public entitlement, invoice truth, cash movement, escrow, payout, or
+  cross-process Agentgres ledger authority;
 - the sellable allowance is still planned. Current flat OCU receipt metering is
-  not supplier-invoice reconciliation, and the registered contract substrate
+  not supplier-invoice reconciliation, and the internal accounting reference
   does not make it so. Commercial activation
   requires route-attempt and billed-token/compute telemetry, supplier/broker
   cost, IOI fee basis, adjustments, caps, explicit overage consent, positive
@@ -911,21 +910,28 @@ applicable;
 - the default managed-product authority experience is:
   `continue with an eligible federated identity or passkey -> native wallet
   identity -> low-risk product session with no effect authority ->
-  consequential-action proposal -> exact-action review -> platform passkey
-  user verification -> scoped, expiring, revocable grant/lease -> daemon
-  boundary revalidation and execution -> WalletReceipt plus Agentgres
-  evidence`. Apple, Google, Microsoft, GitHub, enterprise SSO, and future
-  providers are UI choices over a provider-neutral `federated_identity`
-  factor contract. The calling product/deployment identity plane owns the
-  product session; wallet.network binds its ref and origin into the exact
-  request/review without taking over its lifecycle. Portable v3 grants must
-  sign that request-body/context commitment before this journey is claimable
-  end to end. Face ID, Touch ID, Windows Hello, or a device PIN unlocks
-  the passkey locally; biometric material is not an IOI credential and does
-  not leave the device. Account linking, sign-in, session restoration,
-  recovery, and device replacement never reconstruct, preserve, or widen
-  authority. High-risk recovery requires policy-selected proof, revocation or
-  quarantine of affected sessions/factors, re-enrollment, and receipts;
+  consequential-action proposal -> canonical exact-action, batch, or standing
+  review -> qualified presentation plus separately inspectable authenticator
+  ceremony -> scoped, expiring, revocable grant/lease -> daemon-computed actual
+  effect and equality/membership/constraint verification -> effect or refusal
+  -> WalletReceipt plus Agentgres evidence`. Apple, Google, Microsoft, GitHub,
+  enterprise SSO, and future providers are UI choices over a provider-neutral
+  `federated_identity` factor contract. The calling product/deployment identity
+  plane owns the product session; wallet.network binds its ref and origin into
+  the exact request/review without taking over its lifecycle. The immutable
+  request, canonical reviewed representation, single-use ceremony context, and
+  typed authorization subject are distinct commitments. Presentation evidence
+  records independent properties through a versioned evidence profile; a
+  generic passkey, hardware key, user-verification flag, or attestation is not
+  proof that the application-defined representation was displayed or
+  understood. Portable v3 grants must sign that complete context and evidence
+  commitment before this journey is claimable end to end. Face ID, Touch ID,
+  Windows Hello, or a device PIN unlocks the authenticator locally; biometric
+  material is not an IOI credential and does not leave the device. Account
+  linking, sign-in, session restoration, recovery, and device replacement never
+  reconstruct, preserve, or widen authority. High-risk recovery requires
+  policy-selected proof, revocation or quarantine of affected sessions/factors,
+  re-enrollment, and receipts;
 - Developer Workspace is the live code, files, terminal, ports, debugging, and
   environment-bound hands-on surface; `Workbench` is its compatibility alias;
 - editor integrations such as VS Code, Cursor, Windsurf, JetBrains, browser

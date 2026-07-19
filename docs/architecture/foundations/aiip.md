@@ -6,8 +6,8 @@ Supersedes: product prose that treats Hypervisor, aiagent.xyz, sas.xyz, or third
 Superseded by: none.
 Last alignment pass: 2026-07-16.
 Doctrine status: canonical
-Implementation status: planned for AIIP transport (the shared registered dispute schema, invariants, fixtures, and generated projections are contract substrate; dispute admission/allocation, local-agent pairing ingress, AIIP transport/binding, channel, collaboration-terms or semantic negotiation, collaborative-pursuit, cross-domain dispute exchange, and two-sovereign-system implementation remain planned)
-Last implementation audit: 2026-07-18
+Implementation status: planned for AIIP transport (the shared registered dispute contract and deterministic admission/allocation kernel are partial built substrate; no local-agent pairing ingress, AIIP transport/binding, channel, collaboration-terms or semantic negotiation, collaborative-pursuit, cross-domain dispute exchange, or two-sovereign-system implementation)
+Last implementation audit: 2026-07-16
 
 ## Canonical Definition
 
@@ -16,11 +16,8 @@ selective, positive-surplus bounded autonomous work.**
 
 AIIP moves delegated work, collaborative-pursuit updates, negotiated semantic
 profiles, authority leases, receipt commitments, settlement intents, reputation
-queries, dispute notices, and handoff finality between distinct independently
-governed systems. Each endpoint binds its own admitted `system_id`, governance
-boundary, operational truth, and channel-enrollment decision; a worker,
-HarnessInvocation, process, node, socket, or bounded execution domain is not an
-AIIP peer merely because it has a separate runtime or transport endpoint.
+queries, dispute notices, and handoff finality across independently governed
+bounded execution domains.
 Each domain keeps its own runtime, private context, operational truth,
 governance, and ordering/finality. AIIP assumes neither consensus nor IOI L1.
 Explicitly enrolled systems may use IOI L1 for selected accepted or adjudicated
@@ -154,11 +151,6 @@ Examples:
 - enterprise private runtimes;
 - third-party autonomous systems;
 - independent autonomous-system L1s or sovereign domains.
-
-This list describes execution domains, not automatic AIIP peers. A local agent
-runtime or installed Worker under the caller's `system_id` remains L0; only a
-domain acting behind its own distinct independently governed and
-channel-enrolled System identity can be an AIIP endpoint.
 
 AIIP lets independently governed bounded execution domains interoperate. Their
 settlement system is a declared profile, not an AIIP assumption. A bounded
@@ -298,14 +290,6 @@ signed AIIP envelopes, exact collaboration terms, separately admitted
 participant/work/resource/authority leases, receipt obligations, recovery and
 dispute semantics, and only the public commitments selected by the parties'
 enrollment and settlement profiles.
-
-A local transport does not decide the layer. `in_process`, `daemon_ipc`,
-`unix_socket`, or `local_http` may carry AIIP only when the envelope binds two
-distinct independently governed `system_id` values and each endpoint binds its
-own admitted channel-enrollment decision and receipt. The same transports carry
-L0 when both endpoints belong to one System. This bilateral channel enrollment
-is not `IOINetworkEnrollment`; compatible systems may exchange AIIP without
-selecting any IOI Network service.
 
 Canonical rule:
 
@@ -554,8 +538,8 @@ identity while binding:
 - message type, sender, recipient, channel, sequence/nonce, timestamp, and
   signature;
 - idempotency, causation, and correlation;
-- marketplace-worker, outcome-service, autonomous-system,
-  collaborative-pursuit, and enterprise profiles;
+- local, installed-worker, marketplace-worker, outcome-service,
+  autonomous-system, collaborative-pursuit, and enterprise profiles;
 - policy and authority, collaboration and OutcomeRoom, ontology/action
   profiles, restricted views, and verifier challenges;
 - payload hash/ref, receipt obligations, verifier/acceptor refs, settlement
@@ -583,18 +567,24 @@ authorized action with its own receipts.
 
 ## Protocol Profiles
 
-AIIP uses standard cross-system profiles so implementers do not invent one-off
-integration patterns. Same-system HarnessInvocation and installed Worker
-routing belongs to native L0 contracts and is not an AIIP profile.
+AIIP uses standard profiles so implementers do not invent one-off integration
+patterns.
 
 ```text
+Local Profile
+  Same-node HarnessInvocation and Worker routing, local receipts, optional settlement.
+
+Installed Worker Profile
+  User-installed worker/module, signed package identity, scoped authority leases,
+  local receipts, optional mainnet anchoring.
+
 Marketplace Worker Profile
-  Invocation across independently governed endpoint systems, signed offers,
-  quote/invoke/receipt, payment, reputation update, and dispute path.
+  Third-party worker invocation, signed offers, worker staking, quote/invoke/receipt,
+  payment, reputation update, and dispute path.
 
 Outcome Service Profile
-  Independently governed provider system, escrow, milestones, acceptance criteria,
-  receipt commitments, challenge window, refund/payout rules, provider reputation.
+  Escrow, milestones, acceptance criteria, receipt commitments, challenge window,
+  refund/payout rules, provider reputation.
 
 Autonomous-System Profile
   Peer system handoff, mutual receipts, settlement intents, cross-system reputation,
@@ -606,13 +596,12 @@ Collaborative Pursuit Profile
   contribution lineage, and declared hosted or federated ordering.
 
 Enterprise Profile
-  Cross-system private execution, redacted receipts, encrypted artifacts, selective
-  disclosure, permissioned evidence, optional public roots.
+  Private execution, redacted receipts, encrypted artifacts, selective disclosure,
+  permissioned evidence, optional public roots.
 ```
 
-Profiles preserve one semantic protocol across independently governed systems.
-Installing a package or Worker under the same System identity does not create a
-second sovereign endpoint and remains L0.
+Profiles preserve one semantic protocol while allowing local, marketplace,
+enterprise, and inter-system variants.
 
 ## Multi-Party Collaboration
 
@@ -959,8 +948,7 @@ settlement intents promote only commitments explicitly selected for shared trust
 - [`../components/wallet-network/doctrine.md`](../components/wallet-network/doctrine.md):
   authority leases and approval scopes.
 - [`../components/daemon-runtime/default-harness-profile.md`](../components/daemon-runtime/default-harness-profile.md):
-  local daemon profile that uses L0 internally and may originate or receive
-  AIIP only on behalf of an independently governed System endpoint.
+  local daemon profile that can route work through AIIP.
 - [`../components/daemon-runtime/events-receipts-delivery-bundles.md`](../components/daemon-runtime/events-receipts-delivery-bundles.md):
   receipt and event shapes used by handoffs.
 

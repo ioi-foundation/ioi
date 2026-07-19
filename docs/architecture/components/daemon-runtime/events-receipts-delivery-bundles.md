@@ -4,10 +4,10 @@ Status: canonical low-level reference.
 Canonical owner: this file for runtime events, receipts, delivery bundles, trace bundles, and quality records.
 Supersedes: overlapping event/receipt examples in plans/specs when event, trace, or receipt fields conflict.
 Superseded by: none.
-Last alignment pass: 2026-07-17.
+Last alignment pass: 2026-07-18.
 Doctrine status: canonical
-Implementation status: mixed (receipts/events live across existing owner planes; `ReceiptCheckpoint` v1, `ReceiptProofBundle` v1, managed-work billing ledger-bundle, dispute-rail-bundle, and `PhysicalActionExecutionReceipt` v1 have registered schemas, invariants, fixtures, and generated projections; portable cryptographic proof verification/CLI support, managed-work billing and dispute kernels, physical execution production, daemon/Agentgres production billing/dispute/physical/checkpoint emission, supplier-statement resolution, evidence adjudication, remedy/bond execution receipts, cross-plane information-flow events, OutcomeRoom/collective-pursuit receipt families, full bounded-improvement Campaign receipts, embodied graph activation and action-chunk lineage, spacetime reservation, physical segment commitments, and delivery-bundle settlement remain planned)
-Last implementation audit: 2026-07-18
+Implementation status: mixed (receipts/events live across built planes, including the direct-improvement simulation/application chain and HTTP connector information-flow decision receipts; `ReceiptCheckpoint` v1, `ReceiptProofBundle` v1, managed-work billing ledger-bundle, dispute-rail-bundle, and `PhysicalActionExecutionReceipt` v1 contracts have schemas/fixtures/shared projections, with billing and dispute families additionally backed by internal Rust kernels and physical execution backed by an unmounted reference core; daemon/Agentgres production billing/dispute/physical receipt emission, supplier-statement resolution, evidence adjudication, remedy/bond execution receipts, full cross-plane information-flow events, daemon/Agentgres production checkpoint emission, OutcomeRoom/collective-pursuit receipt families, full bounded-improvement Campaign receipts, embodied graph activation and action-chunk lineage, spacetime reservation, physical segment commitments, and delivery-bundle settlement remain planned)
+Last implementation audit: 2026-07-16 (physical-action execution receipt contract)
 
 ## Purpose
 
@@ -254,15 +254,14 @@ Offline verification fails closed unless it can:
    leaves;
 6. bind the manifest to those trusted inputs and verify its signature.
 
-The registered schemas, invariants, and adversarial fixtures encode refusal
-cases for receipt, type, domain, version, leaf, index, root, predecessor,
-manifest, signer, key, revocation, and staleness substitution. They are not a
-cryptographic inclusion/consistency verifier or an offline CLI. Those
-verifiers, public transparency, network key discovery, gossip/witness-based
-split-view detection, and live daemon/Agentgres emission remain separate
-planned work. Consequential runtime receipts do not acquire signed-checkpoint
-coverage until a production emitter records them in an implemented
-accumulator.
+The built fixture/library/CLI vertical detects receipt, type, domain, version,
+leaf, index, root, inclusion, predecessor, consistency, manifest, signer, key,
+revocation, and staleness substitution. It detects an inconsistent checkpoint
+chain within the supplied proof. It does not claim public transparency,
+network key discovery, gossip/witness-based split-view detection, or live
+daemon/Agentgres emission; those remain separate policy and implementation
+work. Consequential runtime receipts do not acquire signed-checkpoint coverage
+until the production emitter actually records them in this accumulator.
 
 Trace bundles are the inspection projection over events, logs, receipts,
 artifacts, authority decisions, and proof refs. A trace bundle should support
@@ -665,6 +664,7 @@ run.cancelled
 ```text
 PolicyDecisionReceipt
 ApprovalReceipt
+AuthorityReviewReceipt
 ModelInvocationReceipt
 LearningEgressReceipt
 InformationFlowDecisionReceipt
@@ -851,6 +851,103 @@ WorkspaceRestoreReceipt
 DiagnosticsRepairReceipt
 JobReceipt
 ```
+
+## Authority Review Receipt
+
+`AuthorityReviewReceipt` is a specialized profile over the shared
+`ReceiptEnvelope`, not a new top-level authority primitive. It records the
+wallet/policy boundary's decision over one exact request and review
+representation while keeping presentation evidence, authenticator ceremony
+evidence, grant issuance, and effect execution as separate facts:
+
+```yaml
+AuthorityReviewReceipt:
+  receipt_type: authority_review
+  receipt_profile_ref: schema://ioi/receipt/authority-review/v1
+  authority_review_ref: review://...
+  authority_review_body_hash: sha256:...
+  authority_request_ref: authority-request://...
+  authority_request_body_hash: sha256:...
+  principal_ref: principal://... | wallet://... | org://...
+  product_session_ref: session://... | null
+  origin_binding_ref: origin-binding://... | origin://... | null
+  acting_subject_ref: system://... | agent://... | worker://... | runtime://...
+  authorization_subject:
+    kind: exact_effect | batch_manifest | standing_envelope
+    subject_ref: effect://... | intent://... | artifact://... | policy://...
+    subject_hash: sha256:...
+    validation_profile_ref: schema://... | policy://...
+  reviewed_representation_hash: sha256:...
+  presentation_surface_ref: wallet_client://... | guardian://... | surface://...
+  presentation_evidence_profile_ref: policy://... | schema://...
+  presentation_evidence_refs:
+    - receipt://... | evidence://... | attestation://...
+  presentation_dimensions:
+    operator_and_surface: object
+    content_binding: object
+    request_vs_effect_binding: object
+    enrollment_and_attestation: object
+    user_presence_and_verification: object
+    freshness_and_replay: object
+    proposer_independence: object
+  approval_ceremony_context_hash: sha256:...
+  approval_ceremony_evidence_refs:
+    - receipt://... | evidence://...
+  satisfied_auth_factor_refs:
+    - auth_factor://...
+  satisfied_guardian_surface_refs:
+    - guardian://...
+  auth_factor_evidence_refs:
+    - receipt://... | evidence://...
+  policy_decision_receipt_ref: receipt://...
+  policy_hash: sha256:...
+  risk_classes:
+    - string
+  approval_mode:
+    one_shot_review | session_envelope | batch_review |
+    silent_within_policy | after_the_fact_receipt | step_up_review | denied
+  decision: approved | denied | edit_required | expired
+  predecessor_authority_review_ref: review://... | null
+  successor_authority_review_ref: review://... | null
+  successor_authority_request_ref: authority-request://... | null
+  successor_authority_request_body_hash: sha256:... | null
+  reviewed_at: timestamp
+  expires_at: timestamp
+```
+
+The presentation-evidence profile independently declares the presentation
+operator/control boundary, exact representation binding, request/effect
+linkage, enrollment and attestation evidence, UP/UV posture, freshness/replay
+handling, and independence from the proposing client. Those dimensions remain
+orthogonal: an independent surface is not trusted merely because it is
+independent, and a same-client surface is not weak merely because it is
+same-client. Evidence refs support only the dimensions their selected profile
+and underlying evidence actually establish.
+
+This receipt proves that the named wallet/policy boundary reached the recorded
+decision over the committed request, representation, subject, context, and
+evidence. It does not by itself prove browser pixels, human perception or
+comprehension, biometric identity, natural-person identity, device custody,
+grant issuance, daemon invocation, external-world outcome, or effect
+correctness. A WebAuthn assertion may prove the enrolled credential, challenge,
+RP/origin context, signature, and required UP/UV/backup flags; it does not
+independently prove which application-defined action representation was shown
+or understood.
+
+`requested_auth_factor_posture_refs` and `requested_guardian_surface_refs` on
+the authority request are requested posture. Only `satisfied_auth_factor_refs`,
+`satisfied_guardian_surface_refs`, and their wallet-minted ceremony evidence
+record observed participation. `edit_required` or edit-and-approve creates the
+named successor request and a fresh representation/challenge lineage; no
+predecessor receipt or assertion authorizes changed bytes.
+
+For `one_shot_review`, later effect admission requires the daemon-computed
+effect hash to equal the committed `exact_effect`. For `batch_review`, every
+effect requires typed membership under the committed `batch_manifest`. For a
+`session_envelope`, `silent_within_policy`, or other standing authorization,
+every effect requires a typed constraint proof under the committed
+`standing_envelope`. These non-interactive or envelope modes must not be
+represented as individual human review of every member effect.
 
 ## Information-Flow Decision Receipts
 
@@ -1989,7 +2086,7 @@ authority, budget, lifecycle, acceptance, or status.
 
 The registered v1 physical execution contract is the exact closed
 `{ schema_version, receipt_envelope, body, body_hash, receipt_hash }` object
-above, not the legacy flat receipt. A conforming producer must set
+above, not the legacy flat receipt. The reference core sets
 `receipt_envelope.input_hash` to `body.execution_request_hash`,
 `receipt_envelope.output_hash` to the JCS SHA-256 of the exact physical body,
 and `receipt_envelope.policy_hash` to `body.safety_envelope_hash`. `body_hash`
@@ -1997,19 +2094,15 @@ is the JCS SHA-256 of `{ receipt_envelope, body }`; `receipt_hash` is the
 domain-separated hash over the schema version and that same canonical bundle.
 Verification recomputes all four cross-bindings and the predecessor chain.
 
-A conforming v1 execution path requires the request's `state_root_before` to
-exactly equal the fresh admission state root and requires the invoker's typed
+The v1 core requires the request's `state_root_before` to exactly equal the
+fresh admission state root and requires the invoker's typed
 `controller_binding_ref` to exactly equal the admitted binding before
 invocation. That is typed adapter identity, not cryptographic hardware identity.
-Its ledger must record `Prepared` immediately before the sole controller call and
+Its ledger records `Prepared` immediately before the sole controller call and
 `Completed` only after normalization and bundle verification. Same key plus the
 same canonical request replays a completed receipt without reinvocation; a
 changed body conflicts. A restored `Prepared` entry freezes the chain and
 requires reconciliation rather than retry.
-
-Current master contains the registered contract substrate and the older
-physical-action-intent admission path, but no `PhysicalActionExecutionCore`,
-final controller invoker, or execution ledger implementing the behavior above.
 
 `committed` requires `dispatched_observed`, non-empty dispatch evidence,
 non-empty controller receipts, and a known after-state root. `rejected`
@@ -2019,10 +2112,10 @@ outcome normalizes to `unknown` plus `dispatch_ambiguous` and remains pending
 reconciliation. Agentgres admission, incident/reconciliation enrichment,
 acceptance, adjudication, settlement, and signature promotion are later owner
 actions; an empty `agentgres_operation_refs` list cannot be read as durable
-admission. A future reference ledger may be serializable, but this contract
-substrate does not provide a durable Agentgres-owned crash boundary and does not
-prove native actuator mounting, cryptographic controller identity,
-controller-side idempotency, or estate-wide CPAS coverage.
+admission. The reference ledger is serializable but not yet a durable
+Agentgres-owned crash boundary, and it does not prove native actuator mounting,
+cryptographic controller identity, controller-side idempotency, or estate-wide
+CPAS coverage.
 
 ```json
 {
@@ -3314,9 +3407,9 @@ archival checkpoint files.
     hashes; they never copy protected effect bytes or reviewed plaintext.
 19. A declassification receipt cannot upgrade origin, integrity, provenance, or
     instruction authority and cannot override private-plus-untrusted refusal.
-20. Planned propagation through HTTP connectors, MCP tools, hosted models,
-    guarded browser navigation, memory write/edit, and OutcomeRoom does not
-    create an estate-wide receipt family by declaration. Each implemented
-    boundary needs its own emitted decision/derivation evidence before making
-    receipt-level assurance; current contract substrate supplies neither
-    production propagation nor receipt coverage by implication.
+20. Cut 3B1 propagation through MCP tools, hosted models, guarded browser
+    navigation, and memory write/edit does not make the existing HTTP connector
+    decision receipt an estate-wide receipt family. Each boundary needs its own
+    emitted decision/derivation evidence before making receipt-level assurance;
+    OutcomeRoom and the remaining 3B2 surfaces have neither propagation nor
+    receipt coverage by implication.

@@ -6,10 +6,10 @@ conformance details live in
 [`../../conformance/hypervisor-core/`](../../conformance/hypervisor-core/).
 Supersedes: overlapping plan prose when invariants conflict.
 Superseded by: none.
-Last alignment pass: 2026-07-16.
+Last alignment pass: 2026-07-18.
 Doctrine status: canonical
-Implementation status: partial (authority/receipt gates are enforced across existing owner planes; registered multi-axis information-flow and declassification schemas, invariants, fixtures, and generated projections provide contract substrate only; the shared pre-effect evaluator and production propagation/enforcement across HTTP connectors, MCP, hosted models, browsers, memory, OutcomeRoom, ContextCell, general computer use, and inbound connectors/webhooks remain planned; local-agent pairing and TEE/cTEE/L1 items follow their owners and remain planned where not exposed by live routes)
-Last implementation audit: 2026-07-18
+Implementation status: partial (authority/receipt gates are enforced across built planes; registered multi-axis information-flow contracts and the shared pre-effect evaluator now enforce the HTTP connector vertical, live MCP tool calls/listing, hosted-model provider invocation/streaming, the typed browser-action handler seam, and memory write/edit persistence; production browser context propagation, OutcomeRoom, full ContextCell, general computer-use, and remaining MCP protocol-family propagation are tracked gaps; local-agent pairing and TEE/cTEE/L1 items follow their owners and remain planned where not exposed by live routes)
+Last implementation audit: 2026-07-16 (information-flow Cut 3B1 propagation)
 
 ## Canonical Definition
 
@@ -59,6 +59,54 @@ registry invariant, the registry wording wins on conflict.
 9. Providers may supply cognition, compute, storage, connectors, venues, and
    managed services, but they must not become the default authority root, secret
    owner, receipt truth, settlement root, or revocation plane.
+
+## Exact-Action Authority Invariants
+
+1. The immutable authority request, canonical reviewed representation,
+   presentation evidence, authenticator ceremony evidence, authority-review
+   decision, grant issuance, final effect admission, execution, and outcome are
+   separate facts. No signature, flag, root, receipt, or UI claim for one fact
+   proves any of the others.
+2. A policy-required exact-action chain binds the same principal, acting
+   subject, product session, origin, authority-request body, authorization
+   subject, reviewed-representation hash, presentation and ceremony evidence,
+   satisfied factor/guardian posture, policy, risk, expiry, grant, and
+   revocation posture through final effect admission. A missing link, undefined
+   comparison, stale dependency, or field substitution fails before the
+   consequential invoker.
+3. A WebAuthn assertion may establish the enrolled credential, exact challenge,
+   RP/origin context, cryptographic signature, and required UP/UV and backup
+   flags. UP/UV establishes ceremony-specific presence or local verification;
+   it does not prove browser pixels, application-defined transaction display,
+   comprehension, natural-person identity, biometric identity, device custody,
+   or effect execution. A generic passkey factor is not a trusted presentation
+   surface or authority grant by implication.
+4. Presentation evidence is interpreted only through a versioned profile whose
+   orthogonal dimensions include presentation operator/control boundary, exact
+   representation binding, request/effect linkage, enrollment and attestation
+   evidence, ceremony posture, freshness/replay handling, and independence from
+   the proposing client. `Same client` and `independent` are not assurance
+   tiers: either posture can be stronger or weaker depending on those separately
+   bound properties.
+5. Request-side `requested_auth_factor_posture_refs` and
+   `requested_guardian_surface_refs` are requested or eligible posture, not
+   evidence of participation. Only wallet/policy-minted review and ceremony
+   evidence may name satisfied factors and guardians.
+6. One-shot authority requires equality between the daemon-computed exact
+   effect hash and the committed `exact_effect`. Batch authority requires a
+   typed membership proof under the exact `batch_manifest` root. Standing
+   authority requires a typed proof that the actual effect remains within the
+   committed resources, destinations, budgets/calls, time, risk, and other
+   `standing_envelope` constraints. An unknown membership or constraint result
+   fails closed.
+7. Editing any request, reviewed representation, destination, amount, effect
+   arguments, batch member, or standing constraint creates successor
+   request/review/challenge lineage. Approval or ceremony evidence from the
+   predecessor cannot authorize the successor.
+8. Only an interactive exact-effect review may be described as individual human
+   review of that effect. Batch, session-envelope, silent-within-policy, and
+   after-the-fact modes must disclose the envelope or policy actually reviewed
+   and must not imply per-effect human comprehension or approval.
 
 ## Runtime Invariants
 
@@ -348,27 +396,21 @@ registry invariant, the registry wording wins on conflict.
    pre-effect decision and enforcement seam prove that the external invoker was
    not called. An error returned after network contact is not equivalent.
 
-### Target information-flow boundary matrix
+### Built information-flow boundary matrix
 
-Current master does not implement the cross-plane information-flow evaluator or
-the production propagation/enforcement rows below. The registered contracts and
-fixtures make these requirements machine-checkable substrate; they do not prove
-that an invoker, transport, browser, or persistence path enforces them.
-
-| Boundary | Required target behavior | Honest compatibility boundary |
+| Boundary | Enforced Cut 3B1 behavior | Honest compatibility boundary |
 |---|---|---|
 | non-MCP HTTP connector invoke | exact request, destination, label, and `RuntimeToolContract` are checked before credential use and immediately around the network invoker | other connector families and inbound webhook/subscription triggers remain 3B2 |
 | live MCP tool backend | `tools/call` and `tools/list` require actual parent labels plus independently admitted effect authority; the restrictive join is recomputed before `McpManager`, and results return as untrusted `tool_output` | MCP resources, prompts, elicitation, tasks, Apps, and any unsupported live method are not implied by this tool-backend vertical |
 | hosted model provider | blocking and streaming HTTP invocations recompute the effective label from actual input labels, bind the exact provider request/destination/tool contract, and fail before network contact; raw provider output returns as untrusted, content-only `model_output` | local/fixture execution is not external egress, and full router/ContextCell propagation beyond the hosted-provider owner remains 3B2 |
 | browser action handler | every routed browser variant requires an independently supplied `BrowserInformationFlowContext`. Navigation binds its exact URL and typed action; click, hover/pointer, synthetic click, scroll, type/select/key, copy/paste, scrolling find, wait/compound follow-up, upload, dropdown selection, history-back, tab-switch, and tab-close bind the cached active URL plus their exact typed action before any action driver call. Snapshot, canvas, screenshot, dropdown-option, tab-list, and non-scrolling find observations validate their parent set before the read and every returned result is labeled `external_untrusted`, `untrusted`, with no instruction authority and full available parent closure | the production action-execution owner does not yet attach canonical parent/authority/tool-contract context, so browser tools are intentionally fail-closed rather than falsely reported available. This seam is typed-action admission, not browser network-stack interception: redirects, response/download bytes, resolved click coordinates, history targets, target-tab URLs, and ambient page requests are not independently intercepted or destination-enforced; general computer use remains separate |
-| Agentgres memory write/edit | the target `persist_record` seam requires supplied parent labels, treats a replayed prior record label as an additional parent, recomputes a memory-import or summary label, and stores the full restrictive label with the payload | legacy unlabeled write/edit requests fail closed; delete/policy/event paths and portable export admission are separate owners |
+| Agentgres memory write/edit | the actual `persist_record` seam requires supplied parent labels, treats a replayed prior record label as an additional parent, recomputes a memory-import or summary label, and stores the full restrictive label with the payload | legacy unlabeled write/edit requests fail closed; delete/policy/event paths and portable export admission are separate owners |
 
 No row above means that a caller-supplied output/effect label is trusted as the
 effective result. Effect authority is joined with actual data parents;
 boundary-produced model, browser, MCP, and memory values cannot mint integrity
-or instruction authority. Until the complete production propagation path
-lands, these target seams are unavailable rather than silently treated as
-covered.
+or instruction authority. The remaining 3B2 gaps are unavailable or explicitly
+unpropagated, not silently treated as covered.
 
 In particular, the browser handler must not infer parent labels from
 `AgentState`, browser content, model-authored tool arguments, or copied receipt

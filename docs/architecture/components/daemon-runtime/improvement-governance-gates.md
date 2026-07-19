@@ -2,7 +2,7 @@
 
 Status: canonical architecture authority with an implemented initial contract (`ioi_intelligence_routes.rs` + `governance_routes.rs`)
 Doctrine status: canonical
-Implementation status: mixed (the older direct proposal, simulation, approval, and release-control path is an implementation precursor. Deployment-aware waiver admission, exact target-base freshness, versioned impact assessment, repeated-proposal campaign decomposition pressure, application-chain receipts, full campaign/epoch/exposure, OutcomeRoom finding/evaluator-challenge promotion, and derived-artifact recall extensions remain target contracts.)
+Implementation status: mixed (deployment-aware simulation/waiver admission, exact proposal-and-target-base freshness, versioned impact assessment, direct apply/approval/release gates, repeated-proposal campaign decomposition pressure, application-chain receipts, and deterministic refusal codes built; full campaign/epoch/exposure, OutcomeRoom finding/evaluator-challenge promotion, and derived-artifact recall extensions planned)
 Implementation refs:
   - `crates/node/src/bin/hypervisor_daemon_routes/ioi_intelligence_routes.rs`
 Last alignment pass: 2026-07-16.
@@ -32,7 +32,7 @@ bypass. The exact receipted waiver remains the only exception to either rule.
 
 The direct proposal path and campaign path are both canonical. A bounded
 one-shot change may use the existing proposal/simulation gate directly. The
-target decomposition guard refuses a fourth or later non-rejected proposal
+implemented decomposition guard refuses a fourth or later non-rejected proposal
 against the same normalized target family within 24 hours unless its
 `improvement_campaign_ref` resolves to an `ImprovementCampaign` record. This is
 an initial anti-decomposition boundary, not campaign conformance: adaptive
@@ -109,12 +109,11 @@ verdicts state the replacement version.
    adversarial-holdout, regression, rollback, and recall posture appropriate to
    risk. Authority widening is never an improvement side effect.
 
-The current master implements only the older direct-proposal precursor for a
-subset of Rules 1–6. Deployment-aware waiver, target-base freshness, versioned
-impact, application-chain receipt, repeated-proposal decomposition, and
-campaign bindings are target admission contracts, as are Rules 7–9; their
-route/schema and reason-code implementation remains planned and must not be
-described as built.
+Rules 1–6 and the repeated-proposal decomposition guard are implemented. Apply
+refusals use deterministic HTTP 409 reason codes; invalid proposal or campaign
+bindings at create/patch use deterministic validation failures. Rules 7–9 are
+the target admission contract; their route/schema and
+reason-code implementation remains planned and must not be described as built.
 
 ## Campaign-grade gate extension (planned)
 

@@ -6,7 +6,7 @@ Supersedes: overlapping plan prose when Agentgres state ownership conflicts.
 Superseded by: none.
 Last alignment pass: 2026-07-15.
 Doctrine status: canonical
-Implementation status: partial (the runtime state store and multiple daemon object planes are live; thread forks, run replay, counterfactual what-if replay, and workspace snapshot/restore custody are implementation precedents. `ReceiptCheckpoint`/`ReceiptProofBundle` schemas, fixtures, invariants, and generated projections are present, while portable verifiers and Agentgres checkpoint admission/emission/export remain planned. Hosted OutcomeRoom participation, frontier/claim, offer/matching, Attempt/Finding, WorkResult/OutcomeDelta, and VerifierChallenge planes are merged. Per-System writer-transition/fencing control, room discovery, portable exit, federation, acceptance/verdict/settlement, branch/staged-effect object families, and the bounded-improvement Agenda/Campaign/Epoch/exposure/claim spine remain planned.)
+Implementation status: partial (runtime state store and object planes in the daemon; branch lane partial — thread forks, run replay, counterfactual what-if replay, and workspace snapshot/restore custody exist; portable `ReceiptCheckpoint`/`ReceiptProofBundle` schemas, fixtures, libraries, and offline verification are built, while Agentgres checkpoint admission/emission/export is planned; per-System writer-transition validation, daemon-local immutable transition/active-fence persistence, startup repair, and representative Agentgres/connector fencing PEPs are built, while public membership/promotion control, automatic failover, external continuity CAS/witness, independent transition-grant verification, lost-suffix handling, and estate-wide PEP coverage remain planned; OutcomeRoom discovery/participation/portable-exit/frontier/claim/attempt/finding/result, the five branch/staged-effect durable object families, and the bounded-improvement Agenda/Campaign/Epoch/exposure/claim spine are planned)
 Implementation refs:
   - `crates/services/src/agentic/runtime/`
 Last implementation audit: 2026-07-16
@@ -317,15 +317,20 @@ The mux epoch and a System writer epoch are deliberately separate. The mux
 `current_epoch` fences writers of one Agentgres storage log and rides its
 replication protocol; it does not identify a logical System, bind that System's
 membership or authority, or admit connector/wallet/provider/domain effects.
-The target per-System `AutonomousSystemWriterEpochTransition` sits above
-storage, advances through its declared durable continuity CAS, and supplies the
-active fence checked by each System-scoped consequential-resource PEP. A
-storage epoch may eventually persist or replicate that transition, but can
-never substitute for it. Current master contains no per-System transition
-store, derived active-fence projection, public transition/promotion route,
-automatic failover controller, or System-scoped consequential-resource PEP
-coverage. The static mux writer epoch is implementation precedent only and
-must not be presented as a completed bounded-DAS fencing plane.
+The per-System `AutonomousSystemWriterEpochTransition` sits above storage,
+advances through its declared durable continuity CAS, and supplies the active
+fence checked by each System-scoped consequential-resource PEP. A storage epoch
+may persist or replicate that transition, but can never substitute for it.
+The partial daemon store writes immutable System transitions before its derived
+active-fence file; startup replays the immutable chains, refuses forks, gaps,
+tamper, or orphan projections, and repairs a stale/missing projection
+atomically. Its authority-record filenames commit to the full ref rather than
+using collision-prone sanitized identities.
+The current partial daemon vertical compares exact grant refs and revocation
+snapshot/epoch from the active transition but does not yet independently
+reverify those grants inside this module. It has no public transition or
+promotion route, no automatic failover controller, and no estate-wide PEP
+coverage; those remain required before a System failover claim.
 
 **Lineage and the cautionary tale.** The architectural ancestry is
 Datomic-class (immutable facts, single-writer transactor, reads scaled

@@ -51,11 +51,7 @@
       "properties": {
         "algorithm": { "const": "ioi.receipt-hash-chain-jcs-sha256.v1" },
         "domain": { "const": "ioi.receipt-accumulator-leaf.v1" },
-        "leaf_index": {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 9007199254740991
-        },
+        "leaf_index": { "type": "integer", "minimum": 0 },
         "leaf_hash": { "$ref": "#/$defs/sha256Hash" }
       }
     },
@@ -65,11 +61,7 @@
       "required": ["profile", "leaf_index", "prefix_root", "suffix_leaf_hashes"],
       "properties": {
         "profile": { "const": "ioi.receipt-hash-chain-inclusion.v1" },
-        "leaf_index": {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 9007199254740991
-        },
+        "leaf_index": { "type": "integer", "minimum": 0 },
         "prefix_root": { "$ref": "#/$defs/sha256Hash" },
         "suffix_leaf_hashes": {
           "type": "array",
@@ -87,11 +79,7 @@
       "required": ["profile", "from_size", "from_root", "extension_leaf_hashes"],
       "properties": {
         "profile": { "const": "ioi.receipt-hash-chain-consistency.v1" },
-        "from_size": {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 9007199254740991
-        },
+        "from_size": { "type": "integer", "minimum": 0 },
         "from_root": { "$ref": "#/$defs/sha256Hash" },
         "extension_leaf_hashes": {
           "type": "array",
@@ -105,17 +93,9 @@
       "required": ["key_set_ref", "key_set_version", "revocation_snapshot_ref", "revocation_epoch"],
       "properties": {
         "key_set_ref": { "$ref": "#/$defs/keySetRef" },
-        "key_set_version": {
-          "type": "integer",
-          "minimum": 1,
-          "maximum": 9007199254740991
-        },
+        "key_set_version": { "type": "integer", "minimum": 1 },
         "revocation_snapshot_ref": { "$ref": "#/$defs/snapshotRef" },
-        "revocation_epoch": {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 9007199254740991
-        }
+        "revocation_epoch": { "type": "integer", "minimum": 0 }
       }
     },
     "verification_instructions": {

@@ -6,8 +6,8 @@ Supersedes: overlapping plan prose when marketplace neutrality or attribution co
 Superseded by: none.
 Last alignment pass: 2026-07-16.
 Doctrine status: canonical
-Implementation status: planned (the neutrality covenant, marketplace routing/contribution/settlement, and dispute admission/allocation remain planned; the shared registered dispute schema, invariants, fixtures, and generated projections are contract substrate only, without marketplace escrow, adjudication, remedy execution, or receipts)
-Last implementation audit: 2026-07-18
+Implementation status: mixed (neutrality covenant and marketplace routing/contribution/settlement remain planned; the shared registered dispute contract and deterministic admission/allocation kernel are partial built substrate, without marketplace escrow, adjudication, remedy execution, or receipts)
+Last implementation audit: 2026-07-16
 
 ## Canonical Definition
 
@@ -245,14 +245,12 @@ Marketplace UI, a provider, or an adjudicator cannot substitute store credit,
 Work Credits, a differently scaled token, or another settlement asset. V1
 performs no conversion.
 
-A conforming dispute admission path selects only a profile-allowed remedy,
-applies declared timeout/unavailable-evidence defaults, and conserves the bound
-bond pool. Current master contains the registered contract substrate, not that
-admission kernel. Neither schema validation nor a future admission decision
-verifies evidence substance, holds escrow, executes refunds, payouts, or
-slashes, creates reputation finality, or moves money. Those effects remain with
-the marketplace, settlement, Agentgres, authority, and receipt owners and
-require their own admitted execution and evidence.
+The deterministic dispute kernel selects only a profile-allowed remedy, applies
+declared timeout/unavailable-evidence defaults, and conserves the bound bond
+pool. It does not verify evidence substance, hold escrow, execute refunds,
+payouts, or slashes, create reputation finality, or move money. Those effects
+remain with the marketplace, settlement, Agentgres, authority, and receipt
+owners and require their own admitted execution and evidence.
 
 ## Relationship to IOI L1
 

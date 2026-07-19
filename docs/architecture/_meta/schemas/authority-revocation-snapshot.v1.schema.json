@@ -32,26 +32,10 @@
     "snapshot_id": { "$ref": "#/$defs/snapshotRef" },
     "issuer_id": { "$ref": "#/$defs/issuerRef" },
     "issuer_key_set_ref": { "$ref": "#/$defs/keySetRef" },
-    "issuer_key_set_version": {
-      "type": "integer",
-      "minimum": 1,
-      "maximum": 9007199254740991
-    },
-    "epoch": {
-      "type": "integer",
-      "minimum": 0,
-      "maximum": 9007199254740991
-    },
-    "issued_at": {
-      "type": "integer",
-      "minimum": 0,
-      "maximum": 9007199254740991
-    },
-    "expires_at": {
-      "type": "integer",
-      "minimum": 0,
-      "maximum": 9007199254740991
-    },
+    "issuer_key_set_version": { "type": "integer", "minimum": 1 },
+    "epoch": { "type": "integer", "minimum": 0 },
+    "issued_at": { "type": "integer", "minimum": 0 },
+    "expires_at": { "type": "integer", "minimum": 0 },
     "revoked_grant_refs": {
       "type": "array",
       "items": { "$ref": "#/$defs/grantRef" },

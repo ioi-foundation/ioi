@@ -14,7 +14,7 @@ or physical telemetry as ordinary connector/tool details.
 Superseded by: none.
 Last alignment pass: 2026-07-16.
 Doctrine status: canonical
-Implementation status: partial admission precursor only (current master retains the older Rust physical-action-intent admission path; the stricter deployment-assurance, graph-timing, ODD, assured-input, restart/writer, and teleoperation checks described here are target contract. Native graph compiler, mixed-criticality executor, physical stream runtime, local supervisor, actuator execution, and the Embodied Systems surface are not implemented.)
+Implementation status: partial admission only (the Rust physical-action-intent planner checks exact deployment-assurance refs, graph-scoped timing evidence, ODD state, assured safety inputs, restart/writer posture, and active teleoperation health; native graph compiler, mixed-criticality executor, physical stream runtime, local supervisor, actuator execution, and Embodied Systems surface are not implemented)
 Last implementation audit: 2026-07-16
 
 ## Canonical Definition

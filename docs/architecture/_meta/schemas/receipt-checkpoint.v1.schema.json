@@ -46,11 +46,7 @@
     "receipt_body_hash_profile": { "const": "ioi.receipt-envelope-jcs-sha256.v1" },
     "receipt_contract_id": { "const": "schema://ioi/foundations/receipt-envelope/v1" },
     "receipt_schema_hash": { "$ref": "#/$defs/sha256Hash" },
-    "accumulator_size": {
-      "type": "integer",
-      "minimum": 1,
-      "maximum": 9007199254740991
-    },
+    "accumulator_size": { "type": "integer", "minimum": 1 },
     "accumulator_root": { "$ref": "#/$defs/sha256Hash" },
     "previous_checkpoint_ref": {
       "anyOf": [{ "$ref": "#/$defs/checkpointRef" }, { "type": "null" }]
@@ -59,31 +55,16 @@
       "anyOf": [{ "$ref": "#/$defs/sha256Hash" }, { "type": "null" }]
     },
     "previous_accumulator_size": {
-      "anyOf": [
-        {
-          "type": "integer",
-          "minimum": 1,
-          "maximum": 9007199254740991
-        },
-        { "type": "null" }
-      ]
+      "anyOf": [{ "type": "integer", "minimum": 1 }, { "type": "null" }]
     },
     "previous_accumulator_root": {
       "anyOf": [{ "$ref": "#/$defs/sha256Hash" }, { "type": "null" }]
     },
     "issuer_id": { "$ref": "#/$defs/issuerRef" },
     "issuer_key_set_ref": { "$ref": "#/$defs/keySetRef" },
-    "issuer_key_set_version": {
-      "type": "integer",
-      "minimum": 1,
-      "maximum": 9007199254740991
-    },
+    "issuer_key_set_version": { "type": "integer", "minimum": 1 },
     "issuer_key_id": { "$ref": "#/$defs/keyRef" },
-    "issued_at": {
-      "type": "integer",
-      "minimum": 0,
-      "maximum": 9007199254740991
-    },
+    "issued_at": { "type": "integer", "minimum": 0 },
     "build_identity_ref": { "$ref": "#/$defs/buildRef" },
     "policy_posture_ref": { "$ref": "#/$defs/policyRef" },
     "body_hash": { "$ref": "#/$defs/sha256Hash" },

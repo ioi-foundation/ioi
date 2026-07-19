@@ -1684,12 +1684,11 @@ compensation, ambiguous-effect reconciliation, and receipt-preservation duties
 as applicable. The plan never claims those owner-executed actions completed.
 Immutable archive segments and archive-root/head-bound snapshots preserve
 phase, child, idempotency, and receipt lineage across compaction. A shared Rust
-kernel and daemon-local durable reference store are the target mechanism for
-these integrity, replay, repair, and snapshot mechanics. Current master has no
-shared WorkLifecycle kernel, route, store, archive, or status endpoint.
-Owner-route bindings, independent grant and revocation verification,
-Agentgres-backed cross-process append authority, cancellation execution
-receipts, automatic pruning, and archive-only resume all remain planned.
+kernel and daemon-local durable reference store currently prove these
+integrity, replay, repair, and snapshot mechanics; live owner-route bindings,
+independent grant and revocation verification, Agentgres-backed cross-process
+append authority, cancellation execution receipts, automatic pruning, and
+archive-only resume remain open production gates.
 
 Open or cross-domain participation uses typed room contracts rather than raw
 membership. \textbf{OutcomeRoomDiscovery} exposes a signed public or
@@ -5069,17 +5068,17 @@ authority check, local receipt, or self-hosted action incurs a protocol toll
 merely because the substrate observed or proved it.
 
 \textbf{Implementation status.} Fee-basis declarations and provider-resource
-metering exist in parts of the current runtime. The registered managed-work
-ledger-bundle schema, invariants, adversarial fixtures, and generated
-projections define the exact
-quote/hold/usage/overrun/debit/downward-adjustment contract. Current master
-does not contain the accounting kernel, durable reference store, public billing
-route, live runtime or supplier-evidence resolver, provider-invoice
-reconciliation, product-entitlement or Agentgres transaction owner, payment,
-payout, refund, or tax execution, or invoice-grade truth. Sellable Work Credit
-allowances, marketplace money flows, token or BME settlement, and IOI L1 remain
-planned or deferred. Exact money movement stays with its product,
-wallet.network, marketplace, provider, processor, and settlement owners.
+metering exist in parts of the current runtime. A registered managed-work
+ledger-bundle contract, generated projections, shared Rust accounting kernel,
+and process-local durable reference store implement the exact
+quote/hold/usage/overrun/debit/downward-adjustment mechanics. They do not expose
+a public billing route, resolve live runtime or supplier evidence, reconcile
+provider invoices, own product entitlements or Agentgres transactions, collect
+payment, execute payouts or refunds, calculate tax, or establish invoice
+truth. Sellable Work Credit allowances, marketplace money flows, token or BME
+settlement, and IOI L1 remain planned or deferred. Exact money movement stays
+with its product, wallet.network, marketplace, provider, processor, and
+settlement owners.
 \hypertarget{aiip-the-inter-autonomous-system-protocol}{%
 \subsection{4.3 AIIP: The Inter-Autonomous-System
 Protocol}\label{aiip-the-inter-autonomous-system-protocol}}
@@ -5093,14 +5092,12 @@ bus, or a global room database. It moves delegated work,
 collaborative-pursuit updates, negotiated ontology and action profiles,
 authority leases, receipt commitments, delivery and acceptance state,
 settlement intents, reputation queries, dispute notices, and handoff finality
-between distinct independently governed systems: marketplace worker systems,
-outcome-service systems, robot-fleet systems, enterprise systems, and peer
-autonomous systems. A local or installed Worker participates through AIIP only
-when it acts behind its own independently governed System identity; same-system
-GoalRuns, HarnessInvocations, installed Workers, member nodes, and embodied
-units use native L0 assignment, lease, state/evidence, and Embodied Runtime
-contracts instead. Each sovereign system retains its runtime, private context,
-and operational truth.
+between independently governed bounded execution domains: installed or
+marketplace worker domains, outcome services, robot fleets, enterprise runtimes,
+and peer autonomous systems. Same-system GoalRuns, HarnessInvocations, member
+nodes, and embodied units use native L0 assignment, lease, state/evidence, and
+Embodied Runtime contracts instead. Each sovereign domain retains its runtime,
+private context, and operational truth.
 
 AIIP creates an option to interoperate, not demand for handoffs. A sovereign
 system uses it when another domain controls a complement that would be more
@@ -5181,14 +5178,6 @@ reputation updates, dispute windows, and only the public commitments selected by
 the participants' settlement/enrollment profiles. Shared common objects do not
 collapse the trust boundary. AIIP assumes neither consensus nor IOI L1.
 
-A transport address does not determine this boundary. \texttt{in\_process},
-\texttt{daemon\_ipc}, \texttt{unix\_socket}, or \texttt{local\_http} may carry
-AIIP only when the channel binds two distinct independently governed
-\texttt{system\_id} values and each endpoint binds its own admitted channel-
-enrollment decision and receipt. The same transports carry L0 when both
-endpoints belong to one System. Bilateral channel enrollment is distinct from
-optional IOI Network enrollment.
-
 \textbf{Standards bindings, not replacements.} A versioned
 \textbf{AIIPExternalProtocolBinding} composes AIIP with existing boundaries.
 A2A may carry remote Agent Cards, Tasks, Messages, status, context, and
@@ -5210,16 +5199,13 @@ authority, ontology/action semantics, operational evidence/replay, recovery,
 dispute, and lifecycle.
 
 The canonical AIIP object model distinguishes the transport binding from
-the work boundary. An \textbf{AIIPProfile} declares supported cross-system
-protocol features, transports, receipt obligations, settlement modes,
-authority planes, and payload classes. An \textbf{AIIPChannel} binds two
-distinct independently governed and bilaterally enrolled System identities
+the work boundary. An \textbf{AIIPProfile} declares supported protocol
+features, transports, receipt obligations, settlement modes, authority planes,
+and payload classes. An \textbf{AIIPChannel} binds bounded execution domains
 with ordering, replay protection, schema version, privacy posture, lease refs,
-and dispute windows. A local transport does not weaken that requirement;
-same-System routing remains L0. A \textbf{BoundedExecutionDomain} declares its
-manifest, capabilities, policy root, authority requirements, receipt schemas,
-state boundary, runtime profile, settlement behavior, and supported AIIP
-profiles when it acts behind such an independently governed System endpoint.
+and dispute windows. A \textbf{BoundedExecutionDomain} declares its manifest,
+capabilities, policy root, authority requirements, receipt schemas, state
+boundary, runtime profile, settlement behavior, and supported AIIP profiles.
 
 The field-level \textbf{AIIPEnvelope} in the common-envelope owner is the
 normative superset. No application or protocol profile may publish a reduced
@@ -5233,8 +5219,8 @@ competing envelope. It preserves packet and payload identity while binding:
 \item
   idempotency, causation, and correlation refs;
 \item
-  marketplace-worker, outcome-service, autonomous-system,
-  collaborative-pursuit, and enterprise profiles;
+  local, installed-worker, marketplace-worker, outcome-service,
+  autonomous-system, collaborative-pursuit, and enterprise profiles;
 \item
   policy and authority refs, MultiPartyCollaboration and OutcomeRoom refs,
   ontology, semantic-mapping, and action-schema profiles, restricted views,
@@ -6527,12 +6513,9 @@ and activation receipts remain authoritative. Pairing, verification, or a
 leaderboard win never grants release or network-governance authority.
 
 \textbf{Implementation status.} A narrow software-oriented two-implementer
-GoalRun create/start/reconcile path exists and remains partial. Generic
-WorkResult admission is merged, and the hosted OutcomeRoom graph through
-participants, frontier/claims, offers, Attempts, Findings, OutcomeDelta, and
-VerifierChallenge is merged but partial. Wider role topology, generalized
-multi-harness and remaining orchestration, federation, acceptance/verdict, and
-settlement remain planned. Multi-path attempt comparison is partial.
+GoalRun create/start/reconcile path exists and remains partial; generic result
+profiles, wider role topology, generalized multi-harness orchestration, and
+OutcomeRoom binding remain planned. Multi-path attempt comparison is partial.
 Thread forks, replay,
 counterfactual replay, and workspace snapshot/restore custody exist; the
 durable Agentgres branch and staged-effect objects above remain planned over
@@ -6726,11 +6709,9 @@ that may later execute a remedy. Minimal disclosure is preserved by binding
 the exact challenged step, case head, evidence refs, and policy rather than
 exporting an entire private work graph.
 
-A conforming deterministic mechanism may admit a profile-selected resolution
-and conserved allocation plan. The registered contracts define that target;
-current master does not contain the dispute admission/allocation kernel. Such a
-mechanism does not decide whether evidence is substantively true, hold escrow,
-move value, complete an appeal, or create finality.
+The shared deterministic mechanism can admit a profile-selected resolution and
+conserved allocation plan. It does not decide whether evidence is substantively
+true, hold escrow, move value, complete an appeal, or create finality.
 
 \textbf{Result: }Scoped accountability without full disclosure or a
 presumption of one universal court.
@@ -9850,17 +9831,15 @@ route remains, the runtime records a blocker or failure and the governing
 contract determines refund, incurred-cost, bond, reputation, escalation, or
 terminal treatment.
 
-\textbf{Implementation status.} A registered portable dispute-rail schema,
-invariants, adversarial fixtures, and generated projections define the exact
-profile, case-head, timing/default, fixed-point value-unit,
-profile-selected-remedy, bond-conservation, and replay contract. Current
-master does not contain the dispute admission/allocation kernel. The contract
-substrate does not independently verify evidence availability or truth,
-authenticate a live adjudicator, hold escrow or bonds, move money or Work
-Credits, execute a remedy, emit the required receipts, complete appeal
-supersession, or create public finality. Automated IOI L1 adjudication,
-slashing, live public settlement, and a universal arbitration registry are not
-claimed.
+\textbf{Implementation status.} A registered portable dispute-rail contract,
+generated projections, and a shared Rust admission/allocation kernel implement
+the exact profile, case-head, timing/default, fixed-point value-unit,
+profile-selected-remedy, bond-conservation, and replay mechanics. They do not
+independently verify evidence availability or truth, authenticate a live
+adjudicator, hold escrow or bonds, move money or Work Credits, execute a
+remedy, emit the required receipts, complete appeal supersession, or create
+public finality. Automated IOI L1 adjudication, slashing, live public
+settlement, and a universal arbitration registry are not claimed.
 \hypertarget{hybrid-execution-model}{%
 \subsection{8.3.2 Hybrid Execution Model}\label{hybrid-execution-model}}
 
@@ -10613,16 +10592,15 @@ The economic boundary follows the selected rail:
   adjudication, or finality.
 \end{itemize}
 
-Where a rail uses bonds, V1 represents holds and allocations in the same exact
+Where a rail uses bonds, V1 holds and allocates them in the same exact
 DisputeValueUnitBinding as the disputed value and remedy. The profile declares
 both hold sizes, every outcome's 10,000-basis-point allocation, and its integer
 rounding recipient. It may fund verification, return or award bonds, route an
 eligible treasury share, or burn units only when those legs are explicitly
-declared and the owning value rail can execute them. The registered invariants
-require the allocation plan to conserve the represented pool; current master
-does not contain the admission/allocation kernel, and schema validation cannot
-prove that a bond was held, value moved, evidence was correctly adjudicated,
-an appeal closed, or public settlement became final.
+declared and the owning value rail can execute them. The deterministic kernel
+can prove the allocation plan conserves the held pool; it cannot prove that a
+bond was held, value moved, evidence was correctly adjudicated, an appeal
+closed, or public settlement became final.
 
 Dispute revenue is justified by real verification, adjudication, evidence
 custody, escrow, remedy execution, support, insurance routing, or public
@@ -10635,18 +10613,20 @@ claimed.
 \subsection{8.5 Embodied Runtime and Physical Action
 Safety}\label{the-embodied-autonomous-labor-profile}}
 
-\textbf{Implementation status: partial admission precursor.} The current
+\textbf{Implementation status: partial reference mechanisms.} The current
 worker-package install path can require vertical-pack,
 physical-action-policy, safety-envelope, and emergency-stop references for a
-package declaring \emph{physical\_action}, and current master retains the older
-physical-action-intent admission path. The stricter deployment,
-resource-group, command/controller, ODD, timing, assured-input, safe-switch,
-restart/writer, and teleoperation contract, plus
-\textbf{PhysicalActionExecutionCore}, remain planned. This cut adds the closed
-execution-receipt schema, invariants, adversarial fixtures, and generated
-projections only. It does not add a receipt producer, live robot-fleet runtime,
-certified local controller, native actuator mount, operating
-LocalControlSupervisor, or estate-wide physical effect boundary.
+package declaring \emph{physical\_action}. A Rust-owned intent-admission
+planner additionally fails closed on missing exact deployment, resource-group,
+command/controller, ODD, timing, assured-input, safe-switch, restart/writer,
+and teleoperation evidence. An unmounted
+\textbf{PhysicalActionExecutionCore} proves fresh preflight at one typed
+invoker, exact state-root and adapter-identity checks, zero-call denial,
+same-body completed replay, serializable prepared/completed recovery posture,
+dispatch-proof normalization, and the closed execution-receipt contract. These
+seams are not a live robot-fleet runtime, certified local controller, native
+actuator mount, operating LocalControlSupervisor, or estate-wide physical
+effect boundary.
 
 Embodied autonomous systems (such as warehouse robots, humanoid devices,
 delivery drones, and automated manufacturing systems) use
@@ -10854,8 +10834,8 @@ execution preserves all of the following:
   emergency stops, ambiguous effects, and incidents emit immediate evidence.
 \end{enumerate}
 
-\textbf{Final-invoker and receipt-chain invariant.} The target execution
-contract makes the intended last choke point explicit:
+\textbf{Final-invoker and receipt-chain invariant.} The reference execution
+seam makes the intended last choke point explicit:
 
 \begin{center}
 \textbf{canonical command + expected hash}
@@ -11030,9 +11010,9 @@ real-world motion. \\
 Closed receipt-envelope/body bundle binding the fresh admission, expanded
 resource leaves, controller and emergency stop, command, writer/timing/evidence
 chain, dispatch proof, effect status, state roots, predecessor, and
-reconciliation posture. & A target final physical invoker must produce it and
-admit it through the runtime/Agentgres receipt owner. Current master has the
-registered schema and projections but no producer. & Preserves denial, committed,
+reconciliation posture. & Produced by the final physical invoker seam and
+eventually admitted through the runtime/Agentgres receipt owner. The current
+producer is an unmounted reference core. & Preserves denial, committed,
 rejected, and unknown-effect distinctions and detects bundle tamper; it does
 not prove safe motion, native adapter coverage, hardware identity, or
 controller-side deduplication. \\
@@ -11206,16 +11186,16 @@ observability retains allowlisted hashes, refs, labels, timing, reason codes,
 and heads without turning protected prompts, memory, corrections, evals, or
 physical imagery into a second learning-exhaust channel.
 
-\textbf{Implementation status: planned.} The canonical fault matrix is
-machine-readable target fixture data. Current master does not contain the
-cross-plane decision evaluator, deterministic checkpoint/suffix recovery
-kernel, version negotiator, key-epoch transition validator, or
-information-flow-preserving observability projector described here.
-Authoritative plane observers, a scheduler-wide live-effect choke point,
-deployed restore and mixed-version rollout, live key
-distribution/revocation, proof and billing reconciliation controllers,
-correlated-failure injection, capacity shedding, and telemetry canaries also
-remain planned.
+\textbf{Implementation status.} A pure Rust decision kernel and canonical
+fault matrix implement the modeled operation dispositions, bounded cache and
+assurance narrowing, unknown-effect refusal, physical-continuation, billing,
+and public-settlement rules. Reference mechanisms also cover deterministic
+checkpoint/suffix replay, version negotiation, key-epoch transition, and
+information-flow-preserving observability projection. Authoritative plane
+observers, a scheduler-wide live-effect choke point, deployed restore and
+mixed-version rollout, live key distribution/revocation, proof and billing
+reconciliation controllers, correlated-failure injection, capacity shedding,
+and telemetry canaries remain open production gates.
 
 \hypertarget{threat-model-market-risks}{%
 \subsection{9.2 Threat Model: Market
@@ -11872,14 +11852,17 @@ decision.
 \subsection{9.5 Ecosystem Assurance, Certification, and
 Liability}\label{ecosystem-assurance-certification-and-liability}}
 
-\textbf{Implementation status: planned.} The general assurance,
-certification, liability, advisory, and commercial-export layer is target
-architecture. Current master does not contain the structured
-runtime-attestation evaluator or deployment-policy obligation evaluator
-described here, and \texttt{ioi-agent} has no remote-attestation verifier.
-Live quote acquisition, signature and endorsement services, durable nonce and
-revocation operation, regulator notification, erasure execution, legal
-analysis, and the broader institutional effectors are likewise not
+\textbf{Implementation status: partial mechanism.} The general assurance,
+certification, liability, advisory, and commercial-export layer remains target
+architecture. A shared runtime-attestation evaluator is integrated into the
+runtime startup gate, and a deployment-policy obligation evaluator can project
+incident-reporting and erasure-evidence state from existing policy-pack and
+evidence objects. The current \texttt{ioi-agent} startup supplies no structured
+attestation input and explicitly has no remote-attestation verifier, so the
+integration proves the admission seam rather than a hardware-attested
+deployment. Live quote acquisition, signature and endorsement services,
+durable nonce and revocation operation, regulator notification, erasure
+execution, legal analysis, and the broader institutional effectors are not
 implemented.
 
 \textbf{Ecosystem Assurance} is the source-neutral trust layer that makes
@@ -11930,9 +11913,9 @@ The core object families are:
   restrict, revoke, delist, remediate, pay, dispute, or settle.
 \end{itemize}
 
-Runtime attestation assurance must preserve the RATS separation among
-Attester, Verifier/Appraiser, Relying Party, and the startup decision. A
-conforming evaluator checks the exact challenge nonce and single-use receipt, workload identity,
+Runtime attestation assurance preserves the RATS separation among Attester,
+Verifier/Appraiser, Relying Party, and the startup decision. The evaluator
+checks the exact challenge nonce and single-use receipt, workload identity,
 daemon and policy build hashes, endorsements and reference values, appraisal
 policy and validity, lease, revocation epoch, and re-attestation cadence. It
 selects the strongest eligible exact evidence kind while retaining rejected
@@ -11943,19 +11926,19 @@ evaluation at a real admission seam, not quote acquisition, cryptographic
 signature validation, authority creation, or proof that a deployed estate is
 currently hardware-attested.
 
-Deployment-policy obligation projection must bind one exact
+Deployment-policy obligation projection binds one exact
 \textbf{JurisdictionPolicyPack} and rule version, selected incident-clock basis
 and evidence, responsible and accountable issuers, notice and report
 deadlines, reporting receipts, evidence freshness, and erasure/exception
-posture. A conforming projection can distinguish a running or overdue clock, submitted evidence,
+posture. It can distinguish a running or overdue clock, submitted evidence,
 crypto-shredded keys, partial or verified erasure, exceptions, disputes, and
 unknown state. It cannot notify a regulator, erase bytes, resolve legal holds,
 or validate the underlying receipts. Crypto-shredding proves only destruction
 of bound key material; verified erasure additionally requires complete
 replica, derivative, backup, retention, legal-hold, and verification coverage.
-Every future generated \textbf{AssurancePostureProjection} therefore fixes
+Every generated \textbf{AssurancePostureProjection} therefore fixes
 \texttt{legal\_conformity\_claim} to
-\texttt{not\_determined}. Neither planned evaluator may issue a
+\texttt{not\_determined}. Neither evaluator issues a
 \textbf{CertificationClaim} or upgrades evidence projection into
 certification, legal, regulatory, or operational truth.
 
@@ -15314,8 +15297,8 @@ networks, IOI explicitly \textbf{does not} claim the following:
 The Physics-to-Digital Evidence Loop (Target Embodied Runtime)
 
 IOI cannot rewrite physical laws and does not claim to make the material
-world cryptographically reversible. The target Embodied Runtime and registered
-execution-receipt contracts bind PhysicalActionIntent, exact resource-group
+world cryptographically reversible. The Embodied Runtime target and partial
+reference execution seam bind PhysicalActionIntent, exact resource-group
 revision/membership closures and expanded unit/controller/sensor/actuator/zone/
 stop-authority leaves, safety-policy and authority refs, before/after state
 roots, sensor evidence, command hashes, typed adapter/controller identity,
@@ -15324,7 +15307,7 @@ receipts and eventual Agentgres admission. Those records support audit and
 verification under their capture and trust assumptions; they do not
 independently prove that a physical condition was safe, that motion occurred
 faithfully, or that every deployed controller path passed through the
-target seam. Local safety controllers and hardware interlocks retain the
+reference seam. Local safety controllers and hardware interlocks retain the
 real-time veto. Any future escrow, liability, or dispute consequence must come
 from an implemented governing contract and verified evidence, not an automatic
 rule in this whitepaper.

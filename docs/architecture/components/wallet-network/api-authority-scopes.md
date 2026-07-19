@@ -7,10 +7,10 @@ brokerage, payment, exchange, exposure, protection, receipt, wallet authority
 client, and revocation APIs.
 Supersedes: older wallet authority API wording when it conflicts with `scope:*` authority grants.
 Superseded by: none.
-Last alignment pass: 2026-07-17.
+Last alignment pass: 2026-07-18.
 Doctrine status: reference
-Implementation status: partial (authority-client seams, lease APIs, and portable principal-to-approval-authority binding resolution are live; account/factor, WebAuthn ceremony, device/session lifecycle, recovery, guardian, and shard surfaces are planned)
-Last implementation audit: 2026-07-17
+Implementation status: partial (authority-client seams and lease APIs live; account/factor, WebAuthn ceremony, device/session lifecycle, recovery, guardian, and shard surfaces planned)
+Last implementation audit: 2026-07-05
 
 ## Purpose
 
@@ -123,10 +123,12 @@ AuthFactor
   not a separate authority family.
 
 GuardianSurface
-  High-assurance authority surface that can render an exact action and sign or
-  approve a challenge. Examples include enrolled mobile approver, passkey device,
-  local CLI signer, hardware key, trusted wallet/Hypervisor app, and enterprise
-  approval surface.
+  Enrolled authority-client and presentation surface that can produce the
+  presentation evidence required by policy and submit an approval or denial.
+  It composes with one or more AuthFactors. A generic passkey or hardware
+  credential is an AuthFactor, not a GuardianSurface by itself. Examples include
+  enrolled mobile or desktop authority clients, local CLI signer surfaces,
+  trusted wallet/Hypervisor apps, and enterprise approval surfaces.
 
 KeyShard
   Cryptographic or threshold authority material such as MPC share, threshold
@@ -221,8 +223,29 @@ Registration and authentication `options` responses bind a cryptographically
 random, single-use, expiring challenge to an always-present
 `ceremony_context_hash`, the account or pre-account session, RP ID, admitted
 origins, requested user-presence/user-verification policy, and operation kind.
-`authority_request_hash` is null for ordinary registration or login and must
-equal the exact authority-review/request hash for a consequential step-up.
+The following exact-action commitments are null for ordinary registration or
+login and independently populated for a consequential step-up:
+
+```json
+{
+  "authority_request_body_hash": "sha256:...",
+  "reviewed_representation_hash": "sha256:...",
+  "approval_ceremony_context_hash": "sha256:...",
+  "authorization_subject": {
+    "kind": "exact_effect | batch_manifest | standing_envelope",
+    "subject_ref": "effect://... | artifact://... | policy://...",
+    "subject_hash": "sha256:...",
+    "validation_profile_ref": "schema://... | policy://..."
+  }
+}
+```
+
+The random WebAuthn challenge is bound to
+`approval_ceremony_context_hash`; it is not replaced by a deterministic request
+or representation hash. The ceremony context in turn commits the authority
+request, reviewed representation, principal, acting subject, product session,
+origin, authorization subject, policy, expiry, revocation posture, and
+single-use nonce.
 
 `verify` checks the expected `clientDataJSON.type`, exact challenge, origin and
 applicable `crossOrigin`/`topOrigin` posture, `rpIdHash`, UP when required, UV
@@ -242,20 +265,29 @@ user-verification flags needed to verify the ceremony. Required UP/UV belongs
 to each ceremony and GuardianSurface policy, not as a permanent guarantee of
 the credential.
 
+A verified WebAuthn assertion is separate approval-ceremony evidence. It may
+participate in application-defined consent when the challenge is bound as
+above, but it does not independently prove which application-defined
+representation a browser or authority client displayed, whether it displayed
+that representation correctly, or whether the user understood it. Those are
+separate presentation-evidence claims evaluated under
+`presentation_evidence_profile_ref`.
+
 ### Guardian Surface
 
 ```json
 {
   "guardian_id": "guardian://device/user_123/phone",
   "owner_ref": "wallet://user_123",
-  "kind": "enrolled_mobile | passkey_device | hardware_key | local_cli_signer | hypervisor_app | enterprise_approval",
+  "kind": "enrolled_mobile_authority_client | enrolled_desktop_authority_client | wallet_app | hypervisor_app | local_cli_signer | enterprise_approval_surface | secure_transaction_display",
   "display_label": "Personal phone",
   "auth_factor_refs": ["auth_factor://passkey/user_123/phone"],
-  "enrollment_policy_ref": "policy://wallet/guardian/passkey-device",
+  "enrollment_policy_ref": "policy://wallet/guardian/mobile-authority-client",
   "enrollment_receipt_ref": "receipt://...",
   "challenge_methods": ["webauthn", "qr", "push", "local_cli"],
-  "can_render_exact_intent": true,
-  "can_sign_request_hash": true,
+  "presentation_evidence_profile_refs": [
+    "policy://wallet/presentation/mobile-semantic-review"
+  ],
   "user_verification_policy_ref": "policy://wallet/webauthn/guardian-uv-required",
   "attestation_and_trust_refs": ["attestation://..."],
   "allowed_risk_classes": [
@@ -271,10 +303,13 @@ the credential.
 }
 ```
 
-A `passkey_device` guardian requires explicit enrollment under the bound policy
-and receipt. Every qualifying approval requires fresh WebAuthn user
-verification and the exact authority-review hash; possession of the underlying
-AuthFactor alone is insufficient.
+A GuardianSurface requires explicit enrollment under its bound policy and
+receipt. It is an authority client and presentation surface composed with the
+AuthFactors required by policy. A passkey, hardware key, or secure-enclave
+credential remains an AuthFactor even when it authenticates a ceremony shown by
+that surface. Every qualifying approval records fresh ceremony evidence and the
+exact request, representation, and authorization-subject commitments;
+possession of an underlying AuthFactor alone is insufficient.
 
 ### Key Shard
 
@@ -375,13 +410,16 @@ DELETE /v1/access-points/{binding_id}
   "challenge_policy": {
     "single_use": true,
     "ttl_seconds": 300,
-    "requires_surface": [
+    "eligible_presentation_surface_classes": [
       "wallet_network_web",
       "hypervisor_app",
-      "enrolled_guardian_device",
-      "passkey",
-      "enterprise_idp",
+      "enrolled_guardian_authority_client",
+      "enterprise_approval_surface",
       "local_cli_signer"
+    ],
+    "eligible_auth_factor_kinds": [
+      "passkey",
+      "federated_identity"
     ]
   },
   "expires_at": "2026-05-01T12:00:00Z",
@@ -396,174 +434,63 @@ DELETE /v1/access-points/{binding_id}
 {
   "challenge_id": "challenge://sms/abc",
   "binding_id": "access_point://sms/user_123/default",
-  "request_hash": "sha256:...",
+  "owner_ref": "wallet://user_123",
+  "authority_request_ref": "authority-request://wallet/user_123/send_abc",
+  "authority_request_body_hash": "sha256:...",
+  "principal_ref": "principal://user_123",
+  "product_session_ref": "session://ioi-ai/product_123",
+  "origin_binding_ref": "origin-binding://wallet.example/app",
+  "authorization_subject": {
+    "kind": "exact_effect | batch_manifest | standing_envelope",
+    "subject_ref": "effect://gmail/send/abc | artifact://batch/abc | policy://gmail/standing-send",
+    "subject_hash": "sha256:...",
+    "validation_profile_ref": "schema://gmail/send/v1 | policy://wallet/batch-membership/v1 | policy://wallet/standing-envelope/v1"
+  },
+  "reviewed_representation_hash": "sha256:...",
+  "presentation_surface_ref": "guardian://device/user_123/phone",
+  "presentation_evidence_profile_ref": "policy://wallet/presentation/semantic-review/v1",
+  "required_auth_factor_posture_refs": [
+    "policy://wallet/auth-factor/fresh-user-verification"
+  ],
+  "required_guardian_surface_refs": [
+    "guardian://device/user_123/phone"
+  ],
+  "approval_ceremony_context_hash": "sha256:...",
+  "policy_hash": "sha256:...",
   "risk_class": "external_message",
   "action_summary": "Approve one vendor email draft",
-  "challenge_url": "https://wallet.network/step-up/challenge/abc",
-  "challenge_delivery": "link | qr | push | local_cli",
-  "guardian_surface_required": "guardian://device/user_123/phone | passkey | enterprise_approval | local_cli_signer",
-  "must_display": {
-    "subject": "agent://assistant",
-    "action": "gmail.send",
-    "resources": ["gmail://thread/abc"],
-    "budget_or_amount": null,
-    "expires_at": "2026-05-01T12:05:00Z",
-    "policy_hash": "sha256:...",
-    "request_hash": "sha256:..."
-  },
+  "challenge_url_ref": "https://wallet.network/step-up/challenge/abc",
   "single_use": true,
-  "expires_at": "2026-05-01T12:05:00Z"
+  "expires_at": "2026-05-01T12:05:00Z",
+  "status": "issued",
+  "resulting_grant_ref": null,
+  "authority_review_receipt_ref": null
 }
 ```
 
-The challenge URL is a pointer to an authority session, not an authority grant.
-Approval must authenticate on wallet.network, Hypervisor, an enrolled guardian
-device, passkey, enterprise IdP, local app, CLI signer, or another
-high-assurance authority surface. The agent receives only a scoped
-`grant://...` or denial receipt after the step-up flow completes.
+This is the API rendering of the canonical `StepUpChallengeEnvelope`, not a
+second challenge shape. Delivery transport and layout are client projections:
+they may derive a link, QR, push, or CLI handoff and render the referenced
+canonical review representation, but they do not add authority fields or mutate
+the request, representation, presentation profile, ceremony, or authorization
+subject.
 
-QR or push delivery is not authority by itself. The guardian surface must render
-the exact action and sign or approve the bound request hash. The agent never
-receives OTP values, raw biometric samples or templates, provider tokens, raw
-key shards, raw session material, or guardian secrets. A WebAuthn assertion may
-carry the authenticator's signed user-verification flag; that flag is not the
-underlying biometric.
+The challenge URL ref is a pointer to an authority session, not an authority grant.
+Approval must use wallet.network, Hypervisor, an enrolled guardian authority
+client, enterprise approval surface, local app, CLI signer, or another
+policy-admitted presentation surface composed with AuthFactors satisfying the
+required posture.
+The agent receives only a scoped `grant://...` or denial receipt after the
+step-up flow completes.
 
-## Principal-to-Approval-Authority Binding API
-
-This API is the wallet.network-owned identity-to-authority bridge for governed
-runtime decisions. It does not authenticate a local user and it does not infer
-authority from product roles. It resolves a canonical portable principal to the
-exact registered `ApprovalAuthority` key allowed to sign for that principal.
-
-```http
-POST /v1/authority/principal-bindings
-POST /v1/authority/principal-bindings/revoke
-POST /v1/authority/principal-bindings/resolve
-POST /v1/authority/principal-bindings/lookup
-```
-
-The corresponding wallet service methods are:
-
-```text
-issue_principal_authority_binding@v1
-revoke_principal_authority_binding@v1
-resolve_principal_authority@v1
-lookup_principal_authority_binding@v1
-```
-
-Issue and revoke accept a complete `PrincipalAuthorityBindingProofV1`. Only the
-initialized wallet control root may author those signed append-only versions.
-Resolution and proof lookup require an initialized, registered wallet authority
-client. The legacy uninitialized-wallet compatibility path is never authority
-for this object family.
-
-Canonical principal refs are exactly one of:
-
-```text
-^(worker|service|org|domain)://<canonical-segment>(/<canonical-segment>)*$
-^agentgres://domain/<canonical-segment>(/<canonical-segment>)*$
-```
-
-Each segment starts and ends with an ASCII letter or digit; internal characters
-may also be `.`, `_`, `-`, `~`, `:`, or `@`. Leading, trailing, and doubled
-slashes are invalid.
-
-The immutable proof shape is below; byte arrays are abbreviated only for
-readability here, while the checked-in fixtures carry all bytes:
-
-```json
-{
-  "schema_version": 1,
-  "statement": {
-    "schema_version": 1,
-    "principal_ref": "agentgres://domain/acme.example",
-    "authority_kind": "approval",
-    "binding_version": 1,
-    "status": "active",
-    "authority_id": [11, 11, "... exactly 32 bytes"],
-    "authority_public_key": [12, 12, "..."],
-    "authority_signature_suite": -8,
-    "approval_authority_snapshot_hash": [13, 13, "... exactly 32 bytes"],
-    "signed_at_ms": 1781286400000,
-    "expires_at_ms": 1812822400000,
-    "issuer_root_account_id": [14, 14, "... exactly 32 bytes"]
-  },
-  "statement_hash": [15, 15, "... exactly 32 bytes"],
-  "issuer_signature_proof": {
-    "suite": -8,
-    "public_key": [14, 14, "..."],
-    "signature": [16, 16, "..."]
-  },
-  "binding_ref": "wallet.network://principal-authority-binding/<64-lowercase-hex-binding-hash>",
-  "binding_hash": [17, 17, "... exactly 32 bytes"]
-}
-```
-
-Version 1 has no predecessor. Every later version binds the exact previous
-binding ref and hash. The revoke request repeats that predecessor ref in its
-body, and the service requires byte-for-byte agreement with both the proof and
-the current head. Revocation is a new `revoked` version with a trimmed, nonempty
-reason; it never edits the active proof in place. Version 4095 is the final
-active version and version 4096 is reserved for terminal revocation.
-
-The mutable head is only a current-version pointer and carries the mutation
-audit sequence plus event id/hash. Every accepted version also writes a separate
-immutable index entry keyed by the exact principal hash and version. Resolution
-requires the head to match that indexed ref/version/hash/status/audit tuple and
-requires the next-version index slot to be absent. Restoring an authentic old
-head together with its authentic old mutable mutation marker therefore refuses
-whenever a later indexed version remains.
-
-This rollback guarantee is relative to the currently committed wallet state
-root. Preventing rollback of the complete state database, including every
-immutable index entry, is the responsibility of the ledger/finality layer that
-anchors and selects wallet state roots. The resolver does not claim to detect a
-wholesale rollback to an older externally accepted state root.
-
-Resolution may be unpinned or may require exact immutable coordinates:
-
-```json
-{
-  "request_id": [22, 22, "... exactly 32 nonzero bytes"],
-  "principal_ref": "agentgres://domain/acme.example",
-  "authority_kind": "approval",
-  "required_scope": "room_participation.admit",
-  "expected_coordinates": {
-    "binding_ref": "wallet.network://principal-authority-binding/<64-lowercase-hex-binding-hash>",
-    "binding_version": 1,
-    "binding_hash": [17, 17, "... exactly 32 bytes"]
-  }
-}
-```
-
-The resolution receipt returns those coordinates, `required_scope`, the exact
-matched allowlist entry, the complete `ApprovalAuthority` snapshot, its exact
-authority id/public key/signature suite, `approval_authority_snapshot_hash`,
-resolve time, and the mutation audit event id/hash. The
-`@ioi/wallet-protocol` receipt validator and `@ioi/wallet-sdk` client recompute
-the exact Rust-compatible `serde_jcs` plus SHA-256 snapshot hash and byte-compare
-it before evaluating any matched scope. Downstream consumers must also verify
-the governed grant against that exact snapshot; signer identity alone never
-authorizes an operation. `expected_coordinates`, lookup
-`expected_binding_hash`, predecessor coordinates, expiry, and reason are omitted
-when absent, matching the Rust ABI.
-
-The resolver verifies control-root signature, statement/binding hashes,
-predecessor lineage, immutable version index, current head, active status,
-expiry, audit commitment, required operation scope through the canonical
-authority matcher, and the current ApprovalAuthority registry entry. Registry
-revocation, expiry, key/suite/snapshot drift, empty scope, or scope mismatch
-invalidates resolution. Missing, stale, foreign,
-ambiguous, malformed, or pin-mismatched state returns a typed refusal. There is
-no fallback to local login, organization roles, session identity, caller fields,
-copied receipt fields, or trust on first use.
-
-Durable governed intents must retain the complete signed grant, complete
-authority snapshot, frozen snapshot hash, required and matched operation scope,
-and exact binding ref/version/hash returned here. Admission and boot recovery
-reverify that complete tuple; they must not reconstruct authority from grant
-fields or signer identity alone.
+QR or push delivery is not authority by itself. The GuardianSurface produces
+presentation evidence under the named profile; the AuthFactor independently
+authenticates the bound ceremony. A WebAuthn assertion may carry the
+authenticator's signed user-verification flag and can participate in the
+approval ceremony, but it does not independently prove what the application
+surface displayed or that the user understood it. The agent never receives OTP
+values, raw biometric samples or templates, provider tokens, raw key shards,
+raw session material, or guardian secrets.
 
 ## Authority Scope Request API
 
@@ -593,8 +520,12 @@ POST /v1/authority/capability-leases/{lease_id}/revoke
   "issuer_id": "wallet://user_123",
   "requesting_runtime_ref": "runtime://node_abc",
   "purpose": "Merge verified change set change://ioi/456 into main",
-  "auth_factor_refs": ["auth_factor://passkey/user_123/laptop"],
-  "guardian_surface_ref": "guardian://device/user_123/phone",
+  "requested_auth_factor_posture_refs": [
+    "policy://wallet/auth-factor/fresh-user-verification"
+  ],
+  "requested_guardian_surface_refs": [
+    "guardian://device/user_123/phone"
+  ],
   "primitive_capabilities_required": ["prim:fs.read", "prim:sys.exec"],
   "authority_scopes_requested": ["scope:repo.write"],
   "resource_scope": {
@@ -606,9 +537,15 @@ POST /v1/authority/capability-leases/{lease_id}/revoke
     }
   },
   "destination_refs": ["git://repo/ioi/ref/main"],
+  "authorization_subject": {
+    "kind": "exact_effect",
+    "subject_ref": "effect://repo/merge/change-456",
+    "subject_hash": "sha256:...",
+    "validation_profile_ref": "schema://ioi/repo-merge-effect/v1"
+  },
   "risk_classes": ["write_reversible"],
   "policy_hash": "sha256:...",
-  "request_hash": "sha256:...",
+  "authority_request_body_hash": "sha256:...",
   "authority_grant_id": null,
   "status": "requested"
 }
@@ -616,10 +553,26 @@ POST /v1/authority/capability-leases/{lease_id}/revoke
 
 `product_session_ref` is owned by the calling product or deployment identity
 plane. wallet.network binds it into the authority request and review; it does
-not create, renew, revoke, or otherwise own that product session. `request_hash`
-is RFC 8785 JCS over the immutable `AuthorityScopeRequestEnvelope` fields
-defined in the shared object canon, excluding only the hash and mutable
-decision/grant fields.
+not create, renew, revoke, or otherwise own that product session.
+`authority_request_body_hash` is RFC 8785 JCS over the immutable
+`AuthorityScopeRequestEnvelope` fields defined in the shared object canon,
+excluding only the hash and mutable decision/grant fields.
+
+Request-side AuthFactor and GuardianSurface fields express requested or eligible
+posture only. They are not evidence that a factor or surface participated.
+Wallet-owned review and ceremony processing records the actual
+`satisfied_auth_factor_refs`, `satisfied_guardian_surface_refs`, presentation
+evidence, and assertion or quorum evidence in the `AuthorityReviewReceipt` and
+target v3 grant.
+
+`authorization_subject.kind` determines effect admission:
+
+- `exact_effect` commits one canonical effect payload and requires exact
+  daemon-derived hash equality;
+- `batch_manifest` commits a manifest root and requires a membership proof under
+  `validation_profile_ref`; and
+- `standing_envelope` commits the complete reusable constraint envelope and
+  requires every concrete effect to validate inside it.
 
 Worker Training scope requests use the same envelope. Typical scopes include:
 
@@ -707,18 +660,59 @@ attenuation field in addition to this request commitment:
   "request_commitment": {
     "authority_request_id": "authority-request://wallet/user_123/merge_456",
     "authority_request_body_hash": "sha256:...",
+    "reviewed_representation_hash": "sha256:...",
+    "presentation_surface_ref": "guardian://device/user_123/phone",
+    "presentation_evidence_profile_ref": "policy://wallet/presentation/semantic-review/v1",
+    "presentation_evidence_refs": [
+      "receipt://wallet/presentation/merge_456"
+    ],
+    "approval_ceremony_context_hash": "sha256:...",
+    "approval_ceremony_evidence_refs": [
+      "evidence://wallet/webauthn-assertion/merge_456"
+    ],
+    "authorization_subject": {
+      "kind": "exact_effect",
+      "subject_ref": "effect://repo/merge/change-456",
+      "subject_hash": "sha256:...",
+      "validation_profile_ref": "schema://ioi/repo-merge-effect/v1"
+    },
     "principal_ref": "principal://user_123",
     "product_session_ref": "session://ioi-ai/product_123",
     "origin_binding_ref": "origin-binding://wallet.example/app",
-    "auth_factor_refs": ["auth_factor://passkey/user_123/laptop"],
-    "guardian_surface_ref": "guardian://device/user_123/phone",
+    "satisfied_auth_factor_refs": [
+      "auth_factor://passkey/user_123/laptop"
+    ],
+    "satisfied_guardian_surface_refs": [
+      "guardian://device/user_123/phone"
+    ],
     "authority_review_receipt_ref": "receipt://wallet/review/merge_456",
+    "authority_review_receipt_hash": "sha256:...",
+    "approval_evidence_profile_ref": "schema://ioi/wallet/approval-evidence/v1",
+    "approval_evidence_leaf_refs": [
+      "receipt://wallet/review/merge_456",
+      "receipt://wallet/presentation/merge_456",
+      "evidence://wallet/webauthn-assertion/merge_456",
+      "receipt://wallet/policy-decision/merge_456"
+    ],
     "approval_evidence_root": "sha256:..."
   },
   "revocation_epoch": 7,
   "status": "active"
 }
 ```
+
+The target v3 grant signs the commitments above in addition to every preserved
+portable-v2 field. The approval-evidence root is usable only with its named
+profile, whose versioned contract defines canonical leaf encoding, ordering,
+domain separation, inclusion verification, and which evidence kinds policy
+requires. A bare root, caller-authored factor ref, or unbound review receipt is
+not approval evidence.
+
+The review receipt, presentation evidence, and WebAuthn assertion or other
+AuthFactor evidence remain separate leaves. WebAuthn evidence authenticates the
+ceremony facts it covers; presentation evidence records the application-defined
+representation claim under its own profile. Neither leaf silently inherits the
+other's claims.
 
 ### Capability Lease
 
@@ -884,7 +878,16 @@ Approval grant:
 ```json
 {
   "approval_id": "approval_123",
-  "request_hash": "sha256:...",
+  "authority_request_body_hash": "sha256:...",
+  "reviewed_representation_hash": "sha256:...",
+  "approval_ceremony_context_hash": "sha256:...",
+  "authorization_subject": {
+    "kind": "exact_effect",
+    "subject_ref": "effect://gmail/send/abc",
+    "subject_hash": "sha256:...",
+    "validation_profile_ref": "schema://gmail/send/v1"
+  },
+  "authority_review_receipt_ref": "receipt://wallet/review/abc",
   "policy_hash": "sha256:...",
   "scope": {
     "action": "gmail.send",
@@ -904,11 +907,77 @@ operator consoles.
 ```json
 {
   "review_id": "review://wallet/abc",
-  "intent_ref": "intent://...",
+  "predecessor_review_ref": null,
+  "authority_request_id": "authority-request://wallet/user_123/merge_456",
+  "authority_request_body_hash": "sha256:...",
+  "principal_ref": "principal://user_123",
+  "product_session_ref": "session://ioi-ai/product_123",
+  "origin_binding_ref": "origin-binding://wallet.example/app",
   "subject_id": "agent://trader | app://game | user://123",
+  "intent_ref": "intent://...",
+  "intent_hash": "sha256:...",
+  "authorization_subject": {
+    "kind": "exact_effect | batch_manifest | standing_envelope",
+    "subject_ref": "effect://... | artifact://... | policy://...",
+    "subject_hash": "sha256:...",
+    "validation_profile_ref": "schema://... | policy://..."
+  },
   "object_refs": ["asset://...", "credential://...", "workload://..."],
   "capabilities_requested": ["scope:broker.place_order"],
   "simulation_ref": "simulation://...",
+  "reviewed_representation": {
+    "representation_profile_ref": "schema://wallet/authority-review-representation/v1",
+    "representation_version": "1",
+    "locale": "en-US",
+    "required_disclosure_set_ref": "policy://wallet/review-disclosures/trade",
+    "required_disclosure_set_hash": "sha256:...",
+    "representation_artifact_ref": "artifact://wallet/review/abc",
+    "reviewed_representation_hash": "sha256:..."
+  },
+  "approval_ceremony_context_hash": "sha256:...",
+  "requested_auth_factor_posture_refs": [
+    "policy://wallet/auth-factor/fresh-user-verification"
+  ],
+  "requested_guardian_surface_refs": [
+    "guardian://device/user_123/phone"
+  ],
+  "presentation_evidence_profile_ref": "policy://wallet/presentation/semantic-review/v1",
+  "presentation_evidence_refs": [
+    "receipt://wallet/presentation/abc",
+    "artifact://wallet/review/abc"
+  ],
+  "presentation_dimensions": {
+    "operator_and_surface": {
+      "operator_ref": "principal://user_123",
+      "surface_ref": "guardian://device/user_123/phone"
+    },
+    "content_binding": {
+      "reviewed_representation_hash": "sha256:...",
+      "required_disclosure_set_hash": "sha256:..."
+    },
+    "request_vs_effect_binding": {
+      "authority_request_body_hash": "sha256:...",
+      "authorization_subject_hash": "sha256:..."
+    },
+    "enrollment_and_attestation": {
+      "enrollment_receipt_ref": "receipt://...",
+      "attestation_refs": ["attestation://..."]
+    },
+    "user_presence_and_verification": {
+      "required_policy_ref": "policy://wallet/webauthn/guardian-uv-required",
+      "evidence_refs": ["evidence://wallet/webauthn-assertion/abc"]
+    },
+    "freshness_and_replay": {
+      "challenge_ref": "challenge://wallet/abc",
+      "single_use": true,
+      "expires_at": "2026-06-14T12:05:00Z"
+    },
+    "proposer_independence": {
+      "proposer_ref": "agent://trader",
+      "review_operator_ref": "principal://user_123",
+      "policy_ref": "policy://wallet/reviewer-independence"
+    }
+  },
   "risk_labels": [
     {
       "label": "Venue Risk",
@@ -939,9 +1008,51 @@ operator consoles.
     "one_shot_review",
     "step_up_review"
   ],
-  "recommended_presentation_profile": "standard_wallet_review"
+  "recommended_presentation_profile": "standard_wallet_review",
+  "status": "prepared | presented | approved | denied | edit_required | expired | superseded"
 }
 ```
+
+`reviewed_representation_hash` covers the canonical semantic representation and
+required disclosures, not incidental layout or pixels. Presentation shells may
+derive different layouts from that representation, but
+`POST /v1/authority/reviews/{review_id}/render-profile` cannot mutate the
+representation, request, authorization subject, or ceremony context. Its result
+retains the same representation hash and records the selected layout profile
+separately from `presentation_evidence_profile_ref`.
+
+`presentation_evidence_profile_ref` identifies how evidence claims are
+constructed and evaluated. It is accompanied by immutable evidence refs and
+orthogonal dimensions for operator/surface, content binding,
+request-versus-effect binding, enrollment/attestation, UP/UV,
+freshness/replay, and proposer independence. It must never be collapsed into a
+two-tier assurance enum. Missing evidence remains missing; one dimension does
+not upgrade another.
+
+### Authority Review Receipt
+
+`AuthorityReviewReceipt` is a typed profile of the existing `ReceiptEnvelope`,
+not a new authority primitive. The exhaustive profile and claim limits are
+owned by
+[`events-receipts-delivery-bundles.md`](../daemon-runtime/events-receipts-delivery-bundles.md#authority-review-receipt).
+This API returns its `receipt://...` ref and hash; it does not define a second
+receipt shape. The canonical profile binds the request, principal/session/
+origin, acting subject, authorization subject, reviewed representation,
+presentation surface/profile/evidence, ceremony and factor evidence, satisfied
+posture, policy decision, approval mode, immutable result, expiry, and
+edit-successor lineage.
+
+The receipt distinguishes requested posture from satisfied posture. A WebAuthn
+assertion-verification receipt is one possible `auth_factor_evidence_ref`; it
+remains separate from the presentation-evidence refs. The review receipt binds
+their common ceremony context without claiming that either evidence source
+proves the other's facts.
+
+`edit-and-approve` never mutates a review in place. It creates a successor
+authority request, authorization subject, canonical representation, challenge,
+ceremony context, and review receipt. The predecessor becomes `superseded`; its
+challenge, assertion, decision, and evidence root cannot authorize the
+successor.
 
 Presentation profiles:
 
@@ -967,7 +1078,13 @@ denied
 
 Apps may request a presentation profile and approval mode, but Wallet must derive
 the allowed mode from policy, risk, eligibility, account posture, and active
-session state.
+session state. For `one_shot_review`, daemon admission requires exact equality
+between the authorized `exact_effect` hash and its own canonical effect hash.
+For `batch_review`, each effect requires membership in the committed
+`batch_manifest`. For a `session_envelope`, `silent_within_policy`, or
+`after_the_fact_receipt` path, every effect must satisfy the committed
+`standing_envelope`; receipts must state that the envelope, not the individual
+effect, was reviewed.
 
 ## Wallet Authority Client Surfaces
 
@@ -1327,10 +1444,13 @@ assets/secrets/data/workloads, budget or amount, destination, policy diff,
 policy explanation, simulation result, candidate evidence, expiry, allowed
 approval modes, recommended presentation profile, and available approve/edit/deny
 actions. Every review also binds the authenticated principal, acting subject,
-product session and origin, exact request hash, qualifying AuthFactor and
-GuardianSurface posture, resulting grant or denial, and authority receipt. A
-review authenticated for one principal, session, origin, or request cannot be
-replayed for another.
+product session and origin, `authority_request_body_hash`,
+`reviewed_representation_hash`, `approval_ceremony_context_hash`, discriminated
+`authorization_subject`, requested posture, actually satisfied AuthFactor and
+GuardianSurface refs, presentation evidence, resulting grant or denial, and
+authority receipt. A review authenticated for one principal, session, origin,
+request, representation, ceremony, or authorization subject cannot be replayed
+for another.
 
 ## Revocation and Emergency Stop
 
@@ -1349,9 +1469,11 @@ to the active blast-radius report.
 
 1. Agents never hold root keys or long-lived connector secrets.
 2. Secret export is a high-risk authority scope and disabled by default.
-3. Approval grants bind the exact request-body hash, principal, externally
-   owned product session, origin, subject, resources/destination, policy, risk,
-   scope, budget, and expiry.
+3. Approval grants bind the separate `authority_request_body_hash`,
+   `reviewed_representation_hash`, `approval_ceremony_context_hash`,
+   discriminated `authorization_subject`, principal, externally owned product
+   session, origin, subject, resources/destination, policy, risk, scope, budget,
+   and expiry.
 4. Authority grants are revocable and must include revocation epoch.
 5. TEE secret release requires verified attestation matching policy.
 6. SMS, email, chat, voice, and webhook access points may carry step-up
@@ -1386,3 +1508,28 @@ to the active blast-radius report.
 16. The portable embedded sign-in-to-effect claim requires the registered
     context-bound `AuthorityGrantEnvelope` v3 successor. Green v1/v2 and legacy
     AuthorityReview checks do not satisfy that product proof.
+17. A GuardianSurface is an enrolled authority-client/presentation surface
+    composed with required AuthFactors. A generic passkey or hardware credential
+    is not a GuardianSurface by itself.
+18. WebAuthn assertion evidence may participate in a bound application approval
+    ceremony, but it is not substituted for presentation evidence and does not
+    independently prove that the application-defined representation was
+    displayed correctly or understood.
+19. Presentation evidence uses a named
+    `presentation_evidence_profile_ref`, immutable evidence refs, and orthogonal
+    operator/surface, content-binding, request-versus-effect,
+    enrollment/attestation, UP/UV, freshness/replay, and proposer-independence
+    dimensions. No two-tier assurance enum may replace those facts.
+20. Request-side factor and guardian refs express requested posture only.
+    Satisfied refs and actual factor/presentation evidence are wallet-minted
+    review-receipt and v3-grant facts.
+21. A bare approval-evidence root is insufficient. The v3 grant binds its
+    versioned root profile and typed leaf refs so encoding, ordering, domain
+    separation, inclusion, and required evidence kinds are verifiable.
+22. `exact_effect` requires daemon-derived hash equality; `batch_manifest`
+    requires membership under its validation profile; `standing_envelope`
+    requires every concrete effect to satisfy all committed constraints before
+    the invoker.
+23. `edit-and-approve` creates a successor request, review, representation,
+    authorization subject, challenge, and ceremony. Predecessor approval
+    evidence is invalid for the successor.

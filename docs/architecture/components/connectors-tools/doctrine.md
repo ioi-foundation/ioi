@@ -8,10 +8,10 @@ Supersedes: older flattened capability-registry wording when it conflicts with p
 Superseded by: none.
 Last alignment pass: 2026-07-16.
 Doctrine status: canonical
-Implementation status: partial (the connector estate, capability leases, and MCP gateway are built; registered RuntimeToolContract information-flow schemas and projections are contract substrate only. Production IFC enforcement and propagation across connector, MCP, model, browser, OutcomeRoom, inbound webhook, and remaining computer-use paths remain planned, as do `LocalAgentPairingSessionEnvelope`, room-admitted local-agent gateway issuance, and the semantic-data chain)
+Implementation status: partial (connector estate, capability leases, and MCP gateway built; registered RuntimeToolContract information-flow ceilings, the non-MCP HTTP connector vertical, and live MCP tool-call/list propagation are built; MCP resource/prompt/elicitation/task/App, OutcomeRoom, inbound connector/webhook, and remaining browser/computer-use propagation are explicit 3B2 gaps; `LocalAgentPairingSessionEnvelope`, room-admitted local-agent gateway issuance, and the semantic-data chain remain planned/partial)
 Implementation refs:
   - `crates/node/src/bin/hypervisor_daemon_routes/`
-Last implementation audit: 2026-07-18 (contract substrate; production IFC enforcement not claimed)
+Last implementation audit: 2026-07-16 (information-flow Cut 3B1 propagation)
 
 ## Canonical Definition
 

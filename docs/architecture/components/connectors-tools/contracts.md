@@ -9,8 +9,8 @@ Supersedes: older flattened tool capability examples in plans/specs.
 Superseded by: none.
 Last alignment pass: 2026-07-16.
 Doctrine status: canonical
-Implementation status: partial (the RuntimeToolContract owner and daemon tool catalog are live, and the registered information-flow/declassification schemas, invariants, fixtures, and generated projections provide contract substrate; production IFC propagation/enforcement, MCP resource/prompt/elicitation/task/App propagation, general inbound connector subscriptions, OutcomeRoom discussion/artifact resolution, remaining browser/computer-use families, immutable gateway requirements, `LocalAgentPairingSessionEnvelope` bindings, and room-admitted local-agent gateway issuance remain planned)
-Last implementation audit: 2026-07-18 (contract substrate; production IFC enforcement not claimed)
+Implementation status: partial (RuntimeToolContract owner and daemon tool catalog live; registered v1 data-class/destination contracts and fail-closed IFC enforcement are built for non-MCP HTTP connector invoke and live MCP `tools/call`/`tools/list`; the automation-webhook vertical verifies signed exact bytes, freshness, nonce/idempotency, and restrictive provenance before proposing work; MCP resource/prompt/elicitation/task/App propagation, general inbound connector subscriptions, OutcomeRoom discussion/artifact resolution, and remaining browser/computer-use families remain 3B2 debt; immutable gateway requirements, `LocalAgentPairingSessionEnvelope` bindings, room-admitted local-agent gateway issuance, and canonical enum migration remain planned/tracked debt)
+Last implementation audit: 2026-07-16 (information-flow Cut 3B1 propagation)
 
 ## Purpose
 
@@ -525,13 +525,13 @@ policy_widening: step-up + explicit approval required
     until a declared mapping, integrity decision, and information-flow label say
     otherwise. Output-schema validation alone never grants instruction
     authority.
-16. The target HTTP connector, MCP `tools/call`/`tools/list`,
-    hosted-provider, guarded-browser, and Agentgres memory write/edit seams
-    require actual parent labels and recompute a restrictive join; boundary
-    output is untrusted/content-only and cannot mint authority. Current master
-    does not yet implement those cross-plane information-flow seams.
+16. Cut 3B1 extends the original HTTP connector vertical through live MCP
+    `tools/call`/`tools/list`, hosted-provider calls, the guarded browser-
+    navigation driver seam, and Agentgres memory write/edit persistence. Each
+    requires actual parent labels and recomputes a restrictive join; boundary
+    output is untrusted/content-only and cannot mint authority.
 17. MCP resources/prompts/elicitation/tasks/Apps, OutcomeRoom messages, inbound
     connector subscriptions/webhooks, full ContextCell propagation, browser
     upload/download and other interactive/computer-use actions, and remaining
-    connector families are also planned. No schema/projection substrate may be
+    connector families are explicit Cut 3B2 gaps. No partial vertical may be
     generalized into an estate-wide IFC claim.

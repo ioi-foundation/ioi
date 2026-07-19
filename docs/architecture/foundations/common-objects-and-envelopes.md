@@ -4,10 +4,10 @@ Status: canonical low-level reference.
 Canonical owner: this file for shared envelope and contract names, ID namespaces, principal refs, primitive capability tiers, authority grants, reusable GoalRun-profile, workflow-template, and skill-manifest contracts, bounded-autonomous-system package/genesis/constitution/deployment/membership/finality/recovery/oracle/lifecycle/enrollment/transition/service/settlement fields, dispute rail profile/value-unit/case/resolution fields, bounded-improvement governance/agenda/campaign/evaluation/exposure/evidence/cutoff fields, conditional-cooperation terms and participation fields, room admission fields, AIIP standards bindings, pre-AIIP local-agent pairing fields, native embodied graph/profile/component/stream/adapter/policy/world/action/activation/reservation/deployment-assurance fields, and receipt/run/event envelope fields.
 Supersedes: older flattened capability-tier examples in plans/specs.
 Superseded by: none.
-Last alignment pass: 2026-07-17.
+Last alignment pass: 2026-07-18.
 Doctrine status: canonical
-Implementation status: mixed (the registered architecture-contract substrate supplies schemas, invariants, adversarial fixtures, and generated Rust/TypeScript projections for `ReceiptEnvelope` v1, `ReceiptCheckpoint` v1, `ReceiptProofBundle` v1, `AuthorityGrantEnvelope` v1/v2, `AuthorityKeySet` v1, `AuthorityRevocationSnapshot` v1, `InformationFlowLabel` v1, `DeclassificationApproval` v1, `ManagedWorkBillingLedgerBundle` v1, `DisputeRailBundle` v1, and `PhysicalActionExecutionReceipt` v1; production portable-authority and receipt-proof cryptographic verifiers/CLIs, information-flow enforcement, managed-work billing and dispute kernels, shared work-lifecycle persistence/routes, physical execution, daemon/Agentgres checkpoint emission, network key discovery, and public transparency remain planned; other core runtime envelopes and IDs are built or partial only where their owner routes exist; bounded-autonomous-system profile/control families, bounded-improvement Agenda/Campaign/Epoch/exposure/claim spine, conditional-cooperation terms, local-agent pairing, AIIP transport/bindings and collaborative-pursuit, optional federated ontology/action, Institutional Learning Boundary, NetworkGoalBudget, physical-segment, embodied, cTEE, and prediction families remain planned or speculative)
-Last implementation audit: 2026-07-18
+Implementation status: mixed (`ReceiptEnvelope` v1, `ReceiptCheckpoint` v1, `ReceiptProofBundle` v1, `AuthorityGrantEnvelope` v1/v2, `AuthorityKeySet` v1, `AuthorityRevocationSnapshot` v1, `InformationFlowLabel` v1, `DeclassificationApproval` v1, `ManagedWorkBillingLedgerBundle` v1, and `DisputeRailBundle` v1 machine contracts are built; portable authority and receipt-proof Ed25519/JCS signing plus Rust, TypeScript, and offline-CLI verification are built over shared golden vectors; information-flow Rust/TypeScript projections, shared adversarial fixtures, restrictive derivation/effect-compilation helpers, and Cut 3B1 propagation across HTTP connectors, live MCP tools, hosted model providers, browser navigation, and memory write/edit persistence are built with explicit fail-closed seams, while OutcomeRoom, inbound connector/webhook, full ContextCell, remaining browser/computer-use, and remaining MCP-family propagation are 3B2 gaps; deterministic managed-work billing and dispute admission/allocation kernels are partial built mechanisms, without public billing, evidence adjudication, escrow/value movement, receipt emission, or settlement finality; the shared work-lifecycle integrity/replay kernel, local durable append store, rebuildable active projection, cancellation fanout planner, archive/snapshot writer, and status route are partial built mechanisms, while owner-route bindings, automatic pruning, archive-only resume, and Agentgres-backed production persistence remain absent; daemon/Agentgres checkpoint emission, network key discovery, and public transparency are not built; other core runtime envelopes/IDs are built or partial in the daemon; bounded-autonomous-system profile/control families, bounded-improvement Agenda/Campaign/Epoch/exposure/claim spine, conditional-cooperation terms, local-agent pairing, AIIP transport/bindings and collaborative-pursuit, optional federated ontology/action, Institutional Learning Boundary, NetworkGoalBudget, physical-segment, embodied, cTEE, and prediction families planned or speculative)
+Last implementation audit: 2026-07-16
 
 ## Purpose
 
@@ -531,6 +531,7 @@ authority://...         portable delegated authority, approval, consent, or prov
 auth_factor://...       wallet.network authentication factor identity
 access_point://...      low-assurance access-point binding ref
 challenge://...         short-lived wallet.network step-up challenge pointer
+review://...            immutable wallet.network authority-review identity
 credential://...        provider credential binding or secret metadata ref
 key_shard://...         MPC, threshold, hardware-backed, or org key-share ref
 wallet_client://...     wallet.network CLI/MCP/mobile/web/embedded client session
@@ -1829,6 +1830,24 @@ root; a PEP may not copy the resource fence's required values and present them
 as observations. If the executing path cannot derive those facts from durable
 owner/projection state, the System-scoped effect is unavailable.
 
+For the target portable-v3 sign-in-to-effect path, the PEP also resolves the
+current `AuthorityGrantEnvelope` v3 through `authority_grant_ref`, independently
+validates its request/review/evidence commitment and revocation posture, and
+compares the daemon-computed `exact_payload_hash` with the grant's
+`authorization_subject`. An `exact_effect` requires hash equality; a
+`batch_manifest` requires a typed membership proof under the committed manifest
+root; and a `standing_envelope` requires a typed constraint proof over the
+actual effect, resource, destination, budget/call, time, and risk values. A
+missing or undefined comparison, stale evidence, changed review/request, absent
+membership proof, or exceeded standing constraint refuses before the
+consequential invoker.
+
+The built `ioi.consequential-effect-fence-context.v1` field set above remains
+unchanged. Its daemon-generated exact-payload and fencing checks are necessary
+but do not yet close the planned v3 request-to-review-to-effect chain; this
+paragraph defines the target composition rather than advancing implementation
+status.
+
 ### OrderingFinalityRecoveryEnvelope
 
 The failover profile contains immutable recovery rules and proof schemas. A
@@ -2511,14 +2530,14 @@ state and assurance claims.
 ## AIIP and Bounded Execution Domain Envelopes
 
 AIIP is the interoperation protocol for handoffs between independently governed
-autonomous systems identified by distinct admitted `system_id` values. Local
-GoalRun/HarnessInvocation, installed-Worker, member-node, and embodied-unit
-routing uses native L0 GoalRun, RuntimeAssignment, lease, state/evidence, and
-Embodied Runtime contracts rather than AIIP. Internal and external paths may
-reuse common typed work, authority, idempotency, evidence, and receipt
-conventions without collapsing their sovereignty boundary. Consequential AIIP
-packets must compile into typed envelopes with policy, authority, receipt,
-recovery, and declared settlement semantics.
+autonomous systems. Local GoalRun/HarnessInvocation, member-node, and
+embodied-unit routing uses native L0 GoalRun, RuntimeAssignment, lease,
+state/evidence, and Embodied
+Runtime contracts rather than AIIP. Internal and external paths may reuse common
+typed work, authority, idempotency, evidence, and receipt conventions without
+collapsing their sovereignty boundary. Consequential AIIP packets must compile
+into typed envelopes with policy, authority, receipt, recovery, and declared
+settlement semantics.
 
 This file owns the canonical field-level `AIIPChannelEnvelope` and
 `AIIPEnvelope` schemas because they are shared boundary objects. The AIIP owner,
@@ -2623,10 +2642,6 @@ The retired `local_microharness` discriminator may be accepted only by an
 explicit compatibility adapter and must normalize to `local_runtime` before
 admission. A GoalRunProfile or HarnessProfile is not itself an execution
 domain; the admitted local runtime/domain executing its invocations is.
-Likewise, a local or installed Worker, process, node, robot, or domain object
-does not become an AIIP peer merely by having a distinct runtime endpoint. It
-acts behind an independently governed System identity; routing within the same
-`system_id` remains L0.
 
 Robot fleets, robot controllers, drones, vehicles, facility systems, IoT
 actuators, and other embodied domains are allowed bounded execution domains,
@@ -2657,20 +2672,9 @@ and receipts.
 ```yaml
 AIIPChannelEnvelope:
   channel_id: aiip://channel/...
-  system_id_from: system://...
-  system_id_to: system://... # required to differ from system_id_from
-  endpoint_channel_enrollments:
-    - system_id: system://... # exactly system_id_from
-      governance_boundary_ref: constitution://... | policy://...
-      operational_truth_ref: agentgres://...
-      channel_enrollment_decision_ref: decision://...
-      channel_enrollment_receipt_ref: receipt://...
-    - system_id: system://... # exactly system_id_to
-      governance_boundary_ref: constitution://... | policy://...
-      operational_truth_ref: agentgres://...
-      channel_enrollment_decision_ref: decision://...
-      channel_enrollment_receipt_ref: receipt://...
-  profile: marketplace_worker | outcome_service | autonomous_system | collaborative_pursuit | enterprise
+  system_id_from: system://... | domain://...
+  system_id_to: system://... | domain://...
+  profile: local | installed_worker | marketplace_worker | outcome_service | autonomous_system | collaborative_pursuit | enterprise
   transport: in_process | daemon_ipc | unix_socket | local_http | grpc | json_rpc | nats | https | queue | chain_relay
   external_protocol_binding_ref: aiip-binding://... | null
   schema_version: ioi.aiip-channel.v1
@@ -2688,14 +2692,6 @@ AIIPChannelEnvelope:
   status: opening | active | paused | closing | closed | disputed
 ```
 
-The two endpoint enrollment entries are mandatory, distinct, and exact: each
-independently governed System admits its own participation in this channel
-through its governance and truth paths. `in_process`, `daemon_ipc`,
-`unix_socket`, and `local_http` remain legal AIIP transports only under that
-two-System condition; use of the same transports inside one System is L0.
-These endpoint channel enrollments are separate from the optional
-`party_network_enrollment_refs` that select IOI Network services.
-
 ```yaml
 AIIPEnvelope:
   schema_version: ioi.aiip-envelope.v1
@@ -2708,8 +2704,8 @@ AIIPEnvelope:
     authority_query | authority_grant | receipt_commitment | delivery_update |
     acceptance_decision | settlement_intent | dispute | dispute_resolution |
     reputation_query
-  system_id_from: system://...
-  system_id_to: system://... # distinct from system_id_from and exact channel endpoints
+  system_id_from: system://... | domain://...
+  system_id_to: system://... | domain://...
   channel_id: aiip://channel/...
   external_protocol_binding_ref: aiip-binding://... | null
   sequence_or_nonce: string
@@ -2718,7 +2714,7 @@ AIIPEnvelope:
   correlation_ref:
     goal://... | task://... | outcome-room://... | collaboration://... | null
   timestamp_or_slot: string
-  profile: marketplace_worker | outcome_service |
+  profile: local | installed_worker | marketplace_worker | outcome_service |
     autonomous_system | collaborative_pursuit | enterprise
   policy_hash: hash
   authority_ref: optional grant://...
@@ -3870,9 +3866,15 @@ AuthorityScopeRequestEnvelope:
   issuer_id: system://... | wallet://... | org://... | policy://...
   requesting_runtime_ref: runtime://... | null
   purpose: string
-  auth_factor_refs:
-    - auth_factor://...
-  guardian_surface_ref: guardian://... | null
+  requested_auth_factor_posture_refs:
+    - policy://... | auth_factor://...
+  requested_guardian_surface_refs:
+    - guardian://...
+  authorization_subject:
+    kind: exact_effect | batch_manifest | standing_envelope
+    subject_ref: effect://... | intent://... | artifact://... | policy://...
+    subject_hash: sha256:...
+    validation_profile_ref: schema://... | policy://...
   primitive_capabilities_required:
     - prim:model.invoke
     - prim:fs.read
@@ -3892,20 +3894,36 @@ AuthorityScopeRequestEnvelope:
   destination_refs: []
   risk_classes: []
   policy_hash: hash
-  request_hash: sha256:...
+  authority_request_body_hash: sha256:...
   authority_grant_id: grant://... | null
   status: requested | granted | denied | expired | revoked
 ```
 
 `product_session_ref` identifies a session owned by the product or deployment
 identity plane; wallet.network binds it into the request but does not own that
-session's lifecycle. `request_hash` commits the canonical RFC 8785 JCS encoding
-of every immutable request field above except `request_hash`,
+session's lifecycle. `requested_auth_factor_posture_refs` and
+`requested_guardian_surface_refs` declare requested or eligible approval
+posture; they are not evidence that a factor or guardian participated. Observed
+satisfaction belongs in wallet-minted review and ceremony evidence.
+`authorization_subject` discriminates what the grant may ultimately authorize:
+`exact_effect` commits one canonical typed effect,
+`batch_manifest` commits a closed manifest/root whose members require proof, and
+`standing_envelope` commits the constraint set under which later effects may be
+admitted. The `subject_ref` must resolve to the kind-appropriate immutable
+content and `subject_hash` must equal its canonical body hash. For
+`exact_effect`, that schema's canonical body hash is the exact payload hash the
+daemon recomputes at the final PEP; batch leaves use the same effect-hash
+profile. A subject schema whose canonicalization or comparison semantics are
+undefined is inadmissible.
+
+`authority_request_body_hash` commits the canonical RFC 8785 JCS encoding
+of every immutable request field above except `authority_request_body_hash`,
 `authority_grant_id`, and `status`. It therefore binds the principal, product
-session, origin, acting subject/runtime, purpose, factors/guardian posture, exact
-capabilities/scopes/resources/destinations, budget/expiry constraints, risk,
-and policy. Review, grant issuance, and effect admission resolve the same body
-and reject any field substitution.
+session, origin, acting subject/runtime, purpose, requested factors/guardian
+posture, authorization subject, exact capabilities/scopes/resources/
+destinations, budget/expiry constraints, risk, and policy. Review, grant
+issuance, and effect admission resolve the same body and reject any field
+substitution.
 
 ## AuthorityGrantEnvelope
 
@@ -3942,8 +3960,8 @@ AuthorityGrantEnvelope:
   status: active | expired | revoked
 ```
 
-Portable v2 is the registered signed-wire successor for authority that must
-cross a process, runtime, or sovereign-system boundary. It binds the exact holder identity and
+Portable v2 is the built signed successor for authority that must cross a process,
+runtime, or sovereign-system boundary. It binds the exact holder identity and
 holder key, audience, issuer key-set identity/version, validity interval,
 revocation epoch, resources, primitive capabilities, authority scopes, caveats,
 risk restrictions, parent proof, registered schema hash, and canonical body
@@ -3960,12 +3978,10 @@ A delegated child must be issued by the parent holder key and may only narrow
 scopes, primitive capabilities, resources, risk classes, budget, calls, and
 validity while retaining or adding caveats and approval requirements.
 
-A conforming verifier operates over a caller-supplied locally trusted key set
-and bounded-freshness signed revocation snapshot. Current master registers the
-wire contract, invariants, fixtures, and generated projections but does not
-contain the portable Ed25519/JCS verifier or an offline CLI. Network key
-discovery, trust-root acquisition, transparency infrastructure, and universal
-revocation distribution remain separate planned work.
+The built verifier operates offline over a caller-supplied locally trusted key
+set and bounded-freshness signed revocation snapshot. Network key discovery,
+trust-root acquisition, transparency infrastructure, and universal revocation
+distribution are explicitly not implied by this implementation.
 
 Portable v3 is the target successor required before the embedded
 sign-in-to-effect product proof. It retains the v2 portability and attenuation
@@ -3978,22 +3994,67 @@ request_commitment:
   principal_ref: principal://... | wallet://... | org://...
   product_session_ref: session://... | null
   origin_binding_ref: origin-binding://... | origin://... | null
-  auth_factor_refs:
+  requested_auth_factor_posture_refs:
+    - policy://... | auth_factor://...
+  requested_guardian_surface_refs:
+    - guardian://...
+  authorization_subject:
+    kind: exact_effect | batch_manifest | standing_envelope
+    subject_ref: effect://... | intent://... | artifact://... | policy://...
+    subject_hash: sha256:...
+    validation_profile_ref: schema://... | policy://...
+  reviewed_representation_hash: sha256:...
+  presentation_surface_ref: wallet_client://... | guardian://... | surface://...
+  presentation_evidence_profile_ref: policy://... | schema://...
+  presentation_evidence_refs:
+    - receipt://... | evidence://... | attestation://...
+  approval_ceremony_context_hash: sha256:...
+  approval_ceremony_evidence_refs:
+    - receipt://... | evidence://...
+  satisfied_auth_factor_refs:
     - auth_factor://...
-  guardian_surface_ref: guardian://... | null
+  satisfied_guardian_surface_refs:
+    - guardian://...
   authority_review_receipt_ref: receipt://...
+  authority_review_receipt_hash: sha256:...
+  approval_evidence_profile_ref: schema://... | policy://...
+  approval_evidence_leaf_refs:
+    - receipt://... | evidence://...
   approval_evidence_root: sha256:...
 ```
 
 The signed v3 grant is independently verifiable against the exact
-`AuthorityScopeRequestEnvelope` body and review receipt. A subject, session,
-origin, request, factor, guardian, resource, destination, budget, policy, or
-risk substitution invalidates the commitment. A null session or origin is
-permitted only when the selected non-browser/non-product policy explicitly
-declares that posture; it is never inferred by omission. V1 and v2 remain
-immutable compatibility contracts. V3 requires a new registered schema,
-fixtures, generated Rust/TypeScript projections, and verifier support rather
-than silently changing either registered version.
+`AuthorityScopeRequestEnvelope` body, authorization subject, reviewed
+representation, presentation and ceremony evidence, satisfied factor/guardian
+posture, and authority-review receipt. The request-side factor and guardian refs
+remain requested posture; only the separately named `satisfied_*` refs and their
+wallet-minted evidence record participation.
+
+`presentation_evidence_profile_ref` independently declares the presentation
+operator/control boundary, exact representation binding, request/effect
+linkage, enrollment and attestation evidence, UP/UV posture, freshness/replay
+handling, and independence from the proposing client. These are orthogonal
+properties, not a `same client` versus `independent trusted` assurance tier.
+The profile and evidence may support only the claims they actually bind.
+
+`approval_ceremony_context_hash` commits the request and reviewed-
+representation hashes, principal, product session, origin, nonce/challenge,
+expiry, and authorization subject. `approval_evidence_profile_ref` defines the
+ordered leaf types, canonical encoding, hash algorithm, and domain-separated
+leaf/root construction for `approval_evidence_root`; an opaque root without
+that exact profile is inadmissible. The root commits the request, review,
+presentation evidence, ceremony evidence, satisfied posture, and decision
+receipt without making any one leaf evidence of all the others.
+
+A subject, session, origin, request, representation, presentation surface or
+profile, ceremony, factor, guardian, authorization-subject, resource,
+destination, budget, policy, risk, or evidence-root substitution invalidates
+the commitment. A null session or origin is permitted only when the selected
+non-browser/non-product policy explicitly declares that posture; it is never
+inferred by omission. V1 and v2 remain immutable compatibility contracts. V3
+requires a new registered schema, fixtures, generated Rust/TypeScript
+projections, and verifier support rather than silently changing either built
+version.
 
 ## AuthorityClientEnvelope
 
@@ -4090,13 +4151,15 @@ AccessPointBindingEnvelope:
   challenge_policy:
     single_use: true
     ttl_seconds: 300
-    requires_surface:
+    eligible_presentation_surface_classes:
       - wallet_network_web
       - hypervisor_app
-      - enrolled_guardian_device
-      - passkey
-      - enterprise_idp
+      - enrolled_guardian_authority_client
+      - enterprise_approval_surface
       - local_cli_signer
+    eligible_auth_factor_kinds:
+      - passkey
+      - federated_identity
   expires_at: optional
   revocation_epoch: integer
   status: active | disabled | expired | revoked
@@ -4109,7 +4172,24 @@ StepUpChallengeEnvelope:
   challenge_id: challenge://...
   binding_id: access_point://...
   owner_ref: wallet://...
-  request_hash: sha256:...
+  authority_request_ref: authority-request://...
+  authority_request_body_hash: sha256:...
+  principal_ref: principal://... | wallet://... | org://...
+  product_session_ref: session://... | null
+  origin_binding_ref: origin-binding://... | origin://... | null
+  authorization_subject:
+    kind: exact_effect | batch_manifest | standing_envelope
+    subject_ref: effect://... | intent://... | artifact://... | policy://...
+    subject_hash: sha256:...
+    validation_profile_ref: schema://... | policy://...
+  reviewed_representation_hash: sha256:...
+  presentation_surface_ref: wallet_client://... | guardian://... | surface://...
+  presentation_evidence_profile_ref: policy://... | schema://...
+  required_auth_factor_posture_refs:
+    - policy://... | auth_factor://...
+  required_guardian_surface_refs:
+    - guardian://...
+  approval_ceremony_context_hash: sha256:...
   policy_hash: sha256:...
   risk_class: read | draft | local_write | write_reversible |
     external_message | commerce | funds | credential_access |
@@ -4121,12 +4201,22 @@ StepUpChallengeEnvelope:
   expires_at: timestamp
   status: issued | approved | denied | expired | consumed
   resulting_grant_ref: grant://... | null
-  receipt_ref: receipt://... | null
+  authority_review_receipt_ref: receipt://... | null
 ```
 
 Low-assurance access points can carry a `challenge://...` pointer but must not
 carry a `grant://...`, decryption key, credential, private workspace payload, or
 durable secret.
+
+The challenge binds one immutable request, authorization subject, canonical
+review representation, presentation surface/profile, principal/session/origin,
+nonce, policy, risk, and expiry. Required factor posture and guardian surfaces
+are requirements, not observed participation. Approval records actual
+presentation and ceremony evidence plus satisfied factor/guardian refs in the
+resulting
+`AuthorityReviewReceipt`; changing the request, representation, subject, or
+expiry requires a successor challenge and invalidates predecessor approval
+evidence.
 
 ## TaskEnvelope
 
@@ -4343,9 +4433,8 @@ its declared bound facts;
 the evidence, verification, acceptance, adjudication, and settlement refs above
 must not be inferred merely because a receipt exists.
 
-For the registered target portable proof profile,
-`ioi.receipt-envelope-jcs-sha256.v1` means SHA-256 over the RFC 8785 JCS bytes
-of the exact closed v1
+For the built portable proof profile, `ioi.receipt-envelope-jcs-sha256.v1`
+means SHA-256 over the RFC 8785 JCS bytes of the exact closed v1
 `ReceiptEnvelope`. Every present v1 field—including its legacy opaque
 `signature`, when present—is inside that hash. The hash is then bound into a
 domain-separated, indexed accumulator leaf. The signed checkpoint, inclusion
@@ -4585,8 +4674,8 @@ idempotency-key plus same canonical command bytes replays the existing result;
 same key plus different bytes is a conflict.
 
 Every UsageRecord binds one or more owner-derived runtime receipts. Sequence
-and `previous_usage_hash` form an unbroken append-only usage chain. A conforming
-future kernel must re-resolve the frozen rate and compute
+and `previous_usage_hash` form an unbroken append-only usage chain. The kernel
+re-resolves the frozen rate and computes
 `quantity_units * work_credit_micro_units_per_meter_unit` with checked integer
 arithmetic; a caller-supplied charge or stale usage head is invalid. Managed
 provider cost can claim `supplier_statement_reconciled` only with matching
@@ -4668,12 +4757,11 @@ ManagedWorkBillingLedgerBundle:
 ```
 
 The bundle is a portable projection of the append-only ledger, not a mutable
-invoice. Its `ledger_head_hash` commits the ordered entry chain. A conforming
-future store must admit only owner-derived runtime, billing-account, and
-supplier evidence; no public caller-authored supplier-usage mint is defined.
-Supplier reconciliation is claimable only when the corresponding statement
-refs have been resolved and verified by their owner. The registered v1 contract
-is
+invoice. Its `ledger_head_hash` commits the ordered entry chain. The internal
+store admits only owner-derived runtime, billing-account, and supplier evidence;
+there is no public caller-authored supplier-usage mint. Supplier reconciliation
+is claimable only when the corresponding statement refs have been resolved and
+verified by their owner. The registered v1 contract is
 [`managed-work-billing-ledger-bundle.v1.schema.json`](../_meta/schemas/managed-work-billing-ledger-bundle.v1.schema.json).
 
 ## SettlementEnvelope
@@ -8749,10 +8837,6 @@ OutcomeRoomEnvelope:
     - participant-lease://...
   participation_request_refs:
     - participation-request://...
-  resource_offer_refs:
-    - resource-offer://...
-  capability_offer_refs:
-    - capability-offer://...
   frontier_item_refs:
     - frontier://...
   attempt_refs:
@@ -9005,63 +9089,6 @@ CapabilityOfferEnvelope:
   status: offered | eligible | allocated | suspended | withdrawn | revoked
 ```
 
-When a participant advertises an `ai://...` or `package://...` descriptor but a
-frontier needs a generic capability coordinate, the hosted matcher may derive
-the reversible alias `capability://advertised/<scheme>/<tail>`. The alias is
-valid only while the underlying participant advertisement remains admitted; it
-is not a new credential or a trust-on-first-use capability.
-
-Eligibility matching is evidence admission, not allocation or execution
-authority. The receipt freezes every input coordinate a later claim must
-revalidate. Offer-side requirements are constraints that require independent
-proof; they never count as evidence of their own satisfaction. Until the owner
-plane can resolve a `scope:*`, `context-profile://...`, `policy://...`, or other
-offer prerequisite, matching refuses typed-unavailable. Claim admission
-recomputes the exact prerequisite coverage and rechecks resource-offer expiry
-against freshly committed wallet.network `resolved_at_ms` immediately before
-linearization:
-
-```yaml
-WorkEligibilityMatchReceipt:
-  receipt_ref: receipt://...
-  outcome_room_ref: outcome-room://...
-  frontier_item_ref: frontier://...
-  frontier_revision: integer
-  frontier_control_hash: hash
-  participant_ref: participant-lease://...
-  participant_revision: integer
-  participant_control_hash: hash
-  resource_offers:
-    - offer_ref: resource-offer://...
-      revision: integer
-      control_hash: hash
-  capability_offers:
-    - offer_ref: capability-offer://...
-      revision: integer
-      control_hash: hash
-  context_lease_refs:
-    - context_lease://...
-  authority_resource_compute_data_budget_and_tool_lease_refs:
-    - grant://... | resource-lease://... | compute://... |
-      view://... | budget://... | tool-lease://...
-  requirement_coverage:
-    - requirement_ref: canonical ref
-      matched_exactly: true
-  offer_prerequisite_coverage:
-    - offer_ref: resource-offer://... | capability-offer://...
-      prerequisite_refs:
-        - scope:* | policy://... | context-profile://... | canonical ref
-      proof_refs:
-        - grant://... | context-lease://... | receipt://... | canonical ref
-  allocation_created: false
-  execution_authority_granted: false
-  claim_created: false
-  authority_grant_id: grant://...
-  principal_authority_binding: required
-  effect_hash: hash
-  output_hash: hash
-```
-
 ## WorkFrontierItemEnvelope
 
 The work frontier is the room's claimable graph of questions, problems,
@@ -9110,9 +9137,8 @@ WorkClaimLeaseEnvelope:
   frontier_item_ref: frontier://... | null
   claimant_ref:
     participant-lease://... | system://... | domain://... |
-    worker://... | service://... | agent://... | org://...
+    worker://... | service://...
   claimant_participant_lease_ref: participant-lease://... | null
-  eligibility_match_receipt_ref: receipt://... | null
   task_offer_ref: packet://... | null
   task_acceptance_ref: packet://... | null
   routing_decision_ref: routing-decision://... | null
@@ -9176,19 +9202,6 @@ and superseded work. A non-winning attempt remains durable when it contributes
 information, reproduction evidence, debugging, integrity findings, resources,
 review, or synthesis.
 
-Hosted Attempt admission freezes the exact room-control, frontier, active claim,
-participant-lease, and GoalRun coordinates that authorized the declaration. The
-record hashes and revisions are historical evidence, not a requirement that
-mutable claim, participant, or frontier state remain byte-identical forever.
-Attempt creation and participant-governed work transitions still re-resolve the
-same identities and require the exact claim to be active/current; later host
-admission, supersession, Finding admission, and Finding lifecycle may use the
-immutable historical identities after claim completion or release. Submitted
-OutcomeDelta refs must be exact plane-owned backlinks of the submitted
-WorkResult and must independently resolve to that same result, room, and goal.
-The Attempt record is provenance over an already admitted GoalRun; creating or
-transitioning it does not launch work or grant execution authority.
-
 ```yaml
 AttemptEnvelope:
   attempt_id: attempt://...
@@ -9200,14 +9213,7 @@ AttemptEnvelope:
   goal_run_ref: goal://... | null
   frontier_item_ref: frontier://... | null
   work_claim_ref: work-claim://... | null
-  participant_ref:
-    participant-lease://... | system://... | worker://... | agent://...
-  bound_coordinates:
-    outcome_room: { record_ref: outcome-room://..., host_domain_ref: domain://..., control_hash: hash }
-    frontier_item: { record_ref: frontier://..., outcome_room_ref: outcome-room://..., revision: integer, record_hash: hash }
-    work_claim: { record_ref: work-claim://..., outcome_room_ref: outcome-room://..., frontier_item_ref: frontier://..., claimant_ref: participant-lease://..., revision: integer, record_hash: hash }
-    participant_lease: { record_ref: participant-lease://..., outcome_room_ref: outcome-room://..., principal_ref: worker://... | agent://..., revision: integer, record_hash: hash }
-    goal_run: { record_ref: goal://..., outcome_room_ref: outcome-room://..., updated_at: timestamp | null, record_hash: hash }
+  participant_ref: participant-lease://... | system://... | worker://... | agent://...
   declared_method_and_hypothesis_refs:
     - method://... | finding://... | artifact://...
   parent_and_derivation_refs:
@@ -9247,33 +9253,12 @@ provenance-bearing assertion; it does not make the proposition universally
 true. Findings therefore preserve uncertainty, applicability, contradiction,
 time, and dispute state.
 
-A hosted Finding freezes its exact admitted Attempt, WorkResult, historical
-participant identity, and optional same-room predecessor Finding coordinates
-together with evidence and proof refs. Fresh Finding creation requires that exact
-participant lease to be active at authorization and commit, but does not require
-an active/current claim. Once admitted, host-governed Finding lifecycle uses the
-historical identity coordinates after participant retirement, revocation, or
-other inactivity; mutable participant records need not remain byte-identical.
-`supersedes_ref` must strictly resolve to a Finding in the same room; a merely
-syntactic or cross-room predecessor never establishes lineage. `admitted` is
-still an admission state, not acceptance or a verifier verdict.
-
 ```yaml
 FindingEnvelope:
   finding_id: finding://...
   outcome_room_ref: outcome-room://... | null
   room_admission: RoomAdmittedObjectBase | null
-  attempt_ref: attempt://...
-  work_result_ref: work-result://...
-  participant_ref: participant-lease://...
-  proposed_by_ref:
-    participant-lease://... | system://... | worker://... |
-    service://... | org://... | domain://...
-  bound_coordinates:
-    attempt: { record_ref: attempt://..., outcome_room_ref: outcome-room://..., participant_ref: participant-lease://..., work_result_ref: work-result://..., revision: integer, record_hash: hash }
-    work_result: { record_ref: work-result://..., outcome_room_ref: outcome-room://..., goal_run_ref: goal://..., goal_ref: goal://..., updated_at: timestamp | null, record_hash: hash }
-    participant_lease: { record_ref: participant-lease://..., outcome_room_ref: outcome-room://..., principal_ref: worker://... | agent://..., revision: integer, record_hash: hash }
-    supersedes_finding: { record_ref: finding://..., outcome_room_ref: outcome-room://..., revision: integer, record_hash: hash } | null
+  proposed_by_ref: participant-lease://... | system://... | worker://... | service://... | org://... | domain://...
   proposition: string
   finding_kind:
     hypothesis | observation | claim | negative_result | integrity_incident |
@@ -9284,8 +9269,6 @@ FindingEnvelope:
   source_and_observation_context_refs:
     - attempt://... | observation://... | participant-lease://... | domain://...
   supporting_evidence_refs:
-    - evidence://... | artifact://... | receipt://...
-  proof_refs:
     - evidence://... | artifact://... | receipt://...
   contradicting_evidence_refs:
     - evidence://... | artifact://... | finding://...
@@ -9489,11 +9472,10 @@ the accountable operator/affiliation lineage.
 bounded work. It does not own GoalRun, GoalGroundingLoop, WorkRun,
 AutomationRun, HarnessInvocation, ContextCell, or external-protocol state and
 does not flatten their phases into a universal business lifecycle. Each kind
-keeps its own legal transition and transition-authority table; the target
-shared kernel would supply content commitment, exact-head compare-and-swap,
-object-scoped idempotency, append-only child references, replay, cancellation
-planning, and snapshot/archive continuity. Current master does not implement
-this shared kernel or its persistence/routes.
+keeps its own legal transition and transition-authority table; the shared
+kernel supplies content commitment, exact-head compare-and-swap, object-scoped
+idempotency, append-only child references, replay, cancellation planning, and
+snapshot/archive continuity.
 
 ```yaml
 WorkLifecycleRecordEnvelope:

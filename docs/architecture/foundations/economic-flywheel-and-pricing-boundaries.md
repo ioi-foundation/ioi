@@ -11,8 +11,8 @@ check, receipt, state write, or builder surface into a separate toll booth.
 Superseded by: none.
 Last alignment pass: 2026-07-16.
 Doctrine status: canonical
-Implementation status: mixed (fee-basis declarations and flat OCU receipt metering exist; the registered managed-work billing and dispute-rail schemas, invariants, fixtures, and generated projections are contract substrate only; quote/hold/usage/debit/adjustment persistence, dispute admission/allocation, public Work Credit purchase/debit APIs, supplier-statement reconciliation, live evidence adjudication, escrow/bond/remedy execution, payment rails, Goal Space allowances, marketplace fees, and token/BME remain planned or deferred)
-Last implementation audit: 2026-07-18
+Implementation status: mixed (fee-basis declarations, flat OCU receipt metering, the registered managed-work billing and dispute-rail contracts, an internal fixed-point quote/hold/usage/debit/adjustment kernel with a process-local durable store, and a deterministic dispute admission/bond-allocation kernel built; public Work Credit purchase/debit APIs, supplier-statement reconciliation, live evidence adjudication, escrow/bond/remedy execution, payment rails, Goal Space allowances, marketplace fees, and token/BME planned or deferred)
+Last implementation audit: 2026-07-16
 
 ## Canonical Thesis
 
@@ -488,15 +488,14 @@ and the prior adjustment head; cumulative adjustments cannot exceed the debit.
 No record rewrites prior usage, changes the frozen quote, turns Work Credits
 into cash, or authorizes execution.
 
-The registered ledger-bundle contract, invariants, fixtures, and generated
-projections specify this internal product-accounting chain. Current master does
-not contain the quote/hold/usage/debit/adjustment kernel or its durable store,
-and exposes no public caller-authored supplier-usage endpoint. A future
-implementation must accept only owner-resolved authority/evidence context.
-Its internal-event-log assurance cannot become invoice-grade merely because a
-debit exists: a managed supplier-cost claim becomes reconciled only when the
-applicable supplier statement is bound. Coarse OCU remains a separate,
-zero-rate telemetry projection and cannot mint billable usage.
+The registered ledger-bundle contract and shared Rust kernel implement this
+internal product-accounting chain. The store accepts only an owner-resolved
+authority/evidence context and is deliberately not exposed as a public
+caller-authored supplier-usage endpoint. Its internal-event-log assurance does
+not become invoice-grade merely because a debit exists: a managed supplier-cost
+claim becomes reconciled only when the applicable supplier statement is bound.
+Coarse OCU remains a separate, zero-rate telemetry projection and cannot mint
+billable usage.
 
 `Auto` / `1-of-N`, `Pinned`, and `Compare` / `N-of-N` are routing policies, not
 plan tiers. Auto may use a verified cheap-first cascade and escalate only on
@@ -582,11 +581,9 @@ The target product is not a claim that current metering safely supports a paid
 multi-provider allowance. As of the implementation audit for this alignment
 pass, the live OCU slice still charges `0.1` OCU for every model-backed receipt
 without reconciling provider, input/output/cache/reasoning classes, retries, or
-supplier invoice. The registered managed-work contract now supplies the exact
-machine shape and adversarial fixtures for
-RateCard/Plan/quote/hold/usage/overrun/debit/adjustment, but the runtime kernel,
-durable ledger, public billing API, payment rail, and supplier-statement
-reconciler remain planned. The
+supplier invoice. The internal managed-work kernel now supplies exact product
+mechanics for RateCard/Plan/quote/hold/usage/overrun/debit/adjustment, but it is
+not a public billing API, payment rail, or supplier-statement reconciler. The
 model-route overview declares sealed BYOK unimplemented and only
 Ollama-transport routes bindable for session execution. Commercial Work Credit
 allowances and top-ups, marketplace fees, and the Goal Space allowance remain
@@ -675,11 +672,10 @@ Dispute revenue is legitimate only for real escrow operation, independent
 verification/adjudication, evidence custody/export, insurance routing,
 settlement execution, public finality, or support work. Opening a local review,
 hashing a case, or computing a deterministic allocation does not by itself
-justify a network toll. The registered contract requires a profile-selected
-resolution and conserved allocation plan. Current master does not contain the
-dispute admission or allocation kernel; schema validation also cannot hold a
-bond, decide evidence truth, move value, execute a remedy, emit the required
-receipts, or make an appeal or public settlement final.
+justify a network toll. The current kernel admits a profile-selected resolution
+and conserved allocation plan; it does not hold a bond, decide evidence truth,
+move value, execute a remedy, emit the required receipts, or make an appeal or
+public settlement final.
 
 ## Product Surface Guidance
 
@@ -804,8 +800,7 @@ single-node and network-node products:
   boundary deployment, reserved capacity, audit, retention, connector
   governance, SLA, administration, and support.
 
-Same-domain 1-N worker orchestration is included in the target Goal Space
-product contract. Genuine
+Same-domain 1-N worker orchestration is built into the Goal Space. Genuine
 multi-party participation is an opt-in supply scope with explicit admission,
 affiliation, evidence, and settlement terms. Node count is not the SKU.
 

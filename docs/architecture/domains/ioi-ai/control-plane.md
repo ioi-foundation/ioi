@@ -8,10 +8,9 @@ Supersedes: product prose that implies ioi.ai owns raw secrets, full traces, use
 Superseded by: none.
 Last alignment pass: 2026-07-15.
 Doctrine status: canonical
-Implementation status: mixed (bounded GoalRun and the hosted Hypervisor
-OutcomeRoom object graph are partial; the ioi.ai Goal Space product,
-federated collaboration, and thin account/device/restore control plane remain
-planned)
+Implementation status: mixed (bounded GoalRun and Hypervisor substrate partial;
+ioi.ai Goal Space product, OutcomeRoom collaboration plane, and thin
+account/device/restore control plane planned)
 Last implementation audit: 2026-07-05
 
 ## Canonical Definition

@@ -424,8 +424,7 @@ Expose the proven substrate through one ioi.ai Goal Space product:
   reproduction, and sealed evaluation. Its output is a qualified
   `ImprovementEvidenceClaim`, never an ignition claim or release authority by
   default;
-- same-domain 1–N worker orchestration is included in the target subscription
-  contract;
+- same-domain 1–N worker orchestration is built into the subscription;
   Network/Open contributors use a separately bounded goal budget;
 - the subscription pays for conductor, memory, policy, collaboration, receipts,
   replay, and an observed-cost monthly Work Credit grant;

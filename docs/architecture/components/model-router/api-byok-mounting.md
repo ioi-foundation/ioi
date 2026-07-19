@@ -8,12 +8,12 @@ Superseded by: none.
 Last alignment pass: 2026-07-13.
 Doctrine status: reference
 Implementation status: partial (route registry and local Ollama mount/binding
-are live; the registered information-flow/declassification contracts define a
-target hosted-provider bundle and untrusted-output posture, but production
-enforcement remains planned; sealed BYOK and multi-transport session execution
-are unimplemented; only active/available Ollama routes currently bind for
-execution, and full router/ContextCell propagation remains planned)
-Last implementation audit: 2026-07-18
+live; hosted-provider blocking/streaming invocation has an enforced
+information-flow bundle and untrusted output labeling; sealed BYOK and
+multi-transport session execution unimplemented; only active/available Ollama
+routes currently bind for execution, and full router/ContextCell propagation
+remains planned)
+Last implementation audit: 2026-07-16 (hosted-provider IFC boundary)
 
 ## Purpose
 
@@ -255,15 +255,13 @@ receipt refs.
 }
 ```
 
-For conforming hosted transports the inline values above are resolved,
-immutable contract objects at the kernel boundary, not model-authored refs.
-Missing actual inputs, effect authority, or the exact tool contract must fail
-before network contact. The target kernel binds them to the canonical provider
-request and exact URL, rather than trusting the effect label's declared content
-hash. Returned blocking and stream records must carry an
-`information_flow_label`; raw provider output remains untrusted and
-content-only even when every input was verified. Current master does not yet
-implement this hosted-provider information-flow seam.
+For hosted transports the inline values above are resolved, immutable contract
+objects at the kernel boundary, not model-authored refs. Missing actual inputs,
+effect authority, or the exact tool contract fails before network contact. The
+kernel binds them to the canonical provider request and exact URL, rather than
+trusting the effect label's declared content hash. Returned blocking and stream
+records carry an `information_flow_label`; raw provider output is untrusted and
+content-only even when every input was verified.
 
 Response:
 

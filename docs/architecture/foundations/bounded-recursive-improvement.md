@@ -17,11 +17,10 @@ Last alignment pass: 2026-07-16.
 Doctrine status: canonical.
 Implementation status: planned campaign protocol over partial existing GoalRun,
 Improvement Proposal Plane, Foundry, evaluation, governance, release, receipt,
-and learning-boundary primitives. Current master retains the older direct
-proposal/simulation/approval/release precursor; same-target-family
-decomposition, deployment-aware simulation/waivers, exact-base freshness,
-versioned impact, application-chain receipts, and the Campaign lifecycle remain
-planned. Do not claim campaign conformance, recursive
+and learning-boundary primitives. The direct-proposal plane now implements an
+initial same-target-family decomposition guard plus deployment-aware simulation,
+exact-base freshness, and application-chain receipt gates; it does not implement
+the Campaign lifecycle. Do not claim campaign conformance, recursive
 improvement, ignition, or inflection until the corresponding conformance and
 evidence profiles pass.
 Last implementation audit: 2026-07-16 (direct-proposal precursor only).
@@ -455,10 +454,11 @@ own authority or evidence.
 The doctrine is canonical; complete Campaign implementation is planned.
 Existing GoalRuns, UpgradeProposals, Foundry experiments, evaluator versioning,
 simulation/shadow/canary controls, receipts, learning-boundary primitives, and
-the older direct-proposal gate are partial substrate only. The proposal
-fingerprint, exact live target-base hash, versioned multi-dimensional impact
-assessment, managed-deployment simulation waiver, application-chain receipt,
-and decomposition guard described here are target controls. None of those controls creates
+the direct-proposal decomposition guard are partial substrate only. The current
+direct-proposal gate additionally binds the proposal fingerprint and exact live
+target-base hash, requires a known versioned multi-dimensional impact
+assessment, and fails unsimulated managed deployments closed unless an exact
+approved transition-receipted waiver is present. None of those controls creates
 an EvaluationEpoch, exposure ledger, candidate archive, order cutoff, or
 Campaign promotion path.
 

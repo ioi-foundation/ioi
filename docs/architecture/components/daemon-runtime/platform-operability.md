@@ -6,8 +6,8 @@ Supersedes: implicit or component-local assumptions that a healthy daemon implie
 Superseded by: none.
 Last alignment pass: 2026-07-16.
 Doctrine status: canonical
-Implementation status: planned (the canonical fault matrix is machine-readable target fixture data; the deterministic evaluator, plane observers, scheduler, recovery controllers, and estate-wide probes are not implemented on current master)
-Last implementation audit: 2026-07-18
+Implementation status: partial (deterministic decision kernel and canonical fault matrix built; plane observers, scheduler, recovery controllers, and estate-wide probes remain planned)
+Last implementation audit: 2026-07-16
 
 ## Canonical Definition
 
@@ -116,8 +116,9 @@ provider was irrelevant.
 
 ## Deterministic Decision Boundary
 
-The target deterministic evaluator accepts owner-produced observations and
-returns:
+The built pure kernel is
+[`platform_operability.rs`](../../../../crates/services/src/agentic/runtime/kernel/platform_operability.rs).
+It accepts owner-produced observations and returns:
 
 ```text
 available | degraded | fail_closed
@@ -343,29 +344,39 @@ The conformance profile is
 
 ## Current Implementation Posture and Nonclaims
 
-This cut defines the owner contract and a canonical JSON fault matrix as
-machine-readable target fixture data. Current master does not contain the
-proposed cross-plane decision evaluator, checkpoint/suffix recovery kernel,
-mixed-version negotiator, key-epoch transition validator, or
-information-flow-preserving observability projector. The matrix therefore
-specifies expected dispositions and refusal cases; it is not evidence that a
-runtime policy or recovery mechanism executed them.
+Built:
 
-Also not built or claimed:
+- a pure Rust operation/plane decision kernel;
+- stable reason and obligation codes;
+- assurance narrowing, bounded-cache, unknown-effect, billing, settlement, and
+  local-physical-continuation rules; and
+- a canonical JSON fault matrix consumed by focused tests;
+- deterministic checkpoint plus ordered-suffix replay that recomputes every
+  JCS/SHA-256 state root and rejects gaps, reorder, and tamper;
+- mixed-version negotiation that selects the highest compatible version or
+  returns a typed upgrade/lossy-downgrade refusal;
+- key-epoch transition validation requiring one active signer, successor
+  distribution evidence, retained verification windows, and current
+  revocation state; and
+- an information-flow-label-preserving observability projection that refuses
+  protected raw values and retains only allowlisted hashes or governed refs.
+
+Not yet built or claimed:
 
 - authoritative producers for every plane observation;
 - a daemon API or scheduler-wide operation-admission choke point;
 - scheduled correlated-failure injection across a deployed estate;
-- integration with every plane's real backup/restore path;
+- integration of the reference checkpoint replay with every plane's real
+  backup/restore path;
 - live key distribution/activation/revocation across verifier processes;
 - deployed mixed-version rollouts, billing/proof reconciliation controllers,
   or telemetry-sink canary probes;
 - platform-wide SLO values for any production deployment; or
-- evidence that a modeled decision repaired, fenced, restored, or reconciled a
-  plane.
+- evidence that the pure decision result alone repaired, fenced, restored, or
+  reconciled a plane.
 
-Until those seams exist, this document and its fixture define the planned
-contract only, not production operability or a reference implementation.
+Until those seams exist, this cut proves the deterministic policy and reference
+recovery/compatibility/projection mechanisms, not full production operability.
 
 ## Invariants
 

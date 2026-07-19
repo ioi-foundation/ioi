@@ -11,8 +11,8 @@ wallet, marketplace, and product docs without a shared boundary.
 Superseded by: none.
 Last alignment pass: 2026-07-15.
 Doctrine status: canonical
-Implementation status: planned (the assurance/certification/liability layer and deterministic deployment-policy obligation projection are not implemented on current master; any future projection must deliberately return no legal-conformity decision)
-Last implementation audit: 2026-07-18
+Implementation status: mixed (assurance/certification/liability layer remains speculative; deterministic deployment-policy obligation projection is a built reference mechanism and deliberately returns no legal-conformity decision)
+Last implementation audit: 2026-07-16
 
 ## Canonical Definition
 

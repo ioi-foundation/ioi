@@ -50,30 +50,14 @@
     "request_id": { "$ref": "#/$defs/authorityRequestRef" },
     "issuer_id": { "$ref": "#/$defs/issuerRef" },
     "issuer_key_set_ref": { "$ref": "#/$defs/keySetRef" },
-    "issuer_key_set_version": {
-      "type": "integer",
-      "minimum": 1,
-      "maximum": 9007199254740991
-    },
+    "issuer_key_set_version": { "type": "integer", "minimum": 1 },
     "issuer_key_id": { "$ref": "#/$defs/keyRef" },
     "holder_id": { "$ref": "#/$defs/holderRef" },
     "holder_key_id": { "$ref": "#/$defs/keyRef" },
     "audience": { "$ref": "#/$defs/canonicalRef" },
-    "issued_at": {
-      "type": "integer",
-      "minimum": 0,
-      "maximum": 9007199254740991
-    },
-    "not_before": {
-      "type": "integer",
-      "minimum": 0,
-      "maximum": 9007199254740991
-    },
-    "expires_at": {
-      "type": "integer",
-      "minimum": 0,
-      "maximum": 9007199254740991
-    },
+    "issued_at": { "type": "integer", "minimum": 0 },
+    "not_before": { "type": "integer", "minimum": 0 },
+    "expires_at": { "type": "integer", "minimum": 0 },
     "parent_grant": {
       "oneOf": [
         { "type": "null" },
@@ -126,16 +110,8 @@
           "minItems": 1,
           "uniqueItems": true
         },
-        "max_budget_microusd": {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 9007199254740991
-        },
-        "max_calls": {
-          "type": "integer",
-          "minimum": 1,
-          "maximum": 9007199254740991
-        },
+        "max_budget_microusd": { "type": "integer", "minimum": 0 },
+        "max_calls": { "type": "integer", "minimum": 1 },
         "approval_required_for": {
           "type": "array",
           "items": {
@@ -146,11 +122,7 @@
         }
       }
     },
-    "revocation_epoch": {
-      "type": "integer",
-      "minimum": 0,
-      "maximum": 9007199254740991
-    },
+    "revocation_epoch": { "type": "integer", "minimum": 0 },
     "body_hash": { "$ref": "#/$defs/sha256Hash" },
     "signature_suite": { "const": "ed25519" },
     "signature_key_id": { "$ref": "#/$defs/keyRef" },
