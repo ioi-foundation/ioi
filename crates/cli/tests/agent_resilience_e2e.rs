@@ -1,7 +1,7 @@
 // Path: crates/cli/tests/agent_resilience_e2e.rs
 #![cfg(all(feature = "consensus-aft", feature = "vm-wasm"))]
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use async_trait::async_trait;
 use ioi_api::services::access::ServiceDirectory;
 use ioi_api::services::BlockchainService;
@@ -29,15 +29,42 @@ use ioi_types::app::agentic::{
 use ioi_types::app::{ActionRequest, ContextSlice, KernelEvent};
 use ioi_types::{codec, error::VmError};
 use serde_json::json;
+use std::future::Future;
 use std::io::Cursor;
 use std::path::Path;
 use std::sync::{Arc, Mutex, OnceLock};
+use std::thread;
 use std::time::{Instant, SystemTime, UNIX_EPOCH};
+use tokio::runtime::Builder;
 use tokio::sync::broadcast;
 
 use image::{ImageBuffer, ImageFormat, Rgba};
 
 static WEB_ENV_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+const AGENT_RESILIENCE_TEST_STACK_BYTES: usize = 4 * 1024 * 1024;
+
+fn run_agent_resilience_test<F, Fut>(test_fn: F) -> Result<()>
+where
+    F: FnOnce() -> Fut + Send + 'static,
+    Fut: Future<Output = Result<()>> + Send + 'static,
+{
+    let handle = thread::Builder::new()
+        .name("agent-resilience-runtime".to_string())
+        .stack_size(AGENT_RESILIENCE_TEST_STACK_BYTES)
+        .spawn(move || {
+            Builder::new_multi_thread()
+                .enable_all()
+                .build()
+                .context("build agent resilience Tokio runtime")?
+                .block_on(test_fn())
+        })
+        .context("spawn agent resilience runtime thread")?;
+
+    match handle.join() {
+        Ok(result) => result,
+        Err(payload) => std::panic::resume_unwind(payload),
+    }
+}
 
 struct ScopedEnvVar {
     key: &'static str,
@@ -301,8 +328,7 @@ fn build_memory_runtime() -> Result<Arc<MemoryRuntime>> {
     Ok(Arc::new(MemoryRuntime::open_sqlite_in_memory()?))
 }
 
-#[tokio::test(flavor = "multi_thread")]
-async fn test_agent_self_healing() -> Result<()> {
+async fn run_agent_self_healing_journey() -> Result<()> {
     build_test_artifacts();
 
     let gui = Arc::new(MockGuiDriver {
@@ -361,6 +387,11 @@ async fn test_agent_self_healing() -> Result<()> {
     );
 
     Ok(())
+}
+
+#[test]
+fn test_agent_self_healing() -> Result<()> {
+    run_agent_resilience_test(run_agent_self_healing_journey)
 }
 
 #[tokio::test(flavor = "multi_thread")]
