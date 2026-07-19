@@ -318,7 +318,7 @@
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/_meta/implementation-matrix.md",
-      "source_sha256": "0ea754603cb1890a166d48478b2c0e3366915f4b9cd8b2eeaf36e80404a28178"
+      "source_sha256": "50f3c6537202c7bdd935717c652ec35c463321d9ce1a81be3706737c77961a19"
     },
     {
       "role": "landed owner canon",
@@ -328,7 +328,7 @@
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/foundations/common-objects-and-envelopes.md",
-      "source_sha256": "4f093cd5105b6407d2e3e08a74ccb20687db379efc87e29730f91e0367d2ecbc"
+      "source_sha256": "fe8d0ced5532db10d4306cdbc1e962612ba4f955bd3f795c6b40fdb03fce8cc6"
     },
     {
       "role": "landed owner canon",
@@ -363,7 +363,7 @@
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/components/wallet-network/doctrine.md",
-      "source_sha256": "dc5ea983a16e6de175fb5cf7af25720ddec351ac723327287b3802da83b6ba1c"
+      "source_sha256": "3cfca45acefd7bf6823bcf992c67fc78fcb8b6882ccc5a72605f37c005dba57a"
     },
     {
       "role": "landed owner canon",

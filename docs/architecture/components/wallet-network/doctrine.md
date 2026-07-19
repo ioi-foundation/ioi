@@ -172,8 +172,9 @@ Continue with Apple / Google / Microsoft / GitHub / enterprise SSO / passkey
   -> wallet.network derives separate commitments to the immutable authority
      request, canonical reviewed representation, single-use approval ceremony,
      and exact effect, batch, or standing authorization subject
-  -> an enrolled authority client presents the canonical review under a
-     declared presentation-evidence profile
+  -> an enrolled authority client, including a guardian presentation surface,
+     presents the canonical review under a declared presentation-evidence
+     profile
   -> a passkey or other admitted AuthFactor authenticates the fresh ceremony;
      Face ID, Touch ID, Windows Hello, device PIN, or equivalent may perform
      local user verification, and no biometric sample or template leaves the
@@ -181,9 +182,9 @@ Continue with Apple / Google / Microsoft / GitHub / enterprise SSO / passkey
   -> wallet.network issues a scoped, expiring, revocable AuthorityGrant or
      CapabilityLease bound to the request, review, ceremony, authorization
      subject, resolved approval authority, and revocation epoch
-  -> Hypervisor Daemon derives the actual effect at its policy-enforcement
-     point, verifies equality, membership, or standing constraints, and
-     executes or refuses
+  -> Hypervisor Daemon derives and hashes the actual effect at its
+     policy-enforcement point, verifies equality, membership, or standing
+     constraints, and executes or refuses
   -> WalletReceipt plus Agentgres effect/evidence records make the decision and
      result inspectable, replayable, challengeable, and revocable where possible
 ```
@@ -1078,9 +1079,13 @@ The correct escalation path is:
 ```text
 SMS or low-assurance channel receives blocker/approval notice
   -> user opens short-lived challenge link
-  -> wallet.network, Hypervisor, enrolled guardian device, passkey,
-     enterprise IdP, local app, or CLI signer authenticates the user
-  -> exact action, risk, data, budget, recipient, and expiry are shown
+  -> wallet.network, Hypervisor, an enrolled guardian authority client/device,
+     passkey, enterprise IdP or approval surface, local app, or CLI signer
+     authenticates the user
+  -> the enrolled presentation surface renders the review and the
+     policy-required AuthFactor authenticates the bound ceremony
+  -> exact action, risk, data, budget, recipient, and expiry are shown, with the
+     authorization subject bound into presentation and ceremony evidence
   -> wallet.network issues a scoped grant or denial receipt
   -> daemon/agent continues using only the grant ref and receipt
 ```
@@ -1097,6 +1102,10 @@ Canonical invariant:
 > cannot decrypt, declassify, or authorize high-risk actions without step-up into
 > wallet.network, Hypervisor, an enrolled guardian device, enterprise IdP, local
 > app, CLI signer, or another high-assurance authority surface.**
+
+An enrolled GuardianSurface is the authority-client presentation surface; a
+passkey or other policy-required AuthFactor separately authenticates its bound
+ceremony.
 
 ## Runtime Privacy Profiles
 
@@ -1286,22 +1295,26 @@ profiles select external services such as IOI L1
    only when the agent needs on-chain execution power.
 8. High-risk on-chain actions require wallet.network step-up and/or
    smart-account module enforcement.
-9. Principal-authority rollback resistance is relative to the externally
+9. `authority_request_body_hash`, `reviewed_representation_hash`,
+   `approval_ceremony_context_hash`, and the discriminated
+   `authorization_subject` remain separate and are linked by the v3 grant and
+   receipts.
+10. Principal-authority rollback resistance is relative to the externally
    selected wallet state root; ledger finality must prevent wholesale rollback
    of the complete state root, while the resolver detects coupled mutable-head
    rollback inside the selected root through immutable per-version indexes.
-10. The principal-authority binding ref, version, hash, complete
+11. The principal-authority binding ref, version, hash, complete
     `ApprovalAuthority` snapshot and hash, required and matched scope, and
     mutation-audit coordinates remain linked to the grant and durable replay
     evidence.
-11. WebAuthn assertion evidence, presentation evidence, and daemon execution
+12. WebAuthn assertion evidence, presentation evidence, and daemon execution
     evidence must not be substituted for one another.
-12. `exact_effect` approval requires daemon-derived hash equality;
+13. `exact_effect` approval requires daemon-derived hash equality;
     `batch_manifest` requires membership proof; `standing_envelope` requires
     complete constraint validation.
-13. Editing any reviewed consequential field creates a successor request,
+14. Editing any reviewed consequential field creates a successor request,
     review, and approval ceremony and invalidates predecessor approval evidence.
-14. A point timestamp, owner epoch, signed revocation snapshot, or
+15. A point timestamp, owner epoch, signed revocation snapshot, or
     `clock: healthy` flag does not establish current authority. Consequential
     use resolves the exact `TemporalVerificationProfile` and recomputable
     `TemporalValidityEvaluation`; wallet.network retains grant/revocation
