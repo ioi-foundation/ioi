@@ -9,7 +9,8 @@ use std::process::Command;
 use tempfile::tempdir;
 
 fn bridge_script_path() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tools/osworld/osworld_desktop_env_bridge.py")
+    Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../scripts/benchmarks/osworld-desktop-env-bridge.py")
 }
 
 fn run_bridge_json(args: &[&str]) -> Result<(Value, i32, String)> {
